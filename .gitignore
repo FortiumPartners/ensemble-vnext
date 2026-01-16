@@ -37,3 +37,9 @@ venv/
 coverage/
 .nyc_output/
 *.log
+
+# Python coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
