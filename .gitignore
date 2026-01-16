@@ -35,5 +35,8 @@ venv/
 
 # Test artifacts
 coverage/
+coverage_html/
+.coverage
 .nyc_output/
+.pytest_cache/
 *.log
