@@ -104,6 +104,11 @@
             "type": "command",
             "command": ".claude/hooks/learning.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/notify.sh",
+            "timeout": 60
           }
         ]
       }

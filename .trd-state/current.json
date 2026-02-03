@@ -1,6 +1,6 @@
 {
-  "prd": null,
-  "trd": null,
-  "status": null,
+  "prd": "docs/PRD/stop-hook-notification.md",
+  "trd": "docs/TRD/stop-hook-notification.md",
+  "status": "implemented",
   "branch": null
 }

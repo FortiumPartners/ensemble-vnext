@@ -89,6 +89,71 @@ Given non-deterministic LLM output:
 
 ---
 
+## Hooks Reference
+
+### Notify Hook (Stop)
+
+The notify hook (`.claude/hooks/notify.sh`) fires when a Claude Code session stops and optionally executes a notification command. This enables orchestration patterns where a parent process or external system needs to know when a session has finished.
+
+**Purpose:**
+- Notify orchestrating agents when sessions complete
+- Trigger webhooks for CI/CD pipelines
+- Write signal files for shell script orchestration
+- Send messages to queue systems
+
+**Environment Variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NOTIFY_ON_STOP` | (unset) | Command to execute when session stops. If unset, empty, or whitespace-only, the hook exits silently. |
+| `NOTIFY_HOOK_DEBUG` | `0` | Set to `1` to enable debug logging to stderr. Sensitive values are masked. |
+| `NOTIFY_HOOK_DISABLE` | `0` | Set to `1` to disable the hook entirely. |
+
+**Usage Examples:**
+
+```bash
+# Pattern 1: tmux Notification (notify orchestrating pane)
+export NOTIFY_ON_STOP="tmux send-keys -t orchestrator 'echo Session complete' Enter"
+claude --remote "Implement feature X"
+
+# Pattern 2: Webhook Notification (trigger CI/CD)
+export NOTIFY_ON_STOP="curl -X POST https://webhook.example.com/session-complete"
+claude --remote "Run tests"
+
+# Pattern 3: File-based Signal (shell script orchestration)
+export NOTIFY_ON_STOP="touch /tmp/session-complete-signal"
+claude --remote "Build project"
+
+# Pattern 4: Message Queue (AWS SQS)
+export NOTIFY_ON_STOP="aws sqs send-message --queue-url https://sqs... --message-body 'done'"
+claude --remote "Deploy to staging"
+```
+
+**Behavior:**
+- Executes `NOTIFY_ON_STOP` via `/bin/sh -c` with a 30-second command timeout
+- Falls back to `openclaw gateway wake` if the primary command fails
+- Always exits 0 (non-blocking) to avoid blocking session termination
+- Returns `{"continue": true}` to Claude Code
+
+**Testing:**
+- Unit tests: `packages/core/hooks/notify.test.sh`
+- Run tests: `npx bats packages/core/hooks/notify.test.sh`
+
+**Integration with Other Hooks:**
+
+The notify hook coexists with the learning hook in the Stop hook array:
+
+```json
+"Stop": [
+  { "type": "command", "command": ".claude/hooks/learning.sh", "timeout": 10 },
+  { "type": "command", "command": ".claude/hooks/notify.sh", "timeout": 60 }
+]
+```
+
+Both hooks fire sequentially when a session stops. The learning hook stages files first, then the notify hook sends any configured notification.
+
+---
+
 ## Eval Framework Usage
 
 The eval framework at `test/evals/framework/` enables A/B testing of skills and agents.

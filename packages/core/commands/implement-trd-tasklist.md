@@ -1,11 +1,11 @@
 ---
-name: implement-trd
+name: implement-trd-tasklist
 description: Execute TRD implementation using TaskTools with staged execution, specialist delegation, risk-aware debugging, and quality gates
 version: 3.1.0
 category: implementation
 ---
 
-> **Usage:** `/implement-trd [trd-path] [options]` from project root with `docs/TRD/` directory.
+> **Usage:** `/implement-trd-tasklist [trd-path] [options]` from project root with `docs/TRD/` directory.
 >
 > **Arguments:**
 > - `<trd-path>` - Path to TRD file (optional if `.trd-state/current.json` exists)
@@ -15,7 +15,7 @@ category: implementation
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
 > - `--wiggum` - Enable autonomous mode (intercepts exit until complete or max 50 iterations)
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`
+> **Examples:** `/implement-trd-tasklist`, `/implement-trd-tasklist --resume`, `/implement-trd-tasklist --phase 2`, `/implement-trd-tasklist docs/TRD/user-auth.md`
 
 ---
 
