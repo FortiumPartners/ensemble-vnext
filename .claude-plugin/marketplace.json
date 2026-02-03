@@ -1,0 +1,27 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "ensemble-vnext",
+  "description": "Ensemble vNext - Streamlined workflow framework for Claude Code",
+  "owner": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "description": "Local marketplace for ensemble-vnext plugin"
+  },
+  "plugins": [
+    {
+      "name": "full",
+      "description": "Streamlined ensemble workflow framework for Claude Code with 12 specialized agents",
+      "version": "1.0.0",
+      "author": {
+        "name": "Fortium Partners",
+        "email": "support@fortiumpartners.com"
+      },
+      "source": "./packages/full",
+      "category": "development",
+      "homepage": "https://github.com/FortiumPartners/ensemble-vnext"
+    }
+  ]
+}
