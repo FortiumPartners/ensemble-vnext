@@ -101,13 +101,21 @@ The notify hook (`.claude/hooks/notify.sh`) fires when a Claude Code session sto
 - Write signal files for shell script orchestration
 - Send messages to queue systems
 
-**Environment Variables:**
+**Environment Variables (Input):**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `NOTIFY_ON_STOP` | (unset) | Command to execute when session stops. If unset, empty, or whitespace-only, the hook exits silently. |
 | `NOTIFY_HOOK_DEBUG` | `0` | Set to `1` to enable debug logging to stderr. Sensitive values are masked. |
 | `NOTIFY_HOOK_DISABLE` | `0` | Set to `1` to disable the hook entirely. |
+
+**Environment Variables (Output - available to NOTIFY_ON_STOP command):**
+
+| Variable | Description |
+|----------|-------------|
+| `NOTIFY_SESSION_ID` | Session ID from hook input, or "unknown" if not provided. |
+| `NOTIFY_CWD` | Working directory from hook input, or "unknown" if not provided. |
+| `NOTIFY_TRANSCRIPT_PATH` | Transcript file path from hook input, or "unknown" if not provided. |
 
 **Usage Examples:**
 
@@ -127,6 +135,14 @@ claude --remote "Build project"
 # Pattern 4: Message Queue (AWS SQS)
 export NOTIFY_ON_STOP="aws sqs send-message --queue-url https://sqs... --message-body 'done'"
 claude --remote "Deploy to staging"
+
+# Pattern 5: Using session context variables
+export NOTIFY_ON_STOP='echo "Session $NOTIFY_SESSION_ID completed in $NOTIFY_CWD" >> /tmp/sessions.log'
+claude --remote "Implement feature"
+
+# Pattern 6: OpenClaw integration with session context
+export NOTIFY_ON_STOP='openclaw gateway wake --session-id "$NOTIFY_SESSION_ID" --text "Done in $NOTIFY_CWD" --mode now'
+claude --remote "Process data"
 ```
 
 **Behavior:**

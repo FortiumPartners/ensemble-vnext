@@ -675,6 +675,195 @@ EOF
 }
 
 # =============================================================================
+# NOTIFY-T009: Test extract_json_field function
+# =============================================================================
+
+@test "NOTIFY-T009: extract_json_field extracts session_id from JSON" {
+    source_hook_functions
+
+    local json='{"session_id": "test-session-123", "cwd": "/test/path"}'
+    local result
+    result=$(extract_json_field "$json" "session_id" "default")
+
+    [[ "$result" == "test-session-123" ]]
+}
+
+@test "NOTIFY-T009: extract_json_field extracts cwd from JSON" {
+    source_hook_functions
+
+    local json='{"session_id": "abc", "cwd": "/home/user/project"}'
+    local result
+    result=$(extract_json_field "$json" "cwd" "default")
+
+    [[ "$result" == "/home/user/project" ]]
+}
+
+@test "NOTIFY-T009: extract_json_field extracts transcript_path from JSON" {
+    source_hook_functions
+
+    local json='{"transcript_path": "/path/to/transcript.jsonl"}'
+    local result
+    result=$(extract_json_field "$json" "transcript_path" "default")
+
+    [[ "$result" == "/path/to/transcript.jsonl" ]]
+}
+
+@test "NOTIFY-T009: extract_json_field returns default for missing field" {
+    source_hook_functions
+
+    local json='{"session_id": "abc"}'
+    local result
+    result=$(extract_json_field "$json" "missing_field" "my-default")
+
+    [[ "$result" == "my-default" ]]
+}
+
+@test "NOTIFY-T009: extract_json_field returns default for empty JSON" {
+    source_hook_functions
+
+    local result
+    result=$(extract_json_field "" "session_id" "empty-default")
+
+    [[ "$result" == "empty-default" ]]
+}
+
+@test "NOTIFY-T009: extract_json_field handles JSON with spaces in values" {
+    source_hook_functions
+
+    local json='{"cwd": "/path/with spaces/project"}'
+    local result
+    result=$(extract_json_field "$json" "cwd" "default")
+
+    [[ "$result" == "/path/with spaces/project" ]]
+}
+
+# =============================================================================
+# NOTIFY-T010: Test export_context_vars function
+# =============================================================================
+
+@test "NOTIFY-T010: export_context_vars sets NOTIFY_SESSION_ID" {
+    source_hook_functions
+
+    local json='{"session_id": "exported-session-id"}'
+    export_context_vars "$json"
+
+    [[ "$NOTIFY_SESSION_ID" == "exported-session-id" ]]
+}
+
+@test "NOTIFY-T010: export_context_vars sets NOTIFY_CWD" {
+    source_hook_functions
+
+    local json='{"cwd": "/exported/path"}'
+    export_context_vars "$json"
+
+    [[ "$NOTIFY_CWD" == "/exported/path" ]]
+}
+
+@test "NOTIFY-T010: export_context_vars sets NOTIFY_TRANSCRIPT_PATH" {
+    source_hook_functions
+
+    local json='{"transcript_path": "/exported/transcript.jsonl"}'
+    export_context_vars "$json"
+
+    [[ "$NOTIFY_TRANSCRIPT_PATH" == "/exported/transcript.jsonl" ]]
+}
+
+@test "NOTIFY-T010: export_context_vars sets all three variables from complete JSON" {
+    source_hook_functions
+
+    local json='{"session_id": "sid123", "cwd": "/my/project", "transcript_path": "/log.jsonl"}'
+    export_context_vars "$json"
+
+    [[ "$NOTIFY_SESSION_ID" == "sid123" ]]
+    [[ "$NOTIFY_CWD" == "/my/project" ]]
+    [[ "$NOTIFY_TRANSCRIPT_PATH" == "/log.jsonl" ]]
+}
+
+@test "NOTIFY-T010: export_context_vars sets unknown for missing fields" {
+    source_hook_functions
+
+    local json='{}'
+    export_context_vars "$json"
+
+    [[ "$NOTIFY_SESSION_ID" == "unknown" ]]
+    [[ "$NOTIFY_CWD" == "unknown" ]]
+    [[ "$NOTIFY_TRANSCRIPT_PATH" == "unknown" ]]
+}
+
+@test "NOTIFY-T010: export_context_vars sets unknown for empty input" {
+    source_hook_functions
+
+    export_context_vars ""
+
+    [[ "$NOTIFY_SESSION_ID" == "unknown" ]]
+    [[ "$NOTIFY_CWD" == "unknown" ]]
+    [[ "$NOTIFY_TRANSCRIPT_PATH" == "unknown" ]]
+}
+
+# =============================================================================
+# NOTIFY-T011: Test that commands can access exported variables
+# =============================================================================
+
+@test "NOTIFY-T011: command can access NOTIFY_SESSION_ID" {
+    export NOTIFY_ON_STOP='echo "$NOTIFY_SESSION_ID" > '"${TEST_DIR}/session_id.txt"
+
+    local json='{"session_id": "accessible-session-id"}'
+    echo "$json" | bash "$HOOK_PATH" 2>/dev/null
+
+    [[ -f "${TEST_DIR}/session_id.txt" ]]
+    [[ "$(cat ${TEST_DIR}/session_id.txt)" == "accessible-session-id" ]]
+}
+
+@test "NOTIFY-T011: command can access NOTIFY_CWD" {
+    export NOTIFY_ON_STOP='echo "$NOTIFY_CWD" > '"${TEST_DIR}/cwd.txt"
+
+    local json='{"cwd": "/accessible/cwd/path"}'
+    echo "$json" | bash "$HOOK_PATH" 2>/dev/null
+
+    [[ -f "${TEST_DIR}/cwd.txt" ]]
+    [[ "$(cat ${TEST_DIR}/cwd.txt)" == "/accessible/cwd/path" ]]
+}
+
+@test "NOTIFY-T011: command can access NOTIFY_TRANSCRIPT_PATH" {
+    export NOTIFY_ON_STOP='echo "$NOTIFY_TRANSCRIPT_PATH" > '"${TEST_DIR}/transcript.txt"
+
+    local json='{"transcript_path": "/accessible/transcript.jsonl"}'
+    echo "$json" | bash "$HOOK_PATH" 2>/dev/null
+
+    [[ -f "${TEST_DIR}/transcript.txt" ]]
+    [[ "$(cat ${TEST_DIR}/transcript.txt)" == "/accessible/transcript.jsonl" ]]
+}
+
+@test "NOTIFY-T011: command can access all three NOTIFY variables" {
+    export NOTIFY_ON_STOP='echo "${NOTIFY_SESSION_ID}|${NOTIFY_CWD}|${NOTIFY_TRANSCRIPT_PATH}" > '"${TEST_DIR}/all_vars.txt"
+
+    local json='{"session_id": "s123", "cwd": "/proj", "transcript_path": "/t.jsonl"}'
+    echo "$json" | bash "$HOOK_PATH" 2>/dev/null
+
+    [[ -f "${TEST_DIR}/all_vars.txt" ]]
+    [[ "$(cat ${TEST_DIR}/all_vars.txt)" == "s123|/proj|/t.jsonl" ]]
+}
+
+@test "NOTIFY-T011: command receives 'unknown' for missing JSON fields" {
+    export NOTIFY_ON_STOP='echo "${NOTIFY_SESSION_ID}|${NOTIFY_CWD}|${NOTIFY_TRANSCRIPT_PATH}" > '"${TEST_DIR}/defaults.txt"
+
+    local json='{}'
+    echo "$json" | bash "$HOOK_PATH" 2>/dev/null
+
+    [[ -f "${TEST_DIR}/defaults.txt" ]]
+    [[ "$(cat ${TEST_DIR}/defaults.txt)" == "unknown|unknown|unknown" ]]
+}
+
+@test "NOTIFY-T011: command receives 'unknown' when no input provided" {
+    export NOTIFY_ON_STOP='echo "${NOTIFY_SESSION_ID}" > '"${TEST_DIR}/no_input.txt"
+
+    bash "$HOOK_PATH" < /dev/null 2>/dev/null
+
+    [[ -f "${TEST_DIR}/no_input.txt" ]]
+    [[ "$(cat ${TEST_DIR}/no_input.txt)" == "unknown" ]]
+}
+
+# =============================================================================
 # Edge Cases
 # =============================================================================
 

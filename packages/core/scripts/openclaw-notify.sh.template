@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# openclaw-notify.sh.template - OpenClaw notification wrapper for Claude Code Stop hook
+#
+# This is a TEMPLATE file showing how to use the exported environment variables
+# from the notify hook. Copy this to your preferred location and set NOTIFY_ON_STOP
+# to point to it.
+#
+# =============================================================================
+# INSTALLATION
+# =============================================================================
+#
+# 1. Copy this file to a permanent location:
+#    cp openclaw-notify.sh.template ~/.local/bin/claude-notify.sh
+#    chmod +x ~/.local/bin/claude-notify.sh
+#
+# 2. Set NOTIFY_ON_STOP to point to your copy:
+#    export NOTIFY_ON_STOP="$HOME/.local/bin/claude-notify.sh"
+#
+# 3. Or add to your shell profile (~/.bashrc, ~/.zshrc):
+#    export NOTIFY_ON_STOP="$HOME/.local/bin/claude-notify.sh"
+#
+# =============================================================================
+# AVAILABLE ENVIRONMENT VARIABLES
+# =============================================================================
+#
+# The notify hook exports these variables before calling your command:
+#
+#   NOTIFY_SESSION_ID      - The Claude Code session ID
+#                            e.g., "abc123-def456-..."
+#
+#   NOTIFY_CWD             - Working directory where session ran
+#                            e.g., "/home/user/my-project"
+#
+#   NOTIFY_TRANSCRIPT_PATH - Path to the session transcript file
+#                            e.g., "/home/user/.claude/sessions/abc123.jsonl"
+#
+# If any field is missing from the hook input, the value will be "unknown".
+#
+# =============================================================================
+# EXAMPLE: OPENCLAW GATEWAY WAKE
+# =============================================================================
+
+# Wake the OpenClaw gateway with session context
+# Customize this command to match your OpenClaw setup
+
+openclaw gateway wake \
+  --session-id "${NOTIFY_SESSION_ID:-unknown}" \
+  --text "Session completed in ${NOTIFY_CWD:-unknown}" \
+  --mode now
+
+# =============================================================================
+# ALTERNATIVE EXAMPLES
+# =============================================================================
+
+# Example: Log to a file
+# echo "[$(date -Iseconds)] Session ${NOTIFY_SESSION_ID} completed in ${NOTIFY_CWD}" >> /tmp/claude-sessions.log
+
+# Example: Send to a webhook
+# curl -s -X POST "https://your-webhook.example.com/session-complete" \
+#   -H "Content-Type: application/json" \
+#   -d "{\"session_id\": \"${NOTIFY_SESSION_ID}\", \"cwd\": \"${NOTIFY_CWD}\"}"
+
+# Example: Touch a signal file with session info
+# echo "${NOTIFY_SESSION_ID}" > "/tmp/claude-done-${NOTIFY_SESSION_ID:-latest}"
+
+# Example: Send desktop notification (macOS)
+# osascript -e "display notification \"Session completed in ${NOTIFY_CWD}\" with title \"Claude Code\""
+
+# Example: Send desktop notification (Linux with notify-send)
+# notify-send "Claude Code" "Session completed in ${NOTIFY_CWD}"
+
+# Example: tmux notification to orchestrator pane
+# tmux send-keys -t orchestrator "echo 'Session ${NOTIFY_SESSION_ID} done'" Enter

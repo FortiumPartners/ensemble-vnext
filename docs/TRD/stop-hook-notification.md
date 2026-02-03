@@ -1,6 +1,6 @@
 # Technical Requirements Document: Stop Hook Notification
 
-**Document Version**: 1.0.0
+**Document Version**: 1.2.0
 **Status**: Draft
 **Created**: 2026-02-03
 **Updated**: 2026-02-03
@@ -20,6 +20,8 @@
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2026-02-03 | Initial TRD creation from PRD |
+| 1.1.0 | 2026-02-03 | Added split configuration model (hook local, env vars global); expanded Stop hook payload documentation |
+| 1.2.0 | 2026-02-03 | Added context export (NOTIFY_SESSION_ID, NOTIFY_CWD, NOTIFY_TRANSCRIPT_PATH); added installer script; modified NG5 |
 
 ---
 
@@ -49,10 +51,12 @@ This TRD specifies the implementation of a **Stop hook** (`notify.sh`) that fire
 |----------|--------|-----------|
 | Implementation Language | Bash | Consistency with existing hooks (learning.sh, formatter.sh); POSIX compatibility |
 | Configuration Mechanism | Environment Variable | Zero-config for non-users; simple orchestrator integration |
+| Configuration Location | Global `~/.claude/settings.json` | User configures once; no per-project setup; ensemble ships without tool assumptions |
 | Command Execution | `/bin/sh -c` | Standard shell execution; supports complex commands |
 | Timeout Strategy | 30s command + 30s fallback | Prevents indefinite hangs; allows network operations |
 | Fallback Command | `openclaw gateway wake` | Ensemble ecosystem integration; best-effort notification |
 | Hook Event | Stop | Fires on session end; appropriate for completion notification |
+| Context Export | Environment Variables | Commands can access session context without template substitution |
 
 ### 1.3 Technology Stack
 
@@ -68,7 +72,8 @@ This TRD specifies the implementation of a **Stop hook** (`notify.sh`) that fire
 
 | System | Integration Type | Description |
 |--------|------------------|-------------|
-| Claude Code CLI | Hook Registration | Settings.json Stop hook array |
+| Claude Code CLI | Hook Registration | Project settings.json Stop hook array |
+| User Global Settings | Environment Variable | `~/.claude/settings.json` env section for NOTIFY_ON_STOP |
 | Orchestrating Systems | Environment Variable | NOTIFY_ON_STOP command execution |
 | openclaw gateway | Fallback Command | Best-effort notification on failure |
 | Existing Hooks | Coexistence | Runs alongside learning.sh in Stop array |
@@ -190,11 +195,23 @@ sequenceDiagram
 **Input** (JSON via stdin):
 ```json
 {
-  "cwd": "/path/to/working/directory",
+  "session_id": "abc123...",
   "transcript_path": "/path/to/session/transcript.jsonl",
-  "session_id": "abc123..."
+  "cwd": "/path/to/working/directory",
+  "permission_mode": "default",
+  "hook_event_name": "Stop",
+  "stop_hook_active": false
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | string | Unique session identifier |
+| `transcript_path` | string | Path to conversation JSONL file |
+| `cwd` | string | Current working directory |
+| `permission_mode` | string | Permission mode: `"default"`, `"plan"`, `"acceptEdits"`, `"dontAsk"`, `"bypassPermissions"` |
+| `hook_event_name` | string | Always `"Stop"` for this hook |
+| `stop_hook_active` | boolean | `true` if Claude is already continuing from a previous Stop hook (use to prevent infinite loops) |
 
 **Output** (JSON to stdout):
 ```json
@@ -205,11 +222,37 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 
 #### 3.1.2 Environment Variables
 
+**Input Environment Variables**:
+
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NOTIFY_ON_STOP` | No | Command to execute on session stop |
 | `NOTIFY_HOOK_DEBUG` | No | Set to "1" to enable debug logging |
 | `NOTIFY_HOOK_DISABLE` | No | Set to "1" to disable hook entirely |
+
+**Output Environment Variables** (exported for command use):
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NOTIFY_SESSION_ID` | Session ID from hook input | "unknown" |
+| `NOTIFY_CWD` | Working directory from hook input | "unknown" |
+| `NOTIFY_TRANSCRIPT_PATH` | Transcript path from hook input | "unknown" |
+
+These variables are exported before executing `NOTIFY_ON_STOP`, allowing commands to reference session context using standard shell syntax (e.g., `$NOTIFY_SESSION_ID`).
+
+**Configuration Location**: Input environment variables should be configured in the **user's global** `~/.claude/settings.json`, not in project-level settings. This allows:
+- Users to configure once for all projects
+- Ensemble to ship without assuming specific notification tools (e.g., OpenClaw)
+- Agents to not need to remember per-project configuration
+
+```json
+// ~/.claude/settings.json (user global)
+{
+  "env": {
+    "NOTIFY_ON_STOP": "openclaw gateway wake --mode now"
+  }
+}
+```
 
 #### 3.1.3 Function Specifications
 
@@ -223,6 +266,8 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 | `execute_fallback()` | Run fallback notification | None | Exit code |
 | `output_result()` | Write JSON result to stdout | None | None |
 | `debug_log()` | Conditional debug logging | Message | None |
+| `extract_json_field()` | Extract field from JSON using jq or fallback | Input string, field name | Field value or default |
+| `export_context_vars()` | Export session context as environment variables | Input string | None (sets NOTIFY_SESSION_ID, NOTIFY_CWD, NOTIFY_TRANSCRIPT_PATH) |
 
 #### 3.1.4 Behavior Specifications
 
@@ -246,7 +291,23 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 
 ### 3.2 Hook Registration Specification
 
-**settings.json addition**:
+#### 3.2.1 Configuration Architecture
+
+The notification system uses a **split configuration model**:
+
+| Component | Location | Rationale |
+|-----------|----------|-----------|
+| Hook script (`notify.sh`) | Project `.claude/hooks/` | Shipped with ensemble; available in all ensemble projects |
+| Hook registration | Project `.claude/settings.json` | Shipped with ensemble; hooks fire automatically |
+| Environment variables (`NOTIFY_ON_STOP`) | User global `~/.claude/settings.json` | User-specific; not shipped as default; configured once |
+
+This architecture ensures:
+1. **Zero-config for non-users**: Hook is present but inactive without `NOTIFY_ON_STOP`
+2. **No per-project setup**: Users configure global settings once
+3. **No assumptions about tooling**: Ensemble doesn't ship with OpenClaw dependency
+
+#### 3.2.2 Project settings.json (shipped with ensemble)
+
 ```json
 {
   "hooks": {
@@ -271,10 +332,23 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 }
 ```
 
+#### 3.2.3 User global settings (user-configured)
+
+```json
+// ~/.claude/settings.json
+{
+  "env": {
+    "NOTIFY_ON_STOP": "openclaw gateway wake --mode now",
+    "NOTIFY_HOOK_DEBUG": "0"
+  }
+}
+```
+
 **Configuration Details**:
 - Hook position: After `learning.sh` in Stop array (order preserved)
 - Timeout: 60 seconds (30s command + 30s fallback + buffer)
 - Matcher: Empty (fires on all Stop events)
+- Settings merge: Global `env` vars are available to project hooks
 
 ### 3.3 Error Handling
 
@@ -298,6 +372,8 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 |----|------|-------------|--------------|----------|
 | NOTIFY-P001 | Create hook script file | Create `.claude/hooks/notify.sh` with shebang and header | None | backend-implementer |
 | NOTIFY-P002 | Register hook in settings.json | Add notify.sh to Stop hook array after learning.sh | NOTIFY-P001 | backend-implementer |
+| NOTIFY-P003 | Create installer script | Create `packages/core/scripts/install-notify-hook.sh` for user setup | None | backend-implementer |
+| NOTIFY-P004 | Create OpenClaw wrapper template | Create `packages/core/scripts/openclaw-notify.sh.template` wrapper script | None | backend-implementer |
 
 ### 4.2 Implementation Tasks
 
@@ -311,6 +387,8 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 | NOTIFY-B006 | Implement debug_log function | Conditional logging when NOTIFY_HOOK_DEBUG=1 | NOTIFY-P001 | backend-implementer |
 | NOTIFY-B007 | Implement main function | Orchestrate hook flow | NOTIFY-B001 through NOTIFY-B006 | backend-implementer |
 | NOTIFY-B008 | Implement disable flag | Early exit when NOTIFY_HOOK_DISABLE=1 | NOTIFY-B007 | backend-implementer |
+| NOTIFY-B009 | Implement extract_json_field function | Extract field from JSON using jq or grep/sed fallback | NOTIFY-P001 | backend-implementer |
+| NOTIFY-B010 | Implement export_context_vars function | Export NOTIFY_SESSION_ID, NOTIFY_CWD, NOTIFY_TRANSCRIPT_PATH | NOTIFY-B009 | backend-implementer |
 
 ### 4.3 Testing Tasks
 
@@ -328,6 +406,9 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 | NOTIFY-T010 | Integration: hook fires on Stop | Verify hook executes on session Stop event | NOTIFY-B007, NOTIFY-T009 | verify-app |
 | NOTIFY-T011 | Integration: command execution | Verify user command is executed end-to-end | NOTIFY-B003, NOTIFY-T009 | verify-app |
 | NOTIFY-T012 | Integration: fallback execution | Verify fallback triggers on command failure | NOTIFY-B004, NOTIFY-T009 | verify-app |
+| NOTIFY-T013 | Test extract_json_field function | Verify JSON field extraction with jq and fallback | NOTIFY-B009, NOTIFY-T001 | verify-app |
+| NOTIFY-T014 | Test export_context_vars function | Verify context variables are exported correctly | NOTIFY-B010, NOTIFY-T001 | verify-app |
+| NOTIFY-T015 | Test command access to context variables | Verify NOTIFY_ON_STOP command can access NOTIFY_SESSION_ID, etc. | NOTIFY-B010, NOTIFY-T001 | verify-app |
 
 ### 4.4 Documentation Tasks
 
@@ -335,6 +416,7 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 |----|------|-------------|--------------|----------|
 | NOTIFY-D001 | Add inline documentation | Document hook header, functions, environment variables | NOTIFY-B007 | backend-implementer |
 | NOTIFY-D002 | Update CLAUDE.md | Add notify hook to development documentation | NOTIFY-B007 | backend-implementer |
+| NOTIFY-D003 | Document global settings setup | User guide for configuring `~/.claude/settings.json` with NOTIFY_ON_STOP | NOTIFY-B007 | backend-implementer |
 
 ### 4.5 Integration Tasks
 
@@ -401,11 +483,13 @@ The hook ALWAYS returns `{"continue": true}` as Stop hooks must not block sessio
 **Tasks**:
 - NOTIFY-D001: Add inline documentation
 - NOTIFY-D002: Update CLAUDE.md
+- NOTIFY-D003: Document global settings setup
 - NOTIFY-I001: Test coexistence with learning.sh
 - NOTIFY-I002: Test orchestration patterns
 
 **Exit Criteria**:
 - Hook fully documented
+- Global settings configuration documented
 - Works correctly with existing hooks
 - Orchestration patterns verified
 
@@ -439,6 +523,7 @@ gantt
     section Phase 4: Documentation
     NOTIFY-D001 Inline documentation              :d001, after b008, 1d
     NOTIFY-D002 Update CLAUDE.md                  :d002, after d001, 1d
+    NOTIFY-D003 Global settings guide             :d003, after d001, 1d
     NOTIFY-I001 Coexistence testing               :i001, after t010, 1d
     NOTIFY-I002 Orchestration patterns            :i002, after i001, 1d
 ```
@@ -449,7 +534,7 @@ gantt
 |----------------|-------|-----------|
 | Foundation Functions | NOTIFY-B001, NOTIFY-B005, NOTIFY-B006 | Independent functions with no inter-dependencies |
 | Test Creation | NOTIFY-T001, NOTIFY-T009 | Test file setup can parallel with implementation |
-| Documentation | NOTIFY-D001, NOTIFY-D002 | Documentation tasks are independent |
+| Documentation | NOTIFY-D002, NOTIFY-D003 | Documentation tasks are independent after inline docs |
 
 ### 5.7 Critical Path
 
@@ -614,14 +699,17 @@ The hook will NOT:
 
 **Enforcement**: Fire-and-forget pattern. No response parsing.
 
-### NG5: Session Metadata Injection
+### NG5: Template Variable Substitution
 
 The hook will NOT:
-- Inject session ID into notification command
-- Provide working directory or other context to command
-- Template variables in NOTIFY_ON_STOP value
+- Perform template substitution in NOTIFY_ON_STOP value (e.g., `${SESSION_ID}`)
+- Modify the NOTIFY_ON_STOP command string
 
-**Enforcement**: Execute NOTIFY_ON_STOP as literal string. No variable substitution by hook.
+The hook WILL:
+- Export session context as environment variables (NOTIFY_SESSION_ID, etc.)
+- Commands can reference these variables using standard shell syntax
+
+**Enforcement**: No string manipulation of NOTIFY_ON_STOP. Context provided via environment only.
 
 ---
 
@@ -642,6 +730,9 @@ packages/
   core/
     hooks/
       notify.test.sh       # New: BATS unit tests
+    scripts/
+      install-notify-hook.sh       # New: Installer script for user setup
+      openclaw-notify.sh.template  # New: OpenClaw wrapper template
 
 test/
   integration/
@@ -649,31 +740,86 @@ test/
       notify-hook.test.sh  # New: BATS integration tests
 ```
 
-### Appendix B: Example Usage Patterns
+### Appendix B: Configuration Examples
 
-#### Pattern 1: tmux Notification
+#### Global Settings Setup (One-time)
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "NOTIFY_ON_STOP": "openclaw gateway wake --mode now"
+  }
+}
+```
+
+This configuration applies to all projects automatically.
+
+#### Pattern 1: OpenClaw Notification (Recommended)
+```json
+// ~/.claude/settings.json
+{
+  "env": {
+    "NOTIFY_ON_STOP": "openclaw gateway wake --mode now"
+  }
+}
+```
+
+#### Pattern 2: tmux Notification
+```json
+// ~/.claude/settings.json
+{
+  "env": {
+    "NOTIFY_ON_STOP": "tmux send-keys -t orchestrator 'echo Session complete' Enter"
+  }
+}
+```
+
+#### Pattern 3: Webhook Notification
+```json
+// ~/.claude/settings.json
+{
+  "env": {
+    "NOTIFY_ON_STOP": "curl -X POST https://webhook.example.com/session-complete"
+  }
+}
+```
+
+#### Pattern 4: File-based Signal
+```json
+// ~/.claude/settings.json
+{
+  "env": {
+    "NOTIFY_ON_STOP": "touch /tmp/session-complete-signal"
+  }
+}
+```
+
+#### Pattern 5: Per-Session Override (CLI)
+
+For one-off overrides, export before running:
 ```bash
-export NOTIFY_ON_STOP="tmux send-keys -t orchestrator 'echo Session complete' Enter"
+export NOTIFY_ON_STOP="custom-command"
 claude --remote "Implement feature X"
 ```
 
-#### Pattern 2: Webhook Notification
-```bash
-export NOTIFY_ON_STOP="curl -X POST https://webhook.example.com/session-complete"
-claude --remote "Run tests"
+#### Pattern 6: Using Context Variables
+
+Commands can access session context via exported environment variables:
+```json
+// ~/.claude/settings.json
+{
+  "env": {
+    "NOTIFY_ON_STOP": "curl -X POST https://webhook.example.com/complete -d \"session=$NOTIFY_SESSION_ID&cwd=$NOTIFY_CWD\""
+  }
+}
 ```
 
-#### Pattern 3: File-based Signal
-```bash
-export NOTIFY_ON_STOP="touch /tmp/session-complete-signal"
-claude --remote "Build project"
-```
-
-#### Pattern 4: Message Queue
-```bash
-export NOTIFY_ON_STOP="aws sqs send-message --queue-url https://sqs... --message-body 'done'"
-claude --remote "Deploy to staging"
-```
+Available context variables:
+- `$NOTIFY_SESSION_ID` - The session identifier
+- `$NOTIFY_CWD` - The working directory
+- `$NOTIFY_TRANSCRIPT_PATH` - Path to the session transcript
 
 ### Appendix C: Glossary
 
@@ -700,4 +846,4 @@ claude --remote "Deploy to staging"
 
 *Document generated by technical-architect agent*
 *TRD Reference: NOTIFY-* task prefix for all implementation tasks*
-*Last updated: 2026-02-03*
+*Last updated: 2026-02-03 (v1.2.0)*
