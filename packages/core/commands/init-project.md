@@ -34,8 +34,28 @@ $ARGUMENTS
 
 Examples:
 - (no args) - Interactive mode with prompts
-- "minimal" - Use detected defaults, minimal prompts
+- "minimal" - Use detected defaults, skip interactive prompts
 - "force" - Overwrite existing files
+
+**Inline Configuration (optional):**
+When provided after flags, use these values instead of prompting:
+
+```
+/init-project minimal
+---
+name: my-project
+description: Brief project description
+methodology: flexible|tdd|characterization
+coverage: standard|high|minimal
+approvals: [architecture, dependencies, schema, breaking-api, deployments, security]
+skills: [skill1, skill2]  # optional: pre-select skills
+```
+
+**CRITICAL: When "minimal" flag is present (with or without inline config):**
+- **DO NOT use AskUserQuestion tool** - Skip Step 2 entirely
+- Use inline config if provided, otherwise use detected defaults from Step 1
+- If detection confidence is low, use sensible defaults (don't ask)
+- This enables fully automated/unattended initialization
 
 ---
 
@@ -178,9 +198,11 @@ If confidence is low for any component, note what additional information would h
 
 </repository-analysis>
 
-### Step 2: Interactive Configuration (unless "minimal")
+### Step 2: Interactive Configuration
 
-**Use AskUserQuestion tool to gather project-specific information:**
+**If "minimal" flag is present: SKIP THIS ENTIRE STEP. Proceed directly to Step 3 using defaults from Step 1.**
+
+**Otherwise, use AskUserQuestion tool to gather project-specific information:**
 
 <interactive-configuration>
 
