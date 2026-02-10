@@ -24,7 +24,6 @@
     "./commands/router"
   ],
   "skills": "./skills",
-  "hooks": "./hooks/hooks.json",
   "agents": [
     "./agents/product-manager.md",
     "./agents/technical-architect.md",
