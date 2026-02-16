@@ -155,8 +155,6 @@ copy_agents() {
 
 # Copy workflow commands from plugin directory
 copy_commands() {
-    # Commands are relative to plugin dir: ../core/commands/
-    local src="$PLUGIN_DIR/../core/commands"
     local dest="$1/.claude/commands"
 
     if [[ -z "$PLUGIN_DIR" ]]; then
@@ -164,10 +162,20 @@ copy_commands() {
         return 0
     fi
 
-    if [[ ! -d "$src" ]]; then
-        warn "Commands directory not found: $src"
+    # Try plugin cache structure first, then monorepo structure
+    local src=""
+    if [[ -d "$PLUGIN_DIR/commands/core" ]]; then
+        src="$PLUGIN_DIR/commands/core"
+    elif [[ -d "$PLUGIN_DIR/../core/commands" ]]; then
+        src="$PLUGIN_DIR/../core/commands"
+    fi
+
+    if [[ -z "$src" || ! -d "$src" ]]; then
+        warn "Commands directory not found (tried plugin cache and monorepo paths)"
         return 0
     fi
+
+    info "Commands source: $src"
 
     # Copy specific workflow commands (not init-project or rebase-project)
     local commands=(
@@ -210,10 +218,17 @@ copy_global_router_rules() {
         return 0
     fi
 
-    # Global router rules are in packages/router/lib/router-rules.json
-    local src="$PLUGIN_DIR/../router/lib/router-rules.json"
+    # Try multiple locations: plugin cache structure, router-lib symlink, then monorepo structure
+    local src=""
+    if [[ -f "$PLUGIN_DIR/lib/router-rules.json" ]]; then
+        src="$PLUGIN_DIR/lib/router-rules.json"
+    elif [[ -f "$PLUGIN_DIR/router-lib/router-rules.json" ]]; then
+        src="$PLUGIN_DIR/router-lib/router-rules.json"
+    elif [[ -f "$PLUGIN_DIR/../router/lib/router-rules.json" ]]; then
+        src="$PLUGIN_DIR/../router/lib/router-rules.json"
+    fi
 
-    if [[ -f "$src" ]]; then
+    if [[ -n "$src" && -f "$src" ]]; then
         if [[ -f "$dest/router-rules.json" && "$FORCE" != "true" ]]; then
             info "Global router rules exist: .claude/lib/router-rules.json"
         else
@@ -225,7 +240,7 @@ copy_global_router_rules() {
             fi
         fi
     else
-        warn "Global router rules not found: $src"
+        warn "Global router rules not found (tried plugin cache and monorepo paths)"
     fi
 }
 
@@ -275,72 +290,111 @@ copy_hooks() {
 
     local count=0
 
-    # Permitter hook (with lib dependencies)
-    local permitter_src="$PLUGIN_DIR/../permitter"
-    if [[ -d "$permitter_src" ]]; then
-        mkdir -p "$dest/permitter/lib"
-        if [[ -f "$permitter_src/hooks/permitter.js" ]]; then
-            if [[ ! -f "$dest/permitter/permitter.js" || "$FORCE" == "true" ]]; then
-                cp "$permitter_src/hooks/permitter.js" "$dest/permitter/"
-                if [[ "$FORCE" == "true" ]]; then
-                    info "Replaced hook: permitter/permitter.js"
+    # Plugin cache structure: hooks are symlinks directly in $PLUGIN_DIR/hooks/
+    # Monorepo structure: hooks are in sibling packages
+    
+    # Standard hooks to copy (these may be symlinks in plugin cache)
+    local hooks_to_copy=(
+        "router.py"
+        "formatter.sh"
+        "learning.sh"
+        "status.js"
+        "wiggum.js"
+        "save-remote-logs.js"
+        "notify.sh"
+    )
+
+    # Try plugin cache structure first (hooks at root of $PLUGIN_DIR/hooks/)
+    if [[ -d "$PLUGIN_DIR/hooks" ]]; then
+        for hook in "${hooks_to_copy[@]}"; do
+            local src="$PLUGIN_DIR/hooks/$hook"
+            if [[ -f "$src" || -L "$src" ]]; then
+                if [[ ! -f "$dest/$hook" || "$FORCE" == "true" ]]; then
+                    # Dereference symlinks when copying
+                    cp -L "$src" "$dest/"
+                    chmod +x "$dest/$hook" 2>/dev/null || true
+                    info "Copied hook: $hook"
+                    ((count++)) || true
                 else
-                    info "Copied hook: permitter/permitter.js"
-                fi
-                ((count++)) || true
-            else
-                info "Hook exists: permitter/permitter.js"
-            fi
-        fi
-        # Copy lib files
-        for lib in "$permitter_src/lib"/*.js; do
-            [[ -f "$lib" ]] || continue
-            local basename
-            basename="$(basename "$lib")"
-            if [[ ! -f "$dest/permitter/lib/$basename" || "$FORCE" == "true" ]]; then
-                cp "$lib" "$dest/permitter/lib/"
-                if [[ "$FORCE" == "true" ]]; then
-                    info "Replaced lib: permitter/lib/$basename"
-                else
-                    info "Copied lib: permitter/lib/$basename"
+                    info "Hook exists: $hook"
                 fi
             fi
         done
-    fi
-
-    # Router hook
-    local router_src="$PLUGIN_DIR/../router/hooks/router.py"
-    if [[ -f "$router_src" ]]; then
-        if [[ ! -f "$dest/router.py" || "$FORCE" == "true" ]]; then
-            cp "$router_src" "$dest/"
-            if [[ "$FORCE" == "true" ]]; then
-                info "Replaced hook: router.py"
-            else
-                info "Copied hook: router.py"
-            fi
-            ((count++)) || true
-        else
-            info "Hook exists: router.py"
-        fi
-    fi
-
-    # Core hooks
-    local core_hooks="$PLUGIN_DIR/../core/hooks"
-    for hook in formatter.sh learning.sh status.js wiggum.js save-remote-logs.js; do
-        if [[ -f "$core_hooks/$hook" ]]; then
-            if [[ ! -f "$dest/$hook" || "$FORCE" == "true" ]]; then
-                cp "$core_hooks/$hook" "$dest/"
-                if [[ "$FORCE" == "true" ]]; then
-                    info "Replaced hook: $hook"
-                else
-                    info "Copied hook: $hook"
-                fi
+        
+        # Handle permitter separately (it has a lib directory)
+        if [[ -f "$PLUGIN_DIR/hooks/permitter.js" || -L "$PLUGIN_DIR/hooks/permitter.js" ]]; then
+            mkdir -p "$dest/permitter/lib"
+            if [[ ! -f "$dest/permitter/permitter.js" || "$FORCE" == "true" ]]; then
+                cp -L "$PLUGIN_DIR/hooks/permitter.js" "$dest/permitter/"
+                chmod +x "$dest/permitter/permitter.js" 2>/dev/null || true
+                info "Copied hook: permitter/permitter.js"
                 ((count++)) || true
-            else
-                info "Hook exists: $hook"
+            fi
+            # Copy permitter lib from monorepo if accessible via symlink target
+            local permitter_target
+            permitter_target=$(readlink "$PLUGIN_DIR/hooks/permitter.js" 2>/dev/null || echo "")
+            if [[ -n "$permitter_target" ]]; then
+                local permitter_dir
+                permitter_dir=$(dirname "$permitter_target")
+                local lib_dir="${permitter_dir}/../lib"
+                if [[ -d "$lib_dir" ]]; then
+                    for lib in "$lib_dir"/*.js; do
+                        [[ -f "$lib" ]] || continue
+                        local basename
+                        basename="$(basename "$lib")"
+                        if [[ ! -f "$dest/permitter/lib/$basename" || "$FORCE" == "true" ]]; then
+                            cp "$lib" "$dest/permitter/lib/"
+                            info "Copied lib: permitter/lib/$basename"
+                        fi
+                    done
+                fi
             fi
         fi
-    done
+    else
+        # Fall back to monorepo structure
+        local base_path="$PLUGIN_DIR/.."
+        
+        # Router hook
+        if [[ -f "$base_path/router/hooks/router.py" ]]; then
+            if [[ ! -f "$dest/router.py" || "$FORCE" == "true" ]]; then
+                cp "$base_path/router/hooks/router.py" "$dest/"
+                info "Copied hook: router.py"
+                ((count++)) || true
+            fi
+        fi
+        
+        # Core hooks
+        for hook in formatter.sh learning.sh status.js wiggum.js save-remote-logs.js notify.sh; do
+            if [[ -f "$base_path/core/hooks/$hook" ]]; then
+                if [[ ! -f "$dest/$hook" || "$FORCE" == "true" ]]; then
+                    cp "$base_path/core/hooks/$hook" "$dest/"
+                    info "Copied hook: $hook"
+                    ((count++)) || true
+                fi
+            fi
+        done
+        
+        # Permitter hook
+        if [[ -d "$base_path/permitter" ]]; then
+            mkdir -p "$dest/permitter/lib"
+            if [[ -f "$base_path/permitter/hooks/permitter.js" ]]; then
+                if [[ ! -f "$dest/permitter/permitter.js" || "$FORCE" == "true" ]]; then
+                    cp "$base_path/permitter/hooks/permitter.js" "$dest/permitter/"
+                    info "Copied hook: permitter/permitter.js"
+                    ((count++)) || true
+                fi
+            fi
+            for lib in "$base_path/permitter/lib"/*.js; do
+                [[ -f "$lib" ]] || continue
+                local basename
+                basename="$(basename "$lib")"
+                if [[ ! -f "$dest/permitter/lib/$basename" || "$FORCE" == "true" ]]; then
+                    cp "$lib" "$dest/permitter/lib/"
+                    info "Copied lib: permitter/lib/$basename"
+                fi
+            done
+        fi
+    fi
 
     info "Copied $count hooks"
 

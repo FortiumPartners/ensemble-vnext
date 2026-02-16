@@ -56,11 +56,12 @@ SOURCE_HOOK_CANDIDATES=(
 )
 
 # Hook registration entry for settings.json
+# Note: Claude Code requires hooks to be inside matcher objects
 HOOK_ENTRY='{
-        "type": "command",
-        "command": ".claude/hooks/notify.sh",
-        "timeout": 60
-      }'
+  "type": "command",
+  "command": ".claude/hooks/notify.sh",
+  "timeout": 60
+}'
 
 # =============================================================================
 # Helper Functions
@@ -142,10 +143,22 @@ add_hook_to_settings() {
 
     temp_file=$(mktemp)
 
-    # Add hook to Stop array, creating the structure if needed
+    # Claude Code requires hooks inside matcher objects.
+    # Check if there's already a Stop array with a matcher that has empty string.
+    # If so, add to that matcher's hooks array. Otherwise, add to first matcher's hooks.
     jq --argjson hook "$HOOK_ENTRY" '
         .hooks = (.hooks // {}) |
-        .hooks.Stop = ((.hooks.Stop // []) + [$hook])
+        .hooks.Stop = (.hooks.Stop // []) |
+        if (.hooks.Stop | length) == 0 then
+            # No Stop hooks yet - create a new matcher with our hook
+            .hooks.Stop = [{"matcher": "", "hooks": [$hook]}]
+        elif (.hooks.Stop[0] | has("matcher")) then
+            # New format - add to first matchers hooks array
+            .hooks.Stop[0].hooks = (.hooks.Stop[0].hooks + [$hook])
+        else
+            # Old format or unknown - wrap in matcher
+            .hooks.Stop = [{"matcher": "", "hooks": (.hooks.Stop + [$hook])}]
+        end
     ' "$settings_file" > "$temp_file"
 
     if [[ $? -eq 0 && -s "$temp_file" ]]; then
