@@ -221,6 +221,18 @@ main() {
 
     debug_log "Extracted file path: $file_path"
 
+    # 3.5 Resolve relative paths against hookData.cwd
+    if [[ "$file_path" != /* ]]; then
+        local hook_cwd=""
+        if command_exists jq; then
+            hook_cwd=$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)
+        fi
+        if [[ -n "$hook_cwd" && -d "$hook_cwd" ]]; then
+            file_path="${hook_cwd}/${file_path}"
+            debug_log "Resolved relative path against hookData.cwd: $file_path"
+        fi
+    fi
+
     # 4. Check if file exists
     if [[ ! -f "$file_path" ]]; then
         debug_log "File does not exist: $file_path"

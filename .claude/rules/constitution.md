@@ -127,6 +127,14 @@ Before completing any implementation:
 
 ---
 
+## Verification Requirements
+
+verification_level: unit-only
+
+This is a plugin development project. Standard unit/integration tests are sufficient. Tasks marked `[LIVE]` in TRDs override this default.
+
+---
+
 ## Approval Requirements
 
 ### Requires User Approval

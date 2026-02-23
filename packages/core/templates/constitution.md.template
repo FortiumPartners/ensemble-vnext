@@ -125,6 +125,21 @@ Before completing any implementation:
 
 ---
 
+## Verification Requirements
+
+verification_level: {{VERIFICATION_LEVEL}}
+
+| Level | Meaning |
+|-------|---------|
+| `unit-only` | Standard unit/integration tests are sufficient for verification |
+| `live-required` | verify-app MUST start the service and verify against a running instance |
+| `e2e-required` | Full end-to-end testing with browser/UI automation required |
+| `manual-required` | Pause for user sign-off before approving verification |
+
+Tasks marked with `[LIVE]` in the TRD override this default and require live verification regardless of the project-level setting.
+
+---
+
 ## Approval Requirements
 
 ### Requires User Approval

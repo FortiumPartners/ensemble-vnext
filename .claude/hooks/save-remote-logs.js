@@ -40,6 +40,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
+const { resolveProjectRoot } = require('./lib/resolve-project-root');
 
 // Constants
 const DEFAULT_LOGS_DEST = '.claude-sessions/logs';
@@ -280,9 +281,9 @@ async function main(hookData) {
   }
   debugLog(`Session ID: ${sessionId}`);
 
-  // 4. Get working directory
-  const cwd = hookData.cwd || process.cwd();
-  debugLog(`Working directory: ${cwd}`);
+  // 4. Resolve project root from hook data
+  const cwd = resolveProjectRoot(hookData);
+  debugLog(`Project root: ${cwd}`);
 
   // 5. Get session start time
   const startTime = getSessionStartTime(transcriptPath);

@@ -1,7 +1,7 @@
 ---
 name: implement-trd
-description: Execute TRD implementation with strategy awareness, staged execution loop, specialist delegation, risk-aware debugging, scope enforcement, and quality gates
-version: 2.1.0
+description: Execute TRD implementation using TaskTools with staged execution, specialist delegation, risk-aware debugging, and quality gates
+version: 3.1.0
 category: implementation
 ---
 
@@ -11,16 +11,11 @@ category: implementation
 > - `<trd-path>` - Path to TRD file (optional if `.trd-state/current.json` exists)
 > - `--phase N` - Execute only phase N
 > - `--session <name>` - Execute only named work session
-> - `--resume` or `--continue` - Resume from last checkpoint (see Resume and Recovery section)
+> - `--resume` or `--continue` - Resume from last checkpoint (attempts session resume first)
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
-> - `--wiggum` - Enable autonomous mode (intercepts exit, re-injects prompt until complete)
+> - `--wiggum` - Enable autonomous mode (intercepts exit until complete or max 50 iterations)
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --reset-state`, `/implement-trd --wiggum`
->
-> **Wiggum Mode:** When `--wiggum` is specified, the Stop hook intercepts Claude's exit attempts and re-injects
-> the implementation prompt until all tasks are complete or max iterations (default: 50) is reached.
-> Completion is detected via the `<promise>COMPLETE</promise>` tag or when all tasks in implement.json
-> have status "success" or "complete". This enables autonomous execution for extended sessions.
+> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`
 
 ---
 
@@ -30,26 +25,20 @@ category: implementation
 $ARGUMENTS
 ```
 
-Parse arguments to extract:
-- TRD path (if provided)
-- `--phase N` for phase-specific execution
-- `--session <name>` for session-specific execution
-- `--resume` or `--continue` for checkpoint recovery (both flags have identical behavior)
-- `--reset-state` for clearing state and starting fresh
-- `--wiggum` for autonomous mode (enables Stop hook interception)
+Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`, `--wiggum`.
 
 ---
 
-## Execution Flow Overview
+## Execution Model
 
 ```
-1. PREFLIGHT     -> Load constitution, select TRD, ensure branch, detect strategy
-2. RESUME CHECK  -> Handle --reset-state, --resume flags, validate state
-3. PARSE         -> Extract tasks, build phases, load resume state
-4. EXECUTE LOOP  -> For each task: IMPLEMENT -> VERIFY -> SIMPLIFY -> VERIFY -> REVIEW -> UPDATE
-5. CHECKPOINT    -> Save state, commit progress after each phase
-6. COMPLETE      -> Final report with next steps
+PREFLIGHT -> RESUME CHECK -> EXPAND TASKS -> MAIN LOOP -> CHECKPOINT -> COMPLETE
+
+Main Loop (per task):
+  IMPLEMENT -> VERIFY -> [DEBUG if fail] -> SIMPLIFY -> VERIFY -> [DEBUG if fail] -> REVIEW -> UPDATE
 ```
+
+**TaskTools Integration:** Use TaskCreate, TaskGet, TaskUpdate, TaskList for task management. Each stage MUST wait for subagent completion before proceeding.
 
 ---
 
@@ -57,320 +46,759 @@ Parse arguments to extract:
 
 ### 1.1 Load Constitution
 
-Read `.claude/rules/constitution.md` if present. Extract quality gates:
-- Unit test coverage target (default: 80%)
-- Integration test coverage target (default: 70%)
-- Security requirements
-- Other quality thresholds
-
-If constitution is absent, use defaults: **80% unit, 70% integration**.
+Read `.claude/rules/constitution.md`. Extract quality gates:
+- Unit coverage target (default: 80%)
+- Integration coverage target (default: 70%)
 
 ### 1.2 TRD Selection
 
-**Priority order for TRD selection:**
+**Priority order:**
 1. Explicit path from `$ARGUMENTS`
-2. Name pattern from `$ARGUMENTS` (matches files in `docs/TRD/`)
+2. Pattern match in `docs/TRD/`
 3. Active TRD from `.trd-state/current.json` (field: `trd`)
-4. Single in-progress TRD in `docs/TRD/` (unchecked tasks remaining)
-5. Prompt user to select from available TRDs
+4. Single in-progress TRD with uncompleted tasks
+5. Prompt user to select
 
-**Validation requirements:**
-- File must exist and be readable
-- Must contain "Master Task List" section
-- Tasks must follow format: `- [ ] **TRD-XXX**: Description`
-- At least one uncompleted task must exist
-
-If no valid TRD found, list available TRDs and suggest `/create-trd`.
+**Validation:** Must contain "Master Task List" section with format `- [ ] **TRD-XXX**: Description`.
 
 ### 1.3 Git Branch Management
 
-**Branch naming convention:** `<issue-id>-<session-name>` or `feature/<trd-name>`
+Branch naming: `<issue-id>-<session>` or `feature/<trd-name>`
 
-**Actions:**
-1. Check current branch status with `git status`
-2. If not on correct feature branch:
-   - If branch exists: `git switch <branch-name>`
-   - If branch does not exist: `git switch -c <branch-name>`
+1. Check `git status` for current branch
+2. Switch to feature branch (create if missing)
 3. Ensure working directory is clean (suggest `git stash` if dirty)
 4. Update `.trd-state/current.json` with branch name
 
-**Branch name extraction:**
-- From TRD filename: `docs/TRD/VFM-1234.md` -> `VFM-1234-phase1`
-- From TRD title if no issue ID: `feature/<kebab-case-name>`
-
 ### 1.4 Strategy Detection
 
-**Priority for strategy selection:**
-1. Explicit override from `$ARGUMENTS` (e.g., `strategy=tdd`)
-2. Explicit declaration in TRD (look for `Strategy: <name>`)
-3. Constitution default (if specified)
-4. Auto-detection from TRD content (rules below)
-5. Default: `tdd`
+**Priority:** Explicit argument > TRD declaration > Constitution default > Auto-detect > Default (`tdd`)
 
-**Strategy options:**
-
-| Strategy | Behavior | Best For |
-|----------|----------|----------|
-| `tdd` | Tests first, RED-GREEN-REFACTOR. Block on failures. | Greenfield development |
-| `characterization` | Document current behavior AS-IS. No refactoring. Failures are informational. | Legacy/brownfield |
-| `test-after` | Implement then test. Warn on coverage gaps. | Prototypes, UI |
-| `bug-fix` | Reproduce -> failing test -> fix -> verify. | Regressions |
-| `refactor` | Tests pass before AND after. Block on any regression. | Tech debt |
-| `flexible` | No enforcement. Log results only. | Mixed work |
-
-**Auto-detection rules (first match wins):**
-1. TRD contains "legacy", "existing", "brownfield", "untested" -> `characterization`
-2. TRD contains "bug fix", "regression", "defect" -> `bug-fix`
-3. TRD contains "refactor", "optimize", "tech debt" -> `refactor`
-4. TRD contains "prototype", "spike", "POC" -> `test-after`
-5. Default -> `tdd`
+| Strategy | Behavior | Auto-detect Keywords |
+|----------|----------|---------------------|
+| `tdd` | RED-GREEN-REFACTOR, block on failures | (default) |
+| `characterization` | Document AS-IS, failures informational | legacy, brownfield, untested |
+| `test-after` | Implement then test | prototype, spike, POC |
+| `bug-fix` | Reproduce -> failing test -> fix | bug fix, regression, defect |
+| `refactor` | Tests pass before AND after | refactor, optimize, tech debt |
+| `flexible` | No enforcement, log only | (explicit only) |
 
 ### 1.5 Concurrent Execution Check
 
-**Check for existing execution:**
-
-Before starting implementation, verify no other session is actively implementing this TRD.
-
-1. **Check for lock file:**
-   - Look for `.trd-state/<trd-name>/implement.lock`
-   - If exists and recent (< 30 minutes), warn user
-
-2. **If lock detected:**
-   ```
-   WARNING: Another implementation session may be active.
-
-   Lock file: .trd-state/<trd-name>/implement.lock
-   Created: <timestamp>
-   Session: <session_id if known>
-
-   Options:
-   1. "wait" - Check again in 5 minutes
-   2. "force" - Remove lock and proceed (may cause conflicts)
-   3. "abort" - Exit without changes
-
-   Choose option:
-   ```
-
-3. **Create lock on start:**
-   - Write `.trd-state/<trd-name>/implement.lock` with:
-     - `session_id`: Current session ID
-     - `started_at`: Current timestamp
-     - `pid`: Process ID (if available)
-
-4. **Release lock on exit:**
-   - Remove lock file when implementation completes or aborts
-   - Lock file cleared by cleanup even on crash (via staleness check)
-
-**Note:** Concurrent execution across different TRDs is allowed. This check only prevents concurrent execution of the SAME TRD.
+Check for `.trd-state/<trd-name>/implement.lock`:
+- If recent (<30 min): Warn user, offer "wait"/"force"/"abort"
+- Create lock on start with session_id, timestamp
+- Release lock on exit or staleness
 
 ### 1.6 Load Non-Goals and Risks
 
-**CRITICAL**: Extract non-goals and risks from TRD for active use during implementation.
+**Non-Goals (TRD Section 8):** Extract as hard boundaries. Agents MUST reject work in non-goal categories.
 
-**Non-Goals (Scope Boundaries):**
-
-Scan the TRD for "Non-Goals" section (Section 8 per TRD format). Extract all entries:
-
-```markdown
-## 8. Non-Goals (Scope Boundaries)
-
-| PRD ID | Non-Goal | Rationale |
-|--------|----------|-----------|
-| NG1 | [Item] | [Why excluded] |
-```
-
-Store in memory for delegation prompts. These are **hard boundaries** - implementation agents
-MUST reject work that falls into non-goal categories.
-
-**Risks (Contingency Planning):**
-
-Scan the TRD for "Risk Assessment" section (Section 7 per TRD format). Extract:
-
-1. **PRD Risks** with technical mitigations (Section 7.1)
-2. **Technical Risks** with likelihood/impact/mitigation (Section 7.2)
-3. **Implementation Risks** (Section 7.3)
-4. **Contingency Plans** for high-impact risks (Section 7.4)
-
-Store risk context for use when:
-- A task encounters failures that match a documented risk
-- Retry count exceeds threshold and contingency may apply
-- DEBUG stage encounters known risk scenarios
-
-**Risk Matching:**
-
-During DEBUG stage, check if the current problem matches any documented risk:
-
-| If Current Problem Matches | Action |
-|----------------------------|--------|
-| Technical Risk with mitigation | Apply documented mitigation strategy |
-| Implementation Risk | Reference contingency plan if available |
-| PRD Risk | Escalate with technical mitigation context |
-| No match | Standard debugging flow |
+**Risks (TRD Section 7):** Extract PRD risks, technical risks, implementation risks, contingency plans. Used during DEBUG stage for risk matching.
 
 ---
 
-## Step 2: Parse Tasks
+## Step 2: Resume and Recovery
 
-### 2.1 Extract Tasks from TRD
+### 2.1 Handle --reset-state
 
-Scan the TRD for the "Master Task List" section and extract tasks.
+If provided:
+1. Display current progress summary
+2. Require "confirm" to proceed
+3. Delete state file and start fresh
 
-**Task format:**
+### 2.2 Handle --resume/--continue
+
+These flags have identical behavior:
+
+**1. Attempt Session Resume First**
+
+Check `active_sessions` map in state file for recent session IDs:
+```json
+"active_sessions": {
+  "phase1_task5": "sess_abc123def456"
+}
 ```
-- [ ] **TRD-XXX**: Task description
-- [x] **TRD-YYY**: Completed task (skip)
+
+If session_id exists and recent (<24 hours):
+```
+Attempting to resume Claude session: {session_id}
+Command: claude --resume {session_id}
 ```
 
-**For each task, extract:**
-- `id`: Task identifier (e.g., `TRD-C201`)
-- `description`: Full task description
-- `status`: `pending` (unchecked) or `complete` (checked)
-- `dependencies`: If contains "Depends: TRD-YYY" -> extract dependency ID
-- `parallelizable`: If contains "[P]" marker -> true
+If resume fails, fall back to checkpoint-based resume.
 
-### 2.2 Build Phases
+**2. Checkpoint Fallback**
 
-Group tasks by section headings:
-- `### Phase N` headings -> group into Phase N
-- `### Sprint N` headings -> treat as Phase N
-- No phase headings -> all tasks = Phase 1
+- Set `phase_cursor` to last checkpoint phase
+- Skip tasks with `status: "success"` or `"complete"`
+- Resume from first `pending`, `in_progress`, or `failed` task
 
-**Within each phase:**
-1. Sort by dependencies (topological order)
-2. Tasks without dependencies can run first
-3. Dependent tasks wait for their dependencies
+**3. Verify Git State**
 
-### 2.3 Load Resume State
+```bash
+git log --oneline -1 {checkpoint_commit}
+```
 
-Check for existing state file: `.trd-state/<trd-name>/implement.json`
+If checkpoint commit missing, offer: "pull" / "ignore" / "reset"
 
-**If state file exists:**
-1. Compare `trd_hash` with current TRD SHA-256 hash
-2. If hashes match:
-   - Skip tasks with `status: "success"` or `status: "complete"`
-   - Resume from first `pending`, `in_progress`, or `failed` task
-   - Restore `phase_cursor` position
-3. If hashes differ (TRD was modified):
-   - Report which sections changed
-   - Ask user: "TRD modified. Options: (1) Invalidate affected tasks, (2) Continue from current position, (3) Start fresh"
-   - Wait for user decision before proceeding
+**4. Re-expand Tasks to TaskTools**
 
-**If no state file:**
-- Create initial state structure (see Step 5)
+After checkpoint recovery, re-create TaskTools tasks from persistent state:
 
-### 2.4 Filter by Arguments
+1. Read tasks from state file where `status != "success"` and `status != "complete"`
+2. For each incomplete task, determine which stages to create based on `cycle_position`:
 
-**If `--phase N` provided:**
-- Execute only tasks in Phase N
-- Skip all other phases
+| cycle_position | Stages to Create | Mark as Completed |
+|----------------|------------------|-------------------|
+| null, "implement" | :impl, :verify, :simplify, :review | (none) |
+| "verify" | :verify, :simplify, :review | :impl |
+| "simplify" | :simplify, :review | :impl, :verify |
+| "review" | :review | :impl, :verify, :simplify |
 
-**If `--session <name>` provided:**
-- Match session name against TRD work session definitions
-- Execute only tasks assigned to that session
+3. Create each stage with full metadata (see Section 3.4 for TaskCreate format)
+4. Set dependencies between stages (see Section 3.4 for TaskUpdate pattern)
+5. Mark prior stages as completed: `TaskUpdate({ taskId: `${id}:impl`, status: "completed" })`
 
-**If `--resume` or `--continue` provided:**
-- See "Resume and Recovery" section for full resume flow
-- Attempt Claude session resume first (using session_id from active_sessions)
-- If session resume fails, fall back to checkpoint-based resume
-- Skip completed tasks, resume from first pending/failed task
+Example:
+```javascript
+const stateFile = readStateFile(trdName);
+const stageOrder = ["impl", "verify", "simplify", "review"];
+const agentMap = {
+  impl: taskState.implementer_type || "backend-implementer",
+  verify: "verify-app",
+  simplify: "code-simplifier",
+  review: "code-reviewer"
+};
 
-**If `--reset-state` provided:**
-- See "Resume and Recovery" section for confirmation flow
-- Clear state file after user confirmation
-- Start fresh implementation
+for (const [taskId, taskState] of Object.entries(stateFile.tasks)) {
+  if (taskState.status === "success") continue;
+
+  const currentStageIndex = stageOrder.indexOf(taskState.cycle_position) || 0;
+
+  // Create remaining stages
+  for (let i = currentStageIndex; i < stageOrder.length; i++) {
+    const stage = stageOrder[i];
+    TaskCreate({
+      subject: `${taskId}:${stage} - ${taskState.description}`,
+      description: `[See Template A.${i + 2}]`,
+      activeForm: `${stage} ${taskId}`,
+      metadata: { trd_task_id: taskId, stage, intended_agent: agentMap[stage] }
+    });
+  }
+
+  // Mark prior stages as completed
+  for (let i = 0; i < currentStageIndex; i++) {
+    TaskUpdate({ taskId: `${taskId}:${stageOrder[i]}`, status: "completed" });
+  }
+
+  // Set dependencies for remaining stages
+  for (let i = currentStageIndex + 1; i < stageOrder.length; i++) {
+    TaskUpdate({
+      taskId: `${taskId}:${stageOrder[i]}`,
+      addBlockedBy: [`${taskId}:${stageOrder[i - 1]}`]
+    });
+  }
+}
+```
+
+### 2.3 State Validation
+
+On every start, validate state file:
+
+1. **JSON Structure:** Parse `.trd-state/<trd-name>/implement.json`. Empty/zero-byte files = corrupted.
+2. **Required Fields:** version, trd_file, trd_hash, phase_cursor, tasks
+3. **Task ID Match:** Compare TRD task IDs vs state file. Report mismatches.
+4. **Commit Verification:** Check task commits exist in git history.
+
+### 2.4 State Repair (Git Reconstruction)
+
+If validation fails, attempt automatic reconstruction:
+
+```bash
+git log --oneline --grep="TRD-" -- .
+```
+
+Parse commit messages for patterns:
+- `feat(TRD-XXX):` -> task completed
+- `fix(TRD-XXX):` -> task completed
+- `chore(phase N):` -> phase checkpoint
+
+**Reconstruction Limitations:**
+- Requires commit messages follow `<type>(TRD-XXX): description` format
+- Squashed/rebased commits may lose individual task tracking
+- Multiple commits per task: only LAST commit recorded
+- Unmatched tasks default to `status: "pending"`
+
+**User Options:**
+1. "accept" - Accept partial reconstruction
+2. "checkpoint" - Reset to last valid checkpoint
+3. "fresh" - Start completely fresh
 
 ---
 
-## Stage Execution Model
+## Step 3: Expand Tasks to TaskTools
 
-### Subagent Delegation Protocol
+### 3.1 Parse TRD Tasks
 
-Each stage MUST use the Task tool to delegate work to the appropriate subagent.
-
-**Task Tool Usage:**
+Extract from "Master Task List":
 ```
-Task(
-  subagent_type="<agent-name>",
-  prompt="<delegation prompt from stage section>"
-)
+- [ ] **PREFIX-CATSEQ**: Description
+- [x] **PREFIX-CATSEQ**: Completed (skip)
 ```
 
-**Sequential Execution Requirement:**
+For each task extract: `id`, `description`, `dependencies` (from "Depends: TRD-YYY"), `parallelizable` (from "[P]" marker).
 
-Stages execute SEQUENTIALLY. You MUST wait for each subagent Task to complete
-before proceeding to the next stage.
+### 3.2 Stage Expansion
 
-### Strategy-Specific Execution Flows
+Each TRD task expands to sub-tasks with dependencies:
 
-**For strategy=`tdd` (TDD Flow - RED-GREEN-REFACTOR):**
 ```
-VERIFY-RED (verify-app writes failing tests)
-    -> WAIT for completion
-    -> IMPLEMENT-GREEN (implementer writes code to pass tests)
-    -> WAIT for completion
-    -> VERIFY (verify-app confirms tests pass)
-    -> WAIT for completion
-    -> SIMPLIFY-REFACTOR (code-simplifier refactors)
-    -> WAIT for completion
-    -> VERIFY (verify-app confirms no regressions)
-    -> WAIT for completion
-    -> REVIEW (code-reviewer)
+TRD Task: AUTH-F001 -> frontend-implementer
+
+Creates TaskTools tasks:
+  AUTH-F001:impl     [owner: frontend-implementer]
+  AUTH-F001:verify   [owner: verify-app, blockedBy: :impl]
+  AUTH-F001:simplify [owner: code-simplifier, blockedBy: :verify]
+  AUTH-F001:review   [owner: code-reviewer, blockedBy: :simplify]
 ```
 
-**For all other strategies (standard flow):**
+**For TDD strategy, prepend RED phase:**
 ```
-IMPLEMENT (Task -> implementer)
-    -> WAIT for completion
-    -> VERIFY (Task -> verify-app)
-    -> WAIT for completion
-    -> SIMPLIFY (Task -> code-simplifier)
-    -> WAIT for completion
-    -> VERIFY (Task -> verify-app)
-    -> WAIT for completion
-    -> REVIEW (Task -> code-reviewer)
+  AUTH-F001:red      [owner: verify-app]
+  AUTH-F001:impl     [blockedBy: :red]
+  ...
 ```
 
-**DO NOT** attempt to run multiple stages in parallel or skip the wait between stages.
+### 3.3 Cross-Task Dependencies
 
-### Agent Role Separation
+If TRD declares `Task B depends on Task A`:
+- Default: `B:impl` blockedBy `A:review`
+- If file sets disjoint: `B:impl` blockedBy `A:verify` (parallelization opportunity)
 
-**verify-app** (Verification Specialist):
-- For TDD: WRITE failing tests during RED phase
-- EXECUTE test suites against implemented code
-- Report pass/fail status with coverage metrics
-- Verify acceptance criteria conformance
-- Make the go/no-go decision
+### 3.4 Create Tasks
 
-**Implementers** (backend-implementer, frontend-implementer, mobile-implementer):
-- For TDD: Receive failing tests, write MINIMAL code to make them pass
-- For other strategies: Write both tests and implementation
-- Do NOT execute test suites for formal verification
-- Return: files changed, implementation summary
+**CRITICAL:** For each TRD task, create ALL four sub-tasks (or five for TDD strategy).
 
-**code-simplifier** (Refactoring Specialist):
-- For TDD: Handle REFACTOR phase of RED-GREEN-REFACTOR
-- Clean up code while preserving behavior
-- All tests must continue to pass after refactoring
+**Before creating tasks, check for existing:**
 
-This separation ensures proper RED-GREEN-REFACTOR discipline for TDD.
+```javascript
+const existingTasks = TaskList();
+const existingIds = new Set(existingTasks.map(t => t.subject.split(' ')[0]));
+```
+
+**Create all sub-tasks for each TRD task:**
+
+```javascript
+for (const trdTask of trdTasks) {
+  const baseId = trdTask.id;
+  const agent = trdTask.assignee;  // e.g., "frontend-implementer"
+
+  // Skip if already exists
+  if (existingIds.has(`${baseId}:impl`)) continue;
+
+  // 1. Create :impl task
+  TaskCreate({
+    subject: `${baseId}:impl - ${trdTask.description}`,
+    description: `[Full context - see Template A.2]`,
+    activeForm: `Implementing ${baseId}`,
+    metadata: { trd_task_id: baseId, stage: "impl", intended_agent: agent }
+  });
+
+  // 2. Create :verify task
+  TaskCreate({
+    subject: `${baseId}:verify - Verify ${trdTask.description}`,
+    description: `[Full context - see Template A.3]`,
+    activeForm: `Verifying ${baseId}`,
+    metadata: { trd_task_id: baseId, stage: "verify", intended_agent: "verify-app" }
+  });
+
+  // 3. Create :simplify task
+  TaskCreate({
+    subject: `${baseId}:simplify - Simplify ${trdTask.description}`,
+    description: `[Full context - see Template A.6]`,
+    activeForm: `Simplifying ${baseId}`,
+    metadata: { trd_task_id: baseId, stage: "simplify", intended_agent: "code-simplifier" }
+  });
+
+  // 4. Create :review task
+  TaskCreate({
+    subject: `${baseId}:review - Review ${trdTask.description}`,
+    description: `[Full context - see Template A.7]`,
+    activeForm: `Reviewing ${baseId}`,
+    metadata: { trd_task_id: baseId, stage: "review", intended_agent: "code-reviewer" }
+  });
+
+  // 5. For TDD strategy, also create :red task (prepended)
+  if (strategy === "tdd") {
+    TaskCreate({
+      subject: `${baseId}:red - Write failing tests for ${trdTask.description}`,
+      description: `[Full context - see Template A.1]`,
+      activeForm: `Writing tests for ${baseId}`,
+      metadata: { trd_task_id: baseId, stage: "red", intended_agent: "verify-app" }
+    });
+  }
+}
+```
+
+**Then set up dependency chains:**
+
+```javascript
+for (const trdTask of trdTasks) {
+  const baseId = trdTask.id;
+
+  if (strategy === "tdd") {
+    // TDD: red -> impl -> verify -> simplify -> review
+    TaskUpdate({ taskId: `${baseId}:impl`, addBlockedBy: [`${baseId}:red`] });
+    TaskUpdate({ taskId: `${baseId}:verify`, addBlockedBy: [`${baseId}:impl`] });
+  } else {
+    // Standard: impl -> verify -> simplify -> review
+    TaskUpdate({ taskId: `${baseId}:verify`, addBlockedBy: [`${baseId}:impl`] });
+  }
+
+  TaskUpdate({ taskId: `${baseId}:simplify`, addBlockedBy: [`${baseId}:verify`] });
+  TaskUpdate({ taskId: `${baseId}:review`, addBlockedBy: [`${baseId}:simplify`] });
+}
+```
+
+**Note:** The `intended_agent` is stored in metadata for routing purposes. The `owner` field is only set when an agent claims the task for execution (see Section 4.2).
 
 ---
 
-## Step 3: Staged Execution Loop
+## Step 4: Main Execution Loop
 
-For each task, execute the **staged execution loop**:
+### 4.1 Find Available Tasks
+
+```javascript
+TaskList() -> filter:
+  - status: "pending"
+  - blockedBy: [] (empty or all completed)
+  - owner: null (unclaimed)
+```
+
+### 4.2 Claim and Execute
+
+For each available task:
+
+**Before updating any task, verify current state:**
+
+```javascript
+const task = TaskGet({ taskId });
+if (task.status !== "pending") {
+  // Task was claimed/modified by another process
+  // Skip and move to next available task
+  continue;
+}
+TaskUpdate({ taskId, owner: "self", status: "in_progress" });
+```
+
+1. **Claim:** `TaskUpdate({ taskId, owner: "self", status: "in_progress" })`
+   - Note: `owner: "self"` indicates this agent is working on the task
+   - The `intended_agent` in metadata determines which subagent receives the work
+2. **Dispatch:** Task tool with stage-appropriate prompt (see Appendix A)
+3. **Handle Result:**
+   - Success: `TaskUpdate({ taskId, status: "completed" })`
+   - Failure: Route to DEBUG (for blocking strategies)
+4. **Summarize Result (Context Management):**
+   - When a subagent returns, immediately extract ONLY: status (pass/fail), files_changed list, error_summary (if any)
+   - Discard the full subagent output — do NOT retain verbose results in orchestrator context
+   - Record a single-line summary: `"[TASK_ID:stage] PASS | files: a.js, b.js"` or `"[TASK_ID:stage] FAIL | error: <one-liner>"`
+   - Pass only the summary (not full output) to downstream stages that need context
+
+### 4.3 Agent Selection
+
+| Task Keywords | Agent |
+|---------------|-------|
+| backend, api, endpoint, database, server, service | `backend-implementer` |
+| frontend, ui, component, react, vue, angular, web, page | `frontend-implementer` |
+| mobile, flutter, react-native, ios, android, app | `mobile-implementer` |
+| infra, deploy, docker, k8s, aws, cloud, terraform | `devops-engineer` |
+| pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
+
+### 4.4 Stage Execution
+
+**Stage: VERIFY-RED (TDD only)**
+
+Delegate to `verify-app` using **Template: VERIFY-RED** (Appendix A.1).
+Wait for failing tests before proceeding to IMPLEMENT.
+
+**Stage: IMPLEMENT**
+
+Select implementer per 4.3. For UI tasks, include V0/visual context.
+
+**State-Write-Before-Delegate (CRITICAL):** Before spawning the subagent, write state to disk:
+1. Set `tasks[id].status = "in_progress"` and `tasks[id].cycle_position = "implement"` in implement.json
+2. Write implement.json to disk
+3. THEN dispatch the Task tool
+
+This ensures the status.js hook can find and advance the in-progress task on SubagentStop.
+
+Delegate using **Template: IMPLEMENT** (Appendix A.2).
+Update state: `implementer_type`, `cycle_position = "implement"`.
+
+**Stage: VERIFY**
+
+Delegate to `verify-app` using **Template: VERIFY** (Appendix A.3).
+
+| Strategy | On Test Failure | On Coverage Gap |
+|----------|-----------------|-----------------|
+| `tdd` | BLOCK -> DEBUG | BLOCK |
+| `characterization` | CONTINUE | SKIP |
+| `test-after` | WARN | WARN |
+| `bug-fix` | BLOCK -> DEBUG | WARN |
+| `refactor` | BLOCK -> DEBUG | BLOCK |
+| `flexible` | LOG | LOG |
+
+For UI tasks: Visual verification is BLOCKING. On visual issues, return to `frontend-implementer` with **Template: VISUAL-FIX** (Appendix A.4).
+
+**Stage: DEBUG (Conditional)**
+
+Only when VERIFY fails and strategy blocks. Delegate to `app-debugger` using **Template: DEBUG** (Appendix A.5).
+
+Retry tracking:
+- New problem: `retry_count = 1`
+- Same problem: `retry_count++`
+- If `retry_count >= 3`: STUCK -> pause for user
+
+After debug fix, return to VERIFY.
+
+**Stage: SIMPLIFY**
+
+Delegate to `code-simplifier` using **Template: SIMPLIFY** (Appendix A.6).
+After simplification, run VERIFY POST-SIMPLIFY.
+
+**Stage: REVIEW**
+
+Delegate to `code-reviewer` using **Template: REVIEW** (Appendix A.7).
+
+| Result | Action |
+|--------|--------|
+| APPROVED | Proceed to UPDATE |
+| APPROVED_WITH_RECOMMENDATIONS | Log, proceed to UPDATE |
+| REJECTED | Return to IMPLEMENT (same implementer) with issues |
+
+### 4.5 Stage: UPDATE ARTIFACTS
+
+1. Update TRD checkbox: `- [ ]` -> `- [x]`
+2. Update state: `status = "success"`, `cycle_position = "complete"`, `completed_at`
+3. Commit: `git commit -m "<type>({task_id}): {description}"`
+4. Record commit SHA in state
+
+---
+
+## Step 5: Phase Checkpoint
+
+After completing all tasks in a phase:
+
+### 5.1 Quality Gate Verification
+
+Delegate to `verify-app` for full test suite:
+```xml
+<phase_verification phase="{N}" files="{all_files}">
+  Run FULL test suite. Report: total pass/fail, unit%, integration%, e2e status.
+</phase_verification>
+```
+
+**Quality gate by strategy:**
+
+| Strategy | Test Failure | Coverage Below Threshold |
+|----------|--------------|--------------------------|
+| `tdd`, `refactor` | BLOCK | BLOCK |
+| `bug-fix` | BLOCK | WARN |
+| `characterization` | CONTINUE | SKIP |
+| `test-after`, `flexible` | WARN/LOG | WARN/LOG |
+
+### 5.2 Git Checkpoint
+
+```bash
+git add -A
+git commit -m "chore(phase {N}): checkpoint (tests {status}; unit {X}%; integration {Y}%)"
+git push -u origin {branch_name}
+```
+
+### 5.3 Update State
+
+Add checkpoint entry, advance `phase_cursor`, update `recovery.last_healthy_checkpoint`.
+
+### 5.4 Context Management at Phase Boundary
+
+After each phase checkpoint, recommend context compaction:
 
 ```
-IMPLEMENT -> VERIFY -> [DEBUG if fail] -> SIMPLIFY -> VERIFY -> [DEBUG if fail] -> REVIEW -> [IMPLEMENT if issues] -> UPDATE
+Phase {N} checkpoint complete.
+Completed tasks: {list}
+State saved to: .trd-state/<trd-name>/implement.json
+
+Recommendation: Run /compact to compress context before continuing to Phase {N+1}.
+All progress is persisted in the state file and will survive context compaction.
 ```
 
-### 3.0 Stage: VERIFY-RED (TDD Strategy Only)
+This prevents context exhaustion on large TRDs with many tasks. The state file preserves all progress across compaction.
 
-**Purpose:** Write failing tests that define the acceptance criteria (RED phase of TDD).
+---
 
-**Condition:** Only execute this stage when `strategy = "tdd"`.
+## Step 6: State Management
 
-**Delegate to `verify-app`:**
+### State File Location
+
+`.trd-state/<trd-name>/implement.json`
+
+### State File Schema
+
+```json
+{
+  "version": "3.1.0",
+  "trd_file": "docs/TRD/<feature>.md",
+  "trd_hash": "<sha256>",
+  "branch": "<branch-name>",
+  "strategy": "tdd|characterization|test-after|bug-fix|refactor|flexible",
+  "phase_cursor": 1,
+  "active_sessions": {
+    "<phase_task_key>": "<session_id or null>"
+  },
+  "tasks": {
+    "TRD-XXX": {
+      "description": "Task description",
+      "phase": 1,
+      "status": "pending|in_progress|success|failed|blocked",
+      "cycle_position": "implement|verify|verify_red|debug|simplify|verify_post_simplify|review|complete",
+      "implementer_type": "backend-implementer|frontend-implementer|mobile-implementer|null",
+      "current_problem": "Description or null",
+      "retry_count": 0,
+      "session_id": "sess_xxx or null",
+      "commit": "sha or null",
+      "started_at": "ISO8601 or null",
+      "completed_at": "ISO8601 or null"
+    }
+  },
+  "coverage": { "unit": 0.0, "integration": 0.0, "e2e": 0.0 },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "sha",
+      "timestamp": "ISO8601",
+      "tasks_completed": ["TRD-001", "TRD-002"],
+      "coverage": { "unit": 0.82, "integration": 0.71 }
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "sha",
+    "last_checkpoint_timestamp": "ISO8601",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "metrics": {
+    "total_tasks": 0,
+    "completed_tasks": 0,
+    "failed_tasks": 0,
+    "total_retries": 0
+  },
+  "risk_tracking": {
+    "materialized_risks": [],
+    "contingencies_applied": [],
+    "scope_violations_caught": 0
+  }
+}
+```
+
+**Session ID Storage:**
+- `active_sessions`: Quick lookup for `claude --resume` attempts
+- `tasks[id].session_id`: Historical record of completing session
+
+### Session vs Persistent State
+
+| Scope | Storage | Purpose |
+|-------|---------|---------|
+| Session | TaskTools | In-session orchestration, parallelism, progress display |
+| Persistent | `.trd-state/*/implement.json` | Cross-session recovery, audit trail, metrics |
+
+**Important:** TaskTools are session-scoped. When a Claude session ends, all TaskTools data is lost. The state file is the source of truth for cross-session state.
+
+**On Session Start:**
+1. Read persistent state file
+2. Expand incomplete tasks to TaskTools (Step 3)
+3. Use TaskTools for in-session execution
+
+**On Checkpoint/Stage Completion:**
+1. Update persistent state file with task status
+2. TaskTools status is transient
+
+**On Resume:**
+1. Read persistent state file
+2. Re-expand incomplete tasks to TaskTools (Step 2.2.4)
+3. Resume from persisted cycle_position
+
+---
+
+## Step 7: Completion
+
+When all phases complete:
+
+```
+===============================================================================
+                    TRD IMPLEMENTATION COMPLETE
+===============================================================================
+
+TRD: {trd_filename}
+Branch: {branch_name}
+Strategy: {strategy}
+
+PROGRESS
+--------
+Total tasks: {N}
+Completed: {completed_count}
+Failed: {failed_count}
+
+QUALITY METRICS
+---------------
+Unit Coverage:        {X}% (target: 80%)  {PASS/FAIL}
+Integration Coverage: {Y}% (target: 70%)  {PASS/FAIL}
+Security Review:      {Clean/Issues found}
+
+RISK & SCOPE TRACKING
+---------------------
+Scope violations caught:    {count}
+Risks materialized:         {count}
+Contingency plans applied:  {count}
+
+{If materialized_risks > 0:}
+Materialized risks:
+  - {risk_id}: {description} -> {resolution}
+
+COMMITS
+-------
+{list of commit SHAs with messages}
+
+NEXT STEPS
+----------
+1. Review changes: git diff main...{branch_name}
+2. Create PR: gh pr create --title "{TRD title}"
+3. After merge: mv docs/TRD/{filename} docs/TRD/completed/
+
+===============================================================================
+```
+
+For Wiggum mode, signal: `<promise>COMPLETE</promise>`
+
+---
+
+## Step 8: Pause for User
+
+When STUCK (retry count >= 3):
+
+```
+===============================================================================
+                    IMPLEMENTATION PAUSED
+===============================================================================
+
+Task: {task_id}
+Stage: {cycle_position}
+Problem: {current_problem}
+Retry attempts: {retry_count}/3
+
+{If problem matches documented risk:}
+RISK MATCH DETECTED:
+- Risk ID: {risk_id}
+- Documented Mitigation: {mitigation}
+- Contingency Plan: {plan or "None"}
+
+OPTIONS:
+1. "fix <guidance>" - Provide specific guidance
+2. "skip" - Skip this task (mark blocked)
+3. "retry" - Reset retry count
+4. "abort" - Stop and save state
+{If contingency exists:}
+5. "contingency" - Apply documented contingency plan
+
+Waiting for input...
+===============================================================================
+```
+
+---
+
+## Error Handling
+
+| Error | Response |
+|-------|----------|
+| No TRD found | List available in `docs/TRD/`, suggest `/create-trd` |
+| TRD has no tasks | Validate format, check "Master Task List" section |
+| Git branch conflict | Suggest `git stash` or `git commit` |
+| Task failure (3+ retries) | Pause for user (Step 8) |
+| Coverage below threshold | Strategy-dependent: block, warn, or continue |
+| State file corrupted | Attempt git reconstruction, offer `--reset-state` |
+| Network error (git push) | Retry 3x with backoff, then pause |
+
+---
+
+## Skill Matching
+
+**Discovery order:** `.claude/router-rules.json` > Plugin router-rules > Fallback table
+
+| Task Keywords | Skills |
+|---------------|--------|
+| JavaScript, TypeScript, Jest, React test | `jest` |
+| Python, pytest, Django, Flask | `pytest` |
+| Ruby, RSpec, Rails | `rspec` |
+| Elixir, ExUnit, Phoenix | `exunit` |
+| C#, .NET, xUnit | `xunit` |
+| Playwright, E2E, browser | `writing-playwright-tests` |
+| React, component, hook | `developing-with-react` |
+| TypeScript, types | `developing-with-typescript` |
+| Python, FastAPI | `developing-with-python` |
+| Tailwind, CSS, styling | `styling-with-tailwind` |
+| Prisma, ORM, database | `using-prisma` |
+
+Include in delegation: `Use Skill tool to invoke {matched_skill} if available.`
+
+---
+
+## File Conflict Detection
+
+Before parallel execution:
+
+1. **Infer file touches:** Explicit `Files:` in task, keyword patterns, domain inference
+2. **Detect conflicts:** Same file = sequential; disjoint = parallel
+3. **Execute:** Max 2 concurrent tasks; pause conflicting task if detected mid-execution
+
+---
+
+## Task Priority
+
+When multiple tasks are available (pending, unblocked, unowned), select by priority:
+
+1. **Earlier phase first** - Phase 1 tasks before Phase 2
+2. **Critical path** - Tasks that block the most other tasks
+3. **Smaller scope** - Tasks with fewer expected file changes
+4. **Deterministic fallback** - Alphabetical by task ID
+
+---
+
+## Task Timeout
+
+If a dispatched subagent task has not returned within 30 minutes:
+
+1. Log timeout to state file's `recovery` section
+2. Mark task as `stalled` in persistent state
+3. Present user options:
+   - "wait" - Continue waiting
+   - "restart" - Restart the task from current stage
+   - "skip" - Mark as blocked and continue
+
+---
+
+## Compatibility
+
+- Works with/without `.claude/rules/constitution.md`
+- Works with/without `.claude/router-rules.json`
+- Standard TRD task format supported
+- State files git-tracked for coordination
+- Local CLI and Claude Code web supported
+
+---
+
+# Appendix A: Delegation Prompt Templates
+
+## A.1 Template: VERIFY-RED (TDD Only)
 
 ```xml
 <tdd_red_phase>
@@ -397,39 +825,11 @@ guide the implementer toward the correct solution.
 </instructions>
 ```
 
-**Delegation Execution:**
+**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
 
-Use the Task tool to invoke verify-app for RED phase:
+---
 
-```
-Task(
-  subagent_type="verify-app",
-  prompt="[TDD RED phase request above]"
-)
-```
-
-**WAIT** for verify-app to return with failing tests before proceeding to IMPLEMENT.
-
-**Update state:**
-- Set `tasks[task_id].cycle_position = "verify_red"`
-
-**After completion:** Proceed to IMPLEMENT stage with the failing tests.
-
-### 3.1 Stage: IMPLEMENT
-
-**Purpose:** Build the feature or fix described in the task.
-
-**Select implementer based on task keywords:**
-
-| Keywords | Agent |
-|----------|-------|
-| backend, api, endpoint, database, server, service | `backend-implementer` |
-| frontend, ui, component, react, vue, angular, web, page | `frontend-implementer` |
-| mobile, flutter, react-native, ios, android, app | `mobile-implementer` |
-| infra, deploy, docker, k8s, aws, cloud, terraform | `devops-engineer` |
-| pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
-
-**Delegation prompt to implementer:**
+## A.2 Template: IMPLEMENT
 
 ```xml
 <task>
@@ -523,39 +923,41 @@ Use your judgment on test-first vs test-after based on task nature.
 </deliverables>
 ```
 
-**Delegation Execution:**
+**For UI/Frontend Tasks, prepend UI context from TRD:**
 
-Use the Task tool to invoke the selected implementer:
+If the TRD contains a "Design References" or "UI Context" section, extract and include:
 
+```xml
+<ui_context>
+  <!-- Extract from TRD Section 10 "Reference Documents" or dedicated "Design References" section -->
+  <design_references>{paths to wireframes, component catalog, design tokens, etc. from TRD}</design_references>
+  <visual_capture>
+    <screenshot_path>{from TRD or default: tests/visual/__screenshots__/}</screenshot_path>
+  </visual_capture>
+  <instructions>
+    1. Reference design documents listed above before building components
+    2. Use V0 MCP tools if available for presentational components
+    3. Capture screenshots after implementation for visual verification
+    4. Include screenshot paths in deliverables
+  </instructions>
+</ui_context>
 ```
-Task(
-  subagent_type="backend-implementer",  // or frontend-implementer, mobile-implementer
-  prompt="[Full delegation prompt above]"
-)
-```
 
-**WAIT** for the Task to return before proceeding to VERIFY stage.
+**Note:** Design file paths are project-specific and should be declared in the TRD, not hardcoded in this command.
 
-**For TDD strategy:** The implementer receives failing tests from VERIFY-RED and writes
-minimal code to make them pass. They do NOT write new tests or modify existing tests.
+**Invoke:** `Task(subagent_type="{selected-implementer}", prompt="[above]")`
 
-**For other strategies:** Implementers write both tests and implementation.
+---
 
-**Update state after delegation:**
-- Set `tasks[task_id].status = "in_progress"`
-- Set `tasks[task_id].cycle_position = "implement"`
-
-### 3.2 Stage: VERIFY
-
-**Purpose:** Execute tests to verify the implementation meets requirements.
-
-**Delegate to `verify-app`:**
+## A.3 Template: VERIFY
 
 ```xml
 <verification_request>
   <task_id>{task_id}</task_id>
   <files_changed>{list of files modified in IMPLEMENT stage}</files_changed>
   <strategy>{strategy}</strategy>
+  <verification_level>{from constitution.md or "unit-only" default}</verification_level>
+  <live_required>{true if task description contains [LIVE] marker, false otherwise}</live_required>
 </verification_request>
 
 <instructions>
@@ -567,48 +969,73 @@ Report:
 3. For failures: file path, line number, error message, expected vs actual
 
 Use appropriate test skill (jest, pytest, rspec, etc.) based on project stack.
+
+**Verification level enforcement**: Read `.claude/rules/constitution.md` for `verification_level`.
+If `live_required` is true OR `verification_level` is `live-required` or `e2e-required`,
+you MUST start the service and verify against a running instance. Include actual HTTP
+responses or runtime output as evidence. Do NOT approve based solely on unit/mock tests.
 </instructions>
 ```
 
-**Delegation Execution:**
+**For UI Tasks, append visual verification (using design references from TRD):**
 
-Use the Task tool to invoke verify-app:
+```xml
+<visual_verification_request>
+  <task_id>{task_id}</task_id>
+  <screenshot_paths>{paths provided by frontend-implementer}</screenshot_paths>
+  <design_references>{extracted from TRD Section 10 or "Design References" section}</design_references>
+</visual_verification_request>
 
+<instructions>
+In addition to functional testing, perform visual verification:
+
+1. Review screenshots against design references from TRD
+2. Verify design tokens/styling conventions are followed
+3. Check component layout matches wireframes
+4. Look for visual glitches, overflow, alignment issues
+
+If visual issues found:
+- Provide specific feedback with file:line references
+- Return visual_issues[] in your response
+</instructions>
 ```
-Task(
-  subagent_type="verify-app",
-  prompt="[Full verification request above]"
-)
+
+**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+
+---
+
+## A.4 Template: VISUAL-FIX
+
+```xml
+<visual_fix_request>
+  <task_id>{task_id}</task_id>
+  <screenshot_paths>{paths that failed visual review}</screenshot_paths>
+  <visual_issues>
+    {list of visual_issues[] from verify-app response}
+  </visual_issues>
+</visual_fix_request>
+
+<instructions>
+Visual verification found issues with the implementation. Fix the visual problems listed above.
+
+For each issue:
+1. Review the specific feedback and file:line references
+2. If V0 refinement prompt is suggested, use it to regenerate the component
+3. Update the component/styling to match design spec
+4. Capture new screenshots after fixes
+
+Return:
+- files_changed: list of files modified
+- screenshot_paths: updated screenshot paths for re-verification
+- fixes_applied: brief description of each visual fix
+</instructions>
 ```
 
-**WAIT** for verify-app to return before evaluating results.
-Do NOT proceed to SIMPLIFY until verification is complete.
+**Invoke:** `Task(subagent_type="frontend-implementer", prompt="[above]")`
 
-**Update state:**
-- Set `tasks[task_id].cycle_position = "verify"`
+---
 
-**Handle results based on strategy:**
-
-| Strategy | On Test Failure | On Coverage Below Threshold |
-|----------|-----------------|----------------------------|
-| `tdd` | BLOCK - go to DEBUG | BLOCK until improved |
-| `characterization` | INFORMATIONAL - continue | SKIP coverage check |
-| `test-after` | WARN - continue | WARN - continue |
-| `bug-fix` | BLOCK - go to DEBUG | WARN - continue |
-| `refactor` | BLOCK - go to DEBUG | BLOCK (no regressions) |
-| `flexible` | LOG - continue | LOG - continue |
-
-**If tests pass:** Proceed to SIMPLIFY stage.
-
-**If tests fail and strategy requires blocking:** Proceed to DEBUG stage.
-
-### 3.3 Stage: DEBUG (Conditional)
-
-**Purpose:** Analyze and fix test failures. Invoked only when VERIFY fails and strategy blocks on failure.
-
-**CRITICAL:** Delegate debugging to `app-debugger`, NOT to the original implementer.
-
-**Delegate to `app-debugger`:**
+## A.5 Template: DEBUG
 
 ```xml
 <debug_request>
@@ -618,7 +1045,7 @@ Do NOT proceed to SIMPLIFY until verification is complete.
   </test_failures>
   <files_modified>{list of files changed}</files_modified>
   <current_problem>{description of the problem}</current_problem>
-  <retry_count>{number of previous debug attempts for this problem}</retry_count>
+  <retry_count>{number of previous debug attempts}</retry_count>
 </debug_request>
 
 <known_risks>
@@ -650,33 +1077,11 @@ Do NOT execute tests - return to VERIFY stage for that.
 </instructions>
 ```
 
-**Retry logic:**
+**Invoke:** `Task(subagent_type="app-debugger", prompt="[above]")`
 
-Track `current_problem` (a description of the issue) and `retry_count`:
+---
 
-1. If this is a NEW problem (different from `current_problem`):
-   - Set `current_problem = new_problem_description`
-   - Set `retry_count = 1`
-
-2. If this is the SAME problem (matches `current_problem`):
-   - Increment `retry_count`
-   - If `retry_count >= 3`: **STUCK** - pause for user
-
-3. After debug fix applied:
-   - Return to VERIFY stage
-   - If VERIFY passes: clear `current_problem`, proceed to SIMPLIFY
-   - If VERIFY fails: check retry logic above
-
-**Update state:**
-- Set `tasks[task_id].cycle_position = "debug"`
-- Set `tasks[task_id].current_problem = <problem description>`
-- Set `tasks[task_id].retry_count = <count>`
-
-### 3.4 Stage: SIMPLIFY
-
-**Purpose:** Refactor for clarity and maintainability after tests pass.
-
-**Delegate to `code-simplifier`:**
+## A.6 Template: SIMPLIFY
 
 ```xml
 <simplification_request>
@@ -685,6 +1090,12 @@ Track `current_problem` (a description of the issue) and `retry_count`:
 </simplification_request>
 
 <instructions>
+YOU MUST actually execute simplification. Read every file listed above and
+apply concrete improvements. If the code is already clean, document WHY with
+specific evidence (e.g., "cyclomatic complexity is 3, naming follows conventions,
+no duplication found across N files"). NEVER skip this stage silently or return
+without reading the files.
+
 Review the implemented code and simplify where possible:
 
 1. Reduce complexity (cyclomatic, cognitive)
@@ -695,45 +1106,19 @@ Review the implemented code and simplify where possible:
 
 CRITICAL: All tests must continue to pass after refactoring.
 Do NOT change behavior - only improve code quality.
+
+Deliverables (ALL required):
+- files_reviewed: list of every file you read
+- changes_made: list of specific edits (or "none needed" with evidence)
+- complexity_before_after: brief metric comparison if changes were made
 </instructions>
 ```
 
-**Update state:**
-- Set `tasks[task_id].cycle_position = "simplify"`
+**Invoke:** `Task(subagent_type="code-simplifier", prompt="[above]")`
 
-After simplification, proceed to **VERIFY POST-SIMPLIFY**.
+---
 
-### 3.5 Stage: VERIFY POST-SIMPLIFY
-
-**Purpose:** Ensure simplification did not break anything.
-
-**Delegate to `verify-app`:**
-
-```xml
-<verification_request>
-  <task_id>{task_id}</task_id>
-  <verification_type>post_simplify</verification_type>
-  <files_changed>{list of files modified by code-simplifier}</files_changed>
-</verification_request>
-
-<instructions>
-Run the test suite to verify refactoring did not introduce regressions.
-Report any new failures - these indicate the refactoring changed behavior.
-</instructions>
-```
-
-**Update state:**
-- Set `tasks[task_id].cycle_position = "verify_post_simplify"`
-
-**If tests fail:** Go to DEBUG stage (debugging the simplification regression).
-
-**If tests pass:** Proceed to REVIEW stage.
-
-### 3.6 Stage: REVIEW
-
-**Purpose:** Security and quality review before marking task complete.
-
-**Delegate to `code-reviewer`:**
+## A.7 Template: REVIEW
 
 ```xml
 <review_request>
@@ -769,823 +1154,50 @@ Report:
 </instructions>
 ```
 
-**Update state:**
-- Set `tasks[task_id].cycle_position = "review"`
-
-**Handle review results:**
-
-| Result | Action |
-|--------|--------|
-| APPROVED | Proceed to UPDATE ARTIFACTS |
-| APPROVED_WITH_RECOMMENDATIONS | Log recommendations, proceed to UPDATE ARTIFACTS |
-| REJECTED | Return to IMPLEMENT stage with specific issues to fix |
-
-**If REJECTED:** Loop back to IMPLEMENT with the reviewer's feedback:
-```xml
-<implementation_feedback>
-  <issues>{list of issues from code-reviewer}</issues>
-  <instructions>Fix the identified issues and resubmit for verification.</instructions>
-</implementation_feedback>
-```
-
-### 3.7 Stage: UPDATE ARTIFACTS
-
-**Purpose:** Mark task complete, update tracking files.
-
-**Actions:**
-
-1. **Update TRD checkbox:**
-   - Change `- [ ] **{task_id}**:` to `- [x] **{task_id}**:`
-   - Save the TRD file
-
-2. **Update state file:**
-   - Set `tasks[task_id].status = "success"`
-   - Set `tasks[task_id].cycle_position = "complete"`
-   - Set `tasks[task_id].completed_at = ISO8601_timestamp`
-   - Set `tasks[task_id].commit = null` (will be set at checkpoint)
-
-3. **Commit task completion:**
-   ```
-   git add <all modified files>
-   git commit -m "<type>({task_id}): {brief description}"
-   ```
-
-   Commit type based on task:
-   - `feat` for new features
-   - `fix` for bug fixes
-   - `refactor` for refactoring tasks
-   - `test` for test-only tasks
-   - `docs` for documentation tasks
-
-4. **Update state with commit SHA:**
-   - Set `tasks[task_id].commit = <commit SHA>`
-
-**Update state:**
-- Set `tasks[task_id].cycle_position = "complete"`
+**Invoke:** `Task(subagent_type="code-reviewer", prompt="[above]")`
 
 ---
 
-## Step 4: Phase Checkpoint
+## A.8 Template: REJECTION-FIX
 
-After completing all tasks in a phase, create a checkpoint.
-
-### 4.1 Quality Gate Verification
-
-Run comprehensive verification for the phase:
-
-**Delegate to `verify-app`:**
 ```xml
-<phase_verification>
-  <phase>{phase_number}</phase>
-  <all_files_changed>{all files modified in this phase}</all_files_changed>
-</phase_verification>
+<implementation_feedback>
+  <task_id>{task_id}</task_id>
+  <original_implementation>{files_changed from original IMPLEMENT stage}</original_implementation>
+  <rejection_issues>{list of issues from code-reviewer}</rejection_issues>
+</implementation_feedback>
 
 <instructions>
-Run FULL test suite and report:
-1. Total tests: passed/failed
-2. Unit coverage percentage
-3. Integration coverage percentage
-4. E2E test status (if applicable)
+The code review identified issues that must be fixed before this task can be completed.
+
+Fix the specific issues listed above. Do NOT refactor beyond what is required to
+address the review feedback. After fixing, the code will go through VERIFY again.
+
+Return:
+- files_changed: list of files modified
+- fixes_applied: brief description of each fix
 </instructions>
 ```
 
-**Quality gate pass/fail by strategy:**
-
-| Strategy | Test Failure | Coverage Below 80%/70% |
-|----------|--------------|------------------------|
-| `tdd` | BLOCK | BLOCK |
-| `characterization` | CONTINUE (informational) | SKIP |
-| `test-after` | WARN, continue | WARN, continue |
-| `bug-fix` | BLOCK | WARN, continue |
-| `refactor` | BLOCK | BLOCK |
-| `flexible` | LOG, continue | LOG, continue |
-
-### 4.2 Create Checkpoint Commit
-
-```
-git add -A
-git commit -m "chore(phase {N}): checkpoint (tests {pass/fail}; unit {X}%; integration {Y}%)"
-```
-
-### 4.3 Push to Remote
-
-```
-git push -u origin {branch_name}
-```
-
-### 4.4 Update State File
-
-```json
-{
-  "checkpoints": [
-    ...,
-    {
-      "phase": {N},
-      "commit": "{checkpoint_commit_sha}",
-      "timestamp": "{ISO8601}",
-      "tasks_completed": ["{task_ids}"],
-      "coverage": {
-        "unit": {X},
-        "integration": {Y}
-      }
-    }
-  ],
-  "phase_cursor": {N + 1}
-}
-```
-
-### 4.5 Phase Completion Report
-
-```
-Phase {N} Complete
-
-Tasks completed: {count}
-Coverage: Unit {X}% | Integration {Y}%
-Commit: {sha}
-
-Proceeding to Phase {N + 1}...
-```
+**Invoke:** `Task(subagent_type="{original_implementer_type}", prompt="[above]")`
 
 ---
 
-## Step 5: State Management
-
-### State File Location
-
-`.trd-state/<trd-name>/implement.json`
-
-Where `<trd-name>` is the TRD filename without extension (e.g., `VFM-1234` from `VFM-1234.md`).
-
-### State File Schema
-
-```json
-{
-  "version": "2.0.0",
-  "trd_file": "docs/TRD/<feature>.md",
-  "trd_hash": "<sha256 of TRD content>",
-  "branch": "<branch-name>",
-  "strategy": "tdd|characterization|test-after|bug-fix|refactor|flexible",
-  "phase_cursor": 1,
-  "active_sessions": {
-    "<phase_task_key>": "<session_id or null>"
-  },
-  "tasks": {
-    "TRD-XXX": {
-      "description": "Task description",
-      "phase": 1,
-      "status": "pending|in_progress|success|failed|blocked",
-      "cycle_position": "implement|verify|debug|simplify|verify_post_simplify|review|update_artifacts|complete",
-      "current_problem": "Description of current problem or null",
-      "retry_count": 0,
-      "session_id": "sess_xxx or null",
-      "commit": "sha or null",
-      "started_at": "ISO8601 or null",
-      "completed_at": "ISO8601 or null"
-    }
-  },
-  "coverage": {
-    "unit": 0.0,
-    "integration": 0.0,
-    "e2e": 0.0
-  },
-  "checkpoints": [
-    {
-      "phase": 1,
-      "commit": "sha",
-      "timestamp": "ISO8601",
-      "tasks_completed": ["TRD-001", "TRD-002"],
-      "coverage": {
-        "unit": 0.82,
-        "integration": 0.71
-      }
-    }
-  ],
-  "recovery": {
-    "last_healthy_checkpoint": "sha",
-    "last_checkpoint_timestamp": "ISO8601",
-    "interrupted": false,
-    "interrupt_reason": null
-  },
-  "metrics": {
-    "total_tasks": 0,
-    "completed_tasks": 0,
-    "failed_tasks": 0,
-    "total_retries": 0
-  },
-  "risk_tracking": {
-    "materialized_risks": [
-      {
-        "risk_id": "TR1",
-        "task_id": "PREFIX-B003",
-        "description": "Description of how the risk materialized",
-        "resolution": "How it was resolved (mitigation applied or contingency used)",
-        "timestamp": "ISO8601"
-      }
-    ],
-    "contingencies_applied": ["TR1"],
-    "scope_violations_caught": 0
-  }
-}
-```
-
-**Session ID Storage:**
-
-Session IDs are stored in TWO locations for different purposes:
-
-1. **`active_sessions` map (top-level):**
-   - Purpose: Quick lookup of currently active sessions by phase/task
-   - Key format: `phase{N}_task{M}` or `phase{N}` for phase-level sessions
-   - Value: Session ID string or null
-   - Used by: Resume logic to attempt `claude --resume`
-   - Cleared: When task/phase completes
-
-2. **`tasks[task_id].session_id` (per-task):**
-   - Purpose: Historical record of which session completed the task
-   - Value: Session ID that completed the task, or null if not tracked
-   - Used by: Debugging, audit trail
-   - Set: When task transitions to `success` status
-
-**Example:**
-```json
-{
-  "active_sessions": {
-    "phase1_task3": "sess_abc123def456"
-  },
-  "tasks": {
-    "TRD-C401": {
-      "status": "success",
-      "session_id": "sess_xyz789ghi012"
-    },
-    "TRD-C402": {
-      "status": "in_progress",
-      "session_id": null
-    }
-  }
-}
-```
-
-In this example:
-- `TRD-C401` was completed in session `sess_xyz789ghi012`
-- `TRD-C402` is being worked on in the currently active session `sess_abc123def456`
-
-### State File Operations
-
-**Create initial state:**
-- When starting a new TRD implementation
-- Initialize all tasks as `pending`
-- Set `phase_cursor` to 1
-
-**Update on task progress:**
-- Update `cycle_position` at each stage
-- Update `status` on completion or failure
-- Track `retry_count` for debugging attempts
-
-**Update on checkpoint:**
-- Add checkpoint entry
-- Advance `phase_cursor`
-- Update coverage metrics
-
----
-
-## Step 6: Completion
-
-When all phases complete, generate final report:
-
-```
-===============================================================================
-                        TRD IMPLEMENTATION COMPLETE
-===============================================================================
-
-TRD: {trd_filename}
-Branch: {branch_name}
-Strategy: {strategy}
-
-PROGRESS
---------
-Total tasks: {N}
-Completed: {completed_count}
-Failed: {failed_count}
-
-QUALITY METRICS
----------------
-Unit Coverage:        {X}% (target: 80%)  {PASS/FAIL}
-Integration Coverage: {Y}% (target: 70%)  {PASS/FAIL}
-Security Review:      {Clean/Issues found}
-
-RISK & SCOPE TRACKING
----------------------
-Scope violations caught:    {scope_violations_caught}
-Risks materialized:         {count of materialized_risks}
-Contingency plans applied:  {count of contingencies_applied}
-
-{If materialized_risks > 0:}
-Materialized risks:
-  - {risk_id}: {brief description} -> {resolution}
-  ...
-
-COMMITS
--------
-{list of commit SHAs with messages}
-
-NEXT STEPS
-----------
-1. Review changes: git diff main...{branch_name}
-2. Create PR: gh pr create --title "{TRD title}" --body "Implementation of {trd_filename}"
-3. After merge: mv docs/TRD/{filename} docs/TRD/completed/
-
-===============================================================================
-```
-
----
-
-## Step 7: Pause for User (Non-Wiggum Mode)
-
-When the implementation gets **stuck** (retry count exceeded), pause execution and wait for user input.
-
-**Stuck conditions:**
-- Same problem encountered 3+ times
-- Unresolvable test failures
-- Code review rejection after multiple attempts
-- External dependency issues
-
-**Pause message:**
-
-```
-===============================================================================
-                        IMPLEMENTATION PAUSED
-===============================================================================
-
-Task: {task_id}
-Stage: {cycle_position}
-Problem: {current_problem}
-Retry attempts: {retry_count}/3
-
-{If problem matches a documented risk from TRD Section 7:}
-RISK MATCH DETECTED:
-- Risk ID: {risk_id}
-- Description: {risk_description}
-- Documented Mitigation: {mitigation_strategy}
-- Contingency Plan: {contingency_plan or "None documented"}
-
-The implementation has encountered a persistent issue that requires human intervention.
-
-OPTIONS:
-1. "fix <guidance>" - Provide specific guidance for fixing the issue
-2. "skip" - Skip this task and continue (mark as blocked)
-3. "retry" - Reset retry count and try again
-4. "abort" - Stop implementation and save state
-{If contingency plan exists:}
-5. "contingency" - Apply documented contingency plan for {risk_id}
-
-Waiting for input...
-===============================================================================
-```
-
-**After user input:**
-- Process the command
-- Update state accordingly
-- Resume or abort based on choice
-
----
-
-## Error Handling
-
-| Error | Response |
-|-------|----------|
-| No TRD found | List available TRDs in `docs/TRD/`, suggest `/create-trd` |
-| TRD has no tasks | Validate TRD format, suggest checking "Master Task List" section |
-| Git branch conflict | Suggest `git stash` or `git commit`, then retry |
-| Task failure (3+ retries) | Pause for user, provide options (see Step 7) |
-| Coverage below threshold | Strategy-dependent: block, warn, or continue |
-| State file corrupted | Attempt repair from git history, offer `--reset-state` |
-| Network error (git push) | Retry 3 times with backoff, then pause for user |
-
----
-
-## Resume and Recovery
-
-This section describes how to handle interrupted sessions and state validation for robust implementation workflows.
-
-### Resume Priority Order
-
-When determining how to start or resume implementation, follow this priority order:
-
-1. **`--reset-state` provided** -> Clear state file, start fresh (requires confirmation)
-2. **`--resume` or `--continue` provided** -> Try session resume -> fall back to checkpoint
-3. **State file exists with incomplete tasks** -> Resume from checkpoint automatically
-4. **No state file** -> Start fresh
-
-### Step R1: Handle --reset-state Flag
-
-**If `--reset-state` is provided:**
-
-1. Check if state file exists at `.trd-state/<trd-name>/implement.json`
-2. If exists, display current state summary:
-   ```
-   ===============================================================================
-                          RESET STATE CONFIRMATION
-   ===============================================================================
-
-   State file: .trd-state/<trd-name>/implement.json
-
-   Current progress:
-   - Phase cursor: {phase_cursor}
-   - Completed tasks: {completed_count}/{total_tasks}
-   - Last checkpoint: {last_checkpoint_timestamp or "None"}
-
-   WARNING: This will clear all progress tracking and start fresh.
-   The actual code changes will NOT be affected.
-
-   Type "confirm" to reset, or anything else to cancel:
-   ===============================================================================
-   ```
-3. Wait for user confirmation
-4. If confirmed:
-   - Delete the state file
-   - Delete the checkpoint records
-   - Log: "State cleared. Starting fresh implementation."
-5. If not confirmed:
-   - Log: "Reset cancelled. Proceeding with existing state."
-
-### Step R2: Handle --resume/--continue Flags
-
-**`--resume` and `--continue` are aliases with identical behavior.**
-
-**If `--resume` or `--continue` is provided:**
-
-1. **Attempt Session Resume First**
-
-   Read the state file and check for `active_sessions` entries with session IDs:
-
-   ```json
-   "active_sessions": {
-     "phase1_task5": "sess_abc123def456"
-   }
-   ```
-
-   If a session_id exists:
-   - Check if session was recently active (within last 24 hours via `recovery.last_checkpoint_timestamp`)
-   - If recent, attempt Claude session resume:
-     ```
-     Attempting to resume Claude session: {session_id}
-
-     Command: claude --resume {session_id}
-     ```
-   - Monitor the resume attempt
-   - If session resume succeeds: Continue from where it left off
-   - If session resume fails (session expired, not found, or error):
-     ```
-     Session resume failed: {reason}
-     Falling back to checkpoint-based resume...
-     ```
-
-2. **Checkpoint Fallback (if session resume fails or no session ID)**
-
-   Read the last checkpoint from state file:
-
-   ```json
-   "checkpoints": [
-     {
-       "phase": 1,
-       "commit": "abc123",
-       "timestamp": "2024-01-15T10:30:00Z",
-       "tasks_completed": ["TRD-001", "TRD-002"]
-     }
-   ]
-   ```
-
-   Resume behavior:
-   - Set `phase_cursor` to the phase of the last checkpoint
-   - Skip all tasks with `status: "success"` or `status: "complete"`
-   - Resume from first task with `status: "pending"`, `"in_progress"`, or `"failed"`
-   - If a task is `"in_progress"`, restart it from the beginning of its cycle
-   - Log resume point:
-     ```
-     Resuming from checkpoint:
-     - Phase: {phase_cursor}
-     - Last completed task: {last_completed_task_id}
-     - Resuming at task: {next_task_id}
-     - Checkpoint commit: {commit_sha}
-     ```
-
-3. **Verify Git State Matches Checkpoint**
-
-   Before resuming:
-   ```bash
-   git log --oneline -1 {checkpoint_commit}
-   ```
-
-   If checkpoint commit doesn't exist in local git history:
-   - Warn user: "Checkpoint commit {sha} not found in git history"
-   - Offer options:
-     a. "pull" - Try `git pull` to fetch missing commits
-     b. "ignore" - Resume anyway (may cause inconsistencies)
-     c. "reset" - Clear state and start fresh
-
-### Step R3: State Validation
-
-**On every `/implement-trd` start, validate the state file:**
-
-1. **Check JSON Structure**
-   - Attempt to parse `.trd-state/<trd-name>/implement.json`
-   - If JSON parse fails: State is corrupted, go to repair
-
-   **Empty or Zero-Byte State Files:**
-
-   If the state file exists but is empty (0 bytes):
-   - Treat as corrupted state file
-   - Proceed to State Repair flow
-   - Report: "State file is empty - treating as corrupted"
-
-   This can occur if:
-   - Previous session crashed during state write
-   - File system error occurred
-   - Manual editing removed content
-
-   **Detection:**
-   ```javascript
-   const stats = fs.statSync(statePath);
-   if (stats.size === 0) {
-     // Empty file - corrupted
-   }
-   ```
-
-2. **Check Required Fields**
-   Required fields in state file:
-   - `version` (string)
-   - `trd_file` (string, path)
-   - `trd_hash` (string, SHA-256)
-   - `phase_cursor` (integer >= 1)
-   - `tasks` (object)
-
-   For each task in `tasks`:
-   - `status` (one of: "pending", "in_progress", "success", "failed", "blocked")
-   - `cycle_position` (one of: "implement", "verify", "debug", "simplify", "verify_post_simplify", "review", "update_artifacts", "complete")
-
-3. **Verify Task IDs Match TRD**
-   - Extract task IDs from current TRD file
-   - Compare with task IDs in state file
-   - If mismatch:
-     ```
-     Task ID mismatch detected:
-     - In TRD but not in state: {missing_in_state}
-     - In state but not in TRD: {extra_in_state}
-
-     The TRD may have been modified since last run.
-     Options:
-     1. "sync" - Add new tasks as pending, mark removed tasks as stale
-     2. "continue" - Ignore mismatch and continue
-     3. "reset" - Clear state and start fresh
-     ```
-
-4. **Verify Commits Exist in Git**
-   For each task with a non-null `commit` field:
-   ```bash
-   git cat-file -t {commit_sha}
-   ```
-   If commit doesn't exist:
-   - Mark the commit as "unverified" in validation report
-   - Do NOT fail validation, but warn user
-
-5. **Validation Report**
-   ```
-   State Validation Report:
-   ========================
-   State file: .trd-state/<trd-name>/implement.json
-   Structure: VALID
-   Required fields: VALID
-   Task ID match: VALID / MISMATCH ({details})
-   Commit verification: VALID / {N} unverified commits
-
-   Overall: VALID / NEEDS_REPAIR
-   ```
-
-### Step R4: State Repair
-
-**If state validation fails, attempt repair:**
-
-1. **Attempt Automatic Reconstruction from Git Log**
-
-   ```bash
-   git log --oneline --grep="TRD-" -- .
-   ```
-
-   Parse commit messages for task completion patterns:
-   - `feat(TRD-XXX):` -> task TRD-XXX completed
-   - `fix(TRD-XXX):` -> task TRD-XXX completed
-   - `chore(phase N):` -> checkpoint for phase N
-
-   Build reconstructed state from git history:
-   ```
-   Attempting state reconstruction from git history...
-
-   Found commits:
-   - abc123: feat(TRD-001): Implement user model
-   - def456: fix(TRD-002): Fix validation bug
-   - ghi789: chore(phase 1): checkpoint
-
-   Reconstructed state:
-   - Completed tasks: TRD-001, TRD-002
-   - Phase cursor: 2
-   ```
-
-   **Git Reconstruction Limitations:**
-
-   The git log reconstruction is a "best effort" mechanism with the following limitations:
-
-   1. **Commit Message Format Dependency:**
-      - Reconstruction relies on commit messages following the pattern: `<type>(TRD-XXX): description`
-      - If commits used different formats, tasks may not be matched
-      - Example valid formats: `feat(TRD-C401): Add wiggum flag`, `fix(TRD-C402): Fix hook`
-
-   2. **Squashed/Rebased History:**
-      - If commits were squashed or rebased, individual task commits may be lost
-      - In this case, all tasks in the squashed commit will be marked as the squash commit
-
-   3. **Multiple Commits Per Task:**
-      - If a task has multiple commits, only the LAST commit is recorded
-      - Earlier commits for the same task are ignored
-
-   4. **Unmatched Tasks:**
-      - Tasks that cannot be matched to any commit default to `status: "pending"`
-      - These tasks will need to be re-implemented or manually marked complete
-
-   **Recommendation:** If reconstruction produces unexpected results, consider using `--reset-state` and manually tracking which tasks were completed based on the actual code changes.
-
-2. **Reset to Last Known Checkpoint**
-
-   If reconstruction fails or is incomplete:
-   ```
-   Automatic reconstruction incomplete.
-
-   Options:
-   1. "accept" - Accept partial reconstruction
-   2. "checkpoint" - Reset to last valid checkpoint
-   3. "fresh" - Start completely fresh (--reset-state)
-   ```
-
-   If "checkpoint" selected:
-   - Find last checkpoint with valid commit in git
-   - Reset all tasks after that checkpoint to "pending"
-   - Set phase_cursor to checkpoint phase + 1
-
-3. **User Confirmation for Destructive Repair**
-
-   Before any destructive repair action:
-   ```
-   ===============================================================================
-                          STATE REPAIR CONFIRMATION
-   ===============================================================================
-
-   The following repair action will modify your implementation state:
-
-   Action: {description}
-
-   Tasks that will be reset to pending:
-   {list of task IDs}
-
-   This cannot be undone (though your code changes are preserved).
-
-   Type "confirm" to proceed, or anything else to cancel:
-   ===============================================================================
-   ```
-
-### State File Recovery Fields
-
-The state file includes a `recovery` section to support resume operations:
-
-```json
-{
-  "recovery": {
-    "last_healthy_checkpoint": "sha",
-    "last_checkpoint_timestamp": "2024-01-15T10:30:00Z",
-    "interrupted": false,
-    "interrupt_reason": null
-  }
-}
-```
-
-| Field | Purpose |
-|-------|---------|
-| `last_healthy_checkpoint` | Git commit SHA of last successful checkpoint |
-| `last_checkpoint_timestamp` | ISO8601 timestamp for session recency check |
-| `interrupted` | Set to `true` if session was interrupted abnormally |
-| `interrupt_reason` | Description of interruption (crash, timeout, user abort) |
-
-**Update recovery fields:**
-- On checkpoint: Update `last_healthy_checkpoint` and `last_checkpoint_timestamp`
-- On abnormal exit: Set `interrupted = true` with reason
-- On successful resume: Clear `interrupted` and `interrupt_reason`
-
-### Resume Flow Diagram
-
-```
-/implement-trd [args]
-        |
-        v
-+------------------+
-| --reset-state?   |--yes--> Confirm --> Delete state --> Start fresh
-+------------------+
-        | no
-        v
-+------------------+
-| --resume flag?   |--yes--> Try session resume
-+------------------+         |
-        | no                 v
-        |            +------------------+
-        |            | Session found?   |--yes--> claude --resume {id}
-        |            +------------------+         |
-        |                    | no                 v
-        |                    |           +------------------+
-        |                    |           | Resume success?  |--yes--> Continue
-        |                    |           +------------------+
-        |                    |                   | no
-        |                    +-------------------+
-        |                    |
-        |                    v
-        |            Checkpoint fallback
-        |                    |
-        v                    v
-+------------------+  +------------------+
-| State exists?    |  | Skip completed   |
-+------------------+  | Resume at first  |
-   | yes    | no      | pending/failed   |
-   v        v         +------------------+
-Validate  Start              |
-state     fresh              v
-   |                  +------------------+
-   v                  | Verify git state |
-+------------------+  +------------------+
-| Valid?           |
-+------------------+
-   | yes    | no
-   v        v
-Resume   Repair
-from     state
-state
-```
-
----
-
-## Skill Matching
-
-When delegating to specialists, match skills based on project stack.
-
-**Skill discovery order:**
-1. Project-specific: `.claude/router-rules.json`
-2. Global: Plugin router-rules.json
-3. Fallback table (below)
-
-**Fallback skill matching:**
-
-| Task Keywords | Skills to Use |
-|---------------|---------------|
-| JavaScript, TypeScript, Jest, React test | `jest` |
-| Python, pytest, Django, Flask | `pytest` |
-| Ruby, RSpec, Rails | `rspec` |
-| Elixir, ExUnit, Phoenix | `exunit` |
-| C#, .NET, xUnit | `xunit` |
-| Playwright, E2E, browser | `writing-playwright-tests` |
-| React, component, hook | `developing-with-react` |
-| TypeScript, types | `developing-with-typescript` |
-| Python, FastAPI | `developing-with-python` |
-| Tailwind, CSS, styling | `styling-with-tailwind` |
-| Prisma, ORM, database | `using-prisma` |
-
-Include skill loading in delegation prompts:
-```
-Use the Skill tool to invoke the {matched_skill} skill if available.
-Report which skill(s) you used.
-```
-
----
-
-## File Conflict Detection (for Parallel Execution)
-
-Before executing parallel tasks, detect potential file conflicts.
-
-**Step 1: Infer file touches for each task**
-
-| Source | Method |
-|--------|--------|
-| Explicit | Task contains `Files: path/to/file.ts` -> use those paths |
-| Keyword | "controller" -> `**/controllers/**`, "model" -> `**/models/**` |
-| Domain | Backend tasks -> `src/api/`, `src/services/`; Frontend -> `src/components/` |
-
-**Step 2: Detect conflicts**
-- If multiple tasks touch the same file -> execute sequentially
-- If file sets are disjoint -> can execute in parallel
-
-**Step 3: Execute**
-- Parallel limit: up to 2 concurrent tasks
-- When conflict detected mid-execution: pause conflicting task, complete first, then resume
-
----
-
-## Compatibility Notes
-
-- Works with/without `.claude/rules/constitution.md`
-- Works with/without `.claude/router-rules.json`
-- Existing TRDs with standard task format work unchanged
-- State files are git-tracked for session coordination
-- Supports both local CLI and Claude Code web execution
+# Appendix B: Stage Handoff Contract
+
+Each stage returns specific outputs consumed by the next stage:
+
+| Stage | Agent | Returns | Used By |
+|-------|-------|---------|---------|
+| VERIFY-RED | verify-app | test_files[], failure_messages | IMPLEMENT (TDD) |
+| IMPLEMENT | *-implementer | files_changed[], implementation_summary, screenshots (UI) | VERIFY |
+| VERIFY | verify-app | pass/fail, coverage_metrics, failure_details[], visual_issues[] | DEBUG or SIMPLIFY |
+| DEBUG | app-debugger | files_fixed[], root_cause, risk_match | VERIFY (retry) |
+| SIMPLIFY | code-simplifier | files_changed[], refactoring_summary | VERIFY POST-SIMPLIFY |
+| REVIEW | code-reviewer | decision, issues[], recommendations[] | UPDATE or IMPLEMENT |
+
+**Handoff Rules:**
+- Each stage MUST wait for previous stage completion
+- Failed VERIFY -> DEBUG (not IMPLEMENT) for analysis
+- REJECTED review -> SAME implementer that did original work
+- Visual issues -> frontend-implementer with specific feedback

@@ -254,6 +254,24 @@ Options:
   - "Security-sensitive code"
 ```
 
+#### Question 5: Verification Level
+
+```yaml
+Question: "What verification level does this project need?"
+Options:
+  - "Unit Only" - Standard unit/integration tests are sufficient
+  - "Live Required" - verify-app must start services and test against running instances
+  - "E2E Required" - Full end-to-end testing with browser/UI automation
+  - "Manual Required" - Pause for user sign-off before approving
+Default: "Unit Only" for libraries/CLI tools, "Live Required" for web apps
+```
+
+Map to constitution.md `verification_level`:
+- "Unit Only" -> `unit-only`
+- "Live Required" -> `live-required`
+- "E2E Required" -> `e2e-required`
+- "Manual Required" -> `manual-required`
+
 </interactive-configuration>
 
 ### Step 3: Create Directory Structure and Copy Plugin Content
@@ -322,6 +340,7 @@ Fill in all placeholders:
 - `{{PROJECT_DESCRIPTION}}` - from user input
 - `{{UNIT_COVERAGE}}` - from quality gates selection
 - `{{INTEGRATION_COVERAGE}}` - from quality gates selection
+- `{{VERIFICATION_LEVEL}}` - from verification level selection (default: `unit-only`)
 - `{{REQUIRES_APPROVAL}}` - from approval requirements selection
 - `{{GENERATED_DATE}}` - current date
 

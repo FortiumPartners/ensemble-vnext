@@ -219,6 +219,22 @@ Examples:
 - `AUTH-F001` = Authentication TRD, Frontend task 1
 - `CHECKOUT-T001` = Checkout TRD, Test task 1
 
+### 4.1.1 Live Verification Marker
+
+Tasks that require live/running service verification get a `[LIVE]` marker in their description:
+
+```
+- [ ] **AUTH-B001** [LIVE]: Implement JWT authentication endpoint
+```
+
+The `[LIVE]` marker tells verify-app to start the service and verify against a running instance,
+regardless of the project's `verification_level` setting. Use `[LIVE]` for:
+- API endpoint tasks (needs running server to verify HTTP responses)
+- Database integration tasks (needs running database to verify queries)
+- Service integration tasks (needs running services to verify communication)
+
+Tasks WITHOUT `[LIVE]` use the project's default `verification_level` from constitution.md.
+
 ### 4.2 Phase 1: [Phase Name]
 
 | Task ID | Description | Dependencies | Acceptance Criteria |

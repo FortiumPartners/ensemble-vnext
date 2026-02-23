@@ -320,6 +320,20 @@ copy_hooks() {
                 fi
             fi
         done
+
+        # Copy hooks/lib/ directory (shared utilities)
+        if [[ -d "$PLUGIN_DIR/hooks/lib" ]]; then
+            mkdir -p "$dest/lib"
+            for lib_file in "$PLUGIN_DIR/hooks/lib"/*.js; do
+                [[ -f "$lib_file" || -L "$lib_file" ]] || continue
+                local lib_basename
+                lib_basename="$(basename "$lib_file")"
+                if [[ ! -f "$dest/lib/$lib_basename" || "$FORCE" == "true" ]]; then
+                    cp -L "$lib_file" "$dest/lib/"
+                    info "Copied hook lib: lib/$lib_basename"
+                fi
+            done
+        fi
         
         # Handle permitter separately (it has a lib directory)
         if [[ -f "$PLUGIN_DIR/hooks/permitter.js" || -L "$PLUGIN_DIR/hooks/permitter.js" ]]; then
@@ -373,6 +387,20 @@ copy_hooks() {
                 fi
             fi
         done
+
+        # Core hooks lib directory (shared utilities)
+        if [[ -d "$base_path/core/hooks/lib" ]]; then
+            mkdir -p "$dest/lib"
+            for lib_file in "$base_path/core/hooks/lib"/*.js; do
+                [[ -f "$lib_file" ]] || continue
+                local lib_basename
+                lib_basename="$(basename "$lib_file")"
+                if [[ ! -f "$dest/lib/$lib_basename" || "$FORCE" == "true" ]]; then
+                    cp "$lib_file" "$dest/lib/"
+                    info "Copied hook lib: lib/$lib_basename"
+                fi
+            done
+        fi
         
         # Permitter hook
         if [[ -d "$base_path/permitter" ]]; then

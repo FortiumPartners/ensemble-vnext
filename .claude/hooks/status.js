@@ -33,6 +33,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { resolveProjectRoot } = require('./lib/resolve-project-root');
 
 // TRD State directory name
 const TRD_STATE_DIR = '.trd-state';
@@ -188,6 +189,67 @@ function clearSessionId(filePath, data) {
 }
 
 /**
+ * Cycle position progression order.
+ */
+const CYCLE_ORDER = ['implement', 'verify', 'simplify', 'verify_post_simplify', 'review', 'complete'];
+
+/**
+ * Advance cycle_position for the single in-progress task in implement.json.
+ *
+ * Safety: Only advances when exactly 1 task has status "in_progress".
+ * If 0 or 2+ tasks are in_progress, skip (parallel execution or no active task).
+ * Writes atomically via temp file + rename.
+ *
+ * @param {string} filePath - Path to implement.json
+ * @param {Object} data - Parsed implement.json data
+ * @returns {boolean} True if cycle was advanced
+ */
+function advanceCyclePosition(filePath, data) {
+  if (!data || !data.tasks) {
+    debugLog('No tasks in implement.json, skipping cycle advance');
+    return false;
+  }
+
+  // Find tasks with status "in_progress"
+  const inProgressEntries = Object.entries(data.tasks)
+    .filter(([, task]) => task.status === 'in_progress');
+
+  if (inProgressEntries.length !== 1) {
+    debugLog(`Found ${inProgressEntries.length} in_progress tasks, skipping cycle advance (need exactly 1)`);
+    return false;
+  }
+
+  const [taskId, task] = inProgressEntries[0];
+  const currentPosition = task.cycle_position || 'implement';
+  const currentIndex = CYCLE_ORDER.indexOf(currentPosition);
+
+  if (currentIndex === -1 || currentIndex >= CYCLE_ORDER.length - 1) {
+    debugLog(`Task ${taskId} at ${currentPosition}, no further advancement`);
+    return false;
+  }
+
+  const nextPosition = CYCLE_ORDER[currentIndex + 1];
+
+  try {
+    data.tasks[taskId].cycle_position = nextPosition;
+    data.tasks[taskId].last_advanced = new Date().toISOString();
+
+    // Atomic write: temp file + rename
+    const tmpPath = filePath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+
+    debugLog(`Advanced task ${taskId}: ${currentPosition} -> ${nextPosition}`);
+    return true;
+  } catch (error) {
+    debugLog(`Error advancing cycle for ${taskId}: ${error.message}`);
+    // Clean up temp file if it exists
+    try { fs.unlinkSync(filePath + '.tmp'); } catch { /* ignore */ }
+    return false;
+  }
+}
+
+/**
  * Main hook logic.
  * @param {Object} hookData - Hook data from stdin
  */
@@ -199,9 +261,9 @@ async function main(hookData) {
     return;
   }
 
-  // 2. Get working directory from hook data or environment
-  const cwd = hookData.cwd || process.cwd();
-  debugLog(`Working directory: ${cwd}`);
+  // 2. Resolve project root from hook data
+  const cwd = resolveProjectRoot(hookData);
+  debugLog(`Project root: ${cwd}`);
 
   // 3. Find .trd-state directory
   const trdStateDir = findTrdStateDir(cwd);
@@ -221,9 +283,10 @@ async function main(hookData) {
   }
   debugLog(`Found ${implementFiles.length} implement.json file(s)`);
 
-  // 5. Check each implement.json for modifications and session tracking
+  // 5. Check each implement.json for modifications, session tracking, and cycle advancement
   let anyModified = false;
   let anySessionCleared = false;
+  let anyCycleAdvanced = false;
 
   for (const filePath of implementFiles) {
     const data = readImplementJson(filePath);
@@ -244,12 +307,19 @@ async function main(hookData) {
       }
     }
 
+    // Advance cycle_position for single in-progress task
+    if (advanceCyclePosition(filePath, data)) {
+      anyCycleAdvanced = true;
+    }
+
     // Log current status for debugging
     debugLog(`Status for ${path.basename(path.dirname(filePath))}: phase=${data.current_phase || 'unknown'}, cycle=${data.cycle_position || 'unknown'}`);
   }
 
   // 6. Output result
-  if (anySessionCleared) {
+  if (anyCycleAdvanced) {
+    outputResult('cycle_advanced');
+  } else if (anySessionCleared) {
     outputResult('session_cleared');
   } else if (anyModified) {
     outputResult('verified');
@@ -308,6 +378,8 @@ module.exports = {
   readImplementJson,
   wasModifiedRecently,
   clearSessionId,
+  advanceCyclePosition,
   getSessionId,
-  debugLog
+  debugLog,
+  CYCLE_ORDER
 };

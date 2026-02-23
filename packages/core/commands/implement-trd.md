@@ -399,6 +399,11 @@ TaskUpdate({ taskId, owner: "self", status: "in_progress" });
 3. **Handle Result:**
    - Success: `TaskUpdate({ taskId, status: "completed" })`
    - Failure: Route to DEBUG (for blocking strategies)
+4. **Summarize Result (Context Management):**
+   - When a subagent returns, immediately extract ONLY: status (pass/fail), files_changed list, error_summary (if any)
+   - Discard the full subagent output — do NOT retain verbose results in orchestrator context
+   - Record a single-line summary: `"[TASK_ID:stage] PASS | files: a.js, b.js"` or `"[TASK_ID:stage] FAIL | error: <one-liner>"`
+   - Pass only the summary (not full output) to downstream stages that need context
 
 ### 4.3 Agent Selection
 
@@ -420,6 +425,14 @@ Wait for failing tests before proceeding to IMPLEMENT.
 **Stage: IMPLEMENT**
 
 Select implementer per 4.3. For UI tasks, include V0/visual context.
+
+**State-Write-Before-Delegate (CRITICAL):** Before spawning the subagent, write state to disk:
+1. Set `tasks[id].status = "in_progress"` and `tasks[id].cycle_position = "implement"` in implement.json
+2. Write implement.json to disk
+3. THEN dispatch the Task tool
+
+This ensures the status.js hook can find and advance the in-progress task on SubagentStop.
+
 Delegate using **Template: IMPLEMENT** (Appendix A.2).
 Update state: `implementer_type`, `cycle_position = "implement"`.
 
@@ -506,6 +519,21 @@ git push -u origin {branch_name}
 ### 5.3 Update State
 
 Add checkpoint entry, advance `phase_cursor`, update `recovery.last_healthy_checkpoint`.
+
+### 5.4 Context Management at Phase Boundary
+
+After each phase checkpoint, recommend context compaction:
+
+```
+Phase {N} checkpoint complete.
+Completed tasks: {list}
+State saved to: .trd-state/<trd-name>/implement.json
+
+Recommendation: Run /compact to compress context before continuing to Phase {N+1}.
+All progress is persisted in the state file and will survive context compaction.
+```
+
+This prevents context exhaustion on large TRDs with many tasks. The state file preserves all progress across compaction.
 
 ---
 
@@ -928,6 +956,8 @@ If the TRD contains a "Design References" or "UI Context" section, extract and i
   <task_id>{task_id}</task_id>
   <files_changed>{list of files modified in IMPLEMENT stage}</files_changed>
   <strategy>{strategy}</strategy>
+  <verification_level>{from constitution.md or "unit-only" default}</verification_level>
+  <live_required>{true if task description contains [LIVE] marker, false otherwise}</live_required>
 </verification_request>
 
 <instructions>
@@ -939,6 +969,11 @@ Report:
 3. For failures: file path, line number, error message, expected vs actual
 
 Use appropriate test skill (jest, pytest, rspec, etc.) based on project stack.
+
+**Verification level enforcement**: Read `.claude/rules/constitution.md` for `verification_level`.
+If `live_required` is true OR `verification_level` is `live-required` or `e2e-required`,
+you MUST start the service and verify against a running instance. Include actual HTTP
+responses or runtime output as evidence. Do NOT approve based solely on unit/mock tests.
 </instructions>
 ```
 
@@ -1055,6 +1090,12 @@ Do NOT execute tests - return to VERIFY stage for that.
 </simplification_request>
 
 <instructions>
+YOU MUST actually execute simplification. Read every file listed above and
+apply concrete improvements. If the code is already clean, document WHY with
+specific evidence (e.g., "cyclomatic complexity is 3, naming follows conventions,
+no duplication found across N files"). NEVER skip this stage silently or return
+without reading the files.
+
 Review the implemented code and simplify where possible:
 
 1. Reduce complexity (cyclomatic, cognitive)
@@ -1065,6 +1106,11 @@ Review the implemented code and simplify where possible:
 
 CRITICAL: All tests must continue to pass after refactoring.
 Do NOT change behavior - only improve code quality.
+
+Deliverables (ALL required):
+- files_reviewed: list of every file you read
+- changes_made: list of specific edits (or "none needed" with evidence)
+- complexity_before_after: brief metric comparison if changes were made
 </instructions>
 ```
 

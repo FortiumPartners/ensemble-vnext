@@ -20,8 +20,7 @@
     "ai-augmented-development"
   ],
   "commands": [
-    "./commands/core",
-    "./commands/router"
+    "./commands/plugin-only"
   ],
   "skills": "./skills",
   "agents": [
