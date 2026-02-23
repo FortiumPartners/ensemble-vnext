@@ -7,8 +7,17 @@ description: |
   Examples:
   - "Build a responsive dashboard with React and Tailwind CSS"
   - "Implement an accessible form with validation and error states"
+model: sonnet
 color: green
-skills: jest, writing-playwright-tests, developing-with-react, developing-with-typescript, styling-with-tailwind, frontend-design
+skills:
+  - jest
+  - writing-playwright-tests
+  - developing-with-react
+  - developing-with-typescript
+  - styling-with-tailwind
+  - frontend-design
+  - using-clerk
+  - playwright-automation
 ---
 
 ## Role Statement

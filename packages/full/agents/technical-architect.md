@@ -8,6 +8,7 @@ description: |
   - "Create TRD from docs/PRD/user-authentication.md with task breakdown"
   - "Design system architecture for checkout flow with API contracts"
   - "Decompose feature into implementation tasks with dependencies"
+model: opus
 color: purple
 skills:
 ---

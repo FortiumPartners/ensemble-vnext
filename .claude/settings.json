@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/permitter/permitter.js",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/permitter/permitter.js'",
             "timeout": 5
           }
         ]
@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/router.py",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/router.py'",
             "timeout": 10
           }
         ]
@@ -78,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/formatter.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/formatter.sh'",
             "timeout": 30
           }
         ]
@@ -90,7 +90,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/status.js",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/status.js'",
             "timeout": 5
           }
         ]
@@ -102,12 +102,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/wiggum.js",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/wiggum.js'",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": ".claude/hooks/notify.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/notify.sh'",
             "timeout": 60
           }
         ]
@@ -119,12 +119,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/learning.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/learning.sh'",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": ".claude/hooks/save-remote-logs.js",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && .claude/hooks/save-remote-logs.js'",
             "timeout": 30
           }
         ]

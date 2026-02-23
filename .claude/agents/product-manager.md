@@ -8,6 +8,7 @@ description: |
   - "Create a PRD for a new user authentication feature with OAuth2 support"
   - "Analyze user needs and define acceptance criteria for checkout flow"
   - "Prioritize features using RICE framework for Q2 roadmap"
+model: opus
 color: blue
 skills:
 ---

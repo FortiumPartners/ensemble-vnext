@@ -392,10 +392,10 @@ For each agent in `@packages/full/agents/`:
 **CRITICAL - Frontmatter Format Requirements:**
 
 - **Never add a `tools:` line** - agents have all tools enabled by default
-- **`skills:` must be single-line, comma-separated** - NOT a YAML array
-  - Correct: `skills: pytest, jest, developing-with-python`
-  - Wrong: `skills:\n  - pytest\n  - jest`
-- Preserve the existing frontmatter structure (name, description, color, skills)
+- **`skills:` must be a YAML array** - one skill per line
+  - Correct: `skills:\n  - pytest\n  - jest\n  - developing-with-python`
+  - Wrong: `skills: pytest, jest, developing-with-python`
+- Preserve the existing frontmatter structure (name, description, model, color, skills)
 
 </subagent-deployment>
 

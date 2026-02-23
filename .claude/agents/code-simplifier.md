@@ -6,8 +6,16 @@ description: |
   Examples:
   - "Refactor deeply nested conditionals using early return pattern"
   - "Extract duplicated validation logic into shared utility functions"
+model: opus
 color: cyan
-skills: developing-with-react, developing-with-typescript, developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter
+skills:
+  - developing-with-react
+  - developing-with-typescript
+  - developing-with-python
+  - developing-with-php
+  - developing-with-laravel
+  - developing-with-flutter
+  - developing-with-dotnet
 ---
 
 ## Role

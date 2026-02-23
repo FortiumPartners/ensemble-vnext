@@ -7,8 +7,15 @@ description: |
   Examples:
   - "Verify AUTH-B001 implementation meets all acceptance criteria from TRD"
   - "Validate checkout flow works end-to-end against specified requirements"
+model: sonnet
 color: magenta
-skills: jest, pytest, rspec, exunit, xunit, playwright-test, writing-playwright-tests
+skills:
+  - jest
+  - pytest
+  - rspec
+  - exunit
+  - xunit
+  - writing-playwright-tests
 ---
 
 ## Role Statement

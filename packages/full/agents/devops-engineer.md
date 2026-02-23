@@ -6,8 +6,15 @@ description: |
   Examples:
   - "Provision EKS cluster with Terraform for production workloads"
   - "Configure Helm charts for microservices deployment with auto-scaling"
+model: sonnet
 color: blue
-skills: managing-railway, managing-vercel, managing-supabase
+skills:
+  - managing-railway
+  - managing-vercel
+  - managing-supabase
+  - using-terraform-azure
+  - using-azure-functions
+  - managing-azure-devops
 ---
 
 ## Role Statement

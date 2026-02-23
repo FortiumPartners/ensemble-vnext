@@ -6,8 +6,32 @@ description: |
   Examples:
   - "Investigate 500 error using 5 Whys analysis and trace logs"
   - "Debug race condition in user creation with concurrent request analysis"
+model: opus
 color: red
-skills: jest, pytest, rspec, exunit, xunit, playwright-test, writing-playwright-tests, developing-with-react, developing-with-typescript, developing-with-python, developing-with-flutter, developing-with-laravel, developing-with-php, nestjs, managing-railway, managing-vercel, managing-supabase, using-prisma, using-celery
+skills:
+  - jest
+  - pytest
+  - rspec
+  - exunit
+  - xunit
+  - writing-playwright-tests
+  - developing-with-react
+  - developing-with-typescript
+  - developing-with-python
+  - developing-with-flutter
+  - developing-with-laravel
+  - developing-with-php
+  - developing-with-dotnet
+  - nestjs
+  - managing-railway
+  - managing-vercel
+  - managing-supabase
+  - using-prisma
+  - using-celery
+  - using-azure-functions
+  - using-clerk
+  - building-integrations
+  - playwright-automation
 ---
 
 ## Role

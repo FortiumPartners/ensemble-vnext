@@ -7,8 +7,20 @@ description: |
   Examples:
   - "Implement a REST API endpoint with validation and error handling"
   - "Create database models with Prisma and write migration scripts"
+model: sonnet
 color: yellow
-skills: pytest, jest, developing-with-python, developing-with-typescript, nestjs, using-prisma, using-celery
+skills:
+  - pytest
+  - jest
+  - developing-with-python
+  - developing-with-typescript
+  - nestjs
+  - using-prisma
+  - using-celery
+  - developing-with-dotnet
+  - using-azure-functions
+  - using-clerk
+  - building-integrations
 ---
 
 ## Role Statement

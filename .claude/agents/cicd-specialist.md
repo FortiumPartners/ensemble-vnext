@@ -6,8 +6,12 @@ description: |
   Examples:
   - "Configure GitHub Actions pipeline with test, build, and multi-environment deployment stages"
   - "Set up semantic versioning with automated changelog generation for releases"
+model: sonnet
 color: orange
-skills: managing-railway, managing-vercel
+skills:
+  - managing-railway
+  - managing-vercel
+  - managing-azure-devops
 ---
 
 ## Role Statement

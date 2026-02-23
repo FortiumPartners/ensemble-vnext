@@ -8,6 +8,7 @@ description: |
   - "Create execution plan for docs/TRD/user-dashboard.md with parallel tracks"
   - "Identify critical path and parallelization opportunities for checkout feature"
   - "Optimize task sequencing to minimize blocked time between agents"
+model: opus
 color: cyan
 skills:
 ---

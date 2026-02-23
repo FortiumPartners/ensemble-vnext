@@ -14,7 +14,7 @@
  *   ---
  *   name: string          # Required, must match filename
  *   description: string   # Required
- *   skills: string        # Optional, comma-separated list
+ *   skills: array         # Optional, YAML array of skill names
  *   ---
  */
 

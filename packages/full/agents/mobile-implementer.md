@@ -7,8 +7,13 @@ description: |
   Examples:
   - "Build a Flutter screen with Riverpod state management and offline support"
   - "Implement a React Native component with platform-adaptive UI"
+model: sonnet
 color: orange
-skills: developing-with-flutter, developing-with-react, developing-with-typescript, frontend-design
+skills:
+  - developing-with-flutter
+  - developing-with-react
+  - developing-with-typescript
+  - frontend-design
 ---
 
 ## Role Statement
