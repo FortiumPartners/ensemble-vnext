@@ -150,23 +150,23 @@
   "injection_templates": {
     "short_no_match": {
       "description": "Short prompts with no matches",
-      "template": "Short prompt - review conversation context. If continuing established work, maintain the current approach. For new implementation tasks, delegate to a specialized subagent."
+      "template": "Short prompt - review conversation context. If continuing established work, maintain the current approach. For new implementation tasks, delegate to a specialized subagent. If spawning a teammate, use the most appropriate ensemble agent (subagent_type) for the task."
     },
     "agents_only": {
       "description": "When agents match but no skills",
-      "template": "Delegate implementation to one of these subagents:\n{agent_list}\n\nYou are an orchestrator. Implementation belongs in subagents.\n\nRespond directly only for: clarifying questions, factual lookups, or pure conversation."
+      "template": "Delegate implementation to one of these subagents:\n{agent_list}\n\nYou are an orchestrator. Implementation belongs in subagents.\nIf spawning a teammate, use the most appropriate ensemble agent (subagent_type) for the task.\n\nRespond directly only for: clarifying questions, factual lookups, or pure conversation."
     },
     "agents_and_skills": {
       "description": "When both agents and skills match",
-      "template": "Delegate to one of these subagents:\n{agent_list}\n\nPass these skills to the subagent: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\nSkip delegation ONLY if this is a purely informational request."
+      "template": "Delegate to one of these subagents:\n{agent_list}\n\nPass these skills to the subagent: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\nIf spawning a teammate, use the most appropriate ensemble agent (subagent_type) for the task.\n\nSkip delegation ONLY if this is a purely informational request."
     },
     "skills_only": {
       "description": "When skills match but no agents",
-      "template": "Use these skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill."
+      "template": "Use these skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill.\nIf spawning a teammate, use the most appropriate ensemble agent (subagent_type) for the task."
     },
     "long_no_match": {
       "description": "Longer prompts with no matches",
-      "template": "No specific agent/skill match found. If this involves implementation, consider delegating to an appropriate subagent. Respond directly for informational requests."
+      "template": "No specific agent/skill match found. If this involves implementation, consider delegating to an appropriate subagent. If spawning a teammate, use the most appropriate ensemble agent (subagent_type) for the task. Respond directly for informational requests."
     }
   },
 

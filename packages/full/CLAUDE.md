@@ -13,6 +13,7 @@
 ```
 
 Always check for existing PRD/TRD before creating new ones.
+When delegating work -- whether via subagent or teammate -- always use the named agent matching the task domain.
 
 ---
 
