@@ -54,6 +54,7 @@ Each teammate MUST return their analysis in this XML structure (include verbatim
   <task_proposals>
     <task id="{PREFIX}-{CAT}{SEQ}" live="{true|false}">
       <description>Task description</description>
+      <skills>Comma-separated skill names from agent's available skills</skills>
       <dependencies>Comma-separated task IDs or "None"</dependencies>
       <acceptance_criteria>Specific, testable criteria</acceptance_criteria>
     </task>
@@ -112,6 +113,12 @@ and returns a `<teammate_report>` response.
 > {domain-specific focus areas}. Propose concrete tasks with dependencies and acceptance
 > criteria. Identify cross-domain interfaces.
 >
+> **Skill Discovery:** For each task you propose, populate the `<skills>` element.
+> Read your agent's `.claude/agents/{your-agent-name}.md` frontmatter to find
+> your `skills:` list. For each skill, check if its description aligns with the
+> task's domain. Include matching skill names comma-separated in `<skills>`.
+> Leave empty if no clear match.
+>
 > **PRD Content:** {prd_content}
 > **Report Format:** {xml_contract}
 >
@@ -129,6 +136,7 @@ With all teammate reports collected, synthesize the final TRD:
 
 - Collect all `<task>` elements, assign final unique IDs: `[PREFIX]-[CAT][SEQ]`
 - Renumber sequences per category to eliminate gaps and collisions
+- Preserve `<skills>` hints from teammate reports into the TRD Skills column
 - Add missing infrastructure/setup tasks (category `P`) the lead identifies
 - Ensure every task has explicit dependencies (resolve cross-domain references)
 
@@ -195,6 +203,7 @@ Before completing, verify:
 - [ ] Non-goals imported verbatim from PRD
 - [ ] Risks imported with technical mitigations added
 - [ ] Quality strategy reflects quality-strategy teammate recommendations
+- [ ] Skills column populated for implementation tasks (P, F, B categories)
 - [ ] No timing estimates in execution plan
 - [ ] `[LIVE]` markers applied to tasks requiring running service verification
 

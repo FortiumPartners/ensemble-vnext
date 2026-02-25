@@ -732,23 +732,22 @@ Waiting for input...
 
 ## Skill Matching
 
-**Discovery order:** `.claude/router-rules.json` > Plugin router-rules > Fallback table
+Before each delegation, resolve which skills the subagent should explicitly invoke.
 
-| Task Keywords | Skills |
-|---------------|--------|
-| JavaScript, TypeScript, Jest, React test | `jest` |
-| Python, pytest, Django, Flask | `pytest` |
-| Ruby, RSpec, Rails | `rspec` |
-| Elixir, ExUnit, Phoenix | `exunit` |
-| C#, .NET, xUnit | `xunit` |
-| Playwright, E2E, browser | `writing-playwright-tests` |
-| React, component, hook | `developing-with-react` |
-| TypeScript, types | `developing-with-typescript` |
-| Python, FastAPI | `developing-with-python` |
-| Tailwind, CSS, styling | `styling-with-tailwind` |
-| Prisma, ORM, database | `using-prisma` |
+**Resolution order:**
 
-Include in delegation: `Use Skill tool to invoke {matched_skill} if available.`
+1. **TRD task table `Skills` column** — highest priority, author-declared.
+   Parse the task's Skills column for comma-separated skill names.
+2. **Agent frontmatter fallback** — if Skills column is empty or the TRD
+   predates this feature, read the target agent's `.claude/agents/{agent}.md`
+   frontmatter `skills:` list. Include all skills the agent declares — the
+   agent can determine which are relevant at invocation time.
+
+**Intersection rule:** Only include skills that appear in the target agent's
+`skills:` frontmatter. This prevents passing skills an agent doesn't support
+(e.g., `developing-with-dotnet` to frontend-implementer).
+
+**Result:** `matched_skills[]` — passed to `<skills>` block in delegation templates.
 
 ---
 
@@ -873,6 +872,18 @@ guide the implementer toward the correct solution.
 {acceptance_criteria extracted from task description}
 </objective>
 
+<skills>
+  <!-- Populated by Skill Matching resolution -->
+  <matched>{comma-separated list of matched skill names, or "none"}</matched>
+  <instruction>
+    You MUST invoke each listed skill using the Skill tool BEFORE writing code.
+    Extract concrete rules from each skill and apply them to your implementation.
+    In your deliverables, report:
+    - SKILLS_USED: exact skill names invoked (or "none available")
+    - RULES_APPLIED: 1-2 concrete rules per skill that influenced your code
+  </instruction>
+</skills>
+
 <strategy_instructions>
 Strategy is: {strategy}
 
@@ -920,6 +931,7 @@ Use your judgment on test-first vs test-after based on task nature.
 3. Tests written (for tdd/bug-fix strategies)
 4. Brief outcome summary
 5. Scope compliance confirmation (no non-goal work performed)
+6. Skills used and rules applied (from <skills> instruction above)
 </deliverables>
 ```
 
@@ -959,6 +971,14 @@ If the TRD contains a "Design References" or "UI Context" section, extract and i
   <verification_level>{from constitution.md or "unit-only" default}</verification_level>
   <live_required>{true if task description contains [LIVE] marker, false otherwise}</live_required>
 </verification_request>
+
+<skills>
+  <matched>{test-framework skills from agent's skills list: jest, pytest, rspec, exunit, xunit, writing-playwright-tests — whichever are relevant}</matched>
+  <instruction>
+    Invoke the matched test skill using the Skill tool to ensure correct test
+    runner invocation and assertion patterns for this project's stack.
+  </instruction>
+</skills>
 
 <instructions>
 Run the test suite for the modified files.
@@ -1089,6 +1109,13 @@ Do NOT execute tests - return to VERIFY stage for that.
   <files_to_simplify>{list of files modified in this task}</files_to_simplify>
 </simplification_request>
 
+<skills>
+  <matched>{language/framework skills carried from the IMPLEMENT stage for this task}</matched>
+  <instruction>
+    Invoke matched skills to reference idiomatic patterns when simplifying.
+  </instruction>
+</skills>
+
 <instructions>
 YOU MUST actually execute simplification. Read every file listed above and
 apply concrete improvements. If the code is already clean, document WHY with
@@ -1126,6 +1153,14 @@ Deliverables (ALL required):
   <files_to_review>{list of all files modified in this task}</files_to_review>
   <acceptance_criteria>{from task description}</acceptance_criteria>
 </review_request>
+
+<skills>
+  <matched>{all skills from IMPLEMENT + VERIFY stages for this task}</matched>
+  <instruction>
+    Invoke matched skills to validate implementation follows framework
+    conventions and best practices.
+  </instruction>
+</skills>
 
 <instructions>
 Perform comprehensive code review:

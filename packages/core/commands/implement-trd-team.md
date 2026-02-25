@@ -170,6 +170,7 @@ its own session.
 <assigned_tasks>
   <task id="{task_id}" description="{task_description}">
     <acceptance_criteria>{extracted from TRD}</acceptance_criteria>
+    <skills>{from TRD Skills column or inferred by lead}</skills>
     <dependencies>{dependency task IDs, should already be complete}</dependencies>
   </task>
 </assigned_tasks>
@@ -201,6 +202,10 @@ Appendix A delegation templates:
 6. REVIEW (A.7): Delegate to @code-reviewer (subagent_type: "code-reviewer").
    If REJECTED (A.8): fix issues, return to VERIFY.
 7. UPDATE: Mark TRD checkbox done, git commit, TaskUpdate status completed.
+
+When delegating to subagents, pass the task's <skills> list explicitly in each
+delegation template's <skills><matched> field. Instruct each subagent to invoke
+matched skills via the Skill tool before working.
 
 Strategy enforcement follows /implement-trd Section 4.4 rules.
 

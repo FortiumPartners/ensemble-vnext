@@ -42,6 +42,31 @@ All notable changes to ensemble-vnext are documented in this file.
   - `using-terraform-azure` -- Terraform with azurerm 4.x provider, Key Vault,
     Managed Identity, App Service, Azure Verified Modules (SKILL.md + REFERENCE.md)
 
+- **Explicit skill invocation in delegation flow** -- skills declared in agent
+  frontmatter are now actively injected into delegation prompts instead of
+  relying on agents to independently discover them:
+
+  - **`/create-trd`**: New `Skills` column in Master Task List phase tables,
+    populated via dynamic discovery from target agent's frontmatter `skills:`
+    list and each skill's description. New Section 4.1.2 "Skill Hints" with
+    discovery instructions. Validation checklist updated.
+
+  - **`/create-trd-team`**: `<skills>` element added to teammate task proposal
+    XML contract. Teammate briefing includes skill discovery instructions.
+    Synthesis preserves skill hints when merging tasks.
+
+  - **`/implement-trd`**: Hardcoded keyword-to-skill table replaced with
+    dynamic resolution (TRD Skills column > agent frontmatter fallback,
+    intersected with agent's declared skills). New `<skills>` block with
+    invocation instruction added to templates A.2 (IMPLEMENT), A.3 (VERIFY),
+    A.6 (SIMPLIFY), A.7 (REVIEW). IMPLEMENT deliverables extended with
+    SKILLS_USED and RULES_APPLIED reporting.
+
+  - **`/implement-trd-team`**: `<skills>` element added to teammate task XML.
+    Delegation instruction added to pass skills to subagents.
+
+  Vendored copies in `.claude/commands/` updated.
+
 - **`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var** added to project template
   (`packages/core/templates/claude-directory/settings.json`), project settings
   (`.claude/settings.json`), and global config (`~/.claude/settings.json`).

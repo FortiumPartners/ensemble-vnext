@@ -235,19 +235,44 @@ regardless of the project's `verification_level` setting. Use `[LIVE]` for:
 
 Tasks WITHOUT `[LIVE]` use the project's default `verification_level` from constitution.md.
 
+### 4.1.2 Skill Hints
+
+Each task SHOULD include a `Skills` column listing ensemble skills the implementer
+should invoke via the Skill tool. To populate this column:
+
+1. **Determine the target agent** for the task based on category letter
+   (B → backend-implementer, F → frontend-implementer, T → verify-app, etc.)
+2. **Read the agent's frontmatter** from `.claude/agents/{agent-name}.md` —
+   extract the `skills:` list
+3. **For each skill** the agent declares, read its description from the skill's
+   SKILL.md (available skills are listed in the system prompt or discoverable
+   via the plugin's skills directory)
+4. **Match**: if the skill's "Use when..." description aligns with the task's
+   domain and description, include it in the Skills column
+
+If no clear match exists, leave the Skills column empty — implement-trd will
+fall back to the agent's full skills list at delegation time.
+
+**Example:** A backend task implementing a .NET API endpoint with Clerk auth:
+- Target agent: backend-implementer
+- Agent skills include: `developing-with-dotnet`, `using-clerk`, `building-integrations`, ...
+- `developing-with-dotnet` description: "Use when writing C# code or working with .NET projects" → match
+- `using-clerk` description: "Use when implementing auth with Clerk" → match
+- Skills column: `developing-with-dotnet, using-clerk`
+
 ### 4.2 Phase 1: [Phase Name]
 
-| Task ID | Description | Dependencies | Acceptance Criteria |
-|---------|-------------|--------------|---------------------|
-| [PREFIX]-P001 | [Task description] | None | [Criteria] |
-| [PREFIX]-P002 | [Task description] | [PREFIX]-P001 | [Criteria] |
+| Task ID | Description | Skills | Dependencies | Acceptance Criteria |
+|---------|-------------|--------|--------------|---------------------|
+| [PREFIX]-P001 | [Task description] | | None | [Criteria] |
+| [PREFIX]-P002 | [Task description] | | [PREFIX]-P001 | [Criteria] |
 
 ### 4.3 Phase 2: [Phase Name]
 
-| Task ID | Description | Dependencies | Acceptance Criteria |
-|---------|-------------|--------------|---------------------|
-| [PREFIX]-B001 | [Task description] | [PREFIX]-P002 | [Criteria] |
-| [PREFIX]-F001 | [Task description] | [PREFIX]-B001 (API contract only) | [Criteria] |
+| Task ID | Description | Skills | Dependencies | Acceptance Criteria |
+|---------|-------------|--------|--------------|---------------------|
+| [PREFIX]-B001 | [Task description] | `developing-with-dotnet` | [PREFIX]-P002 | [Criteria] |
+| [PREFIX]-F001 | [Task description] | `developing-with-react`, `jest` | [PREFIX]-B001 (API contract only) | [Criteria] |
 
 ### 4.4 Phase 3: [Phase Name]
 ...
@@ -480,6 +505,7 @@ Before completing, verify:
 - [ ] Parallelization opportunities identified
 - [ ] Non-goals imported from PRD
 - [ ] Risks imported and technical mitigations added
+- [ ] Skills column populated for implementation tasks (P, F, B categories)
 - [ ] No timing estimates in execution plan
 
 ---
