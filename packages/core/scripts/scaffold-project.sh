@@ -180,10 +180,13 @@ copy_commands() {
     # Copy specific workflow commands (not init-project or rebase-project)
     local commands=(
         "create-prd.md"
+        "create-prd-team.md"
         "refine-prd.md"
         "create-trd.md"
+        "create-trd-team.md"
         "refine-trd.md"
         "implement-trd.md"
+        "implement-trd-team.md"
         "fold-prompt.md"
         "cleanup-project.md"
         "update-project.md"
