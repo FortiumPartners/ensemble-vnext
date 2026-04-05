@@ -242,10 +242,11 @@ Analyze each component category to identify changes.
 
 #### 2.3 Command Diff
 
-**Behavior:** Commands are REPLACED (not customized per project).
+**Behavior:** Commands are REPLACED (not customized per project). Stale plugin commands are removed.
 
 1. **List plugin commands:**
-   Read from `@packages/core/commands/` and `@packages/router/commands/`
+   Dynamically discover all `.md` files from `@packages/core/commands/` and `@packages/router/commands/`.
+   Exclude plugin-only commands: `init-project.md`, `rebase-project.md`.
 
 2. **List vendored commands:**
    Read from `.claude/commands/`
@@ -257,7 +258,14 @@ Analyze each component category to identify changes.
    | **New** | In plugin, not in vendored | Will be added |
    | **Updated** | In both, content differs | Will be replaced |
    | **Unchanged** | In both, content same | No action |
-   | **Custom** | In vendored, not in plugin | Report, preserve |
+   | **Stale** | In vendored, not in plugin, AND has ensemble frontmatter (`category:` field) | Will be REMOVED (was a plugin command that no longer exists) |
+   | **Custom** | In vendored, not in plugin, AND no ensemble frontmatter | Report, preserve |
+
+   **Stale detection:** To distinguish "removed plugin command" from "user-created custom command,"
+   check if the file contains YAML frontmatter with a `category:` field matching known ensemble
+   categories (`generator`, `implementation`, `verification`, `artifact`, `maintenance`).
+   Files with this marker were vendored by the plugin and should be removed when the plugin
+   no longer ships them. Files without it are user-created and preserved.
 
 4. **Generate command diff:**
    ```
@@ -265,21 +273,32 @@ Analyze each component category to identify changes.
    - New commands: [list]
    - Updated commands: [list]
    - Unchanged commands: [count]
+   - Stale commands (will remove): [list if any]
    - Custom commands (preserved): [list if any]
    ```
 
 #### 2.4 Hook Diff
 
-**Behavior:** Hooks are REPLACED (not customized per project).
+**Behavior:** Hooks are REPLACED (not customized per project). Stale plugin hooks are removed.
 
 1. **List plugin hooks:**
-   Read from `@packages/permitter/hooks/`, `@packages/router/hooks/`, `@packages/core/hooks/`
+   Dynamically discover hook files (`*.js`, `*.py`, `*.sh`) from:
+   - `@packages/permitter/hooks/`
+   - `@packages/router/hooks/`
+   - `@packages/core/hooks/`
 
 2. **List vendored hooks:**
    Read from `.claude/hooks/`
 
 3. **Categorize:**
-   - Same categories as commands (new, updated, unchanged, custom)
+
+   | Category | Condition | Action |
+   |----------|-----------|--------|
+   | **New** | In plugin, not in vendored | Will be added |
+   | **Updated** | In both, content differs | Will be replaced |
+   | **Unchanged** | In both, content same | No action |
+   | **Stale** | In vendored, not in plugin, AND matches known hook extensions (`*.js`, `*.py`, `*.sh`) in the hooks root | Will be REMOVED with backup |
+   | **Custom** | In vendored subdirectory not matching plugin structure | Report, preserve |
 
 4. **Generate hook diff:**
    ```
@@ -287,6 +306,7 @@ Analyze each component category to identify changes.
    - New hooks: [list]
    - Updated hooks: [list]
    - Unchanged hooks: [count]
+   - Stale hooks (will remove): [list if any]
    - Custom hooks (preserved): [list if any]
    ```
 
@@ -320,12 +340,12 @@ Target Version: [version]
 
 ### Components to Update
 
-| Component | New | Updated | Removed | Preserved |
-|-----------|-----|---------|---------|-----------|
+| Component | New | Updated | Stale (remove) | Preserved |
+|-----------|-----|---------|----------------|-----------|
 | Agents | [n] | 0 | 0 | [n] |
 | Skills | [n] | - | [n] | [n] |
-| Commands | [n] | [n] | 0 | [n] |
-| Hooks | [n] | [n] | 0 | [n] |
+| Commands | [n] | [n] | [n] | [n] |
+| Hooks | [n] | [n] | [n] | [n] |
 | Settings | [n] keys | [n] values | 0 | all |
 
 ### Detailed Changes
@@ -449,23 +469,20 @@ Default: "Cancel rebase"
    - Overwrite existing
    - Report: "Updated command: [name]"
 
-3. **For custom commands (not in plugin):**
+3. **For STALE commands (was plugin, no longer shipped):**
+   - Back up to `.claude/commands.backup.<timestamp>/` before removing
+   - Remove from `.claude/commands/`
+   - Report: "Removed stale command: [name]"
+
+4. **For CUSTOM commands (user-created, not from plugin):**
    - DO NOT remove
    - Report: "Kept custom command: [name]"
 
-4. **Commands to copy:**
-   - From `@packages/core/commands/`:
-     - create-prd.md
-     - refine-prd.md
-     - create-trd.md
-     - refine-trd.md
-     - implement-trd.md
-     - update-project.md
-     - cleanup-project.md
-     - fold-prompt.md
-   - From `@packages/router/commands/`:
-     - generate-router-rules.md
-     - generate-project-router-rules.md
+5. **Command discovery:**
+   - Dynamically discover all `.md` files from `@packages/core/commands/` and `@packages/router/commands/`
+   - Exclude plugin-only commands: `init-project.md`, `rebase-project.md`
+   - This ensures new commands added to the plugin are automatically picked up without
+     needing to update a hardcoded list
 
 #### 4.4 Update Hooks (Replace)
 
@@ -482,23 +499,22 @@ Default: "Cancel rebase"
    - Ensure execute permission on shell scripts
    - Report: "Updated hook: [name]"
 
-3. **For custom hooks (not in plugin):**
+3. **For STALE hooks (was plugin, no longer shipped):**
+   - Back up to `.claude/hooks.backup.<timestamp>/` before removing
+   - Remove from `.claude/hooks/`
+   - Report: "Removed stale hook: [name]"
+
+4. **For CUSTOM hooks (user-created):**
    - DO NOT remove
    - Report: "Kept custom hook: [name]"
 
-4. **Discover hooks from plugin:**
-   - Scan these plugin directories for hook files:
+5. **Hook discovery:**
+   - Dynamically scan these plugin directories for hook files:
      - `@packages/permitter/hooks/` - Permission hooks
      - `@packages/router/hooks/` - Routing hooks
      - `@packages/core/hooks/` - Core workflow hooks
    - Include files matching: `*.js`, `*.py`, `*.sh`
-   - Current known hooks (may expand):
-     - `permitter.js` - Permission management
-     - `router.py` - Prompt routing
-     - `formatter.sh` - Code formatting
-     - `status.js` - TRD status tracking
-     - `learning.js` - Session learning capture
-     - `wiggum.js` - Autonomous execution mode
+   - This ensures new hooks added to the plugin are automatically picked up
 
 #### 4.5 Update Settings (Merge)
 

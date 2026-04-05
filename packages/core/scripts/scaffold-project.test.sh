@@ -389,17 +389,19 @@ _get_plugin_dir() {
     [ -f "$TEST_DIR/.claude/agents/verify-app.md" ]
 }
 
-@test "Plugin copy: Copies 8 command files with --plugin-dir" {
+@test "Plugin copy: Copies all vendorable command files with --plugin-dir" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
 
     run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
     [ "$status" -eq 0 ]
 
-    # Count command files
-    local count
-    count=$(ls -1 "$TEST_DIR/.claude/commands/"*.md 2>/dev/null | wc -l)
-    [ "$count" -eq 8 ]
+    # Count command files - should match all .md files in core/commands/ minus init-project and rebase-project
+    local expected_count
+    expected_count=$(ls -1 "$plugin_dir/../core/commands/"*.md 2>/dev/null | grep -v 'init-project\|rebase-project' | wc -l)
+    local actual_count
+    actual_count=$(ls -1 "$TEST_DIR/.claude/commands/"*.md 2>/dev/null | wc -l)
+    [ "$actual_count" -eq "$expected_count" ]
 }
 
 @test "Plugin copy: Copies specific commands (create-prd, implement-trd)" {

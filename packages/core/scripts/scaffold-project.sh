@@ -177,35 +177,42 @@ copy_commands() {
 
     info "Commands source: $src"
 
-    # Copy specific workflow commands (not init-project or rebase-project)
-    local commands=(
-        "create-prd.md"
-        "create-prd-team.md"
-        "refine-prd.md"
-        "create-trd.md"
-        "create-trd-team.md"
-        "refine-trd.md"
-        "implement-trd.md"
-        "implement-trd-team.md"
-        "fold-prompt.md"
-        "cleanup-project.md"
-        "update-project.md"
+    # Plugin-only commands that should NOT be vendored into projects
+    local exclude_commands=(
+        "init-project.md"
+        "rebase-project.md"
     )
 
+    # Dynamically discover all .md commands in plugin source
     local count=0
-    for cmd in "${commands[@]}"; do
+    for cmd_path in "$src"/*.md; do
+        [[ -f "$cmd_path" ]] || continue
+        local cmd
+        cmd="$(basename "$cmd_path")"
+
+        # Skip excluded plugin-only commands
+        local excluded=false
+        for excl in "${exclude_commands[@]}"; do
+            if [[ "$cmd" == "$excl" ]]; then
+                excluded=true
+                break
+            fi
+        done
+        if [[ "$excluded" == "true" ]]; then
+            info "Skipped plugin-only command: $cmd"
+            continue
+        fi
+
         if [[ -f "$dest/$cmd" && "$FORCE" != "true" ]]; then
             info "Command exists: $cmd"
-        elif [[ -f "$src/$cmd" ]]; then
-            cp "$src/$cmd" "$dest/"
+        else
+            cp "$cmd_path" "$dest/"
             if [[ "$FORCE" == "true" ]]; then
                 info "Replaced command: $cmd"
             else
                 info "Copied command: $cmd"
             fi
             ((count++)) || true
-        else
-            warn "Command not found: $cmd"
         fi
     done
     info "Copied $count commands"
