@@ -37,6 +37,27 @@ follows `/implement-trd-team`. This command defines a different **stage cycle** 
 **ULTRATHINK**: Read the TRD, PRD, and completion promise. Understand what "done" looks
 like from the user's perspective before spawning any teammates.
 
+---
+
+## Autonomous alternative: `/goal` + the `verify-goal` skill
+
+This command runs an **externally-managed** loop (re-run up to 3×, parallel teammates). For
+a **single-session, self-driving** loop, use the `verify-goal` skill under `/goal` instead —
+`/goal` keeps the session working turn-after-turn until the verify.json contract is
+satisfied (works headless via `claude -p` and remote).
+
+A command cannot activate `/goal` itself (slash commands fire only from direct user input),
+so **at the end of Preflight this command emits the concrete, ready-to-paste invocation**
+for the resolved TRD:
+
+```bash
+claude -p "/goal Every assertion in .trd-state/<trd-name>/verify.json has verdict \"pass\" (or acceptable \"blocked\"); zero \"pending\" or \"fail\". Use the verify-goal skill against <trd-path>."
+```
+
+Both paths share the same verify.json schema and PROBE/FIX cycle defined below, so you can
+switch freely. Use this team command for parallel assertion groups + a bounded run count;
+use `verify-goal` + `/goal` for hands-off completion.
+
 ## User Input
 
 ```text
@@ -123,6 +144,10 @@ Execute `/implement-trd` Steps 1.1-1.3 (Load Constitution, TRD Selection, Git Br
    - Are there API endpoints to test? (look for route definitions)
    - Is there a UI to test? (look for frontend entry points)
    - Are there third-party services? (look for API keys, SDK imports — test read-only only)
+
+4. **Emit the `/goal` invocation:** Print the ready-to-paste `claude -p "/goal …"` line from
+   the "Autonomous alternative" section above, with `<trd-name>` and `<trd-path>` resolved to
+   the selected TRD, so the user can opt into single-session `/goal`-driven verification.
 
 ---
 
