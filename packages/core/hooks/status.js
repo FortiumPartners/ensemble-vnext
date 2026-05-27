@@ -1,12 +1,26 @@
 #!/usr/bin/env node
 
 /**
- * Status Hook: Passive verification for implement.json updates.
+ * Status Hook: durable-state safety net for implement.json (SubagentStop).
  *
- * This hook fires on SubagentStop events and implements Option B (Passive Verification)
- * from the TRD - it verifies that implement.json was modified during the session
- * and logs whether changes occurred. The actual updates are done by the implement-trd
- * command prompt itself.
+ * Complements the implement-trd command, which is the primary driver of in-session
+ * stage progression (via the native Task tools / blockedBy graph) and writes the
+ * durable implement.json. This hook is a best-effort safety net that runs on every
+ * SubagentStop to: (1) clear session_id on subagent completion (TRD-H004), and
+ * (2) advance cycle_position for the single in-progress task so the DURABLE marker
+ * keeps moving even if the session dies mid-loop.
+ *
+ * Design intent: the command sets cycle_position when ENTERING a stage
+ * (state-write-before-delegate); this hook advances it when the stage's subagent
+ * stops. They are meant to interleave, not both advance the same transition.
+ *
+ * KNOWN LIMITATION: advanceCyclePosition() blindly bumps the lone in-progress task
+ * on ANY SubagentStop. During DEBUG retries (which loop back to verify) or any stage
+ * that spawns more than one subagent, it can over-advance. It also does not model the
+ * TDD 'verify_red' position (not in CYCLE_ORDER). The command's explicit writes are
+ * authoritative; treat this advance as advisory. A deeper reconciliation — letting the
+ * native Task graph own in-session position and reducing this hook to session_id
+ * housekeeping — is tracked as a follow-up.
  *
  * Environment Variables:
  *   STATUS_HOOK_DISABLE - Set to "1" to disable (default: enabled)
