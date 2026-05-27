@@ -8,6 +8,7 @@ description: |
   - "Implement a REST API endpoint with validation and error handling"
   - "Create database models with Prisma and write migration scripts"
 model: sonnet
+effort: medium
 color: yellow
 skills:
   - pytest

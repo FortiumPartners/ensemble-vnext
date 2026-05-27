@@ -8,6 +8,7 @@ description: |
   - "Verify AUTH-B001 implementation meets all acceptance criteria from TRD"
   - "Validate checkout flow works end-to-end against specified requirements"
 model: sonnet
+effort: medium
 color: magenta
 skills:
   - jest

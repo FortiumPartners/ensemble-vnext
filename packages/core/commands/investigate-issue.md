@@ -1,6 +1,7 @@
 ---
 name: investigate-issue
 description: Triage an issue report — reproduce, classify, and produce either a lightweight issue TRD or a spec for /create-prd
+argument-hint: "<issue description | URL | screenshot path>"
 version: 1.0.0
 category: maintenance
 ---

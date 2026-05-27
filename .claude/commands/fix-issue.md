@@ -1,6 +1,7 @@
 ---
 name: fix-issue
 description: Fix a triaged issue using the lightweight issue TRD — implement, verify, and review in a single compressed pass
+argument-hint: "[issue-trd-path] [--resume] [--reset-state]"
 version: 1.0.0
 category: maintenance
 ---
@@ -160,7 +161,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 If final verification fails:
 - If reproduction still occurs: route back to fix loop for the relevant task
@@ -324,7 +325,7 @@ Deliverables:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{implementer_type}", prompt="[above]")`
 
 ## F.2 Template: VERIFY
 
@@ -357,7 +358,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 ## F.3 Template: REVIEW
 
@@ -388,7 +389,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-reviewer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
 
 ---
 

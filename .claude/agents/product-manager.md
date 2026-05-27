@@ -9,6 +9,7 @@ description: |
   - "Analyze user needs and define acceptance criteria for checkout flow"
   - "Prioritize features using RICE framework for Q2 roadmap"
 model: opus
+effort: high
 color: blue
 skills:
 ---

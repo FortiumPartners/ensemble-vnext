@@ -7,6 +7,7 @@ description: |
   - "Investigate 500 error using 5 Whys analysis and trace logs"
   - "Debug race condition in user creation with concurrent request analysis"
 model: opus
+effort: high
 color: red
 skills:
   - jest

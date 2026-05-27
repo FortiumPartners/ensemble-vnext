@@ -7,6 +7,7 @@ description: |
   - "Review authentication implementation for OWASP Top 10 vulnerabilities"
   - "Verify Definition of Done: tests passing, coverage met, docs updated"
 model: opus
+effort: high
 color: purple
 skills:
   - developing-with-react

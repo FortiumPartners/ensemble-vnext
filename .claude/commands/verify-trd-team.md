@@ -1,6 +1,7 @@
 ---
 name: verify-trd-team
 description: Live verification pass — confirms implemented TRD delivers promised functionality through API testing, UI testing, and service integration validation
+argument-hint: "[trd-path] [--promise \"<text>\"] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
 version: 1.0.0
 category: verification
 ---

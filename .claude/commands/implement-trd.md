@@ -1,7 +1,8 @@
 ---
 name: implement-trd
-description: Execute TRD implementation using TaskTools with staged execution, specialist delegation, risk-aware debugging, and quality gates
-version: 3.1.0
+description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
+version: 3.2.0
 category: implementation
 ---
 
@@ -38,7 +39,13 @@ Main Loop (per task):
   IMPLEMENT -> VERIFY -> [DEBUG if fail] -> SIMPLIFY -> VERIFY -> [DEBUG if fail] -> REVIEW -> UPDATE
 ```
 
-**TaskTools Integration:** Use TaskCreate, TaskGet, TaskUpdate, TaskList for task management. Each stage MUST wait for subagent completion before proceeding.
+**Task vs Agent (do not conflate):**
+- **Work-list verbs** — `TaskCreate`, `TaskGet`, `TaskUpdate`, `TaskList` — manage the in-session
+  task graph (stages + `blockedBy` dependencies). They track *what to do*; they do not run agents.
+- **Spawning** — the **`Agent`** tool (`Agent(subagent_type="…", prompt="…")`) dispatches a subagent
+  to execute a stage. It runs *the work*.
+
+Each stage MUST wait for the spawned subagent to complete before proceeding.
 
 ---
 
@@ -395,7 +402,7 @@ TaskUpdate({ taskId, owner: "self", status: "in_progress" });
 1. **Claim:** `TaskUpdate({ taskId, owner: "self", status: "in_progress" })`
    - Note: `owner: "self"` indicates this agent is working on the task
    - The `intended_agent` in metadata determines which subagent receives the work
-2. **Dispatch:** Task tool with stage-appropriate prompt (see Appendix A)
+2. **Dispatch:** `Agent` tool with stage-appropriate prompt (see Appendix A)
 3. **Handle Result:**
    - Success: `TaskUpdate({ taskId, status: "completed" })`
    - Failure: Route to DEBUG (for blocking strategies)
@@ -429,7 +436,7 @@ Select implementer per 4.3. For UI tasks, include V0/visual context.
 **State-Write-Before-Delegate (CRITICAL):** Before spawning the subagent, write state to disk:
 1. Set `tasks[id].status = "in_progress"` and `tasks[id].cycle_position = "implement"` in implement.json
 2. Write implement.json to disk
-3. THEN dispatch the Task tool
+3. THEN dispatch the `Agent` tool
 
 This ensures the status.js hook can find and advance the in-progress task on SubagentStop.
 
@@ -824,7 +831,7 @@ guide the implementer toward the correct solution.
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 ---
 
@@ -957,7 +964,7 @@ If the TRD contains a "Design References" or "UI Context" section, extract and i
 
 **Note:** Design file paths are project-specific and should be declared in the TRD, not hardcoded in this command.
 
-**Invoke:** `Task(subagent_type="{selected-implementer}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{selected-implementer}", prompt="[above]")`
 
 ---
 
@@ -1020,7 +1027,7 @@ If visual issues found:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 ---
 
@@ -1051,7 +1058,7 @@ Return:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="frontend-implementer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="frontend-implementer", prompt="[above]")`
 
 ---
 
@@ -1097,7 +1104,7 @@ Do NOT execute tests - return to VERIFY stage for that.
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="app-debugger", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="app-debugger", prompt="[above]")`
 
 ---
 
@@ -1141,7 +1148,7 @@ Deliverables (ALL required):
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-simplifier", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-simplifier", prompt="[above]")`
 
 ---
 
@@ -1189,7 +1196,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-reviewer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
 
 ---
 
@@ -1214,7 +1221,7 @@ Return:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{original_implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{original_implementer_type}", prompt="[above]")`
 
 ---
 

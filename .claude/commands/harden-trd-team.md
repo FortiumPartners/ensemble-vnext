@@ -1,6 +1,7 @@
 ---
 name: harden-trd-team
 description: Hardening pass over implemented TRD — closes gaps, edge cases, contracts, regressions, and interaction risks using parallel teammates
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
 version: 1.0.0
 category: implementation
 ---
@@ -445,7 +446,7 @@ Deliverables (ALL required):
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{implementer_type}", prompt="[above]")`
 
 ---
 
@@ -518,7 +519,7 @@ Deliverables (ALL required):
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{implementer_type}", prompt="[above]")`
 
 ---
 
@@ -579,7 +580,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-reviewer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
 
 ---
 

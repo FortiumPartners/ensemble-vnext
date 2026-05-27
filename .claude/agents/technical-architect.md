@@ -9,6 +9,7 @@ description: |
   - "Design system architecture for checkout flow with API contracts"
   - "Decompose feature into implementation tasks with dependencies"
 model: opus
+effort: xhigh
 color: purple
 skills:
 ---

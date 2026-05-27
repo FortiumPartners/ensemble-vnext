@@ -7,6 +7,7 @@ description: |
   - "Configure GitHub Actions pipeline with test, build, and multi-environment deployment stages"
   - "Set up semantic versioning with automated changelog generation for releases"
 model: sonnet
+effort: medium
 color: orange
 skills:
   - managing-railway

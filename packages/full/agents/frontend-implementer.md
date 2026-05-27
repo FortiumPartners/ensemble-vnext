@@ -8,6 +8,7 @@ description: |
   - "Build a responsive dashboard with React and Tailwind CSS"
   - "Implement an accessible form with validation and error states"
 model: sonnet
+effort: medium
 color: green
 skills:
   - jest

@@ -8,6 +8,7 @@ description: |
   - "Build a Flutter screen with Riverpod state management and offline support"
   - "Implement a React Native component with platform-adaptive UI"
 model: sonnet
+effort: medium
 color: orange
 skills:
   - developing-with-flutter

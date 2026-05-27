@@ -1,6 +1,7 @@
 ---
 name: implement-trd-team
 description: Execute TRD implementation using parallel teammate sessions for concurrent phase execution
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
 version: 1.0.0
 category: implementation
 ---

@@ -7,6 +7,7 @@ description: |
   - "Provision EKS cluster with Terraform for production workloads"
   - "Configure Helm charts for microservices deployment with auto-scaling"
 model: sonnet
+effort: medium
 color: blue
 skills:
   - managing-railway

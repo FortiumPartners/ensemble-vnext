@@ -9,6 +9,7 @@ description: |
   - "Identify critical path and parallelization opportunities for checkout feature"
   - "Optimize task sequencing to minimize blocked time between agents"
 model: opus
+effort: high
 color: cyan
 skills:
 ---
