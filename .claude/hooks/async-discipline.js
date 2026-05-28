@@ -109,11 +109,48 @@ function readLastAssistantText(transcriptPath) {
   return '';
 }
 
+/**
+ * Strip citations / code / examples so meta-discussion ABOUT the rule doesn't
+ * trigger the regex. Replaces (not removes) so character indices stay sane for
+ * any downstream context inspection.
+ */
+function stripCitations(text) {
+  let out = text;
+  // Fenced code blocks (multi-line ``` ... ```)
+  out = out.replace(/```[\s\S]*?```/g, ' ');
+  // Inline code spans (`...`) — anchored so apostrophes in prose don't collapse content
+  out = out.replace(/`[^`\n]+`/g, ' ');
+  // Straight double-quoted strings ("...")
+  out = out.replace(/"[^"\n]*"/g, ' ');
+  // Curly double-quoted strings (“...”)
+  out = out.replace(/“[^“”\n]*”/g, ' ');
+  // Single-quoted citations — require both quotes to sit on word/sentence boundaries
+  // so contractions ("don't", "I'll", "it's") and possessives are NOT eaten.
+  //   left  boundary: start of string / whitespace / opening punctuation
+  //   right boundary: end of string / whitespace / sentence/closing punctuation
+  out = out.replace(/(^|[\s(\[{,;:])'([^'\n]{2,})'(?=[\s.,!?:;)\]}]|$)/g, '$1 ');
+  return out;
+}
+
+/**
+ * Heuristic: even outside quotes, a fire-and-forget phrase preceded by an
+ * explicit meta-discussion marker ("for example", "phrases like", "something
+ * like", "e.g.") is talking ABOUT the pattern, not claiming it.
+ */
+const META_MARKERS = /\b(something like|for example|for instance|such as|phrases? like|claim(s)? like|words? like|messages? like|the phrase|the literal|example of|matched (phrase|text|claim)|saying|catches?|trigger(s)? a block|hook (catches|fires|blocks|would (block|catch))|would (trigger|block))\b/i;
+
 function detectFireAndForgetClaim(text) {
   if (!text) return null;
+  // First strip quoted citations + code spans — meta-discussion shouldn't trigger.
+  const cleaned = stripCitations(text);
   for (const pattern of FIRE_AND_FORGET_PATTERNS) {
-    const match = text.match(pattern);
-    if (match) return match[0];
+    const match = cleaned.match(pattern);
+    if (!match) continue;
+    // Secondary defense: skip if a meta marker appears in the ~80 chars before the match
+    const ctxStart = Math.max(0, match.index - 80);
+    const before = cleaned.slice(ctxStart, match.index);
+    if (META_MARKERS.test(before)) continue;
+    return match[0];
   }
   return null;
 }
@@ -215,4 +252,5 @@ module.exports = {
   detectFireAndForgetClaim,
   detectActiveAsync,
   readLastAssistantText,
+  stripCitations,
 };

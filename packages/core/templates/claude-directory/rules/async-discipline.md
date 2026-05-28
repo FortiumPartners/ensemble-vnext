@@ -75,6 +75,23 @@ The patterns require both a *deferral verb* ("I'll", "I will", "going to", etc.)
 *notification intent* ("let you know", "report back", "come back"). Phrases like "running
 tests in parallel" or "I'll let you know what I find" are not matched.
 
+### What the guard deliberately IGNORES
+
+To avoid blocking meta-discussion *about* the rule itself, the matcher first strips:
+
+- Fenced code blocks (between triple backticks)
+- Inline code spans (between single backticks)
+- Double-quoted strings (straight `"…"` and curly `“…”`)
+- Single-quoted strings where both quotes sit on word/sentence boundaries (so
+  contractions like `don't` / `I'll` / `it's` and possessives are NOT eaten)
+
+It also skips a match preceded within ~80 characters by an explicit meta-discussion marker:
+`something like`, `for example`, `for instance`, `such as`, `phrases like`, `the phrase`,
+`the literal`, `example of`, `e.g.`, `i.e.`, `saying`, `matched phrase`, etc.
+
+Practical implication: documenting, describing, or quoting the pattern (in code spans, inside
+quotes, or after a meta marker) does NOT trigger the guard. Real claims in prose still do.
+
 ## Override
 
 Diagnostics: `ENSEMBLE_ASYNC_DISCIPLINE_DEBUG=1` — stderr logging.
