@@ -13,6 +13,9 @@ skills:
   - managing-railway
   - managing-vercel
   - managing-azure-devops
+  - act-local-ci
+  - changelog-generator
+  - flyio
 ---
 
 ## Role Statement
@@ -75,12 +78,17 @@ When receiving delegated work, pay attention to:
 Available skills for your specialty:
 - **managing-railway**: For Railway CI/CD integration, deployment automation, and service management
 - **managing-vercel**: For Vercel deployment automation, preview deployments, and production releases
+- **managing-azure-devops**: For Azure DevOps YAML pipelines, multi-stage deploys, templates
+- **act-local-ci**: Run GitHub Actions workflows locally with `act` to validate CI before pushing
+- **changelog-generator**: Generate categorized changelog from conventional commits for release notes
+- **flyio**: Deploy/operate on Fly.io (fly.toml, `fly`/`flyctl` CLI) for micro-VM PaaS targets
 
 When to invoke skills:
-- Setting up deployment pipelines to Railway or Vercel
+- Setting up deployment pipelines to Railway, Vercel, or Fly.io
 - Configuring preview/staging deployments on these platforms
-- Debugging deployment failures in CI/CD pipelines
+- Debugging deployment failures in CI/CD pipelines (use act-local-ci to reproduce locally)
 - Managing environment variables and secrets for deployments
+- Generating release notes / CHANGELOG at release time
 
 ## Technology Expertise
 

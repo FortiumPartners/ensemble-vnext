@@ -33,6 +33,11 @@ skills:
   - using-clerk
   - building-integrations
   - playwright-automation
+  - test-detector
+  - framework-detector
+  - tooling-detector
+  - smoke-test-runner
+  - git-town
 ---
 
 ## Role
@@ -118,12 +123,17 @@ When invoked, you receive:
 | Jest test failures | `jest` |
 | pytest test failures | `pytest` |
 | RSpec test failures | `rspec` |
-| Playwright E2E failures | `playwright-test` |
+| Playwright E2E failures | `writing-playwright-tests` |
 | React component issues | `developing-with-react` |
 | TypeScript type errors | `developing-with-typescript` |
 | Python backend issues | `developing-with-python` |
 | Database/Prisma issues | `using-prisma` |
 | Celery task issues | `using-celery` |
+| Unknown test runner | `test-detector` |
+| Unknown app framework | `framework-detector` |
+| Unknown infra (Helm/K8s/Kustomize) | `tooling-detector` |
+| Quick health check of API/DB/auth/integrations | `smoke-test-runner` |
+| Multi-task branch workflow during fix-up | `git-town` |
 
 Report which skill(s) you used in your deliverables.
 

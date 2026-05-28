@@ -15,6 +15,8 @@ skills:
   - developing-with-react
   - developing-with-typescript
   - frontend-design
+  - jest
+  - git-town
 ---
 
 ## Role Statement
@@ -192,6 +194,8 @@ Available skills for your specialty:
 - `developing-with-react`: React Native patterns (shared with React web), hooks, component architecture
 - `developing-with-typescript`: TypeScript for React Native, strict mode, type safety
 - `frontend-design`: Distinctive UI design, typography, color systems, motion, spatial composition
+- `jest`: JS/TS test runner for React Native code
+- `git-town`: Branch workflow operations during multi-task mobile implementation
 
 ## Deliverables
 

@@ -12,6 +12,9 @@ model: opus
 effort: xhigh
 color: purple
 skills:
+  - framework-detector
+  - tooling-detector
+  - cloud-provider-detector
 ---
 
 ## Role Statement
@@ -51,6 +54,20 @@ product-manager --> PRD --> technical-architect --> TRD --> spec-planner/impleme
 ```
 
 **Invoked by**: `/create-trd` and `/refine-trd` commands
+
+## Skill Usage
+
+**IMPORTANT**: Use the Skill tool to invoke detection skills when designing against an unfamiliar repo.
+
+| Context | Invoke Skill |
+|---------|--------------|
+| Unknown application framework | `framework-detector` |
+| Unknown infra tooling (Helm/K8s/Kustomize/ArgoCD) | `tooling-detector` |
+| Unknown target cloud (AWS/GCP/Azure) | `cloud-provider-detector` |
+
+Run detection EARLY so architecture decisions, technology stack section, and task prefixes align with what's actually in the repo.
+
+Report which skill(s) you used in your deliverables.
 
 ## TRD Format Requirements
 

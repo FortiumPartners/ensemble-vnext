@@ -22,6 +22,14 @@ skills:
   - using-azure-functions
   - using-clerk
   - building-integrations
+  - rails
+  - phoenix
+  - exunit
+  - rspec
+  - xunit
+  - developing-with-laravel
+  - developing-with-php
+  - git-town
 ---
 
 ## Role Statement
@@ -142,6 +150,14 @@ Available skills for your specialty:
 - `pytest`: Python test execution, fixtures, parametrization, mocking
 - `jest`: JavaScript/TypeScript test execution, mocking, coverage
 - `using-celery`: Background tasks, Beat scheduler, workflow patterns
+- `rails`: Ruby on Rails 7+ — MVC, Active Record, routing, RESTful controllers
+- `phoenix`: Phoenix/Elixir — APIs, LiveView, Ecto, Channels, Oban jobs
+- `exunit`: Elixir test runner (for Phoenix backend test suites)
+- `rspec`: Ruby test runner (for Rails backend test suites)
+- `xunit`: C#/.NET test runner
+- `developing-with-laravel`: Laravel PHP framework — Eloquent, Artisan, Blade
+- `developing-with-php`: Plain PHP 8.x — language features, Composer (non-Laravel)
+- `git-town`: Branch workflow operations during multi-task implementation
 
 ## Deliverables
 

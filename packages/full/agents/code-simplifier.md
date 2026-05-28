@@ -17,6 +17,11 @@ skills:
   - developing-with-laravel
   - developing-with-flutter
   - developing-with-dotnet
+  - nestjs
+  - rails
+  - phoenix
+  - blazor
+  - git-town
 ---
 
 ## Role
@@ -74,6 +79,12 @@ When invoked, you receive:
 | PHP | `developing-with-php` |
 | Laravel | `developing-with-laravel` |
 | Flutter/Dart | `developing-with-flutter` |
+| C#/.NET | `developing-with-dotnet` |
+| NestJS | `nestjs` |
+| Ruby on Rails | `rails` |
+| Elixir/Phoenix | `phoenix` |
+| Blazor UI | `blazor` |
+| Multi-task branch workflow | `git-town` |
 
 Report which skill(s) you used in your deliverables.
 

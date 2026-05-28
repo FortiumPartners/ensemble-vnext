@@ -9,7 +9,7 @@ description: |
   - "Validate checkout flow works end-to-end against specified requirements"
 model: sonnet
 effort: medium
-color: magenta
+color: pink
 skills:
   - jest
   - pytest
@@ -17,6 +17,13 @@ skills:
   - exunit
   - xunit
   - writing-playwright-tests
+  - smoke-test-runner
+  - smoke-test-api
+  - smoke-test-auth
+  - smoke-test-critical-paths
+  - smoke-test-database
+  - smoke-test-external-services
+  - test-detector
 ---
 
 ## Role Statement
@@ -178,7 +185,14 @@ Report which skill(s) you used in your deliverables.
 | Ruby | `rspec` |
 | Elixir | `exunit` |
 | C#/.NET | `xunit` |
-| E2E Testing | `playwright-test` |
+| E2E Testing | `writing-playwright-tests` |
+| Unknown test runner | `test-detector` |
+| Full release smoke suite | `smoke-test-runner` |
+| API endpoint health only | `smoke-test-api` |
+| Auth flow validation | `smoke-test-auth` |
+| End-to-end user journeys | `smoke-test-critical-paths` |
+| Database connectivity/SLA | `smoke-test-database` |
+| Third-party integrations | `smoke-test-external-services` |
 
 ## Deliverables
 

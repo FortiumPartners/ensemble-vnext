@@ -16,6 +16,12 @@ skills:
   - using-terraform-azure
   - using-azure-functions
   - managing-azure-devops
+  - kubernetes
+  - helm
+  - aws-cloud
+  - flyio
+  - cloud-provider-detector
+  - tooling-detector
 ---
 
 ## Role Statement
@@ -79,11 +85,21 @@ Available skills for your specialty:
 - **managing-railway**: For Railway platform deployments, service management, and debugging
 - **managing-vercel**: For Vercel platform deployments, serverless functions, and edge network
 - **managing-supabase**: For Supabase database management, Edge Functions, and local development
+- **using-terraform-azure**: Terraform HCL (azurerm 4.x) to provision Azure resources
+- **using-azure-functions**: .NET 8/9 isolated-worker Azure Functions
+- **managing-azure-devops**: Azure DevOps YAML pipelines for CI/CD targets on Azure
+- **kubernetes**: Raw Kubernetes manifests (Deployments, Services, Kustomize)
+- **helm**: Helm chart authoring/installs (Chart.yaml, templates/, values.yaml)
+- **aws-cloud**: AWS provisioning and operations
+- **flyio**: Fly.io PaaS deploys (fly.toml, flyctl)
+- **cloud-provider-detector**: Run FIRST when the target cloud is unknown — detects AWS/GCP/Azure
+- **tooling-detector**: Run FIRST when infra tooling is unknown — detects Helm/Kubernetes/Kustomize/ArgoCD
 
 When to invoke skills:
-- Deploying to Railway, Vercel, or Supabase platforms
-- Managing infrastructure on these platforms
+- Deploying to Railway, Vercel, Supabase, Fly.io platforms
+- Provisioning infrastructure on AWS, GCP, Azure with Terraform/Helm/Kubernetes
 - Debugging deployment issues on these platforms
+- Auto-detecting the cloud/tooling stack of an unfamiliar repo before choosing infra skills
 
 ## Technology Expertise
 

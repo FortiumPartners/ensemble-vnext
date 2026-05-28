@@ -35,6 +35,11 @@ skills:
   - styling-with-tailwind
   - building-integrations
   - playwright-automation
+  - developing-with-dotnet
+  - blazor
+  - rails
+  - phoenix
+  - frontend-design
 ---
 
 ## Role
@@ -102,6 +107,11 @@ Load framework skills to understand security patterns for that stack:
 | Flutter/Dart | `developing-with-flutter` |
 | NestJS | `nestjs` |
 | Prisma ORM | `using-prisma` |
+| C#/.NET | `developing-with-dotnet` |
+| Blazor UI | `blazor` |
+| Ruby on Rails | `rails` |
+| Elixir/Phoenix | `phoenix` |
+| UI design quality | `frontend-design` |
 
 Report which skill(s) you used in your deliverables.
 

@@ -219,10 +219,11 @@ hooks no longer run — learning capture is now deliberate via `/update-project`
 longer keyword-routes. Both surface on `/rebase-project`. Internal: Task→Agent dispatch rename,
 `effort` frontmatter, slim router, team API modernization, goal-native verify skill.
 
-Recommend **3.3.0 (minor)** unless the `SessionEnd` capture change is considered breaking for
-existing vendored projects — in which case **4.0.0**. Bump
-`packages/full/.claude-plugin/plugin.json` and note the `SessionEnd`/router/`--wiggum`-still-present
-behavior in the CHANGELOG. *(Decision pending.)*
+Adopted: **3.3.0 (minor).** As-built the changes are additive/internal — wiggum was kept
+(C0 revised C; D revised to shared-tree), the dispatch rename is internal, settings reconciliation
++ `SessionEnd` capture-via-`/update-project` is a behavior change that users will see on
+`/rebase-project` but is not breaking. `packages/full/.claude-plugin/plugin.json` bumped to 3.3.0
+with a CHANGELOG entry covering all tranches + follow-ups.
 
 ---
 

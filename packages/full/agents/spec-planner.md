@@ -12,6 +12,8 @@ model: opus
 effort: high
 color: cyan
 skills:
+  - framework-detector
+  - tooling-detector
 ---
 
 ## Role Statement
@@ -52,6 +54,19 @@ technical-architect --> TRD --> spec-planner --> Execution Plan --> implementers
 ```
 
 **Invoked by**: `/implement-trd` for execution planning and parallelization
+
+## Skill Usage
+
+**IMPORTANT**: Use the Skill tool to invoke detection skills when planning against an unfamiliar repo.
+
+| Context | Invoke Skill |
+|---------|--------------|
+| Unknown application framework (NestJS/React/Phoenix/Rails/.NET/Blazor) | `framework-detector` |
+| Unknown infra tooling (Helm/Kubernetes/Kustomize/ArgoCD) | `tooling-detector` |
+
+Run detection BEFORE assigning tasks to implementer agents so the plan reflects the real stack.
+
+Report which skill(s) you used in your deliverables.
 
 ## Execution Plan Components
 
