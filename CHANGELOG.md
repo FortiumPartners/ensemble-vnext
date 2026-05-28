@@ -2,6 +2,93 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.5.0] - 2026-05-28
+
+Phase 2 modernization — closes the structural gaps surfaced in the Claude Code alignment
+assessment, with emphasis on **durable cross-session memory** (state + decision trail survive
+compaction and session end) and **structural enforcement of async discipline** (the
+fire-and-forget failure mode is now blocked at the Stop hook, not just discouraged in prose).
+
+### Added
+
+- **Async-discipline rule + Stop-hook guard** (`async-discipline.md` + `async-discipline.js`).
+  Addresses a real recurring failure mode: an agent claims "I'll let you know when done" /
+  "running in the background" / "I'll report back" but uses no actual async machinery,
+  then sits idle until the user nudges — at which point it instantly checks and sees the
+  work completed long ago (hallucinated notification). The Stop hook now scans the last
+  assistant turn for fire-and-forget claims; if a claim is present without any of the four
+  legitimate async primitives in flight (`Agent({run_in_background: true})`,
+  `ScheduleWakeup`, `Monitor`, `/goal`), the Stop is BLOCKED with a reason explaining the
+  options. Constitution gains Prohibited Pattern #6 referencing the rule.
+- **SessionStart context hook** (`session-context.js`). On every new session, reads
+  `.trd-state/current.json` and surfaces the in-flight feature (PRD/TRD path + task progress
+  from `implement.json` or assertion verdicts from `verify.json`) into `additionalContext`.
+  Removes the "remind me what we're working on" friction at the start of every session.
+- **PreCompact decision-trail archiver** (`precompact.js`). When `/compact` runs — or
+  auto-compaction triggers at ~95% — appends a structured checkpoint to
+  `.trd-state/<feature>/session-log.md`: timestamp + trigger, PRD/TRD, phase, strategy,
+  branch, in-flight tasks (id + cycle + `current_problem`), tasks in retry, last 5
+  completions, and a **Decisions & rationale (model: fill on resume)** stub. Hook returns
+  `additionalContext` instructing the post-compact model to re-read the log and backfill the
+  rationale stub. State records *what*; the log records *why* — both survive compaction.
+- **Skill `paths:` globs for stack-specific auto-activation** (35+ skills). Language,
+  framework, ORM, test-runner, vector-store, infra, and platform skills now declare
+  `paths:` so Claude Code's native selector only auto-activates them when matching files
+  are present (`developing-with-react` doesn't fire on a pure-backend session because the
+  word "component" appeared; `rails` doesn't fire in a Python project). Sharpens routing
+  without re-introducing the keyword router that 3.3.0 deliberately removed.
+- **Phase 2 recommendations doc** (`docs/modernization/2026-05-phase2-recommendations.md`)
+  capturing the assessment, the four Tier-1 items shipped in this release, and the
+  anti-recommendations (e.g., why `mode: plan` is *not* the right primitive for this
+  system-of-agents direction).
+
+### Changed
+
+- **Framework-shipped vs user-owned rules split**. Rules under `.claude/rules/` now come in
+  two categories with opposite update policies:
+  - **User governance** (`constitution.md`, `stack.md`, `process.md`) — generated/customized
+    at `/init-project`; `/rebase-project` NEVER modifies.
+  - **Framework-shipped** (`async-discipline.md`, plus any future `.md` in
+    `templates/claude-directory/rules/`) — copied-if-missing on BOTH init AND rebase, so
+    behavioral guarantees enforced by hooks have their accompanying explanation in every
+    project. Folder-driven: the next framework rule is a drop-in file.
+- **`implement-trd.md` §5.4** documents the `session-log.md` convention so the model knows
+  to re-read it after compaction and backfill the **Decisions & rationale** stub.
+- **`constitution.md.template`** ships Prohibited Pattern #6 (No false async claims) as a
+  fixed entry; user-provided `ADDITIONAL_PROHIBITIONS` now number from 7.
+- **`validate-init.sh`** required-file loop now includes `.claude/rules/async-discipline.md`.
+
+### Fixed
+
+- **Async-discipline false-positives on meta-discussion** (two iterations, real fires in the
+  wild). The guard initially tripped on prose that discussed or quoted the pattern. Now:
+  - `stripCitations()` removes fenced code blocks, inline code spans, and double-quoted
+    strings before matching; single-quoted strings are stripped only when both quotes sit on
+    word/sentence boundaries (preserving contractions like `don't` / `I'll` / `it's`).
+  - `META_MARKERS` skips matches preceded within ~80 chars by `something like` / `for example`
+    / `phrases like` / `the phrase` / `e.g.` / etc.
+  - `readLastAssistantText` enforces a strict **turn boundary** — only scans assistant text
+    produced AFTER the most recent user message, so earlier turns and hook-injected
+    BLOCK_REASON content (user-side) can no longer leak into the scan.
+  - `SELF_DOC_MARKERS` bypasses the entire match check when the text contains
+    `[ASYNC-DISCIPLINE GUARD`, `async-discipline.md`, `async-discipline.js`, or the bare term
+    `fire-and-forget` — self-evident meta-discussion.
+
+### Why this matters
+
+These four items close the gap between "the framework documents a principle" and "the
+framework enforces it." Before 3.5.0:
+- Agents could quietly fire-and-forget with no system pushback until the user noticed.
+- Every new session started cold ("what are we working on?").
+- Compaction summarized away the decision trail; only `implement.json`'s *what* survived.
+- Stack-specific skills could mis-fire on unrelated turns, fighting the slim router.
+
+After 3.5.0 each of those is structural: the Stop hook blocks the violation, SessionStart
+auto-loads context, PreCompact archives the rationale, and `paths:` globs scope skill
+activation to file-shape relevance.
+
+---
+
 ## [3.4.0] - 2026-05-28
 
 AI-feature direction release — fills the gap for projects building LLM-powered features
