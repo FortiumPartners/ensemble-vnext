@@ -102,6 +102,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash -c 'cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\" && .claude/hooks/async-discipline.js'",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash -c 'cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\" && .claude/hooks/wiggum.js'",
             "timeout": 10
           },

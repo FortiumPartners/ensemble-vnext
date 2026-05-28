@@ -160,6 +160,12 @@ This is a plugin development project. Standard unit/integration tests are suffic
 3. **No implicit knowledge** - Workflows must be explicit in commands
 4. **No blocking hooks** - Hooks never block unless explicitly required
 5. **No auto-commit in SessionEnd** - Stage only, let user/system handle commits
+6. **No false async claims** - See `.claude/rules/async-discipline.md`. An agent claiming
+   "I'll let you know when done" / "running in the background" / "I'll report back" without
+   using `Agent({run_in_background: true})`, `ScheduleWakeup`, `Monitor`, or `/goal` in the
+   same turn is a hallucinated notification — the agent will sit idle until prompted.
+   Enforced by the `async-discipline.js` Stop hook (blocks the violation; one of the
+   explicit-exception cases under rule 4).
 
 ---
 
