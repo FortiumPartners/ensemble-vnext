@@ -421,6 +421,7 @@ TaskUpdate({ taskId, owner: "self", status: "in_progress" });
 | mobile, flutter, react-native, ios, android, app | `mobile-implementer` |
 | infra, deploy, docker, k8s, aws, cloud, terraform | `devops-engineer` |
 | pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
+| llm, agent, rag, prompt, embedding, vector, langgraph, langfuse, openai, anthropic, claude, gpt, sonar, retrieval, tool-calling, multi-agent | `agent-implementer` |
 
 ### 4.4 Stage Execution
 

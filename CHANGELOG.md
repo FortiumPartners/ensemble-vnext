@@ -2,6 +2,65 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.4.0] - 2026-05-28
+
+AI-feature direction release — fills the gap for projects building LLM-powered features
+(provider SDKs, RAG, multi-agent orchestration, tool calling, memory, observability) and
+establishes a **currency-check pattern** so the model never invokes deprecated/retired LLMs
+or mis-states capabilities from memorized training data.
+
+### Added
+
+- **`agent-implementer` subagent** — the 13th specialist. Builds AI features end-to-end: LLM
+  SDK integrations, RAG pipelines, agent loops, tool calling, agent memory, prompt
+  observability/evals, with currency verification, retries, cost/latency awareness, and PII
+  discipline baked into the role. Plugin manifest updated (`agents: 13`); `/implement-trd`
+  agent-routing table gained a row for LLM/agent/RAG keywords → `agent-implementer`.
+- **5 new skills** under `packages/skills/`:
+  - **`using-pgvector`** — Postgres-native vector storage (HNSW/IVFFlat, vector/halfvec/sparsevec,
+    distance ops, hybrid filters, raw SQL + Prisma + SQLAlchemy patterns). The Postgres-native
+    alternative to `using-weaviate`.
+  - **`building-rag-pipelines`** — End-to-end RAG architecture (chunking strategies, embedding
+    model choice, retrieval, reranking, citation/grounding, evaluation). Provider- and
+    store-agnostic; delegates wire-level concerns to the provider and vector-store skills.
+  - **`building-agent-memory`** — Conversation buffer, summary memory, vector-backed long-term
+    memory, hierarchical (working/short/long), eviction/compaction, PII redaction. Composes
+    over the vector skills and provider primitives.
+  - **`building-tool-orchestration`** — Modernized cross-provider tool-calling: agent loop,
+    parallel tool calls, dynamic tool selection / retrieval for large tool sets, failure
+    recovery (retry → fallback → escalate), structured outputs. Tool-call wire shape delegated
+    to the provider skill's Stay-current.
+  - **`using-langfuse`** — Prompt observability (tracing, prompt versioning, eval datasets,
+    A/B testing, cost/latency, multi-provider integration). Designated default observability
+    skill.
+- **LLM-platform skills on `backend-implementer`** (already in the previous commit on this
+  branch): `using-anthropic-platform`, `using-openai-platform`, `using-perplexity-platform`,
+  `building-langgraph-agents`, `using-weaviate` — so backends that ship AI features have
+  first-class access alongside the new `agent-implementer`.
+
+### Changed
+
+- **Currency-check pattern enforced across all LLM-ecosystem skills** (`using-anthropic-platform`,
+  `using-openai-platform`, `using-perplexity-platform`, `building-langgraph-agents`,
+  `using-weaviate`). Each now has a forceful "**Stay current**" section near the top of the
+  body that REQUIRES `WebFetch` of provider-specific docs/pricing/changelog URLs **before**
+  recommending a model, comparing options, citing pricing, or invoking a capability — and
+  requires citing source URL + fetch date in deliverables. The same directive is surfaced in
+  each skill's `when_to_use` frontmatter so it's visible on auto-activation. Existing
+  point-in-time "Models" tables (e.g. "Claude Models (January 2026)", "GPT-5 Model Family",
+  "Sonar Model Family") flagged with ⚠️ verify-current callouts. All 5 new skills inherit the
+  same pattern.
+
+### Why this matters
+
+LLM lineups, pricing, tool-call shapes, and capability matrices change on a monthly cadence —
+faster than any model training snapshot. Without an enforced currency check, agents reliably
+pick stale/retired model strings, hallucinate context-window sizes, or assume older capability
+shapes. The Stay-current sections + the `agent-implementer` acceptance checklist together
+prevent that pattern.
+
+---
+
 ## [3.3.0] - 2026-05-27
 
 Claude Code alignment release. Brings the plugin into line with the current Claude Code subagent /
