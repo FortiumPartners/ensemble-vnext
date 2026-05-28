@@ -58,14 +58,20 @@ Confidence noted where Claude Code docs were ambiguous (verified 2026-05-27 agai
 - **Lose:** nothing. **Verdict: straight modernize.** Resolves the confusing overload between
   "TaskTools" (the durable/work-list verbs) and the Agent spawner.
 
-### 2.3 Manual parallelism ("max 2 concurrent" + file-conflict inference) → `isolation: worktree`
-- **Gain:** true isolation — parallel teammates cannot collide on files.
-- **Lose / caveat (CONFIDENCE ~40% on native behavior):** worktree **merge-back is manual and
-  undocumented for the many-worktrees→one-branch case.** Docs confirm a changed worktree persists
-  and prompts to keep/merge; **no documented auto-merge.** Integrating N teammates onto one feature
-  branch needs explicit orchestration.
-- **Verdict: ADOPT in team commands WITH explicit merge orchestration** (decision below). Do not
-  assume auto-merge.
+### 2.3 Manual parallelism ("max 2 concurrent" + file-conflict inference) → shared-tree teams
+- **Verdict (REVISED after Agent Teams research): KEEP the shared-tree model; do NOT push
+  `isolation: worktree` into the team commands.** Research confirms the intended model for N
+  teammates on ONE feature branch is a **shared working tree + file-ownership decomposition + the
+  shared task list (`blockedBy` + file-locked task claiming) + direct commits** — which is what
+  `implement-trd-team` already approximates. Docs (agent-teams.md): *"Avoid file conflicts: two
+  teammates editing the same file leads to overwrites. Break the work so each teammate owns a
+  different set of files."* `isolation: worktree` is **opt-in and positioned for INDEPENDENT
+  parallel work** (a feature in one terminal, a bug in another), with **no documented auto-merge**
+  back to a shared branch (worktrees.md). Pushing it into a many-sessions→one-branch workflow goes
+  against the grain and manufactures a manual-merge problem the design avoids.
+- **What this means for the gap:** *align* the current "max 2 concurrent / infer file touches"
+  heuristic to the native model (file ownership + native shared task list); do not replace it with
+  worktrees. Worktree isolation is the documented tool for *cross-feature* parallelism only.
 
 ### 2.4 `wiggum.js` autonomous loop (`--wiggum`, Stop hook) → **`/goal`**
 - **Native `/goal` (CONFIRMED real):** works turn-after-turn until a condition; runs in headless
@@ -142,8 +148,14 @@ Confidence noted where Claude Code docs were ambiguous (verified 2026-05-27 agai
      `/goal` = loop, `verify.json` = state.
    - **`wiggum.js` is kept** for the fully-vendored zero-touch Stop-hook path; the same goal-native
      pattern can later offer an interactive/headless alternative for the implement loop.
-2. **Worktrees → push into team commands.** Adopt `isolation: worktree` in the `*-team` commands
-   *and add explicit merge orchestration* to land N worktrees onto one feature branch.
+2. **Teams → align to the native shared-tree model** *(REVISED after research — see §2.3)*. The
+   original call was "push `isolation: worktree` into the team commands"; research confirms Agent
+   Teams are designed around a **shared working tree + file ownership + shared task list + direct
+   commits**, and worktree isolation is opt-in for *independent* work with no auto-merge. **Revised:**
+   keep the shared-tree model; modernize the team API (`Teammate(spawnTeam)`→`TeamCreate`,
+   `Task({team_name})`→`Agent({team_name})`), lean on the native shared task list's `blockedBy` +
+   file-locked claiming, sharpen file-ownership decomposition, and document that worktree isolation
+   is for cross-feature parallelism only. No custom merge orchestration.
 3. **Router → slim down.** Replace keyword routing with a single static reinforcing instruction
    ("aggressively leverage the framework: skills, agents, commands, constitution"). Native
    description-based selection carries routing.
@@ -175,7 +187,7 @@ Confidence noted where Claude Code docs were ambiguous (verified 2026-05-27 agai
 | **A** | Task→Agent rename; `effort` + model hygiene; command/skill frontmatter | Low | — |
 | **B** | Slim `router.py`; strengthen descriptions; fate of `router-rules` | Low–Med | — |
 | **C** | *(revised)* keep+modernize wiggum; add `/goal` headless run-mode; verify commands emit a `/goal` invocation | Med | A (Agent rename) |
-| **D** | `isolation: worktree` + merge orchestration in team commands | **High** | A, C |
+| **D** | *(revised)* modernize team API + align to native shared-tree coordination + document worktree boundary | Low–Med | A |
 | **E** | Reconcile + finalize settings; audit `status.js`; document memory split | Low–Med | — |
 
 **Suggested sequence:** A → B → E (low-risk, independent) → C (after seed-`/goal` spike) → D (last,
@@ -186,8 +198,10 @@ needs its own headless validation).
   only from direct user input; no env/settings/tool to set a goal). `/goal` runs in `-p`/`--remote`
   only when explicitly passed. Docs name a Stop hook as the command-driven-autonomy mechanism →
   wiggum stays.
-- **D:** Worktree merge-back ergonomics for N→1 branch; validate with a headless multi-teammate dry
-  run incl. a deliberate conflict before trusting it.
+- **D — RESOLVED (by docs, no empirical spike needed):** Agent Teams use a shared working tree;
+  worktree isolation is opt-in for independent work with no auto-merge. The team commands should
+  keep the shared-tree model and modernize the API — not adopt worktrees. The headless merge-back
+  spike is unnecessary.
 
 ### Unconfirmed (do not build on without verification)
 - `run_in_background: true` on the Agent tool is present in this runtime's tool schema but **not in

@@ -28,6 +28,13 @@ here -- NOT duplicated. This command adds a **team orchestration layer** on top.
 **ULTRATHINK**: Parse the TRD execution plan carefully to identify parallelization
 opportunities before spawning teammates.
 
+**Workspace model:** Teammates share ONE working tree and commit directly to the feature
+branch — the native Agent Teams model. Parallel safety comes from **file ownership** (each
+session owns a disjoint set of files; see Step 3.3) plus the **shared task list**
+(`blockedBy` dependencies + file-locked task claiming), NOT from per-teammate git worktrees.
+`isolation: worktree` is the documented tool for *independent cross-feature* work and is
+deliberately NOT used here — it would manufacture an N→1 manual-merge problem the design avoids.
+
 ## User Input
 
 ```text
@@ -47,11 +54,11 @@ Phase Loop (per phase):
   1. Parse parallelization map
   2. Group sessions by parallel eligibility
   3. For each parallel group:
-     a. Spawn team (Teammate: spawnTeam)
-     b. Spawn one teammate per session (Task tool with team_name)
-     c. Monitor TaskList for progress
+     a. Create team (TeamCreate)
+     b. Spawn one teammate per session (Agent tool with team_name)
+     c. Monitor the shared task list for progress
      d. Wait for all teammates to complete
-     e. Shutdown teammates, cleanup team
+     e. Shutdown teammates (SendMessage shutdown_request), then TeamDelete
   4. Phase checkpoint (git commit, state update)
   5. Recommend /compact, advance to next phase
 ```
@@ -108,10 +115,15 @@ Phase 1:  Group 1: [phase1_backend, phase1_frontend]  # independent
 Phase 2:  Group 1: [phase2_api]  ->  Group 2: [phase2_integration]
 ```
 
-### 3.3 File Conflict Detection
+### 3.3 File Ownership (primary parallel-safety mechanism)
 
-Apply `/implement-trd` File Conflict Detection rules before finalizing groups. If two
-sessions in the same group touch the same files, move the later session to the next group.
+Teammates share one working tree, so **each session in a parallel group MUST own a disjoint
+set of files** — the native Agent Teams safety model ("break the work so each teammate owns a
+different set of files"). Apply `/implement-trd` File Conflict Detection to partition: if two
+sessions in the same group would touch the same file, either move the later one to the next
+group (sequence them) or reassign files so ownership stays disjoint. Cross-session
+dependencies are expressed via the shared task list's `blockedBy`, so blocked work cannot be
+claimed early.
 
 ---
 
@@ -129,31 +141,37 @@ For each parallel group within the phase:
 ```
 Update `active_sessions` map with session name entries.
 
-**2. Spawn team:**
+**2. Create team:**
 ```javascript
-Teammate({ operation: "spawnTeam", team_name: "impl-phase-{N}-group-{G}",
-           description: "TRD {trd_name} Phase {N} parallel execution" });
+TeamCreate({ team_name: "impl-phase-{N}-group-{G}",
+             description: "TRD {trd_name} Phase {N} parallel execution" });
 ```
+The team has a 1:1 shared task list; the stage sub-tasks created via `/implement-trd` Step 3
+live on it.
 
-**3. Spawn teammates** -- one per session, using Task tool:
+**3. Spawn teammates** -- one per session, using the **Agent** tool with `team_name`:
 ```javascript
-Task({ team_name: "impl-phase-{N}-group-{G}", name: session_name,
-       subagent_type: session_agent, prompt: "[Teammate Prompt - Section 4.2]" });
+Agent({ subagent_type: session_agent, team_name: "impl-phase-{N}-group-{G}",
+        name: session_name, prompt: "[Teammate Prompt - Section 4.2]" });
 ```
+Assign each session's task(s) to its teammate with
+`TaskUpdate({ taskId, owner: session_name })`. Do NOT pass `isolation: "worktree"` — teammates
+share the working tree (see Workspace model).
 
-**4. Monitor** -- poll TaskList for completion. Teammates send results via SendMessage.
-Idle state between turns is normal. Wait for ALL teammates in the group to complete.
+**4. Monitor** -- teammate messages arrive automatically as new turns (no inbox polling);
+teammates also advance the shared task list. Idle between turns is normal. Wait for ALL
+teammates in the group to complete.
 
 **5. Collect results** -- for each teammate extract: task status (success/failed/blocked),
 files changed, coverage metrics, single-line summary per task. Update implement.json.
 
 **6. Cleanup:**
 ```javascript
-// Shutdown all teammates in group
+// Gracefully shut down each teammate, then delete the team
 for (const session of group.sessions)
-  SendMessage({ type: "shutdown_request", recipient: session.name, content: "Group complete" });
-// After confirmations
-Teammate({ operation: "cleanup" });
+  SendMessage({ to: session.name, message: { type: "shutdown_request" } });
+// TeamDelete fails while members are still active — only after all have shut down:
+TeamDelete({});
 ```
 
 ### 4.2 Teammate Prompt Template

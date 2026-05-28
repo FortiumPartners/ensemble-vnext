@@ -118,14 +118,16 @@ If the issue TRD has only 1 task, execute directly without spawning a team:
 If 2+ tasks, spawn a lightweight team:
 
 ```javascript
-Teammate({ operation: "spawnTeam", team_name: "fix-<issue-id>",
-           description: "Fix <issue-id>" });
+TeamCreate({ team_name: "fix-<issue-id>", description: "Fix <issue-id>" });
 ```
 
-Spawn one teammate per task (or group related tasks). Each teammate runs the
-full fix cycle using the templates below.
+Spawn one teammate per task (or group related tasks) with the **Agent** tool
+(`Agent({ subagent_type, team_name: "fix-<issue-id>", name, prompt })`). Each teammate runs
+the full fix cycle using the templates below. Teammates share the working tree (no
+`isolation: "worktree"`); keep each teammate's files disjoint.
 
-Monitor, collect results, cleanup — same as `/implement-trd-team` Step 4.
+Monitor, collect results, and clean up (SendMessage `shutdown_request` then `TeamDelete`) —
+same as `/implement-trd-team` Step 4.
 
 ---
 
