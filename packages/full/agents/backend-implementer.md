@@ -30,6 +30,11 @@ skills:
   - developing-with-laravel
   - developing-with-php
   - git-town
+  - using-anthropic-platform
+  - using-openai-platform
+  - using-perplexity-platform
+  - building-langgraph-agents
+  - using-weaviate
 ---
 
 ## Role Statement
@@ -158,6 +163,14 @@ Available skills for your specialty:
 - `developing-with-laravel`: Laravel PHP framework — Eloquent, Artisan, Blade
 - `developing-with-php`: Plain PHP 8.x — language features, Composer (non-Laravel)
 - `git-town`: Branch workflow operations during multi-task implementation
+
+LLM-integration skills (for AI-feature backends — invoke when adding LLM calls, agents, or
+vector retrieval to a service):
+- `using-anthropic-platform`: Claude / Anthropic SDK — Messages API, Tool Use, Extended Thinking, streaming, prompt caching
+- `using-openai-platform`: OpenAI SDK — Chat Completions, Responses API, embeddings, tool calling
+- `using-perplexity-platform`: Perplexity Sonar — web-grounded chat with citations (when the answer needs live search)
+- `building-langgraph-agents`: LangGraph — stateful multi-agent graphs, cyclic workflows, conditional routing, human-in-the-loop
+- `using-weaviate`: Weaviate vector DB — semantic / hybrid search, RAG retrieval, multi-modal
 
 ## Deliverables
 
