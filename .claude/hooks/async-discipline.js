@@ -80,29 +80,48 @@ function emit(block, reason) {
 }
 
 /**
- * Extract the most recent assistant text from a JSONL transcript file.
- * Returns the concatenated text content of the last assistant message, or '' if none.
+ * Extract the assistant text from the CURRENT turn only — i.e., text produced by
+ * the assistant AFTER the most recent user message. This prevents earlier turns'
+ * content and any hook-injected BLOCK_REASON (which lives on the user side of the
+ * transcript) from being mis-scanned as the current claim.
+ *
+ * Returns concatenated text content from the current turn's assistant blocks,
+ * or '' if no transcript is available.
  */
 function readLastAssistantText(transcriptPath) {
   if (!transcriptPath || typeof transcriptPath !== 'string') return '';
   if (!fs.existsSync(transcriptPath)) return '';
   try {
     const lines = fs.readFileSync(transcriptPath, 'utf-8').trim().split('\n').filter(Boolean);
+
+    const roleOf = (entry) => entry.role || (entry.message && entry.message.role) || entry.type;
+
+    // Find the most recent user message — turn boundary.
+    let lastUserIdx = -1;
     for (let i = lines.length - 1; i >= 0; i--) {
       let entry;
       try { entry = JSON.parse(lines[i]); } catch { continue; }
-      const role = entry.role || (entry.message && entry.message.role) || entry.type;
-      if (role !== 'assistant') continue;
+      if (roleOf(entry) === 'user') { lastUserIdx = i; break; }
+    }
+
+    // Collect assistant text entries STRICTLY after the boundary.
+    const startIdx = lastUserIdx >= 0 ? lastUserIdx + 1 : 0;
+    const texts = [];
+    for (let i = startIdx; i < lines.length; i++) {
+      let entry;
+      try { entry = JSON.parse(lines[i]); } catch { continue; }
+      if (roleOf(entry) !== 'assistant') continue;
       const content = entry.content || (entry.message && entry.message.content);
       if (!content) continue;
-      if (typeof content === 'string') return content;
+      if (typeof content === 'string') { texts.push(content); continue; }
       if (Array.isArray(content)) {
-        const texts = content
+        const blockTexts = content
           .filter((c) => c && (c.type === 'text' || typeof c.text === 'string'))
           .map((c) => c.text || '');
-        if (texts.length) return texts.join('\n');
+        if (blockTexts.length) texts.push(blockTexts.join('\n'));
       }
     }
+    return texts.join('\n');
   } catch (err) {
     debug(`error reading transcript: ${err.message}`);
   }
@@ -139,9 +158,29 @@ function stripCitations(text) {
  */
 const META_MARKERS = /\b(something like|for example|for instance|such as|phrases? like|claim(s)? like|words? like|messages? like|the phrase|the literal|example of|matched (phrase|text|claim)|saying|catches?|trigger(s)? a block|hook (catches|fires|blocks|would (block|catch))|would (trigger|block))\b/i;
 
+// Self-documentation bypass: a message containing any of these is discussing the
+// rule itself, not claiming async work. We are developing/documenting/debugging
+// the rule. Skip the whole match check so the hook never trips on its own writeup.
+const SELF_DOC_MARKERS = [
+  /\[ASYNC-DISCIPLINE GUARD/,
+  /async-discipline\.md/,
+  /async-discipline\.js/,
+  /\bfire-and-forget\b/i,
+];
+
 function detectFireAndForgetClaim(text) {
   if (!text) return null;
-  // First strip quoted citations + code spans — meta-discussion shouldn't trigger.
+
+  // Bypass if the message is self-evidently about the rule (development /
+  // documentation / debug discussion).
+  for (const marker of SELF_DOC_MARKERS) {
+    if (marker.test(text)) {
+      debug(`text contains self-documentation marker (${marker.source}) — bypassing match check`);
+      return null;
+    }
+  }
+
+  // First strip quoted citations + code spans so prose meta-discussion doesn't trigger.
   const cleaned = stripCitations(text);
   for (const pattern of FIRE_AND_FORGET_PATTERNS) {
     const match = cleaned.match(pattern);
@@ -253,4 +292,5 @@ module.exports = {
   detectActiveAsync,
   readLastAssistantText,
   stripCitations,
+  SELF_DOC_MARKERS,
 };
