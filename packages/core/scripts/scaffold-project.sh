@@ -219,41 +219,6 @@ copy_commands() {
 }
 
 # Copy global router rules to vendored lib directory
-copy_global_router_rules() {
-    local target_dir="$1"
-    local dest="$target_dir/.claude/lib"
-
-    if [[ -z "$PLUGIN_DIR" ]]; then
-        warn "No plugin directory specified, skipping global router rules"
-        return 0
-    fi
-
-    # Try multiple locations: plugin cache structure, router-lib symlink, then monorepo structure
-    local src=""
-    if [[ -f "$PLUGIN_DIR/lib/router-rules.json" ]]; then
-        src="$PLUGIN_DIR/lib/router-rules.json"
-    elif [[ -f "$PLUGIN_DIR/router-lib/router-rules.json" ]]; then
-        src="$PLUGIN_DIR/router-lib/router-rules.json"
-    elif [[ -f "$PLUGIN_DIR/../router/lib/router-rules.json" ]]; then
-        src="$PLUGIN_DIR/../router/lib/router-rules.json"
-    fi
-
-    if [[ -n "$src" && -f "$src" ]]; then
-        if [[ -f "$dest/router-rules.json" && "$FORCE" != "true" ]]; then
-            info "Global router rules exist: .claude/lib/router-rules.json"
-        else
-            cp "$src" "$dest/router-rules.json"
-            if [[ "$FORCE" == "true" ]]; then
-                info "Replaced global router rules: .claude/lib/router-rules.json"
-            else
-                info "Copied global router rules to .claude/lib/router-rules.json"
-            fi
-        fi
-    else
-        warn "Global router rules not found (tried plugin cache and monorepo paths)"
-    fi
-}
-
 # Ensure all hook files have executable permissions
 ensure_hooks_executable() {
     local hooks_dir="$1"
@@ -548,7 +513,6 @@ scaffold_project() {
     # Copy template files
     echo "--- Template Files ---"
     copy_template "CLAUDE.md.template" "CLAUDE.md"
-    copy_template "claude-directory/router-rules.json" ".claude/router-rules.json"
     copy_template "claude-directory/settings.json" ".claude/settings.json"
     copy_template "trd-state/current.json.template" ".trd-state/current.json"
     echo ""
@@ -569,10 +533,6 @@ scaffold_project() {
 
         echo "--- Hooks ---"
         copy_hooks "$(pwd)"
-        echo ""
-
-        echo "--- Global Router Rules ---"
-        copy_global_router_rules "$(pwd)"
         echo ""
 
         # Copy skills only if --copy-skills flag was set
@@ -606,12 +566,8 @@ scaffold_project() {
     echo ""
     echo "Created files from templates:"
     echo "  CLAUDE.md"
-    echo "  .claude/router-rules.json (project-specific rules)"
     echo "  .claude/settings.json"
     echo "  .trd-state/current.json"
-    echo ""
-    echo "Copied global assets:"
-    echo "  .claude/lib/router-rules.json (global routing rules)"
     echo ""
 
     if [[ -n "$PLUGIN_DIR" ]]; then

@@ -521,43 +521,12 @@ verify_vendored_structure() {
     # Check CLAUDE.md at root
     check_file_exists "${project_dir}/CLAUDE.md" || ((errors++))
 
-    # Check router rules file (created by generate-project-router-rules)
-    check_file_exists "${project_dir}/.claude/router-rules.json" || ((errors++))
-
     if [[ $errors -gt 0 ]]; then
         log_error "Vendored structure verification failed with $errors errors"
         return 1
     fi
 
     log_info "Vendored structure verification passed"
-    return 0
-}
-
-# Verify router rules file has valid structure
-# Usage: verify_router_rules <project_dir>
-# Returns: 0 if valid, 1 if invalid
-verify_router_rules() {
-    local project_dir="$1"
-    local rules_file="${project_dir}/.claude/router-rules.json"
-
-    if [[ ! -f "$rules_file" ]]; then
-        log_error "Router rules file not found: $rules_file"
-        return 1
-    fi
-
-    # Check it's valid JSON
-    if ! jq empty "$rules_file" 2>/dev/null; then
-        log_error "Router rules file is not valid JSON"
-        return 1
-    fi
-
-    # Check for expected top-level keys (version is required)
-    if ! jq -e '.version' "$rules_file" >/dev/null 2>&1; then
-        log_error "Router rules file missing 'version' field"
-        return 1
-    fi
-
-    log_info "Router rules verification passed"
     return 0
 }
 
@@ -822,7 +791,6 @@ export -f check_file_created_in_session
 export -f list_session_tools
 export -f check_session_success
 export -f verify_vendored_structure
-export -f verify_router_rules
 export -f count_agent_files
 export -f verify_prd_structure
 export -f verify_trd_structure

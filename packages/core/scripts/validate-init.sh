@@ -241,7 +241,6 @@ validate_json() {
 }
 
 validate_json ".claude/settings.json"
-validate_json ".claude/router-rules.json"
 validate_json ".trd-state/current.json"
 
 echo ""

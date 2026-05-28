@@ -645,7 +645,6 @@ The following files may benefit from manual review:
 1. Review new agents and customize for your project context
 2. Test commands to verify they work with your workflow
 3. If skills were removed, verify they're not referenced in agents
-4. Run `/generate-project-router-rules` if routing behavior changed
 ```
 
 2. **If `--dry-run`:**

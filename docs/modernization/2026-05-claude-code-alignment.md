@@ -213,9 +213,16 @@ needs its own headless validation).
 
 ## 7. Version impact
 
-Recommend **4.0.0**. The `--wiggum` → `/goal` change is user-facing; the dispatch rename and team
-worktree/merge orchestration change runtime contracts. Bump
-`packages/full/.claude-plugin/plugin.json` and note migration in command help + CHANGELOG.
+As-built, the changes are mostly additive/internal (wiggum was KEPT; no orchestration rewrite or
+worktree merge). The user-facing behavior changes are: (1) the `SessionEnd` learning/save-remote-logs
+hooks no longer run — learning capture is now deliberate via `/update-project`; (2) the router no
+longer keyword-routes. Both surface on `/rebase-project`. Internal: Task→Agent dispatch rename,
+`effort` frontmatter, slim router, team API modernization, goal-native verify skill.
+
+Recommend **3.3.0 (minor)** unless the `SessionEnd` capture change is considered breaking for
+existing vendored projects — in which case **4.0.0**. Bump
+`packages/full/.claude-plugin/plugin.json` and note the `SessionEnd`/router/`--wiggum`-still-present
+behavior in the CHANGELOG. *(Decision pending.)*
 
 ---
 

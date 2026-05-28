@@ -331,35 +331,7 @@ Default: "No, skip stack changes"
 
 </stack-proposal>
 
-### Step 5: Regenerate Router Rules
-
-<router-rules-update>
-
-**If stack changes were approved in Step 4b, regenerate router rules.**
-
-1. **Check if stack was updated:**
-   - If stack.md was modified, proceed with regeneration
-   - If no stack changes, skip this step
-
-2. **Invoke generate-project-router-rules:**
-   ```
-   Run /generate-project-router-rules to update routing patterns for new technologies.
-   ```
-
-3. **Report result:**
-   ```
-   Router rules regenerated to include:
-   - [New technology mappings]
-   - [Updated skill triggers]
-   ```
-
-4. **If stack was not changed:**
-   - Skip regeneration
-   - Report: "No router rules update needed (stack unchanged)."
-
-</router-rules-update>
-
-### Step 6: Completion Report
+### Step 5: Completion Report
 
 <completion-report>
 
@@ -406,7 +378,6 @@ Next suggested actions:
 | constitution.md doesn't exist | Warn user, suggest running /init-project |
 | stack.md doesn't exist | Warn user, suggest running /init-project |
 | User cancels all changes | Report "No changes applied" and exit gracefully |
-| generate-project-router-rules fails | Warn user, continue with completion report |
 | Skill not found in library | Inform user, suggest /add-skill command |
 
 ---

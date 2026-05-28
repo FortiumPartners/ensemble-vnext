@@ -10,17 +10,15 @@ category: scaffolding
 
 ---
 
-## CRITICAL: Steps 1-14 Must Be Completed (Steps 15-16 are Optional)
+## CRITICAL: Steps 1-14 Must Be Completed
 
 **DO NOT exit early. DO NOT skip steps. This command REQUIRES steps 1-14 to complete successfully.**
 
 The initialization is NOT complete until:
-- Step 9 (Deploy Configuration Files) creates `router-rules.json`
+- Step 9 (Deploy Configuration Files) creates `.claude/settings.json` and `.trd-state/current.json`
 - Step 12 (Update CLAUDE.md) updates placeholders with project information
 - Step 13 (Validation) confirms ALL required files exist
 - Step 14 (Completion Report) outputs the summary
-
-Steps 15-16 are optional enhancements that improve routing but are not required for a functional installation.
 
 **Common failure point:** Exiting after Step 8 (Deploy Hooks) leaves the project in an incomplete state without CLAUDE.md updated. YOU MUST CONTINUE through Steps 9-14.
 
@@ -69,7 +67,6 @@ skills: [skill1, skill2]  # optional: pre-select skills
 - Configure hooks (permitter, router, formatter, status, learning)
 - Set up `.trd-state/` directory with current.json
 - Configure `.gitignore` for proper tracking
-- Run `generate-project-router-rules` for project-specific routing
 
 ---
 
@@ -301,14 +298,13 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - All `.claude/` subdirectories (agents, rules, skills, commands, hooks)
 - All `docs/` subdirectories (PRD, TRD, standards)
 - `.trd-state/` directory
-- Template files: `CLAUDE.md`, `.claude/router-rules.json`, `.claude/settings.json`, `.trd-state/current.json`
+- Template files: `CLAUDE.md`, `.claude/settings.json`, `.trd-state/current.json`
 - **12 agent files** copied to `.claude/agents/`
 - **8 command files** copied to `.claude/commands/`
 - **All hooks** copied to `.claude/hooks/` (including permitter with lib dependencies)
 
 **Verify all directories and these files exist before proceeding:**
 - `CLAUDE.md`
-- `.claude/router-rules.json`
 - `.claude/settings.json`
 - `.trd-state/current.json`
 - `.claude/agents/*.md` (12 files)
@@ -542,10 +538,6 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 
 Copy `@packages/core/templates/claude-directory/settings.json` to `.claude/settings.json`
 
-**Deploy router-rules.json:**
-
-Copy `@packages/core/templates/claude-directory/router-rules.json` to `.claude/router-rules.json`
-
 **Initialize current.json:**
 
 Copy `@packages/core/templates/trd-state/current.json.template` to `.trd-state/current.json`
@@ -687,7 +679,6 @@ A good CLAUDE.md should let a future session:
 | `.claude/hooks/status.js` | Step 8 | YES |
 | `.claude/hooks/learning.js` | Step 8 | YES |
 | `.claude/settings.json` | Step 3 (scaffold) | YES |
-| `.claude/router-rules.json` | Step 3 (scaffold) | YES |
 | `.trd-state/current.json` | Step 3 (scaffold) | YES |
 | `CLAUDE.md` | Step 3 (scaffold), Step 12 (update) | YES |
 
@@ -699,7 +690,7 @@ A good CLAUDE.md should let a future session:
    - Identify which step should have created it
    - **LOOP BACK and execute that step to create the missing file**
    - Repeat validation until ALL files exist
-3. Verify JSON files are valid (`.claude/settings.json`, `.claude/router-rules.json`, `.trd-state/current.json`)
+3. Verify JSON files are valid (`.claude/settings.json`, `.trd-state/current.json`)
 4. Verify hooks have execute permissions
 5. Verify `.gitignore` includes local settings patterns
 6. **IMPORTANT: Verify CLAUDE.md has been updated:**
@@ -741,7 +732,6 @@ Vendored Runtime Created:
     commands/     - 8 workflow commands
     hooks/        - 5 hook scripts
     settings.json - Permissions and hook configuration
-    router-rules.json - Project-specific routing
 
 Documentation:
   docs/PRD/     - Product Requirements Documents
@@ -776,69 +766,6 @@ Commands Available:
 ```
 
 </completion-report>
-
----
-
-**OPTIONAL ENHANCEMENTS: Steps 15-16 improve routing but are not required.**
-
----
-
-### Step 15: Generate Project Router Rules (Optional Enhancement)
-
-> **Note:** Steps 15-16 are optional enhancements. If the session ends here,
-> the project initialization is still complete and functional.
-
-<router-rules-generation>
-
-**After all critical setup is complete, run generate-project-router-rules:**
-
-Invoke `/generate-project-router-rules` to create project-specific routing patterns.
-
-This command analyzes the project structure and creates routing rules in `.claude/router-rules.json` that help the Router hook route prompts to appropriate commands, skills, and agents.
-
-</router-rules-generation>
-
-### Step 16: Keyword Mapping Report (Optional)
-
-> **Note:** This step is optional. If skipped, there is no impact on functionality.
-
-<keyword-mapping-report>
-
-**If router-rules.json was generated in Step 15, output a summary showing:**
-
-1. **Keywords that route to specific agents:**
-   - List keywords/patterns and their target agents
-   - Example: `"database"` → `backend-implementer`
-
-2. **Keywords that trigger specific skills:**
-   - List keywords/patterns and their target skills
-   - Example: `"railway deploy"` → `managing-railway`
-
-3. **Project-specific patterns detected:**
-   - Framework-specific routing (e.g., React components → `frontend-implementer`)
-   - Technology-specific triggers (e.g., Prisma → `using-prisma` skill)
-
-**Example Output Format:**
-
-```
-Keyword Mapping Summary:
-
-Agent Routing:
-  "api", "endpoint", "database" → backend-implementer
-  "component", "ui", "style" → frontend-implementer
-  "deploy", "ci", "pipeline" → cicd-specialist
-
-Skill Triggers:
-  "prisma", "schema" → using-prisma
-  "railway", "deploy" → managing-railway
-  "react", "component" → developing-with-react
-
-Project-Specific Patterns:
-  - Next.js detected: "page", "layout" → frontend-implementer
-  - PostgreSQL detected: "migration" → using-prisma skill
-```
-
-</keyword-mapping-report>
 
 ---
 

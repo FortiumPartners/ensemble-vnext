@@ -89,7 +89,6 @@ create_valid_structure() {
 
     # Create JSON config files (valid JSON)
     echo '{"version": "1.0.0"}' > "$dir/.claude/settings.json"
-    echo '{"rules": []}' > "$dir/.claude/router-rules.json"
     echo '{"branch": null, "prd": null, "trd": null}' > "$dir/.trd-state/current.json"
 
     # Create .gitignore
@@ -140,7 +139,6 @@ EOF
 
     # Should report valid JSON for config files
     [[ "$output" == *"settings.json is valid JSON"* ]]
-    [[ "$output" == *"router-rules.json is valid JSON"* ]]
     [[ "$output" == *"current.json is valid JSON"* ]]
 }
 
@@ -304,16 +302,6 @@ EOF
 
     [ "$status" -ne 0 ]
     [[ "$output" == *"current.json"*"missing"* ]]
-}
-
-@test "TRD-TEST-019: Invalid JSON in router-rules.json gives error" {
-    create_valid_structure "$TEST_DIR"
-    echo 'not valid json at all' > "$TEST_DIR/.claude/router-rules.json"
-
-    run "$VALIDATE_SCRIPT" "$TEST_DIR"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"router-rules.json"*"invalid JSON"* ]]
 }
 
 @test "TRD-TEST-019: Invalid JSON in current.json gives error" {

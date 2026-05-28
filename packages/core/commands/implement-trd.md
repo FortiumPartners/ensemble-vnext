@@ -795,7 +795,6 @@ If a dispatched subagent task has not returned within 30 minutes:
 ## Compatibility
 
 - Works with/without `.claude/rules/constitution.md`
-- Works with/without `.claude/router-rules.json`
 - Standard TRD task format supported
 - State files git-tracked for coordination
 - Local CLI and Claude Code web supported
