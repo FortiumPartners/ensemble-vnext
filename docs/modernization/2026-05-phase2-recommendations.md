@@ -32,36 +32,60 @@ Tier-3 / anti-recommendations are listed so future passes don't go down those ro
 
 ## 2. Tier-1 recommendations (high leverage, philosophy-aligned)
 
-### 2.1 Adopt `mode: plan` for the read-only / design phases
+### 2.1 Async-discipline rule + Stop-hook guard (fixes the "fire-and-forget" failure)
 
-**Gap.** The framework *philosophically* uses plan-then-implement, but it does not use the
-native `mode: plan` parameter on spawned agents. Today, an architect spawned by `/create-trd`
-*could* edit code mid-design; an `app-debugger` *could* start patching files during root-cause
-analysis. The constitution and command prose say "design first" — but the harness lets the
-agent do anything.
+**Gap.** The framework is moving toward a *system of agents* where agents orchestrate work.
+A recurring failure mode: the agent claims *"I dispatched X, I'll let you know when done"* —
+but it didn't actually use any async primitive (no `Agent(run_in_background:true)`, no
+`ScheduleWakeup`, no `Monitor`, no `/goal`). It just launched a foreground Bash, returned,
+and ended its turn. There's no notification path back. The agent sits idle for 30+ minutes
+until the user nudges it, at which point it checks and instantly sees the work was done long
+ago. **The root cause is a hallucinated notification — the agent thinks the system will tell
+it, but nothing will.**
 
-**Recommendation.** Spawn read-only/design phases with `mode: "plan"` so the harness enforces
-read-only:
+**Recommendation.** Two reinforcing changes:
 
-- `/create-trd` — spawn `technical-architect` with `mode: "plan"`. The architect explores,
-  reasons, and produces the TRD; cannot edit code in the design pass.
-- `/investigate-issue` — the whole triage is `mode: "plan"`. Output is a TRD or PRD spec,
-  not code changes.
-- `app-debugger` — first invocation runs in `mode: "plan"` for root-cause analysis; only
-  exits plan mode to apply the diagnosed fix (or hands off to an implementer).
-- `create-trd-team` — architect teammates run in `mode: "plan"` and use the documented
-  **plan-approval flow** (`{type: "plan_approval_request"}` ↔ `plan_approval_response`) so
-  the lead can approve/reject each domain's proposed plan before any implementation happens.
+1. **Behavioral rule** in `.claude/rules/async-discipline.md` (also referenced from
+   `constitution.md`):
 
-**Why this is high-leverage and aligned.**
-- Turns "design first" from a *convention* into an *enforced contract*.
-- Catches a real failure mode the user has experienced (architect/debugger editing during
-  analysis).
-- Composes perfectly with the existing PRD→TRD→implement structure; no philosophy change.
-- Adds zero autonomy; if anything, reduces autonomy in design phases.
+   > **No false async claims.** An agent must never tell the user or another agent
+   > "I'll let you know when done", "running in the background", "I'll check back", etc.,
+   > without ALSO doing one of the following *in the same turn*:
+   >
+   > 1. Spawning via `Agent({run_in_background: true, …})` — the harness re-invokes the
+   >    parent on completion.
+   > 2. Calling `ScheduleWakeup({delaySeconds: <ETA>, …})` to self-rendezvous.
+   > 3. Holding the turn open with `Monitor` until the work completes.
+   > 4. Setting a `/goal` whose condition the work satisfies.
+   >
+   > If none of these apply, **do the work synchronously in the current turn** — do NOT
+   > claim async.
 
-**Effort.** Small. Per-spawn frontmatter edit + a short plan-approval handshake in the
-team commands. Sandbox-validate that the harness honors `mode: plan` for `Agent` spawns.
+2. **`Stop`-hook guard** (`packages/core/hooks/async-discipline.{js,sh}`). On every `Stop`,
+   the hook:
+   - Scans the recent assistant transcript chunk for fire-and-forget phrases
+     (small conservative regex set — "I'll let you know", "in the background",
+     "I'll check back", "will report back", "running asynchronously").
+   - Inspects the `Stop` input's `background_tasks` / `session_crons` fields
+     (Claude Code v2.1.145+).
+   - **If a fire-and-forget claim is present AND no async machinery is active →**
+     returns `{"continue": true, "decision": "block", "reason": "You claimed async work but
+     no run_in_background / ScheduleWakeup / Monitor / goal is active. Dispatch via one of
+     those, OR complete the work synchronously before ending the turn."}`.
+   - Same proven mechanism wiggum.js uses — well-understood semantics.
+
+**Why this is high-leverage and aligned with system-of-agents.**
+- Addresses a real, recurring failure mode the user has experienced.
+- The *system* catches the violation — not the human. No interactive checkpoint, no silent
+  write fail, no plan-approval handshake. Pure structural guard.
+- Forces the agent to either use a real async primitive or stay synchronous; no middle ground
+  where the work hangs in limbo.
+- Composes naturally with the existing `Stop`-hook chain (wiggum, notify).
+
+**Effort.** Small. One rule file + one Node hook script + register in both `settings.json`.
+Sandbox-test with crafted transcripts: (a) fire-and-forget phrase + no async → must BLOCK;
+(b) fire-and-forget phrase + active background_task → must PASS; (c) no claim → must PASS;
+(d) edge cases (legitimate parallel Bash where the agent uses "parallel" innocuously).
 
 ---
 
@@ -168,36 +192,42 @@ delegation to a subagent like the Pass-1 clarity sweep.
 
 ---
 
-### 2.5 Promote PM/architect agents to long-running monitor sessions via `/agent`
+### 2.5 PM / architect agents as scheduled autonomous runs (`--agent` + `/schedule`)
 
 **Gap.** `product-manager` and `technical-architect` are spawned per-command and then exit.
-There's no Ensemble pattern for a *persistent* PM that watches PRDs/TRDs across days/weeks,
-flags drift, prompts for refresh — the kind of "human-orchestrated iteration" check-in that
-the framework's philosophy wants but currently requires the human to manually invoke each
-time. Claude Code now supports `--agent <name>` to run a subagent AS the main session, with
-an `initialPrompt` to seed it. The library already includes a `forge-workplan-pm` skill that
-exemplifies this pattern.
+There's no Ensemble pattern for a *persistent* PM that watches PRDs/TRDs, flags drift,
+detects stalled features, prompts for refresh. As the framework moves toward system-of-agents,
+this kind of background project oversight should run AUTONOMOUSLY on a cadence, not require
+manual launch. Claude Code now supports `--agent <name>` (run a subagent AS the main session,
+seeded by `initialPrompt`) and `/schedule` (cron-style scheduled remote agent runs). The
+library already includes a `forge-workplan-pm` skill that exemplifies the pattern.
 
-**Recommendation.** Add `initialPrompt` to `product-manager` and `technical-architect`
-frontmatter so they can be launched as long-running sessions:
+**Recommendation.** Two pieces:
 
-```bash
-# Standalone PM session for ongoing oversight
-claude --agent product-manager
-# (the initialPrompt loads docs/PRD/, checks freshness, surfaces drift)
-```
+1. Add `initialPrompt` to `product-manager` and `technical-architect` frontmatter so they
+   produce a useful run when launched standalone via `--agent`:
+   ```bash
+   claude --agent product-manager
+   # initialPrompt scans docs/PRD/, .trd-state/, recent commits → drift / stall report
+   ```
+2. A documented pattern in `process.md` for **scheduling** these as autonomous recurring
+   runs via `/schedule`:
+   ```
+   /schedule "0 9 * * 1" claude --agent product-manager   # weekly Mon 9am drift report
+   ```
+   The schedule launches the agent; the agent runs autonomously, surfaces signals via
+   `PushNotification` / commits a report file / opens an issue (depending on project
+   conventions); then exits. No human in the launch loop.
 
-Plus a documented pattern in `process.md` for "scheduled project check-ins" (potentially
-combined with `/loop` or `/schedule` for cadence — but the LAUNCH is always human-decided).
+**Why this is high-leverage and aligned with system-of-agents.**
+- Project oversight becomes an autonomous background activity, not a human task.
+- Bounded autonomy: each run is a single scheduled invocation with a clear goal; no
+  open-ended loops.
+- Uses two existing Claude Code primitives (`--agent`, `/schedule`) directly without new
+  orchestration code.
 
-**Why this is high-leverage and aligned.**
-- Brings the "human-orchestrated iteration" loop a recurring check-in primitive without
-  introducing autonomous decision-making.
-- The human still launches and sets cadence; the agent surfaces signals.
-- Uses an existing Claude Code primitive (`--agent`) directly.
-
-**Effort.** Small. Frontmatter addition + a one-page "scheduled check-ins" doc in
-`docs/guides/`.
+**Effort.** Small. Frontmatter addition (`initialPrompt`) + a one-page "scheduled autonomous
+runs" guide in `docs/guides/`. Possibly a worked example schedule entry for the dogfood project.
 
 ---
 
@@ -257,6 +287,13 @@ These have been considered and rejected for fit:
   3-run verify cap) — never open-ended.
 - **Background subagents for design/review phases.** Reviewing and design need human
   attention as they happen; backgrounding them would let bad decisions land before review.
+- **`mode: plan` on spawned agents (the design-phase enforcement).** Initially considered as
+  Tier-1; withdrawn after recognizing it conflicts with the system-of-agents direction. Plan
+  mode introduces either (a) interactive plan-approval checkpoints (human-in-the-loop), or
+  (b) agent-to-agent approval handshakes (more orchestration code), or (c) silent write
+  failures if a downstream agent attempts a write while still in plan mode. None of those fit
+  a framework where agents are increasingly orchestrating each other. The convention "design
+  first, then implement" is still encoded in PRD→TRD→implement, just not harness-enforced.
 
 ---
 
@@ -264,17 +301,17 @@ These have been considered and rejected for fit:
 
 If you want a single focused follow-on PR, the **highest leverage** for the effort is:
 
-| # | Item | Effort | Why now |
+| Order | Item | Effort | Why now |
 |---|------|--------|---------|
-| 2.2 | `SessionStart` context hook | XS | Pure win, near-zero risk, immediately improves every session |
-| 2.1 | `mode: plan` on architect / investigate-issue / app-debugger | S | Closes the biggest structural gap; turns a stated convention into an enforced contract |
-| 2.3 | `PreCompact` durability hook | S | Real durability win for long runs; pairs with the structured state model |
-| 2.4 | Skill `paths:` globs | M (delegated bulk) | Sharpens slim-router routing; ideal subagent delegation |
+| 1 | 2.2 `SessionStart` context hook | XS | Smallest unit; proves the SessionStart pattern works end-to-end before the bigger items |
+| 2 | 2.4 Skill `paths:` globs (delegated) | M (bulk) | Pure metadata pass; delegate to a subagent in parallel to free orchestrator throughput |
+| 3 | 2.1 Async-discipline rule + Stop-hook guard | S–M | Highest-value structural fix — directly addresses the user-reported fire-and-forget failure mode. Worth focused attention. |
+| 4 | 2.3 `PreCompact` durability hook | S | Pairs with 2.1's transcript-inspection patterns; cleaner to land second |
 
 Hold for a later PR:
-- 2.5 PM monitor sessions (small but introduces a new usage pattern worth its own walkthrough)
-- 3.1 per-agent SubagentStop matchers (bundle with the deeper status.js reconciliation
-  follow-up #9-already-closed → if a sequel is wanted)
+- 2.5 Scheduled autonomous PM/architect runs (small but introduces a new usage pattern worth
+  its own walkthrough — `/schedule` + `--agent` are new primitives for the framework)
+- 3.1 per-agent SubagentStop matchers (bundle with any future deeper status.js work)
 - 3.3 skill `context: fork` (measure before adopting widely)
 
 ---
@@ -283,16 +320,18 @@ Hold for a later PR:
 
 Phase 2 is *complete* when:
 
-- Every read-only/design phase in the framework runs in enforced plan mode.
-- Every new session in an Ensemble project starts with the in-flight feature in context
-  automatically.
+- Agents cannot silently fire-and-forget — async claims are either backed by real async
+  machinery (`run_in_background` / `ScheduleWakeup` / `Monitor` / `/goal`) or rejected at
+  the `Stop` hook before the turn ends.
+- Every new session in an Ensemble project starts with the in-flight feature context
+  auto-loaded.
 - Compaction during a long structured run preserves the *decision trail*, not just the
   state file.
-- Skills' description-based selection is scoped by file paths so the right skill fires for
-  the right code area.
-- The `/agent` invocation path is documented for PM/architect oversight sessions, with a
-  worked example.
+- Skills' native description-based selection is scoped by file paths so the right skill
+  fires for the right code area.
+- (Follow-up) PM / architect agents can run as scheduled autonomous oversight runs via
+  `--agent` + `/schedule`.
 
-Implementing all five Tier-1 items completes Phase 2 and brings the framework to the
-"structurally enforces its philosophy" target — the natural endpoint of the current
-modernization arc.
+Implementing all four Tier-1 items in the suggested next-PR completes the structural core
+of Phase 2 and brings the framework to the "the *system* enforces its discipline" target —
+the natural endpoint of the current modernization arc as it evolves toward system-of-agents.
