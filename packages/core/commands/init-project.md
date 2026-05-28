@@ -76,10 +76,27 @@ skills: [skill1, skill2]  # optional: pre-select skills
 
 **Check for existing installation:**
 
-1. If `.claude/` directory exists:
-   - Detect existing ensemble installation
-   - Present user with migration options (see Migration Prompt Flow section)
-   - If user cancels, abort initialization
+1. **Detect existing ENSEMBLE installation.** A bare `.claude/` directory is NOT enough —
+   many tools (Claude Code itself, other plugins) create one. Require at least one of these
+   **ensemble fingerprints**:
+
+   - `.trd-state/` directory exists (ensemble state dir), OR
+   - `.claude/rules/constitution.md` exists (our governance file), OR
+   - `.claude/settings.json` contains a top-level `"ensemble"` key (our config block), OR
+   - `.claude/agents/` contains any of our specialist filenames:
+     `technical-architect.md`, `spec-planner.md`, `agent-implementer.md`,
+     `product-manager.md`, `verify-app.md`.
+
+   **If a fingerprint is found → existing ensemble installation.**
+   Present the migration options (see "Migration Prompt Flow" section). If user cancels,
+   abort initialization.
+
+   **If `.claude/` exists but NO fingerprint → greenfield-with-existing-`.claude/`.**
+   Do NOT show the migration prompt; do NOT treat as an upgrade. Proceed with normal
+   initialization and PRESERVE the user's existing `.claude/` contents — only ADD ensemble
+   files (agents, rules, hooks, settings.json's `ensemble` block); never overwrite something
+   we didn't create. If a conflict arises (e.g. user already has `.claude/settings.json` with
+   different content), merge the `ensemble` block in rather than replacing the file.
 
 2. If `docs/standards/constitution.md` exists (legacy location):
    - Inform user of legacy installation

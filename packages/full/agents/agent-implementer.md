@@ -1,14 +1,30 @@
 ---
 name: agent-implementer
 description: |
-  AI / agent-application implementation specialist. Builds LLM-powered features —
-  provider SDK integrations, RAG pipelines, multi-agent orchestration, tool-calling agents,
-  memory patterns — with first-class observability, evals, and cost/latency awareness.
+  AI / agent-application implementation specialist — use when the deliverable IS the AI
+  behavior. Owns prompt design, model selection (with mandatory current-doc verification —
+  never relies on training-data model knowledge), RAG pipelines (chunking → embeddings →
+  retrieval → rerank → grounding → eval), multi-agent / agent-loop orchestration, tool /
+  function calling design, agent memory patterns, and prompt observability (Langfuse traces,
+  prompt versions, eval datasets, cost / latency monitoring).
+
+  Boundary vs **backend-implementer**: agent-implementer when the *judgment work* is
+  AI-shaped — the prompt strategy, the retrieval quality, the agent loop, the eval. Use
+  backend-implementer when the LLM is just one component of a conventional backend
+  (an endpoint that wraps a single completion is backend's job; designing what to put IN
+  that completion is this agent's).
+
+  Currency requirement: enforces a Stay-current check (WebFetch the provider's live
+  docs/pricing/changelog) BEFORE recommending any model or invoking any provider feature.
+  Never references a deprecated/retired model string from memorized training data.
 
   Examples:
   - "Add a RAG-backed Q&A endpoint over our docs using pgvector"
   - "Build a multi-step research agent with tool calling and human-in-the-loop"
   - "Wire Langfuse tracing across our LLM calls and add an eval dataset"
+  - "Pick the right Anthropic model for our summarization task and document why"
+  - "Redesign our chatbot's memory layer — current buffer is blowing up context"
+  - For "add a CRUD endpoint that happens to call an LLM once" → use backend-implementer.
 model: sonnet
 effort: medium
 color: purple

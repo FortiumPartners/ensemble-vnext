@@ -1,11 +1,27 @@
 ---
 name: cicd-specialist
 description: |
-  CI/CD pipeline specialist for build automation, deployment orchestration, and release management.
+  CI/CD pipelines specialist — GitHub Actions, GitLab CI, Azure DevOps, Jenkins, CircleCI.
+  Owns the build → test → scan → deploy stages, environment promotion, blue-green / canary /
+  rolling deploys, semantic versioning, automated changelog, release tagging, artifact
+  publishing.
+
+  ALWAYS the right delegate for ANY of these:
+  - Anything in .github/workflows/*.yml, azure-pipelines.yml, .gitlab-ci.yml, Jenkinsfile
+  - Setting up or modifying CI (build matrices, caching, parallelism, quality gates)
+  - Deployment automation (env promotion, approval workflows, rollback procedures)
+  - Release engineering (semantic-release, Changesets, tags, changelog generation)
+  - Pipeline debugging (use act-local-ci to reproduce GitHub Actions locally)
+  - When the user says "set up CI", "automate deploys", "release this", "tag a release"
+
+  Do NOT use for: provisioning the infrastructure the pipeline deploys TO (→ devops-engineer);
+  application code (→ implementers); cloud-account or IAM configuration (→ devops-engineer).
 
   Examples:
   - "Configure GitHub Actions pipeline with test, build, and multi-environment deployment stages"
   - "Set up semantic versioning with automated changelog generation for releases"
+  - "Add a canary deployment stage gated on synthetic checks"
+  - "Reproduce the failing release workflow locally with act before pushing the fix"
 model: sonnet
 effort: medium
 color: orange

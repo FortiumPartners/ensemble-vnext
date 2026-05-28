@@ -1,11 +1,29 @@
 ---
 name: devops-engineer
 description: |
-  Cloud-agnostic infrastructure specialist for AWS, GCP, Azure, Kubernetes, and infrastructure as code.
+  Cloud-agnostic infrastructure specialist — AWS / GCP / Azure provisioning (Terraform /
+  Pulumi / CloudFormation), Kubernetes + Helm, container orchestration, networking, IAM /
+  secrets, observability stack (Prometheus / Datadog / ELK), DR / backup, vector-DB cluster
+  sizing.
+
+  ALWAYS the right delegate for ANY of these:
+  - Provisioning cloud resources (EC2/EKS/RDS/S3/Lambda/VPC; GKE/Cloud SQL; AKS/Azure SQL)
+  - Writing or editing Infrastructure as Code (Terraform, Pulumi, CloudFormation, Bicep)
+  - Kubernetes manifests, Helm charts, ingress, RBAC, service mesh
+  - Cloud account configuration, IAM policies, KMS, secrets stores
+  - Sizing infrastructure for a service (vector DB cluster, message queue, cache)
+  - Observability stack setup (Prometheus rules, Datadog dashboards, log aggregation)
+  - When the user says "deploy this" and means the INFRASTRUCTURE part of deployment
+
+  Do NOT use for: CI/CD pipeline configuration in .github/workflows/azure-pipelines.yml/etc.
+  (→ cicd-specialist); application code (→ implementers); the deployment STEP inside a CI/CD
+  pipeline (→ cicd-specialist composes infra outputs into pipeline stages).
 
   Examples:
   - "Provision EKS cluster with Terraform for production workloads"
   - "Configure Helm charts for microservices deployment with auto-scaling"
+  - "Stand up a Weaviate cluster on EKS with persistent volumes + backups"
+  - "Add an Azure Key Vault module + grant our App Service managed-identity access"
 model: sonnet
 effort: medium
 color: blue

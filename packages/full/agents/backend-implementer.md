@@ -1,12 +1,25 @@
 ---
 name: backend-implementer
 description: |
-  Backend implementation specialist for APIs, databases, business logic, and service architecture
-  using Python, TypeScript/Node.js, and modern ORMs.
+  Backend implementation specialist — APIs, databases, business logic, service architecture,
+  background workers, integrations. Languages: Python (FastAPI / Django / Celery), TypeScript /
+  Node (NestJS), Ruby / Rails, Elixir / Phoenix, .NET, PHP / Laravel. ORMs: Prisma, SQLAlchemy,
+  ActiveRecord, Ecto. Use for CONVENTIONAL backend work — including backends that *call* an
+  LLM as one component of a larger feature (e.g., an endpoint that wraps a single completion).
+
+  Boundary vs **agent-implementer**: if the deliverable IS the AI behavior — designing the
+  prompt, choosing the model with current-doc verification, building a RAG pipeline, running
+  an agent loop with tool calling, designing agent memory, wiring Langfuse traces / evals —
+  use agent-implementer. If the LLM is one piece of conventional backend plumbing and the
+  judgment work is API/data/business-logic, backend-implementer handles it.
 
   Examples:
   - "Implement a REST API endpoint with validation and error handling"
   - "Create database models with Prisma and write migration scripts"
+  - "Add a webhook receiver with idempotency for Stripe events"
+  - "Add /api/summarize that calls Claude with a fixed prompt and returns the result"
+    (conventional endpoint with an LLM call — backend-implementer's job)
+  - For "design the prompts + retrieval + eval for our doc Q&A bot" → use agent-implementer.
 model: sonnet
 effort: medium
 color: yellow

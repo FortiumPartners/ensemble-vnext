@@ -59,6 +59,41 @@ pick stale/retired model strings, hallucinate context-window sizes, or assume ol
 shapes. The Stay-current sections + the `agent-implementer` acceptance checklist together
 prevent that pattern.
 
+### Fixed (post-3.4.0 review pass)
+
+- **`/init-project` no longer false-positives "existing installation" on a bare `.claude/`
+  directory.** Detection now requires an **ensemble fingerprint** (`.trd-state/` dir, or
+  `.claude/rules/constitution.md`, or `.claude/settings.json` with an `"ensemble"` block,
+  or one of our specialist agent files in `.claude/agents/`). If `.claude/` exists without
+  fingerprint → treated as greenfield-with-existing-`.claude/`: scaffold around it, preserve
+  user files, merge the `ensemble` block into any pre-existing `settings.json` rather than
+  replacing it. (Many tools create `.claude/`; only ensemble installs leave the fingerprint.)
+- **Hooks no longer break silently when `git` is missing or the directory isn't a repo.**
+  Old wrapper `bash -c 'cd "$(git rev-parse --show-toplevel)" && X'` failed silently when git
+  errored, leaving cd with an empty target and hooks not running. New wrapper tries
+  `CLAUDE_PROJECT_DIR` (Claude Code sets it) → silenced `git rev-parse` → `pwd` fallback, so
+  the cd always succeeds. Applied across both template and dogfood `settings.json` (6 hook
+  commands each, both JSON-valid).
+- **Sharpened routing for the 5 most-confused specialists** (longer, more imperative
+  descriptions with USE/DO-NOT-USE clauses and concrete examples):
+  - **`app-debugger`** — now explicit "debugger of LAST resort": use after implementer's
+    retry failed, for intermittent/race/heisenbug, when symptom doesn't match obvious cause,
+    or matches a TRD-documented risk; do NOT use for trivial bugs or first verify failure.
+  - **`backend-implementer` ↔ `agent-implementer`** — boundary spelled out both ways: if
+    the deliverable IS AI behavior (prompt, model, RAG, agent loop, evals) → `agent-implementer`;
+    if the LLM is one component of conventional backend (an endpoint that wraps a completion)
+    → `backend-implementer`. Both descriptions cross-reference each other with examples.
+  - **`devops-engineer`** — explicit ALWAYS-use list (IaC, K8s/Helm, cloud-account/IAM,
+    cluster sizing, observability stack); explicit NOT-FOR (CI pipeline config →
+    `cicd-specialist`; app code → implementers).
+  - **`cicd-specialist`** — explicit ALWAYS-use list (`.github/workflows/*`, `azure-pipelines.yml`,
+    `Jenkinsfile`, deployment automation, release engineering); explicit NOT-FOR (infra
+    provisioning → `devops-engineer`; app code → implementers).
+- **Model defaults verified per stated convention:** implementers (frontend/backend/mobile/
+  agent) + verify-app + devops + cicd = `sonnet/medium`; PM + technical-architect (`xhigh`) +
+  spec-planner + code-reviewer + app-debugger = `opus/high`; code-simplifier = `opus/medium`.
+  All 13 agents YAML-validated.
+
 ---
 
 ## [3.3.0] - 2026-05-27
