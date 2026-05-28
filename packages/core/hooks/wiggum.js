@@ -24,9 +24,13 @@
  *   2. Check implement.json for 100% task completion
  *   3. Check if max iterations reached
  *
- * Safety (TRD-C406):
- *   - Uses stop_hook_active flag to prevent infinite loops
- *   - Flag is set when hook executes, cleared on allowed exit
+ * Safety:
+ *   - Infinite-loop guard is the iteration cap (WIGGUM_MAX_ITERATIONS, default 50) plus
+ *     completion detection (promise / all-tasks-complete). While work remains and the cap is
+ *     not reached, the hook blocks every Stop and re-injects; once done or capped, it exits.
+ *   - Claude Code's own `stop_hook_active` (from hook input) is logged for visibility but does
+ *     NOT force exit. (Previously a self-managed flag forced exit on every other Stop, abandoning
+ *     incomplete work — that was a bug; the iteration cap is the real termination guarantee.)
  *
  * Output format (to stdout):
  *   Block exit:
@@ -472,15 +476,11 @@ async function main(hookData) {
   // 5. Load wiggum state
   const wiggumState = readWiggumState(projectRoot);
 
-  // 6. Check stop_hook_active safety flag (TRD-C406)
-  if (wiggumState.stop_hook_active) {
-    debugLog('stop_hook_active flag is set - preventing infinite loop');
-    // Clear the flag and allow exit
-    wiggumState.stop_hook_active = false;
-    writeWiggumState(projectRoot, wiggumState);
-    releaseLock(projectRoot);
-    outputResult(false);
-    return;
+  // 6. Log Claude Code's stop_hook_active (informational only). Do NOT force exit on it — the
+  //    iteration cap below is the infinite-loop guard. Forcing exit here would quit with work
+  //    unfinished (the original every-other-Stop bug).
+  if (hookData.stop_hook_active) {
+    debugLog('hookData.stop_hook_active is set (already continuing from a prior block)');
   }
 
   // 7. Get max iterations using validated function
@@ -531,8 +531,7 @@ async function main(hookData) {
     return;
   }
 
-  // 12. Not done - set safety flag and block exit (TRD-C403, TRD-C406)
-  wiggumState.stop_hook_active = true;
+  // 12. Not done and under the iteration cap - persist progress and block exit (re-inject).
   if (!wiggumState.started_at) {
     wiggumState.started_at = new Date().toISOString();
   }
