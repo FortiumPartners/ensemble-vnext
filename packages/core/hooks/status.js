@@ -14,13 +14,15 @@
  * (state-write-before-delegate); this hook advances it when the stage's subagent
  * stops. They are meant to interleave, not both advance the same transition.
  *
- * KNOWN LIMITATION: advanceCyclePosition() blindly bumps the lone in-progress task
- * on ANY SubagentStop. During DEBUG retries (which loop back to verify) or any stage
- * that spawns more than one subagent, it can over-advance. It also does not model the
- * TDD 'verify_red' position (not in CYCLE_ORDER). The command's explicit writes are
- * authoritative; treat this advance as advisory. A deeper reconciliation — letting the
- * native Task graph own in-session position and reducing this hook to session_id
- * housekeeping — is tracked as a follow-up.
+ * Safety guards (fix for the previously-documented over-advance bug):
+ *   - advanceCyclePosition() SKIPS when the in-progress task signals active debugging
+ *     (retry_count > 0 OR current_problem is set). This prevents the hook from
+ *     advancing past 'verify'/'verify_post_simplify' during DEBUG cycles, when the
+ *     command will re-dispatch verify after app-debugger completes.
+ *   - 'verify_red' is now part of CYCLE_ORDER (advances to 'implement') so TDD's
+ *     RED phase is tracked rather than ignored.
+ *   - The command's explicit cycle_position writes remain authoritative; this hook
+ *     stays a best-effort safety net for happy-path stage transitions.
  *
  * Environment Variables:
  *   STATUS_HOOK_DISABLE - Set to "1" to disable (default: enabled)
@@ -205,7 +207,7 @@ function clearSessionId(filePath, data) {
 /**
  * Cycle position progression order.
  */
-const CYCLE_ORDER = ['implement', 'verify', 'simplify', 'verify_post_simplify', 'review', 'complete'];
+const CYCLE_ORDER = ['verify_red', 'implement', 'verify', 'simplify', 'verify_post_simplify', 'review', 'complete'];
 
 /**
  * Advance cycle_position for the single in-progress task in implement.json.
@@ -234,6 +236,17 @@ function advanceCyclePosition(filePath, data) {
   }
 
   const [taskId, task] = inProgressEntries[0];
+
+  // Active-debugging guard: when the command has put the task into a DEBUG cycle
+  // (retry_count > 0 or current_problem set), do NOT advance. The command will
+  // re-dispatch verify after app-debugger completes; advancing here would skip past
+  // verify/verify_post_simplify into simplify or review, abandoning the retry.
+  if ((typeof task.retry_count === 'number' && task.retry_count > 0)
+      || (task.current_problem && String(task.current_problem).trim() !== '')) {
+    debugLog(`Task ${taskId} is mid-debug (retry_count=${task.retry_count}, problem=${!!task.current_problem}); skipping advance`);
+    return false;
+  }
+
   const currentPosition = task.cycle_position || 'implement';
   const currentIndex = CYCLE_ORDER.indexOf(currentPosition);
 
