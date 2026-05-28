@@ -82,6 +82,21 @@ Full assessment + rationale: `docs/modernization/2026-05-claude-code-alignment.m
   red/blue/green/yellow/purple/orange/pink/cyan). Changed to `pink`.
 - **`app-debugger` body referenced a non-existent skill `playwright-test`.** Corrected to
   `writing-playwright-tests`.
+- **Permitter scaffold dropped its `lib/` files silently.** The scaffold read the symlink
+  target as a relative path, then resolved `[[ -d lib_dir ]]` against the *target project*'s
+  CWD instead of the plugin dir, so `matcher.js` / `allowlist-loader.js` /
+  `command-parser.js` never landed in scaffolded projects. Now anchored to the symlink's
+  directory via `cd && pwd`. BATS scaffold suite: **42/42** (was 41/42).
+- **`validate-init` had the wrong permitter path** (`permitter.js` vs the actual
+  `permitter/permitter.js`), so it always reported "Missing required hook: permitter.js"
+  even on a correctly scaffolded project. Path corrected.
+- **`status.js` over-advanced `cycle_position` during DEBUG retries** (resolves the
+  KNOWN LIMITATION + closes #9). `advanceCyclePosition()` now SKIPS when the in-progress
+  task has `retry_count > 0` or `current_problem` set — both signal the command has put
+  the task into a DEBUG cycle and will re-dispatch verify after `app-debugger`. Added
+  `'verify_red'` to `CYCLE_ORDER` (advances to `'implement'`) for TDD support. Verified
+  via a real-fs sandbox (5 scenarios incl. mid-DEBUG, current_problem, verify_red→implement,
+  happy implement→verify regression).
 
 ### Removed
 
@@ -111,15 +126,12 @@ Full assessment + rationale: `docs/modernization/2026-05-claude-code-alignment.m
 - Consider LLM-platform skills on `backend-implementer` for AI-feature projects
   (`using-anthropic-platform`, `using-openai-platform`, `using-perplexity-platform`,
   `building-langgraph-agents`, `using-weaviate`).
-- Pre-existing scaffold issue surfaced by `41/42 BATS` and validate-init: `permitter/lib/matcher.js`
-  isn't copied to the scaffolded project — out of scope for 3.3.0 but worth a follow-up.
-
 ### Follow-ups tracked separately
 
-- **#9** — deeper `status.js` / cycle_position reconciliation (behavioral; needs implement-loop
-  sandbox testing).
-- **#12** — repair hook jest harness (replace `mock-fs@5.2.0` with `memfs` or real `os.tmpdir()`
-  fixtures; mock-fs is incompatible with Node 25).
+- **#12** — repair hook jest harness (replace `mock-fs@5.2.0` with `memfs` or real
+  `os.tmpdir()` fixtures; mock-fs is incompatible with Node 25). The wiggum and status.js
+  fixes in this release were verified via real-fs sandboxes since the jest hook suite
+  cannot execute on Node 25.
 
 ---
 
