@@ -12,6 +12,11 @@ when_to_use: >
   skill (using-anthropic-platform / using-openai-platform / using-perplexity-platform) and
   follow ITS Stay-current check — never hardcode a model string from training data.**
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/*.py"
+  - "**/*.ts"
+  - "**/langgraph*.{py,ts}"
+  - "**/*graph*.{py,ts}"
 ---
 
 # LangGraph Development Skill

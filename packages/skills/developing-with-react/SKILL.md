@@ -3,6 +3,12 @@ name: developing-with-react
 description: Build React 18+ components — hooks, state management, composition patterns, and a11y.
 when_to_use: Reach for this when writing React component logic and behavior (hooks, context, data flow, accessibility). For visual styling with utility classes use styling-with-tailwind; for high-craft creative UI generation use frontend-design; for Figma-accurate pixel matching use figma-pixel-perfect; for TS types in general use developing-with-typescript. This skill is about React behavior/architecture, not aesthetics.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/*.tsx"
+  - "**/*.jsx"
+  - "components/**"
+  - "src/**/*.{tsx,jsx}"
+  - "package.json"
 ---
 
 # React Development Skill

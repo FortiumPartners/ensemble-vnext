@@ -3,6 +3,12 @@ name: developing-with-dotnet
 description: Write C#/.NET 9 — Clean Architecture, MediatR CQRS, EF Core, minimal APIs, DI.
 when_to_use: Reach for this when writing C# / .NET application code (services, minimal APIs, EF Core data layers). For Blazor UI components use blazor; for Azure Functions serverless triggers use using-azure-functions; for Clerk auth in .NET use using-clerk; for generating/running .NET tests use xunit. This is the general C# language/architecture skill.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/*.cs"
+  - "**/*.csproj"
+  - "*.sln"
+  - "global.json"
+  - "Directory.Build.props"
 ---
 
 # .NET Development Skill

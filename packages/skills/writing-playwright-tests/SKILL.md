@@ -3,6 +3,11 @@ name: writing-playwright-tests
 description: Write maintainable Playwright E2E test suites — selector strategy, page objects, wait handling (incl. retrofitting legacy apps).
 when_to_use: Reach for this when authoring/maintaining E2E TESTS for your own app with @playwright/test (assertions, page objects, CI-runnable specs). For driving a browser to scrape/automate external sites use playwright-automation; for pixel/visual comparison against a Figma design use figma-pixel-perfect. E2E-testing skill.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "playwright.config.*"
+  - "e2e/**"
+  - "tests/e2e/**"
+  - "**/*.spec.ts"
 ---
 
 # Playwright E2E Testing Skill

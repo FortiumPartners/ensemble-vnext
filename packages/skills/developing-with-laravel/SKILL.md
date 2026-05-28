@@ -3,6 +3,11 @@ name: developing-with-laravel
 description: Build Laravel apps — Eloquent ORM, migrations, routing, queues, Blade templates, Artisan.
 when_to_use: Reach for this when the PHP project is a Laravel application (composer requires laravel/framework, artisan present, app/ + routes/ structure). For plain PHP 8.x language features outside a Laravel context use developing-with-php instead.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "artisan"
+  - "app/**/*.php"
+  - "routes/**/*.php"
+  - "config/**/*.php"
 ---
 
 # Laravel Skill - Quick Reference

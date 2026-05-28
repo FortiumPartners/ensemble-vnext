@@ -3,6 +3,9 @@ name: flyio
 description: Deploy and operate apps on Fly.io — micro-VM PaaS, global regions, fly.toml config, Fly Postgres.
 when_to_use: Reach for this when deploying to Fly.io (fly.toml, `fly`/`flyctl` CLI) — simple-to-moderate apps wanting global PaaS without K8s. For heavy orchestration use kubernetes/helm; for Vercel frontend use managing-vercel; for Railway use managing-railway. PaaS deploy/ops skill.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "fly.toml"
+  - "fly.io.toml"
 ---
 
 # Fly.io Infrastructure Skills

@@ -3,6 +3,11 @@ name: jest
 description: Run and write Jest tests for JavaScript/TypeScript projects — the JS/TS test runner.
 when_to_use: Reach for this when the project tests JavaScript or TypeScript with Jest (jest.config.js, jest in package.json). Per-language test runner — use pytest for Python, rspec for Ruby, exunit for Elixir, xunit for C#/.NET. If you don't yet know which runner the project uses, run test-detector first.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "jest.config.*"
+  - "**/*.test.{ts,js,tsx,jsx}"
+  - "**/*.spec.{ts,js,tsx,jsx}"
+  - "package.json"
 ---
 
 # Jest Testing Skill

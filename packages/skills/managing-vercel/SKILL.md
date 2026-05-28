@@ -3,6 +3,11 @@ name: managing-vercel
 description: Operate the Vercel platform via its CLI — frontend deploys, serverless/edge functions, domains, env vars.
 when_to_use: Reach for this when deploying or operating frontend/edge apps on Vercel (vercel.json, `vercel` CLI). For full-service backends on Railway use managing-railway; for Supabase backends use managing-supabase; for Fly.io use flyio. Deploy/ops skill, not app coding.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "vercel.json"
+  - ".vercel/**"
+  - "next.config.*"
+  - "package.json"
 ---
 
 # Vercel CLI Skill

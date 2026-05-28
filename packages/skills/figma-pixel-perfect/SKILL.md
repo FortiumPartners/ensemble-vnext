@@ -15,6 +15,10 @@ when_to_use: >
   for RPA/scraping against external sites. Requires the Figma MCP (main session only).
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 compatibility: Requires Figma MCP server (main session only), Figma REST API token, Playwright, @playwright/test
+paths:
+  - "**/*.{tsx,jsx,vue,html}"
+  - "tests/visual/**"
+  - "tests/__screenshots__/**"
 ---
 
 # Figma Pixel-Perfect Implementation

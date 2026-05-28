@@ -11,6 +11,9 @@ when_to_use: >
   embedding integration, or pricing tier — capability matrices and client APIs evolve faster
   than any training snapshot.**
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/weaviate*.{ts,py,js}"
+  - "docker-compose*.yml"
 ---
 
 # Weaviate Vector Database Skill

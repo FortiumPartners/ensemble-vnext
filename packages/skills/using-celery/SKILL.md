@@ -3,6 +3,10 @@ name: using-celery
 description: Build Celery 5.3+ task queues — Beat scheduler, Redis/RabbitMQ brokers, workflow primitives, FastAPI integration.
 when_to_use: Reach for this when adding background jobs, periodic tasks, or async task pipelines to a Python app via Celery. For general Python app code use developing-with-python; for AI agent orchestration (not generic job queues) use building-langgraph-agents. Distributed-task-queue skill.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/celery*.py"
+  - "**/tasks.py"
+  - "celeryconfig*.py"
 ---
 
 # Celery & Beat Development Skill

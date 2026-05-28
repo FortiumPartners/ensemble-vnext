@@ -3,6 +3,11 @@ name: aws-cloud
 description: Provision and operate AWS infrastructure with Terraform — ECS/Fargate, networking, IAM, security-first production patterns.
 when_to_use: Reach for this when the target cloud is AWS (provider "aws", ECS/Lambda/S3 resources). For Azure infra use using-terraform-azure; for Kubernetes orchestration use kubernetes; for Fly.io PaaS use flyio. If you don't know which cloud the project uses, run cloud-provider-detector first. AWS infra/IaC skill.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/*.tf"
+  - "**/*.tfvars"
+  - "**/cloudformation/**/*.{yml,yaml,json}"
+  - "**/serverless.yml"
 ---
 
 # AWS Cloud Infrastructure Skill

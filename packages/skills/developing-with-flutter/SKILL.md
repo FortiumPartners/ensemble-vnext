@@ -3,6 +3,10 @@ name: developing-with-flutter
 description: Build cross-platform Flutter/Dart apps for iOS, Android, and Web — widgets, state, platform channels.
 when_to_use: Reach for this when writing Dart/Flutter mobile or cross-platform UI code (widget trees, state management, platform channels, multi-platform builds). This is the only mobile-app skill in this library; use it for any native-mobile target. For web-only React UI use developing-with-react instead.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "pubspec.yaml"
+  - "lib/**/*.dart"
+  - "test/**/*.dart"
 ---
 
 # Flutter SDK Skill

@@ -4,6 +4,10 @@ description: Run and write xUnit tests for C#/.NET projects — FluentAssertions
 when_to_use: Reach for this when the project tests C#/.NET with xUnit (*.csproj referencing xunit, *Tests.cs). Per-language test runner — use jest for JS/TS, pytest for Python, rspec for Ruby, exunit for Elixir. For .NET app code under test use developing-with-dotnet. If unsure which runner the project uses, run test-detector first.
 version: 1.0.0
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/*.csproj"
+  - "**/*Tests.cs"
+  - "**/*Tests.fs"
 ---
 
 # xUnit Test Framework

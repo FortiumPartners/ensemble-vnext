@@ -13,6 +13,10 @@ when_to_use: >
   sparsevec, binary quantization, iterative scans) faster than any training snapshot, and
   index/operator availability is strictly version-gated.**
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "prisma/schema.prisma"
+  - "**/migrations/**/*.sql"
+  - "**/*.sql"
 ---
 
 # pgvector — Postgres Vector Search Quick Reference

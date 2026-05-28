@@ -3,6 +3,11 @@ name: using-azure-functions
 description: Build .NET 8/9 Azure Functions (isolated worker) — HTTP, Service Bus, Timer, and Durable Functions triggers.
 when_to_use: Reach for this when writing serverless function code on Azure (host.json, [Function] attributes, isolated worker). For general .NET app/service code use developing-with-dotnet; for provisioning the Azure infra around it use using-terraform-azure; for the deploy pipeline use managing-azure-devops. Serverless app-code skill.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "host.json"
+  - "**/*Function*.cs"
+  - "function.json"
+  - "local.settings.json"
 ---
 
 # Azure Functions Development Skill

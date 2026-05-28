@@ -3,6 +3,10 @@ name: using-terraform-azure
 description: Provision Azure infrastructure with Terraform (azurerm 4.x) — Key Vault, Managed Identity, App Service, AVM modules.
 when_to_use: Reach for this when writing Terraform HCL to provision Azure resources (provider "azurerm", *.tf). For Azure CI/CD pipelines use managing-azure-devops; for serverless function code use using-azure-functions; for AWS infra use aws-cloud. IaC-provisioning skill, Azure-specific.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/*.tf"
+  - "**/*.tfvars"
+  - "terraform.tfstate*"
 ---
 
 # Terraform Azure Infrastructure Skill

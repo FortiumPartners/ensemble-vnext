@@ -18,6 +18,11 @@ languages:
   - javascript
 category: backend
 updated: 2025-10-22
+paths:
+  - "**/*.module.ts"
+  - "nest-cli.json"
+  - "**/*.controller.ts"
+  - "**/*.service.ts"
 ---
 
 # NestJS Framework Skill
