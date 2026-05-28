@@ -150,7 +150,7 @@ echo ""
 # ========================================
 echo "--- Governance Files ---"
 
-for file in ".claude/rules/constitution.md" ".claude/rules/stack.md" ".claude/rules/process.md"; do
+for file in ".claude/rules/constitution.md" ".claude/rules/stack.md" ".claude/rules/process.md" ".claude/rules/async-discipline.md"; do
     if [[ -f "$file" ]]; then
         pass "$file exists"
         # Check file is not empty

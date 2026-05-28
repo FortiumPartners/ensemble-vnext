@@ -524,6 +524,36 @@ scaffold_project() {
     copy_template "trd-state/current.json.template" ".trd-state/current.json"
     echo ""
 
+    # Copy framework-shipped rule files (distinct from user-owned governance:
+    # constitution.md / stack.md / process.md — those are generated at init and
+    # never modified by rebase. Framework rules are copied-if-missing on both
+    # init AND rebase so behavioral guarantees enforced by hooks have their
+    # accompanying explanation in the project.)
+    echo "--- Framework-Shipped Rules ---"
+    local rules_src_dir
+    rules_src_dir="$TEMPLATES_DIR/claude-directory/rules"
+    if [[ -d "$rules_src_dir" ]]; then
+        local copied_count=0
+        for rule_file in "$rules_src_dir"/*.md; do
+            [[ -f "$rule_file" ]] || continue
+            local rule_basename
+            rule_basename="$(basename "$rule_file")"
+            local target=".claude/rules/$rule_basename"
+            # Script has cd'd into the target dir; paths are relative from here.
+            if [[ -f "$target" ]]; then
+                echo "  - $target (already exists — preserved)"
+            else
+                cp "$rule_file" "$target"
+                echo "  ✓ Copied $rule_basename → $target"
+                ((copied_count++)) || true
+            fi
+        done
+        echo "  ($copied_count framework rule(s) installed)"
+    else
+        echo "  (no framework rules template directory — skipping)"
+    fi
+    echo ""
+
     # Copy plugin content if plugin directory specified
     if [[ -n "$PLUGIN_DIR" ]]; then
         echo "--- Copying Plugin Content ---"

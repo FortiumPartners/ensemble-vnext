@@ -551,16 +551,36 @@ Default: "Cancel rebase"
 - Do NOT modify any existing values
 - Report: "Settings merge minimal (preserve mode)"
 
-#### 4.6 Preserve Rules (Always)
+#### 4.6 Rules: split user governance from framework-shipped
 
-**Preservation Rule:** ALWAYS keep existing rules
+Rules under `.claude/rules/` come in two categories with opposite update policies:
 
-**NEVER modify:**
+**User-owned governance (NEVER modified by rebase):**
 - `.claude/rules/constitution.md`
 - `.claude/rules/stack.md`
 - `.claude/rules/process.md`
 
-Report: "Governance files preserved (not modified by rebase)"
+These are generated/customized at `init-project` and belong to the user. Even with
+`--force`, they are preserved.
+
+**Framework-shipped rules (copied-if-missing on rebase):**
+- `.claude/rules/async-discipline.md` (and any future `.md` files in
+  `@packages/core/templates/claude-directory/rules/`)
+
+These encode behavioral guarantees enforced by hooks (e.g., `async-discipline.js`
+relies on `async-discipline.md` documenting the rule it enforces). Without the doc,
+agents that hit the guard have no context. Policy:
+
+- For each `.md` file in the framework's `claude-directory/rules/` template directory:
+  - If the project already has it (`.claude/rules/<basename>` exists): **preserve as-is**
+    (the user may have annotated; never overwrite without explicit `--force-rules` —
+    not yet exposed).
+  - If missing: **copy from the framework template**.
+- Report each copied file under "Framework rules installed".
+
+Report:
+- "Governance files preserved (not modified by rebase)"
+- "Framework rules: N installed, M preserved (existing)"
 
 </selective-update>
 
@@ -615,8 +635,14 @@ Report: "Governance files preserved (not modified by rebase)"
 - `.claude/rules/constitution.md`
 - `.claude/rules/stack.md`
 - `.claude/rules/process.md`
+- Existing framework-shipped rules under `.claude/rules/` (already-present `.md` files
+  matching the framework template — never overwritten without explicit force flag)
 - All custom agents
 - All local settings overrides
+
+### Framework Rules Installed
+- [list of `.md` files newly copied from `templates/claude-directory/rules/` into
+  `.claude/rules/`; empty if all were already present]
 
 ### Recommended Manual Review
 

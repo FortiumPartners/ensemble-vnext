@@ -363,6 +363,22 @@ Copy and customize the template from `@packages/core/templates/process.md.templa
 
 Fill in coverage placeholders from user selections.
 
+#### 4.4 Framework-shipped rules (copied by scaffold, verify here)
+
+The scaffold script (`scaffold-project.sh`) copies every `.md` file in
+`@packages/core/templates/claude-directory/rules/` into the project's `.claude/rules/`
+(skipping any that already exist). These are **framework-shipped** rules — they encode
+behavioral guarantees enforced by hooks and are distinct from the user-owned governance
+files generated above. Currently:
+
+- `async-discipline.md` — paired with the `async-discipline.js` Stop hook; documents
+  the four async primitives (`run_in_background`, `ScheduleWakeup`, `Monitor`, `/goal`)
+  and the regex/bypass behavior of the guard.
+
+Verify each framework rule landed under `.claude/rules/`. If `async-discipline.md` is
+missing, copy it manually from the template path above — the Stop hook will block
+fire-and-forget claims without a paired explanation otherwise.
+
 </governance-files>
 
 ### Step 5: Deploy Subagents
@@ -688,6 +704,7 @@ A good CLAUDE.md should let a future session:
 | `.claude/rules/constitution.md` | Step 4 | YES |
 | `.claude/rules/stack.md` | Step 4 | YES |
 | `.claude/rules/process.md` | Step 4 | YES |
+| `.claude/rules/async-discipline.md` | Step 3 (scaffold, framework rule) | YES |
 | `.claude/skills/` (1+ skill folders) | Step 6 | YES |
 | `.claude/commands/` (8 files) | Step 7 | YES |
 | `.claude/hooks/permitter.js` | Step 8 | YES |
