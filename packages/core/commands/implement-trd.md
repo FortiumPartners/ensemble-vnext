@@ -543,6 +543,16 @@ All progress is persisted in the state file and will survive context compaction.
 
 This prevents context exhaustion on large TRDs with many tasks. The state file preserves all progress across compaction.
 
+**Decision-trail durability (PreCompact hook).** When `/compact` runs — or auto-compaction
+triggers at ~95% context — the `precompact.js` hook appends a structured checkpoint to
+`.trd-state/<feature>/session-log.md` capturing the in-flight task, retry context, and
+recent completions. After compaction, **re-read `session-log.md` first** to recover the
+reasoning trail; if you have decision rationale or open questions from the just-summarized
+turns that aren't captured in `implement.json`, append them under the most recent
+**Decisions & rationale** section of the log before continuing the loop. Treat the log as
+the durable companion to `implement.json` — state records *what* happened, the log records
+*why*.
+
 ---
 
 ## Step 6: State Management
