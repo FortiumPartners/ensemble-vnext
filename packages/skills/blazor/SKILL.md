@@ -1,3 +1,10 @@
+---
+name: blazor
+description: Build Blazor UI on .NET 8+ — Server vs WebAssembly hosting, components, Fluent UI, data binding, lifecycle.
+when_to_use: Reach for this when building the UI layer of a .NET app with Blazor (.razor components, Blazor Server/WASM). For non-UI C#/.NET application code use developing-with-dotnet; for Azure Functions use using-azure-functions; for Clerk auth use using-clerk. Blazor-specific frontend framework skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+---
+
 # Blazor Framework - Quick Reference (SKILL.md)
 
 **Version**: 1.0.0

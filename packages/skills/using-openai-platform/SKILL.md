@@ -1,6 +1,8 @@
 ---
 name: using-openai-platform
-description: OpenAI SDK development with GPT-5 family, Chat Completions, Responses API, embeddings, and tool calling. Use for AI-powered applications, chatbots, agents, and semantic search.
+description: Call the OpenAI API/SDK — GPT-5 family, Chat Completions, Responses API, embeddings, tool calling.
+when_to_use: Reach for this when the code integrates OpenAI's models/SDK. For Anthropic Claude use using-anthropic-platform; for web-grounded search-augmented answers with citations use using-perplexity-platform; for multi-agent orchestration graphs use building-langgraph-agents; for vector storage behind RAG use using-weaviate. Provider-specific LLM SDK skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # OpenAI SDK Development Skill

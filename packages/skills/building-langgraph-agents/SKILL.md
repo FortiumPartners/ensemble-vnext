@@ -1,6 +1,8 @@
 ---
 name: building-langgraph-agents
-description: LangGraph development for stateful multi-agent applications, cyclic workflows, conditional routing, human-in-the-loop patterns, and persistent state management. Use for complex AI orchestration, agent coordination, and production-grade agentic systems.
+description: Build stateful multi-agent systems with LangGraph — cyclic graphs, conditional routing, human-in-the-loop, persistent state.
+when_to_use: Reach for this when orchestrating multi-step/multi-agent LLM workflows as a graph (LangGraph). For single-model API calls use using-openai-platform or using-anthropic-platform; for plain background job queues (not agentic) use using-celery. AI-orchestration skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # LangGraph Development Skill

@@ -1,6 +1,8 @@
 ---
 name: using-prisma
-description: Prisma 5+ ORM with schema-first design, type-safe client, migrations, and database integrations (Supabase, PlanetScale, Neon). Use for TypeScript/JavaScript database access.
+description: Type-safe DB access with Prisma 5+ ORM — schema-first models, generated client, migrations (Supabase/PlanetScale/Neon).
+when_to_use: Reach for this when a TypeScript/JavaScript app accesses a relational DB through Prisma (schema.prisma present). For administering the Supabase project itself (CLI, Edge Functions) use managing-supabase; for a vector DB use using-weaviate. App-side data-access skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Prisma ORM Development Skill

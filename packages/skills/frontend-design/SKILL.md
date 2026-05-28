@@ -1,6 +1,7 @@
 ---
 name: frontend-design
-description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI). Generates creative, polished code and UI design that avoids generic AI aesthetics.
+description: Generate distinctive, high-craft frontend UI that avoids generic AI aesthetics — landing pages, dashboards, components, posters.
+when_to_use: Reach for this when the goal is design quality/visual polish from scratch (make it look great, beautify a UI, original aesthetic). For the mechanics of applying Tailwind classes use styling-with-tailwind; for React behavior/architecture use developing-with-react; for matching an existing Figma comp exactly use figma-pixel-perfect. Creative-design skill.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

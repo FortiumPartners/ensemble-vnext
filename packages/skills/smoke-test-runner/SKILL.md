@@ -1,3 +1,10 @@
+---
+name: smoke-test-runner
+description: Orchestrate all smoke-test categories in dependency order (API → DB → external → auth → critical paths) with early-exit.
+when_to_use: Reach for this as the ENTRY POINT for release smoke testing when you want the full suite run end-to-end (~15 min, stop on first failure). For testing one slice only, invoke that category skill directly — smoke-test-api, smoke-test-database, smoke-test-external-services, smoke-test-auth, or smoke-test-critical-paths. This is the orchestrator, not a category itself.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+---
+
 # Smoke Test Runner Skill
 
 **Quick Reference** - Orchestrates all smoke test categories

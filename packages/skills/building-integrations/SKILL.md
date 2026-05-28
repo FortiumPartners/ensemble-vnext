@@ -1,6 +1,8 @@
 ---
 name: building-integrations
-description: Third-party API integration patterns with webhook verification, idempotency, retry with Polly, circuit breakers, and HttpClientFactory. Use when integrating external services like Stripe, Twilio, SendGrid, or HubSpot.
+description: Patterns for robust third-party API integrations — webhook verification, idempotency, retry/Polly, circuit breakers, HttpClientFactory.
+when_to_use: Reach for this when wiring up an external service (Stripe, Twilio, SendGrid, HubSpot, etc.) and you need reliability patterns — signature verification, idempotency keys, retries, circuit breakers. For Clerk *auth* specifically use using-clerk; for first-party LLM SDKs use the using-*-platform skills. Generic integration-reliability skill (C#/.NET-leaning).
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Building Integrations Skill

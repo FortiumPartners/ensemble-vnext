@@ -1,6 +1,8 @@
 ---
 name: developing-with-laravel
-description: Laravel framework patterns for PHP applications including Eloquent ORM, migrations, routing, queues, and Blade templates. Use when building Laravel applications or working with Laravel projects.
+description: Build Laravel apps — Eloquent ORM, migrations, routing, queues, Blade templates, Artisan.
+when_to_use: Reach for this when the PHP project is a Laravel application (composer requires laravel/framework, artisan present, app/ + routes/ structure). For plain PHP 8.x language features outside a Laravel context use developing-with-php instead.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Laravel Skill - Quick Reference

@@ -1,3 +1,10 @@
+---
+name: changelog-generator
+description: Generate a categorized changelog from conventional-commit history for release notes.
+when_to_use: Reach for this when producing release notes / a CHANGELOG from conventional commits (feat/fix/perf grouping, breaking-change detection). Standalone release-tooling skill; not related to git-town branch workflow or CI pipelines.
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Changelog Generator Skill
 
 **Quick Reference** - Parse conventional commits and generate categorized changelog

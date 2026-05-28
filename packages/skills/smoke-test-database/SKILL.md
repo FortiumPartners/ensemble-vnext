@@ -1,3 +1,10 @@
+---
+name: smoke-test-database
+description: Smoke-test the database — connectivity/auth, query performance vs SLA, data integrity, backup/restore.
+when_to_use: Reach for this to validate the database layer only (can connect, queries meet SLA, integrity intact). For the full release suite use smoke-test-runner; for HTTP endpoints use smoke-test-api; for third-party APIs use smoke-test-external-services; for auth flows use smoke-test-auth; for user journeys use smoke-test-critical-paths.
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Smoke Test Database Skill
 
 **Quick Reference** - Load this first for fast context (~3KB)

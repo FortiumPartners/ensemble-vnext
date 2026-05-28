@@ -1,6 +1,8 @@
 ---
 name: using-perplexity-platform
-description: Perplexity Sonar API development with search-augmented generation, real-time web search, citations, and OpenAI-compatible Chat Completions. Use for AI-powered applications requiring up-to-date information, research assistants, and grounded responses with sources.
+description: Call the Perplexity Sonar API — search-augmented generation with real-time web search and source citations.
+when_to_use: Reach for this specifically when the app needs LLM answers grounded in live web search with citations (research assistants, up-to-date Q&A). For general chat/agents without web grounding use using-openai-platform or using-anthropic-platform. Provider-specific LLM SDK skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Perplexity Sonar API Development Skill

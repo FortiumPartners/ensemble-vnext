@@ -1,3 +1,10 @@
+---
+name: kubernetes
+description: Author production-ready Kubernetes manifests — Deployments, Services, security hardening, Kustomize.
+when_to_use: "Reach for this when writing raw Kubernetes resource YAML (apiVersion/kind such as Deployment, Service, Pod, or kustomization.yaml). For packaging those resources as reusable Helm charts use helm; for Fly.io PaaS (no K8s) use flyio; to detect the infra tooling in use run tooling-detector. Container-orchestration manifest skill."
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+---
+
 # Kubernetes Quick Reference
 
 **Version**: 1.0.0 | **Target Size**: <100KB | **Purpose**: Fast reference for Kubernetes manifest development and deployment

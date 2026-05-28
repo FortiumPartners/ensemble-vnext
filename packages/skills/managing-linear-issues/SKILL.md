@@ -1,6 +1,8 @@
 ---
 name: managing-linear-issues
-description: Linear.app issue management using Linearis CLI with JSON output and smart ID resolution. Use when creating, viewing, updating, or searching Linear issues, managing sprints/cycles, or listing teams/projects.
+description: Manage Linear.app issues via the Linearis CLI — create, view, update, search, manage cycles, list teams/projects.
+when_to_use: Reach for this when the team's issue tracker is Linear. If the tracker is Jira, use managing-jira-issues instead — mutually exclusive by which tool the project uses. Issue-tracking skill, not a CI/CD or code skill.
+allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # Linear Integration Skill

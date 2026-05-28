@@ -1,6 +1,8 @@
 ---
 name: managing-jira-issues
-description: Jira issue management using the jira CLI with JSON output. Use for creating, viewing, updating, searching issues, fetching complete hierarchies, and managing sprints.
+description: Manage Jira issues via the jira CLI — create, view, update, search, fetch hierarchies, manage sprints.
+when_to_use: Reach for this when the team's issue tracker is Jira (Atlassian). If the tracker is Linear, use managing-linear-issues instead — they are mutually exclusive by which tool the project uses. Issue-tracking skill, not a CI/CD or code skill.
+allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # Jira Integration Skill

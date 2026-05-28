@@ -7,6 +7,13 @@ description: >
   `/goal`, or when you want a single-session verify loop instead of the parallel team loop
   in /verify-trd-team. Triggers: "verify until it works", "goal verify", "autonomous
   verification", "keep verifying until all pass".
+when_to_use: >
+  Reach for this for autonomous single-session live verification of a TRD under /goal — one
+  assertion of progress per turn against a durable verify.json contract, looping until all
+  assertions pass. Use instead of the parallel multi-teammate loop in /verify-trd-team when you
+  want one self-driving session ("verify until it works", "goal verify"). For functional
+  ship-readiness against original requirements use ship-workplan; for smoke tests use the
+  smoke-test-* skills.
 argument-hint: "[trd-path] [--promise \"<text>\"]"
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Skill, Agent
 ---

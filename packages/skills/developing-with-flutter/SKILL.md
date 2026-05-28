@@ -1,6 +1,8 @@
 ---
 name: developing-with-flutter
-description: Flutter SDK for cross-platform development targeting iOS, Android, and Web. Use for widget architecture, state management, platform channels, and multi-platform deployment.
+description: Build cross-platform Flutter/Dart apps for iOS, Android, and Web — widgets, state, platform channels.
+when_to_use: Reach for this when writing Dart/Flutter mobile or cross-platform UI code (widget trees, state management, platform channels, multi-platform builds). This is the only mobile-app skill in this library; use it for any native-mobile target. For web-only React UI use developing-with-react instead.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Flutter SDK Skill

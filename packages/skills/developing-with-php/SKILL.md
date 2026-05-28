@@ -1,6 +1,8 @@
 ---
 name: developing-with-php
-description: Modern PHP 8.x development with type system, attributes, enums, error handling, and Composer. Use when writing PHP code or working with PHP projects.
+description: Write modern PHP 8.x — typed properties, attributes, enums, match, error handling, Composer.
+when_to_use: Reach for this when writing plain/framework-agnostic PHP 8.x code (language features, Composer packages, vanilla scripts). If the project is a Laravel app (Eloquent, Artisan, Blade, routing), use developing-with-laravel instead — that skill assumes the Laravel framework, this one does not.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # PHP Skill - Quick Reference

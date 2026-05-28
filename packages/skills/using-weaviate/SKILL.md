@@ -1,6 +1,8 @@
 ---
 name: using-weaviate
-description: Weaviate vector database for semantic search, hybrid queries, and AI-native applications. Use for embeddings storage, similarity search, RAG pipelines, and multi-modal retrieval.
+description: Use the Weaviate vector database — embeddings storage, similarity/hybrid search, RAG retrieval, multi-modal.
+when_to_use: Reach for this when storing/querying vector embeddings for semantic search or RAG retrieval. For relational data via Prisma use using-prisma; for generating the embeddings/LLM calls themselves use using-openai-platform or using-anthropic-platform. Vector-store skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Weaviate Vector Database Skill

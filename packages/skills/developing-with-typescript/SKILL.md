@@ -1,6 +1,8 @@
 ---
 name: developing-with-typescript
-description: TypeScript 5.x development with type system, generics, utility types, and strict mode patterns. Use when writing TypeScript code or adding types to JavaScript projects.
+description: Write type-safe TypeScript 5.x — generics, utility types, discriminated unions, strict-mode config.
+when_to_use: Reach for this when authoring TypeScript types/code or migrating JavaScript to typed TS, in any TS runtime. For React component work use developing-with-react; for NestJS backends use nestjs; for Prisma data access use using-prisma. For generating/running JS/TS tests use jest. This is the language-level TS skill, framework-agnostic.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # TypeScript Development Skill

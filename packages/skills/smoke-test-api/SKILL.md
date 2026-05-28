@@ -1,3 +1,10 @@
+---
+name: smoke-test-api
+description: Smoke-test API health — endpoint availability, response times, and core CRUD/search/auth endpoints.
+when_to_use: Reach for this to validate the API surface only (HTTP endpoints respond, latency SLAs, key operations). For the full release suite use smoke-test-runner; for DB connectivity use smoke-test-database; for third-party APIs use smoke-test-external-services; for login/token flows use smoke-test-auth; for end-to-end user journeys use smoke-test-critical-paths.
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Smoke Test API Skill
 
 **Quick Reference** - Load this first for fast context (~3KB)

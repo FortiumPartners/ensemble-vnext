@@ -1,3 +1,10 @@
+---
+name: tooling-detector
+description: Detect infrastructure/DevOps tooling in a project (Helm, Kubernetes, Kustomize, ArgoCD) via multi-signal analysis.
+when_to_use: Run this FIRST when you need to pick infra-tooling skills but don't know what the repo uses. It only identifies tooling — then hand off (Helm charts to helm, raw manifests to kubernetes). To detect the cloud provider use cloud-provider-detector; the app framework use framework-detector; the test runner use test-detector.
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Tooling Detection System
 
 **Version**: 1.0.0 | **Purpose**: Automatic detection of infrastructure tooling (Helm, Kubernetes, Kustomize, ArgoCD)

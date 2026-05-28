@@ -1,3 +1,10 @@
+---
+name: act-local-ci
+description: Run GitHub Actions workflows locally with nektos/act to validate CI before pushing.
+when_to_use: Reach for this to execute/debug .github/workflows/*.yml locally via `act` before pushing — fast CI iteration. For authoring Azure DevOps pipelines use managing-azure-devops. This skill is GitHub Actions-specific local execution, not pipeline authoring.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+---
+
 # Act Local CI Skill
 
 **Quick Reference** - Test GitHub Actions workflows locally using nektos/act

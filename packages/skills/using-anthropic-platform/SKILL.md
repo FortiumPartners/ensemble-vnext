@@ -1,6 +1,8 @@
 ---
 name: using-anthropic-platform
-description: Claude SDK development with Messages API, Tool Use, Extended Thinking, streaming, and prompt caching
+description: Call the Anthropic Claude API/SDK — Messages API, Tool Use, Extended Thinking, streaming, prompt caching.
+when_to_use: Reach for this when the code integrates Anthropic's Claude models/SDK. For OpenAI models use using-openai-platform; for web-grounded search answers use using-perplexity-platform; for multi-agent orchestration graphs use building-langgraph-agents. Provider-specific LLM SDK skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Anthropic Claude SDK - Quick Reference

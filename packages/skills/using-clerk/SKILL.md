@@ -1,6 +1,8 @@
 ---
 name: using-clerk
-description: Clerk authentication with official C# SDK, React integration, webhook verification via Svix, and organization multi-tenancy. Use when implementing auth with Clerk in .NET or React applications.
+description: Implement Clerk authentication — C# SDK and React integration, Svix webhook verification, org multi-tenancy.
+when_to_use: Reach for this when adding/operating user auth via Clerk in a .NET or React app. For generic third-party webhook/idempotency patterns (non-auth) use building-integrations. This is the auth-provider skill; there is no Supabase-auth or Auth0 skill here, so Clerk is the only managed-auth option in this library.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Clerk Authentication Skill
