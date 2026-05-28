@@ -319,14 +319,21 @@ copy_hooks() {
                 info "Copied hook: permitter/permitter.js"
                 ((count++)) || true
             fi
-            # Copy permitter lib from monorepo if accessible via symlink target
+            # Copy permitter lib from monorepo if accessible via symlink target.
+            # NOTE: readlink returns a RELATIVE path; anchor it to the symlink's directory
+            # via `cd && pwd` so [[ -d ]] works regardless of the caller's CWD (the scaffold
+            # runs from the target project dir, not the plugin dir).
+            local permitter_link="$PLUGIN_DIR/hooks/permitter.js"
             local permitter_target
-            permitter_target=$(readlink "$PLUGIN_DIR/hooks/permitter.js" 2>/dev/null || echo "")
+            permitter_target=$(readlink "$permitter_link" 2>/dev/null || echo "")
             if [[ -n "$permitter_target" ]]; then
-                local permitter_dir
-                permitter_dir=$(dirname "$permitter_target")
-                local lib_dir="${permitter_dir}/../lib"
-                if [[ -d "$lib_dir" ]]; then
+                local lib_dir=""
+                if [[ "$permitter_target" = /* ]]; then
+                    lib_dir="$(dirname "$permitter_target")/../lib"
+                else
+                    lib_dir="$(cd "$(dirname "$permitter_link")" 2>/dev/null && cd "$(dirname "$permitter_target")" 2>/dev/null && pwd)/../lib" || lib_dir=""
+                fi
+                if [[ -n "$lib_dir" && -d "$lib_dir" ]]; then
                     for lib in "$lib_dir"/*.js; do
                         [[ -f "$lib" ]] || continue
                         local basename

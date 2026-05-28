@@ -170,7 +170,7 @@ echo ""
 echo "--- Hook Files ---"
 
 REQUIRED_HOOKS=(
-    "permitter.js"
+    "permitter/permitter.js"
     "router.py"
     "status.js"
 )
