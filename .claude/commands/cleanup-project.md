@@ -3,6 +3,7 @@ name: cleanup-project
 description: Review and prune CLAUDE.md and project artifacts with backup and dry-run support
 version: 1.0.0
 category: project-memory
+argument-hint: "[--dry-run] [--auto]"
 ---
 
 > **Usage:** Invoke `/cleanup-project` to review and prune accumulated learnings and artifacts.

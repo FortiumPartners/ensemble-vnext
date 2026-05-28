@@ -4,7 +4,7 @@ description: >
   Augment an existing TRD with Figma design data. Extracts screenshots, component
   specifications, design tokens, and fixture data from Figma and adds a Visual Design
   Context section to the TRD. Pre-fetches all assets needed for subagent pixel-perfect work.
-user_invocable: true
+disable-model-invocation: true
 ---
 
 # /augment-trd-figma

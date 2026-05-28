@@ -3,6 +3,8 @@ name: create-trd-team
 description: Create TRD using parallel domain-expert team for comprehensive multi-perspective architecture
 version: 1.0.0
 category: planning
+argument-hint: "[path-to-prd]"
+disable-model-invocation: true
 ---
 
 This command is the **team variant** of `/create-trd`. Instead of delegating to a single
@@ -30,7 +32,9 @@ Error if neither available.
 
 ## Team Composition
 
-You (the lead) operate as **@technical-architect**. Spawn these teammates via the Task tool:
+You (the lead) operate as **@technical-architect**. Spawn these teammates via the native
+team model (`TeamCreate` once, then one `Agent({subagent_type, team_name, ...})` per teammate
+— NOT the `Task` tool, which is reserved for the work-list tools `TaskCreate`/`TaskUpdate`/etc.):
 
 | Teammate | subagent_type | Domain Letter | Focus |
 |----------|---------------|---------------|-------|
@@ -101,10 +105,38 @@ Before spawning teammates, the lead performs initial analysis:
 
 ## Phase 2: Parallel Domain Analysis
 
-Spawn all teammates **simultaneously** using the Task tool. Each receives their briefing
-and returns a `<teammate_report>` response.
+Spawn all teammates **simultaneously** using the native team model. Each receives their
+briefing and returns a `<teammate_report>` response.
 
-**Teammate briefing template** (adapt per teammate):
+**Step 1 — Create the team:**
+```javascript
+TeamCreate({ team_name: "trd-domain-analysis",
+             description: "Parallel TRD domain-perspective gathering" });
+```
+
+**Step 2 — Spawn each teammate** via the **`Agent`** tool with `team_name` set:
+```javascript
+Agent({ subagent_type: "backend-implementer",  team_name: "trd-domain-analysis",
+        name: "backend-arch",     prompt: "[backend briefing]" });
+Agent({ subagent_type: "frontend-implementer", team_name: "trd-domain-analysis",
+        name: "frontend-arch",    prompt: "[frontend briefing]" });
+Agent({ subagent_type: "verify-app",           team_name: "trd-domain-analysis",
+        name: "quality-strategy", prompt: "[quality briefing]" });
+// Conditionally:
+Agent({ subagent_type: "devops-engineer",      team_name: "trd-domain-analysis",
+        name: "infra-perspective", prompt: "[infra briefing]" });
+```
+Do NOT pass `isolation: "worktree"` — these are read-only analysis teammates; shared tree
+is fine and they produce no commits.
+
+**Step 3 — Collect & shut down** once all `<teammate_report>` responses are received:
+```javascript
+for (const teammate of ["backend-arch","frontend-arch","quality-strategy","infra-perspective"])
+  SendMessage({ to: teammate, message: { type: "shutdown_request" } });
+TeamDelete({});  // only after all members have shut down
+```
+
+**Briefing template** (adapt per teammate):
 
 > You are analyzing a PRD from the **{domain}** perspective for a TRD. Your task ID prefix
 > is `{PREFIX}` and your category letter is `{CAT}`.

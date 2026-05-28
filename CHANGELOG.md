@@ -2,317 +2,233 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
-## [3.5.0] - 2026-05-28
+## [3.3.0] - 2026-05-28
 
-Phase 2 modernization — closes the structural gaps surfaced in the Claude Code alignment
-assessment, with emphasis on **durable cross-session memory** (state + decision trail survive
-compaction and session end) and **structural enforcement of async discipline** (the
-fire-and-forget failure mode is now blocked at the Stop hook, not just discouraged in prose).
+Claude Code modernization release. Brings the plugin into line with the current Claude Code
+subagent / skill / command frontmatter spec and team-orchestration model; introduces an AI-
+feature specialist (`agent-implementer`) plus the LLM-ecosystem skill library that supports
+it; and closes several structural gaps the framework had been documenting-but-not-enforcing
+(fire-and-forget async claims, cold session starts, lost decision trail on compaction).
+
+Full assessments + rationale: `docs/modernization/2026-05-claude-code-alignment.md` (Phase 1)
+and `docs/modernization/2026-05-phase2-recommendations.md` (Phase 2).
 
 ### Added
 
-- **Async-discipline rule + Stop-hook guard** (`async-discipline.md` + `async-discipline.js`).
-  Addresses a real recurring failure mode: an agent claims "I'll let you know when done" /
-  "running in the background" / "I'll report back" but uses no actual async machinery,
-  then sits idle until the user nudges — at which point it instantly checks and sees the
-  work completed long ago (hallucinated notification). The Stop hook now scans the last
-  assistant turn for fire-and-forget claims; if a claim is present without any of the four
-  legitimate async primitives in flight (`Agent({run_in_background: true})`,
-  `ScheduleWakeup`, `Monitor`, `/goal`), the Stop is BLOCKED with a reason explaining the
-  options. Constitution gains Prohibited Pattern #6 referencing the rule.
-- **SessionStart context hook** (`session-context.js`). On every new session, reads
-  `.trd-state/current.json` and surfaces the in-flight feature (PRD/TRD path + task progress
-  from `implement.json` or assertion verdicts from `verify.json`) into `additionalContext`.
-  Removes the "remind me what we're working on" friction at the start of every session.
-- **PreCompact decision-trail archiver** (`precompact.js`). When `/compact` runs — or
-  auto-compaction triggers at ~95% — appends a structured checkpoint to
+#### New specialist & AI-ecosystem skills
+- **`agent-implementer` subagent** — the 13th specialist. Builds AI features end-to-end: LLM
+  SDK integrations, RAG pipelines, agent loops, tool calling, agent memory, prompt
+  observability/evals — with currency verification, retries, cost/latency awareness, and PII
+  discipline baked into the role. Plugin manifest updated (`agents: 13`); `/implement-trd`
+  agent-routing table gained a row for LLM/agent/RAG keywords → `agent-implementer`.
+- **5 new AI-ecosystem skills** under `packages/skills/`:
+  - **`using-pgvector`** — Postgres-native vector storage (HNSW/IVFFlat, vector/halfvec/sparsevec,
+    distance ops, hybrid filters, raw SQL + Prisma + SQLAlchemy patterns). Postgres-native
+    alternative to `using-weaviate`.
+  - **`building-rag-pipelines`** — End-to-end RAG architecture (chunking, embedding, retrieval,
+    reranking, citation/grounding, evaluation). Provider- and store-agnostic; delegates
+    wire-level concerns to the provider and vector-store skills.
+  - **`building-agent-memory`** — Conversation buffer, summary memory, vector-backed long-term,
+    hierarchical (working/short/long), eviction/compaction, PII redaction.
+  - **`building-tool-orchestration`** — Modernized cross-provider tool-calling: agent loop,
+    parallel tool calls, dynamic tool selection for large tool sets, failure recovery
+    (retry → fallback → escalate), structured outputs.
+  - **`using-langfuse`** — Prompt observability (tracing, prompt versioning, eval datasets,
+    A/B testing, cost/latency, multi-provider integration). Designated default observability
+    skill.
+- **LLM-platform skills added to `backend-implementer`** so backends that ship AI features
+  have first-class access alongside the new `agent-implementer`: `using-anthropic-platform`,
+  `using-openai-platform`, `using-perplexity-platform`, `building-langgraph-agents`,
+  `using-weaviate`.
+
+#### Phase 2 structural primitives
+- **Async-discipline rule + Stop-hook guard** (`.claude/rules/async-discipline.md` +
+  `packages/core/hooks/async-discipline.js`). Addresses a real recurring failure mode: an
+  agent claims "I'll let you know when done" / "running in the background" but uses no
+  actual async machinery, then sits idle until the user nudges (hallucinated notification).
+  The Stop hook scans the last assistant turn for fire-and-forget claims; if a claim is
+  present without any of the four legitimate async primitives in flight
+  (`Agent({run_in_background: true})`, `ScheduleWakeup`, `Monitor`, `/goal`), the Stop is
+  BLOCKED with a reason explaining the options. Constitution gains Prohibited Pattern #6
+  referencing the rule.
+- **SessionStart context hook** (`packages/core/hooks/session-context.js`). On every new
+  session, reads `.trd-state/current.json` and surfaces the in-flight feature (PRD/TRD
+  paths, task progress from `implement.json` or assertion verdicts from `verify.json`)
+  into `additionalContext`. Removes the "remind me what we're working on" friction.
+- **PreCompact decision-trail archiver** (`packages/core/hooks/precompact.js`). Before
+  `/compact` (or auto-compaction at ~95%), appends a structured checkpoint to
   `.trd-state/<feature>/session-log.md`: timestamp + trigger, PRD/TRD, phase, strategy,
   branch, in-flight tasks (id + cycle + `current_problem`), tasks in retry, last 5
-  completions, and a **Decisions & rationale (model: fill on resume)** stub. Hook returns
-  `additionalContext` instructing the post-compact model to re-read the log and backfill the
-  rationale stub. State records *what*; the log records *why* — both survive compaction.
+  completions, and a **Decisions & rationale (model: fill on resume)** stub. State records
+  *what*; the log records *why* — both survive compaction.
 - **Skill `paths:` globs for stack-specific auto-activation** (35+ skills). Language,
   framework, ORM, test-runner, vector-store, infra, and platform skills now declare
   `paths:` so Claude Code's native selector only auto-activates them when matching files
   are present (`developing-with-react` doesn't fire on a pure-backend session because the
-  word "component" appeared; `rails` doesn't fire in a Python project). Sharpens routing
-  without re-introducing the keyword router that 3.3.0 deliberately removed.
-- **Phase 2 recommendations doc** (`docs/modernization/2026-05-phase2-recommendations.md`)
-  capturing the assessment, the four Tier-1 items shipped in this release, and the
-  anti-recommendations (e.g., why `mode: plan` is *not* the right primitive for this
-  system-of-agents direction).
+  word "component" appeared; `rails` doesn't fire in a Python project).
 
-### Changed
-
-- **Framework-shipped vs user-owned rules split**. Rules under `.claude/rules/` now come in
-  two categories with opposite update policies:
+#### Tooling, frontmatter, governance
+- **`verify-goal` skill** (`packages/skills/verify-goal/SKILL.md`) — single-session,
+  `/goal`-drivable live verification. The skill supplies the *structure* (per-assertion
+  `verify.json` contract); `/goal` supplies the *loop*. `/verify-trd-team` emits a
+  ready-to-paste `claude -p "/goal …"` invocation at preflight as the autonomous
+  alternative to its team-based loop.
+- **`effort` frontmatter on all 13 subagents** — `technical-architect: xhigh`; PM /
+  spec-planner / code-reviewer / app-debugger / code-simplifier: `high` (code-simplifier
+  uses `opus/medium`); implementers / verify-app / devops / cicd: `medium`.
+- **`argument-hint` frontmatter on every arg-taking command** — `implement-trd`,
+  `fix-issue`, `verify-trd-team`, `harden-trd-team`, `implement-trd-team`,
+  `investigate-issue`, plus the PRD/TRD authoring family and lifecycle commands.
+- **`disable-model-invocation: true`** on user-only commands: `init-project`,
+  `rebase-project`, `create-prd`, `create-prd-team`, `refine-prd`, `create-trd`,
+  `create-trd-team`, `refine-trd`, `augment-trd-figma`.
+- **`when_to_use` on all 56 skills** with explicit disambiguation between overlapping
+  families (smoke-test-*, per-language test runners, detectors as "run-first-then-handoff",
+  the Playwright trio, SDK / platform-manager / infra boundaries).
+- **Framework-shipped vs user-owned rules split** in `.claude/rules/`:
   - **User governance** (`constitution.md`, `stack.md`, `process.md`) — generated/customized
     at `/init-project`; `/rebase-project` NEVER modifies.
   - **Framework-shipped** (`async-discipline.md`, plus any future `.md` in
-    `templates/claude-directory/rules/`) — copied-if-missing on BOTH init AND rebase, so
-    behavioral guarantees enforced by hooks have their accompanying explanation in every
-    project. Folder-driven: the next framework rule is a drop-in file.
-- **`implement-trd.md` §5.4** documents the `session-log.md` convention so the model knows
-  to re-read it after compaction and backfill the **Decisions & rationale** stub.
-- **`constitution.md.template`** ships Prohibited Pattern #6 (No false async claims) as a
-  fixed entry; user-provided `ADDITIONAL_PROHIBITIONS` now number from 7.
-- **`validate-init.sh`** required-file loop now includes `.claude/rules/async-discipline.md`.
-
-### Fixed
-
-- **Async-discipline false-positives on meta-discussion** (two iterations, real fires in the
-  wild). The guard initially tripped on prose that discussed or quoted the pattern. Now:
-  - `stripCitations()` removes fenced code blocks, inline code spans, and double-quoted
-    strings before matching; single-quoted strings are stripped only when both quotes sit on
-    word/sentence boundaries (preserving contractions like `don't` / `I'll` / `it's`).
-  - `META_MARKERS` skips matches preceded within ~80 chars by `something like` / `for example`
-    / `phrases like` / `the phrase` / `e.g.` / etc.
-  - `readLastAssistantText` enforces a strict **turn boundary** — only scans assistant text
-    produced AFTER the most recent user message, so earlier turns and hook-injected
-    BLOCK_REASON content (user-side) can no longer leak into the scan.
-  - `SELF_DOC_MARKERS` bypasses the entire match check when the text contains
-    `[ASYNC-DISCIPLINE GUARD`, `async-discipline.md`, `async-discipline.js`, or the bare term
-    `fire-and-forget` — self-evident meta-discussion.
-
-### Why this matters
-
-These four items close the gap between "the framework documents a principle" and "the
-framework enforces it." Before 3.5.0:
-- Agents could quietly fire-and-forget with no system pushback until the user noticed.
-- Every new session started cold ("what are we working on?").
-- Compaction summarized away the decision trail; only `implement.json`'s *what* survived.
-- Stack-specific skills could mis-fire on unrelated turns, fighting the slim router.
-
-After 3.5.0 each of those is structural: the Stop hook blocks the violation, SessionStart
-auto-loads context, PreCompact archives the rationale, and `paths:` globs scope skill
-activation to file-shape relevance.
-
----
-
-## [3.4.0] - 2026-05-28
-
-AI-feature direction release — fills the gap for projects building LLM-powered features
-(provider SDKs, RAG, multi-agent orchestration, tool calling, memory, observability) and
-establishes a **currency-check pattern** so the model never invokes deprecated/retired LLMs
-or mis-states capabilities from memorized training data.
-
-### Added
-
-- **`agent-implementer` subagent** — the 13th specialist. Builds AI features end-to-end: LLM
-  SDK integrations, RAG pipelines, agent loops, tool calling, agent memory, prompt
-  observability/evals, with currency verification, retries, cost/latency awareness, and PII
-  discipline baked into the role. Plugin manifest updated (`agents: 13`); `/implement-trd`
-  agent-routing table gained a row for LLM/agent/RAG keywords → `agent-implementer`.
-- **5 new skills** under `packages/skills/`:
-  - **`using-pgvector`** — Postgres-native vector storage (HNSW/IVFFlat, vector/halfvec/sparsevec,
-    distance ops, hybrid filters, raw SQL + Prisma + SQLAlchemy patterns). The Postgres-native
-    alternative to `using-weaviate`.
-  - **`building-rag-pipelines`** — End-to-end RAG architecture (chunking strategies, embedding
-    model choice, retrieval, reranking, citation/grounding, evaluation). Provider- and
-    store-agnostic; delegates wire-level concerns to the provider and vector-store skills.
-  - **`building-agent-memory`** — Conversation buffer, summary memory, vector-backed long-term
-    memory, hierarchical (working/short/long), eviction/compaction, PII redaction. Composes
-    over the vector skills and provider primitives.
-  - **`building-tool-orchestration`** — Modernized cross-provider tool-calling: agent loop,
-    parallel tool calls, dynamic tool selection / retrieval for large tool sets, failure
-    recovery (retry → fallback → escalate), structured outputs. Tool-call wire shape delegated
-    to the provider skill's Stay-current.
-  - **`using-langfuse`** — Prompt observability (tracing, prompt versioning, eval datasets,
-    A/B testing, cost/latency, multi-provider integration). Designated default observability
-    skill.
-- **LLM-platform skills on `backend-implementer`** (already in the previous commit on this
-  branch): `using-anthropic-platform`, `using-openai-platform`, `using-perplexity-platform`,
-  `building-langgraph-agents`, `using-weaviate` — so backends that ship AI features have
-  first-class access alongside the new `agent-implementer`.
+    `templates/claude-directory/rules/`) — copied-if-missing on BOTH init AND rebase.
+    Folder-driven; the next framework rule is a drop-in.
+- **Agent teams shipped enabled** — `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in the template
+  `settings.json` so `*-team` commands work out of the box.
+- **Modernization roadmap docs** (`docs/modernization/2026-05-claude-code-alignment.md`,
+  `docs/modernization/2026-05-phase2-recommendations.md`) capturing per-mechanism analysis,
+  decisions, and tracked follow-ups.
 
 ### Changed
 
+- **Subagent dispatch renamed** `Task(subagent_type=…)` → the **`Agent`** tool across
+  `implement-trd`, `implement-trd-team`, `harden-trd-team`, `verify-trd-team`, `fix-issue`,
+  `create-prd-team`, `create-trd-team`. Added a "Task vs Agent (do not conflate)" note so
+  the `TaskCreate / TaskUpdate / TaskList / TaskGet` work-list verbs stay distinct from
+  the spawner.
+- **`router.py` slimmed 841 → 126 lines** — replaced keyword-routing against
+  `router-rules.json` with a single static "leverage the framework" reminder + a judgment
+  clause ("skip for trivial / informational replies"). Fixes misfiring on analysis turns.
+  New env: `ROUTER_DISABLE=1`. Tests rewritten end-to-end via subprocess (25 passing).
+- **Team commands aligned to native shared-tree model** — research confirmed Agent Teams are
+  designed around a *shared* working tree + file ownership + shared task list (`blockedBy`
+  + file-locked claiming) + direct commits; `isolation: worktree` is opt-in for
+  *independent* cross-feature work with no documented auto-merge. `implement-trd-team`,
+  `create-prd-team`, `create-trd-team`, and `fix-issue` API modernized:
+  `Teammate({operation:"spawnTeam"})` → `TeamCreate`; `Task({team_name,…})` →
+  `Agent({subagent_type, team_name, name, prompt})`; `SendMessage` shutdown uses
+  `{to, message:{type:"shutdown_request"}}`; cleanup → `TeamDelete`. Added Workspace-model
+  note; reframed Step 3.3 as **File Ownership** (native safety mechanism).
+- **Agent skill lists reconciled with the 56-skill library** (over-listing intentional;
+  `init-project` downsizes per project). Orphaned skills assigned to the right specialists
+  (devops gains `kubernetes/helm/aws-cloud/flyio/cloud-provider-detector/tooling-detector`;
+  verify-app gains the `smoke-test-*` family + `test-detector`; cicd gains
+  `act-local-ci/changelog-generator/flyio`; implementers gain `rails/phoenix/blazor` and
+  `git-town`; PM / spec-planner / technical-architect picked up issue-tracker + detector
+  skills).
 - **Currency-check pattern enforced across all LLM-ecosystem skills** (`using-anthropic-platform`,
   `using-openai-platform`, `using-perplexity-platform`, `building-langgraph-agents`,
-  `using-weaviate`). Each now has a forceful "**Stay current**" section near the top of the
-  body that REQUIRES `WebFetch` of provider-specific docs/pricing/changelog URLs **before**
-  recommending a model, comparing options, citing pricing, or invoking a capability — and
-  requires citing source URL + fetch date in deliverables. The same directive is surfaced in
-  each skill's `when_to_use` frontmatter so it's visible on auto-activation. Existing
-  point-in-time "Models" tables (e.g. "Claude Models (January 2026)", "GPT-5 Model Family",
-  "Sonar Model Family") flagged with ⚠️ verify-current callouts. All 5 new skills inherit the
-  same pattern.
+  `using-weaviate`). Each gains a forceful "**Stay current**" section requiring `WebFetch`
+  of provider-specific docs/pricing/changelog URLs **before** recommending a model, comparing
+  options, or citing pricing — citing source URL + fetch date in deliverables. The directive
+  is mirrored in each skill's `when_to_use`. Existing "Models" tables flagged with ⚠️
+  verify-current callouts. All 5 new AI-ecosystem skills inherit the pattern.
+- **Template `settings.json` reconciled** with the working runtime — fixed `Stop` hook
+  (was mis-running `learning.sh`; now `async-discipline.js → wiggum.js → notify.sh`); all
+  hook commands use a 3-strategy CWD-resolution wrapper (`CLAUDE_PROJECT_DIR` → silenced
+  `git rev-parse` → `pwd`); registered the new `SessionStart`/`PreCompact` hooks; shipped
+  the teams flag. Template and dogfood `settings.json` are byte-identical.
+- **`implement-trd.md` cycle_position enum** — resume table and stageOrder constant now
+  cover the full on-disk enum (`implement | verify_red | verify | debug | simplify |
+  verify_post_simplify | review | update | complete`), with explicit anchor mapping into
+  the four stage groups. Previously truncated to 4 values; a `--resume` on `verify_red`,
+  `debug`, `verify_post_simplify`, `update`, or `complete` fell through to "resume from
+  implement" and re-did work.
+- **`implement-trd.md §5.4` + `verify-trd-team.md`** document the `session-log.md`
+  convention so the post-compaction model knows to re-read it and backfill rationale.
+- **Sharpened routing descriptions** for the 5 most-confused specialists (longer,
+  imperative descriptions with USE/DO-NOT-USE clauses and examples): `app-debugger` is now
+  explicit "debugger of LAST resort"; `backend-implementer ↔ agent-implementer` boundary
+  spelled out both ways; `devops-engineer` vs `cicd-specialist` boundary explicit.
+- **Capture model:** the `SessionEnd` hooks (`learning.sh`, `save-remote-logs.js`) are
+  deliberately removed. Learning capture now flows through explicit `/update-project`;
+  native file-based memory (`MEMORY.md`) is documented as the *personal/per-machine*
+  complement to the *committed/team-shared* CLAUDE.md layer.
+- **`status.js`** SubagentStop hook header rewritten to accurately describe the
+  complementary design (command sets cycle_position on entry; hook advances on subagent
+  completion).
+- **`init-project.md` hook enumeration** updated to the current 9-hook set
+  (`permitter/permitter.js, router.py, formatter.sh, status.js, wiggum.js, notify.sh,
+  async-discipline.js, session-context.js, precompact.js`); `learning.sh` removed
+  throughout.
+- **`augment-trd-figma.md` frontmatter** — replaced non-standard `user_invocable: true`
+  with `disable-model-invocation: true`.
+- **`fold-prompt.md` / `cleanup-project.md` / `update-project.md`** got `version` /
+  `category` / `argument-hint` frontmatter for consistency with the rest of the suite.
 
-### Why this matters
+### Fixed
 
-LLM lineups, pricing, tool-call shapes, and capability matrices change on a monthly cadence —
-faster than any model training snapshot. Without an enforced currency check, agents reliably
-pick stale/retired model strings, hallucinate context-window sizes, or assume older capability
-shapes. The Stay-current sections + the `agent-implementer` acceptance checklist together
-prevent that pattern.
-
-### Fixed (post-3.4.0 review pass)
-
+- **`wiggum.js` autonomous loop was abandoning incomplete work every other Stop event.**
+  A self-managed `stop_hook_active` flag (set on block, cleared+exit on next call) made
+  the hook alternate block → allow-exit regardless of completion. Removed; the
+  infinite-loop guard is now solely the iteration cap + completion detection. Real-fs
+  sandbox verified 5 sequential Stops all `block`, all-tasks-complete → `ALLOW-EXIT`.
+- **`status.js` over-advanced `cycle_position` during DEBUG retries.**
+  `advanceCyclePosition()` now SKIPS when the in-progress task has `retry_count > 0` or
+  `current_problem` set — both signal the command has put the task into a DEBUG cycle and
+  will re-dispatch verify after `app-debugger`. Added `'verify_red'` to `CYCLE_ORDER`
+  (advances to `'implement'`) for TDD support.
+- **Async-discipline false-positives on meta-discussion** (two iterations from real fires):
+  - `stripCitations()` removes fenced code blocks, inline code spans, double-quoted
+    strings before matching; single-quoted strings are stripped only when both quotes sit
+    on word/sentence boundaries (preserving contractions like `don't`, `I'll`, `it's`).
+  - `META_MARKERS` skips matches preceded within ~80 chars by `something like` /
+    `for example` / `phrases like` / `the phrase` / `e.g.` / etc.
+  - `readLastAssistantText` enforces a strict **turn boundary** — only scans assistant
+    text produced AFTER the most recent user message, so earlier turns and hook-injected
+    BLOCK_REASON content (user-side) can no longer leak into the scan.
+  - `SELF_DOC_MARKERS` bypasses the entire match check when the text contains
+    `[ASYNC-DISCIPLINE GUARD`, `async-discipline.md`, `async-discipline.js`, or the term
+    `fire-and-forget` — self-evident meta-discussion.
 - **`/init-project` no longer false-positives "existing installation" on a bare `.claude/`
   directory.** Detection now requires an **ensemble fingerprint** (`.trd-state/` dir, or
   `.claude/rules/constitution.md`, or `.claude/settings.json` with an `"ensemble"` block,
   or one of our specialist agent files in `.claude/agents/`). If `.claude/` exists without
   fingerprint → treated as greenfield-with-existing-`.claude/`: scaffold around it, preserve
-  user files, merge the `ensemble` block into any pre-existing `settings.json` rather than
-  replacing it. (Many tools create `.claude/`; only ensemble installs leave the fingerprint.)
+  user files, merge the `ensemble` block into any pre-existing `settings.json`.
 - **Hooks no longer break silently when `git` is missing or the directory isn't a repo.**
-  Old wrapper `bash -c 'cd "$(git rev-parse --show-toplevel)" && X'` failed silently when git
-  errored, leaving cd with an empty target and hooks not running. New wrapper tries
-  `CLAUDE_PROJECT_DIR` (Claude Code sets it) → silenced `git rev-parse` → `pwd` fallback, so
-  the cd always succeeds. Applied across both template and dogfood `settings.json` (6 hook
-  commands each, both JSON-valid).
-- **Sharpened routing for the 5 most-confused specialists** (longer, more imperative
-  descriptions with USE/DO-NOT-USE clauses and concrete examples):
-  - **`app-debugger`** — now explicit "debugger of LAST resort": use after implementer's
-    retry failed, for intermittent/race/heisenbug, when symptom doesn't match obvious cause,
-    or matches a TRD-documented risk; do NOT use for trivial bugs or first verify failure.
-  - **`backend-implementer` ↔ `agent-implementer`** — boundary spelled out both ways: if
-    the deliverable IS AI behavior (prompt, model, RAG, agent loop, evals) → `agent-implementer`;
-    if the LLM is one component of conventional backend (an endpoint that wraps a completion)
-    → `backend-implementer`. Both descriptions cross-reference each other with examples.
-  - **`devops-engineer`** — explicit ALWAYS-use list (IaC, K8s/Helm, cloud-account/IAM,
-    cluster sizing, observability stack); explicit NOT-FOR (CI pipeline config →
-    `cicd-specialist`; app code → implementers).
-  - **`cicd-specialist`** — explicit ALWAYS-use list (`.github/workflows/*`, `azure-pipelines.yml`,
-    `Jenkinsfile`, deployment automation, release engineering); explicit NOT-FOR (infra
-    provisioning → `devops-engineer`; app code → implementers).
-- **Model defaults verified per stated convention:** implementers (frontend/backend/mobile/
-  agent) + verify-app + devops + cicd = `sonnet/medium`; PM + technical-architect (`xhigh`) +
-  spec-planner + code-reviewer + app-debugger = `opus/high`; code-simplifier = `opus/medium`.
-  All 13 agents YAML-validated.
-
----
-
-## [3.3.0] - 2026-05-27
-
-Claude Code alignment release. Brings the plugin into line with the current Claude Code subagent /
-skill / command frontmatter spec and team-orchestration model, and removes machinery that became
-vestigial as native primitives took over. Mostly additive/internal; the one user-visible behavior
-change is that learning capture is now deliberate (`/update-project`) rather than auto-on-SessionEnd.
-
-Full assessment + rationale: `docs/modernization/2026-05-claude-code-alignment.md`.
-
-### Added
-
-- **`verify-goal` skill** (`packages/skills/verify-goal/SKILL.md`) — single-session, `/goal`-drivable
-  live verification. The skill supplies the *structure* (per-assertion `verify.json` contract); `/goal`
-  supplies the *loop*. `/verify-trd-team` emits a ready-to-paste `claude -p "/goal …"` invocation at
-  preflight as the autonomous alternative to its team-based externally-managed loop.
-- **`effort` frontmatter on all 12 subagents** — `technical-architect: xhigh`; PM / spec-planner /
-  code-reviewer / app-debugger: `high`; implementers / verify-app / code-simplifier / devops / cicd:
-  `medium`.
-- **`argument-hint` frontmatter on 6 arg-taking commands** — `implement-trd`, `fix-issue`,
-  `verify-trd-team`, `harden-trd-team`, `implement-trd-team`, `investigate-issue`.
-- **`when_to_use` on all 56 skills** with explicit disambiguation between overlapping families
-  (smoke-test-*, test runners per-language, detectors as "run-first-then-handoff", the Playwright
-  trio, SDK / platform-manager / infra boundaries).
-- **Agent teams shipped enabled** — `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in the template
-  `settings.json` so `*-team` commands work out of the box.
-- **Modernization roadmap** (`docs/modernization/2026-05-claude-code-alignment.md`) capturing the
-  per-mechanism analysis, decisions, and the four follow-ups (#9 status.js deeper; #11 agent audit
-  [done in this release]; #12 hook jest harness mock-fs incompat; permitter/lib copy issue).
-
-### Changed
-
-- **Subagent dispatch renamed** `Task(subagent_type=…)` → the **`Agent`** tool across `implement-trd`,
-  `fix-issue`, `harden-trd-team`. Added a "Task vs Agent (do not conflate)" note so the
-  `TaskCreate / TaskUpdate / TaskList / TaskGet` work-list verbs stay distinct from the spawner.
-- **`router.py` slimmed 841 → 126 lines** — replaced keyword-routing against `router-rules.json` with
-  a single static "leverage the framework" reminder + a judgment clause ("skip for trivial /
-  informational replies"). Fixes misfiring on analysis/planning turns. New env: `ROUTER_DISABLE=1`.
-  Tests rewritten end-to-end via subprocess (25 passing).
-- **Team commands aligned to native shared-tree model** — research confirmed Agent Teams are
-  designed around a *shared* working tree + file ownership + shared task list (`blockedBy` +
-  file-locked claiming) + direct commits; `isolation: worktree` is opt-in for *independent*
-  cross-feature work with no documented auto-merge. `implement-trd-team` API modernized:
-  `Teammate({operation:"spawnTeam"})` → `TeamCreate`; `Task({team_name,…})` →
-  `Agent({subagent_type, team_name, name, prompt})`; `SendMessage` shutdown uses the documented
-  `{to, message:{type:"shutdown_request"}}` shape; cleanup → `TeamDelete`. Same in `fix-issue`'s
-  lightweight team. Added Workspace-model note; reframed Step 3.3 as **File Ownership**
-  (native safety mechanism). `harden-trd-team` / `verify-trd-team` inherit unchanged.
-- **Agent skill lists reconciled with the 56-skill library** (over-listing intentional; `init-project`
-  downsizes per project). Adds the orphaned skills to the right specialists — e.g. devops gains
-  `kubernetes/helm/aws-cloud/flyio/cloud-provider-detector/tooling-detector`; verify-app gains the
-  `smoke-test-*` family + `test-detector`; cicd gains `act-local-ci/changelog-generator/flyio`;
-  implementers gain `rails/phoenix/blazor` and `git-town`; product-manager / spec-planner /
-  technical-architect picked up issue-tracker + detector skills (they previously had empty `skills:`
-  lists).
-- **Template `settings.json` reconciled up to the working runtime** — fixed `Stop` hook
-  (was mis-running `learning.sh`; now `wiggum.js + notify.sh`); added the `bash -c` repo-root
-  wrapper on all hook commands; shipped the teams flag.
-- **Capture model:** the `SessionEnd` hooks (`learning.sh`, `save-remote-logs.js`) are deliberately
-  removed. Learning capture now flows through explicit `/update-project`; native file-based memory
-  (`MEMORY.md`) is documented as the *personal/per-machine* complement to the *committed/team-shared*
-  CLAUDE.md layer.
-- **`status.js` SubagentStop hook header rewritten** to accurately describe the complementary design
-  (command sets cycle_position on entry; hook advances on subagent completion) and document a
-  KNOWN LIMITATION (over-advances on DEBUG retries / multi-subagent stages). No behavior change here —
-  deeper reconciliation tracked as a follow-up.
-- `implement-trd` description dropped stale "TaskTools" jargon (bumped command to 3.2.0).
-
-### Fixed
-
-- **`wiggum.js` autonomous loop was abandoning incomplete work every other Stop event.** A
-  self-managed `stop_hook_active` flag (set on block, cleared+exit on next call) made the hook
-  alternate block → allow-exit regardless of completion. Removed; the infinite-loop guard is now
-  solely the iteration cap + completion detection. Real-fs sandbox verified 5 sequential Stops
-  all `block` (iter 1→5), all-tasks-complete → `ALLOW-EXIT`. Test block rewritten with a regression
-  guard. **NOTE:** jest cannot execute the hook suite on Node 25 (`mock-fs@5.2.0` incompat;
-  pre-existing, tracked as a follow-up); fix verified via the sandbox.
+  Old wrapper `bash -c 'cd "$(git rev-parse --show-toplevel)" && X'` failed silently when
+  git errored. New wrapper tries `CLAUDE_PROJECT_DIR` → silenced `git rev-parse` → `pwd`
+  fallback. Applied across both template and dogfood `settings.json` (all hook commands,
+  both JSON-valid).
+- **Permitter scaffold dropped its `lib/` files silently.** The scaffold read the symlink
+  target as a relative path, then resolved `[[ -d lib_dir ]]` against the *target project*'s
+  CWD instead of the plugin dir, so `matcher.js` / `allowlist-loader.js` /
+  `command-parser.js` never landed. Now anchored to the symlink's directory via
+  `cd && pwd`. BATS scaffold suite: **42/42** (was 41/42).
+- **`validate-init`** had the wrong permitter path (`permitter.js` vs the actual
+  `permitter/permitter.js`), so it always reported "Missing required hook: permitter.js"
+  even on a correctly scaffolded project. Path corrected. `validate-init` also now checks
+  for `.claude/rules/async-discipline.md`.
 - **`verify-app` had invalid `color: magenta`** per the current subagent spec (allowed:
   red/blue/green/yellow/purple/orange/pink/cyan). Changed to `pink`.
 - **`app-debugger` body referenced a non-existent skill `playwright-test`.** Corrected to
   `writing-playwright-tests`.
-- **Permitter scaffold dropped its `lib/` files silently.** The scaffold read the symlink
-  target as a relative path, then resolved `[[ -d lib_dir ]]` against the *target project*'s
-  CWD instead of the plugin dir, so `matcher.js` / `allowlist-loader.js` /
-  `command-parser.js` never landed in scaffolded projects. Now anchored to the symlink's
-  directory via `cd && pwd`. BATS scaffold suite: **42/42** (was 41/42).
-- **`validate-init` had the wrong permitter path** (`permitter.js` vs the actual
-  `permitter/permitter.js`), so it always reported "Missing required hook: permitter.js"
-  even on a correctly scaffolded project. Path corrected.
-- **`status.js` over-advanced `cycle_position` during DEBUG retries** (resolves the
-  KNOWN LIMITATION + closes #9). `advanceCyclePosition()` now SKIPS when the in-progress
-  task has `retry_count > 0` or `current_problem` set — both signal the command has put
-  the task into a DEBUG cycle and will re-dispatch verify after `app-debugger`. Added
-  `'verify_red'` to `CYCLE_ORDER` (advances to `'implement'`) for TDD support. Verified
-  via a real-fs sandbox (5 scenarios incl. mid-DEBUG, current_problem, verify_red→implement,
-  happy implement→verify regression).
 
 ### Removed
 
-- **`router-rules.json` plumbing** (now vestigial after the slim router):
+- **`router-rules.json` plumbing** (vestigial after the slim router):
   - Commands: `generate-router-rules`, `generate-project-router-rules`.
-  - JSON files: `packages/core/templates/claude-directory/router-rules.json`,
-    `packages/router/lib/router-rules.json`, `.claude/router-rules.json`,
-    `.claude/lib/router-rules.json`, `packages/full/.claude/router-rules.json`.
-  - `init-project.md`: Steps 15 (Generate Project Router Rules) + 16 (Keyword Mapping Report) +
-    Step 9's "Deploy router-rules.json" + header/Goals/inventory/validation/summary refs.
-  - `update-project.md`: Step 5 "Regenerate Router Rules" (Step 6 Completion → Step 5).
-  - Scaffold script: `copy_global_router_rules()` function + call site + template copy + 2 summary
-    lines.
-  - Tests: `validate-init.sh` JSON check + `validate-init.test.sh` block, `setup.sh`
-    `verify_router_rules()` + export, `commands.test.sh` TRD-TEST-055 blocks,
-    `prepare-variants.sh` Gate 2, `rebase-project.md` regeneration line,
-    `implement-trd.md` compatibility line.
-  - Scaffold + validate-init verified clean on a fresh temp-dir run; BATS scaffold 41/42 (1
-    pre-existing permitter/lib/matcher.js failure unrelated); BATS validate-init 22/22 pass.
-- **`SessionEnd` hook block** (`learning.sh` + `save-remote-logs.js`) from both the template and the
-  dogfood `settings.json`. Dropped the vestigial `ENSEMBLE_SAVE_REMOTE_LOGS` env.
+  - JSON files: all `router-rules.json` copies under packages/templates/dogfood.
+  - References across `init-project.md`, `update-project.md`, scaffold, BATS tests,
+    rebase docs.
+- **`SessionEnd` hook block** (`learning.sh` + `save-remote-logs.js`) from both template
+  and dogfood `settings.json`. Capture moved to explicit `/update-project`.
 
-### Open / owner-decision flags
+### Follow-ups (tracked, separate PRs)
 
-- Consider `memory: project` on `code-reviewer`, `app-debugger`, `technical-architect` (docs cite
-  code-reviewer specifically).
-- Consider LLM-platform skills on `backend-implementer` for AI-feature projects
-  (`using-anthropic-platform`, `using-openai-platform`, `using-perplexity-platform`,
-  `building-langgraph-agents`, `using-weaviate`).
-### Follow-ups tracked separately
-
-- **#12** — repair hook jest harness (replace `mock-fs@5.2.0` with `memfs` or real
-  `os.tmpdir()` fixtures; mock-fs is incompatible with Node 25). The wiggum and status.js
-  fixes in this release were verified via real-fs sandboxes since the jest hook suite
-  cannot execute on Node 25.
+- **#12** — repair hook jest harness (`mock-fs@5.2.0` incompatible with Node 25). New
+  hook behavior verified via real-fs sandboxes pending jest harness repair.
+- Scheduled autonomous PM/architect runs via `--agent` + `/schedule`.
+- `memory: project` flag decision on `code-reviewer`, `app-debugger`, `technical-architect`.
 
 ---
 

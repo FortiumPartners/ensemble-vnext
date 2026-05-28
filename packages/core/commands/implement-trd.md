@@ -156,12 +156,20 @@ After checkpoint recovery, re-create TaskTools tasks from persistent state:
 1. Read tasks from state file where `status != "success"` and `status != "complete"`
 2. For each incomplete task, determine which stages to create based on `cycle_position`:
 
-| cycle_position | Stages to Create | Mark as Completed |
+The `cycle_position` enum on disk (written by both this command and `status.js`) is:
+
+`implement | verify_red | verify | debug | simplify | verify_post_simplify | review | update | complete`
+
+Resume coalesces those into the four stage groups created downstream (`:impl`, `:verify`,
+`:simplify`, `:review`) per this table:
+
+| cycle_position on disk | Stages to Create | Mark as Completed |
 |----------------|------------------|-------------------|
-| null, "implement" | :impl, :verify, :simplify, :review | (none) |
-| "verify" | :verify, :simplify, :review | :impl |
-| "simplify" | :simplify, :review | :impl, :verify |
-| "review" | :review | :impl, :verify, :simplify |
+| null, `"implement"`, `"verify_red"` | :impl, :verify, :simplify, :review | (none) |
+| `"verify"`, `"debug"` | :verify, :simplify, :review | :impl |
+| `"simplify"`, `"verify_post_simplify"` | :simplify, :review | :impl, :verify |
+| `"review"`, `"update"` | :review | :impl, :verify, :simplify |
+| `"complete"` | (none — task is done; skip) | :impl, :verify, :simplify, :review |
 
 3. Create each stage with full metadata (see Section 3.4 for TaskCreate format)
 4. Set dependencies between stages (see Section 3.4 for TaskUpdate pattern)
@@ -171,6 +179,15 @@ Example:
 ```javascript
 const stateFile = readStateFile(trdName);
 const stageOrder = ["impl", "verify", "simplify", "review"];
+// Coalesce the on-disk cycle_position enum into one of the four stage-group anchors.
+// Anchors map to indices in stageOrder above; everything from the anchor onward is created.
+const stageAnchor = {
+  null: "impl", implement: "impl", verify_red: "impl",
+  verify: "verify", debug: "verify",
+  simplify: "simplify", verify_post_simplify: "simplify",
+  review: "review", update: "review",
+  complete: null,  // task is done — skip create entirely
+};
 const agentMap = {
   impl: taskState.implementer_type || "backend-implementer",
   verify: "verify-app",

@@ -346,6 +346,15 @@ Assertions: {pass}/{total} PASS | {fail} FAIL | {blocked} BLOCKED
 Fixes applied: {count} | Tests written: {count}
 State: .trd-state/<trd-name>/verify.json
 Recommendation: Run /compact before Phase {N+1}.
+
+**Decision-trail durability (PreCompact hook).** When `/compact` runs — or auto-compaction
+triggers at ~95% — the `precompact.js` hook appends a structured checkpoint to
+`.trd-state/<trd-name>/session-log.md` (in-flight assertions, current PROBE/FIX cycle,
+`run_counter`, recent verdicts). **After compaction, re-read `session-log.md` first** to
+recover the reasoning trail; if you have rationale or open questions from the just-summarized
+turns that aren't captured in `verify.json`, append them under the most recent
+**Decisions & rationale** section of the log before continuing the verification loop. State
+records *what* verified; the log records *why* it was attempted that way.
 ```
 
 ---

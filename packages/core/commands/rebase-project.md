@@ -3,6 +3,8 @@ name: rebase-project
 description: Upgrade vendored runtime to newer plugin version while preserving customizations
 version: 1.0.0
 category: generator
+argument-hint: "[--dry-run] [--force] [--preserve-all]"
+disable-model-invocation: true
 ---
 
 > **Usage:** Invoke `/rebase-project` from the project root to upgrade the vendored runtime.

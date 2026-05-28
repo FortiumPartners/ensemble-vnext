@@ -2,6 +2,8 @@
 name: create-prd
 description: Create comprehensive Product Requirements Document from product description
 version: 2.0.0
+argument-hint: "[product-description-or-issue-ref]"
+disable-model-invocation: true
 ---
 
 Create a comprehensive Product Requirements Document (PRD) from a product description

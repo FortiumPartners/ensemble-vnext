@@ -2,6 +2,9 @@
 name: create-prd-team
 description: Create comprehensive PRD using parallel team analysis for richer multi-perspective insights
 version: 1.0.0
+category: planning
+argument-hint: "[product-description-or-issue-ref]"
+disable-model-invocation: true
 ---
 
 Team variant of `/create-prd` that spawns parallel teammates to analyze the product
@@ -26,7 +29,8 @@ Once you have the product description, proceed with team orchestration below.
 
 ## Team Composition
 
-Spawn these teammates in parallel using the Task tool. Each teammate is a specialist
+Spawn these teammates in parallel using the native team model (`TeamCreate` once, then
+one `Agent({subagent_type, team_name, ...})` per teammate). Each teammate is a specialist
 perspective contributing structured findings -- NOT a full PRD.
 
 | Teammate | subagent_type | Focus |
@@ -67,8 +71,35 @@ Each teammate MUST return findings in this exact structure:
 
 ## Phase 1: Parallel Analysis
 
-Use the Task tool to spawn all teammates simultaneously. Each receives the full
+Spawn all teammates simultaneously using the native team model. Each receives the full
 product description plus their specific focus instructions.
+
+**Step 1 — Create the team:**
+```javascript
+TeamCreate({ team_name: "prd-analysis",
+             description: "Parallel PRD perspective gathering" });
+```
+
+**Step 2 — Spawn each teammate** via the **`Agent`** tool with `team_name` set (NOT the
+`Task` tool — that's reserved for the work-list tools `TaskCreate`/`TaskUpdate`/etc.):
+```javascript
+Agent({ subagent_type: "product-manager", team_name: "prd-analysis",
+        name: "product-research", prompt: "[teammate prompt below]" });
+Agent({ subagent_type: "technical-architect", team_name: "prd-analysis",
+        name: "tech-feasibility", prompt: "[teammate prompt below]" });
+// Optionally:
+Agent({ subagent_type: "product-manager", team_name: "prd-analysis",
+        name: "devils-advocate", prompt: "[teammate prompt below]" });
+```
+Do NOT pass `isolation: "worktree"` — these are read-only analysis teammates; shared tree
+is fine and they produce no commits.
+
+**Step 3 — Collect & shut down** once all teammate reports are received:
+```javascript
+for (const teammate of ["product-research", "tech-feasibility", "devils-advocate"])
+  SendMessage({ to: teammate, message: { type: "shutdown_request" } });
+TeamDelete({});  // only after all members have shut down
+```
 
 ### Teammate: product-research
 

@@ -2,6 +2,8 @@
 name: create-trd
 description: Take an existing PRD and create Technical Requirements Document with architecture, task breakdown, and execution plan
 version: 2.0.0
+argument-hint: "[path-to-prd]"
+disable-model-invocation: true
 ---
 
 This command takes a comprehensive Product Requirements Document (PRD) and creates a

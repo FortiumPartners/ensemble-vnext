@@ -1,6 +1,8 @@
 ---
 name: fold-prompt
 description: Optimize Claude environment through intelligent project analysis and context management
+version: 1.0.0
+category: project-memory
 ---
 
 Advanced Claude environment optimization through intelligent project analysis, context

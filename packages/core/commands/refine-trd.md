@@ -2,6 +2,8 @@
 name: refine-trd
 description: Refine and enhance existing TRD with stakeholder feedback and additional detail
 version: 1.0.0
+argument-hint: "[path-to-trd] <feedback>"
+disable-model-invocation: true
 ---
 
 Refine and enhance an existing Technical Requirements Document based on stakeholder

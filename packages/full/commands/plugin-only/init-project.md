@@ -3,6 +3,8 @@ name: init-project
 description: Initialize project with vendored ensemble runtime for AI-augmented development
 version: 1.0.0
 category: scaffolding
+argument-hint: "[--persona <name>]"
+disable-model-invocation: true
 ---
 
 > **Usage:** Invoke `/init-project` from the project root to scaffold AI-augmented development infrastructure.
@@ -326,7 +328,7 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - `.trd-state/current.json`
 - `.claude/agents/*.md` (12 files)
 - `.claude/commands/*.md` (8 files)
-- `.claude/hooks/` (permitter/, router.py, formatter.sh, status.js, wiggum.js, learning.sh)
+- `.claude/hooks/` (permitter/, router.py, formatter.sh, status.js, wiggum.js, notify.sh, async-discipline.js, session-context.js, precompact.js)
 
 ### Step 4: Generate Governance Files
 
@@ -542,13 +544,16 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 
 **Hooks were copied by scaffold script in Step 3. Verify they exist:**
 
-Check these hooks in `.claude/hooks/`:
-1. **Permitter Hook** - `.claude/hooks/permitter/permitter.js` and `lib/` directory
-2. **Router Hook** - `.claude/hooks/router.py`
-3. **Formatter Hook** - `.claude/hooks/formatter.sh`
-4. **Status Hook** - `.claude/hooks/status.js`
-5. **Wiggum Hook** - `.claude/hooks/wiggum.js`
-6. **Learning Hook** - `.claude/hooks/learning.sh`
+Check these hooks in `.claude/hooks/` (9 total):
+1. **Permitter Hook** (`PermissionRequest`) — `.claude/hooks/permitter/permitter.js` and `lib/` directory
+2. **Router Hook** (`UserPromptSubmit`) — `.claude/hooks/router.py` (static framework-leverage reminder)
+3. **Formatter Hook** (`PostToolUse`) — `.claude/hooks/formatter.sh`
+4. **Status Hook** (`SubagentStop`) — `.claude/hooks/status.js` (advances cycle_position in `implement.json`)
+5. **Async-Discipline Hook** (`Stop`) — `.claude/hooks/async-discipline.js` (blocks fire-and-forget claims; pairs with `.claude/rules/async-discipline.md`)
+6. **Wiggum Hook** (`Stop`) — `.claude/hooks/wiggum.js` (autonomous loop intercept, max 50 iterations)
+7. **Notify Hook** (`Stop`) — `.claude/hooks/notify.sh` (optional outbound notification when session stops)
+8. **Session-Context Hook** (`SessionStart`) — `.claude/hooks/session-context.js` (auto-loads in-flight TRD/PRD state from `.trd-state/current.json`)
+9. **PreCompact Hook** (`PreCompact`) — `.claude/hooks/precompact.js` (archives decision-trail checkpoint to `.trd-state/<feat>/session-log.md` before compaction)
 
 If any are missing, re-run the scaffold (use `--force` to overwrite existing files):
 ```bash

@@ -2,6 +2,8 @@
 name: refine-prd
 description: Refine and enhance existing PRD with stakeholder feedback and additional detail
 version: 1.0.0
+argument-hint: "[path-to-prd] <feedback>"
+disable-model-invocation: true
 ---
 
 Refine and enhance an existing Product Requirements Document based on stakeholder
