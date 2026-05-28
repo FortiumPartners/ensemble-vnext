@@ -1,7 +1,16 @@
 ---
 name: building-langgraph-agents
 description: Build stateful multi-agent systems with LangGraph — cyclic graphs, conditional routing, human-in-the-loop, persistent state.
-when_to_use: Reach for this when orchestrating multi-step/multi-agent LLM workflows as a graph (LangGraph). For single-model API calls use using-openai-platform or using-anthropic-platform; for plain background job queues (not agentic) use using-celery. AI-orchestration skill.
+when_to_use: >
+  Reach for this when orchestrating multi-step/multi-agent LLM workflows as a graph (LangGraph).
+  For single-model API calls use using-openai-platform or using-anthropic-platform; for plain
+  background job queues (not agentic) use using-celery; for the graph's memory/persistence
+  patterns see building-agent-memory; for prompt/trace observability use using-langfuse.
+  AI-orchestration skill. **ALWAYS WebFetch https://langchain-ai.github.io/langgraph/ and
+  https://github.com/langchain-ai/langgraph/releases for current LangGraph features BEFORE
+  recommending a pattern; and for model selection inside graph nodes, defer to the provider
+  skill (using-anthropic-platform / using-openai-platform / using-perplexity-platform) and
+  follow ITS Stay-current check — never hardcode a model string from training data.**
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -12,6 +21,27 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 LangGraph is LangChain's framework for building stateful, multi-actor applications with LLMs. It enables cyclic graphs, conditional branching, persistent state management, and human-in-the-loop workflows.
 
 **Key capabilities**: StateGraph for workflow orchestration, checkpointers for persistence, prebuilt ReAct agents, streaming at multiple granularities, and LangGraph Platform for managed deployment.
+
+---
+
+## Stay current — verify LangGraph features AND the underlying LLM choice
+
+LangGraph itself ships new node types, persistence backends, human-in-the-loop primitives, and
+checkpoint formats faster than any training snapshot — and the LLM models the graph calls move
+even faster.
+
+**Before** recommending a graph pattern, persistence backend, or model choice:
+
+1. WebFetch the LangGraph docs you're about to use:
+   - **Concepts + reference:** https://langchain-ai.github.io/langgraph/
+   - **Release notes:** https://github.com/langchain-ai/langgraph/releases
+   - **Python API reference:** https://langchain-ai.github.io/langgraph/reference/
+   - **JS/TS reference:** https://langchain-ai.github.io/langgraphjs/reference/
+2. For **model selection inside graph nodes**, defer to the provider skill —
+   `using-anthropic-platform` for Claude, `using-openai-platform` for GPT,
+   `using-perplexity-platform` for web-grounded Sonar — and follow ITS "Stay current" check.
+   Never hardcode a model string from training.
+3. Cite the URL + fetch date for every framework feature and model assertion in your deliverables.
 
 ---
 

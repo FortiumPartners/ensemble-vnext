@@ -1,7 +1,15 @@
 ---
 name: using-openai-platform
 description: Call the OpenAI API/SDK — GPT-5 family, Chat Completions, Responses API, embeddings, tool calling.
-when_to_use: Reach for this when the code integrates OpenAI's models/SDK. For Anthropic Claude use using-anthropic-platform; for web-grounded search-augmented answers with citations use using-perplexity-platform; for multi-agent orchestration graphs use building-langgraph-agents; for vector storage behind RAG use using-weaviate. Provider-specific LLM SDK skill.
+when_to_use: >
+  Reach for this when the code integrates OpenAI's models/SDK. For Anthropic Claude use
+  using-anthropic-platform; for web-grounded search-augmented answers with citations use
+  using-perplexity-platform; for multi-agent orchestration graphs use building-langgraph-agents;
+  for vector storage behind RAG use using-weaviate or using-pgvector. Provider-specific LLM SDK
+  skill. **ALWAYS WebFetch https://platform.openai.com/docs/models and
+  https://openai.com/api/pricing BEFORE recommending or invoking a model — never rely on
+  training-data knowledge of model names, context windows, prices, or capabilities; OpenAI's
+  lineup moves faster than any training snapshot.**
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -12,6 +20,30 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 OpenAI SDK development with Python and TypeScript/JavaScript clients. Covers GPT-5 family models, Chat Completions API, Responses API, embeddings, tool calling, and streaming.
 
 **Progressive Disclosure**: This file provides quick reference patterns. See [REFERENCE.md](./REFERENCE.md) for comprehensive API coverage, advanced patterns, and deep dives.
+
+---
+
+## Stay current — DO NOT rely on training-data knowledge of models, pricing, or capabilities
+
+OpenAI's model lineup, pricing, and API surface move faster than any training snapshot.
+**Before** you (a) recommend a model, (b) compare options, (c) cite a price / context window /
+output limit, or (d) invoke a capability (Responses API features, tool calling shape, structured
+outputs, reasoning effort, vision, batch, embeddings model choice), you **MUST** WebFetch the
+live sources and cite them:
+
+- **Models + capabilities + context windows:** https://platform.openai.com/docs/models
+- **Pricing:** https://openai.com/api/pricing (also https://platform.openai.com/docs/pricing)
+- **Changelog / new releases:** https://platform.openai.com/docs/changelog
+- **Release blog:** https://openai.com/news/
+
+In your deliverables, for every model name / price / capability you assert, **cite the source
+URL and the date you fetched it**. The "GPT-5 Model Family" snapshot section below is
+point-in-time orientation only; **trust the fetch over the snapshot** and note any discrepancy.
+
+**Do not** reference retired model strings from memory (`gpt-3.5-turbo`, older `gpt-4` variants
+when newer-generation models exist, etc.) without confirming availability. **Do not** assume a
+new model in the same family inherits older capabilities — modality support, tool-call shapes,
+reasoning controls, and context windows change between releases.
 
 ---
 
@@ -42,6 +74,9 @@ This skill is loaded by `backend-developer` when:
 ---
 
 ## GPT-5 Model Family
+
+> ⚠️ **Snapshot — verify current.** This section is point-in-time. See "Stay current" above and
+> WebFetch the live OpenAI models page before relying on names, context windows, or pricing.
 
 ### Model Selection Guide
 

@@ -1,13 +1,42 @@
 ---
 name: using-weaviate
 description: Use the Weaviate vector database — embeddings storage, similarity/hybrid search, RAG retrieval, multi-modal.
-when_to_use: Reach for this when storing/querying vector embeddings for semantic search or RAG retrieval. For relational data via Prisma use using-prisma; for generating the embeddings/LLM calls themselves use using-openai-platform or using-anthropic-platform. Vector-store skill.
+when_to_use: >
+  Reach for this when storing/querying vector embeddings for semantic search or RAG retrieval
+  on Weaviate. For Postgres-native vector storage use using-pgvector; for relational data via
+  Prisma use using-prisma; for generating the embeddings/LLM calls themselves use the provider
+  skill (using-openai-platform / using-anthropic-platform); for end-to-end RAG architecture
+  patterns use building-rag-pipelines. Vector-store skill. **ALWAYS WebFetch the live Weaviate
+  docs BEFORE recommending a client version, query mode (vector / hybrid / keyword), index type,
+  embedding integration, or pricing tier — capability matrices and client APIs evolve faster
+  than any training snapshot.**
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Weaviate Vector Database Skill
 
 **Version**: 1.0.0 | **Target**: <500 lines | **Purpose**: Fast reference for Weaviate operations
+
+---
+
+## Stay current — DO NOT rely on training-data knowledge of Weaviate APIs or capabilities
+
+Weaviate's client APIs (v3/v4 Python, TS), query modes, index types (HNSW/Flat parameters),
+hybrid-search controls, embedding-provider integrations, and pricing tiers change faster than
+any training snapshot. **Before** you (a) recommend a client version, (b) write a query, (c)
+choose an index type, (d) cite a capability/limit, or (e) wire an embeddings provider, you
+**MUST** WebFetch the live sources and cite them:
+
+- **Docs (concepts + how-to + reference):** https://weaviate.io/developers/weaviate
+- **Python client:** https://weaviate.io/developers/weaviate/client-libraries/python
+- **TypeScript client:** https://weaviate.io/developers/weaviate/client-libraries/typescript
+- **Release notes:** https://weaviate.io/developers/weaviate/release-notes
+- **Pricing (Weaviate Cloud):** https://weaviate.io/pricing
+
+Cite the source URL + the date you fetched it for every API call / capability assertion in your
+deliverables. For *RAG architecture* (chunking, retrieval strategy, reranking, evaluation), see
+the `building-rag-pipelines` skill; for the *embedding model* choice itself, defer to the
+provider skill (`using-openai-platform`/`using-anthropic-platform`) and follow ITS Stay-current.
 
 ---
 

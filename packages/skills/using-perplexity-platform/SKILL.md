@@ -1,7 +1,14 @@
 ---
 name: using-perplexity-platform
 description: Call the Perplexity Sonar API — search-augmented generation with real-time web search and source citations.
-when_to_use: Reach for this specifically when the app needs LLM answers grounded in live web search with citations (research assistants, up-to-date Q&A). For general chat/agents without web grounding use using-openai-platform or using-anthropic-platform. Provider-specific LLM SDK skill.
+when_to_use: >
+  Reach for this specifically when the app needs LLM answers grounded in live web search with
+  citations (research assistants, up-to-date Q&A). For general chat/agents without web grounding
+  use using-openai-platform or using-anthropic-platform. Provider-specific LLM SDK skill.
+  **ALWAYS WebFetch https://docs.perplexity.ai/getting-started/models and
+  https://docs.perplexity.ai/getting-started/pricing BEFORE recommending or invoking a Sonar
+  model — never rely on training-data knowledge; Perplexity ships new Sonar variants and
+  capability changes faster than any training snapshot.**
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -10,6 +17,25 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ## Quick Reference
 
 Perplexity Sonar API development with Python and TypeScript/JavaScript clients. Covers Sonar model family for search-augmented generation, Chat Completions API (OpenAI-compatible), real-time web search, citations, and streaming.
+
+---
+
+## Stay current — DO NOT rely on training-data knowledge of Sonar models or capabilities
+
+Perplexity ships new Sonar variants, search-mode controls, and capability/pricing changes faster
+than any training snapshot. **Before** you (a) recommend a Sonar model, (b) compare options,
+(c) cite a price / context window, or (d) invoke a capability (search modes, citation format,
+structured output, recency/domain filters), you **MUST** WebFetch the live sources and cite them:
+
+- **Models + capabilities:** https://docs.perplexity.ai/getting-started/models
+- **Pricing:** https://docs.perplexity.ai/getting-started/pricing
+- **Changelog:** https://docs.perplexity.ai/changelog/changelog
+- **API reference:** https://docs.perplexity.ai/api-reference
+
+Cite the source URL + the date you fetched it for every model name / capability assertion in
+your deliverables. The "Sonar Model Family" snapshot section below is point-in-time orientation
+only; **trust the fetch over the snapshot** and note any discrepancy. Do not reference retired
+Sonar names from memory without confirming availability.
 
 ---
 
@@ -45,6 +71,9 @@ This skill is loaded by `backend-developer` when:
 ---
 
 ## Sonar Model Family
+
+> ⚠️ **Snapshot — verify current.** This section is point-in-time. See "Stay current" above and
+> WebFetch the live Perplexity models page before relying on names, context windows, or pricing.
 
 ### Available Models
 
