@@ -2,6 +2,42 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.1] - 2026-05-28
+
+Patch release fixing real bugs in `/rebase-project` discovered during the first downstream
+rollout of 3.3.0. All fixes are to the `rebase-project.md` command prompt; no runtime
+code or agent/skill changes.
+
+### Fixed
+
+- **`/rebase-project` v1.0.0 → v2.0.0** — non-interactive, content-diff, always-backup.
+  Three bugs in v1.0.0: (1) existing agents were never updated even when the plugin's
+  content changed — frontmatter updates, sharpened descriptions, new skill lists never
+  propagated; (2) skills only checked stack-match, never content drift — `paths:` globs,
+  `when_to_use` rewrites, currency-check sections never propagated to existing projects;
+  (3) blocked on `AskUserQuestion` with four options. Rewritten to byte-diff every shipped
+  file against the plugin and replace any that differ, always create a timestamped backup,
+  proceed without prompting. Removed the `--force` flag (its old semantics is now the
+  default). `--dry-run` and `--preserve-all` retained.
+- **Permitter subdirectory layout preserved by rebase.** v1.0.0's hook discovery scanned
+  for flat `*.js` files and would have flattened the correct installed layout
+  (`.claude/hooks/permitter/permitter.js` + `permitter/lib/*`) back to a flat
+  `.claude/hooks/permitter.js`, losing the `lib/` files and breaking the `settings.json`
+  reference. Added "Install-time layout transformations" section documenting the permitter
+  + core-lib subdirectory layouts; added `permitter/permitter.js`, `permitter/lib/*.js`,
+  and `lib/*.js` to the explicit install-path table; added a settings.json sanity check
+  that fixes stale flat references rather than flattening the hook.
+- **AI-ecosystem skill mapping in `/rebase-project` table.** The skill-matching table in
+  §2.2 was missing the 5 new AI skills shipped in 3.3.0 (`using-langfuse`,
+  `building-rag-pipelines`, `building-agent-memory`, `building-tool-orchestration`,
+  `using-pgvector`). Result: rebases on AI projects mapped only the provider skill
+  (`using-openai-platform`) and missed everything else. Added all 5 rows plus capability-
+  inference hints ("Langfuse" / "RAG" / "tool calling" / "agent memory" / "pgvector") so
+  the right skills land even when `stack.md` doesn't name them explicitly. Added a "when
+  in doubt, include the skill" note — skills are lazy and cost nothing until invoked.
+
+---
+
 ## [3.3.0] - 2026-05-28
 
 Claude Code modernization release. Brings the plugin into line with the current Claude Code
