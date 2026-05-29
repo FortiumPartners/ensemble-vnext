@@ -105,6 +105,32 @@ function lastCheckpointSummary(state) {
 }
 
 async function main(hookData) {
+  // Persist the Claude Code session ID into CLAUDE_ENV_FILE so it's available
+  // to every Bash tool invocation in this session (the NOTIFY_ON_COMPLETE
+  // notify-complete.sh helper reads it as $CLAUDE_SESSION_ID for cross-session
+  // attribution). CLAUDE_ENV_FILE is set ONLY in SessionStart hooks; append
+  // (don't clobber) so other SessionStart hooks' exports coexist.
+  // Runs UNCONDITIONALLY — before disable-env / project-root / current.json
+  // checks — because the session ID is useful for notifications even in
+  // projects with no .trd-state.
+  try {
+    const envFile = process.env.CLAUDE_ENV_FILE;
+    const sid = (hookData && (hookData.session_id || hookData.sessionId)) || '';
+    if (envFile && sid) {
+      // Sanitize: session_id is a UUID-ish string; reject anything containing
+      // shell-meaningful characters to prevent injection into the env file.
+      if (/^[A-Za-z0-9_.\-]+$/.test(sid)) {
+        fs.appendFileSync(envFile, `export CLAUDE_SESSION_ID=${sid}\n`);
+        debug(`exported CLAUDE_SESSION_ID=${sid} to CLAUDE_ENV_FILE`);
+      } else {
+        debug(`session_id rejected for env-file export (suspicious chars): ${sid}`);
+      }
+    }
+  } catch (err) {
+    debug(`could not export CLAUDE_SESSION_ID: ${err.message}`);
+    // Non-fatal; the notify pattern handles missing CLAUDE_SESSION_ID gracefully.
+  }
+
   if (process.env.ENSEMBLE_SESSION_CONTEXT_DISABLE === '1') {
     debug('disabled via ENSEMBLE_SESSION_CONTEXT_DISABLE=1');
     emit('');

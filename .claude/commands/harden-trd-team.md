@@ -642,9 +642,7 @@ This command spans multiple turns. Emit these standard status lines so the user 
 
 6. **PROGRAMMATIC NOTIFY ON FINAL TURN ONLY** — for orchestration / webhooks / queues / shell pipelines, invoke the user's `NOTIFY_ON_COMPLETE` shell command via Bash on the SAME final turn:
    ```bash
-   [ -n "$NOTIFY_ON_COMPLETE" ] && \
-     NOTIFY_CMD="harden-trd-team" NOTIFY_STATUS="complete" NOTIFY_SUMMARY="<one-line summary>" \
-     /bin/sh -c "$NOTIFY_ON_COMPLETE"
+   .claude/hooks/notify-complete.sh "harden-trd-team" "complete" "<one-line summary>"
    ```
    For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"` and use the Reason as the summary. The bracket-guard means it's a no-op when the user hasn't configured it. Same single-fire timing as the PushNotification — only on the truly-final turn.
 

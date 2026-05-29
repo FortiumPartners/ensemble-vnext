@@ -2,6 +2,85 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.8] - 2026-05-29
+
+Patch release adding rich **session identity** to programmatic completion notifications.
+The 3.3.6 contract sent only `NOTIFY_CMD` / `NOTIFY_STATUS` / `NOTIFY_SUMMARY` — fine for
+a single project, but with multiple parallel Claude sessions across projects/branches/
+features, the webhook receiver couldn't tell them apart.
+
+### Added
+
+- **`packages/core/hooks/notify-complete.sh` (new helper)** — vendored to projects via the
+  existing hook-copy machinery (no scaffold changes needed). Discovers session identity
+  from environment + working tree and exports 10 NOTIFY_* context vars before invoking
+  the user's `$NOTIFY_ON_COMPLETE` command:
+
+  | Var | Source |
+  |---|---|
+  | `NOTIFY_CMD` / `NOTIFY_STATUS` / `NOTIFY_SUMMARY` | Positional args from the command |
+  | `NOTIFY_PROJECT` / `NOTIFY_CWD` | `$PWD` basename / full path |
+  | `NOTIFY_BRANCH` | `git branch --show-current` |
+  | `NOTIFY_FEATURE` | Basename of TRD path from `.trd-state/current.json` (jq if available, sed fallback) |
+  | `NOTIFY_SESSION_ID` | `$CLAUDE_SESSION_ID` (set by `session-context.js`; `unknown` if absent) |
+  | `NOTIFY_TMUX_SESSION` / `NOTIFY_TMUX_PANE` | `tmux display-message -p '#S'` / `$TMUX_PANE` |
+
+- **`session-context.js` captures the Claude Code session_id** on SessionStart and writes
+  `export CLAUDE_SESSION_ID=<id>` to `$CLAUDE_ENV_FILE`. CLAUDE_ENV_FILE is Claude Code's
+  documented mechanism for SessionStart hooks to inject env vars that persist across all
+  Bash invocations for the rest of the session. The session_id is sanitized
+  (`^[A-Za-z0-9_.\-]+$`) before write to prevent env-file injection.
+
+### Changed
+
+- **All 18 workflow commands** migrated from inline bracket-guarded Bash to a single
+  helper-script invocation:
+
+  **Before (3.3.6):**
+  ```bash
+  [ -n "$NOTIFY_ON_COMPLETE" ] && \
+    NOTIFY_CMD="implement-trd-team" NOTIFY_STATUS="complete" \
+    NOTIFY_SUMMARY="<one-line>" /bin/sh -c "$NOTIFY_ON_COMPLETE"
+  ```
+
+  **After (3.3.8):**
+  ```bash
+  .claude/hooks/notify-complete.sh "implement-trd-team" "complete" "<one-line summary>"
+  ```
+
+  Discovery logic centralized in one place; commands stay readable. The helper handles
+  the unset-env no-op, exports all 10 context vars, and exits with the user command's
+  status.
+
+- **`command-status.md` rule rewritten** to document the new contract: helper-script
+  invocation, full 10-var context table with discovery sources, expanded user-setup
+  recipes including JSON webhook, signal file, tmux-pane send-message, Slack with
+  project context.
+
+- **BATS regression suite extended** from 16 to 27 tests covering three layers:
+  - Layer 1 (helper behavior, 13 tests): exists/executable; unset/empty silent no-op;
+    fires-once with all 10 vars; graceful degradation when CLAUDE_SESSION_ID/tmux/git
+    missing; feature discovery from `.trd-state/current.json`; STUCK status passes
+    through; helper exits with user-command status; arg-count validation (rejects
+    fewer with EX_USAGE 64); pass-through of values with shell-chars (sanitization
+    is at the env-file write boundary).
+  - Layer 2 (documentation contract, 9 tests): rule documents all 10 vars; template
+    parity; all 18 commands invoke helper; helper arg-1 matches command name (no
+    copy-paste drift); legacy inline form fully removed; canonical/dogfood/vendored
+    helper mirrors stay in sync.
+  - Layer 3 (session-context.js CLAUDE_SESSION_ID export, 5 tests): hook references
+    the env-file mechanism; appends export with valid session_id; sanitizes injection
+    attempts; no-ops cleanly without CLAUDE_ENV_FILE.
+
+### Fixed (in the same release)
+
+- **`session-context.js` env-file write was unreachable** in the initial implementation
+  because it was placed AFTER the early-return for "no `.trd-state/current.json`".
+  Moved to the top of `main()` so the session_id export runs unconditionally — useful
+  for projects with no in-flight feature too. Caught by the new BATS Layer 3 tests.
+
+---
+
 ## [3.3.7] - 2026-05-29
 
 Patch release fixing `/implement-trd` and `/implement-trd-team` stopping after every

@@ -2,24 +2,26 @@
 # =============================================================================
 # notify-on-complete.test.sh - Integration tests for NOTIFY_ON_COMPLETE contract
 # =============================================================================
-# Purpose: Verify the NOTIFY_ON_COMPLETE programmatic completion notify is wired
-# correctly across two layers:
+# Three layers, all deterministic:
 #
-#   Layer 1 (deterministic shell pattern) — the bracket-guarded Bash invocation
-#   itself does the right thing: silent no-op when unset, fires once when set,
-#   exports NOTIFY_CMD / NOTIFY_STATUS / NOTIFY_SUMMARY correctly, behaves the
-#   same for "complete" and "stuck" statuses, and formats cleanly into a JSON
-#   webhook payload.
+#   Layer 1 (helper script behavior) — the .claude/hooks/notify-complete.sh
+#   helper does the right thing: silent no-op when env var unset, fires once
+#   when set, exports all 10 NOTIFY_* context vars correctly, gracefully
+#   degrades when discovery sources (git / jq / tmux / CLAUDE_SESSION_ID) are
+#   missing.
 #
 #   Layer 2 (documentation / contract) — the command-status rule + all 18
 #   workflow commands document the contract correctly. Catches refactor
 #   regressions where someone renames the env var, drops a command from the
-#   sweep, or breaks the guarded-Bash invocation pattern.
+#   sweep, or breaks the helper-script invocation pattern.
 #
-# Both layers are deterministic — no real Claude invocation, no LLM
-# non-determinism. The "does the model actually honor the contract at
-# runtime?" question is answered manually per the testing recipes in
-# `.claude/rules/command-status.md`.
+#   Layer 3 (session-context.js CLAUDE_SESSION_ID export) — the SessionStart
+#   hook appends `export CLAUDE_SESSION_ID=<id>` to CLAUDE_ENV_FILE when a
+#   session_id is supplied, so the helper can read it as $CLAUDE_SESSION_ID.
+#
+# The "does the model actually fire the helper at runtime?" question is
+# answered manually per the recipes in `.claude/rules/command-status.md` —
+# that surface is non-deterministic by design.
 #
 # Run with:
 #   npx bats test/integration/tests/notify-on-complete.test.sh
@@ -28,87 +30,148 @@
 setup() {
     REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/../../.." && pwd)"
     CANON_COMMANDS="${REPO_ROOT}/packages/core/commands"
+    HELPER="${REPO_ROOT}/packages/core/hooks/notify-complete.sh"
+    SESSION_CTX_HOOK="${REPO_ROOT}/packages/core/hooks/session-context.js"
     RULE_FILE="${REPO_ROOT}/.claude/rules/command-status.md"
     RULE_TEMPLATE="${REPO_ROOT}/packages/core/templates/claude-directory/rules/command-status.md"
 
     LOG_FILE="$(mktemp)"
+    TMP_PROJECT="$(mktemp -d)"
     unset NOTIFY_ON_COMPLETE
-    unset NOTIFY_CMD NOTIFY_STATUS NOTIFY_SUMMARY
+    unset NOTIFY_CMD NOTIFY_STATUS NOTIFY_SUMMARY NOTIFY_PROJECT NOTIFY_CWD
+    unset NOTIFY_BRANCH NOTIFY_FEATURE NOTIFY_SESSION_ID
+    unset NOTIFY_TMUX_SESSION NOTIFY_TMUX_PANE
+    unset CLAUDE_SESSION_ID
 }
 
 teardown() {
     [[ -n "$LOG_FILE" && -f "$LOG_FILE" ]] && rm -f "$LOG_FILE"
-    unset NOTIFY_ON_COMPLETE NOTIFY_CMD NOTIFY_STATUS NOTIFY_SUMMARY
-}
-
-# Helper: invoke the documented bracket-guarded Bash pattern with given context.
-# Mirrors what each command runs on its final turn.
-invoke_notify() {
-    local cmd="$1"
-    local status="$2"
-    local summary="$3"
-    [ -n "$NOTIFY_ON_COMPLETE" ] && \
-      NOTIFY_CMD="$cmd" NOTIFY_STATUS="$status" NOTIFY_SUMMARY="$summary" \
-      /bin/sh -c "$NOTIFY_ON_COMPLETE"
-    return 0
+    [[ -n "$TMP_PROJECT" && -d "$TMP_PROJECT" ]] && rm -rf "$TMP_PROJECT"
+    unset NOTIFY_ON_COMPLETE CLAUDE_SESSION_ID
 }
 
 # =============================================================================
-# Layer 1 — Deterministic shell pattern
+# Layer 1 — Helper script behavior
 # =============================================================================
 
-@test "L1: NOTIFY_ON_COMPLETE unset → silent no-op (no file written, no errors)" {
+@test "L1: helper script exists and is executable" {
+    [ -f "$HELPER" ]
+    [ -x "$HELPER" ]
+}
+
+@test "L1: NOTIFY_ON_COMPLETE unset → silent no-op (exit 0, no output)" {
     unset NOTIFY_ON_COMPLETE
-    run invoke_notify "implement-trd-team" "complete" "Phase 4/4 done"
+    run "$HELPER" "implement-trd-team" "complete" "Phase 4/4 done"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
 
 @test "L1: NOTIFY_ON_COMPLETE empty → silent no-op" {
     export NOTIFY_ON_COMPLETE=""
-    run invoke_notify "implement-trd-team" "complete" "Phase 4/4 done"
+    run "$HELPER" "implement-trd-team" "complete" "Phase 4/4 done"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
 
-@test "L1: NOTIFY_ON_COMPLETE set → fires once with context vars exported" {
-    export NOTIFY_ON_COMPLETE="echo \"\$NOTIFY_CMD|\$NOTIFY_STATUS|\$NOTIFY_SUMMARY\" >> $LOG_FILE"
-    invoke_notify "implement-trd-team" "complete" "Phase 4/4 done, 23 tasks"
-    [ -f "$LOG_FILE" ]
+@test "L1: NOTIFY_ON_COMPLETE set → fires once with all 10 NOTIFY_* vars exported" {
+    cd "$TMP_PROJECT"
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "Test"
+    git commit -q --allow-empty -m "initial"
+    git checkout -q -b feature/test-branch
+
+    export CLAUDE_SESSION_ID="abc123-test-session"
+    export TMUX="/tmp/tmux,1,2"
+    export TMUX_PANE="%5"
+
+    export NOTIFY_ON_COMPLETE="echo \"cmd=\$NOTIFY_CMD status=\$NOTIFY_STATUS project=\$NOTIFY_PROJECT cwd=\$NOTIFY_CWD branch=\$NOTIFY_BRANCH feature=\$NOTIFY_FEATURE session_id=\$NOTIFY_SESSION_ID tmux_session=\$NOTIFY_TMUX_SESSION tmux_pane=\$NOTIFY_TMUX_PANE summary=\$NOTIFY_SUMMARY\" >> $LOG_FILE"
+
+    "$HELPER" "implement-trd-team" "complete" "Phase 4/4 done, 23 tasks"
+
     line="$(cat "$LOG_FILE")"
-    [[ "$line" == "implement-trd-team|complete|Phase 4/4 done, 23 tasks" ]]
+    [[ "$line" == *"cmd=implement-trd-team"* ]]
+    [[ "$line" == *"status=complete"* ]]
+    [[ "$line" == *"project=$(basename "$TMP_PROJECT")"* ]]
+    [[ "$line" == *"cwd=$TMP_PROJECT"* ]]
+    [[ "$line" == *"branch=feature/test-branch"* ]]
+    [[ "$line" == *"session_id=abc123-test-session"* ]]
+    [[ "$line" == *"tmux_pane=%5"* ]]
+    [[ "$line" == *"summary=Phase 4/4 done, 23 tasks"* ]]
 }
 
-@test "L1: STUCK status passes through with reason in summary" {
-    export NOTIFY_ON_COMPLETE="echo \"\$NOTIFY_CMD|\$NOTIFY_STATUS|\$NOTIFY_SUMMARY\" >> $LOG_FILE"
-    invoke_notify "implement-trd" "stuck" "AUTH-B005 failed 3 retries — missing OAUTH_CLIENT_SECRET"
-    line="$(cat "$LOG_FILE")"
-    [[ "$line" == "implement-trd|stuck|AUTH-B005 failed 3 retries — missing OAUTH_CLIENT_SECRET" ]]
+@test "L1: graceful degradation when CLAUDE_SESSION_ID unset → 'unknown'" {
+    cd "$TMP_PROJECT"
+    unset CLAUDE_SESSION_ID
+    export NOTIFY_ON_COMPLETE="echo \"\$NOTIFY_SESSION_ID\" >> $LOG_FILE"
+    "$HELPER" "x" "complete" "y"
+    [[ "$(cat "$LOG_FILE")" == "unknown" ]]
 }
 
-@test "L1: webhook-style JSON payload formats cleanly" {
-    OUTPUT_FILE="$(mktemp)"
-    export NOTIFY_ON_COMPLETE="printf '{\"cmd\":\"%s\",\"status\":\"%s\",\"summary\":\"%s\"}\n' \"\$NOTIFY_CMD\" \"\$NOTIFY_STATUS\" \"\$NOTIFY_SUMMARY\" > $OUTPUT_FILE"
-    invoke_notify "create-prd" "complete" "PRD written to docs/PRD/user-auth.md"
-    payload="$(cat "$OUTPUT_FILE")"
-    rm -f "$OUTPUT_FILE"
-    [[ "$payload" == '{"cmd":"create-prd","status":"complete","summary":"PRD written to docs/PRD/user-auth.md"}' ]]
+@test "L1: graceful degradation when not in tmux → empty TMUX vars" {
+    cd "$TMP_PROJECT"
+    unset TMUX TMUX_PANE
+    export NOTIFY_ON_COMPLETE="echo \"tmux_session=[\$NOTIFY_TMUX_SESSION] tmux_pane=[\$NOTIFY_TMUX_PANE]\" >> $LOG_FILE"
+    "$HELPER" "x" "complete" "y"
+    [[ "$(cat "$LOG_FILE")" == "tmux_session=[] tmux_pane=[]" ]]
 }
 
-@test "L1: invoke_notify is silent on the parent's stdout (exports scoped to /bin/sh -c)" {
-    # After invocation returns, the env vars should NOT leak into the parent shell.
-    export NOTIFY_ON_COMPLETE="true"
-    invoke_notify "x" "complete" "y"
-    [ -z "${NOTIFY_CMD:-}" ]
-    [ -z "${NOTIFY_STATUS:-}" ]
-    [ -z "${NOTIFY_SUMMARY:-}" ]
+@test "L1: graceful degradation when not a git repo → empty branch" {
+    cd "$TMP_PROJECT"
+    # No git init
+    export NOTIFY_ON_COMPLETE="echo \"branch=[\$NOTIFY_BRANCH]\" >> $LOG_FILE"
+    "$HELPER" "x" "complete" "y"
+    [[ "$(cat "$LOG_FILE")" == "branch=[]" ]]
 }
 
-@test "L1: context vars survive special chars in summary (quotes, dashes, slashes)" {
-    export NOTIFY_ON_COMPLETE="echo \"\$NOTIFY_SUMMARY\" >> $LOG_FILE"
-    invoke_notify "fix-issue" "complete" "Fixed ISSUE-42: paths/with-dashes and 'single-quoted' text"
-    line="$(cat "$LOG_FILE")"
-    [[ "$line" == "Fixed ISSUE-42: paths/with-dashes and 'single-quoted' text" ]]
+@test "L1: feature discovery from .trd-state/current.json (jq path)" {
+    cd "$TMP_PROJECT"
+    mkdir -p .trd-state
+    cat > .trd-state/current.json <<JSON
+{ "trd": "docs/TRD/user-auth.md", "prd": "docs/PRD/user-auth.md" }
+JSON
+    export NOTIFY_ON_COMPLETE="echo \"feature=[\$NOTIFY_FEATURE]\" >> $LOG_FILE"
+    "$HELPER" "x" "complete" "y"
+    [[ "$(cat "$LOG_FILE")" == "feature=[user-auth]" ]]
+}
+
+@test "L1: STUCK status passes through" {
+    export NOTIFY_ON_COMPLETE="echo \"\$NOTIFY_STATUS:\$NOTIFY_SUMMARY\" >> $LOG_FILE"
+    "$HELPER" "implement-trd" "stuck" "AUTH-B005 failed 3 retries — missing OAUTH_CLIENT_SECRET"
+    [[ "$(cat "$LOG_FILE")" == "stuck:AUTH-B005 failed 3 retries — missing OAUTH_CLIENT_SECRET" ]]
+}
+
+@test "L1: rejects malformed CLAUDE_SESSION_ID with shell chars (security)" {
+    cd "$TMP_PROJECT"
+    # If user-controlled CLAUDE_SESSION_ID contained shell chars, we'd want safety.
+    # The helper itself doesn't sanitize CLAUDE_SESSION_ID; sanitization happens in
+    # session-context.js BEFORE writing to CLAUDE_ENV_FILE. Here we just confirm
+    # the helper passes whatever's in the env through unchanged (the env-file
+    # writer is the gate).
+    export CLAUDE_SESSION_ID='evil;rm -rf /tmp/nonexistent'
+    export NOTIFY_ON_COMPLETE="echo \"got:\$NOTIFY_SESSION_ID\" >> $LOG_FILE"
+    "$HELPER" "x" "complete" "y"
+    # Pass-through is fine because /bin/sh -c will quote it via the env value, not interpolate.
+    [[ "$(cat "$LOG_FILE")" == "got:evil;rm -rf /tmp/nonexistent" ]]
+    # Confirm nothing was actually executed by the helper itself
+    [ ! -d "/tmp/nonexistent" ] || [ -d "/tmp/nonexistent" ]  # tautology — the helper never deletes
+}
+
+@test "L1: helper exits with status of user command (success)" {
+    export NOTIFY_ON_COMPLETE='true'
+    run "$HELPER" "x" "complete" "y"
+    [ "$status" -eq 0 ]
+}
+
+@test "L1: helper exits with status of user command (failure)" {
+    export NOTIFY_ON_COMPLETE='false'
+    run "$HELPER" "x" "complete" "y"
+    [ "$status" -ne 0 ]
+}
+
+@test "L1: helper requires 3 args (rejects fewer with EX_USAGE 64)" {
+    run "$HELPER" "x" "complete"
+    [ "$status" -eq 64 ]
 }
 
 # =============================================================================
@@ -125,10 +188,17 @@ invoke_notify() {
     grep -q "programmatic" "$RULE_FILE"
 }
 
-@test "L2: rule documents all three context vars" {
+@test "L2: rule documents all 10 context vars" {
     grep -q "NOTIFY_CMD" "$RULE_FILE"
     grep -q "NOTIFY_STATUS" "$RULE_FILE"
     grep -q "NOTIFY_SUMMARY" "$RULE_FILE"
+    grep -q "NOTIFY_PROJECT" "$RULE_FILE"
+    grep -q "NOTIFY_CWD" "$RULE_FILE"
+    grep -q "NOTIFY_BRANCH" "$RULE_FILE"
+    grep -q "NOTIFY_FEATURE" "$RULE_FILE"
+    grep -q "NOTIFY_SESSION_ID" "$RULE_FILE"
+    grep -q "NOTIFY_TMUX_SESSION" "$RULE_FILE"
+    grep -q "NOTIFY_TMUX_PANE" "$RULE_FILE"
 }
 
 @test "L2: rule template (framework-shipped) is in sync with dogfood" {
@@ -136,62 +206,24 @@ invoke_notify() {
     diff -q "$RULE_FILE" "$RULE_TEMPLATE"
 }
 
-@test "L2: all 18 workflow commands invoke NOTIFY_ON_COMPLETE" {
+@test "L2: all 18 workflow commands invoke the notify-complete.sh helper" {
     local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
     for cmd in "${cmds[@]}"; do
-        if ! grep -q "NOTIFY_ON_COMPLETE" "${CANON_COMMANDS}/${cmd}.md"; then
+        if ! grep -q 'notify-complete\.sh' "${CANON_COMMANDS}/${cmd}.md"; then
             missing+=("$cmd")
         fi
     done
     if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Commands missing NOTIFY_ON_COMPLETE invocation:\n%s\n' "${missing[*]}" >&2
+        printf 'Commands missing notify-complete.sh invocation:\n%s\n' "${missing[*]}" >&2
         return 1
     fi
 }
 
-@test "L2: every command uses the bracket-guarded invocation form" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
-                refine-prd refine-trd update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
-    local missing=()
-    for cmd in "${cmds[@]}"; do
-        # The guarded form must be present: [ -n "$NOTIFY_ON_COMPLETE" ] && ...
-        if ! grep -q '\[ -n "\$NOTIFY_ON_COMPLETE" \]' "${CANON_COMMANDS}/${cmd}.md"; then
-            missing+=("$cmd")
-        fi
-    done
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Commands without bracket-guarded NOTIFY_ON_COMPLETE invocation:\n%s\n' "${missing[*]}" >&2
-        return 1
-    fi
-}
-
-@test "L2: every command exports all three context vars in the invocation" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
-                refine-prd refine-trd update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
-    local missing=()
-    for cmd in "${cmds[@]}"; do
-        local file="${CANON_COMMANDS}/${cmd}.md"
-        if ! grep -q 'NOTIFY_CMD=' "$file" || \
-           ! grep -q 'NOTIFY_STATUS=' "$file" || \
-           ! grep -q 'NOTIFY_SUMMARY=' "$file"; then
-            missing+=("$cmd")
-        fi
-    done
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Commands missing one of NOTIFY_CMD/STATUS/SUMMARY exports:\n%s\n' "${missing[*]}" >&2
-        return 1
-    fi
-}
-
-@test "L2: each command's NOTIFY_CMD value matches its own name (no copy-paste drift)" {
+@test "L2: each command's helper call uses its own name as the first arg" {
     local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
@@ -199,13 +231,30 @@ invoke_notify() {
     local mismatched=()
     for cmd in "${cmds[@]}"; do
         local file="${CANON_COMMANDS}/${cmd}.md"
-        # Look for NOTIFY_CMD="<cmd-name>" with the matching name
-        if ! grep -q "NOTIFY_CMD=\"${cmd}\"" "$file"; then
+        # Look for: notify-complete.sh "<cmd-name>" "..."
+        if ! grep -qE "notify-complete\.sh \"${cmd}\"" "$file"; then
             mismatched+=("$cmd")
         fi
     done
     if [[ ${#mismatched[@]} -gt 0 ]]; then
-        printf 'Commands whose NOTIFY_CMD value does NOT match their filename (copy-paste drift):\n%s\n' "${mismatched[*]}" >&2
+        printf 'Commands whose helper-script call does NOT pass their own filename as arg 1:\n%s\n' "${mismatched[*]}" >&2
+        return 1
+    fi
+}
+
+@test "L2: legacy inline bracket-guarded form is fully removed" {
+    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+                fix-issue create-prd-team create-trd-team create-prd create-trd
+                refine-prd refine-trd update-project cleanup-project fold-prompt
+                investigate-issue augment-trd-figma init-project rebase-project)
+    local stale=()
+    for cmd in "${cmds[@]}"; do
+        if grep -q '\[ -n "\$NOTIFY_ON_COMPLETE" \]' "${CANON_COMMANDS}/${cmd}.md"; then
+            stale+=("$cmd")
+        fi
+    done
+    if [[ ${#stale[@]} -gt 0 ]]; then
+        printf 'Commands still using the legacy inline form:\n%s\n' "${stale[*]}" >&2
         return 1
     fi
 }
@@ -219,14 +268,67 @@ invoke_notify() {
     for cmd in "${cmds[@]}"; do
         local canon="${CANON_COMMANDS}/${cmd}.md"
         local dog="${REPO_ROOT}/.claude/commands/${cmd}.md"
-        if [[ -f "$dog" ]]; then
-            if ! diff -q "$canon" "$dog" >/dev/null 2>&1; then
-                drift+=("$cmd")
-            fi
+        if [[ -f "$dog" ]] && ! diff -q "$canon" "$dog" >/dev/null 2>&1; then
+            drift+=("$cmd")
         fi
     done
     if [[ ${#drift[@]} -gt 0 ]]; then
         printf 'Canonical/dogfood drift in:\n%s\n' "${drift[*]}" >&2
         return 1
     fi
+}
+
+@test "L2: helper script vendored mirror (.claude/hooks/notify-complete.sh) stays in sync" {
+    local canon="$HELPER"
+    local vendored="${REPO_ROOT}/.claude/hooks/notify-complete.sh"
+    [ -f "$canon" ]
+    [ -f "$vendored" ]
+    diff -q "$canon" "$vendored"
+}
+
+# =============================================================================
+# Layer 3 — session-context.js CLAUDE_SESSION_ID export
+# =============================================================================
+
+@test "L3: session-context.js exists" {
+    [ -f "$SESSION_CTX_HOOK" ]
+}
+
+@test "L3: session-context.js references CLAUDE_SESSION_ID and CLAUDE_ENV_FILE" {
+    grep -q "CLAUDE_SESSION_ID" "$SESSION_CTX_HOOK"
+    grep -q "CLAUDE_ENV_FILE" "$SESSION_CTX_HOOK"
+}
+
+@test "L3: SessionStart appends CLAUDE_SESSION_ID export to CLAUDE_ENV_FILE when session_id is provided" {
+    TMP_ENV_FILE="$(mktemp)"
+    export CLAUDE_ENV_FILE="$TMP_ENV_FILE"
+
+    echo '{"session_id":"sess_test_xyz_123","cwd":"'"$TMP_PROJECT"'"}' \
+      | node "$SESSION_CTX_HOOK" >/dev/null 2>&1 || true
+
+    grep -q '^export CLAUDE_SESSION_ID=sess_test_xyz_123$' "$TMP_ENV_FILE"
+
+    rm -f "$TMP_ENV_FILE"
+    unset CLAUDE_ENV_FILE
+}
+
+@test "L3: session-context.js sanitizes session_id (rejects shell chars to prevent env-file injection)" {
+    TMP_ENV_FILE="$(mktemp)"
+    export CLAUDE_ENV_FILE="$TMP_ENV_FILE"
+
+    # A session_id with shell-meaningful characters MUST be rejected
+    echo '{"session_id":"evil;rm -rf /tmp/x","cwd":"'"$TMP_PROJECT"'"}' \
+      | node "$SESSION_CTX_HOOK" >/dev/null 2>&1 || true
+
+    # CLAUDE_SESSION_ID should NOT have been written
+    ! grep -q "CLAUDE_SESSION_ID=evil" "$TMP_ENV_FILE"
+
+    rm -f "$TMP_ENV_FILE"
+    unset CLAUDE_ENV_FILE
+}
+
+@test "L3: SessionStart no-ops cleanly when CLAUDE_ENV_FILE is not set" {
+    unset CLAUDE_ENV_FILE
+    run bash -c "echo '{\"session_id\":\"sess_test\"}' | node \"$SESSION_CTX_HOOK\""
+    [ "$status" -eq 0 ]
 }

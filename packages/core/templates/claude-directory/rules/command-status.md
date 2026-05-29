@@ -153,52 +153,71 @@ shell command, queue, or signal file — and you want it to fire EXACTLY ONCE pe
 at the actual completion moment (never during dispatch or intermediate Stops).**
 
 How it works: the command, on the same final turn that emits `═══ COMMAND COMPLETE ═══`,
-invokes a `Bash` call that runs `$NOTIFY_ON_COMPLETE` (if set) with three context vars
-exported. The Bash call goes through the model's tool surface, so it fires exactly once,
-precisely when the command finishes — never during DISPATCHED or RESUMED turns.
+invokes a vendored helper script `.claude/hooks/notify-complete.sh` with three positional
+args (`cmd`, `status`, `summary`). The helper discovers all session identity context from
+the environment + working tree, exports it as `NOTIFY_*` env vars, and dispatches the
+user's `$NOTIFY_ON_COMPLETE` shell command via `/bin/sh -c`. The Bash invocation goes
+through the model's tool surface, so it fires exactly once, precisely when the command
+finishes — never during DISPATCHED or RESUMED turns.
 
 **User setup** (once per machine, e.g. in `~/.zshrc` or `~/.bashrc`):
 
 ```bash
-# Webhook example
+# Webhook example — rich identity for routing/grouping in the receiver
 export NOTIFY_ON_COMPLETE='curl -fsS -X POST -H "Content-Type: application/json" \
-  -d "{\"command\":\"$NOTIFY_CMD\",\"status\":\"$NOTIFY_STATUS\",\"summary\":\"$NOTIFY_SUMMARY\"}" \
-  "$ENSEMBLE_WEBHOOK_URL"'
+  -d @- "$ENSEMBLE_WEBHOOK_URL" <<JSON
+{
+  "project":      "$NOTIFY_PROJECT",
+  "cwd":          "$NOTIFY_CWD",
+  "branch":       "$NOTIFY_BRANCH",
+  "feature":      "$NOTIFY_FEATURE",
+  "session_id":   "$NOTIFY_SESSION_ID",
+  "tmux_session": "$NOTIFY_TMUX_SESSION",
+  "tmux_pane":    "$NOTIFY_TMUX_PANE",
+  "cmd":          "$NOTIFY_CMD",
+  "status":       "$NOTIFY_STATUS",
+  "summary":      "$NOTIFY_SUMMARY"
+}
+JSON'
 
-# Signal file example
-export NOTIFY_ON_COMPLETE='echo "$NOTIFY_CMD $NOTIFY_STATUS: $NOTIFY_SUMMARY" >> ~/ensemble-completions.log'
+# Signal file example — one-line append for tail/grep
+export NOTIFY_ON_COMPLETE='echo "[$NOTIFY_PROJECT/$NOTIFY_BRANCH] $NOTIFY_CMD $NOTIFY_STATUS: $NOTIFY_SUMMARY" >> ~/ensemble-completions.log'
 
-# Combined — webhook + slack
-export NOTIFY_ON_COMPLETE='curl -fsS -X POST "$ENSEMBLE_WEBHOOK_URL" \
-  -H "Content-Type: application/json" \
-  -d "{\"cmd\":\"$NOTIFY_CMD\",\"status\":\"$NOTIFY_STATUS\",\"summary\":\"$NOTIFY_SUMMARY\"}" \
-  && curl -fsS -X POST "$SLACK_WEBHOOK" \
-       -d "{\"text\":\":white_check_mark: $NOTIFY_CMD: $NOTIFY_SUMMARY\"}"'
+# Send a status line back to the same tmux pane the user is in
+export NOTIFY_ON_COMPLETE='[ -n "$NOTIFY_TMUX_PANE" ] && \
+  tmux display-message -t "$NOTIFY_TMUX_PANE" "Claude: $NOTIFY_CMD $NOTIFY_STATUS — $NOTIFY_SUMMARY"'
 
-# Shell pipeline trigger
-export NOTIFY_ON_COMPLETE='make post-claude-deploy'
+# Slack (with project context)
+export NOTIFY_ON_COMPLETE='curl -fsS -X POST "$SLACK_WEBHOOK" \
+  -d "{\"text\":\":white_check_mark: \`$NOTIFY_PROJECT\`/\`$NOTIFY_BRANCH\` — $NOTIFY_CMD: $NOTIFY_SUMMARY\"}"'
 ```
 
-**Context vars exported to the user command:**
+**Context vars exported to the user's `NOTIFY_ON_COMPLETE` command:**
 
-| Var | Value |
-|---|---|
-| `NOTIFY_CMD` | The slash command name without leading slash (e.g. `implement-trd-team`) |
-| `NOTIFY_STATUS` | `complete` or `stuck` |
-| `NOTIFY_SUMMARY` | The one-line summary used in the COMMAND COMPLETE / STUCK banner |
+| Var | Value | Discovery source |
+|---|---|---|
+| `NOTIFY_CMD` | Slash command without leading slash (e.g. `implement-trd-team`) | Helper arg 1 |
+| `NOTIFY_STATUS` | `complete` or `stuck` | Helper arg 2 |
+| `NOTIFY_SUMMARY` | One-line summary from the COMMAND COMPLETE / STUCK banner | Helper arg 3 |
+| `NOTIFY_PROJECT` | `basename "$PWD"` | Working directory |
+| `NOTIFY_CWD` | Full `$PWD` | Working directory |
+| `NOTIFY_BRANCH` | Current git branch (empty if no git / detached HEAD) | `git branch --show-current` |
+| `NOTIFY_FEATURE` | Feature name from `.trd-state/current.json` (basename of TRD path; empty if none) | `jq -r .trd current.json` |
+| `NOTIFY_SESSION_ID` | Claude Code session ID (`unknown` if SessionStart didn't capture it) | `$CLAUDE_SESSION_ID` (set by `session-context.js` via `$CLAUDE_ENV_FILE` on SessionStart) |
+| `NOTIFY_TMUX_SESSION` | tmux session name (empty if not in tmux) | `tmux display-message -p '#S'` |
+| `NOTIFY_TMUX_PANE` | tmux pane id like `%0` (empty if not in tmux) | `$TMUX_PANE` |
 
 **Model-side invocation** (the command runs this Bash call as part of the final turn,
 AFTER emitting the COMMAND COMPLETE banner):
 
 ```bash
-[ -n "$NOTIFY_ON_COMPLETE" ] && \
-  NOTIFY_CMD="<cmd>" NOTIFY_STATUS="complete" NOTIFY_SUMMARY="<one-line>" \
-  /bin/sh -c "$NOTIFY_ON_COMPLETE"
+.claude/hooks/notify-complete.sh "<cmd>" "<complete|stuck>" "<one-line summary>"
 ```
 
-The bracket guard means: do nothing if the env var isn't set. No-op fast path for users
-who haven't configured it. No background, no timeout (the user's command is responsible
-for its own timeout — keep it under a few seconds).
+The helper is silent and exits 0 if `$NOTIFY_ON_COMPLETE` is unset/empty — zero cost when
+not configured. Discovery failures (no git / no jq / not in tmux) fall back to empty
+strings rather than blocking dispatch. No timeout — the user's command owns its own
+timeout discipline.
 
 **Why this is distinct from Path A and Path C below:**
 
