@@ -228,10 +228,21 @@ matched skills via the Skill tool before working.
 
 Strategy enforcement follows /implement-trd Section 4.4 rules.
 
-After ALL tasks complete, send completion message to team lead:
-  [{task_id}] {STATUS} | files: {file_list} | coverage: unit {X}% int {Y}%
+**Delivery (CRITICAL):** Your plain text output is NOT visible to the lead in native
+team mode. Per-task status and final completion MUST be sent via `SendMessage` or they
+are invisible. After ALL tasks complete, send a completion message to the team lead:
 
-If STUCK (3+ retries), report immediately.
+```javascript
+SendMessage({
+  to: "team-lead",
+  summary: "session {session_name} complete",
+  message: "[{task_id}] {STATUS} | files: {file_list} | coverage: unit {X}% int {Y}%\n…"
+})
+```
+
+If STUCK (3+ retries), send an immediate `SendMessage` with the same shape but
+`STATUS: STUCK` and a short reason — do not just stop and idle. A teammate going idle
+without `SendMessage` is invisible to the lead.
 </instructions>
 ```
 

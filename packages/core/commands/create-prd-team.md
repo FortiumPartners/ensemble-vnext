@@ -67,6 +67,29 @@ Each teammate MUST return findings in this exact structure:
 </teammate_report>
 ```
 
+### Report Delivery (CRITICAL — read this before writing teammate prompts)
+
+In native team mode (`Agent({team_name, ...})`), **a teammate's plain text output is NOT
+visible to the lead.** The only way a teammate's findings reach the lead is via
+`SendMessage`. Teammates that produce the XML as their last assistant turn and then go
+idle have NOT delivered — the lead never sees the report. (Confirmed in the SendMessage
+tool docs: *"Your plain text output is NOT visible to other agents — to communicate, you
+MUST call this tool."*)
+
+**Every teammate MUST conclude its turn with a `SendMessage` call** carrying the full
+`<teammate_report>…</teammate_report>` XML as the message body:
+
+```javascript
+SendMessage({
+  to: "team-lead",
+  summary: "product-research report",   // short label for the lead's inbox
+  message: "<teammate_report perspective=\"product-research\">…</teammate_report>"
+})
+```
+
+After sending, the teammate goes idle — the lead acks via `SendMessage` or issues the
+`shutdown_request`. **Do not output the XML as plain text — it's discarded.**
+
 ---
 
 ## Phase 1: Parallel Analysis
@@ -106,8 +129,10 @@ TeamDelete({});  // only after all members have shut down
 Spawn with `subagent_type: product-manager`:
 
 > Analyze the following product description from a user research and product strategy
-> perspective. Do NOT write a full PRD. Return your findings using the teammate_report
-> XML contract.
+> perspective. Do NOT write a full PRD. Deliver your findings as ONE `<teammate_report>`
+> XML payload sent to the lead via `SendMessage({to: "team-lead", summary:
+> "product-research report", message: "<teammate_report perspective=\"product-research\">…"})`.
+> Do NOT output the XML as plain text — see the **Report Delivery** section.
 >
 > Focus on:
 > - Target user identification and detailed personas
@@ -117,14 +142,18 @@ Spawn with `subagent_type: product-manager`:
 > - Non-goals that should be explicitly excluded
 >
 > Product description: {product_description}
+>
+> Conclude your turn with the `SendMessage` call — then go idle.
 
 ### Teammate: tech-feasibility
 
 Spawn with `subagent_type: technical-architect`:
 
 > Analyze the following product description from a technical feasibility perspective.
-> Do NOT write a full PRD or TRD. Return your findings using the teammate_report
-> XML contract.
+> Do NOT write a full PRD or TRD. Deliver your findings as ONE `<teammate_report>` XML
+> payload sent to the lead via `SendMessage({to: "team-lead", summary: "tech-feasibility
+> report", message: "<teammate_report perspective=\"tech-feasibility\">…"})`. Do NOT
+> output the XML as plain text — see the **Report Delivery** section.
 >
 > Focus on:
 > - Solution architecture viability (provide Mermaid graph diagram syntax)
@@ -134,6 +163,8 @@ Spawn with `subagent_type: technical-architect`:
 > - Technical risks and complexity assessment
 >
 > Product description: {product_description}
+>
+> Conclude your turn with the `SendMessage` call — then go idle.
 
 ### Teammate: devils-advocate (optional)
 
@@ -141,7 +172,10 @@ Spawn with `subagent_type: product-manager` only when complexity warrants it:
 
 > You are the devils-advocate for this product analysis. Your job is to challenge
 > assumptions, find blind spots, and stress-test the product concept. Do NOT write
-> a full PRD. Return your findings using the teammate_report XML contract.
+> a full PRD. Deliver your findings as ONE `<teammate_report>` XML payload sent to the
+> lead via `SendMessage({to: "team-lead", summary: "devils-advocate report", message:
+> "<teammate_report perspective=\"devils-advocate\">…"})`. Do NOT output the XML as
+> plain text — see the **Report Delivery** section.
 >
 > Focus on:
 > - Assumptions that could be wrong
@@ -152,8 +186,13 @@ Spawn with `subagent_type: product-manager` only when complexity warrants it:
 > - Edge cases and failure modes
 >
 > Product description: {product_description}
+>
+> Conclude your turn with the `SendMessage` call — then go idle.
 
-Wait for all teammates to return their reports before proceeding to Phase 2.
+Wait for `SendMessage` deliveries from all teammates before proceeding to Phase 2. A
+teammate going idle does NOT mean it delivered — only a received `SendMessage` does. If
+a teammate idles without sending, re-prompt them via `SendMessage` with an explicit
+instruction to call the tool with their XML report.
 
 ---
 

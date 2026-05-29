@@ -2,6 +2,41 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.2] - 2026-05-28
+
+Patch release fixing a latent bug across all native-team-mode commands: teammates were
+producing report XML as plain text and going idle, but the lead never saw the reports —
+in native team mode (`Agent({team_name, ...})`), plain text output is invisible to the
+lead and only `SendMessage` delivers. Reports were stuck in teammate transcripts.
+
+### Fixed
+
+- **`/create-prd-team`, `/create-trd-team`, `/implement-trd-team`** — added an explicit
+  **Report Delivery** section after each command's XML contract documenting that
+  teammates MUST conclude their turn with a `SendMessage({to: "team-lead", summary,
+  message})` call carrying the full `<teammate_report>` payload. The SendMessage tool
+  docs state plainly: *"Your plain text output is NOT visible to other agents — to
+  communicate, you MUST call this tool."* The commands were originally authored against
+  the older `Task` tool pattern (where the agent's final text is returned to the caller);
+  the native team model is different — teammates are long-running and communicate via
+  `SendMessage` only.
+- **Teammate prompts updated to make delivery explicit** — every teammate prompt in
+  `/create-prd-team` (3 prompts) and the briefing template in `/create-trd-team` now
+  include a concrete `SendMessage` example with the right `to`/`summary`/`message` shape
+  and the closing instruction "Conclude your turn with the `SendMessage` call — then go
+  idle." `/implement-trd-team`'s teammate template gained the same delivery contract for
+  per-task and final-completion status messages.
+- **Wait instructions clarified** — lead-side "wait for all teammates" lines now say
+  "wait for `SendMessage` deliveries" with explicit recovery guidance: if a teammate
+  idles without sending, re-prompt them via `SendMessage` with an instruction to call
+  the tool. A teammate going idle does NOT mean it delivered — only a received
+  `SendMessage` does.
+
+`/harden-trd-team`, `/verify-trd-team`, and `/fix-issue` inherit the fix via their
+reference to `/implement-trd-team`'s orchestration mechanics — no direct edits needed.
+
+---
+
 ## [3.3.1] - 2026-05-28
 
 Patch release fixing real bugs in `/rebase-project` discovered during the first downstream

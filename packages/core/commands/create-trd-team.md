@@ -82,6 +82,29 @@ Each teammate MUST return their analysis in this XML structure (include verbatim
 Teammates propose IDs using the PREFIX and their category letter with three-digit sequences
 starting at 001. The lead reassigns final IDs during synthesis to ensure uniqueness.
 
+### Report Delivery (CRITICAL — read this before writing teammate briefings)
+
+In native team mode (`Agent({team_name, ...})`), **a teammate's plain text output is NOT
+visible to the lead.** The only way a teammate's report reaches the lead is via
+`SendMessage`. Teammates that produce the XML as their last assistant turn and then go
+idle have NOT delivered — the lead never sees the report. (Per the SendMessage tool docs:
+*"Your plain text output is NOT visible to other agents — to communicate, you MUST call
+this tool."*)
+
+**Every teammate MUST conclude its turn with a `SendMessage` call** carrying the full
+`<teammate_report>…</teammate_report>` XML as the message body:
+
+```javascript
+SendMessage({
+  to: "team-lead",
+  summary: "backend-arch report",   // short label for the lead's inbox
+  message: "<teammate_report perspective=\"backend-arch\" domain=\"B\">…</teammate_report>"
+})
+```
+
+After sending, the teammate goes idle — the lead acks via `SendMessage` or issues the
+`shutdown_request`. **Do not output the XML as plain text — it's discarded.**
+
 ---
 
 ## Phase 1: PRD Analysis (Lead)
@@ -154,9 +177,15 @@ TeamDelete({});  // only after all members have shut down
 > **PRD Content:** {prd_content}
 > **Report Format:** {xml_contract}
 >
-> Return ONLY the `<teammate_report>` XML block.
+> **Delivery:** Conclude your turn with `SendMessage({to: "team-lead", summary:
+> "{your-perspective-name} report", message: "<teammate_report perspective=
+> \"{your-perspective-name}\" domain=\"{CAT}\">…</teammate_report>"})`. Do NOT output the
+> XML as plain text — see the **Report Delivery** section. After sending, go idle.
 
-Collect all reports before proceeding to Phase 3.
+Wait for `SendMessage` deliveries from all teammates before proceeding to Phase 3. A
+teammate going idle does NOT mean it delivered — only a received `SendMessage` does. If
+a teammate idles without sending, re-prompt them via `SendMessage` with an explicit
+instruction to call the tool with their XML report.
 
 ---
 
