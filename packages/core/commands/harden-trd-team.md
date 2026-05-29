@@ -640,4 +640,12 @@ This command spans multiple turns. Emit these standard status lines so the user 
    ```
    On `COMMAND STUCK`, send a `PushNotification` whose message states the Reason + Next action (the user needs to come back to unblock). Do NOT send notifications on intermediate Stops, DISPATCHED turns, RESUMED turns, or PHASE boundaries — only the truly-final turn. If the push tool reports "not sent," that's expected; do not retry.
 
+6. **PROGRAMMATIC NOTIFY ON FINAL TURN ONLY** — for orchestration / webhooks / queues / shell pipelines, invoke the user's `NOTIFY_ON_COMPLETE` shell command via Bash on the SAME final turn:
+   ```bash
+   [ -n "$NOTIFY_ON_COMPLETE" ] && \
+     NOTIFY_CMD="harden-trd-team" NOTIFY_STATUS="complete" NOTIFY_SUMMARY="<one-line summary>" \
+     /bin/sh -c "$NOTIFY_ON_COMPLETE"
+   ```
+   For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"` and use the Reason as the summary. The bracket-guard means it's a no-op when the user hasn't configured it. Same single-fire timing as the PushNotification — only on the truly-final turn.
+
 Nothing after the COMMAND COMPLETE banner. On unrecoverable failure use `═══ COMMAND STUCK: /harden-trd-team ═══` with Reason + Next (and the PushNotification above).

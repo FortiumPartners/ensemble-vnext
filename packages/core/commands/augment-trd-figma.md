@@ -301,3 +301,13 @@ The command produces:
 ```
 
 On unrecoverable failure, use `═══ COMMAND STUCK: /augment-trd-figma ═══` followed by `Reason:` and `Next:` lines.
+
+**Programmatic completion notify** — on the same final turn, invoke the user's `NOTIFY_ON_COMPLETE` shell command (if set) for webhook/queue/shell-pipeline integration:
+
+```bash
+[ -n "$NOTIFY_ON_COMPLETE" ] && \
+  NOTIFY_CMD="augment-trd-figma" NOTIFY_STATUS="complete" NOTIFY_SUMMARY="<one-line summary>" \
+  /bin/sh -c "$NOTIFY_ON_COMPLETE"
+```
+
+For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"`. The bracket-guard makes this a no-op when not configured.

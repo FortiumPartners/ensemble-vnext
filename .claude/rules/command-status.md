@@ -146,14 +146,80 @@ ping is noise. The COMMAND COMPLETE banner alone is enough.
 - Err toward NOT sending. A notification the user didn't need accumulates as annoyance.
 - If the tool result says the push wasn't sent, that's expected — no follow-up needed.
 
-### Path B — `notify.sh` Stop hook (orchestration / external integration)
+### Path B — `NOTIFY_ON_COMPLETE` env var (programmatic, atomic with COMMAND COMPLETE)
+
+**Use this when you want a programmatic completion signal you can route to a webhook,
+shell command, queue, or signal file — and you want it to fire EXACTLY ONCE per command,
+at the actual completion moment (never during dispatch or intermediate Stops).**
+
+How it works: the command, on the same final turn that emits `═══ COMMAND COMPLETE ═══`,
+invokes a `Bash` call that runs `$NOTIFY_ON_COMPLETE` (if set) with three context vars
+exported. The Bash call goes through the model's tool surface, so it fires exactly once,
+precisely when the command finishes — never during DISPATCHED or RESUMED turns.
+
+**User setup** (once per machine, e.g. in `~/.zshrc` or `~/.bashrc`):
+
+```bash
+# Webhook example
+export NOTIFY_ON_COMPLETE='curl -fsS -X POST -H "Content-Type: application/json" \
+  -d "{\"command\":\"$NOTIFY_CMD\",\"status\":\"$NOTIFY_STATUS\",\"summary\":\"$NOTIFY_SUMMARY\"}" \
+  "$ENSEMBLE_WEBHOOK_URL"'
+
+# Signal file example
+export NOTIFY_ON_COMPLETE='echo "$NOTIFY_CMD $NOTIFY_STATUS: $NOTIFY_SUMMARY" >> ~/ensemble-completions.log'
+
+# Combined — webhook + slack
+export NOTIFY_ON_COMPLETE='curl -fsS -X POST "$ENSEMBLE_WEBHOOK_URL" \
+  -H "Content-Type: application/json" \
+  -d "{\"cmd\":\"$NOTIFY_CMD\",\"status\":\"$NOTIFY_STATUS\",\"summary\":\"$NOTIFY_SUMMARY\"}" \
+  && curl -fsS -X POST "$SLACK_WEBHOOK" \
+       -d "{\"text\":\":white_check_mark: $NOTIFY_CMD: $NOTIFY_SUMMARY\"}"'
+
+# Shell pipeline trigger
+export NOTIFY_ON_COMPLETE='make post-claude-deploy'
+```
+
+**Context vars exported to the user command:**
+
+| Var | Value |
+|---|---|
+| `NOTIFY_CMD` | The slash command name without leading slash (e.g. `implement-trd-team`) |
+| `NOTIFY_STATUS` | `complete` or `stuck` |
+| `NOTIFY_SUMMARY` | The one-line summary used in the COMMAND COMPLETE / STUCK banner |
+
+**Model-side invocation** (the command runs this Bash call as part of the final turn,
+AFTER emitting the COMMAND COMPLETE banner):
+
+```bash
+[ -n "$NOTIFY_ON_COMPLETE" ] && \
+  NOTIFY_CMD="<cmd>" NOTIFY_STATUS="complete" NOTIFY_SUMMARY="<one-line>" \
+  /bin/sh -c "$NOTIFY_ON_COMPLETE"
+```
+
+The bracket guard means: do nothing if the env var isn't set. No-op fast path for users
+who haven't configured it. No background, no timeout (the user's command is responsible
+for its own timeout — keep it under a few seconds).
+
+**Why this is distinct from Path A and Path C below:**
+
+| Path | Audience | Mechanism | Fires |
+|---|---|---|---|
+| A. PushNotification | The user (desktop / phone alert) | Native Claude Code tool | Once, on final turn |
+| B. NOTIFY_ON_COMPLETE | External systems (webhook, queue, shell pipeline) | Bash call invoking user's shell command | Once, on final turn |
+| C. NOTIFY_ON_STOP | Per-Stop orchestration patterns (tmux pane, parent process) | Stop hook (`notify.sh`) | Every Stop — including dispatch + wake turns |
+
+A and B are precise — they fire **only** when a command completes. C fires on every turn
+end. Use A to alert yourself, B to trigger external systems, C only for "I genuinely
+want to know every time the session goes idle" (rare).
+
+### Path C — `notify.sh` Stop hook (per-Stop orchestration only)
 
 The `notify.sh` Stop hook (`packages/core/hooks/notify.sh`) fires every time the session
-stops and runs whatever's in the `NOTIFY_ON_STOP` env var. Configure once per machine;
-works for every project. Use this for **orchestration patterns** that fire on every
-Stop — webhook triggers, signal files for shell-script orchestration, queue messages,
-tmux pings to a parent pane. Different purpose from Path A: Path A is "tell the user
-the command is done"; Path B is "tell some external system the session went idle."
+stops and runs whatever's in the `NOTIFY_ON_STOP` env var. Different scope from Path B:
+this fires on EVERY Stop, including dispatch turns and ScheduleWakeup re-entries.
+Appropriate when you genuinely want per-Stop signals — tmux pings to a parent pane,
+signal files for shell-script orchestration that doesn't care about command boundaries.
+For "tell external system this command finished," use Path B instead.
 
 **macOS terminal bell + desktop notification:**
 ```bash

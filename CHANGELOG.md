@@ -2,6 +2,69 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.6] - 2026-05-29
+
+Patch release adding the missing **programmatic** completion-notify path. The existing
+two paths (PushNotification, NOTIFY_ON_STOP) couldn't both alert external systems AND
+fire precisely once per command — PushNotification routes only to Claude Code's
+notification surfaces (no webhook redirect), and `notify.sh` Stop hook fires on every
+turn end (including dispatch turns and ScheduleWakeup re-entries). For orchestration
+patterns — webhooks, queues, shell pipelines, CI/CD triggers — there was no clean
+single-fire programmatic signal.
+
+### Added
+
+- **`NOTIFY_ON_COMPLETE` env var contract** documented in `command-status.md` as **Path
+  B** (programmatic). The model invokes the user's shell command via Bash from the same
+  final turn that emits the COMMAND COMPLETE banner. Distinct from `NOTIFY_ON_STOP`
+  (Path C, per-Stop) and `PushNotification` (Path A, user-facing alert):
+
+  | Path | Audience | Mechanism | Fires |
+  |------|----------|-----------|-------|
+  | A. PushNotification | User (desktop / phone) | Claude Code native tool | Once, final turn |
+  | B. NOTIFY_ON_COMPLETE | External systems (webhook/queue/shell) | Bash call invoking user's shell command | Once, final turn |
+  | C. NOTIFY_ON_STOP | Per-Stop patterns (tmux, parent process) | Stop hook (`notify.sh`) | Every Stop |
+
+- **Three context vars exported to the user's `NOTIFY_ON_COMPLETE` command:**
+  - `NOTIFY_CMD` — slash command name without leading slash (e.g. `implement-trd-team`)
+  - `NOTIFY_STATUS` — `complete` or `stuck`
+  - `NOTIFY_SUMMARY` — the one-line summary used in the banner
+
+- **All 18 workflow commands** updated to invoke `NOTIFY_ON_COMPLETE` from their final
+  turn (long-running commands also keep their `PushNotification` step; short one-shot
+  commands skip the PushNotification but still invoke the programmatic notify). The
+  Bash call is bracket-guarded so it's a no-op when the user hasn't configured the env
+  var — zero cost for users who don't want it.
+
+### Why
+
+Stop hooks are noisy. PushNotification is opaque to external systems. The right primitive
+for "tell my CI / Slack / queue that this command finished" is a single Bash invocation
+of a user-supplied shell command, fired exactly at the moment the model decides the
+command is done. Same UX as `NOTIFY_ON_STOP` (an env var the user sets in shell init),
+but precise — fires once per command, never on dispatch turns or ScheduleWakeup re-entries.
+
+### Recipes
+
+```bash
+# Webhook (POST JSON)
+export NOTIFY_ON_COMPLETE='curl -fsS -X POST -H "Content-Type: application/json" \
+  -d "{\"cmd\":\"$NOTIFY_CMD\",\"status\":\"$NOTIFY_STATUS\",\"summary\":\"$NOTIFY_SUMMARY\"}" \
+  "$ENSEMBLE_WEBHOOK_URL"'
+
+# Slack
+export NOTIFY_ON_COMPLETE='curl -fsS -X POST "$SLACK_WEBHOOK" \
+  -d "{\"text\":\":white_check_mark: $NOTIFY_CMD: $NOTIFY_SUMMARY\"}"'
+
+# Signal file / log
+export NOTIFY_ON_COMPLETE='echo "$NOTIFY_CMD $NOTIFY_STATUS: $NOTIFY_SUMMARY" >> ~/ensemble-log.txt'
+
+# Trigger downstream shell pipeline
+export NOTIFY_ON_COMPLETE='make post-claude-deploy'
+```
+
+---
+
 ## [3.3.5] - 2026-05-29
 
 Patch release fixing a real limitation in 3.3.4's notification story: the Stop-hook
