@@ -498,3 +498,17 @@ Router rules regenerated.
 ---
 
 *This command implements TRD tasks: TRD-C301 through TRD-C304*
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /update-project ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /update-project ═══` followed by `Reason:` and `Next:` lines.

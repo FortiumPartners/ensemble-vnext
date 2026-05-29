@@ -166,6 +166,11 @@ This is a plugin development project. Standard unit/integration tests are suffic
    same turn is a hallucinated notification — the agent will sit idle until prompted.
    Enforced by the `async-discipline.js` Stop hook (blocks the violation; one of the
    explicit-exception cases under rule 4).
+7. **No silent completion** - See `.claude/rules/command-status.md`. Every workflow
+   command emits standard `[STATUS: ...] DISPATCHED`, `[STATUS: ...] RESUMED`, and
+   `═══ COMMAND COMPLETE: ... ═══` banners so the user can always tell what state the
+   work is in. The COMMAND COMPLETE banner is the LAST line of the command's final turn.
+   A command that ends silently is a bug.
 
 ---
 

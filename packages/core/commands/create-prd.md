@@ -367,3 +367,17 @@ The TRD will reference:
 - Non-goals for scope boundaries
 - Risks for contingency planning
 - Acceptance criteria for test generation
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /create-prd ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /create-prd ═══` followed by `Reason:` and `Next:` lines.

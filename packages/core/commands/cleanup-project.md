@@ -396,3 +396,17 @@ Backup preserved at: .claude/backups/CLAUDE.md.backup.2024-01-15T10:30:00
 ---
 
 *This command implements TRD tasks: TRD-C702 through TRD-C704*
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /cleanup-project ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /cleanup-project ═══` followed by `Reason:` and `Next:` lines.

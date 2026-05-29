@@ -260,3 +260,17 @@ Next step: /create-prd <paste the spec above>
 | Root cause unclear | Document what IS known, proceed with best assessment |
 | Classification borderline | Default to eligible — can always escalate during /fix-issue |
 | Multiple issues in one report | Split into separate investigations, handle the primary one |
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /investigate-issue ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /investigate-issue ═══` followed by `Reason:` and `Next:` lines.

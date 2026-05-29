@@ -599,3 +599,36 @@ Report:
 - HARDEN passes audit_findings to REVIEW for cross-referencing
 - Regressions (tests that passed in AUDIT baseline but fail after HARDEN) are BLOCKING
 - REJECTED review -> SAME implementer with rejection issues + original audit findings
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+This command spans multiple turns. Emit these standard status lines so the user always knows the state:
+
+1. **DISPATCHED** — when a turn ends with subagents/teammates in flight or a wake scheduled:
+   ```
+   [STATUS: /harden-trd-team] DISPATCHED → <count> <kind> in flight: <names>
+      waiting on: <observable signal>
+      next wake: <ScheduleWakeup ETA | "teammate SendMessage auto-deliver">
+   ```
+
+2. **RESUMED** — at the START of each new turn after a wake or teammate message:
+   ```
+   [STATUS: /harden-trd-team] RESUMED → <reason>
+      completed since last turn: <summary | "none">
+   ```
+
+3. **PHASE N/M COMPLETE** — at each phase boundary (progress marker, NOT completion):
+   ```
+   [STATUS: /harden-trd-team] PHASE <N>/<M> COMPLETE → <summary>
+   ```
+
+4. **COMMAND COMPLETE** — as the LAST line of the FINAL turn (only when the whole command is truly done; never at phase boundaries):
+   ```
+   ═══ COMMAND COMPLETE: /harden-trd-team ═══
+   <one-line summary>
+   ```
+
+Nothing after the COMMAND COMPLETE banner. On unrecoverable failure use `═══ COMMAND STUCK: /harden-trd-team ═══` with Reason + Next.

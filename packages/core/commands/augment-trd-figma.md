@@ -287,3 +287,17 @@ The command produces:
 4. **Embedded assets** in `src/assets/` or `public/assets/`
 5. **Fixture reference** in `tests/visual/design-context/fixtures.json`
 6. **Visual task definitions** added to TRD Master Task List
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /augment-trd-figma ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /augment-trd-figma ═══` followed by `Reason:` and `Next:` lines.

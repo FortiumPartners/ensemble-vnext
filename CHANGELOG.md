@@ -2,6 +2,49 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.4] - 2026-05-29
+
+Patch release giving every workflow command a uniform, visually unmistakable completion
+signal so the user always knows when a command is truly done versus mid-flight. Closes a
+recurring "is it done yet?" friction point.
+
+### Added
+
+- **`.claude/rules/command-status.md`** — new framework-shipped rule defining the standard
+  status-emission contract for every command:
+  - **`[STATUS: /<cmd>] DISPATCHED → ...`** when a turn ends with work in flight
+  - **`[STATUS: /<cmd>] RESUMED → ...`** at the start of a wake/message-driven turn
+  - **`[STATUS: /<cmd>] PHASE N/M COMPLETE → ...`** at each phase boundary
+  - **`═══ COMMAND COMPLETE: /<cmd> ═══`** as the **last line** of the command's final
+    turn (box-drawing chars make it impossible to miss in terminal output)
+  - **`═══ COMMAND STUCK: /<cmd> ═══`** with `Reason:` and `Next:` on unrecoverable
+    failure
+  Shipped via the framework-rules folder, so `/init-project` and `/rebase-project` copy
+  it to every project automatically.
+- **Constitution gains Prohibited Pattern #7: "No silent completion"** referencing the
+  rule. A command that ends silently is now a documented bug. Mirrored in the
+  `constitution.md.template` so new projects inherit the rule.
+- **Inline output-discipline section added to all 18 workflow commands** so the model
+  doesn't depend on reading the rule. Long-running commands (`/implement-trd`,
+  `/implement-trd-team`, `/verify-trd-team`, `/harden-trd-team`, `/fix-issue`,
+  `/create-prd-team`, `/create-trd-team`) get the full DISPATCHED + RESUMED + PHASE +
+  COMPLETE pattern; single-turn commands get the COMPLETE banner instruction.
+- **Notification recipes documented** in the new rule for the existing `notify.sh` Stop
+  hook (`NOTIFY_ON_STOP` env var). Concrete copy-pasteable recipes for: macOS desktop
+  notification + terminal bell, plain bell, Slack webhook. Includes guidance for the
+  noisy-on-every-stop concern (gate the alert by `grep -q "COMMAND COMPLETE"` against
+  the transcript when only end-of-command alerts are wanted).
+
+### Why
+
+You should never have to ask "is it done?", "what's it waiting for?", or "did it stall?"
+Three banners — DISPATCHED, RESUMED, COMMAND COMPLETE — answer those three questions at a
+glance. The COMMAND COMPLETE banner is intentionally visually heavy (`═══`) so it's
+easy to find when scanning long output. Optional desktop notification via the existing
+`notify.sh` hook closes the loop for long-running unattended runs.
+
+---
+
 ## [3.3.3] - 2026-05-29
 
 Patch release closing a real architectural gap in team-mode orchestration: when the lead

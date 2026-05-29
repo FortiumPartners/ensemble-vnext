@@ -134,3 +134,17 @@ After refinement:
 2. Update `.trd-state/` if execution plan changed
 3. Proceed to `/implement-trd` when ready for implementation
 4. Or iterate with another `/refine-trd` if more feedback needed
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /refine-trd ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /refine-trd ═══` followed by `Reason:` and `Next:` lines.

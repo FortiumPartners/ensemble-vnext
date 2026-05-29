@@ -542,3 +542,17 @@ The implementation phase:
 - Checks non-goals to prevent scope creep
 - References risks for contingency handling
 - Tracks progress in `.trd-state/`
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /create-trd ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /create-trd ═══` followed by `Reason:` and `Next:` lines.

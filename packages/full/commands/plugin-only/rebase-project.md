@@ -896,3 +896,17 @@ find .claude -name "*.backup.*" -type d -mtime +7 -exec rm -rf {} \;
 ---
 
 *This command implements TRD tasks: TRD-C601 through TRD-C605*
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /rebase-project ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /rebase-project ═══` followed by `Reason:` and `Next:` lines.

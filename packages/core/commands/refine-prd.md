@@ -123,3 +123,17 @@ After refinement:
 1. Review changes with stakeholders
 2. Proceed to `/create-trd` if ready for technical planning
 3. Or iterate with another `/refine-prd` if more feedback needed
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /refine-prd ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /refine-prd ═══` followed by `Reason:` and `Next:` lines.
