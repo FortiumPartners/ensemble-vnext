@@ -238,7 +238,6 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    | Testing: ExUnit | `exunit` |
    | Testing: Playwright | `writing-playwright-tests` |
    | Database: Prisma | `using-prisma` |
-   | Database: Weaviate | `using-weaviate` |
    | Infrastructure: Railway | `managing-railway` |
    | Infrastructure: Vercel | `managing-vercel` |
    | Infrastructure: Supabase | `managing-supabase` |
@@ -246,7 +245,24 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    | AI: OpenAI | `using-openai-platform` |
    | AI: Perplexity | `using-perplexity-platform` |
    | AI: LangGraph | `building-langgraph-agents` |
+   | AI: Langfuse (observability/tracing/evals) | `using-langfuse` |
+   | AI: RAG / retrieval-augmented generation | `building-rag-pipelines` |
+   | AI: Agent memory / conversation memory / vector recall | `building-agent-memory` |
+   | AI: Tool calling / agent loop / Responses API tools | `building-tool-orchestration` |
+   | Database: pgvector / Postgres vector | `using-pgvector` |
+   | Database: Weaviate | `using-weaviate` |
    | Background Jobs: Celery | `using-celery` |
+
+   **Note on inference:** stack.md doesn't always declare these by name — infer from
+   capability mentions. Examples:
+   - "Langfuse" / "prompt observability" / "trace LLM calls" → `using-langfuse`
+   - "RAG" / "retrieval-augmented" / "embeddings + retrieval" / "vector search + LLM" → `building-rag-pipelines`
+   - "agent memory" / "conversation history" / "working/short/long memory" → `building-agent-memory`
+   - "tool calling" / "function calling" / "multi-turn agent loop" / "Responses API tools" → `building-tool-orchestration`
+   - "pgvector extension" / "Postgres + vector" / "halfvec / HNSW" → `using-pgvector`
+
+   When in doubt, **include the skill**. Skills are lazy — they cost nothing until
+   invoked. Missing skills cost the model improvising from scratch.
    | Styling: Tailwind | `styling-with-tailwind` |
    | Issue Tracker: Jira | `managing-jira-issues` |
    | Issue Tracker: Linear | `managing-linear-issues` |
@@ -304,16 +320,50 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
 
 **Behavior:** Hooks are REPLACED (not customized per project). Stale plugin hooks are removed.
 
+##### Install-time layout transformations (match the scaffold)
+
+The plugin source layout (`packages/full/hooks/`) is FLAT (all symlinks at the hooks
+root). The SCAFFOLD applies transformations at install time. The rebase MUST honor the
+SAME transformations or it will fight the scaffold:
+
+- **Permitter** — plugin source: flat `permitter.js` symlinked from
+  `packages/permitter/hooks/permitter.js`. **Installed as a SUBDIRECTORY**:
+  `.claude/hooks/permitter/permitter.js` + `.claude/hooks/permitter/lib/*` (where the
+  `lib/*` files are copied from `packages/permitter/lib/` — the sibling-of-`hooks/`
+  directory found by following the symlink target).
+  - **Diff target:** plugin's `packages/permitter/hooks/permitter.js` ↔ project's
+    `.claude/hooks/permitter/permitter.js` (NOT `.claude/hooks/permitter.js`).
+  - **Lib files:** plugin's `packages/permitter/lib/*.js` ↔ project's
+    `.claude/hooks/permitter/lib/*.js`.
+  - **Settings reference:** `settings.json` must point at
+    `.claude/hooks/permitter/permitter.js` (subdirectory path). Do NOT propose flattening it.
+- **Core lib** — plugin source: `packages/full/hooks/lib` symlinked to
+  `packages/core/hooks/lib/`. **Installed as a SUBDIRECTORY**:
+  `.claude/hooks/lib/*.js` (shared helpers used by `precompact.js`, `session-context.js`,
+  `wiggum.js`, etc. via `require('./lib/resolve-project-root')`).
+  - **Diff target:** plugin's `packages/core/hooks/lib/*.js` ↔ project's
+    `.claude/hooks/lib/*.js`.
+
+A project that ALREADY has the subdirectory layout (the correct one — installed by any
+recent scaffold) must NOT be reported as "stale subdirectory" or "needs flattening". If
+your diff produces a row like `permitter/permitter.js → permitter.js`, you're scanning
+the wrong path on either side.
+
 1. **List plugin hooks:**
-   Dynamically discover hook files (`*.js`, `*.py`, `*.sh`) from:
-   - `@packages/permitter/hooks/`
+   For the flat hooks (most), dynamically discover hook files (`*.js`, `*.py`, `*.sh`) from:
    - `@packages/router/hooks/`
-   - `@packages/core/hooks/`
+   - `@packages/core/hooks/` (excluding `lib/` — handled below)
+
+   For the special-layout hooks, look them up by their *installed* paths:
+   - `permitter/permitter.js` ← `packages/permitter/hooks/permitter.js`
+   - `permitter/lib/*.js`     ← `packages/permitter/lib/*.js`
+   - `lib/*.js`               ← `packages/core/hooks/lib/*.js`
 
 2. **List vendored hooks:**
-   Read from `.claude/hooks/`
+   Walk `.claude/hooks/` recursively, capturing both top-level files and the
+   `permitter/`, `permitter/lib/`, and `lib/` subdirectories.
 
-3. **Categorize:**
+3. **Categorize** (using the *installed* paths from step 1):
 
    | Category | Condition | Action |
    |----------|-----------|--------|
@@ -322,6 +372,9 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    | **Unchanged** | In both, content same | No action |
    | **Stale** | In vendored, not in plugin, AND matches known hook extensions (`*.js`, `*.py`, `*.sh`) in the hooks root | Will be REMOVED with backup |
    | **Custom** | In vendored subdirectory not matching plugin structure | Report, preserve |
+
+   **Do NOT classify the `permitter/` subdirectory, `permitter/lib/`, or `lib/` as
+   "stale" or "custom" — they are the correct installed layout.**
 
 4. **Generate hook diff:**
    ```
@@ -536,13 +589,32 @@ the plugin's version. Always create a backup of anything removed or replaced.
    - DO NOT remove
    - Report: "Kept custom hook: [name]"
 
-5. **Hook discovery:**
+5. **Hook discovery — flat hooks (most):**
    - Dynamically scan these plugin directories for hook files:
-     - `@packages/permitter/hooks/` - Permission hooks
      - `@packages/router/hooks/` - Routing hooks
-     - `@packages/core/hooks/` - Core workflow hooks
+     - `@packages/core/hooks/` - Core workflow hooks (excluding `lib/`)
    - Include files matching: `*.js`, `*.py`, `*.sh`
-   - This ensures new hooks added to the plugin are automatically picked up
+   - Install at `.claude/hooks/<basename>` (flat).
+   - This ensures new hooks added to the plugin are automatically picked up.
+
+6. **Hook discovery — special-layout hooks (always handle):**
+   These MUST be installed at fixed subdirectory paths per the scaffold convention:
+
+   | Plugin source path | Installed path | Action on content diff |
+   |---|---|---|
+   | `@packages/permitter/hooks/permitter.js` | `.claude/hooks/permitter/permitter.js` | Replace file + ensure `+x` |
+   | `@packages/permitter/lib/*.js` | `.claude/hooks/permitter/lib/*.js` | Replace each file (chmod not needed) |
+   | `@packages/core/hooks/lib/*.js` | `.claude/hooks/lib/*.js` | Replace each file |
+
+   Do NOT treat `permitter/permitter.js`, `permitter/lib/`, or `lib/` as candidates for
+   removal or flattening. They are part of the canonical installed layout.
+
+7. **Settings.json hook path sanity:**
+   After updating hooks, verify the project's `settings.json` references match the
+   installed paths. The expected references include
+   `.claude/hooks/permitter/permitter.js` (subdirectory), not `.claude/hooks/permitter.js`.
+   If a stale flat path is found, fix it in the settings merge step (§4.5) — do not flatten
+   the hook layout to match.
 
 #### 4.5 Update Settings (Merge)
 
