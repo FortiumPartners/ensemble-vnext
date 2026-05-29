@@ -1,16 +1,23 @@
 ---
 name: rebase-project
-description: Upgrade vendored runtime to newer plugin version while preserving customizations
-version: 1.0.0
+description: Upgrade vendored runtime to the latest plugin version — non-interactive, always backs up, updates anything that differs
+version: 2.0.0
 category: generator
+argument-hint: "[--dry-run] [--preserve-all]"
+disable-model-invocation: true
 ---
 
 > **Usage:** Invoke `/rebase-project` from the project root to upgrade the vendored runtime.
 >
 > **Options:**
-> - `--dry-run` - Preview changes without applying
-> - `--force` - Skip confirmation prompts
-> - `--preserve-all` - Keep all local modifications (agents, rules, settings)
+> - `--dry-run` - Preview changes without applying anything
+> - `--preserve-all` - Conservative mode: update only commands/hooks; keep existing agents/skills/settings as-is (escape hatch for projects with heavy customization)
+>
+> **Default behavior (no flags) — applied automatically, no prompts:**
+> - For agents/skills/commands/hooks: any file that **differs from the plugin's current version** is replaced. Anything not currently in the plugin is preserved as a user customization.
+> - **Backups are always created** before any replacement (`.claude/<dir>.backup.<timestamp>/`). Nothing is destroyed without a recoverable copy.
+> - **User governance files** (`constitution.md`, `stack.md`, `process.md`) are NEVER modified.
+> - **Framework-shipped rules** (`async-discipline.md`, future drop-ins) are copied-if-missing.
 
 ---
 
@@ -21,22 +28,22 @@ $ARGUMENTS
 ```
 
 Examples:
-- (no args) - Interactive mode with confirmations
-- "--dry-run" - Preview what would change
-- "--force" - Apply all updates without confirmation
-- "--preserve-all" - Update only commands/hooks, preserve everything else
+- (no args) - Apply all updates with backups, no prompts
+- "--dry-run" - Show what would change without writing anything
+- "--preserve-all" - Update only commands/hooks; leave agents/skills/settings alone
 
 ---
 
 ## Goals
 
-- Upgrade vendored runtime in `.claude/` to match newer plugin version
-- Preserve customizations made to agents (ALWAYS preserved unless --force)
-- Preserve governance files (constitution.md, stack.md, process.md)
-- Recompute skills based on current stack.md
-- Update commands and hooks (safe to replace - not customized per project)
+- Upgrade vendored runtime in `.claude/` to match the current plugin version
+- **Update any file whose content differs from the plugin** (agents, skills, commands, hooks)
+- Always create timestamped backups before replacing
+- Preserve user governance files (constitution.md, stack.md, process.md)
+- Preserve user-created files (agents/skills/commands not shipped by the plugin)
+- Copy framework-shipped rules (async-discipline.md, etc.) if missing
 - Merge new settings.json defaults while preserving local overrides
-- Generate comprehensive rebase report showing all changes
+- Generate comprehensive rebase report
 
 ---
 
@@ -140,7 +147,7 @@ const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-'
 
    | Current | Available | Action |
    |---------|-----------|--------|
-   | Same | Same | Report "Already up to date" (unless --force) |
+   | Same | Same | Report "Already up to date" (still scan for content drift) |
    | Older | Newer | Proceed with upgrade |
    | Unknown | Any | Proceed with full sync |
    | Newer | Older | Warn "Vendored version is newer than plugin" |
@@ -169,7 +176,9 @@ Analyze each component category to identify changes.
 
 #### 2.1 Agent Diff
 
-**Behavior:** Agents are PRESERVED by default - only NEW agents are added.
+**Behavior:** Agents are UPDATED whenever the plugin's content differs from the vendored
+copy. The plugin is the source of truth for any agent it ships; the user's customization
+is preserved in a backup. User-created agents (not shipped by the plugin) are never touched.
 
 1. **List plugin agents:**
    Read agent files from plugin source: `@packages/full/agents/`
@@ -177,25 +186,35 @@ Analyze each component category to identify changes.
 2. **List vendored agents:**
    Read agent files from `.claude/agents/`
 
-3. **Categorize:**
+3. **Categorize via content comparison (byte-level diff of the full file):**
 
    | Category | Condition | Action |
    |----------|-----------|--------|
    | **New** | In plugin, not in vendored | Will be added |
-   | **Existing** | In both | PRESERVED (not modified) |
-   | **Removed** | In vendored, not in plugin | Report but do NOT remove |
+   | **Updated** | In both, content differs | Will be REPLACED (backup created) |
+   | **Unchanged** | In both, content identical | No action |
+   | **Custom** | In vendored, not in plugin | Preserved (report only; not removed) |
 
 4. **Generate agent diff:**
    ```
    Agents:
    - New agents to add: [list]
-   - Existing agents (preserved): [count]
-   - Custom agents (not in plugin): [list if any]
+   - Updated agents (will replace, backup created): [list]
+   - Unchanged agents: [count]
+   - Custom agents (preserved): [list if any]
    ```
 
 #### 2.2 Skill Diff
 
-**Behavior:** Skills are RECOMPUTED based on current stack.md.
+**Behavior, two phases:**
+  - **(a) Stack recompute** — determine which skills SHOULD be installed based on
+    `stack.md`. Skills no longer matching the stack are removed; new stack-relevant skills
+    are added.
+  - **(b) Content diff** — for skills retained in (a), compare every file
+    (`SKILL.md`, `REFERENCE.md`, templates, examples) byte-for-byte against the plugin's
+    current version. If ANY file differs, the entire skill folder is replaced (backup
+    created). This catches updates to `paths:` globs, `when_to_use`, currency-check
+    directives, and any other frontmatter or content change.
 
 1. **Read current stack.md:**
    Parse `.claude/rules/stack.md` to extract technology declarations
@@ -235,10 +254,14 @@ Analyze each component category to identify changes.
 3. **Compare with current skills:**
    ```
    Skills:
-   - Skills to add: [list]
-   - Skills to keep: [list - still match stack]
-   - Skills to remove: [list - no longer match stack]
+   - Skills to add (new in stack):                [list]
+   - Skills to update (content differs vs plugin): [list]   ← drives the content sync
+   - Skills unchanged (match stack + identical):  [count]
+   - Skills to remove (no longer match stack):    [list]
    ```
+
+   The **"to update"** bucket is computed by, for each skill matching the stack and present
+   in both plugin and vendored: byte-diffing the folder contents. Any difference → update.
 
 #### 2.3 Command Diff
 
@@ -355,50 +378,36 @@ Target Version: [version]
 
 </component-diff>
 
-### Step 3: User Confirmation
+### Step 3: Display diff summary and proceed
 
-<user-confirmation>
+<display-summary>
 
-**If NOT `--dry-run` and NOT `--force`:**
+**Behavior: non-interactive.** Display the diff summary (counts + per-category lists) so
+the user can see what's about to change, then proceed automatically. Do NOT call
+`AskUserQuestion` — the user invoked `/rebase-project` knowing it would update; asking
+"are you sure?" is anti-pattern after that opt-in. Safety comes from always-on backups,
+not prompts.
 
-1. **Present diff summary to user**
-
-2. **Use AskUserQuestion tool:**
-
-```yaml
-Question: "Apply this rebase? This will update commands, hooks, and skills."
-Options:
-  - "Yes, apply all changes"
-  - "Yes, but preserve existing skills"
-  - "Show detailed diff first"
-  - "Cancel rebase"
-Default: "Cancel rebase"
+**For ALL modes, print the summary block:**
+```
+Rebase preview
+  Agents     : N add | M update | K unchanged | C custom (preserved)
+  Skills     : N add | M update | K unchanged | R remove
+  Commands   : N add | M update | K unchanged | S stale-removed | C custom
+  Hooks      : N add | M update | K unchanged | S stale-removed | C custom
+  Settings   : N new keys | M preserved overrides
+  Framework rules: N copied | M existing (preserved)
 ```
 
-3. **Handle response:**
+**Branch on flags:**
 
-| Response | Action |
-|----------|--------|
-| "Yes, apply all changes" | Proceed to Step 4 |
-| "Yes, but preserve existing skills" | Set skill_preserve=true, proceed |
-| "Show detailed diff first" | Display full diff, re-prompt |
-| "Cancel rebase" | Report "Rebase cancelled", exit |
+| Flag | Behavior |
+|------|----------|
+| (none) | Print summary, then proceed straight to Step 4 (apply with backups). |
+| `--dry-run` | Print summary with "DRY RUN — no files written" header, then **skip Step 4**, proceed to Step 5 (report). |
+| `--preserve-all` | Print summary, set `agent_preserve=true`, `skill_preserve=true`, `settings_preserve=true` (Step 4 will still update commands and hooks but leave the preserved categories alone), proceed to Step 4. |
 
-**If `--dry-run`:**
-- Skip confirmation
-- Skip Step 4 (selective update)
-- Proceed directly to Step 5 (report generation with dry-run indicator)
-
-**If `--force`:**
-- Skip confirmation
-- Proceed to Step 4
-
-**If `--preserve-all`:**
-- Only update commands and hooks
-- Set agent_preserve=true, skill_preserve=true, settings_preserve=true
-- Proceed to Step 4
-
-</user-confirmation>
+</display-summary>
 
 ### Step 4: Selective Update
 
@@ -406,54 +415,73 @@ Default: "Cancel rebase"
 
 **TRD-C604: Implement selective update**
 
-#### 4.1 Update Agents (Selective)
+#### 4.1 Update Agents (content-diff, always-backup)
 
-**Preservation Rule:** PRESERVE customizations, only add NEW base agents
+**Rule:** Update any agent whose content differs from the plugin's version. Always create
+a backup before replacing. Never touch user-created agents.
 
-1. **For each NEW agent in plugin:**
+1. **Create backup of any agents that will be replaced:**
+   - For every agent classified **Updated** in §2.1, copy the current vendored file to
+     `.claude/agents.backup.<timestamp>/<agent>.md` before replacing.
+   - If no agents will be replaced, no backup directory is created (don't clutter).
+
+2. **For each NEW agent in plugin:**
    - Copy from plugin source to `.claude/agents/`
    - Report: "Added new agent: [name]"
 
-2. **For EXISTING agents:**
-   - DO NOT overwrite
-   - Report: "Preserved customized agent: [name]"
+3. **For each UPDATED agent (content differs):**
+   - Backup created in step 1; overwrite `.claude/agents/<agent>.md` with plugin version
+   - Report: "Updated agent: [name] (backup: .claude/agents.backup.<timestamp>/<name>.md)"
 
-3. **For CUSTOM agents (not in plugin):**
+4. **For each UNCHANGED agent:**
+   - No action; no log line (silent — covered by summary count)
+
+5. **For CUSTOM agents (in vendored, not in plugin):**
    - DO NOT remove
    - Report: "Kept custom agent: [name]"
 
-**If `--force` specified:**
-- Replace ALL agents with plugin versions
-- Create backup first: `.claude/agents.backup.<timestamp>/`
-- Warn: "Force mode: All agent customizations replaced (backup created)"
+**If `agent_preserve=true` (set by `--preserve-all`):**
+- Skip steps 1-3; only add NEW agents (step 2).
+- Report: "Existing agents preserved (preserve-all mode)"
 
-#### 4.2 Update Skills (Recompute)
+#### 4.2 Update Skills (recompute + content-diff, always-backup)
 
-**Preservation Rule:** Recompute based on current stack.md
+**Rule:** Two-phase update. (a) Recompute the set of installed skills against the current
+`stack.md`. (b) For skills retained, replace folder content whenever any file differs from
+the plugin's version. Always create a backup of anything removed or replaced.
 
-1. **Create backup:**
-   - Copy `.claude/skills/` to `.claude/skills.backup.<timestamp>/`
+1. **Create backup** (only if there's something to remove or replace):
+   - For each skill classified **Updated** or **Remove** in §2.2, copy the entire current
+     folder to `.claude/skills.backup.<timestamp>/<skill-name>/` before any change.
 
-2. **Remove outdated skills:**
-   - Delete skills that no longer match stack.md
+2. **Remove outdated skills** (no longer match stack.md):
+   - Delete `.claude/skills/<skill-name>/` (already backed up in step 1)
+   - Report: "Removed skill: [name] (backup: .claude/skills.backup.<timestamp>/<name>/)"
 
-3. **Add new skills:**
-   - For each skill matching stack.md:
-     - Copy entire folder from `@packages/skills/<skill-name>/` to `.claude/skills/<skill-name>/`
-     - Include SKILL.md, REFERENCE.md, templates/, examples/
+3. **Add new skills** (newly match stack.md):
+   - Copy entire folder from `@packages/skills/<skill-name>/` to `.claude/skills/<skill-name>/`
+     including SKILL.md, REFERENCE.md, templates/, examples/, paths-globbed files
+   - Report: "Added skill: [name]"
 
-4. **Report:**
+4. **Update retained skills whose content differs** (the bucket from §2.2 step 3):
+   - For each: remove the existing folder, then re-copy the plugin's current folder
+     (mirror behavior — no merge; the plugin is the source of truth for skill content).
+     Already backed up in step 1.
+   - Report: "Updated skill: [name] (backup: .claude/skills.backup.<timestamp>/<name>/)"
+
+5. **Report:**
    ```
-   Skills recomputed:
-   - Added: [list]
-   - Removed: [list]
-   - Retained: [list]
+   Skills:
+   - Added:    [list]
+   - Updated:  [list]
+   - Unchanged:[count]
+   - Removed:  [list]
    ```
 
-**If skill_preserve=true:**
-- Only add NEW skills
-- Do NOT remove existing skills
-- Report: "Skill removal skipped (preserve mode)"
+**If `skill_preserve=true` (set by `--preserve-all`):**
+- Skip steps 2 and 4 (no removals or content updates)
+- Step 3 still runs (newly-required skills are added)
+- Report: "Existing skills preserved (preserve-all mode)"
 
 #### 4.3 Update Commands (Replace)
 
@@ -662,7 +690,7 @@ The following files may benefit from manual review:
 | Backup | Location |
 |--------|----------|
 | Skills | `.claude/skills.backup.[timestamp]/` |
-| Agents (if --force) | `.claude/agents.backup.[timestamp]/` |
+| Agents (if any updated) | `.claude/agents.backup.[timestamp]/` |
 | Commands (if modified) | `.claude/commands.backup.[timestamp]/` |
 | Hooks (if modified) | `.claude/hooks.backup.[timestamp]/` |
 
@@ -717,7 +745,7 @@ If rebase fails mid-execution, partial changes may exist. To restore:
    mv .claude/skills.backup.<timestamp> .claude/skills
    ```
 
-   **Restore Agents (if --force was used):**
+   **Restore Agents (if any were replaced):**
    ```bash
    rm -rf .claude/agents
    mv .claude/agents.backup.<timestamp> .claude/agents
@@ -777,8 +805,8 @@ find .claude -name "*.backup.*" -type d -mtime +7 -exec rm -rf {} \;
 | Flag | Agents | Skills | Commands | Hooks | Settings | Rules |
 |------|--------|--------|----------|-------|----------|-------|
 | (default) | Add new only | Recompute | Replace | Replace | Merge | Preserve |
-| `--dry-run` | Report only | Report only | Report only | Report only | Report only | Report only |
-| `--force` | Replace all | Recompute | Replace | Replace | Merge | Preserve |
+| (default)        | Update on content-diff | Recompute + update on content-diff | Replace | Replace | Merge | Preserve |
+| `--dry-run`      | Report only | Report only | Report only | Report only | Report only | Report only |
 | `--preserve-all` | Add new only | Add new only | Replace | Replace | Add new only | Preserve |
 
 ---

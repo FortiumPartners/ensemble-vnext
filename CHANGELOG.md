@@ -166,6 +166,18 @@ and `docs/modernization/2026-05-phase2-recommendations.md` (Phase 2).
 
 ### Fixed
 
+- **`/rebase-project` no longer leaves stale agents/skills/commands behind.** Three
+  bugs in the previous implementation: (1) agents were PRESERVED whenever they existed
+  locally — content changes from the plugin (frontmatter updates, sharpened descriptions,
+  new skill lists) never propagated; (2) skills were checked for stack-match only — content
+  drift (`paths:` globs, `when_to_use` rewrites, currency-check sections) never propagated;
+  (3) the command blocked on `AskUserQuestion` with four options including a confusing
+  "preserve existing skills" choice. Rewritten to: byte-diff every shipped file against the
+  plugin and replace any that differ, always create a timestamped backup before replacing,
+  non-interactive by default (display summary then proceed; `--dry-run` and
+  `--preserve-all` remain as opt-in modes). Command bumped to v2.0.0.
+
+
 - **`wiggum.js` autonomous loop was abandoning incomplete work every other Stop event.**
   A self-managed `stop_hook_active` flag (set on block, cleared+exit on next call) made
   the hook alternate block → allow-exit regardless of completion. Removed; the
