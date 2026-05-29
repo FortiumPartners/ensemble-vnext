@@ -2,6 +2,45 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.5] - 2026-05-29
+
+Patch release fixing a real limitation in 3.3.4's notification story: the Stop-hook
+`notify.sh` fires on EVERY turn end — including dispatch turns and ScheduleWakeup
+re-entries during multi-turn commands — so it can't reliably distinguish "the command
+finished" from "we just spawned background work and idled." 3.3.4 hinted at a
+transcript-grep gate as a workaround; this release adopts the right primitive instead.
+
+### Changed
+
+- **`command-status.md` rewritten notification section into two paths:**
+  - **Path A — `PushNotification` (preferred for completion alerts).** The model calls
+    Claude Code's native `PushNotification` tool **directly from the command's final
+    turn** as part of the same atomic gesture that emits `═══ COMMAND COMPLETE ═══`.
+    One precise fire when the command is done, zero false positives during intermediate
+    Stops. Notification is delivered via Claude Code's own surfaces (desktop notification
+    in the terminal where the session runs; if Remote Control is connected, also push to
+    the user's phone).
+  - **Path B — `notify.sh` Stop hook (orchestration / external integration).** Unchanged
+    behavior; documented as the right path for webhook triggers, signal files, queue
+    messages, tmux pings to a parent pane — anything that legitimately wants every Stop
+    event.
+- **All 7 long-running commands** (`/implement-trd`, `/implement-trd-team`,
+  `/verify-trd-team`, `/harden-trd-team`, `/fix-issue`, `/create-prd-team`,
+  `/create-trd-team`) — Output Discipline section gained a step 5 instructing the model
+  to call `PushNotification({status: "proactive", message: "<cmd> done: <one-line
+  summary>"})` from the FINAL turn only (never DISPATCHED, RESUMED, or PHASE turns).
+  Same pattern for `COMMAND STUCK` with Reason + Next embedded in the message so the
+  user knows what to come back and unblock.
+- **Short one-shot commands** intentionally NOT updated — the user is watching their
+  turn; a desktop ping would be noise. The COMMAND COMPLETE banner alone is sufficient
+  signal. Per the `PushNotification` tool's own guidance ("err toward not sending one").
+- **Notification budget rules documented** in the rule, lifted verbatim from the
+  PushNotification tool: under 200 characters, one line, no markdown, lead with what
+  the user would act on, err toward not sending. Distinguishes notifications that drive
+  action from notifications that just announce.
+
+---
+
 ## [3.3.4] - 2026-05-29
 
 Patch release giving every workflow command a uniform, visually unmistakable completion

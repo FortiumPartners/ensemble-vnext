@@ -102,12 +102,58 @@ Phase banners are not the final COMMAND COMPLETE — they're progress markers. T
 forward motion across long loops and pair with the durability of `implement.json`'s
 checkpoints.
 
-## Notification on completion (optional, recommended)
+## Notification on completion
 
-The `notify.sh` Stop hook (`packages/core/hooks/notify.sh`) fires every time a session
-stops and runs whatever's in the `NOTIFY_ON_STOP` env var. You can use this to get an
-audible / desktop alert when a long-running command finishes its turn. Configure once
-per machine; works for every project.
+There are two delivery paths. Use them differently:
+
+### Path A — `PushNotification` (preferred, direct, atomic with the banner)
+
+For **multi-turn / long-running commands** (`/implement-trd`, `/implement-trd-team`,
+`/verify-trd-team`, `/harden-trd-team`, `/fix-issue`, `/create-prd-team`,
+`/create-trd-team`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
+call in the same final turn. This is precise (fires once, exactly when the command is
+done) and atomic with the banner (no transcript grep, no race with intermediate Stops).
+
+```
+═══ COMMAND COMPLETE: /implement-trd-team ═══
+Phase 4/4 done — 23/23 tasks success, coverage 87%/62%, branch feature/AUTH-1234
+```
+(emit the banner as text, then call:)
+```javascript
+PushNotification({
+  status: "proactive",
+  message: "implement-trd-team done: Phase 4/4, 23 tasks success, branch feature/AUTH-1234"
+})
+```
+
+For `COMMAND STUCK` on the same long-running commands, also send a `PushNotification`
+with the Reason and an actionable hint — the user needs to come back to unblock:
+
+```javascript
+PushNotification({
+  status: "proactive",
+  message: "implement-trd-team STUCK: AUTH-B005 failed 3 retries (missing OAUTH_CLIENT_SECRET). Set env + /implement-trd --resume."
+})
+```
+
+**Don't send `PushNotification` from short one-shot commands** (`/create-prd`,
+`/refine-prd`, `/cleanup-project`, etc.) — the user is watching that turn; a desktop
+ping is noise. The COMMAND COMPLETE banner alone is enough.
+
+**Notification budget rules** (from the tool's own guidance):
+- Under 200 characters, one line, no markdown.
+- Lead with what the user would act on ("build failed: 2 auth tests" beats "task done").
+- Err toward NOT sending. A notification the user didn't need accumulates as annoyance.
+- If the tool result says the push wasn't sent, that's expected — no follow-up needed.
+
+### Path B — `notify.sh` Stop hook (orchestration / external integration)
+
+The `notify.sh` Stop hook (`packages/core/hooks/notify.sh`) fires every time the session
+stops and runs whatever's in the `NOTIFY_ON_STOP` env var. Configure once per machine;
+works for every project. Use this for **orchestration patterns** that fire on every
+Stop — webhook triggers, signal files for shell-script orchestration, queue messages,
+tmux pings to a parent pane. Different purpose from Path A: Path A is "tell the user
+the command is done"; Path B is "tell some external system the session went idle."
 
 **macOS terminal bell + desktop notification:**
 ```bash
