@@ -47,6 +47,31 @@ synchronously.
 The first two are the explicit signals the `Stop` hook can read. The last two prevent Stop
 from firing at all when active.
 
+## `Agent({team_name})` — partial async, requires pairing
+
+`Agent({team_name})` spawns long-running teammates that communicate via `SendMessage`. The
+team docs promise that teammate deliveries auto-arrive as new lead turns — but **this
+auto-re-invocation has been observed to silently stall**: teammates complete, send their
+messages, the lead session idles, and no new turn fires until the user types the next
+prompt. The "background_tasks" the hook sees from a team spawn are the teammates' own
+sessions — they don't guarantee the lead will be re-invoked.
+
+**Rule:** `Agent({team_name})` does NOT satisfy this discipline on its own. **Every team
+spawn must be paired in the same turn with either:**
+- `ScheduleWakeup({delaySeconds, prompt})` — recommended; the wake re-enters the
+  orchestrating command, harmless no-op if auto-delivery already fired (default cadence
+  for team commands: 1200s / 20 min).
+- `/goal <condition>` — keeps the session looping until the team's deliverables are
+  observable.
+
+This rule is implemented at the COMMAND level: `/implement-trd-team`, `/create-prd-team`,
+`/create-trd-team`, `/harden-trd-team`, `/verify-trd-team`, and `/fix-issue` include a
+mandatory Step 2a / Step 3a "schedule the safety-net wake-up before ending the turn"
+right after each `Agent({team_name})` spawn. The hook is conservative (it accepts
+`background_tasks` non-empty as sufficient — a false-positive of safety in the team case)
+and relies on the commands to enforce correctness. Treat the commands' Step 2a/3a as
+non-optional.
+
 ## How the guard works (at a glance)
 
 ```

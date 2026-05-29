@@ -152,7 +152,26 @@ Agent({ subagent_type: "devops-engineer",      team_name: "trd-domain-analysis",
 Do NOT pass `isolation: "worktree"` — these are read-only analysis teammates; shared tree
 is fine and they produce no commits.
 
-**Step 3 — Collect & shut down** once all `<teammate_report>` responses are received:
+**Step 2a — MANDATORY: schedule the safety-net wake-up before ending the turn.**
+
+`Agent({team_name})` does NOT reliably auto-re-invoke the lead when teammates SendMessage
+back; messages may queue until the next user prompt. Pair every team spawn with a
+`ScheduleWakeup` as the explicit re-invocation belt:
+
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for trd-domain-analysis",
+  prompt: "/create-trd-team [original arguments here]"   // re-enter to drain + synthesize
+});
+```
+
+If auto-delivery fires, the wake no-ops; if it stalls, the wake catches it. Required by
+`.claude/rules/async-discipline.md` Prohibited Pattern #6 — `Agent({team_name})` alone is
+not one of the four legitimate async primitives.
+
+**Step 3 — Collect & shut down** once all `<teammate_report>` responses are received via
+`SendMessage`:
 ```javascript
 for (const teammate of ["backend-arch","frontend-arch","quality-strategy","infra-perspective"])
   SendMessage({ to: teammate, message: { type: "shutdown_request" } });

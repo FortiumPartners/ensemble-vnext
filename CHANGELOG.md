@@ -2,6 +2,47 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.3] - 2026-05-29
+
+Patch release closing a real architectural gap in team-mode orchestration: when the lead
+session spawns teammates via `Agent({team_name, ...})` and ends its turn, Claude Code's
+auto-re-invocation on inbound teammate `SendMessage` deliveries is **not reliable**.
+Observed failure: teammates complete, send their reports, the lead idles, and no new turn
+fires until the user types the next prompt — messages queue indefinitely; the long-running
+orchestration loop stalls.
+
+### Fixed
+
+- **Team-spawn safety-net pattern added to `/implement-trd-team`, `/create-prd-team`,
+  `/create-trd-team`**. Each command now includes a MANDATORY Step 2a / 3a directly after
+  the `Agent({team_name})` spawn that requires pairing with
+  `ScheduleWakeup({delaySeconds: 1200, prompt: "<re-enter the command>"})`. If auto-
+  delivery does fire, the scheduled wake is a harmless no-op; if it stalls, the wake
+  catches the mailbox within 20 minutes. This is the documented re-invocation belt —
+  treat it as non-optional. (`/harden-trd-team`, `/verify-trd-team`, `/fix-issue`
+  inherit via their reference to `/implement-trd-team` Step 4.)
+- **`async-discipline.md` rule updated** to declare `Agent({team_name})` partial async
+  that requires pairing — explicitly NOT one of the four self-sufficient async
+  primitives. New section "`Agent({team_name})` — partial async, requires pairing"
+  documents the observed stall, the pairing requirement, and notes that the Stop-hook
+  guard is conservative (accepts non-empty `background_tasks` as sufficient, which is a
+  false-positive of safety in the team case) — correctness is enforced at the command
+  level via the mandatory Step 2a/3a.
+- **Rule template synced** so new projects scaffolded via `/init-project` and existing
+  projects rebased via `/rebase-project` both get the updated rule documenting the
+  pairing requirement.
+
+### Known follow-up
+
+The Stop-hook guard (`async-discipline.js`) currently accepts any non-empty
+`background_tasks` as satisfying the async-claim check — including teammates spawned via
+`Agent({team_name})`. A more sophisticated guard would distinguish "background work
+in flight" from "lead has a re-invocation path" and flag claims like "waiting on teammate
+reports" when no `session_crons` / `Monitor` / `/goal` is paired with the team spawn.
+Deferred to a follow-up PR; the command-level enforcement above closes the practical gap.
+
+---
+
 ## [3.3.2] - 2026-05-28
 
 Patch release fixing a latent bug across all native-team-mode commands: teammates were

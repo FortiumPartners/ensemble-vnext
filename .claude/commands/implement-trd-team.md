@@ -158,8 +158,38 @@ Assign each session's task(s) to its teammate with
 `TaskUpdate({ taskId, owner: session_name })`. Do NOT pass `isolation: "worktree"` — teammates
 share the working tree (see Workspace model).
 
-**4. Monitor** -- teammate messages arrive automatically as new turns (no inbox polling);
-teammates also advance the shared task list. Idle between turns is normal. Wait for ALL
+**3a. MANDATORY: schedule the safety-net wake-up before ending the turn.**
+
+In practice, **`Agent({team_name})` is NOT a reliable re-invocation primitive on its own.**
+The team docs promise that teammate `SendMessage` deliveries arrive as new lead turns
+automatically — but this has been observed to silently stall: teammates complete, send
+their messages, the lead session goes idle, and no new turn fires until the user types
+the next prompt. Messages queue indefinitely; the orchestration loop dies.
+
+Treat `team_name` spawns as **partial async**: real work is in flight, but the lead has
+no guaranteed wake. Pair every team spawn with a `ScheduleWakeup` as the explicit
+re-invocation belt. If teammate `SendMessage` auto-delivery DOES fire, the scheduled wake
+just no-ops (the lead resumes, sees state already advanced, schedules the next phase or
+exits). If it stalls, the wake catches it within the delay window.
+
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,                                       // 20 min — long enough to
+                                                            //   avoid cache-burn, short
+                                                            //   enough to catch stalls
+  reason: "team-mailbox drain fallback for impl-phase-{N}-group-{G}",
+  prompt: "/implement-trd-team [original arguments here]"   // re-enter the loop
+});
+```
+
+This is the **same enforcement rule** as `.claude/rules/async-discipline.md` Prohibited
+Pattern #6 — `Agent({team_name})` does not count as one of the four async primitives;
+combine it with `ScheduleWakeup` (or `/goal`) to satisfy the rule.
+
+**4. Monitor** -- teammate messages arrive as new lead turns whenever Claude Code's
+auto-delivery fires; otherwise the scheduled wake-up from step 3a fires at the deadline
+and drains the mailbox on the next turn. Either way the lead wakes; it never depends
+solely on the user prompting. Teammates also advance the shared task list. Wait for ALL
 teammates in the group to complete.
 
 **5. Collect results** -- for each teammate extract: task status (success/failed/blocked),
