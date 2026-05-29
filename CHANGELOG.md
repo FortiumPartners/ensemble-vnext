@@ -2,6 +2,61 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.9] - 2026-05-29
+
+Adds opt-in mitigations for the documented Claude Code TTY-backpressure / unfocused-tmux-
+pane hang. **Workaround, not a fix** — the underlying bugs are upstream (Anthropic
+[#57103](https://github.com/anthropics/claude-code/issues/57103) /
+[#34668](https://github.com/anthropics/claude-code/issues/34668) /
+[#25979](https://github.com/anthropics/claude-code/issues/25979)) and the framework
+can't patch Claude Code itself. What we can ship is a one-shot setup script that applies
+known-good tmux settings + a heartbeat daemon, plus the docs explaining why.
+
+### Added
+
+- **`packages/core/scripts/ensemble-tmux-apply.sh`** — vendored one-shot script that:
+  1. Backs up `~/.tmux.conf` to a timestamped file
+  2. Idempotently appends an `# ENSEMBLE TMUX MITIGATIONS` block with `focus-events on`,
+     `history-limit 1000000`, `buffer-limit 100`, `mouse on`, `aggressive-resize off`,
+     `monitor-activity off`, `monitor-bell off`
+  3. `tmux source-file ~/.tmux.conf` — **live reload, no session restart, no
+     Claude-session interruption**
+  4. Verifies settings took effect via `tmux show-options`
+  5. Installs `~/.local/bin/ensemble-claude-tmux-heartbeat.sh` — a daemon that every
+     60s iterates every tmux pane running `claude`/`node` and toggles
+     `pipe-pane -O 'cat >/dev/null'` then `pipe-pane` to force-drain the pane's PTY
+     buffer (the same drain operation that focusing the pane manually triggers,
+     without sending any keystrokes)
+  6. Starts the heartbeat in a dedicated `ensemble-heartbeat` tmux window
+- **`docs/operations/tmux-mitigations.md`** — full explanation of the symptom, root
+  cause (Node.js event loop + tmux PTY backpressure), what the mitigations do, how to
+  apply / tune / revert, and what they do NOT fix.
+- **`docs/operations/anthropic-issue-draft.md`** — paste-ready GitHub issue draft
+  linking to all related Anthropic + tmux issues, with a clean reproduction recipe.
+  Users can paste it into a new issue or comment to add weight to existing reports.
+- **`/init-project` Step 13.5** — new optional notice instructing the model to surface
+  the tmux mitigations script at the end of init if the user runs Claude in tmux.
+  Opt-in only; the script is never run automatically.
+
+### Why
+
+The framework's prior mitigation strategy was the `ScheduleWakeup` belt added in 3.3.3
+for `Agent({team_name})` spawns. That worked for the specific team-mode case but
+generalizing it to every async-wait situation was the wrong abstraction — we'd be
+papering over a real Claude Code bug with framework-level workarounds that cost tokens
+on every wake. The tmux mitigations attack the underlying cause (PTY backpressure)
+directly and cheaply, without changing any command logic or scheduling more wakes.
+
+### Not changed
+
+- The 3.3.3 team-spawn `ScheduleWakeup` belt **stays at 1200s** — defensible as a true
+  long-async backstop, not changed to fight the TTY symptom.
+- The cadence recommendation in `command-status.md` stays unchanged. The strategic
+  "generalize ScheduleWakeup to every wait" plan from earlier is explicitly **withdrawn**
+  as the wrong abstraction.
+
+---
+
 ## [3.3.8] - 2026-05-29
 
 Patch release adding rich **session identity** to programmatic completion notifications.

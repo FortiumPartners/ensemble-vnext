@@ -754,6 +754,35 @@ A good CLAUDE.md should let a future session:
 
 ---
 
+### Step 13.5: Optional — tmux mitigations notice
+
+If the user is initializing this project on a machine where they run Claude Code in
+tmux (especially with multiple parallel sessions / Agent Teams), surface this one-time
+notice at the end of the completion report:
+
+```
+Optional — tmux mitigations available
+
+If you run multiple Claude Code sessions inside tmux and have ever seen them hang
+mid-work and "wake up" when you focus the pane, the framework ships a one-shot
+script that applies tested mitigations live (no session restart):
+
+  bash packages/core/scripts/ensemble-tmux-apply.sh
+
+It backs up your ~/.tmux.conf, appends an idempotent ENSEMBLE config block
+(focus-events, large history-limit, mouse, etc.), reloads tmux server config in
+place, installs ~/.local/bin/ensemble-claude-tmux-heartbeat.sh, and starts a
+heartbeat in a dedicated 'ensemble-heartbeat' tmux window. Reversible anytime.
+
+Full context: docs/operations/tmux-mitigations.md
+Known Claude Code bugs being worked around:
+  github.com/anthropics/claude-code/issues/57103
+  github.com/anthropics/claude-code/issues/34668
+```
+
+This is **optional and opt-in** — do not run the script automatically as part of init.
+The user explicitly chooses based on whether they use tmux this way.
+
 ### Step 14: Completion Report
 
 <completion-report>
