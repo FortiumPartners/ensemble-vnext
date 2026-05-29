@@ -284,12 +284,13 @@ After ALL parallel groups in a phase complete:
 2. **Quality gate** -- same as `/implement-trd` Step 5.1 (verify-app full suite)
 3. **Git checkpoint** -- same as `/implement-trd` Step 5.2
 4. **Update state** -- same as `/implement-trd` Step 5.3 (checkpoint entry, advance phase_cursor)
-5. **Context management**:
+5. **Context management — DO NOT PAUSE.** Emit the PHASE banner and immediately spawn
+   the next phase. Routine phase transitions are NOT pause points; the only pause
+   conditions are STUCK / unrecoverable errors (Step 6). Compaction auto-fires at ~95%
+   context via `precompact.js`; the state file survives independently.
+
    ```
-   Phase {N} checkpoint complete.
-   Completed: {list} | Teammates: {session_names}
-   State: .trd-state/<trd-name>/implement.json
-   Recommendation: Run /compact before Phase {N+1}.
+   [STATUS: /implement-trd-team] PHASE {N}/{M} COMPLETE → {tasks-completed} tasks, teammates: {session_names}, coverage unit {X}% / int {Y}%
    ```
 
 ---
@@ -305,9 +306,14 @@ For Wiggum mode, signal: `<promise>COMPLETE</promise>`
 
 ---
 
-## Step 6: Pause for User
+## Step 6: Pause Conditions (NOT phase boundaries)
 
-Same as `/implement-trd` Step 8, with one additional option:
+The command runs **uninterrupted** through every phase from start to completion. Phase
+checkpoints emit the PHASE banner and immediately spawn the next phase. Routine
+transitions are NOT pause points.
+
+Pause-for-user conditions follow `/implement-trd` Step 8 (STUCK after 3 retries,
+unrecoverable error, etc.) with one additional team-mode option:
 ```
 6. "reassign" - Reassign stuck task to a different agent type
 ```

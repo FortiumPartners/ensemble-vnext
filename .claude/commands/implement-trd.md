@@ -545,20 +545,24 @@ git push -u origin {branch_name}
 
 Add checkpoint entry, advance `phase_cursor`, update `recovery.last_healthy_checkpoint`.
 
-### 5.4 Context Management at Phase Boundary
+### 5.4 Context Management at Phase Boundary — DO NOT PAUSE
 
-After each phase checkpoint, recommend context compaction:
+**Phase boundaries are NOT user-pause points.** After a phase checkpoint, emit the PHASE
+banner (per `.claude/rules/command-status.md`) and **immediately spawn the next phase in
+the same orchestration loop** — no "Run /compact" prompt, no waiting for user input.
 
 ```
-Phase {N} checkpoint complete.
-Completed tasks: {list}
-State saved to: .trd-state/<trd-name>/implement.json
-
-Recommendation: Run /compact to compress context before continuing to Phase {N+1}.
-All progress is persisted in the state file and will survive context compaction.
+[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, coverage unit {X}% / int {Y}%, commit {sha}
 ```
 
-This prevents context exhaustion on large TRDs with many tasks. The state file preserves all progress across compaction.
+Then continue into the next phase. Pause ONLY on the explicit conditions enumerated in
+Step 8 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase
+transitions are NOT pause conditions.
+
+**Compaction is automatic, not user-driven.** `/compact` will auto-fire at ~95% context;
+the `precompact.js` hook captures the in-flight task + recent decisions into
+`.trd-state/<feature>/session-log.md` before summarization. The state file (`implement.json`)
+preserves all task-level progress across compaction independently. The loop survives both.
 
 **Decision-trail durability (PreCompact hook).** When `/compact` runs — or auto-compaction
 triggers at ~95% context — the `precompact.js` hook appends a structured checkpoint to
@@ -717,9 +721,15 @@ For Wiggum mode, signal: `<promise>COMPLETE</promise>`
 
 ---
 
-## Step 8: Pause for User
+## Step 8: Pause Conditions (NOT phase boundaries)
 
-When STUCK (retry count >= 3):
+The command runs **uninterrupted** through every phase from start to completion — phase
+checkpoints emit the PHASE banner and immediately spawn the next phase. The ONLY
+conditions under which the command pauses for user input are below. Routine phase
+transitions, /compact recommendations, and successful checkpoint commits are NOT pause
+conditions.
+
+### 8.1 STUCK (retry count >= 3)
 
 ```
 ===============================================================================

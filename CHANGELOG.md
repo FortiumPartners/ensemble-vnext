@@ -2,6 +2,44 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.7] - 2026-05-29
+
+Patch release fixing `/implement-trd` and `/implement-trd-team` stopping after every
+phase. The "Recommendation: Run /compact" prompt at each phase boundary was making the
+commands hand control back to the user between phases, requiring the user to manually
+restart them N times for an N-phase TRD. That's not the intent; the orchestration
+loop is supposed to run through every phase to completion uninterrupted, pausing only
+on STUCK / unrecoverable error conditions.
+
+### Fixed
+
+- **`/implement-trd §5.4`** (Context Management at Phase Boundary) — removed the
+  "Recommendation: Run /compact before continuing to Phase {N+1}" prompt that was
+  effectively a pause point. Replaced with explicit "DO NOT PAUSE" semantics: emit the
+  `[STATUS: /implement-trd] PHASE N/M COMPLETE` banner and immediately spawn the next
+  phase in the same orchestration loop. Compaction auto-fires at ~95% via the
+  `precompact.js` hook; the state file (`implement.json`) survives compaction
+  independently — neither requires user intervention.
+- **`/implement-trd §8`** (formerly "Pause for User", renamed "Pause Conditions") —
+  explicit list of the ONLY conditions that pause: STUCK after 3 retries, unrecoverable
+  error, user Ctrl+C. Routine phase transitions, successful checkpoint commits, and
+  `/compact` recommendations are NOT pause conditions.
+- **`/implement-trd-team §4.3 + §6`** — same pattern applied. PHASE banner emitted +
+  immediate next-phase spawn; pause only on the explicit STUCK conditions (plus the
+  team-mode "reassign" option).
+
+### Why
+
+Pre-3.5.0 the commands' state durability rested on the user remembering to `/compact`
+between phases. Once `precompact.js` (3.5.0) made compaction auto-archive the decision
+trail to `session-log.md` and the state file kept all task-level progress independently
+of conversation history, the manual /compact prompt became vestigial — and worse,
+trained the model to hand control back to the user at each phase boundary. The
+implement loop is supposed to be autonomous through completion; the pause was
+contradicting its core promise.
+
+---
+
 ## [3.3.6] - 2026-05-29
 
 Patch release adding the missing **programmatic** completion-notify path. The existing
