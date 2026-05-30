@@ -2,6 +2,67 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.10] - 2026-05-29
+
+Behavioral correction: workflow commands had drifted from autonomous orchestration toward
+defensive checkpointing — asking the user to confirm decisions the command already had
+enough information to make, "please review and confirm" mid-loop, deferential "should we
+check with stakeholders?" deflections, "checkpoint reached, continue?" prompts at routine
+phase boundaries. The framework was designed to run from one explicit user invocation to
+one final result; defensive prompts contradicted that design and made unattended
+execution impossible.
+
+### Added
+
+- **`.claude/rules/autonomy.md`** — new framework-shipped rule. Defines the four valid
+  uses of `AskUserQuestion` (genuine requirement ambiguity with no documented default,
+  missing information that cannot be derived, truly irreversible destructive operations,
+  STUCK conditions after retry exhaustion) and lists nine common anti-patterns to
+  eliminate. Documents `/refine-prd` and `/refine-trd` as the exempt commands
+  (intentionally interactive — solicting user feedback is their purpose).
+  Framework-shipped: copies to new projects via `/init-project` and existing projects
+  via `/rebase-project` automatically.
+- **Constitution Prohibited Pattern #8: "No defensive checkpointing"** referencing the
+  new rule. Mirrored in `constitution.md.template` so new projects inherit. User-provided
+  `ADDITIONAL_PROHIBITIONS` now number from 9.
+- **`Autonomous-execution discipline` section appended to 16 workflow commands**:
+  `implement-trd`, `implement-trd-team`, `verify-trd-team`, `harden-trd-team`,
+  `fix-issue`, `create-prd-team`, `create-trd-team`, `create-prd`, `create-trd`,
+  `update-project`, `cleanup-project`, `fold-prompt`, `investigate-issue`,
+  `augment-trd-figma`, `init-project`, `rebase-project`. Each block tells the model
+  explicitly: do not pause to confirm decisions, do not request artifact review mid-loop,
+  do not defer to stakeholders, do not checkpoint at routine boundaries. Decide based
+  on documented constraints, document the rationale in the artifact, proceed.
+
+### Explicitly NOT changed
+
+- **`refine-prd` and `refine-trd`** — the only two commands intentionally exempt. Their
+  input IS user feedback; their output is a revised artifact; the iteration is the point.
+  Both BATS Layer-2b verify the autonomy block is **ABSENT** from these two files (and
+  PRESENT in the other 16).
+
+### Verified
+
+BATS suite extended to 32 tests (was 27); new Layer-2b group covers:
+- `autonomy.md` exists in dogfood + framework template + is byte-identical
+- Rule documents all four valid `AskUserQuestion` cases by name
+- Constitution PP#8 references the new rule
+- All 16 non-refine commands embed the autonomy block
+- `refine-prd` and `refine-trd` do NOT embed the block
+
+### Why
+
+User report: "the commands have drifted to asking too many questions, including
+questions they don't need to ask… this is built to be an orchestrated/autonomous
+framework — we plan so that the commands run through."
+
+The framework's design is: user invokes → command runs → COMMAND COMPLETE banner →
+user reviews artifact → user iterates via `/refine-*` or `--resume`. Mid-loop
+confirmation prompts break that contract and force the user back into babysitting
+mode, defeating the design.
+
+---
+
 ## [3.3.9] - 2026-05-29
 
 Adds opt-in mitigations for the documented Claude Code TTY-backpressure / unfocused-tmux-

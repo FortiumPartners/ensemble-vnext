@@ -171,6 +171,15 @@ This is a plugin development project. Standard unit/integration tests are suffic
    `═══ COMMAND COMPLETE: ... ═══` banners so the user can always tell what state the
    work is in. The COMMAND COMPLETE banner is the LAST line of the command's final turn.
    A command that ends silently is a bug.
+8. **No defensive checkpointing** - See `.claude/rules/autonomy.md`. Workflow commands
+   run autonomously from one explicit user invocation to one final result. They do NOT
+   pause to ask the user to confirm decisions the command already has enough information
+   to make, to review mid-loop artifacts, to verify checkpoints, or to defer to
+   stakeholders. `AskUserQuestion` is restricted to four cases: (1) genuine requirement
+   ambiguity with no documented default, (2) missing information that cannot be derived,
+   (3) truly irreversible destructive operations, (4) STUCK conditions after retry
+   exhaustion. Outside those four cases, decide and proceed. Exempt: `/refine-prd` and
+   `/refine-trd` (intentionally interactive).
 
 ---
 

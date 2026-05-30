@@ -287,6 +287,52 @@ JSON
 }
 
 # =============================================================================
+# Layer 2b — Autonomy discipline contract (autonomy.md + per-command guidance)
+# =============================================================================
+
+@test "L2b: autonomy.md rule file exists in dogfood + framework template" {
+    [ -f "${REPO_ROOT}/.claude/rules/autonomy.md" ]
+    [ -f "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md" ]
+    diff -q "${REPO_ROOT}/.claude/rules/autonomy.md" "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md"
+}
+
+@test "L2b: autonomy.md documents the four valid AskUserQuestion cases" {
+    local f="${REPO_ROOT}/.claude/rules/autonomy.md"
+    grep -q "Ambiguity in requirements" "$f"
+    grep -q "Missing information that cannot be derived" "$f"
+    grep -q "Truly irreversible destructive operations" "$f"
+    grep -q "STUCK conditions" "$f"
+}
+
+@test "L2b: constitution Prohibited Pattern #8 references autonomy.md" {
+    local f="${REPO_ROOT}/.claude/rules/constitution.md"
+    grep -q "No defensive checkpointing" "$f"
+    grep -q "autonomy.md" "$f"
+}
+
+@test "L2b: every non-refine workflow command embeds the autonomy block" {
+    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+                fix-issue create-prd-team create-trd-team create-prd create-trd
+                update-project cleanup-project fold-prompt
+                investigate-issue augment-trd-figma init-project rebase-project)
+    local missing=()
+    for cmd in "${cmds[@]}"; do
+        if ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/${cmd}.md"; then
+            missing+=("$cmd")
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        printf 'Non-refine commands missing autonomy block:\n%s\n' "${missing[*]}" >&2
+        return 1
+    fi
+}
+
+@test "L2b: refine-prd and refine-trd do NOT embed the autonomy block (intentionally exempt)" {
+    ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-prd.md"
+    ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-trd.md"
+}
+
+# =============================================================================
 # Layer 3 — session-context.js CLAUDE_SESSION_ID export
 # =============================================================================
 
