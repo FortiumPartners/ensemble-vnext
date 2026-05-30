@@ -419,6 +419,70 @@ JSON
     unset CLAUDE_ENV_FILE
 }
 
+@test "L4: autonomy-discipline.js hook exists + executable + syntactically valid" {
+    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
+    [ -f "$hook" ]
+    [ -x "$hook" ]
+    node --check "$hook"
+}
+
+@test "L4: autonomy-discipline.js vendored to dogfood .claude/hooks/" {
+    diff -q "${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js" \
+            "${REPO_ROOT}/.claude/hooks/autonomy-discipline.js"
+}
+
+@test "L4: both settings.json Stop chains include autonomy-discipline.js after async-discipline" {
+    # Order matters — autonomy-discipline.js must appear between async-discipline.js and wiggum.js
+    for settings in "${REPO_ROOT}/.claude/settings.json" "${REPO_ROOT}/packages/full/.claude/settings.json"; do
+        python3 -c "
+import json, sys
+s = json.load(open('$settings'))
+cmds = [h['command'] for grp in s['hooks']['Stop'] for h in grp['hooks']]
+names = [c.split('hooks/')[-1].split(chr(39))[0] for c in cmds]
+expected = ['async-discipline.js', 'autonomy-discipline.js', 'wiggum.js', 'notify.sh']
+assert names == expected, f'Stop chain order mismatch: {names} != {expected}'
+print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in '$settings' else '.claude/settings.json', '→', ' → '.join(names))
+"
+    done
+}
+
+@test "L4: helper detectHedgedOffer matches the exact user-reported phrase" {
+    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
+    local result
+    result=$(node -e "
+const { detectHedgedOffer } = require('$hook');
+const text = \"PHASE 0/4 COMPLETE. Given Phase 0 went cleanly and your --wiggum choice, I'll continue autonomously into Phase 1 unless you want to pause and review first. Want me to keep going, or pause for a look?\";
+const m = detectHedgedOffer(text);
+console.log(m ? 'MATCH' : 'NO-MATCH');
+")
+    [[ "$result" == "MATCH" ]]
+}
+
+@test "L4: helper isCommandContext extracts command name from [STATUS:] banner" {
+    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
+    local result
+    result=$(node -e "
+const { isCommandContext } = require('$hook');
+const ctx = isCommandContext('[STATUS: /implement-trd-team] PHASE 1/3 COMPLETE');
+console.log(ctx && ctx.command);
+")
+    [[ "$result" == "implement-trd-team" ]]
+}
+
+@test "L4: helper isExemptCommand returns true for refine-*, false for others" {
+    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
+    local result
+    result=$(node -e "
+const { isExemptCommand } = require('$hook');
+console.log(isExemptCommand({command:'refine-prd'}), isExemptCommand({command:'refine-trd'}), isExemptCommand({command:'implement-trd'}));
+")
+    [[ "$result" == "true true false" ]]
+}
+
+@test "L4: init-project.md hook enumeration includes autonomy-discipline.js" {
+    grep -q "autonomy-discipline.js" "${REPO_ROOT}/packages/core/commands/init-project.md"
+}
+
 @test "L3: SessionStart no-ops cleanly when CLAUDE_ENV_FILE is not set" {
     unset CLAUDE_ENV_FILE
     run bash -c "echo '{\"session_id\":\"sess_test\"}' | node \"$SESSION_CTX_HOOK\""

@@ -2,6 +2,65 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.12] - 2026-05-30
+
+Adds a **Stop-hook backstop** for the autonomy discipline — `autonomy-discipline.js`
+blocks Stop events when a workflow command's last message contains a hedged-pause-offer
+("I'll continue unless...", "Want me to keep going, or pause for a look?", "shall I
+proceed?", etc.). Same defense-in-depth pattern as `async-discipline.js` for
+fire-and-forget claims.
+
+### Added
+
+- **`packages/core/hooks/autonomy-discipline.js`** — new Stop hook (vendored to
+  `.claude/hooks/`). Detects 12 hedged-pause-offer patterns in the current turn's
+  assistant text. Only enforces when a `[STATUS: /...]` or `═══ COMMAND` banner is
+  present (workflow-command context); regular conversational questions about next
+  actions are not blocked. `/refine-prd` and `/refine-trd` are exempt (intentionally
+  interactive). Self-documentation bypass (text discussing the rule itself doesn't
+  trigger). Strict turn-boundary scanning (same as async-discipline).
+- **Stop hook chain order**: `async-discipline.js → autonomy-discipline.js →
+  wiggum.js → notify.sh`. Both `async-discipline` and `autonomy` block first; if
+  neither catches, `wiggum` decides whether to extend the loop; `notify` always
+  runs last.
+- **BATS suite extended 36 → 43 tests** with Layer 4 covering: hook exists +
+  executable + valid; vendored to dogfood; Stop chain order across both
+  settings.json files; the exact user-reported phrase from 3.3.11 matches; helper
+  functions (isCommandContext / isExemptCommand) work; init-project hook enumeration
+  updated.
+
+### Changed
+
+- **Both `settings.json` Stop chains** register `autonomy-discipline.js` between
+  `async-discipline.js` and `wiggum.js`. Byte-identical across template + dogfood.
+- **`init-project.md` hook enumeration** updated 9 → 10 hooks (now lists
+  `autonomy-discipline.js` alongside the others).
+- **`autonomy-discipline.js` `require.main === module` guard** — the stdin-driven
+  main flow only runs when invoked as a script, not when `require()`'d from tests
+  (a pattern that was missing on initial implementation; caught by failing L4 tests).
+
+### Why a Stop-hook backstop
+
+The prompt-level enforcement added in 3.3.10 + sharpened in 3.3.11 was already in
+place, but per the user's report, the model still drafted the exact "I'll continue
+unless you want to pause" pattern. The hook is the next layer: the model produces
+the text, the hook scans it on Stop, and if a hedged offer slipped through it gets
+blocked with a re-injected instruction to delete the offer and continue. Same
+defense-in-depth as async-discipline (prompt rule + Stop-hook guard).
+
+### Tested against the user-reported failure
+
+```
+Input text (from 3.3.11 user report):
+  "[STATUS: /implement-trd-team] PHASE 0/4 COMPLETE. Given Phase 0 went cleanly
+   and your --wiggum choice, I'll continue autonomously into Phase 1 unless you
+   want to pause and review first. Want me to keep going, or pause for a look?"
+
+Hook result: BLOCK with reason instructing model to delete the offer and continue.
+```
+
+---
+
 ## [3.3.11] - 2026-05-29
 
 Sharpens the 3.3.10 autonomy discipline after a real-world hedged-offer slip-through.

@@ -328,7 +328,7 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - `.trd-state/current.json`
 - `.claude/agents/*.md` (12 files)
 - `.claude/commands/*.md` (8 files)
-- `.claude/hooks/` (permitter/, router.py, formatter.sh, status.js, wiggum.js, notify.sh, async-discipline.js, session-context.js, precompact.js)
+- `.claude/hooks/` (permitter/, router.py, formatter.sh, status.js, wiggum.js, notify.sh, async-discipline.js, autonomy-discipline.js, session-context.js, precompact.js)
 
 ### Step 4: Generate Governance Files
 
