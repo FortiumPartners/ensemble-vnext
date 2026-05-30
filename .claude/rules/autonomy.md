@@ -52,6 +52,8 @@ These have all been observed in command drift and are explicitly forbidden:
 | Anti-pattern | Why it's wrong | What to do instead |
 |---|---|---|
 | "Should I proceed to phase 2?" | The user authorized the whole run by invoking the command. | Emit PHASE banner, spawn next phase. |
+| "I'll continue unless you want me to pause" / "Want me to keep going, or pause for a look?" | Hedged offers to pause are STILL pauses. Even framing the question as "I'll proceed unless..." invites the user back into the loop. | Just proceed. Do not announce or offer; just do. |
+| "Given X went cleanly, want me to pause and review before phase Y?" | Self-defeating: you've just acknowledged there's nothing to address. | Just proceed. |
 | "I've drafted the PRD. Please review and confirm." | User reviews when the command finishes, not mid-flight. | Finish the PRD. Emit COMMAND COMPLETE. |
 | "This decision impacts X. Should we check with product first?" | The PRD is product's input. Decide based on it. | Decide based on documented constraints; note rationale. |
 | "Multiple approaches are possible (A/B/C). Which do you prefer?" | Pick the one best fitting documented constraints. | Decide; document rationale; mention alternatives in the artifact if relevant. |
@@ -83,6 +85,27 @@ Example of a legitimate ask:
 Example of an illegitimate ask:
 > ❌ "I've completed Phase 2 of implementation. All tasks passed verification. Should I
 > proceed to Phase 3?"
+
+## `--wiggum` and autonomous-mode flags
+
+When the user passes `--wiggum` (autonomous mode) on `/implement-trd` or
+`/implement-trd-team`, the autonomy contract is **doubly enforced** — the user has
+explicitly opted into "do not stop until complete." Under `--wiggum`:
+
+- **All four valid `AskUserQuestion` cases above shrink to ONE**: only STUCK conditions
+  after retry exhaustion. Ambiguity, missing info, and routine destructive operations
+  are resolved by the model picking the best available option and proceeding (the wiggum
+  flag IS the user's standing approval).
+- **All offers to pause, review, or check-in are forbidden** — including the hedged
+  forms ("I'll proceed unless...", "Want me to keep going?"). When `--wiggum` is set,
+  the answer to every "should I continue?" question is already YES. Don't ask. Don't
+  hedge. Don't announce intent — just do.
+- **The COMMAND COMPLETE banner is the FIRST and ONLY return of control** to the user
+  during a `--wiggum` run.
+
+If you find yourself drafting a "given X went cleanly, want me to pause?" message under
+`--wiggum`, you have already noticed there's nothing to pause for. **Delete the message
+and proceed.**
 
 ## Refine commands (`/refine-prd`, `/refine-trd`)
 

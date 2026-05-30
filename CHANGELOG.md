@@ -2,6 +2,48 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [3.3.11] - 2026-05-29
+
+Sharpens the 3.3.10 autonomy discipline after a real-world hedged-offer slip-through.
+
+### Why
+
+User report: `/implement-trd-team --wiggum` (autonomous mode flag explicitly set) finished
+Phase 0 cleanly, then asked: *"Given Phase 0 went cleanly and your --wiggum choice, I'll
+continue autonomously into Phase 1 unless you want to pause and review what's on
+feature/notify-completion-events first. Want me to keep going, or pause for a look?"*
+
+Two failures stacked:
+1. The model knew the answer ("Given Phase 0 went cleanly… I'll continue autonomously")
+   then asked anyway via a hedged "unless you want to pause" framing.
+2. `--wiggum` literally means autonomous mode; asking under `--wiggum` is doubly wrong,
+   but 3.3.10's autonomy block didn't call this out.
+
+### Fixed
+
+- **`autonomy.md`** gained two new explicit anti-pattern entries and a dedicated
+  `--wiggum and other autonomous-mode flags` section:
+  - "I'll continue unless you want me to pause" / "Want me to keep going, or pause for a
+    look?" → **Hedged offers are still pauses. Just proceed without announcing.**
+  - "Given X went cleanly, want me to pause and review?" → self-defeating; you just
+    acknowledged there's nothing to address. Proceed.
+  - `--wiggum` doubles enforcement: the four valid `AskUserQuestion` cases shrink to
+    ONE (STUCK conditions only); all hedged offers and announcement-of-intent are
+    forbidden; COMMAND COMPLETE is the FIRST and ONLY return of control.
+- **All 16 non-refine commands' embedded autonomy block** gained the matching tightening
+  — two new forbidden patterns + a `--wiggum and other autonomous-mode flags` callout
+  at the end of each block.
+
+### Verified
+
+BATS suite extended 32 → 36 tests:
+- `autonomy.md` forbids hedged "I'll continue unless..." offers
+- `autonomy.md` documents the --wiggum doubly-enforced rule
+- Every non-refine command's embedded block forbids hedged offers
+- Every non-refine command's embedded block mentions --wiggum doubly-enforced rule
+
+---
+
 ## [3.3.10] - 2026-05-29
 
 Behavioral correction: workflow commands had drifted from autonomous orchestration toward

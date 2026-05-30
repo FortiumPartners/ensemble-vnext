@@ -332,6 +332,52 @@ JSON
     ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-trd.md"
 }
 
+@test "L2b: autonomy.md forbids hedged 'I'll continue unless...' offers" {
+    local f="${REPO_ROOT}/.claude/rules/autonomy.md"
+    grep -q "HEDGED OFFERS ARE STILL OFFERS\|Hedged offers to pause are STILL pauses\|even framing.*I'll proceed unless" "$f"
+}
+
+@test "L2b: autonomy.md documents the --wiggum doubly-enforced rule" {
+    local f="${REPO_ROOT}/.claude/rules/autonomy.md"
+    grep -q "wiggum" "$f"
+    grep -q "doubly enforced\|doubly-enforced" "$f"
+    grep -q "STUCK conditions" "$f"
+}
+
+@test "L2b: every non-refine command's embedded block forbids hedged offers" {
+    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+                fix-issue create-prd-team create-trd-team create-prd create-trd
+                update-project cleanup-project fold-prompt
+                investigate-issue augment-trd-figma init-project rebase-project)
+    local missing=()
+    for cmd in "${cmds[@]}"; do
+        if ! grep -q "HEDGED OFFERS ARE STILL OFFERS" "${CANON_COMMANDS}/${cmd}.md"; then
+            missing+=("$cmd")
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        printf 'Commands missing hedged-offer prohibition:\n%s\n' "${missing[*]}" >&2
+        return 1
+    fi
+}
+
+@test "L2b: every non-refine command's embedded block mentions --wiggum doubly-enforced rule" {
+    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+                fix-issue create-prd-team create-trd-team create-prd create-trd
+                update-project cleanup-project fold-prompt
+                investigate-issue augment-trd-figma init-project rebase-project)
+    local missing=()
+    for cmd in "${cmds[@]}"; do
+        if ! grep -q "doubly enforced\|doubly-enforced" "${CANON_COMMANDS}/${cmd}.md"; then
+            missing+=("$cmd")
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        printf 'Commands missing --wiggum doubly-enforced clause:\n%s\n' "${missing[*]}" >&2
+        return 1
+    fi
+}
+
 # =============================================================================
 # Layer 3 — session-context.js CLAUDE_SESSION_ID export
 # =============================================================================
