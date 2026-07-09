@@ -155,7 +155,7 @@ Open Claude Code in any project and run the initialization command:
 
 ```
 .claude/
-  agents/              # 12 specialist subagents
+  agents/              # 13 specialist subagents
   commands/            # Workflow commands (/create-prd, /implement-trd, etc.)
   hooks/               # Automated guardrails
   skills/              # Domain knowledge matched to your stack
@@ -185,13 +185,13 @@ After initialization, verify the key components and run your first feature.
 ```
 # In Claude Code, type / to see available commands
 # You should see:
-/create-prd
-/create-trd
-/implement-trd
-/refine-prd
-/refine-trd
-/fold-prompt
-/update-project
+/create-prd            /create-prd-team
+/create-trd            /create-trd-team
+/refine-prd            /refine-trd
+/implement-trd         /implement-trd-team
+/harden-trd-team       /verify-trd-team
+/investigate-issue     /fix-issue
+/fold-prompt           /update-project
 /cleanup-project
 ```
 
@@ -214,12 +214,13 @@ Check `.claude/settings.json` to verify hooks are configured:
 
 | Hook Event | Handler | Purpose |
 |------------|---------|---------|
+| `SessionStart` | `session-context.js` | Captures session identity for downstream tooling |
 | `UserPromptSubmit` | `router.py` | Routes prompts to appropriate agents/skills |
 | `PermissionRequest` | `permitter.js` | Validates permissions against allowlist |
 | `PostToolUse` | `formatter.sh` | Auto-formats edited files |
 | `SubagentStop` | `status.js` | Tracks implementation progress |
-| `Stop` | `wiggum.js` + `notify.sh` | Session end processing + notifications |
-| `SessionEnd` | `learning.sh` + `save-remote-logs.js` | Capture learnings + save logs |
+| `Stop` | `async-discipline.js` → `autonomy-discipline.js` → `wiggum.js` → `notify.sh` | Async/autonomy guards, session-end processing, notifications |
+| `PreCompact` | `precompact.js` | Preserves state before context compaction |
 
 ---
 

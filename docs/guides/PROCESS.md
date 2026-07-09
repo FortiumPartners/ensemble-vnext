@@ -51,9 +51,10 @@ Run once per project. This bootstraps the full Ensemble runtime into your reposi
 
 ```
 .claude/
-  agents/           12 specialist subagents, tailored to your stack
+  agents/           13 specialist subagents, tailored to your stack
   commands/         Workflow slash commands
-  hooks/            Router, permitter, formatter, status, wiggum, notify, learning
+  hooks/            session-context, router, permitter, formatter, status,
+                    async-discipline, autonomy-discipline, wiggum, notify, precompact
   skills/           Domain knowledge packs matched to your technology stack
   rules/
     constitution.md   Project guardrails and quality gates
@@ -73,7 +74,7 @@ docs/
 1. **Repository analysis** -- scans your project for package.json, requirements.txt, Gemfile, Cargo.toml, etc. to detect your technology stack
 2. **Interactive configuration** -- asks about project identity, development methodology (TDD, flexible, characterization), quality gates, and approval requirements
 3. **Scaffolding** -- creates the directory structure and copies the runtime components
-4. **Agent tailoring** -- deploys 12 subagents customized with your project context (stack, conventions, directory structure). Each agent gets instructions specific to your environment
+4. **Agent tailoring** -- deploys 13 subagents customized with your project context (stack, conventions, directory structure). Each agent gets instructions specific to your environment
 5. **Skill selection** -- analyzes your stack definition and selects relevant skills from the library (e.g., a Python/FastAPI project gets `developing-with-python`, `pytest`; a React/TypeScript project gets `developing-with-typescript`, `jest`, `developing-with-react`)
 6. **Hook installation** -- wires lifecycle hooks into `.claude/settings.json`
 7. **Governance generation** -- creates `constitution.md` with your quality gates and `stack.md` with detected technologies
@@ -404,8 +405,15 @@ Backups are created before any destructive operation. Use `--dry-run` to preview
 | Independent review | `/review-trd` | TRD (auto-resolved) | Review findings |
 | Refine architecture | `/refine-trd` | Review findings or feedback | Updated TRD |
 | Build (Pass 1) | `/implement-trd-team` | Approved TRD | Working code + tests |
-| Harden (Pass 2) | `/implement-trd-team` | Pass 1 code | Hardened implementation |
-| Validate (Pass 3) | `/implement-trd-team` | Pass 2 code | Validated implementation |
+| Harden (Pass 2) | `/implement-trd-team` or `/harden-trd-team` | Pass 1 code | Hardened implementation |
+| Validate (Pass 3) | `/implement-trd-team` or `/verify-trd-team` | Pass 2 code | Validated implementation |
 | Human finish | Manual debugging | Pass 3 code | Production-ready code |
 | Capture learnings | `/fold-prompt` | Session context | Updated CLAUDE.md |
 | Upgrade runtime | `/rebase-project` | New plugin version | Updated vendored runtime |
+
+**Issue triage (outside the main feature loop):**
+
+| Step | Command | Input | Output |
+|------|---------|-------|--------|
+| Triage | `/investigate-issue` | Issue report | Reproduction + classification → issue TRD or PRD spec |
+| Fix | `/fix-issue` | Triaged issue TRD | Implement + verify + review in one compressed pass |

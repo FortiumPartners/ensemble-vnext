@@ -273,7 +273,7 @@ This is what makes the air traffic controller model concrete: you launch a team 
 
 The tradeoff is API cost for speed and breadth. A single `/implement-trd` session processes tasks sequentially. `/implement-trd-team` can process an entire phase's worth of independent tasks concurrently.
 
-### The 12 Specialist Agents
+### The 13 Specialist Agents
 
 | Category | Agent | Responsibility |
 |----------|-------|---------------|
@@ -283,6 +283,7 @@ The tradeoff is API cost for speed and breadth. A single `/implement-trd` sessio
 | **Implementation** | `frontend-implementer` | UI, components, client logic |
 | **Implementation** | `backend-implementer` | APIs, services, data layer |
 | **Implementation** | `mobile-implementer` | Mobile apps (when applicable) |
+| **Implementation** | `agent-implementer` | AI/agent apps — prompts, model selection, RAG, tool calling, agent memory |
 | **Quality** | `verify-app` | Test execution and verification |
 | **Quality** | `code-simplifier` | Post-verification refactoring |
 | **Quality** | `code-reviewer` | Security and quality review |
@@ -374,6 +375,15 @@ For complex features that benefit from parallel work, Ensemble offers team varia
 | `/create-trd` | `/create-trd-team` | Parallel architecture perspectives |
 | `/implement-trd` | `/implement-trd-team` | Concurrent phase execution across agents |
 
-Team variants use Claude Code's agent teams feature to run multiple specialists simultaneously, trading API cost for speed and breadth of analysis.
+Two additional team commands operate *after* an implementation pass, using parallel teammates:
+
+| Command | Purpose |
+|---------|---------|
+| `/harden-trd-team` | Hardening pass — closes gaps, edge cases, contract/interaction risks, and regressions against an implemented TRD |
+| `/verify-trd-team` | Live verification pass — confirms the feature actually works via API, UI, and service-integration testing |
+
+These map naturally onto the three-pass workflow: `/implement-trd-team` for the build pass, `/harden-trd-team` for hardening, and `/verify-trd-team` for validation against the PRD.
+
+Team variants use Claude Code's agent teams feature to run multiple specialists simultaneously, trading API cost for speed and breadth of analysis. Because teammate auto-delivery can stall, every team command pairs its spawn with a `ScheduleWakeup` safety-net so the orchestrating session always resumes (see `.claude/rules/async-discipline.md`).
 
 **`/implement-trd-team` is the recommended command for the three-pass workflow.** It launches parallel agent sessions for independent tasks within each phase, significantly reducing wall-clock time compared to sequential execution. Combined with `--dangerously-skip-permissions`, a full pass can run unattended while you work on other things -- the air traffic controller model in practice.
