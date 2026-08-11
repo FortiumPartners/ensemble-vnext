@@ -364,7 +364,7 @@ _get_plugin_dir() {
     [ "$status" -eq 0 ]
 }
 
-@test "Plugin copy: Copies 12 agent files with --plugin-dir" {
+@test "Plugin copy: Copies 13 agent files with --plugin-dir" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
 
@@ -374,7 +374,7 @@ _get_plugin_dir() {
     # Count agent files
     local count
     count=$(ls -1 "$TEST_DIR/.claude/agents/"*.md 2>/dev/null | wc -l)
-    [ "$count" -eq 12 ]
+    [ "$count" -eq 13 ]
 }
 
 @test "Plugin copy: Copies specific agents (product-manager, backend-implementer)" {

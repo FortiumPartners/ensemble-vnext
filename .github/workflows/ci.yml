@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  version-sync:
+    name: Version manifest sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version manifests agree
+        run: ./packages/core/scripts/check-version-sync.sh
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint shell scripts
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          # Scoped to framework scripts. packages/core/hooks and
+          # packages/skills/*/tests carry pre-existing warnings; widen this
+          # glob as those are cleaned up rather than blocking on them now.
+          # SC1091: sourced files aren't resolvable in isolation
+          # SC2317: BATS test bodies read as unreachable to shellcheck
+          find packages/core/scripts -name '*.sh' -not -name '*.test.sh' -print0 \
+            | xargs -0 shellcheck --severity=warning --exclude=SC1091,SC2317
+
+  jest:
+    name: Jest (hooks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install
+      - run: npm test --if-present
+
+  bats:
+    name: BATS (shell)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install BATS
+        run: npm install -g bats
+      - name: Run shell test suites
+        run: |
+          shopt -s nullglob globstar
+          files=(packages/**/*.test.sh test/integration/tests/*.test.sh)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No BATS suites found"; exit 0
+          fi
+          bats "${files[@]}"

@@ -416,12 +416,21 @@ copy_hooks() {
 copy_skills() {
     local target_dir="$1"
     local selection_file="$target_dir/.claude/selected-skills.txt"
-    local src="$PLUGIN_DIR/skills"
     local dest="$target_dir/.claude/skills"
 
     if [[ -z "$PLUGIN_DIR" ]]; then
         warn "No plugin directory specified, skipping skills"
         return 0
+    fi
+
+    # The skill library ships as skills-lib/ and is deliberately NOT registered in
+    # plugin.json — registering it would load all 61 skills into every session on the
+    # machine (~12.4k tok always-on) and defeat /init-project's per-project curation.
+    # Fall back to skills/ so installs predating the rename still scaffold correctly.
+    local src="$PLUGIN_DIR/skills-lib"
+    if [[ ! -d "$src" && -d "$PLUGIN_DIR/skills" ]]; then
+        src="$PLUGIN_DIR/skills"
+        info "Using legacy skills/ source (plugin predates skills-lib)"
     fi
 
     if [[ ! -f "$selection_file" ]]; then
@@ -446,7 +455,7 @@ copy_skills() {
                 info "Skill exists: $skill"
             else
                 if [[ "$FORCE" == "true" && -d "$dest/$skill" ]]; then
-                    rm -rf "$dest/$skill"
+                    rm -rf "${dest:?}/${skill:?}"
                 fi
                 cp -r "$src/$skill" "$dest/"
                 if [[ "$FORCE" == "true" ]]; then
@@ -462,6 +471,74 @@ copy_skills() {
     done < "$selection_file"
 
     info "Copied $count skills"
+}
+
+# Stamp the plugin version into the target's .claude/settings.json.
+#
+# /rebase-project's version detection reads settings.json's ensemble.version;
+# without the stamp it always falls through to "unknown -> full sync", and the
+# runtime-refresh monotonic gate has nothing to compare against. Stamped on
+# initial scaffold and on every successful --refresh.
+#
+# Writes only the "ensemble" key. Permissions, env, and hook registrations are
+# user-owned and are never touched here.
+stamp_ensemble_version() {
+    local target_dir="$1"
+    local settings="$target_dir/.claude/settings.json"
+
+    if [[ ! -f "$settings" ]]; then
+        warn "No settings.json to stamp: $settings"
+        return 0
+    fi
+
+    local plugin_manifest="$PLUGIN_DIR/.claude-plugin/plugin.json"
+    if [[ -z "$PLUGIN_DIR" || ! -f "$plugin_manifest" ]]; then
+        info "No plugin manifest available — skipping version stamp"
+        return 0
+    fi
+
+    local version
+    version="$(python3 -c "
+import json
+print(json.load(open('$plugin_manifest')).get('version', ''))
+" 2>/dev/null)" || version=""
+
+    if [[ -z "$version" ]]; then
+        warn "Could not read plugin version — skipping version stamp"
+        return 0
+    fi
+
+    # Rewrite atomically: a half-written settings.json breaks every hook.
+    if python3 - "$settings" "$version" <<'PY'
+import json, os, sys, tempfile, collections
+from datetime import datetime, timezone
+
+path, version = sys.argv[1], sys.argv[2]
+with open(path) as fh:
+    data = json.load(fh, object_pairs_hook=collections.OrderedDict)
+
+data["ensemble"] = collections.OrderedDict([
+    ("version", version),
+    ("refreshed_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
+    ("agents_dir", ".claude/agents"),
+])
+
+directory = os.path.dirname(path) or "."
+fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
+try:
+    with os.fdopen(fd, "w") as fh:
+        json.dump(data, fh, indent=2)
+        fh.write("\n")
+    os.replace(tmp, path)
+except BaseException:
+    os.path.exists(tmp) and os.unlink(tmp)
+    raise
+PY
+    then
+        info "Stamped ensemble.version = $version"
+    else
+        warn "Failed to stamp version into $settings (left unchanged)"
+    fi
 }
 
 # Main scaffolding function
@@ -578,6 +655,10 @@ scaffold_project() {
             copy_skills "$(pwd)"
             echo ""
         fi
+
+        echo "--- Version Stamp ---"
+        stamp_ensemble_version "$(pwd)"
+        echo ""
     fi
 
     # Return to original directory

@@ -22,7 +22,6 @@
   "commands": [
     "./commands/plugin-only"
   ],
-  "skills": "./skills",
   "agents": [
     "./agents/product-manager.md",
     "./agents/technical-architect.md",

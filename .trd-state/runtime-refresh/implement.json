@@ -1,0 +1,63 @@
+{
+  "version": "1.0.0",
+  "trd_file": "docs/TRD/runtime-refresh.md",
+  "trd_version": "1.0.0",
+  "branch": "feature/cc-modernization",
+  "phase_cursor": 1,
+  "phase_structure": {
+    "1": { "name": "Curation and versioning", "tasks": "P001-P004, B004-B006, D001-D002" },
+    "2": { "name": "Manifest and delivery", "tasks": "P005-P007, B001-B003, T007-T008" },
+    "3": { "name": "Refresh mechanism", "tasks": "B007-B015, T001-T006" },
+    "4": { "name": "Documentation", "tasks": "D003" }
+  },
+  "prework": {
+    "section_7_load_order": {
+      "status": "resolved",
+      "result": "next-session",
+      "detail": "Claude Code loads .claude/ before SessionStart hooks. RUNTIME-B014 must keep the next-session caveat."
+    },
+    "appendix_b_agents": {
+      "status": "resolved",
+      "result": "Agents (0) is accurate; plugin agent registration is non-functional",
+      "detail": "Fresh session outside the repo reports NONE. Directory form ('agents': './agents') invalidates the manifest entirely."
+    }
+  },
+  "tasks": {
+    "RUNTIME-P001": { "status": "success", "phase": 1, "description": "Remove skills registration from plugin.json" },
+    "RUNTIME-P002": { "status": "success", "phase": 1, "description": "Remove packages/full/skills symlink; retain skills-lib" },
+    "RUNTIME-P003": { "status": "success", "phase": 1, "description": "copy_skills reads skills-lib with legacy skills/ fallback" },
+    "RUNTIME-P004": { "status": "success", "phase": 1, "description": "Verified: Skills (2), always-on ~95 tok (was ~12,366)" },
+    "RUNTIME-B004": { "status": "success", "phase": 1, "description": "Stamp ensemble.version/refreshed_at on scaffold" },
+    "RUNTIME-B005": { "status": "success", "phase": 1, "description": "Reconciled all manifests at 3.3.12" },
+    "RUNTIME-B006": { "status": "success", "phase": 1, "description": "check-version-sync.sh + npm script + GitHub Actions CI" },
+    "RUNTIME-D001": { "status": "success", "phase": 1, "description": "Corrected constitution.md governance table" },
+    "RUNTIME-D002": { "status": "success", "phase": 1, "description": "Vendored augment-trd-figma.md" },
+
+    "RUNTIME-P005": { "status": "pending", "phase": 2, "description": "Author hooks.manifest.json" },
+    "RUNTIME-P006": { "status": "pending", "phase": 2, "description": "Add 5 missing hook symlinks" },
+    "RUNTIME-P007": { "status": "pending", "phase": 2, "description": "Confirm plugin hooks.json stays empty" },
+    "RUNTIME-B001": { "status": "pending", "phase": 2, "description": "Manifest-drive the scaffold copy list" },
+    "RUNTIME-B002": { "status": "pending", "phase": 2, "description": "Generate template settings hook block" },
+    "RUNTIME-B003": { "status": "pending", "phase": 2, "description": "Generate init-project hook table" },
+    "RUNTIME-T007": { "status": "pending", "phase": 2, "description": "Test manifest consumers" },
+    "RUNTIME-T008": { "status": "pending", "phase": 2, "description": "End-to-end scaffold hook parity" },
+
+    "RUNTIME-B007": { "status": "pending", "phase": 3, "description": "Implement --refresh flag" },
+    "RUNTIME-B008": { "status": "pending", "phase": 3, "description": "Present-only filter" },
+    "RUNTIME-B009": { "status": "pending", "phase": 3, "description": "Protect authored rules" },
+    "RUNTIME-B010": { "status": "pending", "phase": 3, "description": "Emit REFRESH_SUMMARY tally" },
+    "RUNTIME-B011": { "status": "pending", "phase": 3, "description": "Create runtime-refresh.sh" },
+    "RUNTIME-B012": { "status": "pending", "phase": 3, "description": "Plugin discovery" },
+    "RUNTIME-B013": { "status": "pending", "phase": 3, "description": "Four guards" },
+    "RUNTIME-B014": { "status": "pending", "phase": 3, "description": "Summary emission (MUST keep next-session caveat)" },
+    "RUNTIME-B015": { "status": "pending", "phase": 3, "description": "Register the hook" },
+    "RUNTIME-T001": { "status": "pending", "phase": 3, "description": "Extend scaffold BATS with --refresh" },
+    "RUNTIME-T002": { "status": "pending", "phase": 3, "description": "Test present-only semantics" },
+    "RUNTIME-T003": { "status": "pending", "phase": 3, "description": "Test authored-rule protection" },
+    "RUNTIME-T004": { "status": "pending", "phase": 3, "description": "Create runtime-refresh.test.sh" },
+    "RUNTIME-T005": { "status": "pending", "phase": 3, "description": "Test all four guards" },
+    "RUNTIME-T006": { "status": "pending", "phase": 3, "description": "Test monotonic gate" },
+
+    "RUNTIME-D003": { "status": "pending", "phase": 4, "description": "Document refresh model in ARCHITECTURE.md" }
+  }
+}

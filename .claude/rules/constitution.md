@@ -67,7 +67,13 @@ Story/Idea --> PRD --> TRD (with Execution Plan) --> Implementation
 |-------|----------|------------------|-------|
 | Slow | `constitution.md` | Rare, requires confirmation | User |
 | Slow | `stack.md` | Occasional, requires confirmation | User |
-| Fast | `CLAUDE.md` | Frequent, automatic | SessionEnd hook |
+| Fast | `CLAUDE.md` | Frequent, on request | `/update-project`, `/cleanup-project` |
+
+`CLAUDE.md` is updated by explicitly invoking `/update-project` (capture learnings) or
+`/cleanup-project` (prune). There is **no** `SessionEnd` hook performing this automatically —
+no `SessionEnd` hook is registered in `.claude/settings.json` at all. `learning.sh` exists in
+`.claude/hooks/` and is the staging helper `/update-project` builds on; it is deliberately not
+auto-registered, per the "no auto-commit in SessionEnd" prohibition below.
 
 ---
 
