@@ -11,6 +11,8 @@ description: |
 model: opus
 effort: high
 color: blue
+# background: Returns a PRD; no tool needed that the background filter removes.
+background: true
 ---
 
 ## Role Statement

@@ -23,6 +23,8 @@ description: |
 model: sonnet
 effort: medium
 color: yellow
+# background: Reads, edits, runs builds and tests — all retained in background.
+background: true
 ---
 
 ## Role Statement

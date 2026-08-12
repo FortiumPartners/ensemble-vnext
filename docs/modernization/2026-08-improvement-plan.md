@@ -54,7 +54,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 |---|------|--------|------------------|--------|
 | 1 | Runtime refresh and delivery coherence | 2–3 days | ~12.4k tok/turn wasted; new projects 3 releases behind | **Done (4.1.1)** |
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
-| 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | |
+| 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
 | 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a done (4.1.0)** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
@@ -222,7 +222,17 @@ disproved it — a teammate's `SendMessage` calls auto-delivered and re-invoked 
 involved. The wake is now documented as a recommended fallback. Evidence base is one experiment
 plus current docs, so it stays as cheap insurance rather than being removed.
 
-### 3. Re-baseline the execution model — *silent*
+### 3. Re-baseline the execution model — ✅ **Done (4.1.3)**
+
+> **Status: DONE.** Concurrency now derives from the task graph rather than a constant. All 13
+> agents declare `background:` with a rationale. Nesting stance decided: permitted to depth 3,
+> with `code-reviewer`/`code-simplifier`/`verify-app` restricted via `disallowedTools: Agent`.
+> The teammate `skills:` gap was already closed by RUNTIME-D004's managed body block.
+>
+> One finding narrowed the work: the "background subagents lose the task tools" problem does
+> not affect this framework, because all 23 Task-tool calls in `implement-trd` are
+> orchestrator-side and no agent definition references them. That invariant is now written into
+> `constitution.md` so it stays true deliberately rather than by accident.
 
 Four platform changes landed that vNext hasn't absorbed. Three degrade it silently; one leaves
 capability on the table.

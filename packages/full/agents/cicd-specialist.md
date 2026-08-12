@@ -25,6 +25,8 @@ description: |
 model: sonnet
 effort: medium
 color: orange
+# background: Reads, edits pipeline YAML, runs act locally — all retained in background.
+background: true
 ---
 
 ## Role Statement

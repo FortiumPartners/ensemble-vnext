@@ -801,13 +801,33 @@ Before each delegation, resolve which skills the subagent should explicitly invo
 
 ---
 
-## File Conflict Detection
+## Concurrency and File Conflict Detection
 
-Before parallel execution:
+**There is no fixed concurrency limit. The task graph decides.** A hardcoded cap was a
+heuristic from when subagents could not nest and the platform allowed very few at once; it
+throttled work the dependency graph had already proven safe to run together.
 
-1. **Infer file touches:** Explicit `Files:` in task, keyword patterns, domain inference
-2. **Detect conflicts:** Same file = sequential; disjoint = parallel
-3. **Execute:** Max 2 concurrent tasks; pause conflicting task if detected mid-execution
+Derive concurrency instead:
+
+1. **Infer file touches** — explicit `Files:` in the task, else keyword patterns and domain
+   inference. This is the input the graph needs; a TRD that declares file ownership per task
+   gives a far better answer than inference.
+2. **Build the eligible set** — every task that is `pending`, unowned, and whose `blockedBy`
+   list is fully resolved. The platform enforces this: a task with unresolved dependencies
+   cannot be claimed.
+3. **Partition by file ownership** — tasks touching disjoint file sets run concurrently;
+   tasks sharing a file run sequentially. Conflict, not a constant, is what serializes work.
+4. **Spawn the whole partition.** Let the platform's own ceiling be the backstop: 20
+   concurrent subagents by default (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`), and spawning
+   past it fails with `Concurrent subagent limit reached` rather than corrupting anything.
+
+**Count the whole tree, not the top layer.** Subagents may nest (see the nesting stance in
+`constitution.md`), and nested subagents occupy the same 20-slot pool. Six implementers that
+each dispatch two verifiers is eighteen slots, not six. When a phase's partition is wide
+enough that nesting could exhaust the pool, spawn in waves rather than all at once.
+
+If a conflict is detected mid-execution that the partition missed, pause the conflicting task
+rather than letting two agents write the same file.
 
 ---
 

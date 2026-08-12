@@ -28,6 +28,8 @@ description: |
 model: sonnet
 effort: medium
 color: purple
+# background: Reads, edits, WebFetch for provider docs — all retained in background.
+background: true
 ---
 
 ## Role Statement

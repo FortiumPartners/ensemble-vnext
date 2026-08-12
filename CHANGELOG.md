@@ -10,6 +10,55 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.3] - 2026-08-12
+
+Item 3 of the improvement plan: re-baselines vNext's assumptions about *how agents execute*
+against the current platform. Those assumptions were correct when written; three of the four
+had since degraded silently.
+
+### Changed — BREAKING
+
+- **The hardcoded concurrency limit is gone.** `implement-trd` said "Max 2 concurrent tasks",
+  a heuristic from when subagents could not nest and the platform allowed very few at once.
+  The platform now defaults to **20** (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`) and the
+  per-session 200-spawn cap was removed. Concurrency is now derived: build the eligible set
+  from unblocked tasks, partition by file ownership, spawn the partition. **Conflict, not a
+  constant, is what serializes work** — the graph already proves what is safe to run together,
+  and the platform ceiling is the backstop.
+
+- **All 13 agents declare `background:` explicitly.** Subagents run in the background by
+  default (v2.1.198+), and a background subagent keeps every MCP tool but only a fixed list of
+  built-ins — the task tools and `AskUserQuestion` are removed *"whether inherited or listed in
+  the `tools` field"*, and *"the removal reports no error."* The same definition therefore
+  resolves to different tools depending on where it runs, silently. An inherited default is a
+  latent trap; a declared value is reviewable. Each agent carries a one-line rationale.
+
+- **Nesting stance decided: permitted to depth 3, restricted per agent.** Subagents can now
+  spawn subagents — impossible when "commands orchestrate, subagents execute" was written, so
+  that principle described the platform as much as a choice. It is now a deliberate one.
+  `code-reviewer`, `code-simplifier`, and `verify-app` declare `disallowedTools: Agent`: they
+  report, they do not delegate. The accepted cost is that a nested subagent's intermediate
+  output is *designed* not to reach the orchestrator, so a wrong conclusion several layers down
+  arrives as a confident summary with its reasoning discarded — restricting the leaf agents is
+  what keeps that bounded.
+
+### Added
+
+- **`constitution.md` now states that the orchestrator owns the task list.** Task-list mutation
+  is the command's job, never a subagent's: a subagent does not complete a task, it returns a
+  result and the orchestrator records completion. This was already true of every command by
+  accident; it is now true by statement, and it is what makes the background tool filter a
+  non-issue rather than a silent failure waiting to happen. A worker that genuinely must
+  self-claim is an agent-team teammate (teammates keep the task tools), not a subagent.
+- Regression tests asserting both invariants: every agent declares `background:`, and the three
+  leaf agents declare `disallowedTools: Agent`.
+
+### Fixed
+
+- `agent-validation.test.js` still enumerated **12** agents. `agent-implementer` — added in
+  3.3.x — was absent from `REQUIRED_AGENTS`, so it was silently excluded from every assertion
+  in that suite, including the two added here.
+
 ## [4.1.2] - 2026-08-12
 
 Item 2 of the improvement plan: removes tooling that no longer exists, and one command that was

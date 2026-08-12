@@ -11,6 +11,8 @@ description: |
 model: opus
 effort: xhigh
 color: purple
+# background: Returns a TRD; read/write/search only.
+background: true
 ---
 
 ## Role Statement

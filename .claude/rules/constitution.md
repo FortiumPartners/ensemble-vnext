@@ -12,6 +12,34 @@ Project absolutes and architecture invariants for Claude Code Plugin Development
 - **Subagents** perform specialized work delegated by commands
 - This separation provides visibility, debuggability, and determinism
 
+**The orchestrator owns the task list.** Task-list mutation (`TaskCreate`, `TaskUpdate`,
+`TaskGet`, `TaskList`) is the command's job, never a subagent's. A subagent does not complete
+a task — it returns a result, and the orchestrator records completion based on that return.
+This is not merely convention: background subagents (the platform default) have the task tools
+**removed**, and *"the removal reports no error."* A delegation template that instructs a
+subagent to update its own task fails silently. If a worker genuinely needs to self-claim,
+that is an agent-team teammate (teammates keep the task tools), not a subagent — and needing
+one is a signal the wrong construct was chosen.
+
+**Nesting stance: permitted to depth 3, restricted per agent.** Subagents may spawn subagents
+(platform default; `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`). This was impossible when this
+principle was first written, so the principle described the platform as much as a choice; it
+is now a deliberate one.
+
+- **Permitted** for agents whose work genuinely fans out — the canonical case is a reviewer
+  dispatching a verifier per finding, so per-finding verification never reaches the
+  orchestrator's context.
+- **Forbidden for leaf agents.** `code-reviewer`, `code-simplifier`, and `verify-app` declare
+  `disallowedTools: Agent`. They report; they do not delegate.
+- **Concurrency counts the whole tree.** Nested subagents occupy the same 20-slot pool
+  (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`), so six implementers each dispatching two verifiers
+  is eighteen slots, not six.
+
+The cost being accepted: intermediate output from a nested subagent is *designed* not to reach
+the orchestrator, so a wrong conclusion several layers down arrives as a confident summary with
+its reasoning discarded. Restricting the leaf agents is what keeps that bounded — the agents
+whose judgment the loop depends on most are the ones that cannot hide their work.
+
 ### 2. Skills and Agents are PROMPTS Only
 
 - Skills are `.md` files interpreted by the LLM at runtime

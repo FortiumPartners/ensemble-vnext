@@ -25,6 +25,8 @@ description: |
 model: opus
 effort: high
 color: red
+# background: Root-cause investigation; may dispatch its own probes when nesting allows.
+background: true
 ---
 
 ## Role

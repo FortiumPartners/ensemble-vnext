@@ -3,7 +3,7 @@
  *
  * TRD Tasks: TRD-TEST-086 to TRD-TEST-092
  *
- * Tests to validate agent frontmatter in .md files for the 12 streamlined subagents.
+ * Tests to validate agent frontmatter in .md files for the 13 streamlined subagents.
  *
  * Run tests with: npx jest agent-validation.test.js
  *
@@ -43,7 +43,7 @@ try {
 const AGENTS_DIR = path.join(__dirname, '../../full/agents');
 
 /**
- * Required 12 agents as per TRD constitution and CLAUDE.md
+ * Required 13 agents as per TRD constitution and CLAUDE.md
  */
 const REQUIRED_AGENTS = [
   'product-manager',
@@ -52,6 +52,7 @@ const REQUIRED_AGENTS = [
   'frontend-implementer',
   'backend-implementer',
   'mobile-implementer',
+  'agent-implementer',
   'verify-app',
   'code-simplifier',
   'code-reviewer',
@@ -188,11 +189,11 @@ function readAgentFile(agentName) {
 }
 
 // =============================================================================
-// TRD-TEST-087: All 12 agent files exist
+// TRD-TEST-087: All 13 agent files exist
 // =============================================================================
 
-describe('TRD-TEST-087: All 12 agent files exist', () => {
-  it('should have all 12 required agent files', () => {
+describe('TRD-TEST-087: All 13 agent files exist', () => {
+  it('should have all 13 required agent files', () => {
     const missingAgents = [];
 
     for (const agentName of REQUIRED_AGENTS) {
@@ -447,6 +448,65 @@ describe('RUNTIME-T009: No shipped agent declares a skills: preload', () => {
       expect(offenders).toEqual([]);
     });
   }
+});
+
+
+// =============================================================================
+// RUNTIME-ITEM3: execution-model invariants
+// =============================================================================
+
+/**
+ * Every shipped agent declares `background:` explicitly.
+ *
+ * Subagents run in the background BY DEFAULT (v2.1.198+), and a background
+ * subagent keeps every MCP tool but only a fixed list of built-ins — the task
+ * tools, AskUserQuestion and others are removed, "whether inherited or listed
+ * in the `tools` field", and "the removal reports no error."
+ *
+ * So the same definition resolves to different tools depending on where it
+ * runs, silently. An inherited default is therefore a latent trap: it is fine
+ * until someone adds a capability the filter strips, and then it fails with no
+ * signal. Declaring the value makes the choice deliberate and reviewable.
+ */
+describe('RUNTIME-ITEM3: every agent declares background explicitly', () => {
+  const existingAgents = REQUIRED_AGENTS.filter(name =>
+    fs.existsSync(path.join(AGENTS_DIR, `${name}.md`))
+  );
+
+  describe.each(existingAgents)('Agent: %s', (agentName) => {
+    it('declares a boolean background field', () => {
+      const agent = readAgentFile(agentName);
+      expect(agent).not.toBeNull();
+      expect(agent.frontmatter).not.toBeNull();
+      expect(Object.prototype.hasOwnProperty.call(agent.frontmatter, 'background')).toBe(true);
+      expect(['true', 'false', true, false]).toContain(agent.frontmatter.background);
+    });
+  });
+});
+
+/**
+ * Leaf agents may not spawn subagents.
+ *
+ * The constitution permits nesting to depth 3, but restricts it per agent: a
+ * nested subagent's intermediate output is *designed* not to reach the
+ * orchestrator, so a wrong conclusion several layers down arrives as a
+ * confident summary with its reasoning discarded. The agents whose judgment
+ * the implement loop depends on most are therefore the ones that must not be
+ * able to hide their work.
+ */
+describe('RUNTIME-ITEM3: leaf agents cannot spawn subagents', () => {
+  const LEAF_AGENTS = ['code-reviewer', 'code-simplifier', 'verify-app'];
+
+  describe.each(LEAF_AGENTS)('Leaf agent: %s', (agentName) => {
+    it('declares disallowedTools: Agent', () => {
+      const filePath = path.join(AGENTS_DIR, `${agentName}.md`);
+      if (!fs.existsSync(filePath)) return;
+      const agent = readAgentFile(agentName);
+      expect(agent.frontmatter).not.toBeNull();
+      const disallowed = String(agent.frontmatter.disallowedTools || '');
+      expect(disallowed).toMatch(/\bAgent\b/);
+    });
+  });
 });
 
 // =============================================================================

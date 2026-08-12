@@ -11,6 +11,8 @@ description: |
 model: opus
 effort: high
 color: cyan
+# background: Returns an execution plan; read/search only.
+background: true
 ---
 
 ## Role Statement

@@ -9,6 +9,10 @@ description: |
 model: opus
 effort: medium
 color: cyan
+# background: Reads and refactors within a task's files; leaf node — must not spawn.
+background: true
+# Leaf node: may not spawn subagents (constitution nesting stance).
+disallowedTools: Agent
 ---
 
 ## Role

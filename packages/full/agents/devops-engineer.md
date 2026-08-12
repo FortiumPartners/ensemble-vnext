@@ -27,6 +27,8 @@ description: |
 model: sonnet
 effort: medium
 color: blue
+# background: Reads, edits IaC, runs cloud CLIs — all retained in background.
+background: true
 ---
 
 ## Role Statement

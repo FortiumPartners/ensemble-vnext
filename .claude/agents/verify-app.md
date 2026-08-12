@@ -10,6 +10,10 @@ description: |
 model: sonnet
 effort: medium
 color: pink
+# background: Runs test suites and reports; leaf node — must not spawn.
+background: true
+# Leaf node: may not spawn subagents (constitution nesting stance).
+disallowedTools: Agent
 ---
 
 ## Role Statement
