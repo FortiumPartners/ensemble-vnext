@@ -1,2 +1,4 @@
 # Hooks directory - hook executables
-# Contains: permitter.js, router.py, formatter.sh, status.js, learning.js, wiggum.js
+# Contains: router.py, formatter.sh, status.js, wiggum.js, notify.sh,
+# async-discipline.js, autonomy-discipline.js, session-context.js,
+# precompact.js, notify-complete.sh, lib/ (shared helpers)

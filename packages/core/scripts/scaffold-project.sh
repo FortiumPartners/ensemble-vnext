@@ -218,31 +218,127 @@ copy_commands() {
     info "Copied $count commands"
 }
 
-# Copy global router rules to vendored lib directory
-# Ensure all hook files have executable permissions
+# Locate a JSON sidecar that ships alongside a package subdirectory
+# (hooks/hooks.manifest.json, agents/skill-affinity.json). Echoes the first
+# existing candidate and returns 0; returns 1 if none exist.
+#
+# Every such sidecar must be reachable from BOTH install layouts, so the
+# search order is the same in all cases: plugin-cache layout first (a cache
+# install ships only packages/full/, so the file is symlinked into
+# packages/full/<subdir>/), then the monorepo layout, then a script-relative
+# fallback for when --plugin-dir was not passed.
+find_plugin_json() {
+    local subdir="$1"
+    local filename="$2"
+    local candidate
+    for candidate in \
+        "$PLUGIN_DIR/$subdir/$filename" \
+        "$PLUGIN_DIR/../core/$subdir/$filename" \
+        "$SCRIPT_DIR/../$subdir/$filename"; do
+        [[ -f "$candidate" ]] && { echo "$candidate"; return 0; }
+    done
+    return 1
+}
+
+# Emit "<file>\t<subpath>" for every shippable hook in the manifest, one per
+# line. <subpath> is the hook's location relative to the monorepo's
+# packages/ directory (e.g. "core/hooks/formatter.sh", "router/hooks/router.py"),
+# derived from the manifest's "source" field when present (cross-package
+# hooks) or defaulting to "core/hooks/<file>".
+#
+# SECURITY: "file" and "source" are validated here, at the single point
+# every downstream consumer (copy_hooks, ensure_hooks_executable) reads the
+# manifest through. "file" must be a flat basename — hook names are flat by
+# design, so any "/" or ".." is rejected outright (a manifest entry like
+# {"file": "../../../outside/victim.sh"} must never reach a path-join).
+# "source" legitimately contains "/" (e.g. "packages/router/hooks/router.py")
+# but must never contain a ".." component, an absolute path, or normalize
+# outside of a "packages/..." prefix. A bad manifest entry fails loudly here
+# instead of being silently skipped or, worse, followed.
+manifest_shippable_hooks() {
+    local manifest="$1"
+    python3 - "$manifest" <<'PY'
+import json, os, sys
+
+def fail(msg):
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+def validate_file(file):
+    # Hook file names are flat basenames by design. Reject any path
+    # separator or traversal component so a manifest entry can never be
+    # used to escape the hooks destination directory.
+    if not file or "/" in file or "\\" in file or ".." in file:
+        fail(f"manifest hook 'file' must be a flat basename (no '/', '\\\\', or '..'): {file!r}")
+    if file != os.path.basename(file):
+        fail(f"manifest hook 'file' must be a flat basename: {file!r}")
+
+def validate_source(source):
+    # "source" legitimately contains "/" (cross-package hooks), but must
+    # stay a relative path rooted at "packages/" with no ".." components —
+    # anything else could resolve outside the repo/plugin root.
+    if not source or os.path.isabs(source) or source.startswith("~"):
+        fail(f"manifest hook 'source' must be a relative path: {source!r}")
+    parts = source.split("/")
+    if ".." in parts or any(p in ("", ".") for p in parts):
+        fail(f"manifest hook 'source' must not contain '..' or empty/'.' components: {source!r}")
+    normalized = os.path.normpath(source)
+    if normalized.startswith("..") or os.path.isabs(normalized) or not normalized.startswith("packages/"):
+        fail(f"manifest hook 'source' must resolve under the repo's packages/ root: {source!r}")
+
+manifest = json.load(open(sys.argv[1]))
+for h in manifest.get("hooks", []):
+    if not h.get("shippable"):
+        continue
+    file = h["file"]
+    validate_file(file)
+    source = h.get("source") or f"packages/core/hooks/{file}"
+    validate_source(source)
+    subpath = source[len("packages/"):] if source.startswith("packages/") else source
+    print(f"{file}\t{subpath}")
+PY
+}
+
+# Copy the shared hook helper library (hooks/lib/*.js) from whichever layout
+# copy_hooks resolved. No-op when the source directory is absent.
+copy_hook_libs() {
+    local src_lib="$1"
+    local dest="$2"
+
+    [[ -d "$src_lib" ]] || return 0
+
+    mkdir -p "$dest/lib"
+    local lib_file lib_basename
+    for lib_file in "$src_lib"/*.js; do
+        [[ -f "$lib_file" || -L "$lib_file" ]] || continue
+        lib_basename="$(basename "$lib_file")"
+        if [[ ! -f "$dest/lib/$lib_basename" || "$FORCE" == "true" ]]; then
+            # Dereference symlinks when copying (cache layout symlinks these).
+            cp -L "$lib_file" "$dest/lib/"
+            info "Copied hook lib: lib/$lib_basename"
+        fi
+    done
+}
+
+# Ensure all copied hook files have executable permissions.
+# hook_files: newline-separated list of destination paths (from copy_hooks).
 ensure_hooks_executable() {
     local hooks_dir="$1"
+    local hook_files="$2"
 
     info "Ensuring hooks are executable..."
 
-    # List of hook files that need to be executable
-    local hook_files=(
-        "$hooks_dir/router.py"
-        "$hooks_dir/formatter.sh"
-        "$hooks_dir/status.js"
-        "$hooks_dir/wiggum.js"
-    )
-
     local count=0
-    for hook in "${hook_files[@]}"; do
-        if [[ -f "$hook" ]]; then
-            if [[ ! -x "$hook" ]]; then
-                chmod +x "$hook"
-                info "Made executable: $(basename "$hook")"
-                ((count++)) || true
-            fi
+    local hook
+    while IFS= read -r hook; do
+        [[ -z "$hook" ]] && continue
+        local path="$hooks_dir/$hook"
+        if [[ -f "$path" && ! -x "$path" ]]; then
+            chmod +x "$path"
+            info "Made executable: $hook"
+            ((count++)) || true
         fi
-    done
+    done <<< "$hook_files"
 
     if [[ $count -gt 0 ]]; then
         info "Made $count hooks executable"
@@ -251,7 +347,11 @@ ensure_hooks_executable() {
     fi
 }
 
-# Copy hooks from plugin directory
+# Copy hooks from plugin directory, driven by hooks.manifest.json's
+# "shippable" set (packages/core/hooks/hooks.manifest.json — see
+# find_hooks_manifest()). This is the single declaration; do not
+# reintroduce a hardcoded hook list here (see docs/TRD/runtime-refresh.md
+# RUNTIME-B001).
 copy_hooks() {
     local dest="$1/.claude/hooks"
 
@@ -260,96 +360,58 @@ copy_hooks() {
         return 0
     fi
 
-    local count=0
-
-    # Plugin cache structure: hooks are symlinks directly in $PLUGIN_DIR/hooks/
-    # Monorepo structure: hooks are in sibling packages
-    
-    # Standard hooks to copy (these may be symlinks in plugin cache)
-    local hooks_to_copy=(
-        "router.py"
-        "formatter.sh"
-        "status.js"
-        "wiggum.js"
-        "notify.sh"
-    )
-
-    # Try plugin cache structure first (hooks at root of $PLUGIN_DIR/hooks/)
-    if [[ -d "$PLUGIN_DIR/hooks" ]]; then
-        for hook in "${hooks_to_copy[@]}"; do
-            local src="$PLUGIN_DIR/hooks/$hook"
-            if [[ -f "$src" || -L "$src" ]]; then
-                if [[ ! -f "$dest/$hook" || "$FORCE" == "true" ]]; then
-                    # Dereference symlinks when copying
-                    cp -L "$src" "$dest/"
-                    chmod +x "$dest/$hook" 2>/dev/null || true
-                    info "Copied hook: $hook"
-                    ((count++)) || true
-                else
-                    info "Hook exists: $hook"
-                fi
-            fi
-        done
-
-        # Copy hooks/lib/ directory (shared utilities)
-        if [[ -d "$PLUGIN_DIR/hooks/lib" ]]; then
-            mkdir -p "$dest/lib"
-            for lib_file in "$PLUGIN_DIR/hooks/lib"/*.js; do
-                [[ -f "$lib_file" || -L "$lib_file" ]] || continue
-                local lib_basename
-                lib_basename="$(basename "$lib_file")"
-                if [[ ! -f "$dest/lib/$lib_basename" || "$FORCE" == "true" ]]; then
-                    cp -L "$lib_file" "$dest/lib/"
-                    info "Copied hook lib: lib/$lib_basename"
-                fi
-            done
-        fi
-        
-    else
-        # Fall back to monorepo structure
-        local base_path="$PLUGIN_DIR/.."
-        
-        # Router hook
-        if [[ -f "$base_path/router/hooks/router.py" ]]; then
-            if [[ ! -f "$dest/router.py" || "$FORCE" == "true" ]]; then
-                cp "$base_path/router/hooks/router.py" "$dest/"
-                info "Copied hook: router.py"
-                ((count++)) || true
-            fi
-        fi
-        
-        # Core hooks
-        for hook in formatter.sh status.js wiggum.js notify.sh; do
-            if [[ -f "$base_path/core/hooks/$hook" ]]; then
-                if [[ ! -f "$dest/$hook" || "$FORCE" == "true" ]]; then
-                    cp "$base_path/core/hooks/$hook" "$dest/"
-                    info "Copied hook: $hook"
-                    ((count++)) || true
-                fi
-            fi
-        done
-
-        # Core hooks lib directory (shared utilities)
-        if [[ -d "$base_path/core/hooks/lib" ]]; then
-            mkdir -p "$dest/lib"
-            for lib_file in "$base_path/core/hooks/lib"/*.js; do
-                [[ -f "$lib_file" ]] || continue
-                local lib_basename
-                lib_basename="$(basename "$lib_file")"
-                if [[ ! -f "$dest/lib/$lib_basename" || "$FORCE" == "true" ]]; then
-                    cp "$lib_file" "$dest/lib/"
-                    info "Copied hook lib: lib/$lib_basename"
-                fi
-            done
-        fi
-        
-        # Permitter hook
+    local manifest
+    if ! manifest="$(find_plugin_json hooks hooks.manifest.json)"; then
+        warn "Hooks manifest not found (tried plugin cache, monorepo, and script-relative paths) — skipping hooks"
+        return 0
     fi
+    info "Hooks manifest: $manifest"
+
+    local hooks_to_copy
+    hooks_to_copy="$(manifest_shippable_hooks "$manifest")"
+
+    # Two source layouts, one copy loop:
+    #   plugin cache — every hook is a symlink directly in $PLUGIN_DIR/hooks/
+    #   monorepo     — hooks live at packages/<subpath> per the manifest
+    # Only the src path and the lib/ location differ between them.
+    local cache_layout=false
+    local libs_src="$PLUGIN_DIR/../core/hooks/lib"
+    if [[ -d "$PLUGIN_DIR/hooks" ]]; then
+        cache_layout=true
+        libs_src="$PLUGIN_DIR/hooks/lib"
+    fi
+
+    local count=0
+    local hook subpath src
+    while IFS=$'\t' read -r hook subpath; do
+        [[ -z "$hook" ]] && continue
+        if [[ "$cache_layout" == "true" ]]; then
+            src="$PLUGIN_DIR/hooks/$hook"
+        else
+            src="$PLUGIN_DIR/../$subpath"
+        fi
+        [[ -f "$src" || -L "$src" ]] || continue
+
+        if [[ -f "$dest/$hook" && "$FORCE" != "true" ]]; then
+            info "Hook exists: $hook"
+            continue
+        fi
+        # Dereference symlinks when copying (cache layout ships symlinks).
+        cp -L "$src" "$dest/"
+        info "Copied hook: $hook"
+        ((count++)) || true
+    done <<< "$hooks_to_copy"
+
+    copy_hook_libs "$libs_src" "$dest"
 
     info "Copied $count hooks"
 
-    # Ensure all hooks are executable
-    ensure_hooks_executable "$dest"
+    # Ensure all manifest-declared hooks are executable (not just the ones
+    # copied this run — pre-existing files from an earlier scaffold may
+    # still need the bit set).
+    local hook_names
+    hook_names="$(cut -f1 <<< "$hooks_to_copy")"
+    ensure_hooks_executable "$dest" "$hook_names"
 }
 
 # Copy skills from plugin directory based on selection file
@@ -437,12 +499,7 @@ inject_agent_skills() {
     local agents_dir="$target_dir/.claude/agents"
     local manifest=""
 
-    for candidate in \
-        "$PLUGIN_DIR/agents/skill-affinity.json" \
-        "$PLUGIN_DIR/../core/agents/skill-affinity.json" \
-        "$SCRIPT_DIR/../agents/skill-affinity.json"; do
-        [[ -f "$candidate" ]] && { manifest="$candidate"; break; }
-    done
+    manifest="$(find_plugin_json agents skill-affinity.json)" || manifest=""
 
     if [[ -z "$manifest" ]]; then
         info "No skill-affinity manifest found — skipping agent skill preloads"

@@ -1,0 +1,1 @@
+../../core/hooks/notify-complete.sh

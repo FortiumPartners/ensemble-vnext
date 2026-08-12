@@ -21,6 +21,13 @@ setup() {
     SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")" && pwd)"
     SCAFFOLD_SCRIPT="$SCRIPT_DIR/scaffold-project.sh"
 
+    # Repo root and manifest, resolved the same way generate-hooks-artifacts.sh
+    # and scaffold-project.sh resolve them (relative to this script's own
+    # location), so Phase 2 consumer tests stay correct if the repo moves.
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+    MANIFEST="$SCRIPT_DIR/../hooks/hooks.manifest.json"
+    GEN_ARTIFACTS_SCRIPT="$SCRIPT_DIR/generate-hooks-artifacts.sh"
+
     # Verify script exists
     if [[ ! -f "$SCAFFOLD_SCRIPT" ]]; then
         skip "scaffold-project.sh not found at $SCAFFOLD_SCRIPT"
@@ -32,8 +39,27 @@ setup() {
     fi
 }
 
-# Teardown: Clean up temp directory after each test
+# Record that $1 (an absolute path to a real repo file) is about to be
+# mutated in place, backing it up under $TEST_DIR so teardown() can restore
+# it — used by the drift-detection tests (RUNTIME-T007), which must mutate a
+# real repo file in place because generate-hooks-artifacts.sh resolves
+# REPO_ROOT relative to its own on-disk location, not an argument. Restoration
+# happens in teardown() regardless of whether the test's assertions pass, so
+# a failing assertion never leaves the repo dirty.
+_track_for_restore() {
+    local file="$1"
+    local backup="$TEST_DIR/.restore-backup-$(basename "$file")-$RANDOM"
+    cp "$file" "$backup"
+    printf '%s\t%s\n' "$file" "$backup" >> "$TEST_DIR/.restore-map"
+}
+
+# Teardown: Restore any repo files mutated by drift tests, then clean up temp directory
 teardown() {
+    if [[ -f "$TEST_DIR/.restore-map" ]]; then
+        while IFS=$'\t' read -r file backup; do
+            [[ -n "$file" && -f "$backup" ]] && cp "$backup" "$file"
+        done < "$TEST_DIR/.restore-map"
+    fi
     if [[ -d "$TEST_DIR" ]]; then
         rm -rf "$TEST_DIR"
     fi
@@ -780,4 +806,417 @@ print(bad)
 sys.exit(1 if bad else 0)
 "
     [ "$status" -eq 0 ]
+}
+
+# =============================================================================
+# RUNTIME-T007: manifest consumers stay in sync with hooks.manifest.json
+#
+# hooks.manifest.json (RUNTIME-P2A) is the single declaration of the ensemble
+# hook set. Three artifacts are generated FROM it (RUNTIME-B001/B002/B003):
+# the scaffold's copy list, the template settings.json hook block, and the
+# init-project.md hook table. These tests assert all three still agree with
+# the manifest, and that the manifest itself is internally consistent (every
+# declared file exists, every on-disk hook file has exactly one entry, and
+# the hooks retired in 4.1.0 never come back).
+# =============================================================================
+
+@test "T007: manifest — every declared hook file exists on disk" {
+    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+repo_root = sys.argv[2]
+missing = []
+for h in manifest["hooks"]:
+    source = h.get("source") or f"packages/core/hooks/{h['file']}"
+    if not os.path.isfile(os.path.join(repo_root, source)):
+        missing.append(source)
+print("missing:", missing)
+sys.exit(1 if missing else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: manifest — every hook file on disk has exactly one entry (no missing, no extra, no duplicates)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
+import json, os, sys
+
+manifest = json.load(open(sys.argv[1]))
+repo_root = sys.argv[2]
+
+sources = [h.get("source") or f"packages/core/hooks/{h['file']}" for h in manifest["hooks"]]
+duplicates = sorted({s for s in sources if sources.count(s) > 1})
+
+core_hooks_dir = os.path.join(repo_root, "packages/core/hooks")
+exclude_names = {"hooks.manifest.json", "hooks.json", "package.json", "package-lock.json"}
+on_disk = set()
+for fname in os.listdir(core_hooks_dir):
+    full = os.path.join(core_hooks_dir, fname)
+    if not os.path.isfile(full):
+        continue
+    if fname in exclude_names or ".test." in fname:
+        continue
+    on_disk.add(f"packages/core/hooks/{fname}")
+
+# router.py lives outside packages/core/hooks/ (cross-package hook via "source")
+router_path = "packages/router/hooks/router.py"
+if os.path.isfile(os.path.join(repo_root, router_path)):
+    on_disk.add(router_path)
+
+declared = set(sources)
+missing_from_manifest = sorted(on_disk - declared)
+extra_in_manifest = sorted(declared - on_disk)
+
+print("duplicates:", duplicates)
+print("missing_from_manifest:", missing_from_manifest)
+print("extra_in_manifest:", extra_in_manifest)
+sys.exit(1 if (duplicates or missing_from_manifest or extra_in_manifest) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: manifest — retired hooks (permitter, learning.sh, save-remote-logs.js) are absent" {
+    # Scope the check to the "hooks" array only — the manifest's own
+    # top-level $comment legitimately names these retired hooks in prose
+    # explaining why they have no entry (see hooks.manifest.json), so
+    # checking the whole JSON blob would false-positive on that sentence.
+    run python3 -c "
+import json
+manifest = json.load(open('$MANIFEST'))
+blob = json.dumps(manifest['hooks'])
+hits = [name for name in ('permitter', 'learning.sh', 'save-remote-logs.js') if name in blob]
+print(hits)
+import sys; sys.exit(1 if hits else 0)
+"
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: manifest shippable set matches packages/full/hooks/ symlinks (no missing, no extra)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+repo_root = sys.argv[2]
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable")}
+
+full_hooks_dir = os.path.join(repo_root, "packages/full/hooks")
+exclude = {"hooks.json", "hooks.manifest.json", "README.md", "lib"}
+on_disk = {f for f in os.listdir(full_hooks_dir) if f not in exclude}
+
+missing = sorted(shippable - on_disk)
+extra = sorted(on_disk - shippable)
+print("missing_from_full_hooks:", missing)
+print("extra_in_full_hooks:", extra)
+sys.exit(1 if (missing or extra) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: scaffold's delivered hook set equals the manifest's shippable set (no missing, no extra)" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$MANIFEST" "$TEST_DIR" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+target = sys.argv[2]
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable")}
+hooks_dir = os.path.join(target, ".claude/hooks")
+on_disk = {f for f in os.listdir(hooks_dir) if os.path.isfile(os.path.join(hooks_dir, f))}
+missing = sorted(shippable - on_disk)
+extra = sorted(on_disk - shippable)
+print("missing:", missing)
+print("extra:", extra)
+sys.exit(1 if (missing or extra) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: template settings.json hook block matches the manifest (events, files, order)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT/packages/core/templates/claude-directory/settings.json" <<'PY'
+import collections, json, re, sys
+
+manifest = json.load(open(sys.argv[1]))
+settings = json.load(open(sys.argv[2]))
+hooks = manifest["hooks"]
+
+groups = collections.OrderedDict()
+for h in hooks:
+    if h.get("event") is None:
+        continue
+    key = (h["event"], h.get("matcher") or "")
+    groups.setdefault(key, []).append(h)
+
+event_order = []
+for (event, _matcher) in groups:
+    if event not in event_order:
+        event_order.append(event)
+
+expected = collections.OrderedDict()
+for event in event_order:
+    entries = []
+    for (ev, matcher), group in groups.items():
+        if ev != event:
+            continue
+        group_sorted = sorted(group, key=lambda h: h.get("order") or 0)
+        entries.append((matcher, [h["file"] for h in group_sorted]))
+    expected[event] = entries
+
+actual = settings.get("hooks", {})
+ok = list(actual.keys()) == list(expected.keys())
+if ok:
+    for event, entries in expected.items():
+        actual_entries = actual.get(event, [])
+        if len(actual_entries) != len(entries):
+            ok = False
+            break
+        for (matcher, files), actual_entry in zip(entries, actual_entries):
+            if actual_entry.get("matcher", "") != matcher:
+                ok = False
+                break
+            actual_files = []
+            for hc in actual_entry.get("hooks", []):
+                m = re.search(r'\.claude/hooks/([\w.\-]+)', hc.get("command", ""))
+                actual_files.append(m.group(1) if m else None)
+            if actual_files != files:
+                ok = False
+                break
+        if not ok:
+            break
+
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: init-project.md hook table matches the manifest (core copy)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT/packages/core/commands/init-project.md" <<'PY'
+import json, re, sys
+
+manifest = json.load(open(sys.argv[1]))
+text = open(sys.argv[2]).read()
+m = re.search(r'ENSEMBLE:HOOKS-TABLE:BEGIN.*?ENSEMBLE:HOOKS-TABLE:END', text, re.DOTALL)
+if not m:
+    print("markers not found")
+    sys.exit(1)
+block = m.group(0)
+
+event_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is not None]
+other_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is None]
+expected = event_hooks + other_hooks
+
+found = re.findall(r'`\.claude/hooks/([\w.\-]+)`', block)
+print("expected:", expected)
+print("found:", found)
+sys.exit(0 if found == expected else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: init-project.md hook table matches the manifest (vendored copy)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT/.claude/commands/init-project.md" <<'PY'
+import json, re, sys
+
+manifest = json.load(open(sys.argv[1]))
+text = open(sys.argv[2]).read()
+m = re.search(r'ENSEMBLE:HOOKS-TABLE:BEGIN.*?ENSEMBLE:HOOKS-TABLE:END', text, re.DOTALL)
+if not m:
+    print("markers not found")
+    sys.exit(1)
+block = m.group(0)
+
+event_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is not None]
+other_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is None]
+expected = event_hooks + other_hooks
+
+found = re.findall(r'`\.claude/hooks/([\w.\-]+)`', block)
+print("expected:", expected)
+print("found:", found)
+sys.exit(0 if found == expected else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: generate-hooks-artifacts.sh --check exits 0 on a clean tree" {
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+}
+
+# The --check flag was silently broken: bash passes the lowercase string
+# "true", the python compared it against "True", so the comparison was always
+# false and --check never detected drift — it would report CI green on a
+# drifted tree. A test that only exercises the clean-tree case (above) would
+# not have caught this; the drift case is the one that matters.
+@test "T007: generate-hooks-artifacts.sh --check exits non-zero when settings.json template is drifted" {
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    _track_for_restore "$target"
+
+    python3 - "$target" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"]["UserPromptSubmit"][0]["hooks"][0]["timeout"] = 999999
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+@test "T007: generate-hooks-artifacts.sh --check exits non-zero when init-project.md hook table is drifted" {
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local target="$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$target"
+
+    python3 - "$target" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path).read()
+marker = "ENSEMBLE:HOOKS-TABLE:BEGIN — generated by packages/core/scripts/generate-hooks-artifacts.sh; edits are overwritten -->"
+text = text.replace(marker, marker + "\n\nEXTRA DRIFTED LINE THAT DOES NOT MATCH THE MANIFEST", 1)
+open(path, "w").write(text)
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# =============================================================================
+# RUNTIME-T008: end-to-end scaffold parity — the Phase 2 gate
+#
+# A freshly scaffolded project must register the same hook set this repo
+# runs. Checked against both the working tree (fast, always runs) and the
+# installed plugin cache (the real regression guard for commit d969eb3, which
+# shipped a manifest that existed in packages/core/ but never reached
+# packages/full/ — the working-tree-only check would have stayed green while
+# every real scaffold silently no-opped the feature). The cache check skips
+# cleanly when no plugin is installed or its version doesn't match this
+# checkout, since CI has no plugin installed.
+# =============================================================================
+
+@test "T008: scaffolded settings.json hooks block matches this repo's own .claude/settings.json" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$TEST_DIR/.claude/settings.json" "$REPO_ROOT/.claude/settings.json" <<'PY'
+import json, sys
+a = json.load(open(sys.argv[1]))["hooks"]
+b = json.load(open(sys.argv[2]))["hooks"]
+ok = list(a.keys()) == list(b.keys()) and a == b
+if not ok:
+    print("scaffolded:", json.dumps(a, indent=2))
+    print("repo:", json.dumps(b, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T008: scaffolded project matches the installed plugin cache (skips if absent/stale)" {
+    local installed_json="$HOME/.claude/plugins/installed_plugins.json"
+    if [[ ! -f "$installed_json" ]]; then
+        skip "no installed_plugins.json — no plugin installed in this environment"
+    fi
+
+    local cache_info
+    cache_info="$(python3 -c "
+import json
+d = json.load(open('$installed_json'))
+entries = d.get('plugins', {}).get('full@ensemble-vnext') or []
+if entries:
+    e = entries[0]
+    print(e.get('installPath', ''))
+    print(e.get('version', ''))
+" 2>/dev/null)" || cache_info=""
+
+    local cache_path cache_version
+    cache_path="$(printf '%s' "$cache_info" | sed -n '1p')"
+    cache_version="$(printf '%s' "$cache_info" | sed -n '2p')"
+
+    if [[ -z "$cache_path" || ! -d "$cache_path" ]]; then
+        skip "no installed plugin cache entry found for full@ensemble-vnext"
+    fi
+
+    local plugin_manifest="$REPO_ROOT/packages/full/.claude-plugin/plugin.json"
+    local repo_version
+    repo_version="$(python3 -c "import json; print(json.load(open('$plugin_manifest')).get('version',''))" 2>/dev/null)" || repo_version=""
+
+    if [[ -z "$repo_version" || "$cache_version" != "$repo_version" ]]; then
+        skip "installed plugin cache is version '$cache_version', repo checkout is '$repo_version' — no matching plugin installed"
+    fi
+
+    local cache_manifest="$cache_path/hooks/hooks.manifest.json"
+    if [[ ! -f "$cache_manifest" ]]; then
+        skip "installed plugin cache has no hooks.manifest.json at $cache_manifest"
+    fi
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$cache_path" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$cache_manifest" "$TEST_DIR" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+target = sys.argv[2]
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable")}
+hooks_dir = os.path.join(target, ".claude/hooks")
+on_disk = {f for f in os.listdir(hooks_dir) if os.path.isfile(os.path.join(hooks_dir, f))}
+missing = sorted(shippable - on_disk)
+extra = sorted(on_disk - shippable)
+print("missing:", missing)
+print("extra:", extra)
+sys.exit(1 if (missing or extra) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+# =============================================================================
+# B-1 regression: packages/full/commands/plugin-only/{init-project,rebase-project}.md
+# must be symlinks into packages/core/commands/ (matching the sibling core/router
+# symlinks), so the shipped plugin command text can never drift stale from core.
+# =============================================================================
+
+@test "B-1: plugin-only init-project.md and rebase-project.md are symlinks matching core" {
+    local plugin_only="$REPO_ROOT/packages/full/commands/plugin-only"
+
+    for name in init-project.md rebase-project.md; do
+        local shipped="$plugin_only/$name"
+        local core="$REPO_ROOT/packages/core/commands/$name"
+
+        [ -L "$shipped" ] || {
+            echo "expected $shipped to be a symlink, but it is a regular file/directory"
+            return 1
+        }
+
+        # Resolve and confirm it points at the core copy, not a stale local file.
+        local resolved
+        resolved="$(cd "$(dirname "$shipped")" && readlink -f "$name")"
+        [ "$resolved" = "$core" ] || {
+            echo "expected $shipped to resolve to $core, got $resolved"
+            return 1
+        }
+
+        # Belt-and-suspenders: content must be byte-identical (would already be
+        # guaranteed by the symlink, but this also catches a symlink pointed at
+        # the wrong file).
+        run diff "$core" "$shipped"
+        [ "$status" -eq 0 ]
+    done
+}
+
+@test "B-1: plugin.json commands declaration resolves to exactly init-project.md and rebase-project.md" {
+    local plugin_only="$REPO_ROOT/packages/full/commands/plugin-only"
+    run python3 -c "
+import os, sys
+d = sys.argv[1]
+names = sorted(f for f in os.listdir(d) if os.path.islink(os.path.join(d, f)))
+print('\n'.join(names))
+" "$plugin_only"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$(printf 'init-project.md\nrebase-project.md')" ]
 }

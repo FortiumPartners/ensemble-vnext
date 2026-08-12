@@ -1,0 +1,1 @@
+../../core/hooks/autonomy-discipline.js

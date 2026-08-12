@@ -1,0 +1,106 @@
+{
+  "$comment": "Single declaration of the ensemble hook set. Every hook file that exists on disk has exactly one entry here, including files that are deliberately not event-registered (registration: 'model-invoked' or 'none'). Three consumers are generated FROM this manifest (see docs/TRD/runtime-refresh.md §2.3 / §4.2, tasks RUNTIME-B001/B002/B003 — not implemented by this file itself): (a) the scaffold-project.sh copy list, (b) the template settings.json hook block (event order preserved via 'order'), (c) the hook enumeration table in init-project.md. Do not hand-edit the generated artifacts once B001-B003 land; edit this manifest instead. 'source' is present only when the hook file lives outside packages/core/hooks/ (cross-package hooks); its absence means the file lives at packages/core/hooks/<file>. 'shippable' marks hooks that should be symlinked into packages/full/hooks/ and copied by scaffold-project.sh into a target project's .claude/hooks/. permitter, learning.sh, and save-remote-logs.js were retired and deleted in 4.1.0 and intentionally have NO entry — do not re-add them from the stale docs/TRD/runtime-refresh.md §2.3 example, which predates the removal.",
+  "hooks": [
+    {
+      "file": "router.py",
+      "source": "packages/router/hooks/router.py",
+      "event": "UserPromptSubmit",
+      "matcher": "",
+      "order": 1,
+      "timeout": 10,
+      "registration": "command",
+      "shippable": true,
+      "description": "Static framework-leverage reminder injected on every user prompt."
+    },
+    {
+      "file": "formatter.sh",
+      "event": "PostToolUse",
+      "matcher": "Edit|Write|MultiEdit",
+      "order": 1,
+      "timeout": 30,
+      "registration": "command",
+      "shippable": true,
+      "description": "Auto-formats files touched by Edit/Write/MultiEdit using project-detected formatters."
+    },
+    {
+      "file": "status.js",
+      "event": "SubagentStop",
+      "matcher": "",
+      "order": 1,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Active state machine: advances cycle_position in `implement.json` as subagents complete."
+    },
+    {
+      "file": "async-discipline.js",
+      "event": "Stop",
+      "matcher": "",
+      "order": 1,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Blocks fire-and-forget async claims made without real async machinery in flight (pairs with `.claude/rules/async-discipline.md`)."
+    },
+    {
+      "file": "autonomy-discipline.js",
+      "event": "Stop",
+      "matcher": "",
+      "order": 2,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Blocks hedged mid-loop pause offers that violate autonomous-execution discipline (pairs with `.claude/rules/autonomy.md`)."
+    },
+    {
+      "file": "wiggum.js",
+      "event": "Stop",
+      "matcher": "",
+      "order": 3,
+      "timeout": 10,
+      "registration": "command",
+      "shippable": true,
+      "description": "Autonomous loop intercept/continuation, capped at 50 iterations."
+    },
+    {
+      "file": "notify.sh",
+      "event": "Stop",
+      "matcher": "",
+      "order": 4,
+      "timeout": 60,
+      "registration": "command",
+      "shippable": true,
+      "description": "Optional outbound notification (`NOTIFY_ON_STOP`) fired every time a session stops."
+    },
+    {
+      "file": "session-context.js",
+      "event": "SessionStart",
+      "matcher": "",
+      "order": 1,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Auto-loads in-flight TRD/PRD state from `.trd-state/current.json` into session context."
+    },
+    {
+      "file": "precompact.js",
+      "event": "PreCompact",
+      "matcher": "",
+      "order": 1,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Archives a decision-trail checkpoint to `.trd-state/<feature>/session-log.md` before context compaction."
+    },
+    {
+      "file": "notify-complete.sh",
+      "event": null,
+      "matcher": null,
+      "order": null,
+      "timeout": null,
+      "registration": "model-invoked",
+      "shippable": true,
+      "description": "Invoked directly by commands (not by an event) on their COMMAND COMPLETE turn to fire `NOTIFY_ON_COMPLETE` exactly once; see `.claude/rules/command-status.md` Path B."
+    }
+  ]
+}

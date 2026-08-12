@@ -3,7 +3,7 @@
   "trd_file": "docs/TRD/runtime-refresh.md",
   "trd_version": "1.0.0",
   "branch": "feature/cc-modernization",
-  "phase_cursor": 1,
+  "phase_cursor": 3,
   "phase_structure": {
     "1": {
       "name": "Curation and versioning",
@@ -86,44 +86,72 @@
       "description": "Vendored augment-trd-figma.md"
     },
     "RUNTIME-P005": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "Author hooks.manifest.json"
+      "description": "Author hooks.manifest.json",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:43:02Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T04:45:56Z"
     },
     "RUNTIME-P006": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "Add 5 missing hook symlinks"
+      "description": "Add 5 missing hook symlinks",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:43:02Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T04:45:56Z"
     },
     "RUNTIME-P007": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "Confirm plugin hooks.json stays empty"
+      "description": "Confirm plugin hooks.json stays empty",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:43:02Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T04:45:56Z"
     },
     "RUNTIME-B001": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "Manifest-drive the scaffold copy list"
+      "description": "Manifest-drive the scaffold copy list",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:45:56Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:20:47Z"
     },
     "RUNTIME-B002": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "Generate template settings hook block"
+      "description": "Generate template settings hook block",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:45:56Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:20:47Z"
     },
     "RUNTIME-B003": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "Generate init-project hook table"
+      "description": "Generate init-project hook table",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:45:56Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:20:47Z"
     },
     "RUNTIME-T007": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "Test manifest consumers"
+      "description": "Test manifest consumers",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T05:20:47Z"
     },
     "RUNTIME-T008": {
-      "status": "pending",
+      "status": "success",
       "phase": 2,
-      "description": "End-to-end scaffold hook parity"
+      "description": "End-to-end scaffold hook parity",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T05:20:47Z"
     },
     "RUNTIME-B007": {
       "status": "pending",
@@ -225,5 +253,24 @@
       "phase": 1,
       "description": "Improvement-plan item 5a: retire permitter, learning.sh, save-remote-logs.js (pulled forward ahead of P005)"
     }
-  }
+  },
+  "strategy": "test-after",
+  "strategy_rationale": "TRD task graph orders implementation before tests (T007 blockedBy B003, T008 blockedBy B002/P006). Phase-checkpoint gate is BLOCK per TRD \u00a76, not test-after's default WARN.",
+  "checkpoints": [
+    {
+      "phase": 2,
+      "timestamp": "2026-08-12T05:20:47Z",
+      "tasks_completed": [
+        "RUNTIME-P005",
+        "RUNTIME-P006",
+        "RUNTIME-P007",
+        "RUNTIME-B001",
+        "RUNTIME-B002",
+        "RUNTIME-B003",
+        "RUNTIME-T007",
+        "RUNTIME-T008"
+      ],
+      "note": "Manifest is single source; scaffolded project now registers the same hook set this repo runs. Review REJECTED once (shipped plugin-only/init-project.md was an ungenerated 4th consumer still documenting the retired permitter) \u2014 fixed via symlinks + regression test."
+    }
+  ]
 }
