@@ -119,6 +119,11 @@
             "type": "command",
             "command": "bash -c 'cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\" && .claude/hooks/session-context.js'",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\" && .claude/hooks/runtime-refresh.sh'",
+            "timeout": 10
           }
         ]
       }

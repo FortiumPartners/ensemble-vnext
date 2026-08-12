@@ -83,6 +83,16 @@
       "description": "Auto-loads in-flight TRD/PRD state from `.trd-state/current.json` into session context."
     },
     {
+      "file": "runtime-refresh.sh",
+      "event": "SessionStart",
+      "matcher": "",
+      "order": 2,
+      "timeout": 10,
+      "registration": "command",
+      "shippable": true,
+      "description": "Refreshes vendored `.claude/` components already present from a newer installed plugin (present-only, monotonic version gate); see `docs/TRD/runtime-refresh.md`."
+    },
+    {
       "file": "precompact.js",
       "event": "PreCompact",
       "matcher": "",

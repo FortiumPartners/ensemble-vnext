@@ -1220,3 +1220,228 @@ print('\n'.join(names))
     [ "$status" -eq 0 ]
     [ "$output" = "$(printf 'init-project.md\nrebase-project.md')" ]
 }
+
+# =============================================================================
+# RUNTIME-T001: --refresh cases
+#
+# docs/TRD/runtime-refresh.md §2.2/§3.2 — --refresh replaces only components
+# already present under the target's .claude/, never creates, never deletes.
+# =============================================================================
+
+@test "RUNTIME-T001: --refresh flag is accepted" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    # Populate the target with a full scaffold first so there is something
+    # already present to refresh.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+}
+
+@test "RUNTIME-T001: --refresh and --force together exits non-zero" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --force --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"mutually exclusive"* ]]
+}
+
+@test "RUNTIME-T001: refresh performs no mkdir of absent directories" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    # TEST_DIR exists (mktemp -d) but has no .claude/ at all — nothing has
+    # ever been scaffolded here.
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    [ ! -d "$TEST_DIR/.claude" ]
+    [ ! -d "$TEST_DIR/docs" ]
+    [ ! -d "$TEST_DIR/.trd-state" ]
+}
+
+@test "RUNTIME-T001: REFRESH_SUMMARY is the last line of stdout and counts match actual changes" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    # Full scaffold populates every present component.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local expected_commands expected_agents
+    expected_commands=$(ls -1 "$TEST_DIR/.claude/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
+    expected_agents=$(ls -1 "$TEST_DIR/.claude/agents/"*.md 2>/dev/null | wc -l | tr -d ' ')
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # Last line of stdout must be the REFRESH_SUMMARY tally.
+    local last_line
+    last_line="$(printf '%s\n' "$output" | tail -1)"
+    [[ "$last_line" =~ ^REFRESH_SUMMARY\ commands=[0-9]+\ agents=[0-9]+\ hooks=[0-9]+\ skills=[0-9]+$ ]]
+
+    local actual_commands actual_agents
+    actual_commands="$(printf '%s' "$last_line" | sed -n 's/.*commands=\([0-9][0-9]*\).*/\1/p')"
+    actual_agents="$(printf '%s' "$last_line" | sed -n 's/.*agents=\([0-9][0-9]*\).*/\1/p')"
+
+    # Every command/agent already present gets refreshed (present-only, and
+    # all of them are present since the prior run was a full scaffold).
+    [ "$actual_commands" -eq "$expected_commands" ]
+    [ "$actual_agents" -eq "$expected_agents" ]
+}
+
+# =============================================================================
+# RUNTIME-T002: present-only semantics
+# =============================================================================
+
+@test "RUNTIME-T002: absent command stays absent after refresh" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/commands/fold-prompt.md" ]
+
+    rm -f "$TEST_DIR/.claude/commands/fold-prompt.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # Never recreated — refresh must not un-curate.
+    [ ! -f "$TEST_DIR/.claude/commands/fold-prompt.md" ]
+}
+
+@test "RUNTIME-T002: absent agent stays absent after refresh" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/agents/mobile-implementer.md" ]
+
+    rm -f "$TEST_DIR/.claude/agents/mobile-implementer.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    [ ! -f "$TEST_DIR/.claude/agents/mobile-implementer.md" ]
+}
+
+@test "RUNTIME-T002: present command is replaced (drift removed)" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/commands/create-prd.md" ]
+
+    printf '%s\n' "DRIFT_MARKER_SHOULD_BE_REMOVED" > "$TEST_DIR/.claude/commands/create-prd.md"
+    grep -q "DRIFT_MARKER_SHOULD_BE_REMOVED" "$TEST_DIR/.claude/commands/create-prd.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -q "DRIFT_MARKER_SHOULD_BE_REMOVED" "$TEST_DIR/.claude/commands/create-prd.md"
+    [ "$status" -ne 0 ]
+
+    # Restored to the plugin's actual content.
+    run diff "$TEST_DIR/.claude/commands/create-prd.md" "$plugin_dir/../core/commands/create-prd.md"
+    [ "$status" -eq 0 ]
+}
+
+# =============================================================================
+# RUNTIME-T003: authored-rule protection
+# =============================================================================
+
+@test "RUNTIME-T003: a locally modified constitution.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' "# My locally authored constitution" > "$TEST_DIR/.claude/rules/constitution.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/constitution.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/constitution.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "RUNTIME-T003: a locally modified stack.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' "# My locally authored stack" > "$TEST_DIR/.claude/rules/stack.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/stack.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/stack.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "RUNTIME-T003: a locally modified process.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' "# My locally authored process" > "$TEST_DIR/.claude/rules/process.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/process.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/process.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "RUNTIME-T003: a framework rule (autonomy.md) IS refreshed" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/rules/autonomy.md" ]
+
+    printf '%s\n' "DRIFTED AUTONOMY CONTENT" > "$TEST_DIR/.claude/rules/autonomy.md"
+    grep -q "DRIFTED AUTONOMY CONTENT" "$TEST_DIR/.claude/rules/autonomy.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -q "DRIFTED AUTONOMY CONTENT" "$TEST_DIR/.claude/rules/autonomy.md"
+    [ "$status" -ne 0 ]
+
+    local rules_src="$SCRIPT_DIR/../templates/claude-directory/rules/autonomy.md"
+    run diff "$TEST_DIR/.claude/rules/autonomy.md" "$rules_src"
+    [ "$status" -eq 0 ]
+}
+
+@test "RUNTIME-T003: .trd-state/ is never touched by refresh" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' '{"prd": "docs/PRD/marker.md", "branch": "marker-branch"}' > "$TEST_DIR/.trd-state/current.json"
+    mkdir -p "$TEST_DIR/.trd-state/some-feature"
+    printf '%s\n' '{"tasks": {}}' > "$TEST_DIR/.trd-state/some-feature/implement.json"
+
+    local sha_before
+    sha_before="$(find "$TEST_DIR/.trd-state" -type f -exec shasum {} \; | sort | shasum | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(find "$TEST_DIR/.trd-state" -type f -exec shasum {} \; | sort | shasum | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}

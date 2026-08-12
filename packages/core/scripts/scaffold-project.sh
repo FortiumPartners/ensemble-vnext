@@ -7,15 +7,20 @@
 #
 # Usage:
 #   ./scaffold-project.sh [--plugin-dir DIR] [--copy-skills] [--force] [project-directory]
+#   ./scaffold-project.sh --refresh --plugin-dir DIR [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
 #   --copy-skills      Copy skills listed in .claude/selected-skills.txt
 #   --force            Overwrite existing files (for "Replace All" scenarios)
+#   --refresh          Replace only components already present under the target's
+#                       .claude/ (per docs/TRD/runtime-refresh.md §2.2/§3.2). Never
+#                       creates a component that is absent, never deletes one the
+#                       plugin no longer carries. Mutually exclusive with --force.
 #
 # If project-directory is not provided, uses current directory.
 #
-# TRD Reference: TRD-TEST-016
+# TRD Reference: TRD-TEST-016, docs/TRD/runtime-refresh.md (RUNTIME-B007..B010)
 #
 
 set -euo pipefail
@@ -28,6 +33,7 @@ TEMPLATES_DIR="${SCRIPT_DIR}/../templates"
 PLUGIN_DIR=""
 COPY_SKILLS=false
 FORCE=false
+REFRESH=false
 PROJECT_DIR=""
 
 # Parse arguments
@@ -45,6 +51,10 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
+        --refresh)
+            REFRESH=true
+            shift
+            ;;
         -*)
             echo "Unknown option: $1" >&2
             exit 1
@@ -57,6 +67,15 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# --refresh and --force answer different questions ("replace only what's
+# already there" vs "overwrite everything, create what's missing") and
+# combining them silently would have to pick one meaning. Fail loudly
+# instead of guessing.
+if [[ "$REFRESH" == "true" && "$FORCE" == "true" ]]; then
+    echo "Error: --refresh and --force are mutually exclusive" >&2
+    exit 1
+fi
 
 # Default project directory to current directory if not specified
 PROJECT_DIR="${PROJECT_DIR:-.}"
@@ -138,6 +157,16 @@ copy_agents() {
         [[ -f "$agent" ]] || continue
         local basename
         basename="$(basename "$agent")"
+        if [[ "$REFRESH" == "true" ]]; then
+            # Refresh: replace only if this agent already exists in the
+            # target. Never create — that stays /rebase-project's job.
+            if [[ -f "$dest/$basename" ]]; then
+                cp "$agent" "$dest/"
+                info "Refreshed agent: $basename"
+                ((count++)) || true
+            fi
+            continue
+        fi
         if [[ -f "$dest/$basename" && "$FORCE" != "true" ]]; then
             info "Agent exists: $basename"
         else
@@ -150,7 +179,12 @@ copy_agents() {
             ((count++)) || true
         fi
     done
-    info "Copied $count agents"
+    if [[ "$REFRESH" == "true" ]]; then
+        info "Refreshed $count agents"
+    else
+        info "Copied $count agents"
+    fi
+    REFRESH_AGENTS_COUNT=$count
 }
 
 # Copy workflow commands from plugin directory
@@ -203,6 +237,17 @@ copy_commands() {
             continue
         fi
 
+        if [[ "$REFRESH" == "true" ]]; then
+            # Refresh: replace only if this command already exists in the
+            # target. Never create — that stays /rebase-project's job.
+            if [[ -f "$dest/$cmd" ]]; then
+                cp "$cmd_path" "$dest/"
+                info "Refreshed command: $cmd"
+                ((count++)) || true
+            fi
+            continue
+        fi
+
         if [[ -f "$dest/$cmd" && "$FORCE" != "true" ]]; then
             info "Command exists: $cmd"
         else
@@ -215,7 +260,12 @@ copy_commands() {
             ((count++)) || true
         fi
     done
-    info "Copied $count commands"
+    if [[ "$REFRESH" == "true" ]]; then
+        info "Refreshed $count commands"
+    else
+        info "Copied $count commands"
+    fi
+    REFRESH_COMMANDS_COUNT=$count
 }
 
 # Locate a JSON sidecar that ships alongside a package subdirectory
@@ -307,8 +357,28 @@ copy_hook_libs() {
 
     [[ -d "$src_lib" ]] || return 0
 
-    mkdir -p "$dest/lib"
     local lib_file lib_basename
+    REFRESH_HOOK_LIBS_COUNT=0
+
+    if [[ "$REFRESH" == "true" ]]; then
+        # Refresh: never create dest/lib/, and never add a lib file that
+        # wasn't already there.
+        [[ -d "$dest/lib" ]] || return 0
+        local libs_count=0
+        for lib_file in "$src_lib"/*.js; do
+            [[ -f "$lib_file" || -L "$lib_file" ]] || continue
+            lib_basename="$(basename "$lib_file")"
+            if [[ -f "$dest/lib/$lib_basename" ]]; then
+                cp -L "$lib_file" "$dest/lib/"
+                info "Refreshed hook lib: lib/$lib_basename"
+                ((libs_count++)) || true
+            fi
+        done
+        REFRESH_HOOK_LIBS_COUNT=$libs_count
+        return 0
+    fi
+
+    mkdir -p "$dest/lib"
     for lib_file in "$src_lib"/*.js; do
         [[ -f "$lib_file" || -L "$lib_file" ]] || continue
         lib_basename="$(basename "$lib_file")"
@@ -392,6 +462,17 @@ copy_hooks() {
         fi
         [[ -f "$src" || -L "$src" ]] || continue
 
+        if [[ "$REFRESH" == "true" ]]; then
+            # Refresh: replace only if this hook already exists in the
+            # target. Never create — that stays /rebase-project's job.
+            if [[ -f "$dest/$hook" ]]; then
+                cp -L "$src" "$dest/"
+                info "Refreshed hook: $hook"
+                ((count++)) || true
+            fi
+            continue
+        fi
+
         if [[ -f "$dest/$hook" && "$FORCE" != "true" ]]; then
             info "Hook exists: $hook"
             continue
@@ -404,7 +485,15 @@ copy_hooks() {
 
     copy_hook_libs "$libs_src" "$dest"
 
-    info "Copied $count hooks"
+    if [[ "$REFRESH" == "true" ]]; then
+        info "Refreshed $count hooks and ${REFRESH_HOOK_LIBS_COUNT:-0} hook libs"
+        # Hooks only — shared lib/*.js helpers are reported separately above.
+        # Folding them in here made the summary the user actually reads
+        # ("3 hooks updated") overstate by the lib count.
+        REFRESH_HOOKS_COUNT=$count
+    else
+        info "Copied $count hooks"
+    fi
 
     # Ensure all manifest-declared hooks are executable (not just the ones
     # copied this run — pre-existing files from an earlier scaffold may
@@ -435,13 +524,40 @@ copy_skills() {
         info "Using legacy skills/ source (plugin predates skills-lib)"
     fi
 
-    if [[ ! -f "$selection_file" ]]; then
-        info "No skill selection file found: $selection_file"
+    if [[ ! -d "$src" ]]; then
+        warn "Skills directory not found: $src"
         return 0
     fi
 
-    if [[ ! -d "$src" ]]; then
-        warn "Skills directory not found: $src"
+    if [[ "$REFRESH" == "true" ]]; then
+        # Refresh: never create .claude/skills/, and never add a skill
+        # directory that wasn't already selected. The directories already
+        # present under dest ARE the "already selected" set — adding or
+        # removing selections stays /rebase-project's job.
+        REFRESH_SKILLS_COUNT=0
+        if [[ ! -d "$dest" ]]; then
+            info "No existing skills directory — skipping skill refresh"
+            return 0
+        fi
+        local count=0
+        local skill_dir skill
+        for skill_dir in "$dest"/*/; do
+            [[ -d "$skill_dir" ]] || continue
+            skill="$(basename "$skill_dir")"
+            if [[ -d "$src/$skill" ]]; then
+                rm -rf "${dest:?}/${skill:?}"
+                cp -r "$src/$skill" "$dest/"
+                info "Refreshed skill: $skill"
+                ((count++)) || true
+            fi
+        done
+        info "Refreshed $count skills"
+        REFRESH_SKILLS_COUNT=$count
+        return 0
+    fi
+
+    if [[ ! -f "$selection_file" ]]; then
+        info "No skill selection file found: $selection_file"
         return 0
     fi
 
@@ -749,6 +865,167 @@ PY
     fi
 }
 
+# Refresh the framework-shipped rule files under .claude/rules/, driven from
+# packages/core/templates/claude-directory/rules/ — the same directory
+# scaffold_project()'s "Framework-Shipped Rules" step copies-if-missing from.
+#
+# Project-authored governance (constitution.md, stack.md, process.md) must
+# NEVER be touched by refresh (RUNTIME-B009). Rather than hardcoding that
+# exclusion list a second time here, this derives it structurally: a rule is
+# "framework-shipped" exactly when it exists in rules_src_dir, and the
+# authored files never appear there — they are generated once at
+# /init-project time and live only in the target. Only rules already present
+# in the target are replaced; none are created.
+refresh_rules() {
+    local target_dir="$1"
+    local rules_src_dir="$TEMPLATES_DIR/claude-directory/rules"
+    local dest_dir="$target_dir/.claude/rules"
+
+    if [[ ! -d "$rules_src_dir" ]]; then
+        info "No framework rules template directory — skipping rules refresh"
+        return 0
+    fi
+    if [[ ! -d "$dest_dir" ]]; then
+        info "No existing rules directory — skipping rules refresh"
+        return 0
+    fi
+
+    # Defence in depth. The structural derivation above (refreshable == exists in
+    # the framework rules template dir) is correct today, but its safety rests on
+    # an invariant nothing enforces: that nobody ever adds one of these three
+    # filenames to that template directory. Shipping a default constitution.md
+    # template is an entirely plausible feature request, and it would silently
+    # overwrite every project's authored governance on SessionStart. Make the
+    # invariant refuse to break rather than break quietly.
+    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md")
+
+    local count=0
+    local rule_file rule_basename authored skip
+    for rule_file in "$rules_src_dir"/*.md; do
+        [[ -f "$rule_file" ]] || continue
+        rule_basename="$(basename "$rule_file")"
+        skip=false
+        for authored in "${AUTHORED_RULES[@]}"; do
+            if [[ "$rule_basename" == "$authored" ]]; then
+                warn "Refusing to refresh project-authored rule: $rule_basename"
+                skip=true
+                break
+            fi
+        done
+        [[ "$skip" == "true" ]] && continue
+        if [[ -f "$dest_dir/$rule_basename" ]]; then
+            cp "$rule_file" "$dest_dir/$rule_basename"
+            info "Refreshed rule: $rule_basename"
+            ((count++)) || true
+        fi
+    done
+    info "Refreshed $count framework rules"
+}
+
+# --refresh entry point (RUNTIME-B007..B010).
+#
+# Replaces only components already present under the target's .claude/,
+# sourced from $PLUGIN_DIR. Never creates a component that is absent and
+# never deletes one the plugin no longer carries — that property is what
+# lets this run unattended from a SessionStart hook without risk of
+# un-curating a project or surprising anyone with a new component. Adding or
+# removing components stays /rebase-project's job (docs/TRD/runtime-refresh.md
+# §2.2).
+#
+# Consequently this function intentionally skips everything scaffold_project()
+# does that creates or that refresh must never touch: no directory creation,
+# no CLAUDE.md / current.json templating, no .trd-state/ writes, and no
+# constitution.md/stack.md/process.md writes (see refresh_rules() above).
+refresh_project() {
+    local target_dir="$1"
+
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        error "--refresh requires --plugin-dir"
+        return 1
+    fi
+
+    if [[ ! -d "$target_dir" ]]; then
+        error "Target directory does not exist: $target_dir"
+        return 1
+    fi
+
+    local original_dir
+    original_dir="$(pwd)"
+    cd "$target_dir" || {
+        error "Cannot access target directory: $target_dir"
+        return 1
+    }
+
+    echo "========================================"
+    echo " Refreshing Ensemble Runtime"
+    echo "========================================"
+    echo ""
+    echo "Target Directory: $(pwd)"
+    echo "Plugin directory: $PLUGIN_DIR"
+    echo "Mode: REFRESH (replace present-only; never create, never delete)"
+    echo ""
+
+    REFRESH_COMMANDS_COUNT=0
+    REFRESH_AGENTS_COUNT=0
+    REFRESH_HOOKS_COUNT=0
+    REFRESH_HOOK_LIBS_COUNT=0
+    REFRESH_SKILLS_COUNT=0
+
+    echo "--- Commands ---"
+    copy_commands "$(pwd)"
+    echo ""
+
+    echo "--- Agents ---"
+    copy_agents "$(pwd)"
+    echo ""
+
+    echo "--- Hooks ---"
+    copy_hooks "$(pwd)"
+    echo ""
+
+    echo "--- Skills ---"
+    copy_skills "$(pwd)"
+    echo ""
+
+    # Runs unconditionally, same as scaffold_project(): an agent file that
+    # was just replaced from the plugin arrives with no skills: frontmatter
+    # and no body block, so skipping this would silently strip a project's
+    # preloads. Only agents actually present in agents_dir are touched —
+    # copy_agents above never created new ones, so this can't inject into an
+    # agent that was absent before the refresh.
+    echo "--- Agent Skill Preloads ---"
+    inject_agent_skills "$(pwd)"
+    echo ""
+
+    echo "--- Framework-Shipped Rules ---"
+    refresh_rules "$(pwd)"
+    echo ""
+
+    # Stamped only once every copy step above has completed successfully.
+    # `set -euo pipefail` already enforces this — any failure above exits
+    # the script before this line is reached — but the ordering is
+    # deliberate: docs/TRD/runtime-refresh.md §7 flags "partial copy leaves
+    # a mixed runtime" as a risk, and stamping first would make a
+    # half-applied refresh look complete.
+    echo "--- Version Stamp ---"
+    stamp_ensemble_version "$(pwd)"
+    echo ""
+
+    cd "$original_dir"
+
+    echo "========================================"
+    echo " Refresh Complete"
+    echo "========================================"
+    echo ""
+
+    # Machine-readable tally, parsed by the runtime-refresh.sh SessionStart
+    # hook (RUNTIME-B011+). MUST be the final line of stdout — nothing may
+    # print after this.
+    echo "REFRESH_SUMMARY commands=${REFRESH_COMMANDS_COUNT} agents=${REFRESH_AGENTS_COUNT} hooks=${REFRESH_HOOKS_COUNT} skills=${REFRESH_SKILLS_COUNT}"
+
+    return 0
+}
+
 # Main scaffolding function
 scaffold_project() {
     local target_dir="$1"
@@ -918,5 +1195,9 @@ scaffold_project() {
 
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    scaffold_project "$PROJECT_DIR"
+    if [[ "$REFRESH" == "true" ]]; then
+        refresh_project "$PROJECT_DIR"
+    else
+        scaffold_project "$PROJECT_DIR"
+    fi
 fi

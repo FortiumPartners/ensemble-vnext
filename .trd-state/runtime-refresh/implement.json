@@ -3,7 +3,7 @@
   "trd_file": "docs/TRD/runtime-refresh.md",
   "trd_version": "1.0.0",
   "branch": "feature/cc-modernization",
-  "phase_cursor": 3,
+  "phase_cursor": 4,
   "phase_structure": {
     "1": {
       "name": "Curation and versioning",
@@ -154,79 +154,127 @@
       "completed_at": "2026-08-12T05:20:47Z"
     },
     "RUNTIME-B007": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Implement --refresh flag"
+      "description": "Implement --refresh flag",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
     },
     "RUNTIME-B008": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Present-only filter"
+      "description": "Present-only filter",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
     },
     "RUNTIME-B009": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Protect authored rules"
+      "description": "Protect authored rules",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
     },
     "RUNTIME-B010": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Emit REFRESH_SUMMARY tally"
+      "description": "Emit REFRESH_SUMMARY tally",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
     },
     "RUNTIME-B011": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Create runtime-refresh.sh"
+      "description": "Create runtime-refresh.sh",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-B012": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Plugin discovery"
+      "description": "Plugin discovery",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-B013": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Four guards"
+      "description": "Four guards",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-B014": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Summary emission (MUST keep next-session caveat)"
+      "description": "Summary emission (MUST keep next-session caveat)",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-B015": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Register the hook"
+      "description": "Register the hook",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-T001": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Extend scaffold BATS with --refresh"
+      "description": "Extend scaffold BATS with --refresh",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-T002": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Test present-only semantics"
+      "description": "Test present-only semantics",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-T003": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Test authored-rule protection"
+      "description": "Test authored-rule protection",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-T004": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Create runtime-refresh.test.sh"
+      "description": "Create runtime-refresh.test.sh",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-T005": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Test all four guards"
+      "description": "Test all four guards",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-T006": {
-      "status": "pending",
+      "status": "success",
       "phase": 3,
-      "description": "Test monotonic gate"
+      "description": "Test monotonic gate",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
     },
     "RUNTIME-D003": {
       "status": "pending",
@@ -271,6 +319,28 @@
         "RUNTIME-T008"
       ],
       "note": "Manifest is single source; scaffolded project now registers the same hook set this repo runs. Review REJECTED once (shipped plugin-only/init-project.md was an ungenerated 4th consumer still documenting the retired permitter) \u2014 fixed via symlinks + regression test."
+    },
+    {
+      "phase": 3,
+      "timestamp": "2026-08-12T06:03:36Z",
+      "tasks_completed": [
+        "RUNTIME-B007",
+        "RUNTIME-B008",
+        "RUNTIME-B009",
+        "RUNTIME-B010",
+        "RUNTIME-B011",
+        "RUNTIME-B012",
+        "RUNTIME-B013",
+        "RUNTIME-B014",
+        "RUNTIME-B015",
+        "RUNTIME-T001",
+        "RUNTIME-T002",
+        "RUNTIME-T003",
+        "RUNTIME-T004",
+        "RUNTIME-T005",
+        "RUNTIME-T006"
+      ],
+      "note": "Refresh mechanism complete. Review APPROVED_WITH_RECOMMENDATIONS; F1 (self-repo guard tested equality not ancestry \u2014 would have rewritten ~1482 tracked eval-fixture files) fixed and regression-tested. F2/F3/F4 also fixed."
     }
   ]
 }
