@@ -78,7 +78,6 @@ create_valid_structure() {
     echo "# Process" > "$dir/.claude/rules/process.md"
 
     # Create required hook files
-    echo "// Permitter hook" > "$dir/.claude/hooks/permitter.js"
     echo "# Router hook" > "$dir/.claude/hooks/router.py"
     echo "// Status hook" > "$dir/.claude/hooks/status.js"
 
@@ -148,7 +147,7 @@ EOF
     run "$VALIDATE_SCRIPT" "$TEST_DIR"
 
     # Should report required hooks exist
-    [[ "$output" == *"permitter.js exists"* ]]
+    [[ "$output" == *"router.py exists"* ]]
     [[ "$output" == *"router.py exists"* ]]
     [[ "$output" == *"status.js exists"* ]]
 }
@@ -272,16 +271,6 @@ EOF
 
     [ "$status" -ne 0 ]
     [[ "$output" == *"process.md"*"missing"* ]]
-}
-
-@test "TRD-TEST-019: Missing required hook (permitter.js) fails validation" {
-    create_valid_structure "$TEST_DIR"
-    rm -f "$TEST_DIR/.claude/hooks/permitter.js"
-
-    run "$VALIDATE_SCRIPT" "$TEST_DIR"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"permitter.js"* ]]
 }
 
 @test "TRD-TEST-019: Missing required hook (router.py) fails validation" {

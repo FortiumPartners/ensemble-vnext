@@ -170,15 +170,14 @@ echo ""
 echo "--- Hook Files ---"
 
 REQUIRED_HOOKS=(
-    "permitter/permitter.js"
     "router.py"
     "status.js"
 )
 
 OPTIONAL_HOOKS=(
     "formatter.sh"
-    "learning.sh"
-    "save-remote-logs.js"
+    "notify.sh"
+    "wiggum.js"
 )
 
 for hook in "${REQUIRED_HOOKS[@]}"; do

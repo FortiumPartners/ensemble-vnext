@@ -229,11 +229,8 @@ ensure_hooks_executable() {
     local hook_files=(
         "$hooks_dir/router.py"
         "$hooks_dir/formatter.sh"
-        "$hooks_dir/learning.sh"
         "$hooks_dir/status.js"
         "$hooks_dir/wiggum.js"
-        "$hooks_dir/save-remote-logs.js"
-        "$hooks_dir/permitter/permitter.js"
     )
 
     local count=0
@@ -272,10 +269,8 @@ copy_hooks() {
     local hooks_to_copy=(
         "router.py"
         "formatter.sh"
-        "learning.sh"
         "status.js"
         "wiggum.js"
-        "save-remote-logs.js"
         "notify.sh"
     )
 
@@ -310,42 +305,6 @@ copy_hooks() {
             done
         fi
         
-        # Handle permitter separately (it has a lib directory)
-        if [[ -f "$PLUGIN_DIR/hooks/permitter.js" || -L "$PLUGIN_DIR/hooks/permitter.js" ]]; then
-            mkdir -p "$dest/permitter/lib"
-            if [[ ! -f "$dest/permitter/permitter.js" || "$FORCE" == "true" ]]; then
-                cp -L "$PLUGIN_DIR/hooks/permitter.js" "$dest/permitter/"
-                chmod +x "$dest/permitter/permitter.js" 2>/dev/null || true
-                info "Copied hook: permitter/permitter.js"
-                ((count++)) || true
-            fi
-            # Copy permitter lib from monorepo if accessible via symlink target.
-            # NOTE: readlink returns a RELATIVE path; anchor it to the symlink's directory
-            # via `cd && pwd` so [[ -d ]] works regardless of the caller's CWD (the scaffold
-            # runs from the target project dir, not the plugin dir).
-            local permitter_link="$PLUGIN_DIR/hooks/permitter.js"
-            local permitter_target
-            permitter_target=$(readlink "$permitter_link" 2>/dev/null || echo "")
-            if [[ -n "$permitter_target" ]]; then
-                local lib_dir=""
-                if [[ "$permitter_target" = /* ]]; then
-                    lib_dir="$(dirname "$permitter_target")/../lib"
-                else
-                    lib_dir="$(cd "$(dirname "$permitter_link")" 2>/dev/null && cd "$(dirname "$permitter_target")" 2>/dev/null && pwd)/../lib" || lib_dir=""
-                fi
-                if [[ -n "$lib_dir" && -d "$lib_dir" ]]; then
-                    for lib in "$lib_dir"/*.js; do
-                        [[ -f "$lib" ]] || continue
-                        local basename
-                        basename="$(basename "$lib")"
-                        if [[ ! -f "$dest/permitter/lib/$basename" || "$FORCE" == "true" ]]; then
-                            cp "$lib" "$dest/permitter/lib/"
-                            info "Copied lib: permitter/lib/$basename"
-                        fi
-                    done
-                fi
-            fi
-        fi
     else
         # Fall back to monorepo structure
         local base_path="$PLUGIN_DIR/.."
@@ -360,7 +319,7 @@ copy_hooks() {
         fi
         
         # Core hooks
-        for hook in formatter.sh learning.sh status.js wiggum.js save-remote-logs.js notify.sh; do
+        for hook in formatter.sh status.js wiggum.js notify.sh; do
             if [[ -f "$base_path/core/hooks/$hook" ]]; then
                 if [[ ! -f "$dest/$hook" || "$FORCE" == "true" ]]; then
                     cp "$base_path/core/hooks/$hook" "$dest/"
@@ -385,25 +344,6 @@ copy_hooks() {
         fi
         
         # Permitter hook
-        if [[ -d "$base_path/permitter" ]]; then
-            mkdir -p "$dest/permitter/lib"
-            if [[ -f "$base_path/permitter/hooks/permitter.js" ]]; then
-                if [[ ! -f "$dest/permitter/permitter.js" || "$FORCE" == "true" ]]; then
-                    cp "$base_path/permitter/hooks/permitter.js" "$dest/permitter/"
-                    info "Copied hook: permitter/permitter.js"
-                    ((count++)) || true
-                fi
-            fi
-            for lib in "$base_path/permitter/lib"/*.js; do
-                [[ -f "$lib" ]] || continue
-                local basename
-                basename="$(basename "$lib")"
-                if [[ ! -f "$dest/permitter/lib/$basename" || "$FORCE" == "true" ]]; then
-                    cp "$lib" "$dest/permitter/lib/"
-                    info "Copied lib: permitter/lib/$basename"
-                fi
-            done
-        fi
     fi
 
     info "Copied $count hooks"

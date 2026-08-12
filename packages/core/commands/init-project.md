@@ -66,7 +66,7 @@ skills: [skill1, skill2]  # optional: pre-select skills
 - Generate governance files: constitution.md, stack.md, process.md
 - Copy and customize 12 subagents for project-specific needs
 - Select and copy relevant skills from plugin library
-- Configure hooks (permitter, router, formatter, status, learning)
+- Configure hooks (router, formatter, status, discipline, session-context, precompact)
 - Set up `.trd-state/` directory with current.json
 - Configure `.gitignore` for proper tracking
 
@@ -320,7 +320,7 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - Template files: `CLAUDE.md`, `.claude/settings.json`, `.trd-state/current.json`
 - **12 agent files** copied to `.claude/agents/`
 - **8 command files** copied to `.claude/commands/`
-- **All hooks** copied to `.claude/hooks/` (including permitter with lib dependencies)
+- **All hooks** copied to `.claude/hooks/` (including the shared `lib/` helpers)
 
 **Verify all directories and these files exist before proceeding:**
 - `CLAUDE.md`
@@ -328,7 +328,7 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - `.trd-state/current.json`
 - `.claude/agents/*.md` (12 files)
 - `.claude/commands/*.md` (8 files)
-- `.claude/hooks/` (permitter/, router.py, formatter.sh, status.js, wiggum.js, notify.sh, async-discipline.js, autonomy-discipline.js, session-context.js, precompact.js)
+- `.claude/hooks/` (router.py, formatter.sh, status.js, wiggum.js, notify.sh, async-discipline.js, autonomy-discipline.js, session-context.js, precompact.js, lib/)
 
 ### Step 4: Generate Governance Files
 
@@ -553,15 +553,18 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 **Hooks were copied by scaffold script in Step 3. Verify they exist:**
 
 Check these hooks in `.claude/hooks/` (9 total):
-1. **Permitter Hook** (`PermissionRequest`) — `.claude/hooks/permitter/permitter.js` and `lib/` directory
-2. **Router Hook** (`UserPromptSubmit`) — `.claude/hooks/router.py` (static framework-leverage reminder)
-3. **Formatter Hook** (`PostToolUse`) — `.claude/hooks/formatter.sh`
-4. **Status Hook** (`SubagentStop`) — `.claude/hooks/status.js` (advances cycle_position in `implement.json`)
-5. **Async-Discipline Hook** (`Stop`) — `.claude/hooks/async-discipline.js` (blocks fire-and-forget claims; pairs with `.claude/rules/async-discipline.md`)
+1. **Router Hook** (`UserPromptSubmit`) — `.claude/hooks/router.py` (static framework-leverage reminder)
+2. **Formatter Hook** (`PostToolUse`) — `.claude/hooks/formatter.sh`
+3. **Status Hook** (`SubagentStop`) — `.claude/hooks/status.js` (advances cycle_position in `implement.json`)
+4. **Async-Discipline Hook** (`Stop`) — `.claude/hooks/async-discipline.js` (blocks fire-and-forget claims; pairs with `.claude/rules/async-discipline.md`)
+5. **Autonomy-Discipline Hook** (`Stop`) — `.claude/hooks/autonomy-discipline.js` (blocks hedged-pause offers; pairs with `.claude/rules/autonomy.md`)
 6. **Wiggum Hook** (`Stop`) — `.claude/hooks/wiggum.js` (autonomous loop intercept, max 50 iterations)
 7. **Notify Hook** (`Stop`) — `.claude/hooks/notify.sh` (optional outbound notification when session stops)
 8. **Session-Context Hook** (`SessionStart`) — `.claude/hooks/session-context.js` (auto-loads in-flight TRD/PRD state from `.trd-state/current.json`)
 9. **PreCompact Hook** (`PreCompact`) — `.claude/hooks/precompact.js` (archives decision-trail checkpoint to `.trd-state/<feat>/session-log.md` before compaction)
+
+Plus `.claude/hooks/notify-complete.sh` (not event-registered — invoked by commands on
+their COMMAND COMPLETE turn) and `.claude/hooks/lib/` (shared helpers).
 
 If any are missing, re-run the scaffold (use `--force` to overwrite existing files):
 ```bash
@@ -738,7 +741,6 @@ A good CLAUDE.md should let a future session:
 | `.claude/rules/async-discipline.md` | Step 3 (scaffold, framework rule) | YES |
 | `.claude/skills/` (1+ skill folders) | Step 6 | YES |
 | `.claude/commands/` (8 files) | Step 7 | YES |
-| `.claude/hooks/permitter.js` | Step 8 | YES |
 | `.claude/hooks/router.py` | Step 8 | YES |
 | `.claude/hooks/formatter.sh` | Step 8 | YES |
 | `.claude/hooks/status.js` | Step 8 | YES |

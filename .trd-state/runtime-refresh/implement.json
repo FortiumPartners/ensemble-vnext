@@ -219,6 +219,11 @@
       "status": "success",
       "phase": 1,
       "description": "Deterministic per-project skill preloads: affinity manifest + scaffold injection (frontmatter preload for subagents, body block for teammates)"
+    },
+    "PLAN-5a": {
+      "status": "success",
+      "phase": 1,
+      "description": "Improvement-plan item 5a: retire permitter, learning.sh, save-remote-logs.js (pulled forward ahead of P005)"
     }
   }
 }

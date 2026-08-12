@@ -2,6 +2,63 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [4.1.0] - 2026-08-11
+
+Retires three hook components. Pulled forward from item 5 of the improvement plan because
+item 1's Phase 2 authors a `hooks.manifest.json` that enumerates every hook file and
+generates three consumers from it — declaring hooks that were about to be deleted would
+mean writing that declaration twice. Deletions only; the item's modifications (prompt
+hooks, wiggum re-injection, `resolve-project-root`, formatter) are unchanged and still to come.
+
+### Removed — BREAKING
+
+- **`permitter.js` and `packages/permitter/`** — a 241-line semantic permission matcher on
+  `PermissionRequest`. It predates auto mode and prompt-based permission hooks, and is
+  bypassed entirely in the permissions mode this framework recommends. Decisive evidence:
+  **it had been completely broken in every scaffolded project and nobody noticed** — the
+  plugin shipped `hooks/permitter.js` flat while `settings.json` registered
+  `.claude/hooks/permitter/permitter.js`, and its `allowlist-loader`, `command-parser`, and
+  `matcher` modules never shipped at all, so it threw `Cannot find module` on every
+  permission request. Removing a security control that never ran changes nothing about
+  actual behaviour; it removes the illusion that one was running.
+
+  *Migration:* permission handling reverts to Claude Code's native path. Run
+  `/fewer-permission-prompts` to generate an allowlist if you were relying on prompt
+  reduction.
+
+- **`learning.sh`** — orphaned. Unregistered in this repo, registered in the template,
+  invoked by nothing: `/update-project` performs its own analysis and never called it,
+  despite documentation (including this project's own constitution) claiming otherwise.
+  20 of its 41 tests were failing.
+
+- **`save-remote-logs.js`** — committed session transcripts to the repository, gated only on
+  `ENSEMBLE_SAVE_REMOTE_LOGS=1`. A stale export in a shell profile meant every session
+  silently committing its transcript. Log archival that writes to git should be an explicit
+  act, not an ambient one.
+
+**There is now no `SessionEnd` hook anywhere in the framework.** The constitution's
+"no auto-commit in SessionEnd" prohibition is structural rather than aspirational.
+
+### Changed
+
+- `scaffold-project.sh` lost ~55 lines of permitter-specific copying, including the
+  symlink-following logic that resolved its `lib/` directory — the code path that was
+  silently failing in cache installs.
+- The template `settings.json` no longer registers `PermissionRequest` or `SessionEnd`.
+- `validate-init.sh` no longer requires `permitter/permitter.js`; required hooks are now
+  `router.py` and `status.js`.
+- `init-project.md`'s hook enumeration dropped the permitter and gained
+  `autonomy-discipline.js`, which had been missing since 3.3.12.
+- `rebase-project.md` lost ~40 lines of permitter layout rules and now reports a vendored
+  `permitter/`, `learning.sh`, or `save-remote-logs.js` as *retired* rather than as drift to
+  be repaired by re-adding them.
+- `constitution.md`'s governance note corrected — an earlier fix in 4.0.0 replaced one wrong
+  claim with another, asserting `/update-project` "builds on" `learning.sh`. It never did.
+
+Incidentally fixed a pre-existing `validate-init.test.sh` failure: `Required hooks are
+validated` had been failing because its fixture created a flat `permitter.js` that could
+never match the required subdirectory path. 3 pre-existing failures → 2.
+
 ## [4.0.0] - 2026-08-11
 
 Phase 1 of the **runtime refresh & delivery coherence** work

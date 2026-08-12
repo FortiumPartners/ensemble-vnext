@@ -42,10 +42,8 @@ jobs:
       # Scoped to suites that pass today so this gate is meaningful rather than
       # permanently red. `npm test` locally still runs everything and shows the
       # real state. Known-failing suites, all predating this workflow:
-      #   packages/core/hooks/save-remote-logs.test.js
       #   packages/core/hooks/status.test.js
       #   packages/core/hooks/wiggum.test.js
-      #   packages/permitter/tests/performance.test.js
       #   test/evals/framework/judge.test.js
       #   test/evals/framework/run-eval.test.js
       # Delete entries from this list as they are fixed.
@@ -56,10 +54,8 @@ jobs:
               '/node_modules/' \
               '<rootDir>/test/evals/analysis-archive/' \
               '<rootDir>/test/evals/results/' \
-              '<rootDir>/packages/core/hooks/save-remote-logs.test.js' \
               '<rootDir>/packages/core/hooks/status.test.js' \
               '<rootDir>/packages/core/hooks/wiggum.test.js' \
-              '<rootDir>/packages/permitter/tests/performance.test.js' \
               '<rootDir>/test/evals/framework/judge.test.js' \
               '<rootDir>/test/evals/framework/run-eval.test.js'
 
@@ -88,7 +84,6 @@ jobs:
           # Scoped to suites that pass today so this gate is meaningful rather
           # than permanently red. Known-failing suites, all predating this
           # workflow (run them locally to see the real state):
-          #   packages/core/hooks/learning.test.sh      (20 failing)
           #   packages/core/scripts/validate-init.test.sh (3 failing)
           #   test/integration/tests/commands.test.sh    (1 failing —
           #     asserts a verify_router_rules helper that exists nowhere)
@@ -97,7 +92,7 @@ jobs:
             {
               find packages -path packages/full -prune -o -name '*.test.sh' -print
               find test/integration/tests -maxdepth 1 -name '*.test.sh' -print
-            } | grep -v -E '(learning|validate-init|commands)\.test\.sh$'
+            } | grep -v -E '(validate-init|commands)\.test\.sh$'
           )
           if [ ${#files[@]} -eq 0 ]; then
             echo "No BATS suites found"; exit 0

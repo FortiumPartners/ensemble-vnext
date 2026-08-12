@@ -428,20 +428,20 @@ _get_plugin_dir() {
     [ ! -f "$TEST_DIR/.claude/commands/rebase-project.md" ]
 }
 
-@test "Plugin copy: Copies hooks including permitter structure" {
+# Retired in item 5a: permitter, learning.sh, and save-remote-logs.js are no longer
+# shipped or scaffolded. This asserts the removal rather than the delivery — the
+# permitter in particular had been broken in every scaffolded project for months
+# (its lib/ modules never shipped), which is what made the case for retiring it.
+@test "Retired hooks are not scaffolded" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
 
     run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
     [ "$status" -eq 0 ]
 
-    # Check permitter structure
-    [ -d "$TEST_DIR/.claude/hooks/permitter" ]
-    [ -d "$TEST_DIR/.claude/hooks/permitter/lib" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/permitter.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/lib/matcher.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/lib/allowlist-loader.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/lib/command-parser.js" ]
+    [ ! -e "$TEST_DIR/.claude/hooks/permitter" ]
+    [ ! -e "$TEST_DIR/.claude/hooks/learning.sh" ]
+    [ ! -e "$TEST_DIR/.claude/hooks/save-remote-logs.js" ]
 }
 
 @test "Plugin copy: Copies core hooks (router, formatter, status, wiggum)" {
@@ -455,7 +455,7 @@ _get_plugin_dir() {
     [ -f "$TEST_DIR/.claude/hooks/formatter.sh" ]
     [ -f "$TEST_DIR/.claude/hooks/status.js" ]
     [ -f "$TEST_DIR/.claude/hooks/wiggum.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/learning.sh" ]
+    [ -f "$TEST_DIR/.claude/hooks/notify.sh" ]
 }
 
 @test "Plugin copy: Idempotent - does not overwrite existing files" {

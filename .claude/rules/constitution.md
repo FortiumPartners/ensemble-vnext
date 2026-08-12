@@ -72,13 +72,13 @@ Story/Idea --> PRD --> TRD (with Execution Plan) --> Implementation
 `CLAUDE.md` is updated by explicitly invoking `/update-project` (capture learnings) or
 `/cleanup-project` (prune). No hook rewrites `CLAUDE.md` on its own.
 
-`learning.sh` (in `.claude/hooks/`) is the staging helper `/update-project` builds on. It is
-**not** registered in this repo's own `.claude/settings.json` — this repo has no `SessionEnd`
-hook at all. The framework settings template
-(`packages/core/templates/claude-directory/settings.json`) *does* register `SessionEnd` →
-`learning.sh` + `save-remote-logs.js`, so a scaffolded project runs them at session end. Those
-hooks only **stage** files and save logs; they never commit and never rewrite `CLAUDE.md`, per
-the "no auto-commit in SessionEnd" prohibition below.
+There is no `SessionEnd` hook anywhere in the framework as of 4.1.0. `learning.sh` (which
+staged files at session end) and `save-remote-logs.js` (which committed session transcripts
+when `ENSEMBLE_SAVE_REMOTE_LOGS=1`) were both retired: `learning.sh` was invoked by nothing —
+`/update-project` does its own analysis and does not call it — and `save-remote-logs.js` wrote
+to git on an ambient env var, which is not a thing that should happen without an explicit
+request. Their removal is what makes the "no auto-commit in `SessionEnd`" prohibition below
+structural rather than aspirational.
 
 ---
 

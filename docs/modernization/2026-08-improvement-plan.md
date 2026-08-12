@@ -56,7 +56,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
-| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | |
+| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a done (4.1.0)** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
@@ -215,7 +215,14 @@ time has meant each is examined only when it breaks. Do the layer at once.
 
 Three distinct problems, handled together because the retirements change what the rest has to cover:
 
-**5a. Retire what shouldn't exist.**
+**5a. Retire what shouldn't exist.** ✅ **Done in 4.1.0** — pulled forward ahead of item 1's
+Phase 2, because that phase authors a `hooks.manifest.json` enumerating every hook file, and
+declaring hooks that were about to be deleted would mean writing the declaration twice.
+`learning.sh`, `save-remote-logs.js`, and `permitter` (plus `packages/permitter/`) are gone;
+there is now no `SessionEnd` hook anywhere in the framework. The permitter decision resolved
+to *delete*: it had been throwing `Cannot find module` on every permission request in every
+scaffolded project, so removing it changed no actual behaviour. Router is the one item here
+still open — it was a modification, not a deletion.
 
 - **`learning.sh`** — orphaned. Unregistered in this repo, registered in the template, invoked by
   nothing. `/update-project` does not call it, despite documentation that said it did. 20 of its
@@ -291,8 +298,8 @@ iteration cap stays as the termination guarantee.
 invented rules directory is now a natively recognised path. Both a validation point and a place to
 assert rule integrity at load time.
 
-**Done when:** `learning.sh` and `save-remote-logs.js` are gone; a written decision exists for
-`permitter` and for `router`, with a test behind either if kept; both discipline hooks are under
+**Done when:** ~~`learning.sh` and `save-remote-logs.js` are gone~~ ✅; a written decision exists for ~~`permitter`~~ ✅ (deleted)
+and for `router`, with a test behind it if kept; both discipline hooks are under
 ~80 LOC with semantic matching in a prompt hook; no hook reads `transcript_path` to find the last
 assistant message; `wiggum` re-injects state plus a restated completion promise;
 `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR`; every surviving hook loads and exits 0 on a

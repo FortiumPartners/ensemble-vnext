@@ -1,1 +1,0 @@
-../../core/hooks/learning.sh

@@ -48,18 +48,6 @@
     ]
   },
   "hooks": {
-    "PermissionRequest": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\" && .claude/hooks/permitter/permitter.js'",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
@@ -156,6 +144,6 @@
     "docs_dir": "docs",
     "prd_dir": "docs/PRD",
     "trd_dir": "docs/TRD",
-    "version": "4.0.0"
+    "version": "4.1.0"
   }
 }
