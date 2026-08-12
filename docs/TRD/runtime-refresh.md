@@ -368,38 +368,66 @@ Consequences for the build:
 
 ---
 
-## 9. Follow-up: per-project skill preloads (RUNTIME-D004)
+## 9. Per-project skill preloads (RUNTIME-D004) — implemented
 
-RUNTIME-P001 removed the plugin's global skill registration. That exposed a latent
-defect: all 13 shipped agents declared a hardcoded `skills:` frontmatter preload, and
-those names only resolved *because* the whole library was registered globally. Eight
-pointed at skills absent from any curated project; the other five resolved only by
-coincidence of this project's selection.
+RUNTIME-P001 removed the plugin's global skill registration, which exposed a latent
+defect: all 13 shipped agents carried a hardcoded `skills:` frontmatter pool, and those
+names resolved only *because* the whole library was registered globally.
 
-Removing the field from all 13 (RUNTIME-T009) is the correct immediate fix — a
-hardcoded preload in a plugin-shipped agent can never be right when skills are curated
-per project. But it does give up something real.
+### What was actually happening
 
-**Measured, not assumed:**
+`/init-project` did resolve those pools correctly in practice — a real run produced
+`verify-app: jest, smoke-test-runner, smoke-test-api`, exactly the intersection of its
+13-entry pool with that project's 4 selected skills. But **nothing instructed it to.**
+Step 5 said only "preserve the existing frontmatter structure (name, description, model,
+color, skills)". The pruning was emergent model judgment, so an equally valid run would
+have preserved the pool verbatim and produced preloads naming skills the project never
+selected. This repo's own dogfood copy is the proof: never pruned, all 13 broken.
+
+The defect was therefore never "preloads are wrong" — it was **"resolution is
+nondeterministic."**
+
+### Measured behaviour
 
 | Question | Answer |
 |---|---|
 | Does a nonexistent skill fail the spawn? | No — spawn succeeds |
-| Any error / warning / system-reminder? | None; the entry is silently dropped |
-| Does `skills:` actually preload content for skills that *do* exist? | **Yes** — a marker token in a declared skill's `SKILL.md` was present in the agent's context with zero tool uses |
+| Any error / warning? | None; the entry is silently dropped |
+| Does `skills:` preload content for skills that exist? | **Yes** — a marker token reached the agent's context with zero tool uses |
+| Do `Agent({team_name})` teammates get the preload? | **No** — teammates read skills from the project instead |
 
-So the preload is a genuine capability, and the silent-drop behaviour is why this
-needed a regression test rather than trusting a runtime error to surface it.
+### Design
 
-The right way to get it back is injection at scaffold time: `/init-project` Step 5
-writes each agent's `skills:` from the project's own `selected-skills.txt`, so a Rails
-project's agents preload Rails skills and a Python project's preload Python skills.
-That keeps the plugin source project-agnostic while restoring per-agent preloading.
+Two channels, because the two spawn styles consume different things:
 
-Deliberately **not** done as part of the T009 fix — it changes `/init-project`'s
-generation behaviour and belongs with the Phase 2 manifest work, not in a defect fix.
+1. **`skills:` frontmatter** — a genuine preload, reaches subagents.
+2. **A managed body block** delimited by `<!-- ENSEMBLE:SKILLS:BEGIN/END -->` — reaches
+   teammates, who never see the frontmatter preload. Names the agent's most relevant
+   skills with one-line descriptions, then explicitly lists the remaining installed
+   skills as still available and states the list is not a restriction.
 
----
+Both are produced by `inject_agent_skills()` in `scaffold-project.sh` from a single
+declaration, `packages/core/agents/skill-affinity.json` — mirroring the
+`hooks.manifest.json` decision in §2.3. The manifest holds **candidate pools**, not
+preloads; the script intersects each pool with the project's `selected-skills.txt`.
+
+Deliberately a script and not prompt prose, for two reasons:
+
+- Determinism. A set intersection is not a judgment call, and the constitution puts
+  deterministic work in scripts. Skill *selection* remains an LLM task; resolving the
+  pool against it is not.
+- **Refresh survival.** §2.2 has `--refresh` re-copying `.claude/agents/*.md` from the
+  plugin. Anything `/init-project` injected into those files would be wiped on the next
+  refresh. Injection must live in the path refresh itself runs.
+
+### Verification
+
+The deterministic output is **byte-identical** to what `/init-project`'s model produced
+in the earlier real run, across all 13 agents — same result, now guaranteed. A Rails
+project (`rails`, `rspec`, `developing-with-react`, `managing-railway`) resolves
+correctly, which is the case that was always broken. Idempotent across repeated runs;
+changing the selection re-derives rather than accumulates. 11 BATS cases
+(`scaffold-project.test.sh` 42 → 53).
 
 ## Appendices
 

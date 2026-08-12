@@ -597,3 +597,187 @@ EOF
     # Should warn about missing skill
     [[ "$output" == *"not found"* ]] || [[ "$output" == *"Skill not found"* ]]
 }
+
+# =============================================================================
+# RUNTIME-D004: Per-project agent skill preloads
+#
+# Agents ship without a skills: field. inject_agent_skills() intersects each
+# agent's candidate pool (packages/core/agents/skill-affinity.json) with the
+# project's own selected-skills.txt and writes the result into
+# .claude/agents/<name>.md. Before 4.0.0 this intersection happened only when
+# /init-project's model chose to prune the shipped pools — nothing instructed
+# it to, so the result was emergent rather than guaranteed. These tests pin the
+# deterministic behaviour.
+# =============================================================================
+
+# Read an agent's skills: entries as a space-separated string
+_agent_skills() {
+    awk '/^---$/{n++; if(n==2) exit; next}
+         n==1 && /^skills:/{p=1; next}
+         p && /^[a-z_-]+:/{p=0}
+         p{printf "%s ", $2}' "$1"
+}
+
+@test "D004: preloads are the intersection of the agent pool and selected skills" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\ndeveloping-with-typescript\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # verify-app's pool contains jest but not developing-with-typescript
+    local skills; skills="$(_agent_skills "$TEST_DIR/.claude/agents/verify-app.md")"
+    [[ "$skills" == *"jest"* ]]
+    [[ "$skills" != *"developing-with-typescript"* ]]
+}
+
+@test "D004: no preload names a skill the project did not select" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'rails\nrspec\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local agent skill
+    for agent in "$TEST_DIR/.claude/agents/"*.md; do
+        for skill in $(_agent_skills "$agent"); do
+            [[ "$skill" == "rails" || "$skill" == "rspec" ]]
+        done
+    done
+}
+
+@test "D004: agent with no pool overlap gets no skills: field" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    # product-manager's pool is jira/linear only — no overlap with these
+    printf 'jest\npytest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -c '^skills:' "$TEST_DIR/.claude/agents/product-manager.md"
+    [ "$output" -eq 0 ]
+}
+
+@test "D004: injection is idempotent across repeated runs" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\ndeveloping-with-typescript\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    local first; first="$(cat "$TEST_DIR/.claude/agents/"*.md | shasum | cut -d' ' -f1)"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    local second; second="$(cat "$TEST_DIR/.claude/agents/"*.md | shasum | cut -d' ' -f1)"
+
+    [ "$first" = "$second" ]
+}
+
+@test "D004: changing the selection re-derives preloads rather than accumulating" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    [[ "$(_agent_skills "$TEST_DIR/.claude/agents/verify-app.md")" == *"jest"* ]]
+
+    # Swap the selection entirely; jest must disappear, pytest must appear
+    printf 'pytest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    local skills; skills="$(_agent_skills "$TEST_DIR/.claude/agents/verify-app.md")"
+    [[ "$skills" == *"pytest"* ]]
+    [[ "$skills" != *"jest"* ]]
+}
+
+@test "D004: no selection file leaves agents without preloads" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -l '^skills:' "$TEST_DIR/.claude/agents/"*.md
+    [ "$status" -ne 0 ]
+}
+
+@test "D004: every affinity pool candidate exists in the skill library" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    local manifest="$SCRIPT_DIR/../agents/skill-affinity.json"
+    [ -f "$manifest" ]
+
+    run python3 -c "
+import json, pathlib, sys
+lib = {p.name for p in pathlib.Path('$plugin_dir/skills-lib').iterdir() if p.is_dir()}
+doc = json.load(open('$manifest'))
+bad = {a: [s for s in pool if s not in lib] for a, pool in doc['agents'].items()}
+bad = {a: m for a, m in bad.items() if m}
+print(bad)
+sys.exit(1 if bad else 0)
+"
+    [ "$status" -eq 0 ]
+}
+
+@test "D004: body block is injected for every agent" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local agent count
+    for agent in "$TEST_DIR/.claude/agents/"*.md; do
+        count="$(grep -c 'ENSEMBLE:SKILLS:BEGIN' "$agent")"
+        [ "$count" -eq 1 ]
+    done
+}
+
+@test "D004: body block does not stack across repeated runs" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+
+    run grep -c 'ENSEMBLE:SKILLS:BEGIN' "$TEST_DIR/.claude/agents/verify-app.md"
+    [ "$output" -eq 1 ]
+    run grep -c 'ENSEMBLE:SKILLS:END' "$TEST_DIR/.claude/agents/verify-app.md"
+    [ "$output" -eq 1 ]
+}
+
+@test "D004: body block names non-affinity skills as still available" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\nmanaging-jira-issues\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # verify-app's pool has jest but not managing-jira-issues; the latter must
+    # still be listed as available rather than hidden from the agent.
+    run grep -A20 'ENSEMBLE:SKILLS:BEGIN' "$TEST_DIR/.claude/agents/verify-app.md"
+    [[ "$output" == *"managing-jira-issues"* ]]
+    [[ "$output" == *"not a restriction"* ]]
+}
+
+@test "D004: agent frontmatter remains valid YAML after body injection" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\ndeveloping-with-typescript\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 -c "
+import pathlib, sys
+bad = []
+for p in sorted(pathlib.Path('$TEST_DIR/.claude/agents').glob('*.md')):
+    t = p.read_text().split('\n')
+    if t[0].strip() != '---': bad.append(p.name); continue
+    close = next((i for i in range(1, len(t)) if t[i].strip() == '---'), None)
+    if close is None: bad.append(p.name)
+print(bad)
+sys.exit(1 if bad else 0)
+"
+    [ "$status" -eq 0 ]
+}

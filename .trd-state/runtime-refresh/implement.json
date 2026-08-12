@@ -36,7 +36,7 @@
     "skills_preload_behaviour": {
       "status": "resolved",
       "result": "missing skill = silent no-op; real skill = genuine preload",
-      "detail": "Nonexistent skill in agent frontmatter does not fail the spawn and emits no warning. A declared skill that exists IS preloaded into agent context (marker token present with zero tool uses). Hence 4.0.0 needed no hotfix, and the removal needed a regression test."
+      "detail": "Nonexistent skill in agent frontmatter does not fail the spawn and emits no warning. A declared skill that exists IS preloaded into agent context (marker token present with zero tool uses). Hence 4.0.0 needed no hotfix, and the removal needed a regression test. Also measured: Agent({team_name}) teammates do NOT receive frontmatter preloads, which is why injection writes a managed body block as well."
     }
   },
   "tasks": {
@@ -216,9 +216,9 @@
       "description": "Verify all 13 agents spawn after skills: removal"
     },
     "RUNTIME-D004": {
-      "status": "pending",
-      "phase": 2,
-      "description": "Inject per-project skill preloads from selected-skills.txt in init-project Step 5"
+      "status": "success",
+      "phase": 1,
+      "description": "Deterministic per-project skill preloads: affinity manifest + scaffold injection (frontmatter preload for subagents, body block for teammates)"
     }
   }
 }

@@ -45,6 +45,30 @@ registers the skill library, cutting always-on context cost by ~99%.
   a regression test (`RUNTIME-T009` in `packages/core/agents/agent-validation.test.js`),
   because the silent-drop behaviour means nothing else would catch a reintroduction.
 
+### Added — per-project agent skill preloads
+
+- **Skill preloads are now generated per project, deterministically.** The hardcoded
+  lists removed above were really *candidate pools*, and `/init-project` did intersect
+  them against the project's `selected-skills.txt` in practice — but nothing instructed
+  it to. Step 5 only said "preserve the existing frontmatter structure", so the pruning
+  was emergent model judgment; an equally valid run preserved the pools verbatim, which
+  is exactly what this repo's own agents did.
+
+  `scaffold-project.sh` now performs that intersection in code, from a single
+  declaration in `packages/core/agents/skill-affinity.json`. The generated output is
+  byte-identical to what the model produced in a real `/init-project` run, across all 13
+  agents — same result, now guaranteed rather than emergent. It is idempotent, and
+  re-derives whenever the skill selection changes.
+
+- **Agents also get a managed body block** between
+  `<!-- ENSEMBLE:SKILLS:BEGIN -->` / `<!-- ENSEMBLE:SKILLS:END -->` markers.
+  `Agent({team_name})` teammates do **not** receive frontmatter preloads — they read
+  skills from the project — so the frontmatter channel alone reaches only half the spawn
+  styles. The block names the agent's most relevant skills with one-line descriptions,
+  then explicitly lists every other installed skill as still available and states that
+  the list is not a restriction. Edits inside the markers are overwritten on the next
+  scaffold or rebase.
+
 ### Added
 
 - **`ensemble.version` / `ensemble.refreshed_at` stamped into `settings.json`** by
