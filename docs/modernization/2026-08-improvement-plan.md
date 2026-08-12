@@ -53,7 +53,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | # | Item | Effort | Why it sits here | Status |
 |---|------|--------|------------------|--------|
 | 1 | Runtime refresh and delivery coherence | 2–3 days | ~12.4k tok/turn wasted; new projects 3 releases behind | **Done (4.1.1)** |
-| 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.2.0)** |
+| 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
 | 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a done (4.1.0)** |
@@ -122,7 +122,7 @@ number appears in all four manifests.
 
 ## Phase B — Fix what is actually broken (Weeks 2–3)
 
-### 2. Remove `TeamCreate`; put groups on the task graph — ✅ **Done (4.2.0)**
+### 2. Remove `TeamCreate`; put groups on the task graph — ✅ **Done (4.1.2)**
 
 > **Status: DONE.** All dead tool calls removed. `implement-trd-team` was **deleted outright**
 > rather than ported — see the decision note at the end of this item. `owner: "self"` fixed, and

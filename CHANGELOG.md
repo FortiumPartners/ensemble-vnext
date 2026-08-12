@@ -2,7 +2,15 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
-## [4.2.0] - 2026-08-12
+**Versioning during the modernization run:** items 1–9 of
+`docs/modernization/2026-08-improvement-plan.md` land as successive **patch** releases
+(4.1.x), including ones that remove commands or otherwise break compatibility. Nothing in
+this run is exposed to users until the whole sequence completes, so burning a minor or major
+number per item would land users on 4.9+ or 9.0.0 for what is one coordinated change. The
+breaking changes are still labelled as such below. A single minor/major bump marks the point
+the work is actually released.
+
+## [4.1.2] - 2026-08-12
 
 Item 2 of the improvement plan: removes tooling that no longer exists, and one command that was
 built on a construct that turned out to be wrong for it.
