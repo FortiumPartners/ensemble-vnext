@@ -248,6 +248,7 @@ Written by `scaffold-project.sh` on initial scaffold and on every successful `--
 | RUNTIME-D001 | Fix governance table | `constitution.md:70` claims a SessionEnd hook maintains CLAUDE.md; none is registered. Correct the row to describe the real mechanism | None | backend-implementer |
 | RUNTIME-D002 | Vendor missing command | Copy `augment-trd-figma.md` from `packages/core/commands/` into `.claude/commands/` | None | backend-implementer |
 | RUNTIME-D003 | Document the refresh model | Add a section to `docs/guides/ARCHITECTURE.md` covering the refresh/rebase split and the next-session caveat | RUNTIME-B014 | backend-implementer |
+| RUNTIME-D004 | Inject per-project skill preloads | `/init-project` Step 5 should write each agent's `skills:` frontmatter from the project's own `selected-skills.txt`, restoring the startup preload that RUNTIME-T009 removed — this time correct per project. See §9. | RUNTIME-T009 | backend-implementer |
 
 ### 4.6 Testing
 
@@ -364,6 +365,39 @@ Consequences for the build:
 - Refreshing `constitution.md`, `stack.md`, or `process.md`. Project-authored.
 - Extracting `/rebase-project`'s 962 lines of prose into a script. Related and worth doing,
   but separate work.
+
+---
+
+## 9. Follow-up: per-project skill preloads (RUNTIME-D004)
+
+RUNTIME-P001 removed the plugin's global skill registration. That exposed a latent
+defect: all 13 shipped agents declared a hardcoded `skills:` frontmatter preload, and
+those names only resolved *because* the whole library was registered globally. Eight
+pointed at skills absent from any curated project; the other five resolved only by
+coincidence of this project's selection.
+
+Removing the field from all 13 (RUNTIME-T009) is the correct immediate fix — a
+hardcoded preload in a plugin-shipped agent can never be right when skills are curated
+per project. But it does give up something real.
+
+**Measured, not assumed:**
+
+| Question | Answer |
+|---|---|
+| Does a nonexistent skill fail the spawn? | No — spawn succeeds |
+| Any error / warning / system-reminder? | None; the entry is silently dropped |
+| Does `skills:` actually preload content for skills that *do* exist? | **Yes** — a marker token in a declared skill's `SKILL.md` was present in the agent's context with zero tool uses |
+
+So the preload is a genuine capability, and the silent-drop behaviour is why this
+needed a regression test rather than trusting a runtime error to surface it.
+
+The right way to get it back is injection at scaffold time: `/init-project` Step 5
+writes each agent's `skills:` from the project's own `selected-skills.txt`, so a Rails
+project's agents preload Rails skills and a Python project's preload Python skills.
+That keeps the plugin source project-agnostic while restoring per-agent preloading.
+
+Deliberately **not** done as part of the T009 fix — it changes `/init-project`'s
+generation behaviour and belongs with the Phase 2 manifest work, not in a defect fix.
 
 ---
 

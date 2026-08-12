@@ -11,9 +11,6 @@ description: |
 model: opus
 effort: high
 color: cyan
-skills:
-  - framework-detector
-  - tooling-detector
 ---
 
 ## Role Statement

@@ -9,37 +9,6 @@ description: |
 model: opus
 effort: high
 color: purple
-skills:
-  - developing-with-react
-  - developing-with-typescript
-  - developing-with-python
-  - developing-with-flutter
-  - developing-with-laravel
-  - developing-with-php
-  - developing-with-dotnet
-  - nestjs
-  - managing-railway
-  - managing-vercel
-  - managing-supabase
-  - managing-azure-devops
-  - using-prisma
-  - using-anthropic-platform
-  - using-openai-platform
-  - using-perplexity-platform
-  - using-azure-functions
-  - using-terraform-azure
-  - using-clerk
-  - building-langgraph-agents
-  - using-weaviate
-  - using-celery
-  - styling-with-tailwind
-  - building-integrations
-  - playwright-automation
-  - developing-with-dotnet
-  - blazor
-  - rails
-  - phoenix
-  - frontend-design
 ---
 
 ## Role

@@ -10,20 +10,6 @@ description: |
 model: sonnet
 effort: medium
 color: pink
-skills:
-  - jest
-  - pytest
-  - rspec
-  - exunit
-  - xunit
-  - writing-playwright-tests
-  - smoke-test-runner
-  - smoke-test-api
-  - smoke-test-auth
-  - smoke-test-critical-paths
-  - smoke-test-database
-  - smoke-test-external-services
-  - test-detector
 ---
 
 ## Role Statement

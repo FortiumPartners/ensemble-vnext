@@ -26,6 +26,25 @@ registers the skill library, cutting always-on context cost by ~99%.
   `skills-lib/`. `scaffold-project.sh` prefers `skills-lib/` and falls back to
   `skills/` so older plugin installs keep working.
 
+- **All 13 agents no longer declare a `skills:` frontmatter preload.** Agents ship in
+  the plugin; skills are curated per project by `/init-project`. A hardcoded `skills:`
+  list in a shipped agent therefore cannot be correct across projects — it names skills
+  a given project never selected. This was masked until now: the global skill
+  registration removed above made every hardcoded name resolve. Without it, 8 of 13
+  agents pointed at skills absent from every curated project (`managing-railway`,
+  `developing-with-react`, `framework-detector`, `managing-jira-issues`,
+  `developing-with-flutter`), and the remaining 5 resolved only by coincidence of this
+  project's selection — in a Rails project they would break identically.
+
+  *Measured behaviour:* a nonexistent skill in this field does **not** fail the spawn
+  and emits **no** warning — the entry is silently dropped. All 13 agents spawn
+  successfully before and after. So the practical effect is a lost startup preload, not
+  a broken agent.
+
+  Agents retain full access to every installed skill through the Skill tool. Guarded by
+  a regression test (`RUNTIME-T009` in `packages/core/agents/agent-validation.test.js`),
+  because the silent-drop behaviour means nothing else would catch a reintroduction.
+
 ### Added
 
 - **`ensemble.version` / `ensemble.refreshed_at` stamped into `settings.json`** by

@@ -28,25 +28,6 @@ description: |
 model: sonnet
 effort: medium
 color: purple
-skills:
-  - developing-with-python
-  - developing-with-typescript
-  - pytest
-  - jest
-  - using-anthropic-platform
-  - using-openai-platform
-  - using-perplexity-platform
-  - building-langgraph-agents
-  - building-rag-pipelines
-  - building-agent-memory
-  - building-tool-orchestration
-  - using-weaviate
-  - using-pgvector
-  - using-prisma
-  - using-langfuse
-  - building-integrations
-  - using-celery
-  - git-town
 ---
 
 ## Role Statement

@@ -11,9 +11,6 @@ description: |
 model: opus
 effort: high
 color: blue
-skills:
-  - managing-jira-issues
-  - managing-linear-issues
 ---
 
 ## Role Statement

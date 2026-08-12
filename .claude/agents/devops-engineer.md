@@ -27,19 +27,6 @@ description: |
 model: sonnet
 effort: medium
 color: blue
-skills:
-  - managing-railway
-  - managing-vercel
-  - managing-supabase
-  - using-terraform-azure
-  - using-azure-functions
-  - managing-azure-devops
-  - kubernetes
-  - helm
-  - aws-cloud
-  - flyio
-  - cloud-provider-detector
-  - tooling-detector
 ---
 
 ## Role Statement

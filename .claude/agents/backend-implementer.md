@@ -23,31 +23,6 @@ description: |
 model: sonnet
 effort: medium
 color: yellow
-skills:
-  - pytest
-  - jest
-  - developing-with-python
-  - developing-with-typescript
-  - nestjs
-  - using-prisma
-  - using-celery
-  - developing-with-dotnet
-  - using-azure-functions
-  - using-clerk
-  - building-integrations
-  - rails
-  - phoenix
-  - exunit
-  - rspec
-  - xunit
-  - developing-with-laravel
-  - developing-with-php
-  - git-town
-  - using-anthropic-platform
-  - using-openai-platform
-  - using-perplexity-platform
-  - building-langgraph-agents
-  - using-weaviate
 ---
 
 ## Role Statement

@@ -11,10 +11,6 @@ description: |
 model: opus
 effort: xhigh
 color: purple
-skills:
-  - framework-detector
-  - tooling-detector
-  - cloud-provider-detector
 ---
 
 ## Role Statement

@@ -25,35 +25,6 @@ description: |
 model: opus
 effort: high
 color: red
-skills:
-  - jest
-  - pytest
-  - rspec
-  - exunit
-  - xunit
-  - writing-playwright-tests
-  - developing-with-react
-  - developing-with-typescript
-  - developing-with-python
-  - developing-with-flutter
-  - developing-with-laravel
-  - developing-with-php
-  - developing-with-dotnet
-  - nestjs
-  - managing-railway
-  - managing-vercel
-  - managing-supabase
-  - using-prisma
-  - using-celery
-  - using-azure-functions
-  - using-clerk
-  - building-integrations
-  - playwright-automation
-  - test-detector
-  - framework-detector
-  - tooling-detector
-  - smoke-test-runner
-  - git-town
 ---
 
 ## Role

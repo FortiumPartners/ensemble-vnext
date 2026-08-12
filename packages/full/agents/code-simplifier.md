@@ -9,19 +9,6 @@ description: |
 model: opus
 effort: medium
 color: cyan
-skills:
-  - developing-with-react
-  - developing-with-typescript
-  - developing-with-python
-  - developing-with-php
-  - developing-with-laravel
-  - developing-with-flutter
-  - developing-with-dotnet
-  - nestjs
-  - rails
-  - phoenix
-  - blazor
-  - git-town
 ---
 
 ## Role

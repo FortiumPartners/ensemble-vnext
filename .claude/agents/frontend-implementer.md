@@ -10,18 +10,6 @@ description: |
 model: sonnet
 effort: medium
 color: green
-skills:
-  - jest
-  - writing-playwright-tests
-  - developing-with-react
-  - developing-with-typescript
-  - styling-with-tailwind
-  - frontend-design
-  - using-clerk
-  - playwright-automation
-  - figma-pixel-perfect
-  - blazor
-  - git-town
 ---
 
 ## Role Statement

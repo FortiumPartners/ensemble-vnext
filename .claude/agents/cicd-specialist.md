@@ -25,13 +25,6 @@ description: |
 model: sonnet
 effort: medium
 color: orange
-skills:
-  - managing-railway
-  - managing-vercel
-  - managing-azure-devops
-  - act-local-ci
-  - changelog-generator
-  - flyio
 ---
 
 ## Role Statement

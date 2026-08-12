@@ -388,6 +388,68 @@ describe('TRD-TEST-091: Skills field format (if present)', () => {
 });
 
 // =============================================================================
+// RUNTIME-T009: No shipped agent declares a skills: preload
+// =============================================================================
+
+/**
+ * Shipped agents must NOT declare a `skills:` frontmatter preload.
+ *
+ * Agents ship in the plugin; skills are curated PER PROJECT by /init-project
+ * (which writes .claude/selected-skills.txt and copies only those into
+ * .claude/skills/). A hardcoded skills: list in a shipped agent therefore
+ * cannot be correct across projects — it names skills that a given project
+ * never selected.
+ *
+ * This became load-bearing in 4.0.0. Before it, plugin.json declared
+ * "skills": "./skills", which registered the whole 61-skill library globally,
+ * so every hardcoded name happened to resolve. RUNTIME-P001 removed that
+ * registration (12,366 -> 95 tok always-on) and the preloads silently stopped
+ * resolving. Verified behaviour: a nonexistent skill in this field does NOT
+ * fail the spawn and emits NO warning — the entry is silently dropped. That
+ * silence is exactly why this needs a test rather than trusting a runtime error.
+ *
+ * Agents keep full access to every installed skill via the Skill tool. Only the
+ * startup preload is given up, and that preload was never sound across projects.
+ *
+ * If per-agent preloads are wanted again, they must be INJECTED at scaffold time
+ * from the project's own selected-skills.txt — not hardcoded in the shipped
+ * source. That is tracked as a Phase 2 follow-up in docs/TRD/runtime-refresh.md.
+ */
+describe('RUNTIME-T009: No shipped agent declares a skills: preload', () => {
+  const existingAgents = REQUIRED_AGENTS.filter(name =>
+    fs.existsSync(path.join(AGENTS_DIR, `${name}.md`))
+  );
+
+  if (existingAgents.length === 0) {
+    it.skip('No agent files exist yet - skipping', () => {});
+  } else {
+    describe.each(existingAgents)('Agent: %s', (agentName) => {
+      it('should NOT declare a skills: field (per-project curation)', () => {
+        const agent = readAgentFile(agentName);
+        expect(agent).not.toBeNull();
+        expect(agent.frontmatter).not.toBeNull();
+        expect(Object.prototype.hasOwnProperty.call(agent.frontmatter, 'skills')).toBe(false);
+      });
+    });
+
+    it('no agent file contains a top-level skills: key in its frontmatter', () => {
+      const offenders = [];
+      for (const agentName of existingAgents) {
+        const raw = fs.readFileSync(path.join(AGENTS_DIR, `${agentName}.md`), 'utf8');
+        const lines = raw.split('\n');
+        if (lines[0].trim() !== '---') continue;
+        const close = lines.findIndex((l, i) => i > 0 && l.trim() === '---');
+        if (close === -1) continue;
+        if (lines.slice(1, close).some(l => /^skills:/.test(l))) {
+          offenders.push(agentName);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  }
+});
+
+// =============================================================================
 // TRD-TEST-092: No duplicate agent names
 // =============================================================================
 

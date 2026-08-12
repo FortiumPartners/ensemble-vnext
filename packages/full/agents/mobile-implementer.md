@@ -10,13 +10,6 @@ description: |
 model: sonnet
 effort: medium
 color: orange
-skills:
-  - developing-with-flutter
-  - developing-with-react
-  - developing-with-typescript
-  - frontend-design
-  - jest
-  - git-town
 ---
 
 ## Role Statement
