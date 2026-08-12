@@ -2,6 +2,75 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [4.0.0] - 2026-08-11
+
+Phase 1 of the **runtime refresh & delivery coherence** work
+(`docs/TRD/runtime-refresh.md`). The headline change is that the plugin no longer
+registers the skill library, cutting always-on context cost by ~99%.
+
+### Changed — BREAKING
+
+- **The plugin no longer registers the 61-skill library.** `plugin.json` dropped
+  `"skills": "./skills"`, which had loaded every skill into every session on the
+  machine and globally defeated `/init-project`'s per-project curation. Measured with
+  `claude plugin details full@ensemble-vnext`: **Skills (63) / ~12,366 tok always-on →
+  Skills (2) / ~95 tok**. The library still ships and still auto-updates with the
+  plugin, now as an unregistered `skills-lib/` directory; nothing enters context until
+  `/init-project` selects it.
+
+  *Why this is breaking:* any project relying on library skills being globally
+  available without appearing in its own `.claude/skills/` will stop seeing them. Run
+  `/rebase-project`, or add the skill to `.claude/selected-skills.txt` and re-scaffold.
+
+- **`packages/full/skills` removed.** Consumers reading that path directly must use
+  `skills-lib/`. `scaffold-project.sh` prefers `skills-lib/` and falls back to
+  `skills/` so older plugin installs keep working.
+
+### Added
+
+- **`ensemble.version` / `ensemble.refreshed_at` stamped into `settings.json`** by
+  `scaffold-project.sh`, on initial scaffold and on rebase. `/rebase-project`'s version
+  detection has always read this field and never found it, so every rebase fell through
+  to "unknown → full sync". Verified end-to-end: a runtime pinned to 3.3.9 now reports
+  `3.3.9 → 4.0.0` rather than `unknown`. The stamp merges into any existing `ensemble`
+  block and preserves the file's mode.
+- **`packages/core/scripts/check-version-sync.sh`** — asserts `package.json`,
+  both `marketplace.json` entries, and `plugin.json` agree. Available as
+  `npm run check:versions`. The four had drifted to 1.0.0 / 1.0.0 / 1.0.0 / 3.3.12;
+  silent drift disables the refresh mechanism's monotonic gate.
+- **`.github/workflows/ci.yml`** — the repo had no CI. Four jobs: version sync,
+  shellcheck, Jest, BATS. Jest and BATS are scoped to suites passing today, with the
+  known-failing ones named in-file; delete entries from those lists as they are fixed.
+- **`augment-trd-figma.md` vendored** to `.claude/commands/`, which had never been
+  copied. `packages/core/commands/` and `.claude/commands/` are now at full parity.
+
+### Fixed
+
+- **`/init-project` Step 9 erased the version stamp.** Step 3 scaffolds and stamps;
+  Step 9 then copied the raw template over the same file. Step 9 now copies only when
+  the file is absent and verifies the stamp survived.
+- **`constitution.md` governance table** claimed `CLAUDE.md` is maintained
+  automatically by a `SessionEnd` hook. No such hook is registered in this repo. Now
+  describes the real mechanism (`/update-project`, `/cleanup-project`) and notes that
+  the shipped template *does* register `SessionEnd` → `learning.sh` +
+  `save-remote-logs.js`, which stage and save only.
+- **Stale 13-agent count** in `helpers/setup.sh` `REQUIRED_AGENTS` (silently stopped
+  checking the full set), three `vendoring.test.sh` assertions, and the constitution's
+  subagent table.
+- **`cleanup_temp_dir`** refused every cleanup on macOS: `mktemp -d -t` allocates under
+  `/var/folders/<...>/T/` even with `TMPDIR` unset, matching neither guard branch.
+
+### Known gaps (Phase 2 of the TRD)
+
+- Five hooks still do not ship: `async-discipline.js`, `autonomy-discipline.js`,
+  `precompact.js`, `session-context.js`, `notify-complete.sh`. They lack symlinks in
+  `packages/full/hooks/` and are absent from `scaffold-project.sh`'s hardcoded copy list.
+- `packages/core/templates/claude-directory/settings.json` is ~3.3.8 era. A project
+  scaffolded from it registers neither discipline hook, so those guards ship unwired.
+- `scaffold-project.sh` copies the permitter's `lib/` modules to a path
+  `permitter.js`'s `../lib/` cannot resolve, so the `PermissionRequest` hook fails with
+  `MODULE_NOT_FOUND` in a cache install.
+
 ## [3.3.12] - 2026-05-30
 
 Adds a **Stop-hook backstop** for the autonomy discipline — `autonomy-discipline.js`
