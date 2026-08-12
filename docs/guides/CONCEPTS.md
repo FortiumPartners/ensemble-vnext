@@ -177,7 +177,7 @@ Quit + Restart  -------->  Fresh context for next iteration
 
 ### Phase 3: Implementation (The Three-Pass Approach)
 
-A single implementation pass rarely produces production-ready code -- just as a single draft rarely produces a publishable document. Ensemble's recommended workflow runs `/implement-trd-team` three times, each pass with a different focus. Each pass runs in its own Claude Code session with `--dangerously-skip-permissions` for uninterrupted execution.
+A single implementation pass rarely produces production-ready code -- just as a single draft rarely produces a publishable document. Ensemble's recommended workflow runs three commands in sequence, each pass with a different focus. Each pass runs in its own Claude Code session with `--dangerously-skip-permissions` for uninterrupted execution.
 
 **Why three passes?** Each pass operates against an increasingly complete codebase. The first pass creates the skeleton. The second pass strengthens it. The third pass validates it against the original requirements. This mirrors how experienced engineers naturally iterate, but at machine speed.
 
@@ -185,7 +185,7 @@ A single implementation pass rarely produces production-ready code -- just as a 
 
 ```bash
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /implement-trd
 ```
 
 Focus: TDD-based implementation meeting acceptance criteria. Tests first, code second. The goal is a working skeleton that satisfies the TRD's task list with passing tests.
@@ -194,10 +194,10 @@ Focus: TDD-based implementation meeting acceptance criteria. Tests first, code s
 
 ```bash
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /harden-trd-team
 ```
 
-Focus: Edge cases, error handling, robustness. The framework now has a reference implementation to harden against. This pass closes gaps, handles failure modes, and refines the code that Pass 1 built.
+Focus: Edge cases, error handling, robustness. The framework now has a reference implementation to harden against. This pass closes gaps, handles failure modes, and refines the code that Pass 1 built, using parallel teammates.
 
 **(Optional: CI/Reviewer Pipeline)** Between passes 2 and 3, run your CI/CD and code review pipeline. Let automated tools assess coverage, quality, and security requirements. Feed any findings back into the TRD or CLAUDE.md before Pass 3.
 
@@ -205,7 +205,7 @@ Focus: Edge cases, error handling, robustness. The framework now has a reference
 
 ```bash
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /verify-trd-team
 ```
 
 Focus: Live testing against the original PRD's acceptance criteria and definition of done. This pass ensures the implementation actually delivers what was requested, not just what was technically specified.
@@ -267,11 +267,11 @@ Instead of one bloated conversation trying to handle everything, Ensemble mainta
 
 ### Team Execution and Parallel Operation
 
-The team variants (`/create-prd-team`, `/create-trd-team`, `/implement-trd-team`) take the sub-agent pattern further by running multiple specialists concurrently. Instead of sequential task execution, team mode launches parallel agent sessions that work on independent tasks simultaneously.
+The team variants (`/create-prd-team`, `/create-trd-team`, `/harden-trd-team`, `/verify-trd-team`) take the sub-agent pattern further by running multiple specialists concurrently. Instead of sequential task execution, team mode spawns teammates directly (`Agent({subagent_type, name, prompt})`) that work on independent tasks simultaneously — a team forms automatically on the first spawn, with no setup or teardown step.
 
 This is what makes the air traffic controller model concrete: you launch a team session with `--dangerously-skip-permissions`, and multiple agents work in parallel -- just as multiple aircraft fly simultaneously under ATC coordination. The `wiggum` hook monitors progress and manages session lifecycle. The `status` hook tracks which tasks complete and which need attention.
 
-The tradeoff is API cost for speed and breadth. A single `/implement-trd` session processes tasks sequentially. `/implement-trd-team` can process an entire phase's worth of independent tasks concurrently.
+The tradeoff is API cost for speed and breadth. A single `/implement-trd` session processes tasks sequentially; `/harden-trd-team` and `/verify-trd-team` can process an entire phase's worth of independent tasks concurrently via parallel teammates.
 
 ### The 13 Specialist Agents
 
@@ -367,23 +367,24 @@ Use `--resume` or `--continue` with `/implement-trd` to pick up where you left o
 
 ## Team Variants
 
-For complex features that benefit from parallel work, Ensemble offers team variants of key commands:
+For complex features that benefit from parallel work, Ensemble offers team variants of the requirements commands:
 
 | Standard | Team Variant | Difference |
 |----------|-------------|------------|
 | `/create-prd` | `/create-prd-team` | Multiple domain experts analyze in parallel |
 | `/create-trd` | `/create-trd-team` | Parallel architecture perspectives |
-| `/implement-trd` | `/implement-trd-team` | Concurrent phase execution across agents |
 
-Two additional team commands operate *after* an implementation pass, using parallel teammates:
+Implementation is a single sequential command (`/implement-trd` — see plan item 7/8 for a
+future task-graph-driven parallel mode). Two team commands operate *after* an
+implementation pass, using parallel teammates:
 
 | Command | Purpose |
 |---------|---------|
 | `/harden-trd-team` | Hardening pass — closes gaps, edge cases, contract/interaction risks, and regressions against an implemented TRD |
 | `/verify-trd-team` | Live verification pass — confirms the feature actually works via API, UI, and service-integration testing |
 
-These map naturally onto the three-pass workflow: `/implement-trd-team` for the build pass, `/harden-trd-team` for hardening, and `/verify-trd-team` for validation against the PRD.
+These map onto the three-pass workflow: `/implement-trd` for the build pass, `/harden-trd-team` for hardening, and `/verify-trd-team` for validation against the PRD.
 
-Team variants use Claude Code's agent teams feature to run multiple specialists simultaneously, trading API cost for speed and breadth of analysis. Because teammate auto-delivery can stall, every team command pairs its spawn with a `ScheduleWakeup` safety-net so the orchestrating session always resumes (see `.claude/rules/async-discipline.md`).
+Team variants use Claude Code's agent teams feature to run multiple specialists simultaneously, trading API cost for speed and breadth of analysis. Teammates spawn directly via `Agent({subagent_type, name, prompt})` — a team forms automatically on the first spawn, with no setup or teardown step. Teammate `SendMessage` auto-delivery reliably re-invokes the orchestrating session as new turns; commands additionally pair each spawn with a recommended (not mandatory) `ScheduleWakeup` safety-net (see `.claude/rules/async-discipline.md`).
 
-**`/implement-trd-team` is the recommended command for the three-pass workflow.** It launches parallel agent sessions for independent tasks within each phase, significantly reducing wall-clock time compared to sequential execution. Combined with `--dangerously-skip-permissions`, a full pass can run unattended while you work on other things -- the air traffic controller model in practice.
+**`/harden-trd-team` and `/verify-trd-team` are the recommended commands for passes 2 and 3 of the three-pass workflow.** They launch parallel teammate sessions for independent tasks within each phase, significantly reducing wall-clock time compared to sequential execution. Combined with `--dangerously-skip-permissions`, a full pass can run unattended while you work on other things -- the air traffic controller model in practice.

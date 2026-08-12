@@ -2,6 +2,57 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [4.2.0] - 2026-08-12
+
+Item 2 of the improvement plan: removes tooling that no longer exists, and one command that was
+built on a construct that turned out to be wrong for it.
+
+### Removed — BREAKING
+
+- **`/implement-trd-team` is deleted.** Not deprecated — removed. It was built on agent teams, and
+  three independent facts say that was the wrong construct:
+
+  1. Its teammates only ever messaged the lead — status, completion, STUCK. They never messaged
+     each other. Teams exist for peers who share findings and challenge each other.
+  2. It relied on `--resume` with `teammate_session_id` recovery to span sessions, and teams
+     cannot do that: *"`/resume` and `/rewind` do not restore in-process teammates."*
+  3. The platform docs name its exact workload as the wrong fit: *"For sequential tasks, same-file
+     edits, or work with many dependencies, a single session or subagents are more effective."*
+
+  *Migration:* the three-pass workflow is now `/implement-trd` → `/harden-trd-team` →
+  `/verify-trd-team`. Parallel implementation returns to `/implement-trd` once it has a real task
+  graph, where parallel sets fall out of the graph itself rather than needing a separate command.
+
+- **All `TeamCreate` / `TeamDelete` calls removed** from `create-prd-team`, `create-trd-team`, and
+  `fix-issue`. Both tools were removed from Claude Code in v2.1.178; a team now forms automatically
+  on the first teammate spawn, and cleanup happens when the session exits. The commands were
+  calling tools that no longer exist. **These four commands keep using teams** — research and
+  review is the correct use case for them.
+
+- **`team_name` no longer used to encode grouping.** It is accepted but ignored by the platform, so
+  phase and group identity now live where the platform can act on them: task names plus `blockedBy`
+  dependencies on the shared task list. A pending task with unresolved dependencies cannot be
+  claimed, and completing a task unblocks its dependents automatically.
+
+### Fixed
+
+- **`owner: "self"` created phantom task assignments.** `implement-trd` §4.2 instructed it, and the
+  platform reads `owner` as an *agent name* — filing a task-assignment message into a mailbox for a
+  teammate that does not exist. Nine accumulated unread during a single real run. Claiming is now
+  `TaskUpdate({ taskId, status: "in_progress" })`, with the reason documented inline.
+
+- **`async-discipline.md` asserted that teammate auto-delivery "silently stalls"** and mandated a
+  paired `ScheduleWakeup` on every team spawn. A live experiment disproved it: a spawned teammate's
+  `SendMessage` calls auto-delivered and re-invoked the lead with no wake involved. The wake is now
+  a recommended fallback rather than a requirement. The evidence is one experiment plus current
+  docs, so it stays as cheap insurance rather than being dropped.
+
+- **The guides documented three hooks deleted in 4.1.0** (`permitter.js`, `learning.sh`,
+  `save-remote-logs.js`) and omitted `runtime-refresh.sh`, added in 4.1.1. Every hook inventory in
+  `docs/guides/` is now derived from `hooks.manifest.json`, including the distinction that
+  `notify-complete.sh` is model-invoked rather than event-registered. No guide claims a `SessionEnd`
+  hook exists, because none does.
+
 ## [4.1.1] - 2026-08-11
 
 Completes item 1 of the improvement plan: the vendored runtime now ships correctly and

@@ -21,11 +21,11 @@ Every feature follows the same lifecycle:
 /refine-trd          -->  (optional) Iterate with technical feedback
        |
        v
-/implement-trd-team  -->  Pass 1: Build (TDD, meet acceptance criteria)
+/implement-trd       -->  Pass 1: Build (TDD, meet acceptance criteria)
 /fold-prompt + exit  -->  Capture learnings, restart fresh
-/implement-trd-team  -->  Pass 2: Harden (edge cases, error handling)
+/harden-trd-team     -->  Pass 2: Harden (edge cases, error handling)
   (CI/review pipeline)    (optional) Verify coverage and quality
-/implement-trd-team  -->  Pass 3: Validate (live test against PRD)
+/verify-trd-team     -->  Pass 3: Validate (live test against PRD)
 /fold-prompt + exit  -->  Capture learnings
        |
        v
@@ -53,8 +53,9 @@ Run once per project. This bootstraps the full Ensemble runtime into your reposi
 .claude/
   agents/           13 specialist subagents, tailored to your stack
   commands/         Workflow slash commands
-  hooks/            session-context, router, permitter, formatter, status,
-                    async-discipline, autonomy-discipline, wiggum, notify, precompact
+  hooks/            session-context, runtime-refresh, router, formatter, status,
+                    async-discipline, autonomy-discipline, wiggum, notify,
+                    notify-complete, precompact
   skills/           Domain knowledge packs matched to your technology stack
   rules/
     constitution.md   Project guardrails and quality gates
@@ -248,16 +249,16 @@ This is the last chance to course-correct the plan before implementation. The TR
 
 ---
 
-## Step 7: Implement (`/implement-trd-team`, Three Passes)
+## Step 7: Implement (`/implement-trd`, `/harden-trd-team`, `/verify-trd-team` — Three Passes)
 
-This is where the air traffic controller model comes to life. You launch implementation sessions with `--dangerously-skip-permissions` and let the agent team work autonomously through the TRD's task list. The recommended workflow runs three passes, each in a fresh session.
+This is where the air traffic controller model comes to life. You launch implementation sessions with `--dangerously-skip-permissions` and let the agents work autonomously through the TRD's task list. The recommended workflow runs three passes, each in a fresh session, using a different command per pass.
 
 ### Reinforcing Subagent Behavior
 
 It's often helpful to reinforce the framework's patterns when launching implementation. Add guidance like:
 
 ```
-/implement-trd-team
+/implement-trd
 
 Use your subagents and skills. Follow the implement-verify-simplify-review
 pattern for each task. Delegate to specialist agents based on task type.
@@ -269,7 +270,7 @@ This reminds the orchestrating agent to lean on the full staged execution loop r
 
 ```bash
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /implement-trd
 ```
 
 **Focus:** TDD-based implementation. Tests first, code second. Meet the TRD's acceptance criteria with passing tests. The goal is a working skeleton -- correctness over polish.
@@ -286,10 +287,10 @@ claude
 
 ```bash
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /harden-trd-team
 ```
 
-**Focus:** Edge cases, error handling, robustness. The framework now has a reference implementation to harden against. This pass closes gaps, handles failure modes, and refines what Pass 1 built. The agents see the existing code and tests from Pass 1 and work to strengthen them.
+**Focus:** Edge cases, error handling, robustness. The framework now has a reference implementation to harden against. This pass closes gaps, handles failure modes, and refines what Pass 1 built, using parallel teammates. The teammates see the existing code and tests from Pass 1 and work to strengthen them.
 
 When complete:
 
@@ -313,10 +314,10 @@ Feed any findings back into the TRD or CLAUDE.md before launching Pass 3. This g
 
 ```bash
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /verify-trd-team
 ```
 
-**Focus:** Live testing against the original PRD's acceptance criteria and definition of done. This pass ensures the implementation actually delivers what was requested -- not just what was technically specified in the TRD, but what the product stakeholder intended in the PRD.
+**Focus:** Live testing against the original PRD's acceptance criteria and definition of done, using parallel teammates. This pass ensures the implementation actually delivers what was requested -- not just what was technically specified in the TRD, but what the product stakeholder intended in the PRD.
 
 When complete:
 
@@ -404,9 +405,9 @@ Backups are created before any destructive operation. Use `--dry-run` to preview
 | Architecture | `/create-trd` | Approved PRD (auto-resolved) | `docs/TRD/<feature>.md` |
 | Independent review | `/review-trd` | TRD (auto-resolved) | Review findings |
 | Refine architecture | `/refine-trd` | Review findings or feedback | Updated TRD |
-| Build (Pass 1) | `/implement-trd-team` | Approved TRD | Working code + tests |
-| Harden (Pass 2) | `/implement-trd-team` or `/harden-trd-team` | Pass 1 code | Hardened implementation |
-| Validate (Pass 3) | `/implement-trd-team` or `/verify-trd-team` | Pass 2 code | Validated implementation |
+| Build (Pass 1) | `/implement-trd` | Approved TRD | Working code + tests |
+| Harden (Pass 2) | `/harden-trd-team` | Pass 1 code | Hardened implementation |
+| Validate (Pass 3) | `/verify-trd-team` | Pass 2 code | Validated implementation |
 | Human finish | Manual debugging | Pass 3 code | Production-ready code |
 | Capture learnings | `/fold-prompt` | Session context | Updated CLAUDE.md |
 | Upgrade runtime | `/rebase-project` | New plugin version | Updated vendored runtime |

@@ -432,8 +432,8 @@ For each agent in `@packages/full/agents/`:
   Shipped agents in `packages/full/agents/` deliberately carry no `skills:` field.
 - **Never edit inside the `<!-- ENSEMBLE:SKILLS:BEGIN -->` / `<!-- ENSEMBLE:SKILLS:END -->`
   markers.** That block is regenerated on every scaffold and rebase; edits are
-  overwritten. It exists because `Agent({team_name})` teammates do not receive
-  frontmatter preloads and need the guidance as body prose.
+  overwritten. It exists because teammates spawned via `Agent({subagent_type, name, ...})`
+  do not receive frontmatter preloads and need the guidance as body prose.
 - Preserve the existing frontmatter structure (name, description, model, color)
 
 </subagent-deployment>

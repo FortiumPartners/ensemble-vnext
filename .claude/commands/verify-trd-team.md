@@ -22,7 +22,7 @@ category: verification
 > - `/verify-trd-team --promise "All CRUD endpoints return correct status codes and the dashboard renders with live data"` — custom promise
 > - `/verify-trd-team --resume` — continue interrupted verification
 
-This is the **live verification pass** that follows `/implement-trd-team` and optionally
+This is the **live verification pass** that follows `/implement-trd` and optionally
 `/harden-trd-team`. It does NOT check that unit tests pass — it verifies that the
 implementation delivers its promised functionality end-to-end.
 
@@ -31,8 +31,10 @@ Each run is tracked. After 3 runs without full satisfaction, it halts and requir
 human intervention.
 
 All team orchestration (spawning, monitoring, cleanup, phase checkpoints, error handling)
-follows `/implement-trd-team`. This command defines a different **stage cycle** and
-**delegation templates** purpose-built for live verification.
+is defined in **Step 4** below: teammates spawn directly via
+`Agent({subagent_type, name, prompt})` — a team forms automatically on the first spawn,
+with no setup step and no cleanup step. This command defines a different **stage cycle**
+and **delegation templates** purpose-built for live verification.
 
 **ULTRATHINK**: Read the TRD, PRD, and completion promise. Understand what "done" looks
 like from the user's perspective before spawning any teammates.
@@ -214,16 +216,52 @@ If this is run 2 or 3, load assertions from prior run:
 
 ### 3.4 Group Assertions for Parallel Execution
 
-Group assertions by the TRD execution plan sessions (same parallelization as
-implement-trd-team). Assertions that share infrastructure (same service, same UI flow)
-go to the same teammate.
+Group assertions by the TRD execution plan sessions. Assertions that share infrastructure
+(same service, same UI flow) go to the same teammate. As with `/implement-trd`, partition
+so each parallel group's teammates own a disjoint set of files (the native Agent Teams
+safety model); cross-group dependencies are expressed via the shared task list's
+`blockedBy`, not via `team_name` — which is accepted but ignored by the platform.
 
 ---
 
 ## Step 4: Phase Execution with Teams
 
-Follows `/implement-trd-team` Step 4 orchestration (spawn team, spawn teammates,
-monitor, collect results, cleanup).
+For each phase (or single phase if `--phase N`), for each parallel group within the phase:
+
+**1. Update state before spawn** -- for each assertion group being assigned, write to
+verify.json: `{ "run": run_counter, "teammate_session_id": "{session_name}" }`. Update
+`active_sessions` map with session name entries.
+
+**2. Spawn teammates directly** -- one per session, using the **Agent** tool. No team
+creation step is needed: a team forms automatically on the first spawn.
+```javascript
+Agent({ subagent_type: session_agent, name: session_name, prompt: "[Teammate Prompt - Section 4.1]" });
+```
+Express phase and group identity as task names plus `blockedBy` dependencies on the shared
+task list (`TaskCreate`, then `TaskUpdate({taskId, addBlockedBy: [...]})`) if assertions are
+tracked as tasks. Do NOT pass `isolation: "worktree"` — teammates share the working tree.
+
+**2a. Recommended: schedule a safety-net wake-up before ending the turn.** Teammate
+`SendMessage` auto-delivery reliably re-invokes the lead (see
+`.claude/rules/async-discipline.md`), so this is cheap insurance rather than a known
+necessity:
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for phase {N} group {G}",
+  prompt: "/verify-trd-team [original arguments here]"
+});
+```
+
+**3. Monitor** -- teammate messages arrive as new lead turns via auto-delivery; the
+optional scheduled wake-up from step 2a is a harmless no-op if auto-delivery already fired.
+Wait for ALL teammates in the group to complete.
+
+**4. Collect results** -- for each teammate extract per-assertion verdicts, evidence,
+fixes applied, and tests written. Update verify.json.
+
+**5. No teardown step is required** -- cleanup is automatic when a teammate's session
+exits; there is no team-delete call to make.
 
 ### 4.1 Teammate Prompt Template
 
@@ -566,7 +604,10 @@ Stored at `.trd-state/<trd-name>/verify.json`:
 
 ## Error Handling
 
-All `/implement-trd-team` error handling applies. Verification-specific additions:
+All `/implement-trd` error handling applies, plus team-specific cases (teammate fails to
+spawn -> retry once, then run sequentially as lead; teammate silent 30+ min -> send
+message, mark stalled if no response; file conflict between teammates -> pause later
+teammate, wait for first to commit, resume). Verification-specific additions:
 
 | Error | Response |
 |-------|----------|
@@ -584,11 +625,12 @@ All `/implement-trd-team` error handling applies. Verification-specific addition
 
 - Requires implementation to exist (code check, not state check)
 - State file (`verify.json`) is independent from `implement.json` and `harden.json`
-- Workflow: `/implement-trd-team` → `/harden-trd-team` (optional) → `/verify-trd-team`
+- Workflow: `/implement-trd` → `/harden-trd-team` (optional) → `/verify-trd-team`
 - Can be re-run up to 3 times before requiring manual reset
 - Custom promises can be set per run via `--reset-state` + `--promise`
 - Same branch as implementation — no separate PR
-- All `/implement-trd-team` compatibility notes apply
+- Requires Claude Code Agent Teams feature (experimental); falls back to sequential
+  `/implement-trd`-style execution if Teams unavailable or TRD lacks a parallelization map
 
 ---
 

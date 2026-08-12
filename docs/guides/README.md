@@ -108,17 +108,17 @@ We recommend running with `--dangerously-skip-permissions` and executing the TRD
 ```bash
 # Pass 1: Build the reference implementation (TDD, meet acceptance criteria)
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /implement-trd
 
-# Pass 2: Harden (edge cases, error handling, close gaps)
+# Pass 2: Harden (edge cases, error handling, close gaps) — parallel teammates
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /harden-trd-team
 
 # (Optional: run CI/reviewer pipeline between passes 2 and 3)
 
-# Pass 3: Validate against the original PRD with live testing
+# Pass 3: Validate against the original PRD with live testing — parallel teammates
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /verify-trd-team
 ```
 
 After three passes, the human developer steps in to debug and get it over the finish line. See [Concepts](./CONCEPTS.md#the-three-pass-implementation) for the full rationale.

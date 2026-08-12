@@ -10,7 +10,7 @@
 #   degrades when discovery sources (git / jq / tmux / CLAUDE_SESSION_ID) are
 #   missing.
 #
-#   Layer 2 (documentation / contract) — the command-status rule + all 18
+#   Layer 2 (documentation / contract) — the command-status rule + all 17
 #   workflow commands document the contract correctly. Catches refactor
 #   regressions where someone renames the env var, drops a command from the
 #   sweep, or breaks the helper-script invocation pattern.
@@ -61,14 +61,14 @@ teardown() {
 
 @test "L1: NOTIFY_ON_COMPLETE unset → silent no-op (exit 0, no output)" {
     unset NOTIFY_ON_COMPLETE
-    run "$HELPER" "implement-trd-team" "complete" "Phase 4/4 done"
+    run "$HELPER" "verify-trd-team" "complete" "Phase 4/4 done"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
 
 @test "L1: NOTIFY_ON_COMPLETE empty → silent no-op" {
     export NOTIFY_ON_COMPLETE=""
-    run "$HELPER" "implement-trd-team" "complete" "Phase 4/4 done"
+    run "$HELPER" "verify-trd-team" "complete" "Phase 4/4 done"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
@@ -87,10 +87,10 @@ teardown() {
 
     export NOTIFY_ON_COMPLETE="echo \"cmd=\$NOTIFY_CMD status=\$NOTIFY_STATUS project=\$NOTIFY_PROJECT cwd=\$NOTIFY_CWD branch=\$NOTIFY_BRANCH feature=\$NOTIFY_FEATURE session_id=\$NOTIFY_SESSION_ID tmux_session=\$NOTIFY_TMUX_SESSION tmux_pane=\$NOTIFY_TMUX_PANE summary=\$NOTIFY_SUMMARY\" >> $LOG_FILE"
 
-    "$HELPER" "implement-trd-team" "complete" "Phase 4/4 done, 23 tasks"
+    "$HELPER" "verify-trd-team" "complete" "Phase 4/4 done, 23 tasks"
 
     line="$(cat "$LOG_FILE")"
-    [[ "$line" == *"cmd=implement-trd-team"* ]]
+    [[ "$line" == *"cmd=verify-trd-team"* ]]
     [[ "$line" == *"status=complete"* ]]
     [[ "$line" == *"project=$(basename "$TMP_PROJECT")"* ]]
     [[ "$line" == *"cwd=$TMP_PROJECT"* ]]
@@ -206,8 +206,8 @@ JSON
     diff -q "$RULE_FILE" "$RULE_TEMPLATE"
 }
 
-@test "L2: all 18 workflow commands invoke the notify-complete.sh helper" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+@test "L2: all 17 workflow commands invoke the notify-complete.sh helper" {
+    local cmds=(implement-trd verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
@@ -224,7 +224,7 @@ JSON
 }
 
 @test "L2: each command's helper call uses its own name as the first arg" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+    local cmds=(implement-trd verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
@@ -243,7 +243,7 @@ JSON
 }
 
 @test "L2: legacy inline bracket-guarded form is fully removed" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+    local cmds=(implement-trd verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
@@ -260,7 +260,7 @@ JSON
 }
 
 @test "L2: dogfood .claude/commands mirrors stay in sync with canonical" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+    local cmds=(implement-trd verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
@@ -311,7 +311,7 @@ JSON
 }
 
 @test "L2b: every non-refine workflow command embeds the autonomy block" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+    local cmds=(implement-trd verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
@@ -345,7 +345,7 @@ JSON
 }
 
 @test "L2b: every non-refine command's embedded block forbids hedged offers" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+    local cmds=(implement-trd verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
@@ -362,7 +362,7 @@ JSON
 }
 
 @test "L2b: every non-refine command's embedded block mentions --wiggum doubly-enforced rule" {
-    local cmds=(implement-trd implement-trd-team verify-trd-team harden-trd-team
+    local cmds=(implement-trd verify-trd-team harden-trd-team
                 fix-issue create-prd-team create-trd-team create-prd create-trd
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
@@ -463,10 +463,10 @@ console.log(m ? 'MATCH' : 'NO-MATCH');
     local result
     result=$(node -e "
 const { isCommandContext } = require('$hook');
-const ctx = isCommandContext('[STATUS: /implement-trd-team] PHASE 1/3 COMPLETE');
+const ctx = isCommandContext('[STATUS: /harden-trd-team] PHASE 1/3 COMPLETE');
 console.log(ctx && ctx.command);
 ")
-    [[ "$result" == "implement-trd-team" ]]
+    [[ "$result" == "harden-trd-team" ]]
 }
 
 @test "L4: helper isExemptCommand returns true for refine-*, false for others" {

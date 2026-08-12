@@ -413,11 +413,16 @@ if (task.status !== "pending") {
   // Skip and move to next available task
   continue;
 }
-TaskUpdate({ taskId, owner: "self", status: "in_progress" });
+TaskUpdate({ taskId, status: "in_progress" });
 ```
 
-1. **Claim:** `TaskUpdate({ taskId, owner: "self", status: "in_progress" })`
-   - Note: `owner: "self"` indicates this agent is working on the task
+1. **Claim:** `TaskUpdate({ taskId, status: "in_progress" })`
+   - Do NOT pass `owner: "self"` — the platform reads `owner` as an agent name and files
+     a task-assignment message into that agent's mailbox. `"self"` is not a real teammate,
+     so this leaves an unread, undeliverable message in a `self` inbox for every task
+     claimed this way. Setting `status: "in_progress"` alone is sufficient to claim the
+     task for the lead session; no ensemble code (state schema, `status.js`) reads or
+     writes an `owner` field, so nothing depends on it being set.
    - The `intended_agent` in metadata determines which subagent receives the work
 2. **Dispatch:** `Agent` tool with stage-appropriate prompt (see Appendix A)
 3. **Handle Result:**

@@ -88,9 +88,9 @@ Example of an illegitimate ask:
 
 ## `--wiggum` and autonomous-mode flags
 
-When the user passes `--wiggum` (autonomous mode) on `/implement-trd` or
-`/implement-trd-team`, the autonomy contract is **doubly enforced** — the user has
-explicitly opted into "do not stop until complete." Under `--wiggum`:
+When the user passes `--wiggum` (autonomous mode) on `/implement-trd`, the autonomy
+contract is **doubly enforced** — the user has explicitly opted into "do not stop until
+complete." Under `--wiggum`:
 
 - **All four valid `AskUserQuestion` cases above shrink to ONE**: only STUCK conditions
   after retry exhaustion. Ambiguity, missing info, and routine destructive operations

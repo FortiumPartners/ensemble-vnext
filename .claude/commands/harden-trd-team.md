@@ -18,14 +18,23 @@ category: implementation
 >
 > **Examples:** `/harden-trd-team`, `/harden-trd-team --resume`, `/harden-trd-team docs/TRD/user-auth.md --wiggum`
 
-This is the **hardening pass** that follows `/implement-trd-team`. It re-examines every
+This is the **hardening pass** that follows `/implement-trd`. It re-examines every
 implemented task against the TRD, focusing on contract compliance, edge cases, regression
 safety, interaction risks, and shortcut cleanup. It uses Claude Code Agent Teams for
-parallel execution, identical to `/implement-trd-team`.
+parallel execution: teammates spawn directly via `Agent({subagent_type, name, prompt})` —
+a team forms automatically on the first spawn, with no setup step and no cleanup step.
 
 All team orchestration (spawning, monitoring, cleanup, phase checkpoints, error handling)
-follows `/implement-trd-team` exactly. This command defines a different **stage cycle**
+is defined in **Step 4** below. This command defines a different **stage cycle**
 and **delegation templates** purpose-built for hardening.
+
+**Workspace model:** Teammates share ONE working tree and commit directly to the feature
+branch — the native Agent Teams model. Parallel safety comes from **file ownership** (each
+session owns a disjoint set of files; see Step 3.3) plus the **shared task list**
+(`blockedBy` dependencies + file-locked task claiming), NOT from per-teammate git worktrees.
+Phase and group identity are expressed as task names plus `blockedBy` dependencies on the
+shared task list — `team_name` on the `Agent` tool is accepted but ignored by the platform
+and carries no grouping semantics.
 
 **ULTRATHINK**: Parse the TRD execution plan and cross-reference with existing code to
 understand implementation state before spawning teammates.
@@ -100,16 +109,33 @@ Execute `/implement-trd` Step 2 identically, but operate on the **harden state f
 This is a separate file from `implement.json`. The harden pass has its own state,
 checkpoints, and recovery — it never reads or writes `implement.json`.
 
-Teammate session recovery follows `/implement-trd-team` Step 2 rules.
+**Teammate Session Recovery:** On `--resume`, check `teammate_session_id` fields in state.
+For incomplete tasks with a `teammate_session_id`: if recent (<24 hours), note for potential
+resume; if stale, clear and treat as fresh. The lead re-spawns the parallel group and lets
+teammates pick up from persisted state rather than resuming individual sessions.
 
 ---
 
 ## Step 3: Parse Execution Plan
 
-Identical to `/implement-trd-team` Step 3 (extract phase structure, build session
-dependency graph, file conflict detection).
+### 3.1 Extract Phase Structure and Build Session Dependency Graph
 
-### 3.1 Stage Expansion
+Read TRD Section 5 (Execution Plan). Extract per phase the session list (name, agent type,
+task IDs), then determine parallel groups:
+- **No inter-session dependencies** -> all sessions in one parallel group
+- **Session B depends on Session A** (task dependencies cross sessions) -> A in group 1, B in group 2
+
+### 3.2 File Ownership (primary parallel-safety mechanism)
+
+Teammates share one working tree, so **each session in a parallel group MUST own a disjoint
+set of files** — the native Agent Teams safety model ("break the work so each teammate owns a
+different set of files"). Apply `/implement-trd` File Conflict Detection to partition: if two
+sessions in the same group would touch the same file, either move the later one to the next
+group (sequence them) or reassign files so ownership stays disjoint. Cross-session
+dependencies are expressed via the shared task list's `blockedBy`, so blocked work cannot be
+claimed early.
+
+### 3.3 Stage Expansion
 
 Each TRD task expands to sub-tasks with dependencies:
 
@@ -131,8 +157,46 @@ infer from task keywords per `/implement-trd` Section 4.3.
 
 ## Step 4: Phase Execution with Teams
 
-Follows `/implement-trd-team` Step 4 orchestration exactly (spawn team, spawn teammates,
-monitor, collect results, cleanup). The only difference is the **Teammate Prompt Template**.
+For each phase (or single phase if `--phase N`), for each parallel group within the phase:
+
+**1. Update state before spawn** -- for each task being assigned, write to harden.json:
+```json
+{ "status": "in_progress", "cycle_position": "audit", "teammate_session_id": "{session_name}" }
+```
+Update `active_sessions` map with session name entries.
+
+**2. Spawn teammates directly** -- one per session, using the **Agent** tool. No team
+creation step is needed: a team forms automatically on the first spawn.
+```javascript
+Agent({ subagent_type: session_agent, name: session_name, prompt: "[Teammate Prompt - Section 4.1]" });
+```
+Express phase and group identity as task names plus `blockedBy` dependencies on the shared
+task list (`TaskCreate`, then `TaskUpdate({taskId, addBlockedBy: [...]})`) — NOT via
+`team_name`, which is accepted but ignored. Assign each session's task(s) to its teammate
+via `TaskUpdate({ taskId, status: "in_progress" })`. Do NOT pass `isolation: "worktree"` —
+teammates share the working tree (see Workspace model).
+
+**2a. Recommended: schedule a safety-net wake-up before ending the turn.** Teammate
+`SendMessage` auto-delivery reliably re-invokes the lead (see
+`.claude/rules/async-discipline.md`), so this is cheap insurance rather than a known
+necessity:
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for phase {N} group {G}",
+  prompt: "/harden-trd-team [original arguments here]"
+});
+```
+
+**3. Monitor** -- teammate messages arrive as new lead turns via auto-delivery; the
+optional scheduled wake-up from step 2a is a harmless no-op if auto-delivery already fired.
+Teammates also advance the shared task list. Wait for ALL teammates in the group to complete.
+
+**4. Collect results** -- for each teammate extract: task status (success/failed/blocked),
+files changed, findings, coverage metrics, single-line summary per task. Update harden.json.
+
+**5. No teardown step is required** -- cleanup is automatic when a teammate's session
+exits; there is no team-delete call to make.
 
 ### 4.1 Teammate Prompt Template
 
@@ -209,7 +273,12 @@ If STUCK (3+ retries), report immediately.
 
 ### 4.2 Phase Checkpoint
 
-Identical to `/implement-trd-team` Step 4.3, with hardening-specific summary:
+After ALL parallel groups in a phase complete: aggregate results across teammates
+(completed/failed/blocked, file list, findings), run the quality gate (same as
+`/implement-trd` Step 5.1 verify-app full suite), git checkpoint (same as `/implement-trd`
+Step 5.2), update state (checkpoint entry, advance phase_cursor), then emit the PHASE
+banner and immediately spawn the next phase — routine phase transitions are NOT pause
+points. Hardening-specific summary:
 
 ```
 Phase {N} hardening checkpoint complete.
@@ -342,7 +411,11 @@ Additions per task entry:
 
 ## Error Handling
 
-All `/implement-trd-team` error handling applies. Hardening-specific additions:
+All `/implement-trd` error handling applies, plus team-specific cases (teammate fails to
+spawn -> retry once, then run sequentially as lead; teammate silent 30+ min -> send
+message, mark stalled if no response; file conflict between teammates -> pause later
+teammate, wait for first to commit, resume; no execution plan in TRD -> warn and fall back
+to sequential `/implement-trd`). Hardening-specific additions:
 
 | Error | Response |
 |-------|----------|
@@ -360,8 +433,9 @@ All `/implement-trd-team` error handling applies. Hardening-specific additions:
 - State files (`harden.json`) are independent from `implement.json`
 - Can be re-run — resets harden state, re-audits everything
 - Same branch as implementation — no separate PR
-- Workflow: `/implement-trd-team` → `/harden-trd-team` → PR
-- All `/implement-trd-team` compatibility notes apply
+- Workflow: `/implement-trd` → `/harden-trd-team` → PR
+- Requires Claude Code Agent Teams feature (experimental); falls back to sequential
+  `/implement-trd`-style execution if Teams unavailable or TRD lacks a parallelization map
 
 ---
 

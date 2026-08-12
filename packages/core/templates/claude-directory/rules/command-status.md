@@ -27,9 +27,9 @@ turn**:
 
 Example:
 ```
-[STATUS: /implement-trd-team] DISPATCHED → 3 teammates in flight: be-001, fe-001, qa-001
+[STATUS: /verify-trd-team] DISPATCHED → 3 teammates in flight: api-001, ui-001, integ-001
    waiting on: SendMessage delivery of per-task completion reports
-   next wake: ScheduleWakeup in 1200s (fallback if auto-deliver stalls)
+   next wake: ScheduleWakeup in 1200s (recommended fallback if auto-deliver stalls)
 ```
 
 ### 2. RESUMED (turn starts after a wake)
@@ -44,8 +44,8 @@ emit a RESUMED line **as the first line** of the new turn:
 
 Example:
 ```
-[STATUS: /implement-trd-team] RESUMED → teammate be-001 SendMessage received
-   completed since last turn: AUTH-B003 success, files: api/login.ts, tests/login.test.ts
+[STATUS: /verify-trd-team] RESUMED → teammate api-001 SendMessage received
+   completed since last turn: AUTH-B003 verified, files: api/login.ts, tests/login.test.ts
 ```
 
 ### 3. COMMAND COMPLETE / COMMAND STUCK (the LAST line of the final turn)
@@ -72,8 +72,8 @@ PRD written to docs/PRD/user-auth.md (9 sections, 3 personas, 12 acceptance crit
 ```
 
 ```
-═══ COMMAND COMPLETE: /implement-trd-team ═══
-Phase 2/4 complete: 8/8 tasks success, coverage unit 87% / int 62%, 2 commits on feature/AUTH-1234
+═══ COMMAND COMPLETE: /verify-trd-team ═══
+Phase 2/4 complete: 8/8 tasks verified, coverage unit 87% / int 62%, 2 commits on feature/AUTH-1234
 ```
 
 ```
@@ -91,7 +91,7 @@ Next:   set OAUTH_CLIENT_SECRET env var and run /implement-trd --resume
 
 ## Optional: PHASE banner
 
-For long, multi-phase commands (`/implement-trd`, `/implement-trd-team`, `/verify-trd-team`,
+For long, multi-phase commands (`/implement-trd`, `/verify-trd-team`,
 `/harden-trd-team`), emit at each phase boundary:
 
 ```
@@ -108,21 +108,21 @@ There are two delivery paths. Use them differently:
 
 ### Path A — `PushNotification` (preferred, direct, atomic with the banner)
 
-For **multi-turn / long-running commands** (`/implement-trd`, `/implement-trd-team`,
+For **multi-turn / long-running commands** (`/implement-trd`,
 `/verify-trd-team`, `/harden-trd-team`, `/fix-issue`, `/create-prd-team`,
 `/create-trd-team`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
 call in the same final turn. This is precise (fires once, exactly when the command is
 done) and atomic with the banner (no transcript grep, no race with intermediate Stops).
 
 ```
-═══ COMMAND COMPLETE: /implement-trd-team ═══
-Phase 4/4 done — 23/23 tasks success, coverage 87%/62%, branch feature/AUTH-1234
+═══ COMMAND COMPLETE: /verify-trd-team ═══
+Phase 4/4 done — 23/23 tasks verified, coverage 87%/62%, branch feature/AUTH-1234
 ```
 (emit the banner as text, then call:)
 ```javascript
 PushNotification({
   status: "proactive",
-  message: "implement-trd-team done: Phase 4/4, 23 tasks success, branch feature/AUTH-1234"
+  message: "verify-trd-team done: Phase 4/4, 23 tasks verified, branch feature/AUTH-1234"
 })
 ```
 
@@ -132,7 +132,7 @@ with the Reason and an actionable hint — the user needs to come back to unbloc
 ```javascript
 PushNotification({
   status: "proactive",
-  message: "implement-trd-team STUCK: AUTH-B005 failed 3 retries (missing OAUTH_CLIENT_SECRET). Set env + /implement-trd --resume."
+  message: "verify-trd-team STUCK: AUTH-B005 failed 3 retries (missing OAUTH_CLIENT_SECRET). Set env + /implement-trd --resume."
 })
 ```
 
@@ -196,7 +196,7 @@ export NOTIFY_ON_COMPLETE='curl -fsS -X POST "$SLACK_WEBHOOK" \
 
 | Var | Value | Discovery source |
 |---|---|---|
-| `NOTIFY_CMD` | Slash command without leading slash (e.g. `implement-trd-team`) | Helper arg 1 |
+| `NOTIFY_CMD` | Slash command without leading slash (e.g. `verify-trd-team`) | Helper arg 1 |
 | `NOTIFY_STATUS` | `complete` or `stuck` | Helper arg 2 |
 | `NOTIFY_SUMMARY` | One-line summary from the COMMAND COMPLETE / STUCK banner | Helper arg 3 |
 | `NOTIFY_PROJECT` | `basename "$PWD"` | Working directory |
@@ -261,7 +261,7 @@ export NOTIFY_ON_STOP='curl -s -X POST -H "Content-Type: application/json" -d "{
 ```
 
 **Important caveat:** `notify.sh` fires on every Stop event — including the intermediate
-turns of a long `/implement-trd-team` loop (after each ScheduleWakeup re-entry). If that's
+turns of a long `/verify-trd-team` loop (after each ScheduleWakeup re-entry). If that's
 too noisy, gate the alert on the presence of the `COMMAND COMPLETE` banner in the most
 recent assistant output. Rough recipe:
 

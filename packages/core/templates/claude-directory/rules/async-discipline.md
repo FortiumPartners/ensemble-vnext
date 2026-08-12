@@ -47,30 +47,34 @@ synchronously.
 The first two are the explicit signals the `Stop` hook can read. The last two prevent Stop
 from firing at all when active.
 
-## `Agent({team_name})` — partial async, requires pairing
+## Teammate spawns (`Agent({subagent_type, name, ...})`) — auto-delivery satisfies the rule
 
-`Agent({team_name})` spawns long-running teammates that communicate via `SendMessage`. The
-team docs promise that teammate deliveries auto-arrive as new lead turns — but **this
-auto-re-invocation has been observed to silently stall**: teammates complete, send their
-messages, the lead session idles, and no new turn fires until the user types the next
-prompt. The "background_tasks" the hook sees from a team spawn are the teammates' own
-sessions — they don't guarantee the lead will be re-invoked.
+As of Claude Code v2.1.178, `TeamCreate`/`TeamDelete` no longer exist and `team_name` on
+the `Agent` tool is accepted but ignored — a team forms automatically the moment the first
+teammate spawns, with no setup step and no cleanup step. Teammates communicate with the
+lead via `SendMessage`.
 
-**Rule:** `Agent({team_name})` does NOT satisfy this discipline on its own. **Every team
-spawn must be paired in the same turn with either:**
-- `ScheduleWakeup({delaySeconds, prompt})` — recommended; the wake re-enters the
-  orchestrating command, harmless no-op if auto-delivery already fired (default cadence
-  for team commands: 1200s / 20 min).
+**Auto-delivery works and satisfies this discipline on its own.** A live experiment
+confirmed it: a spawned teammate's `SendMessage` calls were auto-delivered and re-invoked
+the lead with no `ScheduleWakeup` involved. This matches the current team docs, which
+promise that teammate deliveries auto-arrive as new lead turns. A prior version of this
+rule claimed auto-re-invocation "has been observed to silently stall" and mandated a
+paired `ScheduleWakeup` on every team spawn — that claim was not reproduced and is now
+known to be stale; it has been removed.
+
+**Recommended, not mandatory:** pair a team spawn with a fallback in the same turn —
+- `ScheduleWakeup({delaySeconds, prompt})` — cheap insurance; the wake re-enters the
+  orchestrating command and is a harmless no-op if auto-delivery already fired (default
+  cadence for team commands: 1200s / 20 min).
 - `/goal <condition>` — keeps the session looping until the team's deliverables are
   observable.
 
-This rule is implemented at the COMMAND level: `/implement-trd-team`, `/create-prd-team`,
-`/create-trd-team`, `/harden-trd-team`, `/verify-trd-team`, and `/fix-issue` include a
-mandatory Step 2a / Step 3a "schedule the safety-net wake-up before ending the turn"
-right after each `Agent({team_name})` spawn. The hook is conservative (it accepts
-`background_tasks` non-empty as sufficient — a false-positive of safety in the team case)
-and relies on the commands to enforce correctness. Treat the commands' Step 2a/3a as
-non-optional.
+Treat this as best-practice belt-and-suspenders (the evidence base is one live experiment
+plus the current docs, not exhaustive), not as a requirement the async-discipline hook
+enforces. The commands that spawn teammates (`/create-prd-team`, `/create-trd-team`,
+`/harden-trd-team`, `/verify-trd-team`, `/fix-issue`) still document a Step 2a/3a
+"schedule the safety-net wake-up" — it remains recommended there, downgraded from
+mandatory.
 
 ## How the guard works (at a glance)
 

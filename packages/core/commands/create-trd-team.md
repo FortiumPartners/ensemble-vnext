@@ -33,8 +33,9 @@ Error if neither available.
 ## Team Composition
 
 You (the lead) operate as **@technical-architect**. Spawn these teammates via the native
-team model (`TeamCreate` once, then one `Agent({subagent_type, team_name, ...})` per teammate
-— NOT the `Task` tool, which is reserved for the work-list tools `TaskCreate`/`TaskUpdate`/etc.):
+team model: one `Agent({subagent_type, name, prompt})` call per teammate — NOT the `Task`
+tool, which is reserved for the work-list tools `TaskCreate`/`TaskUpdate`/etc. No setup
+step is needed; a team forms automatically the moment the first teammate spawns.
 
 | Teammate | subagent_type | Domain Letter | Focus |
 |----------|---------------|---------------|-------|
@@ -84,7 +85,7 @@ starting at 001. The lead reassigns final IDs during synthesis to ensure uniquen
 
 ### Report Delivery (CRITICAL — read this before writing teammate briefings)
 
-In native team mode (`Agent({team_name, ...})`), **a teammate's plain text output is NOT
+In native team mode (`Agent({subagent_type, name, prompt})`), **a teammate's plain text output is NOT
 visible to the lead.** The only way a teammate's report reaches the lead is via
 `SendMessage`. Teammates that produce the XML as their last assistant turn and then go
 idle have NOT delivered — the lead never sees the report. (Per the SendMessage tool docs:
@@ -131,32 +132,28 @@ Before spawning teammates, the lead performs initial analysis:
 Spawn all teammates **simultaneously** using the native team model. Each receives their
 briefing and returns a `<teammate_report>` response.
 
-**Step 1 — Create the team:**
+**Step 1 — Spawn each teammate directly** via the **`Agent`** tool. No team-creation step
+is needed: a team forms automatically on the first spawn, and `team_name` on the `Agent`
+tool is accepted but ignored by the platform, so it is omitted below.
 ```javascript
-TeamCreate({ team_name: "trd-domain-analysis",
-             description: "Parallel TRD domain-perspective gathering" });
-```
-
-**Step 2 — Spawn each teammate** via the **`Agent`** tool with `team_name` set:
-```javascript
-Agent({ subagent_type: "backend-implementer",  team_name: "trd-domain-analysis",
+Agent({ subagent_type: "backend-implementer",
         name: "backend-arch",     prompt: "[backend briefing]" });
-Agent({ subagent_type: "frontend-implementer", team_name: "trd-domain-analysis",
+Agent({ subagent_type: "frontend-implementer",
         name: "frontend-arch",    prompt: "[frontend briefing]" });
-Agent({ subagent_type: "verify-app",           team_name: "trd-domain-analysis",
+Agent({ subagent_type: "verify-app",
         name: "quality-strategy", prompt: "[quality briefing]" });
 // Conditionally:
-Agent({ subagent_type: "devops-engineer",      team_name: "trd-domain-analysis",
+Agent({ subagent_type: "devops-engineer",
         name: "infra-perspective", prompt: "[infra briefing]" });
 ```
 Do NOT pass `isolation: "worktree"` — these are read-only analysis teammates; shared tree
 is fine and they produce no commits.
 
-**Step 2a — MANDATORY: schedule the safety-net wake-up before ending the turn.**
+**Step 1a — Recommended: schedule a safety-net wake-up before ending the turn.**
 
-`Agent({team_name})` does NOT reliably auto-re-invoke the lead when teammates SendMessage
-back; messages may queue until the next user prompt. Pair every team spawn with a
-`ScheduleWakeup` as the explicit re-invocation belt:
+Teammate `SendMessage` deliveries reliably auto-re-invoke the lead as new turns (see
+`.claude/rules/async-discipline.md`), so the spawn alone satisfies the async-discipline
+rule. Pairing it with a `ScheduleWakeup` is cheap insurance, not a requirement:
 
 ```javascript
 ScheduleWakeup({
@@ -166,17 +163,10 @@ ScheduleWakeup({
 });
 ```
 
-If auto-delivery fires, the wake no-ops; if it stalls, the wake catches it. Required by
-`.claude/rules/async-discipline.md` Prohibited Pattern #6 — `Agent({team_name})` alone is
-not one of the four legitimate async primitives.
+If auto-delivery fires (the expected case), the wake just no-ops.
 
-**Step 3 — Collect & shut down** once all `<teammate_report>` responses are received via
-`SendMessage`:
-```javascript
-for (const teammate of ["backend-arch","frontend-arch","quality-strategy","infra-perspective"])
-  SendMessage({ to: teammate, message: { type: "shutdown_request" } });
-TeamDelete({});  // only after all members have shut down
-```
+**Step 2 — Collect** all `<teammate_report>` responses as they arrive via `SendMessage`.
+No teardown step is required — cleanup is automatic when each teammate's session exits.
 
 **Briefing template** (adapt per teammate):
 

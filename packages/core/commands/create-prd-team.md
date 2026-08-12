@@ -29,8 +29,9 @@ Once you have the product description, proceed with team orchestration below.
 
 ## Team Composition
 
-Spawn these teammates in parallel using the native team model (`TeamCreate` once, then
-one `Agent({subagent_type, team_name, ...})` per teammate). Each teammate is a specialist
+Spawn these teammates in parallel using the native team model: one
+`Agent({subagent_type, name, prompt})` call per teammate. No setup step is needed — a team
+forms automatically the moment the first teammate spawns. Each teammate is a specialist
 perspective contributing structured findings -- NOT a full PRD.
 
 | Teammate | subagent_type | Focus |
@@ -69,7 +70,7 @@ Each teammate MUST return findings in this exact structure:
 
 ### Report Delivery (CRITICAL — read this before writing teammate prompts)
 
-In native team mode (`Agent({team_name, ...})`), **a teammate's plain text output is NOT
+In native team mode (`Agent({subagent_type, name, prompt})`), **a teammate's plain text output is NOT
 visible to the lead.** The only way a teammate's findings reach the lead is via
 `SendMessage`. Teammates that produce the XML as their last assistant turn and then go
 idle have NOT delivered — the lead never sees the report. (Confirmed in the SendMessage
@@ -97,31 +98,27 @@ After sending, the teammate goes idle — the lead acks via `SendMessage` or iss
 Spawn all teammates simultaneously using the native team model. Each receives the full
 product description plus their specific focus instructions.
 
-**Step 1 — Create the team:**
+**Step 1 — Spawn each teammate directly** via the **`Agent`** tool (NOT the `Task` tool —
+that's reserved for the work-list tools `TaskCreate`/`TaskUpdate`/etc.). No team-creation
+step is needed: a team forms automatically on the first spawn, and `team_name` on the
+`Agent` tool is accepted but ignored by the platform, so it is omitted below.
 ```javascript
-TeamCreate({ team_name: "prd-analysis",
-             description: "Parallel PRD perspective gathering" });
-```
-
-**Step 2 — Spawn each teammate** via the **`Agent`** tool with `team_name` set (NOT the
-`Task` tool — that's reserved for the work-list tools `TaskCreate`/`TaskUpdate`/etc.):
-```javascript
-Agent({ subagent_type: "product-manager", team_name: "prd-analysis",
+Agent({ subagent_type: "product-manager",
         name: "product-research", prompt: "[teammate prompt below]" });
-Agent({ subagent_type: "technical-architect", team_name: "prd-analysis",
+Agent({ subagent_type: "technical-architect",
         name: "tech-feasibility", prompt: "[teammate prompt below]" });
 // Optionally:
-Agent({ subagent_type: "product-manager", team_name: "prd-analysis",
+Agent({ subagent_type: "product-manager",
         name: "devils-advocate", prompt: "[teammate prompt below]" });
 ```
 Do NOT pass `isolation: "worktree"` — these are read-only analysis teammates; shared tree
 is fine and they produce no commits.
 
-**Step 2a — MANDATORY: schedule the safety-net wake-up before ending the turn.**
+**Step 1a — Recommended: schedule a safety-net wake-up before ending the turn.**
 
-`Agent({team_name})` does NOT reliably auto-re-invoke the lead when teammates SendMessage
-back; messages may queue until the next user prompt. Pair every team spawn with a
-`ScheduleWakeup` as the explicit re-invocation belt:
+Teammate `SendMessage` deliveries reliably auto-re-invoke the lead as new turns (see
+`.claude/rules/async-discipline.md`), so a team spawn alone satisfies the async-discipline
+rule. Pairing it with a `ScheduleWakeup` is cheap insurance, not a requirement:
 
 ```javascript
 ScheduleWakeup({
@@ -131,17 +128,11 @@ ScheduleWakeup({
 });
 ```
 
-If auto-delivery DOES fire, the scheduled wake just no-ops (the lead resumes, sees all
-reports already collected, proceeds to Phase 2). If it stalls, the wake catches it.
-This is required by `.claude/rules/async-discipline.md` Prohibited Pattern #6 —
-`Agent({team_name})` alone is not one of the four legitimate async primitives.
+If auto-delivery fires (the expected case), the scheduled wake just no-ops (the lead
+resumes, sees all reports already collected, proceeds to Phase 2).
 
-**Step 3 — Collect & shut down** once all teammate reports are received via `SendMessage`:
-```javascript
-for (const teammate of ["product-research", "tech-feasibility", "devils-advocate"])
-  SendMessage({ to: teammate, message: { type: "shutdown_request" } });
-TeamDelete({});  // only after all members have shut down
-```
+**Step 2 — Collect** all teammate reports as they arrive via `SendMessage`. No teardown
+step is required — cleanup is automatic when each teammate's session exits.
 
 ### Teammate: product-research
 

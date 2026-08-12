@@ -18,7 +18,7 @@
 #   .claude/hooks/notify-complete.sh <cmd-name> <status> <summary>
 #
 # Args:
-#   $1  cmd-name  — the slash command without leading slash (e.g. implement-trd-team)
+#   $1  cmd-name  — the slash command without leading slash (e.g. verify-trd-team)
 #   $2  status    — "complete" or "stuck"
 #   $3  summary   — one-line human-readable summary (under 200 chars recommended)
 #

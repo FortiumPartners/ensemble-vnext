@@ -115,19 +115,33 @@ If the issue TRD has only 1 task, execute directly without spawning a team:
 
 ### 3.2 Multiple Tasks (team mode)
 
-If 2+ tasks, spawn a lightweight team:
+If 2+ tasks, spawn teammates directly — no team creation step is needed; a team forms
+automatically on the first spawn:
 
 ```javascript
-TeamCreate({ team_name: "fix-<issue-id>", description: "Fix <issue-id>" });
+Agent({ subagent_type, name, prompt });
 ```
 
-Spawn one teammate per task (or group related tasks) with the **Agent** tool
-(`Agent({ subagent_type, team_name: "fix-<issue-id>", name, prompt })`). Each teammate runs
-the full fix cycle using the templates below. Teammates share the working tree (no
-`isolation: "worktree"`); keep each teammate's files disjoint.
+Spawn one teammate per task (or group related tasks). Each teammate runs the full fix
+cycle using the templates below. Teammates share the working tree (no
+`isolation: "worktree"`); keep each teammate's files disjoint. Express task grouping via
+task names plus `blockedBy` dependencies on the shared task list
+(`TaskCreate`, then `TaskUpdate({taskId, addBlockedBy: [...]})`) rather than `team_name`,
+which is accepted but ignored by the platform.
 
-Monitor, collect results, and clean up (SendMessage `shutdown_request` then `TeamDelete`) —
-same as `/implement-trd-team` Step 4.
+**Recommended, not mandatory:** pair the spawn with a safety-net wake-up before ending the
+turn — teammate `SendMessage` auto-delivery reliably re-invokes the lead (see
+`.claude/rules/async-discipline.md`), so this is cheap insurance:
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for fix-<issue-id>",
+  prompt: "/fix-issue [original arguments here]"
+});
+```
+
+Monitor for teammate `SendMessage` completions and collect results. No teardown step is
+required — cleanup is automatic when a teammate's session exits.
 
 ---
 

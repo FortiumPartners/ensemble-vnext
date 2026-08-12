@@ -106,7 +106,7 @@ chmod +x /path/to/project/.claude/hooks/notify.sh
 }
 ```
 
-If your project already has a `Stop` hook array, add the `notify.sh` entry after existing hooks (e.g., after `learning.sh`).
+If your project already has a `Stop` hook array, add the `notify.sh` entry after existing hooks (e.g., after `wiggum.js` -- `notify.sh` runs last in the Stop chain: `async-discipline.js` → `autonomy-discipline.js` → `wiggum.js` → `notify.sh`).
 
 ---
 

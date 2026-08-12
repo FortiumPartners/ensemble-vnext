@@ -53,7 +53,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | # | Item | Effort | Why it sits here | Status |
 |---|------|--------|------------------|--------|
 | 1 | Runtime refresh and delivery coherence | 2–3 days | ~12.4k tok/turn wasted; new projects 3 releases behind | **Done (4.1.1)** |
-| 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | |
+| 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.2.0)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
 | 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a done (4.1.0)** |
@@ -122,7 +122,14 @@ number appears in all four manifests.
 
 ## Phase B — Fix what is actually broken (Weeks 2–3)
 
-### 2. Remove `TeamCreate`; put groups on the task graph — *broken today*
+### 2. Remove `TeamCreate`; put groups on the task graph — ✅ **Done (4.2.0)**
+
+> **Status: DONE.** All dead tool calls removed. `implement-trd-team` was **deleted outright**
+> rather than ported — see the decision note at the end of this item. `owner: "self"` fixed, and
+> the `async-discipline` auto-delivery claim corrected against a live experiment. The four
+> research/review team commands (`create-prd-team`, `create-trd-team`, `harden-trd-team`,
+> `verify-trd-team`) keep using teams; they are the correct use case.
+
 
 The agent-teams docs are unambiguous: as of v2.1.178, `TeamCreate` and `TeamDelete` **no longer
 exist**, and `team_name` on the Agent tool is "accepted but ignored." vNext calls the dead tool in
@@ -140,6 +147,80 @@ Update `async-discipline.md`'s Prohibited Pattern #6 to match.
 
 **Done when:** No occurrence of `TeamCreate` or `team_name` remains; `/implement-trd-team --phase 1`
 completes end to end against a fixture; parallel groups are expressed as task dependencies.
+
+**Status (2026-08-12): done, with a scope change.** `implement-trd-team.md` was deleted
+outright rather than rewritten — its teammates only ever messaged the lead (never each
+other, the actual "team" use case), and it depended on `--resume` with
+`teammate_session_id` recovery to span sessions, which agent teams cannot do (`/resume`
+and `/rewind` do not restore in-process teammates). Parallel implementation returns to
+`/implement-trd` once it has a real task graph (plan items 7 and 8); until then the
+three-pass workflow is `/implement-trd` (build) → `/harden-trd-team` (harden) →
+`/verify-trd-team` (validate).
+
+Removed every reference to `implement-trd-team` from `packages/core/hooks/notify-complete.sh`,
+the rules (`autonomy.md`, `command-status.md`, `async-discipline.md`, in both
+`.claude/rules/` and `packages/core/templates/claude-directory/rules/`),
+`verify-trd-team.md`, `harden-trd-team.md`, `fix-issue.md` (all inlined the orchestration
+mechanics that used to say "follows `/implement-trd-team` Step N exactly"), the doc guides
+(`ARCHITECTURE`, `CONCEPTS`, `PROCESS`, `INSTALL`, `README`), and
+`test/integration/tests/notify-on-complete.test.sh` (dropped from the 18-command sweep
+arrays, now 17; example strings repointed to `verify-trd-team`/`harden-trd-team`).
+`docs/modernization/2026-05-*` was left untouched as a historical record.
+
+Dropped the dead `TeamCreate`/`TeamDelete` calls and `team_name` parameter from the four
+surviving team commands (`create-prd-team.md`, `create-trd-team.md`, `fix-issue.md` ×2,
+plus the `team_name` mention in `init-project.md`) in favor of direct
+`Agent({subagent_type, name, prompt})` spawns — teams now form automatically on first
+spawn, no creation or teardown step. Where `team_name` previously encoded grouping, the
+commands now point at task names plus `blockedBy` dependencies on the shared task list
+instead.
+
+Also fixed `owner: "self"` in `implement-trd.md` §4.2: the platform reads `owner` as an
+agent name and files an unread task-assignment message into a `self` inbox, since no
+teammate named "self" exists. Confirmed via grep that no ensemble code (`status.js`, the
+state schema) reads or writes an `owner` field — it was purely a parameter passed through
+to the platform's `TaskUpdate`, so dropping it is safe. Fixed to
+`TaskUpdate({ taskId, status: "in_progress" })` with an inline note explaining why.
+
+Downgraded the `async-discipline.md` "`Agent({team_name})` … has been observed to
+silently stall" claim: a live experiment confirmed teammate `SendMessage` auto-delivery
+reliably re-invokes the lead, so the paired `ScheduleWakeup` is now documented as
+recommended insurance, not a mandatory pairing — updated in the rule and in every
+surviving team command's Step 2a/3a.
+
+Two intentional exceptions to the "zero occurrences" greps: `async-discipline.md` still
+*names* `TeamCreate`/`TeamDelete`/`team_name` once each, in prose explaining that they no
+longer exist / are ignored — removing the names would make the explanation unverifiable.
+Several team commands likewise mention `team_name` once in prose ("team_name is accepted
+but ignored, so express grouping via task dependencies instead") for the same reason. No
+command contains a live `TeamCreate(...)`, `TeamDelete(...)`, or `Agent({team_name: ...})`
+call.
+
+
+#### Decision: `implement-trd-team` deleted, not ported
+
+Porting its group-naming scheme to `blockedBy` would have built on a construct that is wrong for
+it. Three independent reasons:
+
+1. **It never used team semantics.** Its teammates only ever messaged the lead — status,
+   completion, STUCK. They never messaged each other. Teams exist for peers who challenge each
+   other's findings.
+2. **Teams cannot do what it was designed to do.** It relied on `--resume` with
+   `teammate_session_id` recovery to span sessions, and the docs are flat: *"`/resume` and
+   `/rewind` do not restore in-process teammates."* An architectural incompatibility, not a bug.
+3. **The docs name its exact workload as the wrong fit:** *"For sequential tasks, same-file
+   edits, or work with many dependencies, a single session or subagents are more effective."*
+
+Parallel implementation returns to `/implement-trd` once it has a real task graph — parallel sets
+fall out of the graph itself, so concurrency becomes a property of the loop rather than a separate
+command. That is items 7 and 8. The three-pass workflow is now
+`/implement-trd` → `/harden-trd-team` → `/verify-trd-team`.
+
+Also corrected here: `async-discipline.md` asserted that teammate auto-delivery "has been observed
+to silently stall" and mandated a paired `ScheduleWakeup` on every team spawn. A live experiment
+disproved it — a teammate's `SendMessage` calls auto-delivered and re-invoked the lead with no wake
+involved. The wake is now documented as a recommended fallback. Evidence base is one experiment
+plus current docs, so it stays as cheap insurance rather than being removed.
 
 ### 3. Re-baseline the execution model — *silent*
 
