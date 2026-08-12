@@ -338,6 +338,38 @@ gone; `code-reviewer.md` describes acceptance-criteria verification and specifie
 
 ### 7. Extract a tested `lib/` — build the task graph
 
+> #### Open design question — concurrent TRDs, sessions, worktrees, and developers
+>
+> **Carry this into items 7 and 8. It is not solved today and neither item works without an
+> answer.** The current state model assumes exactly one TRD being implemented, by one person,
+> in one session, in one working tree. Every one of those assumptions breaks in normal use:
+>
+> - **`.trd-state/current.json` is a single pointer** (`prd`, `trd`, `status`, `branch`) and is
+>   **git-tracked**. Two developers on two TRDs both rewrite it; two worktrees off the same
+>   repo disagree about what "current" means. It is a merge conflict by construction.
+> - **`implement.lock` is per-TRD**, so it prevents two sessions racing the *same* TRD but says
+>   nothing about two TRDs racing the same *files*. File-ownership conflicts are currently
+>   reasoned about within a single TRD only.
+> - **The shared task list is session-scoped** (`~/.claude/tasks/session-<id>/`) and never
+>   uploaded. Nothing coordinates across sessions, so a second session has no view of what the
+>   first has claimed.
+> - **Workflows cannot resume across sessions**, which makes the durable state file the only
+>   cross-session coordination point — and it is exactly the thing that is currently
+>   single-tenant.
+> - **Worktrees** raise the open question of whether `.trd-state/` is shared across a repo or
+>   per-tree, and the answer differs for the state file (per-branch) versus a cross-TRD lock
+>   (must be repo-wide to be useful).
+>
+> Item 7 is where this gets designed, because the task graph is where file ownership becomes
+> explicit — and cross-TRD conflict detection is the same computation as intra-TRD, just over a
+> wider set. Item 8 then inherits whatever item 7 decides. Sketching a solution before the graph
+> exists would be guesswork.
+>
+> One precedent already in the tree: RUNTIME's refresh gate is monotonic specifically so
+> teammates on different plugin versions cannot ping-pong committed files. The same class of
+> problem, solved narrowly — worth reusing the reasoning, not the mechanism.
+
+
 This is where the graph actually gets built, and it is the prerequisite for item 8. `packages/core/`
 contains `agents/ commands/ hooks/ scripts/ templates/` and **no `lib/` at all**. Meanwhile
 `implement-trd.md` is 1,372 lines, much of it describing fully deterministic operations the model re-reads
@@ -367,6 +399,9 @@ directly by the team commands; smoke harness still green.
 ## Phase F — The architectural bet (Week 11 onward)
 
 ### 8. Prototype one implement phase as a dynamic workflow
+
+> Inherits the concurrent-TRD/session/worktree design question raised in item 7 — see the
+> callout there. A workflow's inability to resume across sessions makes it more acute, not less.
 
 The workflows documentation reads like a critique of `/implement-trd`. Where subagents, skills, and teams
 all have "Claude, turn by turn" deciding what runs next and intermediate results landing in the context
