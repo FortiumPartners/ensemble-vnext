@@ -574,7 +574,25 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 
 **Deploy settings.json:**
 
-Copy `@packages/core/templates/claude-directory/settings.json` to `.claude/settings.json`
+Step 3's scaffold already created `.claude/settings.json` from this template AND stamped
+`ensemble.version` / `ensemble.refreshed_at` into it. **Do NOT copy the template over it
+again** — the raw template has no version stamp, so re-copying silently wipes the field that
+`/rebase-project`'s version detection and the runtime-refresh gate both read, leaving the
+project permanently at "unknown → full sync".
+
+Only act if the file is missing (it should not be):
+
+```bash
+[ -f .claude/settings.json ] || cp "${PLUGIN_DIR}/templates/claude-directory/settings.json" .claude/settings.json
+```
+
+Verify the stamp survived before continuing:
+
+```bash
+jq -e '.ensemble.version' .claude/settings.json >/dev/null \
+  && echo "settings.json OK — ensemble.version present" \
+  || echo "WARNING: ensemble.version missing; re-run Step 3's scaffold"
+```
 
 **Initialize current.json:**
 
