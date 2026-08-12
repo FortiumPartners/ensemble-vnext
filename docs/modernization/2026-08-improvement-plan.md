@@ -1,7 +1,7 @@
 # Ensemble vNext — Improvement Plan
 
 **Created**: 2026-08-11
-**Status**: Item 1 in progress (Phase 1 complete, released as 4.0.0)
+**Status**: Item 1 complete (released as 4.1.1). Item 5a done. Items 2–4, 5b–5d, 6–9 open.
 **Basis**: Comparison against `Sunstone-Partners/ensemble` + audit of Claude Code features shipped March–August 2026
 **Companion artifact**: https://claude.ai/code/artifact/13c683ff-2acf-4ec7-8078-4408126f7602
 
@@ -52,7 +52,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 
 | # | Item | Effort | Why it sits here | Status |
 |---|------|--------|------------------|--------|
-| 1 | Runtime refresh and delivery coherence | 2–3 days | ~12.4k tok/turn wasted; new projects 3 releases behind | **In progress** |
+| 1 | Runtime refresh and delivery coherence | 2–3 days | ~12.4k tok/turn wasted; new projects 3 releases behind | **Done (4.1.1)** |
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
@@ -68,7 +68,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 
 ### 1. Runtime refresh and delivery coherence
 
-> **Status: in progress.** Phase 1 landed and shipped as 4.0.0. Always-on plugin context cost went
+> **Status: DONE, shipped as 4.1.1.** All four done-conditions met. Always-on plugin context cost went
 > **12,366 → 95 tokens**. Hardcoded `skills:` preloads were removed from all 13 agents (`c4962d0`)
 > and replaced with deterministic per-project assignment via `skill-affinity.json` (`d3fde6e`).
 > Detailed spec: `docs/TRD/runtime-refresh.md`.

@@ -2,6 +2,61 @@
 
 All notable changes to ensemble-vnext are documented in this file.
 
+## [4.1.1] - 2026-08-11
+
+Completes item 1 of the improvement plan: the vendored runtime now ships correctly and
+keeps itself current. Phases 2 and 3 of `docs/TRD/runtime-refresh.md`.
+
+### Added
+
+- **`packages/core/hooks/hooks.manifest.json`** — one declaration of every hook (file,
+  event, matcher, order, timeout, registration kind, description). Three artifacts now
+  generate from it: the scaffold's copy list, the template `settings.json` hook block, and
+  the hook table in `init-project.md`. Adding a hook is one manifest entry instead of five
+  hand-edits that drift apart.
+- **`generate-hooks-artifacts.sh`** — the build-time generator, with `--check` for CI drift
+  detection.
+- **`scaffold-project.sh --refresh`** — updates only components already present in
+  `.claude/`. Never creates one that is absent, never deletes one the plugin dropped. That
+  restraint is what makes it safe to run unattended: it cannot un-curate a project. Adding
+  and removing stays with `/rebase-project`.
+- **`runtime-refresh.sh`** — a `SessionStart` hook that refreshes the vendored runtime when
+  the installed plugin is newer. Four guards (no plugin, self-repo, in-flight task,
+  monotonic version), always exits 0, sub-100ms when there is nothing to do. Documented in
+  `docs/guides/ARCHITECTURE.md`.
+- 30 tests: `scaffold-project.test.sh` 53 → 80, new `runtime-refresh.test.sh` (18).
+
+### Fixed
+
+- **A freshly scaffolded project now registers the same hooks this repo runs.** It
+  previously received 5 of them; the five added in 3.3.9–3.3.12 never shipped.
+- **Every template hook command used a bare `$(git rev-parse --show-toplevel)`** with no
+  fallback, so scaffolded hooks failed outside a git worktree. All now use the
+  `CLAUDE_PROJECT_DIR` form.
+- **The `/init-project` that consumers actually run was never a generated consumer.**
+  `packages/full/commands/plugin-only/` held real files while its siblings were symlinks,
+  and `plugin.json` ships only that directory — so the shipped command still instructed
+  users to verify a hook deleted in 4.1.0. Now symlinked into `packages/core/commands/`.
+- **Two drift-checker defects that would have reported CI green while drifted**: `--check`
+  compared bash's lowercase `true` against Python's `"True"` and always exited 0; and any
+  unrecognized flag fell through to write mode.
+- **Two path-traversal regressions** introduced by making the hook copy list data-driven: a
+  crafted manifest `file` could set the exec bit outside the target project or copy an
+  arbitrary file into `.claude/hooks/`. Manifest values are now validated at parse time.
+- **The self-repo guard tested root equality rather than ancestry**, so a project nested
+  inside the plugin checkout would have been refreshed — this repo holds ~40 eval-fixture
+  projects (~1482 tracked files) in exactly that shape, pinned deliberately at a runtime
+  version. Only the absence of a version stamp was masking it, and 4.1.0 began writing that
+  stamp on every scaffold.
+- **A failing refresh emitted nothing.** A project whose installed plugin predates
+  `--refresh` failed identically every session with no indication, and never self-heals.
+  Now reports the condition and the remedy.
+- Authored-rule protection gained a denylist alongside its structural derivation, so
+  shipping a default `constitution.md` template can no longer silently overwrite every
+  project's governance.
+- `ENSEMBLE_SAVE_REMOTE_LOGS` removed from the template — dead since 4.1.0 retired the hook
+  it gated.
+
 ## [4.1.0] - 2026-08-11
 
 Retires three hook components. Pulled forward from item 5 of the improvement plan because

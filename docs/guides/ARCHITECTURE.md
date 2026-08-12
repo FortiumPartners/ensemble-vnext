@@ -29,6 +29,97 @@ This design means:
 
 ---
 
+## Keeping the Runtime Current: Refresh vs Rebase
+
+Vendoring buys reproducibility at a price: every project holds a frozen fork of the
+runtime. Two mechanisms keep that fork current, and they are deliberately different.
+
+| | **Refresh** (automatic) | **Rebase** (deliberate) |
+|---|---|---|
+| Trigger | `SessionStart` hook, every session | You run `/rebase-project` |
+| Scope | Components **already present** in `.claude/` | Any component, including new ones |
+| Adds components | **Never** | Yes |
+| Removes components | **Never** | Yes, with backup |
+| Touches governance files | **Never** | Prompts before changing |
+| Requires judgment | No — mechanical replacement | Yes — that's the point |
+
+**Refresh is safe to run unattended precisely because of what it cannot do.** It replaces
+what is already there and nothing else. It cannot add a component you never selected, so
+it cannot un-curate a project; it cannot delete one the plugin dropped, so it cannot
+silently remove something you depend on. Anything requiring a decision belongs to
+`/rebase-project`, where you are present to make it.
+
+### The version stamp
+
+`.claude/settings.json` carries an `ensemble` block with a `version` field, written by the
+scaffold on `/init-project` and on every successful refresh:
+
+```json
+"ensemble": {
+  "version": "4.1.1",
+  "refreshed_at": "2026-08-11T22:14:03Z",
+  "agents_dir": ".claude/agents"
+}
+```
+
+The refresh gate is **monotonic** — it writes only when the installed plugin's version is
+strictly newer than the stamp. That is what stops two teammates on different plugin
+versions from ping-ponging committed runtime files back and forth in git.
+
+A project scaffolded before the stamp existed has no `ensemble.version`. That reads as
+*unknown*, not *older*, so it never auto-refreshes. Run `/rebase-project` once to adopt
+the stamp; refresh engages from then on.
+
+### The four guards
+
+`runtime-refresh.sh` skips, silently and exiting 0, when any of these hold:
+
+1. **No plugin installed** — CI, fresh clones, and anyone using the vendored runtime
+   without the plugin hit this constantly. It must be quiet, not a warning.
+2. **The project is inside the plugin's own checkout** — the marketplace is a `directory`
+   source pointing at the ensemble repository, so without this a stale plugin cache would
+   overwrite live source and silently revert a developer's uncommitted work. The check
+   walks *ancestors*, not just the project root, because a project nested inside the
+   checkout (an eval fixture, say) resolves to itself and would otherwise never see the
+   markers above it.
+3. **A task is in progress** — any `.trd-state/*/implement.json` with an `in_progress`
+   task. A multi-session `/implement-trd` loop must not pick up different command text
+   halfway through a feature.
+4. **The plugin is not newer** — equal, older, or unparseable versions do nothing.
+
+A hook that blocks session start is worse than a stale runtime, so every path exits 0,
+including malformed JSON, a missing plugin, and a failing scaffold.
+
+### Changes land in the NEXT session
+
+**This is the part that surprises people.** Claude Code loads `.claude/` *before*
+`SessionStart` hooks run. A refresh therefore writes files the current session has already
+read — the session you are in continues with the components it loaded at start, and the
+updated ones take effect when you next start a session.
+
+This was verified empirically, not assumed: a `SessionStart` hook that rewrote a command's
+frontmatter fired and wrote to disk, but the session still reported the pre-write text; the
+following session reported the new text. The behaviour is stable, not a race.
+
+The refresh message says so explicitly:
+
+```
+ENSEMBLE runtime refreshed 4.1.0 → 4.1.1 — 4 commands, 2 hooks, 1 skill updated.
+Changes take effect in the NEXT session (this session's components were already loaded).
+```
+
+That second line is not optional. Silently applying a change that appears to do nothing is
+worse than a one-session lag you can see.
+
+### Turning it off
+
+| Env var | Effect |
+|---|---|
+| `ENSEMBLE_RUNTIME_REFRESH_DISABLE=1` | Skip entirely |
+| `ENSEMBLE_RUNTIME_REFRESH_DEBUG=1` | Log every guard decision to stderr |
+
+---
+
 ## Directory Structure
 
 ```
