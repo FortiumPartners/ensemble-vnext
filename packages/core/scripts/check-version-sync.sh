@@ -34,9 +34,9 @@ try:
     d = json.load(open('$REPO_ROOT/$file'))
     print($expr)
 except Exception as e:
-    print('ERROR: %s' % e, file=sys.stderr)
+    print('ERROR reading $file: %s' % e, file=sys.stderr)
     sys.exit(1)
-" 2>/dev/null || echo "UNREADABLE"
+" || echo "UNREADABLE"
 }
 
 declare -a labels=() values=()

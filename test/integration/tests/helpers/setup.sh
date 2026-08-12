@@ -183,8 +183,19 @@ setup_empty_dir() {
 cleanup_temp_dir() {
     local dir="$1"
     local tmp_base="${TMPDIR:-/tmp}"
-    # Only clean directories that look like our temp dirs
-    if [[ -d "$dir" && "$dir" == *"ensemble-test-"* && ( "$dir" == /tmp/* || "$dir" == "$tmp_base"/* ) ]]; then
+    # Strip a trailing slash so the "$tmp_base"/* pattern below can't become a
+    # never-matching double slash when TMPDIR is set with one.
+    tmp_base="${tmp_base%/}"
+    # macOS `mktemp -d -t` (used by setup_empty_dir) ignores an unset TMPDIR and
+    # allocates under the per-user /var/folders/<...>/T/ directory, so neither
+    # /tmp/* nor "$tmp_base"/* matches and every cleanup hit the refusal branch.
+    # Linux mktemp -t honours /tmp, which is why this only ever failed locally.
+    # The ensemble-test- substring below is what actually keeps this safe.
+    if [[ -d "$dir" && "$dir" == *"ensemble-test-"* && ( \
+            "$dir" == /tmp/* || \
+            "$dir" == "$tmp_base"/* || \
+            "$dir" == /var/folders/*/T/* || \
+            "$dir" == /private/var/folders/*/T/* ) ]]; then
         log_debug "Cleaning up temp directory: $dir"
         rm -rf "$dir"
     else
@@ -454,6 +465,7 @@ REQUIRED_AGENTS=(
     "app-debugger.md"
     "devops-engineer.md"
     "cicd-specialist.md"
+    "agent-implementer.md"
 )
 
 # =============================================================================

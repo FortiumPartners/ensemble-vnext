@@ -16,6 +16,17 @@
     "test:evals": "jest --testPathPattern=test/evals",
     "check:versions": "./packages/core/scripts/check-version-sync.sh"
   },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/test/evals/analysis-archive/",
+      "<rootDir>/test/evals/results/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/test/evals/analysis-archive/",
+      "<rootDir>/test/evals/results/"
+    ]
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/islayjames/ensemble-vnext.git"

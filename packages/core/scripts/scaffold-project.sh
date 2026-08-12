@@ -480,8 +480,11 @@ copy_skills() {
 # runtime-refresh monotonic gate has nothing to compare against. Stamped on
 # initial scaffold and on every successful --refresh.
 #
-# Writes only the "ensemble" key. Permissions, env, and hook registrations are
-# user-owned and are never touched here.
+# Merges into the "ensemble" key. Permissions, env, and hook registrations are
+# user-owned and are never touched here — and neither are the other ensemble
+# sub-keys (skills_dir, rules_dir, state_dir, docs_dir, prd_dir, trd_dir shipped
+# by the settings template; rebased_at / previous_version written by
+# /rebase-project). Only version + refreshed_at are (re)written.
 stamp_ensemble_version() {
     local target_dir="$1"
     local settings="$target_dir/.claude/settings.json"
@@ -517,18 +520,27 @@ path, version = sys.argv[1], sys.argv[2]
 with open(path) as fh:
     data = json.load(fh, object_pairs_hook=collections.OrderedDict)
 
-data["ensemble"] = collections.OrderedDict([
-    ("version", version),
-    ("refreshed_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
-    ("agents_dir", ".claude/agents"),
-])
+# Merge — never replace. The template ships skills_dir/rules_dir/state_dir/
+# docs_dir/prd_dir/trd_dir here, and /rebase-project writes rebased_at and
+# previous_version; clobbering the object would silently drop all of them.
+ensemble = data.get("ensemble")
+if not isinstance(ensemble, dict):
+    ensemble = collections.OrderedDict()
+ensemble["version"] = version
+ensemble["refreshed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+ensemble.setdefault("agents_dir", ".claude/agents")
+data["ensemble"] = ensemble
 
 directory = os.path.dirname(path) or "."
+# Preserve the original mode: mkstemp creates 0600, and os.replace would carry
+# that onto settings.json, making it unreadable to anyone but the owner.
+mode = os.stat(path).st_mode & 0o7777
 fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
 try:
     with os.fdopen(fd, "w") as fh:
         json.dump(data, fh, indent=2)
         fh.write("\n")
+    os.chmod(tmp, mode)
     os.replace(tmp, path)
 except BaseException:
     os.path.exists(tmp) and os.unlink(tmp)

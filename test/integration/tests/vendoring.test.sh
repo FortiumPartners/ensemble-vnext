@@ -190,7 +190,7 @@ teardown_file() {
     check_dir_exists "${TEST_PROJECT_DIR}/.claude/agents"
 }
 
-@test "TRD-TEST-034: Vendoring creates 12 agent files" {
+@test "TRD-TEST-034: Vendoring creates 13 agent files" {
     if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
@@ -198,8 +198,8 @@ teardown_file() {
     local count
     count=$(count_agent_files "$TEST_PROJECT_DIR")
 
-    # Should have exactly 12 agents
-    [[ "$count" -eq 12 ]]
+    # Should have exactly 13 agents
+    [[ "$count" -eq 13 ]]
 }
 
 @test "TRD-TEST-034: product-manager.md agent exists" {
@@ -439,8 +439,8 @@ teardown_file() {
     declare -f count_agent_files > /dev/null
 }
 
-@test "structure-verify: REQUIRED_AGENTS array has 12 entries" {
-    [[ "${#REQUIRED_AGENTS[@]}" -eq 12 ]]
+@test "structure-verify: REQUIRED_AGENTS array has 13 entries" {
+    [[ "${#REQUIRED_AGENTS[@]}" -eq 13 ]]
 }
 
 @test "structure-verify: REQUIRED_GOVERNANCE array has 3 entries" {

@@ -70,10 +70,15 @@ Story/Idea --> PRD --> TRD (with Execution Plan) --> Implementation
 | Fast | `CLAUDE.md` | Frequent, on request | `/update-project`, `/cleanup-project` |
 
 `CLAUDE.md` is updated by explicitly invoking `/update-project` (capture learnings) or
-`/cleanup-project` (prune). There is **no** `SessionEnd` hook performing this automatically —
-no `SessionEnd` hook is registered in `.claude/settings.json` at all. `learning.sh` exists in
-`.claude/hooks/` and is the staging helper `/update-project` builds on; it is deliberately not
-auto-registered, per the "no auto-commit in SessionEnd" prohibition below.
+`/cleanup-project` (prune). No hook rewrites `CLAUDE.md` on its own.
+
+`learning.sh` (in `.claude/hooks/`) is the staging helper `/update-project` builds on. It is
+**not** registered in this repo's own `.claude/settings.json` — this repo has no `SessionEnd`
+hook at all. The framework settings template
+(`packages/core/templates/claude-directory/settings.json`) *does* register `SessionEnd` →
+`learning.sh` + `save-remote-logs.js`, so a scaffolded project runs them at session end. Those
+hooks only **stage** files and save logs; they never commit and never rewrite `CLAUDE.md`, per
+the "no auto-commit in SessionEnd" prohibition below.
 
 ---
 
@@ -103,7 +108,7 @@ Claude Code Plugin Development - Target: Claude Code marketplace distribution
 
 ---
 
-## 12 Streamlined Subagents
+## 13 Streamlined Subagents
 
 | Category | Agent | Responsibility |
 |----------|-------|----------------|
@@ -113,6 +118,7 @@ Claude Code Plugin Development - Target: Claude Code marketplace distribution
 | Implement | `frontend-implementer` | UI, components, client logic |
 | Implement | `backend-implementer` | APIs, services, data layer |
 | Implement | `mobile-implementer` | Mobile apps (when applicable) |
+| Implement | `agent-implementer` | AI/agent behavior: prompts, RAG, agent loops, evals |
 | Quality | `verify-app` | Test execution and verification |
 | Quality | `code-simplifier` | Post-verification refactoring |
 | Quality | `code-reviewer` | Security and quality review |
