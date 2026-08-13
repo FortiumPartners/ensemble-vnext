@@ -15,6 +15,19 @@
  *
  * Usage:
  *   node extract.js [--limit N] [--out <path>] [--since <ISO date>] [--redact | --no-redact]
+ *                    [--include-unconfirmed]
+ *
+ * stop_reason filtering (added after a corpus-repair finding, see README "Confirmed
+ * vs unconfirmed finals"): a JSONL assistant record's `message.stop_reason` tells you
+ * whether the turn actually finished there. `end_turn` means it did. `tool_use` means
+ * the record's text (if any) was a mid-turn preamble before a tool call — the turn kept
+ * going, so no Stop/SubagentStop hook ever fired on that text. `null` showed up on
+ * ~16% of a 400-transcript sample and correlates with an interrupted/incomplete
+ * generation rather than a cleanly finished one. By default this script only emits
+ * `end_turn` finals — the only ones a real hook could have fired on. Pass
+ * `--include-unconfirmed` to also keep `null`/`tool_use` finals; every case records its
+ * `stop_reason` so the distinction stays visible in the corpus rather than silently
+ * baked into which cases exist at all.
  */
 
 'use strict';
@@ -40,6 +53,7 @@ function parseArgs(argv) {
     out: DEFAULT_OUT,
     since: null,
     redact: true,
+    includeUnconfirmed: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -61,6 +75,8 @@ function parseArgs(argv) {
       opts.redact = true;
     } else if (a === '--no-redact') {
       opts.redact = false;
+    } else if (a === '--include-unconfirmed') {
+      opts.includeUnconfirmed = true;
     } else if (a === '--help' || a === '-h') {
       printHelp();
       process.exit(0);
@@ -73,12 +89,18 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`Usage: node extract.js [--limit N] [--out <path>] [--since <ISO date>] [--redact|--no-redact]
+                 [--include-unconfirmed]
 
-  --limit N       Stop after scanning N transcripts (lead + subagent combined). Default: no limit.
-  --out <path>    Output JSONL path. Default: test/discipline-corpus/candidates.jsonl
-  --since <date>  Only consider transcripts whose final assistant record timestamp is >= date.
-  --redact        Drop cases matching obvious secret patterns (default: ON).
-  --no-redact     Disable redaction. NOT recommended — see README privacy notes.
+  --limit N              Stop after scanning N transcripts (lead + subagent combined). Default: no limit.
+  --out <path>           Output JSONL path. Default: test/discipline-corpus/candidates.jsonl
+  --since <date>         Only consider transcripts whose final assistant record timestamp is >= date.
+  --redact               Drop cases matching obvious secret patterns (default: ON).
+  --no-redact             Disable redaction. NOT recommended — see README privacy notes.
+  --include-unconfirmed  Also emit finals whose stop_reason is "tool_use" or null (mid-turn
+                          preamble / interrupted generation), not just "end_turn". Default: OFF —
+                          only end_turn finals are emitted, since those are the only ones a real
+                          Stop/SubagentStop hook could have fired on. Every case records its own
+                          stop_reason regardless, so the distinction is always visible.
 `);
 }
 
@@ -164,8 +186,17 @@ function discoverTranscripts(root) {
 
 /**
  * Reads a JSONL transcript and returns the final assistant text message.
- * Returns { text, timestamp, recordUuid, malformedLines } or null if no
- * assistant record with text content was found.
+ * Returns { text, timestamp, recordUuid, stopReason, malformedLines } or null
+ * if no assistant record with text content was found.
+ *
+ * `stopReason` is `record.message.stop_reason` from the record the text was
+ * taken from: "end_turn" means the turn genuinely finished there (a real
+ * Stop/SubagentStop hook could have fired on this exact text). "tool_use"
+ * means this text shared a content array with a tool_use block that followed
+ * it — a mid-turn preamble, not a final message; the turn kept going.
+ * `null`/other correlates with an interrupted or incomplete generation.
+ * Filtering on this is the caller's job (see `--include-unconfirmed`); this
+ * function always reports what it found.
  */
 async function extractFinalAssistantMessage(filePath) {
   const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
@@ -174,6 +205,7 @@ async function extractFinalAssistantMessage(filePath) {
   let lastAssistantText = null;
   let lastAssistantTimestamp = null;
   let lastAssistantUuid = null;
+  let lastAssistantStopReason = null;
   let malformedLines = 0;
 
   for await (const rawLine of rl) {
@@ -207,6 +239,7 @@ async function extractFinalAssistantMessage(filePath) {
     lastAssistantText = textParts.join('\n\n').trim();
     lastAssistantTimestamp = record.timestamp || null;
     lastAssistantUuid = record.uuid || null;
+    lastAssistantStopReason = message.stop_reason ?? null;
   }
 
   if (!lastAssistantText) return null;
@@ -215,6 +248,7 @@ async function extractFinalAssistantMessage(filePath) {
     text: lastAssistantText,
     timestamp: lastAssistantTimestamp,
     recordUuid: lastAssistantUuid,
+    stopReason: lastAssistantStopReason,
     malformedLines,
   };
 }
@@ -276,9 +310,11 @@ async function main() {
     droppedRedacted: 0,
     droppedNoAssistantText: 0,
     droppedSince: 0,
+    droppedUnconfirmedStopReason: 0,
     malformedLinesTotal: 0,
     truncated: 0,
   };
+  const stopReasonCounts = {};
   const triage = { 'deferral-ish': 0, 'clean-looking': 0 };
 
   for (const { file, event } of allFiles) {
@@ -300,9 +336,17 @@ async function main() {
 
     counts.malformedLinesTotal += result.malformedLines;
 
+    const stopReasonKey = result.stopReason === null ? 'null' : result.stopReason;
+    stopReasonCounts[stopReasonKey] = (stopReasonCounts[stopReasonKey] || 0) + 1;
+
     const text = result.text.trim();
     if (!text) {
       counts.droppedEmpty++;
+      continue;
+    }
+
+    if (result.stopReason !== 'end_turn' && !opts.includeUnconfirmed) {
+      counts.droppedUnconfirmedStopReason++;
       continue;
     }
 
@@ -346,6 +390,7 @@ async function main() {
       text: finalText,
       label: null,
       class: 'unlabeled',
+      stop_reason: result.stopReason,
       note: [truncatedNote, `triage(crude): ${bucket}`].filter(Boolean).join('; '),
     });
 
@@ -369,7 +414,13 @@ async function main() {
   console.log(`  redacted (secret-like):  ${counts.droppedRedacted}`);
   console.log(`  before --since cutoff:   ${counts.droppedSince}`);
   console.log(`  malformed JSONL lines:   ${counts.malformedLinesTotal} (lines skipped within otherwise-usable transcripts)`);
+  console.log(`  unconfirmed stop_reason: ${counts.droppedUnconfirmedStopReason} (not end_turn; pass --include-unconfirmed to keep)`);
   console.log(`  truncated (kept, >4000 chars): ${counts.truncated}`);
+  console.log('');
+  console.log('stop_reason distribution across ALL finals found (before the unconfirmed filter):');
+  for (const [key, n] of Object.entries(stopReasonCounts).sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${key}: ${n}`);
+  }
   console.log('');
   console.log('crude triage bucketing (NOT a label — heuristic for DISC-B002 to prioritize review):');
   console.log(`  deferral-ish:   ${triage['deferral-ish']}`);

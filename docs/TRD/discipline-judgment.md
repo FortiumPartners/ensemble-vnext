@@ -102,6 +102,59 @@ Shape A is preferred — fewer moving parts, and the escape valves become part o
 rather than a separate code path. Shape B is the fallback. If U1 shows a command hook *cannot*
 gate a prompt hook and U2 is negative, Shape A is forced and the loop guard rests entirely on U3.
 
+### 2.2.1 DECIDED: Shape A (DISC-D001, 2026-08-13)
+
+**Shape A is selected.** Phase 1 resolved every question it depended on, and the two that
+mattered both came back favourable.
+
+**U2 — the evaluator sees the full payload.** A prompt-type hook's evaluating model receives
+the identical field set to a command hook, including `background_tasks`, `session_crons`,
+`stop_hook_active` and (on `SubagentStop`) `agent_id`/`agent_type`/`agent_transcript_path`.
+Nothing is withheld. So the structural escape valves live in the prompt text, and no
+command-type tier is required for them. Shape B is unnecessary and is **withdrawn**.
+
+**U3 — the loop is bounded, two ways.** R2 was materialised and is now closed:
+
+1. **A hard platform cap exists and is undocumented.** The query-loop driver reads
+   `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default **8**) and force-terminates the turn on the
+   `cap + 1`-th consecutive block. Verified in the v2.1.229 binary (the env var and its
+   override warning are both present as literals) and live-confirmed at `cap=2`, giving
+   exactly 3 blocks before override. Identical on `Stop` and `SubagentStop`. This needs no
+   hook-author action.
+2. **`stop_hook_active` is the tighter, intended bound.** It is `false` on first entry and
+   `true` on every re-entry after a block, and the platform's own override warning tells hook
+   authors to check it. A prompt instructed to allow once `stop_hook_active` is true yields
+   **exactly one** extra turn — no state file, no companion hook, one line of prompt.
+
+**The loop guard is therefore a prompt instruction, not infrastructure.** `DISC-B006` reduces
+to adding that line and testing it.
+
+**Shape C (agent-type hook with a file counter) — proven but rejected.** It works: a
+`type: "agent"` hook demonstrably read and wrote a counter file keyed by the real `agent_id`
+across invocations, fully restoring the old per-`agent_id` cap. It is rejected because it buys
+nothing here — `stop_hook_active` achieves the same bound with no infrastructure, while agent
+hooks default to Haiku with a 60s timeout and a 50-turn cap, i.e. materially more cost per
+call. Shape C is the right answer only for a judgment needing genuine cross-turn memory for
+some *other* reason. Recorded so it is not re-derived.
+
+**Do not rely on the hard cap as the primary mechanism.** When it fires under `--print`,
+stdout is **empty** and the transcript JSONL carries **no trace** of the override — the warning
+is terminal-UI-only and not persisted. A wedged hook that reaches the cap is indistinguishable
+from "no output" to any caller, including this project's own smoke harness, which runs
+`--print` throughout. The `stop_hook_active` self-check exists so the cap is never reached.
+
+**U1's status.** `DISC-P001` (hook composition) had not reported when this decision was made.
+It is no longer gating: its decisive question — whether a command-type gate can short-circuit
+a later hook — only mattered for Shape B, which is withdrawn. Its answer remains useful for
+the §6.1 A5 latency question (whether clean turns could ever skip the model call) and is
+recorded when it lands, but Phase 2 does not wait on it.
+
+**Left unresolved, deliberately.** `model` pinning is schema-confirmed but untimed, and
+`timeout`-exceeded behaviour was never triggered in ~10 live probes — it is genuinely unknown
+whether it resolves to allow, block, or error. Neither blocks Shape A. Both become load-bearing
+only if A5's p95 ≤ 2000 ms budget forces model selection, and `DISC-T002` will say whether it
+does.
+
 ### 2.3 What the judge is asked
 
 The prompt encodes the rule's **reasoning**, never its vocabulary — the vocabulary is what

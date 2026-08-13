@@ -37,41 +37,41 @@
     "DISC-P003": {
       "description": "Probe loop bound (U3): does stop_hook_active terminate a prompt-type block loop",
       "phase": 1,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": "2026-08-13T08:02:59.702474Z",
-      "completed_at": null
+      "completed_at": "2026-08-13T08:19:47.419262Z"
     },
     "DISC-P004": {
       "description": "Probe reason delivery (U4) for prompt-type blocks on both events",
       "phase": 1,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": "2026-08-13T08:02:59.702474Z",
-      "completed_at": null
+      "completed_at": "2026-08-13T08:19:47.419262Z"
     },
     "DISC-D001": {
       "description": "Record the design branch (Shape A or B) in TRD 2.1/2.2",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "technical-architect",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-13T08:19:47.419262Z"
     },
     "DISC-B001": {
       "description": "Corpus extractor from local transcripts with provenance",
@@ -296,7 +296,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 4,
+    "completed_tasks": 7,
     "failed_tasks": 0,
     "total_retries": 0
   },
@@ -310,7 +310,7 @@
       {
         "risk": "R2 (loop guard) \u2014 CONFIRMED MATERIALIZED",
         "detail": "A prompt-type hook that always blocks loops: 4 cycles on Stop, 8 on SubagentStop, terminated only by the evaluated model's own judgment. No structural platform cap observed. TRD 6.1 A6 requires a demonstrated bound.",
-        "resolution": "pending DISC-P003 \u2014 evaluate continueOnBlock semantics and agent-type hooks (which have tool access and could maintain the counter themselves)"
+        "resolution": "RESOLVED \u2014 bounded two ways: undocumented platform cap CLAUDE_CODE_STOP_HOOK_BLOCK_CAP (default 8, verified in binary + live at cap=2), and stop_hook_active self-check giving exactly 1 extra turn. A6 satisfied. Loop guard is a prompt line, not infrastructure."
       },
       {
         "risk": "R4 (corpus reproduces author vocabulary) \u2014 PARTIAL",
