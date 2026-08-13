@@ -53,12 +53,28 @@ _track_for_restore() {
     printf '%s\t%s\n' "$file" "$backup" >> "$TEST_DIR/.restore-map"
 }
 
-# Teardown: Restore any repo files mutated by drift tests, then clean up temp directory
+# Record that $1 (an absolute path under the real repo) was CREATED by a test
+# fixture and must be deleted in teardown() — the counterpart to
+# _track_for_restore() above for files that did not exist before the test
+# (e.g. a disposable prompt-hook fixture used to prove hookType:"prompt"
+# generation without converting a real hook). Deletion happens regardless of
+# whether the test's assertions pass.
+_track_for_deletion() {
+    printf '%s\n' "$1" >> "$TEST_DIR/.delete-list"
+}
+
+# Teardown: Restore any repo files mutated by drift tests, delete any fixture
+# files a test created, then clean up temp directory
 teardown() {
     if [[ -f "$TEST_DIR/.restore-map" ]]; then
         while IFS=$'\t' read -r file backup; do
             [[ -n "$file" && -f "$backup" ]] && cp "$backup" "$file"
         done < "$TEST_DIR/.restore-map"
+    fi
+    if [[ -f "$TEST_DIR/.delete-list" ]]; then
+        while IFS= read -r file; do
+            [[ -n "$file" ]] && rm -f "$file"
+        done < "$TEST_DIR/.delete-list"
     fi
     if [[ -d "$TEST_DIR" ]]; then
         rm -rf "$TEST_DIR"
@@ -914,10 +930,14 @@ import sys; sys.exit(1 if hits else 0)
 import json, os, sys
 manifest = json.load(open(sys.argv[1]))
 repo_root = sys.argv[2]
-shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable")}
+# hookType:"prompt" entries ship promptFile (see the dedicated hookType
+# tests), not "file" as a runtime script — exclude them here or this
+# invariant would demand a dangling packages/full/hooks/<file> symlink
+# (or scaffolded copy) for something with nothing to link/copy.
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable") and h.get("hookType") != "prompt"}
 
 full_hooks_dir = os.path.join(repo_root, "packages/full/hooks")
-exclude = {"hooks.json", "hooks.manifest.json", "README.md", "lib"}
+exclude = {"hooks.json", "hooks.manifest.json", "README.md", "lib", "prompts"}
 on_disk = {f for f in os.listdir(full_hooks_dir) if f not in exclude}
 
 missing = sorted(shippable - on_disk)
@@ -938,7 +958,11 @@ PY
 import json, os, sys
 manifest = json.load(open(sys.argv[1]))
 target = sys.argv[2]
-shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable")}
+# hookType:"prompt" entries ship promptFile (see the dedicated hookType
+# tests), not "file" as a runtime script — exclude them here or this
+# invariant would demand a dangling packages/full/hooks/<file> symlink
+# (or scaffolded copy) for something with nothing to link/copy.
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable") and h.get("hookType") != "prompt"}
 hooks_dir = os.path.join(target, ".claude/hooks")
 on_disk = {f for f in os.listdir(hooks_dir) if os.path.isfile(os.path.join(hooks_dir, f))}
 missing = sorted(shippable - on_disk)
@@ -1107,6 +1131,252 @@ PY
 }
 
 # =============================================================================
+# DISC-B005: manifest "hookType" ("command" | "prompt") + generator support.
+#
+# No manifest entry has hookType:"prompt" yet — DISC-B008 (Phase 4) is what
+# actually converts async-discipline.js, subagent-discipline.js, and
+# autonomy-discipline.js. These tests prove the CAPABILITY: that a
+# hookType:"prompt" entry generates the correct settings.json shape, that
+# --check catches drift in it, and that scaffold-project.sh delivers the
+# entry's promptFile. The isolated tests below never touch real repo state
+# (they source scaffold-project.sh's functions against synthetic fixtures in
+# $TEST_DIR); the two end-to-end tests mutate the real manifest/settings.json
+# via _track_for_restore()/_track_for_deletion(), exactly like the existing
+# T007 drift tests above, restoring everything in teardown().
+# =============================================================================
+
+@test "hookType: manifest_shippable_prompts emits promptFile only for shippable hookType:prompt entries" {
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "a.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 5, "registration": "command", "shippable": true },
+    { "file": "b.js", "event": "Stop", "matcher": "", "order": 2, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "b.md" },
+    { "file": "c.js", "event": "SubagentStop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": false, "hookType": "prompt", "promptFile": "c.md" },
+    { "file": "d.js", "event": "Stop", "matcher": "", "order": 3, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "b.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_prompts '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    # b.js and d.js share promptFile "b.md" (shippable) -> deduped to one row.
+    # c.js is hookType:"prompt" but NOT shippable -> excluded.
+    # a.js is hookType absent (defaults to "command") -> never appears here.
+    [ "$output" = "b.md" ]
+}
+
+@test "hookType: manifest_shippable_prompts rejects a promptFile with a path traversal component" {
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "evil.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "../../../etc/passwd" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_prompts '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"ERROR"* ]]
+    [[ "$output" == *"flat basename"* ]]
+}
+
+@test "hookType: copy_hook_prompts delivers promptFile into <dest>/prompts/" {
+    mkdir -p "$TEST_DIR/src-prompts" "$TEST_DIR/dest"
+    printf 'Example prompt text.\n' > "$TEST_DIR/src-prompts/example.md"
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "example.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "example.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; FORCE=false; REFRESH=false; copy_hook_prompts '$TEST_DIR/synthetic-manifest.json' '$TEST_DIR/src-prompts' '$TEST_DIR/dest'"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/dest/prompts/example.md" ]
+    run diff "$TEST_DIR/src-prompts/example.md" "$TEST_DIR/dest/prompts/example.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "hookType: copy_hook_prompts in --refresh mode never creates <dest>/prompts/ that didn't already exist" {
+    mkdir -p "$TEST_DIR/src-prompts" "$TEST_DIR/dest"
+    printf 'Example prompt text.\n' > "$TEST_DIR/src-prompts/example.md"
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "example.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "example.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; FORCE=false; REFRESH=true; copy_hook_prompts '$TEST_DIR/synthetic-manifest.json' '$TEST_DIR/src-prompts' '$TEST_DIR/dest'"
+    [ "$status" -eq 0 ]
+    [ ! -d "$TEST_DIR/dest/prompts" ]
+}
+
+# End-to-end: prove generate-hooks-artifacts.sh's hookType:"prompt" support
+# against the REAL manifest/settings.json, via a disposable fixture entry
+# that is NOT shippable (so it never touches packages/full/hooks/ or the
+# scaffold copy list — those get their own dedicated symlink test below).
+# Mutates real repo files; restored/deleted in teardown() regardless of
+# outcome.
+@test "hookType: generate-hooks-artifacts.sh emits a type:prompt block, and --check detects drift in it" {
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
+    local settings_target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b005-fixture.md"
+    # generate-hooks-artifacts.sh regenerates ALL of its consumers on every
+    # write-mode run, not just the ones this test's assertions inspect — the
+    # init-project.md hook table (core + vendored copies) picks up the
+    # fixture's file name too, and the plugin-only sync step then propagates
+    # the mutated core copy. All four must be tracked or teardown() leaves
+    # the repo dirty even though the test's own assertions never look at them.
+    _track_for_restore "$manifest_target"
+    _track_for_restore "$settings_target"
+    _track_for_restore "$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/.claude/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
+    _track_for_deletion "$prompt_fixture"
+
+    printf 'FIXTURE PROMPT TEXT — DISC-B005 test only, not a real hook.\n' > "$prompt_fixture"
+
+    python3 - "$manifest_target" <<PY
+import json
+path = "$manifest_target"
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"].append({
+    "file": "_zz-disc-b005-fixture.js",
+    "event": "Stop",
+    "matcher": "",
+    "order": 99,
+    "timeout": 17,
+    "registration": "prompt",
+    "shippable": False,
+    "hookType": "prompt",
+    "promptFile": "_zz-disc-b005-fixture.md",
+    "model": "claude-haiku-4-5-20251001",
+    "description": "DISC-B005 test fixture — deleted by teardown()."
+})
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$settings_target" <<'PY'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+stop_group = settings["hooks"]["Stop"]
+entries = stop_group[0]["hooks"]
+fixture = [h for h in entries if h.get("type") == "prompt"]
+if len(fixture) != 1:
+    print(f"expected exactly one type:prompt entry in Stop, got {len(fixture)}")
+    sys.exit(1)
+h = fixture[0]
+ok = (
+    h.get("prompt") == "FIXTURE PROMPT TEXT — DISC-B005 test only, not a real hook."
+    and h.get("timeout") == 17
+    and h.get("model") == "claude-haiku-4-5-20251001"
+    and "command" not in h
+    and "continueOnBlock" not in h
+)
+if not ok:
+    print("unexpected entry shape:", json.dumps(h, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+
+    # --check must be clean immediately after a fresh regeneration.
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # Now prove --check actually detects drift in the NEW field: hand-edit
+    # the generated prompt text so it no longer matches promptFile's content
+    # (simulating someone hand-editing settings.json, or promptFile changing
+    # without regeneration — exactly the silent-divergence failure mode this
+    # project has been bitten by repeatedly).
+    python3 - "$settings_target" <<PY
+import json
+path = "$settings_target"
+with open(path) as fh:
+    data = json.load(fh)
+for h in data["hooks"]["Stop"][0]["hooks"]:
+    if h.get("type") == "prompt":
+        h["prompt"] = "DRIFTED — does not match promptFile on disk"
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# End-to-end: a SHIPPABLE hookType:"prompt" entry must get a
+# packages/full/hooks/prompts/<promptFile> symlink, and --check must catch it
+# going stale — the "symlink guard" pattern extended to prompt files.
+@test "hookType: shippable promptFile gets a packages/full/hooks/prompts/ symlink, and --check detects a broken one" {
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
+    local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b005-symlink-fixture.md"
+    local full_hooks_link="$REPO_ROOT/packages/full/hooks/prompts/_zz-disc-b005-symlink-fixture.md"
+    # See the previous test's comment: a write-mode run regenerates every
+    # consumer, not just the symlink this test asserts on.
+    _track_for_restore "$manifest_target"
+    _track_for_restore "$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    _track_for_restore "$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/.claude/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
+    _track_for_deletion "$prompt_fixture"
+    _track_for_deletion "$full_hooks_link"
+
+    printf 'FIXTURE PROMPT TEXT — DISC-B005 symlink test only.\n' > "$prompt_fixture"
+
+    python3 - "$manifest_target" <<PY
+import json
+path = "$manifest_target"
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"].append({
+    "file": "_zz-disc-b005-symlink-fixture.js",
+    "event": "SubagentStop",
+    "matcher": "",
+    "order": 99,
+    "timeout": 17,
+    "registration": "prompt",
+    "shippable": True,
+    "hookType": "prompt",
+    "promptFile": "_zz-disc-b005-symlink-fixture.md",
+    "description": "DISC-B005 test fixture — deleted by teardown()."
+})
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ -L "$full_hooks_link" ]
+    [ "$(readlink "$full_hooks_link")" = "../../../core/hooks/prompts/_zz-disc-b005-symlink-fixture.md" ]
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # Deliberately break the symlink (point it somewhere wrong) and prove
+    # --check catches it, exactly as it already does for hook-script symlinks.
+    rm -f "$full_hooks_link"
+    ln -s "../../../core/hooks/prompts/some-other-file.md" "$full_hooks_link"
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# =============================================================================
 # RUNTIME-T008: end-to-end scaffold parity — the Phase 2 gate
 #
 # A freshly scaffolded project must register the same hook set this repo
@@ -1182,7 +1452,11 @@ if entries:
 import json, os, sys
 manifest = json.load(open(sys.argv[1]))
 target = sys.argv[2]
-shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable")}
+# hookType:"prompt" entries ship promptFile (see the dedicated hookType
+# tests), not "file" as a runtime script — exclude them here or this
+# invariant would demand a dangling packages/full/hooks/<file> symlink
+# (or scaffolded copy) for something with nothing to link/copy.
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable") and h.get("hookType") != "prompt"}
 hooks_dir = os.path.join(target, ".claude/hooks")
 on_disk = {f for f in os.listdir(hooks_dir) if os.path.isfile(os.path.join(hooks_dir, f))}
 missing = sorted(shippable - on_disk)

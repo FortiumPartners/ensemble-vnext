@@ -378,6 +378,14 @@ seen = set()
 for h in manifest.get("hooks", []):
     if not h.get("shippable"):
         continue
+    # A hookType:"prompt" entry has no runtime script at .claude/hooks/<file>
+    # to link — its shippable artifact is promptFile, handled below. Linking
+    # "file" here for a prompt-type entry would create a symlink pointing at
+    # a source file that need not exist (or, once DISC-B008 lands, would
+    # merely still exist as a kill-switch rollback artifact rather than
+    # anything the prompt hook actually runs).
+    if h.get("hookType") == "prompt":
+        continue
     f = h["file"]
     if f in seen:
         continue

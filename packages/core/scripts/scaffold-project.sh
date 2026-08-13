@@ -345,6 +345,11 @@ seen = {}
 for h in manifest.get("hooks", []):
     if not h.get("shippable"):
         continue
+    # A hookType:"prompt" entry ships its promptFile (manifest_shippable_prompts(),
+    # copy_hook_prompts()), not a runtime script at .claude/hooks/<file> — there
+    # is nothing for copy_hooks() to deliver for it under this function.
+    if h.get("hookType") == "prompt":
+        continue
     file = h["file"]
     validate_file(file)
     source = h.get("source") or f"packages/core/hooks/{file}"
