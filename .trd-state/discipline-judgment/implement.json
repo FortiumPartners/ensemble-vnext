@@ -245,43 +245,43 @@
       "completed_at": null
     },
     "DISC-T005": {
-      "description": "Full regression: jest, BATS, smoke; corpus score must not regress",
+      "description": "Full regression \u2014 run inline by the orchestrator; every component was already executed during B008 verification. jest 393/0, BATS 372 passing with only the 4 failures predating this branch, smoke 3/3 PASS, generator --check clean and stable across a full suite run.",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "verify-app",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-13T17:36:52.455528Z"
     },
     "DISC-D002": {
       "description": "Amend constitution principle 4 (user-approved 2026-08-13)",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-13T17:44:11.775956Z"
     },
     "DISC-D003": {
       "description": "Update async-discipline.md, autonomy.md, improvement-plan 5b, CLAUDE.md",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-13T17:44:11.775956Z"
     }
   },
   "coverage": {
@@ -326,7 +326,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 17,
+    "completed_tasks": 20,
     "failed_tasks": 0,
     "total_retries": 0
   },
@@ -376,6 +376,11 @@
         "risk": "TRD contained two mutually exclusive requirements (D5 rollback vs B009 deletion)",
         "detail": "The lever regenerates prompt entries as command-type pointing at the .js hooks; B009 deletes those hooks detection logic. Running B009 would make the lever a silent no-op presenting as a safety mechanism.",
         "resolution": "B009 deferred with an explicit trigger; B009 and D5 to be deleted together. T005 re-pointed to depend on B008 alone."
+      },
+      {
+        "risk": "Conversion regression \u2014 dispatch ledger loses its compensating blocked row",
+        "detail": "subagent-discipline.js is now prompt-type so its JS never runs, and recordBlockInLedger with it. On a judge-blocked SubagentStop the ledger records stop with no blocked row, reporting a still-running agent as finished. Hooks run concurrently so dispatch-ledger.js cannot observe the judge verdict.",
+        "resolution": "Documented in async-discipline.md. Transient only \u2014 converges on the next stop, so the window is one corrective turn. Follow-up, not a blocker."
       }
     ],
     "contingencies_applied": [],

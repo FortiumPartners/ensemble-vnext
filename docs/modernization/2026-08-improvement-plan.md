@@ -1,7 +1,9 @@
 # Ensemble vNext — Improvement Plan
 
 **Created**: 2026-08-11
-**Status**: Item 1 complete (released as 4.1.1). Item 5a done. Items 2–4, 5b–5d, 6–9 open.
+**Status**: Item 1 complete (released as 4.1.1). Item 5a done. Item 5b's discipline-hook
+conversion done (2026-08-13, `docs/TRD/discipline-judgment.md`); 5b's Wiggum sub-item is
+still open, so item 5 as a whole remains open. Items 2–4, 5b–5d, 6–9 open.
 **Basis**: Comparison against `Sunstone-Partners/ensemble` + audit of Claude Code features shipped March–August 2026
 **Companion artifact**: https://claude.ai/code/artifact/13c683ff-2acf-4ec7-8078-4408126f7602
 
@@ -71,7 +73,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
-| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c done; 5b+5d open** |
+| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c done; 5b partial (discipline hooks done, Wiggum open); 5d open** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
@@ -327,7 +329,7 @@ time has meant each is examined only when it breaks. Do the layer at once.
 |---|---|---|
 | 5a | Retire `learning.sh`, `save-remote-logs.js`, `permitter` | ✅ 4.1.0 |
 | 5a | Router decision (was a modification, not a deletion) | ✅ 4.1.4 — kept, made conditional, rewritten |
-| 5b | Discipline hooks → `type: "prompt"` hooks | ❌ **open** |
+| 5b | Discipline hooks → `type: "prompt"` hooks | ✅ done (2026-08-13, `docs/TRD/discipline-judgment.md`) |
 | 5b | `transcript_path` → `last_assistant_message` (3 hooks) | ✅ 4.1.7 |
 | 5b | Wiggum: re-inject current state + restated completion promise | ❌ **open** |
 | 5c | `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR` | ✅ 4.1.4 |
@@ -378,7 +380,20 @@ still open — it was a modification, not a deletion.
   misfiring on analysis turns. Decide whether the residual nudge earns a per-turn tax, or should
   fire conditionally.
 
-**5b. Rebuild the survivors on the right primitives.**
+**5b. Rebuild the survivors on the right primitives.** ✅ **Discipline-hook conversion done,
+2026-08-13** — see `docs/TRD/discipline-judgment.md` for the full build. Below is the original
+planning rationale, kept for the "why," with the actual outcome noted where it diverged: the
+three discipline hooks (`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`)
+are now `hookType: "prompt"`, evaluated by the platform's own judge — the "small fast model"
+framing below undersold it; the shipped judge is a full evaluator call, and latency was measured
+and explicitly withdrawn as an acceptance criterion (TRD §6.1.1) rather than assumed cheap. The
+"split responsibility" idea (thin command hook for the deterministic half, prompt hook for the
+semantic half) was investigated and found impossible — hooks on one event run as independent
+generators with no way for one to gate another (TRD §3.4) — so the escape valves
+(`background_tasks`/`session_crons`) live inside the judge prompt instead (TRD §2.2, "Shape A").
+The regex phrase-matchers below are retained, not deleted, as the `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE`
+rollback path (TRD §3.4) — item 5b's original framing assumed deletion; that is now tracked as a
+separate, deliberately-deferred follow-up (`docs/TRD/discipline-judgment.md` §4.4, DISC-B009).
 
 `async-discipline.js` (296 LOC) and `autonomy-discipline.js` (287 LOC) are regex phrase-matchers
 over hand-extracted transcript text. The changelog records the whack-a-mole: 3.3.11 "forbid hedged

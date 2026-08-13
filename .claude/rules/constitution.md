@@ -59,7 +59,17 @@ whose judgment the loop depends on most are the ones that cannot hide their work
 - Most testing must be manual due to non-deterministic nature
 - Test mechanism: `claude --prompt "..." --session-id xxx --dangerously-skip-permissions`
 - Review session logs to verify agents, skills, and hooks used
-- Unit testing applies only to hooks and utility scripts
+- Hooks are no longer uniformly deterministic (amended 2026-08-13, see Changelog). Most hooks
+  are `hookType: "command"` — scripts, unit-tested like any other code. Three Stop/SubagentStop
+  discipline hooks (`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`)
+  are `hookType: "prompt"` — evaluated by the platform's own model judge instead of our code,
+  per `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`
+- Model-judged hooks are verified differently: against a labeled corpus, with acceptance
+  thresholds stated over multiple runs rather than a single pass/fail, because the judge has
+  been observed to vary its false-positive and false-negative calls across identical repeated
+  runs on the same corpus
+- The deterministic-layer claim survives in narrowed form: command-type hooks, `lib/`, and the
+  generator (`generate-hooks-artifacts.sh`) remain deterministic and unit-tested
 
 ---
 
@@ -236,6 +246,13 @@ Given the non-deterministic nature of LLM-based systems:
 ---
 
 ## Changelog
+
+### Version 1.1.0 (2026-08-13)
+
+- Principle 4 amended: hooks are no longer uniformly deterministic — three discipline hooks
+  (`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`) moved to
+  `hookType: "prompt"` (model-judged), per `docs/TRD/discipline-judgment.md`. User-approved
+  2026-08-13 (recorded in that TRD as decision D6).
 
 ### Version 1.0.0 (2026-01-22)
 

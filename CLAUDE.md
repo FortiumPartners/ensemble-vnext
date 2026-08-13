@@ -101,6 +101,19 @@ Given non-deterministic LLM output:
 
 ## Hooks Reference
 
+### Discipline Hooks (Stop / SubagentStop) — model-judged
+
+Three hooks enforce `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`:
+`async-discipline.js` and `autonomy-discipline.js` on `Stop`, `subagent-discipline.js` on
+`SubagentStop`. As of 2026-08-13 (`docs/TRD/discipline-judgment.md`) all three are
+`hookType: "prompt"` in `packages/core/hooks/hooks.manifest.json` — evaluated by the
+platform's own model judge (prompt text in `packages/core/hooks/prompts/`) rather than by
+regex matching inside the `.js` files. The `.js` files and their pattern-matching code are
+retained as the rollback path: setting `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` before running
+`generate-hooks-artifacts.sh` regenerates all three as `hookType: "command"`, running that
+code exactly as before. See the two rules files above for the full mechanism (loop guard,
+escape valves, kill switch) — not duplicated here.
+
 ### Notify Hook (Stop)
 
 The notify hook (`.claude/hooks/notify.sh`) fires when a Claude Code session stops and optionally executes a notification command. This enables orchestration patterns where a parent process or external system needs to know when a session has finished.
@@ -167,16 +180,22 @@ claude --remote "Process data"
 
 **Integration with Other Hooks:**
 
-The notify hook coexists with the learning hook in the Stop hook array:
+The notify hook is the last entry in the `Stop` hook array, after the discipline hooks and
+`wiggum.js` (`learning.sh`, referenced here in older docs, was retired in 4.1.0 — see
+`.claude/rules/constitution.md`'s Architecture Invariants):
 
 ```json
 "Stop": [
-  { "type": "command", "command": ".claude/hooks/learning.sh", "timeout": 10 },
+  { "type": "prompt", "prompt": "...", "timeout": 5 },   // async-discipline.js
+  { "type": "prompt", "prompt": "...", "timeout": 5 },   // autonomy-discipline.js
+  { "type": "command", "command": ".claude/hooks/wiggum.js", "timeout": 10 },
   { "type": "command", "command": ".claude/hooks/notify.sh", "timeout": 60 }
 ]
 ```
 
-Both hooks fire sequentially when a session stops. The learning hook stages files first, then the notify hook sends any configured notification.
+All four fire on every session stop, independently — see the Discipline Hooks section
+above for what the first two actually evaluate. The notify hook sends any configured
+notification last.
 
 ---
 

@@ -2,6 +2,9 @@
 
 **Status:** active. Applies to every workflow command **EXCEPT `/refine-prd` and
 `/refine-trd`** (which are inherently iterative — soliciting user input is their purpose).
+Backed by a model-judged `Stop` hook, `autonomy-discipline.js` (`hookType: "prompt"`, prompt
+text at `packages/core/hooks/prompts/autonomy-discipline.prompt.md`) — see Enforcement,
+below.
 
 ## The rule
 
@@ -127,10 +130,29 @@ flow and defeats unattended execution.
 
 ## Enforcement
 
-This rule is documented and tested via the BATS suite (`notify-on-complete.test.sh`'s
-Layer-2 contract tests verify all non-refine commands include the autonomy block) but
-NOT hook-enforced — `AskUserQuestion` is a legitimate tool for the four valid cases and
-banning it would prevent them.
+Two layers, doing different jobs:
+
+1. **Static contract tests** (BATS, `notify-on-complete.test.sh`'s Layer-2 tests) verify
+   every non-refine command's *prompt* embeds the autonomy block — a build-time check that
+   the discipline is documented where each command reads it, not a runtime check of what
+   the model actually says.
+2. **`autonomy-discipline.js`**, a model-judged `Stop` hook (`hookType: "prompt"`),
+   evaluates the *actual* final message of every `Stop` for the anti-patterns in the table
+   above — hedged pause offers, "should I proceed?", checkpoint requests — and blocks with
+   a corrective reason when it finds one. Like `async-discipline.js`, it reads the turn's
+   substance rather than matching a fixed phrase list, so a hedged offer that avoids the
+   anti-pattern table's exact wording is still caught if it's making the same move. It does
+   **not** ban `AskUserQuestion` outright — the four valid cases (and, under `--wiggum`, the
+   one valid case) are legitimate uses of that tool, and the judge is expected to
+   distinguish a genuine one of those from a disguised checkpoint request.
+
+Loop guard, kill switch, and `if`-field caveat are identical to `async-discipline.js`'s —
+see `.claude/rules/async-discipline.md`'s "How the guard works" and "Override" sections
+rather than duplicating them here: `stop_hook_active` allows unconditionally on the second
+consecutive turn (one corrective round-trip), a judge error/timeout resolves to allow, and
+`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` rolls this hook back to `hookType: "command"`, running
+`autonomy-discipline.js`'s own `detectHedgedOffer` pattern-matching code exactly as it ran
+before this hook became model-judged.
 
 If you find a command in this framework asking a question outside the four valid cases,
 file an issue or patch the command's prompt.

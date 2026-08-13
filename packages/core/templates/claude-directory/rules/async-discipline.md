@@ -1,6 +1,11 @@
 # Async-discipline rule
 
-**Status:** active. Enforced by `packages/core/hooks/async-discipline.js` on every `Stop` event.
+**Status:** active. Enforced as a model-judged `Stop` hook (`hookType: "prompt"`, prompt text
+at `packages/core/hooks/prompts/async-discipline.prompt.md`) on every `Stop` event — the
+platform's own judge evaluates the turn's final message against this rule directly, rather
+than a regex matcher inside `async-discipline.js`. The manifest entry keeps that filename;
+see `docs/TRD/discipline-judgment.md` for the conversion and Override, below, for the
+rollback lever.
 
 ## The rule
 
@@ -29,11 +34,11 @@ sits idle until the user nudges it, at which point it checks and instantly sees 
 done long ago. **The root cause is a hallucinated notification:** the agent thinks the
 system will tell it, but nothing will.
 
-This rule + the `Stop`-hook guard prevent that pattern structurally — the `Stop` hook
-inspects the recent assistant text for fire-and-forget claims and the `Stop` input's
-`background_tasks` / `session_crons` fields. A claim with no active async machinery is
-blocked with a reason instructing the agent to either dispatch properly or complete the work
-synchronously.
+This rule + the `Stop`-hook guard prevent that pattern structurally — the `Stop` hook is
+evaluated by a model judge that reads the turn's final message for a deferral claim and
+checks it against the `Stop` payload's `background_tasks` / `session_crons` fields. A claim
+with no active async machinery is blocked with a reason instructing the agent to either
+dispatch properly or complete the work synchronously.
 
 ## What counts as "async machinery in flight"
 
@@ -81,52 +86,70 @@ mandatory.
 ```
 Stop event fires
    ↓
-async-discipline hook reads transcript_path
+stop_hook_active == true?         → ALLOW stop unconditionally (loop guard — see below)
+   ↓ (false)
+judge reads last_assistant_message + payload for a deferral claim
    ↓
-scans the last assistant text for fire-and-forget phrases
-   ↓
-no claim?                → ALLOW stop
-claim + background_tasks  → ALLOW stop (real async in flight)
-claim + session_crons     → ALLOW stop (scheduled work in flight)
-claim + nothing active    → BLOCK stop with a reason explaining the four primitives
+no claim?                         → ALLOW stop
+claim + background_tasks          → ALLOW stop (real async in flight)
+claim + session_crons             → ALLOW stop (scheduled work in flight)
+claim + nothing active            → BLOCK stop with a reason explaining the four primitives
 ```
 
-## Phrase patterns the guard catches (conservative — designed to avoid false positives)
+`stop_hook_active` is the loop guard: `false` the first time a turn reaches this hook, `true`
+on any re-entry that followed a block from THIS hook. The judge is instructed to allow
+unconditionally on `stop_hook_active: true`, which guarantees at most one corrective
+round-trip. The platform's own `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) is a hard
+backstop underneath that, not the mechanism this rule relies on. A judge call that errors or
+times out resolves to **allow** — the hook never wedges a session on evaluator
+unavailability.
 
-- "I'll let you know" / "I'll notify you" / "I'll report back" / "I'll check back"
-- "I'll come back when …done/complete/finished/ready"
-- "running in the background" / "happening in the background"
-- "running/executing asynchronously"
-- "dispatched … (will) let you know / report back / notify"
-- "when it's done, I'll …"
+## What counts as a violation (judged, not pattern-matched)
 
-The patterns require both a *deferral verb* ("I'll", "I will", "going to", etc.) and a
-*notification intent* ("let you know", "report back", "come back"). Phrases like "running
-tests in parallel" or "I'll let you know what I find" are not matched.
+The judge reads `last_assistant_message` for an ASSERTION that something will notify or
+resume the agent later — however it happens to be phrased — instead of matching a fixed
+phrase list. A regex battery used to do this job and it failed in production on a
+one-character paraphrase: a real subagent wrote “waiting **on** the monitor event for
+completion” and was not caught, because every pattern (and all 24 tests written against
+them) used “waiting **for**” — see `docs/TRD/discipline-judgment.md` §1.1. The patterns
+still exist inside `async-discipline.js` and are exercised only if
+`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` rolls this hook back to command-type — see Override,
+below.
 
-### What the guard deliberately IGNORES
+### Self-documentation is not a violation
 
-To avoid blocking meta-discussion *about* the rule itself, the matcher first strips:
-
-- Fenced code blocks (between triple backticks)
-- Inline code spans (between single backticks)
-- Double-quoted strings (straight `"…"` and curly `“…”`)
-- Single-quoted strings where both quotes sit on word/sentence boundaries (so
-  contractions like `don't` / `I'll` / `it's` and possessives are NOT eaten)
-
-It also skips a match preceded within ~80 characters by an explicit meta-discussion marker:
-`something like`, `for example`, `for instance`, `such as`, `phrases like`, `the phrase`,
-`the literal`, `example of`, `e.g.`, `i.e.`, `saying`, `matched phrase`, etc.
-
-Practical implication: documenting, describing, or quoting the pattern (in code spans, inside
-quotes, or after a meta marker) does NOT trigger the guard. Real claims in prose still do.
+Rule files, TRDs, hook source comments, commit messages, and everyday conversation *about*
+this rule are saturated with the exact vocabulary a violation would use — “waiting for”,
+“I'll report back”, “come back when done”. The judge distinguishes a live claim
+(`last_assistant_message` itself asserting, in the present tense, “I am waiting” / “I will
+come back later”) from talk *about* such a claim (a rule file explaining the pattern, a
+quoted example, a corrected retelling, a report of what a *different* turn said) by reading
+context, not by stripping code spans or quoted strings the way the retired regex matcher
+did. When genuinely ambiguous, the judge is instructed to allow: a missed violation is a
+bounded, recoverable cost (an idle session someone eventually notices); a judge that leans
+toward blocking would eventually block this project's own documentation about the rule,
+which makes the project unmaintainable.
 
 ## Override
 
-Diagnostics: `ENSEMBLE_ASYNC_DISCIPLINE_DEBUG=1` — stderr logging.
+The operative kill switch is `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` (DISC-B007): set it before
+running `generate-hooks-artifacts.sh` and this hook — along with `autonomy-discipline.js` and
+`subagent-discipline.js` — regenerates as `hookType: "command"`, running each file's own
+pattern-matching code exactly as it ran before these hooks became model-judged. This is a
+regenerate-and-refresh operation, not an instantaneous runtime toggle: the manifest's own
+`$comment` and `docs/TRD/discipline-judgment.md` §3.4 explain why a call-time read inside a
+prompt-type hook isn't possible — the platform evaluates it with no code of ours in the loop.
 
-Disable entirely: `ENSEMBLE_ASYNC_DISCIPLINE_DISABLE=1`. **Not recommended** — the failure
-mode this guards is real and recurring. Use only when actively debugging the hook itself.
+Once rolled back to command-type, `async-discipline.js`'s own env vars apply again:
+`ENSEMBLE_ASYNC_DISCIPLINE_DEBUG=1` (stderr diagnostics) and
+`ENSEMBLE_ASYNC_DISCIPLINE_DISABLE=1` (skip the guard entirely — **not recommended**, the
+failure mode this guards is real and recurring). Neither does anything while the hook is
+running as `hookType: "prompt"`.
+
+Never set `if` on this hook, or on any `Stop`/`SubagentStop` hook: the field's schema is a
+tool-call permission matcher ("Permission rule syntax to filter when this hook runs"), and
+`Stop`/`SubagentStop` have no associated tool call for it to match against — any non-empty
+`if` on one of these events silently disables the hook unconditionally.
 
 ## The SubagentStop counterpart: `subagent-discipline.js`
 
@@ -134,10 +157,13 @@ mode this guards is real and recurring. Use only when actively debugging the hoo
 else. Subagents fail the same way — three subagents in one observed session ended with
 "I'll wait for the monitor notifications to arrive" and "Waiting for background scenario
 completions", burning ~240k tokens across 179 tool calls and returning nothing.
-`subagent-discipline.js` (`.claude/hooks/subagent-discipline.js`, registered on
-`SubagentStop`, right after `status.js`) catches this in the place `async-discipline.js`
-never looks, by reusing the same pattern battery and matcher from
-`.claude/hooks/lib/async-claim-detector.js` rather than maintaining a second regex engine.
+`subagent-discipline.js` (registered on `SubagentStop`, right after `status.js`) catches
+this in the place `async-discipline.js` never looks. Like `async-discipline.js`, it is now
+model-judged (`hookType: "prompt"`, prompt text at
+`packages/core/hooks/prompts/subagent-discipline.prompt.md`) rather than driven by the
+pattern battery in `.claude/hooks/lib/async-claim-detector.js` — that battery, and the
+matching code inside `subagent-discipline.js` itself, are retained only for the rollback
+lever described in Override, above.
 
 **The rule is stricter for subagents than for the lead**, verified empirically
 (2026-08-12 — see `docs/modernization/2026-08-improvement-plan.md` item 5e for the full
@@ -157,19 +183,35 @@ points):
   resumes with its existing context (it does not respawn), and the `reason` text
   reaches it; its next turn answers the reason directly.
 - `stop_hook_active` **is** present in the `SubagentStop` payload, same as `Stop`.
+- A judge call that errors or times out resolves to **allow** on `SubagentStop` too — same
+  as `Stop`; see "How the guard works," above.
 
 **Loop safety.** Blocking forever is worse than the failure being guarded. A subagent
 that genuinely cannot proceed must be allowed to stop, with the situation visible in its
-final message. `subagent-discipline.js` persists a per-`agent_id` consecutive-block
-counter (small JSON file under the OS temp dir — hook invocations are isolated
-processes, nothing else survives between them) and caps it at
-`MAX_CONSECUTIVE_BLOCKS` (2): the third consecutive claim from the same `agent_id` is
-allowed through unconditionally and the counter resets. The counter also resets the
-moment a turn does NOT contain a deferred-work claim. If `agent_id` is absent from the
-payload the loop cannot be bounded safely, so the guard degrades to allow rather than
-risk blocking without a cap.
+final message. In normal (model-judged) operation the loop guard is the same
+`stop_hook_active` precedence check `async-discipline.js` uses: `false` the first time a
+turn reaches the hook, `true` on any re-entry that followed a block from THIS hook, and the
+judge is instructed to allow unconditionally on `true` — exactly one corrective round-trip,
+no persisted state needed (see the bullet list above: `stop_hook_active` is present on
+`SubagentStop` too). Unlike the lead's guard, there is no `session_crons` escape valve for a
+subagent's own claim (see above), so a subagent still blocked after its one corrective turn
+has nothing left to try except stating the blocker plainly and stopping — which the judge is
+instructed to allow.
 
-Env vars: `ENSEMBLE_SUBAGENT_DISCIPLINE_DISABLE=1` (skip the guard),
+The command-type code path — live only when `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` rolls this
+hook back (see Override, above) — uses a different mechanism: `subagent-discipline.js`
+persists a per-`agent_id` consecutive-block counter (a small JSON file under the OS temp
+dir — hook invocations are isolated processes, nothing else survives between them) and caps
+it at `MAX_CONSECUTIVE_BLOCKS` (2): the third consecutive claim from the same `agent_id` is
+allowed through unconditionally and the counter resets. The counter also resets the moment a
+turn does NOT contain a deferred-work claim. If `agent_id` is absent from the payload the
+loop cannot be bounded safely, so the guard degrades to allow rather than risk blocking
+without a cap. The platform's own `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) is a hard
+backstop underneath either mechanism, not something either relies on.
+
+Env vars (apply once rolled back to command-type via `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE`; in
+normal model-judged operation, use that variable instead):
+`ENSEMBLE_SUBAGENT_DISCIPLINE_DISABLE=1` (skip the guard),
 `ENSEMBLE_SUBAGENT_DISCIPLINE_DEBUG=1` (stderr diagnostics).
 
 ## Orchestration pattern: the scheduled nudge
@@ -233,11 +275,18 @@ Two facts, both established by probing the live payloads rather than reading the
   row whose `prompt_id` differed from its own `start` row. Correlate on `agent_id` only.
 
 State is the last event per `agent_id`: `start` → running, `stop` → finished, `blocked`
-→ running. The `blocked` row is what makes this exact. `subagent-discipline.js` can
-block a `SubagentStop`, which continues the same subagent — so the `stop` row written
-alongside that block describes an agent that did not actually stop. The discipline hook
-appends `blocked` to reopen it. Without that, the orchestrator would read a still-running
-agent as finished and skip nudging precisely the agent most likely to be stuck.
+→ running. The `blocked` row is what makes this exact — **but only when
+`subagent-discipline.js` is running as `hookType: "command"`** (rollback mode; see
+Override, above). The compensating-row logic (`recordBlockInLedger`) lives inside that
+file's own JS `main()`, which does not execute at all when the hook is model-judged — the
+platform evaluates the prompt directly and no code of ours runs. In normal (model-judged)
+operation, a judge block on `SubagentStop` still lets `dispatch-ledger.js` (order 3, still
+command-type, runs after) write its `stop` row exactly as if the subagent had actually
+finished, because nothing tells it otherwise. **This is a known gap introduced by the
+conversion to `hookType: "prompt"`, not yet closed**: `--open`'s output cannot currently be
+trusted to distinguish "genuinely finished" from "blocked and resumed" for a subagent
+running under the model-judged guard. Cross-check against the session transcript or
+`background_tasks` if that distinction matters, until the gap is closed.
 
 This is the lead-session mirror of what `subagent-discipline.js` enforces from the
 hook side: a subagent is never allowed to just claim it'll check back later, and the
