@@ -161,11 +161,23 @@ situations rather than from our pattern list, and the generating agent did not r
 is force-loaded into every session via `CLAUDE.md`, so zero exposure to the rule's
 vocabulary cannot be claimed. Treat synthetic-class scores as indicative, not decisive.
 
-**Caveat C — `no-result-returned` provenance.** All 7 real cases come from transcripts
-that appear to end mid-tool-preamble ("Now let me read the four target files…") rather
-than at a clean turn boundary. They faithfully represent the failure *shape*, but it is
-unconfirmed that a hook fired on those literal strings in the wild. Do not treat this
-class's recall as a field measurement.
+**Caveat C — provenance, now measured (revised 2026-08-13).** Every real case was
+re-checked against its source transcript's terminal `stop_reason`. Of 45 real cases, 30
+are `end_turn`-confirmed, 9 are `null`, 6 are `tool_use`.
+
+`tool_use` is **disqualifying**: the record ended by calling a tool, so the captured text
+was a mid-turn preamble and the turn continued — no hook fired on it. `null` is doubtful:
+across a 400-transcript sample 80% of subagent finals are `end_turn` and `null` is a ~16%
+minority consistent with interrupted generation.
+
+`no-result-returned` is worst hit at **1/7 confirmed**, and it is the class §6.1 A4 depends
+on. Until repaired, it measures a failure *shape*, not observed terminal behavior. Repair
+requires re-mining that class from `end_turn` records only and adding a `stop_reason`
+filter to `extract.js`.
+
+Only **two** real cases are both `end_turn`-confirmed and missed by the regex. The case
+for switching rests on the structural argument — a matcher finds only what someone thought
+to pattern for — far more than on that count, and should be stated that way.
 
 ### 3.1.1 Payload context (added 2026-08-13)
 
