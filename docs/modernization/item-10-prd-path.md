@@ -49,12 +49,27 @@ verifiable in seconds — and no stage may invent or strike on judgment.
      document / spec / ticket path  → source = that artifact
      session-derived                → source = transcript JSONL, path recorded in the PRD
 
-1. BRIEF                       main agent          → docs/PRD/<feature>.brief.md
-     Distil what was actually asked for.
-     An authoring input and a checkable claim about the source — NOT the baseline.
+1. SOURCE PACKAGE              main agent
+     Distillation is a LOSSY transform. Apply it only where there is no
+     alternative — paraphrasing a faithful source manufactures drift.
+
+     a) A source document exists (user story, spec, ticket, design doc)
+        → pass it through VERBATIM and UNALTERED to the author and to every
+          verifier. Do NOT summarise, restate, or "clean up". No brief.
+          The document IS the source package.
+
+     b) Defined in session (discussion, spikes, decisions reached live)
+        → distil a brief, because nothing else can carry it.
+          docs/PRD/<feature>.brief.md — an authoring input and a checkable
+          claim about the transcript, NOT the baseline.
+
+     c) BOTH — the common case: a ticket, then refined in conversation
+        → verbatim document PLUS a brief covering ONLY the in-session delta,
+          clearly separated. The brief must not restate the document.
 
 2. AUTHOR                      1 subagent (product-manager, fresh context)
-     Sees brief + repo. Never the raw conversation.
+     Sees the SOURCE PACKAGE verbatim + repo.
+     Where a source document exists it reads the real thing, not a summary of it.
      Writes the draft including the new Decisions section (§4).
 
 3. VERIFY                      3 subagents, parallel, read-only
@@ -83,6 +98,25 @@ unsourced requirement, and it would skip verification exactly when a one-line pr
 elaborated into something large. Verifiers are instructed to return empty quickly on a small draft.
 
 ---
+
+### 3.1 Why the source package is split this way
+
+The two classes of requirement carry different risk, and separating them makes that visible:
+
+| Provenance | Risk | Scrutiny |
+|---|---|---|
+| Verbatim from a source document | Low — someone wrote it down deliberately, outside this session | Light. Drift is the only failure, and passing it through unaltered eliminates that. |
+| Distilled from session discussion | **High** — this is where requirements get invented, and where an aside becomes an acceptance criterion | This is what the source-fidelity verifier is actually for. |
+
+So a requirement in the finished PRD traces to exactly one of three things: **the source document**
+(cite it), **the session brief** (cite the section), or **nothing** (delete it). The middle class is
+the one needing review, and splitting the package makes it identifiable at a glance rather than by
+inference.
+
+**Verifiers receive the same verbatim package.** Source-fidelity comparing a PRD against a
+paraphrase would certify faithfulness to the paraphrase — the same circularity that made verifying
+against the brief wrong in the first place (P5). Where a source document exists, that document is
+what the check runs against.
 
 ## 4. Standardise the existing convention — the "structural gap" claim was false
 
