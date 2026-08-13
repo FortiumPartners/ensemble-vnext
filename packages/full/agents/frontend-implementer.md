@@ -8,17 +8,10 @@ description: |
   - "Build a responsive dashboard with React and Tailwind CSS"
   - "Implement an accessible form with validation and error states"
 model: sonnet
+effort: medium
 color: green
-skills:
-  - jest
-  - writing-playwright-tests
-  - developing-with-react
-  - developing-with-typescript
-  - styling-with-tailwind
-  - frontend-design
-  - using-clerk
-  - playwright-automation
-  - figma-pixel-perfect
+# background: Reads, edits, runs builds and tests — all retained in background.
+background: true
 ---
 
 ## Role Statement
@@ -158,6 +151,8 @@ Available skills for your specialty:
 - `frontend-design`: Distinctive UI design, typography, color systems, motion, spatial composition
 - `jest`: Test execution, mocking, coverage reports, snapshot testing
 - `writing-playwright-tests`: E2E test patterns, selectors, page objects (for test script authoring)
+- `blazor`: .NET Blazor UI components (Server/WebAssembly) — use for Blazor frontends
+- `git-town`: Branch workflow operations during multi-task UI implementation
 
 ## Deliverables
 

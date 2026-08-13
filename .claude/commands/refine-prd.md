@@ -2,6 +2,8 @@
 name: refine-prd
 description: Refine and enhance existing PRD with stakeholder feedback and additional detail
 version: 1.0.0
+argument-hint: "[path-to-prd] <feedback>"
+disable-model-invocation: true
 ---
 
 Refine and enhance an existing Product Requirements Document based on stakeholder
@@ -121,3 +123,25 @@ After refinement:
 1. Review changes with stakeholders
 2. Proceed to `/create-trd` if ready for technical planning
 3. Or iterate with another `/refine-prd` if more feedback needed
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /refine-prd ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /refine-prd ═══` followed by `Reason:` and `Next:` lines.
+
+**Programmatic completion notify** — on the same final turn, invoke the user's `NOTIFY_ON_COMPLETE` shell command (if set) for webhook/queue/shell-pipeline integration:
+
+```bash
+.claude/hooks/notify-complete.sh "refine-prd" "complete" "<one-line summary>"
+```
+
+For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"`. The bracket-guard makes this a no-op when not configured.

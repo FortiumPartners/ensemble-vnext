@@ -7,33 +7,12 @@ description: |
   - "Review authentication implementation for OWASP Top 10 vulnerabilities"
   - "Verify Definition of Done: tests passing, coverage met, docs updated"
 model: opus
+effort: high
 color: purple
-skills:
-  - developing-with-react
-  - developing-with-typescript
-  - developing-with-python
-  - developing-with-flutter
-  - developing-with-laravel
-  - developing-with-php
-  - developing-with-dotnet
-  - nestjs
-  - managing-railway
-  - managing-vercel
-  - managing-supabase
-  - managing-azure-devops
-  - using-prisma
-  - using-anthropic-platform
-  - using-openai-platform
-  - using-perplexity-platform
-  - using-azure-functions
-  - using-terraform-azure
-  - using-clerk
-  - building-langgraph-agents
-  - using-weaviate
-  - using-celery
-  - styling-with-tailwind
-  - building-integrations
-  - playwright-automation
+# background: Reads and reports findings; leaf node — must not spawn.
+background: true
+# Leaf node: may not spawn subagents (constitution nesting stance).
+disallowedTools: Agent
 ---
 
 ## Role
@@ -101,6 +80,11 @@ Load framework skills to understand security patterns for that stack:
 | Flutter/Dart | `developing-with-flutter` |
 | NestJS | `nestjs` |
 | Prisma ORM | `using-prisma` |
+| C#/.NET | `developing-with-dotnet` |
+| Blazor UI | `blazor` |
+| Ruby on Rails | `rails` |
+| Elixir/Phoenix | `phoenix` |
+| UI design quality | `frontend-design` |
 
 Report which skill(s) you used in your deliverables.
 

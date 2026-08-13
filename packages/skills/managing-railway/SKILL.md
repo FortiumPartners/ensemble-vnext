@@ -1,6 +1,11 @@
 ---
 name: managing-railway
-description: Railway platform CLI for service deployment, infrastructure management, and debugging. Use for creating services, managing deployments, configuring networking, and reviewing logs.
+description: Operate the Railway platform via its CLI — deploy services, manage infra, networking, and read logs.
+when_to_use: Reach for this when deploying or operating apps on Railway (railway.json/railway.toml, `railway` CLI). For Vercel frontend/edge deploys use managing-vercel; for Supabase Postgres/Edge Functions use managing-supabase; for Fly.io micro-VM PaaS use flyio. This is a deploy/ops skill, not an app-coding skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "railway.json"
+  - "railway.toml"
 ---
 
 # Railway CLI Skill

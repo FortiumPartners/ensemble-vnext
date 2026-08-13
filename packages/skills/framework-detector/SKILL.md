@@ -8,7 +8,9 @@ compatible_agents:
   backend-developer: ">=3.0.0"
   frontend-developer: ">=3.0.0"
   tech-lead-orchestrator: ">=2.5.0"
-description: Multi-signal framework detection with confidence scoring for 6 major frameworks
+description: Detect the project's application framework (NestJS, React, Phoenix, Rails, .NET/ASP.NET Core, Blazor) with confidence scoring.
+when_to_use: Run this FIRST when you need to load a framework-specific dev skill but don't know which framework the project uses. It only identifies the app framework — then hand off to nestjs/developing-with-react/phoenix/rails/developing-with-dotnet/blazor. To detect the *test* runner use test-detector; infra tooling use tooling-detector; cloud provider use cloud-provider-detector.
+allowed-tools: Read, Bash, Grep, Glob
 frameworks:
   - framework-detector
 languages:

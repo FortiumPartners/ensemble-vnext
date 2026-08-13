@@ -1,6 +1,12 @@
 ---
 name: playwright-automation
-description: Production browser automation with Playwright for RPA, web scraping, and workflow automation. Resilient selectors, session persistence, retry patterns, and Playwright 1.56 agents. Distinct from E2E testing.
+description: Drive a browser with Playwright for RPA, web scraping, and workflow automation — resilient selectors, session persistence, retries.
+when_to_use: Reach for this when the goal is to operate a real site to GET WORK DONE (scrape data, fill/submit forms, automate a flow), not to test your own app. For writing E2E *test suites* of your app use writing-playwright-tests; for visual/pixel comparison against Figma use figma-pixel-perfect. Browser-automation/RPA skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "playwright.config.*"
+  - "scripts/**/*.{ts,js}"
+  - "automation/**"
 ---
 
 # Playwright Automation Skill

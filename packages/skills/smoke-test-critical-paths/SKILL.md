@@ -1,3 +1,10 @@
+---
+name: smoke-test-critical-paths
+description: Smoke-test end-to-end user journeys — registration, checkout, search, profile flows across the whole stack.
+when_to_use: Reach for this to validate multi-step BUSINESS journeys end-to-end (e.g. browse → cart → checkout → confirm), exercising API+DB+auth together. For testing a single layer in isolation use smoke-test-api / smoke-test-database / smoke-test-auth / smoke-test-external-services; to run everything use smoke-test-runner.
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Smoke Test Critical Paths Skill
 
 **Quick Reference** - Load this first for fast context (~2KB)

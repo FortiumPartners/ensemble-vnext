@@ -1,7 +1,7 @@
 {
   "name": "ensemble-vnext",
-  "version": "3.2.0",
-  "description": "Streamlined ensemble workflow framework for Claude Code with 12 specialized agents",
+  "version": "4.1.10",
+  "description": "Streamlined ensemble workflow framework for Claude Code with 13 specialized agents",
   "author": {
     "name": "Fortium Partners",
     "email": "support@fortiumpartners.com",
@@ -22,7 +22,6 @@
   "commands": [
     "./commands/plugin-only"
   ],
-  "skills": "./skills",
   "agents": [
     "./agents/product-manager.md",
     "./agents/technical-architect.md",
@@ -35,6 +34,7 @@
     "./agents/code-reviewer.md",
     "./agents/app-debugger.md",
     "./agents/devops-engineer.md",
-    "./agents/cicd-specialist.md"
+    "./agents/cicd-specialist.md",
+    "./agents/agent-implementer.md"
   ]
 }

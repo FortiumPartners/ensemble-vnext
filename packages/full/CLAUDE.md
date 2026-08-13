@@ -59,6 +59,19 @@ claude --teleport session_018oKtL6CSbVA9gNttj41T13
 
 ---
 
-## Learnings
+## Learnings & Memory
 
-*Learnings will be captured here by the SessionEnd hook.*
+Two distinct layers — don't conflate them:
+
+- **Project learnings (committed, team-shared).** Durable conventions, workarounds, and
+  decisions live in this file and in `.claude/rules/`. They are **captured deliberately**
+  via `/update-project` (the FAST layer) — there is no SessionEnd hook that auto-stages
+  them. Run `/update-project` at the end of meaningful sessions; prune with `/cleanup-project`.
+- **Native memory (personal, per-machine, emergent).** Claude Code's file-based memory
+  (`~/.claude/projects/<project>/memory/`) is where Claude records its own working notes.
+  It is NOT committed and NOT team-shared. Treat it as a personal scratchpad that
+  complements — never replaces — the committed learnings above.
+
+If a learning should be shared and reproducible, it belongs here (via `/update-project`);
+if it's a personal working note, native memory captures it.
+

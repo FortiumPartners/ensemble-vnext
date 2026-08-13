@@ -3,6 +3,8 @@ name: create-trd-team
 description: Create TRD using parallel domain-expert team for comprehensive multi-perspective architecture
 version: 1.0.0
 category: planning
+argument-hint: "[path-to-prd]"
+disable-model-invocation: true
 ---
 
 This command is the **team variant** of `/create-trd`. Instead of delegating to a single
@@ -30,7 +32,10 @@ Error if neither available.
 
 ## Team Composition
 
-You (the lead) operate as **@technical-architect**. Spawn these teammates via the Task tool:
+You (the lead) operate as **@technical-architect**. Spawn these teammates via the native
+team model: one `Agent({subagent_type, name, prompt})` call per teammate — NOT the `Task`
+tool, which is reserved for the work-list tools `TaskCreate`/`TaskUpdate`/etc. No setup
+step is needed; a team forms automatically the moment the first teammate spawns.
 
 | Teammate | subagent_type | Domain Letter | Focus |
 |----------|---------------|---------------|-------|
@@ -78,6 +83,29 @@ Each teammate MUST return their analysis in this XML structure (include verbatim
 Teammates propose IDs using the PREFIX and their category letter with three-digit sequences
 starting at 001. The lead reassigns final IDs during synthesis to ensure uniqueness.
 
+### Report Delivery (CRITICAL — read this before writing teammate briefings)
+
+In native team mode (`Agent({subagent_type, name, prompt})`), **a teammate's plain text output is NOT
+visible to the lead.** The only way a teammate's report reaches the lead is via
+`SendMessage`. Teammates that produce the XML as their last assistant turn and then go
+idle have NOT delivered — the lead never sees the report. (Per the SendMessage tool docs:
+*"Your plain text output is NOT visible to other agents — to communicate, you MUST call
+this tool."*)
+
+**Every teammate MUST conclude its turn with a `SendMessage` call** carrying the full
+`<teammate_report>…</teammate_report>` XML as the message body:
+
+```javascript
+SendMessage({
+  to: "team-lead",
+  summary: "backend-arch report",   // short label for the lead's inbox
+  message: "<teammate_report perspective=\"backend-arch\" domain=\"B\">…</teammate_report>"
+})
+```
+
+After sending, the teammate goes idle — the lead acks via `SendMessage` or issues the
+`shutdown_request`. **Do not output the XML as plain text — it's discarded.**
+
 ---
 
 ## Phase 1: PRD Analysis (Lead)
@@ -101,10 +129,46 @@ Before spawning teammates, the lead performs initial analysis:
 
 ## Phase 2: Parallel Domain Analysis
 
-Spawn all teammates **simultaneously** using the Task tool. Each receives their briefing
-and returns a `<teammate_report>` response.
+Spawn all teammates **simultaneously** using the native team model. Each receives their
+briefing and returns a `<teammate_report>` response.
 
-**Teammate briefing template** (adapt per teammate):
+**Step 1 — Spawn each teammate directly** via the **`Agent`** tool. No team-creation step
+is needed: a team forms automatically on the first spawn, and `team_name` on the `Agent`
+tool is accepted but ignored by the platform, so it is omitted below.
+```javascript
+Agent({ subagent_type: "backend-implementer",
+        name: "backend-arch",     prompt: "[backend briefing]" });
+Agent({ subagent_type: "frontend-implementer",
+        name: "frontend-arch",    prompt: "[frontend briefing]" });
+Agent({ subagent_type: "verify-app",
+        name: "quality-strategy", prompt: "[quality briefing]" });
+// Conditionally:
+Agent({ subagent_type: "devops-engineer",
+        name: "infra-perspective", prompt: "[infra briefing]" });
+```
+Do NOT pass `isolation: "worktree"` — these are read-only analysis teammates; shared tree
+is fine and they produce no commits.
+
+**Step 1a — Recommended: schedule a safety-net wake-up before ending the turn.**
+
+Teammate `SendMessage` deliveries reliably auto-re-invoke the lead as new turns (see
+`.claude/rules/async-discipline.md`), so the spawn alone satisfies the async-discipline
+rule. Pairing it with a `ScheduleWakeup` is cheap insurance, not a requirement:
+
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for trd-domain-analysis",
+  prompt: "/create-trd-team [original arguments here]"   // re-enter to drain + synthesize
+});
+```
+
+If auto-delivery fires (the expected case), the wake just no-ops.
+
+**Step 2 — Collect** all `<teammate_report>` responses as they arrive via `SendMessage`.
+No teardown step is required — cleanup is automatic when each teammate's session exits.
+
+**Briefing template** (adapt per teammate):
 
 > You are analyzing a PRD from the **{domain}** perspective for a TRD. Your task ID prefix
 > is `{PREFIX}` and your category letter is `{CAT}`.
@@ -122,9 +186,15 @@ and returns a `<teammate_report>` response.
 > **PRD Content:** {prd_content}
 > **Report Format:** {xml_contract}
 >
-> Return ONLY the `<teammate_report>` XML block.
+> **Delivery:** Conclude your turn with `SendMessage({to: "team-lead", summary:
+> "{your-perspective-name} report", message: "<teammate_report perspective=
+> \"{your-perspective-name}\" domain=\"{CAT}\">…</teammate_report>"})`. Do NOT output the
+> XML as plain text — see the **Report Delivery** section. After sending, go idle.
 
-Collect all reports before proceeding to Phase 3.
+Wait for `SendMessage` deliveries from all teammates before proceeding to Phase 3. A
+teammate going idle does NOT mean it delivered — only a received `SendMessage` does. If
+a teammate idles without sending, re-prompt them via `SendMessage` with an explicit
+instruction to call the tool with their XML report.
 
 ---
 
@@ -243,3 +313,93 @@ After TRD creation:
 1. Review TRD with stakeholders
 2. Use `/refine-trd` for adjustments if needed
 3. Use `/implement-trd` to begin execution
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+This command spans multiple turns. Emit these standard status lines so the user always knows the state:
+
+1. **DISPATCHED** — when a turn ends with subagents/teammates in flight or a wake scheduled:
+   ```
+   [STATUS: /create-trd-team] DISPATCHED → <count> <kind> in flight: <names>
+      waiting on: <observable signal>
+      next wake: <ScheduleWakeup ETA | "teammate SendMessage auto-deliver">
+   ```
+
+2. **RESUMED** — at the START of each new turn after a wake or teammate message:
+   ```
+   [STATUS: /create-trd-team] RESUMED → <reason>
+      completed since last turn: <summary | "none">
+   ```
+
+3. **PHASE N/M COMPLETE** — at each phase boundary (progress marker, NOT completion):
+   ```
+   [STATUS: /create-trd-team] PHASE <N>/<M> COMPLETE → <summary>
+   ```
+
+4. **COMMAND COMPLETE** — as the LAST line of the FINAL turn (only when the whole command is truly done; never at phase boundaries):
+   ```
+   ═══ COMMAND COMPLETE: /create-trd-team ═══
+   <one-line summary>
+   ```
+
+5. **PushNotification ON FINAL TURN ONLY** — this is a long-running command; the user has likely walked away. In the same final turn that emits COMMAND COMPLETE, also call:
+   ```javascript
+   PushNotification({
+     status: "proactive",
+     message: "create-trd-team done: <one-line summary, under 200 chars, leads with what they'd act on>"
+   })
+   ```
+   On `COMMAND STUCK`, send a `PushNotification` whose message states the Reason + Next action (the user needs to come back to unblock). Do NOT send notifications on intermediate Stops, DISPATCHED turns, RESUMED turns, or PHASE boundaries — only the truly-final turn. If the push tool reports "not sent," that's expected; do not retry.
+
+6. **PROGRAMMATIC NOTIFY ON FINAL TURN ONLY** — for orchestration / webhooks / queues / shell pipelines, invoke the user's `NOTIFY_ON_COMPLETE` shell command via Bash on the SAME final turn:
+   ```bash
+   .claude/hooks/notify-complete.sh "create-trd-team" "complete" "<one-line summary>"
+   ```
+   For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"` and use the Reason as the summary. The bracket-guard means it's a no-op when the user hasn't configured it. Same single-fire timing as the PushNotification — only on the truly-final turn.
+
+Nothing after the COMMAND COMPLETE banner. On unrecoverable failure use `═══ COMMAND STUCK: /create-trd-team ═══` with Reason + Next (and the PushNotification above).
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

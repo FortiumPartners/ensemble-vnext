@@ -8,14 +8,12 @@ description: |
   - "Verify AUTH-B001 implementation meets all acceptance criteria from TRD"
   - "Validate checkout flow works end-to-end against specified requirements"
 model: sonnet
-color: magenta
-skills:
-  - jest
-  - pytest
-  - rspec
-  - exunit
-  - xunit
-  - writing-playwright-tests
+effort: medium
+color: pink
+# background: Runs test suites and reports; leaf node — must not spawn.
+background: true
+# Leaf node: may not spawn subagents (constitution nesting stance).
+disallowedTools: Agent
 ---
 
 ## Role Statement
@@ -177,7 +175,14 @@ Report which skill(s) you used in your deliverables.
 | Ruby | `rspec` |
 | Elixir | `exunit` |
 | C#/.NET | `xunit` |
-| E2E Testing | `playwright-test` |
+| E2E Testing | `writing-playwright-tests` |
+| Unknown test runner | `test-detector` |
+| Full release smoke suite | `smoke-test-runner` |
+| API endpoint health only | `smoke-test-api` |
+| Auth flow validation | `smoke-test-auth` |
+| End-to-end user journeys | `smoke-test-critical-paths` |
+| Database connectivity/SLA | `smoke-test-database` |
+| Third-party integrations | `smoke-test-external-services` |
 
 ## Deliverables
 

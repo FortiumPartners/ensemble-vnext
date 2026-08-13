@@ -7,7 +7,18 @@ description: >
   UI from Figma with verified visual fidelity — "pixel perfect", "match the design",
   "visual comparison", "compare to Figma", or iterating on implementation quality against
   Figma source of truth.
+when_to_use: >
+  Reach for this when implementing UI from a Figma comp and you need verified visual fidelity —
+  screen decomposition, component extraction, fixture data, and Playwright + pixelmatch visual
+  regression iterated to convergence. This is the visual-fidelity member of the Playwright trio:
+  use writing-playwright-tests for functional E2E suites of your own app, and playwright-automation
+  for RPA/scraping against external sites. Requires the Figma MCP (main session only).
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 compatibility: Requires Figma MCP server (main session only), Figma REST API token, Playwright, @playwright/test
+paths:
+  - "**/*.{tsx,jsx,vue,html}"
+  - "tests/visual/**"
+  - "tests/__screenshots__/**"
 ---
 
 # Figma Pixel-Perfect Implementation

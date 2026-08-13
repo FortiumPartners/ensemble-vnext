@@ -183,8 +183,19 @@ setup_empty_dir() {
 cleanup_temp_dir() {
     local dir="$1"
     local tmp_base="${TMPDIR:-/tmp}"
-    # Only clean directories that look like our temp dirs
-    if [[ -d "$dir" && "$dir" == *"ensemble-test-"* && ( "$dir" == /tmp/* || "$dir" == "$tmp_base"/* ) ]]; then
+    # Strip a trailing slash so the "$tmp_base"/* pattern below can't become a
+    # never-matching double slash when TMPDIR is set with one.
+    tmp_base="${tmp_base%/}"
+    # macOS `mktemp -d -t` (used by setup_empty_dir) ignores an unset TMPDIR and
+    # allocates under the per-user /var/folders/<...>/T/ directory, so neither
+    # /tmp/* nor "$tmp_base"/* matches and every cleanup hit the refusal branch.
+    # Linux mktemp -t honours /tmp, which is why this only ever failed locally.
+    # The ensemble-test- substring below is what actually keeps this safe.
+    if [[ -d "$dir" && "$dir" == *"ensemble-test-"* && ( \
+            "$dir" == /tmp/* || \
+            "$dir" == "$tmp_base"/* || \
+            "$dir" == /var/folders/*/T/* || \
+            "$dir" == /private/var/folders/*/T/* ) ]]; then
         log_debug "Cleaning up temp directory: $dir"
         rm -rf "$dir"
     else
@@ -454,6 +465,7 @@ REQUIRED_AGENTS=(
     "app-debugger.md"
     "devops-engineer.md"
     "cicd-specialist.md"
+    "agent-implementer.md"
 )
 
 # =============================================================================
@@ -521,43 +533,12 @@ verify_vendored_structure() {
     # Check CLAUDE.md at root
     check_file_exists "${project_dir}/CLAUDE.md" || ((errors++))
 
-    # Check router rules file (created by generate-project-router-rules)
-    check_file_exists "${project_dir}/.claude/router-rules.json" || ((errors++))
-
     if [[ $errors -gt 0 ]]; then
         log_error "Vendored structure verification failed with $errors errors"
         return 1
     fi
 
     log_info "Vendored structure verification passed"
-    return 0
-}
-
-# Verify router rules file has valid structure
-# Usage: verify_router_rules <project_dir>
-# Returns: 0 if valid, 1 if invalid
-verify_router_rules() {
-    local project_dir="$1"
-    local rules_file="${project_dir}/.claude/router-rules.json"
-
-    if [[ ! -f "$rules_file" ]]; then
-        log_error "Router rules file not found: $rules_file"
-        return 1
-    fi
-
-    # Check it's valid JSON
-    if ! jq empty "$rules_file" 2>/dev/null; then
-        log_error "Router rules file is not valid JSON"
-        return 1
-    fi
-
-    # Check for expected top-level keys (version is required)
-    if ! jq -e '.version' "$rules_file" >/dev/null 2>&1; then
-        log_error "Router rules file missing 'version' field"
-        return 1
-    fi
-
-    log_info "Router rules verification passed"
     return 0
 }
 
@@ -822,7 +803,6 @@ export -f check_file_created_in_session
 export -f list_session_tools
 export -f check_session_success
 export -f verify_vendored_structure
-export -f verify_router_rules
 export -f count_agent_files
 export -f verify_prd_structure
 export -f verify_trd_structure

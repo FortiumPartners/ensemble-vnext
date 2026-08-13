@@ -1,16 +1,23 @@
 ---
 name: rebase-project
-description: Upgrade vendored runtime to newer plugin version while preserving customizations
-version: 1.0.0
+description: Upgrade vendored runtime to the latest plugin version — non-interactive, always backs up, updates anything that differs
+version: 2.0.0
 category: generator
+argument-hint: "[--dry-run] [--preserve-all]"
+disable-model-invocation: true
 ---
 
 > **Usage:** Invoke `/rebase-project` from the project root to upgrade the vendored runtime.
 >
 > **Options:**
-> - `--dry-run` - Preview changes without applying
-> - `--force` - Skip confirmation prompts
-> - `--preserve-all` - Keep all local modifications (agents, rules, settings)
+> - `--dry-run` - Preview changes without applying anything
+> - `--preserve-all` - Conservative mode: update only commands/hooks; keep existing agents/skills/settings as-is (escape hatch for projects with heavy customization)
+>
+> **Default behavior (no flags) — applied automatically, no prompts:**
+> - For agents/skills/commands/hooks: any file that **differs from the plugin's current version** is replaced. Anything not currently in the plugin is preserved as a user customization.
+> - **Backups are always created** before any replacement (`.claude/<dir>.backup.<timestamp>/`). Nothing is destroyed without a recoverable copy.
+> - **User governance files** (`constitution.md`, `stack.md`, `process.md`) are NEVER modified.
+> - **Framework-shipped rules** (`async-discipline.md`, future drop-ins) are copied-if-missing.
 
 ---
 
@@ -21,22 +28,22 @@ $ARGUMENTS
 ```
 
 Examples:
-- (no args) - Interactive mode with confirmations
-- "--dry-run" - Preview what would change
-- "--force" - Apply all updates without confirmation
-- "--preserve-all" - Update only commands/hooks, preserve everything else
+- (no args) - Apply all updates with backups, no prompts
+- "--dry-run" - Show what would change without writing anything
+- "--preserve-all" - Update only commands/hooks; leave agents/skills/settings alone
 
 ---
 
 ## Goals
 
-- Upgrade vendored runtime in `.claude/` to match newer plugin version
-- Preserve customizations made to agents (ALWAYS preserved unless --force)
-- Preserve governance files (constitution.md, stack.md, process.md)
-- Recompute skills based on current stack.md
-- Update commands and hooks (safe to replace - not customized per project)
+- Upgrade vendored runtime in `.claude/` to match the current plugin version
+- **Update any file whose content differs from the plugin** (agents, skills, commands, hooks)
+- Always create timestamped backups before replacing
+- Preserve user governance files (constitution.md, stack.md, process.md)
+- Preserve user-created files (agents/skills/commands not shipped by the plugin)
+- Copy framework-shipped rules (async-discipline.md, etc.) if missing
 - Merge new settings.json defaults while preserving local overrides
-- Generate comprehensive rebase report showing all changes
+- Generate comprehensive rebase report
 
 ---
 
@@ -140,7 +147,7 @@ const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-'
 
    | Current | Available | Action |
    |---------|-----------|--------|
-   | Same | Same | Report "Already up to date" (unless --force) |
+   | Same | Same | Report "Already up to date" (still scan for content drift) |
    | Older | Newer | Proceed with upgrade |
    | Unknown | Any | Proceed with full sync |
    | Newer | Older | Warn "Vendored version is newer than plugin" |
@@ -169,7 +176,9 @@ Analyze each component category to identify changes.
 
 #### 2.1 Agent Diff
 
-**Behavior:** Agents are PRESERVED by default - only NEW agents are added.
+**Behavior:** Agents are UPDATED whenever the plugin's content differs from the vendored
+copy. The plugin is the source of truth for any agent it ships; the user's customization
+is preserved in a backup. User-created agents (not shipped by the plugin) are never touched.
 
 1. **List plugin agents:**
    Read agent files from plugin source: `@packages/full/agents/`
@@ -177,25 +186,35 @@ Analyze each component category to identify changes.
 2. **List vendored agents:**
    Read agent files from `.claude/agents/`
 
-3. **Categorize:**
+3. **Categorize via content comparison (byte-level diff of the full file):**
 
    | Category | Condition | Action |
    |----------|-----------|--------|
    | **New** | In plugin, not in vendored | Will be added |
-   | **Existing** | In both | PRESERVED (not modified) |
-   | **Removed** | In vendored, not in plugin | Report but do NOT remove |
+   | **Updated** | In both, content differs | Will be REPLACED (backup created) |
+   | **Unchanged** | In both, content identical | No action |
+   | **Custom** | In vendored, not in plugin | Preserved (report only; not removed) |
 
 4. **Generate agent diff:**
    ```
    Agents:
    - New agents to add: [list]
-   - Existing agents (preserved): [count]
-   - Custom agents (not in plugin): [list if any]
+   - Updated agents (will replace, backup created): [list]
+   - Unchanged agents: [count]
+   - Custom agents (preserved): [list if any]
    ```
 
 #### 2.2 Skill Diff
 
-**Behavior:** Skills are RECOMPUTED based on current stack.md.
+**Behavior, two phases:**
+  - **(a) Stack recompute** — determine which skills SHOULD be installed based on
+    `stack.md`. Skills no longer matching the stack are removed; new stack-relevant skills
+    are added.
+  - **(b) Content diff** — for skills retained in (a), compare every file
+    (`SKILL.md`, `REFERENCE.md`, templates, examples) byte-for-byte against the plugin's
+    current version. If ANY file differs, the entire skill folder is replaced (backup
+    created). This catches updates to `paths:` globs, `when_to_use`, currency-check
+    directives, and any other frontmatter or content change.
 
 1. **Read current stack.md:**
    Parse `.claude/rules/stack.md` to extract technology declarations
@@ -219,7 +238,6 @@ Analyze each component category to identify changes.
    | Testing: ExUnit | `exunit` |
    | Testing: Playwright | `writing-playwright-tests` |
    | Database: Prisma | `using-prisma` |
-   | Database: Weaviate | `using-weaviate` |
    | Infrastructure: Railway | `managing-railway` |
    | Infrastructure: Vercel | `managing-vercel` |
    | Infrastructure: Supabase | `managing-supabase` |
@@ -227,7 +245,24 @@ Analyze each component category to identify changes.
    | AI: OpenAI | `using-openai-platform` |
    | AI: Perplexity | `using-perplexity-platform` |
    | AI: LangGraph | `building-langgraph-agents` |
+   | AI: Langfuse (observability/tracing/evals) | `using-langfuse` |
+   | AI: RAG / retrieval-augmented generation | `building-rag-pipelines` |
+   | AI: Agent memory / conversation memory / vector recall | `building-agent-memory` |
+   | AI: Tool calling / agent loop / Responses API tools | `building-tool-orchestration` |
+   | Database: pgvector / Postgres vector | `using-pgvector` |
+   | Database: Weaviate | `using-weaviate` |
    | Background Jobs: Celery | `using-celery` |
+
+   **Note on inference:** stack.md doesn't always declare these by name — infer from
+   capability mentions. Examples:
+   - "Langfuse" / "prompt observability" / "trace LLM calls" → `using-langfuse`
+   - "RAG" / "retrieval-augmented" / "embeddings + retrieval" / "vector search + LLM" → `building-rag-pipelines`
+   - "agent memory" / "conversation history" / "working/short/long memory" → `building-agent-memory`
+   - "tool calling" / "function calling" / "multi-turn agent loop" / "Responses API tools" → `building-tool-orchestration`
+   - "pgvector extension" / "Postgres + vector" / "halfvec / HNSW" → `using-pgvector`
+
+   When in doubt, **include the skill**. Skills are lazy — they cost nothing until
+   invoked. Missing skills cost the model improvising from scratch.
    | Styling: Tailwind | `styling-with-tailwind` |
    | Issue Tracker: Jira | `managing-jira-issues` |
    | Issue Tracker: Linear | `managing-linear-issues` |
@@ -235,10 +270,14 @@ Analyze each component category to identify changes.
 3. **Compare with current skills:**
    ```
    Skills:
-   - Skills to add: [list]
-   - Skills to keep: [list - still match stack]
-   - Skills to remove: [list - no longer match stack]
+   - Skills to add (new in stack):                [list]
+   - Skills to update (content differs vs plugin): [list]   ← drives the content sync
+   - Skills unchanged (match stack + identical):  [count]
+   - Skills to remove (no longer match stack):    [list]
    ```
+
+   The **"to update"** bucket is computed by, for each skill matching the stack and present
+   in both plugin and vendored: byte-diffing the folder contents. Any difference → update.
 
 #### 2.3 Command Diff
 
@@ -281,16 +320,40 @@ Analyze each component category to identify changes.
 
 **Behavior:** Hooks are REPLACED (not customized per project). Stale plugin hooks are removed.
 
+##### Install-time layout transformations (match the scaffold)
+
+The plugin source layout (`packages/full/hooks/`) is FLAT (all symlinks at the hooks
+root). The SCAFFOLD applies transformations at install time. The rebase MUST honor the
+SAME transformations or it will fight the scaffold:
+
+- **Core lib** — plugin source: `packages/full/hooks/lib` symlinked to
+  `packages/core/hooks/lib/`. **Installed as a SUBDIRECTORY**:
+  `.claude/hooks/lib/*.js` (shared helpers used by `precompact.js`, `session-context.js`,
+  `wiggum.js`, etc. via `require('./lib/resolve-project-root')`).
+  - **Diff target:** plugin's `packages/core/hooks/lib/*.js` ↔ project's
+    `.claude/hooks/lib/*.js`.
+
+A project that ALREADY has the subdirectory layout for `lib/` (the correct one — installed
+by any recent scaffold) must NOT be reported as "stale subdirectory" or "needs flattening".
+
+**Retired hooks.** `permitter/`, `learning.sh`, and `save-remote-logs.js` were removed in
+4.1.0. If a project still carries them, that is expected for anything scaffolded earlier —
+report them as retired and offer removal. Do NOT treat their absence from the plugin as
+drift to be repaired by re-adding them.
+
 1. **List plugin hooks:**
-   Dynamically discover hook files (`*.js`, `*.py`, `*.sh`) from:
-   - `@packages/permitter/hooks/`
+   For the flat hooks (most), dynamically discover hook files (`*.js`, `*.py`, `*.sh`) from:
    - `@packages/router/hooks/`
-   - `@packages/core/hooks/`
+   - `@packages/core/hooks/` (excluding `lib/` — handled below)
+
+   For the special-layout hooks, look them up by their *installed* paths:
+   - `lib/*.js`               ← `packages/core/hooks/lib/*.js`
 
 2. **List vendored hooks:**
-   Read from `.claude/hooks/`
+   Walk `.claude/hooks/` recursively, capturing both top-level files and the `lib/`
+   subdirectory.
 
-3. **Categorize:**
+3. **Categorize** (using the *installed* paths from step 1):
 
    | Category | Condition | Action |
    |----------|-----------|--------|
@@ -299,6 +362,10 @@ Analyze each component category to identify changes.
    | **Unchanged** | In both, content same | No action |
    | **Stale** | In vendored, not in plugin, AND matches known hook extensions (`*.js`, `*.py`, `*.sh`) in the hooks root | Will be REMOVED with backup |
    | **Custom** | In vendored subdirectory not matching plugin structure | Report, preserve |
+
+   **Do NOT classify the `lib/` subdirectory as "stale" or "custom" — it is the correct
+   installed layout.** A vendored `permitter/` directory, `learning.sh`, or
+   `save-remote-logs.js` IS genuinely stale as of 4.1.0 and should be offered for removal.
 
 4. **Generate hook diff:**
    ```
@@ -355,50 +422,36 @@ Target Version: [version]
 
 </component-diff>
 
-### Step 3: User Confirmation
+### Step 3: Display diff summary and proceed
 
-<user-confirmation>
+<display-summary>
 
-**If NOT `--dry-run` and NOT `--force`:**
+**Behavior: non-interactive.** Display the diff summary (counts + per-category lists) so
+the user can see what's about to change, then proceed automatically. Do NOT call
+`AskUserQuestion` — the user invoked `/rebase-project` knowing it would update; asking
+"are you sure?" is anti-pattern after that opt-in. Safety comes from always-on backups,
+not prompts.
 
-1. **Present diff summary to user**
-
-2. **Use AskUserQuestion tool:**
-
-```yaml
-Question: "Apply this rebase? This will update commands, hooks, and skills."
-Options:
-  - "Yes, apply all changes"
-  - "Yes, but preserve existing skills"
-  - "Show detailed diff first"
-  - "Cancel rebase"
-Default: "Cancel rebase"
+**For ALL modes, print the summary block:**
+```
+Rebase preview
+  Agents     : N add | M update | K unchanged | C custom (preserved)
+  Skills     : N add | M update | K unchanged | R remove
+  Commands   : N add | M update | K unchanged | S stale-removed | C custom
+  Hooks      : N add | M update | K unchanged | S stale-removed | C custom
+  Settings   : N new keys | M preserved overrides
+  Framework rules: N copied | M existing (preserved)
 ```
 
-3. **Handle response:**
+**Branch on flags:**
 
-| Response | Action |
-|----------|--------|
-| "Yes, apply all changes" | Proceed to Step 4 |
-| "Yes, but preserve existing skills" | Set skill_preserve=true, proceed |
-| "Show detailed diff first" | Display full diff, re-prompt |
-| "Cancel rebase" | Report "Rebase cancelled", exit |
+| Flag | Behavior |
+|------|----------|
+| (none) | Print summary, then proceed straight to Step 4 (apply with backups). |
+| `--dry-run` | Print summary with "DRY RUN — no files written" header, then **skip Step 4**, proceed to Step 5 (report). |
+| `--preserve-all` | Print summary, set `agent_preserve=true`, `skill_preserve=true`, `settings_preserve=true` (Step 4 will still update commands and hooks but leave the preserved categories alone), proceed to Step 4. |
 
-**If `--dry-run`:**
-- Skip confirmation
-- Skip Step 4 (selective update)
-- Proceed directly to Step 5 (report generation with dry-run indicator)
-
-**If `--force`:**
-- Skip confirmation
-- Proceed to Step 4
-
-**If `--preserve-all`:**
-- Only update commands and hooks
-- Set agent_preserve=true, skill_preserve=true, settings_preserve=true
-- Proceed to Step 4
-
-</user-confirmation>
+</display-summary>
 
 ### Step 4: Selective Update
 
@@ -406,54 +459,73 @@ Default: "Cancel rebase"
 
 **TRD-C604: Implement selective update**
 
-#### 4.1 Update Agents (Selective)
+#### 4.1 Update Agents (content-diff, always-backup)
 
-**Preservation Rule:** PRESERVE customizations, only add NEW base agents
+**Rule:** Update any agent whose content differs from the plugin's version. Always create
+a backup before replacing. Never touch user-created agents.
 
-1. **For each NEW agent in plugin:**
+1. **Create backup of any agents that will be replaced:**
+   - For every agent classified **Updated** in §2.1, copy the current vendored file to
+     `.claude/agents.backup.<timestamp>/<agent>.md` before replacing.
+   - If no agents will be replaced, no backup directory is created (don't clutter).
+
+2. **For each NEW agent in plugin:**
    - Copy from plugin source to `.claude/agents/`
    - Report: "Added new agent: [name]"
 
-2. **For EXISTING agents:**
-   - DO NOT overwrite
-   - Report: "Preserved customized agent: [name]"
+3. **For each UPDATED agent (content differs):**
+   - Backup created in step 1; overwrite `.claude/agents/<agent>.md` with plugin version
+   - Report: "Updated agent: [name] (backup: .claude/agents.backup.<timestamp>/<name>.md)"
 
-3. **For CUSTOM agents (not in plugin):**
+4. **For each UNCHANGED agent:**
+   - No action; no log line (silent — covered by summary count)
+
+5. **For CUSTOM agents (in vendored, not in plugin):**
    - DO NOT remove
    - Report: "Kept custom agent: [name]"
 
-**If `--force` specified:**
-- Replace ALL agents with plugin versions
-- Create backup first: `.claude/agents.backup.<timestamp>/`
-- Warn: "Force mode: All agent customizations replaced (backup created)"
+**If `agent_preserve=true` (set by `--preserve-all`):**
+- Skip steps 1-3; only add NEW agents (step 2).
+- Report: "Existing agents preserved (preserve-all mode)"
 
-#### 4.2 Update Skills (Recompute)
+#### 4.2 Update Skills (recompute + content-diff, always-backup)
 
-**Preservation Rule:** Recompute based on current stack.md
+**Rule:** Two-phase update. (a) Recompute the set of installed skills against the current
+`stack.md`. (b) For skills retained, replace folder content whenever any file differs from
+the plugin's version. Always create a backup of anything removed or replaced.
 
-1. **Create backup:**
-   - Copy `.claude/skills/` to `.claude/skills.backup.<timestamp>/`
+1. **Create backup** (only if there's something to remove or replace):
+   - For each skill classified **Updated** or **Remove** in §2.2, copy the entire current
+     folder to `.claude/skills.backup.<timestamp>/<skill-name>/` before any change.
 
-2. **Remove outdated skills:**
-   - Delete skills that no longer match stack.md
+2. **Remove outdated skills** (no longer match stack.md):
+   - Delete `.claude/skills/<skill-name>/` (already backed up in step 1)
+   - Report: "Removed skill: [name] (backup: .claude/skills.backup.<timestamp>/<name>/)"
 
-3. **Add new skills:**
-   - For each skill matching stack.md:
-     - Copy entire folder from `@packages/skills/<skill-name>/` to `.claude/skills/<skill-name>/`
-     - Include SKILL.md, REFERENCE.md, templates/, examples/
+3. **Add new skills** (newly match stack.md):
+   - Copy entire folder from `@packages/skills/<skill-name>/` to `.claude/skills/<skill-name>/`
+     including SKILL.md, REFERENCE.md, templates/, examples/, paths-globbed files
+   - Report: "Added skill: [name]"
 
-4. **Report:**
+4. **Update retained skills whose content differs** (the bucket from §2.2 step 3):
+   - For each: remove the existing folder, then re-copy the plugin's current folder
+     (mirror behavior — no merge; the plugin is the source of truth for skill content).
+     Already backed up in step 1.
+   - Report: "Updated skill: [name] (backup: .claude/skills.backup.<timestamp>/<name>/)"
+
+5. **Report:**
    ```
-   Skills recomputed:
-   - Added: [list]
-   - Removed: [list]
-   - Retained: [list]
+   Skills:
+   - Added:    [list]
+   - Updated:  [list]
+   - Unchanged:[count]
+   - Removed:  [list]
    ```
 
-**If skill_preserve=true:**
-- Only add NEW skills
-- Do NOT remove existing skills
-- Report: "Skill removal skipped (preserve mode)"
+**If `skill_preserve=true` (set by `--preserve-all`):**
+- Skip steps 2 and 4 (no removals or content updates)
+- Step 3 still runs (newly-required skills are added)
+- Report: "Existing skills preserved (preserve-all mode)"
 
 #### 4.3 Update Commands (Replace)
 
@@ -508,13 +580,30 @@ Default: "Cancel rebase"
    - DO NOT remove
    - Report: "Kept custom hook: [name]"
 
-5. **Hook discovery:**
+5. **Hook discovery — flat hooks (most):**
    - Dynamically scan these plugin directories for hook files:
-     - `@packages/permitter/hooks/` - Permission hooks
      - `@packages/router/hooks/` - Routing hooks
-     - `@packages/core/hooks/` - Core workflow hooks
+     - `@packages/core/hooks/` - Core workflow hooks (excluding `lib/`)
    - Include files matching: `*.js`, `*.py`, `*.sh`
-   - This ensures new hooks added to the plugin are automatically picked up
+   - Install at `.claude/hooks/<basename>` (flat).
+   - This ensures new hooks added to the plugin are automatically picked up.
+
+6. **Hook discovery — special-layout hooks (always handle):**
+   These MUST be installed at fixed subdirectory paths per the scaffold convention:
+
+   | Plugin source path | Installed path | Action on content diff |
+   |---|---|---|
+   | `@packages/core/hooks/lib/*.js` | `.claude/hooks/lib/*.js` | Replace each file |
+
+   Do NOT treat `lib/` as a candidate for removal or flattening. It is part of the canonical
+   installed layout.
+
+7. **Settings.json hook path sanity:**
+   After updating hooks, verify the project's `settings.json` references match the
+   installed paths, and that no registration survives for a retired hook
+   (`permitter/permitter.js`, `learning.sh`, `save-remote-logs.js`). A registration pointing
+   at a file that no longer ships fails on every event — remove it in the settings merge
+   step (§4.5).
 
 #### 4.5 Update Settings (Merge)
 
@@ -551,16 +640,36 @@ Default: "Cancel rebase"
 - Do NOT modify any existing values
 - Report: "Settings merge minimal (preserve mode)"
 
-#### 4.6 Preserve Rules (Always)
+#### 4.6 Rules: split user governance from framework-shipped
 
-**Preservation Rule:** ALWAYS keep existing rules
+Rules under `.claude/rules/` come in two categories with opposite update policies:
 
-**NEVER modify:**
+**User-owned governance (NEVER modified by rebase):**
 - `.claude/rules/constitution.md`
 - `.claude/rules/stack.md`
 - `.claude/rules/process.md`
 
-Report: "Governance files preserved (not modified by rebase)"
+These are generated/customized at `init-project` and belong to the user. Even with
+`--force`, they are preserved.
+
+**Framework-shipped rules (copied-if-missing on rebase):**
+- `.claude/rules/async-discipline.md` (and any future `.md` files in
+  `@packages/core/templates/claude-directory/rules/`)
+
+These encode behavioral guarantees enforced by hooks (e.g., `async-discipline.js`
+relies on `async-discipline.md` documenting the rule it enforces). Without the doc,
+agents that hit the guard have no context. Policy:
+
+- For each `.md` file in the framework's `claude-directory/rules/` template directory:
+  - If the project already has it (`.claude/rules/<basename>` exists): **preserve as-is**
+    (the user may have annotated; never overwrite without explicit `--force-rules` —
+    not yet exposed).
+  - If missing: **copy from the framework template**.
+- Report each copied file under "Framework rules installed".
+
+Report:
+- "Governance files preserved (not modified by rebase)"
+- "Framework rules: N installed, M preserved (existing)"
 
 </selective-update>
 
@@ -615,8 +724,14 @@ Report: "Governance files preserved (not modified by rebase)"
 - `.claude/rules/constitution.md`
 - `.claude/rules/stack.md`
 - `.claude/rules/process.md`
+- Existing framework-shipped rules under `.claude/rules/` (already-present `.md` files
+  matching the framework template — never overwritten without explicit force flag)
 - All custom agents
 - All local settings overrides
+
+### Framework Rules Installed
+- [list of `.md` files newly copied from `templates/claude-directory/rules/` into
+  `.claude/rules/`; empty if all were already present]
 
 ### Recommended Manual Review
 
@@ -636,7 +751,7 @@ The following files may benefit from manual review:
 | Backup | Location |
 |--------|----------|
 | Skills | `.claude/skills.backup.[timestamp]/` |
-| Agents (if --force) | `.claude/agents.backup.[timestamp]/` |
+| Agents (if any updated) | `.claude/agents.backup.[timestamp]/` |
 | Commands (if modified) | `.claude/commands.backup.[timestamp]/` |
 | Hooks (if modified) | `.claude/hooks.backup.[timestamp]/` |
 
@@ -645,7 +760,6 @@ The following files may benefit from manual review:
 1. Review new agents and customize for your project context
 2. Test commands to verify they work with your workflow
 3. If skills were removed, verify they're not referenced in agents
-4. Run `/generate-project-router-rules` if routing behavior changed
 ```
 
 2. **If `--dry-run`:**
@@ -692,7 +806,7 @@ If rebase fails mid-execution, partial changes may exist. To restore:
    mv .claude/skills.backup.<timestamp> .claude/skills
    ```
 
-   **Restore Agents (if --force was used):**
+   **Restore Agents (if any were replaced):**
    ```bash
    rm -rf .claude/agents
    mv .claude/agents.backup.<timestamp> .claude/agents
@@ -752,8 +866,8 @@ find .claude -name "*.backup.*" -type d -mtime +7 -exec rm -rf {} \;
 | Flag | Agents | Skills | Commands | Hooks | Settings | Rules |
 |------|--------|--------|----------|-------|----------|-------|
 | (default) | Add new only | Recompute | Replace | Replace | Merge | Preserve |
-| `--dry-run` | Report only | Report only | Report only | Report only | Report only | Report only |
-| `--force` | Replace all | Recompute | Replace | Replace | Merge | Preserve |
+| (default)        | Update on content-diff | Recompute + update on content-diff | Replace | Replace | Merge | Preserve |
+| `--dry-run`      | Report only | Report only | Report only | Report only | Report only | Report only |
 | `--preserve-all` | Add new only | Add new only | Replace | Replace | Add new only | Preserve |
 
 ---
@@ -771,3 +885,67 @@ find .claude -name "*.backup.*" -type d -mtime +7 -exec rm -rf {} \;
 ---
 
 *This command implements TRD tasks: TRD-C601 through TRD-C605*
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /rebase-project ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /rebase-project ═══` followed by `Reason:` and `Next:` lines.
+
+**Programmatic completion notify** — on the same final turn, invoke the user's `NOTIFY_ON_COMPLETE` shell command (if set) for webhook/queue/shell-pipeline integration:
+
+```bash
+.claude/hooks/notify-complete.sh "rebase-project" "complete" "<one-line summary>"
+```
+
+For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"`. The bracket-guard makes this a no-op when not configured.
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

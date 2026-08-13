@@ -217,25 +217,6 @@ teardown() {
     [[ "$status" -eq 0 ]]
 }
 
-@test "TRD-TEST-055: /init-project creates router-rules.json" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    # Verify router rules file exists (created by generate-project-router-rules)
-    check_file_exists "${PERSISTENT_PROJECT_DIR}/.claude/router-rules.json"
-}
-
-@test "TRD-TEST-055: /init-project router-rules.json is valid" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    # Verify router rules has valid structure
-    run verify_router_rules "$PERSISTENT_PROJECT_DIR"
-    [[ "$status" -eq 0 ]]
-}
-
 # =============================================================================
 # Function Verification Tests (Non-Headless)
 # =============================================================================

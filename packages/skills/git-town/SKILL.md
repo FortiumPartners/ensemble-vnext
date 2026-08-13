@@ -1,7 +1,9 @@
 ---
 name: git-town
-description: This skill should be used when the user asks to "create a feature branch", "start a new feature", "sync my branch", "sync with main", "update from main", "create a PR", "create a pull request", "ship a feature", "merge and clean up", "handle merge conflicts", "resolve conflicts in git-town", "create stacked branches", "work on dependent features", "configure git-town", "set up git-town", "use git-town offline", "manage git workflow", or mentions git-town commands (hack, sync, propose, ship, continue, undo, kill).
+description: Manage branch workflow with git-town — feature branches, sync, stacked branches, propose, ship, conflict recovery.
+when_to_use: Reach for this for git-town branch-workflow operations — create/sync/stack feature branches, open PRs, ship/merge, and resolve conflicts via git-town (hack, sync, propose, ship, continue, undo, kill). Use when the repo is configured for git-town or the user explicitly invokes git-town. Branch-workflow automation skill.
 version: 1.0.0
+allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # Git-Town Workflow Skill

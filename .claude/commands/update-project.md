@@ -331,35 +331,7 @@ Default: "No, skip stack changes"
 
 </stack-proposal>
 
-### Step 5: Regenerate Router Rules
-
-<router-rules-update>
-
-**If stack changes were approved in Step 4b, regenerate router rules.**
-
-1. **Check if stack was updated:**
-   - If stack.md was modified, proceed with regeneration
-   - If no stack changes, skip this step
-
-2. **Invoke generate-project-router-rules:**
-   ```
-   Run /generate-project-router-rules to update routing patterns for new technologies.
-   ```
-
-3. **Report result:**
-   ```
-   Router rules regenerated to include:
-   - [New technology mappings]
-   - [Updated skill triggers]
-   ```
-
-4. **If stack was not changed:**
-   - Skip regeneration
-   - Report: "No router rules update needed (stack unchanged)."
-
-</router-rules-update>
-
-### Step 6: Completion Report
+### Step 5: Completion Report
 
 <completion-report>
 
@@ -406,7 +378,6 @@ Next suggested actions:
 | constitution.md doesn't exist | Warn user, suggest running /init-project |
 | stack.md doesn't exist | Warn user, suggest running /init-project |
 | User cancels all changes | Report "No changes applied" and exit gracefully |
-| generate-project-router-rules fails | Warn user, continue with completion report |
 | Skill not found in library | Inform user, suggest /add-skill command |
 
 ---
@@ -527,3 +498,67 @@ Router rules regenerated.
 ---
 
 *This command implements TRD tasks: TRD-C301 through TRD-C304*
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /update-project ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /update-project ═══` followed by `Reason:` and `Next:` lines.
+
+**Programmatic completion notify** — on the same final turn, invoke the user's `NOTIFY_ON_COMPLETE` shell command (if set) for webhook/queue/shell-pipeline integration:
+
+```bash
+.claude/hooks/notify-complete.sh "update-project" "complete" "<one-line summary>"
+```
+
+For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"`. The bracket-guard makes this a no-op when not configured.
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

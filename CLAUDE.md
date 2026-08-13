@@ -34,16 +34,26 @@ Ensemble vNext is a workflow framework for Claude Code that encodes power-user p
 
 ## Baseline Reference
 
-**Read-only source**: `~/dev/ensemble`
+**Read-only source**: `Sunstone-Partners/ensemble` (formerly checked out at `~/dev/ensemble`)
 
-Copy extensively from existing ensemble. Under NO circumstances modify that folder.
+That local checkout **no longer exists** as of 2026-08-12. Clone the repo fresh when you need it —
+read only, and under NO circumstances modify it. Note its `main` has moved since the original
+comparison; treat any conclusion drawn from the old survey as needing re-verification.
 
-Key sources:
-- `packages/permitter/` - Permission hook (copy exactly)
-- `packages/router/` - Routing hook (copy exactly)
-- `packages/*/agents/` - Agent templates (adapt for 12 streamlined agents)
-- `packages/*/skills/` - Skill library (copy relevant skills)
-- `packages/*/commands/` - Command templates (adapt for vendored runtime)
+Most of the copy-extensively phase is done. The remaining planned use is a close reading for
+improvement-plan item 7 (`trd-parser.js`, `trd-graph.js`, `cross-trd-deps.js`) — see the callout in
+`docs/modernization/2026-08-improvement-plan.md`.
+
+Key sources for the remaining item-7 reading:
+- `trd-parser.js`, `trd-graph.js` — deterministic task-graph construction, and what the parser
+  demands of the TRD *format* (a graph is only as deterministic as its input)
+- `cross-trd-deps.js` — dependencies *between* TRDs; directly relevant to the open concurrent-TRD
+  coordination question
+- Whatever mechanism it has for verifying delivered output against acceptance criteria — the weakest
+  link in this framework's loop
+
+The earlier "copy exactly" sources are historical: `packages/permitter/` was retired in 4.1.0, and
+the agent/skill/command templates have long since been adapted and diverged.
 
 ---
 
@@ -90,6 +100,19 @@ Given non-deterministic LLM output:
 ---
 
 ## Hooks Reference
+
+### Discipline Hooks (Stop / SubagentStop) — model-judged
+
+Three hooks enforce `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`:
+`async-discipline.js` and `autonomy-discipline.js` on `Stop`, `subagent-discipline.js` on
+`SubagentStop`. As of 2026-08-13 (`docs/TRD/discipline-judgment.md`) all three are
+`hookType: "prompt"` in `packages/core/hooks/hooks.manifest.json` — evaluated by the
+platform's own model judge (prompt text in `packages/core/hooks/prompts/`) rather than by
+regex matching inside the `.js` files. The `.js` files and their pattern-matching code are
+retained as the rollback path: setting `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` before running
+`generate-hooks-artifacts.sh` regenerates all three as `hookType: "command"`, running that
+code exactly as before. See the two rules files above for the full mechanism (loop guard,
+escape valves, kill switch) — not duplicated here.
 
 ### Notify Hook (Stop)
 
@@ -157,16 +180,22 @@ claude --remote "Process data"
 
 **Integration with Other Hooks:**
 
-The notify hook coexists with the learning hook in the Stop hook array:
+The notify hook is the last entry in the `Stop` hook array, after the discipline hooks and
+`wiggum.js` (`learning.sh`, referenced here in older docs, was retired in 4.1.0 — see
+`.claude/rules/constitution.md`'s Architecture Invariants):
 
 ```json
 "Stop": [
-  { "type": "command", "command": ".claude/hooks/learning.sh", "timeout": 10 },
+  { "type": "prompt", "prompt": "...", "timeout": 5 },   // async-discipline.js
+  { "type": "prompt", "prompt": "...", "timeout": 5 },   // autonomy-discipline.js
+  { "type": "command", "command": ".claude/hooks/wiggum.js", "timeout": 10 },
   { "type": "command", "command": ".claude/hooks/notify.sh", "timeout": 60 }
 ]
 ```
 
-Both hooks fire sequentially when a session stops. The learning hook stages files first, then the notify hook sends any configured notification.
+All four fire on every session stop, independently — see the Discipline Hooks section
+above for what the first two actually evaluate. The notify hook sends any configured
+notification last.
 
 ---
 

@@ -78,7 +78,6 @@ create_valid_structure() {
     echo "# Process" > "$dir/.claude/rules/process.md"
 
     # Create required hook files
-    echo "// Permitter hook" > "$dir/.claude/hooks/permitter.js"
     echo "# Router hook" > "$dir/.claude/hooks/router.py"
     echo "// Status hook" > "$dir/.claude/hooks/status.js"
 
@@ -89,7 +88,6 @@ create_valid_structure() {
 
     # Create JSON config files (valid JSON)
     echo '{"version": "1.0.0"}' > "$dir/.claude/settings.json"
-    echo '{"rules": []}' > "$dir/.claude/router-rules.json"
     echo '{"branch": null, "prd": null, "trd": null}' > "$dir/.trd-state/current.json"
 
     # Create .gitignore
@@ -140,7 +138,6 @@ EOF
 
     # Should report valid JSON for config files
     [[ "$output" == *"settings.json is valid JSON"* ]]
-    [[ "$output" == *"router-rules.json is valid JSON"* ]]
     [[ "$output" == *"current.json is valid JSON"* ]]
 }
 
@@ -150,7 +147,7 @@ EOF
     run "$VALIDATE_SCRIPT" "$TEST_DIR"
 
     # Should report required hooks exist
-    [[ "$output" == *"permitter.js exists"* ]]
+    [[ "$output" == *"router.py exists"* ]]
     [[ "$output" == *"router.py exists"* ]]
     [[ "$output" == *"status.js exists"* ]]
 }
@@ -276,16 +273,6 @@ EOF
     [[ "$output" == *"process.md"*"missing"* ]]
 }
 
-@test "TRD-TEST-019: Missing required hook (permitter.js) fails validation" {
-    create_valid_structure "$TEST_DIR"
-    rm -f "$TEST_DIR/.claude/hooks/permitter.js"
-
-    run "$VALIDATE_SCRIPT" "$TEST_DIR"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"permitter.js"* ]]
-}
-
 @test "TRD-TEST-019: Missing required hook (router.py) fails validation" {
     create_valid_structure "$TEST_DIR"
     rm -f "$TEST_DIR/.claude/hooks/router.py"
@@ -304,16 +291,6 @@ EOF
 
     [ "$status" -ne 0 ]
     [[ "$output" == *"current.json"*"missing"* ]]
-}
-
-@test "TRD-TEST-019: Invalid JSON in router-rules.json gives error" {
-    create_valid_structure "$TEST_DIR"
-    echo 'not valid json at all' > "$TEST_DIR/.claude/router-rules.json"
-
-    run "$VALIDATE_SCRIPT" "$TEST_DIR"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"router-rules.json"*"invalid JSON"* ]]
 }
 
 @test "TRD-TEST-019: Invalid JSON in current.json gives error" {

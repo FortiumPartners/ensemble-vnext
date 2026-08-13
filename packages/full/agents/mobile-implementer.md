@@ -8,12 +8,10 @@ description: |
   - "Build a Flutter screen with Riverpod state management and offline support"
   - "Implement a React Native component with platform-adaptive UI"
 model: sonnet
+effort: medium
 color: orange
-skills:
-  - developing-with-flutter
-  - developing-with-react
-  - developing-with-typescript
-  - frontend-design
+# background: Reads, edits, runs builds and tests — all retained in background.
+background: true
 ---
 
 ## Role Statement
@@ -191,6 +189,8 @@ Available skills for your specialty:
 - `developing-with-react`: React Native patterns (shared with React web), hooks, component architecture
 - `developing-with-typescript`: TypeScript for React Native, strict mode, type safety
 - `frontend-design`: Distinctive UI design, typography, color systems, motion, spatial composition
+- `jest`: JS/TS test runner for React Native code
+- `git-town`: Branch workflow operations during multi-task mobile implementation
 
 ## Deliverables
 

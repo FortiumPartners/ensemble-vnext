@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 
 /**
- * Status Hook: Passive verification for implement.json updates.
+ * Status Hook: durable-state safety net for implement.json (SubagentStop).
  *
- * This hook fires on SubagentStop events and implements Option B (Passive Verification)
- * from the TRD - it verifies that implement.json was modified during the session
- * and logs whether changes occurred. The actual updates are done by the implement-trd
- * command prompt itself.
+ * Complements the implement-trd command, which is the primary driver of in-session
+ * stage progression (via the native Task tools / blockedBy graph) and writes the
+ * durable implement.json. This hook is a best-effort safety net that runs on every
+ * SubagentStop to: (1) clear session_id on subagent completion (TRD-H004), and
+ * (2) advance cycle_position for the single in-progress task so the DURABLE marker
+ * keeps moving even if the session dies mid-loop.
+ *
+ * Design intent: the command sets cycle_position when ENTERING a stage
+ * (state-write-before-delegate); this hook advances it when the stage's subagent
+ * stops. They are meant to interleave, not both advance the same transition.
+ *
+ * Safety guards (fix for the previously-documented over-advance bug):
+ *   - advanceCyclePosition() SKIPS when the in-progress task signals active debugging
+ *     (retry_count > 0 OR current_problem is set). This prevents the hook from
+ *     advancing past 'verify'/'verify_post_simplify' during DEBUG cycles, when the
+ *     command will re-dispatch verify after app-debugger completes.
+ *   - 'verify_red' is now part of CYCLE_ORDER (advances to 'implement') so TDD's
+ *     RED phase is tracked rather than ignored.
+ *   - The command's explicit cycle_position writes remain authoritative; this hook
+ *     stays a best-effort safety net for happy-path stage transitions.
  *
  * Environment Variables:
  *   STATUS_HOOK_DISABLE - Set to "1" to disable (default: enabled)
@@ -191,7 +207,7 @@ function clearSessionId(filePath, data) {
 /**
  * Cycle position progression order.
  */
-const CYCLE_ORDER = ['implement', 'verify', 'simplify', 'verify_post_simplify', 'review', 'complete'];
+const CYCLE_ORDER = ['verify_red', 'implement', 'verify', 'simplify', 'verify_post_simplify', 'review', 'complete'];
 
 /**
  * Advance cycle_position for the single in-progress task in implement.json.
@@ -220,6 +236,17 @@ function advanceCyclePosition(filePath, data) {
   }
 
   const [taskId, task] = inProgressEntries[0];
+
+  // Active-debugging guard: when the command has put the task into a DEBUG cycle
+  // (retry_count > 0 or current_problem set), do NOT advance. The command will
+  // re-dispatch verify after app-debugger completes; advancing here would skip past
+  // verify/verify_post_simplify into simplify or review, abandoning the retry.
+  if ((typeof task.retry_count === 'number' && task.retry_count > 0)
+      || (task.current_problem && String(task.current_problem).trim() !== '')) {
+    debugLog(`Task ${taskId} is mid-debug (retry_count=${task.retry_count}, problem=${!!task.current_problem}); skipping advance`);
+    return false;
+  }
+
   const currentPosition = task.cycle_position || 'implement';
   const currentIndex = CYCLE_ORDER.indexOf(currentPosition);
 

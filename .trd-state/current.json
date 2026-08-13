@@ -1,6 +1,6 @@
 {
-  "prd": "docs/PRD/stop-hook-notification.md",
-  "trd": "docs/TRD/stop-hook-notification.md",
-  "status": "implemented",
-  "branch": null
+  "prd": null,
+  "trd": "docs/TRD/discipline-judgment.md",
+  "status": ".trd-state/discipline-judgment/implement.json",
+  "branch": "feature/cc-modernization"
 }

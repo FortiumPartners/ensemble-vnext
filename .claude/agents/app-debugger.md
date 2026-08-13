@@ -1,37 +1,32 @@
 ---
 name: app-debugger
 description: |
-  Systematic debugging specialist for root cause analysis and TDD-based resolution.
+  Debugger of LAST resort — root-cause investigation when an implementer's first fix attempt
+  failed, when bugs are intermittent / non-deterministic, when symptoms don't match obvious
+  causes, or when the failure matches a known TRD-documented risk. Uses 5 Whys, log forensics,
+  trace analysis, hypothesis testing, and risk-matched mitigation.
+
+  Use when ANY of these hold:
+  - verify-app reported the same failure twice on the same task (implementer's retry didn't work)
+  - The bug is intermittent / race condition / load-dependent / timing-sensitive
+  - The symptom doesn't match an obvious cause (needs root-cause analysis, not a guess-fix)
+  - The failure matches a risk documented in the TRD's Section 7 (apply the mitigation)
+  - A heisenbug — passes alone, fails in the suite (ordering / shared-state / fixture issue)
+
+  Do NOT use for: trivial / obvious bugs (let the implementer fix in-line), the FIRST verify
+  failure (let the implementer retry once), or anything that's really a missing feature (that's
+  implementation work, not debugging).
 
   Examples:
-  - "Investigate 500 error using 5 Whys analysis and trace logs"
-  - "Debug race condition in user creation with concurrent request analysis"
+  - "VERIFY failed twice on AUTH-B003 with same null-pointer — implementer can't reproduce locally"
+  - "Intermittent 500 on production checkout — diagnose the race condition"
+  - "Test passes alone, fails when the suite runs — find the ordering dependency"
+  - "Memory leak in the worker after ~6 hours — find the retention"
 model: opus
+effort: high
 color: red
-skills:
-  - jest
-  - pytest
-  - rspec
-  - exunit
-  - xunit
-  - writing-playwright-tests
-  - developing-with-react
-  - developing-with-typescript
-  - developing-with-python
-  - developing-with-flutter
-  - developing-with-laravel
-  - developing-with-php
-  - developing-with-dotnet
-  - nestjs
-  - managing-railway
-  - managing-vercel
-  - managing-supabase
-  - using-prisma
-  - using-celery
-  - using-azure-functions
-  - using-clerk
-  - building-integrations
-  - playwright-automation
+# background: Root-cause investigation; may dispatch its own probes when nesting allows.
+background: true
 ---
 
 ## Role
@@ -117,12 +112,17 @@ When invoked, you receive:
 | Jest test failures | `jest` |
 | pytest test failures | `pytest` |
 | RSpec test failures | `rspec` |
-| Playwright E2E failures | `playwright-test` |
+| Playwright E2E failures | `writing-playwright-tests` |
 | React component issues | `developing-with-react` |
 | TypeScript type errors | `developing-with-typescript` |
 | Python backend issues | `developing-with-python` |
 | Database/Prisma issues | `using-prisma` |
 | Celery task issues | `using-celery` |
+| Unknown test runner | `test-detector` |
+| Unknown app framework | `framework-detector` |
+| Unknown infra (Helm/K8s/Kustomize) | `tooling-detector` |
+| Quick health check of API/DB/auth/integrations | `smoke-test-runner` |
+| Multi-task branch workflow during fix-up | `git-town` |
 
 Report which skill(s) you used in your deliverables.
 

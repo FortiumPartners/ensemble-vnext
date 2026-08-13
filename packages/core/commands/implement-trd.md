@@ -1,7 +1,8 @@
 ---
 name: implement-trd
-description: Execute TRD implementation using TaskTools with staged execution, specialist delegation, risk-aware debugging, and quality gates
-version: 3.1.0
+description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
+version: 3.2.0
 category: implementation
 ---
 
@@ -38,7 +39,13 @@ Main Loop (per task):
   IMPLEMENT -> VERIFY -> [DEBUG if fail] -> SIMPLIFY -> VERIFY -> [DEBUG if fail] -> REVIEW -> UPDATE
 ```
 
-**TaskTools Integration:** Use TaskCreate, TaskGet, TaskUpdate, TaskList for task management. Each stage MUST wait for subagent completion before proceeding.
+**Task vs Agent (do not conflate):**
+- **Work-list verbs** — `TaskCreate`, `TaskGet`, `TaskUpdate`, `TaskList` — manage the in-session
+  task graph (stages + `blockedBy` dependencies). They track *what to do*; they do not run agents.
+- **Spawning** — the **`Agent`** tool (`Agent(subagent_type="…", prompt="…")`) dispatches a subagent
+  to execute a stage. It runs *the work*.
+
+Each stage MUST wait for the spawned subagent to complete before proceeding.
 
 ---
 
@@ -149,12 +156,20 @@ After checkpoint recovery, re-create TaskTools tasks from persistent state:
 1. Read tasks from state file where `status != "success"` and `status != "complete"`
 2. For each incomplete task, determine which stages to create based on `cycle_position`:
 
-| cycle_position | Stages to Create | Mark as Completed |
+The `cycle_position` enum on disk (written by both this command and `status.js`) is:
+
+`implement | verify_red | verify | debug | simplify | verify_post_simplify | review | update | complete`
+
+Resume coalesces those into the four stage groups created downstream (`:impl`, `:verify`,
+`:simplify`, `:review`) per this table:
+
+| cycle_position on disk | Stages to Create | Mark as Completed |
 |----------------|------------------|-------------------|
-| null, "implement" | :impl, :verify, :simplify, :review | (none) |
-| "verify" | :verify, :simplify, :review | :impl |
-| "simplify" | :simplify, :review | :impl, :verify |
-| "review" | :review | :impl, :verify, :simplify |
+| null, `"implement"`, `"verify_red"` | :impl, :verify, :simplify, :review | (none) |
+| `"verify"`, `"debug"` | :verify, :simplify, :review | :impl |
+| `"simplify"`, `"verify_post_simplify"` | :simplify, :review | :impl, :verify |
+| `"review"`, `"update"` | :review | :impl, :verify, :simplify |
+| `"complete"` | (none — task is done; skip) | :impl, :verify, :simplify, :review |
 
 3. Create each stage with full metadata (see Section 3.4 for TaskCreate format)
 4. Set dependencies between stages (see Section 3.4 for TaskUpdate pattern)
@@ -164,6 +179,15 @@ Example:
 ```javascript
 const stateFile = readStateFile(trdName);
 const stageOrder = ["impl", "verify", "simplify", "review"];
+// Coalesce the on-disk cycle_position enum into one of the four stage-group anchors.
+// Anchors map to indices in stageOrder above; everything from the anchor onward is created.
+const stageAnchor = {
+  null: "impl", implement: "impl", verify_red: "impl",
+  verify: "verify", debug: "verify",
+  simplify: "simplify", verify_post_simplify: "simplify",
+  review: "review", update: "review",
+  complete: null,  // task is done — skip create entirely
+};
 const agentMap = {
   impl: taskState.implementer_type || "backend-implementer",
   verify: "verify-app",
@@ -389,13 +413,18 @@ if (task.status !== "pending") {
   // Skip and move to next available task
   continue;
 }
-TaskUpdate({ taskId, owner: "self", status: "in_progress" });
+TaskUpdate({ taskId, status: "in_progress" });
 ```
 
-1. **Claim:** `TaskUpdate({ taskId, owner: "self", status: "in_progress" })`
-   - Note: `owner: "self"` indicates this agent is working on the task
+1. **Claim:** `TaskUpdate({ taskId, status: "in_progress" })`
+   - Do NOT pass `owner: "self"` — the platform reads `owner` as an agent name and files
+     a task-assignment message into that agent's mailbox. `"self"` is not a real teammate,
+     so this leaves an unread, undeliverable message in a `self` inbox for every task
+     claimed this way. Setting `status: "in_progress"` alone is sufficient to claim the
+     task for the lead session; no ensemble code (state schema, `status.js`) reads or
+     writes an `owner` field, so nothing depends on it being set.
    - The `intended_agent` in metadata determines which subagent receives the work
-2. **Dispatch:** Task tool with stage-appropriate prompt (see Appendix A)
+2. **Dispatch:** `Agent` tool with stage-appropriate prompt (see Appendix A)
 3. **Handle Result:**
    - Success: `TaskUpdate({ taskId, status: "completed" })`
    - Failure: Route to DEBUG (for blocking strategies)
@@ -414,6 +443,7 @@ TaskUpdate({ taskId, owner: "self", status: "in_progress" });
 | mobile, flutter, react-native, ios, android, app | `mobile-implementer` |
 | infra, deploy, docker, k8s, aws, cloud, terraform | `devops-engineer` |
 | pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
+| llm, agent, rag, prompt, embedding, vector, langgraph, langfuse, openai, anthropic, claude, gpt, sonar, retrieval, tool-calling, multi-agent | `agent-implementer` |
 
 ### 4.4 Stage Execution
 
@@ -429,7 +459,7 @@ Select implementer per 4.3. For UI tasks, include V0/visual context.
 **State-Write-Before-Delegate (CRITICAL):** Before spawning the subagent, write state to disk:
 1. Set `tasks[id].status = "in_progress"` and `tasks[id].cycle_position = "implement"` in implement.json
 2. Write implement.json to disk
-3. THEN dispatch the Task tool
+3. THEN dispatch the `Agent` tool
 
 This ensures the status.js hook can find and advance the in-progress task on SubagentStop.
 
@@ -520,20 +550,34 @@ git push -u origin {branch_name}
 
 Add checkpoint entry, advance `phase_cursor`, update `recovery.last_healthy_checkpoint`.
 
-### 5.4 Context Management at Phase Boundary
+### 5.4 Context Management at Phase Boundary — DO NOT PAUSE
 
-After each phase checkpoint, recommend context compaction:
+**Phase boundaries are NOT user-pause points.** After a phase checkpoint, emit the PHASE
+banner (per `.claude/rules/command-status.md`) and **immediately spawn the next phase in
+the same orchestration loop** — no "Run /compact" prompt, no waiting for user input.
 
 ```
-Phase {N} checkpoint complete.
-Completed tasks: {list}
-State saved to: .trd-state/<trd-name>/implement.json
-
-Recommendation: Run /compact to compress context before continuing to Phase {N+1}.
-All progress is persisted in the state file and will survive context compaction.
+[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, coverage unit {X}% / int {Y}%, commit {sha}
 ```
 
-This prevents context exhaustion on large TRDs with many tasks. The state file preserves all progress across compaction.
+Then continue into the next phase. Pause ONLY on the explicit conditions enumerated in
+Step 8 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase
+transitions are NOT pause conditions.
+
+**Compaction is automatic, not user-driven.** `/compact` will auto-fire at ~95% context;
+the `precompact.js` hook captures the in-flight task + recent decisions into
+`.trd-state/<feature>/session-log.md` before summarization. The state file (`implement.json`)
+preserves all task-level progress across compaction independently. The loop survives both.
+
+**Decision-trail durability (PreCompact hook).** When `/compact` runs — or auto-compaction
+triggers at ~95% context — the `precompact.js` hook appends a structured checkpoint to
+`.trd-state/<feature>/session-log.md` capturing the in-flight task, retry context, and
+recent completions. After compaction, **re-read `session-log.md` first** to recover the
+reasoning trail; if you have decision rationale or open questions from the just-summarized
+turns that aren't captured in `implement.json`, append them under the most recent
+**Decisions & rationale** section of the log before continuing the loop. Treat the log as
+the durable companion to `implement.json` — state records *what* happened, the log records
+*why*.
 
 ---
 
@@ -682,9 +726,15 @@ For Wiggum mode, signal: `<promise>COMPLETE</promise>`
 
 ---
 
-## Step 8: Pause for User
+## Step 8: Pause Conditions (NOT phase boundaries)
 
-When STUCK (retry count >= 3):
+The command runs **uninterrupted** through every phase from start to completion — phase
+checkpoints emit the PHASE banner and immediately spawn the next phase. The ONLY
+conditions under which the command pauses for user input are below. Routine phase
+transitions, /compact recommendations, and successful checkpoint commits are NOT pause
+conditions.
+
+### 8.1 STUCK (retry count >= 3)
 
 ```
 ===============================================================================
@@ -751,13 +801,33 @@ Before each delegation, resolve which skills the subagent should explicitly invo
 
 ---
 
-## File Conflict Detection
+## Concurrency and File Conflict Detection
 
-Before parallel execution:
+**There is no fixed concurrency limit. The task graph decides.** A hardcoded cap was a
+heuristic from when subagents could not nest and the platform allowed very few at once; it
+throttled work the dependency graph had already proven safe to run together.
 
-1. **Infer file touches:** Explicit `Files:` in task, keyword patterns, domain inference
-2. **Detect conflicts:** Same file = sequential; disjoint = parallel
-3. **Execute:** Max 2 concurrent tasks; pause conflicting task if detected mid-execution
+Derive concurrency instead:
+
+1. **Infer file touches** — explicit `Files:` in the task, else keyword patterns and domain
+   inference. This is the input the graph needs; a TRD that declares file ownership per task
+   gives a far better answer than inference.
+2. **Build the eligible set** — every task that is `pending`, unowned, and whose `blockedBy`
+   list is fully resolved. The platform enforces this: a task with unresolved dependencies
+   cannot be claimed.
+3. **Partition by file ownership** — tasks touching disjoint file sets run concurrently;
+   tasks sharing a file run sequentially. Conflict, not a constant, is what serializes work.
+4. **Spawn the whole partition.** Let the platform's own ceiling be the backstop: 20
+   concurrent subagents by default (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`), and spawning
+   past it fails with `Concurrent subagent limit reached` rather than corrupting anything.
+
+**Count the whole tree, not the top layer.** Subagents may nest (see the nesting stance in
+`constitution.md`), and nested subagents occupy the same 20-slot pool. Six implementers that
+each dispatch two verifiers is eighteen slots, not six. When a phase's partition is wide
+enough that nesting could exhaust the pool, spawn in waves rather than all at once.
+
+If a conflict is detected mid-execution that the partition missed, pause the conflicting task
+rather than letting two agents write the same file.
 
 ---
 
@@ -788,7 +858,6 @@ If a dispatched subagent task has not returned within 30 minutes:
 ## Compatibility
 
 - Works with/without `.claude/rules/constitution.md`
-- Works with/without `.claude/router-rules.json`
 - Standard TRD task format supported
 - State files git-tracked for coordination
 - Local CLI and Claude Code web supported
@@ -824,7 +893,7 @@ guide the implementer toward the correct solution.
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 ---
 
@@ -957,7 +1026,7 @@ If the TRD contains a "Design References" or "UI Context" section, extract and i
 
 **Note:** Design file paths are project-specific and should be declared in the TRD, not hardcoded in this command.
 
-**Invoke:** `Task(subagent_type="{selected-implementer}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{selected-implementer}", prompt="[above]")`
 
 ---
 
@@ -1020,7 +1089,7 @@ If visual issues found:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 ---
 
@@ -1051,7 +1120,7 @@ Return:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="frontend-implementer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="frontend-implementer", prompt="[above]")`
 
 ---
 
@@ -1097,7 +1166,7 @@ Do NOT execute tests - return to VERIFY stage for that.
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="app-debugger", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="app-debugger", prompt="[above]")`
 
 ---
 
@@ -1141,7 +1210,7 @@ Deliverables (ALL required):
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-simplifier", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-simplifier", prompt="[above]")`
 
 ---
 
@@ -1189,7 +1258,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-reviewer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
 
 ---
 
@@ -1214,7 +1283,7 @@ Return:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{original_implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{original_implementer_type}", prompt="[above]")`
 
 ---
 
@@ -1236,3 +1305,119 @@ Each stage returns specific outputs consumed by the next stage:
 - Failed VERIFY -> DEBUG (not IMPLEMENT) for analysis
 - REJECTED review -> SAME implementer that did original work
 - Visual issues -> frontend-implementer with specific feedback
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+This command spans multiple turns. Emit these standard status lines so the user always knows the state:
+
+1. **DISPATCHED** — when a turn ends with subagents/teammates in flight or a wake scheduled:
+   ```
+   [STATUS: /implement-trd] DISPATCHED → <count> <kind> in flight: <names>
+      waiting on: <observable signal>
+      next wake: <ScheduleWakeup ETA | "teammate SendMessage auto-deliver">
+   ```
+
+2. **RESUMED** — at the START of each new turn after a wake or teammate message:
+   ```
+   [STATUS: /implement-trd] RESUMED → <reason>
+      completed since last turn: <summary | "none">
+   ```
+
+   **On every RESUMED turn, read the dispatch ledger before deciding anything:**
+
+   ```bash
+   node .claude/hooks/dispatch-ledger.js --open
+   ```
+
+   Do NOT reconstruct the in-flight set from memory. This command runs long enough to be
+   compacted mid-loop, and the dispatch list is exactly what a summary drops. The ledger is
+   written by hooks on `SubagentStart`/`SubagentStop`, so it is correct whether or not this
+   turn remembers anything.
+
+   Act on what it reports:
+   - **Nothing open** — every dispatched subagent finished. Fold their results into
+     `implement.json` and continue the loop.
+   - **Something open and progressing** — leave it alone and schedule the next wake.
+   - **Something open and suspiciously old** (running far longer than its stage's peers,
+     or flagged `[resumed after discipline block]`) — nudge it rather than killing it:
+     ```
+     SendMessage({to: "<agent_id>", message: "status check — what have you completed so far, and what is blocking you?"})
+     ```
+     The agent resumes with its full context. There is deliberately no timeout: a timeout
+     kills work that may be nearly done, and this framework does not use one here.
+
+   `--json` gives machine-readable output; `--session <id>` scopes to this session.
+   See `.claude/rules/async-discipline.md` § "Orchestration pattern: the scheduled nudge".
+
+3. **PHASE N/M COMPLETE** — at each phase boundary (progress marker, NOT completion):
+   ```
+   [STATUS: /implement-trd] PHASE <N>/<M> COMPLETE → <summary>
+   ```
+
+4. **COMMAND COMPLETE** — as the LAST line of the FINAL turn (only when the whole command is truly done; never at phase boundaries):
+   ```
+   ═══ COMMAND COMPLETE: /implement-trd ═══
+   <one-line summary>
+   ```
+
+5. **PushNotification ON FINAL TURN ONLY** — this is a long-running command; the user has likely walked away. In the same final turn that emits COMMAND COMPLETE, also call:
+   ```javascript
+   PushNotification({
+     status: "proactive",
+     message: "implement-trd done: <one-line summary, under 200 chars, leads with what they'd act on>"
+   })
+   ```
+   On `COMMAND STUCK`, send a `PushNotification` whose message states the Reason + Next action (the user needs to come back to unblock). Do NOT send notifications on intermediate Stops, DISPATCHED turns, RESUMED turns, or PHASE boundaries — only the truly-final turn. If the push tool reports "not sent," that's expected; do not retry.
+
+6. **PROGRAMMATIC NOTIFY ON FINAL TURN ONLY** — for orchestration / webhooks / queues / shell pipelines, invoke the user's `NOTIFY_ON_COMPLETE` shell command via Bash on the SAME final turn:
+   ```bash
+   .claude/hooks/notify-complete.sh "implement-trd" "complete" "<one-line summary>"
+   ```
+   For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"` and use the Reason as the summary. The bracket-guard means it's a no-op when the user hasn't configured it. Same single-fire timing as the PushNotification — only on the truly-final turn.
+
+Nothing after the COMMAND COMPLETE banner. On unrecoverable failure use `═══ COMMAND STUCK: /implement-trd ═══` with Reason + Next (and the PushNotification above).
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

@@ -509,19 +509,21 @@ describe('checkCompletionPromise', () => {
 });
 
 // =============================================================================
-// stop_hook_active Safety Tests
+// Autonomous Loop Continuation Tests
+// (Guards against the original "every-other-Stop allows exit" bug: the loop must
+//  keep blocking while work remains and the iteration cap is not reached.)
 // =============================================================================
 
-describe('stop_hook_active safety', () => {
-  it('should allow exit when stop_hook_active is true (prevents infinite loop)', async () => {
+describe('autonomous loop continuation', () => {
+  it('should block (re-inject) while tasks are incomplete and under the iteration cap', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
     const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {});
 
     mockFs(createMockProject({
       hasTrdState: true,
       wiggumState: {
-        iteration_count: 1,
-        stop_hook_active: true,  // Safety flag is set
+        iteration_count: 3,
+        stop_hook_active: false,
         last_prompt: null,
         started_at: '2024-01-01T00:00:00.000Z'
       },
@@ -534,23 +536,52 @@ describe('stop_hook_active safety', () => {
 
     await main({ cwd: '/home/user/project' });
 
-    // Should allow exit (not block)
     const output = JSON.parse(consoleSpy.mock.calls[0][0]);
-    expect(output.decision).toBeUndefined();
     expect(output.continue).toBe(true);
+    expect(output.decision).toBe('block');
+    expect(output.reason).toContain('WIGGUM');
 
     consoleSpy.mockRestore();
     exitSpy.mockRestore();
   });
 
-  it('should set stop_hook_active to true when blocking exit', async () => {
+  it('should NOT force exit based on a persisted stop_hook_active flag (regression for the every-other-Stop bug)', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
     const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {});
 
     mockFs(createMockProject({
       hasTrdState: true,
       wiggumState: {
-        iteration_count: 0,
+        iteration_count: 2,
+        stop_hook_active: true,  // Previously this forced an exit — it must NOT now
+        last_prompt: null,
+        started_at: '2024-01-01T00:00:00.000Z'
+      },
+      implementJson: {
+        tasks: { 'T001': { status: 'pending' } }  // still incomplete
+      }
+    }));
+
+    process.env.WIGGUM_ACTIVE = '1';
+
+    await main({ cwd: '/home/user/project' });
+
+    // Must keep blocking — incomplete work is not abandoned just because the prior turn blocked
+    const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+    expect(output.decision).toBe('block');
+
+    consoleSpy.mockRestore();
+    exitSpy.mockRestore();
+  });
+
+  it('should not force exit on Claude Code hookData.stop_hook_active while work remains', async () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {});
+
+    mockFs(createMockProject({
+      hasTrdState: true,
+      wiggumState: {
+        iteration_count: 1,
         stop_hook_active: false,
         last_prompt: null,
         started_at: null
@@ -562,40 +593,11 @@ describe('stop_hook_active safety', () => {
 
     process.env.WIGGUM_ACTIVE = '1';
 
-    await main({ cwd: '/home/user/project' });
+    // Claude Code signals it's already continuing from a prior stop hook
+    await main({ cwd: '/home/user/project', stop_hook_active: true });
 
-    // Verify state was updated
-    const updatedState = readWiggumState('/home/user/project');
-    expect(updatedState.stop_hook_active).toBe(true);
-
-    consoleSpy.mockRestore();
-    exitSpy.mockRestore();
-  });
-
-  it('should clear stop_hook_active when allowing exit', async () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {});
-
-    mockFs(createMockProject({
-      hasTrdState: true,
-      wiggumState: {
-        iteration_count: 5,
-        stop_hook_active: true,
-        last_prompt: null,
-        started_at: '2024-01-01T00:00:00.000Z'
-      },
-      implementJson: {
-        tasks: { 'T001': { status: 'pending' } }
-      }
-    }));
-
-    process.env.WIGGUM_ACTIVE = '1';
-
-    await main({ cwd: '/home/user/project' });
-
-    // Should clear the flag
-    const updatedState = readWiggumState('/home/user/project');
-    expect(updatedState.stop_hook_active).toBe(false);
+    const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+    expect(output.decision).toBe('block');
 
     consoleSpy.mockRestore();
     exitSpy.mockRestore();

@@ -1,0 +1,1 @@
+../../../core/hooks/prompts/autonomy-discipline.prompt.md

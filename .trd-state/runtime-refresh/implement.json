@@ -1,0 +1,348 @@
+{
+  "version": "1.0.0",
+  "trd_file": "docs/TRD/runtime-refresh.md",
+  "trd_version": "1.0.0",
+  "branch": "feature/cc-modernization",
+  "phase_cursor": 4,
+  "phase_structure": {
+    "1": {
+      "name": "Curation and versioning",
+      "tasks": "P001-P004, B004-B006, D001-D002"
+    },
+    "2": {
+      "name": "Manifest and delivery",
+      "tasks": "P005-P007, B001-B003, T007-T008"
+    },
+    "3": {
+      "name": "Refresh mechanism",
+      "tasks": "B007-B015, T001-T006"
+    },
+    "4": {
+      "name": "Documentation",
+      "tasks": "D003"
+    }
+  },
+  "prework": {
+    "section_7_load_order": {
+      "status": "resolved",
+      "result": "next-session",
+      "detail": "Claude Code loads .claude/ before SessionStart hooks. RUNTIME-B014 must keep the next-session caveat."
+    },
+    "appendix_b_agents": {
+      "status": "resolved",
+      "result": "Agents (0) is accurate; plugin agent registration is non-functional",
+      "detail": "Fresh session outside the repo reports NONE. Directory form ('agents': './agents') invalidates the manifest entirely."
+    },
+    "skills_preload_behaviour": {
+      "status": "resolved",
+      "result": "missing skill = silent no-op; real skill = genuine preload",
+      "detail": "Nonexistent skill in agent frontmatter does not fail the spawn and emits no warning. A declared skill that exists IS preloaded into agent context (marker token present with zero tool uses). Hence 4.0.0 needed no hotfix, and the removal needed a regression test. Also measured: Agent({team_name}) teammates do NOT receive frontmatter preloads, which is why injection writes a managed body block as well."
+    }
+  },
+  "tasks": {
+    "RUNTIME-P001": {
+      "status": "success",
+      "phase": 1,
+      "description": "Remove skills registration from plugin.json"
+    },
+    "RUNTIME-P002": {
+      "status": "success",
+      "phase": 1,
+      "description": "Remove packages/full/skills symlink; retain skills-lib"
+    },
+    "RUNTIME-P003": {
+      "status": "success",
+      "phase": 1,
+      "description": "copy_skills reads skills-lib with legacy skills/ fallback"
+    },
+    "RUNTIME-P004": {
+      "status": "success",
+      "phase": 1,
+      "description": "Verified: Skills (2), always-on ~95 tok (was ~12,366)"
+    },
+    "RUNTIME-B004": {
+      "status": "success",
+      "phase": 1,
+      "description": "Stamp ensemble.version/refreshed_at on scaffold"
+    },
+    "RUNTIME-B005": {
+      "status": "success",
+      "phase": 1,
+      "description": "Reconciled all manifests at 3.3.12"
+    },
+    "RUNTIME-B006": {
+      "status": "success",
+      "phase": 1,
+      "description": "check-version-sync.sh + npm script + GitHub Actions CI"
+    },
+    "RUNTIME-D001": {
+      "status": "success",
+      "phase": 1,
+      "description": "Corrected constitution.md governance table"
+    },
+    "RUNTIME-D002": {
+      "status": "success",
+      "phase": 1,
+      "description": "Vendored augment-trd-figma.md"
+    },
+    "RUNTIME-P005": {
+      "status": "success",
+      "phase": 2,
+      "description": "Author hooks.manifest.json",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:43:02Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T04:45:56Z"
+    },
+    "RUNTIME-P006": {
+      "status": "success",
+      "phase": 2,
+      "description": "Add 5 missing hook symlinks",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:43:02Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T04:45:56Z"
+    },
+    "RUNTIME-P007": {
+      "status": "success",
+      "phase": 2,
+      "description": "Confirm plugin hooks.json stays empty",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:43:02Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T04:45:56Z"
+    },
+    "RUNTIME-B001": {
+      "status": "success",
+      "phase": 2,
+      "description": "Manifest-drive the scaffold copy list",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:45:56Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:20:47Z"
+    },
+    "RUNTIME-B002": {
+      "status": "success",
+      "phase": 2,
+      "description": "Generate template settings hook block",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:45:56Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:20:47Z"
+    },
+    "RUNTIME-B003": {
+      "status": "success",
+      "phase": 2,
+      "description": "Generate init-project hook table",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T04:45:56Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:20:47Z"
+    },
+    "RUNTIME-T007": {
+      "status": "success",
+      "phase": 2,
+      "description": "Test manifest consumers",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T05:20:47Z"
+    },
+    "RUNTIME-T008": {
+      "status": "success",
+      "phase": 2,
+      "description": "End-to-end scaffold hook parity",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T05:20:47Z"
+    },
+    "RUNTIME-B007": {
+      "status": "success",
+      "phase": 3,
+      "description": "Implement --refresh flag",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
+    },
+    "RUNTIME-B008": {
+      "status": "success",
+      "phase": 3,
+      "description": "Present-only filter",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
+    },
+    "RUNTIME-B009": {
+      "status": "success",
+      "phase": 3,
+      "description": "Protect authored rules",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
+    },
+    "RUNTIME-B010": {
+      "status": "success",
+      "phase": 3,
+      "description": "Emit REFRESH_SUMMARY tally",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:21:52Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T05:29:43Z"
+    },
+    "RUNTIME-B011": {
+      "status": "success",
+      "phase": 3,
+      "description": "Create runtime-refresh.sh",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-B012": {
+      "status": "success",
+      "phase": 3,
+      "description": "Plugin discovery",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-B013": {
+      "status": "success",
+      "phase": 3,
+      "description": "Four guards",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-B014": {
+      "status": "success",
+      "phase": 3,
+      "description": "Summary emission (MUST keep next-session caveat)",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-B015": {
+      "status": "success",
+      "phase": 3,
+      "description": "Register the hook",
+      "cycle_position": "complete",
+      "started_at": "2026-08-12T05:29:43Z",
+      "implementer_type": "backend-implementer",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-T001": {
+      "status": "success",
+      "phase": 3,
+      "description": "Extend scaffold BATS with --refresh",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-T002": {
+      "status": "success",
+      "phase": 3,
+      "description": "Test present-only semantics",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-T003": {
+      "status": "success",
+      "phase": 3,
+      "description": "Test authored-rule protection",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-T004": {
+      "status": "success",
+      "phase": 3,
+      "description": "Create runtime-refresh.test.sh",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-T005": {
+      "status": "success",
+      "phase": 3,
+      "description": "Test all four guards",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-T006": {
+      "status": "success",
+      "phase": 3,
+      "description": "Test monotonic gate",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:03:36Z"
+    },
+    "RUNTIME-D003": {
+      "status": "success",
+      "phase": 4,
+      "description": "Document refresh model in ARCHITECTURE.md",
+      "cycle_position": "complete",
+      "completed_at": "2026-08-12T06:51:20Z"
+    },
+    "RUNTIME-T009": {
+      "status": "success",
+      "phase": 1,
+      "description": "Remove skills: preload from all 13 shipped agents + regression test"
+    },
+    "RUNTIME-T010": {
+      "status": "success",
+      "phase": 1,
+      "description": "Verify all 13 agents spawn after skills: removal"
+    },
+    "RUNTIME-D004": {
+      "status": "success",
+      "phase": 1,
+      "description": "Deterministic per-project skill preloads: affinity manifest + scaffold injection (frontmatter preload for subagents, body block for teammates)"
+    },
+    "PLAN-5a": {
+      "status": "success",
+      "phase": 1,
+      "description": "Improvement-plan item 5a: retire permitter, learning.sh, save-remote-logs.js (pulled forward ahead of P005)"
+    }
+  },
+  "strategy": "test-after",
+  "strategy_rationale": "TRD task graph orders implementation before tests (T007 blockedBy B003, T008 blockedBy B002/P006). Phase-checkpoint gate is BLOCK per TRD \u00a76, not test-after's default WARN.",
+  "checkpoints": [
+    {
+      "phase": 2,
+      "timestamp": "2026-08-12T05:20:47Z",
+      "tasks_completed": [
+        "RUNTIME-P005",
+        "RUNTIME-P006",
+        "RUNTIME-P007",
+        "RUNTIME-B001",
+        "RUNTIME-B002",
+        "RUNTIME-B003",
+        "RUNTIME-T007",
+        "RUNTIME-T008"
+      ],
+      "note": "Manifest is single source; scaffolded project now registers the same hook set this repo runs. Review REJECTED once (shipped plugin-only/init-project.md was an ungenerated 4th consumer still documenting the retired permitter) \u2014 fixed via symlinks + regression test."
+    },
+    {
+      "phase": 3,
+      "timestamp": "2026-08-12T06:03:36Z",
+      "tasks_completed": [
+        "RUNTIME-B007",
+        "RUNTIME-B008",
+        "RUNTIME-B009",
+        "RUNTIME-B010",
+        "RUNTIME-B011",
+        "RUNTIME-B012",
+        "RUNTIME-B013",
+        "RUNTIME-B014",
+        "RUNTIME-B015",
+        "RUNTIME-T001",
+        "RUNTIME-T002",
+        "RUNTIME-T003",
+        "RUNTIME-T004",
+        "RUNTIME-T005",
+        "RUNTIME-T006"
+      ],
+      "note": "Refresh mechanism complete. Review APPROVED_WITH_RECOMMENDATIONS; F1 (self-repo guard tested equality not ancestry \u2014 would have rewritten ~1482 tracked eval-fixture files) fixed and regression-tested. F2/F3/F4 also fixed."
+    }
+  ]
+}

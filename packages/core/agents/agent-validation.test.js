@@ -3,7 +3,7 @@
  *
  * TRD Tasks: TRD-TEST-086 to TRD-TEST-092
  *
- * Tests to validate agent frontmatter in .md files for the 12 streamlined subagents.
+ * Tests to validate agent frontmatter in .md files for the 13 streamlined subagents.
  *
  * Run tests with: npx jest agent-validation.test.js
  *
@@ -43,7 +43,7 @@ try {
 const AGENTS_DIR = path.join(__dirname, '../../full/agents');
 
 /**
- * Required 12 agents as per TRD constitution and CLAUDE.md
+ * Required 13 agents as per TRD constitution and CLAUDE.md
  */
 const REQUIRED_AGENTS = [
   'product-manager',
@@ -52,6 +52,7 @@ const REQUIRED_AGENTS = [
   'frontend-implementer',
   'backend-implementer',
   'mobile-implementer',
+  'agent-implementer',
   'verify-app',
   'code-simplifier',
   'code-reviewer',
@@ -188,11 +189,11 @@ function readAgentFile(agentName) {
 }
 
 // =============================================================================
-// TRD-TEST-087: All 12 agent files exist
+// TRD-TEST-087: All 13 agent files exist
 // =============================================================================
 
-describe('TRD-TEST-087: All 12 agent files exist', () => {
-  it('should have all 12 required agent files', () => {
+describe('TRD-TEST-087: All 13 agent files exist', () => {
+  it('should have all 13 required agent files', () => {
     const missingAgents = [];
 
     for (const agentName of REQUIRED_AGENTS) {
@@ -385,6 +386,127 @@ describe('TRD-TEST-091: Skills field format (if present)', () => {
       });
     });
   }
+});
+
+// =============================================================================
+// RUNTIME-T009: No shipped agent declares a skills: preload
+// =============================================================================
+
+/**
+ * Shipped agents must NOT declare a `skills:` frontmatter preload.
+ *
+ * Agents ship in the plugin; skills are curated PER PROJECT by /init-project
+ * (which writes .claude/selected-skills.txt and copies only those into
+ * .claude/skills/). A hardcoded skills: list in a shipped agent therefore
+ * cannot be correct across projects — it names skills that a given project
+ * never selected.
+ *
+ * This became load-bearing in 4.0.0. Before it, plugin.json declared
+ * "skills": "./skills", which registered the whole 61-skill library globally,
+ * so every hardcoded name happened to resolve. RUNTIME-P001 removed that
+ * registration (12,366 -> 95 tok always-on) and the preloads silently stopped
+ * resolving. Verified behaviour: a nonexistent skill in this field does NOT
+ * fail the spawn and emits NO warning — the entry is silently dropped. That
+ * silence is exactly why this needs a test rather than trusting a runtime error.
+ *
+ * Agents keep full access to every installed skill via the Skill tool. Only the
+ * startup preload is given up, and that preload was never sound across projects.
+ *
+ * If per-agent preloads are wanted again, they must be INJECTED at scaffold time
+ * from the project's own selected-skills.txt — not hardcoded in the shipped
+ * source. That is tracked as a Phase 2 follow-up in docs/TRD/runtime-refresh.md.
+ */
+describe('RUNTIME-T009: No shipped agent declares a skills: preload', () => {
+  const existingAgents = REQUIRED_AGENTS.filter(name =>
+    fs.existsSync(path.join(AGENTS_DIR, `${name}.md`))
+  );
+
+  if (existingAgents.length === 0) {
+    it.skip('No agent files exist yet - skipping', () => {});
+  } else {
+    describe.each(existingAgents)('Agent: %s', (agentName) => {
+      it('should NOT declare a skills: field (per-project curation)', () => {
+        const agent = readAgentFile(agentName);
+        expect(agent).not.toBeNull();
+        expect(agent.frontmatter).not.toBeNull();
+        expect(Object.prototype.hasOwnProperty.call(agent.frontmatter, 'skills')).toBe(false);
+      });
+    });
+
+    it('no agent file contains a top-level skills: key in its frontmatter', () => {
+      const offenders = [];
+      for (const agentName of existingAgents) {
+        const raw = fs.readFileSync(path.join(AGENTS_DIR, `${agentName}.md`), 'utf8');
+        const lines = raw.split('\n');
+        if (lines[0].trim() !== '---') continue;
+        const close = lines.findIndex((l, i) => i > 0 && l.trim() === '---');
+        if (close === -1) continue;
+        if (lines.slice(1, close).some(l => /^skills:/.test(l))) {
+          offenders.push(agentName);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  }
+});
+
+
+// =============================================================================
+// RUNTIME-ITEM3: execution-model invariants
+// =============================================================================
+
+/**
+ * Every shipped agent declares `background:` explicitly.
+ *
+ * Subagents run in the background BY DEFAULT (v2.1.198+), and a background
+ * subagent keeps every MCP tool but only a fixed list of built-ins — the task
+ * tools, AskUserQuestion and others are removed, "whether inherited or listed
+ * in the `tools` field", and "the removal reports no error."
+ *
+ * So the same definition resolves to different tools depending on where it
+ * runs, silently. An inherited default is therefore a latent trap: it is fine
+ * until someone adds a capability the filter strips, and then it fails with no
+ * signal. Declaring the value makes the choice deliberate and reviewable.
+ */
+describe('RUNTIME-ITEM3: every agent declares background explicitly', () => {
+  const existingAgents = REQUIRED_AGENTS.filter(name =>
+    fs.existsSync(path.join(AGENTS_DIR, `${name}.md`))
+  );
+
+  describe.each(existingAgents)('Agent: %s', (agentName) => {
+    it('declares a boolean background field', () => {
+      const agent = readAgentFile(agentName);
+      expect(agent).not.toBeNull();
+      expect(agent.frontmatter).not.toBeNull();
+      expect(Object.prototype.hasOwnProperty.call(agent.frontmatter, 'background')).toBe(true);
+      expect(['true', 'false', true, false]).toContain(agent.frontmatter.background);
+    });
+  });
+});
+
+/**
+ * Leaf agents may not spawn subagents.
+ *
+ * The constitution permits nesting to depth 3, but restricts it per agent: a
+ * nested subagent's intermediate output is *designed* not to reach the
+ * orchestrator, so a wrong conclusion several layers down arrives as a
+ * confident summary with its reasoning discarded. The agents whose judgment
+ * the implement loop depends on most are therefore the ones that must not be
+ * able to hide their work.
+ */
+describe('RUNTIME-ITEM3: leaf agents cannot spawn subagents', () => {
+  const LEAF_AGENTS = ['code-reviewer', 'code-simplifier', 'verify-app'];
+
+  describe.each(LEAF_AGENTS)('Leaf agent: %s', (agentName) => {
+    it('declares disallowedTools: Agent', () => {
+      const filePath = path.join(AGENTS_DIR, `${agentName}.md`);
+      if (!fs.existsSync(filePath)) return;
+      const agent = readAgentFile(agentName);
+      expect(agent.frontmatter).not.toBeNull();
+      const disallowed = String(agent.frontmatter.disallowedTools || '');
+      expect(disallowed).toMatch(/\bAgent\b/);
+    });
+  });
 });
 
 // =============================================================================

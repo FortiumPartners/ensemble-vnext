@@ -1,3 +1,10 @@
+---
+name: smoke-test-auth
+description: Smoke-test authentication/authorization — login (password/OAuth/SSO), JWT issue/validate/refresh, sessions, access control.
+when_to_use: Reach for this to validate the auth subsystem only (login works, tokens valid, RBAC enforced). For the full suite use smoke-test-runner; for general API endpoints use smoke-test-api; for full signup→checkout journeys use smoke-test-critical-paths. (This verifies a live auth system; for implementing Clerk auth use using-clerk.)
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Smoke Test Auth Skill
 
 **Quick Reference** - Load this first for fast context (~2KB)

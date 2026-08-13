@@ -1,6 +1,15 @@
 ---
 name: using-anthropic-platform
-description: Claude SDK development with Messages API, Tool Use, Extended Thinking, streaming, and prompt caching
+description: Call the Anthropic Claude API/SDK — Messages API, Tool Use, Extended Thinking, streaming, prompt caching.
+when_to_use: >
+  Reach for this when the code integrates Anthropic's Claude models/SDK. For OpenAI models use
+  using-openai-platform; for web-grounded search answers use using-perplexity-platform; for
+  multi-agent orchestration graphs use building-langgraph-agents. Provider-specific LLM SDK
+  skill. **ALWAYS WebFetch https://docs.claude.com/en/docs/about-claude/models/overview and
+  https://www.anthropic.com/pricing BEFORE recommending or invoking a model — never rely on
+  training-data knowledge of model names, context windows, prices, or capabilities; this
+  ecosystem moves faster than any training snapshot.**
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Anthropic Claude SDK - Quick Reference
@@ -14,6 +23,29 @@ Load this skill when:
 - User mentions "Anthropic", "Claude", or Claude models
 
 **For detailed patterns**: See [REFERENCE.md](./REFERENCE.md)
+
+---
+
+## Stay current — DO NOT rely on training-data knowledge of models, pricing, or capabilities
+
+The Anthropic model lineup moves faster than any training snapshot. **Before** you (a) recommend
+a model, (b) compare options, (c) cite a price / context window / output limit, or (d) invoke a
+capability (tool use shape, extended thinking, prompt caching tiers, vision, batches, files,
+citations, memory), you **MUST** WebFetch the live sources and cite them:
+
+- **Models, capabilities, context windows:** https://docs.claude.com/en/docs/about-claude/models/overview
+- **Pricing:** https://www.anthropic.com/pricing
+- **API changelog (new features, deprecations):** https://docs.claude.com/en/release-notes/api
+- **Model launches:** https://www.anthropic.com/news (search "Claude")
+
+In your deliverables, for every model name / price / capability you assert, **cite the source
+URL and the date you fetched it** (e.g. `Model: claude-opus-4-7 — verified at <url> on YYYY-MM-DD`).
+The "Claude Models" snapshot section below is point-in-time orientation only; **trust the fetch
+over the snapshot** and note any discrepancy.
+
+**Do not** reference retired model strings from memory (older `claude-3-x-*` variants, etc.)
+without confirming availability. **Do not** assume a newer model in the same family inherits
+older capabilities — capability matrices change between releases.
 
 ---
 
@@ -34,6 +66,9 @@ Load this skill when:
 ---
 
 ## Claude Models (January 2026)
+
+> ⚠️ **Snapshot — verify current.** This table is point-in-time. See "Stay current" above and
+> WebFetch the live Anthropic models page before relying on names, context windows, or pricing.
 
 | Model | Context | Max Output | Thinking | Best For |
 |-------|---------|------------|----------|----------|

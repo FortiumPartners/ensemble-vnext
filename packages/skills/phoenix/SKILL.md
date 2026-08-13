@@ -1,3 +1,14 @@
+---
+name: phoenix
+description: Build Phoenix/Elixir apps — APIs, LiveView, Ecto, Channels, OTP patterns, Oban jobs.
+when_to_use: Reach for this when the project is an Elixir Phoenix app (mix.exs with :phoenix, lib/*_web). This is the Elixir web-framework skill; for Phoenix/Elixir *tests* use exunit. For Ruby web apps use rails instead.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "mix.exs"
+  - "lib/**/*_web/**/*.ex"
+  - "lib/**/*.ex"
+---
+
 # Phoenix Framework Skill - Quick Reference
 
 **Version**: 1.0.0 | **Last Updated**: 2025-10-22 | **Agent**: backend-developer

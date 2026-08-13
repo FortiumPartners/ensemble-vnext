@@ -1,6 +1,8 @@
 ---
 name: styling-with-tailwind
-description: Provides utility-first CSS styling patterns using Tailwind CSS 3.x. Use when styling components with utility classes, configuring tailwind.config.js, implementing responsive designs, or creating dark mode themes.
+description: Style UI with Tailwind CSS 3.x utility classes — responsive variants, dark mode, tailwind.config.js setup.
+when_to_use: Reach for this for the mechanics of Tailwind styling (utility classes, config, responsive/dark-mode variants). For React component behavior use developing-with-react; for high-craft creative/visual design decisions use frontend-design; for matching a Figma comp pixel-for-pixel use figma-pixel-perfect. CSS-implementation skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Tailwind CSS 3.x Skill

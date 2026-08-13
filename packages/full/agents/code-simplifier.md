@@ -7,15 +7,12 @@ description: |
   - "Refactor deeply nested conditionals using early return pattern"
   - "Extract duplicated validation logic into shared utility functions"
 model: opus
+effort: medium
 color: cyan
-skills:
-  - developing-with-react
-  - developing-with-typescript
-  - developing-with-python
-  - developing-with-php
-  - developing-with-laravel
-  - developing-with-flutter
-  - developing-with-dotnet
+# background: Reads and refactors within a task's files; leaf node — must not spawn.
+background: true
+# Leaf node: may not spawn subagents (constitution nesting stance).
+disallowedTools: Agent
 ---
 
 ## Role
@@ -73,6 +70,12 @@ When invoked, you receive:
 | PHP | `developing-with-php` |
 | Laravel | `developing-with-laravel` |
 | Flutter/Dart | `developing-with-flutter` |
+| C#/.NET | `developing-with-dotnet` |
+| NestJS | `nestjs` |
+| Ruby on Rails | `rails` |
+| Elixir/Phoenix | `phoenix` |
+| Blazor UI | `blazor` |
+| Multi-task branch workflow | `git-town` |
 
 Report which skill(s) you used in your deliverables.
 

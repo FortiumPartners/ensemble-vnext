@@ -150,7 +150,7 @@ echo ""
 # ========================================
 echo "--- Governance Files ---"
 
-for file in ".claude/rules/constitution.md" ".claude/rules/stack.md" ".claude/rules/process.md"; do
+for file in ".claude/rules/constitution.md" ".claude/rules/stack.md" ".claude/rules/process.md" ".claude/rules/async-discipline.md"; do
     if [[ -f "$file" ]]; then
         pass "$file exists"
         # Check file is not empty
@@ -170,15 +170,14 @@ echo ""
 echo "--- Hook Files ---"
 
 REQUIRED_HOOKS=(
-    "permitter.js"
     "router.py"
     "status.js"
 )
 
 OPTIONAL_HOOKS=(
     "formatter.sh"
-    "learning.sh"
-    "save-remote-logs.js"
+    "notify.sh"
+    "wiggum.js"
 )
 
 for hook in "${REQUIRED_HOOKS[@]}"; do
@@ -241,7 +240,6 @@ validate_json() {
 }
 
 validate_json ".claude/settings.json"
-validate_json ".claude/router-rules.json"
 validate_json ".trd-state/current.json"
 
 echo ""

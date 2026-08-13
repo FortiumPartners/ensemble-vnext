@@ -3,6 +3,8 @@ name: init-project
 description: Initialize project with vendored ensemble runtime for AI-augmented development
 version: 1.0.0
 category: scaffolding
+argument-hint: "[--persona <name>]"
+disable-model-invocation: true
 ---
 
 > **Usage:** Invoke `/init-project` from the project root to scaffold AI-augmented development infrastructure.
@@ -10,17 +12,15 @@ category: scaffolding
 
 ---
 
-## CRITICAL: Steps 1-14 Must Be Completed (Steps 15-16 are Optional)
+## CRITICAL: Steps 1-14 Must Be Completed
 
 **DO NOT exit early. DO NOT skip steps. This command REQUIRES steps 1-14 to complete successfully.**
 
 The initialization is NOT complete until:
-- Step 9 (Deploy Configuration Files) creates `router-rules.json`
+- Step 9 (Deploy Configuration Files) creates `.claude/settings.json` and `.trd-state/current.json`
 - Step 12 (Update CLAUDE.md) updates placeholders with project information
 - Step 13 (Validation) confirms ALL required files exist
 - Step 14 (Completion Report) outputs the summary
-
-Steps 15-16 are optional enhancements that improve routing but are not required for a functional installation.
 
 **Common failure point:** Exiting after Step 8 (Deploy Hooks) leaves the project in an incomplete state without CLAUDE.md updated. YOU MUST CONTINUE through Steps 9-14.
 
@@ -66,10 +66,9 @@ skills: [skill1, skill2]  # optional: pre-select skills
 - Generate governance files: constitution.md, stack.md, process.md
 - Copy and customize 12 subagents for project-specific needs
 - Select and copy relevant skills from plugin library
-- Configure hooks (permitter, router, formatter, status, learning)
+- Configure hooks (router, formatter, status, discipline, session-context, precompact)
 - Set up `.trd-state/` directory with current.json
 - Configure `.gitignore` for proper tracking
-- Run `generate-project-router-rules` for project-specific routing
 
 ---
 
@@ -79,10 +78,27 @@ skills: [skill1, skill2]  # optional: pre-select skills
 
 **Check for existing installation:**
 
-1. If `.claude/` directory exists:
-   - Detect existing ensemble installation
-   - Present user with migration options (see Migration Prompt Flow section)
-   - If user cancels, abort initialization
+1. **Detect existing ENSEMBLE installation.** A bare `.claude/` directory is NOT enough —
+   many tools (Claude Code itself, other plugins) create one. Require at least one of these
+   **ensemble fingerprints**:
+
+   - `.trd-state/` directory exists (ensemble state dir), OR
+   - `.claude/rules/constitution.md` exists (our governance file), OR
+   - `.claude/settings.json` contains a top-level `"ensemble"` key (our config block), OR
+   - `.claude/agents/` contains any of our specialist filenames:
+     `technical-architect.md`, `spec-planner.md`, `agent-implementer.md`,
+     `product-manager.md`, `verify-app.md`.
+
+   **If a fingerprint is found → existing ensemble installation.**
+   Present the migration options (see "Migration Prompt Flow" section). If user cancels,
+   abort initialization.
+
+   **If `.claude/` exists but NO fingerprint → greenfield-with-existing-`.claude/`.**
+   Do NOT show the migration prompt; do NOT treat as an upgrade. Proceed with normal
+   initialization and PRESERVE the user's existing `.claude/` contents — only ADD ensemble
+   files (agents, rules, hooks, settings.json's `ensemble` block); never overwrite something
+   we didn't create. If a conflict arises (e.g. user already has `.claude/settings.json` with
+   different content), merge the `ensemble` block in rather than replacing the file.
 
 2. If `docs/standards/constitution.md` exists (legacy location):
    - Inform user of legacy installation
@@ -301,19 +317,18 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - All `.claude/` subdirectories (agents, rules, skills, commands, hooks)
 - All `docs/` subdirectories (PRD, TRD, standards)
 - `.trd-state/` directory
-- Template files: `CLAUDE.md`, `.claude/router-rules.json`, `.claude/settings.json`, `.trd-state/current.json`
+- Template files: `CLAUDE.md`, `.claude/settings.json`, `.trd-state/current.json`
 - **12 agent files** copied to `.claude/agents/`
 - **8 command files** copied to `.claude/commands/`
-- **All hooks** copied to `.claude/hooks/` (including permitter with lib dependencies)
+- **All hooks** copied to `.claude/hooks/` (including the shared `lib/` helpers)
 
 **Verify all directories and these files exist before proceeding:**
 - `CLAUDE.md`
-- `.claude/router-rules.json`
 - `.claude/settings.json`
 - `.trd-state/current.json`
 - `.claude/agents/*.md` (12 files)
 - `.claude/commands/*.md` (8 files)
-- `.claude/hooks/` (permitter/, router.py, formatter.sh, status.js, wiggum.js, learning.sh)
+- `.claude/hooks/` (router.py, formatter.sh, status.js, wiggum.js, notify.sh, async-discipline.js, autonomy-discipline.js, session-context.js, precompact.js, lib/)
 
 ### Step 4: Generate Governance Files
 
@@ -350,13 +365,29 @@ Copy and customize the template from `@packages/core/templates/process.md.templa
 
 Fill in coverage placeholders from user selections.
 
+#### 4.4 Framework-shipped rules (copied by scaffold, verify here)
+
+The scaffold script (`scaffold-project.sh`) copies every `.md` file in
+`@packages/core/templates/claude-directory/rules/` into the project's `.claude/rules/`
+(skipping any that already exist). These are **framework-shipped** rules — they encode
+behavioral guarantees enforced by hooks and are distinct from the user-owned governance
+files generated above. Currently:
+
+- `async-discipline.md` — paired with the `async-discipline.js` Stop hook; documents
+  the four async primitives (`run_in_background`, `ScheduleWakeup`, `Monitor`, `/goal`)
+  and the regex/bypass behavior of the guard.
+
+Verify each framework rule landed under `.claude/rules/`. If `async-discipline.md` is
+missing, copy it manually from the template path above — the Stop hook will block
+fire-and-forget claims without a paired explanation otherwise.
+
 </governance-files>
 
 ### Step 5: Deploy Subagents
 
 <subagent-deployment>
 
-**Copy and Customize All 12 Subagents**
+**Copy and Customize All 13 Subagents**
 
 For each agent in `@packages/full/agents/`:
 
@@ -381,6 +412,7 @@ For each agent in `@packages/full/agents/`:
 10. `app-debugger.md` - Debug failures
 11. `devops-engineer.md` - Infrastructure
 12. `cicd-specialist.md` - Pipeline configuration
+13. `agent-implementer.md` - AI/agent behavior, prompts, RAG, evals
 
 **Customization Guidelines:**
 
@@ -392,10 +424,17 @@ For each agent in `@packages/full/agents/`:
 **CRITICAL - Frontmatter Format Requirements:**
 
 - **Never add a `tools:` line** - agents have all tools enabled by default
-- **`skills:` must be a YAML array** - one skill per line
-  - Correct: `skills:\n  - pytest\n  - jest\n  - developing-with-python`
-  - Wrong: `skills: pytest, jest, developing-with-python`
-- Preserve the existing frontmatter structure (name, description, model, color, skills)
+- **Never hand-author a `skills:` line.** Skill preloads are generated by
+  `scaffold-project.sh` (Step 6), which intersects each agent's candidate pool in
+  `packages/core/agents/skill-affinity.json` with this project's
+  `.claude/selected-skills.txt`. Writing the field yourself produces a preload naming
+  skills the project may not have selected — the exact defect that shipped in 4.0.0.
+  Shipped agents in `packages/full/agents/` deliberately carry no `skills:` field.
+- **Never edit inside the `<!-- ENSEMBLE:SKILLS:BEGIN -->` / `<!-- ENSEMBLE:SKILLS:END -->`
+  markers.** That block is regenerated on every scaffold and rebase; edits are
+  overwritten. It exists because teammates spawned via `Agent({subagent_type, name, ...})`
+  do not receive frontmatter preloads and need the guidance as body prose.
+- Preserve the existing frontmatter structure (name, description, model, color)
 
 </subagent-deployment>
 
@@ -513,13 +552,26 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 
 **Hooks were copied by scaffold script in Step 3. Verify they exist:**
 
-Check these hooks in `.claude/hooks/`:
-1. **Permitter Hook** - `.claude/hooks/permitter/permitter.js` and `lib/` directory
-2. **Router Hook** - `.claude/hooks/router.py`
-3. **Formatter Hook** - `.claude/hooks/formatter.sh`
-4. **Status Hook** - `.claude/hooks/status.js`
-5. **Wiggum Hook** - `.claude/hooks/wiggum.js`
-6. **Learning Hook** - `.claude/hooks/learning.sh`
+<!-- ENSEMBLE:HOOKS-TABLE:BEGIN — generated by packages/core/scripts/generate-hooks-artifacts.sh; edits are overwritten -->
+
+Check these hooks in `.claude/hooks/` (12 files, 13 event registrations):
+1. **Router Hook** (`UserPromptSubmit`) — `.claude/hooks/router.py` (static framework-leverage reminder injected on every user prompt)
+2. **Formatter Hook** (`PostToolUse`) — `.claude/hooks/formatter.sh` (auto-formats files touched by Edit/Write/MultiEdit using project-detected formatters)
+3. **Dispatch-Ledger Hook** (`SubagentStart`) — `.claude/hooks/dispatch-ledger.js` (records subagent dispatch to an append-only ledger at `.trd-state/<feature>/dispatch.jsonl` so an orchestrator can enumerate in-flight agents after compaction; also runnable as `--open` to report the still-running set)
+4. **Status Hook** (`SubagentStop`) — `.claude/hooks/status.js` (active state machine: advances cycle_position in `implement.json` as subagents complete)
+5. **Subagent-Discipline Hook** (`SubagentStop`) — `.claude/hooks/subagent-discipline.js` (model-judged: blocks a subagent's fire-and-forget / deferred-work claims (ScheduleWakeup is unavailable to subagents, so such claims are false by construction); the prompt's own stop_hook_active check is the loop guard (pairs with `.claude/rules/async-discipline.md`))
+6. **Dispatch-Ledger Hook** (`SubagentStop`) — `.claude/hooks/dispatch-ledger.js` (records subagent completion to the dispatch ledger; runs after subagent-discipline.js, which appends a compensating 'blocked' row when it blocks a stop (a blocked subagent has not actually stopped))
+7. **Async-Discipline Hook** (`Stop`) — `.claude/hooks/async-discipline.js` (model-judged: blocks fire-and-forget async claims made without real async machinery in flight (pairs with `.claude/rules/async-discipline.md`))
+8. **Autonomy-Discipline Hook** (`Stop`) — `.claude/hooks/autonomy-discipline.js` (model-judged: blocks hedged mid-loop pause offers that violate autonomous-execution discipline (pairs with `.claude/rules/autonomy.md`))
+9. **Wiggum Hook** (`Stop`) — `.claude/hooks/wiggum.js` (autonomous loop intercept/continuation, capped at 50 iterations)
+10. **Notify Hook** (`Stop`) — `.claude/hooks/notify.sh` (optional outbound notification (`NOTIFY_ON_STOP`) fired every time a session stops)
+11. **Session-Context Hook** (`SessionStart`) — `.claude/hooks/session-context.js` (auto-loads in-flight TRD/PRD state from `.trd-state/current.json` into session context)
+12. **Runtime-Refresh Hook** (`SessionStart`) — `.claude/hooks/runtime-refresh.sh` (refreshes vendored `.claude/` components already present from a newer installed plugin (present-only, monotonic version gate); see `docs/TRD/runtime-refresh.md`)
+13. **PreCompact Hook** (`PreCompact`) — `.claude/hooks/precompact.js` (archives a decision-trail checkpoint to `.trd-state/<feature>/session-log.md` before context compaction)
+
+Plus `.claude/hooks/notify-complete.sh` (not event-registered — invoked directly by commands (not by an event) on their COMMAND COMPLETE turn to fire `NOTIFY_ON_COMPLETE` exactly once; see `.claude/rules/command-status.md` Path B) and `.claude/hooks/lib/` (shared helpers).
+
+<!-- ENSEMBLE:HOOKS-TABLE:END -->
 
 If any are missing, re-run the scaffold (use `--force` to overwrite existing files):
 ```bash
@@ -540,11 +592,25 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 
 **Deploy settings.json:**
 
-Copy `@packages/core/templates/claude-directory/settings.json` to `.claude/settings.json`
+Step 3's scaffold already created `.claude/settings.json` from this template AND stamped
+`ensemble.version` / `ensemble.refreshed_at` into it. **Do NOT copy the template over it
+again** — the raw template has no version stamp, so re-copying silently wipes the field that
+`/rebase-project`'s version detection and the runtime-refresh gate both read, leaving the
+project permanently at "unknown → full sync".
 
-**Deploy router-rules.json:**
+Only act if the file is missing (it should not be):
 
-Copy `@packages/core/templates/claude-directory/router-rules.json` to `.claude/router-rules.json`
+```bash
+[ -f .claude/settings.json ] || cp "${PLUGIN_DIR}/templates/claude-directory/settings.json" .claude/settings.json
+```
+
+Verify the stamp survived before continuing:
+
+```bash
+jq -e '.ensemble.version' .claude/settings.json >/dev/null \
+  && echo "settings.json OK — ensemble.version present" \
+  || echo "WARNING: ensemble.version missing; re-run Step 3's scaffold"
+```
 
 **Initialize current.json:**
 
@@ -556,30 +622,49 @@ Copy `@packages/core/templates/trd-state/current.json.template` to `.trd-state/c
 
 <formatter-installation>
 
-**Based on detected tech stack, install missing formatters:**
+**Install the formatters you configure.** Writing `.prettierrc` and then telling the user to
+install prettier themselves leaves the project with config and no tool — and the `formatter.sh`
+hook then falls through to `npx`, fetching the package on every edit forever. The user authorized
+this by running `/init-project`; do not ask again mid-run (see `.claude/rules/autonomy.md`).
 
-| Detected Language | Formatter | Install Command |
-|-------------------|-----------|-----------------|
-| JavaScript/TypeScript | Prettier | `npm install -D prettier` |
-| Python | Ruff | `pip install ruff` or `uv add --dev ruff` |
-| Go | goimports | `go install golang.org/x/tools/cmd/goimports@latest` |
-| Rust | rustfmt | (included with Rust) |
-| Shell | shfmt | `brew install shfmt` or `go install mvdan.cc/sh/v3/cmd/shfmt@latest` |
-| PHP | PHP-CS-Fixer | `composer require --dev friendsofphp/php-cs-fixer` |
-| Ruby | RuboCop | `gem install rubocop` |
-| Java | google-java-format | Manual download required |
-| C# | CSharpier | `dotnet tool install csharpier` |
-| Swift | swift-format | `brew install swift-format` |
-| Lua | StyLua | `cargo install stylua` |
+**The line: this command owns the PROJECT, not the machine.**
+
+- **Project-local dev dependencies — INSTALL them automatically.** They live in the project's own
+  manifest and lockfile, are scoped to this directory, and are trivially reversible.
+- **Global or system-level installs — DO NOT run them.** `brew`, `go install`, `cargo install`,
+  `gem install`, and `dotnet tool install -g` mutate the developer's machine outside this project.
+  Report the command and continue.
+
+| Detected language | Formatter | Scope | Action |
+|---|---|---|---|
+| JavaScript/TypeScript | Prettier | project | **Install**: `npm install -D prettier` (or the project's package manager — see below) |
+| Python | Ruff | project | **Install**: `uv add --dev ruff` when `uv.lock`/`pyproject.toml` present, else `pip install ruff` |
+| PHP | PHP-CS-Fixer | project | **Install**: `composer require --dev friendsofphp/php-cs-fixer` |
+| C# | CSharpier | project | **Install**: `dotnet tool install csharpier` (local manifest, not `-g`) |
+| Rust | rustfmt | bundled | Ships with Rust — verify only |
+| Go | goimports | system | Report `go install golang.org/x/tools/cmd/goimports@latest`; `gofmt` already ships with Go |
+| Shell | shfmt | system | Report `brew install shfmt` |
+| Ruby | RuboCop | system | Report `gem install rubocop` |
+| Swift | swift-format | system | Report `brew install swift-format` |
+| Lua | StyLua | system | Report `cargo install stylua` |
+| Java | google-java-format | manual | Report — manual download |
 
 **For each detected language:**
 
-1. Check if formatter is installed (run `which <formatter>`)
-2. If not installed, show install command and ask user to install
-3. Create or update formatter configuration files:
-   - `.prettierrc` for Prettier
-   - `ruff.toml` for Ruff
-   - etc.
+1. **Check first.** If the formatter already resolves (`command -v <formatter>`, or
+   `node_modules/.bin/<formatter>` for JS/TS), skip the install and say so.
+2. **Match the package manager.** For JS/TS use whatever the project already uses — `pnpm add -D`
+   if `pnpm-lock.yaml` exists, `yarn add -D` for `yarn.lock`, `npm install -D` for
+   `package-lock.json` or no lockfile. Installing with the wrong one creates a second lockfile and
+   a mess.
+3. **Install project-scoped formatters; report system-scoped ones.** Per the table above.
+4. **Never fail initialization over a formatter.** If an install fails — no network, no registry
+   access, a permissions problem — report it, note that `formatter.sh` will fall back to `npx`
+   where it can, and CONTINUE. A missing formatter is a papercut; a failed init is not.
+5. **Write the config file regardless**: `.prettierrc`, `ruff.toml`, and so on. Config is useful
+   even when the tool arrives later.
+6. **Report what happened** in the Step 14 completion summary: installed, already present, or
+   reported-only with the command to run.
 
 </formatter-installation>
 
@@ -679,15 +764,14 @@ A good CLAUDE.md should let a future session:
 | `.claude/rules/constitution.md` | Step 4 | YES |
 | `.claude/rules/stack.md` | Step 4 | YES |
 | `.claude/rules/process.md` | Step 4 | YES |
+| `.claude/rules/async-discipline.md` | Step 3 (scaffold, framework rule) | YES |
 | `.claude/skills/` (1+ skill folders) | Step 6 | YES |
 | `.claude/commands/` (8 files) | Step 7 | YES |
-| `.claude/hooks/permitter.js` | Step 8 | YES |
 | `.claude/hooks/router.py` | Step 8 | YES |
 | `.claude/hooks/formatter.sh` | Step 8 | YES |
 | `.claude/hooks/status.js` | Step 8 | YES |
 | `.claude/hooks/learning.js` | Step 8 | YES |
 | `.claude/settings.json` | Step 3 (scaffold) | YES |
-| `.claude/router-rules.json` | Step 3 (scaffold) | YES |
 | `.trd-state/current.json` | Step 3 (scaffold) | YES |
 | `CLAUDE.md` | Step 3 (scaffold), Step 12 (update) | YES |
 
@@ -699,7 +783,7 @@ A good CLAUDE.md should let a future session:
    - Identify which step should have created it
    - **LOOP BACK and execute that step to create the missing file**
    - Repeat validation until ALL files exist
-3. Verify JSON files are valid (`.claude/settings.json`, `.claude/router-rules.json`, `.trd-state/current.json`)
+3. Verify JSON files are valid (`.claude/settings.json`, `.trd-state/current.json`)
 4. Verify hooks have execute permissions
 5. Verify `.gitignore` includes local settings patterns
 6. **IMPORTANT: Verify CLAUDE.md has been updated:**
@@ -724,6 +808,35 @@ A good CLAUDE.md should let a future session:
 
 ---
 
+### Step 13.5: Optional — tmux mitigations notice
+
+If the user is initializing this project on a machine where they run Claude Code in
+tmux (especially with multiple parallel sessions / Agent Teams), surface this one-time
+notice at the end of the completion report:
+
+```
+Optional — tmux mitigations available
+
+If you run multiple Claude Code sessions inside tmux and have ever seen them hang
+mid-work and "wake up" when you focus the pane, the framework ships a one-shot
+script that applies tested mitigations live (no session restart):
+
+  bash packages/core/scripts/ensemble-tmux-apply.sh
+
+It backs up your ~/.tmux.conf, appends an idempotent ENSEMBLE config block
+(focus-events, large history-limit, mouse, etc.), reloads tmux server config in
+place, installs ~/.local/bin/ensemble-claude-tmux-heartbeat.sh, and starts a
+heartbeat in a dedicated 'ensemble-heartbeat' tmux window. Reversible anytime.
+
+Full context: docs/operations/tmux-mitigations.md
+Known Claude Code bugs being worked around:
+  github.com/anthropics/claude-code/issues/57103
+  github.com/anthropics/claude-code/issues/34668
+```
+
+This is **optional and opt-in** — do not run the script automatically as part of init.
+The user explicitly chooses based on whether they use tmux this way.
+
 ### Step 14: Completion Report
 
 <completion-report>
@@ -741,7 +854,6 @@ Vendored Runtime Created:
     commands/     - 8 workflow commands
     hooks/        - 5 hook scripts
     settings.json - Permissions and hook configuration
-    router-rules.json - Project-specific routing
 
 Documentation:
   docs/PRD/     - Product Requirements Documents
@@ -776,69 +888,6 @@ Commands Available:
 ```
 
 </completion-report>
-
----
-
-**OPTIONAL ENHANCEMENTS: Steps 15-16 improve routing but are not required.**
-
----
-
-### Step 15: Generate Project Router Rules (Optional Enhancement)
-
-> **Note:** Steps 15-16 are optional enhancements. If the session ends here,
-> the project initialization is still complete and functional.
-
-<router-rules-generation>
-
-**After all critical setup is complete, run generate-project-router-rules:**
-
-Invoke `/generate-project-router-rules` to create project-specific routing patterns.
-
-This command analyzes the project structure and creates routing rules in `.claude/router-rules.json` that help the Router hook route prompts to appropriate commands, skills, and agents.
-
-</router-rules-generation>
-
-### Step 16: Keyword Mapping Report (Optional)
-
-> **Note:** This step is optional. If skipped, there is no impact on functionality.
-
-<keyword-mapping-report>
-
-**If router-rules.json was generated in Step 15, output a summary showing:**
-
-1. **Keywords that route to specific agents:**
-   - List keywords/patterns and their target agents
-   - Example: `"database"` → `backend-implementer`
-
-2. **Keywords that trigger specific skills:**
-   - List keywords/patterns and their target skills
-   - Example: `"railway deploy"` → `managing-railway`
-
-3. **Project-specific patterns detected:**
-   - Framework-specific routing (e.g., React components → `frontend-implementer`)
-   - Technology-specific triggers (e.g., Prisma → `using-prisma` skill)
-
-**Example Output Format:**
-
-```
-Keyword Mapping Summary:
-
-Agent Routing:
-  "api", "endpoint", "database" → backend-implementer
-  "component", "ui", "style" → frontend-implementer
-  "deploy", "ci", "pipeline" → cicd-specialist
-
-Skill Triggers:
-  "prisma", "schema" → using-prisma
-  "railway", "deploy" → managing-railway
-  "react", "component" → developing-with-react
-
-Project-Specific Patterns:
-  - Next.js detected: "page", "layout" → frontend-implementer
-  - PostgreSQL detected: "migration" → using-prisma skill
-```
-
-</keyword-mapping-report>
 
 ---
 
@@ -919,3 +968,67 @@ Options:
 ---
 
 *This command implements TRD tasks: TRD-C001 through TRD-C009*
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /init-project ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /init-project ═══` followed by `Reason:` and `Next:` lines.
+
+**Programmatic completion notify** — on the same final turn, invoke the user's `NOTIFY_ON_COMPLETE` shell command (if set) for webhook/queue/shell-pipeline integration:
+
+```bash
+.claude/hooks/notify-complete.sh "init-project" "complete" "<one-line summary>"
+```
+
+For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"`. The bracket-guard makes this a no-op when not configured.
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

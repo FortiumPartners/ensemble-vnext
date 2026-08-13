@@ -1,6 +1,7 @@
 ---
 name: verify-trd-team
 description: Live verification pass — confirms implemented TRD delivers promised functionality through API testing, UI testing, and service integration validation
+argument-hint: "[trd-path] [--promise \"<text>\"] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
 version: 1.0.0
 category: verification
 ---
@@ -21,7 +22,7 @@ category: verification
 > - `/verify-trd-team --promise "All CRUD endpoints return correct status codes and the dashboard renders with live data"` — custom promise
 > - `/verify-trd-team --resume` — continue interrupted verification
 
-This is the **live verification pass** that follows `/implement-trd-team` and optionally
+This is the **live verification pass** that follows `/implement-trd` and optionally
 `/harden-trd-team`. It does NOT check that unit tests pass — it verifies that the
 implementation delivers its promised functionality end-to-end.
 
@@ -30,11 +31,34 @@ Each run is tracked. After 3 runs without full satisfaction, it halts and requir
 human intervention.
 
 All team orchestration (spawning, monitoring, cleanup, phase checkpoints, error handling)
-follows `/implement-trd-team`. This command defines a different **stage cycle** and
-**delegation templates** purpose-built for live verification.
+is defined in **Step 4** below: teammates spawn directly via
+`Agent({subagent_type, name, prompt})` — a team forms automatically on the first spawn,
+with no setup step and no cleanup step. This command defines a different **stage cycle**
+and **delegation templates** purpose-built for live verification.
 
 **ULTRATHINK**: Read the TRD, PRD, and completion promise. Understand what "done" looks
 like from the user's perspective before spawning any teammates.
+
+---
+
+## Autonomous alternative: `/goal` + the `verify-goal` skill
+
+This command runs an **externally-managed** loop (re-run up to 3×, parallel teammates). For
+a **single-session, self-driving** loop, use the `verify-goal` skill under `/goal` instead —
+`/goal` keeps the session working turn-after-turn until the verify.json contract is
+satisfied (works headless via `claude -p` and remote).
+
+A command cannot activate `/goal` itself (slash commands fire only from direct user input),
+so **at the end of Preflight this command emits the concrete, ready-to-paste invocation**
+for the resolved TRD:
+
+```bash
+claude -p "/goal Every assertion in .trd-state/<trd-name>/verify.json has verdict \"pass\" (or acceptable \"blocked\"); zero \"pending\" or \"fail\". Use the verify-goal skill against <trd-path>."
+```
+
+Both paths share the same verify.json schema and PROBE/FIX cycle defined below, so you can
+switch freely. Use this team command for parallel assertion groups + a bounded run count;
+use `verify-goal` + `/goal` for hands-off completion.
 
 ## User Input
 
@@ -123,6 +147,10 @@ Execute `/implement-trd` Steps 1.1-1.3 (Load Constitution, TRD Selection, Git Br
    - Is there a UI to test? (look for frontend entry points)
    - Are there third-party services? (look for API keys, SDK imports — test read-only only)
 
+4. **Emit the `/goal` invocation:** Print the ready-to-paste `claude -p "/goal …"` line from
+   the "Autonomous alternative" section above, with `<trd-name>` and `<trd-path>` resolved to
+   the selected TRD, so the user can opt into single-session `/goal`-driven verification.
+
 ---
 
 ## Step 2: Run Counter Check
@@ -188,16 +216,52 @@ If this is run 2 or 3, load assertions from prior run:
 
 ### 3.4 Group Assertions for Parallel Execution
 
-Group assertions by the TRD execution plan sessions (same parallelization as
-implement-trd-team). Assertions that share infrastructure (same service, same UI flow)
-go to the same teammate.
+Group assertions by the TRD execution plan sessions. Assertions that share infrastructure
+(same service, same UI flow) go to the same teammate. As with `/implement-trd`, partition
+so each parallel group's teammates own a disjoint set of files (the native Agent Teams
+safety model); cross-group dependencies are expressed via the shared task list's
+`blockedBy`, not via `team_name` — which is accepted but ignored by the platform.
 
 ---
 
 ## Step 4: Phase Execution with Teams
 
-Follows `/implement-trd-team` Step 4 orchestration (spawn team, spawn teammates,
-monitor, collect results, cleanup).
+For each phase (or single phase if `--phase N`), for each parallel group within the phase:
+
+**1. Update state before spawn** -- for each assertion group being assigned, write to
+verify.json: `{ "run": run_counter, "teammate_session_id": "{session_name}" }`. Update
+`active_sessions` map with session name entries.
+
+**2. Spawn teammates directly** -- one per session, using the **Agent** tool. No team
+creation step is needed: a team forms automatically on the first spawn.
+```javascript
+Agent({ subagent_type: session_agent, name: session_name, prompt: "[Teammate Prompt - Section 4.1]" });
+```
+Express phase and group identity as task names plus `blockedBy` dependencies on the shared
+task list (`TaskCreate`, then `TaskUpdate({taskId, addBlockedBy: [...]})`) if assertions are
+tracked as tasks. Do NOT pass `isolation: "worktree"` — teammates share the working tree.
+
+**2a. Recommended: schedule a safety-net wake-up before ending the turn.** Teammate
+`SendMessage` auto-delivery reliably re-invokes the lead (see
+`.claude/rules/async-discipline.md`), so this is cheap insurance rather than a known
+necessity:
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for phase {N} group {G}",
+  prompt: "/verify-trd-team [original arguments here]"
+});
+```
+
+**3. Monitor** -- teammate messages arrive as new lead turns via auto-delivery; the
+optional scheduled wake-up from step 2a is a harmless no-op if auto-delivery already fired.
+Wait for ALL teammates in the group to complete.
+
+**4. Collect results** -- for each teammate extract per-assertion verdicts, evidence,
+fixes applied, and tests written. Update verify.json.
+
+**5. No teardown step is required** -- cleanup is automatic when a teammate's session
+exits; there is no team-delete call to make.
 
 ### 4.1 Teammate Prompt Template
 
@@ -320,6 +384,15 @@ Assertions: {pass}/{total} PASS | {fail} FAIL | {blocked} BLOCKED
 Fixes applied: {count} | Tests written: {count}
 State: .trd-state/<trd-name>/verify.json
 Recommendation: Run /compact before Phase {N+1}.
+
+**Decision-trail durability (PreCompact hook).** When `/compact` runs — or auto-compaction
+triggers at ~95% — the `precompact.js` hook appends a structured checkpoint to
+`.trd-state/<trd-name>/session-log.md` (in-flight assertions, current PROBE/FIX cycle,
+`run_counter`, recent verdicts). **After compaction, re-read `session-log.md` first** to
+recover the reasoning trail; if you have rationale or open questions from the just-summarized
+turns that aren't captured in `verify.json`, append them under the most recent
+**Decisions & rationale** section of the log before continuing the verification loop. State
+records *what* verified; the log records *why* it was attempted that way.
 ```
 
 ---
@@ -531,7 +604,10 @@ Stored at `.trd-state/<trd-name>/verify.json`:
 
 ## Error Handling
 
-All `/implement-trd-team` error handling applies. Verification-specific additions:
+All `/implement-trd` error handling applies, plus team-specific cases (teammate fails to
+spawn -> retry once, then run sequentially as lead; teammate silent 30+ min -> send
+message, mark stalled if no response; file conflict between teammates -> pause later
+teammate, wait for first to commit, resume). Verification-specific additions:
 
 | Error | Response |
 |-------|----------|
@@ -549,11 +625,12 @@ All `/implement-trd-team` error handling applies. Verification-specific addition
 
 - Requires implementation to exist (code check, not state check)
 - State file (`verify.json`) is independent from `implement.json` and `harden.json`
-- Workflow: `/implement-trd-team` → `/harden-trd-team` (optional) → `/verify-trd-team`
+- Workflow: `/implement-trd` → `/harden-trd-team` (optional) → `/verify-trd-team`
 - Can be re-run up to 3 times before requiring manual reset
 - Custom promises can be set per run via `--reset-state` + `--promise`
 - Same branch as implementation — no separate PR
-- All `/implement-trd-team` compatibility notes apply
+- Requires Claude Code Agent Teams feature (experimental); falls back to sequential
+  `/implement-trd`-style execution if Teams unavailable or TRD lacks a parallelization map
 
 ---
 
@@ -673,3 +750,93 @@ Deliverables:
 - RE-PROBE must also check for regressions on other assertions in the same session
 - Max 3 fix attempts per assertion — then mark FAIL and move on
 - Teammates write durable tests; these survive beyond the verification run
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+This command spans multiple turns. Emit these standard status lines so the user always knows the state:
+
+1. **DISPATCHED** — when a turn ends with subagents/teammates in flight or a wake scheduled:
+   ```
+   [STATUS: /verify-trd-team] DISPATCHED → <count> <kind> in flight: <names>
+      waiting on: <observable signal>
+      next wake: <ScheduleWakeup ETA | "teammate SendMessage auto-deliver">
+   ```
+
+2. **RESUMED** — at the START of each new turn after a wake or teammate message:
+   ```
+   [STATUS: /verify-trd-team] RESUMED → <reason>
+      completed since last turn: <summary | "none">
+   ```
+
+3. **PHASE N/M COMPLETE** — at each phase boundary (progress marker, NOT completion):
+   ```
+   [STATUS: /verify-trd-team] PHASE <N>/<M> COMPLETE → <summary>
+   ```
+
+4. **COMMAND COMPLETE** — as the LAST line of the FINAL turn (only when the whole command is truly done; never at phase boundaries):
+   ```
+   ═══ COMMAND COMPLETE: /verify-trd-team ═══
+   <one-line summary>
+   ```
+
+5. **PushNotification ON FINAL TURN ONLY** — this is a long-running command; the user has likely walked away. In the same final turn that emits COMMAND COMPLETE, also call:
+   ```javascript
+   PushNotification({
+     status: "proactive",
+     message: "verify-trd-team done: <one-line summary, under 200 chars, leads with what they'd act on>"
+   })
+   ```
+   On `COMMAND STUCK`, send a `PushNotification` whose message states the Reason + Next action (the user needs to come back to unblock). Do NOT send notifications on intermediate Stops, DISPATCHED turns, RESUMED turns, or PHASE boundaries — only the truly-final turn. If the push tool reports "not sent," that's expected; do not retry.
+
+6. **PROGRAMMATIC NOTIFY ON FINAL TURN ONLY** — for orchestration / webhooks / queues / shell pipelines, invoke the user's `NOTIFY_ON_COMPLETE` shell command via Bash on the SAME final turn:
+   ```bash
+   .claude/hooks/notify-complete.sh "verify-trd-team" "complete" "<one-line summary>"
+   ```
+   For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"` and use the Reason as the summary. The bracket-guard means it's a no-op when the user hasn't configured it. Same single-fire timing as the PushNotification — only on the truly-final turn.
+
+Nothing after the COMMAND COMPLETE banner. On unrecoverable failure use `═══ COMMAND STUCK: /verify-trd-team ═══` with Reason + Next (and the PushNotification above).
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

@@ -1,7 +1,14 @@
 ---
 name: developing-with-python
-description: Python 3.11+ development with type hints, async patterns, FastAPI, and pytest
+description: Write idiomatic Python 3.11+ application code — type hints, async/await, FastAPI services, dataclasses, packaging.
+when_to_use: Reach for this when writing or modifying Python application/library code (.py files, FastAPI or async services, CLI tools). For generating or running Python *tests* use pytest instead. For Celery task queues use using-celery. This is the general Python language skill, not a web-framework skill (no Django/Flask specifics).
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/*.py"
+  - "requirements*.txt"
+  - "pyproject.toml"
+  - "setup.py"
+  - "Pipfile"
 ---
 
 # Python Development Skill

@@ -1,7 +1,14 @@
 ---
 name: pytest
-description: Execute and generate pytest tests for Python projects with fixtures, parametrization, and mocking support
+description: Run and write pytest tests for Python projects — fixtures, parametrize, mocking. The Python test runner.
+when_to_use: Reach for this when the project tests Python with pytest (pytest.ini/pyproject, test_*.py). Per-language test runner — use jest for JS/TS, rspec for Ruby, exunit for Elixir, xunit for C#/.NET. For writing the Python application code under test use developing-with-python. If unsure which runner the project uses, run test-detector first.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "pytest.ini"
+  - "pyproject.toml"
+  - "conftest.py"
+  - "**/test_*.py"
+  - "**/*_test.py"
 ---
 
 # Pytest Testing Skill

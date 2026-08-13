@@ -1,3 +1,15 @@
+---
+name: helm
+description: Package and template Kubernetes apps with Helm — Chart.yaml, values, template helpers, releases.
+when_to_use: Reach for this specifically when authoring or installing Helm charts (Chart.yaml, templates/, values.yaml). For writing raw Kubernetes manifests directly use kubernetes; to detect whether a project uses Helm/K8s/Kustomize/ArgoCD run tooling-detector. Helm packaging skill — a layer on top of Kubernetes.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "**/Chart.yaml"
+  - "**/values*.yaml"
+  - "templates/**/*.yaml"
+  - "charts/**"
+---
+
 # Helm Chart Quick Reference
 
 **Version**: 1.0.0 | **Target Size**: <100KB | **Purpose**: Fast reference for Helm chart development and deployment

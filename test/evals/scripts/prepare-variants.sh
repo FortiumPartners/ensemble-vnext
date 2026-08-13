@@ -407,17 +407,7 @@ validate_init_output() {
         log_debug "Validation: CLAUDE.md OK"
     fi
 
-    # Gate 2: router-rules.json exists (if .claude directory was created)
-    if [[ -d "$workspace/.claude" ]]; then
-        if [[ ! -f "$workspace/.claude/router-rules.json" ]]; then
-            log_error "Validation: router-rules.json not created"
-            ((errors++))
-        else
-            log_debug "Validation: router-rules.json OK"
-        fi
-    fi
-
-    # Gate 3: Required directories exist with content
+    # Gate 2: Required directories exist with content
     local required_dirs=("agents" "commands" "skills" "hooks" "rules")
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$workspace/.claude/$dir" ]]; then

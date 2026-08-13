@@ -197,12 +197,34 @@ function_exists() {
     [ "$result" = "prettier --write" ]
 }
 
-# --- Prettier fallback to npx ---
+# --- Prettier resolution order ---
+#
+# Order is: global prettier -> node_modules/.bin/prettier -> npx prettier.
+# The npx fallback is LOAD-BEARING: /init-project Step 10 writes .prettierrc but
+# does not install prettier, so for most scaffolded JS/TS projects npx is the
+# only branch that ever fires. Gating it (briefly done in 4.1.4) turned the
+# formatter off for those projects entirely.
 
-@test "extension routing: .js falls back to npx prettier when prettier not available" {
-    # Don't create prettier, but create npx
+@test "extension routing: .js prefers node_modules/.bin/prettier over npx" {
     create_mock_command "npx"
     export PATH="${MOCK_BIN}:$PATH"
+    # MUST run from an isolated dir: the node_modules/.bin check is relative to
+    # cwd (correct for the hook, which settings.json invokes via a cd wrapper),
+    # so an unisolated test writes a fake prettier into the REPO's node_modules
+    # and silently hijacks real formatting. That happened once; hence the cd.
+    cd "$TEST_DIR" || return 1
+    mkdir -p node_modules/.bin
+    printf '#!/bin/sh\nexit 0\n' > node_modules/.bin/prettier
+    chmod +x node_modules/.bin/prettier
+
+    result=$(get_formatter_command "js" "/test/file.js")
+    [ "$result" = "node_modules/.bin/prettier --write" ]
+}
+
+@test "extension routing: .js falls back to npx prettier when prettier not available" {
+    create_mock_command "npx"
+    export PATH="${MOCK_BIN}:$PATH"
+    cd "$TEST_DIR" || return 1   # no node_modules here, so npx is the only path
 
     result=$(get_formatter_command "js" "/test/file.js")
     [ "$result" = "npx prettier --write" ]

@@ -1,6 +1,12 @@
 ---
 name: managing-azure-devops
-description: Azure DevOps YAML pipelines with multi-stage deployments, template references, variable groups, and environment approvals. Use when building CI/CD pipelines in Azure DevOps.
+description: Author Azure DevOps YAML pipelines — multi-stage deploys, templates, variable groups, environment approvals.
+when_to_use: Reach for this when building or editing CI/CD on Azure DevOps (azure-pipelines.yml). For running GitHub Actions locally use act-local-ci; for tracking Azure DevOps *work items/boards* this skill is pipelines-only — use managing-jira-issues or managing-linear-issues for general issue tracking. Provisioning Azure infra is using-terraform-azure.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "azure-pipelines*.yml"
+  - ".azure/**"
+  - "**/*.yml"
 ---
 
 # Azure DevOps Pipelines Skill

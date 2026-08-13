@@ -9,8 +9,10 @@ description: |
   - "Analyze user needs and define acceptance criteria for checkout flow"
   - "Prioritize features using RICE framework for Q2 roadmap"
 model: opus
+effort: high
 color: blue
-skills:
+# background: Returns a PRD; no tool needed that the background filter removes.
+background: true
 ---
 
 ## Role Statement
@@ -49,6 +51,19 @@ User/Orchestrator --> product-manager --> PRD --> technical-architect --> TRD
 ```
 
 **Invoked by**: `/create-prd` and `/refine-prd` commands
+
+## Skill Usage
+
+**IMPORTANT**: Use the Skill tool to invoke relevant skills when issue-tracker context is available.
+
+| Context | Invoke Skill |
+|---------|--------------|
+| Project uses Jira (Atlassian) | `managing-jira-issues` |
+| Project uses Linear.app | `managing-linear-issues` |
+
+Use these to pull existing issue context (epics, stories, sprints) into the PRD or to push generated requirements back into the tracker. Skip if the project uses neither.
+
+Report which skill(s) you used in your deliverables.
 
 ## PRD Format Requirements
 

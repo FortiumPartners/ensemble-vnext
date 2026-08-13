@@ -1,6 +1,7 @@
 ---
 name: harden-trd-team
 description: Hardening pass over implemented TRD — closes gaps, edge cases, contracts, regressions, and interaction risks using parallel teammates
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
 version: 1.0.0
 category: implementation
 ---
@@ -17,14 +18,23 @@ category: implementation
 >
 > **Examples:** `/harden-trd-team`, `/harden-trd-team --resume`, `/harden-trd-team docs/TRD/user-auth.md --wiggum`
 
-This is the **hardening pass** that follows `/implement-trd-team`. It re-examines every
+This is the **hardening pass** that follows `/implement-trd`. It re-examines every
 implemented task against the TRD, focusing on contract compliance, edge cases, regression
 safety, interaction risks, and shortcut cleanup. It uses Claude Code Agent Teams for
-parallel execution, identical to `/implement-trd-team`.
+parallel execution: teammates spawn directly via `Agent({subagent_type, name, prompt})` —
+a team forms automatically on the first spawn, with no setup step and no cleanup step.
 
 All team orchestration (spawning, monitoring, cleanup, phase checkpoints, error handling)
-follows `/implement-trd-team` exactly. This command defines a different **stage cycle**
+is defined in **Step 4** below. This command defines a different **stage cycle**
 and **delegation templates** purpose-built for hardening.
+
+**Workspace model:** Teammates share ONE working tree and commit directly to the feature
+branch — the native Agent Teams model. Parallel safety comes from **file ownership** (each
+session owns a disjoint set of files; see Step 3.3) plus the **shared task list**
+(`blockedBy` dependencies + file-locked task claiming), NOT from per-teammate git worktrees.
+Phase and group identity are expressed as task names plus `blockedBy` dependencies on the
+shared task list — `team_name` on the `Agent` tool is accepted but ignored by the platform
+and carries no grouping semantics.
 
 **ULTRATHINK**: Parse the TRD execution plan and cross-reference with existing code to
 understand implementation state before spawning teammates.
@@ -99,16 +109,33 @@ Execute `/implement-trd` Step 2 identically, but operate on the **harden state f
 This is a separate file from `implement.json`. The harden pass has its own state,
 checkpoints, and recovery — it never reads or writes `implement.json`.
 
-Teammate session recovery follows `/implement-trd-team` Step 2 rules.
+**Teammate Session Recovery:** On `--resume`, check `teammate_session_id` fields in state.
+For incomplete tasks with a `teammate_session_id`: if recent (<24 hours), note for potential
+resume; if stale, clear and treat as fresh. The lead re-spawns the parallel group and lets
+teammates pick up from persisted state rather than resuming individual sessions.
 
 ---
 
 ## Step 3: Parse Execution Plan
 
-Identical to `/implement-trd-team` Step 3 (extract phase structure, build session
-dependency graph, file conflict detection).
+### 3.1 Extract Phase Structure and Build Session Dependency Graph
 
-### 3.1 Stage Expansion
+Read TRD Section 5 (Execution Plan). Extract per phase the session list (name, agent type,
+task IDs), then determine parallel groups:
+- **No inter-session dependencies** -> all sessions in one parallel group
+- **Session B depends on Session A** (task dependencies cross sessions) -> A in group 1, B in group 2
+
+### 3.2 File Ownership (primary parallel-safety mechanism)
+
+Teammates share one working tree, so **each session in a parallel group MUST own a disjoint
+set of files** — the native Agent Teams safety model ("break the work so each teammate owns a
+different set of files"). Apply `/implement-trd` File Conflict Detection to partition: if two
+sessions in the same group would touch the same file, either move the later one to the next
+group (sequence them) or reassign files so ownership stays disjoint. Cross-session
+dependencies are expressed via the shared task list's `blockedBy`, so blocked work cannot be
+claimed early.
+
+### 3.3 Stage Expansion
 
 Each TRD task expands to sub-tasks with dependencies:
 
@@ -130,8 +157,46 @@ infer from task keywords per `/implement-trd` Section 4.3.
 
 ## Step 4: Phase Execution with Teams
 
-Follows `/implement-trd-team` Step 4 orchestration exactly (spawn team, spawn teammates,
-monitor, collect results, cleanup). The only difference is the **Teammate Prompt Template**.
+For each phase (or single phase if `--phase N`), for each parallel group within the phase:
+
+**1. Update state before spawn** -- for each task being assigned, write to harden.json:
+```json
+{ "status": "in_progress", "cycle_position": "audit", "teammate_session_id": "{session_name}" }
+```
+Update `active_sessions` map with session name entries.
+
+**2. Spawn teammates directly** -- one per session, using the **Agent** tool. No team
+creation step is needed: a team forms automatically on the first spawn.
+```javascript
+Agent({ subagent_type: session_agent, name: session_name, prompt: "[Teammate Prompt - Section 4.1]" });
+```
+Express phase and group identity as task names plus `blockedBy` dependencies on the shared
+task list (`TaskCreate`, then `TaskUpdate({taskId, addBlockedBy: [...]})`) — NOT via
+`team_name`, which is accepted but ignored. Assign each session's task(s) to its teammate
+via `TaskUpdate({ taskId, status: "in_progress" })`. Do NOT pass `isolation: "worktree"` —
+teammates share the working tree (see Workspace model).
+
+**2a. Recommended: schedule a safety-net wake-up before ending the turn.** Teammate
+`SendMessage` auto-delivery reliably re-invokes the lead (see
+`.claude/rules/async-discipline.md`), so this is cheap insurance rather than a known
+necessity:
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for phase {N} group {G}",
+  prompt: "/harden-trd-team [original arguments here]"
+});
+```
+
+**3. Monitor** -- teammate messages arrive as new lead turns via auto-delivery; the
+optional scheduled wake-up from step 2a is a harmless no-op if auto-delivery already fired.
+Teammates also advance the shared task list. Wait for ALL teammates in the group to complete.
+
+**4. Collect results** -- for each teammate extract: task status (success/failed/blocked),
+files changed, findings, coverage metrics, single-line summary per task. Update harden.json.
+
+**5. No teardown step is required** -- cleanup is automatic when a teammate's session
+exits; there is no team-delete call to make.
 
 ### 4.1 Teammate Prompt Template
 
@@ -208,7 +273,12 @@ If STUCK (3+ retries), report immediately.
 
 ### 4.2 Phase Checkpoint
 
-Identical to `/implement-trd-team` Step 4.3, with hardening-specific summary:
+After ALL parallel groups in a phase complete: aggregate results across teammates
+(completed/failed/blocked, file list, findings), run the quality gate (same as
+`/implement-trd` Step 5.1 verify-app full suite), git checkpoint (same as `/implement-trd`
+Step 5.2), update state (checkpoint entry, advance phase_cursor), then emit the PHASE
+banner and immediately spawn the next phase — routine phase transitions are NOT pause
+points. Hardening-specific summary:
 
 ```
 Phase {N} hardening checkpoint complete.
@@ -341,7 +411,11 @@ Additions per task entry:
 
 ## Error Handling
 
-All `/implement-trd-team` error handling applies. Hardening-specific additions:
+All `/implement-trd` error handling applies, plus team-specific cases (teammate fails to
+spawn -> retry once, then run sequentially as lead; teammate silent 30+ min -> send
+message, mark stalled if no response; file conflict between teammates -> pause later
+teammate, wait for first to commit, resume; no execution plan in TRD -> warn and fall back
+to sequential `/implement-trd`). Hardening-specific additions:
 
 | Error | Response |
 |-------|----------|
@@ -359,8 +433,9 @@ All `/implement-trd-team` error handling applies. Hardening-specific additions:
 - State files (`harden.json`) are independent from `implement.json`
 - Can be re-run — resets harden state, re-audits everything
 - Same branch as implementation — no separate PR
-- Workflow: `/implement-trd-team` → `/harden-trd-team` → PR
-- All `/implement-trd-team` compatibility notes apply
+- Workflow: `/implement-trd` → `/harden-trd-team` → PR
+- Requires Claude Code Agent Teams feature (experimental); falls back to sequential
+  `/implement-trd`-style execution if Teams unavailable or TRD lacks a parallelization map
 
 ---
 
@@ -445,7 +520,7 @@ Deliverables (ALL required):
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{implementer_type}", prompt="[above]")`
 
 ---
 
@@ -518,7 +593,7 @@ Deliverables (ALL required):
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{implementer_type}", prompt="[above]")`
 
 ---
 
@@ -579,7 +654,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-reviewer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
 
 ---
 
@@ -598,3 +673,93 @@ Report:
 - HARDEN passes audit_findings to REVIEW for cross-referencing
 - Regressions (tests that passed in AUDIT baseline but fail after HARDEN) are BLOCKING
 - REJECTED review -> SAME implementer with rejection issues + original audit findings
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+This command spans multiple turns. Emit these standard status lines so the user always knows the state:
+
+1. **DISPATCHED** — when a turn ends with subagents/teammates in flight or a wake scheduled:
+   ```
+   [STATUS: /harden-trd-team] DISPATCHED → <count> <kind> in flight: <names>
+      waiting on: <observable signal>
+      next wake: <ScheduleWakeup ETA | "teammate SendMessage auto-deliver">
+   ```
+
+2. **RESUMED** — at the START of each new turn after a wake or teammate message:
+   ```
+   [STATUS: /harden-trd-team] RESUMED → <reason>
+      completed since last turn: <summary | "none">
+   ```
+
+3. **PHASE N/M COMPLETE** — at each phase boundary (progress marker, NOT completion):
+   ```
+   [STATUS: /harden-trd-team] PHASE <N>/<M> COMPLETE → <summary>
+   ```
+
+4. **COMMAND COMPLETE** — as the LAST line of the FINAL turn (only when the whole command is truly done; never at phase boundaries):
+   ```
+   ═══ COMMAND COMPLETE: /harden-trd-team ═══
+   <one-line summary>
+   ```
+
+5. **PushNotification ON FINAL TURN ONLY** — this is a long-running command; the user has likely walked away. In the same final turn that emits COMMAND COMPLETE, also call:
+   ```javascript
+   PushNotification({
+     status: "proactive",
+     message: "harden-trd-team done: <one-line summary, under 200 chars, leads with what they'd act on>"
+   })
+   ```
+   On `COMMAND STUCK`, send a `PushNotification` whose message states the Reason + Next action (the user needs to come back to unblock). Do NOT send notifications on intermediate Stops, DISPATCHED turns, RESUMED turns, or PHASE boundaries — only the truly-final turn. If the push tool reports "not sent," that's expected; do not retry.
+
+6. **PROGRAMMATIC NOTIFY ON FINAL TURN ONLY** — for orchestration / webhooks / queues / shell pipelines, invoke the user's `NOTIFY_ON_COMPLETE` shell command via Bash on the SAME final turn:
+   ```bash
+   .claude/hooks/notify-complete.sh "harden-trd-team" "complete" "<one-line summary>"
+   ```
+   For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"` and use the Reason as the summary. The bracket-guard means it's a no-op when the user hasn't configured it. Same single-fire timing as the PushNotification — only on the truly-final turn.
+
+Nothing after the COMMAND COMPLETE banner. On unrecoverable failure use `═══ COMMAND STUCK: /harden-trd-team ═══` with Reason + Next (and the PushNotification above).
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

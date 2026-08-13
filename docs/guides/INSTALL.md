@@ -141,7 +141,7 @@ Open Claude Code in any project and run the initialization command:
 2. **Creates governance files** -- `constitution.md` (project guardrails) and `stack.md` (detected technologies)
 3. **Vendors the runtime** -- copies agents, commands, hooks, and skills into `.claude/`
 4. **Sets up document structure** -- creates `docs/PRD/` and `docs/TRD/` directories
-5. **Configures hooks** -- installs router, permitter, formatter, and lifecycle hooks
+5. **Configures hooks** -- installs router, formatter, runtime-refresh, and other lifecycle hooks
 
 ### Initialization Modes
 
@@ -155,7 +155,7 @@ Open Claude Code in any project and run the initialization command:
 
 ```
 .claude/
-  agents/              # 12 specialist subagents
+  agents/              # 13 specialist subagents
   commands/            # Workflow commands (/create-prd, /implement-trd, etc.)
   hooks/               # Automated guardrails
   skills/              # Domain knowledge matched to your stack
@@ -185,14 +185,13 @@ After initialization, verify the key components and run your first feature.
 ```
 # In Claude Code, type / to see available commands
 # You should see:
-/create-prd
-/create-trd
-/implement-trd
-/refine-prd
-/refine-trd
-/fold-prompt
-/update-project
-/cleanup-project
+/create-prd            /create-prd-team
+/create-trd            /create-trd-team
+/refine-prd            /refine-trd
+/implement-trd         /harden-trd-team
+/verify-trd-team       /investigate-issue
+/fix-issue             /fold-prompt
+/update-project        /cleanup-project
 ```
 
 ### Running Implementation
@@ -201,10 +200,10 @@ We recommend running implementation passes with `--dangerously-skip-permissions`
 
 ```bash
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /implement-trd
 ```
 
-This skips all permission prompts, allowing the agent team to work autonomously through the full staged execution loop (implement, verify, debug, simplify, review) without pausing for approval. The permitter hook is bypassed in this mode.
+This skips all permission prompts, allowing the agent to work autonomously through the full staged execution loop (implement, verify, debug, simplify, review) without pausing for approval.
 
 See [Concepts: The Three-Pass Approach](./CONCEPTS.md#phase-3-implementation-the-three-pass-approach) for the recommended three-pass workflow.
 
@@ -214,12 +213,13 @@ Check `.claude/settings.json` to verify hooks are configured:
 
 | Hook Event | Handler | Purpose |
 |------------|---------|---------|
+| `SessionStart` | `session-context.js` → `runtime-refresh.sh` | Captures session identity for downstream tooling, then refreshes vendored components already present from a newer installed plugin (see [ARCHITECTURE.md](./ARCHITECTURE.md#keeping-the-runtime-current-refresh-vs-rebase)) |
 | `UserPromptSubmit` | `router.py` | Routes prompts to appropriate agents/skills |
-| `PermissionRequest` | `permitter.js` | Validates permissions against allowlist |
 | `PostToolUse` | `formatter.sh` | Auto-formats edited files |
 | `SubagentStop` | `status.js` | Tracks implementation progress |
-| `Stop` | `wiggum.js` + `notify.sh` | Session end processing + notifications |
-| `SessionEnd` | `learning.sh` + `save-remote-logs.js` | Capture learnings + save logs |
+| `Stop` | `async-discipline.js` → `autonomy-discipline.js` → `wiggum.js` → `notify.sh` | Async/autonomy guards, session-end processing, notifications |
+| `PreCompact` | `precompact.js` | Preserves state before context compaction |
+| *(model-invoked)* | `notify-complete.sh` | Called directly by commands on their COMMAND COMPLETE turn to fire `NOTIFY_ON_COMPLETE` exactly once |
 
 ---
 
@@ -376,7 +376,7 @@ Check `.claude/settings.json` exists and contains the `hooks` configuration. Com
 |---------|----------|
 | Router not triggering | Verify `router.py` is executable: `chmod +x .claude/hooks/router.py` |
 | Formatter errors | Check that `prettier` or your formatter is installed |
-| Permission hook blocking | Review `.claude/hooks/permitter/` allowlist configuration |
+| Runtime not refreshing | Check `ENSEMBLE_RUNTIME_REFRESH_DEBUG=1` output; see the four guards in [ARCHITECTURE.md](./ARCHITECTURE.md#the-four-guards) |
 | Python not found | Ensure Python 3.x is on your PATH |
 
 ### Initialization Failures

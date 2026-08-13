@@ -8,7 +8,9 @@ framework_versions:
 compatible_agents:
   backend-developer: ">=3.0.0"
   tech-lead-orchestrator: ">=2.5.0"
-description: Node.js/TypeScript backend framework with dependency injection and modular architecture
+description: Build NestJS backends — modules, providers, dependency injection, controllers, guards/pipes.
+when_to_use: Reach for this when the Node.js/TypeScript backend uses the NestJS framework (@nestjs/* deps, *.module.ts, decorators). For framework-agnostic TS types use developing-with-typescript; for Prisma data access use using-prisma; for JS/TS tests use jest. NestJS-specific backend framework skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 frameworks:
   - nestjs
 languages:
@@ -16,6 +18,11 @@ languages:
   - javascript
 category: backend
 updated: 2025-10-22
+paths:
+  - "**/*.module.ts"
+  - "nest-cli.json"
+  - "**/*.controller.ts"
+  - "**/*.service.ts"
 ---
 
 # NestJS Framework Skill

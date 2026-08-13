@@ -1,6 +1,12 @@
 ---
 name: managing-supabase
-description: Supabase CLI for database management, Edge Functions, migrations, and local development. Use for managing Postgres databases, deploying serverless functions, and debugging Supabase projects.
+description: Operate Supabase via its CLI — Postgres management, migrations, Edge Functions, local dev stack.
+when_to_use: Reach for this to administer a Supabase project (supabase/ dir, `supabase` CLI) — DB migrations, Edge Functions, local dev. For type-safe app DB access via Prisma (which can target Supabase Postgres) use using-prisma instead. For Vercel/Railway hosting use those platform skills. Ops/admin skill.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "supabase/config.toml"
+  - "supabase/migrations/**"
+  - "supabase/functions/**"
 ---
 
 # Supabase CLI Skill

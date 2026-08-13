@@ -1,7 +1,13 @@
 ---
 name: ExUnit Test Framework
-description: Execute and generate ExUnit tests for Elixir projects with setup callbacks, describe blocks, and async testing support
+description: Run and write ExUnit tests for Elixir projects — setup callbacks, describe blocks, async tests. The Elixir test runner.
+when_to_use: Reach for this when the project tests Elixir with ExUnit (mix.exs, test/*_test.exs). Per-language test runner — use jest for JS/TS, pytest for Python, rspec for Ruby, xunit for C#/.NET. For Phoenix app code under test use phoenix. If unsure which runner the project uses, run test-detector first.
 version: 1.0.0
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "mix.exs"
+  - "test/**/*_test.exs"
+  - "test/test_helper.exs"
 ---
 
 # ExUnit Test Framework

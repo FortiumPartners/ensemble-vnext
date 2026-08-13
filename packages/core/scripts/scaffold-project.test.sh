@@ -21,6 +21,13 @@ setup() {
     SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")" && pwd)"
     SCAFFOLD_SCRIPT="$SCRIPT_DIR/scaffold-project.sh"
 
+    # Repo root and manifest, resolved the same way generate-hooks-artifacts.sh
+    # and scaffold-project.sh resolve them (relative to this script's own
+    # location), so Phase 2 consumer tests stay correct if the repo moves.
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+    MANIFEST="$SCRIPT_DIR/../hooks/hooks.manifest.json"
+    GEN_ARTIFACTS_SCRIPT="$SCRIPT_DIR/generate-hooks-artifacts.sh"
+
     # Verify script exists
     if [[ ! -f "$SCAFFOLD_SCRIPT" ]]; then
         skip "scaffold-project.sh not found at $SCAFFOLD_SCRIPT"
@@ -32,11 +39,69 @@ setup() {
     fi
 }
 
-# Teardown: Clean up temp directory after each test
+# Record that $1 (an absolute path to a real repo file) is about to be
+# mutated in place, backing it up under $TEST_DIR so teardown() can restore
+# it — used by the drift-detection tests (RUNTIME-T007), which must mutate a
+# real repo file in place because generate-hooks-artifacts.sh resolves
+# REPO_ROOT relative to its own on-disk location, not an argument. Restoration
+# happens in teardown() regardless of whether the test's assertions pass, so
+# a failing assertion never leaves the repo dirty.
+_track_for_restore() {
+    local file="$1"
+    local backup="$TEST_DIR/.restore-backup-$(basename "$file")-$RANDOM"
+    cp "$file" "$backup"
+    printf '%s\t%s\n' "$file" "$backup" >> "$TEST_DIR/.restore-map"
+}
+
+# Record that $1 (an absolute path under the real repo) was CREATED by a test
+# fixture and must be deleted in teardown() — the counterpart to
+# _track_for_restore() above for files that did not exist before the test
+# (e.g. a disposable prompt-hook fixture used to prove hookType:"prompt"
+# generation without converting a real hook). Deletion happens regardless of
+# whether the test's assertions pass.
+_track_for_deletion() {
+    printf '%s\n' "$1" >> "$TEST_DIR/.delete-list"
+}
+
+# Teardown: Restore any repo files mutated by drift tests, delete any fixture
+# files a test created, then clean up temp directory
 teardown() {
+    if [[ -f "$TEST_DIR/.restore-map" ]]; then
+        while IFS=$'\t' read -r file backup; do
+            [[ -n "$file" && -f "$backup" ]] && cp "$backup" "$file"
+        done < "$TEST_DIR/.restore-map"
+    fi
+    if [[ -f "$TEST_DIR/.delete-list" ]]; then
+        while IFS= read -r file; do
+            [[ -n "$file" ]] && rm -f "$file"
+        done < "$TEST_DIR/.delete-list"
+    fi
+    # A test that runs generate-hooks-artifacts.sh against the REAL repo leaves
+    # side effects the restore map cannot cover: the map tracks file CONTENTS,
+    # while the generator also creates and prunes packages/full/hooks/ symlinks.
+    #
+    # This was invisible until DISC-B008. Before the three discipline hooks
+    # became hookType:"prompt", no real manifest entry was prompt-type, so
+    # toggling ENSEMBLE_DISCIPLINE_JUDGE_DISABLE changed nothing and left
+    # nothing behind. Now the disabled pass regenerates them as command-type and
+    # creates .js symlinks that the restored (prompt-type) manifest does not
+    # want — leaving the tree drifted and failing --check for every later test,
+    # and for anyone running the suite locally.
+    #
+    # Re-run the generator AFTER contents are restored, so it normalizes the
+    # symlink set against the real manifest.
+    if [[ -f "$TEST_DIR/.needs-generator-normalize" ]]; then
+        "$REPO_ROOT/packages/core/scripts/generate-hooks-artifacts.sh" >/dev/null 2>&1 || true
+    fi
     if [[ -d "$TEST_DIR" ]]; then
         rm -rf "$TEST_DIR"
     fi
+}
+
+# Mark that this test invoked generate-hooks-artifacts.sh against the real repo,
+# so teardown normalizes the generator's non-content side effects.
+_needs_generator_normalize() {
+    touch "$TEST_DIR/.needs-generator-normalize"
 }
 
 # ============================================
@@ -364,7 +429,7 @@ _get_plugin_dir() {
     [ "$status" -eq 0 ]
 }
 
-@test "Plugin copy: Copies 12 agent files with --plugin-dir" {
+@test "Plugin copy: Copies 13 agent files with --plugin-dir" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
 
@@ -374,7 +439,7 @@ _get_plugin_dir() {
     # Count agent files
     local count
     count=$(ls -1 "$TEST_DIR/.claude/agents/"*.md 2>/dev/null | wc -l)
-    [ "$count" -eq 12 ]
+    [ "$count" -eq 13 ]
 }
 
 @test "Plugin copy: Copies specific agents (product-manager, backend-implementer)" {
@@ -428,20 +493,20 @@ _get_plugin_dir() {
     [ ! -f "$TEST_DIR/.claude/commands/rebase-project.md" ]
 }
 
-@test "Plugin copy: Copies hooks including permitter structure" {
+# Retired in item 5a: permitter, learning.sh, and save-remote-logs.js are no longer
+# shipped or scaffolded. This asserts the removal rather than the delivery — the
+# permitter in particular had been broken in every scaffolded project for months
+# (its lib/ modules never shipped), which is what made the case for retiring it.
+@test "Retired hooks are not scaffolded" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
 
     run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
     [ "$status" -eq 0 ]
 
-    # Check permitter structure
-    [ -d "$TEST_DIR/.claude/hooks/permitter" ]
-    [ -d "$TEST_DIR/.claude/hooks/permitter/lib" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/permitter.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/lib/matcher.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/lib/allowlist-loader.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/permitter/lib/command-parser.js" ]
+    [ ! -e "$TEST_DIR/.claude/hooks/permitter" ]
+    [ ! -e "$TEST_DIR/.claude/hooks/learning.sh" ]
+    [ ! -e "$TEST_DIR/.claude/hooks/save-remote-logs.js" ]
 }
 
 @test "Plugin copy: Copies core hooks (router, formatter, status, wiggum)" {
@@ -455,7 +520,7 @@ _get_plugin_dir() {
     [ -f "$TEST_DIR/.claude/hooks/formatter.sh" ]
     [ -f "$TEST_DIR/.claude/hooks/status.js" ]
     [ -f "$TEST_DIR/.claude/hooks/wiggum.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/learning.sh" ]
+    [ -f "$TEST_DIR/.claude/hooks/notify.sh" ]
 }
 
 @test "Plugin copy: Idempotent - does not overwrite existing files" {
@@ -596,4 +661,1284 @@ EOF
 
     # Should warn about missing skill
     [[ "$output" == *"not found"* ]] || [[ "$output" == *"Skill not found"* ]]
+}
+
+# =============================================================================
+# RUNTIME-D004: Per-project agent skill preloads
+#
+# Agents ship without a skills: field. inject_agent_skills() intersects each
+# agent's candidate pool (packages/core/agents/skill-affinity.json) with the
+# project's own selected-skills.txt and writes the result into
+# .claude/agents/<name>.md. Before 4.0.0 this intersection happened only when
+# /init-project's model chose to prune the shipped pools — nothing instructed
+# it to, so the result was emergent rather than guaranteed. These tests pin the
+# deterministic behaviour.
+# =============================================================================
+
+# Read an agent's skills: entries as a space-separated string
+_agent_skills() {
+    awk '/^---$/{n++; if(n==2) exit; next}
+         n==1 && /^skills:/{p=1; next}
+         p && /^[a-z_-]+:/{p=0}
+         p{printf "%s ", $2}' "$1"
+}
+
+@test "D004: preloads are the intersection of the agent pool and selected skills" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\ndeveloping-with-typescript\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # verify-app's pool contains jest but not developing-with-typescript
+    local skills; skills="$(_agent_skills "$TEST_DIR/.claude/agents/verify-app.md")"
+    [[ "$skills" == *"jest"* ]]
+    [[ "$skills" != *"developing-with-typescript"* ]]
+}
+
+@test "D004: no preload names a skill the project did not select" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'rails\nrspec\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local agent skill
+    for agent in "$TEST_DIR/.claude/agents/"*.md; do
+        for skill in $(_agent_skills "$agent"); do
+            [[ "$skill" == "rails" || "$skill" == "rspec" ]]
+        done
+    done
+}
+
+@test "D004: agent with no pool overlap gets no skills: field" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    # product-manager's pool is jira/linear only — no overlap with these
+    printf 'jest\npytest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -c '^skills:' "$TEST_DIR/.claude/agents/product-manager.md"
+    [ "$output" -eq 0 ]
+}
+
+@test "D004: injection is idempotent across repeated runs" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\ndeveloping-with-typescript\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    local first; first="$(cat "$TEST_DIR/.claude/agents/"*.md | shasum | cut -d' ' -f1)"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    local second; second="$(cat "$TEST_DIR/.claude/agents/"*.md | shasum | cut -d' ' -f1)"
+
+    [ "$first" = "$second" ]
+}
+
+@test "D004: changing the selection re-derives preloads rather than accumulating" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    [[ "$(_agent_skills "$TEST_DIR/.claude/agents/verify-app.md")" == *"jest"* ]]
+
+    # Swap the selection entirely; jest must disappear, pytest must appear
+    printf 'pytest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    local skills; skills="$(_agent_skills "$TEST_DIR/.claude/agents/verify-app.md")"
+    [[ "$skills" == *"pytest"* ]]
+    [[ "$skills" != *"jest"* ]]
+}
+
+@test "D004: no selection file leaves agents without preloads" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -l '^skills:' "$TEST_DIR/.claude/agents/"*.md
+    [ "$status" -ne 0 ]
+}
+
+@test "D004: every affinity pool candidate exists in the skill library" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    local manifest="$SCRIPT_DIR/../agents/skill-affinity.json"
+    [ -f "$manifest" ]
+
+    run python3 -c "
+import json, pathlib, sys
+lib = {p.name for p in pathlib.Path('$plugin_dir/skills-lib').iterdir() if p.is_dir()}
+doc = json.load(open('$manifest'))
+bad = {a: [s for s in pool if s not in lib] for a, pool in doc['agents'].items()}
+bad = {a: m for a, m in bad.items() if m}
+print(bad)
+sys.exit(1 if bad else 0)
+"
+    [ "$status" -eq 0 ]
+}
+
+@test "D004: body block is injected for every agent" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local agent count
+    for agent in "$TEST_DIR/.claude/agents/"*.md; do
+        count="$(grep -c 'ENSEMBLE:SKILLS:BEGIN' "$agent")"
+        [ "$count" -eq 1 ]
+    done
+}
+
+@test "D004: body block does not stack across repeated runs" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR" >/dev/null 2>&1
+
+    run grep -c 'ENSEMBLE:SKILLS:BEGIN' "$TEST_DIR/.claude/agents/verify-app.md"
+    [ "$output" -eq 1 ]
+    run grep -c 'ENSEMBLE:SKILLS:END' "$TEST_DIR/.claude/agents/verify-app.md"
+    [ "$output" -eq 1 ]
+}
+
+@test "D004: body block names non-affinity skills as still available" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\nmanaging-jira-issues\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # verify-app's pool has jest but not managing-jira-issues; the latter must
+    # still be listed as available rather than hidden from the agent.
+    run grep -A20 'ENSEMBLE:SKILLS:BEGIN' "$TEST_DIR/.claude/agents/verify-app.md"
+    [[ "$output" == *"managing-jira-issues"* ]]
+    [[ "$output" == *"not a restriction"* ]]
+}
+
+@test "D004: agent frontmatter remains valid YAML after body injection" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    mkdir -p "$TEST_DIR/.claude"
+    printf 'jest\ndeveloping-with-typescript\n' > "$TEST_DIR/.claude/selected-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 -c "
+import pathlib, sys
+bad = []
+for p in sorted(pathlib.Path('$TEST_DIR/.claude/agents').glob('*.md')):
+    t = p.read_text().split('\n')
+    if t[0].strip() != '---': bad.append(p.name); continue
+    close = next((i for i in range(1, len(t)) if t[i].strip() == '---'), None)
+    if close is None: bad.append(p.name)
+print(bad)
+sys.exit(1 if bad else 0)
+"
+    [ "$status" -eq 0 ]
+}
+
+# =============================================================================
+# RUNTIME-T007: manifest consumers stay in sync with hooks.manifest.json
+#
+# hooks.manifest.json (RUNTIME-P2A) is the single declaration of the ensemble
+# hook set. Three artifacts are generated FROM it (RUNTIME-B001/B002/B003):
+# the scaffold's copy list, the template settings.json hook block, and the
+# init-project.md hook table. These tests assert all three still agree with
+# the manifest, and that the manifest itself is internally consistent (every
+# declared file exists, every on-disk hook file has exactly one entry, and
+# the hooks retired in 4.1.0 never come back).
+# =============================================================================
+
+@test "T007: manifest — every declared hook file exists on disk" {
+    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+repo_root = sys.argv[2]
+missing = []
+for h in manifest["hooks"]:
+    source = h.get("source") or f"packages/core/hooks/{h['file']}"
+    if not os.path.isfile(os.path.join(repo_root, source)):
+        missing.append(source)
+print("missing:", missing)
+sys.exit(1 if missing else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: manifest — every hook file on disk is declared, once per event it registers on" {
+    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
+import json, os, sys
+
+manifest = json.load(open(sys.argv[1]))
+repo_root = sys.argv[2]
+
+# A hook file may legitimately appear MORE THAN ONCE when it registers on
+# several events (dispatch-ledger.js: SubagentStart + SubagentStop). What must
+# stay unique is the (source, event) PAIR — registering the same file twice on
+# the same event would install it twice and run it twice per event.
+pairs = [
+    (h.get("source") or f"packages/core/hooks/{h['file']}", h.get("event"))
+    for h in manifest["hooks"]
+]
+duplicates = sorted({f"{s} @ {e}" for (s, e) in pairs if pairs.count((s, e)) > 1})
+
+# A file must also resolve to ONE source across all its entries, or the copy
+# step becomes order-dependent.
+by_file = {}
+for h in manifest["hooks"]:
+    src = h.get("source") or f"packages/core/hooks/{h['file']}"
+    by_file.setdefault(h["file"], set()).add(src)
+conflicting = sorted(f for f, srcs in by_file.items() if len(srcs) > 1)
+if conflicting:
+    print("conflicting_sources:", conflicting)
+
+sources = [s for (s, _e) in pairs]
+
+core_hooks_dir = os.path.join(repo_root, "packages/core/hooks")
+exclude_names = {"hooks.manifest.json", "hooks.json", "package.json", "package-lock.json"}
+on_disk = set()
+for fname in os.listdir(core_hooks_dir):
+    full = os.path.join(core_hooks_dir, fname)
+    if not os.path.isfile(full):
+        continue
+    if fname in exclude_names or ".test." in fname:
+        continue
+    on_disk.add(f"packages/core/hooks/{fname}")
+
+# router.py lives outside packages/core/hooks/ (cross-package hook via "source")
+router_path = "packages/router/hooks/router.py"
+if os.path.isfile(os.path.join(repo_root, router_path)):
+    on_disk.add(router_path)
+
+declared = set(sources)
+missing_from_manifest = sorted(on_disk - declared)
+extra_in_manifest = sorted(declared - on_disk)
+
+print("duplicates:", duplicates)
+print("missing_from_manifest:", missing_from_manifest)
+print("extra_in_manifest:", extra_in_manifest)
+sys.exit(1 if (duplicates or conflicting or missing_from_manifest or extra_in_manifest) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: manifest — retired hooks (permitter, learning.sh, save-remote-logs.js) are absent" {
+    # Scope the check to the "hooks" array only — the manifest's own
+    # top-level $comment legitimately names these retired hooks in prose
+    # explaining why they have no entry (see hooks.manifest.json), so
+    # checking the whole JSON blob would false-positive on that sentence.
+    run python3 -c "
+import json
+manifest = json.load(open('$MANIFEST'))
+blob = json.dumps(manifest['hooks'])
+hits = [name for name in ('permitter', 'learning.sh', 'save-remote-logs.js') if name in blob]
+print(hits)
+import sys; sys.exit(1 if hits else 0)
+"
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: manifest shippable set matches packages/full/hooks/ symlinks (no missing, no extra)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+repo_root = sys.argv[2]
+# hookType:"prompt" entries ship promptFile (see the dedicated hookType
+# tests), not "file" as a runtime script — exclude them here or this
+# invariant would demand a dangling packages/full/hooks/<file> symlink
+# (or scaffolded copy) for something with nothing to link/copy.
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable") and h.get("hookType") != "prompt"}
+
+full_hooks_dir = os.path.join(repo_root, "packages/full/hooks")
+exclude = {"hooks.json", "hooks.manifest.json", "README.md", "lib", "prompts"}
+on_disk = {f for f in os.listdir(full_hooks_dir) if f not in exclude}
+
+missing = sorted(shippable - on_disk)
+extra = sorted(on_disk - shippable)
+print("missing_from_full_hooks:", missing)
+print("extra_in_full_hooks:", extra)
+sys.exit(1 if (missing or extra) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: scaffold's delivered hook set equals the manifest's shippable set (no missing, no extra)" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$MANIFEST" "$TEST_DIR" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+target = sys.argv[2]
+# hookType:"prompt" entries ship promptFile (see the dedicated hookType
+# tests), not "file" as a runtime script — exclude them here or this
+# invariant would demand a dangling packages/full/hooks/<file> symlink
+# (or scaffolded copy) for something with nothing to link/copy.
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable") and h.get("hookType") != "prompt"}
+hooks_dir = os.path.join(target, ".claude/hooks")
+on_disk = {f for f in os.listdir(hooks_dir) if os.path.isfile(os.path.join(hooks_dir, f))}
+missing = sorted(shippable - on_disk)
+extra = sorted(on_disk - shippable)
+print("missing:", missing)
+print("extra:", extra)
+sys.exit(1 if (missing or extra) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: template settings.json hook block matches the manifest (events, files, order)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT/packages/core/templates/claude-directory/settings.json" "$REPO_ROOT/packages/core/hooks/prompts" <<'PY'
+import collections, json, os, re, sys
+
+manifest = json.load(open(sys.argv[1]))
+settings = json.load(open(sys.argv[2]))
+prompts_dir = sys.argv[3]
+hooks = manifest["hooks"]
+
+# hookType:"prompt" entries emit no "command" field to regex a filename out
+# of — the settings.json entry only carries the inlined prompt TEXT. Build a
+# reverse lookup (prompt text -> manifest "file") from each such entry's
+# promptFile content, so those entries can be identified the same way
+# command-type ones are (by which manifest hook they correspond to).
+prompt_text_to_file = {}
+for h in hooks:
+    if h.get("hookType") != "prompt":
+        continue
+    with open(os.path.join(prompts_dir, h["promptFile"])) as fh:
+        prompt_text_to_file[fh.read().rstrip("\n")] = h["file"]
+
+groups = collections.OrderedDict()
+for h in hooks:
+    if h.get("event") is None:
+        continue
+    key = (h["event"], h.get("matcher") or "")
+    groups.setdefault(key, []).append(h)
+
+event_order = []
+for (event, _matcher) in groups:
+    if event not in event_order:
+        event_order.append(event)
+
+expected = collections.OrderedDict()
+for event in event_order:
+    entries = []
+    for (ev, matcher), group in groups.items():
+        if ev != event:
+            continue
+        group_sorted = sorted(group, key=lambda h: h.get("order") or 0)
+        entries.append((matcher, [h["file"] for h in group_sorted]))
+    expected[event] = entries
+
+actual = settings.get("hooks", {})
+ok = list(actual.keys()) == list(expected.keys())
+if ok:
+    for event, entries in expected.items():
+        actual_entries = actual.get(event, [])
+        if len(actual_entries) != len(entries):
+            ok = False
+            break
+        for (matcher, files), actual_entry in zip(entries, actual_entries):
+            if actual_entry.get("matcher", "") != matcher:
+                ok = False
+                break
+            actual_files = []
+            for hc in actual_entry.get("hooks", []):
+                if hc.get("type") == "prompt":
+                    actual_files.append(prompt_text_to_file.get(hc.get("prompt", "")))
+                    continue
+                m = re.search(r'\.claude/hooks/([\w.\-]+)', hc.get("command", ""))
+                actual_files.append(m.group(1) if m else None)
+            if actual_files != files:
+                ok = False
+                break
+        if not ok:
+            break
+
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: init-project.md hook table matches the manifest (core copy)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT/packages/core/commands/init-project.md" <<'PY'
+import json, re, sys
+
+manifest = json.load(open(sys.argv[1]))
+text = open(sys.argv[2]).read()
+m = re.search(r'ENSEMBLE:HOOKS-TABLE:BEGIN.*?ENSEMBLE:HOOKS-TABLE:END', text, re.DOTALL)
+if not m:
+    print("markers not found")
+    sys.exit(1)
+block = m.group(0)
+
+event_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is not None]
+other_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is None]
+expected = event_hooks + other_hooks
+
+found = re.findall(r'`\.claude/hooks/([\w.\-]+)`', block)
+print("expected:", expected)
+print("found:", found)
+sys.exit(0 if found == expected else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: init-project.md hook table matches the manifest (vendored copy)" {
+    run python3 - "$MANIFEST" "$REPO_ROOT/.claude/commands/init-project.md" <<'PY'
+import json, re, sys
+
+manifest = json.load(open(sys.argv[1]))
+text = open(sys.argv[2]).read()
+m = re.search(r'ENSEMBLE:HOOKS-TABLE:BEGIN.*?ENSEMBLE:HOOKS-TABLE:END', text, re.DOTALL)
+if not m:
+    print("markers not found")
+    sys.exit(1)
+block = m.group(0)
+
+event_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is not None]
+other_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is None]
+expected = event_hooks + other_hooks
+
+found = re.findall(r'`\.claude/hooks/([\w.\-]+)`', block)
+print("expected:", expected)
+print("found:", found)
+sys.exit(0 if found == expected else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: generate-hooks-artifacts.sh --check exits 0 on a clean tree" {
+    _needs_generator_normalize
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+}
+
+# The --check flag was silently broken: bash passes the lowercase string
+# "true", the python compared it against "True", so the comparison was always
+# false and --check never detected drift — it would report CI green on a
+# drifted tree. A test that only exercises the clean-tree case (above) would
+# not have caught this; the drift case is the one that matters.
+@test "T007: generate-hooks-artifacts.sh --check exits non-zero when settings.json template is drifted" {
+    _needs_generator_normalize
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    _track_for_restore "$target"
+
+    python3 - "$target" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"]["UserPromptSubmit"][0]["hooks"][0]["timeout"] = 999999
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+@test "T007: generate-hooks-artifacts.sh --check exits non-zero when init-project.md hook table is drifted" {
+    _needs_generator_normalize
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local target="$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$target"
+
+    python3 - "$target" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path).read()
+marker = "ENSEMBLE:HOOKS-TABLE:BEGIN — generated by packages/core/scripts/generate-hooks-artifacts.sh; edits are overwritten -->"
+text = text.replace(marker, marker + "\n\nEXTRA DRIFTED LINE THAT DOES NOT MATCH THE MANIFEST", 1)
+open(path, "w").write(text)
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# =============================================================================
+# DISC-B005: manifest "hookType" ("command" | "prompt") + generator support.
+#
+# No manifest entry has hookType:"prompt" yet — DISC-B008 (Phase 4) is what
+# actually converts async-discipline.js, subagent-discipline.js, and
+# autonomy-discipline.js. These tests prove the CAPABILITY: that a
+# hookType:"prompt" entry generates the correct settings.json shape, that
+# --check catches drift in it, and that scaffold-project.sh delivers the
+# entry's promptFile. The isolated tests below never touch real repo state
+# (they source scaffold-project.sh's functions against synthetic fixtures in
+# $TEST_DIR); the two end-to-end tests mutate the real manifest/settings.json
+# via _track_for_restore()/_track_for_deletion(), exactly like the existing
+# T007 drift tests above, restoring everything in teardown().
+# =============================================================================
+
+@test "hookType: manifest_shippable_prompts emits promptFile only for shippable hookType:prompt entries" {
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "a.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 5, "registration": "command", "shippable": true },
+    { "file": "b.js", "event": "Stop", "matcher": "", "order": 2, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "b.md" },
+    { "file": "c.js", "event": "SubagentStop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": false, "hookType": "prompt", "promptFile": "c.md" },
+    { "file": "d.js", "event": "Stop", "matcher": "", "order": 3, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "b.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_prompts '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    # b.js and d.js share promptFile "b.md" (shippable) -> deduped to one row.
+    # c.js is hookType:"prompt" but NOT shippable -> excluded.
+    # a.js is hookType absent (defaults to "command") -> never appears here.
+    [ "$output" = "b.md" ]
+}
+
+@test "hookType: manifest_shippable_prompts rejects a promptFile with a path traversal component" {
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "evil.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "../../../etc/passwd" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_prompts '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"ERROR"* ]]
+    [[ "$output" == *"flat basename"* ]]
+}
+
+@test "hookType: copy_hook_prompts delivers promptFile into <dest>/prompts/" {
+    mkdir -p "$TEST_DIR/src-prompts" "$TEST_DIR/dest"
+    printf 'Example prompt text.\n' > "$TEST_DIR/src-prompts/example.md"
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "example.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "example.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; FORCE=false; REFRESH=false; copy_hook_prompts '$TEST_DIR/synthetic-manifest.json' '$TEST_DIR/src-prompts' '$TEST_DIR/dest'"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/dest/prompts/example.md" ]
+    run diff "$TEST_DIR/src-prompts/example.md" "$TEST_DIR/dest/prompts/example.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "hookType: copy_hook_prompts in --refresh mode never creates <dest>/prompts/ that didn't already exist" {
+    mkdir -p "$TEST_DIR/src-prompts" "$TEST_DIR/dest"
+    printf 'Example prompt text.\n' > "$TEST_DIR/src-prompts/example.md"
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "example.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "example.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; FORCE=false; REFRESH=true; copy_hook_prompts '$TEST_DIR/synthetic-manifest.json' '$TEST_DIR/src-prompts' '$TEST_DIR/dest'"
+    [ "$status" -eq 0 ]
+    [ ! -d "$TEST_DIR/dest/prompts" ]
+}
+
+# End-to-end: prove generate-hooks-artifacts.sh's hookType:"prompt" support
+# against the REAL manifest/settings.json, via a disposable fixture entry
+# that is NOT shippable (so it never touches packages/full/hooks/ or the
+# scaffold copy list — those get their own dedicated symlink test below).
+# Mutates real repo files; restored/deleted in teardown() regardless of
+# outcome.
+@test "hookType: generate-hooks-artifacts.sh emits a type:prompt block, and --check detects drift in it" {
+    _needs_generator_normalize
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
+    local settings_target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b005-fixture.md"
+    # generate-hooks-artifacts.sh regenerates ALL of its consumers on every
+    # write-mode run, not just the ones this test's assertions inspect — the
+    # init-project.md hook table (core + vendored copies) picks up the
+    # fixture's file name too, and the plugin-only sync step then propagates
+    # the mutated core copy. All four must be tracked or teardown() leaves
+    # the repo dirty even though the test's own assertions never look at them.
+    _track_for_restore "$manifest_target"
+    _track_for_restore "$settings_target"
+    _track_for_restore "$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/.claude/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
+    _track_for_deletion "$prompt_fixture"
+
+    printf 'FIXTURE PROMPT TEXT — DISC-B005 test only, not a real hook.\n' > "$prompt_fixture"
+
+    python3 - "$manifest_target" <<PY
+import json
+path = "$manifest_target"
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"].append({
+    "file": "_zz-disc-b005-fixture.js",
+    "event": "Stop",
+    "matcher": "",
+    "order": 99,
+    "timeout": 17,
+    "registration": "prompt",
+    "shippable": False,
+    "hookType": "prompt",
+    "promptFile": "_zz-disc-b005-fixture.md",
+    "model": "claude-haiku-4-5-20251001",
+    "description": "DISC-B005 test fixture — deleted by teardown()."
+})
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$settings_target" <<'PY'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+stop_group = settings["hooks"]["Stop"]
+entries = stop_group[0]["hooks"]
+# Filter by the fixture's own distinctive prompt text rather than "the only
+# type:prompt entry" — async-discipline.js and autonomy-discipline.js are
+# real hookType:"prompt" entries too (DISC-B008) and share this Stop group.
+fixture = [h for h in entries if h.get("type") == "prompt" and h.get("prompt", "").startswith("FIXTURE PROMPT TEXT")]
+if len(fixture) != 1:
+    print(f"expected exactly one fixture type:prompt entry in Stop, got {len(fixture)}")
+    sys.exit(1)
+h = fixture[0]
+ok = (
+    h.get("prompt") == "FIXTURE PROMPT TEXT — DISC-B005 test only, not a real hook."
+    and h.get("timeout") == 17
+    and h.get("model") == "claude-haiku-4-5-20251001"
+    and "command" not in h
+    and "continueOnBlock" not in h
+)
+if not ok:
+    print("unexpected entry shape:", json.dumps(h, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+
+    # --check must be clean immediately after a fresh regeneration.
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # Now prove --check actually detects drift in the NEW field: hand-edit
+    # the generated prompt text so it no longer matches promptFile's content
+    # (simulating someone hand-editing settings.json, or promptFile changing
+    # without regeneration — exactly the silent-divergence failure mode this
+    # project has been bitten by repeatedly).
+    python3 - "$settings_target" <<PY
+import json
+path = "$settings_target"
+with open(path) as fh:
+    data = json.load(fh)
+for h in data["hooks"]["Stop"][0]["hooks"]:
+    if h.get("type") == "prompt":
+        h["prompt"] = "DRIFTED — does not match promptFile on disk"
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# End-to-end: a SHIPPABLE hookType:"prompt" entry must get a
+# packages/full/hooks/prompts/<promptFile> symlink, and --check must catch it
+# going stale — the "symlink guard" pattern extended to prompt files.
+@test "hookType: shippable promptFile gets a packages/full/hooks/prompts/ symlink, and --check detects a broken one" {
+    _needs_generator_normalize
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
+    local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b005-symlink-fixture.md"
+    local full_hooks_link="$REPO_ROOT/packages/full/hooks/prompts/_zz-disc-b005-symlink-fixture.md"
+    # See the previous test's comment: a write-mode run regenerates every
+    # consumer, not just the symlink this test asserts on.
+    _track_for_restore "$manifest_target"
+    _track_for_restore "$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    _track_for_restore "$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/.claude/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
+    _track_for_deletion "$prompt_fixture"
+    _track_for_deletion "$full_hooks_link"
+
+    printf 'FIXTURE PROMPT TEXT — DISC-B005 symlink test only.\n' > "$prompt_fixture"
+
+    python3 - "$manifest_target" <<PY
+import json
+path = "$manifest_target"
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"].append({
+    "file": "_zz-disc-b005-symlink-fixture.js",
+    "event": "SubagentStop",
+    "matcher": "",
+    "order": 99,
+    "timeout": 17,
+    "registration": "prompt",
+    "shippable": True,
+    "hookType": "prompt",
+    "promptFile": "_zz-disc-b005-symlink-fixture.md",
+    "description": "DISC-B005 test fixture — deleted by teardown()."
+})
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    run "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ -L "$full_hooks_link" ]
+    [ "$(readlink "$full_hooks_link")" = "../../../core/hooks/prompts/_zz-disc-b005-symlink-fixture.md" ]
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # Deliberately break the symlink (point it somewhere wrong) and prove
+    # --check catches it, exactly as it already does for hook-script symlinks.
+    rm -f "$full_hooks_link"
+    ln -s "../../../core/hooks/prompts/some-other-file.md" "$full_hooks_link"
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# =============================================================================
+# DISC-B007: kill switch. §3.4 as originally written specified a call-time env
+# var read inside the hook itself — not implementable for a hookType:"prompt"
+# entry, since a prompt-type hook is evaluated entirely by the platform (no
+# code of ours runs, no tools, no arbitrary env vars in its payload — see
+# docs/modernization/probes/U5-kill-switch-mechanism.md for the full proof,
+# including why the "if" field and cross-hook composition don't help either).
+# ENSEMBLE_DISCIPLINE_JUDGE_DISABLE is instead read by generate-hooks-artifacts.sh
+# itself — the only place in this feature where our code actually executes —
+# and forces every hookType:"prompt" entry to generate as command-type. These
+# tests exercise that read directly: unset vs set must produce different
+# settings.json output from the SAME manifest, proving the read is live
+# (fresh per invocation) rather than latched.
+# =============================================================================
+
+@test "kill switch: manifest_shippable_hooks includes a hookType:prompt entry's file only when ENSEMBLE_DISCIPLINE_JUDGE_DISABLE is set" {
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "p.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "p.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "p.js"$'\t'"core/hooks/p.js" ]]
+
+    # "0" and "false" must count as unset — a truthy-string bug here would be
+    # the exact kind of "latched" mistake 4.1.8 shipped.
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=0 bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# End-to-end: the same manifest, generated twice under different env var
+# states, must produce two DIFFERENT settings.json shapes for the fixture
+# entry — the direct proof that the read is call-time (per-invocation), not
+# a value baked in once. Also proves the honest limitation this switch has:
+# toggling the env var alone changes nothing until generate-hooks-artifacts.sh
+# is re-run, and a regeneration under one state that isn't followed by a
+# matching --check under the SAME state reports drift — there is no
+# instantaneous runtime effect.
+@test "kill switch: same manifest generates type:prompt when unset and type:command when ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1, proving a fresh per-invocation read" {
+    _needs_generator_normalize
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
+    local settings_target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b007-fixture.md"
+    local full_hooks_link="$REPO_ROOT/packages/full/hooks/_zz-disc-b007-fixture.js"
+    local full_hooks_prompt_link="$REPO_ROOT/packages/full/hooks/prompts/_zz-disc-b007-fixture.md"
+    _track_for_restore "$manifest_target"
+    _track_for_restore "$settings_target"
+    _track_for_restore "$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/.claude/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
+    _track_for_deletion "$prompt_fixture"
+    _track_for_deletion "$full_hooks_link"
+    _track_for_deletion "$full_hooks_prompt_link"
+
+    printf 'FIXTURE PROMPT TEXT — DISC-B007 kill-switch test only.\n' > "$prompt_fixture"
+
+    python3 - "$manifest_target" <<PY
+import json
+path = "$manifest_target"
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"].append({
+    "file": "_zz-disc-b007-fixture.js",
+    "event": "Stop",
+    "matcher": "",
+    "order": 99,
+    "timeout": 17,
+    "registration": "prompt",
+    "shippable": True,
+    "hookType": "prompt",
+    "promptFile": "_zz-disc-b007-fixture.md",
+    "description": "DISC-B007 test fixture — deleted by teardown()."
+})
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    # --- Pass 1: unset. Entry generates as type:"prompt", ships only the
+    # prompt-file symlink (no packages/full/hooks/<file> — nothing to run).
+    run "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ ! -e "$full_hooks_link" ]
+    [ -L "$full_hooks_prompt_link" ]
+
+    run python3 - "$settings_target" <<'PY'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+entries = settings["hooks"]["Stop"][0]["hooks"]
+fixture = [h for h in entries if h.get("timeout") == 17]
+if len(fixture) != 1:
+    print(f"expected exactly one fixture entry, got {len(fixture)}")
+    sys.exit(1)
+h = fixture[0]
+ok = h.get("type") == "prompt" and "command" not in h
+if not ok:
+    print("unexpected entry shape (unset pass):", json.dumps(h, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # --- Pass 2: SAME manifest, SAME script, ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1.
+    # The entry must now generate as type:"command", and its script must now
+    # be symlinked into packages/full/hooks/ — proof the env var is read
+    # fresh on this invocation, not cached from pass 1.
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ -L "$full_hooks_link" ]
+
+    run python3 - "$settings_target" <<'PY'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+entries = settings["hooks"]["Stop"][0]["hooks"]
+fixture = [h for h in entries if h.get("timeout") == 17]
+if len(fixture) != 1:
+    print(f"expected exactly one fixture entry, got {len(fixture)}")
+    sys.exit(1)
+h = fixture[0]
+ok = (
+    h.get("type") == "command"
+    and "prompt" not in h
+    and "_zz-disc-b007-fixture.js" in h.get("command", "")
+)
+if not ok:
+    print("unexpected entry shape (disabled pass):", json.dumps(h, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+
+    # Regenerating under the disabled state must itself be clean...
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # ...but --check WITHOUT the env var now reports DRIFT: this is the
+    # honest limitation. The switch has no effect until you regenerate, and
+    # forgetting to keep regenerating under a consistent state is drift like
+    # any other. There is no instantaneous runtime toggle here.
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# =============================================================================
+# RUNTIME-T008: end-to-end scaffold parity — the Phase 2 gate
+#
+# A freshly scaffolded project must register the same hook set this repo
+# runs. Checked against both the working tree (fast, always runs) and the
+# installed plugin cache (the real regression guard for commit d969eb3, which
+# shipped a manifest that existed in packages/core/ but never reached
+# packages/full/ — the working-tree-only check would have stayed green while
+# every real scaffold silently no-opped the feature). The cache check skips
+# cleanly when no plugin is installed or its version doesn't match this
+# checkout, since CI has no plugin installed.
+# =============================================================================
+
+@test "T008: scaffolded settings.json hooks block matches this repo's own .claude/settings.json" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$TEST_DIR/.claude/settings.json" "$REPO_ROOT/.claude/settings.json" <<'PY'
+import json, sys
+a = json.load(open(sys.argv[1]))["hooks"]
+b = json.load(open(sys.argv[2]))["hooks"]
+ok = list(a.keys()) == list(b.keys()) and a == b
+if not ok:
+    print("scaffolded:", json.dumps(a, indent=2))
+    print("repo:", json.dumps(b, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "T008: scaffolded project matches the installed plugin cache (skips if absent/stale)" {
+    local installed_json="$HOME/.claude/plugins/installed_plugins.json"
+    if [[ ! -f "$installed_json" ]]; then
+        skip "no installed_plugins.json — no plugin installed in this environment"
+    fi
+
+    local cache_info
+    cache_info="$(python3 -c "
+import json
+d = json.load(open('$installed_json'))
+entries = d.get('plugins', {}).get('full@ensemble-vnext') or []
+if entries:
+    e = entries[0]
+    print(e.get('installPath', ''))
+    print(e.get('version', ''))
+" 2>/dev/null)" || cache_info=""
+
+    local cache_path cache_version
+    cache_path="$(printf '%s' "$cache_info" | sed -n '1p')"
+    cache_version="$(printf '%s' "$cache_info" | sed -n '2p')"
+
+    if [[ -z "$cache_path" || ! -d "$cache_path" ]]; then
+        skip "no installed plugin cache entry found for full@ensemble-vnext"
+    fi
+
+    local plugin_manifest="$REPO_ROOT/packages/full/.claude-plugin/plugin.json"
+    local repo_version
+    repo_version="$(python3 -c "import json; print(json.load(open('$plugin_manifest')).get('version',''))" 2>/dev/null)" || repo_version=""
+
+    if [[ -z "$repo_version" || "$cache_version" != "$repo_version" ]]; then
+        skip "installed plugin cache is version '$cache_version', repo checkout is '$repo_version' — no matching plugin installed"
+    fi
+
+    local cache_manifest="$cache_path/hooks/hooks.manifest.json"
+    if [[ ! -f "$cache_manifest" ]]; then
+        skip "installed plugin cache has no hooks.manifest.json at $cache_manifest"
+    fi
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$cache_path" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run python3 - "$cache_manifest" "$TEST_DIR" <<'PY'
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+target = sys.argv[2]
+# hookType:"prompt" entries ship promptFile (see the dedicated hookType
+# tests), not "file" as a runtime script — exclude them here or this
+# invariant would demand a dangling packages/full/hooks/<file> symlink
+# (or scaffolded copy) for something with nothing to link/copy.
+shippable = {h["file"] for h in manifest["hooks"] if h.get("shippable") and h.get("hookType") != "prompt"}
+hooks_dir = os.path.join(target, ".claude/hooks")
+on_disk = {f for f in os.listdir(hooks_dir) if os.path.isfile(os.path.join(hooks_dir, f))}
+missing = sorted(shippable - on_disk)
+extra = sorted(on_disk - shippable)
+print("missing:", missing)
+print("extra:", extra)
+sys.exit(1 if (missing or extra) else 0)
+PY
+    [ "$status" -eq 0 ]
+}
+
+# =============================================================================
+# B-1 regression: packages/full/commands/plugin-only/{init-project,rebase-project}.md
+# must be REAL FILES byte-identical to packages/core/commands/.
+#
+# They were symlinked in 4.1.2 to stop them going stale, and these tests asserted
+# that. Both the change and the tests were wrong: Claude Code does not load plugin
+# commands through symlinks, so `claude plugin details` reported Skills (0)
+# instead of Skills (2) and /init-project became "Unknown command" — the plugin's
+# only two commands, and therefore its entire purpose. The tests passed the whole
+# time, because a symlink resolving on the filesystem says nothing about whether
+# the plugin loads it.
+#
+# Staleness is real (the shipped copy had drifted two releases and still
+# documented a deleted hook), so it is solved by generate-hooks-artifacts.sh
+# instead: it syncs these copies and its --check fails on drift OR on a symlink.
+# =============================================================================
+
+@test "B-1: plugin-only commands are REAL FILES byte-identical to core" {
+    local plugin_only="$REPO_ROOT/packages/full/commands/plugin-only"
+
+    for name in init-project.md rebase-project.md; do
+        local shipped="$plugin_only/$name"
+        local core="$REPO_ROOT/packages/core/commands/$name"
+
+        [ ! -L "$shipped" ] || {
+            echo "$shipped is a SYMLINK — Claude Code will not load plugin commands"
+            echo "through symlinks; the plugin silently exposes zero commands."
+            return 1
+        }
+        [ -f "$shipped" ] || { echo "missing $shipped"; return 1; }
+
+        run diff "$core" "$shipped"
+        [ "$status" -eq 0 ]
+    done
+}
+
+@test "B-1: plugin-only contains exactly init-project.md and rebase-project.md" {
+    local plugin_only="$REPO_ROOT/packages/full/commands/plugin-only"
+    run python3 -c "
+import os, sys
+d = sys.argv[1]
+names = sorted(f for f in os.listdir(d) if f.endswith('.md'))
+print('\n'.join(names))
+" "$plugin_only"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$(printf 'init-project.md\nrebase-project.md')" ]
+}
+
+# =============================================================================
+# RUNTIME-T001: --refresh cases
+#
+# docs/TRD/runtime-refresh.md §2.2/§3.2 — --refresh replaces only components
+# already present under the target's .claude/, never creates, never deletes.
+# =============================================================================
+
+@test "RUNTIME-T001: --refresh flag is accepted" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    # Populate the target with a full scaffold first so there is something
+    # already present to refresh.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+}
+
+@test "RUNTIME-T001: --refresh and --force together exits non-zero" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --force --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"mutually exclusive"* ]]
+}
+
+@test "RUNTIME-T001: refresh performs no mkdir of absent directories" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    # TEST_DIR exists (mktemp -d) but has no .claude/ at all — nothing has
+    # ever been scaffolded here.
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    [ ! -d "$TEST_DIR/.claude" ]
+    [ ! -d "$TEST_DIR/docs" ]
+    [ ! -d "$TEST_DIR/.trd-state" ]
+}
+
+@test "RUNTIME-T001: REFRESH_SUMMARY is the last line of stdout and counts match actual changes" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    # Full scaffold populates every present component.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local expected_commands expected_agents
+    expected_commands=$(ls -1 "$TEST_DIR/.claude/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
+    expected_agents=$(ls -1 "$TEST_DIR/.claude/agents/"*.md 2>/dev/null | wc -l | tr -d ' ')
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # Last line of stdout must be the REFRESH_SUMMARY tally.
+    local last_line
+    last_line="$(printf '%s\n' "$output" | tail -1)"
+    [[ "$last_line" =~ ^REFRESH_SUMMARY\ commands=[0-9]+\ agents=[0-9]+\ hooks=[0-9]+\ skills=[0-9]+$ ]]
+
+    local actual_commands actual_agents
+    actual_commands="$(printf '%s' "$last_line" | sed -n 's/.*commands=\([0-9][0-9]*\).*/\1/p')"
+    actual_agents="$(printf '%s' "$last_line" | sed -n 's/.*agents=\([0-9][0-9]*\).*/\1/p')"
+
+    # Every command/agent already present gets refreshed (present-only, and
+    # all of them are present since the prior run was a full scaffold).
+    [ "$actual_commands" -eq "$expected_commands" ]
+    [ "$actual_agents" -eq "$expected_agents" ]
+}
+
+# =============================================================================
+# RUNTIME-T002: present-only semantics
+# =============================================================================
+
+@test "RUNTIME-T002: absent command stays absent after refresh" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/commands/fold-prompt.md" ]
+
+    rm -f "$TEST_DIR/.claude/commands/fold-prompt.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # Never recreated — refresh must not un-curate.
+    [ ! -f "$TEST_DIR/.claude/commands/fold-prompt.md" ]
+}
+
+@test "RUNTIME-T002: absent agent stays absent after refresh" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/agents/mobile-implementer.md" ]
+
+    rm -f "$TEST_DIR/.claude/agents/mobile-implementer.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    [ ! -f "$TEST_DIR/.claude/agents/mobile-implementer.md" ]
+}
+
+@test "RUNTIME-T002: present command is replaced (drift removed)" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/commands/create-prd.md" ]
+
+    printf '%s\n' "DRIFT_MARKER_SHOULD_BE_REMOVED" > "$TEST_DIR/.claude/commands/create-prd.md"
+    grep -q "DRIFT_MARKER_SHOULD_BE_REMOVED" "$TEST_DIR/.claude/commands/create-prd.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -q "DRIFT_MARKER_SHOULD_BE_REMOVED" "$TEST_DIR/.claude/commands/create-prd.md"
+    [ "$status" -ne 0 ]
+
+    # Restored to the plugin's actual content.
+    run diff "$TEST_DIR/.claude/commands/create-prd.md" "$plugin_dir/../core/commands/create-prd.md"
+    [ "$status" -eq 0 ]
+}
+
+# =============================================================================
+# RUNTIME-T003: authored-rule protection
+# =============================================================================
+
+@test "RUNTIME-T003: a locally modified constitution.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' "# My locally authored constitution" > "$TEST_DIR/.claude/rules/constitution.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/constitution.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/constitution.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "RUNTIME-T003: a locally modified stack.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' "# My locally authored stack" > "$TEST_DIR/.claude/rules/stack.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/stack.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/stack.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "RUNTIME-T003: a locally modified process.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' "# My locally authored process" > "$TEST_DIR/.claude/rules/process.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/process.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/process.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "RUNTIME-T003: a framework rule (autonomy.md) IS refreshed" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -f "$TEST_DIR/.claude/rules/autonomy.md" ]
+
+    printf '%s\n' "DRIFTED AUTONOMY CONTENT" > "$TEST_DIR/.claude/rules/autonomy.md"
+    grep -q "DRIFTED AUTONOMY CONTENT" "$TEST_DIR/.claude/rules/autonomy.md"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    run grep -q "DRIFTED AUTONOMY CONTENT" "$TEST_DIR/.claude/rules/autonomy.md"
+    [ "$status" -ne 0 ]
+
+    local rules_src="$SCRIPT_DIR/../templates/claude-directory/rules/autonomy.md"
+    run diff "$TEST_DIR/.claude/rules/autonomy.md" "$rules_src"
+    [ "$status" -eq 0 ]
+}
+
+@test "RUNTIME-T003: .trd-state/ is never touched by refresh" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' '{"prd": "docs/PRD/marker.md", "branch": "marker-branch"}' > "$TEST_DIR/.trd-state/current.json"
+    mkdir -p "$TEST_DIR/.trd-state/some-feature"
+    printf '%s\n' '{"tasks": {}}' > "$TEST_DIR/.trd-state/some-feature/implement.json"
+
+    local sha_before
+    sha_before="$(find "$TEST_DIR/.trd-state" -type f -exec shasum {} \; | sort | shasum | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(find "$TEST_DIR/.trd-state" -type f -exec shasum {} \; | sort | shasum | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
 }

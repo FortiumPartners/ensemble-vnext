@@ -1,3 +1,10 @@
+---
+name: cloud-provider-detector
+description: Detect which cloud provider a project targets (AWS, GCP, Azure) via weighted multi-signal analysis.
+when_to_use: Run this FIRST when you must pick cloud-specific infra skills but don't know the target cloud. It only identifies the provider — then hand off (AWS to aws-cloud, Azure to using-terraform-azure). To detect the app framework use framework-detector; the test runner use test-detector; infra tooling (Helm/K8s) use tooling-detector.
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Cloud Provider Detection Skill
 
 **Auto-detect AWS, GCP, or Azure usage with 95%+ accuracy using multi-signal analysis.**

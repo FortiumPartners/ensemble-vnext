@@ -58,7 +58,20 @@ get_formatter_command() {
         js|jsx|ts|tsx|html|css|json|yaml|yml|md)
             if command_exists prettier; then
                 echo "prettier --write"
+            elif [[ -x "node_modules/.bin/prettier" ]]; then
+                # Prefer the project's own pinned copy over npx: faster, and it
+                # formats to the version the project actually declares.
+                echo "node_modules/.bin/prettier --write"
             elif command_exists npx; then
+                # npx is the fallback and it is LOAD-BEARING, not a nicety.
+                # /init-project Step 10 creates .prettierrc but does NOT install
+                # prettier — it prints the install command and asks the user. So
+                # for most scaffolded JS/TS projects this branch is the only one
+                # that ever fires, and gating it turns the formatter hook off
+                # entirely for them.
+                #
+                # The cost is small: npx caches, so this is ~0.6s warm, not the
+                # ~2s a single cold first-download measurement suggested.
                 echo "npx prettier --write"
             fi
             ;;

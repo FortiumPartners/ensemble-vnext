@@ -28,7 +28,7 @@ Ensemble adds four building blocks to any Claude Code project:
 | Block | What It Does |
 |-------|-------------|
 | **Commands** | Slash commands (`/create-prd`, `/implement-trd`) that encode proven workflow patterns |
-| **Agents** | 12 specialist AI workers (backend, frontend, testing, debugging, etc.) that receive focused tasks |
+| **Agents** | 13 specialist AI workers (backend, frontend, mobile, AI/agent, testing, debugging, etc.) that receive focused tasks |
 | **Skills** | Domain knowledge packs (pytest, TypeScript, React, etc.) loaded on demand |
 | **Hooks** | Automated guardrails that run on every prompt, edit, and session boundary |
 
@@ -84,7 +84,7 @@ Open Claude Code in any project and run:
 ```
 
 This analyzes your project and creates:
-- `.claude/agents/` -- 12 specialist subagents
+- `.claude/agents/` -- 13 specialist subagents
 - `.claude/commands/` -- workflow commands
 - `.claude/hooks/` -- quality guardrails
 - `.claude/skills/` -- domain knowledge matched to your stack
@@ -108,17 +108,17 @@ We recommend running with `--dangerously-skip-permissions` and executing the TRD
 ```bash
 # Pass 1: Build the reference implementation (TDD, meet acceptance criteria)
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /implement-trd
 
-# Pass 2: Harden (edge cases, error handling, close gaps)
+# Pass 2: Harden (edge cases, error handling, close gaps) — parallel teammates
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /harden-trd-team
 
 # (Optional: run CI/reviewer pipeline between passes 2 and 3)
 
-# Pass 3: Validate against the original PRD with live testing
+# Pass 3: Validate against the original PRD with live testing — parallel teammates
 claude --dangerously-skip-permissions
-> /implement-trd-team
+> /verify-trd-team
 ```
 
 After three passes, the human developer steps in to debug and get it over the finish line. See [Concepts](./CONCEPTS.md#the-three-pass-implementation) for the full rationale.

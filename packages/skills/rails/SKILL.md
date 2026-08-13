@@ -1,3 +1,16 @@
+---
+name: rails
+description: Build Ruby on Rails 7+ apps — MVC, Active Record, routing, scopes, callbacks, RESTful controllers.
+when_to_use: Reach for this when the project is a Ruby on Rails app (Gemfile with rails, app/models|controllers). This is the Ruby web-framework skill; for Rails/Ruby *tests* use rspec. For Elixir web apps use phoenix instead.
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+paths:
+  - "Gemfile"
+  - "Rakefile"
+  - "app/**/*.rb"
+  - "config/routes.rb"
+  - "db/migrate/**"
+---
+
 # Rails Framework Skill - Quick Reference
 
 **Framework**: Ruby on Rails 7+

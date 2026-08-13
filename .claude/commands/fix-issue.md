@@ -1,6 +1,7 @@
 ---
 name: fix-issue
 description: Fix a triaged issue using the lightweight issue TRD — implement, verify, and review in a single compressed pass
+argument-hint: "[issue-trd-path] [--resume] [--reset-state]"
 version: 1.0.0
 category: maintenance
 ---
@@ -114,17 +115,33 @@ If the issue TRD has only 1 task, execute directly without spawning a team:
 
 ### 3.2 Multiple Tasks (team mode)
 
-If 2+ tasks, spawn a lightweight team:
+If 2+ tasks, spawn teammates directly — no team creation step is needed; a team forms
+automatically on the first spawn:
 
 ```javascript
-Teammate({ operation: "spawnTeam", team_name: "fix-<issue-id>",
-           description: "Fix <issue-id>" });
+Agent({ subagent_type, name, prompt });
 ```
 
-Spawn one teammate per task (or group related tasks). Each teammate runs the
-full fix cycle using the templates below.
+Spawn one teammate per task (or group related tasks). Each teammate runs the full fix
+cycle using the templates below. Teammates share the working tree (no
+`isolation: "worktree"`); keep each teammate's files disjoint. Express task grouping via
+task names plus `blockedBy` dependencies on the shared task list
+(`TaskCreate`, then `TaskUpdate({taskId, addBlockedBy: [...]})`) rather than `team_name`,
+which is accepted but ignored by the platform.
 
-Monitor, collect results, cleanup — same as `/implement-trd-team` Step 4.
+**Recommended, not mandatory:** pair the spawn with a safety-net wake-up before ending the
+turn — teammate `SendMessage` auto-delivery reliably re-invokes the lead (see
+`.claude/rules/async-discipline.md`), so this is cheap insurance:
+```javascript
+ScheduleWakeup({
+  delaySeconds: 1200,
+  reason: "team-mailbox drain fallback for fix-<issue-id>",
+  prompt: "/fix-issue [original arguments here]"
+});
+```
+
+Monitor for teammate `SendMessage` completions and collect results. No teardown step is
+required — cleanup is automatic when a teammate's session exits.
 
 ---
 
@@ -160,7 +177,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 If final verification fails:
 - If reproduction still occurs: route back to fix loop for the relevant task
@@ -324,7 +341,7 @@ Deliverables:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="{implementer_type}", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="{implementer_type}", prompt="[above]")`
 
 ## F.2 Template: VERIFY
 
@@ -357,7 +374,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="verify-app", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
 ## F.3 Template: REVIEW
 
@@ -388,7 +405,7 @@ Report:
 </instructions>
 ```
 
-**Invoke:** `Task(subagent_type="code-reviewer", prompt="[above]")`
+**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
 
 ---
 
@@ -401,3 +418,93 @@ Report:
 | DEBUG | app-debugger | files_fixed, root_cause | VERIFY (retry) |
 | REVIEW | code-reviewer | decision, issues[] | UPDATE or FIX |
 | FINAL VERIFY | verify-app | reproduction_fixed, regression_issues | COMPLETE |
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+This command spans multiple turns. Emit these standard status lines so the user always knows the state:
+
+1. **DISPATCHED** — when a turn ends with subagents/teammates in flight or a wake scheduled:
+   ```
+   [STATUS: /fix-issue] DISPATCHED → <count> <kind> in flight: <names>
+      waiting on: <observable signal>
+      next wake: <ScheduleWakeup ETA | "teammate SendMessage auto-deliver">
+   ```
+
+2. **RESUMED** — at the START of each new turn after a wake or teammate message:
+   ```
+   [STATUS: /fix-issue] RESUMED → <reason>
+      completed since last turn: <summary | "none">
+   ```
+
+3. **PHASE N/M COMPLETE** — at each phase boundary (progress marker, NOT completion):
+   ```
+   [STATUS: /fix-issue] PHASE <N>/<M> COMPLETE → <summary>
+   ```
+
+4. **COMMAND COMPLETE** — as the LAST line of the FINAL turn (only when the whole command is truly done; never at phase boundaries):
+   ```
+   ═══ COMMAND COMPLETE: /fix-issue ═══
+   <one-line summary>
+   ```
+
+5. **PushNotification ON FINAL TURN ONLY** — this is a long-running command; the user has likely walked away. In the same final turn that emits COMMAND COMPLETE, also call:
+   ```javascript
+   PushNotification({
+     status: "proactive",
+     message: "fix-issue done: <one-line summary, under 200 chars, leads with what they'd act on>"
+   })
+   ```
+   On `COMMAND STUCK`, send a `PushNotification` whose message states the Reason + Next action (the user needs to come back to unblock). Do NOT send notifications on intermediate Stops, DISPATCHED turns, RESUMED turns, or PHASE boundaries — only the truly-final turn. If the push tool reports "not sent," that's expected; do not retry.
+
+6. **PROGRAMMATIC NOTIFY ON FINAL TURN ONLY** — for orchestration / webhooks / queues / shell pipelines, invoke the user's `NOTIFY_ON_COMPLETE` shell command via Bash on the SAME final turn:
+   ```bash
+   .claude/hooks/notify-complete.sh "fix-issue" "complete" "<one-line summary>"
+   ```
+   For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"` and use the Reason as the summary. The bracket-guard means it's a no-op when the user hasn't configured it. Same single-fire timing as the PushNotification — only on the truly-final turn.
+
+Nothing after the COMMAND COMPLETE banner. On unrecoverable failure use `═══ COMMAND STUCK: /fix-issue ═══` with Reason + Next (and the PushNotification above).
+
+
+---
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from this invocation to the COMMAND COMPLETE banner.
+**Do NOT pause mid-flow to ask the user to confirm decisions, review artifacts, verify
+checkpoints, or defer to stakeholders.** The user already authorized the run by invoking
+the command; do not ask them to authorize it again, in pieces.
+
+`AskUserQuestion` is permitted ONLY in these four cases:
+
+1. **Genuine requirement ambiguity** — the PRD/TRD/stack.md is silent on a decision
+   that MUST be made, AND no reasonable default exists from documented constraints.
+   *Try a default first; ask only if none fits.*
+2. **Missing information that cannot be derived** — a value not in the codebase, env,
+   config, or anywhere derivable (a user-specific URL, API key not in env, etc.).
+3. **Truly irreversible destructive operations** — `--reset-state` with progress,
+   `git push --force`, deleting user-authored files. Routine state mutations do NOT
+   qualify.
+4. **STUCK conditions** — retry exhaustion after the documented mitigations have run.
+
+Outside these four cases: **decide based on documented constraints, document the
+rationale in the artifact, and proceed.** The user iterates via `/refine-prd`,
+`/refine-trd`, or `/implement-trd --resume` — not via mid-loop confirmation prompts.
+
+Forbidden patterns:
+- "Should I proceed to phase N+1?" → no — emit PHASE banner, proceed.
+- "Please review this artifact before I continue." → no — finish the artifact, emit
+  COMMAND COMPLETE.
+- "Multiple approaches possible; which do you prefer?" → pick the best fit, document
+  why, mention alternatives in the artifact if useful.
+- "Should I check with product/legal/stakeholders?" → no — decide based on documented
+  goals; the user can correct via /refine-*.
+- "Checkpoint reached. Continue?" → continue. Always.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
+
+### `--wiggum` and other autonomous-mode flags
+
+When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.

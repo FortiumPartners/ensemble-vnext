@@ -1,3 +1,10 @@
+---
+name: smoke-test-external-services
+description: Smoke-test third-party integrations — reachability/auth for payment, email/SMS, and monitoring providers (Stripe, Twilio, SendGrid...).
+when_to_use: Reach for this to validate EXTERNAL dependencies only (third-party APIs reachable and authenticating). For your own API use smoke-test-api; for your DB use smoke-test-database; for auth flows use smoke-test-auth; for user journeys use smoke-test-critical-paths; for the whole suite use smoke-test-runner.
+allowed-tools: Read, Bash, Grep, Glob
+---
+
 # Smoke Test External Services Skill
 
 **Quick Reference** - Load this first for fast context (~3KB)

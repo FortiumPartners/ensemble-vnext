@@ -29,19 +29,111 @@ This design means:
 
 ---
 
+## Keeping the Runtime Current: Refresh vs Rebase
+
+Vendoring buys reproducibility at a price: every project holds a frozen fork of the
+runtime. Two mechanisms keep that fork current, and they are deliberately different.
+
+| | **Refresh** (automatic) | **Rebase** (deliberate) |
+|---|---|---|
+| Trigger | `SessionStart` hook, every session | You run `/rebase-project` |
+| Scope | Components **already present** in `.claude/` | Any component, including new ones |
+| Adds components | **Never** | Yes |
+| Removes components | **Never** | Yes, with backup |
+| Touches governance files | **Never** | Prompts before changing |
+| Requires judgment | No — mechanical replacement | Yes — that's the point |
+
+**Refresh is safe to run unattended precisely because of what it cannot do.** It replaces
+what is already there and nothing else. It cannot add a component you never selected, so
+it cannot un-curate a project; it cannot delete one the plugin dropped, so it cannot
+silently remove something you depend on. Anything requiring a decision belongs to
+`/rebase-project`, where you are present to make it.
+
+### The version stamp
+
+`.claude/settings.json` carries an `ensemble` block with a `version` field, written by the
+scaffold on `/init-project` and on every successful refresh:
+
+```json
+"ensemble": {
+  "version": "4.1.1",
+  "refreshed_at": "2026-08-11T22:14:03Z",
+  "agents_dir": ".claude/agents"
+}
+```
+
+The refresh gate is **monotonic** — it writes only when the installed plugin's version is
+strictly newer than the stamp. That is what stops two teammates on different plugin
+versions from ping-ponging committed runtime files back and forth in git.
+
+A project scaffolded before the stamp existed has no `ensemble.version`. That reads as
+*unknown*, not *older*, so it never auto-refreshes. Run `/rebase-project` once to adopt
+the stamp; refresh engages from then on.
+
+### The four guards
+
+`runtime-refresh.sh` skips, silently and exiting 0, when any of these hold:
+
+1. **No plugin installed** — CI, fresh clones, and anyone using the vendored runtime
+   without the plugin hit this constantly. It must be quiet, not a warning.
+2. **The project is inside the plugin's own checkout** — the marketplace is a `directory`
+   source pointing at the ensemble repository, so without this a stale plugin cache would
+   overwrite live source and silently revert a developer's uncommitted work. The check
+   walks *ancestors*, not just the project root, because a project nested inside the
+   checkout (an eval fixture, say) resolves to itself and would otherwise never see the
+   markers above it.
+3. **A task is in progress** — any `.trd-state/*/implement.json` with an `in_progress`
+   task. A multi-session `/implement-trd` loop must not pick up different command text
+   halfway through a feature.
+4. **The plugin is not newer** — equal, older, or unparseable versions do nothing.
+
+A hook that blocks session start is worse than a stale runtime, so every path exits 0,
+including malformed JSON, a missing plugin, and a failing scaffold.
+
+### Changes land in the NEXT session
+
+**This is the part that surprises people.** Claude Code loads `.claude/` *before*
+`SessionStart` hooks run. A refresh therefore writes files the current session has already
+read — the session you are in continues with the components it loaded at start, and the
+updated ones take effect when you next start a session.
+
+This was verified empirically, not assumed: a `SessionStart` hook that rewrote a command's
+frontmatter fired and wrote to disk, but the session still reported the pre-write text; the
+following session reported the new text. The behaviour is stable, not a race.
+
+The refresh message says so explicitly:
+
+```
+ENSEMBLE runtime refreshed 4.1.0 → 4.1.1 — 4 commands, 2 hooks, 1 skill updated.
+Changes take effect in the NEXT session (this session's components were already loaded).
+```
+
+That second line is not optional. Silently applying a change that appears to do nothing is
+worse than a one-session lag you can see.
+
+### Turning it off
+
+| Env var | Effect |
+|---|---|
+| `ENSEMBLE_RUNTIME_REFRESH_DISABLE=1` | Skip entirely |
+| `ENSEMBLE_RUNTIME_REFRESH_DEBUG=1` | Log every guard decision to stderr |
+
+---
+
 ## Directory Structure
 
 ```
 your-project/
 |-- CLAUDE.md                        # Project operating instructions (auto-updated)
 |-- .claude/
-|   |-- agents/                      # 12 specialist subagents
+|   |-- agents/                      # 13 specialist subagents
 |   |   |-- product-manager.md
 |   |   |-- technical-architect.md
 |   |   |-- spec-planner.md
 |   |   |-- frontend-implementer.md
 |   |   |-- backend-implementer.md
 |   |   |-- mobile-implementer.md
+|   |   |-- agent-implementer.md
 |   |   |-- verify-app.md
 |   |   |-- code-simplifier.md
 |   |   |-- code-reviewer.md
@@ -49,26 +141,35 @@ your-project/
 |   |   |-- devops-engineer.md
 |   |   +-- cicd-specialist.md
 |   |-- commands/                    # Workflow slash commands
+|   |   |-- init-project.md
+|   |   |-- rebase-project.md
 |   |   |-- create-prd.md
 |   |   |-- create-prd-team.md
 |   |   |-- create-trd.md
 |   |   |-- create-trd-team.md
-|   |   |-- implement-trd.md
-|   |   |-- implement-trd-team.md
 |   |   |-- refine-prd.md
 |   |   |-- refine-trd.md
+|   |   |-- implement-trd.md
+|   |   |-- harden-trd-team.md
+|   |   |-- verify-trd-team.md
+|   |   |-- investigate-issue.md
+|   |   |-- fix-issue.md
 |   |   |-- fold-prompt.md
 |   |   |-- update-project.md
 |   |   +-- cleanup-project.md
 |   |-- hooks/                       # Automated guardrails
-|   |   |-- router.py                # Prompt routing
-|   |   |-- permitter/permitter.js   # Permission validation
-|   |   |-- formatter.sh             # Auto-formatting
-|   |   |-- status.js                # Implementation tracking
-|   |   |-- wiggum.js                # Session end processing
-|   |   |-- notify.sh                # Stop notifications
-|   |   |-- learning.sh              # Learning capture
-|   |   +-- save-remote-logs.js      # Remote session log archival
+|   |   |-- router.py                # Prompt routing (UserPromptSubmit)
+|   |   |-- formatter.sh             # Auto-formatting (PostToolUse)
+|   |   |-- status.js                # Implementation tracking (SubagentStop)
+|   |   |-- async-discipline.js      # Blocks hallucinated async claims (Stop)
+|   |   |-- autonomy-discipline.js   # Blocks hedged-pause offers (Stop)
+|   |   |-- wiggum.js                # Autonomous-loop / session-end processing (Stop)
+|   |   |-- notify.sh                # Per-Stop notifications (Stop)
+|   |   |-- notify-complete.sh       # COMMAND-COMPLETE notification helper (model-invoked)
+|   |   |-- session-context.js       # Session identity capture (SessionStart)
+|   |   |-- runtime-refresh.sh       # Vendored runtime refresh (SessionStart)
+|   |   |-- precompact.js            # Pre-compaction handling (PreCompact)
+|   |   +-- lib/                     # Shared hook helpers (resolve-project-root, etc.)
 |   |-- skills/                      # Domain knowledge packs
 |   |   |-- developing-with-python/
 |   |   |-- developing-with-typescript/
@@ -78,7 +179,10 @@ your-project/
 |   |-- rules/                       # Governance files
 |   |   |-- constitution.md          # Project absolutes
 |   |   |-- stack.md                 # Technology stack
-|   |   +-- process.md              # Workflow documentation
+|   |   |-- process.md               # Workflow documentation
+|   |   |-- async-discipline.md      # No hallucinated async claims
+|   |   |-- autonomy.md              # Autonomous-execution discipline
+|   |   +-- command-status.md        # DISPATCHED / RESUMED / COMPLETE banners
 |   +-- settings.json                # Hooks, permissions, configuration
 |-- docs/
 |   |-- PRD/                         # Product Requirements Documents
@@ -103,7 +207,7 @@ Each agent file (`.claude/agents/<name>.md`) contains:
 - **Instructions** -- specific behavioral guidelines
 - **Quality criteria** -- what "done" looks like
 
-### The 12 Agents
+### The 13 Agents
 
 #### Artifact Agents
 
@@ -129,8 +233,9 @@ Analyzes task dependencies to create optimal implementation schedules.
 | `frontend-implementer` | `frontend-implementer.md` | `/implement-trd` | UI, components, client logic |
 | `backend-implementer` | `backend-implementer.md` | `/implement-trd` | APIs, services, data layer |
 | `mobile-implementer` | `mobile-implementer.md` | `/implement-trd` | Flutter, React Native |
+| `agent-implementer` | `agent-implementer.md` | `/implement-trd` | AI/agent apps — prompts, model selection, RAG, tool calling, agent memory |
 
-The router hook determines which implementer to use based on the task description and project stack.
+The router hook determines which implementer to use based on the task description and project stack. `agent-implementer` owns work where the deliverable *is* the AI behavior (prompt design, RAG pipelines, agent loops, eval); `backend-implementer` handles conventional backends that merely call an LLM as one component.
 
 #### Quality Agents
 
@@ -184,7 +289,15 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 | `/create-trd-team` | Same (uses parallel architecture team) | `docs/TRD/<feature>.md` |
 | `/refine-trd` | Existing TRD + feedback | Updated TRD |
 | `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking |
-| `/implement-trd-team` | Same (uses concurrent agent team) | Code + tests + `.trd-state/` tracking |
+| `/harden-trd-team` | Implemented TRD | Gap/edge-case/regression hardening via parallel teammates |
+| `/verify-trd-team` | Implemented TRD | Live verification (API/UI/integration) that the feature actually works |
+
+#### Issue Triage & Fixes
+
+| Command | Input | Output |
+|---------|-------|--------|
+| `/investigate-issue` | Issue report | Reproduction + classification → lightweight issue TRD or a spec for `/create-prd` |
+| `/fix-issue` | Triaged issue TRD | Implement + verify + review in a single compressed pass |
 
 ### /implement-trd Options
 
@@ -197,15 +310,15 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 
 ### The Three-Pass Workflow
 
-The recommended approach is to run `/implement-trd-team` three times, each in a fresh `--dangerously-skip-permissions` session:
+The recommended approach is to run three commands in sequence, each in a fresh `--dangerously-skip-permissions` session:
 
-| Pass | Focus | What Happens |
-|------|-------|-------------|
-| **Pass 1** | Build reference implementation | TDD-based: tests first, code second. Meet acceptance criteria. |
-| **Pass 2** | Harden | Edge cases, error handling, robustness against reference. |
-| *(Optional)* | *CI/Reviewer pipeline* | *Automated quality/coverage/security assessment between passes.* |
-| **Pass 3** | Validate against PRD | Live testing against original requirements. True definition of done. |
-| **Human** | Debug and finish | Developer steps in for remaining ~5-15% of nuanced work. |
+| Pass | Command | Focus | What Happens |
+|------|---------|-------|-------------|
+| **Pass 1** | `/implement-trd` | Build reference implementation | TDD-based: tests first, code second. Meet acceptance criteria. |
+| **Pass 2** | `/harden-trd-team` | Harden | Edge cases, error handling, robustness against reference, via parallel teammates. |
+| *(Optional)* | — | *CI/Reviewer pipeline* | *Automated quality/coverage/security assessment between passes.* |
+| **Pass 3** | `/verify-trd-team` | Validate against PRD | Live testing against original requirements. True definition of done. |
+| **Human** | — | Debug and finish | Developer steps in for remaining ~5-15% of nuanced work. |
 
 Between each pass, run `/fold-prompt`, exit, and restart Claude Code for fresh context.
 
@@ -234,14 +347,15 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 
 ### Hook Events and Handlers
 
-| Event | When It Fires | Handler | What It Does |
-|-------|--------------|---------|-------------|
+| Event | When It Fires | Handler(s) | What It Does |
+|-------|--------------|------------|-------------|
+| **SessionStart** | When a session begins | `session-context.js` → `runtime-refresh.sh` | `session-context.js` captures session identity (session ID, cwd) and exports it via `CLAUDE_ENV_FILE` for downstream Bash tooling and notifications; `runtime-refresh.sh` then refreshes vendored `.claude/` components already present from a newer installed plugin (see [Keeping the Runtime Current](#keeping-the-runtime-current-refresh-vs-rebase) above). |
 | **UserPromptSubmit** | Every user message | `router.py` | Analyzes the prompt and recommends appropriate agents and skills. Appends routing context to the prompt. |
-| **PermissionRequest** | Before dangerous operations | `permitter.js` | Validates the requested operation against a configurable allowlist. Auto-approves safe operations. |
 | **PostToolUse** | After Edit/Write/MultiEdit | `formatter.sh` | Auto-formats the changed file using the project's formatter (Prettier, Black, etc.). |
 | **SubagentStop** | When a sub-agent completes | `status.js` | Advances cycle position in `implement.json`. Tracks which stage (implement, verify, simplify, review) just completed. |
-| **Stop** | When a session stops | `wiggum.js` | Session-end processing. Followed by `notify.sh` which executes an optional notification command (for orchestration patterns). |
-| **SessionEnd** | When a session fully ends | `learning.sh` | Stages session files for the learning capture. Followed by `save-remote-logs.js` for remote session log archival. |
+| **Stop** | When a session stops | `async-discipline.js` → `autonomy-discipline.js` → `wiggum.js` → `notify.sh` | The Stop chain runs in order: `async-discipline` blocks hallucinated "I'll report back" claims with no async machinery; `autonomy-discipline` blocks hedged-pause offers in workflow commands; `wiggum` handles autonomous-loop / session-end processing; `notify.sh` runs last, executing any optional `NOTIFY_ON_STOP` command. |
+| **PreCompact** | Before context compaction | `precompact.js` | Handles pre-compaction bookkeeping so important state survives lossy summarization. |
+| *(model-invoked)* | Commands call it directly on their COMMAND COMPLETE turn | `notify-complete.sh` | Not tied to a lifecycle event — a workflow command invokes it explicitly to fire `NOTIFY_ON_COMPLETE` exactly once. See [command-status.md Path B](../../.claude/rules/command-status.md). |
 
 ### Hook Architecture Details
 
@@ -252,17 +366,22 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 - Returns routing suggestions as context appended to the prompt
 - Does not block -- only advises
 
-**Permitter (`permitter.js`):**
-- JavaScript for Claude Code hook compatibility
-- Reads allowlist from `.claude/settings.json` permissions
-- Auto-approves operations matching the allowlist
-- Prompts the user for unlisted operations
-- **Note:** When running with `--dangerously-skip-permissions` (the recommended mode for implementation passes), the permitter is bypassed entirely. It remains useful for interactive sessions where you want selective permission control.
+**Async-discipline (`async-discipline.js`):**
+- First hook in the Stop chain — a defensive guard, not advisory
+- Scans the last assistant turn for fire-and-forget claims ("I'll let you know", "running in the background") that have no backing async machinery (`Agent({run_in_background})`, `ScheduleWakeup`, `Monitor`, `/goal`)
+- Blocks the Stop with a corrective reason so the agent either dispatches properly or completes the work synchronously
+- See `.claude/rules/async-discipline.md`
+
+**Autonomy-discipline (`autonomy-discipline.js`):**
+- Second hook in the Stop chain — backstop for the autonomy contract
+- Detects hedged-pause offers ("I'll continue unless...", "Want me to keep going, or pause?") in workflow-command context (only when a `[STATUS: /...]` or `═══ COMMAND` banner is present)
+- `/refine-prd` and `/refine-trd` are exempt (intentionally interactive)
+- See `.claude/rules/autonomy.md`
 
 **Wiggum (`wiggum.js`):**
-- Session-end processing and autonomous mode orchestration
+- Third hook in the Stop chain — autonomous-loop and session-end processing
 - Manages session lifecycle for team and multi-pass workflows
-- Enables the "launch and land" pattern where sessions run unattended
+- Enables the "launch and land" pattern where sessions run unattended (the `--wiggum` autonomous mode on `/implement-trd`)
 
 **Status (`status.js`):**
 - Active hook (not passive) -- advances cycle position
@@ -271,10 +390,29 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 - Uses temp file + rename pattern for safe concurrent writes
 
 **Notify (`notify.sh`):**
-- Executes `NOTIFY_ON_STOP` environment variable as a shell command
-- Enables orchestration patterns (tmux notifications, webhooks, file signals)
+- Last hook in the Stop chain — executes `NOTIFY_ON_STOP` as a shell command on *every* Stop
+- Enables per-Stop orchestration patterns (tmux notifications, webhooks, file signals)
 - Always exits 0 (non-blocking) with 30-second command timeout
 - Exports session context as `NOTIFY_SESSION_ID`, `NOTIFY_CWD`, `NOTIFY_TRANSCRIPT_PATH`
+
+**Notify-complete (`notify-complete.sh`):**
+- Not a lifecycle hook — a helper a workflow command invokes on its final turn, right after emitting the `═══ COMMAND COMPLETE ═══` banner
+- Fires the user's `NOTIFY_ON_COMPLETE` command *exactly once*, at true command completion (never during dispatch or intermediate Stops)
+- Discovers and exports rich identity (`NOTIFY_PROJECT`, `NOTIFY_BRANCH`, `NOTIFY_FEATURE`, `NOTIFY_SESSION_ID`, tmux context) for routing in the receiver
+- See `.claude/rules/command-status.md` (Path B) for the full contract
+
+**Session-context (`session-context.js`):**
+- SessionStart hook — captures the Claude Code session ID and working directory
+- Appends `export` lines to `CLAUDE_ENV_FILE` so later Bash tool calls and notification helpers can read the session identity
+
+**Runtime-refresh (`runtime-refresh.sh`):**
+- Second SessionStart hook, after `session-context.js`
+- Refreshes vendored `.claude/` components already present in the project from a newer installed plugin (present-only, monotonic version gate); always exits 0
+- Full design, the four guards, and the refresh-vs-rebase distinction are covered in [Keeping the Runtime Current: Refresh vs Rebase](#keeping-the-runtime-current-refresh-vs-rebase) above — not repeated here
+
+**Precompact (`precompact.js`):**
+- PreCompact hook — runs before Claude Code compacts context
+- Preserves state that would otherwise be lost to lossy summarization
 
 ---
 
@@ -405,6 +543,18 @@ Defines the project's technology stack:
 
 The stack definition drives skill selection during `/init-project` and router behavior during development.
 
+### Discipline Rules (`.claude/rules/`)
+
+**Change frequency:** Rare — these encode framework invariants.
+
+Three additional rule files govern how commands and agents behave during autonomous execution. They are documented contracts, partly enforced by the Stop-hook chain:
+
+| Rule | Enforces | Backing hook |
+|------|----------|--------------|
+| `async-discipline.md` | Never claim async work ("I'll report back") without real async machinery in flight | `async-discipline.js` |
+| `autonomy.md` | Workflow commands run autonomously from one invocation to one result; no mid-loop "should I proceed?" prompts (four narrow exceptions) | `autonomy-discipline.js` |
+| `command-status.md` | Every workflow command emits `DISPATCHED` / `RESUMED` / `═══ COMMAND COMPLETE ═══` status banners | (documented contract) |
+
 ### Process Documentation (`.claude/rules/process.md`)
 
 **Change frequency:** Occasional.
@@ -443,12 +593,12 @@ The settings file configures Claude Code's behavior for the project:
     ]
   },
   "hooks": {
+    "SessionStart": [...],
     "UserPromptSubmit": [...],
-    "PermissionRequest": [...],
     "PostToolUse": [...],
     "SubagentStop": [...],
     "Stop": [...],
-    "SessionEnd": [...]
+    "PreCompact": [...]
   },
   "ensemble": {
     "agents_dir": ".claude/agents",
@@ -495,7 +645,6 @@ The `permissions.allow` list auto-approves safe operations (git, test runners, f
     - **Router** selects the appropriate implementer agent
     - **Implementer** writes code
     - **Formatter hook** fires on every file write
-    - **Permitter hook** validates any dangerous operations
     - **Status hook** updates implement.json on agent completion
     - **Verify agent** runs tests
     - **Simplifier agent** refactors if tests pass
@@ -503,8 +652,7 @@ The `permissions.allow` list auto-approves safe operations (git, test runners, f
 
 13. **User runs** `/fold-prompt`
 14. **Command** analyzes session, updates CLAUDE.md
-15. **Stop hooks** fire: wiggum.js processes session, notify.sh sends notification
-16. **SessionEnd hooks** fire: learning.sh stages files, save-remote-logs.js archives
+15. **Stop hooks** fire in order: async-discipline and autonomy-discipline vet the final turn, wiggum.js processes the session, notify.sh sends any configured notification
 
 ### Data Flow
 
@@ -524,14 +672,8 @@ User Prompt
 [Code Changes] --> [Formatter Hook] --> formatted files
     |
     v
-[Permission Requests] --> [Permitter Hook] --> auto-approve or prompt
-    |
-    v
 [Agent Completes] --> [Status Hook] --> implement.json updated
     |
     v
-[Session Stops] --> [Wiggum + Notify Hooks] --> cleanup + notifications
-    |
-    v
-[Session Ends] --> [Learning + Log Hooks] --> knowledge captured
+[Session Stops] --> [Async + Autonomy Guards] --> [Wiggum + Notify] --> cleanup + notifications
 ```

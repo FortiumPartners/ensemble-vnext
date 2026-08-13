@@ -2,6 +2,8 @@
 name: refine-trd
 description: Refine and enhance existing TRD with stakeholder feedback and additional detail
 version: 1.0.0
+argument-hint: "[path-to-trd] <feedback>"
+disable-model-invocation: true
 ---
 
 Refine and enhance an existing Technical Requirements Document based on stakeholder
@@ -132,3 +134,25 @@ After refinement:
 2. Update `.trd-state/` if execution plan changed
 3. Proceed to `/implement-trd` when ready for implementation
 4. Or iterate with another `/refine-trd` if more feedback needed
+
+
+---
+
+## Output discipline (see `.claude/rules/command-status.md`)
+
+**End your final turn with the banner — last line of output, nothing after it:**
+
+```
+═══ COMMAND COMPLETE: /refine-trd ═══
+<one-line summary of what was produced>
+```
+
+On unrecoverable failure, use `═══ COMMAND STUCK: /refine-trd ═══` followed by `Reason:` and `Next:` lines.
+
+**Programmatic completion notify** — on the same final turn, invoke the user's `NOTIFY_ON_COMPLETE` shell command (if set) for webhook/queue/shell-pipeline integration:
+
+```bash
+.claude/hooks/notify-complete.sh "refine-trd" "complete" "<one-line summary>"
+```
+
+For `COMMAND STUCK`, set `NOTIFY_STATUS="stuck"`. The bracket-guard makes this a no-op when not configured.
