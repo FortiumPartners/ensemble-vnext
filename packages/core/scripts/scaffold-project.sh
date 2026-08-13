@@ -337,6 +337,12 @@ def validate_source(source):
         fail(f"manifest hook 'source' must resolve under the repo's packages/ root: {source!r}")
 
 manifest = json.load(open(sys.argv[1]))
+# DISC-B007 kill switch: when active, generate-hooks-artifacts.sh emits every
+# hookType:"prompt" entry as command-type and symlinks its "file" into
+# packages/full/hooks/ accordingly (see that script's DISCIPLINE_JUDGE_DISABLE).
+# This function must agree, or a scaffold run made under the same env var
+# would skip copying a script that packages/full/hooks/ actually has.
+disabled = os.environ.get("ENSEMBLE_DISCIPLINE_JUDGE_DISABLE", "").strip().lower() not in ("", "0", "false")
 # A hook file may have MORE THAN ONE manifest entry when it registers on
 # several events (dispatch-ledger.js: SubagentStart + SubagentStop). The copy
 # list is per-FILE, so dedupe — otherwise the file is copied twice and every
@@ -347,8 +353,9 @@ for h in manifest.get("hooks", []):
         continue
     # A hookType:"prompt" entry ships its promptFile (manifest_shippable_prompts(),
     # copy_hook_prompts()), not a runtime script at .claude/hooks/<file> — there
-    # is nothing for copy_hooks() to deliver for it under this function.
-    if h.get("hookType") == "prompt":
+    # is nothing for copy_hooks() to deliver for it under this function, unless
+    # the kill switch means it's generating as command-type right now.
+    if h.get("hookType") == "prompt" and not disabled:
         continue
     file = h["file"]
     validate_file(file)

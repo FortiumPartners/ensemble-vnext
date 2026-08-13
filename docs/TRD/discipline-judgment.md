@@ -48,7 +48,7 @@ single consumer and make the deletion in §4.4 impossible.
 | D2 | Corpus is an **acceptance suite**, not a bake-off | It defines what "working" means for the judge and catches regressions. It does not decide the approach. |
 | D3 | Corpus text comes from real transcripts | Authored cases reproduce the author's vocabulary — the exact failure being fixed. |
 | D4 | Escape valves expressed wherever the probe says they can be | If a command hook cannot gate a prompt hook, `background_tasks` logic moves into the judge prompt (which receives it in the payload). §2.2. |
-| D5 | Ship with a kill switch | Operational rollback, not indecision: one env var restores the previous behavior if the judge misbehaves in the wild. |
+| D5 | Ship with a rollback lever | Operational rollback, not indecision: one env var restores the previous behavior. **Revised 2026-08-13** — a true runtime kill switch is impossible for a prompt hook (§3.4), so this is a regenerate-and-refresh lever, not an instant switch. |
 | D6 | Constitution principle 4 is amended as a task | Approved by the user 2026-08-13. No longer a risk. |
 
 ### 1.4 Platform Facts (verified 2026-08-13)
@@ -69,7 +69,7 @@ single consumer and make the deletion in §4.4 impossible.
 
 | # | Question | Why the design branches on it |
 |---|---|---|
-| U1 | When several hooks are registered on one event, do **all** run, and does any single `block` win? | Decides whether a cheap command-type gate can short-circuit the model call at all. |
+| U1 | When several hooks are registered on one event, do **all** run, and does any single `block` win? | **ANSWERED 2026-08-13 (DISC-B007, by source tracing): YES to both.** Every matched hook becomes an independent async generator, all merged and run to completion with no early exit; the outcome is OR-composed, so any block wins and nothing cancels another hook's result. **One hook cannot suppress another** — so no command-type gate can ever short-circuit a model call, and Shape B was impossible, not merely unnecessary. |
 | U2 | What payload does a prompt-type hook receive — does it include `background_tasks`, `session_crons`, `stop_hook_active`, `agent_id`? | If yes, the escape valves live in the prompt and no command tier is needed. If no, they must stay in a command hook. |
 | U3 | Does `stop_hook_active` bound a prompt-type block loop? | This is the loop guard once the per-`agent_id` cap is gone. **Hard requirement:** a bounded loop must be demonstrated before conversion lands. |
 | U4 | Does the block `reason` from a prompt-type hook reach the agent on both events? | The whole value of blocking is that the agent corrects course. Verified for command-type on `SubagentStop` in 4.1.7; unverified for prompt-type. |
@@ -285,10 +285,38 @@ prompt entries carry their prompt text or a path to it. `generate-hooks-artifact
 hardcodes `"type": "command"` and must emit the declared type. `--check` must detect drift in
 the new field.
 
-### 3.4 Kill switch
+### 3.4 Rollback lever (revised 2026-08-13 — the original spec was not implementable)
 
-`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` restores command-type behavior without a redeploy. Read at
-**call time**, never latched at module load — 4.1.8 shipped that bug and the test caught it.
+`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` causes every `hookType: "prompt"` entry to generate as
+`hookType: "command"` instead, restoring the previous behavior. It is read by
+**`generate-hooks-artifacts.sh`**, not by the hook.
+
+**Why it cannot be what was originally specified.** §3.4 first required a call-time env read
+inside the hook. That assumed the architecture this TRD is moving *away from*: a command hook can
+read `process.env` because it **is** a process we control, whereas a prompt hook is evaluated by
+the platform and our code never runs. DISC-B007 confirmed there is no channel — the evaluator
+query carries `tools: []` and a fixed payload containing no environment.
+
+Two other mechanisms were investigated and disproven:
+
+- **The `if` field is not a conditional.** Its schema description is *"Permission rule syntax to
+  filter when this hook runs (e.g. `Bash(git *)`)"* — a tool-call matcher with no env-var syntax.
+  Worse, it is an active footgun on these events: `Stop`/`SubagentStop` have no associated tool
+  call for `if` to match, so **any non-empty `if` there disables the hook unconditionally**,
+  silently. Never set `if` on a Stop or SubagentStop hook.
+- **Cross-gating a command hook against the prompt hook is impossible.** All hooks matched to an
+  event run as independent async generators, merged and run to completion with no early exit, and
+  the outcome is OR-composed — any hook's block wins and nothing cancels another's result. One
+  hook cannot suppress another. (This also answers U1; see §2.1.)
+
+**What "never latched" means here.** The generator is a script that runs once and exits, so it
+re-reads the variable on every invocation. There is no long-lived process to hold a stale value —
+the build-time equivalent of the call-time discipline 4.1.8's kill-switch bug violated.
+
+**The honest limitation, stated plainly.** This is a *regenerate-and-refresh* lever, not an
+instantaneous switch. Setting the variable alone changes nothing until
+`generate-hooks-artifacts.sh` runs — and `--check` will correctly report DRIFT if the variable is
+set without regenerating. Rollback is: set the variable, regenerate, refresh the vendored runtime.
 
 ---
 

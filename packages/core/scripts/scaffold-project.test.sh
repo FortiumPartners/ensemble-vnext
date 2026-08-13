@@ -1377,6 +1377,160 @@ PY
 }
 
 # =============================================================================
+# DISC-B007: kill switch. §3.4 as originally written specified a call-time env
+# var read inside the hook itself — not implementable for a hookType:"prompt"
+# entry, since a prompt-type hook is evaluated entirely by the platform (no
+# code of ours runs, no tools, no arbitrary env vars in its payload — see
+# docs/modernization/probes/U5-kill-switch-mechanism.md for the full proof,
+# including why the "if" field and cross-hook composition don't help either).
+# ENSEMBLE_DISCIPLINE_JUDGE_DISABLE is instead read by generate-hooks-artifacts.sh
+# itself — the only place in this feature where our code actually executes —
+# and forces every hookType:"prompt" entry to generate as command-type. These
+# tests exercise that read directly: unset vs set must produce different
+# settings.json output from the SAME manifest, proving the read is live
+# (fresh per invocation) rather than latched.
+# =============================================================================
+
+@test "kill switch: manifest_shippable_hooks includes a hookType:prompt entry's file only when ENSEMBLE_DISCIPLINE_JUDGE_DISABLE is set" {
+    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
+{
+  "hooks": [
+    { "file": "p.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "p.md" }
+  ]
+}
+JSON
+
+    run bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "p.js"$'\t'"core/hooks/p.js" ]]
+
+    # "0" and "false" must count as unset — a truthy-string bug here would be
+    # the exact kind of "latched" mistake 4.1.8 shipped.
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=0 bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# End-to-end: the same manifest, generated twice under different env var
+# states, must produce two DIFFERENT settings.json shapes for the fixture
+# entry — the direct proof that the read is call-time (per-invocation), not
+# a value baked in once. Also proves the honest limitation this switch has:
+# toggling the env var alone changes nothing until generate-hooks-artifacts.sh
+# is re-run, and a regeneration under one state that isn't followed by a
+# matching --check under the SAME state reports drift — there is no
+# instantaneous runtime effect.
+@test "kill switch: same manifest generates type:prompt when unset and type:command when ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1, proving a fresh per-invocation read" {
+    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
+    local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
+    local settings_target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+    local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b007-fixture.md"
+    local full_hooks_link="$REPO_ROOT/packages/full/hooks/_zz-disc-b007-fixture.js"
+    local full_hooks_prompt_link="$REPO_ROOT/packages/full/hooks/prompts/_zz-disc-b007-fixture.md"
+    _track_for_restore "$manifest_target"
+    _track_for_restore "$settings_target"
+    _track_for_restore "$REPO_ROOT/packages/core/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/.claude/commands/init-project.md"
+    _track_for_restore "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
+    _track_for_deletion "$prompt_fixture"
+    _track_for_deletion "$full_hooks_link"
+    _track_for_deletion "$full_hooks_prompt_link"
+
+    printf 'FIXTURE PROMPT TEXT — DISC-B007 kill-switch test only.\n' > "$prompt_fixture"
+
+    python3 - "$manifest_target" <<PY
+import json
+path = "$manifest_target"
+with open(path) as fh:
+    data = json.load(fh)
+data["hooks"].append({
+    "file": "_zz-disc-b007-fixture.js",
+    "event": "Stop",
+    "matcher": "",
+    "order": 99,
+    "timeout": 17,
+    "registration": "prompt",
+    "shippable": True,
+    "hookType": "prompt",
+    "promptFile": "_zz-disc-b007-fixture.md",
+    "description": "DISC-B007 test fixture — deleted by teardown()."
+})
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+
+    # --- Pass 1: unset. Entry generates as type:"prompt", ships only the
+    # prompt-file symlink (no packages/full/hooks/<file> — nothing to run).
+    run "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ ! -e "$full_hooks_link" ]
+    [ -L "$full_hooks_prompt_link" ]
+
+    run python3 - "$settings_target" <<'PY'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+entries = settings["hooks"]["Stop"][0]["hooks"]
+fixture = [h for h in entries if h.get("timeout") == 17]
+if len(fixture) != 1:
+    print(f"expected exactly one fixture entry, got {len(fixture)}")
+    sys.exit(1)
+h = fixture[0]
+ok = h.get("type") == "prompt" and "command" not in h
+if not ok:
+    print("unexpected entry shape (unset pass):", json.dumps(h, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # --- Pass 2: SAME manifest, SAME script, ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1.
+    # The entry must now generate as type:"command", and its script must now
+    # be symlinked into packages/full/hooks/ — proof the env var is read
+    # fresh on this invocation, not cached from pass 1.
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 "$GEN_ARTIFACTS_SCRIPT"
+    [ "$status" -eq 0 ]
+    [ -L "$full_hooks_link" ]
+
+    run python3 - "$settings_target" <<'PY'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+entries = settings["hooks"]["Stop"][0]["hooks"]
+fixture = [h for h in entries if h.get("timeout") == 17]
+if len(fixture) != 1:
+    print(f"expected exactly one fixture entry, got {len(fixture)}")
+    sys.exit(1)
+h = fixture[0]
+ok = (
+    h.get("type") == "command"
+    and "prompt" not in h
+    and "_zz-disc-b007-fixture.js" in h.get("command", "")
+)
+if not ok:
+    print("unexpected entry shape (disabled pass):", json.dumps(h, indent=2))
+sys.exit(0 if ok else 1)
+PY
+    [ "$status" -eq 0 ]
+
+    # Regenerating under the disabled state must itself be clean...
+    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -eq 0 ]
+
+    # ...but --check WITHOUT the env var now reports DRIFT: this is the
+    # honest limitation. The switch has no effect until you regenerate, and
+    # forgetting to keep regenerating under a consistent state is drift like
+    # any other. There is no instantaneous runtime toggle here.
+    run "$GEN_ARTIFACTS_SCRIPT" --check
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"DRIFT"* ]]
+}
+
+# =============================================================================
 # RUNTIME-T008: end-to-end scaffold parity — the Phase 2 gate
 #
 # A freshly scaffolded project must register the same hook set this repo

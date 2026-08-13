@@ -9,17 +9,17 @@
   "active_sessions": {},
   "tasks": {
     "DISC-P001": {
-      "description": "Probe hook composition (U1): do all hooks on one event run; does any-block-win",
+      "description": "Probe hook composition (U1) \u2014 ANSWERED by DISC-B007 via bundle source tracing, not by the original probe agent (which produced nothing and was marked blocked).",
       "phase": 1,
-      "status": "blocked",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
-      "current_problem": "Agent produced no findings file after ~38 min and did not answer a direct status nudge, while both peer probes completed. Not killed (no-timeout policy); task marked blocked so the plan does not wait on it.",
+      "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": "2026-08-13T07:49:35.122501Z",
-      "completed_at": null
+      "completed_at": "2026-08-13T09:02:42.071382Z"
     },
     "DISC-P002": {
       "description": "Probe prompt-hook payload (U2) on Stop and SubagentStop",
@@ -128,15 +128,15 @@
     "DISC-B005": {
       "description": "Manifest hookType + generator support incl. --check drift",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": "2026-08-13T08:20:15.934996Z",
-      "completed_at": null
+      "completed_at": "2026-08-13T08:44:02.095595Z"
     },
     "DISC-B006": {
       "description": "Loop guard per DISC-P003 findings",
@@ -154,15 +154,15 @@
     "DISC-B007": {
       "description": "Kill switch ENSEMBLE_DISCIPLINE_JUDGE_DISABLE, call-time read",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-13T08:44:27.743711Z",
+      "completed_at": "2026-08-13T09:02:42.071382Z"
     },
     "DISC-T001": {
       "description": "Score the judge against acceptance thresholds 6.1; iterate prompt",
@@ -312,7 +312,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 7,
+    "completed_tasks": 13,
     "failed_tasks": 0,
     "total_retries": 0
   },

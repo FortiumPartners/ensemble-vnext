@@ -92,6 +92,35 @@ CHECK = check_str.strip().lower() == "true"
 manifest = json.load(open(manifest_path))
 hooks = manifest["hooks"]
 
+# DISC-B007 kill switch. §3.4 originally specified a CALL-TIME env var read
+# inside the hook itself ("restores command-type behavior without a
+# redeploy"). That is not implementable for a hookType:"prompt" entry: a
+# prompt-type hook is evaluated entirely by the platform (no code of ours
+# runs), the evaluator gets zero tools and a fixed JSON payload with no
+# arbitrary env vars (verified live and against the CLI's own source — see
+# docs/modernization/probes/U5-kill-switch-mechanism.md), and the "if" field
+# is a tool-call permission-pattern matcher, not a conditional expression —
+# confirmed empirically: setting `if` to an env-var-shaped string on a Stop
+# hook silently disables it unconditionally (there is no tool call at Stop
+# time for it to match against), it does not gate on the string's content.
+# Nor can a second, cross-gating hook suppress the prompt hook's evaluation:
+# every hook registered on an event always runs and any hook's block is
+# OR'd into the outcome — there is no mechanism for one hook's result to
+# cancel another's.
+#
+# The only place in this feature where OUR code runs at all is this
+# generator, so that is where the switch lives: read once, per invocation,
+# fresh every time this script runs (there is no persistent process or
+# module-load step to latch against — every invocation is a new interpreter,
+# which is the build-time equivalent of "read at call time, never latched").
+# Setting it and re-running this script (then delivering the regenerated
+# settings.json to affected projects via the existing --refresh channel)
+# reverts every hookType:"prompt" entry to its command-type predecessor's
+# behavior. This is an operational rollback lever, not an instantaneous
+# runtime toggle — see the probe doc for the full reasoning and the §3.4/D5
+# amendment this motivates.
+DISCIPLINE_JUDGE_DISABLE = os.environ.get("ENSEMBLE_DISCIPLINE_JUDGE_DISABLE", "").strip().lower() not in ("", "0", "false")
+
 # ---------------------------------------------------------------------------
 # 1. Template settings.json — regenerate the "hooks" key only.
 # ---------------------------------------------------------------------------
@@ -151,6 +180,8 @@ def build_hooks_block():
             hook_cmds = []
             for h in group_hooks:
                 hook_type = h.get("hookType", "command")
+                if hook_type == "prompt" and DISCIPLINE_JUDGE_DISABLE:
+                    hook_type = "command"
                 if hook_type == "command":
                     command = f"bash -c '{CD_WRAPPER} && .claude/hooks/{h['file']}'"
                     hook_cmds.append({
@@ -372,8 +403,14 @@ if [[ -d "$FULL_HOOKS_DIR" ]]; then
         ln -s "$target" "$dst"
         echo "Linked: $dst -> $target"
     done < <(python3 -c '
-import json, sys
+import json, os, sys
 manifest = json.load(open(sys.argv[1]))
+# DISC-B007: when the kill switch is set, every hookType:"prompt" entry
+# generates as command-type (see build_hooks_block()/DISCIPLINE_JUDGE_DISABLE
+# above) and therefore DOES need its "file" script symlinked here like any
+# other command hook — skipping it would ship a settings.json that points at
+# .claude/hooks/<file> with no file behind the link.
+disabled = os.environ.get("ENSEMBLE_DISCIPLINE_JUDGE_DISABLE", "").strip().lower() not in ("", "0", "false")
 seen = set()
 for h in manifest.get("hooks", []):
     if not h.get("shippable"):
@@ -383,8 +420,10 @@ for h in manifest.get("hooks", []):
     # "file" here for a prompt-type entry would create a symlink pointing at
     # a source file that need not exist (or, once DISC-B008 lands, would
     # merely still exist as a kill-switch rollback artifact rather than
-    # anything the prompt hook actually runs).
-    if h.get("hookType") == "prompt":
+    # anything the prompt hook actually runs) — UNLESS the kill switch is
+    # active, in which case the entry is generating as command-type and its
+    # script genuinely needs to be there.
+    if h.get("hookType") == "prompt" and not disabled:
         continue
     f = h["file"]
     if f in seen:
