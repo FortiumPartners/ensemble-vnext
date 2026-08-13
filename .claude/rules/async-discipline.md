@@ -217,11 +217,18 @@ itself. What the ledger does is make that wake *useful*.
 
 Two facts, both established by probing the live payloads rather than reading the docs:
 
-- **There is no `name` field on either event.** The `name` you pass to `Agent({name:
-  "be-001"})` never reaches a hook. The ledger therefore keys on `agent_id`, which is
-  what `SendMessage` should target anyway — the CLI changelog records `SendMessage`
-  misrouting when a re-spawned agent reused a previous agent's name, a collision an
-  opaque id cannot have.
+- **There is no `name` field on either event — but the name is not lost.** Corrected
+  2026-08-13, after the 4.1.8 notes claimed the name "never reaches a hook": it does,
+  through `agent_type`. That field carries the **name** when one was given
+  (`Agent({name: "be-001"})` → `agent_type: "be-001"`) and the actual subagent type when
+  one was not (`agent_type: "general-purpose"`). So a named dispatch trades the type away
+  for the name; there is no payload in which both appear.
+
+  The ledger still keys on `agent_id`, and that is still right: `agent_id` is stable and
+  unambiguous, whereas the CLI changelog records `SendMessage` misrouting when a
+  re-spawned agent reused a previous agent's name. But `--open`'s `type=` column is
+  therefore showing the name for named agents, which is misleading labelling rather than
+  a wrong key.
 - **`prompt_id` is not stable across an agent's lifetime.** A live run produced a `stop`
   row whose `prompt_id` differed from its own `start` row. Correlate on `agent_id` only.
 

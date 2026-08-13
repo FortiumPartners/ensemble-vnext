@@ -335,6 +335,7 @@ time has meant each is examined only when it breaks. Do the layer at once.
 | 5e | Scheduled-nudge pattern documented (no timeouts, per decision) | ✅ 4.1.7 |
 | 5e | Dispatch ledger (`SubagentStart`+`SubagentStop`) + `--open` reporting | ✅ 4.1.8 |
 | 5e | `/implement-trd` reads the ledger on every RESUMED turn | ✅ 4.1.8 |
+| 5e | *Follow-up:* `--open` `type=` column shows the agent NAME for named dispatches (payload `agent_type` carries name-or-type, never both). Cosmetic; key is `agent_id` and correct. Deferred — `docs/TRD/discipline-judgment.md` §8 forbids touching `dispatch-ledger.js` | ⏸ deferred |
 
 Three distinct problems, handled together because the retirements change what the rest has to cover:
 
