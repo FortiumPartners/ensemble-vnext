@@ -11,10 +11,10 @@
     "DISC-P001": {
       "description": "Probe hook composition (U1): do all hooks on one event run; does any-block-win",
       "phase": 1,
-      "status": "in_progress",
+      "status": "blocked",
       "cycle_position": "implement",
       "implementer_type": "backend-implementer",
-      "current_problem": null,
+      "current_problem": "Agent produced no findings file after ~38 min and did not answer a direct status nudge, while both peer probes completed. Not killed (no-timeout policy); task marked blocked so the plan does not wait on it.",
       "retry_count": 0,
       "session_id": null,
       "commit": null,
@@ -337,6 +337,11 @@
         "risk": "Premise error in TRD 2.3 (self-inflicted)",
         "detail": "TRD claimed the motivating 240k-token failure was vocabulary-free, justifying a no-result-returned class as 'the capability that justifies switching'. The actual incident text had deferral vocabulary. Data: 1 such case in 1,274 confirmed end_turn finals; 3 mining strategies found 0 more.",
         "resolution": "CORRECTED \u2014 2.3 premise withdrawn, A4 downgraded from gate to observation, floor 7->1, caveat D added. Switch now rests on the structural recall argument + 4 confirmed real misses."
+      },
+      {
+        "risk": "Process \u2014 git add -A swept in-flight subagent work into unrelated commits",
+        "detail": "Commit a760070 was a TRD correction but carries ~1,300 lines of DISC-B004/B005 work (judge prompts, judge detector, generator hookType support, scaffold changes) because the orchestrator used `git add -A` on a worktree shared with running subagents. Files are complete, not half-written, so nothing is broken \u2014 but the commit message misrepresents its contents.",
+        "resolution": "Not rewriting history while agents are actively writing to the tree. Switching to targeted `git add <paths>`; B004/B005 completion commits will note that part of their work landed early in a760070."
       }
     ],
     "contingencies_applied": [],
