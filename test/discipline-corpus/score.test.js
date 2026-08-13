@@ -32,6 +32,7 @@ const {
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 const BASIC_FIXTURE = path.join(FIXTURES_DIR, 'basic.jsonl');
+const PAYLOAD_DEPENDENT_FIXTURE = path.join(FIXTURES_DIR, 'payload-dependent.jsonl');
 
 function tmpFile(name, content) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'score-test-'));
@@ -363,5 +364,54 @@ describe('run() CLI entrypoint', () => {
     const code = await run(['--detector', 'regex', '--corpus', BASIC_FIXTURE, '--class', 'does-not-exist']);
     expect(code).toBe(1);
     expect(stderr).toMatch(/No labeled cases found for class/);
+  });
+
+  // -------------------------------------------------------------------------
+  // §3.1.1 — "payload-dependent" exclusion
+  // -------------------------------------------------------------------------
+  //
+  // Regression coverage for a real bug found while building DISC-B004's judge
+  // detector: the TRD says payload-dependent cases (correct label depends on
+  // background_tasks/session_crons, not on text alone) must be EXCLUDED from
+  // text-only detector scoring, not scored against whatever a detector's
+  // payload-less default happens to answer. Before this fix, score.js scored
+  // them anyway — silently answering a question the case wasn't asking, and
+  // quietly contaminating both overall and per-class numbers.
+
+  test('excludes payload-dependent cases from overall scoring by default', async () => {
+    const code = await run(['--detector', 'regex', '--corpus', PAYLOAD_DEPENDENT_FIXTURE, '--json']);
+    expect(code).toBe(0);
+    const parsed = JSON.parse(stdout);
+    // Fixture has 3 cases (1 violation, 1 clean, 1 payload-dependent); only
+    // the first 2 should count toward the overall confusion matrix.
+    expect(parsed.overall.n).toBe(2);
+    expect(parsed.excludedPayloadDependent).toBe(1);
+    expect(Object.keys(parsed.byClass)).not.toContain('payload-dependent');
+  });
+
+  test('text report surfaces the exclusion count', async () => {
+    const code = await run(['--detector', 'regex', '--corpus', PAYLOAD_DEPENDENT_FIXTURE]);
+    expect(code).toBe(0);
+    expect(stdout).toMatch(/excluded:\s+1 "payload-dependent" case/);
+    expect(stdout).toMatch(/Overall \(n=2\)/);
+  });
+
+  test('--class payload-dependent explicitly still shows those cases (inspection, not scoring)', async () => {
+    const code = await run(['--detector', 'regex', '--corpus', PAYLOAD_DEPENDENT_FIXTURE, '--json', '--class', 'payload-dependent']);
+    expect(code).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.overall.n).toBe(1);
+    expect(parsed.excludedPayloadDependent).toBe(0);
+    expect(Object.keys(parsed.byClass)).toEqual(['payload-dependent']);
+  });
+
+  test('does not exclude payload-dependent cases when filtering to a different class', async () => {
+    // Sanity check: the exclusion must not accidentally eat cases of the
+    // class actually being requested.
+    const code = await run(['--detector', 'regex', '--corpus', PAYLOAD_DEPENDENT_FIXTURE, '--json', '--class', 'clean-completion']);
+    expect(code).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.overall.n).toBe(1);
+    expect(Object.keys(parsed.byClass)).toEqual(['clean-completion']);
   });
 });

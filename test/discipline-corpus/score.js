@@ -275,13 +275,16 @@ function formatCaseTable(title, records) {
   return out;
 }
 
-function renderTextReport({ detectorName, corpusPath, skippedUnlabeled, overall, byClass }) {
+function renderTextReport({ detectorName, corpusPath, skippedUnlabeled, excludedPayloadDependent, overall, byClass }) {
   let out = '';
   out += `Discipline-corpus scoring report\n`;
   out += `  detector: ${detectorName}\n`;
   out += `  corpus:   ${corpusPath}\n`;
   if (skippedUnlabeled > 0) {
     out += `  skipped:  ${skippedUnlabeled} unlabeled case(s) (label === null)\n`;
+  }
+  if (excludedPayloadDependent > 0) {
+    out += `  excluded: ${excludedPayloadDependent} "payload-dependent" case(s) (§3.1.1 — unlabelable from text alone)\n`;
   }
   out += `\nOverall (n=${overall.n}):\n`;
   out += `  TP=${overall.tp} FP=${overall.fp} TN=${overall.tn} FN=${overall.fn}\n`;
@@ -346,6 +349,20 @@ async function run(argv) {
 
   let { cases, skippedUnlabeled } = loaded;
 
+  // §3.1.1: "payload-dependent" cases are unlabelable from text alone — their
+  // correct label depends on payload fields (background_tasks/session_crons)
+  // a text-only detector never sees, so scoring them against any text-only
+  // detector's default answers a question the case isn't asking. Excluded
+  // from scoring by default; explicitly requesting the class via --class
+  // still shows them (e.g. to eyeball what's in it), since that's an
+  // intentional inspection, not an accidental score contamination.
+  let excludedPayloadDependent = 0;
+  if (args.class !== 'payload-dependent') {
+    const before = cases.length;
+    cases = cases.filter((c) => c.class !== 'payload-dependent');
+    excludedPayloadDependent = before - cases.length;
+  }
+
   if (args.class) {
     cases = cases.filter((c) => c.class === args.class);
     if (cases.length === 0) {
@@ -369,6 +386,7 @@ async function run(argv) {
           detector: args.detector,
           corpus: args.corpus,
           skippedUnlabeled,
+          excludedPayloadDependent,
           overall,
           byClass,
         },
@@ -382,6 +400,7 @@ async function run(argv) {
         detectorName: args.detector,
         corpusPath: args.corpus,
         skippedUnlabeled,
+        excludedPayloadDependent,
         overall,
         byClass,
       })
