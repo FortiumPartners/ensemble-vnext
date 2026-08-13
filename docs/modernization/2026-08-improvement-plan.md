@@ -71,7 +71,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
-| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c done (4.1.4)** |
+| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c done; 5b+5d open** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
@@ -318,6 +318,19 @@ defects found while auditing the runtime during item 1.*
 Hooks are the framework's entire enforcement surface — every guarantee the constitution makes
 is either a hook or a wish. There are 14 hook files; 10 are registered. Treating them one at a
 time has meant each is examined only when it breaks. Do the layer at once.
+
+**Sub-item status — check this before claiming item 5 is done.**
+
+| | What | Status |
+|---|---|---|
+| 5a | Retire `learning.sh`, `save-remote-logs.js`, `permitter` | ✅ 4.1.0 |
+| 5a | Router decision (was a modification, not a deletion) | ✅ 4.1.4 — kept, made conditional, rewritten |
+| 5b | Discipline hooks → `type: "prompt"` hooks | ❌ **open** |
+| 5b | `transcript_path` → `last_assistant_message` (3 hooks) | ❌ **open** |
+| 5b | Wiggum: re-inject current state + restated completion promise | ❌ **open** |
+| 5c | `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR` | ✅ 4.1.4 |
+| 5c | Formatter: npx cost + `/init-project` installing what it configures | ✅ 4.1.5 / 4.1.6 |
+| 5d | Adopt `InstructionsLoaded` | ❌ **open** |
 
 Three distinct problems, handled together because the retirements change what the rest has to cover:
 
