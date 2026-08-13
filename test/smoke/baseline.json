@@ -1,0 +1,41 @@
+{
+  "$comment": "Smoke-harness baseline. Recapture DELIBERATELY (see README) \u2014 never auto-overwrite, or a regression silently becomes the new normal. Elapsed times are indicative, not assertions: they depend on machine, network and model. The assertion COUNTS are the meaningful part \u2014 a count dropping means a check silently stopped running.",
+  "captured_at": "2026-08-13T03:19:48Z",
+  "ensemble_version": "4.1.3",
+  "subagent_model": "claude-haiku-4-5-20251001",
+  "total_budget_seconds": 600,
+  "wall_clock_seconds": 389,
+  "execution": "hooks-health serial (fail-fast), remaining scenarios concurrent",
+  "scenarios": {
+    "hooks-health": {
+      "status": "PASS",
+      "elapsed_seconds": 5,
+      "assertions_passed": 22,
+      "assertions_failed": 0
+    },
+    "prd-run": {
+      "status": "PASS",
+      "elapsed_seconds": 346,
+      "assertions_passed": 6,
+      "assertions_failed": 0
+    },
+    "implement-one-task": {
+      "status": "PASS",
+      "elapsed_seconds": 384,
+      "assertions_passed": 11,
+      "assertions_failed": 0
+    },
+    "debug-path": {
+      "status": "PASS",
+      "elapsed_seconds": 269,
+      "assertions_passed": 7,
+      "assertions_failed": 0
+    }
+  },
+  "totals": {
+    "scenarios": 4,
+    "assertions_passed": 46,
+    "assertions_failed": 0
+  },
+  "known_intermittency": "Across 4 full runs, 2 were clean and 2 had exactly one scenario fail. One cause was found and fixed (banner tail-window too small for a wrapped STUCK block). The other was a prd-run failure under concurrency that did not reproduce in isolation (6/6 solo) nor on the following full run. Suspected contention from 3 concurrent claude sessions. Re-run a failing scenario in isolation before treating it as a regression."
+}

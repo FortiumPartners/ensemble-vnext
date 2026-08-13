@@ -14,7 +14,8 @@
   "scripts": {
     "test": "jest",
     "test:evals": "jest --testPathPattern=test/evals",
-    "check:versions": "./packages/core/scripts/check-version-sync.sh"
+    "check:versions": "./packages/core/scripts/check-version-sync.sh",
+    "smoke": "./test/smoke/run-smoke.sh"
   },
   "jest": {
     "testPathIgnorePatterns": [
