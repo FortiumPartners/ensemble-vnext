@@ -45,7 +45,12 @@ assert_pass_raw "scaffold throwaway project"
 SESSION_FILE="${PROJECT_DIR}/.session.jsonl"
 PROMPT='/create-prd A small CLI utility that converts a CSV file to formatted JSON.'
 
-smoke_claude "$PROMPT" 480 "$PROJECT_DIR" "$SESSION_FILE"
+# NOTE: this internal timeout must stay BELOW the runner's per-scenario cap in
+# run-smoke.sh (currently 900s) and ABOVE what the shipped models actually take.
+# prd-run measured 482s on Opus/Sonnet; a 480s value here produced a SIGTERM
+# (exit 143) that looked like a behavioral failure but was purely the clock.
+# Raise both together, and never lower the model instead.
+smoke_claude "$PROMPT" 840 "$PROJECT_DIR" "$SESSION_FILE"
 RC=$?
 
 assert_exit_code 0 "$RC" "claude --print exits 0"

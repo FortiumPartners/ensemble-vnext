@@ -79,6 +79,16 @@ EOF
 
 Node.js (no framework). Jest available if needed. No database.
 EOF
+    # process.md is one of validate-init.sh's required governance files
+    # (Section 3) alongside constitution.md/stack.md; without it every
+    # scaffolded-project scenario that runs validate-init.sh would FAIL on a
+    # file /init-project would normally have generated interactively.
+    cat > "${target_dir}/.claude/rules/process.md" <<'EOF'
+# Smoke-Test Project Process
+
+Deterministic smoke-test project. No interactive workflow — scaffolded
+directly by scaffold-project.sh, not by /init-project.
+EOF
 
     # implement-trd's git branch management needs a real, clean repo.
     if [[ ! -d "${target_dir}/.git" ]]; then

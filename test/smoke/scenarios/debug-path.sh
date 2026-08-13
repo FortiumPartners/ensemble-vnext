@@ -61,7 +61,12 @@ assert_pass_raw "fixture TRD + pre-failing test written ($TRD_REL)"
 SESSION_FILE="${PROJECT_DIR}/.session.jsonl"
 PROMPT="/implement-trd ${TRD_REL}"
 
-smoke_claude "$PROMPT" 600 "$PROJECT_DIR" "$SESSION_FILE"
+# NOTE: this internal timeout must stay BELOW the runner's per-scenario cap in
+# run-smoke.sh (currently 900s) and ABOVE what the shipped models actually take.
+# prd-run measured 482s on Opus/Sonnet; a 480s value here produced a SIGTERM
+# (exit 143) that looked like a behavioral failure but was purely the clock.
+# Raise both together, and never lower the model instead.
+smoke_claude "$PROMPT" 840 "$PROJECT_DIR" "$SESSION_FILE"
 RC=$?
 
 # Both a clean exit and a timeout-under-cap can be legitimate here (a STUCK

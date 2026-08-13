@@ -144,7 +144,6 @@ Skills are compiled from the plugin library based on this stack definition.
 packages/
   core/         # Templates, commands, hooks
   full/         # Complete plugin distribution
-  permitter/    # Permission hook
   router/       # Routing hook
   skills/       # Skill library
 

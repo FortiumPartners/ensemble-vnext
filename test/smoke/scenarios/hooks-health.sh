@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # =============================================================================
-# hooks-health - Scenario 1: every registered hook loads and exits 0
+# hooks-health - Scenario: every hook registered in THIS repo loads and exits 0
 # =============================================================================
 #
 # No LLM. Must run in under 15 seconds (enforced structurally: every hook
 # invocation gets its own short timeout, and there's a low fixed hook count).
 #
-# For every hook registered in .claude/settings.json, plus notify-complete.sh
-# (invoked directly by commands, not registered as a settings.json hook event),
-# feeds it a minimal valid payload on stdin and asserts:
+# For every hook registered in THIS repo's .claude/settings.json, plus
+# notify-complete.sh (invoked directly by commands, not registered as a
+# settings.json hook event), feeds it a minimal valid payload on stdin and
+# asserts:
 #   1. It loads and exits 0 (this is the check that would have caught the
 #      permitter shipping broken with "Cannot find module" on every
 #      PermissionRequest — nothing ever loaded it).
@@ -24,6 +25,12 @@
 # keeps the scenario from ever writing into this repo (e.g. precompact.js
 # appending to a real .trd-state/<feature>/session-log.md) while still
 # exercising the thing that matters: does the hook's code load and run.
+#
+# NOTE: this checks THIS REPO's hooks, which have always worked in practice.
+# It does NOT check that a SCAFFOLDED project's copies of these hooks are
+# actually delivered/executable/wired the same way — that gap (the one that
+# would have caught the permitter shipping broken) is covered by the
+# scaffold-integrity scenario instead.
 # =============================================================================
 
 set -uo pipefail
@@ -34,6 +41,8 @@ REPO_ROOT="$(cd "${SMOKE_DIR}/.." && cd .. && pwd)"
 
 # shellcheck source=../lib/assert.sh
 source "${SMOKE_DIR}/lib/assert.sh"
+# shellcheck source=../lib/hookcheck.sh
+source "${SMOKE_DIR}/lib/hookcheck.sh"
 
 if ! command -v jq &>/dev/null; then
     smoke_skip "jq not installed"
@@ -54,99 +63,24 @@ ISO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-hookshealth.XXXXXX")"
 cleanup() { rm -rf "$ISO_DIR"; }
 trap cleanup EXIT INT TERM
 
-FIXTURE_TRANSCRIPT="${ISO_DIR}/transcript.jsonl"
-cat > "$FIXTURE_TRANSCRIPT" <<'EOF'
-{"role":"user","content":"smoke test prompt"}
-{"role":"assistant","content":"Smoke test transcript line, nothing to see here."}
-EOF
-
-# -----------------------------------------------------------------------------
-# Payload builder: one JSON payload per hook event type.
-# -----------------------------------------------------------------------------
-payload_for_event() {
-    local event="$1"
-    case "$event" in
-        UserPromptSubmit)
-            printf '{"prompt":"smoke test","cwd":"%s","session_id":"smoke-test"}' "$ISO_DIR"
-            ;;
-        PostToolUse)
-            # .txt has no configured formatter -> fast "no_formatter" no-op path,
-            # avoids spawning prettier/npx during the health check.
-            local f="${ISO_DIR}/sample.txt"
-            echo "sample" > "$f"
-            printf '{"tool_name":"Write","tool_input":{"file_path":"%s"},"tool_response":{"filePath":"%s"},"cwd":"%s"}' "$f" "$f" "$ISO_DIR"
-            ;;
-        SubagentStop)
-            printf '{"transcript_path":"%s","cwd":"%s","session_id":"smoke-test"}' "$FIXTURE_TRANSCRIPT" "$ISO_DIR"
-            ;;
-        Stop)
-            printf '{"transcript_path":"%s","background_tasks":[],"session_crons":[],"stop_hook_active":false,"cwd":"%s","session_id":"smoke-test"}' "$FIXTURE_TRANSCRIPT" "$ISO_DIR"
-            ;;
-        SessionStart)
-            printf '{"cwd":"%s","session_id":"smoke-test"}' "$ISO_DIR"
-            ;;
-        PreCompact)
-            printf '{"trigger":"manual","transcript_path":"%s","cwd":"%s","session_id":"smoke-test"}' "$FIXTURE_TRANSCRIPT" "$ISO_DIR"
-            ;;
-        *)
-            printf '{"cwd":"%s"}' "$ISO_DIR"
-            ;;
-    esac
-}
-
-interpreter_for() {
-    case "$1" in
-        *.py) echo "python3" ;;
-        *.js) echo "node" ;;
-        *.sh) echo "bash" ;;
-        *) echo "" ;;
-    esac
-}
-
-run_one_hook() {
-    local event="$1" hook_path="$2"
-    local hook_name
-    hook_name="$(basename "$hook_path")"
-    local interp
-    interp="$(interpreter_for "$hook_path")"
-
-    if [[ -z "$interp" ]]; then
-        assert_fail_raw "$event/$hook_name: unknown interpreter for extension"
-        return
-    fi
-    if [[ ! -f "$hook_path" ]]; then
-        assert_fail_raw "$event/$hook_name: hook file missing at $hook_path"
-        return
-    fi
-
-    local payload
-    payload="$(payload_for_event "$event")"
-
-    local out rc
-    out="$(cd "$ISO_DIR" && printf '%s' "$payload" | smoke_timeout 5 "$interp" "$hook_path" 2>"${ISO_DIR}/${hook_name}.stderr")"
-    rc=$?
-
-    assert_exit_code 0 "$rc" "$event/$hook_name: loads and exits 0"
-    assert_json_valid_or_empty "$out" "$event/$hook_name: stdout empty or valid JSON"
-}
+hookcheck_write_transcript "$ISO_DIR"
 
 # -----------------------------------------------------------------------------
 # Derive the hook list from settings.json — event, then absolute hook path.
-# One line per (event, command) pair: "<event>\t<command>"
 # -----------------------------------------------------------------------------
 HOOK_COUNT=0
 while IFS=$'\t' read -r event command; do
     [[ -z "$event" ]] && continue
-    # Pull the .claude/hooks/<file> reference out of the wrapped bash -c command.
-    hook_rel="$(grep -oE '\.claude/hooks/[A-Za-z0-9_.-]+' <<< "$command" | head -1)"
+    hook_rel="$(hookcheck_extract_hook_rel "$command")"
     if [[ -z "$hook_rel" ]]; then
         assert_fail_raw "$event: could not extract hook path from command: ${command:0:120}"
         continue
     fi
     hook_path="${REPO_ROOT}/${hook_rel}"
+    hook_name="$(basename "$hook_path")"
     HOOK_COUNT=$((HOOK_COUNT + 1))
-    run_one_hook "$event" "$hook_path"
-done < <(jq -r '.hooks | to_entries[] | .key as $event | .value[].hooks[] | [$event, .command] | @tsv' "$SETTINGS_FILE" 2>/dev/null)
+    hookcheck_run_one "$event" "$hook_path" "$ISO_DIR" "$event/$hook_name"
+done < <(hookcheck_derive_from_settings "$SETTINGS_FILE")
 
 if [[ "$HOOK_COUNT" -eq 0 ]]; then
     assert_fail_raw "derived at least one hook from settings.json"

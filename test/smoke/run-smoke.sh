@@ -10,9 +10,11 @@
 # non-zero if any scenario failed.
 #
 # Usage:
-#   ./run-smoke.sh                     Run every scenario
-#   ./run-smoke.sh hooks-health         Run one scenario by name
-#   ./run-smoke.sh hooks-health prd-run Run a subset by name
+#   ./run-smoke.sh                        Deterministic checks + implement-one-task canary
+#   ./run-smoke.sh hooks-health            Run one scenario by name
+#   ./run-smoke.sh hooks-health prd-run    Run a subset by name
+#   ./run-smoke.sh --with-llm              Default set + prd-run/trd-run/debug-path
+#   ./run-smoke.sh prd-run                 A single opt-in LLM scenario, by name
 #
 # Exit codes:
 #   0  all scenarios passed or were skipped
@@ -54,30 +56,77 @@ source "${SMOKE_DIR}/lib/assert.sh"
 # Hence the model default below.
 declare -A SCENARIO_TIMEOUT=(
     [hooks-health]=15
-    [prd-run]=480
-    [implement-one-task]=480
-    [debug-path]=540
+    [scaffold-integrity]=60
+    [artifact-contracts]=30
+    [prd-run]=900
+    [trd-run]=900
+    [implement-one-task]=900
+    [debug-path]=900
 )
 
-# Total wall-clock budget for the whole run (seconds) — item 4's design
-# constraint, so it actually gets run before a commit.
-SMOKE_TOTAL_BUDGET="${SMOKE_TOTAL_BUDGET:-600}"
+# Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
+# note, never a failure, and never a reason to weaken what is being tested.
+# Concurrency is a legitimate way to cut wall-clock because it does not change
+# what runs; substituting models is not.
+SMOKE_TOTAL_BUDGET="${SMOKE_TOTAL_BUDGET:-900}"
 
-# Smoke runs assert observable side effects, never output quality, so the
-# strongest model buys nothing here and costs minutes. One env var retargets
-# every subagent. Export CLAUDE_CODE_SUBAGENT_MODEL yourself to override.
-export CLAUDE_CODE_SUBAGENT_MODEL="${CLAUDE_CODE_SUBAGENT_MODEL:-claude-haiku-4-5-20251001}"
+# NO MODEL OVERRIDE. Deliberately.
+#
+# An earlier version defaulted CLAUDE_CODE_SUBAGENT_MODEL to Haiku because it
+# cut a scenario from 483s to 315s and fit a ten-minute target. That was
+# backwards: a harness that runs the agents on a model nobody ships is not
+# testing the product. Every scenario would have been validating a
+# configuration that never reaches a user, and any regression that only
+# manifests on the shipped models — Opus for product-manager, spec-planner,
+# technical-architect, code-reviewer, code-simplifier, app-debugger; Sonnet for
+# the implementers and verify-app — would have been invisible to precisely the
+# thing whose job is to catch it.
+#
+# The ten-minute figure was a convenience target, not a requirement. Fidelity
+# outranks it. If you want a faster run for local iteration, set
+# CLAUDE_CODE_SUBAGENT_MODEL yourself for that run — but a result produced that
+# way must not be recorded as a baseline.
 
 # The refresh hook must never fire mid-scenario and rewrite a fixture runtime.
 export ENSEMBLE_RUNTIME_REFRESH_DISABLE=1
 
-# Canonical scenario order (used when no explicit names are given).
-ALL_SCENARIOS=(hooks-health prd-run implement-one-task debug-path)
+# Default set: deterministic checks (no LLM, no API cost) plus ONE end-to-end
+# LLM canary. Every real defect found in this framework recently was SILENT
+# ABSENCE (a hook that shipped broken, hooks that never shipped, a manifest
+# that never reached the installed plugin, a drift-checker that always exited
+# 0) — none of those announce themselves in prompt output, which is exactly
+# why the deterministic checks are the default and the LLM scenarios are not.
+# implement-one-task stays in the default set as the single canary that the
+# full IMPLEMENT -> VERIFY -> SIMPLIFY -> VERIFY -> REVIEW loop still runs
+# end to end, including state advancement and the git branch — the highest-
+# leverage single LLM scenario to keep paying for by default.
+ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-task)
 
-if [[ $# -gt 0 ]]; then
-    RUN_SCENARIOS=("$@")
+# Opt-in LLM scenarios: prd-run, trd-run, debug-path. These cost ~5-6 minutes
+# each to assert things a user would notice within seconds ("a PRD file
+# appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
+# test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
+# the whole set to whatever's already selected.
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path)
+
+WITH_LLM=false
+EXPLICIT_NAMES=()
+for arg in "$@"; do
+    if [[ "$arg" == "--with-llm" ]]; then
+        WITH_LLM=true
+    else
+        EXPLICIT_NAMES+=("$arg")
+    fi
+done
+
+if [[ "${#EXPLICIT_NAMES[@]}" -gt 0 ]]; then
+    RUN_SCENARIOS=("${EXPLICIT_NAMES[@]}")
 else
     RUN_SCENARIOS=("${ALL_SCENARIOS[@]}")
+fi
+
+if [[ "$WITH_LLM" == "true" ]]; then
+    RUN_SCENARIOS+=("${LLM_OPT_IN_SCENARIOS[@]}")
 fi
 
 echo "=============================================================="
@@ -137,13 +186,21 @@ run_one() {
     rm -f "$out_file"
 }
 
-# hooks-health runs FIRST and alone: it needs no LLM, finishes in under a
-# second, and if a registered hook cannot even load then every downstream
-# behavioral assertion is noise. Fail fast and cheap before spending minutes.
+# The deterministic scenarios (hooks-health, scaffold-integrity,
+# artifact-contracts) run FIRST and serially: none needs an LLM, together
+# they finish in single-digit seconds, and if a registered hook cannot even
+# load or an artifact contract has drifted, every downstream behavioral
+# assertion is noise. Fail fast and cheap before spending minutes on an LLM
+# scenario whose result won't matter if the deterministic layer is broken.
+DETERMINISTIC_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts)
 SERIAL_SCENARIOS=()
 PARALLEL_SCENARIOS=()
 for name in "${RUN_SCENARIOS[@]}"; do
-    if [[ "$name" == "hooks-health" ]]; then
+    is_deterministic=false
+    for det in "${DETERMINISTIC_SCENARIOS[@]}"; do
+        [[ "$name" == "$det" ]] && is_deterministic=true && break
+    done
+    if [[ "$is_deterministic" == "true" ]]; then
         SERIAL_SCENARIOS+=("$name")
     else
         PARALLEL_SCENARIOS+=("$name")
@@ -212,7 +269,7 @@ TOTAL_ELAPSED=$((TOTAL_END - TOTAL_START))
 # this stops fitting in a coffee break it stops getting run.
 BUDGET_NOTE=""
 if [[ "$TOTAL_ELAPSED" -gt "$SMOKE_TOTAL_BUDGET" ]]; then
-    BUDGET_NOTE="  !! OVER BUDGET (${SMOKE_TOTAL_BUDGET}s) — trim a scenario or raise SMOKE_TOTAL_BUDGET deliberately"
+    BUDGET_NOTE="  (over the ${SMOKE_TOTAL_BUDGET}s advisory target — informational only)"
 fi
 
 echo "=============================================================="
