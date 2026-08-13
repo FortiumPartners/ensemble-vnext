@@ -87,6 +87,7 @@ not provenance failures at all.
 | C3 | **Mechanism** | decisions | Can this actually be built as specified? | §3.4's kill switch |
 | C4 | **Consistency** | all pairs | Does it contradict a sibling requirement or decision? | B009 vs D5 |
 | C5 | **Threshold sourcing** | objectives | Is the *severity* sourced, not just the requirement's existence? | A2's "zero tolerance" |
+| C6 | **Grounding completeness** | tasks | Does every task carry grounding? Does anything replaced appear in a `Replaces` line? | `recordBlockInLedger` left orphaned by the 4.1.9 conversion |
 
 **C4 and C5 are the ones a provenance readout alone cannot catch, and both bit hard.** B009 and D5
 were *each* legitimately derived and only wrong together. A2 traced honestly to "don't break the
@@ -96,6 +97,83 @@ requirements; the gap between them is where unexamined strictness hides.
 
 C4 is pairwise and therefore the expensive one. Scope it to declared dependencies plus objectives
 that share a subject, rather than the full cross product.
+
+---
+
+## 3.5 Brownfield grounding — the TRD must land in the code that exists
+
+Everything above governs whether a requirement is *legitimate*. This governs whether the plan is
+*implementable in this repository*, which is a separate failure and currently unaddressed:
+`/create-trd` contains **no** mention of reuse, deprecation, removal, or existing implementation.
+It designs as if the codebase were empty.
+
+Once the TRD has decided what to do, it must reconcile that against a brownfield reality on four
+axes:
+
+| | Requirement | Failure it prevents |
+|---|---|---|
+| **(a)** | **Consistent with the existing implementation** | A plan that contradicts how the thing already works, discovered at implement time |
+| **(b)** | **Maximises reuse** | Reimplementing what exists — the most common silent waste |
+| **(c)** | **Deprecates and removes what it refactors out** | Dead code that still *looks* live |
+| **(d)** | **Documented with the task** | Every implementer rediscovering the same context |
+
+**(c) has a worked example in this repository.** The 4.1.9 conversion moved
+`subagent-discipline.js` to prompt-type, which silently orphaned `recordBlockInLedger` inside a
+`main()` that no longer executes. The dispatch ledger lost its compensating `blocked` row and
+nothing noticed, because the file still existed and still looked live. Nothing in `/create-trd`
+asked "what does this replace, and what becomes unreachable?" — so nothing surfaced it. It was
+found days later by an agent noticing a *documentation* claim had gone false.
+
+**(d) is the one that changes the shape of the design**, because it makes grounding a **producer**,
+not a checker. Findings that land only in a readout are wasted: the implementer never reads the
+readout. This session paid that cost repeatedly — one subagent rediscovered the manifest
+structure, another re-grepped for dependents that a previous agent had already enumerated. Each
+rediscovery is a full context window spent on something already known.
+
+### 3.5.1 Where it goes — additive, format-preserving
+
+**The existing TRD output format is unchanged.** The Master Task List keeps its current shape
+exactly; this is deliberate, because `/implement-trd` parses it today and that consumption will be
+reworked separately. Grounding lands in a **new section keyed by task ID**, so nothing existing
+moves:
+
+```markdown
+## N. Task Grounding
+
+### AUTH-B003
+- **Touches:** `packages/api/auth/session.ts`, `packages/api/auth/session.test.ts`
+- **Reuse:** `withRetry()` in `packages/api/lib/retry.ts` — do not reimplement backoff
+- **Replaces:** `legacyTokenCheck()` in `session.ts:88` becomes unreachable; delete it and its
+  three tests in `session.test.ts:120-190`
+- **Follow:** the idempotency-key pattern in `packages/api/webhooks/stripe.ts`
+- **Careful:** `session.ts` is imported by the mobile client — signature is a public contract
+```
+
+Only `Touches` is mandatory. The others appear when they apply; an empty grounding block is a
+legitimate result for genuinely greenfield work and should be stated rather than padded.
+
+`/implement-trd`'s delegation templates become the consumption point — the grounding block for a
+task is passed into the implementer's prompt so it starts with what a previous agent already
+established. That change is small and deliberately **not** designed here, since the implement loop
+is being reworked and designing against its current shape would be work done twice.
+
+### 3.5.2 Who produces it
+
+**One `grounding` subagent, sequential after authoring** — not part of the parallel verify wave.
+It is *generative* (it writes task context), and the rule that fan-out is for verification only
+applies to it: a fanned-out grounding stage would produce four opinions about which code to reuse.
+
+It runs after decisions exist, because grounding a decision that has not been made is meaningless.
+
+### 3.5.3 The check
+
+| # | Check | Question |
+|---|---|---|
+| C6 | **Grounding completeness** | Does every task carry a grounding block? Does anything the plan replaces appear in a `Replaces` line, or is it being left orphaned? |
+
+C6 belongs to the `design-audit` verifier. Its most valuable half is the second question — *what
+does this make unreachable?* — because that is the one nobody asks, and the one that left
+`recordBlockInLedger` stranded.
 
 ---
 
@@ -115,13 +193,18 @@ against source — with the verifier set widened.
      and record decisions in §1.2's existing Key Technical Decisions table
      WITH alternatives — that table exists today and is not enforced.
 
-2. VERIFY                    4 subagents, parallel, read-only, none may invent
+2. GROUND                    1 subagent (brownfield reconciliation) — sequential, generative
+     Reconciles the decisions against the codebase: consistency, reuse,
+     what becomes unreachable, and per-task context (§3.5).
+     Emits the Task Grounding section. Existing TRD format untouched.
+
+3. VERIFY                    4 subagents, parallel, read-only, none may invent
      grounding        does this already exist / contradict the codebase?
      conformance      does it violate stack.md / constitution.md?     (C2 lateral half)
      objective-audit  C1 + C5 — provenance and severity of every objective, against SOURCE
-     design-audit     C2 + C3 + C4 — derivation, buildability, sibling consistency
+     design-audit     C2 + C3 + C4 + C6 — derivation, buildability, consistency, grounding
 
-3. RECONCILE + READOUT       main agent
+4. RECONCILE + READOUT       main agent
 ```
 
 **`design-audit` is the new capability**, and it is the one that would have paid for itself
@@ -202,6 +285,8 @@ asking "can this be built?" than "what else should we add?"
 - `/create-trd` emits the readout, unsourced objectives first, severities called out separately
   from requirements.
 - `/create-trd-team` retired.
+- Every task carries a grounding block; anything the plan replaces is named in a `Replaces` line.
+- The existing Master Task List format is unchanged — grounding is additive, in its own section.
 - Re-running against `docs/TRD/discipline-judgment.md` flags **at least 7 of its 8** known
   fabrications. That TRD is the regression fixture — its failures are documented with receipts,
   which makes it the only honest test of whether this design works.
