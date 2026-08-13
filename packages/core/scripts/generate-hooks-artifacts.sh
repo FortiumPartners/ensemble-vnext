@@ -54,6 +54,17 @@ MANIFEST="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
 SETTINGS_TEMPLATE="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
 INIT_PROJECT_CORE="$REPO_ROOT/packages/core/commands/init-project.md"
 INIT_PROJECT_VENDORED="$REPO_ROOT/.claude/commands/init-project.md"
+# rebase-project.md carries the same generated hook enumeration as init-project.md.
+#
+# It did not, until 4.1.12, and that is exactly why it broke. init-project.md is
+# generator-managed and stayed correct through the 4.1.9-4.1.11 conversion;
+# rebase-project.md was hand-written prose and rotted the moment the hook set
+# changed, shipping a merge rule that silently preserved a stale hooks block and
+# dropped three model-judged hooks with no error. --check validated three
+# consumers and was blind to the fourth. Any file that describes the hook set
+# belongs here, not in prose.
+REBASE_PROJECT_CORE="$REPO_ROOT/packages/core/commands/rebase-project.md"
+REBASE_PROJECT_VENDORED="$REPO_ROOT/.claude/commands/rebase-project.md"
 
 # packages/full/commands/plugin-only/ holds REAL COPIES, not symlinks.
 #
@@ -75,7 +86,7 @@ for f in "$MANIFEST" "$SETTINGS_TEMPLATE" "$INIT_PROJECT_CORE"; do
     fi
 done
 
-python3 - "$MANIFEST" "$SETTINGS_TEMPLATE" "$INIT_PROJECT_CORE" "$INIT_PROJECT_VENDORED" "$CHECK" <<'PY'
+python3 - "$MANIFEST" "$SETTINGS_TEMPLATE" "$INIT_PROJECT_CORE" "$INIT_PROJECT_VENDORED" "$CHECK" "$REBASE_PROJECT_CORE" "$REBASE_PROJECT_VENDORED" <<'PY'
 import collections
 import json
 import os
@@ -84,6 +95,8 @@ import sys
 import tempfile
 
 manifest_path, settings_path, init_core_path, init_vendored_path, check_str = sys.argv[1:6]
+rebase_core_path = sys.argv[6] if len(sys.argv) > 6 else None
+rebase_vendored_path = sys.argv[7] if len(sys.argv) > 7 else None
 # The caller passes bash's lowercase "true"/"false". Comparing against "True"
 # silently made --check a no-op that always exited 0 — a drift checker that
 # never detects drift is worse than none, because CI reports it green.
@@ -334,6 +347,12 @@ def apply_to_file(path):
 apply_to_file(init_core_path)
 if init_vendored_path and os.path.isfile(init_vendored_path):
     apply_to_file(init_vendored_path)
+
+# rebase-project.md carries the same block. Skipped silently if the markers are
+# absent, so the generator does not fail on a checkout predating 4.1.12.
+for path in (rebase_core_path, rebase_vendored_path):
+    if path and os.path.isfile(path) and pattern.search(open(path).read()):
+        apply_to_file(path)
 PY
 
 # --- plugin-only command copies -------------------------------------------

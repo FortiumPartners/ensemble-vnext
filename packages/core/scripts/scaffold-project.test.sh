@@ -970,6 +970,26 @@ sys.exit(1 if (duplicates or conflicting or missing_from_manifest or extra_in_ma
     [ "$status" -eq 0 ]
 }
 
+@test "T009: every command that describes the hook set is generator-managed" {
+    # The class of bug this prevents, in full:
+    #
+    # init-project.md carried the generated ENSEMBLE:HOOKS-TABLE block and stayed
+    # correct through the 4.1.9-4.1.11 conversion. rebase-project.md described the
+    # same hook set in HAND-WRITTEN PROSE and rotted the moment that set changed —
+    # shipping a settings-merge rule that preserved a stale hooks block and silently
+    # dropped three model-judged hooks, with no error, in a real user project.
+    #
+    # --check validated three generated consumers and was structurally blind to the
+    # fourth. The defect was not the prose being wrong; it was prose being ALLOWED
+    # to describe the hook set at all.
+    #
+    # So: any command naming two or more distinct hook files must carry the
+    # generated block. Adding a new command that talks about hooks without it
+    # fails here.
+    run python3 "$REPO_ROOT/packages/core/scripts/check-hook-prose.py" "$REPO_ROOT"
+    [ "$status" -eq 0 ]
+}
+
 @test "T007: manifest — retired hooks (permitter, learning.sh, save-remote-logs.js) are absent" {
     # Scope the check to the "hooks" array only — the manifest's own
     # top-level $comment legitimately names these retired hooks in prose

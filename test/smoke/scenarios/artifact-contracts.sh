@@ -240,4 +240,18 @@ else
     assert_fail_raw "no retired component referenced in packages/, .claude/, docs/guides/ (found in: $(tr '\n' ' ' <<< "$RETIRED_HITS"))"
 fi
 
+# -----------------------------------------------------------------------------
+# Hook-managing commands must carry the generated hook table, not prose.
+#
+# rebase-project.md described the hook set in prose, rotted when the set changed,
+# and silently shipped a merge rule that dropped three model-judged hooks into a
+# real project. --check was blind to it because it only validated the consumers
+# it already knew about.
+# -----------------------------------------------------------------------------
+if python3 "${REPO_ROOT}/packages/core/scripts/check-hook-prose.py" "${REPO_ROOT}" 2>/dev/null; then
+    assert_pass_raw "hook-managing commands carry the generated hook table"
+else
+    assert_fail_raw "hook-managing commands carry the generated hook table"
+fi
+
 smoke_finish

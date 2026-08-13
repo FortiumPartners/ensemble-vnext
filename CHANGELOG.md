@@ -10,6 +10,40 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.13] - 2026-08-13
+
+### Fixed
+
+- **`rebase-project.md` is now generator-managed.** 4.1.12 fixed the merge rule by hand; this fixes
+  the reason it was wrong. `init-project.md` carried the generated `ENSEMBLE:HOOKS-TABLE` block and
+  stayed correct through the entire 4.1.9–4.1.11 conversion. `rebase-project.md` described the same
+  hook set in hand-written prose and rotted the moment that set changed. Both now carry the block,
+  and `--check` detects drift in either — verified by tampering with it deliberately.
+
+  The generated table also fixes a second-order lie: prompt-type entries now render as
+  `.claude/hooks/prompts/<name>.prompt.md`, the artifact scaffolding actually delivers, instead of
+  a `.js` path no scaffolded project has ever had.
+
+### Added
+
+- **`check-hook-prose.py` + `T009` + a smoke assertion** — a guard asserting every hook-*managing*
+  command carries the generated block. Wired into BATS and `artifact-contracts`, and verified by
+  stripping the markers and watching it fail.
+
+  **The first version of this guard was wrong in an instructive way.** It flagged any command
+  naming two or more hook files, and caught six that legitimately *reference* hooks without
+  describing the installed set — `implement-trd.md` names five while explaining its own loop, which
+  is correct and useful. A guard that fires on correct code gets disabled, and then it protects
+  nothing. The distinction that matters is not "mentions hooks" but "tells you what an install must
+  **contain**", which is a small knowable set, so it is listed explicitly rather than guessed.
+
+### Why this keeps happening
+
+Item 1 made the hook set manifest-driven with three generated consumers. `rebase-project` was never
+counted as one, so it silently opted out of the guarantee — and `--check`, which validates exactly
+the consumers it already knows about, could not see the gap. **A drift checker only covers what
+someone remembered to enrol.** `T009` closes that by making enrolment itself the thing under test.
+
 ## [4.1.12] - 2026-08-13
 
 ### Fixed
