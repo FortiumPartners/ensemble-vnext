@@ -419,19 +419,21 @@ JSON
     unset CLAUDE_ENV_FILE
 }
 
-@test "L4: autonomy-discipline.js hook exists + executable + syntactically valid" {
-    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
-    [ -f "$hook" ]
-    [ -x "$hook" ]
-    node --check "$hook"
+# The autonomy-discipline guard is a hookType:"prompt" model judgment as of
+# DISC-B008, and its regex predecessor packages/core/hooks/autonomy-discipline.js
+# was deleted in 4.1.11 (DISC-B009). The tests that asserted on that file —
+# exists/executable/`node --check`, the vendored-copy diff, and the three
+# helper-function probes (detectHedgedOffer, isCommandContext, isExemptCommand)
+# — went with it. What remains testable at this layer is the delivered artifact:
+# its position in the Stop chain, and its presence in the hook enumeration.
+
+@test "L4: autonomy-discipline prompt file exists and is non-empty" {
+    local prompt="${REPO_ROOT}/packages/core/hooks/prompts/autonomy-discipline.prompt.md"
+    [ -f "$prompt" ]
+    [ -s "$prompt" ]
 }
 
-@test "L4: autonomy-discipline.js vendored to dogfood .claude/hooks/" {
-    diff -q "${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js" \
-            "${REPO_ROOT}/.claude/hooks/autonomy-discipline.js"
-}
-
-@test "L4: both settings.json Stop chains include autonomy-discipline.js after async-discipline" {
+@test "L4: both settings.json Stop chains include autonomy-discipline after async-discipline" {
     # Order matters — autonomy-discipline.js must appear between async-discipline.js and wiggum.js.
     # async-discipline.js and autonomy-discipline.js are hookType:"prompt" (DISC-B008) — their
     # settings.json entries carry inlined prompt TEXT, not a "command" field to pull a filename
@@ -464,41 +466,8 @@ print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in
     done
 }
 
-@test "L4: helper detectHedgedOffer matches the exact user-reported phrase" {
-    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
-    local result
-    result=$(node -e "
-const { detectHedgedOffer } = require('$hook');
-const text = \"PHASE 0/4 COMPLETE. Given Phase 0 went cleanly and your --wiggum choice, I'll continue autonomously into Phase 1 unless you want to pause and review first. Want me to keep going, or pause for a look?\";
-const m = detectHedgedOffer(text);
-console.log(m ? 'MATCH' : 'NO-MATCH');
-")
-    [[ "$result" == "MATCH" ]]
-}
-
-@test "L4: helper isCommandContext extracts command name from [STATUS:] banner" {
-    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
-    local result
-    result=$(node -e "
-const { isCommandContext } = require('$hook');
-const ctx = isCommandContext('[STATUS: /harden-trd-team] PHASE 1/3 COMPLETE');
-console.log(ctx && ctx.command);
-")
-    [[ "$result" == "harden-trd-team" ]]
-}
-
-@test "L4: helper isExemptCommand returns true for refine-*, false for others" {
-    local hook="${REPO_ROOT}/packages/core/hooks/autonomy-discipline.js"
-    local result
-    result=$(node -e "
-const { isExemptCommand } = require('$hook');
-console.log(isExemptCommand({command:'refine-prd'}), isExemptCommand({command:'refine-trd'}), isExemptCommand({command:'implement-trd'}));
-")
-    [[ "$result" == "true true false" ]]
-}
-
-@test "L4: init-project.md hook enumeration includes autonomy-discipline.js" {
-    grep -q "autonomy-discipline.js" "${REPO_ROOT}/packages/core/commands/init-project.md"
+@test "L4: init-project.md hook enumeration includes the autonomy-discipline hook" {
+    grep -q "autonomy-discipline" "${REPO_ROOT}/packages/core/commands/init-project.md"
 }
 
 @test "L3: SessionStart no-ops cleanly when CLAUDE_ENV_FILE is not set" {

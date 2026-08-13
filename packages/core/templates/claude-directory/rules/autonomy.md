@@ -2,9 +2,10 @@
 
 **Status:** active. Applies to every workflow command **EXCEPT `/refine-prd` and
 `/refine-trd`** (which are inherently iterative — soliciting user input is their purpose).
-Backed by a model-judged `Stop` hook, `autonomy-discipline.js` (`hookType: "prompt"`, prompt
-text at `packages/core/hooks/prompts/autonomy-discipline.prompt.md`) — see Enforcement,
-below.
+Backed by a model-judged `Stop` hook (`hookType: "prompt"`, prompt text at
+`packages/core/hooks/prompts/autonomy-discipline.prompt.md`; the manifest entry keeps
+`autonomy-discipline.js` as its identifier, but no such file exists as of 4.1.11) — see
+Enforcement, below.
 
 ## The rule
 
@@ -146,13 +147,13 @@ Two layers, doing different jobs:
    one valid case) are legitimate uses of that tool, and the judge is expected to
    distinguish a genuine one of those from a disguised checkpoint request.
 
-Loop guard, kill switch, and `if`-field caveat are identical to `async-discipline.js`'s —
+Loop guard, override, and `if`-field caveat are identical to the async-discipline hook's —
 see `.claude/rules/async-discipline.md`'s "How the guard works" and "Override" sections
 rather than duplicating them here: `stop_hook_active` allows unconditionally on the second
-consecutive turn (one corrective round-trip), a judge error/timeout resolves to allow, and
-`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` rolls this hook back to `hookType: "command"`, running
-`autonomy-discipline.js`'s own `detectHedgedOffer` pattern-matching code exactly as it ran
-before this hook became model-judged.
+consecutive turn (one corrective round-trip), and a judge error/timeout resolves to allow.
+There is no kill switch: `autonomy-discipline.js` and its `detectHedgedOffer` matcher were
+deleted in 4.1.11 along with the `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` lever that was their
+only remaining consumer. To change this guard, edit its prompt file and regenerate.
 
 If you find a command in this framework asking a question outside the four valid cases,
 file an issue or patch the command's prompt.

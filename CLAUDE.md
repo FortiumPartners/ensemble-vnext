@@ -104,15 +104,25 @@ Given non-deterministic LLM output:
 ### Discipline Hooks (Stop / SubagentStop) — model-judged
 
 Three hooks enforce `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`:
-`async-discipline.js` and `autonomy-discipline.js` on `Stop`, `subagent-discipline.js` on
+`async-discipline` and `autonomy-discipline` on `Stop`, `subagent-discipline` on
 `SubagentStop`. As of 2026-08-13 (`docs/TRD/discipline-judgment.md`) all three are
 `hookType: "prompt"` in `packages/core/hooks/hooks.manifest.json` — evaluated by the
 platform's own model judge (prompt text in `packages/core/hooks/prompts/`) rather than by
-regex matching inside the `.js` files. The `.js` files and their pattern-matching code are
-retained as the rollback path: setting `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` before running
-`generate-hooks-artifacts.sh` regenerates all three as `hookType: "command"`, running that
-code exactly as before. See the two rules files above for the full mechanism (loop guard,
-escape valves, kill switch) — not duplicated here.
+regex matching inside a `.js` file.
+
+**There are no `.js` files behind these three any more** (4.1.11, DISC-B009):
+`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`,
+`lib/async-claim-detector.js` and `lib/transcript-text.js` were deleted, together with the
+`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` lever that regenerated them as command-type. The lever
+never worked outside this checkout — those files were never delivered to a scaffolded
+project — so it would have shipped a safety net with no detection behind it. Their manifest
+entries keep the `.js` names as **identifiers**; nothing resolves them to disk. A frozen copy
+of the regexes lives at `test/discipline-corpus/detectors/regex.js` purely so the scoring
+baseline stays reproducible; it is a test fixture, not runtime code.
+
+To change a discipline guard: edit its prompt in `packages/core/hooks/prompts/`, re-run
+`generate-hooks-artifacts.sh`, refresh. See the two rules files above for the full mechanism
+(loop guard, escape valves) — not duplicated here.
 
 ### Notify Hook (Stop)
 
