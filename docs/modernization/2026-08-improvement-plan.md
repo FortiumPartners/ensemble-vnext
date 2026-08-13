@@ -766,6 +766,37 @@ question** — "what's the impact of this latency?", "why are we so concerned wi
 `/implement-trd` and `verify-app` all treat a written requirement as legitimate by construction,
 so a fabricated one is executed rather than examined.
 
+#### Interactive and non-interactive modes for `/refine-trd` and `/refine-prd`
+
+**Both refine commands should gain an explicit non-interactive mode.** Today they are
+unconditionally interactive — `/refine-trd`'s Phase 1 says *"User Interview (REQUIRED)"* and
+*"Wait for user responses before proceeding"* — and `autonomy.md` exempts them wholesale on that
+basis: *"Applies to every workflow command EXCEPT `/refine-prd` and `/refine-trd` (which are
+inherently iterative — soliciting user input is their purpose)."*
+
+That exemption is why the challenge pass cannot currently run where it is most needed. A
+fabricated requirement is *most* dangerous in an unattended run, because there is nobody to ask
+"what's the impact of this latency?" — and four of this TRD's seven bad requirements were caught
+only by exactly that kind of question.
+
+| Mode | Behaviour |
+|---|---|
+| **Interactive** (today's behaviour, stays the default when a human invoked it) | Run the four checks, present findings, ask, apply the user's decisions. Deletion becomes a first-class outcome alongside enhancement. |
+| **Non-interactive** | Run the same four checks and resolve deterministically: **unsourced requirements are removed** and listed in the readout; contradictions between requirements are a **STUCK** condition, since resolving them requires a judgment call; mechanism failures are reported with the evidence. No questions, one readout at the end. |
+
+**Consequence that must not be missed: the autonomy exemption has to become conditional on mode,
+not on command name.** A non-interactive `/refine-trd` that stops to ask questions is precisely
+the defensive-checkpointing anti-pattern `autonomy.md` exists to forbid, and today's blanket
+exemption would permit it. Interactive mode keeps the exemption; non-interactive mode obeys
+autonomy discipline like every other command, with `AskUserQuestion` restricted to the four
+documented cases — under which "this requirement has no source" is *not* a valid reason to ask,
+because the deterministic resolution is to remove it and say so.
+
+The non-interactive mode is also what lets the challenge pass be *composed* — `/implement-trd`
+could run it against a TRD before executing, so a fabricated requirement is caught before a task
+is spent proving it rather than after. That is the sequence that would have saved the most work in
+this run.
+
 #### The mechanism: a derived-requirements readout
 
 **Fleshing out the PRD is the TRD's job, not a defect.** A TRD that adds nothing has failed. The
