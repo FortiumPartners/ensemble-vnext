@@ -17,8 +17,23 @@ It last ran on 2026-01-16, and repairing it would consume most of the first mont
 
 The question you actually need answered nine times out of ten is *"did I just break something?"*
 That one is deterministic and cheap. Item 4 builds it in about a day, on fixtures you already have.
-Archive `test/evals/` with a note; revisit only at item 8, where quality genuinely needs comparing —
-and even there, five hand-scored scenarios will beat a statistical framework you don't trust.
+
+**Defer the eval harness — do not delete it.** `test/evals/` stays in the tree: the framework
+(`run-eval.js`, `judge.js`, `aggregate.js`, `schema.js`), the rubrics, and the YAML specs are all
+preserved, and the intent is to bring them back. What is being deferred is *repairing* them now, at
+the cost of most of the first month, to answer a question that is not currently blocking anything.
+
+Two things make deletion the wrong call. The specs and rubrics encode real judgment about what good
+output looks like — that is the expensive part, and it does not rot the way the runner does. And
+item 8 needs a quality comparison by name: its done-condition is a five-scenario comparison of the
+workflow path against the prose path. Five hand-scored scenarios will beat a statistical framework
+nobody trusts *for that decision*, but the direction of travel is back toward the harness once the
+loop it measures has stopped moving.
+
+Practically: leave it where it is, mark it dormant in its own README so nobody mistakes a stale run
+for a current one, and keep it out of CI (already the case) so it cannot fail noisily while dormant.
+Revisit deliberately — most likely after item 8's keep-or-revert call, when there is a stable loop
+worth measuring.
 
 Everything below is sequenced on that assumption.
 
@@ -465,6 +480,29 @@ This is where the graph actually gets built, and it is the prerequisite for item
 contains `agents/ commands/ hooks/ scripts/ templates/` and **no `lib/` at all**. Meanwhile
 `implement-trd.md` is 1,372 lines, much of it describing fully deterministic operations the model re-reads
 and re-interprets on every invocation.
+
+> **Re-read the Sunstone fork before writing any of this.** The original comparison was a survey; this
+> item needs a close reading of specific modules, with three questions in mind:
+>
+> 1. **How does it build the task graph deterministically?** vNext infers dependencies from TRD prose on
+>    every run. Sunstone has `trd-parser.js` and `trd-graph.js` with tests behind them — the question is
+>    what its parser demands of the TRD *format*, because a graph is only as deterministic as its input.
+>    If it requires structured task declarations, that is a change to `/create-trd`, not just to the parser.
+> 2. **How does it verify completed output against requirements?** This is the weakest link in vNext's
+>    loop: `verify-app` runs tests, `code-reviewer` reads code, but nothing systematically checks the
+>    delivered thing against the acceptance criteria that specified it. If Sunstone has a mechanism here,
+>    it is worth more than the graph work.
+> 3. **`cross-trd-deps.js` is directly relevant to the open coordination question above.** The module name
+>    says it reasons about dependencies *between* TRDs — exactly the multi-TRD problem filed in this item.
+>    Read it before designing ours.
+>
+> Adopt selectively and with evidence, not wholesale — the plan's "deliberately not doing" list already
+> rejects Sunstone's multi-runtime adapters and per-package marketplace split for good reasons.
+>
+> **The baseline is no longer on disk.** `CLAUDE.md` names `~/dev/ensemble` as the read-only source,
+> but that directory does not exist on this machine as of 2026-08-12 — the original comparison was done
+> against a checkout that has since gone. Clone `Sunstone-Partners/ensemble` fresh before starting, read
+> only, and note that its `main` will have moved since the survey.
 
 Sunstone has `trd-parser.js`, `trd-graph.js`, `phase-tracker.js`, and `cross-trd-deps.js` with 76 test
 files behind them. You don't need that whole surface — you need the three pieces carrying the most prose weight:

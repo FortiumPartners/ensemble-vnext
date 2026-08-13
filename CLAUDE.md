@@ -34,16 +34,26 @@ Ensemble vNext is a workflow framework for Claude Code that encodes power-user p
 
 ## Baseline Reference
 
-**Read-only source**: `~/dev/ensemble`
+**Read-only source**: `Sunstone-Partners/ensemble` (formerly checked out at `~/dev/ensemble`)
 
-Copy extensively from existing ensemble. Under NO circumstances modify that folder.
+That local checkout **no longer exists** as of 2026-08-12. Clone the repo fresh when you need it —
+read only, and under NO circumstances modify it. Note its `main` has moved since the original
+comparison; treat any conclusion drawn from the old survey as needing re-verification.
 
-Key sources:
-- `packages/permitter/` - Permission hook (copy exactly)
-- `packages/router/` - Routing hook (copy exactly)
-- `packages/*/agents/` - Agent templates (adapt for 12 streamlined agents)
-- `packages/*/skills/` - Skill library (copy relevant skills)
-- `packages/*/commands/` - Command templates (adapt for vendored runtime)
+Most of the copy-extensively phase is done. The remaining planned use is a close reading for
+improvement-plan item 7 (`trd-parser.js`, `trd-graph.js`, `cross-trd-deps.js`) — see the callout in
+`docs/modernization/2026-08-improvement-plan.md`.
+
+Key sources for the remaining item-7 reading:
+- `trd-parser.js`, `trd-graph.js` — deterministic task-graph construction, and what the parser
+  demands of the TRD *format* (a graph is only as deterministic as its input)
+- `cross-trd-deps.js` — dependencies *between* TRDs; directly relevant to the open concurrent-TRD
+  coordination question
+- Whatever mechanism it has for verifying delivered output against acceptance criteria — the weakest
+  link in this framework's loop
+
+The earlier "copy exactly" sources are historical: `packages/permitter/` was retired in 4.1.0, and
+the agent/skill/command templates have long since been adapted and diverged.
 
 ---
 
