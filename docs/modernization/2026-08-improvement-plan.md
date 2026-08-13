@@ -450,6 +450,26 @@ deferred work is *definitionally* wrong — there is no mechanism by which it co
 The main-session hook has to check `background_tasks`/`session_crons` because the claim might
 be true; for a subagent it never is. A fuzzy semantic judgment becomes near-deterministic.
 
+**Verified empirically (2026-08-12), because the hooks reference is wrong or silent on all four
+points.** A probe hook that returned `{"decision":"block","reason":...}` on `SubagentStop`:
+
+| Docs say | Actually observed |
+|---|---|
+| `decision`/`reason` "not explicitly documented" for SubagentStop | **Works.** The block took effect and the subagent resumed |
+| exit-2 stderr goes "to the user only", Claude doesn't see it | **The JSON `reason` reaches the subagent** — its next turn answered the reason's content directly |
+| "no `stop_hook_active` field or similar mechanism" | **`stop_hook_active` IS in the payload** — loop prevention is available |
+| `background_tasks` / `session_crons` "not mentioned" for SubagentStop | **Both present**, so the deterministic half works here too |
+
+Full observed payload: `agent_id`, `agent_transcript_path`, `agent_type`, `background_tasks`,
+`cwd`, `effort`, `hook_event_name`, `last_assistant_message`, `permission_mode`, `prompt_id`,
+`session_crons`, `session_id`, `stop_hook_active`, `transcript_path`.
+
+**It continues rather than redispatches**, which is the better behaviour: the same subagent
+resumes with its existing context and the block reason as feedback, instead of a fresh agent
+losing whatever work was already done. So `async-discipline.js` can be reused almost verbatim
+on `SubagentStop` — same output shape, same fields, plus `stop_hook_active` as the loop guard
+and `agent_type` for per-agent tuning.
+
 **Hung subagents are a different problem, and a hook cannot solve it.** If a subagent never
 returns, `SubagentStop` never fires. There is no documented watchdog, heartbeat, or timeout
 hook. `implement-trd` documents a 30-minute task timeout as PROSE, which means the model has
