@@ -57,11 +57,9 @@ Implements `docs/TRD/discipline-judgment.md` (improvement-plan item 5b).
   from `build-judge-prompts.js` — one generator, three outputs, so the shared clauses cannot drift
   apart the way the patterns did.
 
-- **A rollback lever.** `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` regenerates every prompt entry as
-  command-type. Honest about what it is: a regenerate-and-refresh lever, not an instant switch,
-  because a prompt hook runs no code of ours that could read an env var. The regex hooks are
-  **retained** as its target and will be removed together with the lever once the judge has earned
-  it.
+- **A rollback lever — with a known defect, see below.** `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1`
+  regenerates every prompt entry as command-type. It is a regenerate-and-refresh lever, not an
+  instant switch, because a prompt hook runs no code of ours that could read an env var.
 
 - **`test/discipline-corpus/`** — a 66-case acceptance corpus drawn from real transcripts, a
   detector-agnostic scoring harness, and `RESULTS.md`.
@@ -83,8 +81,24 @@ Implements `docs/TRD/discipline-judgment.md` (improvement-plan item 5b).
   converges on the subagent's next stop — so the wrong window is one corrective turn.
 - **The judge is non-deterministic in both directions.** False-negative counts across three
   identical runs were 0, 1, 0. Acceptance criteria are stated over multiple runs for this reason.
-- **Deleting the regex apparatus is deferred** — it would leave the rollback lever emitting hooks
-  with no detection logic.
+- **The rollback lever does not work outside this repository.** Found immediately after tagging,
+  and stated here rather than left for a user to discover. The three `.js` hooks are no longer
+  delivered to scaffolded projects — the generator prunes their `packages/full/hooks/` symlinks
+  once the manifest entry becomes prompt-type, so the scaffold has nothing to copy, and this holds
+  **even when the lever is set**. `runtime-refresh.sh` is present-only, so an existing project
+  cannot acquire them later either.
+
+  The consequence: setting the variable and regenerating produces `command`-type hooks pointing at
+  `.claude/hooks/async-discipline.js`, a file that exists only in this monorepo. Rollback works
+  here and nowhere else.
+
+- **Deleting the regex apparatus is deferred**, on the reasoning that it would leave the rollback
+  lever emitting hooks with no detection logic. That reasoning is sound in this repository and
+  moot everywhere else, per the defect above — the deferral is currently protecting a path that
+  only functions during development. Resolving the two together is the open decision: either
+  deliver the `.js` hooks so the lever genuinely works in installed projects, or drop the lever
+  and delete the apparatus with it. Shipping a documented safety mechanism that does not function
+  is the worse option, and is exactly the argument used to defer the deletion in the first place.
 
 ## [4.1.8] - 2026-08-13
 

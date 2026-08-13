@@ -381,6 +381,11 @@
         "risk": "Conversion regression \u2014 dispatch ledger loses its compensating blocked row",
         "detail": "subagent-discipline.js is now prompt-type so its JS never runs, and recordBlockInLedger with it. On a judge-blocked SubagentStop the ledger records stop with no blocked row, reporting a still-running agent as finished. Hooks run concurrently so dispatch-ledger.js cannot observe the judge verdict.",
         "resolution": "Documented in async-discipline.md. Transient only \u2014 converges on the next stop, so the window is one corrective turn. Follow-up, not a blocker."
+      },
+      {
+        "risk": "Rollback lever non-functional outside the monorepo \u2014 invalidates the B009 deferral premise",
+        "detail": "The three discipline .js files are not delivered to scaffolded projects under any condition, because the generator prunes their packages/full/hooks/ symlinks once the entry is prompt-type, leaving nothing for scaffold-project.sh to copy. runtime-refresh.sh is present-only so existing projects cannot acquire them. Setting ENSEMBLE_DISCIPLINE_JUDGE_DISABLE and regenerating therefore emits command hooks pointing at files that exist only during development.",
+        "resolution": "OPEN DECISION. Either (a) deliver the .js hooks for prompt-type entries so the lever works where D5 intends (in the wild), or (b) drop D5 and execute B009. Deferring B009 to protect a lever that only works in development protects nothing. Changelog corrected in the same commit rather than shipping the false claim."
       }
     ],
     "contingencies_applied": [],
