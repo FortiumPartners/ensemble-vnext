@@ -76,9 +76,32 @@ teardown() {
             [[ -n "$file" ]] && rm -f "$file"
         done < "$TEST_DIR/.delete-list"
     fi
+    # A test that runs generate-hooks-artifacts.sh against the REAL repo leaves
+    # side effects the restore map cannot cover: the map tracks file CONTENTS,
+    # while the generator also creates and prunes packages/full/hooks/ symlinks.
+    #
+    # This was invisible until DISC-B008. Before the three discipline hooks
+    # became hookType:"prompt", no real manifest entry was prompt-type, so
+    # toggling ENSEMBLE_DISCIPLINE_JUDGE_DISABLE changed nothing and left
+    # nothing behind. Now the disabled pass regenerates them as command-type and
+    # creates .js symlinks that the restored (prompt-type) manifest does not
+    # want — leaving the tree drifted and failing --check for every later test,
+    # and for anyone running the suite locally.
+    #
+    # Re-run the generator AFTER contents are restored, so it normalizes the
+    # symlink set against the real manifest.
+    if [[ -f "$TEST_DIR/.needs-generator-normalize" ]]; then
+        "$REPO_ROOT/packages/core/scripts/generate-hooks-artifacts.sh" >/dev/null 2>&1 || true
+    fi
     if [[ -d "$TEST_DIR" ]]; then
         rm -rf "$TEST_DIR"
     fi
+}
+
+# Mark that this test invoked generate-hooks-artifacts.sh against the real repo,
+# so teardown normalizes the generator's non-content side effects.
+_needs_generator_normalize() {
+    touch "$TEST_DIR/.needs-generator-normalize"
 }
 
 # ============================================
@@ -975,12 +998,25 @@ PY
 }
 
 @test "T007: template settings.json hook block matches the manifest (events, files, order)" {
-    run python3 - "$MANIFEST" "$REPO_ROOT/packages/core/templates/claude-directory/settings.json" <<'PY'
-import collections, json, re, sys
+    run python3 - "$MANIFEST" "$REPO_ROOT/packages/core/templates/claude-directory/settings.json" "$REPO_ROOT/packages/core/hooks/prompts" <<'PY'
+import collections, json, os, re, sys
 
 manifest = json.load(open(sys.argv[1]))
 settings = json.load(open(sys.argv[2]))
+prompts_dir = sys.argv[3]
 hooks = manifest["hooks"]
+
+# hookType:"prompt" entries emit no "command" field to regex a filename out
+# of — the settings.json entry only carries the inlined prompt TEXT. Build a
+# reverse lookup (prompt text -> manifest "file") from each such entry's
+# promptFile content, so those entries can be identified the same way
+# command-type ones are (by which manifest hook they correspond to).
+prompt_text_to_file = {}
+for h in hooks:
+    if h.get("hookType") != "prompt":
+        continue
+    with open(os.path.join(prompts_dir, h["promptFile"])) as fh:
+        prompt_text_to_file[fh.read().rstrip("\n")] = h["file"]
 
 groups = collections.OrderedDict()
 for h in hooks:
@@ -1018,6 +1054,9 @@ if ok:
                 break
             actual_files = []
             for hc in actual_entry.get("hooks", []):
+                if hc.get("type") == "prompt":
+                    actual_files.append(prompt_text_to_file.get(hc.get("prompt", "")))
+                    continue
                 m = re.search(r'\.claude/hooks/([\w.\-]+)', hc.get("command", ""))
                 actual_files.append(m.group(1) if m else None)
             if actual_files != files:
@@ -1080,6 +1119,7 @@ PY
 }
 
 @test "T007: generate-hooks-artifacts.sh --check exits 0 on a clean tree" {
+    _needs_generator_normalize
     [ -f "$GEN_ARTIFACTS_SCRIPT" ]
     run "$GEN_ARTIFACTS_SCRIPT" --check
     [ "$status" -eq 0 ]
@@ -1091,6 +1131,7 @@ PY
 # drifted tree. A test that only exercises the clean-tree case (above) would
 # not have caught this; the drift case is the one that matters.
 @test "T007: generate-hooks-artifacts.sh --check exits non-zero when settings.json template is drifted" {
+    _needs_generator_normalize
     [ -f "$GEN_ARTIFACTS_SCRIPT" ]
     local target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
     _track_for_restore "$target"
@@ -1112,6 +1153,7 @@ PY
 }
 
 @test "T007: generate-hooks-artifacts.sh --check exits non-zero when init-project.md hook table is drifted" {
+    _needs_generator_normalize
     [ -f "$GEN_ARTIFACTS_SCRIPT" ]
     local target="$REPO_ROOT/packages/core/commands/init-project.md"
     _track_for_restore "$target"
@@ -1221,6 +1263,7 @@ JSON
 # Mutates real repo files; restored/deleted in teardown() regardless of
 # outcome.
 @test "hookType: generate-hooks-artifacts.sh emits a type:prompt block, and --check detects drift in it" {
+    _needs_generator_normalize
     [ -f "$GEN_ARTIFACTS_SCRIPT" ]
     local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
     local settings_target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
@@ -1271,9 +1314,12 @@ import json, sys
 settings = json.load(open(sys.argv[1]))
 stop_group = settings["hooks"]["Stop"]
 entries = stop_group[0]["hooks"]
-fixture = [h for h in entries if h.get("type") == "prompt"]
+# Filter by the fixture's own distinctive prompt text rather than "the only
+# type:prompt entry" — async-discipline.js and autonomy-discipline.js are
+# real hookType:"prompt" entries too (DISC-B008) and share this Stop group.
+fixture = [h for h in entries if h.get("type") == "prompt" and h.get("prompt", "").startswith("FIXTURE PROMPT TEXT")]
 if len(fixture) != 1:
-    print(f"expected exactly one type:prompt entry in Stop, got {len(fixture)}")
+    print(f"expected exactly one fixture type:prompt entry in Stop, got {len(fixture)}")
     sys.exit(1)
 h = fixture[0]
 ok = (
@@ -1320,6 +1366,7 @@ PY
 # packages/full/hooks/prompts/<promptFile> symlink, and --check must catch it
 # going stale — the "symlink guard" pattern extended to prompt files.
 @test "hookType: shippable promptFile gets a packages/full/hooks/prompts/ symlink, and --check detects a broken one" {
+    _needs_generator_normalize
     [ -f "$GEN_ARTIFACTS_SCRIPT" ]
     local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
     local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b005-symlink-fixture.md"
@@ -1424,6 +1471,7 @@ JSON
 # matching --check under the SAME state reports drift — there is no
 # instantaneous runtime effect.
 @test "kill switch: same manifest generates type:prompt when unset and type:command when ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1, proving a fresh per-invocation read" {
+    _needs_generator_normalize
     [ -f "$GEN_ARTIFACTS_SCRIPT" ]
     local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
     local settings_target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"

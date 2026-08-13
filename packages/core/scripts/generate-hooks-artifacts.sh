@@ -432,6 +432,62 @@ for h in manifest.get("hooks", []):
     print(f + "\t" + (h.get("source") or "packages/core/hooks/" + f))
 ' "$MANIFEST")
 
+    # --- prune stale packages/full/hooks/ symlinks -------------------------
+    #
+    # The loop above only ever ADDS or CORRECTS links for entries currently
+    # in the expected set — it never notices a link left behind by an entry
+    # that used to be in that set and no longer is. DISC-B008 hit this
+    # directly: async-discipline.js, autonomy-discipline.js, and
+    # subagent-discipline.js flipped from hookType "command" to "prompt",
+    # dropping out of the expected set, but their pre-existing symlinks here
+    # were never removed by anything — a silent-leftover mirror of the
+    # silent-absence failure the rest of this section's comment describes.
+    # Only prune symlinks THIS generator manages (pointing back into
+    # packages/core/, matching the ../../<pkg>/... shape built above);
+    # anything else in the directory (hooks.json, hooks.manifest.json,
+    # README.md, lib/, prompts/) is left alone.
+    mapfile -t expected_files < <(python3 -c '
+import json, os, sys
+manifest = json.load(open(sys.argv[1]))
+disabled = os.environ.get("ENSEMBLE_DISCIPLINE_JUDGE_DISABLE", "").strip().lower() not in ("", "0", "false")
+seen = set()
+for h in manifest.get("hooks", []):
+    if not h.get("shippable"):
+        continue
+    if h.get("hookType") == "prompt" and not disabled:
+        continue
+    if h["file"] not in seen:
+        seen.add(h["file"])
+        print(h["file"])
+' "$MANIFEST")
+    for entry in "$FULL_HOOKS_DIR"/*; do
+        [[ -e "$entry" || -L "$entry" ]] || continue
+        base="$(basename "$entry")"
+        # Non-hook infra this loop does not own — same exclude set the T007
+        # "no missing, no extra" test uses (hooks.json/hooks.manifest.json/
+        # README.md are copied or symlinked by other mechanisms; lib/ and
+        # prompts/ are directories, not per-hook entries).
+        case "$base" in
+            hooks.json|hooks.manifest.json|README.md|lib|prompts) continue ;;
+        esac
+        [[ -L "$entry" ]] || continue
+        case "$(readlink "$entry")" in
+            ../../*) ;;   # generator-managed shape; eligible for pruning
+            *) continue ;;
+        esac
+        found=false
+        for f in "${expected_files[@]}"; do
+            [[ "$f" == "$base" ]] && { found=true; break; }
+        done
+        [[ "$found" == "true" ]] && continue
+        if [[ "$CHECK" == "true" ]]; then
+            echo "DRIFT: $entry is a stale symlink (points at '$(readlink "$entry")', no longer a shippable command-type hook)" >&2
+            exit 1
+        fi
+        rm -f "$entry"
+        echo "Pruned stale link: $entry"
+    done
+
     # --- packages/full/hooks/prompts/ symlinks -----------------------------
     #
     # Same rationale, one level deeper: a shippable hookType:"prompt" entry's

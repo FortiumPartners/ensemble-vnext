@@ -63,8 +63,14 @@ SETTINGS_FILE="${PROJECT_DIR}/.claude/settings.json"
 if [[ -f "$SETTINGS_FILE" ]]; then
     hookcheck_write_transcript "$PROJECT_DIR"
     SCAFFOLD_HOOK_COUNT=0
-    while IFS=$'\t' read -r event command; do
+    while IFS=$'\t' read -r event type command; do
         [[ -z "$event" ]] && continue
+        if [[ "$type" == "prompt" ]]; then
+            # hookType:"prompt" entries (DISC-B008) have no local script to
+            # invoke — see hooks-health.sh's identical guard.
+            SCAFFOLD_HOOK_COUNT=$((SCAFFOLD_HOOK_COUNT + 1))
+            continue
+        fi
         hook_rel="$(hookcheck_extract_hook_rel "$command")"
         if [[ -z "$hook_rel" ]]; then
             assert_fail_raw "$event: could not extract hook path from command: ${command:0:120}"
@@ -175,7 +181,12 @@ if [[ -f "$MANIFEST" ]]; then
     # on SubagentStart + SubagentStop) has one manifest entry PER EVENT but is
     # still one file on disk. Without dedupe the expected count exceeds the
     # delivered count and this assertion fails on a correct scaffold.
-    SHIPPABLE_FILES="$(jq -r '[.hooks[] | select(.shippable == true) | .file] | unique | .[]' "$MANIFEST" 2>/dev/null)"
+    #
+    # hookType:"prompt" entries (DISC-B008: async-discipline.js,
+    # autonomy-discipline.js, subagent-discipline.js) are excluded: their
+    # shippable artifact is promptFile delivered to .claude/hooks/prompts/,
+    # not a runtime script at .claude/hooks/<file> — checked separately below.
+    SHIPPABLE_FILES="$(jq -r '[.hooks[] | select(.shippable == true) | select(.hookType != "prompt") | .file] | unique | .[]' "$MANIFEST" 2>/dev/null)"
     SHIPPABLE_COUNT=0
     DELIVERED_COUNT=0
     while IFS= read -r hookfile; do
@@ -191,6 +202,19 @@ if [[ -f "$MANIFEST" ]]; then
     done <<< "$SHIPPABLE_FILES"
     assert_true "all $SHIPPABLE_COUNT shippable manifest hooks delivered ($DELIVERED_COUNT found)" \
         -- test "$DELIVERED_COUNT" -eq "$SHIPPABLE_COUNT"
+
+    # Companion check for the entries excluded above: every shippable
+    # hookType:"prompt" entry's promptFile must land in .claude/hooks/prompts/.
+    SHIPPABLE_PROMPTS="$(jq -r '[.hooks[] | select(.shippable == true) | select(.hookType == "prompt") | .promptFile] | unique | .[]' "$MANIFEST" 2>/dev/null)"
+    PROMPT_SHIPPABLE_COUNT=0
+    PROMPT_DELIVERED_COUNT=0
+    while IFS= read -r promptfile; do
+        [[ -z "$promptfile" ]] && continue
+        PROMPT_SHIPPABLE_COUNT=$((PROMPT_SHIPPABLE_COUNT + 1))
+        [[ -f "${PROJECT_DIR}/.claude/hooks/prompts/${promptfile}" ]] && PROMPT_DELIVERED_COUNT=$((PROMPT_DELIVERED_COUNT + 1))
+    done <<< "$SHIPPABLE_PROMPTS"
+    assert_true "all $PROMPT_SHIPPABLE_COUNT shippable manifest hook prompts delivered ($PROMPT_DELIVERED_COUNT found)" \
+        -- test "$PROMPT_DELIVERED_COUNT" -eq "$PROMPT_SHIPPABLE_COUNT"
 
     LIB_SRC="${REPO_ROOT}/packages/core/hooks/lib"
     if [[ -d "$LIB_SRC" ]]; then
@@ -230,8 +254,9 @@ if [[ -f "$SETTINGS_FILE" ]]; then
     fi
 
     RESOLVE_FAILS=0
-    while IFS=$'\t' read -r event command; do
+    while IFS=$'\t' read -r event type command; do
         [[ -z "$event" ]] && continue
+        [[ "$type" == "prompt" ]] && continue
         hook_rel="$(hookcheck_extract_hook_rel "$command")"
         [[ -z "$hook_rel" ]] && continue
         [[ -f "${PROJECT_DIR}/${hook_rel}" ]] || RESOLVE_FAILS=$((RESOLVE_FAILS + 1))

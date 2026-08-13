@@ -432,13 +432,31 @@ JSON
 }
 
 @test "L4: both settings.json Stop chains include autonomy-discipline.js after async-discipline" {
-    # Order matters — autonomy-discipline.js must appear between async-discipline.js and wiggum.js
+    # Order matters — autonomy-discipline.js must appear between async-discipline.js and wiggum.js.
+    # async-discipline.js and autonomy-discipline.js are hookType:"prompt" (DISC-B008) — their
+    # settings.json entries carry inlined prompt TEXT, not a "command" field to pull a filename
+    # out of, so a name is recovered by matching that text against each promptFile's content.
     for settings in "${REPO_ROOT}/.claude/settings.json" "${REPO_ROOT}/packages/full/.claude/settings.json"; do
         python3 -c "
-import json, sys
+import json, os, sys
+
+prompts_dir = '${REPO_ROOT}/packages/core/hooks/prompts'
+manifest = json.load(open('${REPO_ROOT}/packages/core/hooks/hooks.manifest.json'))
+prompt_text_to_file = {}
+for h in manifest['hooks']:
+    if h.get('hookType') != 'prompt':
+        continue
+    with open(os.path.join(prompts_dir, h['promptFile'])) as fh:
+        prompt_text_to_file[fh.read().rstrip(chr(10))] = h['file']
+
 s = json.load(open('$settings'))
-cmds = [h['command'] for grp in s['hooks']['Stop'] for h in grp['hooks']]
-names = [c.split('hooks/')[-1].split(chr(39))[0] for c in cmds]
+names = []
+for grp in s['hooks']['Stop']:
+    for h in grp['hooks']:
+        if h.get('type') == 'prompt':
+            names.append(prompt_text_to_file.get(h.get('prompt', ''), '<unrecognized prompt>'))
+        else:
+            names.append(h['command'].split('hooks/')[-1].split(chr(39))[0])
 expected = ['async-discipline.js', 'autonomy-discipline.js', 'wiggum.js', 'notify.sh']
 assert names == expected, f'Stop chain order mismatch: {names} != {expected}'
 print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in '$settings' else '.claude/settings.json', '→', ' → '.join(names))

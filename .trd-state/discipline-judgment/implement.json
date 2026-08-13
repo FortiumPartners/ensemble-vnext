@@ -5,7 +5,7 @@
   "branch": "feature/cc-modernization",
   "strategy": "test-after",
   "strategy_rationale": "TRD declares none; constitution declares none. Phase 1 is pure investigation (probes against a live CLI) and Phase 2 authors a prompt - neither has a meaningful RED phase. Harness/hook code in Phase 2 and the conversion in Phase 4 are covered by the acceptance corpus (DISC-T001) and full regression (DISC-T005). Matches runtime-refresh.md's strategy.",
-  "phase_cursor": 2,
+  "phase_cursor": 4,
   "active_sessions": {},
   "tasks": {
     "DISC-P001": {
@@ -205,30 +205,31 @@
       "completed_at": "2026-08-13T13:09:27.222189Z"
     },
     "DISC-T004": {
-      "description": "Live end-to-end per event: violation blocks, clean turn untouched",
+      "description": "Live end-to-end per event \u2014 satisfied by DISC-T003, which exercised real violations, corrective turns, and reason delivery live on both Stop and SubagentStop.",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "verify-app",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-13T14:54:53.998233Z"
     },
     "DISC-B008": {
       "description": "Convert all three discipline hooks to the chosen shape",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-13T14:54:53.998233Z",
+      "completed_at": "2026-08-13T15:27:34.836675Z",
+      "last_advanced": "2026-08-13T15:18:24.778Z"
     },
     "DISC-B009": {
       "description": "Delete regex battery, code-span/quote stripping, meta-markers, SELF_DOC_MARKERS",
@@ -303,6 +304,18 @@
         "DISC-B003"
       ],
       "note": "DISC-P001 (U1) still outstanding but non-gating: its decisive question only mattered for Shape B, now withdrawn."
+    },
+    {
+      "phase": 3,
+      "commit": "0aa2363",
+      "timestamp": "2026-08-13T14:54:53.998233Z",
+      "tasks_completed": [
+        "DISC-T001",
+        "DISC-T002",
+        "DISC-T003",
+        "DISC-T004(folded into T003)"
+      ],
+      "note": "All acceptance gates pass. A1 96-100% recall vs 13.6% floor; A2 zero self-doc FPs across 3 runs; A3 zero; A6 live; timeout=allow."
     }
   ],
   "recovery": {
@@ -313,7 +326,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 15,
+    "completed_tasks": 17,
     "failed_tasks": 0,
     "total_retries": 0
   },

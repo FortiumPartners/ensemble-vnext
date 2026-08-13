@@ -103,12 +103,16 @@ hookcheck_run_one() {
 }
 
 # hookcheck_derive_from_settings <settings_json_file>
-# Emits "<event>\t<full command string>" TSV, one line per registered hook
-# entry, matching the shape settings.json's hooks block uses everywhere in
-# this repo (event -> [{matcher, hooks:[{type,command,timeout}]}]).
+# Emits "<event>\t<type>\t<full command string>" TSV, one line per registered
+# hook entry, matching the shape settings.json's hooks block uses everywhere
+# in this repo (event -> [{matcher, hooks:[{type,command|prompt,timeout}]}]).
+# <type> is "command" or "prompt"; the command field is "" for type:"prompt"
+# entries (DISC-B008) — callers must check <type> before treating a missing
+# command as an error, since a prompt-type hook is evaluated entirely by the
+# platform and has no local script to invoke at all.
 hookcheck_derive_from_settings() {
     local settings_file="$1"
-    jq -r '.hooks | to_entries[] | .key as $event | .value[].hooks[] | [$event, .command] | @tsv' "$settings_file" 2>/dev/null
+    jq -r '.hooks | to_entries[] | .key as $event | .value[].hooks[] | [$event, .type, (.command // "")] | @tsv' "$settings_file" 2>/dev/null
 }
 
 # hookcheck_extract_hook_rel <command_string>

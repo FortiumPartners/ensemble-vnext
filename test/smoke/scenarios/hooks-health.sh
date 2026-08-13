@@ -69,8 +69,17 @@ hookcheck_write_transcript "$ISO_DIR"
 # Derive the hook list from settings.json — event, then absolute hook path.
 # -----------------------------------------------------------------------------
 HOOK_COUNT=0
-while IFS=$'\t' read -r event command; do
+while IFS=$'\t' read -r event type command; do
     [[ -z "$event" ]] && continue
+    if [[ "$type" == "prompt" ]]; then
+        # hookType:"prompt" entries (DISC-B008) are evaluated entirely by the
+        # platform's judge — there is no local script for this synthetic-
+        # payload harness to invoke, so they are counted but not exercised
+        # here. Live behavior is proven separately (see the TRD's DISC-T004
+        # live-verification pass), not by this deterministic smoke check.
+        HOOK_COUNT=$((HOOK_COUNT + 1))
+        continue
+    fi
     hook_rel="$(hookcheck_extract_hook_rel "$command")"
     if [[ -z "$hook_rel" ]]; then
         assert_fail_raw "$event: could not extract hook path from command: ${command:0:120}"
