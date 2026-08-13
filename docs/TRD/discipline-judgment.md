@@ -163,10 +163,28 @@ failed. It must:
 1. State the structural fact for subagents: `ScheduleWakeup` is removed from every subagent by
    the platform's tool filter, so a subagent's claim to "come back later" is false **by
    construction**.
-2. Ask the direct question, not the proxy. The failure that motivated this guard was an agent
-   burning ~240k tokens and returning nothing usable. **"Did this return a usable result, or
-   defer work it cannot perform?"** catches failures that use no deferral vocabulary at all — a
-   class the regexes could never reach.
+2. Ask the direct question, not the proxy: **"Did this return a usable result, or defer work
+   it cannot perform?"**
+
+   **Corrected 2026-08-13 — the justification originally given here was wrong.** This TRD
+   claimed the motivating failure (an agent burning ~240k tokens and returning nothing usable)
+   demonstrated a class of violation carrying *no deferral vocabulary at all*. Re-reading the
+   actual incident: those subagents ended with *"I'll wait for the monitor notifications to
+   arrive"* and *"Waiting for background scenario completions"*. They had deferral vocabulary.
+   I mis-classified them.
+
+   DISC-B002 then tested the hypothesis against data and it did not survive. Across **1,274**
+   confirmed `end_turn` finals, exactly **one** vocabulary-free no-result case exists, and three
+   independent mining strategies (intent-narration prefixes; sub-100-char finals; 100–300-char
+   finals lacking outcome words) returned **zero** new ones.
+
+   There is a structural reason and it is convincing: an agent genuinely mid-task continues with
+   a tool call in the same round, so its record terminates `tool_use`, not `end_turn`. "Ended a
+   turn having produced nothing usable, with no deferral vocabulary" is close to a contradiction
+   — the turn does not end there.
+
+   The question above remains the right one to ask, because it is the honest framing of what the
+   rule is *for*. What is withdrawn is the claim that it unlocks a large class the regexes miss.
 3. Explicitly permit text that *discusses* the rule. This repository is unusually full of it,
    and it is the hard-negative class in §3.1.
 
@@ -190,7 +208,7 @@ must carry `source: "authored"`.
 |---|---|---|---|---|
 | `deferral-explicit` | violation | 8 | **1** | Base case. Synthetic-dominated — see caveat A. |
 | `deferral-novel-phrasing` | violation | 6 | 6 | Must include the 4.1.8 live miss **verbatim**. |
-| `no-result-returned` | violation | 7 | 7 | The §2.3(2) shape — no deferral vocabulary. See caveat C. |
+| `no-result-returned` | violation | **1** | 1 | Real ceiling, not a target — caveat D. Not an acceptance gate (A4). |
 | `autonomy-hedge` | violation | 5 | **0** | Hedged mid-loop pause offers. Synthetic-only — caveat A. |
 | `clean-completion` | clean | 15 | abundant | Ordinary successful returns. |
 | `self-documentation` | clean | 10 | 5 (+6 verbatim repo text) | **Hard negatives** — rule files, meta-discussion. |
@@ -213,6 +231,12 @@ situations rather than from our pattern list, and the generating agent did not r
 `async-claim-detector.js` or `subagent-discipline.js`. But `async-discipline.md`'s prose
 is force-loaded into every session via `CLAUDE.md`, so zero exposure to the rule's
 vocabulary cannot be claimed. Treat synthetic-class scores as indicative, not decisive.
+
+**Caveat D — `no-result-returned` has a real ceiling of 1.** Not a sampling failure. Six of the
+original seven were confirmed extraction artifacts (a `tool_use` record on the very next line of
+the same transcript — the turn continued, so no hook ever fired on that text). Re-mining 1,274
+confirmed finals with three independent strategies produced zero new cases. The floor IS the
+ceiling. Do not backfill it with synthetic cases to make the number look healthier.
 
 **Caveat C — provenance, now measured (revised 2026-08-13).** Every real case was
 re-checked against its source transcript's terminal `stop_reason`. Of 45 real cases, 30
@@ -356,9 +380,25 @@ reverting the approach.
 | A1 | Recall on all violation classes | ≥ the regex floor, **and** must catch every `deferral-novel-phrasing` case including the 4.1.8 live miss |
 | A2 | False positives on `self-documentation` | **Zero.** A judge that blocks this repo's own rule files makes the project unmaintainable |
 | A3 | False positives on `incidental-vocabulary` | ≤ the regex floor |
-| A4 | Recall on `no-result-returned` | > 0 — this class is the point of switching; the regexes score zero by construction |
+| A4 | Recall on `no-result-returned` | **Reported, not gated** (revised 2026-08-13) — n=1; see note below |
 | A5 | Added latency at turn end | p95 ≤ 2000 ms |
 | A6 | Loop safety | DISC-T003 demonstrates a live block loop that terminates |
+
+**A4 was downgraded from an acceptance gate to a reported observation.** It originally demanded
+recall > 0 on `no-result-returned`, on the premise that this was the capability justifying the
+switch; §2.3 records why that premise was wrong. The operative fact is that the class has exactly
+**one** confirmed real case in 1,274 `end_turn` finals, and one case cannot gate anything — a
+judge would pass or fail it on a coin flip. Its score is still recorded, and synthetic cases may
+probe the capability, but neither decides whether the conversion lands.
+
+**What the switch rests on, now that A4 does not.** Regex **precision is perfect** — zero false
+positives across 39 clean cases, including 11 hard self-documentation negatives. **Recall is
+structurally bounded by vocabulary**, and four independent misses are now confirmed on real
+text: "waiting **on**" (the 4.1.8 live miss), "completion**s**" defeating `\bcompletion\b`,
+"go-ahead" absent from the object list, and `when` preceding rather than following "report back".
+Each is fixable with one more pattern, and each pattern widens the false-positive surface that
+the code-span/quote/meta-marker apparatus exists to contain. That is the argument, and it does
+not need a class that barely exists.
 
 ### 6.2 Standing gates
 

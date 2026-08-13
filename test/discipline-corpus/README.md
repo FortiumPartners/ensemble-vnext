@@ -43,7 +43,7 @@ and labels each case against the classes and floors in TRD §3.1.
 One JSON object per line (JSONL):
 
 ```json
-{"id": "c-<hash>", "source": "projects/<enc>/<uuid>.jsonl#<record-uuid>", "event": "Stop", "text": "...", "label": null, "class": "unlabeled", "note": "..."}
+{"id": "c-<hash>", "source": "projects/<enc>/<uuid>.jsonl#<record-uuid>", "event": "Stop", "text": "...", "label": null, "class": "unlabeled", "note": "...", "stop_reason": "end_turn"}
 ```
 
 | Field | Meaning |
@@ -53,8 +53,9 @@ One JSON object per line (JSONL):
 | `event` | `"Stop"` for lead-session transcripts, `"SubagentStop"` for subagent transcripts — mirrors the hook event the text would have been evaluated under. |
 | `text` | The final assistant text message from that transcript (see "What counts as the final message" below). Truncated to 4000 chars if longer (noted in `note`). |
 | `label` | `"violation"` \| `"clean"` \| `null`. Extraction leaves this `null`; DISC-B002 fills it in. |
-| `class` | One of the TRD §3.1 classes (`deferral-explicit`, `deferral-novel-phrasing`, `no-result-returned`, `autonomy-hedge`, `clean-completion`, `self-documentation`, `incidental-vocabulary`), or `"unlabeled"` before DISC-B002 runs. |
-| `note` | Free text: truncation note, and a crude triage bucket (see below). Not authoritative — informational only. |
+| `class` | One of the TRD §3.1 classes (`deferral-explicit`, `deferral-novel-phrasing`, `no-result-returned`, `autonomy-hedge`, `clean-completion`, `self-documentation`, `incidental-vocabulary`), `payload-dependent` (TRD §3.1.1 — the correct label depends on `background_tasks`/`session_crons`, not on the text alone), or `"unlabeled"` before DISC-B002 runs. |
+| `note` | Free text: truncation note, crude triage bucket (see below), and (for labeled cases) the reasoning behind the label. Not authoritative on its own — read alongside `stop_reason`. |
+| `stop_reason` | The source record's `message.stop_reason` — `"end_turn"` (turn genuinely finished, a real hook could have fired on this text), `"null"` (record shows no `stop_reason`; correlates with an interrupted/incomplete generation — see "Confirmed vs unconfirmed finals" below), `"tool_use"` (this text was a mid-turn preamble immediately followed by a tool call — NOT a final message), or `"n/a"` for `authored`/`synthetic-adversarial` cases, which have no source transcript record. `extract.js` only emits `end_turn` finals by default (pass `--include-unconfirmed` to keep the rest) — see below. |
 
 ### TRD §3.1 classes and floors (for DISC-B002, reproduced here for convenience)
 
@@ -79,14 +80,37 @@ receive on `Stop` / `SubagentStop`.
 Lead-session transcripts are `~/.claude/projects/<encoded-project-path>/<session-uuid>.jsonl`.
 Subagent transcripts are `~/.claude/projects/<encoded-project-path>/<session-uuid>/subagents/agent-*.jsonl`.
 
+### Confirmed vs unconfirmed finals (`stop_reason`)
+
+"Last text-bearing assistant record in the file" is not automatically "the text a real
+Stop/SubagentStop hook fired on." A JSONL transcript sometimes logs one logical model turn as
+multiple `assistant`-type lines (a text block, then a separate line for a following tool call),
+and the *text* line's own `message.stop_reason` is `null` in that case — the terminal
+`stop_reason` (`tool_use`) lands on the *next* line instead. Discovered the hard way: several
+early corpus cases turned out to be mid-turn preambles ("Now let me read the four target
+files...") that were followed, in the same file, by a tool call — the turn never actually ended
+there, so no hook could have fired on that text. A second, distinct pattern is a record whose
+`stop_reason` is `null` **and** which is the literal last line of the file — no continuation
+follows. That looks like an interrupted or incomplete generation (session cut off, compacted,
+still in progress) rather than a deliberate stop, but unlike the mid-turn-preamble case there's
+no proof either way.
+
+`extract.js` now reads `message.stop_reason` off the record it selects and, **by default, only
+emits candidates whose `stop_reason` is `"end_turn"`** — the one value that unambiguously means
+the turn finished there. Pass `--include-unconfirmed` to also keep `null`/`tool_use` finals; the
+`stop_reason` field on every case (real or not) makes the distinction visible in the corpus
+itself rather than silently deciding which cases exist. When labeling from `null` finals,
+treat them as plausible-but-unconfirmed, not field-confirmed.
+
 ## Re-running extraction
 
 ```bash
-node test/discipline-corpus/extract.js                       # full scan, all local transcripts
-node test/discipline-corpus/extract.js --limit 50             # quick smoke test
+node test/discipline-corpus/extract.js                        # full scan, end_turn-confirmed only (default)
+node test/discipline-corpus/extract.js --limit 50              # quick smoke test
 node test/discipline-corpus/extract.js --since 2026-08-01      # only recent transcripts
-node test/discipline-corpus/extract.js --out /tmp/cand.jsonl  # write elsewhere
+node test/discipline-corpus/extract.js --out /tmp/cand.jsonl   # write elsewhere
 node test/discipline-corpus/extract.js --no-redact             # disable secret redaction (NOT recommended)
+node test/discipline-corpus/extract.js --include-unconfirmed   # also keep null/tool_use finals
 ```
 
 Output defaults to `test/discipline-corpus/candidates.jsonl`, which is **gitignored** — it's

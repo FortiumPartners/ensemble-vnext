@@ -364,6 +364,99 @@ for h in manifest.get("hooks", []):
 PY
 }
 
+# Emit "<promptFile>" for every shippable hookType:"prompt" entry's prompt
+# file, one per line, deduped (mirrors manifest_shippable_hooks()'s dedupe —
+# the same prompt file could in principle be reused across manifest entries).
+# promptFile always resolves under packages/core/hooks/prompts/ (see the
+# manifest's own $comment) — there is no cross-package "source" for prompt
+# text the way hook scripts have one, so unlike manifest_shippable_hooks()
+# there is only one column to emit.
+#
+# SECURITY: same discipline as validate_file() above — promptFile must be a
+# flat basename, or a manifest entry could be used to escape the prompts
+# destination directory.
+manifest_shippable_prompts() {
+    local manifest="$1"
+    python3 - "$manifest" <<'PY'
+import json, os, sys
+
+def fail(msg):
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+def validate_prompt_file(name):
+    if not name or "/" in name or "\\" in name or ".." in name or name != os.path.basename(name):
+        fail(f"manifest hook 'promptFile' must be a flat basename (no '/', '\\\\', or '..'): {name!r}")
+
+manifest = json.load(open(sys.argv[1]))
+seen = set()
+for h in manifest.get("hooks", []):
+    if not h.get("shippable") or h.get("hookType") != "prompt":
+        continue
+    name = h.get("promptFile")
+    if not name:
+        fail(f"manifest hook {h.get('file')!r} has hookType:\"prompt\" and shippable:true but no 'promptFile'")
+    validate_prompt_file(name)
+    if name in seen:
+        continue
+    seen.add(name)
+    print(name)
+PY
+}
+
+# Copy prompt-hook text files (packages/core/hooks/prompts/*.md) declared by
+# shippable hookType:"prompt" manifest entries into <dest>/prompts/. Mirrors
+# copy_hook_libs() immediately below: same two source layouts (plugin cache
+# vs monorepo checkout), same --refresh/--force semantics as copy_hooks()
+# itself — refresh never creates <dest>/prompts/, it only overwrites prompt
+# files already present there.
+copy_hook_prompts() {
+    local manifest="$1"
+    local src_prompts="$2"
+    local dest="$3"
+
+    [[ -d "$src_prompts" ]] || return 0
+
+    local prompt_names
+    prompt_names="$(manifest_shippable_prompts "$manifest")"
+
+    local count=0
+    local name src
+
+    if [[ "$REFRESH" == "true" ]]; then
+        REFRESH_HOOK_PROMPTS_COUNT=0
+        [[ -d "$dest/prompts" ]] || return 0
+        while IFS= read -r name; do
+            [[ -z "$name" ]] && continue
+            src="$src_prompts/$name"
+            [[ -f "$src" || -L "$src" ]] || continue
+            if [[ -f "$dest/prompts/$name" ]]; then
+                cp -L "$src" "$dest/prompts/"
+                info "Refreshed hook prompt: prompts/$name"
+                ((count++)) || true
+            fi
+        done <<< "$prompt_names"
+        REFRESH_HOOK_PROMPTS_COUNT=$count
+        return 0
+    fi
+
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        src="$src_prompts/$name"
+        [[ -f "$src" || -L "$src" ]] || continue
+        if [[ -f "$dest/prompts/$name" && "$FORCE" != "true" ]]; then
+            info "Hook prompt exists: prompts/$name"
+            continue
+        fi
+        mkdir -p "$dest/prompts"
+        cp -L "$src" "$dest/prompts/"
+        info "Copied hook prompt: prompts/$name"
+        ((count++)) || true
+    done <<< "$prompt_names"
+
+    info "Copied $count hook prompts"
+}
+
 # Copy the shared hook helper library (hooks/lib/*.js) from whichever layout
 # copy_hooks resolved. No-op when the source directory is absent.
 copy_hook_libs() {
@@ -461,9 +554,11 @@ copy_hooks() {
     # Only the src path and the lib/ location differ between them.
     local cache_layout=false
     local libs_src="$PLUGIN_DIR/../core/hooks/lib"
+    local prompts_src="$PLUGIN_DIR/../core/hooks/prompts"
     if [[ -d "$PLUGIN_DIR/hooks" ]]; then
         cache_layout=true
         libs_src="$PLUGIN_DIR/hooks/lib"
+        prompts_src="$PLUGIN_DIR/hooks/prompts"
     fi
 
     local count=0
@@ -499,9 +594,10 @@ copy_hooks() {
     done <<< "$hooks_to_copy"
 
     copy_hook_libs "$libs_src" "$dest"
+    copy_hook_prompts "$manifest" "$prompts_src" "$dest"
 
     if [[ "$REFRESH" == "true" ]]; then
-        info "Refreshed $count hooks and ${REFRESH_HOOK_LIBS_COUNT:-0} hook libs"
+        info "Refreshed $count hooks, ${REFRESH_HOOK_LIBS_COUNT:-0} hook libs, and ${REFRESH_HOOK_PROMPTS_COUNT:-0} hook prompts"
         # Hooks only — shared lib/*.js helpers are reported separately above.
         # Folding them in here made the summary the user actually reads
         # ("3 hooks updated") overstate by the lib count.

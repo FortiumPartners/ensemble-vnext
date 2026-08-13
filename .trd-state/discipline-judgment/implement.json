@@ -5,7 +5,7 @@
   "branch": "feature/cc-modernization",
   "strategy": "test-after",
   "strategy_rationale": "TRD declares none; constitution declares none. Phase 1 is pure investigation (probes against a live CLI) and Phase 2 authors a prompt - neither has a meaningful RED phase. Harness/hook code in Phase 2 and the conversion in Phase 4 are covered by the acceptance corpus (DISC-T001) and full regression (DISC-T005). Matches runtime-refresh.md's strategy.",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "active_sessions": {},
   "tasks": {
     "DISC-P001": {
@@ -115,40 +115,40 @@
     "DISC-B004": {
       "description": "Author the judge prompt per TRD 2.3",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "in_progress",
+      "cycle_position": "implement",
       "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T08:20:15.934996Z",
       "completed_at": null
     },
     "DISC-B005": {
       "description": "Manifest hookType + generator support incl. --check drift",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "in_progress",
+      "cycle_position": "implement",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T08:20:15.934996Z",
       "completed_at": null
     },
     "DISC-B006": {
       "description": "Loop guard per DISC-P003 findings",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "in_progress",
+      "cycle_position": "implement",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T08:20:15.934996Z",
       "completed_at": null
     },
     "DISC-B007": {
@@ -287,7 +287,23 @@
     "integration": 0.0,
     "e2e": 0.0
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "0aea2dc",
+      "timestamp": "2026-08-13T08:20:15.934996Z",
+      "tasks_completed": [
+        "DISC-P002",
+        "DISC-P003",
+        "DISC-P004",
+        "DISC-D001",
+        "DISC-B001",
+        "DISC-B002",
+        "DISC-B003"
+      ],
+      "note": "DISC-P001 (U1) still outstanding but non-gating: its decisive question only mattered for Shape B, now withdrawn."
+    }
+  ],
   "recovery": {
     "last_healthy_checkpoint": null,
     "last_checkpoint_timestamp": null,
@@ -316,6 +332,11 @@
         "risk": "R4 (corpus reproduces author vocabulary) \u2014 PARTIAL",
         "detail": "Synthetic cases were written from situations, and the generating agent did not read async-claim-detector.js or subagent-discipline.js. But async-discipline.md prose is force-loaded via CLAUDE.md every session, so zero exposure cannot be claimed.",
         "resolution": "Recorded as TRD 3.1 caveat B: synthetic-class scores are indicative, not decisive."
+      },
+      {
+        "risk": "Premise error in TRD 2.3 (self-inflicted)",
+        "detail": "TRD claimed the motivating 240k-token failure was vocabulary-free, justifying a no-result-returned class as 'the capability that justifies switching'. The actual incident text had deferral vocabulary. Data: 1 such case in 1,274 confirmed end_turn finals; 3 mining strategies found 0 more.",
+        "resolution": "CORRECTED \u2014 2.3 premise withdrawn, A4 downgraded from gate to observation, floor 7->1, caveat D added. Switch now rests on the structural recall argument + 4 confirmed real misses."
       }
     ],
     "contingencies_applied": [],

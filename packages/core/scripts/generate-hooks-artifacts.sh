@@ -98,6 +98,32 @@ hooks = manifest["hooks"]
 
 CD_WRAPPER = 'cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"'
 
+# packages/core/hooks/prompts/ — sibling of the manifest itself. Prompt text
+# for hookType:"prompt" entries lives here as its own file (see the
+# manifest's own $comment for why: DISC-B004 iterates that text
+# independently, and a multi-paragraph prompt as an escaped JSON string is
+# unreviewable in a diff).
+PROMPTS_DIR = os.path.join(os.path.dirname(manifest_path), "prompts")
+
+def fail(msg):
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+def load_prompt_text(h):
+    prompt_file = h.get("promptFile")
+    if not prompt_file:
+        fail(f"manifest hook {h.get('file')!r} has hookType:\"prompt\" but no 'promptFile'")
+    # Same flat-basename discipline scaffold-project.sh applies to "file" —
+    # promptFile is resolved under a fixed directory, so a "/", "\\", or ".."
+    # component must never reach the join.
+    if "/" in prompt_file or "\\" in prompt_file or ".." in prompt_file or prompt_file != os.path.basename(prompt_file):
+        fail(f"manifest hook {h.get('file')!r} 'promptFile' must be a flat basename (no '/', '\\\\', or '..'): {prompt_file!r}")
+    path = os.path.join(PROMPTS_DIR, prompt_file)
+    if not os.path.isfile(path):
+        fail(f"manifest hook {h.get('file')!r} 'promptFile' not found: {path}")
+    with open(path) as fh:
+        return fh.read().rstrip("\n")
+
 def build_hooks_block():
     # Group event-registered hooks by (event, matcher), preserving the
     # manifest's own array order for group-of-groups ordering, and each
@@ -124,12 +150,38 @@ def build_hooks_block():
             group_hooks = sorted(group_hooks, key=lambda h: h.get("order") or 0)
             hook_cmds = []
             for h in group_hooks:
-                command = f"bash -c '{CD_WRAPPER} && .claude/hooks/{h['file']}'"
-                hook_cmds.append({
-                    "type": "command",
-                    "command": command,
-                    "timeout": h["timeout"],
-                })
+                hook_type = h.get("hookType", "command")
+                if hook_type == "command":
+                    command = f"bash -c '{CD_WRAPPER} && .claude/hooks/{h['file']}'"
+                    hook_cmds.append({
+                        "type": "command",
+                        "command": command,
+                        "timeout": h["timeout"],
+                    })
+                elif hook_type == "prompt":
+                    # continueOnBlock is deliberately never emitted here — see
+                    # the manifest's own $comment: it is a no-op on Stop and
+                    # SubagentStop (the only events any hook in this manifest
+                    # registers on), verified against the CLI's own source in
+                    # docs/modernization/probes/U3-loop-bound.md §1. The loop
+                    # bound for a prompt hook is the stop_hook_active
+                    # self-check, which belongs in the prompt text itself,
+                    # not in this generator.
+                    entry = {
+                        "type": "prompt",
+                        "prompt": load_prompt_text(h),
+                        "timeout": h["timeout"],
+                    }
+                    if h.get("model"):
+                        entry["model"] = h["model"]
+                    if h.get("if"):
+                        entry["if"] = h["if"]
+                    hook_cmds.append(entry)
+                else:
+                    fail(
+                        f"manifest hook {h.get('file')!r} has unknown hookType "
+                        f"{hook_type!r} — expected \"command\" or \"prompt\""
+                    )
             entries.append({"matcher": matcher, "hooks": hook_cmds})
         out[event] = entries
     return out
@@ -331,5 +383,53 @@ for h in manifest.get("hooks", []):
         continue
     seen.add(f)
     print(f + "\t" + (h.get("source") or "packages/core/hooks/" + f))
+' "$MANIFEST")
+
+    # --- packages/full/hooks/prompts/ symlinks -----------------------------
+    #
+    # Same rationale, one level deeper: a shippable hookType:"prompt" entry's
+    # promptFile lives at packages/core/hooks/prompts/<promptFile> and must
+    # reach the plugin-cache layout the same way "file" does above, or the
+    # prompt hook is silently missing its prompt text for anyone who
+    # installed the plugin rather than checked out the monorepo.
+    # Do not create packages/full/hooks/prompts/ in --check mode — --check
+    # must never mutate the filesystem, even to prepare a directory for a
+    # comparison that is about to fail anyway (a missing dir just means
+    # every prompt-file symlink below reports DRIFT, which is correct).
+    [[ "$CHECK" == "true" ]] || mkdir -p "$FULL_HOOKS_DIR/prompts"
+    while IFS=$'\t' read -r promptfile; do
+        [[ -z "$promptfile" ]] && continue
+        dst="$FULL_HOOKS_DIR/prompts/$promptfile"
+        # packages/full/hooks/prompts/X -> packages/core/hooks/prompts/X
+        target="../../../core/hooks/prompts/$promptfile"
+
+        if [[ -L "$dst" ]] && [[ "$(readlink "$dst")" == "$target" ]]; then
+            continue
+        fi
+        if [[ "$CHECK" == "true" ]]; then
+            if [[ -L "$dst" ]]; then
+                echo "DRIFT: $dst points at '$(readlink "$dst")', expected '$target'" >&2
+            elif [[ ! -e "$dst" ]]; then
+                echo "DRIFT: $dst is missing — shippable prompt file not delivered to the plugin" >&2
+            else
+                echo "DRIFT: $dst is a regular file, expected a symlink to $target" >&2
+            fi
+            exit 1
+        fi
+        rm -f "$dst"
+        ln -s "$target" "$dst"
+        echo "Linked: $dst -> $target"
+    done < <(python3 -c '
+import json, sys
+manifest = json.load(open(sys.argv[1]))
+seen = set()
+for h in manifest.get("hooks", []):
+    if not h.get("shippable") or h.get("hookType") != "prompt":
+        continue
+    p = h.get("promptFile")
+    if not p or p in seen:
+        continue
+    seen.add(p)
+    print(p)
 ' "$MANIFEST")
 fi

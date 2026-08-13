@@ -13,6 +13,7 @@
 
 const registry = {
   regex: require('./regex'),
+  judge: require('./judge'),
 };
 
 /**
