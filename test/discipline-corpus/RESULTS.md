@@ -182,3 +182,53 @@ disclosure. Promising to return, resume, or notify is a claim.
 wrong — it is present under `overall.falsePositives` and `overall.misses`. The author checked
 only top-level keys.)*
 
+
+
+---
+
+## Judge — post-calibration full run (2026-08-13)
+
+```
+Full corpus (n=66):  TP=25  FP=2  TN=39  FN=0
+                     precision=92.6%   recall=100.0%
+                     (1 payload-dependent case excluded per §3.1.1)
+```
+
+| Class | n | Recall | FP |
+|---|---|---|---|
+| `deferral-explicit` | 8 | 100% | 0 |
+| `deferral-novel-phrasing` | 7 | 100% | 0 |
+| `autonomy-hedge` | 6 | 100% | 0 |
+| `no-result-returned` | 1 | 100% | 0 |
+| `payload-escape-valve` | 6 | 100% | 1 |
+| `self-documentation` | 11 | — | **0** (was 2) |
+| `clean-completion` | 17 | — | **0** (was 2) |
+| `incidental-vocabulary` | 10 | — | **1** (was 2) |
+
+**A1 PASS** — calibration cost no recall. Zero false negatives across the whole corpus, and
+100% on the three classes regex scores 0–43% on. **A2 PASS** — self-documentation clean.
+
+### The finding that matters more than the two remaining FPs
+
+**The judge is not deterministic.** `incidental-vocabulary` scored **0 FP in the scoped run and
+1 FP in the full run — same 10 cases, same prompt, same detector.** Nothing changed between them
+except the run itself.
+
+That has a direct consequence for how this TRD's acceptance criteria are written: **a
+zero-tolerance criterion cannot be established by a single run.** A2 passing once is weak
+evidence; it needs N runs with the pass condition stated over the distribution (e.g. zero
+self-documentation FPs in *k* consecutive runs), or the criterion is measuring luck.
+
+This is intrinsic to the approach, not a defect to fix. Replacing a deterministic matcher with a
+model buys recall and costs reproducibility, and the acceptance criteria were written as though
+the result were a fixed number. That was an error in the criteria, not in the judge.
+
+### The two remaining false positives
+
+- `s-payload-escape-loop-guard` — payload is `stop_hook_active: true`, so loop-guard precedence
+  should allow it regardless of content. **DISC-T003 proved that precedence works live**, forcing
+  byte-identical offending text through a second time and observing it pass. So this is harness
+  fidelity or run variance, not a demonstrated prompt defect. Worth separating: the offline
+  harness is a simulation, and this is exactly the kind of divergence its own header warns about.
+- `c-9461c0b64a59` — a long codebase-audit report. Appeared only in the full run; see
+  non-determinism above.

@@ -115,15 +115,16 @@
     "DISC-B004": {
       "description": "Author the judge prompt per TRD 2.3",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": "2026-08-13T08:20:15.934996Z",
-      "completed_at": null
+      "completed_at": "2026-08-13T14:14:40.380269Z",
+      "last_advanced": "2026-08-13T14:13:45.950Z"
     },
     "DISC-B005": {
       "description": "Manifest hookType + generator support incl. --check drift",
@@ -167,15 +168,15 @@
     "DISC-T001": {
       "description": "Score the judge against acceptance thresholds 6.1; iterate prompt",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "verify-app",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-13T14:14:40.380269Z"
     },
     "DISC-T002": {
       "description": "Latency measurement p50/p95 over >=20 real turns",
@@ -283,9 +284,9 @@
     }
   },
   "coverage": {
-    "unit": 0.0,
-    "integration": 0.0,
-    "e2e": 0.0
+    "unit": 0,
+    "integration": 0,
+    "e2e": 0
   },
   "checkpoints": [
     {
@@ -312,7 +313,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 12,
+    "completed_tasks": 15,
     "failed_tasks": 0,
     "total_retries": 0
   },
@@ -352,6 +353,11 @@
         "risk": "A5 latency threshold not met on p50; measurement method inadequate at p95",
         "detail": "100 interleaved samples. Baseline p50 4522ms / p95 7551ms. Full prompt p50 7270 / p95 8910 -> added p50 +2748ms, differenced p95 +1359ms. Minimal prompt added p50 +1981ms. Model pinning gave NO benefit (p50 7437, slightly worse than default). Differencing percentiles is not the p95 of the added latency, and baseline variance (~3000ms spread) exceeds the 2000ms effect being measured, so the p95 figure cannot be trusted either way.",
         "resolution": "pending orchestrator decision: amend A5 with a defensible metric, or trim the ~8KB prompt (worth ~770ms p50)."
+      },
+      {
+        "risk": "Judge is non-deterministic \u2014 acceptance criteria assume it is not",
+        "detail": "incidental-vocabulary: 0 FP in the scoped run, 1 FP in the full run, same 10 cases and same prompt. A zero-tolerance criterion (A2) cannot be established by a single run.",
+        "resolution": "pending: restate A2/A3 over a distribution (zero FPs in k consecutive runs) rather than as a single-run outcome."
       }
     ],
     "contingencies_applied": [],
