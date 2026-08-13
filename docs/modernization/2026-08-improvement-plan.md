@@ -711,9 +711,61 @@ corpus was text-only when the design's central mechanism resolves escape valves 
 `background_tasks`, so the judge was scored on strictly less information than it has in
 production. The goal is requirements that trace to something real — not fewer requirements.
 
+#### The mechanism: a derived-requirements readout
+
+**Fleshing out the PRD is the TRD's job, not a defect.** A TRD that adds nothing has failed. The
+problem is not that requirements get added — it is that the additions are invisible without
+reading 30–40 pages, so a fabricated one and a genuinely necessary one look identical.
+
+So the guard is not suppression. It is a **short readout of everything the TRD added that the
+PRD did not say**, emitted when `/create-trd` completes, reviewable in a minute or two.
+
+Classify every TRD requirement into three buckets and print only the last two:
+
+| Bucket | Meaning | In the readout |
+|---|---|---|
+| **Stated** | Traces directly to PRD text | No — needs no review |
+| **Derived** | Follows from the PRD plus a *named* source: `stack.md`, `constitution.md`, an existing pattern in the codebase, a measured fact | **Yes** — one line, with the source named |
+| **Unsourced** | Neither. Present because artifacts of this type usually have one | **Yes — flagged for deletion** |
+
+Sketch:
+
+```
+DERIVED REQUIREMENTS — not stated in docs/PRD/<feature>.md
+
+  Derived (7)
+    NFR-2  Postgres for persistence          <- stack.md
+    B-4    Idempotency keys on the webhook   <- existing pattern, packages/api/webhooks/
+    T-1    Contract tests for the public API <- constitution.md quality gates
+    ...
+  Unsourced (2)  ← review these first
+    A5     Latency p95 <= 2000ms             <- no source
+    NFR-9  99.9% uptime target               <- no source
+```
+
+**Test it against the four known fabrications in `docs/TRD/discipline-judgment.md`.** A5 and the
+§3.1 corpus floors would have printed as *unsourced* and died in seconds. §2.3's
+`no-result-returned` premise would have printed as *derived — from the motivating incident*,
+which is exactly the claim that turned out to be a mis-reading, and seeing it stated in one line
+next to its source is what makes that checkable. §3.4's kill switch would have printed as
+*derived — from D5*, correctly: its defect was implementability, not provenance, so the readout
+would not have caught it. **Three of four, cheaply.**
+
+Design constraints that matter:
+
+- **Length is the whole point.** If the readout runs to three pages nobody reads it and the guard
+  is worthless. Aim for one screen. If a TRD produces 40 derived requirements, the *count itself*
+  is the finding — surface it as one.
+- **Unsourced first**, and stated as deletion candidates rather than neutral entries. The default
+  should be removal, not discussion.
+- **One line each.** The readout is a review surface, not a summary of the TRD.
+- It belongs in `/create-trd`'s `COMMAND COMPLETE` output, not a separate file nobody opens.
+- `/refine-trd` should re-emit the delta for anything it adds, for the same reason.
+
 **Done when:** the generator commands and templates instruct against unsourced requirements;
-acceptance criteria carry provenance; and a re-read of an existing PRD/TRD pair produced by the
-current commands identifies which of its requirements would not survive that test.
+acceptance criteria carry provenance; `/create-trd` emits a one-screen derived-requirements
+readout with unsourced items flagged first; and a re-read of an existing PRD/TRD pair produced by
+the current commands identifies which of its requirements would not survive that test.
 
 ---
 
