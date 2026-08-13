@@ -358,12 +358,42 @@ set without regenerating. Rollback is: set the variable, regenerate, refresh the
 | ID | Task | Description | Dependencies | Assignee |
 |----|------|-------------|--------------|----------|
 | DISC-B008 | Convert all three hooks | Apply the chosen shape consistently | DISC-T001..T004 | backend-implementer |
-| DISC-B009 | Delete the regex apparatus | Remove the pattern battery, code-span/quote stripping, meta-markers, `SELF_DOC_MARKERS`, and their now-dead tests | DISC-B008 | code-simplifier |
-| DISC-T005 | Full regression | CI-scoped jest, BATS, smoke; corpus score must not regress | DISC-B008, DISC-B009 | verify-app |
+| DISC-B009 | ~~Delete the regex apparatus~~ | **DEFERRED 2026-08-13 — contradicts D5. See §4.4.1.** | DISC-B008 | code-simplifier |
+| DISC-T005 | Full regression | CI-scoped jest, BATS, smoke; corpus score must not regress | DISC-B008 | verify-app |
 | DISC-D002 | Amend constitution principle 4 | Record that hooks may now use model judgment, and why the deterministic-layer framing changed (user-approved 2026-08-13) | DISC-B008 | backend-implementer |
 | DISC-D003 | Update the rules | `async-discipline.md`, `autonomy.md`, improvement-plan 5b, `CLAUDE.md` hooks reference | DISC-B008 | backend-implementer |
 
 ---
+
+#### 4.4.1 DISC-B009 deferred — it contradicts D5
+
+**Two requirements in this TRD are mutually exclusive, and neither author noticed.**
+
+- **D5 / §3.4** ships a rollback lever: `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` regenerates every
+  prompt-type entry as `command`-type, pointing at `.claude/hooks/<hook>.js`.
+- **DISC-B009** deletes the pattern battery, the code-span/quote stripping, the meta-markers and
+  `SELF_DOC_MARKERS` — which is the entire detection logic inside those same `.js` files.
+
+Run B009 and the lever still emits perfectly valid `command` hooks that **allow everything**. It
+would present as a safety mechanism while silently having none. That is worse than shipping no
+lever at all, because the failure is invisible at exactly the moment it is being relied on.
+
+**Deferred, not cancelled.** The judge has zero days of production use. Deleting its only fallback
+on the day it ships trades a working safety net for a tidier diff. Keeping the regex hooks costs
+nothing at runtime — they are not registered while the prompt-type entries are active — and only a
+small amount of delivery weight.
+
+**Trigger for revisiting:** once the judge has run in real sessions long enough that the lever is
+demonstrably unnecessary, B009 and D5 are deleted **together**, in one change. They are the same
+artifact viewed from two directions, and removing either alone leaves the codebase lying about
+its own capabilities.
+
+**This is the sixth requirement in this TRD to need amendment against evidence** (§3.1 floors,
+§2.3 premise, §3.4 kill switch, A5 withdrawn, A2/A3 restated, now B009-vs-D5) — and the first
+found by asking what a task would actually *do* rather than by measuring its output. Recorded as
+input to improvement-plan item 10: a derived-requirements readout would not have caught this one,
+since both requirements were legitimately derived. Mutual consistency between requirements is a
+separate check from provenance.
 
 ## 5. Execution Plan
 

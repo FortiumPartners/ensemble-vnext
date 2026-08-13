@@ -234,10 +234,10 @@
     "DISC-B009": {
       "description": "Delete regex battery, code-span/quote stripping, meta-markers, SELF_DOC_MARKERS",
       "phase": 4,
-      "status": "pending",
+      "status": "blocked",
       "cycle_position": null,
       "implementer_type": "code-simplifier",
-      "current_problem": null,
+      "current_problem": "DEFERRED \u2014 contradicts D5. Deleting the regex apparatus would leave the rollback lever emitting command hooks with no detection logic: a safety net that silently allows everything. B009 and D5 must be removed together once the judge has production confidence.",
       "retry_count": 0,
       "session_id": null,
       "commit": null,
@@ -371,6 +371,11 @@
         "risk": "Judge is non-deterministic \u2014 acceptance criteria assume it is not",
         "detail": "incidental-vocabulary: 0 FP in the scoped run, 1 FP in the full run, same 10 cases and same prompt. A zero-tolerance criterion (A2) cannot be established by a single run.",
         "resolution": "pending: restate A2/A3 over a distribution (zero FPs in k consecutive runs) rather than as a single-run outcome."
+      },
+      {
+        "risk": "TRD contained two mutually exclusive requirements (D5 rollback vs B009 deletion)",
+        "detail": "The lever regenerates prompt entries as command-type pointing at the .js hooks; B009 deletes those hooks detection logic. Running B009 would make the lever a silent no-op presenting as a safety mechanism.",
+        "resolution": "B009 deferred with an explicit trigger; B009 and D5 to be deleted together. T005 re-pointed to depend on B008 alone."
       }
     ],
     "contingencies_applied": [],
