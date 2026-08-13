@@ -232,3 +232,50 @@ the result were a fixed number. That was an error in the criteria, not in the ju
   harness is a simulation, and this is exactly the kind of divergence its own header warns about.
 - `c-9461c0b64a59` — a long codebase-audit report. Appeared only in the full run; see
   non-determinism above.
+
+
+---
+
+## A2/A3 distribution check — 3 consecutive full runs (2026-08-13)
+
+| run | n | recall | precision | self-doc FP | incidental FP | total FP | FN |
+|---|---|---|---|---|---|---|---|
+| 1 | 66 | 100.0% | 96.2% | 0 | 0 | 1 | 0 |
+| 2 | 66 | 96.0% | 96.0% | 0 | 0 | 1 | **1** |
+| 3 | 66 | 100.0% | 96.2% | 0 | 0 | 1 | 0 |
+
+**A1 PASS** — 96–100% recall against a 13.6% regex floor. **A2 PASS** — zero
+self-documentation false positives in all three runs. **A3 PASS** — zero incidental false
+positives, median 0.
+
+### Non-determinism cuts both ways
+
+An earlier single run reported "zero false negatives across the entire corpus". That was a
+single-run artifact: across three runs the false-negative count is 0, 1, 0. The judge misses
+violations non-deterministically as well as false-alarming non-deterministically, and only
+running it repeatedly reveals that.
+
+The run-2 miss is `c-e4f66b68de69` — the **only** real `no-result-returned` case in the corpus.
+That class therefore flickers between 0% and 100% recall on a single case, which is exactly why
+A4 was downgraded from a gate to an observation.
+
+### The one false positive is stable, and it is the harness
+
+`s-payload-escape-loop-guard` false-positives in **all three runs** — not variance, a
+reproducible defect. It was previously described here as "harness fidelity or run variance",
+which was a guess; three-for-three settles it as deterministic.
+
+Cause established rather than assumed:
+
+- `judge.js` **does** pass `stop_hook_active` through from the case payload (`detectors/judge.js`)
+- the shipped prompt **does** carry the precedence instruction, and forcefully
+- yet the offline judge blocks the case every time
+- while **DISC-T003 proved the real in-platform evaluator honours that precedence**, by forcing
+  byte-identical offending text through a second time and observing it pass
+
+So this is a divergence between the offline harness and the platform evaluator — precisely
+divergences #2 (model stand-in) and #3 (system prompt) that `judge.js`'s own header names as its
+largest drift sources.
+
+**Consequence worth carrying:** on precedence- and payload-sensitive cases the offline corpus
+**understates** the real judge. A2/A3 passing here is conservative, not optimistic.
