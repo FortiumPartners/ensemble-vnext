@@ -10,6 +10,30 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.5] - 2026-08-12
+
+### Fixed
+
+- **Reverted 4.1.4's formatter gate — it turned formatting off for exactly the projects the
+  framework scaffolds.** `/init-project` Step 10 writes `.prettierrc` and then *"show install
+  command and ask user to install"* — it does **not** install prettier. So for a scaffolded
+  JS/TS project the `npx prettier` fallback is the only branch of the hook that ever fires,
+  and gating it behind an opt-in disabled the formatter entirely.
+
+  The gate rested on a single **cold-cache** measurement (~2s). Warm npx is **~0.6s**, because
+  npx caches. Restored as the fallback; `node_modules/.bin/prettier` is still preferred when
+  present, since that respects the project's pinned version and is faster.
+
+  The upstream decision is recorded in the improvement plan: either Step 10 installs the
+  formatter it configures, or the docs stop implying a local install. Today the framework does
+  neither.
+
+- A test added in 4.1.4 wrote a fake `prettier` into the repo's own `node_modules/.bin` — the
+  suite creates a temp dir but does not `cd` into it, and the hook's `node_modules/.bin` check
+  is relative to cwd (correct for the hook, which `settings.json` invokes through a `cd`
+  wrapper). A stub executable on the repo's own bin path would have silently hijacked real
+  formatting. Tests now isolate cwd, and the reason is recorded inline.
+
 ## [4.1.4] - 2026-08-12
 
 Item 5c of the improvement plan, plus the router decision that had been left open

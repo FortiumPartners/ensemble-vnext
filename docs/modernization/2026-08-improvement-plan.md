@@ -395,10 +395,24 @@ iteration cap stays as the termination guarantee.
   project**, because any sibling or nested git repo satisfies the `.git` marker, and hooks then read
   and write the wrong `.trd-state/`. Prefer `$CLAUDE_PROJECT_DIR` when set and fall back to the walk,
   matching how `settings.json` already wraps every hook invocation.
-- **`formatter.sh`** works — verified by feeding it a payload and watching it reformat. Two rough
-  edges: it shells to `npx prettier` when prettier isn't a devDependency, downloading on every
-  invocation (~2s measured), and it rewrites files silently after the model edits them, which can
-  surface as diffs the model didn't author.
+- **`formatter.sh`** works — verified by feeding it a payload and watching it reformat. The real
+  issue is not the hook, it is that **`/init-project` Step 10 does not install the formatter it
+  configures.** Step 10 writes `.prettierrc` and then *"show install command and ask user to
+  install."* So a scaffolded JS/TS project has the config and not the tool, and `npx prettier` is
+  the only branch of the hook that ever fires for it.
+
+  That makes the npx fallback load-bearing rather than a nicety. 4.1.4 briefly gated it behind an
+  opt-in on the strength of a **single cold-cache measurement (~2s)**; warm npx is **~0.6s**, and
+  the gate turned formatting off entirely for exactly the projects the framework scaffolds.
+  Reverted in 4.1.5.
+
+  The decision to make here is upstream: either Step 10 installs the formatter (which contradicts
+  its current "ask the user" phrasing, and is arguably the autonomy rule's kind of unnecessary
+  checkpoint), or the hook owns the npx path honestly and the docs stop implying a local install.
+  Pick one; today the framework does neither.
+
+  Separately, the hook still rewrites files silently after the model edits them, which can surface
+  as diffs nobody in the conversation authored.
 
 **5d. Adopt `InstructionsLoaded`.** It fires when `CLAUDE.md` or `.claude/rules/*.md` loads — the
 invented rules directory is now a natively recognised path. Both a validation point and a place to
