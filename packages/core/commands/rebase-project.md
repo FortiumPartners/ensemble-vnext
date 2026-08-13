@@ -594,6 +594,11 @@ the plugin's version. Always create a backup of anything removed or replaced.
    | Plugin source path | Installed path | Action on content diff |
    |---|---|---|
    | `@packages/core/hooks/lib/*.js` | `.claude/hooks/lib/*.js` | Replace each file |
+   | `@packages/core/hooks/prompts/*.prompt.md` | `.claude/hooks/prompts/*.prompt.md` | Replace each file |
+
+   `prompts/` carries the text for `hookType: "prompt"` entries. A project that receives the
+   settings registrations but not these files has hooks referencing prompt text it does not
+   have. Treat it exactly like `lib/`: canonical installed layout, never a removal candidate.
 
    Do NOT treat `lib/` as a candidate for removal or flattening. It is part of the canonical
    installed layout.
@@ -617,12 +622,61 @@ the plugin's version. Always create a backup of anything removed or replaced.
 
    | Key Type | Action |
    |----------|--------|
+   | `hooks` | **REPLACE — see 3a. Never preserve.** |
    | New key in plugin | Add to settings |
    | Existing key, same value | No change |
    | Existing key, different value | **Preserve vendored value** |
    | Key only in vendored | Preserve (local customization) |
 
-4. **Update version metadata:**
+3a. **The `hooks` block is framework-owned and MUST be replaced, not preserved.**
+
+   `hooks` is generated from `hooks.manifest.json`; it is not a user preference. Under the
+   generic rule above it is an "existing key, different value" on every rebase — its value
+   differs by definition whenever the hook set changed, which is the only time a rebase
+   matters. Applying the preserve rule to it means **the hook set can never be updated by a
+   rebase at all.**
+
+   This was not theoretical. A rebase to 4.1.11 installed the three *new* events
+   (`SubagentStart`, `SessionStart`, `PreCompact`) because they were new keys, and silently
+   dropped every new registration on `Stop` and `SubagentStop` because those keys already
+   existed — losing all three model-judged discipline hooks and `dispatch-ledger.js`'s
+   `SubagentStop` registration. The project reported nine registrations where the manifest
+   declares thirteen, and the guards were absent with no error.
+
+   **Correct procedure:**
+
+   a. Take the plugin's `hooks` block **wholesale** as the new ensemble-owned set.
+   b. Carry forward any registration in the vendored block that is **not** ensemble-owned —
+      i.e. whose command does not resolve to `.claude/hooks/<file>` for a file in the
+      manifest, and which is not a manifest-declared prompt entry. Those are the user's own
+      hooks and must survive.
+   c. Write the union: plugin block first (manifest order preserved), then the user's own.
+
+   **Two properties the old rule got wrong, both of which must hold:**
+
+   - **Registrations are keyed by `(event, file)`, never by file alone.** One file may
+     register on several events — `dispatch-ledger.js` is on both `SubagentStart` and
+     `SubagentStop`. Deduplicating by filename drops the second registration.
+   - **Prompt-type entries have no `command` field.** A hook with `"type": "prompt"` carries
+     inlined prompt text and no path. Any logic that identifies hooks by parsing `command`
+     will not see them at all, and will under-report and under-install exactly the hooks
+     added in 4.1.9–4.1.11.
+
+4. **Verify the result before writing.** Count registrations and prompt-type entries in the
+   merged block and compare against the plugin default:
+
+   ```bash
+   python3 -c "import json,sys; s=json.load(open(sys.argv[1])); \
+   print(sum(len(g['hooks']) for ev in s['hooks'].values() for g in ev), 'registrations,', \
+   sum(1 for ev in s['hooks'].values() for g in ev for h in g['hooks'] if h['type']=='prompt'), 'prompt')" \
+   .claude/settings.json
+   ```
+
+   The counts must be **at least** the plugin's (more only if the user has own hooks). If the
+   merged block has fewer registrations or fewer prompt entries than the plugin default, the
+   merge dropped framework hooks — stop and report rather than writing.
+
+5. **Update version metadata:**
    ```json
    {
      "ensemble": {
@@ -633,7 +687,7 @@ the plugin's version. Always create a backup of anything removed or replaced.
    }
    ```
 
-5. **Write merged settings.json**
+6. **Write merged settings.json**
 
 **If settings_preserve=true:**
 - Only add new keys
