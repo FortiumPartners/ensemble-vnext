@@ -409,7 +409,7 @@ reverting the approach.
 | A2 | False positives on `self-documentation` | **Zero.** A judge that blocks this repo's own rule files makes the project unmaintainable |
 | A3 | False positives on `incidental-vocabulary` | ≤ the regex floor |
 | A4 | Recall on `no-result-returned` | **Reported, not gated** (revised 2026-08-13) — n=1; see note below |
-| A5 | Added latency at turn end | **REVISED 2026-08-13 — see §6.1.1.** Original "p95 ≤ 2000 ms" is not measurable as specified and is not met. |
+| A5 | ~~Added latency at turn end~~ | **WITHDRAWN 2026-08-13 — not an acceptance criterion.** Measured and reported in §6.1.1; gates nothing. |
 | A6 | Loop safety | DISC-T003 demonstrates a live block loop that terminates |
 
 **A4 was downgraded from an acceptance gate to a reported observation.** It originally demanded
@@ -428,52 +428,49 @@ Each is fixable with one more pattern, and each pattern widens the false-positiv
 the code-span/quote/meta-marker apparatus exists to contain. That is the argument, and it does
 not need a class that barely exists.
 
-### 6.1.1 A5 revised — what was actually measured, and why it was the wrong thing
+### 6.1.1 A5 WITHDRAWN — latency is not a criterion for this product
 
-**Measured (DISC-T002, 100 interleaved samples):** total turn wall-clock, with and without a
-prompt hook registered. Paired within-round to cancel system-load drift.
+**A5 was invented, not required.** No user requirement, no data — a "p95 ≤ 2000 ms" row was
+written into the acceptance table because the table looked incomplete without one. It was then
+measured, reported incorrectly twice (first by differencing percentiles, which is not the
+percentile of a difference), and split into three sub-criteria to rescue a threshold nothing
+depended on.
 
-| Condition | mean Δ | 95% CI | paired p95 Δ |
-|---|---|---|---|
-| full ~8KB prompt | **+2619 ms** | [+1971, +3267] | +4961 ms |
-| minimal prompt | +1680 ms | [+1070, +2291] | +3348 ms |
-| model pinned | +2446 ms | [+1682, +3210] | +5384 ms |
+**Why it does not matter here.** The hook fires *after* the assistant's text has streamed. In
+interactive use the cost lands inside the seconds a human spends reading the message that already
+arrived — it is invisible. In autonomous use, ~2.6 s per turn end is ~3–4 minutes across an
+84-dispatch `/implement-trd` run measured in hours, with nobody watching. There is no interactive
+case where the user waits on this and no autonomous case where it changes an outcome.
 
-**Against the original threshold this FAILS**, and not marginally — paired p95 is 2.5× the
-2000 ms budget, and even the mean sits at it.
+On the block path the added time is the feature working: the user finishes reading while the
+agent is already producing a corrective turn, instead of discovering twenty minutes later that a
+promised background task never existed.
 
-**But the metric was wrong, so the failure is not conclusive either.** Turn wall-clock conflates
-three quantities and A5 intends only the first:
+**Retained as observation, not gate** (DISC-T002, 100 interleaved samples, paired within-round):
 
-1. evaluator latency — the thing being budgeted;
-2. **a whole extra generation whenever the hook blocks**, since a block continues the turn;
-3. turn-generation variance (baseline sd ≈ 1400 ms, comparable to the effect).
+| Condition | mean Δ | 95% CI |
+|---|---|---|
+| full ~8KB prompt | +2619 ms | [+1971, +3267] |
+| minimal prompt | +1680 ms | [+1070, +2291] |
+| model pinned | +2446 ms | [+1682, +3210] |
 
-Per-sample deltas span **−1798 ms to +7378 ms**. Negative values are impossible for work that
-only adds, so noise dominates individual samples and the large positives are most likely blocked
-turns. **The tail is measuring block cost, not evaluation cost.** The mean is sound (CI excludes
-zero); the p95 is not interpretable.
+Two facts worth keeping if latency ever becomes a real constraint: **model pinning gives no
+benefit** (marginally worse than the default), and **prompt size is worth ~900 ms of mean**, so
+trimming is the only demonstrated lever. Tail figures from this run are not interpretable —
+turn wall-clock conflates evaluator cost, the extra generation a block causes, and generation
+variance (baseline sd ≈ 1400 ms).
 
-**Revised A5**, to something measurable:
+### 6.1.2 What the latency work actually surfaced — a correctness gate, not a speed one
 
-- **A5a — evaluator cost:** paired mean Δ on **allow-only turns** (no blocks in the sample),
-  reported with a 95% CI. Budget: **≤ 1500 ms mean.**
-- **A5b — block-path cost:** reported separately, not budgeted against A5a. A block costs an
-  additional turn by design; that is the mechanism working, not overhead.
-- **A5c — shipped configuration:** measured with **two** prompt hooks on `Stop`
-  (`async-discipline` + `autonomy-discipline`), which is what actually ships. Every measurement
-  so far used one. U1 suggests hooks run merged/parallel, so the cost may not be additive — but
-  that is an inference from source structure, not a measurement.
+**`timeout`-exceeded behaviour is still unknown.** It never triggered across ~10 probes, so it is
+unestablished whether an evaluator timeout resolves to allow, block, or error.
 
-**Two established facts survive the remeasurement:** model pinning gives **no benefit**
-(marginally worse than the default), and prompt size is worth roughly **900 ms of mean**
-(2619 → 1680), making prompt trimming the only demonstrated lever.
+This is not a latency concern and would matter if evaluation took 50 ms: if a timeout resolves to
+**block**, then an API slowdown makes turn ends wedgeable — a failure mode strictly worse than
+anything this TRD fixes. §6.2 already requires allow-on-every-error-path; for this mechanism that
+is currently an assumption rather than a verified property.
 
-**The larger risk is not latency.** `timeout`-exceeded behaviour is still unknown (§2.2.1) — it
-never triggered in ~10 probes. At ~2.6 s typical, evaluator slowness is routine rather than
-exotic, and if a timeout resolves to *block*, turn ends become wedgeable by API latency. That
-would be worse than any failure this TRD fixes. §6.2 requires allow-on-every-error-path; for this
-mechanism that is currently unverified and must be established before DISC-B008.
+**This must be established before DISC-B008 converts any hook.**
 
 ### 6.2 Standing gates
 
