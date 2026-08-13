@@ -24,6 +24,19 @@
     "DISC-P002": {
       "description": "Probe prompt-hook payload (U2) on Stop and SubagentStop",
       "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": "2026-08-13T07:49:35.122501Z",
+      "completed_at": "2026-08-13T08:02:59.702474Z"
+    },
+    "DISC-P003": {
+      "description": "Probe loop bound (U3): does stop_hook_active terminate a prompt-type block loop",
+      "phase": 1,
       "status": "in_progress",
       "cycle_position": "implement",
       "implementer_type": "backend-implementer",
@@ -31,33 +44,20 @@
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": "2026-08-13T07:49:35.122501Z",
-      "completed_at": null
-    },
-    "DISC-P003": {
-      "description": "Probe loop bound (U3): does stop_hook_active terminate a prompt-type block loop",
-      "phase": 1,
-      "status": "pending",
-      "cycle_position": null,
-      "implementer_type": "backend-implementer",
-      "current_problem": null,
-      "retry_count": 0,
-      "session_id": null,
-      "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T08:02:59.702474Z",
       "completed_at": null
     },
     "DISC-P004": {
       "description": "Probe reason delivery (U4) for prompt-type blocks on both events",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "in_progress",
+      "cycle_position": "implement",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T08:02:59.702474Z",
       "completed_at": null
     },
     "DISC-D001": {
@@ -296,7 +296,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 2,
+    "completed_tasks": 3,
     "failed_tasks": 0,
     "total_retries": 0
   },
@@ -306,6 +306,11 @@
         "risk": "R4-adjacent (corpus supply)",
         "detail": "Real local transcripts yield ~27 deferral-shaped candidates, most of which are FALSE positives (this session's own DISPATCHED banners and meta-discussion). autonomy-hedge has 2 candidates, both likely FPs. The TRD 3.1 violation floors total 25 real violations and are not satisfiable from real data.",
         "resolution": "pending \u2014 DISC-B002 to amend 3.1 floors + add a synthetic-adversarial source category"
+      },
+      {
+        "risk": "R2 (loop guard) \u2014 CONFIRMED MATERIALIZED",
+        "detail": "A prompt-type hook that always blocks loops: 4 cycles on Stop, 8 on SubagentStop, terminated only by the evaluated model's own judgment. No structural platform cap observed. TRD 6.1 A6 requires a demonstrated bound.",
+        "resolution": "pending DISC-P003 \u2014 evaluate continueOnBlock semantics and agent-type hooks (which have tool access and could maintain the counter themselves)"
       }
     ],
     "contingencies_applied": [],
