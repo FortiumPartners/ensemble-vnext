@@ -1177,44 +1177,46 @@ PY
 
 # =============================================================================
 # B-1 regression: packages/full/commands/plugin-only/{init-project,rebase-project}.md
-# must be symlinks into packages/core/commands/ (matching the sibling core/router
-# symlinks), so the shipped plugin command text can never drift stale from core.
+# must be REAL FILES byte-identical to packages/core/commands/.
+#
+# They were symlinked in 4.1.2 to stop them going stale, and these tests asserted
+# that. Both the change and the tests were wrong: Claude Code does not load plugin
+# commands through symlinks, so `claude plugin details` reported Skills (0)
+# instead of Skills (2) and /init-project became "Unknown command" — the plugin's
+# only two commands, and therefore its entire purpose. The tests passed the whole
+# time, because a symlink resolving on the filesystem says nothing about whether
+# the plugin loads it.
+#
+# Staleness is real (the shipped copy had drifted two releases and still
+# documented a deleted hook), so it is solved by generate-hooks-artifacts.sh
+# instead: it syncs these copies and its --check fails on drift OR on a symlink.
 # =============================================================================
 
-@test "B-1: plugin-only init-project.md and rebase-project.md are symlinks matching core" {
+@test "B-1: plugin-only commands are REAL FILES byte-identical to core" {
     local plugin_only="$REPO_ROOT/packages/full/commands/plugin-only"
 
     for name in init-project.md rebase-project.md; do
         local shipped="$plugin_only/$name"
         local core="$REPO_ROOT/packages/core/commands/$name"
 
-        [ -L "$shipped" ] || {
-            echo "expected $shipped to be a symlink, but it is a regular file/directory"
+        [ ! -L "$shipped" ] || {
+            echo "$shipped is a SYMLINK — Claude Code will not load plugin commands"
+            echo "through symlinks; the plugin silently exposes zero commands."
             return 1
         }
+        [ -f "$shipped" ] || { echo "missing $shipped"; return 1; }
 
-        # Resolve and confirm it points at the core copy, not a stale local file.
-        local resolved
-        resolved="$(cd "$(dirname "$shipped")" && readlink -f "$name")"
-        [ "$resolved" = "$core" ] || {
-            echo "expected $shipped to resolve to $core, got $resolved"
-            return 1
-        }
-
-        # Belt-and-suspenders: content must be byte-identical (would already be
-        # guaranteed by the symlink, but this also catches a symlink pointed at
-        # the wrong file).
         run diff "$core" "$shipped"
         [ "$status" -eq 0 ]
     done
 }
 
-@test "B-1: plugin.json commands declaration resolves to exactly init-project.md and rebase-project.md" {
+@test "B-1: plugin-only contains exactly init-project.md and rebase-project.md" {
     local plugin_only="$REPO_ROOT/packages/full/commands/plugin-only"
     run python3 -c "
 import os, sys
 d = sys.argv[1]
-names = sorted(f for f in os.listdir(d) if os.path.islink(os.path.join(d, f)))
+names = sorted(f for f in os.listdir(d) if f.endswith('.md'))
 print('\n'.join(names))
 " "$plugin_only"
     [ "$status" -eq 0 ]

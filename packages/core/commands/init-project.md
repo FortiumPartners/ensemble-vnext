@@ -619,30 +619,49 @@ Copy `@packages/core/templates/trd-state/current.json.template` to `.trd-state/c
 
 <formatter-installation>
 
-**Based on detected tech stack, install missing formatters:**
+**Install the formatters you configure.** Writing `.prettierrc` and then telling the user to
+install prettier themselves leaves the project with config and no tool — and the `formatter.sh`
+hook then falls through to `npx`, fetching the package on every edit forever. The user authorized
+this by running `/init-project`; do not ask again mid-run (see `.claude/rules/autonomy.md`).
 
-| Detected Language | Formatter | Install Command |
-|-------------------|-----------|-----------------|
-| JavaScript/TypeScript | Prettier | `npm install -D prettier` |
-| Python | Ruff | `pip install ruff` or `uv add --dev ruff` |
-| Go | goimports | `go install golang.org/x/tools/cmd/goimports@latest` |
-| Rust | rustfmt | (included with Rust) |
-| Shell | shfmt | `brew install shfmt` or `go install mvdan.cc/sh/v3/cmd/shfmt@latest` |
-| PHP | PHP-CS-Fixer | `composer require --dev friendsofphp/php-cs-fixer` |
-| Ruby | RuboCop | `gem install rubocop` |
-| Java | google-java-format | Manual download required |
-| C# | CSharpier | `dotnet tool install csharpier` |
-| Swift | swift-format | `brew install swift-format` |
-| Lua | StyLua | `cargo install stylua` |
+**The line: this command owns the PROJECT, not the machine.**
+
+- **Project-local dev dependencies — INSTALL them automatically.** They live in the project's own
+  manifest and lockfile, are scoped to this directory, and are trivially reversible.
+- **Global or system-level installs — DO NOT run them.** `brew`, `go install`, `cargo install`,
+  `gem install`, and `dotnet tool install -g` mutate the developer's machine outside this project.
+  Report the command and continue.
+
+| Detected language | Formatter | Scope | Action |
+|---|---|---|---|
+| JavaScript/TypeScript | Prettier | project | **Install**: `npm install -D prettier` (or the project's package manager — see below) |
+| Python | Ruff | project | **Install**: `uv add --dev ruff` when `uv.lock`/`pyproject.toml` present, else `pip install ruff` |
+| PHP | PHP-CS-Fixer | project | **Install**: `composer require --dev friendsofphp/php-cs-fixer` |
+| C# | CSharpier | project | **Install**: `dotnet tool install csharpier` (local manifest, not `-g`) |
+| Rust | rustfmt | bundled | Ships with Rust — verify only |
+| Go | goimports | system | Report `go install golang.org/x/tools/cmd/goimports@latest`; `gofmt` already ships with Go |
+| Shell | shfmt | system | Report `brew install shfmt` |
+| Ruby | RuboCop | system | Report `gem install rubocop` |
+| Swift | swift-format | system | Report `brew install swift-format` |
+| Lua | StyLua | system | Report `cargo install stylua` |
+| Java | google-java-format | manual | Report — manual download |
 
 **For each detected language:**
 
-1. Check if formatter is installed (run `which <formatter>`)
-2. If not installed, show install command and ask user to install
-3. Create or update formatter configuration files:
-   - `.prettierrc` for Prettier
-   - `ruff.toml` for Ruff
-   - etc.
+1. **Check first.** If the formatter already resolves (`command -v <formatter>`, or
+   `node_modules/.bin/<formatter>` for JS/TS), skip the install and say so.
+2. **Match the package manager.** For JS/TS use whatever the project already uses — `pnpm add -D`
+   if `pnpm-lock.yaml` exists, `yarn add -D` for `yarn.lock`, `npm install -D` for
+   `package-lock.json` or no lockfile. Installing with the wrong one creates a second lockfile and
+   a mess.
+3. **Install project-scoped formatters; report system-scoped ones.** Per the table above.
+4. **Never fail initialization over a formatter.** If an install fails — no network, no registry
+   access, a permissions problem — report it, note that `formatter.sh` will fall back to `npx`
+   where it can, and CONTINUE. A missing formatter is a papercut; a failed init is not.
+5. **Write the config file regardless**: `.prettierrc`, `ruff.toml`, and so on. Config is useful
+   even when the tool arrives later.
+6. **Report what happened** in the Step 14 completion summary: installed, already present, or
+   reported-only with the command to run.
 
 </formatter-installation>
 

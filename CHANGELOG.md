@@ -10,6 +10,46 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.6] - 2026-08-12
+
+### Fixed
+
+- **The plugin exposed ZERO commands since 4.1.2.** Item 2 replaced
+  `packages/full/commands/plugin-only/*.md` with symlinks into
+  `packages/core/commands/`, to stop the shipped copies going stale. Claude Code does not
+  load plugin commands through symlinks: `claude plugin details` went from `Skills (2)` to
+  `Skills (0)`, and `/init-project` and `/rebase-project` — the plugin's only two commands,
+  and its entire purpose — became `Unknown command`. Restored as real files.
+
+  Staleness was a genuine problem (the shipped copy had drifted two releases and still
+  documented a hook deleted in 4.1.0), so it is now solved without breaking loading:
+  `generate-hooks-artifacts.sh` syncs the copies, and `--check` fails on drift **or** on a
+  symlink.
+
+  Three tests asserted the symlinks and passed throughout, because a symlink resolving on
+  the filesystem says nothing about whether the plugin loads it. They now assert real files,
+  and `artifact-contracts` additionally asks the CLI what the plugin actually exposes —
+  the assertion that would have caught this.
+
+- **`/init-project` now installs the formatters it configures.** Step 10 wrote `.prettierrc`
+  and then *"show install command and ask user to install"*, leaving every scaffolded JS/TS
+  project with config and no tool — so `formatter.sh` fell through to `npx` on every edit,
+  forever. It now installs project-scoped formatters (prettier, ruff, php-cs-fixer,
+  csharpier), matching the project's package manager via its lockfile, and only *reports*
+  system-scoped ones (`brew`, `go install`, `cargo`, `gem`) because this command owns the
+  project, not the developer's machine. A failed install never fails initialization.
+
+  Verified end to end: a fresh TS project now finishes with prettier in `devDependencies`
+  and `node_modules/.bin/prettier` present, so the hook uses the local pinned copy and npx
+  never runs.
+
+### Changed
+
+- The router gained two closing rules: end a turn with clear, actionable next steps unless
+  there genuinely are none (rather than inventing work), and decide obvious low-risk next
+  steps instead of dressing them up as questions. Both were prompted by this session
+  producing exactly those failure modes.
+
 ## [4.1.5] - 2026-08-12
 
 ### Fixed

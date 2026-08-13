@@ -62,7 +62,15 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   rather than quietly proceeding.
 
 * PROPORTION. This is orientation, not ceremony. Conversational, informational and
-  trivial turns need none of it - answer directly and move on."""
+  trivial turns need none of it - answer directly and move on.
+
+* CLOSE THE TURN. End with clear, actionable next steps - unless there genuinely
+  aren't any, in which case say so rather than inventing work to look thorough.
+
+* DECIDE, DON'T DEFER. Do not dress an obvious, low-risk next step up as a question.
+  If you can make the call from what is in front of you, make it, state what you did
+  and why, and move on. Ask only when you genuinely need something only the user has:
+  a real ambiguity, missing information you cannot derive, or an irreversible action."""
 
 
 @dataclass

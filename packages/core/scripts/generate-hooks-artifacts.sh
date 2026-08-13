@@ -55,6 +55,19 @@ SETTINGS_TEMPLATE="$REPO_ROOT/packages/core/templates/claude-directory/settings.
 INIT_PROJECT_CORE="$REPO_ROOT/packages/core/commands/init-project.md"
 INIT_PROJECT_VENDORED="$REPO_ROOT/.claude/commands/init-project.md"
 
+# packages/full/commands/plugin-only/ holds REAL COPIES, not symlinks.
+#
+# They were briefly symlinked (4.1.2) to stop them going stale. That broke the
+# plugin outright: Claude Code does not load plugin commands through symlinks,
+# so `claude plugin details` went from Skills (2) to Skills (0) and
+# /init-project became "Unknown command" — the plugin's only two commands, and
+# therefore its entire purpose. Reverted in 4.1.5.
+#
+# Staleness was a real problem though (the shipped copy had drifted two
+# releases and still documented a deleted hook), so it is solved here instead:
+# the generator syncs them, and --check fails when they diverge.
+PLUGIN_ONLY_DIR="$REPO_ROOT/packages/full/commands/plugin-only"
+
 for f in "$MANIFEST" "$SETTINGS_TEMPLATE" "$INIT_PROJECT_CORE"; do
     if [[ ! -f "$f" ]]; then
         echo "ERROR: missing required file: $f" >&2
@@ -229,3 +242,25 @@ apply_to_file(init_core_path)
 if init_vendored_path and os.path.isfile(init_vendored_path):
     apply_to_file(init_vendored_path)
 PY
+
+# --- plugin-only command copies -------------------------------------------
+for cmd in init-project rebase-project; do
+    src="$REPO_ROOT/packages/core/commands/${cmd}.md"
+    dst="$PLUGIN_ONLY_DIR/${cmd}.md"
+    [[ -f "$src" ]] || continue
+
+    if [[ -L "$dst" ]]; then
+        echo "ERROR: $dst is a SYMLINK. Claude Code will not load plugin commands" >&2
+        echo "       through symlinks — the plugin silently exposes zero commands." >&2
+        exit 1
+    fi
+
+    if [[ ! -f "$dst" ]] || ! cmp -s "$src" "$dst"; then
+        if [[ "$CHECK" == "true" ]]; then
+            echo "DRIFT: $dst is stale relative to $src" >&2
+            exit 1
+        fi
+        cp "$src" "$dst"
+        echo "Synced: $dst"
+    fi
+done

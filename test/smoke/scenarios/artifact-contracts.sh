@@ -15,8 +15,9 @@
 #   - packages/core/commands/*.md and .claude/commands/*.md are byte-identical
 #     for every command present in both.
 #   - packages/full/agents/*.md and .claude/agents/*.md are byte-identical.
-#   - packages/full/commands/plugin-only/*.md are symlinks resolving into
-#     packages/core/commands/.
+#   - packages/full/commands/plugin-only/*.md are REAL FILES byte-identical to
+#     packages/core/commands/ (symlinked plugin commands silently do not load),
+#     and the installed plugin actually exposes them.
 #   - generate-hooks-artifacts.sh --check exits 0 (no manifest drift).
 #   - check-version-sync.sh exits 0 (no version-manifest drift).
 #   - No retired component (permitter/learning.sh/save-remote-logs.js)
@@ -134,8 +135,19 @@ done
 assert_true "at least one agent pair compared" -- test "$AGENT_COMPARED" -gt 0
 
 # -----------------------------------------------------------------------------
-# packages/full/commands/plugin-only/*.md are symlinks resolving into
+# packages/full/commands/plugin-only/*.md must be REAL FILES, byte-identical to
 # packages/core/commands/.
+#
+# They were symlinked in 4.1.2 to stop them going stale. That broke the plugin
+# outright: Claude Code does not load plugin commands through symlinks, so
+# `claude plugin details` reported Skills (0) instead of Skills (2) and
+# /init-project became "Unknown command" — the plugin's only two commands, and
+# therefore its whole purpose.
+#
+# The original version of THIS assertion checked that the symlinks *resolved*,
+# and passed happily for the entire time the plugin was exposing nothing. It was
+# testing the filesystem instead of the product. Hence the second assertion
+# below, which asks the CLI what the plugin actually exposes.
 # -----------------------------------------------------------------------------
 PLUGIN_ONLY_DIR="${REPO_ROOT}/packages/full/commands/plugin-only"
 PLUGIN_ONLY_CHECKED=0
@@ -145,18 +157,34 @@ if [[ -d "$PLUGIN_ONLY_DIR" ]]; then
         name="$(basename "$f")"
         PLUGIN_ONLY_CHECKED=$((PLUGIN_ONLY_CHECKED + 1))
         if [[ -L "$f" ]]; then
-            resolved="$(cd "$(dirname "$f")" && readlink -f "$name" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$f")"
-            if [[ "$resolved" == "${CORE_CMD_DIR}/${name}" && -f "$resolved" ]]; then
-                assert_pass_raw "plugin-only/$name: symlink resolves into packages/core/commands/"
-            else
-                assert_fail_raw "plugin-only/$name: symlink resolves into packages/core/commands/ (got: $resolved)"
-            fi
+            assert_fail_raw "plugin-only/$name: is a real file, not a symlink (symlinked plugin commands do not load)"
         else
-            assert_fail_raw "plugin-only/$name: is a symlink"
+            assert_pass_raw "plugin-only/$name: is a real file, not a symlink"
+        fi
+        if cmp -s "${CORE_CMD_DIR}/${name}" "$f"; then
+            assert_pass_raw "plugin-only/$name: byte-identical to packages/core/commands/"
+        else
+            assert_fail_raw "plugin-only/$name: byte-identical to packages/core/commands/ (run generate-hooks-artifacts.sh)"
         fi
     done
 fi
 assert_true "at least one plugin-only command checked" -- test "$PLUGIN_ONLY_CHECKED" -gt 0
+
+# The assertion that would actually have caught it: ask the CLI what the plugin
+# exposes. Skips when the plugin is not installed, since that is normal in CI.
+if command -v claude &>/dev/null; then
+    PLUGIN_INV="$(cd "$HOME" && claude plugin details full@ensemble-vnext 2>/dev/null || true)"
+    if [[ -z "$PLUGIN_INV" ]]; then
+        assert_skip_raw "plugin inventory check (full@ensemble-vnext not installed)" 2>/dev/null \
+            || assert_pass_raw "plugin inventory check skipped (plugin not installed)"
+    elif grep -qE 'Skills \(0\)' <<<"$PLUGIN_INV"; then
+        assert_fail_raw "installed plugin exposes its commands (reports Skills (0) — commands are not loading)"
+    elif grep -qE 'init-project' <<<"$PLUGIN_INV"; then
+        assert_pass_raw "installed plugin exposes init-project/rebase-project"
+    else
+        assert_fail_raw "installed plugin exposes init-project/rebase-project (not found in inventory)"
+    fi
+fi
 
 # -----------------------------------------------------------------------------
 # generate-hooks-artifacts.sh --check and check-version-sync.sh both exit 0.
@@ -196,6 +224,7 @@ RETIRED_ALLOWLIST=(
     "packages/core/scripts/scaffold-project.test.sh"    # asserts they are ABSENT from scaffolds
     "packages/core/commands/rebase-project.md"          # documents detecting + offering removal
     ".claude/commands/rebase-project.md"                # vendored copy of the above
+    "packages/full/commands/plugin-only/rebase-project.md"  # shipped copy of the above
     ".claude/rules/constitution.md"                     # documents the 4.1.0 retirement history
 )
 
