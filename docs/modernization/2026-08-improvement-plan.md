@@ -336,6 +336,7 @@ time has meant each is examined only when it breaks. Do the layer at once.
 | 5e | Dispatch ledger (`SubagentStart`+`SubagentStop`) + `--open` reporting | ✅ 4.1.8 |
 | 5e | `/implement-trd` reads the ledger on every RESUMED turn | ✅ 4.1.8 |
 | 5e | *Follow-up:* `--open` `type=` column shows the agent NAME for named dispatches (payload `agent_type` carries name-or-type, never both). Cosmetic; key is `agent_id` and correct. Deferred — `docs/TRD/discipline-judgment.md` §8 forbids touching `dispatch-ledger.js` | ⏸ deferred |
+| 5b | *Follow-up:* async-discipline covers false CLAIMS but not silent NON-DELIVERY. An agent with real machinery in flight can end a turn having delivered nothing, and no guard fires — the claim was true, the omission is the failure. Proposed norm: "async machinery in flight excuses waiting; it does not excuse silence about what is already finished." Deferred — `docs/TRD/discipline-judgment.md` §8 forbids changing what the rules SAY | ⏸ deferred |
 
 Three distinct problems, handled together because the retirements change what the rest has to cover:
 
