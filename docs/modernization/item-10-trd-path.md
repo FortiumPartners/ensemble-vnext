@@ -290,3 +290,123 @@ asking "can this be built?" than "what else should we add?"
 - Re-running against `docs/TRD/discipline-judgment.md` flags **at least 7 of its 8** known
   fabrications. That TRD is the regression fixture — its failures are documented with receipts,
   which makes it the only honest test of whether this design works.
+
+---
+
+## 9. Validation against real artifacts and transcripts (2026-08-13)
+
+Audited: 61 PRDs, 97 TRDs, and 1,374 human-typed turns extracted from five session transcripts
+(~110 MB). Findings that **change** this design are recorded first.
+
+### 9.1 The targeting was partly wrong
+
+Ranked user pushback across ~450 corrective turns:
+
+| # | Category | ≈ |
+|---|---|---|
+| 1 | **Invented delivery machinery** — flags, rollout, migration paths, guard infra, eval gates | 55 |
+| 2 | **Reuse violated / existing implementation unknown** | 45 |
+| 3 | **Readout unintelligible or unactionable** | 35 |
+| 4 | **Model factually wrong about the system** | 30 |
+| 5 | Decision re-litigated | 25 |
+| 6 | **Requirement dropped / silently rescoped** | 20 |
+| 7 | Requirement invented | **12** |
+| 8 | Dead code left behind | 10 |
+| 9 | Defensive checkpointing | 8 |
+
+**Requirement invention is 7th of 9.** The manufacture is real but **displaced one layer down** —
+into *decisions and delivery machinery* rather than requirement lines. C2/C3 and §3.5 target
+categories 1, 2, 4 and 8; the PRD path's provenance check targets category 7, the smallest.
+
+**Consequence: if only one half is funded, fund the TRD half.**
+
+### 9.2 Dropping requirements is commoner than inventing them
+
+Category 6 (20) outranks category 7 (12). **Both readouts are reordered so "Missing / rescoped"
+precedes "Unsourced."** Silent narrowing has no check at all today:
+
+> *"we were given a UI design and 'decided' not to implement it as provided."*
+> *"The absolute intent of the PRD/TRD was clearly to replace those screens… This isn't another effort, this is finishing the effort we're currently working on."*
+
+### 9.3 C5 must apply to VERIFIER findings — P7 fixes the wrong failure
+
+~12 clear challenger reversals in the transcripts. **Essentially none are "the reviewer struck a
+valid requirement."** They are all the reviewer **inflating severity**:
+
+> *"you're building infrastructure to stop us (you) from making bad coding decisions? …this is a clear case of overengineering."*
+> *"You're over indexing on the fact that there was a bug."*
+> *"You've become far too conservative — this is a preproduction beta system; I am currently the only user."*
+
+P7 stops a challenger *striking* a requirement — a failure that does not occur. It does nothing
+about a challenger *inflating* one, which is A2's invented-severity failure relocated into the
+verifier. **C5 therefore applies to verifier findings themselves:** any finding asserting severity
+("this will regress bookings", "this needs a guard") carries the same sourcing burden as an
+objective, or the reviewer becomes the manufacture site.
+
+### 9.4 Cross-artifact contradiction — confirmed, severe, and invisible to every check here
+
+The POI-graph transit-node schema **flapped A → B → A → B → A → B** across three PRDs, in the
+authors' own words, *"including citing non-existent Phase 5 AC IDs."* **A per-artifact
+source-fidelity check would have certified all six flips as faithful to their own sources.**
+
+The authors converged on the fix independently: cross-artifact citations are **grep-verified in the
+live target document before citing**, and contracts are anchored in feature signatures rather than
+transient AC IDs.
+
+**Add a fourth verifier: for every cross-artifact citation, grep the referenced ID in the live
+target and fail on a miss.** Deterministic, findable-only, cheap.
+
+### 9.5 The readout's problem is register, not length
+
+§5 asserts length is load-bearing. The evidence says comprehensibility is:
+
+> *"There is so much jargon… These words make no sense to me, and I built this product!!"*
+> *"I read your full response but come away not knowing what ACTUAL action should I be taking next"*
+> *"I DO NOT UNDERSTAND what action you expect me to take on these?"*
+
+Rejected five separate times. The example *lines* are fine; the **headings** are the problem —
+"Unsourced severities", "Decisions without a named objective", "domain-derived" are exactly that
+register. **Every readout line names the action, not the classification.**
+
+### 9.6 Two assumptions that do not hold
+
+- **Artifacts are living documents.** 28/61 PRDs have ≥3 versions; 24/61 carry supersession
+  markers. A one-shot readout re-run on v1.5.1 flags legitimately-derived v1.2.0 requirements as
+  unsourced. Source on refinement = original source ∪ the changelog's cited rulings.
+- **P6 assumes one transcript.** This user runs **concurrent sessions on one product**:
+  *"the invariant IS NOT INVERTED. that's for a different session"* — a finding from another session
+  leaked in as fact. A single transcript path is both incomplete and a contamination vector.
+
+### 9.7 Where the design is confirmed
+
+- **§3.5(b) reuse is the most-repeated instruction in the corpus** — ≥8 times across three
+  sessions: *"THE EXACT SAME BullMQ mechanism… DO NOT create another path"*, *"not reinventing
+  anything!"*, *"We BUILT TOOLING"*.
+- **§3.5(c) removal** — *"Don't disable it, delete the code so we don't have dead code lying
+  around"*, *"get rid of dead code — and if it isn't dead, trace down why not"*.
+- **C3 mechanism** — performed by the user because nothing else does: *"STOP. A 'real browser' is
+  not how we access data in production. This exercise is useless if you cannot prove that you can
+  hit that API using the infrastructure we have in place."*
+- **C5 thresholds** — pre-empted by the user: *"Ensure we note that 10s is aspirational not
+  absolute."*
+- **§3.5(d) grounding-into-the-prompt is the strongest half.** The most emphatic re-litigation
+  instance is a decision *in context, minutes old*, re-proposed anyway: *"You keep missing the
+  point… I've stated repeatedly — WE'RE GOING TO REBUILD IT."* A Decisions section fixes
+  information with nowhere to land; this is information that landed and was overridden.
+
+**The strongest single validation:** three weeks before this design, the user hand-wrote its verify
+wave as a command runner —
+
+> `/refine-trd` Verify TRD creation remained true to functional requirements — **did not create new requirements nor drop any**… complete but not overengineered
+> `/refine-trd` … **maximum code reuse, conformance with existing code patterns, deletion/deprecation of code no longer used, guard against overengineering**
+
+That is C1 + C6 + §3.5(b) + §3.5(c), authored by the user, because the framework did not do it.
+
+### 9.8 Out of scope, and it is the largest class
+
+Category 1 — invented delivery machinery — mostly appears **during implementation, after the TRD
+exists**. Item 10 types and audits the document; nothing types what an implementer adds:
+
+> *"You — Claude — keep introducing these artificial gates and protections, and the result is we have built and ostensibly deployed features sitting dark."*
+
+Recorded as the natural successor to item 10, not folded into it.
