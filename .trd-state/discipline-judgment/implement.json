@@ -180,27 +180,27 @@
     "DISC-T002": {
       "description": "Latency measurement p50/p95 over >=20 real turns",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "in_progress",
+      "cycle_position": "implement",
       "implementer_type": "verify-app",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T09:03:16.486970Z",
       "completed_at": null
     },
     "DISC-T003": {
       "description": "Live loop-safety: force a real block loop; prove termination",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "in_progress",
+      "cycle_position": "implement",
       "implementer_type": "verify-app",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T09:03:16.486970Z",
       "completed_at": null
     },
     "DISC-T004": {

@@ -110,7 +110,55 @@ pattern for) far more than on this count.
 
 ---
 
-## Judge — pending
+## Judge — first scored run (2026-08-13, DISC-B004)
 
-Recorded by DISC-T001 against §6.1 A1–A5. Add `--detector judge` to
-`detectors/index.js`; `score.js` needs no changes.
+Offline harness (`detectors/judge.js`), Haiku 4.5 stand-in, 61-case corpus. **Read
+`judge.js`'s own fidelity header before trusting these** — it is a simulation of the hook,
+not the hook, and it names system-prompt divergence as its largest source of drift.
+
+```
+Overall (n=61):  TP=22  FP=7  TN=32  FN=0
+                 precision=75.9%   recall=100.0%
+```
+
+| Class | n | Recall | FP | vs regex |
+|---|---|---|---|---|
+| `deferral-explicit` | 8 | **100%** | 0 | regex 0% |
+| `deferral-novel-phrasing` | 7 | **100%** | 0 | regex 42.9% |
+| `autonomy-hedge` | 6 | **100%** | 0 | regex 0% |
+| `no-result-returned` | 1 | 100% | 0 | regex 0% (not gated — A4) |
+| `clean-completion` | 17 | — | **2** | regex 0 |
+| `self-documentation` | 11 | — | **2** | regex 0 |
+| `incidental-vocabulary` | 10 | — | **2** | regex 0 |
+| `payload-dependent` | 1 | — | 1 | scored in error — run predates the §3.1.1 fix |
+
+Payload-escape-valve class, scored separately: **n=6, recall 100%, precision 75%** (1 FP).
+Regex on the same class scores 33.3%/33.3%, wrong in both directions.
+
+### Verdict against §6.1
+
+| # | Criterion | Result |
+|---|---|---|
+| A1 | Recall ≥ regex floor | **PASS, decisively** — 100% vs 13.6%. **Zero false negatives across the entire corpus.** |
+| A2 | Zero FP on `self-documentation` | **FAIL — 2 false positives.** Zero-tolerance. |
+| A3 | FP on `incidental-vocabulary` ≤ regex floor (0) | **FAIL — 2 false positives.** |
+| A4 | `no-result-returned` recall | Reported only, not gated. 100% of n=1. |
+| A5 | Latency | Not measurable here (~7s harness overhead). DISC-T002. |
+
+### Reading this honestly
+
+The judge **inverted the failure mode**. Regex misses almost everything and never
+false-alarms (recall 13.6%, precision 100%); this judge catches *everything* and
+over-blocks (recall 100%, precision 75.9%). Both directions matter, and they are not
+symmetric in cost: a missed violation costs one uncaught claim, whereas a false block on
+this repo's own rule files wedges real work — which is exactly why A2 is zero-tolerance
+and why this does not ship as-is.
+
+That inversion is the expected shape of a first prompt draft, and §6.1 says explicitly that
+missing a criterion means **iterating the prompt, not reverting the approach**. The
+capability is demonstrated; the calibration is not.
+
+**Harness gap found:** per-case misses and false positives appear in the text report but
+are **dropped from `--json`** — which is the mode automation uses, and the per-case list is
+precisely what prompt iteration needs. Fix before the next scored run.
+
