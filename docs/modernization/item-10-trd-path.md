@@ -80,14 +80,46 @@ looked empty.
 The PRD path has one check (provenance). The TRD needs five, because three of its failures were
 not provenance failures at all.
 
-| # | Check | Applies to | Question | Would have caught |
+| # | Check | Applies to | Question | Measured hits (8 TRDs, 81 objectives) |
 |---|---|---|---|---|
-| C1 | **Provenance** | objectives | Does it trace to PRD, a named constraint, a measurement, or the user? | A5, §3.1 floors, §2.3's premise |
-| C2 | **Derivation** | decisions | Does it serve a *named* objective? | decisions existing for their own sake |
-| C3 | **Mechanism** | decisions | Can this actually be built as specified? | §3.4's kill switch |
-| C4 | **Consistency** | all pairs | Does it contradict a sibling requirement or decision? | B009 vs D5 |
-| C5 | **Threshold sourcing** | objectives | Is the *severity* sourced, not just the requirement's existence? | A2's "zero tolerance" |
-| C6 | **Grounding completeness** | tasks | Does every task carry grounding? Does anything replaced appear in a `Replaces` line? | `recordBlockInLedger` left orphaned by the 4.1.9 conversion |
+| C1 | **Provenance** | objectives | Does it trace to PRD, a named constraint, a measurement, or the user? | **4** |
+| **C5** | **Threshold sourcing** | objectives | Is the *severity* sourced, not just the requirement's existence? | **6 — the dominant check** |
+| C0 | **Omission** (NEW) | source→artifact | Which source objectives never appear in the artifact at all? | **1, and structurally invisible to C1–C6** |
+| C4 | **Consistency** | pairs, incl. superseding docs | Does it contradict a sibling, or a document that supersedes it? | 1 |
+| C3 | **Mechanism** | decisions | Can this be built as specified? | 0 unremediated — **users already run it by hand** |
+| C2 | ~~Derivation~~ | decisions | Does it serve a named objective? | **0 — every Key Technical Decisions table already carries a populated Rationale column. Dropped.** |
+| C6 | **Grounding completeness** | tasks | Does every task carry grounding? | 0 on coverage — largely satisfied already |
+
+**Measured, not assumed (2026-08-13, 8 of 97 real TRDs, hand-classified by nature per §2.1).**
+Unsourced objectives: **10 / 81 = 12.3%** (63 sourced, 8 domain-derived). Two of the eight TRDs
+scored **zero**. An earlier regex estimate of 54% was an artifact of counting Redis TTLs and
+descriptive percentages as objectives — the typing rule in §2 is what makes the number meaningful,
+and is retroactively the most load-bearing decision in this document.
+
+### 3.1 C5 dominates, and half of it is one repeated pattern
+
+**5 of the 10 unsourced objectives are the same failure**: a coverage target above the
+constitution's `unit ≥60% / integration ≥50%` floor, stated with no reason — 85/90/80/100/70, ≥80%,
+≥80%, ≥80%+≥70%, ≥90%+≥80%. No PRD in the sample mentions coverage at all.
+
+**The requirement traces to the constitution; the strictness traces to nothing.** That is C5
+exactly, and it means a single narrow rule — *an objective exceeding a constitution floor must
+state why* — catches half of everything found.
+
+Corroborating: the one TRD that used the constitution's numbers verbatim is one of the two with
+zero unsourced objectives. And two latency budgets in the sample are labelled *"targets, not
+enforced thresholds"* — the author declassifying severity by hand, which is C5 performed manually.
+
+### 3.2 C2 is dropped; C3 is automating what users already do
+
+C2 found **nothing**: every Key Technical Decisions table sampled already ties its choice to a
+named objective or owner constraint in a populated Rationale column. A check that fires on nothing
+is cost without benefit.
+
+C3 found nothing *unremediated*, which is different and does not justify dropping it — the users
+are **already performing it manually**, and leaving evidence: *"terra efforts VERIFIED live =
+{none,low,medium,high,xhigh}"*, and a TR flagged as *"requires explicit alignment with the GWR
+owner"*. C3 automates an existing practice rather than introducing one.
 
 **C4 and C5 are the ones a provenance readout alone cannot catch, and both bit hard.** B009 and D5
 were *each* legitimately derived and only wrong together. A2 traced honestly to "don't break the
@@ -100,12 +132,65 @@ that share a subject, rather than the full cross product.
 
 ---
 
+### 3.4 C0 — the omission pass, and why the readout reorder was not enough
+
+**The failure the six checks cannot see.** `poi-graph-transportation`'s TRD §7.2 is titled
+*"Performance Budgets (PRD §5.1)"* and reproduces seven of the PRD's eight metrics verbatim and
+correctly. The eighth — `Concurrent tool calls ≥50 RPS` — **is simply absent.** Nothing marks it
+dropped, it is not in Non-Goals, and the section header claims the PRD as its source and looks
+complete.
+
+**C1–C6 all ask "does this line justify itself?" — a traversal that runs artifact→source. A
+per-line audit cannot find a line that is not there.** Omission is only visible source→artifact,
+and no amount of reordering the readout changes that.
+
+This is the hole in §9.2. That section correctly established that *dropping* requirements (~20
+instances) is commoner than *inventing* them (~12), and responded by moving "Missing / rescoped"
+above "Unsourced" in the readout. **But nothing populates that heading.** As designed, item 10
+would ship a prominent heading over a permanently empty section, for the failure class it names as
+the larger one.
+
+**C0 is the reverse pass:** enumerate the source's objectives, and assert each one either appears
+in the artifact or is explicitly listed as a non-goal. Deterministic, findable-only, cheap, and the
+same shape as the citation verifier in §3.6.
+
+Frequency is exactly why it must be automated: **once in 81 objectives.** A rate that low is
+invisible to review and catastrophic when it lands on the objective that mattered.
+
+### 3.5 Supersession is scoped in headers and nowhere in the body
+
+The same TRD opens with a well-written ⚠️ SUPERSEDED banner, correctly scoped to one dimension and
+naming its authority. But its coverage table, performance budgets and entire Master Task List
+remain in imperative voice with no per-line status. **A verifier run on that document alone
+certifies roughly a dozen objectives for a retired design as faithfully sourced.**
+
+C4 catches this only if the superseding document is in scope. Run per-artifact, it finds nothing.
+24/61 PRDs carry supersession markers, so this is corpus-wide, not one document's quirk.
+**C4's scope therefore includes any document that supersedes or is superseded by the one under
+audit.**
+
+### 3.6 Citation verifier (from §9.4)
+
+For every cross-artifact citation, grep the referenced ID in the live target and fail on a miss.
+The authors reached this independently — one PRD changelog records *"All cross-PRD AC citations
+grep-verified."* Spot-checked on the most citation-dense TRD in the sample: **all citations
+resolve**, including version-tracked ones.
+
 ## 3.5 Brownfield grounding — the TRD must land in the code that exists
 
 Everything above governs whether a requirement is *legitimate*. This governs whether the plan is
-*implementable in this repository*, which is a separate failure and currently unaddressed:
-`/create-trd` contains **no** mention of reuse, deprecation, removal, or existing implementation.
-It designs as if the codebase were empty.
+*implementable in this repository* — a separate failure, and one `/create-trd` does not mention:
+it contains **no** reference to reuse, deprecation, removal, or existing implementation.
+
+**But the authors already do this, and pitching it as new capability would be wrong.** Audited
+TRDs carry `Appendix A — Key files`, `Appendix B — Redis Key Reference`, inline
+`responses.ts:1419` citations, ten regression test files named by path, explicit
+*"Do NOT re-implement `needsGuestIdReconcile` — it's already correct"*, and — decisively — a
+**§2.5 "Reuse Map (codebase reuse audit)"**, which is §3.5(b) already shipped by hand.
+
+An implementer would **not** rediscover everything. What is missing is not the content but the
+**keying by task ID** and the consumption point in the implementer's prompt. **Scope this as
+restructuring existing practice, not introducing a capability.**
 
 Once the TRD has decided what to do, it must reconcile that against a brownfield reality on four
 axes:
@@ -201,8 +286,12 @@ against source — with the verifier set widened.
 3. VERIFY                    4 subagents, parallel, read-only, none may invent
      grounding        does this already exist / contradict the codebase?
      conformance      does it violate stack.md / constitution.md?     (C2 lateral half)
-     objective-audit  C1 + C5 — provenance and severity of every objective, against SOURCE
-     design-audit     C2 + C3 + C4 + C6 — derivation, buildability, consistency, grounding
+     objective-audit  C1 + C5 — provenance and SEVERITY of every objective, against SOURCE.
+                      C5 dominates: any objective exceeding a constitution floor must state why.
+                      C5 also applies to the verifiers' OWN findings (§9.3).
+     design-audit     C3 + C4 + C6 — buildability, consistency (incl. superseding docs), grounding
+     omission-audit   C0 — enumerate SOURCE objectives, assert each appears or is non-goaled
+     citations        every cross-artifact ID grep-verified in the live target
 
 4. RECONCILE + READOUT       main agent
 ```
