@@ -84,24 +84,55 @@ elaborated into something large. Verifiers are instructed to return empty quickl
 
 ---
 
-## 4. Structural change: a Decisions section in the PRD
+## 4. Standardise the existing convention — the "structural gap" claim was false
 
-The TRD has one (`/create-trd` §1.2 — `Decision | Choice | Rationale | Alternatives Considered`).
-**The PRD has nine sections and none of them.** The only mention of alternatives anywhere in
-`/create-prd` is a conditional line in the autonomy boilerplate — *"mention alternatives in the
-artifact if useful"* — pointing at no section that exists.
+**Corrected 2026-08-13 against 61 real PRDs.** This section previously claimed a PRD "structurally
+cannot record 'we considered X and rejected it because Y'". That is **empirically wrong**, and it
+would have cost credibility with the authors who solved it months ago.
 
-So a PRD produced by this framework **structurally cannot record "we considered X and rejected it
-because Y."** That is why rejected paths keep resurfacing: the information had nowhere to land.
+**13 of 15 sampled PRDs record decisions and rejected alternatives.** The other 2 use the
+changelog. **Zero had nowhere to put it.**
 
-Add a Decisions section carrying, per decision: what was chosen, why, and **what was rejected and
-why**. Rejections are first-class, not an appendix. Populating and auditing it is the
-source-fidelity stage's job.
+| Convention | Corpus |
+|---|---|
+| `Appendix A — Team Analysis Notes` (disagreements & resolutions) | 31/61 |
+| Explicit disagreement section (`§8.2`, `Appendix C — Disagreements and How They Were Resolved`) | 28/61 |
+| Dedicated rejections heading (`Devils-advocate challenges rejected`, `4.3 Explicitly Considered and Rejected`, `9.2 Rejected / Deferred`) | 8/61 |
+| Changelog with supersession markers | 60/61 (24/61 with supersession) |
 
-This absorbs part of item 11: a decisions-and-rejections section is a per-feature learning loop —
-the place retractions live so they stop circulating as live options.
+Their format is **better than what was proposed here** — challenge, verdict, rationale, and a
+**revisit condition**:
 
----
+> | "Promote geofence triggers to P0" | …adds significant scope; LLM can infer from raw coords. **Revisit in v2 with eval data showing where the LLM struggles.** |
+
+A rejection without a revisit condition reads as permanent and gets re-litigated the moment
+conditions change — the exact failure this section exists to prevent. Three PRDs also invented an
+anti-relitigation marker (`Appendix C: Confirmed grounding (do not re-litigate)`), and 7/61
+hand-roll provenance with a `*Source: …*` footer.
+
+**So: standardise theirs, do not invent a section.** Adopt the container name, the revisit-condition
+column, the `DO NOT relitigate` marker, and the source footer. A fresh `## Decisions` section would
+orphan 31 PRDs of working convention.
+
+### 4.1 The one-line change that beats the pipeline
+
+Manufactured NFRs are **concentrated, not endemic**: 26 of 31 quantified NFRs across 15 PRDs are
+unsourced, but **all 26 come from 6 files**, and 9 of 15 PRDs have none. They track a single
+template variant — the fixed quintet `Performance / Security / Accessibility / Scalability /
+Integration Requirements`, present in 6/61.
+
+The worst example is `poi-graph-transportation.md` §5.1: **"Concurrent tool calls ≥ 50 RPS without
+OSRM degradation | Staging load test"** — an RPS target *and* a load test, for a product the same
+corpus repeatedly documents as *"pre-beta, one real party"*.
+
+**Deleting that quintet from the PRD template removes most of what this four-stage design exists to
+catch.** One line against a four-stage pipeline. Do it regardless of whether the rest ships.
+
+Counter-evidence worth preserving: several authors actively refuse to invent numbers —
+*"The generalist agent turn floor is 12.9–17.3s measured; do not set responsiveness SLAs that
+include a fresh turn at the client tail"* — and one labels an unverified claim **"Belief, not
+fact"** pending a named spike. Promote that marker into the template; it is a cheaper always-on
+version of the source-fidelity stage.
 
 ## 5. The derived-requirements readout
 
@@ -111,7 +142,10 @@ read, and an unread guard is worse than none because it looks like coverage.
 ```
 SOURCE: <transcript path | document path>
 
-  Unsourced (2)   ← review these first; default is removal
+  Missing / rescoped (1)   ← FIRST: dropping a real requirement is commoner than inventing one
+    Source records an LLM rewrite of descriptions; PRD does not carry it.
+
+  Unsourced (2)   ← default is removal
     REQ-7   Latency p95 <= 2000ms          traces to nothing in source
     NFR-3   99.9% uptime target            traces to nothing in source
 
