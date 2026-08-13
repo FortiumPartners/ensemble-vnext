@@ -1,0 +1,6 @@
+# Raw extractor output — large (candidates.jsonl was ~4.7MB from ~1,800 local
+# transcripts) and reproducible by re-running `node extract.js`. Not committed.
+#
+# The LABELED corpus (DISC-B002's output, e.g. corpus.jsonl) is NOT covered by
+# this ignore rule and should be committed — see README.md.
+candidates.jsonl
