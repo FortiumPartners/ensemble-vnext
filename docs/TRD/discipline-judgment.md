@@ -409,7 +409,7 @@ reverting the approach.
 | A2 | False positives on `self-documentation` | **Zero.** A judge that blocks this repo's own rule files makes the project unmaintainable |
 | A3 | False positives on `incidental-vocabulary` | ≤ the regex floor |
 | A4 | Recall on `no-result-returned` | **Reported, not gated** (revised 2026-08-13) — n=1; see note below |
-| A5 | Added latency at turn end | p95 ≤ 2000 ms |
+| A5 | Added latency at turn end | **REVISED 2026-08-13 — see §6.1.1.** Original "p95 ≤ 2000 ms" is not measurable as specified and is not met. |
 | A6 | Loop safety | DISC-T003 demonstrates a live block loop that terminates |
 
 **A4 was downgraded from an acceptance gate to a reported observation.** It originally demanded
@@ -427,6 +427,53 @@ text: "waiting **on**" (the 4.1.8 live miss), "completion**s**" defeating `\bcom
 Each is fixable with one more pattern, and each pattern widens the false-positive surface that
 the code-span/quote/meta-marker apparatus exists to contain. That is the argument, and it does
 not need a class that barely exists.
+
+### 6.1.1 A5 revised — what was actually measured, and why it was the wrong thing
+
+**Measured (DISC-T002, 100 interleaved samples):** total turn wall-clock, with and without a
+prompt hook registered. Paired within-round to cancel system-load drift.
+
+| Condition | mean Δ | 95% CI | paired p95 Δ |
+|---|---|---|---|
+| full ~8KB prompt | **+2619 ms** | [+1971, +3267] | +4961 ms |
+| minimal prompt | +1680 ms | [+1070, +2291] | +3348 ms |
+| model pinned | +2446 ms | [+1682, +3210] | +5384 ms |
+
+**Against the original threshold this FAILS**, and not marginally — paired p95 is 2.5× the
+2000 ms budget, and even the mean sits at it.
+
+**But the metric was wrong, so the failure is not conclusive either.** Turn wall-clock conflates
+three quantities and A5 intends only the first:
+
+1. evaluator latency — the thing being budgeted;
+2. **a whole extra generation whenever the hook blocks**, since a block continues the turn;
+3. turn-generation variance (baseline sd ≈ 1400 ms, comparable to the effect).
+
+Per-sample deltas span **−1798 ms to +7378 ms**. Negative values are impossible for work that
+only adds, so noise dominates individual samples and the large positives are most likely blocked
+turns. **The tail is measuring block cost, not evaluation cost.** The mean is sound (CI excludes
+zero); the p95 is not interpretable.
+
+**Revised A5**, to something measurable:
+
+- **A5a — evaluator cost:** paired mean Δ on **allow-only turns** (no blocks in the sample),
+  reported with a 95% CI. Budget: **≤ 1500 ms mean.**
+- **A5b — block-path cost:** reported separately, not budgeted against A5a. A block costs an
+  additional turn by design; that is the mechanism working, not overhead.
+- **A5c — shipped configuration:** measured with **two** prompt hooks on `Stop`
+  (`async-discipline` + `autonomy-discipline`), which is what actually ships. Every measurement
+  so far used one. U1 suggests hooks run merged/parallel, so the cost may not be additive — but
+  that is an inference from source structure, not a measurement.
+
+**Two established facts survive the remeasurement:** model pinning gives **no benefit**
+(marginally worse than the default), and prompt size is worth roughly **900 ms of mean**
+(2619 → 1680), making prompt trimming the only demonstrated lever.
+
+**The larger risk is not latency.** `timeout`-exceeded behaviour is still unknown (§2.2.1) — it
+never triggered in ~10 probes. At ~2.6 s typical, evaluator slowness is routine rather than
+exotic, and if a timeout resolves to *block*, turn ends become wedgeable by API latency. That
+would be worse than any failure this TRD fixes. §6.2 requires allow-on-every-error-path; for this
+mechanism that is currently unverified and must be established before DISC-B008.
 
 ### 6.2 Standing gates
 

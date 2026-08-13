@@ -180,15 +180,15 @@
     "DISC-T002": {
       "description": "Latency measurement p50/p95 over >=20 real turns",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "verify-app",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": "2026-08-13T13:09:27.222189Z",
-      "completed_at": null
+      "completed_at": "2026-08-13T13:25:29.607689Z"
     },
     "DISC-T003": {
       "description": "Live loop-safety: force a real block loop; prove termination",
@@ -347,6 +347,11 @@
         "risk": "Orchestrator emitted a DISPATCHED banner without dispatching",
         "detail": "Turn ended claiming disc-b004 and disc-p002 were taking the next round (JSON per-case fix, prompt iteration, T002, T003). No SendMessage/Agent call was made. Work sat idle until the user asked for status. Also over-reported completion as 13/21 by incrementing a hand-maintained counter instead of deriving it from task statuses; true count was 10.",
         "resolution": "completed_tasks now derived, not incremented. Stale in_progress reset. Noted: the async-discipline guard inspects claim TEXT, and a DISPATCHED banner is not a claim it matches \u2014 same blind spot class as the silent-non-delivery gap recorded in 0dd80d0."
+      },
+      {
+        "risk": "A5 latency threshold not met on p50; measurement method inadequate at p95",
+        "detail": "100 interleaved samples. Baseline p50 4522ms / p95 7551ms. Full prompt p50 7270 / p95 8910 -> added p50 +2748ms, differenced p95 +1359ms. Minimal prompt added p50 +1981ms. Model pinning gave NO benefit (p50 7437, slightly worse than default). Differencing percentiles is not the p95 of the added latency, and baseline variance (~3000ms spread) exceeds the 2000ms effect being measured, so the p95 figure cannot be trusted either way.",
+        "resolution": "pending orchestrator decision: amend A5 with a defensible metric, or trim the ~8KB prompt (worth ~770ms p50)."
       }
     ],
     "contingencies_applied": [],
