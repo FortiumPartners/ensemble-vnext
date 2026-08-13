@@ -727,6 +727,45 @@ corpus was text-only when the design's central mechanism resolves escape valves 
 `background_tasks`, so the judge was scored on strictly less information than it has in
 production. The goal is requirements that trace to something real — not fewer requirements.
 
+#### `/refine-trd` is a ratchet — this is where the challenge belongs
+
+**`/refine-trd` cannot currently remove anything.** Its Phase 1 interview asks five questions and
+every one asks what is *absent*: missing technical considerations, granular *enough*, opportunities
+we *missed*, *comprehensive* test strategy, concerns *not addressed*. Phase 2 is titled
+**"Enhancement"** — clarify, refine, strengthen, update. Its "Validation" step checks that
+requirements *align* and are *accurate*, never that they are *warranted*. **Deletion is not a
+possible outcome of the command.**
+
+Run it against a TRD carrying fabricated requirements and it makes things worse. Asked "are there
+performance concerns not addressed?", the honest answer adds a latency criterion — **which is
+precisely how `discipline-judgment.md`'s A5 came to exist.**
+
+This is the right home for the challenge, for a reason beyond convenience: `/refine-trd` is the
+one command explicitly exempt from autonomy discipline because it is *intentionally interactive*.
+Questioning the user is already its purpose. `/create-trd` should avoid manufacturing requirements;
+`/refine-trd` should be able to *remove* them.
+
+**Add a challenge pass, and make deletion a first-class outcome.** For each requirement, four
+checks — derived from the seven failures in `discipline-judgment.md`, which failed in five
+distinct ways:
+
+| Check | Catches | This TRD's instance |
+|---|---|---|
+| **Provenance** — traces to user input, a measurement, or a named constraint? | Fabricated, misread, aspirational | A5 latency; §2.3's premise; §3.1 floors |
+| **Mechanism** — can this actually be built as specified? | Impossible requirements | §3.4's runtime kill switch, impossible for a prompt hook |
+| **Consistency** — does it contradict a sibling requirement? | Individually-sound conflicts | B009 deleting the code D5's rollback lever needs |
+| **Threshold** — is the *severity* sourced, not just the requirement? | Invented strictness | A2's "zero tolerance", justified by rhetoric; the real cost of a false positive is one turn |
+
+The last two matter most because a provenance readout alone misses them. B009 and D5 were **both
+legitimately derived**. A2 traces honestly to "don't break the repo" — what was invented was *how
+strict it had to be*, and an unexamined threshold is un-negotiable in the wrong direction.
+
+**Four of this TRD's seven bad requirements were caught only because a human asked a direct
+question** — "what's the impact of this latency?", "why are we so concerned with false positives?",
+"does it cover the case it was built for?". Nothing in the framework asks those. `spec-planner`,
+`/implement-trd` and `verify-app` all treat a written requirement as legitimate by construction,
+so a fabricated one is executed rather than examined.
+
 #### The mechanism: a derived-requirements readout
 
 **Fleshing out the PRD is the TRD's job, not a defect.** A TRD that adds nothing has failed. The
