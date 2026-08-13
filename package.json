@@ -6,7 +6,7 @@
     "mock-fs": "^5.2.0"
   },
   "name": "ensemble-vnext",
-  "version": "4.1.11",
+  "version": "4.1.12",
   "main": "index.js",
   "directories": {
     "doc": "docs"

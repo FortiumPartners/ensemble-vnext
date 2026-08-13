@@ -10,6 +10,48 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.12] - 2026-08-13
+
+### Fixed
+
+- **`/rebase-project` could never update the hooks block.** Found from a real rebase that reported
+  **9 registrations where the manifest declares 13** — silently missing all three model-judged
+  discipline hooks and `dispatch-ledger.js`'s `SubagentStop` registration.
+
+  The generic settings merge rule is *"existing key, different value → preserve vendored value."*
+  `hooks` is an existing key whose value differs **by definition** whenever the hook set changed —
+  which is the only time a rebase matters. So the hook set could never be updated by a rebase at
+  all.
+
+  The observed pattern matches exactly: `SubagentStart`, `SessionStart` and `PreCompact` landed
+  because they were *new* keys; `Stop` and `SubagentStop` already existed, so their old values were
+  preserved and every new registration on them was dropped. No error — preserving is what the rule
+  said to do.
+
+  `hooks` is now framework-owned and replaced wholesale, with any non-manifest registration carried
+  forward so a user's own hooks survive. A pre-write check refuses to write if the merged block has
+  fewer registrations or prompt entries than the plugin default.
+
+  Two properties are now stated explicitly, because each had already caused a separate bug here:
+  registrations are keyed by **`(event, file)`, never file alone** (`dispatch-ledger.js` registers
+  on two events), and **prompt-type entries have no `command` field**, so anything identifying
+  hooks by parsing `command` cannot see them.
+
+- **`hooks/prompts/*.prompt.md` added to the rebase copy table.** A project receiving the
+  registrations without the prompt text is broken a different way.
+
+### Why this shipped as a version bump
+
+The fix is content, not schema, and 4.1.11's cache was already built. Plugin caches are keyed by
+version, so `/plugin install` would have reported "already 4.1.11" and skipped the corrected
+command. Any behavioural fix to a shipped command needs a version bump to propagate.
+
+**Root cause worth recording:** `init-project.md` is generator-managed via `ENSEMBLE:HOOKS-TABLE`
+markers and stayed correct through the whole conversion. `rebase-project.md` is hand-written prose
+and rotted the moment the hook set changed. `--check` validates the three generated consumers and
+is blind to this one. Item 1 made the hook set manifest-driven with three generated consumers —
+`rebase-project` was never one of them.
+
 ## [4.1.11] - 2026-08-13
 
 ### Removed
