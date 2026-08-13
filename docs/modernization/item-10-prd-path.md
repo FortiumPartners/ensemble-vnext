@@ -1,0 +1,174 @@
+# Item 10 — the PRD path
+
+**Status:** design, agreed 2026-08-13. Scope is `/create-prd`, `/create-prd-team`, `/refine-prd`.
+The TRD path is deliberately separate — see §7.
+
+Parent: `docs/modernization/2026-08-improvement-plan.md` item 10.
+
+---
+
+## 1. What this fixes
+
+Requirements that nobody asked for. Not a hypothetical: `docs/TRD/discipline-judgment.md` carried
+**eight** of them, and each was caught only after work had been spent proving it.
+
+Once a requirement is written down, nothing downstream challenges it. `spec-planner`,
+`/implement-trd` and `verify-app` all treat an artifact line as legitimate by construction. So a
+fabricated requirement is *executed*, not examined.
+
+The failure has a mirror image that is worse, and it is why this design does not simply add a
+critic. A challenger agent manufactures **objections** the same way an analyst agent manufactures
+requirements — by filling the role it was handed. In practice that means striking valid
+requirements and proposing "simplifications" that contradict the spec. Deleting a real requirement
+is harder to detect than adding a fake one.
+
+**Both failures share one cause: an agent asked an open-ended question produces output to fill the
+role.** Every mandate in this design is therefore *findable* — each finding names a source and is
+verifiable in seconds — and no stage may invent or strike on judgment.
+
+---
+
+## 2. Decisions
+
+| # | Decision | Rationale |
+|---|---|---|
+| P1 | **Retire `/create-prd-team`.** One command. | Two of its three teammates are briefed additively — a `tech-feasibility` agent asked for "performance/security implications" will produce performance requirements for a login page whether or not any were asked for. Its synthesis rule (*"where teammates disagree, pick the more conservative recommendation"*) is a ratchet: conservative means more. There is no path in that command by which a requirement is dropped. |
+| P2 | **Subagents, not teammates.** | These are short, independent, read-only analyses returning findings to one caller. No task-list mutation, no coordination. The team model would add the `SendMessage` plumbing that `create-prd-team.md` spends a third of its length warning about, for nothing. |
+| P3 | **Authoring is one specialist subagent, fresh context.** | Fresh context plus expertise. A PRD is synthesis and needs one voice; three merged reports produce a stitched document. |
+| P4 | **Fan-out for verification only, never generation.** | This is the load-bearing rule. Independent agents demonstrably outperform a single one when *verifying and challenging* and manufacture when *generating*. The current `-team` command has this exactly backwards. |
+| P5 | **Verify against SOURCE, never against the brief.** | The brief is derived. Verifying the PRD against it only proves the PRD is faithful to the lead's summary — a dropped or invented requirement in the brief gets *certified*. Circular. |
+| P6 | **Source-fidelity reads the transcript file, not a fork.** | A fork inherits *post-compaction* context. Long design conversations are exactly where rejected paths are numerous **and** the session has compacted, so a fork systematically loses the oldest decisions. The transcript JSONL is the complete record. Also drops the `CLAUDE_CODE_FORK_SUBAGENT` feature-flag dependency. |
+| P7 | **The challenger's mandate is provenance, not opinion.** | *"REQ-4 traces to nothing in the source"* is checkable. *"I think REQ-4 is unnecessary"* is manufactured. Only the first is permitted. This makes striking a valid requirement structurally impossible. |
+
+---
+
+## 3. Workflow
+
+```
+0. RESOLVE SOURCE              main agent
+     document / spec / ticket path  → source = that artifact
+     session-derived                → source = transcript JSONL, path recorded in the PRD
+
+1. BRIEF                       main agent          → docs/PRD/<feature>.brief.md
+     Distil what was actually asked for.
+     An authoring input and a checkable claim about the source — NOT the baseline.
+
+2. AUTHOR                      1 subagent (product-manager, fresh context)
+     Sees brief + repo. Never the raw conversation.
+     Writes the draft including the new Decisions section (§4).
+
+3. VERIFY                      3 subagents, parallel, read-only
+     grounding        does this already exist / contradict the codebase or docs?
+     conformance      does it violate stack.md / constitution.md?
+     source-fidelity  BOTH directions, against SOURCE:
+                        source → PRD : which decisions, rejections and requirements are missing?
+                        PRD → source : which requirements trace to nothing?
+
+4. RECONCILE + READOUT         main agent
+     Apply findings, emit the readout (§5), then COMMAND COMPLETE.
+```
+
+**Placement and why:**
+
+| Stage | Where | Why there |
+|---|---|---|
+| Resolve, Brief | main agent | Only thing holding the conversation |
+| Author | one subagent, fresh | P3 |
+| grounding, conformance | subagents, fresh | Fresh context is a *feature* — they cannot be primed by the discussion that produced the draft |
+| source-fidelity | subagent, fresh + transcript read | P6 |
+| Reconcile | main agent | Orchestrator owns the artifact (`constitution.md` §1) |
+
+**Stage 3 runs on every invocation.** No complexity threshold — a threshold rule is itself an
+unsourced requirement, and it would skip verification exactly when a one-line prompt got
+elaborated into something large. Verifiers are instructed to return empty quickly on a small draft.
+
+---
+
+## 4. Structural change: a Decisions section in the PRD
+
+The TRD has one (`/create-trd` §1.2 — `Decision | Choice | Rationale | Alternatives Considered`).
+**The PRD has nine sections and none of them.** The only mention of alternatives anywhere in
+`/create-prd` is a conditional line in the autonomy boilerplate — *"mention alternatives in the
+artifact if useful"* — pointing at no section that exists.
+
+So a PRD produced by this framework **structurally cannot record "we considered X and rejected it
+because Y."** That is why rejected paths keep resurfacing: the information had nowhere to land.
+
+Add a Decisions section carrying, per decision: what was chosen, why, and **what was rejected and
+why**. Rejections are first-class, not an appendix. Populating and auditing it is the
+source-fidelity stage's job.
+
+This absorbs part of item 11: a decisions-and-rejections section is a per-feature learning loop —
+the place retractions live so they stop circulating as live options.
+
+---
+
+## 5. The derived-requirements readout
+
+Emitted at `COMMAND COMPLETE`. One screen. Length is load-bearing: a three-page readout is not
+read, and an unread guard is worse than none because it looks like coverage.
+
+```
+SOURCE: <transcript path | document path>
+
+  Unsourced (2)   ← review these first; default is removal
+    REQ-7   Latency p95 <= 2000ms          traces to nothing in source
+    NFR-3   99.9% uptime target            traces to nothing in source
+
+  Derived (5)
+    NFR-2   Postgres for persistence       <- stack.md
+    B-4     Idempotency on the webhook     <- existing pattern, packages/api/webhooks/
+    ...
+
+  Missing from PRD (1)
+    Source records rejecting a queue-based design (cost); PRD does not say so.
+```
+
+Unsourced items are listed **first and as deletion candidates**. Stated is not printed — it needs
+no review. If a PRD produces 40 derived requirements, the count itself is the finding.
+
+---
+
+## 6. Interactive and non-interactive modes
+
+`/refine-prd` is unconditionally interactive today (*"User Interview (REQUIRED)"*), and
+`autonomy.md` exempts it wholesale on that basis. That exemption is why the challenge cannot run
+where it is most needed — a fabricated requirement is *most* dangerous unattended, because nobody
+is there to ask "what's the impact of this?"
+
+| Mode | Behaviour |
+|---|---|
+| **Interactive** (default when a human invoked it) | Run the checks, present findings, ask, apply. **Deletion becomes a first-class outcome**, which it is not today. |
+| **Non-interactive** | Same checks, deterministic resolution: unsourced requirements **removed** and listed; contradictions raised as STUCK; mechanism failures reported with evidence. One readout, no questions. |
+
+**The autonomy exemption must become conditional on mode, not command name.** A non-interactive
+`/refine-prd` that stops to ask is the defensive-checkpointing anti-pattern `autonomy.md` forbids,
+and today's blanket exemption would permit it. In non-interactive mode "this requirement has no
+source" is explicitly *not* grounds to ask — the deterministic resolution is to remove it and say so.
+
+---
+
+## 7. Not in scope
+
+- **The TRD path.** Same disease, worse prognosis, and it needs checks this design does not have.
+  A PRD *records*; a TRD *derives* — one PRD line becomes N technical requirements and every
+  derivation is an invention opportunity. All eight of `discipline-judgment.md`'s bad requirements
+  were TRD requirements. It also needs the mechanism, consistency and threshold checks (a
+  provenance readout alone would have passed B009-vs-D5, since both were legitimately derived, and
+  A2's "zero tolerance", where the requirement was real and the *severity* was invented).
+- `/create-trd-team` consolidation — same analysis, separate change.
+- Item 11's learning loop beyond the Decisions section.
+
+---
+
+## 8. Done when
+
+- One `/create-prd`; `/create-prd-team` retired.
+- Authoring runs in a single fresh `product-manager` subagent.
+- Three verifier subagents run in parallel, each with a findable-only mandate.
+- Source-fidelity verifies against source material — transcript or document — never the brief.
+- The PRD template has a Decisions section with rejected alternatives.
+- `/create-prd` emits the readout with unsourced items first.
+- `/refine-prd` has both modes; the `autonomy.md` exemption is conditional on mode.
+- Re-running the current commands on an existing PRD identifies which of its requirements would
+  not survive the source test.

@@ -78,7 +78,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
 | 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | |
-| 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 1–2 days | Fabricated criteria burn whole tasks; 4 instances in one TRD | |
+| 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 1–2 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **PRD path designed** — `docs/modernization/item-10-prd-path.md` |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 
 ---
