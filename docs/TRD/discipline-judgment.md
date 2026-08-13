@@ -285,38 +285,64 @@ prompt entries carry their prompt text or a path to it. `generate-hooks-artifact
 hardcodes `"type": "command"` and must emit the declared type. `--check` must detect drift in
 the new field.
 
-### 3.4 Rollback lever (revised 2026-08-13 — the original spec was not implementable)
+### 3.4 Rollback lever — WITHDRAWN 2026-08-13 (D5 dropped; see §4.4.1)
 
-`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` causes every `hookType: "prompt"` entry to generate as
-`hookType: "command"` instead, restoring the previous behavior. It is read by
-**`generate-hooks-artifacts.sh`**, not by the hook.
+**This section is history.** The lever was never implementable as first specified, was
+re-specified as a regenerate-and-refresh switch (below), and was then found not to work at
+all outside this monorepo — so D5 and DISC-B009 were executed together in 4.1.11, per the
+trigger §4.4.1 set for exactly this.
 
-**Why it cannot be what was originally specified.** §3.4 first required a call-time env read
-inside the hook. That assumed the architecture this TRD is moving *away from*: a command hook can
-read `process.env` because it **is** a process we control, whereas a prompt hook is evaluated by
-the platform and our code never runs. DISC-B007 confirmed there is no channel — the evaluator
-query carries `tools: []` and a fixed payload containing no environment.
+**Why it did not work.** The lever regenerated every `hookType: "prompt"` entry as
+`command`-type, pointing at `.claude/hooks/<file>`. But those `.js` files are never delivered
+to a scaffolded project *under any setting of the variable*: `generate-hooks-artifacts.sh`
+prunes `packages/full/hooks/<file>` for prompt-type entries, and `scaffold-project.sh` copies
+through that directory, so there is nothing to copy. `runtime-refresh.sh` is present-only, so
+existing projects cannot acquire them either. Setting the variable and regenerating produced
+valid `command` hooks pointing at files that existed only during development — the
+allow-everything failure §4.4.1 predicted, arrived at from the opposite direction.
 
-Two other mechanisms were investigated and disproven:
+**Consequence for the schema.** A `hookType: "prompt"` entry's `file` is now an
+**identifier**, not a path. It remains the dedupe key for the copy/symlink lists, the key for
+the conflicting-source check, and the source of the `init-project.md` row title — but nothing
+resolves it to disk, and that table now renders prompt entries as
+`.claude/hooks/prompts/<promptFile>`, the artifact scaffolding actually delivers.
 
-- **The `if` field is not a conditional.** Its schema description is *"Permission rule syntax to
-  filter when this hook runs (e.g. `Bash(git *)`)"* — a tool-call matcher with no env-var syntax.
-  Worse, it is an active footgun on these events: `Stop`/`SubagentStop` have no associated tool
-  call for `if` to match, so **any non-empty `if` there disables the hook unconditionally**,
-  silently. Never set `if` on a Stop or SubagentStop hook.
-- **Cross-gating a command hook against the prompt hook is impossible.** All hooks matched to an
-  event run as independent async generators, merged and run to completion with no early exit, and
-  the outcome is OR-composed — any hook's block wins and nothing cancels another's result. One
-  hook cannot suppress another. (This also answers U1; see §2.1.)
+**Rolling back to regex detection is a `git revert` of 4.1.11.** There is no environment
+variable, and there cannot be a runtime one: a prompt hook is evaluated by the platform with
+no code of ours in the loop.
 
-**What "never latched" means here.** The generator is a script that runs once and exits, so it
-re-reads the variable on every invocation. There is no long-lived process to hold a stale value —
-the build-time equivalent of the call-time discipline 4.1.8's kill-switch bug violated.
+The original specification, retained for the record:
 
-**The honest limitation, stated plainly.** This is a *regenerate-and-refresh* lever, not an
-instantaneous switch. Setting the variable alone changes nothing until
-`generate-hooks-artifacts.sh` runs — and `--check` will correctly report DRIFT if the variable is
-set without regenerating. Rollback is: set the variable, regenerate, refresh the vendored runtime.
+> `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` causes every `hookType: "prompt"` entry to generate as
+> `hookType: "command"` instead, restoring the previous behavior. It is read by
+> **`generate-hooks-artifacts.sh`**, not by the hook.
+>
+> **Why it cannot be what was originally specified.** §3.4 first required a call-time env read
+> inside the hook. That assumed the architecture this TRD is moving *away from*: a command hook can
+> read `process.env` because it **is** a process we control, whereas a prompt hook is evaluated by
+> the platform and our code never runs. DISC-B007 confirmed there is no channel — the evaluator
+> query carries `tools: []` and a fixed payload containing no environment.
+>
+> Two other mechanisms were investigated and disproven:
+>
+> - **The `if` field is not a conditional.** Its schema description is *"Permission rule syntax to
+>   filter when this hook runs (e.g. `Bash(git *)`)"* — a tool-call matcher with no env-var syntax.
+>   Worse, it is an active footgun on these events: `Stop`/`SubagentStop` have no associated tool
+>   call for `if` to match, so **any non-empty `if` there disables the hook unconditionally**,
+>   silently. Never set `if` on a Stop or SubagentStop hook.
+> - **Cross-gating a command hook against the prompt hook is impossible.** All hooks matched to an
+>   event run as independent async generators, merged and run to completion with no early exit, and
+>   the outcome is OR-composed — any hook's block wins and nothing cancels another's result. One
+>   hook cannot suppress another. (This also answers U1; see §2.1.)
+>
+> **What "never latched" means here.** The generator is a script that runs once and exits, so it
+> re-reads the variable on every invocation. There is no long-lived process to hold a stale value —
+> the build-time equivalent of the call-time discipline 4.1.8's kill-switch bug violated.
+>
+> **The honest limitation, stated plainly.** This is a *regenerate-and-refresh* lever, not an
+> instantaneous switch. Setting the variable alone changes nothing until
+> `generate-hooks-artifacts.sh` runs — and `--check` will correctly report DRIFT if the variable is
+> set without regenerating. Rollback is: set the variable, regenerate, refresh the vendored runtime.
 
 ---
 
@@ -358,14 +384,39 @@ set without regenerating. Rollback is: set the variable, regenerate, refresh the
 | ID | Task | Description | Dependencies | Assignee |
 |----|------|-------------|--------------|----------|
 | DISC-B008 | Convert all three hooks | Apply the chosen shape consistently | DISC-T001..T004 | backend-implementer |
-| DISC-B009 | ~~Delete the regex apparatus~~ | **DEFERRED 2026-08-13 — contradicts D5. See §4.4.1.** | DISC-B008 | code-simplifier |
+| DISC-B009 | Delete the regex apparatus **and D5** | **DONE 4.1.11.** Deferred, then executed once the premise behind the deferral was disproven — see §4.4.1. | DISC-B008 | code-simplifier |
 | DISC-T005 | Full regression | CI-scoped jest, BATS, smoke; corpus score must not regress | DISC-B008 | verify-app |
 | DISC-D002 | Amend constitution principle 4 | Record that hooks may now use model judgment, and why the deterministic-layer framing changed (user-approved 2026-08-13) | DISC-B008 | backend-implementer |
 | DISC-D003 | Update the rules | `async-discipline.md`, `autonomy.md`, improvement-plan 5b, `CLAUDE.md` hooks reference | DISC-B008 | backend-implementer |
 
 ---
 
-#### 4.4.1 DISC-B009 deferred — it contradicts D5
+#### 4.4.1 DISC-B009 was deferred, then executed together with D5 (4.1.11)
+
+**RESOLVED.** The reasoning below was sound; its premise was not. The deferral rested on the
+lever being *a working safety net worth keeping*, and it never was one **outside this
+repository**. The three `.js` files are not delivered to a scaffolded project under any
+setting of the variable: `generate-hooks-artifacts.sh` prunes their `packages/full/hooks/`
+symlinks once the manifest entry is prompt-type, so `scaffold-project.sh` has nothing to
+copy, and `runtime-refresh.sh` is present-only so existing projects cannot acquire them
+either. The allow-everything failure the deferral was written to prevent was therefore
+already the lever's behaviour everywhere except a development checkout.
+
+So the trigger below fired for a different reason than anticipated — not "the judge has
+proven itself" but "the fallback was never real" — and the instruction it gave was followed
+exactly: B009 and D5 were deleted **together**, in one change (4.1.11). §3.4 records the
+consequences for the manifest schema.
+
+**One thing was deliberately kept.** The pattern battery is the published baseline in
+`test/discipline-corpus/RESULTS.md` — deleting its source would have made that number
+permanently unreproducible. It was demoted rather than deleted: moved verbatim into
+`test/discipline-corpus/detectors/regex.js` as a frozen, self-contained fixture, marked not
+to be maintained or extended. `node score.js --detector regex` reproduces the same figures,
+per-class, before and after the move.
+
+**The original deferral rationale, retained:**
+
+#### DISC-B009 deferred — it contradicts D5
 
 **Two requirements in this TRD are mutually exclusive, and neither author noticed.**
 

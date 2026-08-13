@@ -80,13 +80,10 @@ teardown() {
     # side effects the restore map cannot cover: the map tracks file CONTENTS,
     # while the generator also creates and prunes packages/full/hooks/ symlinks.
     #
-    # This was invisible until DISC-B008. Before the three discipline hooks
-    # became hookType:"prompt", no real manifest entry was prompt-type, so
-    # toggling ENSEMBLE_DISCIPLINE_JUDGE_DISABLE changed nothing and left
-    # nothing behind. Now the disabled pass regenerates them as command-type and
-    # creates .js symlinks that the restored (prompt-type) manifest does not
-    # want — leaving the tree drifted and failing --check for every later test,
-    # and for anyone running the suite locally.
+    # Any test that appends a fixture entry to the real manifest and runs the
+    # generator can create a packages/full/hooks/ symlink that the restored
+    # manifest does not want — leaving the tree drifted and failing --check for
+    # every later test, and for anyone running the suite locally.
     #
     # Re-run the generator AFTER contents are restored, so it normalizes the
     # symlink set against the real manifest.
@@ -855,80 +852,121 @@ sys.exit(1 if bad else 0)
 # the scaffold's copy list, the template settings.json hook block, and the
 # init-project.md hook table. These tests assert all three still agree with
 # the manifest, and that the manifest itself is internally consistent (every
-# declared file exists, every on-disk hook file has exactly one entry, and
-# the hooks retired in 4.1.0 never come back).
+# declared artifact exists, every on-disk hook artifact has exactly one entry,
+# and the hooks retired in 4.1.0 never come back).
+#
+# "Artifact", not "file": a hookType:"prompt" entry has NO runtime script. Its
+# "file" is an entry IDENTIFIER (dedupe key, row title) that, as of 4.1.11
+# (DISC-B009), resolves to nothing on disk — the regex predecessors it used to
+# name were deleted along with the D5 rollback lever that was their last
+# consumer. What such an entry actually declares is its promptFile under
+# packages/core/hooks/prompts/. These tests check whichever one the entry
+# genuinely claims.
 # =============================================================================
 
-@test "T007: manifest — every declared hook file exists on disk" {
-    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
-import json, os, sys
-manifest = json.load(open(sys.argv[1]))
-repo_root = sys.argv[2]
-missing = []
-for h in manifest["hooks"]:
-    source = h.get("source") or f"packages/core/hooks/{h['file']}"
-    if not os.path.isfile(os.path.join(repo_root, source)):
-        missing.append(source)
-print("missing:", missing)
-sys.exit(1 if missing else 0)
+# The single place the "which artifact does this entry declare" rule is written
+# for these tests. Both of the next two inline it, so they cannot drift apart.
+_manifest_artifact_py() {
+    cat <<'PY'
+def artifact(h):
+    """Repo-relative path of the artifact this manifest entry declares."""
+    if h.get("hookType") == "prompt":
+        return "packages/core/hooks/prompts/" + h["promptFile"]
+    return h.get("source") or "packages/core/hooks/" + h["file"]
 PY
+}
+
+@test "T007: manifest — every declared hook artifact exists on disk" {
+    run python3 -c "$(_manifest_artifact_py)
+import json, os, sys
+manifest = json.load(open('$MANIFEST'))
+missing = [artifact(h) for h in manifest['hooks']
+           if not os.path.isfile(os.path.join('$REPO_ROOT', artifact(h)))]
+print('missing:', missing)
+sys.exit(1 if missing else 0)
+"
     [ "$status" -eq 0 ]
 }
 
-@test "T007: manifest — every hook file on disk is declared, once per event it registers on" {
-    run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
+@test "T007: manifest — a hookType:prompt entry's 'file' is an identifier, not a path" {
+    # Guards the 4.1.11 decision head-on. If someone re-creates
+    # packages/core/hooks/async-discipline.js — by reverting half of DISC-B009,
+    # say — this fails and explains why, instead of the generator quietly
+    # resurrecting a symlink to a file that nothing runs.
+    run python3 -c "
+import json, os, sys
+manifest = json.load(open('$MANIFEST'))
+resurrected = []
+for h in manifest['hooks']:
+    if h.get('hookType') != 'prompt':
+        continue
+    src = h.get('source') or 'packages/core/hooks/' + h['file']
+    if os.path.isfile(os.path.join('$REPO_ROOT', src)):
+        resurrected.append(src)
+print('resurrected:', resurrected)
+sys.exit(1 if resurrected else 0)
+"
+    [ "$status" -eq 0 ]
+}
+
+@test "T007: manifest — every hook artifact on disk is declared, once per event it registers on" {
+    run python3 -c "$(_manifest_artifact_py)
 import json, os, sys
 
-manifest = json.load(open(sys.argv[1]))
-repo_root = sys.argv[2]
+manifest = json.load(open('$MANIFEST'))
+repo_root = '$REPO_ROOT'
 
-# A hook file may legitimately appear MORE THAN ONCE when it registers on
-# several events (dispatch-ledger.js: SubagentStart + SubagentStop). What must
-# stay unique is the (source, event) PAIR — registering the same file twice on
+# A hook may legitimately appear MORE THAN ONCE when it registers on several
+# events (dispatch-ledger.js: SubagentStart + SubagentStop). What must stay
+# unique is the (artifact, event) PAIR — registering the same artifact twice on
 # the same event would install it twice and run it twice per event.
-pairs = [
-    (h.get("source") or f"packages/core/hooks/{h['file']}", h.get("event"))
-    for h in manifest["hooks"]
-]
-duplicates = sorted({f"{s} @ {e}" for (s, e) in pairs if pairs.count((s, e)) > 1})
+pairs = [(artifact(h), h.get('event')) for h in manifest['hooks']]
+duplicates = sorted({f'{a} @ {e}' for (a, e) in pairs if pairs.count((a, e)) > 1})
 
-# A file must also resolve to ONE source across all its entries, or the copy
-# step becomes order-dependent.
+# A 'file' identifier must also resolve to ONE artifact across all its entries,
+# or the copy step becomes order-dependent.
 by_file = {}
-for h in manifest["hooks"]:
-    src = h.get("source") or f"packages/core/hooks/{h['file']}"
-    by_file.setdefault(h["file"], set()).add(src)
-conflicting = sorted(f for f, srcs in by_file.items() if len(srcs) > 1)
+for h in manifest['hooks']:
+    by_file.setdefault(h['file'], set()).add(artifact(h))
+conflicting = sorted(f for f, arts in by_file.items() if len(arts) > 1)
 if conflicting:
-    print("conflicting_sources:", conflicting)
+    print('conflicting_sources:', conflicting)
 
-sources = [s for (s, _e) in pairs]
-
-core_hooks_dir = os.path.join(repo_root, "packages/core/hooks")
-exclude_names = {"hooks.manifest.json", "hooks.json", "package.json", "package-lock.json"}
+core_hooks_dir = os.path.join(repo_root, 'packages/core/hooks')
+exclude_names = {'hooks.manifest.json', 'hooks.json', 'package.json', 'package-lock.json'}
 on_disk = set()
 for fname in os.listdir(core_hooks_dir):
-    full = os.path.join(core_hooks_dir, fname)
-    if not os.path.isfile(full):
+    if not os.path.isfile(os.path.join(core_hooks_dir, fname)):
         continue
-    if fname in exclude_names or ".test." in fname:
+    if fname in exclude_names or '.test.' in fname:
         continue
-    on_disk.add(f"packages/core/hooks/{fname}")
+    on_disk.add('packages/core/hooks/' + fname)
 
-# router.py lives outside packages/core/hooks/ (cross-package hook via "source")
-router_path = "packages/router/hooks/router.py"
+# prompts/ holds the artifacts of hookType:'prompt' entries and is checked the
+# same way: an orphaned prompt is exactly as much of a leak as an orphaned .js
+# hook was, and an undeclared one is silently never shipped. Only *.md counts —
+# build-judge-prompts.js lives here too, and it GENERATES prompts rather than
+# being one, so it has no manifest entry and must not be demanded to have one.
+prompts_dir = os.path.join(core_hooks_dir, 'prompts')
+if os.path.isdir(prompts_dir):
+    for fname in os.listdir(prompts_dir):
+        if fname.endswith('.md') and os.path.isfile(os.path.join(prompts_dir, fname)):
+            on_disk.add('packages/core/hooks/prompts/' + fname)
+
+# router.py lives outside packages/core/hooks/ (cross-package hook via 'source')
+router_path = 'packages/router/hooks/router.py'
 if os.path.isfile(os.path.join(repo_root, router_path)):
     on_disk.add(router_path)
 
-declared = set(sources)
+declared = {a for (a, _e) in pairs}
 missing_from_manifest = sorted(on_disk - declared)
 extra_in_manifest = sorted(declared - on_disk)
 
-print("duplicates:", duplicates)
-print("missing_from_manifest:", missing_from_manifest)
-print("extra_in_manifest:", extra_in_manifest)
+print('duplicates:', duplicates)
+print('missing_from_manifest:', missing_from_manifest)
+print('extra_in_manifest:', extra_in_manifest)
 sys.exit(1 if (duplicates or conflicting or missing_from_manifest or extra_in_manifest) else 0)
-PY
+"
     [ "$status" -eq 0 ]
 }
 
@@ -1082,11 +1120,22 @@ if not m:
     sys.exit(1)
 block = m.group(0)
 
-event_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is not None]
-other_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is None]
+# A hookType:"prompt" entry is rendered as its DELIVERED artifact,
+# .claude/hooks/prompts/<promptFile> — its "file" is an identifier and there is
+# no .claude/hooks/<file> in a scaffolded project to point a reader at
+# (4.1.11 / DISC-B009). Mirrors delivered_path() in generate-hooks-artifacts.sh.
+def rendered(h):
+    if h.get("hookType") == "prompt":
+        return "prompts/" + h["promptFile"]
+    return h["file"]
+
+event_hooks = [rendered(h) for h in manifest["hooks"] if h.get("event") is not None]
+other_hooks = [rendered(h) for h in manifest["hooks"] if h.get("event") is None]
 expected = event_hooks + other_hooks
 
-found = re.findall(r'`\.claude/hooks/([\w.\-]+)`', block)
+# The optional second path segment picks up prompts/<file>.md without also
+# matching the trailing `.claude/hooks/lib/` mention (nothing follows its slash).
+found = re.findall(r'`\.claude/hooks/([\w.\-]+(?:/[\w.\-]+)?)`', block)
 print("expected:", expected)
 print("found:", found)
 sys.exit(0 if found == expected else 1)
@@ -1106,11 +1155,22 @@ if not m:
     sys.exit(1)
 block = m.group(0)
 
-event_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is not None]
-other_hooks = [h["file"] for h in manifest["hooks"] if h.get("event") is None]
+# A hookType:"prompt" entry is rendered as its DELIVERED artifact,
+# .claude/hooks/prompts/<promptFile> — its "file" is an identifier and there is
+# no .claude/hooks/<file> in a scaffolded project to point a reader at
+# (4.1.11 / DISC-B009). Mirrors delivered_path() in generate-hooks-artifacts.sh.
+def rendered(h):
+    if h.get("hookType") == "prompt":
+        return "prompts/" + h["promptFile"]
+    return h["file"]
+
+event_hooks = [rendered(h) for h in manifest["hooks"] if h.get("event") is not None]
+other_hooks = [rendered(h) for h in manifest["hooks"] if h.get("event") is None]
 expected = event_hooks + other_hooks
 
-found = re.findall(r'`\.claude/hooks/([\w.\-]+)`', block)
+# The optional second path segment picks up prompts/<file>.md without also
+# matching the trailing `.claude/hooks/lib/` mention (nothing follows its slash).
+found = re.findall(r'`\.claude/hooks/([\w.\-]+(?:/[\w.\-]+)?)`', block)
 print("expected:", expected)
 print("found:", found)
 sys.exit(0 if found == expected else 1)
@@ -1418,161 +1478,6 @@ PY
     rm -f "$full_hooks_link"
     ln -s "../../../core/hooks/prompts/some-other-file.md" "$full_hooks_link"
 
-    run "$GEN_ARTIFACTS_SCRIPT" --check
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"DRIFT"* ]]
-}
-
-# =============================================================================
-# DISC-B007: kill switch. §3.4 as originally written specified a call-time env
-# var read inside the hook itself — not implementable for a hookType:"prompt"
-# entry, since a prompt-type hook is evaluated entirely by the platform (no
-# code of ours runs, no tools, no arbitrary env vars in its payload — see
-# docs/modernization/probes/U5-kill-switch-mechanism.md for the full proof,
-# including why the "if" field and cross-hook composition don't help either).
-# ENSEMBLE_DISCIPLINE_JUDGE_DISABLE is instead read by generate-hooks-artifacts.sh
-# itself — the only place in this feature where our code actually executes —
-# and forces every hookType:"prompt" entry to generate as command-type. These
-# tests exercise that read directly: unset vs set must produce different
-# settings.json output from the SAME manifest, proving the read is live
-# (fresh per invocation) rather than latched.
-# =============================================================================
-
-@test "kill switch: manifest_shippable_hooks includes a hookType:prompt entry's file only when ENSEMBLE_DISCIPLINE_JUDGE_DISABLE is set" {
-    cat > "$TEST_DIR/synthetic-manifest.json" <<'JSON'
-{
-  "hooks": [
-    { "file": "p.js", "event": "Stop", "matcher": "", "order": 1, "timeout": 20, "registration": "prompt", "shippable": true, "hookType": "prompt", "promptFile": "p.md" }
-  ]
-}
-JSON
-
-    run bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
-    [ "$status" -eq 0 ]
-    [ -z "$output" ]
-
-    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
-    [ "$status" -eq 0 ]
-    [[ "$output" == "p.js"$'\t'"core/hooks/p.js" ]]
-
-    # "0" and "false" must count as unset — a truthy-string bug here would be
-    # the exact kind of "latched" mistake 4.1.8 shipped.
-    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=0 bash -c "source '$SCAFFOLD_SCRIPT'; manifest_shippable_hooks '$TEST_DIR/synthetic-manifest.json'"
-    [ "$status" -eq 0 ]
-    [ -z "$output" ]
-}
-
-# End-to-end: the same manifest, generated twice under different env var
-# states, must produce two DIFFERENT settings.json shapes for the fixture
-# entry — the direct proof that the read is call-time (per-invocation), not
-# a value baked in once. Also proves the honest limitation this switch has:
-# toggling the env var alone changes nothing until generate-hooks-artifacts.sh
-# is re-run, and a regeneration under one state that isn't followed by a
-# matching --check under the SAME state reports drift — there is no
-# instantaneous runtime effect.
-@test "kill switch: same manifest generates type:prompt when unset and type:command when ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1, proving a fresh per-invocation read" {
-    _needs_generator_normalize
-    [ -f "$GEN_ARTIFACTS_SCRIPT" ]
-    local manifest_target="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
-    local settings_target="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
-    local prompt_fixture="$REPO_ROOT/packages/core/hooks/prompts/_zz-disc-b007-fixture.md"
-    local full_hooks_link="$REPO_ROOT/packages/full/hooks/_zz-disc-b007-fixture.js"
-    local full_hooks_prompt_link="$REPO_ROOT/packages/full/hooks/prompts/_zz-disc-b007-fixture.md"
-    _track_for_restore "$manifest_target"
-    _track_for_restore "$settings_target"
-    _track_for_restore "$REPO_ROOT/packages/core/commands/init-project.md"
-    _track_for_restore "$REPO_ROOT/.claude/commands/init-project.md"
-    _track_for_restore "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
-    _track_for_deletion "$prompt_fixture"
-    _track_for_deletion "$full_hooks_link"
-    _track_for_deletion "$full_hooks_prompt_link"
-
-    printf 'FIXTURE PROMPT TEXT — DISC-B007 kill-switch test only.\n' > "$prompt_fixture"
-
-    python3 - "$manifest_target" <<PY
-import json
-path = "$manifest_target"
-with open(path) as fh:
-    data = json.load(fh)
-data["hooks"].append({
-    "file": "_zz-disc-b007-fixture.js",
-    "event": "Stop",
-    "matcher": "",
-    "order": 99,
-    "timeout": 17,
-    "registration": "prompt",
-    "shippable": True,
-    "hookType": "prompt",
-    "promptFile": "_zz-disc-b007-fixture.md",
-    "description": "DISC-B007 test fixture — deleted by teardown()."
-})
-with open(path, "w") as fh:
-    json.dump(data, fh, indent=2)
-    fh.write("\n")
-PY
-
-    # --- Pass 1: unset. Entry generates as type:"prompt", ships only the
-    # prompt-file symlink (no packages/full/hooks/<file> — nothing to run).
-    run "$GEN_ARTIFACTS_SCRIPT"
-    [ "$status" -eq 0 ]
-    [ ! -e "$full_hooks_link" ]
-    [ -L "$full_hooks_prompt_link" ]
-
-    run python3 - "$settings_target" <<'PY'
-import json, sys
-settings = json.load(open(sys.argv[1]))
-entries = settings["hooks"]["Stop"][0]["hooks"]
-fixture = [h for h in entries if h.get("timeout") == 17]
-if len(fixture) != 1:
-    print(f"expected exactly one fixture entry, got {len(fixture)}")
-    sys.exit(1)
-h = fixture[0]
-ok = h.get("type") == "prompt" and "command" not in h
-if not ok:
-    print("unexpected entry shape (unset pass):", json.dumps(h, indent=2))
-sys.exit(0 if ok else 1)
-PY
-    [ "$status" -eq 0 ]
-
-    run "$GEN_ARTIFACTS_SCRIPT" --check
-    [ "$status" -eq 0 ]
-
-    # --- Pass 2: SAME manifest, SAME script, ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1.
-    # The entry must now generate as type:"command", and its script must now
-    # be symlinked into packages/full/hooks/ — proof the env var is read
-    # fresh on this invocation, not cached from pass 1.
-    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 "$GEN_ARTIFACTS_SCRIPT"
-    [ "$status" -eq 0 ]
-    [ -L "$full_hooks_link" ]
-
-    run python3 - "$settings_target" <<'PY'
-import json, sys
-settings = json.load(open(sys.argv[1]))
-entries = settings["hooks"]["Stop"][0]["hooks"]
-fixture = [h for h in entries if h.get("timeout") == 17]
-if len(fixture) != 1:
-    print(f"expected exactly one fixture entry, got {len(fixture)}")
-    sys.exit(1)
-h = fixture[0]
-ok = (
-    h.get("type") == "command"
-    and "prompt" not in h
-    and "_zz-disc-b007-fixture.js" in h.get("command", "")
-)
-if not ok:
-    print("unexpected entry shape (disabled pass):", json.dumps(h, indent=2))
-sys.exit(0 if ok else 1)
-PY
-    [ "$status" -eq 0 ]
-
-    # Regenerating under the disabled state must itself be clean...
-    run env ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1 "$GEN_ARTIFACTS_SCRIPT" --check
-    [ "$status" -eq 0 ]
-
-    # ...but --check WITHOUT the env var now reports DRIFT: this is the
-    # honest limitation. The switch has no effect until you regenerate, and
-    # forgetting to keep regenerating under a consistent state is drift like
-    # any other. There is no instantaneous runtime toggle here.
     run "$GEN_ARTIFACTS_SCRIPT" --check
     [ "$status" -ne 0 ]
     [[ "$output" == *"DRIFT"* ]]

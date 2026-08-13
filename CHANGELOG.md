@@ -10,6 +10,62 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.11] - 2026-08-13
+
+### Removed
+
+- **The regex apparatus, and the rollback lever it existed for — together.** `DISC-B009` was
+  deferred because deleting the pattern battery would leave `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE`
+  emitting `command`-type hooks with no detection logic. Sound reasoning, false premise: **the
+  lever never worked outside this repository.** The three `.js` hooks are not delivered to
+  scaffolded projects — the generator prunes their `packages/full/hooks/` symlinks once the entry
+  becomes prompt-type, so the scaffold has nothing to copy, and `runtime-refresh.sh` is
+  present-only so existing projects cannot acquire them either. It resurrected files that exist
+  only during development.
+
+  Deleted: `{async,autonomy,subagent}-discipline.js` and their vendored copies,
+  `lib/async-claim-detector.js`, `lib/transcript-text.js` (orphaned — verified by grep, not
+  assumed), the dead `subagent-discipline.test.js`, and every trace of the lever from the
+  generator, `scaffold-project.sh`, and their tests. A comment survives at the removal site so
+  nobody re-adds it.
+
+- **The `init-project` hook table stopped rendering a path that never existed.** Prompt-type
+  entries were listed as `.claude/hooks/<name>.js` — a file no scaffolded project has ever had.
+  That was tolerable only while the lever could resurrect it. They now render as
+  `.claude/hooks/prompts/<promptFile>`, the artifact scaffolding actually delivers, and the header
+  count derives from delivered paths rather than manifest identifiers — honest by construction
+  rather than by coincidence.
+
+### Preserved
+
+- **The retired detector survives as a frozen baseline**, moved into
+  `test/discipline-corpus/detectors/regex.js` and made self-contained. `--detector regex` still
+  runs and still produces an identical score, per-class as well as overall, so the judge's
+  comparison stays reproducible after its subject is gone. Marked explicitly as a historical
+  snapshot: not maintained, not extended. The regexes are no longer runtime code — they are a test
+  fixture.
+
+### Fixed
+
+- **A stale regex floor quoted throughout the project.** `100% precision / 13.6% recall` appears in
+  `RESULTS.md` and in 4.1.9's and 4.1.10's changelog entries. It was measured on the 61-case corpus,
+  before the `payload-escape-valve` class existed. The correct figure on the current 66-case corpus
+  is **66.7% precision / 16.0% recall**.
+
+  The recall drift is immaterial — the judge's 96–100% dwarfs either number. The precision drop is
+  not: this project repeatedly summarized the baseline as *"regex precision is perfect; recall is
+  the structural problem,"* which held only while the corpus was text-only. The payload cases give
+  the matcher two false positives because it cannot read the payload at all — it blocks a
+  legitimate deferral backed by real `background_tasks` and clears a fabricated one where it is
+  empty. On payload-sensitive cases the matcher is wrong in *both* directions.
+
+  That reasoning was recorded when the payload class landed; the corrected *numbers* were never
+  propagated to the summary tables, so the stale pair kept being quoted. Released entries are left
+  as they were — the correction lives here so history stays honest about what was believed when.
+
+  Found because the agent doing the deletion measured the baseline on `main` **before** touching
+  anything, specifically so a stale target could not be mistaken for a regression it had caused.
+
 ## [4.1.10] - 2026-08-13
 
 ### Added

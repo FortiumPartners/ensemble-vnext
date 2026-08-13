@@ -391,9 +391,13 @@ and explicitly withdrawn as an acceptance criterion (TRD §6.1.1) rather than as
 semantic half) was investigated and found impossible — hooks on one event run as independent
 generators with no way for one to gate another (TRD §3.4) — so the escape valves
 (`background_tasks`/`session_crons`) live inside the judge prompt instead (TRD §2.2, "Shape A").
-The regex phrase-matchers below are retained, not deleted, as the `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE`
-rollback path (TRD §3.4) — item 5b's original framing assumed deletion; that is now tracked as a
-separate, deliberately-deferred follow-up (`docs/TRD/discipline-judgment.md` §4.4, DISC-B009).
+The regex phrase-matchers below **are deleted** (4.1.11, DISC-B009), which is what item 5b's
+original framing assumed. They were briefly retained as the `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE`
+rollback path, then dropped together with that lever once it was found the `.js` files it pointed
+at are never delivered to a scaffolded project — the lever would have emitted command hooks with
+no detection logic behind them (`docs/TRD/discipline-judgment.md` §3.4, §4.4.1). A frozen copy of
+the battery survives only as a scoring fixture at `test/discipline-corpus/detectors/regex.js`, so
+the published baseline stays reproducible.
 
 `async-discipline.js` (296 LOC) and `autonomy-discipline.js` (287 LOC) are regex phrase-matchers
 over hand-extracted transcript text. The changelog records the whack-a-mole: 3.3.11 "forbid hedged

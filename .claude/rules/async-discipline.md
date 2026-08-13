@@ -3,9 +3,10 @@
 **Status:** active. Enforced as a model-judged `Stop` hook (`hookType: "prompt"`, prompt text
 at `packages/core/hooks/prompts/async-discipline.prompt.md`) on every `Stop` event — the
 platform's own judge evaluates the turn's final message against this rule directly, rather
-than a regex matcher inside `async-discipline.js`. The manifest entry keeps that filename;
-see `docs/TRD/discipline-judgment.md` for the conversion and Override, below, for the
-rollback lever.
+than a regex matcher inside `async-discipline.js`. That file was deleted in 4.1.11; the
+manifest entry keeps `async-discipline.js` as its `file` value, which is now an entry
+IDENTIFIER rather than a path — nothing resolves it to disk. See
+`docs/TRD/discipline-judgment.md` for the conversion.
 
 ## The rule
 
@@ -111,10 +112,10 @@ resume the agent later — however it happens to be phrased — instead of match
 phrase list. A regex battery used to do this job and it failed in production on a
 one-character paraphrase: a real subagent wrote “waiting **on** the monitor event for
 completion” and was not caught, because every pattern (and all 24 tests written against
-them) used “waiting **for**” — see `docs/TRD/discipline-judgment.md` §1.1. The patterns
-still exist inside `async-discipline.js` and are exercised only if
-`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` rolls this hook back to command-type — see Override,
-below.
+them) used “waiting **for**” — see `docs/TRD/discipline-judgment.md` §1.1. Those patterns
+were deleted in 4.1.11; a frozen copy survives only as a scoring fixture at
+`test/discipline-corpus/detectors/regex.js`, so the published baseline the judge is measured
+against stays reproducible.
 
 ### Self-documentation is not a violation
 
@@ -162,19 +163,27 @@ assertion the turn stops on?) fail open — allow.
 
 ## Override
 
-The operative kill switch is `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` (DISC-B007): set it before
-running `generate-hooks-artifacts.sh` and this hook — along with `autonomy-discipline.js` and
-`subagent-discipline.js` — regenerates as `hookType: "command"`, running each file's own
-pattern-matching code exactly as it ran before these hooks became model-judged. This is a
-regenerate-and-refresh operation, not an instantaneous runtime toggle: the manifest's own
-`$comment` and `docs/TRD/discipline-judgment.md` §3.4 explain why a call-time read inside a
-prompt-type hook isn't possible — the platform evaluates it with no code of ours in the loop.
+**There is no runtime kill switch, and as of 4.1.11 there is no build-time one either.**
+To disable or change this guard, edit `packages/core/hooks/prompts/async-discipline.prompt.md`
+(or remove the entry from `hooks.manifest.json`), re-run `generate-hooks-artifacts.sh`, and
+deliver the result through the usual `--refresh` channel.
 
-Once rolled back to command-type, `async-discipline.js`'s own env vars apply again:
-`ENSEMBLE_ASYNC_DISCIPLINE_DEBUG=1` (stderr diagnostics) and
-`ENSEMBLE_ASYNC_DISCIPLINE_DISABLE=1` (skip the guard entirely — **not recommended**, the
-failure mode this guards is real and recurring). Neither does anything while the hook is
-running as `hookType: "prompt"`.
+A regenerate-time lever did briefly exist — `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` (D5 /
+DISC-B007) regenerated every `hookType: "prompt"` entry as `command`-type, pointing back at
+each hook's regex predecessor. It was dropped together with those predecessors in 4.1.11
+(`docs/TRD/discipline-judgment.md` §4.4.1) because it never worked outside the development
+checkout: the generator prunes `packages/full/hooks/<file>` for prompt-type entries and
+`scaffold-project.sh` copies through that directory, so no scaffolded project ever received
+the `.js` files the lever pointed at, with or without the variable set. It would have emitted
+valid `command` hooks that silently allow everything — a safety net that reports as present
+while having no detection logic behind it. Reverting to regex detection is a `git revert` of
+4.1.11, not an environment variable.
+
+`ENSEMBLE_ASYNC_DISCIPLINE_DEBUG` and `ENSEMBLE_ASYNC_DISCIPLINE_DISABLE` belonged to the
+deleted `async-discipline.js` and no longer exist. A prompt-type hook is evaluated entirely
+by the platform, with no code of ours in the loop and no environment in its payload — see
+`docs/modernization/probes/U5-kill-switch-mechanism.md` for the proof that no env-var
+mechanism of any shape is available to it.
 
 Never set `if` on this hook, or on any `Stop`/`SubagentStop` hook: the field's schema is a
 tool-call permission matcher ("Permission rule syntax to filter when this hook runs"), and
@@ -190,10 +199,9 @@ completions", burning ~240k tokens across 179 tool calls and returning nothing.
 `subagent-discipline.js` (registered on `SubagentStop`, right after `status.js`) catches
 this in the place `async-discipline.js` never looks. Like `async-discipline.js`, it is now
 model-judged (`hookType: "prompt"`, prompt text at
-`packages/core/hooks/prompts/subagent-discipline.prompt.md`) rather than driven by the
-pattern battery in `.claude/hooks/lib/async-claim-detector.js` — that battery, and the
-matching code inside `subagent-discipline.js` itself, are retained only for the rollback
-lever described in Override, above.
+`packages/core/hooks/prompts/subagent-discipline.prompt.md`) rather than driven by a pattern
+battery. That battery — and the `.js` files that held it — were deleted in 4.1.11; see
+Override, above.
 
 **The rule is stricter for subagents than for the lead**, verified empirically
 (2026-08-12 — see `docs/modernization/2026-08-improvement-plan.md` item 5e for the full
@@ -218,8 +226,8 @@ points):
 
 **Loop safety.** Blocking forever is worse than the failure being guarded. A subagent
 that genuinely cannot proceed must be allowed to stop, with the situation visible in its
-final message. In normal (model-judged) operation the loop guard is the same
-`stop_hook_active` precedence check `async-discipline.js` uses: `false` the first time a
+final message. The loop guard is the same
+`stop_hook_active` precedence check the lead's guard uses: `false` the first time a
 turn reaches the hook, `true` on any re-entry that followed a block from THIS hook, and the
 judge is instructed to allow unconditionally on `true` — exactly one corrective round-trip,
 no persisted state needed (see the bullet list above: `stop_hook_active` is present on
@@ -228,21 +236,14 @@ subagent's own claim (see above), so a subagent still blocked after its one corr
 has nothing left to try except stating the blocker plainly and stopping — which the judge is
 instructed to allow.
 
-The command-type code path — live only when `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` rolls this
-hook back (see Override, above) — uses a different mechanism: `subagent-discipline.js`
-persists a per-`agent_id` consecutive-block counter (a small JSON file under the OS temp
-dir — hook invocations are isolated processes, nothing else survives between them) and caps
-it at `MAX_CONSECUTIVE_BLOCKS` (2): the third consecutive claim from the same `agent_id` is
-allowed through unconditionally and the counter resets. The counter also resets the moment a
-turn does NOT contain a deferred-work claim. If `agent_id` is absent from the payload the
-loop cannot be bounded safely, so the guard degrades to allow rather than risk blocking
-without a cap. The platform's own `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) is a hard
-backstop underneath either mechanism, not something either relies on.
+The platform's own `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) is a hard backstop
+underneath that, not something the guard relies on.
 
-Env vars (apply once rolled back to command-type via `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE`; in
-normal model-judged operation, use that variable instead):
-`ENSEMBLE_SUBAGENT_DISCIPLINE_DISABLE=1` (skip the guard),
-`ENSEMBLE_SUBAGENT_DISCIPLINE_DEBUG=1` (stderr diagnostics).
+Before 4.1.11 the command-type `subagent-discipline.js` bounded the loop differently, with a
+per-`agent_id` consecutive-block counter persisted to a small JSON file under the OS temp dir
+and capped at 2. That file, its counter, and its `ENSEMBLE_SUBAGENT_DISCIPLINE_DISABLE` /
+`ENSEMBLE_SUBAGENT_DISCIPLINE_DEBUG` env vars no longer exist — `stop_hook_active` reaches
+the same bound with no persisted state, which is why the counter was not carried forward.
 
 ## Orchestration pattern: the scheduled nudge
 
@@ -250,8 +251,8 @@ normal model-judged operation, use that variable instead):
 `SendMessage` reaches a named background agent with its context intact. Combined, these
 give an orchestrator a way to actively babysit dispatched background work instead of
 just hoping a completion notification arrives — without any timeout mechanism (this
-project deliberately does not use timeouts for this; `subagent-discipline.js`'s block
-cap is a *loop* guard, not a *time* guard).
+project deliberately does not use timeouts for this; the subagent guard's `stop_hook_active`
+bound is a *loop* guard, not a *time* guard).
 
 The shape:
 
@@ -305,24 +306,22 @@ Two facts, both established by probing the live payloads rather than reading the
   row whose `prompt_id` differed from its own `start` row. Correlate on `agent_id` only.
 
 State is the last event per `agent_id`: `start` → running, `stop` → finished, `blocked`
-→ running. The `blocked` row is what makes this exact — **but only when
-`subagent-discipline.js` is running as `hookType: "command"`** (rollback mode; see
-Override, above). The compensating-row logic (`recordBlockInLedger`) lives inside that
-file's own JS `main()`, which does not execute at all when the hook is model-judged — the
-platform evaluates the prompt directly and no code of ours runs. In normal (model-judged)
-operation, a judge block on `SubagentStop` still lets `dispatch-ledger.js` (order 3, still
-command-type, runs after) write its `stop` row exactly as if the subagent had actually
-finished, because nothing tells it otherwise. **This is a known gap introduced by the
-conversion to `hookType: "prompt"`, not yet closed**: `--open`'s output cannot currently be
-trusted to distinguish "genuinely finished" from "blocked and resumed" for a subagent
-running under the model-judged guard. Cross-check against the session transcript or
-`background_tasks` if that distinction matters, until the gap is closed.
+→ running. **No `blocked` row is currently written.** The compensating-row logic
+(`recordBlockInLedger`) lived inside `subagent-discipline.js`'s own JS `main()`, which
+stopped executing when the hook became model-judged — the platform evaluates the prompt
+directly and no code of ours runs — and that file was deleted outright in 4.1.11. A judge
+block on `SubagentStop` therefore lets `dispatch-ledger.js` (order 3, still command-type,
+runs after) write its `stop` row exactly as if the subagent had actually finished, because
+nothing tells it otherwise. **This is a known gap introduced by the conversion to
+`hookType: "prompt"`, not yet closed**: `--open`'s output cannot be trusted to distinguish
+"genuinely finished" from "blocked and resumed". Cross-check against the session transcript
+or `background_tasks` if that distinction matters, until the gap is closed.
 
-This is the lead-session mirror of what `subagent-discipline.js` enforces from the
+This is the lead-session mirror of what the `SubagentStop` guard enforces from the
 hook side: a subagent is never allowed to just claim it'll check back later, and the
 orchestrator is never left purely hoping a notification arrives — it actively re-checks
 and nudges. Neither side relies on a timer; both rely on an explicit re-entry point
-(`ScheduleWakeup` for the lead, the block/loop-cap for the subagent).
+(`ScheduleWakeup` for the lead, the `stop_hook_active` bound for the subagent).
 
 **What this still does not cover.** The `SubagentStop` guard only fires when an agent
 *stops*. An agent that keeps running without progressing never stops, so nothing blocks

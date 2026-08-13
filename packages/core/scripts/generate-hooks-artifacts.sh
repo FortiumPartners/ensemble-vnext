@@ -92,35 +92,16 @@ CHECK = check_str.strip().lower() == "true"
 manifest = json.load(open(manifest_path))
 hooks = manifest["hooks"]
 
-# DISC-B007 kill switch. §3.4 originally specified a CALL-TIME env var read
-# inside the hook itself ("restores command-type behavior without a
-# redeploy"). That is not implementable for a hookType:"prompt" entry: a
-# prompt-type hook is evaluated entirely by the platform (no code of ours
-# runs), the evaluator gets zero tools and a fixed JSON payload with no
-# arbitrary env vars (verified live and against the CLI's own source — see
-# docs/modernization/probes/U5-kill-switch-mechanism.md), and the "if" field
-# is a tool-call permission-pattern matcher, not a conditional expression —
-# confirmed empirically: setting `if` to an env-var-shaped string on a Stop
-# hook silently disables it unconditionally (there is no tool call at Stop
-# time for it to match against), it does not gate on the string's content.
-# Nor can a second, cross-gating hook suppress the prompt hook's evaluation:
-# every hook registered on an event always runs and any hook's block is
-# OR'd into the outcome — there is no mechanism for one hook's result to
-# cancel another's.
+# D5 / ENSEMBLE_DISCIPLINE_JUDGE_DISABLE was dropped in 4.1.11 together with
+# the regex hooks it rolled back to (DISC-B009, TRD §4.4.1). The lever
+# regenerated every hookType:"prompt" entry as command-type, pointing at
+# .claude/hooks/<file> — but those .js files were never delivered to a
+# scaffolded project under ANY setting of the variable, because the symlink
+# loop below prunes packages/full/hooks/<file> for prompt-type entries and
+# scaffold-project.sh copies through that directory. The lever therefore
+# emitted command hooks pointing at files that existed only in this
+# monorepo checkout. Restoring the regexes is a git revert, not an env var.
 #
-# The only place in this feature where OUR code runs at all is this
-# generator, so that is where the switch lives: read once, per invocation,
-# fresh every time this script runs (there is no persistent process or
-# module-load step to latch against — every invocation is a new interpreter,
-# which is the build-time equivalent of "read at call time, never latched").
-# Setting it and re-running this script (then delivering the regenerated
-# settings.json to affected projects via the existing --refresh channel)
-# reverts every hookType:"prompt" entry to its command-type predecessor's
-# behavior. This is an operational rollback lever, not an instantaneous
-# runtime toggle — see the probe doc for the full reasoning and the §3.4/D5
-# amendment this motivates.
-DISCIPLINE_JUDGE_DISABLE = os.environ.get("ENSEMBLE_DISCIPLINE_JUDGE_DISABLE", "").strip().lower() not in ("", "0", "false")
-
 # ---------------------------------------------------------------------------
 # 1. Template settings.json — regenerate the "hooks" key only.
 # ---------------------------------------------------------------------------
@@ -180,8 +161,6 @@ def build_hooks_block():
             hook_cmds = []
             for h in group_hooks:
                 hook_type = h.get("hookType", "command")
-                if hook_type == "prompt" and DISCIPLINE_JUDGE_DISABLE:
-                    hook_type = "command"
                 if hook_type == "command":
                     command = f"bash -c '{CD_WRAPPER} && .claude/hooks/{h['file']}'"
                     hook_cmds.append({
@@ -267,13 +246,33 @@ def clean_description(desc):
         first = first[0].lower() + first[1:]
     return first
 
+def delivered_path(h):
+    # What a scaffolded project actually receives for this entry. A
+    # hookType:"prompt" entry has NO runtime script — its only delivered
+    # artifact is .claude/hooks/prompts/<promptFile> (copy_hook_prompts() in
+    # scaffold-project.sh). Rendering its "file" here as
+    # `.claude/hooks/<file>.js` told the reader to go look at a path that has
+    # never existed in a scaffolded project; that was tolerable only while
+    # the D5 rollback lever could resurrect the script, and D5 is gone
+    # (4.1.11). "file" survives as the manifest's entry IDENTIFIER — it is
+    # the dedupe key in three generators, the conflicting-source check's key,
+    # and the source of the row title — but it is no longer rendered as a
+    # path for prompt-type entries.
+    if h.get("hookType") == "prompt":
+        return f".claude/hooks/prompts/{h['promptFile']}"
+    return f".claude/hooks/{h['file']}"
+
 event_hooks = [h for h in hooks if h.get("event") is not None]
 other_hooks = [h for h in hooks if h.get("event") is None]
 
 # A file can register on several events (dispatch-ledger.js), so the number of
 # ROWS below is not the number of FILES on disk. Say both rather than print a
 # count that contradicts `ls`.
-distinct_files = len({h["file"] for h in event_hooks})
+# Count DELIVERED artifacts, not manifest "file" identifiers — for a
+# prompt-type entry the delivered artifact is its promptFile. They happen to
+# be 1:1 today, but counting what is rendered keeps the header honest by
+# construction rather than by coincidence.
+distinct_files = len({delivered_path(h) for h in event_hooks})
 if distinct_files == len(event_hooks):
     header = f"Check these hooks in `.claude/hooks/` ({distinct_files} total):"
 else:
@@ -286,7 +285,7 @@ for i, h in enumerate(event_hooks, start=1):
     title = title_for(h["file"], h["event"])
     desc = clean_description(h["description"])
     lines.append(
-        f"{i}. **{title}** (`{h['event']}`) — `.claude/hooks/{h['file']}` ({desc})"
+        f"{i}. **{title}** (`{h['event']}`) — `{delivered_path(h)}` ({desc})"
     )
 lines.append("")
 
@@ -294,7 +293,7 @@ if other_hooks:
     parts = []
     for h in other_hooks:
         desc = clean_description(h["description"])
-        parts.append(f"`.claude/hooks/{h['file']}` (not event-registered — {desc})")
+        parts.append(f"`{delivered_path(h)}` (not event-registered — {desc})")
     plus_line = "Plus " + ", ".join(parts) + " and `.claude/hooks/lib/` (shared helpers)."
     lines.append(plus_line)
     lines.append("")
@@ -403,27 +402,17 @@ if [[ -d "$FULL_HOOKS_DIR" ]]; then
         ln -s "$target" "$dst"
         echo "Linked: $dst -> $target"
     done < <(python3 -c '
-import json, os, sys
+import json, sys
 manifest = json.load(open(sys.argv[1]))
-# DISC-B007: when the kill switch is set, every hookType:"prompt" entry
-# generates as command-type (see build_hooks_block()/DISCIPLINE_JUDGE_DISABLE
-# above) and therefore DOES need its "file" script symlinked here like any
-# other command hook — skipping it would ship a settings.json that points at
-# .claude/hooks/<file> with no file behind the link.
-disabled = os.environ.get("ENSEMBLE_DISCIPLINE_JUDGE_DISABLE", "").strip().lower() not in ("", "0", "false")
 seen = set()
 for h in manifest.get("hooks", []):
     if not h.get("shippable"):
         continue
     # A hookType:"prompt" entry has no runtime script at .claude/hooks/<file>
-    # to link — its shippable artifact is promptFile, handled below. Linking
-    # "file" here for a prompt-type entry would create a symlink pointing at
-    # a source file that need not exist (or, once DISC-B008 lands, would
-    # merely still exist as a kill-switch rollback artifact rather than
-    # anything the prompt hook actually runs) — UNLESS the kill switch is
-    # active, in which case the entry is generating as command-type and its
-    # script genuinely needs to be there.
-    if h.get("hookType") == "prompt" and not disabled:
+    # to link — its shippable artifact is promptFile, handled below, and its
+    # "file" is an identifier rather than a path (no such source file exists
+    # as of 4.1.11). Linking it would create a dangling symlink.
+    if h.get("hookType") == "prompt":
         continue
     f = h["file"]
     if f in seen:
@@ -447,14 +436,13 @@ for h in manifest.get("hooks", []):
     # anything else in the directory (hooks.json, hooks.manifest.json,
     # README.md, lib/, prompts/) is left alone.
     mapfile -t expected_files < <(python3 -c '
-import json, os, sys
+import json, sys
 manifest = json.load(open(sys.argv[1]))
-disabled = os.environ.get("ENSEMBLE_DISCIPLINE_JUDGE_DISABLE", "").strip().lower() not in ("", "0", "false")
 seen = set()
 for h in manifest.get("hooks", []):
     if not h.get("shippable"):
         continue
-    if h.get("hookType") == "prompt" and not disabled:
+    if h.get("hookType") == "prompt":
         continue
     if h["file"] not in seen:
         seen.add(h["file"])
