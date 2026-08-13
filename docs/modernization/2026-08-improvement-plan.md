@@ -331,6 +331,8 @@ time has meant each is examined only when it breaks. Do the layer at once.
 | 5c | `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR` | ✅ 4.1.4 |
 | 5c | Formatter: npx cost + `/init-project` installing what it configures | ✅ 4.1.5 / 4.1.6 |
 | 5d | Adopt `InstructionsLoaded` | ❌ **open** |
+| 5e | Discipline guard on `SubagentStop` | ❌ **open** |
+| 5e | Orchestrator-side timeout for hung subagents | ❌ **open** |
 
 Three distinct problems, handled together because the retirements change what the rest has to cover:
 
@@ -426,6 +428,35 @@ iteration cap stays as the termination guarantee.
 
   Separately, the hook still rewrites files silently after the model edits them, which can surface
   as diffs nobody in the conversation authored.
+
+**5e. Guard the subagents, not just the main session.**
+
+The discipline hooks only run on `Stop`, so they protect the orchestrator and nothing else.
+Three subagents in one session ended with "I'll wait for the monitor notifications to arrive"
+and "Waiting for background scenario completions" — burning ~240k tokens across 179 tool calls
+and returning nothing. Precisely the failure `async-discipline` exists to catch, in the place
+it does not look.
+
+`SubagentStop` is a better position for this guard than `Stop`:
+
+- It fires **in the parent session** when a subagent finishes.
+- It receives **`last_assistant_message`** — the field 5b wants anyway.
+- It **can block**: *"Prevents the subagent from stopping"*; exit 2 and the subagent continues.
+- `status.js` already runs there, so the wiring exists.
+
+And the rule is stronger for subagents than for the lead. **`ScheduleWakeup` is removed from
+every subagent** (first tool filter, foreground and background alike), so a subagent claiming
+deferred work is *definitionally* wrong — there is no mechanism by which it could come back.
+The main-session hook has to check `background_tasks`/`session_crons` because the claim might
+be true; for a subagent it never is. A fuzzy semantic judgment becomes near-deterministic.
+
+**Hung subagents are a different problem, and a hook cannot solve it.** If a subagent never
+returns, `SubagentStop` never fires. There is no documented watchdog, heartbeat, or timeout
+hook. `implement-trd` documents a 30-minute task timeout as PROSE, which means the model has
+to notice and act — a suggestion, not a guard. The fix is orchestrator-side: bound every
+dispatch, the way `test/smoke/lib/` wraps each invocation in `smoke_timeout`. Do this when the
+orchestration moves into code (items 7/8), where a timeout is one argument rather than a
+paragraph the model must remember.
 
 **5d. Adopt `InstructionsLoaded`.** It fires when `CLAUDE.md` or `.claude/rules/*.md` loads — the
 invented rules directory is now a natively recognised path. Both a validation point and a place to
