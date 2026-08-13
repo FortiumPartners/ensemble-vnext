@@ -77,6 +77,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
 | 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 1–2 days | Fabricated criteria burn whole tasks; 4 instances in one TRD | |
+| 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 
 ---
 
@@ -766,6 +767,68 @@ Design constraints that matter:
 acceptance criteria carry provenance; `/create-trd` emits a one-screen derived-requirements
 readout with unsourced items flagged first; and a re-read of an existing PRD/TRD pair produced by
 the current commands identifies which of its requirements would not survive that test.
+
+---
+
+### 11. Learning loop — stop re-deriving what a previous session proved
+
+**Sessions in this project produce durable, verified knowledge and then lose it.** The next
+session starts from the same wrong priors, spends the same tokens re-establishing the same facts,
+and — because the platform docs are unreliable here — sometimes gets them wrong again.
+
+**The evidence is immediate.** `docs/modernization/probes/` now holds **seven** findings
+documents from a single session: prompt-hook schema and payload fields, hook composition
+semantics, the loop-bound constant, reason delivery, kill-switch mechanism, timeout behaviour,
+live loop-safety. **None of them is referenced by `CLAUDE.md` or any rules file.** A new session
+will not know they exist. Several were expensive — the timeout probe alone required forcing
+aborts and reading `--debug-file` internals, because `--print` cannot distinguish "allowed
+cleanly" from "timed out then allowed".
+
+Concrete facts currently at risk of being re-derived from scratch:
+
+- `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` defaults to 8; termination fires on cap+1
+- Hooks on one event run **concurrently**, OR-composed — no hook can gate another
+- `if` on `Stop`/`SubagentStop` is a tool-call matcher, so any non-empty value **silently
+  disables the hook** — an active footgun
+- A prompt-hook timeout resolves to **allow**; default timeout 30 s (prompt), 60 s (agent)
+- `agent_type` carries the agent's **name** when one was given, the type otherwise — never both
+- `stop_reason: tool_use` on a transcript's last text record means the turn **continued**; that
+  text was never a final message
+- Both the hard-cap path and the timeout path are **invisible under `--print`** — empty stdout,
+  nothing in the transcript
+
+**Why the existing mechanisms don't cover this.** `/update-project` is manual, aimed at
+`CLAUDE.md`, and captures project learnings rather than platform facts. `learning.sh` was retired
+in 4.1.0 because nothing invoked it. Memory files exist and help, but nothing routes a *verified
+platform fact* into a place the next session reliably reads.
+
+**Design constraints that make this harder than it looks:**
+
+- **Version-scope everything, or the loop manufactures the problem it solves.** Every finding
+  above is true of CLI **v2.1.229**. Recorded without a version and a verification date, they
+  become exactly the stale confident claims that caused this session to re-probe in the first
+  place. A finding needs: the claim, the version, the date, and **how it was verified**
+  (observed / source-traced / inferred) — that last distinction repeatedly mattered here.
+- **Respect the governance split** (`constitution.md`). `CLAUDE.md` is the fast layer,
+  `constitution.md` and `stack.md` are slow and require confirmation. A learning loop must not
+  quietly edit the slow layer, and per prohibited-pattern 5 nothing should auto-commit.
+- **Capture corrections, not just discoveries.** This session corrected published claims of its
+  own four times. A loop that records only new facts and not *retractions* leaves the wrong
+  version in circulation alongside the right one.
+- **Recurring failure modes are learnings too.** Three separate agents ended turns with completed
+  work undelivered; the orchestrator emitted a `DISPATCHED` banner with nothing dispatched. Those
+  recur across sessions and currently nothing accumulates them.
+- **Cost discipline.** Loading every historical finding into every session is how the always-on
+  budget got to ~12.4k tokens/turn before item 1. An index that points at detail, or
+  progressive disclosure, beats inlining.
+
+**Interaction with item 10.** These are the same failure viewed from both ends — item 10 stops
+work being spent on requirements that were never real; item 11 stops work being spent
+re-establishing facts that already are. Both are about tokens burnt on things nobody needed.
+
+**Done when:** a verified platform finding recorded in one session is available to the next
+without a human remembering it exists; findings carry version, date, and verification method;
+retractions propagate; and the always-on cost of the mechanism is measured rather than assumed.
 
 ---
 
