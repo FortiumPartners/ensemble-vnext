@@ -171,6 +171,6 @@
     "docs_dir": "docs",
     "prd_dir": "docs/PRD",
     "trd_dir": "docs/TRD",
-    "version": "4.1.8"
+    "version": "4.1.9"
   }
 }

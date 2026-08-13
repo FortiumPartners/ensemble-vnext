@@ -10,6 +10,82 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.9] - 2026-08-13
+
+The three discipline hooks move from regular expressions to model judgment.
+Implements `docs/TRD/discipline-judgment.md` (improvement-plan item 5b).
+
+### Changed
+
+- **`async-discipline`, `autonomy-discipline` and `subagent-discipline` are now
+  `hookType: "prompt"`** — evaluated by the platform's judge against the turn's final message and
+  payload, rather than by a phrase battery inside a `.js` hook.
+
+  Regex was the wrong tool for a question about intent, and it failed in production four separate
+  times, most cheaply on `\bcompletion\b` versus "completion**s**" — one character defeating a
+  word boundary. The deeper problem is structural: a matcher only ever finds what someone already
+  thought to write a pattern for, and every new pattern widens the false-positive surface that the
+  code-span/quote/meta-marker apparatus existed to contain.
+
+  Measured against a 66-case corpus built from real transcripts: **recall 13.6% → 96–100%**, with
+  zero self-documentation false positives across three consecutive runs. The judge also reads the
+  **payload**, which the regexes structurally cannot — identical prose blocks when
+  `background_tasks` is empty and passes when it is not, and on payload-sensitive cases the regex
+  detector is wrong in *both* directions.
+
+  Verified live against the real evaluator on both events, including the highest-risk case: a
+  compliant `[STATUS: …] DISPATCHED` banner with real background work is **not** blocked.
+  `command-status.md` requires that banner from every workflow command, and blocking it would have
+  made every compliant command unrunnable.
+
+- **The loop guard is a prompt instruction, not infrastructure.** `stop_hook_active` is `false` on
+  first entry and `true` on re-entry, so the judge allows unconditionally on re-entry — exactly one
+  corrective turn. Proven live by forcing byte-identical offending text through a second time and
+  observing it pass; a content-based judge would have blocked again. The platform's own
+  `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) sits underneath as a backstop, deliberately not
+  relied upon: when it fires under `--print`, stdout is empty and the transcript carries no trace.
+
+- **A judge timeout resolves to allow.** Verified by forcing aborts and confirmed in the CLI source
+  (`outcome:"cancelled"`, a distinct branch from `"blocking"`). The hook cannot wedge a session on
+  evaluator unavailability.
+
+### Added
+
+- **`hookType` / `promptFile` in `hooks.manifest.json`**, emitted by
+  `generate-hooks-artifacts.sh` with `--check` drift detection and delivery through
+  `scaffold-project.sh`. Prompt text lives in files under `packages/core/hooks/prompts/`, generated
+  from `build-judge-prompts.js` — one generator, three outputs, so the shared clauses cannot drift
+  apart the way the patterns did.
+
+- **A rollback lever.** `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` regenerates every prompt entry as
+  command-type. Honest about what it is: a regenerate-and-refresh lever, not an instant switch,
+  because a prompt hook runs no code of ours that could read an env var. The regex hooks are
+  **retained** as its target and will be removed together with the lever once the judge has earned
+  it.
+
+- **`test/discipline-corpus/`** — a 66-case acceptance corpus drawn from real transcripts, a
+  detector-agnostic scoring harness, and `RESULTS.md`.
+
+### Fixed
+
+- The generator never **pruned** a `packages/full/hooks/` symlink whose manifest entry stopped
+  being eligible, leaking stale links after conversion.
+- Six tests invoked the generator against the live repo and restored file *contents* but not its
+  *symlink side effects*, drifting the tree for every later test.
+- `autonomy.md` claimed the rule was "NOT hook-enforced" — wrong since 3.3.12. `CLAUDE.md` still
+  showed `learning.sh` in the Stop chain, retired in 4.1.0.
+
+### Known limitations
+
+- **The dispatch ledger loses its compensating `blocked` row.** `recordBlockInLedger` lives in
+  `subagent-discipline.js`'s `main()`, which no longer executes. Hooks run concurrently, so
+  `dispatch-ledger.js` cannot observe the judge's verdict. The error is transient — the ledger
+  converges on the subagent's next stop — so the wrong window is one corrective turn.
+- **The judge is non-deterministic in both directions.** False-negative counts across three
+  identical runs were 0, 1, 0. Acceptance criteria are stated over multiple runs for this reason.
+- **Deleting the regex apparatus is deferred** — it would leave the rollback lever emitting hooks
+  with no detection logic.
+
 ## [4.1.8] - 2026-08-13
 
 Completes item 5e: the orchestrator can now find its own in-flight subagents.
