@@ -58,7 +58,15 @@ get_formatter_command() {
         js|jsx|ts|tsx|html|css|json|yaml|yml|md)
             if command_exists prettier; then
                 echo "prettier --write"
-            elif command_exists npx; then
+            elif [[ -x "node_modules/.bin/prettier" ]]; then
+                echo "node_modules/.bin/prettier --write"
+            elif [[ "${FORMATTER_ALLOW_NPX:-0}" == "1" ]] && command_exists npx; then
+                # Opt-in only. A bare `npx prettier` DOWNLOADS prettier on every
+                # invocation when the project has no local copy — measured ~2s per
+                # edit, on a PostToolUse hook that fires after every Edit/Write.
+                # A project that wants formatting should declare the dependency;
+                # silently fetching one on each keystroke-equivalent is not a
+                # sensible default.
                 echo "npx prettier --write"
             fi
             ;;

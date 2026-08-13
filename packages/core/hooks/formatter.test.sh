@@ -197,12 +197,27 @@ function_exists() {
     [ "$result" = "prettier --write" ]
 }
 
-# --- Prettier fallback to npx ---
+# --- Prettier fallback: npx is OPT-IN ---
+#
+# A bare `npx prettier` DOWNLOADS prettier on every invocation when the project
+# has no local copy — ~2s, on a PostToolUse hook that fires after every
+# Edit/Write. A project that wants formatting should declare the dependency, so
+# the npx path is now gated behind FORMATTER_ALLOW_NPX=1.
 
-@test "extension routing: .js falls back to npx prettier when prettier not available" {
-    # Don't create prettier, but create npx
+@test "extension routing: .js does NOT silently npx-download prettier by default" {
+    # npx available, no prettier anywhere, and the opt-in NOT set
     create_mock_command "npx"
     export PATH="${MOCK_BIN}:$PATH"
+    unset FORMATTER_ALLOW_NPX
+
+    result=$(get_formatter_command "js" "/test/file.js")
+    [ -z "$result" ]
+}
+
+@test "extension routing: .js uses npx prettier when FORMATTER_ALLOW_NPX=1" {
+    create_mock_command "npx"
+    export PATH="${MOCK_BIN}:$PATH"
+    export FORMATTER_ALLOW_NPX=1
 
     result=$(get_formatter_command "js" "/test/file.js")
     [ "$result" = "npx prettier --write" ]

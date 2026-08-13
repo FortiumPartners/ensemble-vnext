@@ -2,7 +2,7 @@
 """
 UserPromptSubmit Router Hook for Claude Code.
 
-Injects a single static "leverage the framework" reminder on each user prompt.
+Injects a framework-orientation reminder on qualifying user prompts.
 
 This hook used to perform keyword matching against router-rules.json to suggest
 specific subagents/skills per prompt. That approach predates Claude Code's native
@@ -31,16 +31,38 @@ import time
 from dataclasses import dataclass
 
 
-# === The static reminder injected on each prompt ===
-FRAMEWORK_HINT = """ENSEMBLE FRAMEWORK ACTIVE — prefer the framework's own machinery over ad-hoc work:
-- Delegate implementation, verification, and review to the specialized subagents
-  (frontend-/backend-/mobile-implementer, verify-app, code-simplifier, code-reviewer,
-  app-debugger, devops-engineer, cicd-specialist) instead of doing that work inline.
-- Invoke relevant Skills via the Skill tool, and follow .claude/rules/
-  (constitution.md, stack.md, process.md).
-- For feature work use the workflow commands (/create-prd -> /create-trd ->
-  /implement-trd); check .trd-state/ for in-flight work before starting something new.
-Use judgment — skip this for trivial edits or purely informational replies."""
+# === The reminder injected on qualifying prompts ===
+#
+# Purpose, re-confirmed from the original design: turn a raw request like
+# "build me a login page" into guidance down the framework's core path, without
+# the user having to remember the flow or re-state it every session.
+#
+# What this deliberately does NOT do: name specific agents or skills by keyword.
+# That was the original behaviour and it misfired — recommending an implementer
+# and a test skill for a pure research question. Native description-based
+# selection routes better than any keyword table. This names the CHOICE to make,
+# not the answer.
+FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
+
+* FLOW. Feature work: /create-prd -> /create-trd -> /implement-trd -> /harden-trd-team
+  -> /verify-trd-team (three passes, fresh session each). Bug or defect:
+  /investigate-issue -> /fix-issue (implement + verify + review in one pass).
+  Iterate an artifact with /refine-prd or /refine-trd. Check .trd-state/current.json
+  for in-flight work before starting something new, and don't hand-roll what a
+  command already does. Code review runs INSIDE /implement-trd via the code-reviewer
+  agent - it is not a separate step to remember.
+
+* SKILLS + SUBAGENTS. Scan the available skills for one that fits this task and
+  invoke it rather than reasoning from memory. Then decide deliberately whether this
+  is subagent work - the orchestrator holds the plan, subagents do the work and
+  return results - or small enough to do inline.
+
+* GOVERNANCE. Check project memory and .claude/rules/ (constitution.md, stack.md,
+  process.md). Assess the request against them, and say so plainly if it conflicts
+  rather than quietly proceeding.
+
+* PROPORTION. This is orientation, not ceremony. Conversational, informational and
+  trivial turns need none of it - answer directly and move on."""
 
 
 @dataclass
@@ -99,6 +121,38 @@ def build_output(additional_context: str) -> dict:
     }
 
 
+def should_skip(prompt: str, cwd: str) -> str:
+    """Return a reason string when the reminder should be suppressed, else "".
+
+    Three deterministic conditions. Deliberately no keyword matching - that is
+    what misfired before and got the original routing removed.
+
+    1. Empty prompt (resumed or blank submission) - nothing to orient.
+    2. Slash-command prompt - the command carries its own instructions, often
+       hundreds of lines of them. Injecting "prefer the framework's machinery"
+       alongside /implement-trd is pure redundancy on exactly the turns where
+       the framework is already driving.
+    3. No ensemble scaffolding in the project - nothing to drift away from, so
+       the reminder would describe a workflow that does not exist here.
+    """
+    if not prompt.strip():
+        return "empty prompt"
+
+    if prompt.lstrip().startswith("/"):
+        return "slash command carries its own instructions"
+
+    if cwd:
+        root = os.path.abspath(cwd)
+        markers = (
+            os.path.join(root, ".claude", "rules"),
+            os.path.join(root, ".trd-state"),
+        )
+        if not any(os.path.isdir(m) for m in markers):
+            return "no ensemble scaffolding in project"
+
+    return ""
+
+
 def main() -> None:
     """Main entry point for the router hook."""
     config = load_config()
@@ -110,10 +164,15 @@ def main() -> None:
 
         input_data = read_input()
         prompt = input_data.get("prompt", "") if isinstance(input_data, dict) else ""
+        cwd = input_data.get("cwd", "") if isinstance(input_data, dict) else ""
 
-        # No reminder for empty prompts (e.g. resumed/blank submissions).
-        hint = FRAMEWORK_HINT if prompt.strip() else ""
-        log_debug(config, f"prompt={len(prompt)} chars; injecting hint={bool(hint)}")
+        skip_reason = should_skip(prompt, cwd)
+        hint = "" if skip_reason else FRAMEWORK_HINT
+        log_debug(
+            config,
+            f"prompt={len(prompt)} chars; "
+            + (f"skipped ({skip_reason})" if skip_reason else "injecting hint"),
+        )
         write_output(build_output(hint))
     except Exception as e:  # never block the prompt
         log_error(f"Unexpected error: {type(e).__name__}: {e}")

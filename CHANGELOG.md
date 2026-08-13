@@ -10,6 +10,54 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.4] - 2026-08-12
+
+Item 5c of the improvement plan, plus the router decision that had been left open
+since 5a.
+
+### Changed
+
+- **The router now fires only when it can help.** It injected a 687-character block on
+  *every* prompt — including slash-command turns, where the command carries hundreds of
+  lines of its own instructions and the reminder is pure redundancy. Three deterministic
+  skip conditions (no keyword matching, which is what misfired and got the original
+  routing removed): empty prompt, prompt starting with `/`, and no ensemble scaffolding
+  in the project.
+
+  The content was rewritten around what it is actually for — turning a raw request like
+  "build me a login page" into guidance down the core path. It now names both flows with
+  confirmed command names (`/create-prd` → `/create-trd` → `/implement-trd` →
+  `/harden-trd-team` → `/verify-trd-team`; and `/investigate-issue` → `/fix-issue`),
+  points at `.trd-state/current.json`, notes that code review runs *inside*
+  `/implement-trd` rather than being a separate step, prompts a deliberate
+  skills-and-subagents decision, and asks for the request to be assessed against project
+  memory and `.claude/rules/`. It closes by saying explicitly that conversational and
+  trivial turns need none of it.
+
+  It still does not name agents or skills by keyword. That was the original behaviour and
+  it misfired — recommending an implementer and a test skill for a pure research
+  question. Native description-based selection routes better; this names the *choice*,
+  not the answer.
+
+- **`formatter.sh` no longer silently downloads prettier.** It fell back to bare
+  `npx prettier`, which fetches the package on every invocation when the project has no
+  local copy — ~2s, on a `PostToolUse` hook that fires after every Edit/Write. It now
+  prefers `node_modules/.bin/prettier` and gates the npx path behind
+  `FORMATTER_ALLOW_NPX=1`. A project that wants formatting should declare the dependency.
+
+### Fixed
+
+- **`resolve-project-root.js` could silently resolve to a *different project*.** It walked
+  up looking for `.claude`/`.trd-state`/`.git`, so a `cwd` outside the project did not
+  fail — any sibling or nested git repo satisfied the `.git` marker, and hooks would then
+  read and write the wrong `.trd-state/`. It now prefers `$CLAUDE_PROJECT_DIR` when set,
+  which is also how every hook in `settings.json` is already invoked, and falls back to
+  the walk only when it is absent.
+
+- `stack.md` still listed `packages/permitter/` in the package structure — a directory
+  deleted in 4.1.0. Caught by the new `artifact-contracts` smoke scenario on its first
+  real run.
+
 ## [4.1.3] - 2026-08-12
 
 Item 3 of the improvement plan: re-baselines vNext's assumptions about *how agents execute*

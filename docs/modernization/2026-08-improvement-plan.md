@@ -71,7 +71,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | |
-| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a done (4.1.0)** |
+| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c done (4.1.4)** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
