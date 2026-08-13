@@ -130,6 +130,36 @@ bounded, recoverable cost (an idle session someone eventually notices); a judge 
 toward blocking would eventually block this project's own documentation about the rule,
 which makes the project unmaintainable.
 
+### There is no "about to" at `Stop` (added 2026-08-13, third violation shape)
+
+**Scope note:** this clause is deliberately an exception to `docs/TRD/discipline-judgment.md`
+§8, which otherwise forbids this conversion from changing what the rules *say*. It changes
+what counts as a violation, not just how enforcement works — recorded as an explicit
+override, not a silent expansion; see the TRD for the full rationale and the measurements
+that motivated it.
+
+The first two claim shapes ("I did X" / "I'm doing X" — past and present tense) were already
+covered. A turn can make the identical false claim in future tense and it was, until now, a
+blind spot: **"I'm going to dispatch those three now,"** turn ends, nothing dispatched. That
+is not a *pending* claim waiting to be fulfilled — the turn is over, so at the moment this
+hook fires, the assertion is already false, in exactly the way "I dispatched them" would be.
+Confirmed empirically: this exact phrasing was missed three times in one build session before
+the clause existed, alongside a control (identical banner prose, dispatch genuinely real) that
+the judge correctly allowed — proof the payload check itself works; the gap was that
+future-tense claims weren't being checked against it at all.
+
+Judge it the same way as the other two tenses: if the payload would show the asserted action
+(a real dispatch in `background_tasks`, a real schedule in `session_crons`) and it is not
+there, "I'm about to X" is unbacked exactly like "I did X" or "I'm doing X" would be.
+
+**This must not catch ordinary mid-turn narration.** The judge only ever sees the turn's
+FINAL message. "I'm going to read the file" followed, within that same turn, by actually
+reading it and reporting the result is completely normal — that intermediate sentence isn't
+even what gets evaluated. This clause fires only when the LAST message itself asserts an
+action as imminent-and-unstarted and the turn ends right there, contradicted by the payload.
+Ambiguous cases (is this stage-setting for something the message goes on to do, or a bare
+assertion the turn stops on?) fail open — allow.
+
 ## Override
 
 The operative kill switch is `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` (DISC-B007): set it before

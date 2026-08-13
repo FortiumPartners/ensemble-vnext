@@ -568,7 +568,17 @@ OBSERVED.
 ## 8. Non-Goals
 
 - **Not** changing what the rules *say*. `async-discipline.md` and `autonomy.md` keep their
-  meaning; only the detection mechanism changes.
+  meaning; only the detection mechanism changes. **Deliberately overridden once, 2026-08-13
+  (post-landing):** a third violation shape ("there is no 'about to' at `Stop`") was added to
+  `async-discipline.md` and the shared judge-prompt generator after the team lead measured
+  the gap directly — three self-committed failures in this build session where a future-tense
+  claim ("I'm going to dispatch those three now," turn ends, nothing dispatched) was missed,
+  because the rule as written only covered past/present-tense deferral claims. A control case
+  (identical banner prose, dispatch genuinely real) was correctly allowed both before and
+  after, confirming the payload check itself was never the problem — only future tense was
+  unguarded. Closing a measured real gap in the rule, rather than deferring it, was judged to
+  matter more than preserving this non-goal's letter; see `.claude/rules/async-discipline.md`'s
+  "There is no 'about to' at `Stop`" section for the clause itself and the full rationale.
 - **Not** touching `dispatch-ledger.js`, `status.js`, `wiggum.js`, `precompact.js`.
 - **Not** fixing the 4 pre-existing BATS failures or the 41 known-failing
   `status.test.js` / `wiggum.test.js` tests.
