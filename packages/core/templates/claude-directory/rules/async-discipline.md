@@ -127,3 +127,78 @@ Diagnostics: `ENSEMBLE_ASYNC_DISCIPLINE_DEBUG=1` — stderr logging.
 
 Disable entirely: `ENSEMBLE_ASYNC_DISCIPLINE_DISABLE=1`. **Not recommended** — the failure
 mode this guards is real and recurring. Use only when actively debugging the hook itself.
+
+## The SubagentStop counterpart: `subagent-discipline.js`
+
+`async-discipline.js` only runs on `Stop`, so it protects the main session and nothing
+else. Subagents fail the same way — three subagents in one observed session ended with
+"I'll wait for the monitor notifications to arrive" and "Waiting for background scenario
+completions", burning ~240k tokens across 179 tool calls and returning nothing.
+`subagent-discipline.js` (`.claude/hooks/subagent-discipline.js`, registered on
+`SubagentStop`, right after `status.js`) catches this in the place `async-discipline.js`
+never looks, by reusing the same pattern battery and matcher from
+`.claude/hooks/lib/async-claim-detector.js` rather than maintaining a second regex engine.
+
+**The rule is stricter for subagents than for the lead**, verified empirically
+(2026-08-12 — see `docs/modernization/2026-08-improvement-plan.md` item 5e for the full
+probe results, since the platform's hooks reference is wrong or silent on all four
+points):
+
+- `ScheduleWakeup` is removed from every subagent by the platform's first tool filter
+  (foreground and background alike). A subagent claiming it will "come back later" or
+  "check back when X finishes" is false **by construction** — there is no mechanism by
+  which it could. So `subagent-discipline.js` does NOT treat a non-empty `session_crons`
+  as a legitimate escape valve the way `async-discipline.js` does for the lead — a
+  subagent cannot have populated it.
+- `Agent({run_in_background: true})` is not filtered the same way, so a non-empty
+  `background_tasks` IS still treated as legitimate (the subagent dispatched its own
+  nested background work).
+- `{"decision":"block","reason":...}` **works** on `SubagentStop` — the subagent
+  resumes with its existing context (it does not respawn), and the `reason` text
+  reaches it; its next turn answers the reason directly.
+- `stop_hook_active` **is** present in the `SubagentStop` payload, same as `Stop`.
+
+**Loop safety.** Blocking forever is worse than the failure being guarded. A subagent
+that genuinely cannot proceed must be allowed to stop, with the situation visible in its
+final message. `subagent-discipline.js` persists a per-`agent_id` consecutive-block
+counter (small JSON file under the OS temp dir — hook invocations are isolated
+processes, nothing else survives between them) and caps it at
+`MAX_CONSECUTIVE_BLOCKS` (2): the third consecutive claim from the same `agent_id` is
+allowed through unconditionally and the counter resets. The counter also resets the
+moment a turn does NOT contain a deferred-work claim. If `agent_id` is absent from the
+payload the loop cannot be bounded safely, so the guard degrades to allow rather than
+risk blocking without a cap.
+
+Env vars: `ENSEMBLE_SUBAGENT_DISCIPLINE_DISABLE=1` (skip the guard),
+`ENSEMBLE_SUBAGENT_DISCIPLINE_DEBUG=1` (stderr diagnostics).
+
+## Orchestration pattern: the scheduled nudge
+
+`ScheduleWakeup` is unavailable to subagents but **available to the lead session**, and
+`SendMessage` reaches a named background agent with its context intact. Combined, these
+give an orchestrator a way to actively babysit dispatched background work instead of
+just hoping a completion notification arrives — without any timeout mechanism (this
+project deliberately does not use timeouts for this; `subagent-discipline.js`'s block
+cap is a *loop* guard, not a *time* guard).
+
+The shape:
+
+1. **Dispatch** one or more subagents in the background:
+   `Agent({subagent_type, run_in_background: true, name: "be-001", ...})`.
+2. **Schedule a wake before ending the turn** — this is the same safety-net pairing
+   already mandated for `Agent({team_name})` spawns elsewhere in this file:
+   `ScheduleWakeup({delaySeconds: <ETA>, prompt: "check on be-001 / fe-001 progress"})`.
+3. **On wake**, inspect what is actually running — `background_tasks` in the
+   re-invocation payload, each agent's last reported status/output — rather than
+   assuming silence means either "done" or "stuck."
+4. **Nudge anything that looks stalled**: `SendMessage({to: "be-001", message: "status
+   check — what have you completed and what's blocking you?"})`. The agent resumes with
+   its full context; the nudge is informational, not a kill switch.
+5. **Re-schedule another wake** if work is still in flight, or proceed once everything
+   has reported in.
+
+This is the lead-session mirror of what `subagent-discipline.js` enforces from the
+hook side: a subagent is never allowed to just claim it'll check back later, and the
+orchestrator is never left purely hoping a notification arrives — it actively re-checks
+and nudges. Neither side relies on a timer; both rely on an explicit re-entry point
+(`ScheduleWakeup` for the lead, the block/loop-cap for the subagent).

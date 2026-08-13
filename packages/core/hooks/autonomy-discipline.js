@@ -13,7 +13,9 @@
  *   1. If disabled via env, allow.
  *   2. If stop_hook_active (we're inside another Stop-hook continuation), allow —
  *      don't stack blocks.
- *   3. Read last assistant text (current turn only) from transcript_path.
+ *   3. Read last assistant text — prefers hookData.last_assistant_message (the
+ *      platform-provided field); falls back to hand-parsing transcript_path
+ *      (current turn only) when that field is absent.
  *   4. If no command-execution context (no [STATUS: /...] / COMMAND banner) → allow.
  *      This avoids blocking normal conversational questions.
  *   5. If the active command is /refine-prd or /refine-trd (intentionally interactive)
@@ -37,7 +39,7 @@
 
 'use strict';
 
-const fs = require('fs');
+const { stripCitations, getLastAssistantMessage, readLastAssistantText } = require('./lib/transcript-text');
 
 // Hedged-offer / continue-prompt patterns. All target NEXT-ACTION questions about
 // the MODEL (continue/proceed/pause/review/keep going), not domain questions.
@@ -99,56 +101,8 @@ function emit(block, reason) {
   process.exit(0);
 }
 
-/**
- * Read assistant text produced AFTER the most recent user message — strict turn
- * boundary (prevents earlier-turn content and hook-injected reasons from leaking in).
- */
-function readLastAssistantText(transcriptPath) {
-  if (!transcriptPath || typeof transcriptPath !== 'string') return '';
-  if (!fs.existsSync(transcriptPath)) return '';
-  try {
-    const lines = fs.readFileSync(transcriptPath, 'utf-8').trim().split('\n').filter(Boolean);
-    const roleOf = (entry) => entry.role || (entry.message && entry.message.role) || entry.type;
-
-    let lastUserIdx = -1;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      let entry;
-      try { entry = JSON.parse(lines[i]); } catch { continue; }
-      if (roleOf(entry) === 'user') { lastUserIdx = i; break; }
-    }
-
-    const startIdx = lastUserIdx >= 0 ? lastUserIdx + 1 : 0;
-    const texts = [];
-    for (let i = startIdx; i < lines.length; i++) {
-      let entry;
-      try { entry = JSON.parse(lines[i]); } catch { continue; }
-      if (roleOf(entry) !== 'assistant') continue;
-      const content = entry.content || (entry.message && entry.message.content);
-      if (!content) continue;
-      if (typeof content === 'string') { texts.push(content); continue; }
-      if (Array.isArray(content)) {
-        const blockTexts = content
-          .filter((c) => c && (c.type === 'text' || typeof c.text === 'string'))
-          .map((c) => c.text || '');
-        if (blockTexts.length) texts.push(blockTexts.join('\n'));
-      }
-    }
-    return texts.join('\n');
-  } catch (err) {
-    debug(`error reading transcript: ${err.message}`);
-  }
-  return '';
-}
-
-function stripCitations(text) {
-  let out = text;
-  out = out.replace(/```[\s\S]*?```/g, ' ');
-  out = out.replace(/`[^`\n]+`/g, ' ');
-  out = out.replace(/"[^"\n]*"/g, ' ');
-  out = out.replace(/“[^“”\n]*”/g, ' ');
-  out = out.replace(/(^|[\s(\[{,;:])'([^'\n]{2,})'(?=[\s.,!?:;)\]}]|$)/g, '$1 ');
-  return out;
-}
+// readLastAssistantText and stripCitations now live in ./lib/transcript-text.js,
+// shared with async-discipline.js — both hooks had byte-identical copies.
 
 /**
  * Detect command-execution context. Only enforce autonomy discipline when the
@@ -228,7 +182,7 @@ async function main(hookData) {
     return emit(false);
   }
 
-  const text = readLastAssistantText(hookData && hookData.transcript_path);
+  const text = getLastAssistantMessage(hookData || {});
   if (!text) {
     debug('no assistant text — allow');
     return emit(false);
@@ -284,4 +238,5 @@ module.exports = {
   isExemptCommand,
   stripCitations,
   readLastAssistantText,
+  getLastAssistantMessage,
 };

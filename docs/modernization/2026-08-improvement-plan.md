@@ -326,13 +326,13 @@ time has meant each is examined only when it breaks. Do the layer at once.
 | 5a | Retire `learning.sh`, `save-remote-logs.js`, `permitter` | ✅ 4.1.0 |
 | 5a | Router decision (was a modification, not a deletion) | ✅ 4.1.4 — kept, made conditional, rewritten |
 | 5b | Discipline hooks → `type: "prompt"` hooks | ❌ **open** |
-| 5b | `transcript_path` → `last_assistant_message` (3 hooks) | ❌ **open** |
+| 5b | `transcript_path` → `last_assistant_message` (3 hooks) | ✅ 4.1.7 |
 | 5b | Wiggum: re-inject current state + restated completion promise | ❌ **open** |
 | 5c | `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR` | ✅ 4.1.4 |
 | 5c | Formatter: npx cost + `/init-project` installing what it configures | ✅ 4.1.5 / 4.1.6 |
 | 5d | Adopt `InstructionsLoaded` | ❌ **open** |
-| 5e | Discipline guard on `SubagentStop` | ❌ **open** |
-| 5e | Orchestrator-side timeout for hung subagents | ❌ **open** |
+| 5e | Discipline guard on `SubagentStop` | ✅ 4.1.7 |
+| 5e | Scheduled-nudge pattern documented (no timeouts, per decision) | ✅ 4.1.7 |
 
 Three distinct problems, handled together because the retirements change what the rest has to cover:
 

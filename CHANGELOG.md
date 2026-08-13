@@ -10,6 +10,54 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.7] - 2026-08-12
+
+Item 5b (partial) and 5e of the improvement plan.
+
+### Added
+
+- **`subagent-discipline.js` — the discipline guard now covers subagents.** The existing hooks
+  run only on `Stop`, so they protected the orchestrator and nothing else. Three subagents in a
+  single session ended with *"I'll wait for the monitor notifications to arrive"* and
+  *"Waiting for background scenario completions"*, burning ~240k tokens across 179 tool calls and
+  returning nothing — exactly what `async-discipline.js` catches, in the one place it never looked.
+
+  The rule is **stricter** for subagents than for the lead: `ScheduleWakeup` is removed from every
+  subagent by the platform's tool filter, so a subagent claiming it will come back later is false
+  *by construction*. The lead's hook must check `background_tasks`/`session_crons` because the
+  claim might be legitimate; for a subagent it never is.
+
+  Blocking **continues the same subagent with its existing context** rather than respawning, and
+  the block reason reaches it — so it can correct course without losing completed work. Loop
+  safety is enforced two ways: `stop_hook_active` from the payload, plus a per-`agent_id`
+  consecutive-block cap, after which the claim is allowed through and the counter resets. Blocking
+  forever would be worse than the failure being guarded.
+
+  24 new tests. Verified live: a real subagent was blocked, resumed under the same `agent_id`,
+  abandoned the deferral framing, and completed.
+
+- **The scheduled-nudge pattern**, documented in `async-discipline.md`. `ScheduleWakeup` is
+  unavailable to subagents but available to the lead, and `SendMessage` reaches a named background
+  agent with its context intact — so an orchestrator can dispatch, schedule a wake, and nudge
+  anything still grinding. This covers the failure the `SubagentStop` guard cannot: an agent that
+  keeps running without progressing never stops, so the guard never fires. No timeouts: a timeout
+  kills work that may be nearly done, a nudge lets it continue.
+
+### Changed
+
+- **Hooks now read `last_assistant_message` instead of parsing the transcript.** All three
+  discipline/loop hooks hand-parsed `transcript_path` JSONL backwards to find the last assistant
+  message; the Stop payload carries it directly, and the docs warn the transcript file can lag the
+  in-memory conversation. The transcript reader survives only as a fallback.
+
+  This also removed a genuine duplication: `readLastAssistantText` and `stripCitations` were
+  byte-identical copies in two hooks, and the fire-and-forget pattern battery is now a single
+  shared module rather than something a second hook would have had to copy.
+
+Deliberately unchanged: wiggum's re-injection design (state + completion promise), which waits on
+item 8's keep-or-revert — if `/implement-trd` becomes workflow-driven, wiggum's role changes and
+the redesign would be done twice.
+
 ## [4.1.6] - 2026-08-12
 
 ### Fixed

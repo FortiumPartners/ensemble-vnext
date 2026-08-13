@@ -336,8 +336,16 @@ function checkTaskCompletion(implementData) {
  * @returns {boolean} True if completion promise found
  */
 function checkCompletionPromise(hookData) {
-  // Check transcript_path if provided
-  if (hookData.transcript_path) {
+  // Prefer the platform-provided last_assistant_message field over hand-parsing
+  // transcript_path — the Stop payload carries it directly, and the docs warn the
+  // transcript file on disk can lag the in-memory conversation. Only fall back to
+  // reading transcript_path when the field is absent (older harness versions).
+  if (typeof hookData.last_assistant_message === 'string' && hookData.last_assistant_message.length > 0) {
+    if (hookData.last_assistant_message.includes(COMPLETION_PROMISE_TAG)) {
+      debugLog('Found completion promise in last_assistant_message');
+      return true;
+    }
+  } else if (hookData.transcript_path) {
     try {
       const transcriptContent = fs.readFileSync(hookData.transcript_path, 'utf-8');
       if (transcriptContent.includes(COMPLETION_PROMISE_TAG)) {

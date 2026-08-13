@@ -1,0 +1,1 @@
+../../core/hooks/subagent-discipline.js

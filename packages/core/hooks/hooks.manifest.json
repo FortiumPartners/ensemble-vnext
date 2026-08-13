@@ -33,6 +33,16 @@
       "description": "Active state machine: advances cycle_position in `implement.json` as subagents complete."
     },
     {
+      "file": "subagent-discipline.js",
+      "event": "SubagentStop",
+      "matcher": "",
+      "order": 2,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Blocks a subagent's fire-and-forget / deferred-work claims (ScheduleWakeup is unavailable to subagents, so such claims are false by construction); capped consecutive blocks per agent_id as a loop guard (pairs with `.claude/rules/async-discipline.md`)."
+    },
+    {
       "file": "async-discipline.js",
       "event": "Stop",
       "matcher": "",
