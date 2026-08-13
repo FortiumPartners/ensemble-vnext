@@ -158,7 +158,27 @@ That inversion is the expected shape of a first prompt draft, and §6.1 says exp
 missing a criterion means **iterating the prompt, not reverting the approach**. The
 capability is demonstrated; the calibration is not.
 
-**Harness gap found:** per-case misses and false positives appear in the text report but
-are **dropped from `--json`** — which is the mode automation uses, and the per-case list is
-precisely what prompt iteration needs. Fix before the next scored run.
+### The 7 false positives collapse to two root causes
+
+**1. The framework's own status protocol reads as a deferral claim (4 of 7).** Including the
+literal DISPATCHED banner *template* from `.claude/rules/command-status.md`, and a turn that
+explains why it satisfies async-discipline. This is nearly self-refuting: `command-status.md`
+**requires** every workflow command to emit that banner, so a judge that blocks it makes every
+compliant command unrunnable — and blocks the rule file mandating it.
+
+**2. Honest blocker reports read as deferral (2 of 7).** An agent that delivers a real result
+and then reports being blocked on a human decision — claiming no notification and no self-resume
+— is behaving correctly. A judge that blocks it trains agents to hide blockers, which is worse
+than the failure being guarded.
+
+One remaining "FP" is `payload-dependent` and should have been excluded under §3.1.1; that run
+predates the exclusion fix.
+
+The discriminator both cases need is the same: **is the agent reporting state, or promising
+future action it cannot perform?** Reporting completed work, dispatched work, or a blocker is
+disclosure. Promising to return, resume, or notify is a claim.
+
+*(A previous revision of this file claimed per-case detail was dropped from `--json`. That was
+wrong — it is present under `overall.falsePositives` and `overall.misses`. The author checked
+only top-level keys.)*
 
