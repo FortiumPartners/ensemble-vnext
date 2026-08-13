@@ -479,15 +479,39 @@ state a threshold.
 
 ### 6.1.2 What the latency work actually surfaced — a correctness gate, not a speed one
 
-**`timeout`-exceeded behaviour is still unknown.** It never triggered across ~10 probes, so it is
-unestablished whether an evaluator timeout resolves to allow, block, or error.
+**RESOLVED 2026-08-13 (DISC-P001, U6): a timeout resolves to ALLOW, on both events.** The gate
+is cleared.
 
-This is not a latency concern and would matter if evaluation took 50 ms: if a timeout resolves to
-**block**, then an API slowdown makes turn ends wedgeable — a failure mode strictly worse than
-anything this TRD fixes. §6.2 already requires allow-on-every-error-path; for this mechanism that
-is currently an assumption rather than a verified property.
+Why it mattered: at ~2.6 s mean evaluation, a slow or briefly unavailable evaluator is routine
+rather than exotic. Had a timeout resolved to **block**, ordinary API latency would have made turn
+ends wedgeable — strictly worse than anything this TRD fixes, and it would have mattered
+identically if evaluation took 50 ms. This was never a latency concern.
 
-**This must be established before DISC-B008 converts any hook.**
+**Observed:** timeouts forced by setting `timeout` below a real API round trip (1 s on `Stop`,
+0.3 s on `SubagentStop`). 4/4 runs aborted the evaluator request precisely at the deadline
+(306–307 ms against 300 ms, three times) and the session proceeded normally — `exitPath=completed`
+1 ms after the abort, no block feedback, no retry loop, exit 0. A 1 s run that happened to finish
+in 0.83 s resolved normally, serving as a negative control.
+
+Distinguishing "allowed cleanly" from "timed out then allowed" is not possible from `--print`
+stdout, so the probe used `claude --debug --debug-file` to read internal hook processing. That
+methodological point is worth keeping: **the timeout path is silent.** No `Hooks: Prompt hook
+error:` line fires on abort — that log belongs to a different outer catch — so a timing-out hook
+is invisible in normal output, the same observability hole U3 found on the hard-cap path.
+
+**Source-confirmed** (verified independently in the v2.1.229 binary):
+`catch(S){if(v(),y.aborted)return{hook:e,outcome:"cancelled"};throw S}` — an abort yields a
+distinct `outcome:"cancelled"`, never `outcome:"blocking"`.
+
+**Also established:** the default `timeout` when omitted is **30 s** for `type:"prompt"`
+(`e.timeout?e.timeout*1000:30000`) and 60 s for `type:"agent"`, read from source rather than
+inferred.
+
+**Two limits, labelled rather than glossed:** the non-timeout error path (a genuine evaluator API
+error rather than an abort) routes through a different branch and was **not** tested live; and the
+downstream consumer of `outcome:"cancelled"` was not traced, so "cancelled → allow" rests on 4/4
+observed behaviour plus the structural separation of the branches — INFERRED at that layer, not
+OBSERVED.
 
 ### 6.2 Standing gates
 
