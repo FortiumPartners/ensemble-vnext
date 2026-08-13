@@ -89,28 +89,28 @@
     "DISC-B002": {
       "description": "Label the corpus to the class floors in TRD 3.1",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "in_progress",
+      "cycle_position": "implement",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-08-13T07:55:28.785544Z",
       "completed_at": null
     },
     "DISC-B003": {
       "description": "Scoring harness score.js; record the regex floor",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-13T07:55:28.785544Z",
+      "completed_at": "2026-08-13T08:00:15.514878Z"
     },
     "DISC-B004": {
       "description": "Author the judge prompt per TRD 2.3",
@@ -296,7 +296,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 1,
+    "completed_tasks": 2,
     "failed_tasks": 0,
     "total_retries": 0
   },
