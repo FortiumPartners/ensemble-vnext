@@ -316,11 +316,23 @@
         "DISC-T004(folded into T003)"
       ],
       "note": "All acceptance gates pass. A1 96-100% recall vs 13.6% floor; A2 zero self-doc FPs across 3 runs; A3 zero; A6 live; timeout=allow."
+    },
+    {
+      "phase": 4,
+      "commit": "cee3a77",
+      "timestamp": "2026-08-13T18:15:03.962746Z",
+      "tasks_completed": [
+        "DISC-B008",
+        "DISC-T005",
+        "DISC-D002",
+        "DISC-D003"
+      ],
+      "note": "Phase 4 complete. Releases 4.1.9 (conversion) and 4.1.10 (third violation shape). DISC-B009 deferred by design \u2014 see TRD \u00a74.4.1 and the rollback-lever defect."
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "cee3a77",
+    "last_checkpoint_timestamp": "2026-08-13T18:15:03.962746Z",
     "interrupted": false,
     "interrupt_reason": null
   },
