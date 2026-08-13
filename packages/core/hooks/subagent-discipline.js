@@ -73,6 +73,8 @@ const path = require('path');
 
 const { getLastAssistantMessage } = require('./lib/transcript-text');
 const { FIRE_AND_FORGET_PATTERNS, META_MARKERS, findMatch } = require('./lib/async-claim-detector');
+const { resolveProjectRoot } = require('./lib/resolve-project-root');
+const ledger = require('./lib/dispatch-ledger');
 
 const MAX_CONSECUTIVE_BLOCKS = 2;
 const STATE_DIR = path.join(os.tmpdir(), 'ensemble-subagent-discipline');
@@ -104,8 +106,16 @@ function emit(block, reason) {
 const SUBAGENT_DEFERRAL_PATTERNS = [
   // "I'll wait for the monitor / notifications / results to arrive/complete/finish"
   /\b(I'?ll|I will|I'?m going to|going to)\s+wait\s+for\b[^.!?\n]{0,100}\b(to (arrive|complete|finish)|arrives|completes|finishes)\b/i,
-  // "Waiting for X to arrive/complete/finish" / "Waiting for background ... completions"
-  /\bwaiting for\b[^.!?\n]{0,100}\b(notification|monitor|completion|to (arrive|complete|finish)|arrives|completes|finishes)\b/i,
+  // "Waiting for/on X to arrive/complete/finish" / "Waiting for background ... completions"
+  //
+  // "on" and "awaiting" were added after a LIVE run slipped through: a
+  // background subagent ended with "Waiting on the monitor event for
+  // completion." and was not blocked. The battery had only ever been written
+  // against "waiting FOR", and 24 unit tests all used that phrasing, so the
+  // gap was invisible until a real agent chose the other preposition.
+  /\b(waiting|await(?:ing)?)\s+(?:for|on)\b[^.!?\n]{0,100}\b(notification|monitor|completion|event|result|to (arrive|complete|finish)|arrives|completes|finishes)\b/i,
+  // Bare "Awaiting the monitor event/results" — no preposition at all.
+  /\bawaiting\b[^.!?\n]{0,60}\b(notification|monitor|completion|event|result)s?\b/i,
   // "Pausing until/for ..."
   /\b(pausing|paused)\b[^.!?\n]{0,80}\b(until|for)\b/i,
   // "I'll report/check/come back once/when/after X"
@@ -219,6 +229,33 @@ What to do right now, in THIS turn:
      do so now in this turn rather than claiming you already are.
 
 See .claude/rules/async-discipline.md.`;
+/**
+ * Append a "blocked" row to the dispatch ledger.
+ *
+ * dispatch-ledger.js writes a "stop" row on every SubagentStop, including this
+ * one — but a blocked stop is not a stop: the subagent resumes with its context
+ * and keeps running. Left uncorrected the ledger would report it as finished,
+ * and an orchestrator reading the open set would skip precisely the agent most
+ * likely to need a nudge. This row reopens it.
+ *
+ * Bookkeeping is never allowed to affect the block decision, so every failure
+ * here is swallowed.
+ */
+function recordBlockInLedger(data, agentId, attempt) {
+  try {
+    const projectRoot = resolveProjectRoot(data);
+    if (!projectRoot) return;
+    ledger.appendEvent(projectRoot, 'blocked', {
+      agent_id: agentId,
+      agent_type: data.agent_type,
+      session_id: data.session_id,
+      prompt_id: data.prompt_id,
+      attempt: attempt,
+    });
+  } catch (err) {
+    debug(`ledger append failed (non-fatal): ${err.message}`);
+  }
+}
 
 async function main(hookData) {
   if (process.env.ENSEMBLE_SUBAGENT_DISCIPLINE_DISABLE === '1') {
@@ -264,6 +301,7 @@ async function main(hookData) {
   const attempt = priorBlocks + 1;
   writeBlockCount(agentId, attempt);
   debug(`BLOCK (${attempt}/${MAX_CONSECUTIVE_BLOCKS}) agent=${agentId}: "${claim.slice(0, 80)}"`);
+  recordBlockInLedger(data, agentId, attempt);
   return emit(true, BLOCK_REASON_TEMPLATE(claim, attempt, MAX_CONSECUTIVE_BLOCKS));
 }
 

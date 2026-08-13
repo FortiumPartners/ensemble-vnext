@@ -171,7 +171,11 @@ done
 # -----------------------------------------------------------------------------
 MANIFEST="${REPO_ROOT}/packages/core/hooks/hooks.manifest.json"
 if [[ -f "$MANIFEST" ]]; then
-    SHIPPABLE_FILES="$(jq -r '.hooks[] | select(.shippable == true) | .file' "$MANIFEST" 2>/dev/null)"
+    # `unique` matters: a hook registered on several events (dispatch-ledger.js
+    # on SubagentStart + SubagentStop) has one manifest entry PER EVENT but is
+    # still one file on disk. Without dedupe the expected count exceeds the
+    # delivered count and this assertion fails on a correct scaffold.
+    SHIPPABLE_FILES="$(jq -r '[.hooks[] | select(.shippable == true) | .file] | unique | .[]' "$MANIFEST" 2>/dev/null)"
     SHIPPABLE_COUNT=0
     DELIVERED_COUNT=0
     while IFS= read -r hookfile; do

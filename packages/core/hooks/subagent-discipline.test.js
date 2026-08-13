@@ -35,6 +35,31 @@ afterEach(() => {
   Object.assign(process.env, originalEnv);
 });
 
+describe('detectDeferredWorkClaim — "waiting ON" / "awaiting" (live-run regression)', () => {
+  // A live background subagent ended with "Waiting on the monitor event for
+  // completion." and was NOT blocked: every pattern and every test used
+  // "waiting FOR", so the other preposition walked straight through. These
+  // cases exist so that gap cannot reopen.
+  it.each([
+    'Waiting on the monitor event for completion.',
+    'Waiting on the background task to finish.',
+    'I am waiting on the monitor event for completion.',
+    'Awaiting the monitor event.',
+    'Awaiting results from the background agents.',
+  ])('blocks %j', (text) => {
+    expect(detectDeferredWorkClaim(text)).toBeTruthy();
+  });
+
+  it.each([
+    'All tests pass, implementation complete.',
+    'The user is waiting for a response, so I kept it short.',
+    'Waiting rooms are implemented in the booking module.',
+    'I reviewed the code and found no issues.',
+  ])('does not false-positive on %j', (text) => {
+    expect(detectDeferredWorkClaim(text)).toBeFalsy();
+  });
+});
+
 describe('detectDeferredWorkClaim', () => {
   it('detects "I will wait for X to arrive"', () => {
     expect(detectDeferredWorkClaim('I will wait for the monitor notifications to arrive.')).toBeTruthy();
@@ -208,5 +233,82 @@ describe('main (end-to-end via console/exit spies)', () => {
   it('never throws and always exits 0 on malformed hookData', async () => {
     await expect(main(null)).resolves.not.toThrow();
     await expect(main({})).resolves.not.toThrow();
+  });
+});
+
+describe('dispatch-ledger integration', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const ledger = require('./lib/dispatch-ledger');
+
+  let projectRoot;
+  let consoleSpy;
+  let exitSpy;
+
+  beforeEach(() => {
+    // main() emits via console.log and terminates via process.exit(0); without
+    // these spies the first call tears down the jest worker.
+    consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {});
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ensemble-disc-ledger-'));
+    fs.mkdirSync(path.join(projectRoot, '.claude'), { recursive: true });
+    fs.mkdirSync(path.join(projectRoot, '.trd-state'), { recursive: true });
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+    exitSpy.mockRestore();
+    try { fs.rmSync(projectRoot, { recursive: true, force: true }); } catch { /* ignore */ }
+  });
+
+  it('appends a "blocked" row when it blocks, reopening the agent in the ledger', async () => {
+    const id = uniqueAgentId('ledger-block');
+    // Simulate what actually happens on a blocked stop: dispatch-ledger.js
+    // writes its "stop" row for the same SubagentStop event, which would
+    // otherwise mark this still-running agent as finished.
+    ledger.appendEvent(projectRoot, 'start', { agent_id: id });
+    ledger.appendEvent(projectRoot, 'stop', { agent_id: id });
+    expect(ledger.openAgents(projectRoot)).toEqual([]);
+
+    await main({
+      agent_id: id,
+      cwd: projectRoot,
+      last_assistant_message: 'Waiting for background scenario completions to finish.',
+      background_tasks: [],
+      session_crons: [],
+    });
+
+    const open = ledger.openAgents(projectRoot);
+    expect(open).toHaveLength(1);
+    expect(open[0].agent_id).toBe(id);
+    expect(open[0].last_event).toBe('blocked');
+    resetBlockCount(id);
+  });
+
+  it('does NOT append a blocked row when the turn is clean', async () => {
+    const id = uniqueAgentId('ledger-clean');
+    ledger.appendEvent(projectRoot, 'start', { agent_id: id });
+    ledger.appendEvent(projectRoot, 'stop', { agent_id: id });
+
+    await main({
+      agent_id: id,
+      cwd: projectRoot,
+      last_assistant_message: 'All tests pass, implementation complete.',
+    });
+
+    expect(ledger.openAgents(projectRoot)).toEqual([]);
+  });
+
+  it('does not throw when the ledger is unwritable', async () => {
+    const id = uniqueAgentId('ledger-unwritable');
+    await expect(
+      main({
+        agent_id: id,
+        cwd: '/nonexistent-path-for-ledger-test',
+        last_assistant_message: 'Waiting for background scenario completions to finish.',
+      })
+    ).resolves.not.toThrow();
+    resetBlockCount(id);
   });
 });

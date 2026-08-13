@@ -333,6 +333,8 @@ time has meant each is examined only when it breaks. Do the layer at once.
 | 5d | Adopt `InstructionsLoaded` | ❌ **open** |
 | 5e | Discipline guard on `SubagentStop` | ✅ 4.1.7 |
 | 5e | Scheduled-nudge pattern documented (no timeouts, per decision) | ✅ 4.1.7 |
+| 5e | Dispatch ledger (`SubagentStart`+`SubagentStop`) + `--open` reporting | ✅ 4.1.8 |
+| 5e | `/implement-trd` reads the ledger on every RESUMED turn | ✅ 4.1.8 |
 
 Three distinct problems, handled together because the retirements change what the rest has to cover:
 

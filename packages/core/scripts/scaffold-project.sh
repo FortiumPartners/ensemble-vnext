@@ -337,6 +337,11 @@ def validate_source(source):
         fail(f"manifest hook 'source' must resolve under the repo's packages/ root: {source!r}")
 
 manifest = json.load(open(sys.argv[1]))
+# A hook file may have MORE THAN ONE manifest entry when it registers on
+# several events (dispatch-ledger.js: SubagentStart + SubagentStop). The copy
+# list is per-FILE, so dedupe — otherwise the file is copied twice and every
+# hook-count assertion downstream is off by the number of extra registrations.
+seen = {}
 for h in manifest.get("hooks", []):
     if not h.get("shippable"):
         continue
@@ -344,6 +349,16 @@ for h in manifest.get("hooks", []):
     validate_file(file)
     source = h.get("source") or f"packages/core/hooks/{file}"
     validate_source(source)
+    if file in seen:
+        # Same file declared twice must resolve to the same source, or the
+        # copy would be order-dependent and silently pick one at random.
+        if seen[file] != source:
+            fail(
+                f"manifest declares hook {file!r} with conflicting sources: "
+                f"{seen[file]!r} and {source!r}"
+            )
+        continue
+    seen[file] = source
     subpath = source[len("packages/"):] if source.startswith("packages/") else source
     print(f"{file}\t{subpath}")
 PY

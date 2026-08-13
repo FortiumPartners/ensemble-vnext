@@ -10,6 +10,65 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.8] - 2026-08-13
+
+Completes item 5e: the orchestrator can now find its own in-flight subagents.
+
+### Added
+
+- **`dispatch-ledger.js` — a durable record of what was dispatched.** The scheduled-nudge
+  pattern added in 4.1.7 had a hole: on wake, the lead had to *remember* what it dispatched,
+  and that memory is exactly what compaction destroys — the case the pattern exists to
+  survive. The ledger moves that knowledge to disk, written by hooks on `SubagentStart` and
+  `SubagentStop` whether or not the lead remembers anything.
+
+  `node .claude/hooks/dispatch-ledger.js --open` reports every subagent whose last recorded
+  event is not `stop`, oldest first, with how long each has been running (`--json`,
+  `--session <id>`). `/implement-trd` now reads it on every RESUMED turn instead of
+  reconstructing the list from context.
+
+  This is the first hook in the set registered on **two** events.
+
+  Two design facts, both established by probing live payloads rather than trusting the docs:
+
+  - **Neither event carries a `name` field.** The `name` passed to `Agent({name: "be-001"})`
+    never reaches a hook, so the ledger keys on `agent_id` — which is what `SendMessage`
+    should target anyway, since the CLI changelog records `SendMessage` misrouting when a
+    re-spawned agent reused a previous agent's name.
+  - **`prompt_id` is not stable across an agent's lifetime.** A live run produced a `stop`
+    row whose `prompt_id` differed from its own `start` row.
+
+  `subagent-discipline.js` appends a compensating `blocked` row when it blocks a stop. A
+  blocked subagent has not actually stopped — without that row the ledger would report a
+  still-running agent as finished, and the orchestrator would skip nudging precisely the
+  agent most likely to be stuck.
+
+- **The generator now maintains `packages/full/hooks/` symlinks from the manifest.** The
+  plugin-cache layout resolves hooks from there, so a hook with no link is simply not
+  delivered to anyone who installed the plugin — while every local test keeps passing,
+  because the monorepo layout reads from `packages/core/` directly. This exact
+  silent-absence failure has recurred throughout this project. `--check` now fails on a
+  missing, dangling, or misdirected link; both cases were verified by breaking them
+  deliberately.
+
+### Fixed
+
+- **`subagent-discipline.js` missed "waiting **on**" and "awaiting".** Found by a live run,
+  not by the suite: a background subagent ended with *"Waiting on the monitor event for
+  completion."* and was not blocked. Every pattern and all 24 tests had used "waiting
+  **for**", so the other preposition walked straight through. Extended with regression cases
+  in both directions, including false-positive guards ("the user is waiting for a response").
+
+- **The `--open` kill switch was latched at module load**, so `ENSEMBLE_DISPATCH_LEDGER_DISABLE`
+  could not be exercised by a test. Read at call time now — the same defect class as the
+  `--check` flag that silently always passed.
+
+### Changed
+
+- A hook file may now declare one manifest entry **per event** it registers on. The copy
+  list dedupes by file and fails loudly on conflicting sources; `T007` checks uniqueness of
+  the `(source, event)` pair rather than of the file.
+
 ## [4.1.7] - 2026-08-12
 
 Item 5b (partial) and 5e of the improvement plan.

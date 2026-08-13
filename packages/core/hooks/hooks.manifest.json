@@ -1,5 +1,5 @@
 {
-  "$comment": "Single declaration of the ensemble hook set. Every hook file that exists on disk has exactly one entry here, including files that are deliberately not event-registered (registration: 'model-invoked' or 'none'). Three consumers are generated FROM this manifest (see docs/TRD/runtime-refresh.md §2.3 / §4.2, tasks RUNTIME-B001/B002/B003 — not implemented by this file itself): (a) the scaffold-project.sh copy list, (b) the template settings.json hook block (event order preserved via 'order'), (c) the hook enumeration table in init-project.md. Do not hand-edit the generated artifacts once B001-B003 land; edit this manifest instead. 'source' is present only when the hook file lives outside packages/core/hooks/ (cross-package hooks); its absence means the file lives at packages/core/hooks/<file>. 'shippable' marks hooks that should be symlinked into packages/full/hooks/ and copied by scaffold-project.sh into a target project's .claude/hooks/. permitter, learning.sh, and save-remote-logs.js were retired and deleted in 4.1.0 and intentionally have NO entry — do not re-add them from the stale docs/TRD/runtime-refresh.md §2.3 example, which predates the removal.",
+  "$comment": "Single declaration of the ensemble hook set. Every hook file that exists on disk has an entry here for EACH event it registers on, including files that are deliberately not event-registered (registration: 'model-invoked' or 'none'). Most files have exactly one entry; dispatch-ledger.js has two because it registers on both SubagentStart and SubagentStop (it dispatches on hook_event_name internally). The shippable copy list dedupes by 'file' so a multi-event hook is still copied once. Three consumers are generated FROM this manifest (see docs/TRD/runtime-refresh.md §2.3 / §4.2, tasks RUNTIME-B001/B002/B003 — not implemented by this file itself): (a) the scaffold-project.sh copy list, (b) the template settings.json hook block (event order preserved via 'order'), (c) the hook enumeration table in init-project.md. Do not hand-edit the generated artifacts once B001-B003 land; edit this manifest instead. 'source' is present only when the hook file lives outside packages/core/hooks/ (cross-package hooks); its absence means the file lives at packages/core/hooks/<file>. 'shippable' marks hooks that should be symlinked into packages/full/hooks/ and copied by scaffold-project.sh into a target project's .claude/hooks/. permitter, learning.sh, and save-remote-logs.js were retired and deleted in 4.1.0 and intentionally have NO entry — do not re-add them from the stale docs/TRD/runtime-refresh.md §2.3 example, which predates the removal.",
   "hooks": [
     {
       "file": "router.py",
@@ -23,6 +23,16 @@
       "description": "Auto-formats files touched by Edit/Write/MultiEdit using project-detected formatters."
     },
     {
+      "file": "dispatch-ledger.js",
+      "event": "SubagentStart",
+      "matcher": "",
+      "order": 1,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Records subagent dispatch to an append-only ledger at `.trd-state/<feature>/dispatch.jsonl` so an orchestrator can enumerate in-flight agents after compaction; also runnable as `--open` to report the still-running set."
+    },
+    {
       "file": "status.js",
       "event": "SubagentStop",
       "matcher": "",
@@ -41,6 +51,16 @@
       "registration": "command",
       "shippable": true,
       "description": "Blocks a subagent's fire-and-forget / deferred-work claims (ScheduleWakeup is unavailable to subagents, so such claims are false by construction); capped consecutive blocks per agent_id as a loop guard (pairs with `.claude/rules/async-discipline.md`)."
+    },
+    {
+      "file": "dispatch-ledger.js",
+      "event": "SubagentStop",
+      "matcher": "",
+      "order": 3,
+      "timeout": 5,
+      "registration": "command",
+      "shippable": true,
+      "description": "Records subagent completion to the dispatch ledger; runs after subagent-discipline.js, which appends a compensating 'blocked' row when it blocks a stop (a blocked subagent has not actually stopped)."
     },
     {
       "file": "async-discipline.js",

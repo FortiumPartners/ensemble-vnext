@@ -836,15 +836,34 @@ PY
     [ "$status" -eq 0 ]
 }
 
-@test "T007: manifest — every hook file on disk has exactly one entry (no missing, no extra, no duplicates)" {
+@test "T007: manifest — every hook file on disk is declared, once per event it registers on" {
     run python3 - "$MANIFEST" "$REPO_ROOT" <<'PY'
 import json, os, sys
 
 manifest = json.load(open(sys.argv[1]))
 repo_root = sys.argv[2]
 
-sources = [h.get("source") or f"packages/core/hooks/{h['file']}" for h in manifest["hooks"]]
-duplicates = sorted({s for s in sources if sources.count(s) > 1})
+# A hook file may legitimately appear MORE THAN ONCE when it registers on
+# several events (dispatch-ledger.js: SubagentStart + SubagentStop). What must
+# stay unique is the (source, event) PAIR — registering the same file twice on
+# the same event would install it twice and run it twice per event.
+pairs = [
+    (h.get("source") or f"packages/core/hooks/{h['file']}", h.get("event"))
+    for h in manifest["hooks"]
+]
+duplicates = sorted({f"{s} @ {e}" for (s, e) in pairs if pairs.count((s, e)) > 1})
+
+# A file must also resolve to ONE source across all its entries, or the copy
+# step becomes order-dependent.
+by_file = {}
+for h in manifest["hooks"]:
+    src = h.get("source") or f"packages/core/hooks/{h['file']}"
+    by_file.setdefault(h["file"], set()).add(src)
+conflicting = sorted(f for f, srcs in by_file.items() if len(srcs) > 1)
+if conflicting:
+    print("conflicting_sources:", conflicting)
+
+sources = [s for (s, _e) in pairs]
 
 core_hooks_dir = os.path.join(repo_root, "packages/core/hooks")
 exclude_names = {"hooks.manifest.json", "hooks.json", "package.json", "package-lock.json"}
@@ -869,7 +888,7 @@ extra_in_manifest = sorted(declared - on_disk)
 print("duplicates:", duplicates)
 print("missing_from_manifest:", missing_from_manifest)
 print("extra_in_manifest:", extra_in_manifest)
-sys.exit(1 if (duplicates or missing_from_manifest or extra_in_manifest) else 0)
+sys.exit(1 if (duplicates or conflicting or missing_from_manifest or extra_in_manifest) else 0)
 PY
     [ "$status" -eq 0 ]
 }

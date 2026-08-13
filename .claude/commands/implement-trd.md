@@ -1326,6 +1326,32 @@ This command spans multiple turns. Emit these standard status lines so the user 
       completed since last turn: <summary | "none">
    ```
 
+   **On every RESUMED turn, read the dispatch ledger before deciding anything:**
+
+   ```bash
+   node .claude/hooks/dispatch-ledger.js --open
+   ```
+
+   Do NOT reconstruct the in-flight set from memory. This command runs long enough to be
+   compacted mid-loop, and the dispatch list is exactly what a summary drops. The ledger is
+   written by hooks on `SubagentStart`/`SubagentStop`, so it is correct whether or not this
+   turn remembers anything.
+
+   Act on what it reports:
+   - **Nothing open** — every dispatched subagent finished. Fold their results into
+     `implement.json` and continue the loop.
+   - **Something open and progressing** — leave it alone and schedule the next wake.
+   - **Something open and suspiciously old** (running far longer than its stage's peers,
+     or flagged `[resumed after discipline block]`) — nudge it rather than killing it:
+     ```
+     SendMessage({to: "<agent_id>", message: "status check — what have you completed so far, and what is blocking you?"})
+     ```
+     The agent resumes with its full context. There is deliberately no timeout: a timeout
+     kills work that may be nearly done, and this framework does not use one here.
+
+   `--json` gives machine-readable output; `--session <id>` scopes to this session.
+   See `.claude/rules/async-discipline.md` § "Orchestration pattern: the scheduled nudge".
+
 3. **PHASE N/M COMPLETE** — at each phase boundary (progress marker, NOT completion):
    ```
    [STATUS: /implement-trd] PHASE <N>/<M> COMPLETE → <summary>

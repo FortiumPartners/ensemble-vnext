@@ -188,17 +188,57 @@ The shape:
 2. **Schedule a wake before ending the turn** — this is the same safety-net pairing
    already mandated for `Agent({team_name})` spawns elsewhere in this file:
    `ScheduleWakeup({delaySeconds: <ETA>, prompt: "check on be-001 / fe-001 progress"})`.
-3. **On wake**, inspect what is actually running — `background_tasks` in the
-   re-invocation payload, each agent's last reported status/output — rather than
-   assuming silence means either "done" or "stuck."
-4. **Nudge anything that looks stalled**: `SendMessage({to: "be-001", message: "status
-   check — what have you completed and what's blocking you?"})`. The agent resumes with
-   its full context; the nudge is informational, not a kill switch.
+3. **On wake, read the dispatch ledger** — do NOT rely on remembering what you
+   dispatched. That memory is exactly what compaction destroys, and compaction is the
+   case this pattern exists to survive:
+
+   ```bash
+   node .claude/hooks/dispatch-ledger.js --open
+   ```
+
+   It prints every subagent whose last recorded event is not `stop`, oldest first, with
+   how long each has been running. `--json` for machine-readable output, `--session <id>`
+   to scope to the current session. Cross-check against `background_tasks` in the
+   re-invocation payload rather than assuming silence means either "done" or "stuck."
+4. **Nudge anything that looks stalled**: `SendMessage({to: "<agent_id>", message:
+   "status check — what have you completed and what's blocking you?"})`. The agent
+   resumes with its full context; the nudge is informational, not a kill switch.
 5. **Re-schedule another wake** if work is still in flight, or proceed once everything
    has reported in.
+
+### The dispatch ledger
+
+`dispatch-ledger.js` runs on **both** `SubagentStart` and `SubagentStop` and appends to
+`.trd-state/<feature>/dispatch.jsonl` (or `.trd-state/_dispatch.jsonl` with no active
+feature). It exists because a hook **cannot** schedule the wake for you: hooks are
+separate processes with no tool surface, and `SubagentStart` is command-type only — a
+prompt-type hook there is rejected outright. The lead must still call `ScheduleWakeup`
+itself. What the ledger does is make that wake *useful*.
+
+Two facts, both established by probing the live payloads rather than reading the docs:
+
+- **There is no `name` field on either event.** The `name` you pass to `Agent({name:
+  "be-001"})` never reaches a hook. The ledger therefore keys on `agent_id`, which is
+  what `SendMessage` should target anyway — the CLI changelog records `SendMessage`
+  misrouting when a re-spawned agent reused a previous agent's name, a collision an
+  opaque id cannot have.
+- **`prompt_id` is not stable across an agent's lifetime.** A live run produced a `stop`
+  row whose `prompt_id` differed from its own `start` row. Correlate on `agent_id` only.
+
+State is the last event per `agent_id`: `start` → running, `stop` → finished, `blocked`
+→ running. The `blocked` row is what makes this exact. `subagent-discipline.js` can
+block a `SubagentStop`, which continues the same subagent — so the `stop` row written
+alongside that block describes an agent that did not actually stop. The discipline hook
+appends `blocked` to reopen it. Without that, the orchestrator would read a still-running
+agent as finished and skip nudging precisely the agent most likely to be stuck.
 
 This is the lead-session mirror of what `subagent-discipline.js` enforces from the
 hook side: a subagent is never allowed to just claim it'll check back later, and the
 orchestrator is never left purely hoping a notification arrives — it actively re-checks
 and nudges. Neither side relies on a timer; both rely on an explicit re-entry point
 (`ScheduleWakeup` for the lead, the block/loop-cap for the subagent).
+
+**What this still does not cover.** The `SubagentStop` guard only fires when an agent
+*stops*. An agent that keeps running without progressing never stops, so nothing blocks
+it — the ledger plus a scheduled nudge is the only thing that reaches that case. That is
+the whole reason the ledger exists rather than being another hook guard.

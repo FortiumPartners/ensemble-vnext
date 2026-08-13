@@ -187,7 +187,18 @@ def clean_description(desc):
 event_hooks = [h for h in hooks if h.get("event") is not None]
 other_hooks = [h for h in hooks if h.get("event") is None]
 
-lines = [f"Check these hooks in `.claude/hooks/` ({len(event_hooks)} total):"]
+# A file can register on several events (dispatch-ledger.js), so the number of
+# ROWS below is not the number of FILES on disk. Say both rather than print a
+# count that contradicts `ls`.
+distinct_files = len({h["file"] for h in event_hooks})
+if distinct_files == len(event_hooks):
+    header = f"Check these hooks in `.claude/hooks/` ({distinct_files} total):"
+else:
+    header = (
+        f"Check these hooks in `.claude/hooks/` ({distinct_files} files, "
+        f"{len(event_hooks)} event registrations):"
+    )
+lines = [header]
 for i, h in enumerate(event_hooks, start=1):
     title = title_for(h["file"], h["event"])
     desc = clean_description(h["description"])
@@ -264,3 +275,61 @@ for cmd in init-project rebase-project; do
         echo "Synced: $dst"
     fi
 done
+
+# --- packages/full/hooks/ symlinks -----------------------------------------
+#
+# The plugin-cache layout resolves hooks from $PLUGIN_DIR/hooks/, so a hook
+# that exists in packages/core/hooks/ but has no link here is simply NOT
+# DELIVERED to anyone who installed the plugin — while every local test keeps
+# passing, because the monorepo layout reads from packages/core/ directly.
+#
+# That silent-absence failure has now happened repeatedly in this project —
+# hooks that were never shipped, a helper library left behind, an affinity
+# table that never reached the plugin, and command copies that Claude Code
+# refused to load. Deriving these links from the manifest is what stops
+# "add a hook, forget the link" from being a thing a human can do at all.
+#
+# NOTE: symlinks are correct HERE (hooks are executed by path, and
+# scaffold-project.sh copies through them), unlike plugin-only commands above,
+# which Claude Code refuses to load through a symlink.
+FULL_HOOKS_DIR="$REPO_ROOT/packages/full/hooks"
+if [[ -d "$FULL_HOOKS_DIR" ]]; then
+    while IFS=$'\t' read -r hookfile hooksource; do
+        [[ -z "$hookfile" ]] && continue
+        dst="$FULL_HOOKS_DIR/$hookfile"
+        # Link target is relative to packages/full/hooks/ — e.g.
+        # packages/core/hooks/x.js  ->  ../../core/hooks/x.js
+        target="../../${hooksource#packages/}"
+
+        if [[ -L "$dst" ]] && [[ "$(readlink "$dst")" == "$target" ]]; then
+            continue
+        fi
+        if [[ "$CHECK" == "true" ]]; then
+            # -e follows symlinks, so a DANGLING link is not "missing" —
+            # test -L first or the message misreports a broken link as absent.
+            if [[ -L "$dst" ]]; then
+                echo "DRIFT: $dst points at '$(readlink "$dst")', expected '$target'" >&2
+            elif [[ ! -e "$dst" ]]; then
+                echo "DRIFT: $dst is missing — shippable hook not delivered to the plugin" >&2
+            else
+                echo "DRIFT: $dst is a regular file, expected a symlink to $target" >&2
+            fi
+            exit 1
+        fi
+        rm -f "$dst"
+        ln -s "$target" "$dst"
+        echo "Linked: $dst -> $target"
+    done < <(python3 -c '
+import json, sys
+manifest = json.load(open(sys.argv[1]))
+seen = set()
+for h in manifest.get("hooks", []):
+    if not h.get("shippable"):
+        continue
+    f = h["file"]
+    if f in seen:
+        continue
+    seen.add(f)
+    print(f + "\t" + (h.get("source") or "packages/core/hooks/" + f))
+' "$MANIFEST")
+fi
