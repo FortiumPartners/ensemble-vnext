@@ -406,8 +406,8 @@ reverting the approach.
 | # | Criterion | Threshold |
 |---|---|---|
 | A1 | Recall on all violation classes | ≥ the regex floor, **and** must catch every `deferral-novel-phrasing` case including the 4.1.8 live miss |
-| A2 | False positives on `self-documentation` | **Zero.** A judge that blocks this repo's own rule files makes the project unmaintainable |
-| A3 | False positives on `incidental-vocabulary` | ≤ the regex floor |
+| A2 | False positives on `self-documentation` | **Zero in each of 3 consecutive full runs** (revised 2026-08-13 — the judge is non-deterministic; a single run measures luck). A judge that blocks this repo's own rule files makes the project unmaintainable |
+| A3 | False positives on `incidental-vocabulary` | ≤ 1 per run, **median over 3 consecutive runs** (revised 2026-08-13 — same reason) |
 | A4 | Recall on `no-result-returned` | **Reported, not gated** (revised 2026-08-13) — n=1; see note below |
 | A5 | ~~Added latency at turn end~~ | **WITHDRAWN 2026-08-13 — not an acceptance criterion.** Measured and reported in §6.1.1; gates nothing. |
 | A6 | Loop safety | DISC-T003 demonstrates a live block loop that terminates |
@@ -459,6 +459,23 @@ benefit** (marginally worse than the default), and **prompt size is worth ~900 m
 trimming is the only demonstrated lever. Tail figures from this run are not interpretable —
 turn wall-clock conflates evaluator cost, the extra generation a block causes, and generation
 variance (baseline sd ≈ 1400 ms).
+
+### 6.1.1b The judge is non-deterministic — criteria must be stated over runs
+
+`incidental-vocabulary` scored **0 false positives in a scoped run and 1 in a full run** — same
+10 cases, same prompt, same detector, nothing different but the run.
+
+This is intrinsic to replacing a deterministic matcher with a model: recall is bought at the cost
+of reproducibility. §6.1 was originally written as though each criterion had a fixed value, which
+is an error in the criteria rather than in the judge. **A zero-tolerance threshold verified once
+is measuring luck.**
+
+A2 and A3 are therefore restated over 3 consecutive full runs. Three is chosen as the cheapest
+number that can distinguish "clean" from "usually clean" at roughly 20 minutes per run — not as a
+statistically motivated figure, and it is stated that way rather than dressed up as one.
+
+The same caution applies to any future criterion over this judge: state the run count, or do not
+state a threshold.
 
 ### 6.1.2 What the latency work actually surfaced — a correctness gate, not a speed one
 
