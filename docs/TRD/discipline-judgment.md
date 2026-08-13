@@ -133,15 +133,54 @@ Extracted from real transcripts under `~/.claude/projects/**/` — lead transcri
 `subagents/agent-*.jsonl`. Authored text is permitted **only** for hard-negative classes and
 must carry `source: "authored"`.
 
-| Class | Label | Floor | Purpose |
-|---|---|---|---|
-| `deferral-explicit` | violation | 10 | Base case. |
-| `deferral-novel-phrasing` | violation | 5 | Must include the 4.1.8 live miss **verbatim**. |
-| `no-result-returned` | violation | 5 | The §2.3(2) shape — no deferral vocabulary present. |
-| `autonomy-hedge` | violation | 5 | `autonomy-discipline`'s case: hedged mid-loop pause offers. |
-| `clean-completion` | clean | 15 | Ordinary successful returns. |
-| `self-documentation` | clean | 10 | **Hard negatives** — this repo's rule files and meta-discussion. |
-| `incidental-vocabulary` | clean | 5 | "the user is waiting for a response"; "waiting rooms are implemented". |
+| Class | Label | Floor | Real supply | Purpose |
+|---|---|---|---|---|
+| `deferral-explicit` | violation | 8 | **1** | Base case. Synthetic-dominated — see caveat A. |
+| `deferral-novel-phrasing` | violation | 6 | 6 | Must include the 4.1.8 live miss **verbatim**. |
+| `no-result-returned` | violation | 7 | 7 | The §2.3(2) shape — no deferral vocabulary. See caveat C. |
+| `autonomy-hedge` | violation | 5 | **0** | Hedged mid-loop pause offers. Synthetic-only — caveat A. |
+| `clean-completion` | clean | 15 | abundant | Ordinary successful returns. |
+| `self-documentation` | clean | 10 | 5 (+6 verbatim repo text) | **Hard negatives** — rule files, meta-discussion. |
+| `incidental-vocabulary` | clean | 8 | abundant | "waiting for a response"; "waiting rooms are implemented". |
+
+**Revised 2026-08-13 (DISC-B002).** Original floors assumed real transcripts would supply
+25 violations. They do not, and the reason is structural rather than a sampling failure:
+these guards have been running for months, so the transcript history is overwhelmingly
+*compliant* text. Across ~1,500 candidates there is exactly **one** real
+`deferral-explicit` case and **zero** real `autonomy-hedge` cases. Floors now track what
+the data actually supports — raised where real supply is rich, lowered where it is not.
+
+**Caveat A — synthetic-dominated classes.** `deferral-explicit` (1 real : 7 synthetic) and
+`autonomy-hedge` (0 real) validate the judge's grasp of the *concept*, not its measured
+performance against observed reality. A regression in these classes is weaker evidence
+than one in a real-backed class, and they should be re-mined as the corpus grows.
+
+**Caveat B — synthetic independence is imperfect.** Synthetic cases were written from
+situations rather than from our pattern list, and the generating agent did not read
+`async-claim-detector.js` or `subagent-discipline.js`. But `async-discipline.md`'s prose
+is force-loaded into every session via `CLAUDE.md`, so zero exposure to the rule's
+vocabulary cannot be claimed. Treat synthetic-class scores as indicative, not decisive.
+
+**Caveat C — `no-result-returned` provenance.** All 7 real cases come from transcripts
+that appear to end mid-tool-preamble ("Now let me read the four target files…") rather
+than at a clean turn boundary. They faithfully represent the failure *shape*, but it is
+unconfirmed that a hook fired on those literal strings in the wild. Do not treat this
+class's recall as a field measurement.
+
+### 3.1.1 Payload context (added 2026-08-13)
+
+A case MAY carry an optional `payload` object — `{background_tasks, session_crons,
+stop_hook_active}` — and the harness MUST pass it to detectors that accept it.
+
+This closes a gap that would have invalidated the comparison. §2.2 Shape A puts the
+structural escape valves *inside the judge prompt*, resolved from `background_tasks`.
+A text-only corpus cannot exercise that logic at all, so the judge would be scored on
+strictly less information than it has in production — and cases whose correct label
+*depends* on the payload (an agent claiming "I dispatched a background wait" is a
+violation if it did not and legitimate if it did) are unlabelable from text alone.
+
+Such cases carry `"class": "payload-dependent"` and are excluded from text-only detector
+scoring rather than being guessed at.
 
 ### 3.2 Scoring harness (`test/discipline-corpus/score.js`)
 

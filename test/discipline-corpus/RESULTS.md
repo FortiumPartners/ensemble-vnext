@@ -1,52 +1,78 @@
-# Discipline-corpus scoring results
+# Corpus scoring results
 
-## Regex floor — NOT YET RECORDED
-
-As of 2026-08-13, `test/discipline-corpus/corpus.jsonl` (the labeled acceptance corpus,
-DISC-B002) does not exist yet — only the unlabeled `candidates.jsonl` (DISC-B001 output, 1517
-cases) is present. The scoring harness (`score.js`, DISC-B003) is built and self-tested against
-`fixtures/basic.jsonl`, but the **regex floor** — the outgoing `detectDeferredWorkClaim`
-implementation's score, which the incoming judge (DISC-T001) must beat per TRD §6.1 — can only
-be computed once `corpus.jsonl` exists.
-
-### How to regenerate this file once corpus.jsonl exists
+Regenerate with:
 
 ```bash
-node test/discipline-corpus/score.js --detector regex --json > /tmp/regex-floor.json
-node test/discipline-corpus/score.js --detector regex
+node test/discipline-corpus/score.js --detector regex           # human-readable
+node test/discipline-corpus/score.js --detector regex --json    # machine-readable
 ```
-
-Paste the text-report output below, dated, under "Regex floor (dated)". Do not overwrite this
-placeholder section — append the real results once available; the first run also becomes the
-data-availability record for when DISC-B002 finished.
-
-### Expected shape of the result (from harness self-tests against fixtures, not the real corpus)
-
-The regex detector (`packages/core/hooks/subagent-discipline.js`'s `detectDeferredWorkClaim`,
-scored via `test/discipline-corpus/detectors/regex.js`) is expected, **by construction**, to
-score:
-
-- **Zero recall on `no-result-returned`.** This class (TRD §2.3(2), §3.1) has no deferral
-  vocabulary at all — an agent that burns tokens and returns nothing usable, without ever
-  saying "I'll let you know" or similar. The regex detector is pattern/vocabulary-based, so it
-  structurally cannot catch this shape. This is **the capability gap that motivates the switch
-  to judge-based detection (TRD §1.1)** — it is not a bug in this scoring harness, and DISC-T001
-  is explicitly required (§6.1 A4) to show recall > 0 on this class where the regex floor is 0.
-- Reasonable recall on `deferral-explicit` and `deferral-novel-phrasing` (the regex's designed
-  strength — see the harness self-test in `score.test.js`, which confirms both fixture cases,
-  including the 4.1.8 live-miss verbatim text, are caught by the current patterns).
-- Zero (or near-zero) false positives on `self-documentation` and `incidental-vocabulary` —
-  the hard-negative classes the `SELF_DOC_MARKERS` / `META_MARKERS` machinery in
-  `lib/async-claim-detector.js` exists specifically to protect.
-
-These directional expectations are already confirmed against the 6-case
-`fixtures/basic.jsonl` harness self-test (`score.test.js`, "end-to-end with the real 'regex'
-detector"). They are not a substitute for the real floor — class sizes there are n=1 each, far
-below the TRD §3.1 floors (10/5/5/5/15/10/5) needed for the acceptance thresholds in §6.1 to be
-meaningful.
 
 ---
 
-## Regex floor (dated)
+## Regex baseline — the floor to beat (recorded 2026-08-13)
 
-_(Not yet recorded — append here once `corpus.jsonl` exists, per the regeneration steps above.)_
+The **outgoing** implementation: `detectDeferredWorkClaim` from
+`packages/core/hooks/subagent-discipline.js`, composing `FIRE_AND_FORGET_PATTERNS` with
+`SUBAGENT_DEFERRAL_PATTERNS`. This is the *patched* battery — it includes 4.1.8's
+"waiting on" / "awaiting" fix — so the incoming judge must beat the **fixed** version,
+not the broken one that shipped the live miss.
+
+Corpus: `corpus.jsonl`, 64 cases (DISC-B002).
+
+```
+Overall (n=64):  TP=3  FP=0  TN=36  FN=25
+                 precision=100.0%   recall=10.7%
+                 latency: mean=0.07ms  p95=0.214ms
+```
+
+| Class | n | Recall | Note |
+|---|---|---|---|
+| `deferral-explicit` | 8 | **0.0%** | Includes the single real case in the corpus — see below |
+| `deferral-novel-phrasing` | 7 | 42.9% | Catches the 4.1.8 live miss (patched), misses 4 others |
+| `no-result-returned` | 7 | **0.0%** | Zero **by construction** — no vocabulary to match |
+| `autonomy-hedge` | 6 | **0.0%** | Zero by construction |
+| `clean-completion` | 17 | — | 17 TN, 0 FP |
+| `self-documentation` | 11 | — | 11 TN, 0 FP |
+| `incidental-vocabulary` | 8 | — | 8 TN, 0 FP |
+
+### How to read this — do NOT quote 10.7% as a field catch-rate
+
+The corpus is **deliberately adversarial** and weighted toward classes the regexes cannot
+address. `no-result-returned` and `autonomy-hedge` (13 of 25 violations) have no
+vocabulary signature at all, so a pattern matcher scores zero on them by construction.
+That is the capability gap motivating the switch, not a defect in the battery or the
+harness. The honest summary is:
+
+- **Precision is perfect (100%, zero false positives across all 36 clean cases** — including
+  the 11 hard `self-documentation` negatives). The regexes are *conservative*, and the
+  anti-false-positive apparatus (code-span stripping, meta-markers, `SELF_DOC_MARKERS`)
+  is doing its job. Any replacement must match this; §6.1 A2 makes it zero-tolerance.
+- **Recall is the problem, and it is structural.** The battery only finds what someone
+  already thought to write a pattern for.
+
+### The most damning single case
+
+`c-721c6cbae6f1` — real, from a live subagent transcript, and a textbook explicit deferral
+that the battery misses completely:
+
+> "Waiting for p1_consolidate's go-ahead. When it arrives I'll make the edit, verify tsc,
+> and report back to team-lead."
+
+It fails both relevant patterns:
+
+- `waiting for` requires a following `notification|monitor|completion|event|result|to
+  arrive|arrives|completes|finishes`. The object here is "go-ahead" — none of them.
+- `I'll…report back` requires `once|when|after` **after** the phrase. Here "When it
+  arrives" comes **before** it.
+
+This is the third independent instance of the same failure mode (after 4.1.8's "waiting
+on" live miss and the `no-result-returned` class), and the first found in real production
+text rather than by construction. Two near-misses on one sentence is what a vocabulary
+matcher looks like when the vocabulary is anyone's but the author's.
+
+---
+
+## Judge — pending
+
+Recorded by DISC-T001 against §6.1 A1–A5. Add `--detector judge` to
+`detectors/index.js`; `score.js` needs no changes.

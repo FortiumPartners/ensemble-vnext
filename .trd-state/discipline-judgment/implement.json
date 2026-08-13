@@ -89,15 +89,15 @@
     "DISC-B002": {
       "description": "Label the corpus to the class floors in TRD 3.1",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": "2026-08-13T07:55:28.785544Z",
-      "completed_at": null
+      "completed_at": "2026-08-13T08:07:16.479044Z"
     },
     "DISC-B003": {
       "description": "Scoring harness score.js; record the regex floor",
@@ -296,7 +296,7 @@
   },
   "metrics": {
     "total_tasks": 21,
-    "completed_tasks": 3,
+    "completed_tasks": 4,
     "failed_tasks": 0,
     "total_retries": 0
   },
@@ -305,12 +305,17 @@
       {
         "risk": "R4-adjacent (corpus supply)",
         "detail": "Real local transcripts yield ~27 deferral-shaped candidates, most of which are FALSE positives (this session's own DISPATCHED banners and meta-discussion). autonomy-hedge has 2 candidates, both likely FPs. The TRD 3.1 violation floors total 25 real violations and are not satisfiable from real data.",
-        "resolution": "pending \u2014 DISC-B002 to amend 3.1 floors + add a synthetic-adversarial source category"
+        "resolution": "RESOLVED \u2014 TRD 3.1 amended 2026-08-13: floors track real supply (deferral-explicit 10->8, novel-phrasing 5->6, no-result 5->7, incidental 5->8), plus 3 caveats and 3.1.1 payload context."
       },
       {
         "risk": "R2 (loop guard) \u2014 CONFIRMED MATERIALIZED",
         "detail": "A prompt-type hook that always blocks loops: 4 cycles on Stop, 8 on SubagentStop, terminated only by the evaluated model's own judgment. No structural platform cap observed. TRD 6.1 A6 requires a demonstrated bound.",
         "resolution": "pending DISC-P003 \u2014 evaluate continueOnBlock semantics and agent-type hooks (which have tool access and could maintain the counter themselves)"
+      },
+      {
+        "risk": "R4 (corpus reproduces author vocabulary) \u2014 PARTIAL",
+        "detail": "Synthetic cases were written from situations, and the generating agent did not read async-claim-detector.js or subagent-discipline.js. But async-discipline.md prose is force-loaded via CLAUDE.md every session, so zero exposure cannot be claimed.",
+        "resolution": "Recorded as TRD 3.1 caveat B: synthetic-class scores are indicative, not decisive."
       }
     ],
     "contingencies_applied": [],
