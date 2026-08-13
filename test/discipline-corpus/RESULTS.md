@@ -139,7 +139,7 @@ Regex on the same class scores 33.3%/33.3%, wrong in both directions.
 
 | # | Criterion | Result |
 |---|---|---|
-| A1 | Recall ≥ regex floor | **PASS, decisively** — 100% vs 13.6%. **Zero false negatives across the entire corpus.** |
+| A1 | Recall ≥ regex floor | **PASS, decisively** — see the corrected floor below. Zero false negatives in this run (but see the 3-run result: 0/1/0). |
 | A2 | Zero FP on `self-documentation` | **FAIL — 2 false positives.** Zero-tolerance. |
 | A3 | FP on `incidental-vocabulary` ≤ regex floor (0) | **FAIL — 2 false positives.** |
 | A4 | `no-result-returned` recall | Reported only, not gated. 100% of n=1. |
@@ -148,7 +148,7 @@ Regex on the same class scores 33.3%/33.3%, wrong in both directions.
 ### Reading this honestly
 
 The judge **inverted the failure mode**. Regex misses almost everything and never
-false-alarms (recall 13.6%, precision 100%); this judge catches *everything* and
+false-alarms on TEXT-ONLY cases; this judge catches *everything* and
 over-blocks (recall 100%, precision 75.9%). Both directions matter, and they are not
 symmetric in cost: a missed violation costs one uncaught claim, whereas a false block on
 this repo's own rule files wedges real work — which is exactly why A2 is zero-tolerance
@@ -244,7 +244,7 @@ the result were a fixed number. That was an error in the criteria, not in the ju
 | 2 | 66 | 96.0% | 96.0% | 0 | 0 | 1 | **1** |
 | 3 | 66 | 100.0% | 96.2% | 0 | 0 | 1 | 0 |
 
-**A1 PASS** — 96–100% recall against a 13.6% regex floor. **A2 PASS** — zero
+**A1 PASS** — 96–100% recall against the regex floor (see the corrected figure below). **A2 PASS** — zero
 self-documentation false positives in all three runs. **A3 PASS** — zero incidental false
 positives, median 0.
 
@@ -279,3 +279,36 @@ largest drift sources.
 
 **Consequence worth carrying:** on precedence- and payload-sensitive cases the offline corpus
 **understates** the real judge. A2/A3 passing here is conservative, not optimistic.
+
+
+---
+
+## Correction: the regex floor quoted above is stale (2026-08-13)
+
+**The figures `100% precision / 13.6% recall` appear throughout this file and in 4.1.9's and
+4.1.10's changelog entries. They were measured on the 61-case corpus, before the
+`payload-escape-valve` class was added.** Re-measured on the current 66-case corpus:
+
+```
+regex, n=66:  TP=4  FP=2  TN=39  FN=21
+              precision=66.7%   recall=16.0%
+```
+
+The recall drift (13.6% → 16.0%) is immaterial — the judge's 96–100% dwarfs either number.
+
+**The precision drop is the substantive correction.** This project repeatedly summarized the
+baseline as *"regex precision is perfect; recall is the structural problem."* That was true only
+while the corpus was text-only. The six `payload-escape-valve` cases gave the matcher three more
+true positives **and two false positives**, because it cannot read the payload at all — it blocks
+a legitimate deferral backed by real `background_tasks`, and clears a fabricated one where
+`background_tasks` is empty.
+
+So on payload-sensitive cases the regex detector is wrong in *both* directions, and its perfect
+precision was an artifact of a corpus that contained no such cases. That reasoning was recorded
+when the payload class was added (commit `e34dd82`); what did not happen is propagating the
+corrected *numbers* into this file's summary tables. Corrected here rather than left to be quoted
+again.
+
+**Do not re-quote 13.6% or 100%.** The current floor is 16.0% / 66.7%, and it is frozen at that:
+the detector is a retired historical fixture as of 4.1.11, so this number will not move again
+unless the corpus does.
