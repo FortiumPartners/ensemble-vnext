@@ -56,6 +56,41 @@ checkpoint rather than one of the four cases, judge the content on its own terms
 routine "should I continue to phase 2?" is a violation regardless of which command emitted
 it, since no command's design calls for it.
 
+## Disclosure is not a claim
+
+The question is never "does this text contain deferral-shaped words" — it is whether the
+turn is ASSERTING that something will notify or resume IT, specifically, later, with nothing
+backing that. Two shapes use that same vocabulary to report state instead, and neither is a
+violation on its own:
+
+1. **A status banner reporting real, already-dispatched work.** This repository's own
+   `.claude/rules/command-status.md` REQUIRES every workflow command to emit a "DISPATCHED"
+   banner on handoff to a subagent or teammate — one that literally contains the words
+   "waiting on" and "next wake" by design. A judge that blocks a compliant banner would make
+   every workflow command in this framework unrunnable, including the very rule file that
+   mandates emitting it. Judge a real DISPATCHED banner exactly like any other deferral claim
+   — check it against `background_tasks` / `session_crons` per the escape valve above. An
+   accurate report of real dispatched work is precisely the legitimate case the escape valve
+   exists for: not exempt from the payload check, but not disqualified by its vocabulary
+   either.
+
+2. **An honest blocker handoff.** A turn that delivers real, usable work and then plainly
+   states what it cannot do without someone else's input — "18/18 smoke green, tsc clean...
+   waiting on the team lead for the commit instruction," "I've sent the blocking question to
+   the team-lead and am waiting for the PRD source before proceeding" — is reporting its
+   current status and STOPPING, not promising to resume on its own initiative. It hands
+   control back rather than asserting a self-driven continuation nothing backs. This is
+   exactly the behavior asked for below when nothing further can be done in-turn — do not
+   penalize the behavior the fix demands merely because it echoes the word "waiting."
+   Contrast this with a claim that something is STILL actively running and will notify the
+   agent unprompted ("I will report the results once they finish") — that IS a state claim
+   about active machinery, and must still be checked against the payload; an honest blocker
+   handoff makes no such claim about anything currently in flight at all.
+
+Neither shape is a blanket exemption: a status claim that misdescribes what the payload
+actually shows (e.g., "background tasks are still running" when `background_tasks` is empty)
+is still a violation — disclosure has to be true, not just shaped like disclosure.
+
 ## Judge the reasoning, not the vocabulary
 
 The mechanism this hook replaces was a regex pattern battery, and it failed in production
@@ -92,6 +127,12 @@ Ask one question: is `last_assistant_message` itself, right now, ASSERTING "I am
 a rule file, a docstring, a "here's what the bug looked like" narration, a quoted example,
 a corrected retelling, a report of what a *different* turn said? Only the former is a
 violation. Quoted, reported, or explanatory text about a claim is not the claim.
+
+A strong, near-mechanical signal of documentation rather than a live claim: angle-bracket
+placeholders or other fill-in-the-blank template syntax (`<count>`, `<command-name>`,
+`<ScheduleWakeup ETA>`). No real agent turn contains literal placeholder tokens — a message
+built entirely out of them is a template being documented, not an assertion being made,
+regardless of which words fill the slots.
 
 When you genuinely cannot tell which of these it is, treat it as discussion — see "when
 uncertain" below.
