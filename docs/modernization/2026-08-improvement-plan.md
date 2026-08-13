@@ -76,6 +76,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
 | 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | |
+| 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 1–2 days | Fabricated criteria burn whole tasks; 4 instances in one TRD | |
 
 ---
 
@@ -657,6 +658,64 @@ review gate the risky-task path describes in prose.
 
 **Done when:** Coverage and DoD gates fire from `TaskCompleted`; at least one gate is an agent hook verifying
 acceptance criteria against code; `TeammateIdle` re-engages a worker that stopped with work outstanding.
+
+### 10. Audit `/create-prd` and `/create-trd` for manufactured requirements
+
+**The most consequential failure mode observed so far is not that something breaks or goes
+unbuilt. It is that hours and tokens are spent solving problems the user never asked about,**
+because the model's priors say an artifact of this type "should have" a section — and once a
+requirement is written into a PRD or TRD, everything downstream treats it as real.
+
+**The evidence is this project's own `docs/TRD/discipline-judgment.md`.** Acceptance criterion
+A5 required "added latency at turn end, p95 ≤ 2000 ms". No user asked for it. No data motivated
+it. It was written because an acceptance table looked incomplete without a latency row. It then
+consumed a full task (`DISC-T002`), 100 timed samples, two incorrect analyses, a revision into
+three sub-criteria to rescue it, and finally a withdrawal — after the user asked the only
+question that mattered: *"what's the impact of this latency?"* The answer was none. The hook fires
+after the assistant's text has streamed, so the cost lands inside the seconds a human spends
+reading a message that already arrived, and in autonomous runs nobody is watching.
+
+Not an isolated slip. The same TRD's §2.3 asserted a `no-result-returned` violation class as
+"the capability that justifies switching", on a mis-reading of the motivating incident; measuring
+it found **one** real instance in 1,274 transcripts, and the criterion built on it (A4) had to be
+downgraded from gate to observation. Its §3.1 corpus floors were set at aspirational numbers that
+real data could not supply, and §3.4 specified a runtime kill switch that is impossible for the
+mechanism it governs. **Four fabrications in one document**, each caught only after work had been
+spent on it.
+
+The generator commands are where this originates, so that is where to look.
+
+**What the audit should cover:**
+
+- `/create-prd`, `/create-trd`, `/refine-prd`, `/refine-trd`, plus `docs/templates/` and the
+  `product-manager` / `technical-architect` agent prompts.
+- **Templates are the main suspect.** A section heading in a template is an instruction to fill
+  it. If the template has "Non-Functional Requirements" or an acceptance-criteria table, the model
+  will populate them whether or not the feature has any — and a plausible-sounding number is the
+  easiest thing to produce.
+- Every requirement should be **traceable to something the user said, a measured fact, or a
+  documented constraint.** Requirements that trace only to "artifacts like this usually have one"
+  are the target.
+- Prefer **omission over invention**: a TRD with no latency criterion is correct when latency was
+  never raised. An empty section is a stronger signal than a fabricated one.
+- Consider requiring **provenance per acceptance criterion** — user request, measurement, or
+  named constraint — so an unsourced criterion is visible at authoring time rather than after a
+  task has been spent proving it.
+- The cost is asymmetric and worth stating in the command prompt: a missing requirement surfaces
+  as a question, while a fabricated one silently consumes a task, and everything downstream —
+  `spec-planner`, `/implement-trd`, `verify-app` — treats it as legitimate because it is written
+  down.
+
+**Watch for the inverse.** Under-specifying is also a failure, and the same TRD shows it: the
+corpus was text-only when the design's central mechanism resolves escape valves from
+`background_tasks`, so the judge was scored on strictly less information than it has in
+production. The goal is requirements that trace to something real — not fewer requirements.
+
+**Done when:** the generator commands and templates instruct against unsourced requirements;
+acceptance criteria carry provenance; and a re-read of an existing PRD/TRD pair produced by the
+current commands identifies which of its requirements would not survive that test.
+
+---
 
 ---
 
