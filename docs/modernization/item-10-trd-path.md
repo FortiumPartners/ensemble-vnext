@@ -320,8 +320,7 @@ against source — with the verifier set widened.
      Emits the Task Grounding section. Existing TRD format untouched.
 
 3. VERIFY                    6 subagents, parallel, read-only, none may invent
-     grounding        does this already exist / contradict the codebase?
-     conformance      does it violate stack.md / constitution.md?     (C2 lateral half)
+     conformance      does it violate stack.md / constitution.md?
      objective-audit  C1 + C5 — provenance and SEVERITY of every objective, against SOURCE.
                       C5 dominates: any objective exceeding a constitution floor must state why.
                       C5 also applies to the verifiers' OWN findings (§9.3).
@@ -333,6 +332,12 @@ against source — with the verifier set widened.
 
 4. RECONCILE + READOUT       main agent
 ```
+
+**There is no separate `grounding` verifier.** An earlier draft listed one asking "does this
+already exist / contradict the codebase?" — that is stage 2's job (axis (a), consistency),
+and stage 2 reads the codebase properly to answer it. `design-audit` carries the residual
+half, C6: does every task have a grounding block, and is anything superseded left unnamed?
+Running a verifier that re-asks stage 2's question would pay twice for one answer.
 
 **`design-audit` is the new capability**, and it is the one that would have paid for itself
 soonest. C3 in particular is cheap and was never performed: §3.4's kill switch was specified,
