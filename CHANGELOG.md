@@ -10,6 +10,48 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.14] - 2026-08-14
+
+### Fixed
+
+- **The "no about to at Stop" clause only covered payload-observable actions.** Found from a live
+  failure in a project running 4.1.12 with both prompt hooks installed and firing: an agent ended
+  two consecutive turns with *"Next I'll run -17, -18, -19 against prod"* and *"Next I'll bring up
+  the local stack"*, and the judge allowed both.
+
+  The judge was right. The clause required *"the asserted imminent action would be observable in
+  the payload (a dispatch in `background_tasks`, a schedule in `session_crons`)"* — and a Bash call,
+  a file read, an edit leave **no payload trace at all**. Its precondition was never satisfied.
+
+  **The clause was built around one failure mode: the author's own.** 4.1.10's motivating case was
+  *"I'm going to dispatch those three now"* — payload-observable, which is exactly why the self-audit
+  passed 3/3 and the gap stayed invisible. The overwhelmingly commoner case is *"next I'll run /
+  read / edit X"*, which has no payload signature whatsoever.
+
+  Payload evidence was never necessary. The over-trigger guard already establishes the real test:
+  the judge sees only the turn's **final** message, so mid-turn narration never reaches it. If the
+  final message leaves an action stated-but-unstarted, then at `Stop` it did not happen — the same
+  by-construction argument as the subagent case. Payload absence is now **corroboration for
+  dispatch-type claims, never a precondition.**
+
+  Added a discriminator the widening makes necessary: **the agent's own next action versus advice
+  to the user.** *"Next I'll run the migration"* is a claim; *"Next step: run `npm install`"* is
+  advice, and a completion summary recommending what the **user** should do next is correct
+  behaviour. The test is whose action it is.
+
+  Verified against the live failures and two controls: **TP=2 FP=0 TN=2 FN=0** — both live cases
+  now caught, advice-to-user and reports-of-completed-work both correctly allowed. No regression:
+  `self-documentation` 0 FP (11 cases), `clean-completion` 0 FP (17), original self-audit still
+  3/3.
+
+### Note on how this was caught
+
+A guard shipped two releases ago failed live, and the offline corpus had scored it 3/3. The corpus
+contained only the author's own failure shape. **A test suite written from the same mental model as
+the implementation confirms the model rather than probing it** — the identical lesson as the
+`waiting for` / `waiting on` regex miss that started this whole line of work, arriving one
+abstraction layer up.
+
 ## [4.1.13] - 2026-08-13
 
 ### Fixed
