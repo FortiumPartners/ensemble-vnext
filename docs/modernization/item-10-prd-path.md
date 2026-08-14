@@ -148,24 +148,47 @@ hand-roll provenance with a `*Source: …*` footer.
 column, the `DO NOT relitigate` marker, and the source footer. A fresh `## Decisions` section would
 orphan 31 PRDs of working convention.
 
-### 4.1 The one-line change that beats the pipeline
+### 4.1 Replace the NFR quintet — do not delete it
 
-Manufactured NFRs are **concentrated, not endemic**: 26 of 31 quantified NFRs across 15 PRDs are
-unsourced, but **all 26 come from 6 files**, and 9 of 15 PRDs have none. They track a single
-template variant — the fixed quintet `Performance / Security / Accessibility / Scalability /
-Integration Requirements`, present in 6/61.
+Manufactured NFRs are **concentrated, not endemic**: 26 of 31 quantified NFRs across 15 sampled
+PRDs are unsourced, but **all 26 come from 6 files**, and 9 of 15 PRDs have none. They track a
+single template structure — §5's `Performance / Security / Accessibility / Scalability /
+Integration` quintet.
 
-The worst example is `poi-graph-transportation.md` §5.1: **"Concurrent tool calls ≥ 50 RPS without
+**The categories are the problem, not the section.** Five named subsections are five prompts to
+fill, and an author facing "5.1 Performance Requirements" above an empty table will produce a
+latency figure. The template makes it worse by supplying the anchor itself —
+`| [e.g., Response time] | [e.g., < 200ms] |` — and by pre-filling
+`WCAG 2.1 AA compliance (if applicable)`. That is not a container for requirements; it is a
+generator of them. The authors sensed this and marked two subsections `(optional)`, but "optional"
+is weak against a heading that exists.
+
+The worst instance is `poi-graph-transportation.md` §5.1: **"Concurrent tool calls ≥ 50 RPS without
 OSRM degradation | Staging load test"** — an RPS target *and* a load test, for a product the same
 corpus repeatedly documents as *"pre-beta, one real party"*.
 
-**Deleting that quintet from the PRD template removes most of what this four-stage design exists to
-catch.** One line against a four-stage pipeline. Do it regardless of whether the rest ships.
+**Deleting the section outright would be the mirror-image failure this design exists to prevent.**
+A real non-functional requirement — *"must handle 10k concurrent users"*, *"must not lose a
+payment"* — needs somewhere to land. Suppressing it is as damaging as inventing one, and §9.2
+established that dropping requirements is the commoner failure.
 
-Counter-evidence worth preserving: several authors actively refuse to invent numbers —
+**Replace it with:**
+
+- **One section, no category scaffolding.** The five named subsections go; non-functional
+  requirements are listed as they arise.
+- **No example values.** Never `< 200ms`. An example number is an anchor, and anchors get adopted.
+- **A source per entry** — the PRD text it came from, `stack.md`, `constitution.md`, or a
+  measurement. Same rule as every other objective.
+- **Empty is a legitimate, expected outcome**, stated in the template so an author does not read
+  emptiness as incompleteness. Most features have no non-functional requirements anyone asked for.
+
+A sourced NFR passes through unchanged. An invented one has nothing prompting it into existence and
+no source to cite if it appears anyway.
+
+Counter-evidence worth preserving: several authors already refuse to invent numbers —
 *"The generalist agent turn floor is 12.9–17.3s measured; do not set responsiveness SLAs that
 include a fresh turn at the client tail"* — and one labels an unverified claim **"Belief, not
-fact"** pending a named spike. Promote that marker into the template; it is a cheaper always-on
+fact"** pending a named spike. Promote that marker into the template; it is a cheaper, always-on
 version of the source-fidelity stage.
 
 ## 5. The derived-requirements readout
