@@ -583,7 +583,42 @@ Recorded so the document matches the code rather than the intent.
 | 6 | **Template surgery added ahead of the verifier wave** | Both designs proposed additive machinery against a failure whose largest component was deletable template text: an example `< 200ms`, a pre-filled WCAG line, required Performance/Risk tables, "all sections required", and diagram quotas |
 | 7 | **Section numbering repaired**; the check count now says six | §3 was headed "five checks" over six rows; §3.3 was missing and §3.5 appeared twice |
 | 8 | **The fixture's permitted miss is named** (B009's deferral premise) | §8 said "at least 7 of 8" without saying which, making "passing" ambiguous |
+| 9 | **Verifiers write findings to disk and return one line; reconcile is its own subagent** | §10.1 |
 
 **Not shipped, deliberately:** the Master Task List format is otherwise unchanged (§3.6.1),
 since `/implement-trd` parses it today and item 7 reworks that consumption. Grounding is
 additive, in its own section, keyed by task ID.
+
+
+### 10.1 Where the orchestrator's context actually goes
+
+Raised 2026-08-14: should the source package move to a fork, so review work does not clutter
+main context?
+
+**No — the source package is the one stage that belongs in the main agent.** Its input is
+already there: a source document is one file read, and a session-derived brief involves no
+tool calls at all, because the conversation *is* the input. There is nothing to offload.
+Forking it would inherit **post-compaction** context and silently drop the oldest decisions —
+P6's objection, applying with more force here than to the verifier, because the brief is the
+only carrier for session-derived requirements. Forks also depend on the
+`CLAUDE_CODE_FORK_SUBAGENT` feature flag, which P6 counted dropping as a benefit.
+
+**The cost is at the other end**, in two places: six verifiers returning findings lists, and
+reconcile re-reading and editing the draft to apply them.
+
+Both are addressed without forks and without nesting:
+
+- **Verifiers write findings to `.trd-state/<feature>/findings/<name>.json` and return one
+  line.** The orchestrator holds six receipts instead of six findings lists.
+- **Reconcile is its own subagent**, reading the findings files and the draft. It spawns
+  nothing.
+
+**Rejected: one agent doing the whole review wave.** That requires the agent to spawn the
+verifiers, which `constitution.md` §1 forbids by default (revised 2026-08-14 against an
+observed ~567k-token self-delegation chain). It remains available — the constitution provides
+for a named fan-out rationale, and a six-verifier dispatch is close to its own canonical
+example — but it is a deliberate governance act, not a default, and the cost it names is
+exactly wrong for this command: *"a wrong conclusion several layers down arrives as a
+confident summary with its reasoning discarded."* Item 10 exists to make manufactured
+requirements visible. Findings on disk stay inspectable, diffable and citable by ID;
+findings summarised through an intermediate agent do not.

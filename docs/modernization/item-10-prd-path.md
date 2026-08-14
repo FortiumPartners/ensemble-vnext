@@ -300,7 +300,8 @@ source" is explicitly *not* grounds to ask — the deterministic resolution is t
 | 2 | **Template surgery ahead of the verifier wave** | The NFR quintet was not merely a bad container: `create-prd.md` shipped `\| [e.g., Response time] \| [e.g., < 200ms] \|` as an anchor and pre-filled `WCAG 2.1 AA compliance`. §4.1 identified the categories; the example values were doing comparable damage |
 | 3 | **Readout in action register** | `item-10-trd-path.md` §9.5 — classification headings were rejected five times |
 | 4 | **"Belief, not fact" promoted into the template**, as §4.1 recommended | Cheapest always-on version of the source-fidelity check |
-| 5 | **Decisions section named "Decisions and Rejected Alternatives"** rather than adopting `Appendix A — Team Analysis Notes` verbatim | §4 recommended standardising the corpus convention, but the container name referenced a team that P1 retires. The *format* — challenge / verdict / rationale / **revisit condition** — is adopted exactly, along with the do-not-re-litigate marker |
+| 5 | **Verifiers write findings to disk and return one line; reconcile is its own subagent** | See `item-10-trd-path.md` §10.1. The source package stays in the main agent — forking it would inherit post-compaction context and drop exactly what the brief exists to carry |
+| 6 | **Decisions section named "Decisions and Rejected Alternatives"** rather than adopting `Appendix A — Team Analysis Notes` verbatim | §4 recommended standardising the corpus convention, but the container name referenced a team that P1 retires. The *format* — challenge / verdict / rationale / **revisit condition** — is adopted exactly, along with the do-not-re-litigate marker |
 
 **Confirmed by shipping:** §4's correction was right and worth the credibility it saved.
 The convention existed; the format the authors converged on — especially the revisit

@@ -707,9 +707,14 @@ Before completing, verify:
      Reconciles the decisions against the codebase: consistency, reuse, what
      becomes unreachable, per-task context. Emits Section 10, Task Grounding.
 
-3. VERIFY                parallel subagents, read-only, none may invent
+3. VERIFY                6 subagents, parallel, read-only, none may invent
+     each WRITES findings to .trd-state/<feature>/findings/<name>.json
+     and RETURNS ONE LINE: "<n> findings → <path>"
 
-4. RECONCILE + READOUT   main agent
+4. RECONCILE             1 subagent — reads the findings files + the draft,
+     applies them, drafts the readout. Spawns nothing.
+
+5. READOUT               main agent — prints the readout, COMMAND COMPLETE
 ```
 
 **Grounding runs sequentially and alone, not as part of the verify wave.** It is
@@ -759,6 +764,56 @@ a finding to discard.
 written?"* costs one agent. In this project's own history, a specified mechanism was designed
 around, built against, and deferred *around* before anyone asked whether it could exist —
 it could not.
+
+### Verifier return contract — findings go to disk, not into the caller's context
+
+**Each verifier writes its findings to a file and returns ONE line.**
+
+```
+.trd-state/<feature>/findings/<verifier-name>.json     (mkdir -p as needed)
+```
+
+Return exactly: `<n> findings → <path>` (or `0 findings` and write nothing).
+
+Do **not** return the findings themselves as prose. Six verifiers returning full findings
+lists is the single largest contribution to this command's context cost, and the orchestrator
+does not read them — the reconcile stage does. All the orchestrator needs is six one-line
+receipts.
+
+Findings are per-run scratch: overwrite them each invocation, and never treat a stale file
+as current.
+
+Each finding is an object with at minimum:
+
+```json
+{ "id": "A5", "action": "delete|lower|add-back|unbuildable|contradiction|confirm|check",
+  "line": "A5  latency p95 <= 2000ms",
+  "why": "no PRD line, no measurement, no user instruction",
+  "where": "docs/TRD/<feature>.md §6.4" }
+```
+
+### Reconcile — 1 subagent
+
+One subagent reads the findings files plus the draft, applies them, and drafts the readout.
+**It spawns nothing** — the verify wave has already run, and a reconcile agent that spawned
+its own verifiers would be nesting, which `constitution.md` §1 forbids by default.
+
+Keeping reconcile out of the main agent is deliberate: applying findings across six
+verifiers means re-reading the draft and editing it repeatedly, which is the other half of
+this command's context cost. The main agent receives the finished readout, prints it, and
+emits COMMAND COMPLETE.
+
+**Why findings go to disk rather than into a fork or a nested orchestrator.** A fork
+inherits post-compaction context, and this is a *review* stage — the evidence must stay
+inspectable. Findings on disk can be re-read, diffed, and cited by ID afterwards; findings
+summarised through an intermediate agent cannot, and `constitution.md` §1 names exactly that
+cost: *"a wrong conclusion several layers down arrives as a confident summary with its
+reasoning discarded."* This command exists to make manufactured requirements visible, so
+burying the reasoning behind them is the one trade not worth making.
+
+**Stage 0 stays in the main agent** and is not forked. Its inputs are already there, so
+there is nothing to offload, and a fork would inherit post-compaction context and lose the
+oldest decisions.
 
 ---
 

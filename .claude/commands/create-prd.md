@@ -512,6 +512,53 @@ striking a real requirement is harder to detect than adding a fake one.
 requirement.** Reviewers inflating severity is the observed failure, not reviewers striking
 valid requirements.
 
+#### Verifier return contract — findings go to disk, not into the caller's context
+
+**Each verifier writes its findings to a file and returns ONE line.**
+
+```
+.trd-state/<feature>/findings/<verifier-name>.json     (mkdir -p as needed)
+```
+
+Return exactly: `<n> findings → <path>` (or `0 findings` and write nothing).
+
+Do **not** return the findings themselves as prose. Three verifiers returning full findings
+lists is the single largest contribution to this command's context cost, and the orchestrator
+does not read them — the reconcile stage does.
+
+Findings are per-run scratch: overwrite them each invocation, and never treat a stale file
+as current.
+
+Each finding is an object with at minimum:
+
+```json
+{ "id": "REQ-7", "action": "delete|add-back|record|lower|check",
+  "line": "REQ-7  Latency p95 <= 2000ms",
+  "why": "traces to nothing in source",
+  "where": "docs/PRD/<feature>.md §5" }
+```
+
+### 4. Reconcile — 1 subagent
+
+One subagent reads the findings files plus the draft, applies them, and drafts the readout.
+It spawns nothing.
+
+Keeping this out of the main agent is deliberate: applying N findings means re-reading the
+draft and editing it repeatedly, which is the other half of this command's context cost.
+The main agent receives the finished readout, prints it, and emits COMMAND COMPLETE.
+
+**Why findings go to disk rather than into a fork.** A fork inherits post-compaction
+context, and this is a *review* stage — the evidence must stay inspectable. Findings on disk
+can be re-read, diffed, and cited by ID after the fact; findings summarised through an
+intermediate agent cannot. The whole purpose of this command is making manufactured
+requirements visible, so the one thing not to do is bury the reasoning behind them.
+
+**The source package stays in the main agent** and is not forked. Its input is already in
+main context — a source document is one file read, and a session-derived brief has no tool
+calls at all — so there is nothing to offload. Forking it would inherit post-compaction
+context and silently drop the oldest decisions, which is precisely what the brief exists to
+carry (P6, and §2.1's qualification of it).
+
 ---
 
 ## Readout

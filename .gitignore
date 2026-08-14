@@ -50,3 +50,6 @@ test/.env
 
 # implement-trd lock (session-scoped)
 .trd-state/*/implement.lock
+
+# Verifier findings are per-run scratch (create-prd / create-trd verify wave)
+.trd-state/*/findings/
