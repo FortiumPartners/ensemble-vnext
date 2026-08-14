@@ -10,6 +10,41 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.15] - 2026-08-14
+
+### Changed
+
+- **Subagent nesting is now forbidden by default** (constitution §1, user-approved). Prompted by an
+  observed live chain: `backend-implementer → backend-implementer → backend-implementer`, with an
+  **identical task description at the last two levels** — recursion, not decomposition. Roughly
+  **567k tokens** across the chain, the deepest agent doing the work while two wrappers waited.
+
+  **The previous stance inverted its own justification.** It permitted nesting by default and
+  forbade it for three named leaf agents. The rationale given was *"agents whose work genuinely
+  fans out — the canonical case is a reviewer dispatching a verifier per finding"* — and
+  `code-reviewer`, that canonical case, was one of the three **forbidden**. Meanwhile every
+  implementer, which fans nothing out, was permitted.
+
+  All eight agents now declare `disallowedTools: Agent`. Nesting is permitted only where an agent
+  has a **named fan-out rationale in its own definition** — no agent qualifies today, and adding
+  one is a deliberate act rather than a default. **Same-type self-delegation is forbidden
+  outright**, because a depth limit does not catch it: three levels of one agent on one task sits
+  inside depth 3 and is pure recursion.
+
+- **The three implementers no longer instruct themselves to delegate.** Each carried
+  *"If a request involves [other domain], delegate appropriately"* — which contradicted principle 1
+  outright. The orchestrator owns the task list, so a scope conflict is information it must
+  *receive*; a nested spawn hides the decision and its reasoning from the only context that can act
+  on it. They now stop and report the conflict, which is what the adjacent line already told them
+  to do.
+
+### Note
+
+Nothing changed in 3.x to cause this. Subagent nesting was impossible when principle 1 was written,
+became a platform default, and the constitution was updated to permit it deliberately — but the
+permission was granted broadly while the justification stayed narrow. It was latent in every
+implementer and surfaced when a task was decomposable enough to invite it.
+
 ## [4.1.14] - 2026-08-14
 
 ### Fixed

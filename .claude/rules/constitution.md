@@ -21,24 +21,43 @@ subagent to update its own task fails silently. If a worker genuinely needs to s
 that is an agent-team teammate (teammates keep the task tools), not a subagent — and needing
 one is a signal the wrong construct was chosen.
 
-**Nesting stance: permitted to depth 3, restricted per agent.** Subagents may spawn subagents
-(platform default; `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`). This was impossible when this
-principle was first written, so the principle described the platform as much as a choice; it
-is now a deliberate one.
+**Nesting stance: forbidden by default, permitted only with a named fan-out rationale.**
+Subagents *may* spawn subagents (platform default; `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`), and
+this project deliberately does not use that capability.
 
-- **Permitted** for agents whose work genuinely fans out — the canonical case is a reviewer
-  dispatching a verifier per finding, so per-finding verification never reaches the
-  orchestrator's context.
-- **Forbidden for leaf agents.** `code-reviewer`, `code-simplifier`, and `verify-app` declare
-  `disallowedTools: Agent`. They report; they do not delegate.
+**Revised 2026-08-14, user-approved, against an observed failure.** The previous stance permitted
+nesting by default and forbade it for three named leaf agents. That inverted its own justification:
+the rationale given was *"agents whose work genuinely fans out — the canonical case is a reviewer
+dispatching a verifier per finding"*, and `code-reviewer` — the canonical case — was one of the
+three forbidden. Meanwhile every implementer, which fans nothing out, was permitted by default.
+
+What that produced, observed in a live session:
+`backend-implementer → backend-implementer → backend-implementer`, with an **identical task
+description at the last two levels**. Not decomposition — an agent handed a task and spawning a
+copy of itself with the same task. Roughly **567k tokens** across the chain, the deepest agent
+doing the actual work while two wrappers waited on it.
+
+- **Forbidden for every agent that does work and reports it** — which is all of them today.
+  `backend-implementer`, `frontend-implementer`, `mobile-implementer`, `agent-implementer`,
+  `app-debugger`, `code-reviewer`, `code-simplifier` and `verify-app` all declare
+  `disallowedTools: Agent`.
+- **Permitted only where an agent's work genuinely fans out**, stated as a named rationale in that
+  agent's own definition. No agent qualifies today. Adding one is a deliberate act, not a default.
+- **Same-type self-delegation is forbidden outright**, even where nesting is otherwise permitted.
+  A depth limit does not catch it: three levels of the same agent on the same task is within
+  depth 3 and is pure recursion.
 - **Concurrency counts the whole tree.** Nested subagents occupy the same 20-slot pool
-  (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`), so six implementers each dispatching two verifiers
-  is eighteen slots, not six.
+  (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`).
 
-The cost being accepted: intermediate output from a nested subagent is *designed* not to reach
-the orchestrator, so a wrong conclusion several layers down arrives as a confident summary with
-its reasoning discarded. Restricting the leaf agents is what keeps that bounded — the agents
-whose judgment the loop depends on most are the ones that cannot hide their work.
+**An implementer that hits work outside its scope reports the conflict; it does not delegate.**
+The orchestrator owns the task list, so a scope conflict is information the orchestrator must
+receive — a nested spawn hides both the decision and its reasoning from the only context that can
+act on it. The three implementers previously carried an explicit *"delegate appropriately"*
+instruction for cross-domain work, which contradicted this principle and has been removed.
+
+The cost this avoids: intermediate output from a nested subagent is *designed* not to reach the
+orchestrator, so a wrong conclusion several layers down arrives as a confident summary with its
+reasoning discarded.
 
 ### 2. Skills and Agents are PROMPTS Only
 
@@ -253,6 +272,12 @@ Given the non-deterministic nature of LLM-based systems:
   (`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`) moved to
   `hookType: "prompt"` (model-judged), per `docs/TRD/discipline-judgment.md`. User-approved
   2026-08-13 (recorded in that TRD as decision D6).
+
+### Version 1.2.0 (2026-08-14)
+
+- Nesting stance inverted: forbidden by default, permitted only with a named fan-out rationale.
+  Prompted by an observed `backend-implementer → backend-implementer → backend-implementer` chain
+  with an identical task at the last two levels. User-approved.
 
 ### Version 1.0.0 (2026-01-22)
 
