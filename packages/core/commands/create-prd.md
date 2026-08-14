@@ -10,10 +10,6 @@ Create a comprehensive Product Requirements Document (PRD) from a product descri
 or feature idea. Delegates to @product-manager for user analysis, acceptance criteria
 definition, and structured requirements documentation.
 
-**ULTRATHINK**: This is a complex document creation task requiring deep analysis of
-user needs, business requirements, and acceptance criteria. Take time to thoroughly
-analyze before generating content.
-
 ## User Input
 
 ```text
@@ -31,9 +27,38 @@ The product-manager specializes in PRD creation, user research, and requirements
 
 ---
 
+## What a PRD may contain
+
+A PRD **records** what was asked for. Everything in it must trace to something real: the
+user's own words, a source document (ticket, spec, design doc), a measurement you can cite,
+or a named constraint in `stack.md` / `constitution.md`.
+
+**A requirement that traces only to "products like this usually have one" does not belong
+in the PRD.** Once it is written down, nothing downstream challenges it — `/create-trd`,
+`spec-planner`, `/implement-trd` and `verify-app` all treat a written requirement as
+legitimate by construction. So a fabricated one is *executed*, not examined, and it consumes
+real implementation work before anyone notices it was never wanted.
+
+The cost is asymmetric and worth holding onto: **a missing requirement surfaces as a
+question; a fabricated one silently consumes a task.** Prefer omission to invention.
+
+**Dropping a requirement is the commoner failure.** In this project's own corpus, silently
+narrowing scope outnumbers inventing requirements. Everything the source asks for must
+either appear in the PRD or be listed explicitly under Non-Goals. Never quietly rescope.
+
+If a claim is believed but unverified, label it — **"Belief, not fact"** — and name what
+would settle it. That marker is cheaper and always-on compared to any later review.
+
+---
+
 ## PRD Document Structure
 
-The generated PRD MUST follow this exact structure. All sections are required unless marked (optional).
+The generated PRD follows the structure below.
+
+**Sections are containers, not quotas.** A heading is not an instruction to fill it. An
+empty section is a **correct, expected outcome** when nobody raised that concern — and a
+stronger signal than a plausible invention. Never populate a section to make the document
+look complete.
 
 ### Document Header
 
@@ -81,8 +106,8 @@ Track all significant changes to this PRD. Add entries as refinements occur.
 
 ### 1.5 Solution Architecture
 
-**REQUIRED**: Include at least one Mermaid diagram showing the solution at a high level.
-Do NOT use ASCII art. Use Mermaid syntax only.
+Include a Mermaid diagram here when the solution has parts whose relationship is not
+obvious from the prose. Do NOT use ASCII art. Skip it for a self-contained change.
 
 ```mermaid
 graph TB
@@ -115,7 +140,8 @@ For each primary user type, create a detailed persona:
 
 ### 2.3 User Journey
 
-**REQUIRED**: Include a Mermaid diagram showing the primary user journey.
+Include a journey diagram when the flow spans several steps or actors. Skip it when the
+journey is one screen.
 
 ```mermaid
 journey
@@ -197,32 +223,40 @@ Organize features by priority. Use P0/P1/P2 classification:
 ...
 ```
 
-### Section 6: Technical Requirements
+### Section 6: Non-Functional Requirements
+
+**One section. No category scaffolding, and no example values.**
+
+Five named subsections — Performance, Security, Accessibility, Scalability, Integration —
+are five prompts to fill, and an author facing "Performance Requirements" above an empty
+table will produce a latency figure. They are deliberately gone. So are example numbers:
+an example value is an anchor, and anchors get adopted verbatim.
+
+List non-functional requirements as they actually arise, each with its source.
 
 ```markdown
-## 5. Technical Requirements
+## 5. Non-Functional Requirements
 
-### 5.1 Performance Requirements
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| [e.g., Response time] | [e.g., < 200ms] | [How measured] |
-
-### 5.2 Security Requirements
-- [Requirement 1]
-- [Requirement 2]
-
-### 5.3 Accessibility Requirements
-- WCAG 2.1 AA compliance (if applicable)
-- [Other requirements]
-
-### 5.4 Scalability Requirements (optional)
-- [Requirement]
-
-### 5.5 Integration Requirements (optional)
-| System | Integration Type | Notes |
-|--------|-----------------|-------|
-| [System] | [API/Event/etc] | [Notes] |
+| ID | Requirement | Source |
+|----|-------------|--------|
+| NFR-1 | [What must be true] | [PRD text / user's words / stack.md / constitution.md / a measurement] |
 ```
+
+**Empty is a legitimate and expected outcome.** Most features have no non-functional
+requirement anyone asked for. Do not read emptiness as incompleteness.
+
+Rules for this section:
+
+- **Never invent a number.** No latency, throughput, uptime, or coverage figure unless the
+  user stated it, a source document states it, or you can cite a measurement.
+- **Source the severity, not just the requirement.** "Must be fast" becoming "p95 < 200ms"
+  is an invention even when "must be fast" was real. If a number is aspirational, say so:
+  *"target, not an enforced threshold."*
+- **Accessibility**: include a concrete requirement when the feature has a user interface
+  and the project or a regulation names a standard. Do not paste a generic WCAG line into
+  a PRD for a background worker.
+- **Integration points** belong here only when they constrain the product. Otherwise they
+  are technical design and belong in the TRD.
 
 ### Section 7: Acceptance Criteria Summary
 
@@ -239,12 +273,17 @@ Consolidate all acceptance criteria for easy reference during implementation.
 | AC-F1.2 | F1 | [Criterion] | [Unit test / E2E / Manual] |
 | AC-F2.1 | F2 | [Criterion] | [Unit test / E2E / Manual] |
 
-### Technical Acceptance Criteria
+### Non-Functional Acceptance Criteria
+
+One row per entry in Section 5 — no more. This table is a restatement for convenience,
+**not a second place to introduce requirements.** If a row here has no matching NFR in
+Section 5, it was invented at summary time; delete it.
 
 | ID | Requirement | Criterion | Verification Method |
 |----|-------------|-----------|---------------------|
-| AC-T1 | Performance | [Criterion] | [Load test / Benchmark] |
-| AC-T2 | Security | [Criterion] | [Security scan / Audit] |
+| AC-N1 | [NFR-1 from Section 5] | [Criterion] | [How verified] |
+
+Empty when Section 5 is empty.
 ```
 
 ### Section 8: Risk Assessment
@@ -257,7 +296,10 @@ Consolidate all acceptance criteria for easy reference during implementation.
 | ID | Risk | Likelihood | Impact | Mitigation Strategy |
 |----|------|------------|--------|---------------------|
 | R1 | [Risk description] | High/Med/Low | High/Med/Low | [How to mitigate] |
-| R2 | [Risk description] | High/Med/Low | High/Med/Low | [How to mitigate] |
+
+A risk earns a row when you can name what would trigger it in *this* product. Generic
+hazards ("users might not adopt it", "the timeline might slip") apply to everything and
+bury the one or two that are real. Empty is legitimate for a small, well-understood change.
 
 ### Contingency Plans
 
@@ -266,7 +308,41 @@ For high-impact risks, document specific contingency plans:
 **R1 Contingency**: [What to do if this risk materializes]
 ```
 
-### Section 9: Appendices (optional)
+### Section 9: Decisions and Rejected Alternatives
+
+**REQUIRED whenever anything was considered and set aside.**
+
+The single most emphatic complaint in this project's history is a decision being
+re-litigated — including decisions taken minutes earlier, in context. A PRD that records
+only what was chosen gives the next reader no way to know that the obvious alternative was
+already considered and rejected, so they propose it again.
+
+This standardises a convention the corpus already uses (roughly half of existing PRDs
+record disagreements and rejections somewhere). Adopt this **format**, which is better than
+recording the verdict alone:
+
+```markdown
+## N. Decisions and Rejected Alternatives
+
+| Proposal / Challenge | Verdict | Rationale | Revisit when |
+|----------------------|---------|-----------|--------------|
+| Promote geofence triggers to P0 | Rejected | Adds significant scope; the LLM can infer from raw coordinates | v2, with eval data showing where the LLM struggles |
+| Queue-based ingestion | Rejected | Cost, for a pre-beta system with one real user | Sustained load above [figure] |
+
+### Confirmed grounding — do not re-litigate
+
+- [Decision the user has already settled, stated once, plainly]
+```
+
+**The `Revisit when` column is what makes this work.** A rejection with no revisit condition
+reads as permanent, and gets re-opened the moment circumstances change — which is the exact
+failure this section exists to prevent. If a rejection is genuinely unconditional, write
+"never" and say why.
+
+The **do-not-re-litigate** list is for decisions the user has explicitly settled. Keep it
+short and keep it verbatim; it is a record of what they said, not a summary of it.
+
+### Section 10: Appendices (optional)
 
 Use appendices for reference material that doesn't fit in main sections.
 
@@ -301,9 +377,12 @@ Acceptable diagram types:
 - `erDiagram` - Data relationships
 - `stateDiagram-v2` - State machines
 
-Minimum required diagrams:
-1. **Solution Architecture** (Section 1.5) - High-level solution overview
-2. **User Journey** (Section 2.3) - Primary user flow
+There is **no diagram quota.** A quota is an instruction to manufacture, and a diagram
+restating a table nobody was confused by is noise that hides the useful ones.
+
+Include a diagram where it shows something a reader would otherwise reconstruct by hand —
+a multi-actor flow, a non-obvious system boundary, a journey with real branching. A
+single-screen feature with three acceptance criteria does not need one.
 
 ---
 
@@ -330,12 +409,14 @@ Update `.trd-state/current.json`:
 ### Validation Checklist
 
 Before completing, verify:
-- [ ] All required sections present
-- [ ] At least 2 Mermaid diagrams included (no ASCII art)
+- [ ] Every requirement traces to the user's words, a source document, a measurement, or a named constraint
+- [ ] Nothing the source asked for is missing — anything dropped is listed under Non-Goals
+- [ ] No invented numbers; any number present carries its source, and aspirational ones say so
 - [ ] All features have acceptance criteria
 - [ ] Non-goals are specific and actionable
-- [ ] Risks have mitigation strategies
 - [ ] Priority labels (P0/P1/P2) assigned to all features
+- [ ] Decisions section records rejected alternatives with revisit conditions
+- [ ] Unverified claims are labelled "Belief, not fact" with a named way to settle them
 
 ---
 
@@ -368,6 +449,100 @@ The TRD will reference:
 - Risks for contingency planning
 - Acceptance criteria for test generation
 
+
+---
+
+## Workflow: source, author, verify
+
+### 0. Resolve the source
+
+Establish what this PRD is accountable to, and record the path in the PRD header.
+
+- A **source document** was given (ticket, spec, story, design doc) → that document is the
+  source.
+- The feature was **defined in this session** (discussion, decisions reached live) → the
+  session transcript is the source. Record its path.
+- **Both** — the common case: a ticket, then refined in conversation.
+
+### 1. Build the source package
+
+**Distillation is a lossy transform. Apply it only where nothing else can carry the
+information.** Paraphrasing a faithful source manufactures drift.
+
+| Case | What to pass to the author and every verifier |
+|---|---|
+| A source document exists | The document **verbatim and unaltered**. Do not summarise, restate, or clean it up. The document *is* the source package. |
+| Defined in session only | A brief at `docs/PRD/<feature>.brief.md`, because nothing else can carry it. The brief is an authoring input and a *checkable claim about the transcript* — it is not the baseline. |
+| Both | The verbatim document **plus** a brief covering only the in-session delta, clearly separated. The brief must not restate the document. |
+
+The two classes carry different risk, and separating them makes that visible: a verbatim
+document is low-risk (someone wrote it down deliberately, outside this session), while
+session-distilled content is where requirements get invented and an aside becomes an
+acceptance criterion.
+
+### 2. Author
+
+One `product-manager` subagent, fresh context, seeing the source package **verbatim** plus
+the repository. A PRD is synthesis and needs one voice; merged reports produce a stitched
+document.
+
+### 3. Verify — parallel, read-only, findable-only
+
+Run on **every** invocation. No complexity threshold: a threshold is itself an unsourced
+requirement, and it would skip verification exactly when a one-line prompt got elaborated
+into something large. Verifiers return empty quickly on a small draft.
+
+| Verifier | Checks |
+|---|---|
+| `source-fidelity` | **Both directions, against the SOURCE — never against the brief.** source → PRD: which requirements, decisions and rejections are missing? PRD → source: which requirements trace to nothing? |
+| `grounding` | Does this already exist, or contradict the codebase or existing docs? |
+| `conformance` | Does anything violate `stack.md` or `constitution.md`? |
+
+**Verify against source, never against the brief.** The brief is derived; checking the PRD
+against it only proves the PRD is faithful to a summary, and *certifies* anything the brief
+already dropped or invented. Where a source document exists, that document is what the check
+runs against.
+
+**No verifier may invent a requirement or strike one on judgment.** *"REQ-4 traces to nothing
+in the source"* is checkable and permitted. *"I think REQ-4 is unnecessary"* is manufactured
+and forbidden — a challenger fills the role it was handed exactly as an author does, and
+striking a real requirement is harder to detect than adding a fake one.
+
+**A verifier finding that asserts severity carries the same sourcing burden as a
+requirement.** Reviewers inflating severity is the observed failure, not reviewers striking
+valid requirements.
+
+---
+
+## Readout
+
+Emit at `COMMAND COMPLETE`, before the banner. One screen.
+
+**Every line names the action, not the classification.** Readouts here have been rejected
+repeatedly for being unreadable — *"I DO NOT UNDERSTAND what action you expect me to take on
+these?"* A heading like "Unsourced requirements" tells the reader nothing to do.
+
+```
+PRD: docs/PRD/<feature>.md    SOURCE: <document path | transcript path>
+
+  ADD BACK — in the source, missing from this PRD (1)
+    Source records an LLM rewrite of descriptions; the PRD does not carry it
+
+  RECORD THIS REJECTION — decided in the source, not written down (1)
+    Source rejects a queue-based design on cost; the PRD does not say so
+
+  DELETE — nothing in the source asks for these (2)
+    NFR-3   99.9% uptime target        no source
+    REQ-7   p95 latency <= 2000ms      no source
+
+  NO ACTION — sourced, listed for completeness (5)
+    NFR-2   Postgres for persistence   <- stack.md
+    ...
+```
+
+Ordered by how expensive the failure is to find later — **missing requirements first**,
+because dropping one is commoner than inventing one. Items with no action need no review;
+if there are 40 of them, print the count as one line, not forty.
 
 ---
 

@@ -77,8 +77,8 @@ known to be stale; it has been removed.
 
 Treat this as best-practice belt-and-suspenders (the evidence base is one live experiment
 plus the current docs, not exhaustive), not as a requirement the async-discipline hook
-enforces. The commands that spawn teammates (`/create-prd-team`, `/create-trd-team`,
-`/harden-trd-team`, `/verify-trd-team`, `/fix-issue`) still document a Step 2a/3a
+enforces. The commands that spawn teammates (`/harden-trd-team`, `/verify-trd-team`,
+`/fix-issue`) still document a Step 2a/3a
 "schedule the safety-net wake-up" — it remains recommended there, downgraded from
 mandatory.
 

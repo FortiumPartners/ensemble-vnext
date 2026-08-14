@@ -1,6 +1,7 @@
 # Item 10 — the TRD path
 
-**Status:** design, 2026-08-13. Scope is `/create-trd`, `/create-trd-team`, `/refine-trd`.
+**Status:** SHIPPED 2026-08-14. Scope was `/create-trd`, `/create-trd-team`, `/refine-trd`.
+Deviations from this design as written are recorded in §10.
 Companion to `docs/modernization/item-10-prd-path.md`, which it depends on but does not repeat.
 
 ---
@@ -75,10 +76,13 @@ looked empty.
 
 ---
 
-## 3. The five checks
+## 3. The checks
 
-The PRD path has one check (provenance). The TRD needs five, because three of its failures were
-not provenance failures at all.
+The PRD path has one check (provenance). The TRD needs **six** — C0, C1, C3, C4, C5, C6 —
+because three of its failures were not provenance failures at all. C2 was dropped here and
+then **restored** on re-scoping; see §3.2 and §10.
+
+(This section was headed "the five checks" while enumerating six; the count is corrected.)
 
 | # | Check | Applies to | Question | Measured hits (8 TRDs, 81 objectives) |
 |---|---|---|---|---|
@@ -87,7 +91,7 @@ not provenance failures at all.
 | C0 | **Omission** (NEW) | source→artifact | Which source objectives never appear in the artifact at all? | **1, and structurally invisible to C1–C6** |
 | C4 | **Consistency** | pairs, incl. superseding docs | Does it contradict a sibling, or a document that supersedes it? | 1 |
 | C3 | **Mechanism** | decisions | Can this be built as specified? | 0 unremediated — **users already run it by hand** |
-| C2 | ~~Derivation~~ | decisions | Does it serve a named objective? | **0 — every Key Technical Decisions table already carries a populated Rationale column. Dropped.** |
+| **C2** | **Derivation** (restored, re-scoped) | **tasks + delivery machinery** | Does it name the objective it serves? | 0 measured *on decisions* — but the population measured was wrong; see §3.2 |
 | C6 | **Grounding completeness** | tasks | Does every task carry grounding? | 0 on coverage — largely satisfied already |
 
 **Measured, not assumed (2026-08-13, 8 of 97 real TRDs, hand-classified by nature per §2.1).**
@@ -102,19 +106,51 @@ and is retroactively the most load-bearing decision in this document.
 constitution's `unit ≥60% / integration ≥50%` floor, stated with no reason — 85/90/80/100/70, ≥80%,
 ≥80%, ≥80%+≥70%, ≥90%+≥80%. No PRD in the sample mentions coverage at all.
 
-**The requirement traces to the constitution; the strictness traces to nothing.** That is C5
-exactly, and it means a single narrow rule — *an objective exceeding a constitution floor must
-state why* — catches half of everything found.
+**The requirement traces to the constitution; the strictness traces to — the template.**
+
+**Root cause corrected 2026-08-14.** This section originally said the strictness "traces to
+nothing," inferring author behaviour from output. It traces to
+`packages/core/commands/create-trd.md`, which hardcoded `Unit Tests ≥80%` /
+`Integration Tests ≥70%` against a constitution floor of 60%/50%. The template contradicted
+the governing document, and authors were following the template.
+
+The corroborating evidence was already in this section and unexplained: *"the one TRD that
+used the constitution's numbers verbatim is one of the two with zero unsourced objectives"*
+— that is the one author who ignored the template. `implement-trd.md`'s delegation template
+carried the same `or 80` / `or 70` fallback, making three coverage numbers in circulation.
+
+This changes the fix. The narrow rule — *an objective exceeding a constitution floor must
+state why* — still catches half of everything found, and shipped. But **the first-order fix
+was deleting the hardcoded numbers**, which no amount of downstream verification would have
+compensated for: a verifier would have flagged, every single run, a value the framework
+itself injected.
 
 Corroborating: the one TRD that used the constitution's numbers verbatim is one of the two with
 zero unsourced objectives. And two latency budgets in the sample are labelled *"targets, not
 enforced thresholds"* — the author declassifying severity by hand, which is C5 performed manually.
 
-### 3.2 C2 is dropped; C3 is automating what users already do
+### 3.2 C2 is RESTORED and re-scoped; C3 is automating what users already do
 
-C2 found **nothing**: every Key Technical Decisions table sampled already ties its choice to a
-named objective or owner constraint in a populated Rationale column. A check that fires on nothing
-is cost without benefit.
+**Corrected 2026-08-14.** C2 was dropped on a measurement error and has been restored.
+
+The original finding — *"every Key Technical Decisions table sampled already ties its choice
+to a named objective in a populated Rationale column"* — is true and irrelevant. The KTD
+table is the **curated** part of a TRD, where authors write rationales because the column
+exists. C2 was measured on the population least likely to fail.
+
+**Invented delivery machinery does not live in the KTD table.** Feature flags, rollout
+phases, migration paths, guard infrastructure and eval gates live in the Master Task List
+and the phase plan. And §9.1 ranks that category **first, at ~55 hits** — more than four
+times requirement invention.
+
+The rule C2 enforces was already in §2's typing table — **"Task: must serve a named
+objective or decision"** — and nothing enforced it, because the only check that would have
+was removed. C6 checks grounding blocks, not objective-linkage.
+
+**Re-scoped C2 applies to tasks and delivery structure**, and asks: *which objective does
+this feature flag serve?* When the answer is "none — it's how we'd normally ship," that is
+a finding, and it is the largest category on the list. Shipped as a mandatory `Serves`
+column on the task tables and on the KTD table, plus a `derivation-audit` verifier.
 
 C3 found nothing *unremediated*, which is different and does not justify dropping it — the users
 are **already performing it manually**, and leaving evidence: *"terra efforts VERIFIED live =
@@ -132,7 +168,7 @@ that share a subject, rather than the full cross product.
 
 ---
 
-### 3.4 C0 — the omission pass, and why the readout reorder was not enough
+### 3.3 C0 — the omission pass, and why the readout reorder was not enough
 
 **The failure the six checks cannot see.** `poi-graph-transportation`'s TRD §7.2 is titled
 *"Performance Budgets (PRD §5.1)"* and reproduces seven of the PRD's eight metrics verbatim and
@@ -152,12 +188,12 @@ the larger one.
 
 **C0 is the reverse pass:** enumerate the source's objectives, and assert each one either appears
 in the artifact or is explicitly listed as a non-goal. Deterministic, findable-only, cheap, and the
-same shape as the citation verifier in §3.6.
+same shape as the citation verifier in §3.5.
 
 Frequency is exactly why it must be automated: **once in 81 objectives.** A rate that low is
 invisible to review and catastrophic when it lands on the objective that mattered.
 
-### 3.5 Supersession is scoped in headers and nowhere in the body
+### 3.4 Supersession is scoped in headers and nowhere in the body
 
 The same TRD opens with a well-written ⚠️ SUPERSEDED banner, correctly scoped to one dimension and
 naming its authority. But its coverage table, performance budgets and entire Master Task List
@@ -169,14 +205,14 @@ C4 catches this only if the superseding document is in scope. Run per-artifact, 
 **C4's scope therefore includes any document that supersedes or is superseded by the one under
 audit.**
 
-### 3.6 Citation verifier (from §9.4)
+### 3.5 Citation verifier (from §9.4)
 
 For every cross-artifact citation, grep the referenced ID in the live target and fail on a miss.
 The authors reached this independently — one PRD changelog records *"All cross-PRD AC citations
 grep-verified."* Spot-checked on the most citation-dense TRD in the sample: **all citations
 resolve**, including version-tracked ones.
 
-## 3.5 Brownfield grounding — the TRD must land in the code that exists
+### 3.6 Brownfield grounding — the TRD must land in the code that exists
 
 Everything above governs whether a requirement is *legitimate*. This governs whether the plan is
 *implementable in this repository* — a separate failure, and one `/create-trd` does not mention:
@@ -186,7 +222,7 @@ it contains **no** reference to reuse, deprecation, removal, or existing impleme
 TRDs carry `Appendix A — Key files`, `Appendix B — Redis Key Reference`, inline
 `responses.ts:1419` citations, ten regression test files named by path, explicit
 *"Do NOT re-implement `needsGuestIdReconcile` — it's already correct"*, and — decisively — a
-**§2.5 "Reuse Map (codebase reuse audit)"**, which is §3.5(b) already shipped by hand.
+**§2.5 "Reuse Map (codebase reuse audit)"**, which is §3.6(b) already shipped by hand.
 
 An implementer would **not** rediscover everything. What is missing is not the content but the
 **keying by task ID** and the consumption point in the implementer's prompt. **Scope this as
@@ -215,7 +251,7 @@ readout. This session paid that cost repeatedly — one subagent rediscovered th
 structure, another re-grepped for dependents that a previous agent had already enumerated. Each
 rediscovery is a full context window spent on something already known.
 
-### 3.5.1 Where it goes — additive, format-preserving
+#### 3.6.1 Where it goes — additive, format-preserving
 
 **The existing TRD output format is unchanged.** The Master Task List keeps its current shape
 exactly; this is deliberate, because `/implement-trd` parses it today and that consumption will be
@@ -242,7 +278,7 @@ task is passed into the implementer's prompt so it starts with what a previous a
 established. That change is small and deliberately **not** designed here, since the implement loop
 is being reworked and designing against its current shape would be work done twice.
 
-### 3.5.2 Who produces it
+#### 3.6.2 Who produces it
 
 **One `grounding` subagent, sequential after authoring** — not part of the parallel verify wave.
 It is *generative* (it writes task context), and the rule that fan-out is for verification only
@@ -250,7 +286,7 @@ applies to it: a fanned-out grounding stage would produce four opinions about wh
 
 It runs after decisions exist, because grounding a decision that has not been made is meaningless.
 
-### 3.5.3 The check
+#### 3.6.3 The check
 
 | # | Check | Question |
 |---|---|---|
@@ -280,15 +316,17 @@ against source — with the verifier set widened.
 
 2. GROUND                    1 subagent (brownfield reconciliation) — sequential, generative
      Reconciles the decisions against the codebase: consistency, reuse,
-     what becomes unreachable, and per-task context (§3.5).
+     what becomes unreachable, and per-task context (§3.6).
      Emits the Task Grounding section. Existing TRD format untouched.
 
-3. VERIFY                    4 subagents, parallel, read-only, none may invent
+3. VERIFY                    6 subagents, parallel, read-only, none may invent
      grounding        does this already exist / contradict the codebase?
      conformance      does it violate stack.md / constitution.md?     (C2 lateral half)
      objective-audit  C1 + C5 — provenance and SEVERITY of every objective, against SOURCE.
                       C5 dominates: any objective exceeding a constitution floor must state why.
                       C5 also applies to the verifiers' OWN findings (§9.3).
+     derivation-audit C2 (restored, §3.2) — does every task and every piece of delivery
+                      machinery name the objective it serves?
      design-audit     C3 + C4 + C6 — buildability, consistency (incl. superseding docs), grounding
      omission-audit   C0 — enumerate SOURCE objectives, assert each appears or is non-goaled
      citations        every cross-artifact ID grep-verified in the live target
@@ -310,35 +348,45 @@ that is the manufactured-objection failure, and in a TRD it deletes real accepta
 
 ## 5. Readout
 
+**Corrected 2026-08-14 — this section contradicted §9.5.** The sketch below previously used
+headings like "Unsourced severities", "Decisions without a named objective" and
+"domain-derived": pure classification register, in a document whose own §9.5 records that
+readouts were rejected five separate times for exactly that, with *"I DO NOT UNDERSTAND what
+action you expect me to take on these?"*
+
+**Every heading names the action.**
+
 ```
-SOURCE: docs/PRD/<feature>.md  +  stack.md  +  constitution.md
+TRD: docs/TRD/<feature>.md    SOURCE: docs/PRD/<feature>.md + stack.md + constitution.md
 
-  Unsourced objectives (2)     ← review first; default is removal
-    A5    latency p95 <= 2000ms          traces to nothing
-    NFR-9 99.9% uptime                   traces to nothing
+  DELETE — nothing in the source asks for these (2)
+    A5     latency p95 <= 2000ms       no PRD line, no measurement, no user instruction
+    NFR-9  99.9% uptime                no source
 
-  Unsourced severities (1)     ← the requirement is real; the strictness is not
-    A2    "zero tolerance"               requirement traces to constitution;
-                                         the threshold traces to nothing
+  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher (1)
+    Q-1    unit coverage >=90%         constitution floor is 60%; no reason given
 
-  Domain-derived objectives (1)          ← permitted, shown for review
-    SEC-2 no PII across tenants          reasoning: multi-tenant by design
+  ADD BACK — in the PRD, missing from this TRD (1)
+    PRD 5.1 concurrent tool calls >=50 RPS — not in the TRD, not in Non-Goals
 
-  Decisions without a named objective (1)
-    D7    adopt event sourcing           serves no stated objective
+  CANNOT BE BUILT AS WRITTEN (1)
+    D5     runtime kill switch         a prompt hook runs no code that can read an env var
 
-  Unbuildable (1)
-    D5    runtime kill switch            a prompt hook runs no code that can read an env var
-
-  Contradictions (1)
+  PICK ONE — these contradict (1)
     B009 deletes the code D5's rollback path depends on
 
-  Derived objectives (6)                 ← sourced; listed for completeness
+  CONFIRM THESE ARE WANTED — invented machinery, no objective named (1)
+    T-12   staged rollout behind a flag  serves no stated objective
+
+  CHECK THE REASONING — derived from the domain, not from a document (1)
+    SEC-2  no PII across tenants        reasoning: multi-tenant by design
+
+  NO ACTION — sourced, listed for completeness (6)
     ...
 ```
 
-Ordered by how expensive the failure is to discover later. Unsourced objectives first, because
-they are the ones that consume whole tasks.
+Ordered by how expensive the failure is to discover later. If a TRD produces 40 sourced
+objectives, the *count* is the finding — print it as one line, not forty.
 
 ---
 
@@ -368,7 +416,8 @@ asking "can this be built?" than "what else should we add?"
 - Every TRD line is typed **objective | decision | task**, with type determined by nature not
   section.
 - Objectives carry provenance; decisions carry a named objective and recorded alternatives.
-- The five checks run as two verifier subagents (`objective-audit`, `design-audit`) alongside
+- The six checks run as verifier subagents — `objective-audit` (C1+C5), `design-audit`
+  (C3+C4+C6), `derivation-audit` (C2), `omission-audit` (C0), `citations` — alongside
   grounding and conformance.
 - C3 (buildability) runs on every decision — the cheapest check that was never performed.
 - `/create-trd` emits the readout, unsourced objectives first, severities called out separately
@@ -376,9 +425,21 @@ asking "can this be built?" than "what else should we add?"
 - `/create-trd-team` retired.
 - Every task carries a grounding block; anything the plan replaces is named in a `Replaces` line.
 - The existing Master Task List format is unchanged — grounding is additive, in its own section.
-- Re-running against `docs/TRD/discipline-judgment.md` flags **at least 7 of its 8** known
-  fabrications. That TRD is the regression fixture — its failures are documented with receipts,
-  which makes it the only honest test of whether this design works.
+- Re-running against `docs/TRD/discipline-judgment.md` flags **7 of its 8** known
+  fabrications. That TRD is the regression fixture — its failures are documented with
+  receipts, which makes it the only honest test of whether this design works.
+
+  **The permitted miss is named, so "passing" is unambiguous: B009's deferral premise.**
+  Mapping §1's eight against the checks: A5 → C1/C5, §2.3 premise → C1, §3.1 floors → C5,
+  A2/A3 framing → C5, A2 severity → C5, kill switch → C3, B009-vs-D5 → C4. That is seven.
+  "B009 deferral premise — unverified premise" falls between C3 (buildability) and C4
+  (contradiction) and is caught by neither. Do not treat 8/8 as the target; an
+  implementation reporting 8/8 is more likely miscounting than exceeding the design.
+
+- **Add a second fixture for the largest category.** The eight fabrications in
+  `discipline-judgment.md` are all objective-shaped, which is why this design drifted toward
+  the smallest category in §9.1's ranking — it optimised against the fixture it had. Take a
+  corpus TRD carrying invented delivery machinery and confirm re-scoped C2 flags it.
 
 ---
 
@@ -404,7 +465,7 @@ Ranked user pushback across ~450 corrective turns:
 | 9 | Defensive checkpointing | 8 |
 
 **Requirement invention is 7th of 9.** The manufacture is real but **displaced one layer down** —
-into *decisions and delivery machinery* rather than requirement lines. C2/C3 and §3.5 target
+into *decisions and delivery machinery* rather than requirement lines. C2/C3 and §3.6 target
 categories 1, 2, 4 and 8; the PRD path's provenance check targets category 7, the smallest.
 
 **Consequence: if only one half is funded, fund the TRD half.**
@@ -468,17 +529,17 @@ register. **Every readout line names the action, not the classification.**
 
 ### 9.7 Where the design is confirmed
 
-- **§3.5(b) reuse is the most-repeated instruction in the corpus** — ≥8 times across three
+- **§3.6(b) reuse is the most-repeated instruction in the corpus** — ≥8 times across three
   sessions: *"THE EXACT SAME BullMQ mechanism… DO NOT create another path"*, *"not reinventing
   anything!"*, *"We BUILT TOOLING"*.
-- **§3.5(c) removal** — *"Don't disable it, delete the code so we don't have dead code lying
+- **§3.6(c) removal** — *"Don't disable it, delete the code so we don't have dead code lying
   around"*, *"get rid of dead code — and if it isn't dead, trace down why not"*.
 - **C3 mechanism** — performed by the user because nothing else does: *"STOP. A 'real browser' is
   not how we access data in production. This exercise is useless if you cannot prove that you can
   hit that API using the infrastructure we have in place."*
 - **C5 thresholds** — pre-empted by the user: *"Ensure we note that 10s is aspirational not
   absolute."*
-- **§3.5(d) grounding-into-the-prompt is the strongest half.** The most emphatic re-litigation
+- **§3.6(d) grounding-into-the-prompt is the strongest half.** The most emphatic re-litigation
   instance is a decision *in context, minutes old*, re-proposed anyway: *"You keep missing the
   point… I've stated repeatedly — WE'RE GOING TO REBUILD IT."* A Decisions section fixes
   information with nowhere to land; this is information that landed and was overridden.
@@ -489,7 +550,7 @@ wave as a command runner —
 > `/refine-trd` Verify TRD creation remained true to functional requirements — **did not create new requirements nor drop any**… complete but not overengineered
 > `/refine-trd` … **maximum code reuse, conformance with existing code patterns, deletion/deprecation of code no longer used, guard against overengineering**
 
-That is C1 + C6 + §3.5(b) + §3.5(c), authored by the user, because the framework did not do it.
+That is C1 + C6 + §3.6(b) + §3.6(c), authored by the user, because the framework did not do it.
 
 ### 9.8 Out of scope, and it is the largest class
 
@@ -499,3 +560,25 @@ exists**. Item 10 types and audits the document; nothing types what an implement
 > *"You — Claude — keep introducing these artificial gates and protections, and the result is we have built and ostensibly deployed features sitting dark."*
 
 Recorded as the natural successor to item 10, not folded into it.
+
+
+---
+
+## 10. Deviations from this design, as shipped (2026-08-14)
+
+Recorded so the document matches the code rather than the intent.
+
+| # | Deviation | Why |
+|---|---|---|
+| 1 | **C2 restored**, re-scoped from decisions to tasks + delivery machinery | §3.2 — dropped on a measurement error. Targets §9.1's largest category |
+| 2 | **Root cause of C5 corrected** — the template, not author judgment | §3.1. Fixed by deleting the hardcoded 80/70 from `create-trd.md` and the `or 80`/`or 70` fallback from `implement-trd.md` |
+| 3 | **§3.6(d) shipped now, not deferred** | The design deferred grounding-into-the-prompt pending the item 7/8 implement-loop rework. Deferring it left the strongest half unbuilt behind items weeks away; the delegation-template change was hours. Accept doing it twice |
+| 4 | **Typing lives in structured position** — mandatory `Serves` column on task tables and the KTD table | Item 7's parser can consume it. Typing in prose would have been re-derived |
+| 5 | **Readout rewritten in action register** | §5 contradicted §9.5 |
+| 6 | **Template surgery added ahead of the verifier wave** | Both designs proposed additive machinery against a failure whose largest component was deletable template text: an example `< 200ms`, a pre-filled WCAG line, required Performance/Risk tables, "all sections required", and diagram quotas |
+| 7 | **Section numbering repaired**; the check count now says six | §3 was headed "five checks" over six rows; §3.3 was missing and §3.5 appeared twice |
+| 8 | **The fixture's permitted miss is named** (B009's deferral premise) | §8 said "at least 7 of 8" without saying which, making "passing" ambiguous |
+
+**Not shipped, deliberately:** the Master Task List format is otherwise unchanged (§3.6.1),
+since `/implement-trd` parses it today and item 7 reworks that consumption. Grounding is
+additive, in its own section, keyed by task ID.

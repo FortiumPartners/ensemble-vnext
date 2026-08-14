@@ -909,11 +909,54 @@ guide the implementer toward the correct solution.
   <trd_file>{trd_path}</trd_file>
   <strategy>{strategy}</strategy>
   <quality_gates>
-    <unit_coverage>{constitution.unit_coverage or 80}%</unit_coverage>
-    <integration_coverage>{constitution.integration_coverage or 70}%</integration_coverage>
+    <!-- Read from constitution.md Quality Gates. Do NOT substitute a remembered
+         or conventional number: constitution.md is the single source of truth for
+         these floors, and a TRD may only exceed one where it states why inline. -->
+    <unit_coverage>{constitution.unit_coverage}%</unit_coverage>
+    <integration_coverage>{constitution.integration_coverage}%</integration_coverage>
   </quality_gates>
   <completed_tasks>{list of completed task IDs this phase}</completed_tasks>
 </context>
+
+<grounding>
+  <!-- Verbatim from the TRD's Task Grounding section for THIS task id.
+       Omit the element entirely if the TRD has no block for this task. -->
+  <touches>{files this task is expected to modify}</touches>
+  <reuse>{existing code to use rather than reimplement}</reuse>
+  <replaces>{what this makes unreachable, and the instruction to delete it}</replaces>
+  <follow>{existing pattern this should match}</follow>
+  <careful>{contracts, callers, or constraints to respect}</careful>
+  <instruction>
+    This grounding was established by reading the codebase during TRD authoring.
+    Treat it as findings you already own, not as suggestions:
+
+    - Do NOT reimplement anything named in <reuse>. Import and use it. If it genuinely
+      does not fit, say so in your deliverables and explain why — do not silently
+      build a parallel path.
+    - If <replaces> names something, DELETE it and its tests in the same change.
+      Leaving superseded code in place is a defect, not a safe default: it still
+      looks live to every later reader.
+    - <follow> names an existing pattern in this repository. Match it rather than
+      introducing a second way of doing the same thing.
+    - If the grounding turns out to be wrong or stale, report the discrepancy in your
+      deliverables. Do not just work around it silently — the next task's grounding
+      is probably wrong in the same way.
+  </instruction>
+</grounding>
+
+<scope_discipline>
+  <instruction>
+    Implement what the task asks for. Do NOT add delivery machinery — feature flags,
+    rollout phases, migration scaffolding, guard infrastructure, eval gates, config
+    toggles — unless the task or the TRD explicitly calls for it and names the
+    objective it serves.
+
+    This is the largest single source of wasted work in this framework: machinery
+    nobody asked for gets built, and features end up shipped dark behind flags no one
+    turns on. If you believe such machinery is genuinely needed, report it as a
+    finding for the orchestrator; do not build it on your own judgment.
+  </instruction>
+</scope_discipline>
 
 <tdd_context>
   <!-- Only included when strategy=tdd -->

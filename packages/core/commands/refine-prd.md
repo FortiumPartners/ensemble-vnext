@@ -15,71 +15,95 @@ for iterative refinement. Updates PRD while maintaining version history and trac
 This command delegates to **@product-manager** from the vendored `.claude/agents/` directory.
 The product-manager specializes in requirements refinement and stakeholder alignment.
 
+## Modes
+
+| Mode | When | Behaviour |
+|---|---|---|
+| **Interactive** (default when a human invoked it) | A person is watching | Run the challenge pass, present findings, ask, apply their decisions. |
+| **Non-interactive** (`--non-interactive`, or invoked by another command) | Unattended runs, composition into other commands | Same checks, resolved deterministically: unsourced requirements **removed** and listed; contradictions raised as **STUCK**. One readout, no questions. |
+
+**The autonomy exemption is conditional on MODE, not on command name.**
+`.claude/rules/autonomy.md` exempts this command because it is *intentionally interactive*
+— that applies to **interactive mode only.** In non-interactive mode it obeys autonomy
+discipline like every other command, and "this requirement has no source" is explicitly
+**not** grounds to ask: the deterministic resolution is to remove it and say so.
+
+---
+
 ## Workflow
 
-### Phase 1: PRD Review
+### Phase 1: Challenge pass (runs in both modes)
 
-**1. Current PRD Analysis**
-   Review existing PRD content thoroughly.
+**Deletion is a first-class outcome.** Previously every question this command asked was
+about what was *absent* — unclear requirements, missing scenarios, incomplete criteria —
+so run against a PRD carrying fabricated requirements it made things worse. This command
+must be able to take things out.
 
-   - Read current PRD from specified path
-   - Identify sections needing clarification
-   - Note gaps in requirements or acceptance criteria
-   - Review existing feedback or comments
+For every requirement:
 
-**2. User Interview (REQUIRED)**
-   Conduct user interview BEFORE making any changes.
+| Check | Question |
+|---|---|
+| **Provenance** | Does it trace to the user's words, a source document, a measurement, or a named constraint? |
+| **Severity** | Is the *strictness* sourced, not just the requirement? A number that appeared without a source is an invention even when the underlying need was real. |
+| **Omission** | Which source requirements never appear in the PRD, and are not under Non-Goals? Dropping is the commoner failure — check this first. |
+| **Consistency** | Does it contradict a sibling, or a document that supersedes this one? |
 
-   Present identified gaps and ask clarifying questions:
-   - Are there any requirements that are unclear or need more detail?
-   - Are there missing user scenarios we should address?
-   - Are the acceptance criteria complete and testable?
-   - Is the scope correctly defined (in-scope vs out-of-scope)?
-   - Are there any technical constraints or dependencies not captured?
-   - What is the priority order of the features/requirements?
-   - Are there any open questions or decisions that need resolution?
+**Verify against the SOURCE — the original document or transcript — never against a
+summary of it.** Checking a PRD against a paraphrase certifies the paraphrase.
 
-   **IMPORTANT**: Wait for user responses before proceeding.
+**Severity applies to your own findings.** A finding asserting *"this will break onboarding"*
+carries the same sourcing burden as a requirement. Reviewers inflating severity is the
+observed failure, not reviewers striking valid requirements.
 
-**3. Feedback Integration**
-   Incorporate stakeholder feedback into refinement plan.
+**Never strike a requirement on judgment.** *"REQ-4 traces to nothing in the source"* is
+permitted; *"I think REQ-4 is unnecessary"* is manufactured and forbidden.
 
-   - Document all feedback received
-   - Prioritize changes by impact
-   - Identify conflicting requirements
+### Phase 1b: Living-document handling
 
-### Phase 2: Enhancement
+**On refinement, the source is: the original source ∪ every ruling cited in the changelog.**
+Read the changelog before judging provenance, or legitimately-derived earlier requirements
+get flagged as unsourced. Where the PRD carries a supersession marker, resolve what
+supersedes it and treat that as in-scope.
 
-**1. Content Refinement**
-   Enhance clarity, detail, and completeness.
+### Phase 2: Apply
 
-   - Expand unclear requirements
-   - Add missing user scenarios
-   - Strengthen acceptance criteria
-   - Clarify scope boundaries
+**Interactive:** present findings grouped by action, ask, apply the user's decisions.
+**Non-interactive:** remove unsourced requirements and list them; report contradictions as
+STUCK.
 
-**2. Validation**
-   Ensure all sections meet quality standards.
+Then refine as the feedback asks. Adding is legitimate; adding *unsourced* is not — anything
+added this pass is subject to the same checks, including any requirement that arose from
+answering "is anything missing?"
 
-   - Requirements are specific and measurable
-   - Acceptance criteria are testable
-   - Non-goals explicitly stated
-   - Risks identified and mitigated
+### Phase 3: Output
 
-### Phase 3: Output Management
+**1. PRD Update** — in place, version incremented, changelog recording removals as well as
+additions.
 
-**1. PRD Update**
-   Update PRD in place with version history.
+**2. Cross-references** — flag if a TRD exists and is affected; re-grep cross-artifact
+citations.
 
-   - Increment version number
-   - Add changelog entry
-   - Update last-modified timestamp
+---
 
-**2. Cross-References**
-   Update any linked documents.
+## Readout
 
-   - Notify if TRD exists and may need updates
-   - Update constitution references if scope changed
+**Every line names the action, not the classification.**
+
+```
+PRD: docs/PRD/<feature>.md    SOURCE: <document | transcript> + changelog rulings
+
+  ADD BACK — in the source, missing here (1)
+    Source records an LLM rewrite of descriptions; the PRD does not carry it
+
+  REMOVED — nothing in the source asks for these (2)
+    NFR-3   99.9% uptime target      no source
+    REQ-7   p95 latency <= 2000ms    no source
+
+  STUCK — these contradict, and choosing needs you (0)
+
+  ADDED THIS PASS (3)
+    ...  each with its source
+```
 
 ## Expected Output
 

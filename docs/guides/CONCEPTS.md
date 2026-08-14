@@ -267,7 +267,7 @@ Instead of one bloated conversation trying to handle everything, Ensemble mainta
 
 ### Team Execution and Parallel Operation
 
-The team variants (`/create-prd-team`, `/create-trd-team`, `/harden-trd-team`, `/verify-trd-team`) take the sub-agent pattern further by running multiple specialists concurrently. Instead of sequential task execution, team mode spawns teammates directly (`Agent({subagent_type, name, prompt})`) that work on independent tasks simultaneously — a team forms automatically on the first spawn, with no setup or teardown step.
+The team variants (`/harden-trd-team`, `/verify-trd-team`) take the sub-agent pattern further by running multiple specialists concurrently. Instead of sequential task execution, team mode spawns teammates directly (`Agent({subagent_type, name, prompt})`) that work on independent tasks simultaneously — a team forms automatically on the first spawn, with no setup or teardown step.
 
 This is what makes the air traffic controller model concrete: you launch a team session with `--dangerously-skip-permissions`, and multiple agents work in parallel -- just as multiple aircraft fly simultaneously under ATC coordination. The `wiggum` hook monitors progress and manages session lifecycle. The `status` hook tracks which tasks complete and which need attention.
 
@@ -371,8 +371,6 @@ For complex features that benefit from parallel work, Ensemble offers team varia
 
 | Standard | Team Variant | Difference |
 |----------|-------------|------------|
-| `/create-prd` | `/create-prd-team` | Multiple domain experts analyze in parallel |
-| `/create-trd` | `/create-trd-team` | Parallel architecture perspectives |
 
 Implementation is a single sequential command (`/implement-trd` — see plan item 7/8 for a
 future task-graph-driven parallel mode). Two team commands operate *after* an

@@ -127,7 +127,7 @@ Claude Code loads configuration at session start. You must restart for the vendo
 
 ---
 
-## Step 2: Create a PRD (`/create-prd` or `/create-prd-team`)
+## Step 2: Create a PRD (`/create-prd`)
 
 Define what you're building and why.
 
@@ -150,9 +150,13 @@ The more context you provide, the better the PRD. Consider including:
 
 The framework will auto-identify the current feature context if obvious (e.g., you're on a feature branch, there's already a `.trd-state/current.json` pointer). However, explicit context always helps, especially for the initial PRD.
 
-### Team Variant
+### Verification wave
 
-`/create-prd-team` spawns parallel specialists (product research, technical feasibility, devil's advocate) for richer multi-perspective analysis. The output structure is identical -- just broader input analysis. Use this for complex or ambiguous features where multiple viewpoints catch blind spots.
+`/create-prd` authors the PRD in a single fresh `product-manager` subagent, then fans out
+**verifiers** — source-fidelity, grounding, conformance — in parallel. The distinction is
+deliberate: independent agents outperform a single one when *challenging* work, and
+manufacture requirements when *generating* it. The retired `/create-prd-team` had this
+backwards, fanning out generation and briefing each specialist additively.
 
 ### Output
 
@@ -179,7 +183,7 @@ The path to the PRD is auto-resolved from `.trd-state/current.json`. You can als
 
 ---
 
-## Step 4: Create a TRD (`/create-trd` or `/create-trd-team`)
+## Step 4: Create a TRD (`/create-trd`)
 
 Transform the approved PRD into a technical plan.
 
@@ -207,9 +211,17 @@ As with PRDs, additional context sharpens the output:
 - **Non-goals** imported from the PRD (agents will reject work in these areas)
 - **Risk assessment** with technical mitigations
 
-### Team Variant
+### Grounding and verification
 
-`/create-trd-team` spawns parallel domain experts (backend architecture, frontend architecture, quality strategy, optionally infrastructure) who each propose tasks in their domain. The lead synthesizes these into a unified TRD. Use this for features spanning multiple domains where specialist perspectives improve the task breakdown.
+`/create-trd` authors in one fresh `technical-architect` subagent, runs a sequential
+`grounding` pass that reconciles the plan against the existing codebase (reuse, what
+becomes unreachable, per-task context), then fans out **verifiers** in parallel —
+objective provenance and severity, buildability and consistency, task derivation,
+omission against the PRD, and citation checks.
+
+Fan-out is for verification only. The retired `/create-trd-team` fanned out *domain
+experts asked what else to add*, which is generation-by-committee applied to the artifact
+where manufactured requirements were already worst.
 
 ### Output
 

@@ -10,7 +10,7 @@
 #   degrades when discovery sources (git / jq / tmux / CLAUDE_SESSION_ID) are
 #   missing.
 #
-#   Layer 2 (documentation / contract) — the command-status rule + all 17
+#   Layer 2 (documentation / contract) — the command-status rule + all 15
 #   workflow commands document the contract correctly. Catches refactor
 #   regressions where someone renames the env var, drops a command from the
 #   sweep, or breaks the helper-script invocation pattern.
@@ -206,9 +206,9 @@ JSON
     diff -q "$RULE_FILE" "$RULE_TEMPLATE"
 }
 
-@test "L2: all 17 workflow commands invoke the notify-complete.sh helper" {
+@test "L2: all 15 workflow commands invoke the notify-complete.sh helper" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
+                fix-issue create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
@@ -225,7 +225,7 @@ JSON
 
 @test "L2: each command's helper call uses its own name as the first arg" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
+                fix-issue create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local mismatched=()
@@ -244,7 +244,7 @@ JSON
 
 @test "L2: legacy inline bracket-guarded form is fully removed" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
+                fix-issue create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local stale=()
@@ -261,7 +261,7 @@ JSON
 
 @test "L2: dogfood .claude/commands mirrors stay in sync with canonical" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
+                fix-issue create-prd create-trd
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local drift=()
@@ -312,7 +312,7 @@ JSON
 
 @test "L2b: every non-refine workflow command embeds the autonomy block" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
+                fix-issue create-prd create-trd
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
@@ -327,9 +327,26 @@ JSON
     fi
 }
 
-@test "L2b: refine-prd and refine-trd do NOT embed the autonomy block (intentionally exempt)" {
+@test "L2b: refine-prd and refine-trd exempt INTERACTIVE mode only, not the command" {
+    # The blanket exemption became conditional on mode (item 10). These two commands
+    # still omit the standard block -- interactive mode is genuinely exempt -- but each
+    # must state that non-interactive mode obeys autonomy discipline, or an unattended
+    # refine run could stop to ask questions with nothing forbidding it.
     ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-prd.md"
     ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-trd.md"
+
+    for cmd in refine-prd refine-trd; do
+        grep -qi "non-interactive" "${CANON_COMMANDS}/${cmd}.md"
+        grep -qi "conditional on mode" "${CANON_COMMANDS}/${cmd}.md"
+    done
+}
+
+@test "L2b: autonomy.md scopes the refine exemption to interactive mode" {
+    for f in "${REPO_ROOT}/.claude/rules/autonomy.md" \
+             "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md"; do
+        grep -qi "non-interactive" "$f"
+        grep -qi "conditional on mode" "$f"
+    done
 }
 
 @test "L2b: autonomy.md forbids hedged 'I'll continue unless...' offers" {
@@ -346,7 +363,7 @@ JSON
 
 @test "L2b: every non-refine command's embedded block forbids hedged offers" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
+                fix-issue create-prd create-trd
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
@@ -363,7 +380,7 @@ JSON
 
 @test "L2b: every non-refine command's embedded block mentions --wiggum doubly-enforced rule" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd-team create-trd-team create-prd create-trd
+                fix-issue create-prd create-trd
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()

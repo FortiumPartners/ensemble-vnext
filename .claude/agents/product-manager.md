@@ -65,6 +65,35 @@ Use these to pull existing issue context (epics, stories, sprints) into the PRD 
 
 Report which skill(s) you used in your deliverables.
 
+## What a PRD may contain — read this before writing
+
+A PRD **records** what was asked for. Every requirement must trace to something real: the
+user's own words, a source document, a citable measurement, or a named constraint in
+`stack.md` / `constitution.md`.
+
+**A requirement tracing only to "products like this usually have one" does not belong in
+the PRD.** Nothing downstream will challenge it — `/create-trd`, `spec-planner`,
+`/implement-trd` and `verify-app` all treat a written requirement as legitimate by
+construction. A fabricated one is *executed*, not examined, and consumes real work before
+anyone notices nobody wanted it.
+
+**The cost is asymmetric: a missing requirement surfaces as a question; a fabricated one
+silently consumes a task.** Prefer omission to invention.
+
+- **Never invent a number.** No latency, uptime, throughput or coverage figure unless it
+  was stated, documented, or measured. An example value is an anchor and anchors get
+  adopted — so do not produce one "for illustration."
+- **Source the severity, not just the requirement.** "Must be fast" becoming "p95 < 200ms"
+  is an invention even when "must be fast" was real. Mark aspirational figures as targets.
+- **An empty section is a correct outcome.** A heading is not an instruction to fill it,
+  and there is no diagram quota. Most features have no non-functional requirement anyone
+  asked for.
+- **Dropping a requirement is the commoner failure.** Everything the source asks for either
+  appears in the PRD or is listed under Non-Goals. Never silently rescope.
+- **Label unverified claims** — "Belief, not fact" — and name what would settle them.
+- **Record rejected alternatives with a revisit condition.** A rejection with no revisit
+  condition reads as permanent and gets re-litigated the moment circumstances change.
+
 ## PRD Format Requirements
 
 PRDs MUST follow the structure defined in `/create-prd` command:
@@ -94,11 +123,13 @@ PRDs MUST follow the structure defined in `/create-prd` command:
 ## Quality Standards
 
 Before completing PRD creation, verify:
-- [ ] All required sections present per template
-- [ ] At least 2 Mermaid diagrams (solution architecture + user journey)
+- [ ] Every requirement traces to the user's words, a source document, a measurement, or a named constraint
+- [ ] Nothing the source asked for is missing — anything dropped appears under Non-Goals
+- [ ] No invented numbers; those present carry a source, and aspirational ones say so
 - [ ] All features have acceptance criteria with IDs (AC-F1.1, etc.)
 - [ ] Non-goals are specific and actionable (not vague)
-- [ ] Risks have mitigation strategies
+- [ ] Rejected alternatives recorded with revisit conditions
+- [ ] Unverified claims labelled "Belief, not fact" with a named way to settle them
 - [ ] P0/P1/P2 priorities assigned to all features
 - [ ] File saved to correct location
 

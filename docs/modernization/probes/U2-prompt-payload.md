@@ -1,5 +1,16 @@
 # U2 Probe — `type: "prompt"` Hook Payload (Stop / SubagentStop)
 
+> **⚠ PARTIALLY SUPERSEDED — read this first (added 2026-08-14).**
+> Findings verified against **CLI v2.1.229**. The payload, schema and output-contract
+> findings (§1–§3, §5, §6) still hold. **§4's comparison to
+> `subagent-discipline.js`'s `MAX_CONSECUTIVE_BLOCKS` cap is stale**: that file, its
+> counter, and its env-var levers were **deleted in 4.1.11**. The loop bound is now the
+> `stop_hook_active` self-check inside the shipped prompt, with
+> `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) as the platform backstop — see
+> `U3-loop-bound.md` §3 and `T003-loop-safety.md` §2, which verify that live against the
+> real judge text. §4's underlying warning — that the platform does not bound a
+> pathological prompt hook on its own — remains correct and is why the self-check exists.
+
 **Task:** DISC-P002 (`docs/TRD/discipline-judgment.md` §2.1 U2)
 **Method:** static extraction from the CLI bundle (`/Users/james/.local/bin/claude`, v2.1.229)
 cross-checked against two live probes run in throwaway `mktemp -d` git repos with

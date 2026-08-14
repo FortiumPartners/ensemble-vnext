@@ -1,5 +1,19 @@
 # U5 Probe — DISC-B007 Kill Switch: Which Mechanism Actually Works
 
+> **⚠ SUPERSEDED IN ITS RECOMMENDATION — read this first (added 2026-08-14).**
+> Verified against **CLI v2.1.229**. The *negative* findings are the durable value and all
+> still hold: the `if` field is a tool-call matcher that **silently disables** any
+> `Stop`/`SubagentStop` hook it is set on (an active footgun); hooks on one event all run
+> and OR-compose, so no hook can gate another; and a prompt-type hook can never read an
+> environment variable, having no code of ours in the loop.
+> **What is superseded is the conclusion.** The generation-time lever this probe validated
+> and recommended — `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` — was **removed in 4.1.11**, along
+> with the command-type `.js` predecessors it pointed at, once it was found those files are
+> never delivered to a scaffolded project: the lever would have emitted command hooks with
+> no detection logic behind them. **The proposed §3.4 / D5 amendment text at the bottom of
+> this document should NOT be applied.** Reverting to regex detection is a `git revert` of
+> 4.1.11, not an environment variable.
+
 **Task:** DISC-B007 (`docs/TRD/discipline-judgment.md` §3.4). The team lead's framing going in:
 §3.4 as written specifies `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE=1` "restoring command-type
 behavior without a redeploy... read at call time, never latched at module load" — and the

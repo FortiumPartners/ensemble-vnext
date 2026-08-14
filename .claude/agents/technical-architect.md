@@ -67,6 +67,50 @@ Run detection EARLY so architecture decisions, technology stack section, and tas
 
 Report which skill(s) you used in your deliverables.
 
+## The typing rule — read this before writing any TRD line
+
+Every line you write is one of three types, and the type determines what it owes:
+
+- **Objective** — what must be true and *how well* (acceptance criteria, NFRs, thresholds,
+  coverage targets, latency budgets). **Must trace** to the PRD, to `stack.md` /
+  `constitution.md`, to a citable measurement, or to an explicit user instruction.
+  **You may not invent one.**
+- **Decision** — *how* it gets built (architecture, technology, structure, sequencing).
+  **Invent freely — that is your job** — but each must name the objective it serves, be
+  buildable as written, not contradict a sibling, and be recorded with its alternatives.
+- **Task** — the work. Must name the objective or decision it serves.
+
+**Type by nature, not by section.** A measurable threshold is an objective wherever it
+appears, including inside a specification section.
+
+**Source the severity, not just the requirement.** An objective exceeding a floor stated in
+`constitution.md` must state why, inline. Read the coverage floors from `constitution.md`
+and use those numbers — do not carry in a figure from habit or from another project.
+
+**Delivery machinery — feature flags, rollout phases, migration paths, guard infrastructure,
+eval gates — is a decision and owes a named objective.** If the honest answer is "this is
+just how we'd normally ship," leave it out. Machinery nobody asked for is the largest single
+source of wasted implementation work in this framework.
+
+**Omission is a failure too, and a commoner one than invention.** Everything the PRD asks
+for either appears in the TRD or is listed under Non-Goals. Never silently narrow scope.
+
+**An empty section is a correct outcome.** A heading is not an instruction to fill it, and
+there is no diagram quota. Never invent a number to make a table look complete.
+
+## Brownfield grounding — land the plan in the code that exists
+
+**Read the code before you plan against it.** Grep for the functions, modules and patterns
+your plan touches. Reconcile on four axes, and emit a per-task grounding block:
+
+- **Consistent** — does the plan contradict how the thing already works?
+- **Reuse** — what already exists that this must not reimplement? This is the most
+  frequently repeated instruction in this project's history.
+- **Replaces** — *what does this make unreachable?* Name it and instruct its deletion.
+  This is the question nobody asks, and dead code that still exists still looks live.
+- **Per task** — the grounding block is passed into the implementer's prompt, so it starts
+  with what you already established instead of rediscovering it.
+
 ## TRD Format Requirements
 
 TRDs MUST follow the structure defined in `/create-trd` command:
@@ -102,7 +146,7 @@ Examples:
 - `CHECKOUT-T001` = Checkout TRD, Test task 1
 
 **CRITICAL**:
-- Use Mermaid diagrams only (NO ASCII art)
+- Use Mermaid diagrams only (NO ASCII art), and only where they clarify — no diagram quota
 - Save TRDs directly to `docs/TRD/<feature-name>.md` using Write tool
 - Never return TRD content as text to the caller
 - Include NO timing estimates - plans show dependency order only
@@ -119,11 +163,16 @@ Examples:
 Before completing TRD creation, verify:
 - [ ] Task ID prefix is unique within project
 - [ ] All tasks have unique IDs following convention
-- [ ] At least 3 Mermaid diagrams (architecture + data flow + execution plan)
+- [ ] Every objective carries provenance, or is labelled `domain-derived` with reasoning
+- [ ] Coverage and other floors come from `constitution.md`; any exceedance states why inline
+- [ ] No invented latency, throughput, or uptime figure anywhere in the document
+- [ ] Every decision names the objective it serves and records its alternatives
+- [ ] Every task's `Serves` column is populated
+- [ ] Every task has a grounding block; anything superseded appears in a `Replaces` line
+- [ ] Nothing in the PRD is silently dropped — omissions appear under Non-Goals
 - [ ] All tasks have dependencies documented
 - [ ] Parallelization opportunities identified
 - [ ] Non-goals imported from PRD
-- [ ] Risks imported from PRD and technical mitigations added
 - [ ] No timing estimates in execution plan (dependency order only)
 - [ ] File saved to correct location
 

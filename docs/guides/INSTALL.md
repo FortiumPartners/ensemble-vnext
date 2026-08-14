@@ -185,8 +185,8 @@ After initialization, verify the key components and run your first feature.
 ```
 # In Claude Code, type / to see available commands
 # You should see:
-/create-prd            /create-prd-team
-/create-trd            /create-trd-team
+/create-prd
+/create-trd
 /refine-prd            /refine-trd
 /implement-trd         /harden-trd-team
 /verify-trd-team       /investigate-issue

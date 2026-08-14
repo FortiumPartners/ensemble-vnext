@@ -109,8 +109,7 @@ There are two delivery paths. Use them differently:
 ### Path A — `PushNotification` (preferred, direct, atomic with the banner)
 
 For **multi-turn / long-running commands** (`/implement-trd`,
-`/verify-trd-team`, `/harden-trd-team`, `/fix-issue`, `/create-prd-team`,
-`/create-trd-team`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
+`/verify-trd-team`, `/harden-trd-team`, `/fix-issue`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
 call in the same final turn. This is precise (fires once, exactly when the command is
 done) and atomic with the banner (no transcript grep, no race with intermediate Stops).
 

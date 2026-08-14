@@ -7,7 +7,7 @@ still open, so item 5 as a whole remains open. Items 2–4, 5b–5d, 6–9 open.
 **Basis**: Comparison against `Sunstone-Partners/ensemble` + audit of Claude Code features shipped March–August 2026
 **Companion artifact**: https://claude.ai/code/artifact/13c683ff-2acf-4ec7-8078-4408126f7602
 
-Ten changes, in the order they pay off. Sequenced for 1–2 items at a time over roughly ten weeks.
+Eleven changes, in the order they pay off. Sequenced for 1–2 items at a time over roughly ten weeks.
 
 ---
 
@@ -78,7 +78,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
 | 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | |
-| 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Designed** — `item-10-prd-path.md`, `item-10-trd-path.md` |
+| 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 
 ---
@@ -681,6 +681,45 @@ acceptance criteria against code; `TeammateIdle` re-engages a worker that stoppe
 
 ### 10. Audit `/create-prd` and `/create-trd` for manufactured requirements
 
+> **Status: SHIPPED.** The root cause was substantially more mechanical than either design
+> doc assumed — see "The generators were manufacturing it" below. Delivered: generator
+> surgery on `/create-prd` + `/create-trd`, the typing rule in structured
+> (parser-consumable) position, brownfield grounding as a producer feeding
+> `/implement-trd`'s delegation template, the verifier wave, action-register readouts,
+> mode-conditional refine commands, and the retirement of `/create-prd-team` and
+> `/create-trd-team`. Designs: `item-10-prd-path.md`, `item-10-trd-path.md`.
+
+#### The generators were manufacturing it
+
+Both designs treated manufacture as a behavioural problem, to be corrected with verifier
+subagents and readouts. Reading the actual generator commands found much of it was a
+**template** problem, with a one-line root cause for the dominant failure:
+
+`create-trd.md` hardcoded `Unit Tests ≥80%` / `Integration Tests ≥70%` while
+`constitution.md` says `unit >= 60%, integration >= 50%`. **The template contradicted the
+constitution.** `item-10-trd-path.md` §3.1 measured that 5 of 10 unsourced objectives — half
+of everything found — were coverage targets above the constitution floor, and attributed it
+to authors inventing strictness. They were not; the template was dictating it. The
+corroborating detail was already sitting in §3.1 unexplained: *"the one TRD that used the
+constitution's numbers verbatim is one of the two with zero unsourced objectives"* was
+simply the one author who ignored the template.
+
+`implement-trd.md`'s delegation template carried the same `or 80` / `or 70` fallback, so
+three coverage numbers were in circulation. Now there is one: `constitution.md`.
+
+The same shape ran through both generators — `| [e.g., Response time] | [e.g., < 200ms] |`
+shipped as a template anchor, a pre-filled `WCAG 2.1 AA compliance` line, required
+Performance and Risk tables, *"All sections are required unless marked (optional)"*, and
+diagram **quotas** ("at least 3", "at least 2"). A quota is an instruction to manufacture.
+
+Also confirmed, and broader than §3.5 claimed: `grep -icE
+"reuse|deprecat|existing implementation|dead code"` returned **0** across both generator
+commands *and* both agent definitions, not just the commands.
+
+**Lesson for the remaining items: read the artifact before designing machinery to correct
+its output.** A large share of the measured failure was deletable template text.
+
+
 **The most consequential failure mode observed so far is not that something breaks or goes
 unbuilt. It is that hours and tokens are spent solving problems the user never asked about,**
 because the model's priors say an artifact of this type "should have" a section — and once a
@@ -700,7 +739,8 @@ Not an isolated slip. The same TRD's §2.3 asserted a `no-result-returned` viola
 it found **one** real instance in 1,274 transcripts, and the criterion built on it (A4) had to be
 downgraded from gate to observation. Its §3.1 corpus floors were set at aspirational numbers that
 real data could not supply, and §3.4 specified a runtime kill switch that is impossible for the
-mechanism it governs. **Four fabrications in one document**, each caught only after work had been
+mechanism it governs. **Eight fabrications in one document** (an earlier revision of this line said four; the
+full classification in `item-10-trd-path.md` §1 found eight), each caught only after work had been
 spent on it.
 
 The generator commands are where this originates, so that is where to look.

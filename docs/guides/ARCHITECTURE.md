@@ -144,9 +144,7 @@ your-project/
 |   |   |-- init-project.md
 |   |   |-- rebase-project.md
 |   |   |-- create-prd.md
-|   |   |-- create-prd-team.md
 |   |   |-- create-trd.md
-|   |   |-- create-trd-team.md
 |   |   |-- refine-prd.md
 |   |   |-- refine-trd.md
 |   |   |-- implement-trd.md
@@ -278,7 +276,6 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 | Command | Input | Output |
 |---------|-------|--------|
 | `/create-prd` | Story description or issue reference | `docs/PRD/<feature>.md` |
-| `/create-prd-team` | Same (uses parallel team analysis) | `docs/PRD/<feature>.md` |
 | `/refine-prd` | Existing PRD + feedback | Updated PRD |
 
 #### Development Workflow
@@ -286,7 +283,6 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 | Command | Input | Output |
 |---------|-------|--------|
 | `/create-trd` | Approved PRD | `docs/TRD/<feature>.md` |
-| `/create-trd-team` | Same (uses parallel architecture team) | `docs/TRD/<feature>.md` |
 | `/refine-trd` | Existing TRD + feedback | Updated TRD |
 | `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking |
 | `/harden-trd-team` | Implemented TRD | Gap/edge-case/regression hardening via parallel teammates |

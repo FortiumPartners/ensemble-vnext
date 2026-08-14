@@ -1,6 +1,7 @@
 # Item 10 — the PRD path
 
-**Status:** design, agreed 2026-08-13. Scope is `/create-prd`, `/create-prd-team`, `/refine-prd`.
+**Status:** SHIPPED 2026-08-14. Scope was `/create-prd`, `/create-prd-team`, `/refine-prd`.
+Deviations are recorded in §9.
 The TRD path is deliberately separate — see §7.
 
 Parent: `docs/modernization/2026-08-improvement-plan.md` item 10.
@@ -37,8 +38,32 @@ verifiable in seconds — and no stage may invent or strike on judgment.
 | P3 | **Authoring is one specialist subagent, fresh context.** | Fresh context plus expertise. A PRD is synthesis and needs one voice; three merged reports produce a stitched document. |
 | P4 | **Fan-out for verification only, never generation.** | This is the load-bearing rule. Independent agents demonstrably outperform a single one when *verifying and challenging* and manufacture when *generating*. The current `-team` command has this exactly backwards. |
 | P5 | **Verify against SOURCE, never against the brief.** | The brief is derived. Verifying the PRD against it only proves the PRD is faithful to the lead's summary — a dropped or invented requirement in the brief gets *certified*. Circular. |
-| P6 | **Source-fidelity reads the transcript file, not a fork.** | A fork inherits *post-compaction* context. Long design conversations are exactly where rejected paths are numerous **and** the session has compacted, so a fork systematically loses the oldest decisions. The transcript JSONL is the complete record. Also drops the `CLAUDE_CODE_FORK_SUBAGENT` feature-flag dependency. |
+| P6 | **Source-fidelity reads the transcript file, not a fork.** *(Qualified — see below.)* | A fork inherits *post-compaction* context. Long design conversations are exactly where rejected paths are numerous **and** the session has compacted, so a fork systematically loses the oldest decisions. The transcript JSONL is the complete record. Also drops the `CLAUDE_CODE_FORK_SUBAGENT` feature-flag dependency. |
 | P7 | **The challenger's mandate is provenance, not opinion.** | *"REQ-4 traces to nothing in the source"* is checkable. *"I think REQ-4 is unnecessary"* is manufactured. Only the first is permitted. This makes striking a valid requirement structurally impossible. |
+
+### 2.1 P6 qualified — a single transcript is not the whole source
+
+**Corrected 2026-08-14**, against `item-10-trd-path.md` §9.6, which was written after this
+table and contradicts it.
+
+P6 assumes one session produced the requirements. **This user runs concurrent sessions on
+one product**, and the corpus contains a live instance of the resulting failure — a finding
+from a different session leaking in as fact, corrected with *"the invariant IS NOT INVERTED.
+that's for a different session."*
+
+So a single transcript path is both **incomplete** (decisions reached elsewhere are absent)
+and a **contamination vector** (material from an unrelated effort reads as authoritative).
+
+P6's core claim stands — read the transcript file, not a fork, because a fork inherits
+post-compaction context and systematically loses the oldest decisions. What does not stand
+is treating one transcript as the complete record:
+
+- Record the transcript path(s) in the PRD header, plural where applicable.
+- Where a requirement traces only to session material, cite **which** session.
+- On refinement, source = original source ∪ the rulings cited in the changelog
+  (`item-10-trd-path.md` §9.6).
+- A finding that cannot be located in the named source is not a finding. A verifier must
+  not import context from elsewhere on the strength of recognising it.
 
 ---
 
@@ -263,3 +288,20 @@ source" is explicitly *not* grounds to ask — the deterministic resolution is t
 - `/refine-prd` has both modes; the `autonomy.md` exemption is conditional on mode.
 - Re-running the current commands on an existing PRD identifies which of its requirements would
   not survive the source test.
+
+
+---
+
+## 9. Deviations from this design, as shipped (2026-08-14)
+
+| # | Deviation | Why |
+|---|---|---|
+| 1 | **P6 qualified** for concurrent sessions | §2.1 — `item-10-trd-path.md` §9.6 contradicted it and was written later |
+| 2 | **Template surgery ahead of the verifier wave** | The NFR quintet was not merely a bad container: `create-prd.md` shipped `\| [e.g., Response time] \| [e.g., < 200ms] \|` as an anchor and pre-filled `WCAG 2.1 AA compliance`. §4.1 identified the categories; the example values were doing comparable damage |
+| 3 | **Readout in action register** | `item-10-trd-path.md` §9.5 — classification headings were rejected five times |
+| 4 | **"Belief, not fact" promoted into the template**, as §4.1 recommended | Cheapest always-on version of the source-fidelity check |
+| 5 | **Decisions section named "Decisions and Rejected Alternatives"** rather than adopting `Appendix A — Team Analysis Notes` verbatim | §4 recommended standardising the corpus convention, but the container name referenced a team that P1 retires. The *format* — challenge / verdict / rationale / **revisit condition** — is adopted exactly, along with the do-not-re-litigate marker |
+
+**Confirmed by shipping:** §4's correction was right and worth the credibility it saved.
+The convention existed; the format the authors converged on — especially the revisit
+condition — is better than a bare verdict, and is what got standardised.

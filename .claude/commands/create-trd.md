@@ -10,10 +10,6 @@ This command takes a comprehensive Product Requirements Document (PRD) and creat
 Technical Requirements Document (TRD) with architecture design, task breakdown, and
 execution plan. Delegates to @technical-architect for technical planning.
 
-**ULTRATHINK**: This is a complex technical planning task requiring deep analysis of
-requirements, architecture decisions, and implementation strategy. Take time to
-thoroughly evaluate technical approaches before generating the TRD.
-
 ## User Input
 
 ```text
@@ -55,9 +51,86 @@ When creating the TRD, import and reference these PRD sections:
 
 ---
 
+## The typing rule: invent the HOW, never the HOW WELL
+
+**This is the most important rule in this command. Read it before writing anything.**
+
+Every line you write into a TRD is one of three types. The type determines what it owes:
+
+| Type | What it is | What it must satisfy |
+|------|------------|----------------------|
+| **Objective** | What must be true, and *how well* — acceptance criteria, non-functional requirements, thresholds, quality gates, coverage targets, latency budgets | **Provenance.** Must trace to the PRD, to `stack.md`/`constitution.md`, to a measurement you can cite, or to an explicit user instruction. **May NOT be invented.** |
+| **Decision** | *How* it will be built — architecture, technology, structure, sequencing, module boundaries | **Derivation + buildability + consistency.** Must serve a named objective, be constructible as written, not contradict a sibling decision, and be recorded with its alternatives. **Free to be invented — that is your job.** |
+| **Task** | The work to do | Must name the objective or decision it serves. |
+
+You may freely decide Postgres, a queue, a three-phase rollout, a particular module
+boundary. None of that needs user provenance — only an upward link to an objective and a
+conformance check against `stack.md`.
+
+What you may **NOT** do is decide that the thing must respond in under two seconds, sustain
+99.9% uptime, or hit 80% test coverage — unless someone actually asked.
+
+### Type by nature, never by section
+
+**A measurable threshold is an objective wherever it appears.** A latency figure inside a
+"Technical Specifications" section is still an objective. "Use Redis for caching" is a
+decision; "cache hit rate must exceed 90%" is an objective wearing a decision's clothes.
+Classify by what the line *is*, not by the heading it sits under.
+
+### Delivery machinery is a decision and owes an objective
+
+Feature flags, rollout phases, migration paths, guard infrastructure, eval gates, staged
+enablement and rollback tooling are **decisions**. Each must name the objective it serves.
+
+If the honest answer is *"no objective — this is just how we'd normally ship,"* **do not
+include it.** This is the single largest source of wasted implementation work: machinery
+nobody asked for, built and then deployed dark. A feature behind a flag nobody turns on is
+worse than a feature that was never built, because it costs the build *and* hides the result.
+
+### Domain-derived objectives are permitted, and must be labelled
+
+Some objectives genuinely follow from the domain rather than from a document — *"must not
+lose a payment"*, *"must not leak PII across tenants"*. These are legitimate. Label them
+`domain-derived` and state the reasoning. They appear in the readout as their own class:
+not blocked, but visible.
+
+The distinction being enforced is between an objective someone can point at, and one that
+appeared because a table looked empty.
+
+### Thresholds: source the SEVERITY, not just the requirement
+
+The commonest failure is not an invented requirement — it is a real requirement given an
+invented strictness. "Zero tolerance" and "≤1 per run" are different requirements, and the
+gap between them is where unexamined severity hides.
+
+**An objective that exceeds a floor stated in `constitution.md` MUST state why, inline.**
+No reason, no exceedance — use the constitution's number. This one rule catches roughly half
+of all manufactured objectives measured in this project's own corpus.
+
+If a number is a target rather than an enforced gate, say so in the line itself
+("target, not an enforced threshold"). Declassifying severity by hand is correct and welcome.
+
+### Omission is a failure too
+
+Dropping a requirement is **commoner** than inventing one. Every objective in the source
+must either appear in the TRD or be explicitly listed under Non-Goals. Silently narrowing
+scope — reproducing seven of a PRD's eight metrics and dropping the eighth without comment —
+is the failure that a per-line audit structurally cannot see. Check the source forwards, not
+just the TRD backwards.
+
+---
+
 ## TRD Document Structure
 
-The generated TRD MUST follow this exact structure. All sections are required unless marked (optional).
+The generated TRD follows the structure below.
+
+**Sections are containers, not quotas.** A heading is not an instruction to fill it. If a
+feature has no non-functional requirements anyone asked for, that section is empty, and an
+empty section is a **correct, expected outcome** — a stronger signal than a plausible
+invention. Never populate a section to make the document look complete.
+
+The same applies to diagrams: include a diagram where it clarifies something a reader would
+otherwise have to reconstruct. There is no diagram quota.
 
 ### Document Header
 
@@ -95,9 +168,18 @@ The generated TRD MUST follow this exact structure. All sections are required un
 
 ### 1.2 Key Technical Decisions
 
-| Decision | Choice | Rationale | Alternatives Considered |
-|----------|--------|-----------|------------------------|
-| [Decision area] | [What was chosen] | [Why] | [What else was considered] |
+| ID | Decision | Choice | Serves Objective | Rationale | Alternatives Considered |
+|----|----------|--------|------------------|-----------|------------------------|
+| D1 | [Decision area] | [What was chosen] | [Objective ID this serves] | [Why] | [What else was considered] |
+
+**`Serves Objective` is mandatory.** Every decision exists to satisfy something. If you
+cannot name the objective, the decision is unmotivated — remove it, or surface the
+objective it implies and give that objective provenance of its own.
+
+**`Alternatives Considered` is mandatory too**, and a rejection is more useful with a
+revisit condition: *"adds significant scope; the LLM can infer this from raw coordinates —
+revisit in v2 with eval data showing where it struggles."* A rejection with no revisit
+condition reads as permanent and gets re-litigated the moment conditions change.
 
 ### 1.3 Technology Stack
 
@@ -116,14 +198,16 @@ The generated TRD MUST follow this exact structure. All sections are required un
 
 ### Section 3: System Architecture
 
-**REQUIRED**: Include Mermaid diagrams. Do NOT use ASCII art.
+Use Mermaid for diagrams here. Do NOT use ASCII art. Include the diagrams that clarify
+this system; there is no required count.
 
 ```markdown
 ## 2. System Architecture
 
 ### 2.1 Architecture Overview
 
-**REQUIRED**: High-level architecture diagram
+Include a high-level architecture diagram when the component topology is not obvious from
+the task list.
 
 ```mermaid
 graph TB
@@ -143,7 +227,7 @@ graph TB
 
 ### 2.3 Data Flow
 
-**REQUIRED**: Data flow diagram
+Include a data-flow diagram when a flow crosses more than one service or component.
 
 ```mermaid
 sequenceDiagram
@@ -264,17 +348,23 @@ fall back to the agent's full skills list at delegation time.
 
 ### 4.2 Phase 1: [Phase Name]
 
-| Task ID | Description | Skills | Dependencies | Acceptance Criteria |
-|---------|-------------|--------|--------------|---------------------|
-| [PREFIX]-P001 | [Task description] | | None | [Criteria] |
-| [PREFIX]-P002 | [Task description] | | [PREFIX]-P001 | [Criteria] |
+| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
+|---------|-------------|--------|--------|--------------|---------------------|
+| [PREFIX]-P001 | [Task description] | [Objective or Decision ID] | | None | [Criteria] |
+| [PREFIX]-P002 | [Task description] | [Objective or Decision ID] | | [PREFIX]-P001 | [Criteria] |
 
 ### 4.3 Phase 2: [Phase Name]
 
-| Task ID | Description | Skills | Dependencies | Acceptance Criteria |
-|---------|-------------|--------|--------------|---------------------|
-| [PREFIX]-B001 | [Task description] | `developing-with-dotnet` | [PREFIX]-P002 | [Criteria] |
-| [PREFIX]-F001 | [Task description] | `developing-with-react`, `jest` | [PREFIX]-B001 (API contract only) | [Criteria] |
+| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
+|---------|-------------|--------|--------|--------------|---------------------|
+| [PREFIX]-B001 | [Task description] | AC-F1.1 | `developing-with-dotnet` | [PREFIX]-P002 | [Criteria] |
+| [PREFIX]-F001 | [Task description] | D2 | `developing-with-react`, `jest` | [PREFIX]-B001 (API contract only) | [Criteria] |
+
+**The `Serves` column is mandatory and machine-readable.** Every task names the objective
+or decision ID it exists to satisfy. A task that serves nothing is work nobody asked for —
+the commonest form being delivery machinery (flags, rollout stages, guard infrastructure)
+added because it is how one normally ships. Remove it, or surface the objective it implies
+and source that objective.
 
 ### 4.4 Phase 3: [Phase Name]
 ...
@@ -324,7 +414,8 @@ fall back to the agent's full skills list at delegation time.
 
 ### 5.3 Parallelization Map
 
-**REQUIRED**: Mermaid diagram showing parallel execution opportunities
+Include a dependency/parallelism diagram when there is real parallelism to show. Skip it
+for a short sequential plan — the task table already says everything.
 
 ```mermaid
 gantt
@@ -362,29 +453,51 @@ Tasks that could be delegated to specialized agents:
 ```markdown
 ## 6. Quality Requirements
 
+Every line in this section is an **objective**. Each one needs provenance, and any
+number that exceeds a `constitution.md` floor needs its severity sourced inline.
+
 ### 6.1 Testing Requirements
 
-| Type | Coverage Target | Scope |
-|------|-----------------|-------|
-| Unit Tests | ≥80% | All business logic |
-| Integration Tests | ≥70% | API endpoints, data flows |
-| E2E Tests | Critical paths | User journeys from PRD |
+**Read the coverage floors from `.claude/rules/constitution.md` and use those numbers.**
+Do not carry a number in from anywhere else — not from this template, not from another
+project, not from what a coverage target "usually" is.
 
-### 6.2 Code Quality Standards
+| Type | Coverage Target | Source | Scope |
+|------|-----------------|--------|-------|
+| Unit Tests | [constitution.md floor] | `constitution.md` Quality Gates | [Scope] |
+| Integration Tests | [constitution.md floor] | `constitution.md` Quality Gates | [Scope] |
 
-- [Standard 1]
-- [Standard 2]
+**To exceed a constitution floor, state why in the Source column** — a PRD line, a user
+instruction, a measured defect rate, or a named regulatory constraint. "This code is
+critical" is not a source; every project believes that about its own code.
 
-### 6.3 Security Requirements
+If nothing justifies exceeding the floor, use the floor. The floor is the project's
+considered answer to this question and it does not need re-deriving per TRD.
 
-- [ ] [Requirement 1]
-- [ ] [Requirement 2]
+### 6.2 Code Quality Standards (only if the PRD or constitution names any)
 
-### 6.4 Performance Requirements
+[Standards that trace to a named source. Empty is correct when none were stated.]
 
-| Metric | Target | Measurement Method |
-|--------|--------|-------------------|
-| [Metric] | [Target] | [How measured] |
+### 6.3 Security Requirements (only if the feature has any)
+
+Include a security objective when the feature handles credentials, personal data,
+payments, tenancy boundaries, or external input. Label these `domain-derived` with the
+reasoning — they are legitimate without a PRD line, but they must be visible as derived.
+
+For a feature that touches none of those, this section is empty. Do not add a generic
+security checklist.
+
+### 6.4 Performance Requirements (only if someone asked)
+
+**Do not invent a latency, throughput, or uptime figure.** No example values appear in
+this template deliberately — an example number is an anchor, and anchors get adopted.
+
+Include a performance objective only when the PRD states one, the user asked for one, or
+you can cite a measurement. Otherwise omit this section entirely. Most features have no
+performance requirement anyone asked for, and a TRD with no performance section is
+correct when performance was never raised.
+
+Where you do include one, state whether it is an enforced gate or a target.
 ```
 
 ### Section 8: Risk Assessment
@@ -401,17 +514,23 @@ These are referenced by `/implement-trd` for contingency planning.
 |-------------|------|---------------------|
 | R1 | [From PRD] | [Technical approach to mitigate] |
 
-### 7.2 Technical Risks
+### 7.2 Technical Risks (only real ones)
 
 | ID | Risk | Likelihood | Impact | Mitigation |
 |----|------|------------|--------|------------|
 | TR1 | [Technical risk] | High/Med/Low | High/Med/Low | [Mitigation] |
 
-### 7.3 Implementation Risks
+A risk earns a row when you can name what would trigger it in *this* design. Generic
+engineering hazards ("the third-party API might be slow", "the migration might fail")
+are not risks specific to this TRD, and a risk table padded with them buries the one or
+two that matter. Two real risks beat eight plausible ones.
 
-| ID | Risk | Likelihood | Impact | Mitigation |
-|----|------|------------|--------|------------|
-| IR1 | [Implementation risk] | High/Med/Low | High/Med/Low | [Mitigation] |
+Empty is legitimate for a small, well-understood change.
+
+**Do not use a risk to smuggle in delivery machinery.** "Risk: the rollout might break
+things → Mitigation: add a feature flag" is an invented decision wearing a risk's
+clothes. If the flag serves a real objective, put it in the task list and name that
+objective; if it does not, it does not belong in the TRD at all.
 
 ### 7.4 Contingency Plans
 
@@ -436,7 +555,59 @@ MUST reject requests that fall into these categories.
 | NG2 | [From PRD] | [From PRD] |
 ```
 
-### Section 10: Appendices (optional)
+### Section 10: Task Grounding
+
+**REQUIRED whenever the repository already contains code.** This is the section that stops
+implementers reimplementing what exists, contradicting how the system already works, and
+leaving dead code behind. Those are collectively the largest source of wasted work in this
+framework — larger than invented requirements.
+
+Before writing this section, actually read the code. Grep for the functions, modules and
+patterns the plan touches. This section is worthless if it is written from assumption.
+
+Reconcile the plan against the repository on four axes:
+
+| | Requirement | Failure it prevents |
+|---|---|---|
+| **(a)** | **Consistent with the existing implementation** | A plan that contradicts how the thing already works, discovered at implement time |
+| **(b)** | **Maximises reuse** | Reimplementing what exists — the most common silent waste |
+| **(c)** | **Deprecates and removes what it refactors out** | Dead code that still *looks* live |
+| **(d)** | **Documented per task** | Every implementer rediscovering the same context |
+
+Emit one block per task, keyed by task ID:
+
+```markdown
+## N. Task Grounding
+
+### AUTH-B003
+- **Touches:** `packages/api/auth/session.ts`, `packages/api/auth/session.test.ts`
+- **Reuse:** `withRetry()` in `packages/api/lib/retry.ts` — do not reimplement backoff
+- **Replaces:** `legacyTokenCheck()` in `session.ts:88` becomes unreachable; delete it and
+  its three tests in `session.test.ts:120-190`
+- **Follow:** the idempotency-key pattern in `packages/api/webhooks/stripe.ts`
+- **Careful:** `session.ts` is imported by the mobile client — the signature is a public contract
+```
+
+**Only `Touches` is mandatory.** The others appear when they apply. An empty grounding block
+is a legitimate result for genuinely greenfield work — state that rather than padding it.
+
+**`Replaces` is the highest-value line and the one nobody writes.** For every task, ask:
+*what does this make unreachable?* If the plan supersedes a function, a module, a config
+path or a test, name it here and instruct its deletion. A superseded thing that still exists
+still looks live, and the next reader — human or agent — will believe it.
+
+This has a worked example in this repository: converting `subagent-discipline.js` to a
+prompt-type hook orphaned `recordBlockInLedger` inside a `main()` that no longer executes.
+The dispatch ledger silently lost its compensating row. Nothing asked "what does this
+replace?", so nothing surfaced it, and it was found days later only because an agent noticed
+a *documentation* claim had gone false.
+
+Grounding is a **producer, not a checker** — `/implement-trd` passes a task's grounding block
+into the implementer's prompt, so the implementer starts with what is already known instead
+of rediscovering it. Findings that land only in a readout are wasted; the implementer never
+reads the readout.
+
+### Section 11: Appendices (optional)
 
 ```markdown
 ## Appendices
@@ -472,12 +643,15 @@ erDiagram
 
 ## Diagram Requirements
 
-**MANDATORY**: Use Mermaid syntax for all diagrams. Do NOT use ASCII art.
+**Use Mermaid syntax for all diagrams. Do NOT use ASCII art.**
 
-Minimum required diagrams:
-1. **Architecture Overview** (Section 2.1)
-2. **Data Flow** (Section 2.3)
-3. **Execution Plan** (Section 5.3)
+There is **no diagram quota**. A quota is an instruction to manufacture, and a diagram that
+restates a table nobody was confused by is noise that makes the real ones harder to find.
+
+Include a diagram where it shows something a reader would otherwise have to reconstruct:
+a component topology that isn't obvious from the task list, a data flow crossing several
+services, a dependency graph with real parallelism in it. For a single-service change with
+four sequential tasks, prose and the task table are clearer than a gantt chart.
 
 ---
 
@@ -502,13 +676,132 @@ Update `.trd-state/current.json`:
 Before completing, verify:
 - [ ] Task ID prefix is unique within project
 - [ ] All tasks have unique IDs following convention
-- [ ] At least 3 Mermaid diagrams included (no ASCII art)
 - [ ] All tasks have dependencies documented
 - [ ] Parallelization opportunities identified
 - [ ] Non-goals imported from PRD
-- [ ] Risks imported and technical mitigations added
+- [ ] Every objective carries provenance, or is labelled `domain-derived` with reasoning
+- [ ] Every number exceeding a `constitution.md` floor states why, inline
+- [ ] Every decision names the objective it serves
+- [ ] Every task has a grounding block; anything superseded appears in a `Replaces` line
 - [ ] Skills column populated for implementation tasks (P, F, B categories)
 - [ ] No timing estimates in execution plan
+
+---
+
+## Workflow
+
+```
+0. RESOLVE SOURCE        main agent
+     PRD (normal path) + stack.md + constitution.md + the codebase.
+     Session-derived additions → record the transcript path in the TRD header.
+     If the PRD carries a supersession marker, resolve what supersedes it and
+     treat that as in-scope source — a TRD verified against a retired PRD
+     certifies a retired design.
+
+1. AUTHOR                1 subagent (technical-architect, fresh context)
+     Sees the PRD + constraints + repo.
+     Types every line it writes — objective | decision | task — and records
+     decisions in the Key Technical Decisions table WITH alternatives.
+
+2. GROUND                1 subagent, sequential, GENERATIVE
+     Reconciles the decisions against the codebase: consistency, reuse, what
+     becomes unreachable, per-task context. Emits Section 10, Task Grounding.
+
+3. VERIFY                parallel subagents, read-only, none may invent
+
+4. RECONCILE + READOUT   main agent
+```
+
+**Grounding runs sequentially and alone, not as part of the verify wave.** It is
+*generative* — it writes task context rather than finding faults — and the rule that
+fan-out is for verification only applies to it. Four grounding agents in parallel would
+produce four opinions about which code to reuse. It runs *after* decisions exist, because
+grounding a decision that has not been made is meaningless.
+
+**Fan out for verification; never for generation.** Independent agents demonstrably
+outperform a single one when challenging and checking, and manufacture when generating.
+
+---
+
+## Verification wave
+
+After the TRD is drafted and grounded, **run these verifiers in parallel as read-only
+subagents.** They
+run on every invocation — there is no complexity threshold, because a threshold is itself an
+unsourced requirement and would skip verification exactly when a one-line prompt got
+elaborated into something large. Verifiers return empty quickly on a small draft.
+
+| Verifier | Checks | Mandate |
+|---|---|---|
+| `objective-audit` | Provenance of every objective, and the **severity** of every number. Any figure exceeding a constitution floor without a stated reason is a finding | Findable only |
+| `design-audit` | **Buildability** — can each decision be built as written? **Consistency** — does it contradict a sibling, or a document that supersedes it? **Grounding** — does every task have a block, and is anything superseded left unnamed? | Findable only |
+| `derivation-audit` | Does every task and every piece of delivery machinery — flags, rollout phases, migration paths, guard infra, eval gates — name the objective it serves? | Findable only |
+| `omission-audit` | Enumerate the **source's** objectives and assert each one either appears in the TRD or is listed under Non-Goals | Findable only |
+| `citations` | For every cross-artifact citation, grep the referenced ID in the live target document. Fail on a miss | Deterministic |
+| `conformance` | Does anything violate `stack.md` or `constitution.md`? | Findable only |
+
+**Every mandate is *findable*.** Each finding must name a source, a contradiction, or a
+failed grep, and be verifiable in seconds.
+
+**No verifier may invent an objective or strike one on judgment.** *"REQ-4 traces to nothing
+in the PRD"* is checkable and permitted. *"I think REQ-4 is unnecessary"* is manufactured and
+forbidden. A challenger asked an open-ended question produces objections exactly the way an
+author produces requirements — by filling the role it was handed — and striking a real
+acceptance criterion is harder to detect than adding a fake one.
+
+**The severity rule applies to the verifiers themselves.** A finding that asserts severity —
+*"this will regress checkout"*, *"this needs a guard"* — carries the same sourcing burden as
+an objective. Reviewers inflating severity is the observed failure here, far more than
+reviewers striking valid requirements. An unsourced severity claim from a verifier is itself
+a finding to discard.
+
+**Buildability is the cheapest check and the one never performed.** *"Can this be built as
+written?"* costs one agent. In this project's own history, a specified mechanism was designed
+around, built against, and deferred *around* before anyone asked whether it could exist —
+it could not.
+
+---
+
+## Readout
+
+Emit at `COMMAND COMPLETE`, before the banner. One screen.
+
+**Every line names the action, not the classification.** Readouts in this project have been
+rejected repeatedly for being unreadable — *"I read your full response but come away not
+knowing what ACTUAL action should I be taking next"*. A heading like "Unsourced severities"
+tells the reader nothing to do. Write what to do.
+
+```
+TRD: docs/TRD/<feature>.md    SOURCE: docs/PRD/<feature>.md + stack.md + constitution.md
+
+  DELETE — nothing in the source asks for these (2)
+    A5     latency p95 <= 2000ms       no PRD line, no measurement, no user instruction
+    NFR-9  99.9% uptime                no source
+
+  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher (1)
+    Q-1    unit coverage >=90%         constitution floor is 60%; no reason given
+
+  ADD BACK — in the PRD, missing from this TRD (1)
+    PRD 5.1 concurrent tool calls >=50 RPS — not in the TRD, not in Non-Goals
+
+  CANNOT BE BUILT AS WRITTEN (1)
+    D5     runtime kill switch         a prompt hook runs no code that can read an env var
+
+  PICK ONE — these contradict (1)
+    B009 deletes the code D5's rollback path depends on
+
+  CONFIRM THESE ARE WANTED — invented machinery, no objective named (1)
+    T-12   staged rollout behind a flag  serves no stated objective
+
+  CHECK THE REASONING — derived from the domain, not from a document (1)
+    SEC-2  no PII across tenants        reasoning: multi-tenant by design
+
+  NO ACTION — sourced, listed for completeness (6)
+    ...
+```
+
+Ordered by how expensive the failure is to find later. If a TRD produces 40 sourced
+objectives, the *count* is the finding — print it as one line, not forty.
 
 ---
 

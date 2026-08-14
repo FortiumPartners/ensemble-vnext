@@ -1,7 +1,9 @@
 # Autonomous-execution discipline
 
-**Status:** active. Applies to every workflow command **EXCEPT `/refine-prd` and
-`/refine-trd`** (which are inherently iterative — soliciting user input is their purpose).
+**Status:** active. Applies to every workflow command. `/refine-prd` and `/refine-trd` are
+exempt **in interactive mode only** — soliciting user input is that mode's purpose. In
+non-interactive mode they obey this rule like any other command; the exemption is
+conditional on mode, not on command name (see "Refine commands", below).
 Backed by a model-judged `Stop` hook (`hookType: "prompt"`, prompt text at
 `packages/core/hooks/prompts/autonomy-discipline.prompt.md`; the manifest entry keeps
 `autonomy-discipline.js` as its identifier, but no such file exists as of 4.1.11) — see
@@ -111,12 +113,31 @@ If you find yourself drafting a "given X went cleanly, want me to pause?" messag
 `--wiggum`, you have already noticed there's nothing to pause for. **Delete the message
 and proceed.**
 
-## Refine commands (`/refine-prd`, `/refine-trd`)
+## Refine commands (`/refine-prd`, `/refine-trd`) — exempt by MODE, not by name
 
-These commands are intentionally interactive — their input is user feedback, their output
-is a revised artifact, the iteration is the point. They are exempt from this rule's "do
-not ask" posture and may freely consult the user mid-flow. They still emit the COMMAND
-COMPLETE banner when the refinement is final.
+These commands have two modes, and **the exemption is conditional on mode, not on command
+name.**
+
+**Interactive mode** (the default when a human invoked them) is genuinely exempt. Their
+input is user feedback, their output is a revised artifact, the iteration is the point.
+They may freely consult the user mid-flow.
+
+**Non-interactive mode** (`--non-interactive`, or invocation by another command) obeys this
+rule exactly like every other command. `AskUserQuestion` is restricted to the four cases
+above, and **"this requirement has no source" is explicitly NOT one of them** — the
+deterministic resolution is to remove it and report it in the readout.
+
+A non-interactive `/refine-trd` that stops to ask questions is precisely the
+defensive-checkpointing anti-pattern this rule exists to forbid, and a blanket
+command-name exemption would permit it.
+
+The reason the distinction matters: these commands carry the challenge pass that removes
+unsourced requirements, and a fabricated requirement is **most** dangerous unattended,
+because nobody is there to ask "what's the impact of this?" — which is how most of them
+were historically caught. The exemption must not be what prevents the challenge from
+running where it is needed most.
+
+Both modes still emit the COMMAND COMPLETE banner when the refinement is final.
 
 ## Why this exists
 
