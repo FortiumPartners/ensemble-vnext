@@ -430,8 +430,16 @@ asking "can this be built?" than "what else should we add?"
 - `/create-trd-team` retired.
 - Every task carries a grounding block; anything the plan replaces is named in a `Replaces` line.
 - The existing Master Task List format is unchanged — grounding is additive, in its own section.
-- Re-running against `docs/TRD/discipline-judgment.md` flags **7 of its 8** known
-  fabrications. That TRD is the regression fixture — its failures are documented with
+- Re-running against **`git show 0aea2dc:docs/TRD/discipline-judgment.md`** flags **7 of
+  its 8** known fabrications.
+
+  **The revision matters, and this condition originally named the wrong artifact.** It said
+  "`docs/TRD/discipline-judgment.md`" — the file at HEAD, where every fabrication has
+  already been corrected in place: A5 is struck through and marked WITHDRAWN, §2.3's premise
+  withdrawn, §3.1's floors revised, A2/A3 restated, B009-vs-D5 recorded. A checker run
+  against HEAD correctly finds almost nothing, and would read as the design failing when it
+  is the document having been fixed. `0aea2dc` is the last revision where A5, the
+  no-result-returned premise, the kill switch and B009 are all simultaneously live. That TRD is the regression fixture — its failures are documented with
   receipts, which makes it the only honest test of whether this design works.
 
   **The permitted miss is named, so "passing" is unambiguous: B009's deferral premise.**
@@ -622,3 +630,29 @@ exactly wrong for this command: *"a wrong conclusion several layers down arrives
 confident summary with its reasoning discarded."* Item 10 exists to make manufactured
 requirements visible. Findings on disk stay inspectable, diffable and citable by ID;
 findings summarised through an intermediate agent do not.
+
+
+### 10.2 First fixture run (2026-08-14) — well-formed, but not independent
+
+Applied C1/C3/C4/C5 by hand to `0aea2dc`'s acceptance table and decision list:
+
+| Fabrication | Check | Caught |
+|---|---|---|
+| A5 `p95 ≤ 2000 ms` | C1 — no PRD line, no measurement, no user instruction | yes |
+| A2 "**Zero.**" | C5 — requirement is domain-derived and real; the severity is justified by rhetoric ("makes the project unmaintainable"), not data | yes |
+| A4 "> 0 — this class is the point of switching" | C1 — traces to an assertion about the motivating incident, not a measurement | yes |
+| D5 kill switch "read at call time" | C3 — a prompt hook runs no code of ours; unbuildable as specified | yes |
+| B009 vs D5 | C4 — B009 deletes the regex apparatus D5's rollback depends on | yes |
+| A2/A3 single-run framing | C5 — severity stated with no run count, against a non-deterministic judge | partial; requires the checker to reason about determinism |
+| §3.1 corpus floors | C5 | not re-verified at this revision |
+| B009 deferral premise | — | the named permitted miss (§8) |
+
+**This is weak evidence and should not be cited as validation.** The same author wrote the
+checks and the known-answer list, so it demonstrates the mapping is well-formed — every
+fabrication has a check that names it, and C3 catching the kill switch is a genuine
+mechanism question rather than a restatement — but it does not demonstrate that an agent
+reading `create-trd.md`'s verifier prompts cold would find them.
+
+**The real test is a fresh agent given only the verifier prompt and the fixture, with no
+access to this table.** Until that runs, the behavioural half of item 10 remains at zero
+independent evidence.

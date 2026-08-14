@@ -76,7 +76,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c+5e done; 5b discipline hooks done (4.1.9–4.1.11); Wiggum + 5d open** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
-| 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | |
+| 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | **Retargeted to `/create-trd`** — no item-7 dependency |
 | 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
@@ -630,7 +630,47 @@ directly by the team commands; smoke harness still green.
 
 ## Phase F — The architectural bet (Week 11 onward)
 
-### 8. Prototype one implement phase as a dynamic workflow
+### 8. Prototype one phase as a dynamic workflow — retarget to `/create-trd`
+
+> **Retargeted 2026-08-14.** This item was scoped to an `/implement-trd` phase. **`/create-trd`
+> is the better prototype**, and it is available now rather than after item 7.
+>
+> Item 8 names three limits that keep workflows a hybrid rather than a replacement. All three
+> bind `/implement-trd`. **None binds `/create-trd`:**
+>
+> | Limit | `/implement-trd` | `/create-trd` |
+> |---|---|---|
+> | Resume only within one session | Binds hard — `implement.json` must stay the durable outer loop | Doesn't bite; single-session command |
+> | No mid-run user input | Binds — the STUCK `AskUserQuestion` path stays in the command | Doesn't bite; `autonomy.md` forbids it asking at all |
+> | Script has no filesystem/shell access | Binds — the loop is all file mutation | Doesn't bite; agents do the reads and writes |
+>
+> **It also does not depend on item 7.** That prerequisite exists because `/implement-trd`
+> needs the task graph to know what to fan out. `/create-trd` is a fixed five-stage pipeline
+> (resolve → author → ground → verify ×6 → reconcile), already fully specified by item 10.
+>
+> What the script buys, concretely:
+> - **`agent({schema})` enforces the findings contract.** Item 10 currently states it as prose
+>   and hopes verifiers honour it; a schema validates at the tool-call layer and retries on
+>   mismatch.
+> - **The findings-to-disk mechanism becomes unnecessary.** It exists only to keep verifier
+>   output out of the orchestrator's context; in a workflow, results live in script variables
+>   and never enter a model's context except where the script passes them.
+> - **Sequence becomes `await`, not prose** a model may reorder or skip.
+> - **Nesting stops being a governance question** — the script fans out, so no agent spawns
+>   another and `constitution.md` §1 simply does not apply.
+>
+> Cost: `create-trd.md` is 956 lines doing two jobs. Only the orchestration half belongs in a
+> script; the content rules (typing, severity sourcing, grounding axes) move into agent
+> prompts, where they arguably belong. There are **no workflows in this repo today** and the
+> tooling is unverified here.
+>
+> **Sequencing: validate item 10 first.** The conversion re-hosts the same prompts under a
+> different executor. If the checks don't catch 7 of 8, a workflow faithfully runs wrong
+> prompts in the right order; if they do, the passing fixture becomes the regression test that
+> makes conversion safe. Converting first means converting blind, unable to distinguish a
+> conversion bug from a prompt bug.
+
+
 
 > Inherits the concurrent-TRD/session/worktree design question raised in item 7 — see the
 > callout there. A workflow's inability to resume across sessions makes it more acute, not less.
