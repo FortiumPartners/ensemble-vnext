@@ -224,8 +224,12 @@ const VERIFIERS = [
     prompt: `Check these requirements against the SOURCE in BOTH directions. They are given
 in full below, so you do NOT need to open ${PRD}.
 
-REQUIREMENTS:
+REQUIREMENTS INDEX (what exists and where to look -- NOT the artifact):
 ${JSON.stringify(authored.requirements, null, 1)}
+
+GROUNDING RULE: the index is not the document. Use it to target your reads of ${PRD}, then
+verify every finding against the PRD's own text before reporting it. Quote the document, not
+the index. If index and document disagree, that mismatch is itself the finding.
 
 ${BASELINE_NOTE}
 

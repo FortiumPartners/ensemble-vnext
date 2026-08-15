@@ -344,10 +344,20 @@ Returning zero findings is a legitimate result. Do not manufacture findings to l
 // dimension the findable-only wave structurally cannot backstop.
 const VERIFIER_MODEL = 'sonnet'
 
-// LEVER 2 + 4. Three verifiers, not six. `design-audit` moved into the grounding stage
-// (it had already read the code); `citations` and `conformance` merged into one
-// deterministic pass. Crucially, the first three get their subject matter INLINE from the
-// author's structured return, so they never open the 25.8k-token TRD.
+// LEVER 2 (CORRECTED) + 4. Three verifiers, not six. `design-audit` moved into the
+// grounding stage (it had already read the code); `citations` and `conformance` merged
+// into one deterministic pass.
+//
+// The first version of lever 2 handed verifiers the author's structured RETURN and let
+// them audit that. It cut cost 26% and broke verification: findings quoted a JSON
+// `"serves"` field the markdown TRD does not contain, and cited an ID (`OBJ-CMD-STATUS`)
+// with zero hits repo-wide -- fabricated inside the finding's own quoted line. Findings
+// fell 16 -> 2 and both were wrong. That is the manufactured-findings failure this design
+// exists to prevent, introduced in the name of saving tokens.
+//
+// The records are an INDEX, not the subject. They say what exists and where to look, which
+// still avoids a linear read of a 25.8k-token document. But the audit runs against the
+// artifact text, because that is what implementers read and what ships.
 const OBJ = JSON.stringify(authored.objectives, null, 1)
 const DEC = JSON.stringify(authored.decisions, null, 1)
 const TSK = JSON.stringify(authored.tasks, null, 1)
@@ -377,7 +387,19 @@ ${SOURCES}
               different requirements.
 
 Verify claimed sources by checking the PRD and the rule files. A source that does not say
-what the objective claims is a finding.`,
+what the objective claims is a finding.
+
+GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
+roughly where. They are NOT the artifact. The artifact is ${TRD}, and it is Markdown.
+
+  - Use the index to target your reads. Do not read the document linearly.
+  - Before reporting ANY finding, grep ${TRD} for the exact text you are about to quote and
+    confirm it is there. Quote the document's own words, not the index's field names.
+  - If the index and the document disagree, THAT is the finding -- report the disagreement
+    with both versions, and do not audit the index as though it were the document.
+  - A finding citing an ID or a field that does not appear in ${TRD} is a fabrication. This
+    has happened: a previous run reported a JSON "serves" field against a document made of
+    Markdown tables, and quoted an ID with zero hits anywhere in the repository.`,
   },
   {
     key: 'derivation-audit',
@@ -398,7 +420,19 @@ ${DEC}
     framework: machinery added because it is how one normally ships, then built and
     deployed dark.
 
-Check the PRD only to confirm a named objective exists -- grep it by ID, do not read it whole.`,
+Check the PRD only to confirm a named objective exists -- grep it by ID, do not read it whole.
+
+GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
+roughly where. They are NOT the artifact. The artifact is ${TRD}, and it is Markdown.
+
+  - Use the index to target your reads. Do not read the document linearly.
+  - Before reporting ANY finding, grep ${TRD} for the exact text you are about to quote and
+    confirm it is there. Quote the document's own words, not the index's field names.
+  - If the index and the document disagree, THAT is the finding -- report the disagreement
+    with both versions, and do not audit the index as though it were the document.
+  - A finding citing an ID or a field that does not appear in ${TRD} is a fabrication. This
+    has happened: a previous run reported a JSON "serves" field against a document made of
+    Markdown tables, and quoted an ID with zero hits anywhere in the repository.`,
   },
   {
     key: 'omission-audit',
@@ -414,7 +448,19 @@ under Non-Goals in the TRD (grep the TRD for "Non-Goal" only -- do not read it t
 
 A per-line audit of the TRD cannot see a line that is not there. Dropping a requirement is
 commoner than inventing one, and silent narrowing -- reproducing seven of eight metrics and
-dropping the eighth without comment -- has no other check that can catch it.`,
+dropping the eighth without comment -- has no other check that can catch it.
+
+GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
+roughly where. They are NOT the artifact. The artifact is ${TRD}, and it is Markdown.
+
+  - Use the index to target your reads. Do not read the document linearly.
+  - Before reporting ANY finding, grep ${TRD} for the exact text you are about to quote and
+    confirm it is there. Quote the document's own words, not the index's field names.
+  - If the index and the document disagree, THAT is the finding -- report the disagreement
+    with both versions, and do not audit the index as though it were the document.
+  - A finding citing an ID or a field that does not appear in ${TRD} is a fabrication. This
+    has happened: a previous run reported a JSON "serves" field against a document made of
+    Markdown tables, and quoted an ID with zero hits anywhere in the repository.`,
   },
   {
     key: 'deterministic',
