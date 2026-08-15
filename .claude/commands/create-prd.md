@@ -252,10 +252,12 @@ Rules for this section:
 - **Source the severity, not just the requirement.** "Must be fast" becoming "p95 < 200ms"
   is an invention even when "must be fast" was real. If a number is aspirational, say so:
   *"target, not an enforced threshold."*
-- **Accessibility**: include a concrete requirement when the feature has a user interface
-  and the project or a regulation names a standard. Do not paste a generic WCAG line into
-  a PRD for a background worker.
-- **Integration points** belong here only when they constrain the product. Otherwise they
+- **Do not reintroduce the deleted categories as prompts.** Performance, Security,
+  Accessibility, Scalability and Integration were removed as headings precisely because a
+  named category is an instruction to fill it — naming them here as a checklist would put
+  them straight back in front of you. Requirements of any of those kinds are welcome when
+  someone asked for them, and are listed like any other row, with a source.
+- **Integration points** belong here only when they constrain the *product*. Otherwise they
   are technical design and belong in the TRD.
 
 ### Section 7: Acceptance Criteria Summary
@@ -454,11 +456,16 @@ The TRD will reference:
 
 ## Execution: the workflow is the orchestrator
 
-**The three stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
+**The stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
 
 ```
 Workflow({ name: "create-prd", args: { source: "<verbatim doc path or empty>", brief: "<brief path or empty>", prd: "docs/PRD/<feature>.md", feature: "<feature>" } })
 ```
+
+**The workflow does not own every stage.** Source resolution stays in the main agent
+(it is the only thing holding the conversation), and the final readout is printed by the
+main agent. The script owns authoring through reconcile — its `meta.phases` is the
+authoritative count.
 
 The script is `.claude/workflows/create-prd.js`. It owns sequencing, fan-out, and the schemas
 that force structured findings. **Read it before changing any stage description here** — the
@@ -541,7 +548,13 @@ striking a real requirement is harder to detect than adding a fake one.
 requirement.** Reviewers inflating severity is the observed failure, not reviewers striking
 valid requirements.
 
-#### Verifier return contract — findings go to disk, not into the caller's context
+#### Verifier return contract — FALLBACK PATH ONLY
+
+> **This section applies only when running WITHOUT the workflow.** Under
+> `.claude/workflows/create-prd.js` it is not merely unnecessary — it is impossible: the
+> script's schema requires a full findings array and rejects a one-line receipt.
+> Findings live in script variables there and never enter the orchestrator's context.
+
 
 **Each verifier writes its findings to a file and returns ONE line.**
 
@@ -561,10 +574,13 @@ as current.
 Each finding is an object with at minimum:
 
 ```json
-{ "id": "REQ-7", "action": "delete|add-back|record|lower|check",
-  "line": "REQ-7  Latency p95 <= 2000ms",
-  "why": "traces to nothing in source",
-  "where": "docs/PRD/<feature>.md §5" }
+{ "check":      "provenance|severity|omission|grounding|conformance",
+  "why":        "the source, contradiction, or failed lookup — REQUIRED",
+  "confidence": "high|medium|low — REQUIRED",
+  "id":         "the PRD's own ID; OMIT for omission findings, which have none",
+  "line":       "the text as written; OMIT for omission findings",
+  "source_ref": "for omission findings: where in the SOURCE it is stated",
+  "action":     "delete|add-back|record-rejection|lower|check-reasoning" }
 ```
 
 ### 4. Reconcile — 1 subagent
@@ -586,7 +602,8 @@ requirements visible, so the one thing not to do is bury the reasoning behind th
 main context — a source document is one file read, and a session-derived brief has no tool
 calls at all — so there is nothing to offload. Forking it would inherit post-compaction
 context and silently drop the oldest decisions, which is precisely what the brief exists to
-carry (P6, and §2.1's qualification of it).
+carry (recorded as P6 in `docs/modernization/item-10-prd-path.md`, with its
+concurrent-session qualification in that document's §2.1).
 
 ---
 
@@ -608,8 +625,14 @@ PRD: docs/PRD/<feature>.md    SOURCE: <document path | transcript path>
     Source rejects a queue-based design on cost; the PRD does not say so
 
   DELETE — nothing in the source asks for these (2)
-    NFR-3   99.9% uptime target        no source
-    REQ-7   p95 latency <= 2000ms      no source
+    NFR-3   [an uptime target]         no source
+    REQ-7   [a latency figure]         no source
+
+  LOWER — the requirement is real, the strictness is not (1)
+    NFR-1   [a throughput figure]      the need is sourced; the number is not
+
+  CHECK THE REASONING — derived, not stated (1)
+    SEC-1   tenant isolation           reasoning: multi-tenant by design
 
   NO ACTION — sourced, listed for completeness (5)
     NFR-2   Postgres for persistence   <- stack.md

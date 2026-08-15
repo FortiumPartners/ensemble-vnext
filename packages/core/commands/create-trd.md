@@ -328,8 +328,10 @@ should invoke via the Skill tool. To populate this column:
 
 1. **Determine the target agent** for the task based on category letter
    (B → backend-implementer, F → frontend-implementer, T → verify-app, etc.)
-2. **Read the agent's frontmatter** from `.claude/agents/{agent-name}.md` —
-   extract the `skills:` list
+2. **Consult the project's skill assignment** — `skill-affinity.json`, plus the skills
+   listed in the session's system prompt. **Do NOT read a `skills:` key from the agent
+   frontmatter: no agent has one.** Hardcoded `skills:` preloads were removed from all
+   13 agents in 4.1.1 (`c4962d0`) in favour of deterministic per-project assignment
 3. **For each skill** the agent declares, read its description from the skill's
    SKILL.md (available skills are listed in the system prompt or discoverable
    via the plugin's skills directory)
@@ -489,8 +491,14 @@ security checklist.
 
 ### 6.4 Performance Requirements (only if someone asked)
 
-**Do not invent a latency, throughput, or uptime figure.** No example values appear in
-this template deliberately — an example number is an anchor, and anchors get adopted.
+**Do not invent a latency, throughput, or uptime figure.** No example number appears
+anywhere you are meant to FILL — no template stub, no table skeleton, no "e.g." — because an
+example number is an anchor and anchors get adopted verbatim.
+
+Concrete figures do appear in the *readout* examples further down. Those are illustrations of
+requirements being **deleted for having no source**, not values to copy. If you find yourself
+lifting a number out of a readout example into a TRD, that is the exact failure this rule
+exists to stop.
 
 Include a performance objective only when the PRD states one, the user asked for one, or
 you can cite a measurement. Otherwise omit this section entirely. Most features have no
@@ -532,7 +540,7 @@ things → Mitigation: add a feature flag" is an invented decision wearing a ris
 clothes. If the flag serves a real objective, put it in the task list and name that
 objective; if it does not, it does not belong in the TRD at all.
 
-### 7.4 Contingency Plans
+### 7.3 Contingency Plans
 
 For high-impact risks, document specific responses:
 
@@ -577,7 +585,7 @@ Reconcile the plan against the repository on four axes:
 Emit one block per task, keyed by task ID:
 
 ```markdown
-## N. Task Grounding
+## 9. Task Grounding
 
 ### AUTH-B003
 - **Touches:** `packages/api/auth/session.ts`, `packages/api/auth/session.test.ts`
@@ -682,7 +690,9 @@ Before completing, verify:
 - [ ] Every objective carries provenance, or is labelled `domain-derived` with reasoning
 - [ ] Every number exceeding a `constitution.md` floor states why, inline
 - [ ] Every decision names the objective it serves
-- [ ] Every task has a grounding block; anything superseded appears in a `Replaces` line
+- [ ] Where the repo already contains code: every task has a grounding block, and anything
+      superseded appears in a `Replaces` line (an empty block is legitimate for genuinely
+      greenfield work — see §10)
 - [ ] Skills column populated for implementation tasks (P, F, B categories)
 - [ ] No timing estimates in execution plan
 
@@ -690,11 +700,24 @@ Before completing, verify:
 
 ## Execution: the workflow is the orchestrator
 
-**The four stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
+**The stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
 
 ```
-Workflow({ name: "create-trd", args: { prd: "<prd path>", trd: "docs/TRD/<feature>.md", feature: "<feature>" } })
+Workflow({ name: "create-trd", args: {
+  prd: "<prd path>",                        // or omit and pass transcript
+  trd: "docs/TRD/<feature>.md",
+  feature: "<feature>",
+  transcript: "<session transcript path>"   // REQUIRED when requirements were settled
+                                            // in-session: it is the only channel that
+                                            // carries them. The script hard-fails when
+                                            // neither prd nor transcript is given.
+} })
 ```
+
+**The workflow does not own every stage.** Source resolution stays in the main agent
+(it is the only thing holding the conversation), and the final readout is printed by the
+main agent. The script owns authoring through reconcile — its `meta.phases` is the
+authoritative count.
 
 The script is `.claude/workflows/create-trd.js`. It owns sequencing, fan-out, and the schemas
 that force structured findings. **Read it before changing any stage description here** — the
@@ -794,7 +817,13 @@ written?"* costs one agent. In this project's own history, a specified mechanism
 around, built against, and deferred *around* before anyone asked whether it could exist —
 it could not.
 
-### Verifier return contract — findings go to disk, not into the caller's context
+### Verifier return contract — FALLBACK PATH ONLY
+
+> **This section applies only when running WITHOUT the workflow.** Under
+> `.claude/workflows/create-trd.js` it is not merely unnecessary — it is impossible: the
+> script's schema requires a full findings array and rejects a one-line receipt.
+> Findings live in script variables there and never enter the orchestrator's context.
+
 
 **Each verifier writes its findings to a file and returns ONE line.**
 
@@ -815,10 +844,13 @@ as current.
 Each finding is an object with at minimum:
 
 ```json
-{ "id": "A5", "action": "delete|lower|add-back|unbuildable|contradiction|confirm|check",
-  "line": "A5  latency p95 <= 2000ms",
-  "why": "no PRD line, no measurement, no user instruction",
-  "where": "docs/TRD/<feature>.md §6.4" }
+{ "check":      "provenance|severity|omission|buildability|consistency|derivation|grounding|citation|conformance",
+  "why":        "the source, contradiction, or mechanism failure — REQUIRED",
+  "confidence": "high|medium|low — REQUIRED",
+  "id":         "the TRD's own ID; OMIT for omission findings, which have none",
+  "line":       "the text as written; OMIT for omission findings",
+  "source_ref": "for omission findings: where in the SOURCE the missing objective is stated",
+  "action":     "delete|lower-to-floor|add-back|unbuildable|pick-one|confirm-wanted|check-reasoning|fix-citation" }
 ```
 
 ### Reconcile — 1 subagent
@@ -863,7 +895,7 @@ TRD: docs/TRD/<feature>.md    SOURCE: docs/PRD/<feature>.md + stack.md + constit
     NFR-9  99.9% uptime                no source
 
   LOWER TO THE CONSTITUTION FLOOR, or say why it's higher (1)
-    Q-1    unit coverage >=90%         constitution floor is 60%; no reason given
+    Q-1    unit coverage above the floor   constitution.md sets the floor; no reason given
 
   ADD BACK — in the PRD, missing from this TRD (1)
     PRD 5.1 concurrent tool calls >=50 RPS — not in the TRD, not in Non-Goals
@@ -879,6 +911,9 @@ TRD: docs/TRD/<feature>.md    SOURCE: docs/PRD/<feature>.md + stack.md + constit
 
   CHECK THE REASONING — derived from the domain, not from a document (1)
     SEC-2  no PII across tenants        reasoning: multi-tenant by design
+
+  FIX THE CITATION — referenced ID does not resolve (1)
+    cites PRD AC-F3.2; no such ID exists in docs/PRD/<feature>.md
 
   NO ACTION — sourced, listed for completeness (6)
     ...
