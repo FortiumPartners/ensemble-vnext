@@ -180,6 +180,23 @@ If your finding asserts severity, that assertion carries the same sourcing burde
 requirement. Zero findings is a legitimate result.
 `
 
+// Per-verifier READ DISCIPLINE -- see create-trd.js for the measurement behind it
+// (6 verifiers drove 49.2M cache reads vs 3.3M single-agent). Narrows HOW each verifier
+// reads, never WHAT it is asked to find.
+const READ_DISCIPLINE = {
+  'source-fidelity': `
+READ DISCIPLINE. Read the SOURCE fully -- it is your checklist and it is short. Then work
+through the PRD's requirement sections. You do not need its diagrams or architecture prose
+except where a requirement hides in them.`,
+  grounding: `
+READ DISCIPLINE. Grep before you read. Search the codebase for what the PRD proposes
+building, and search docs/PRD and docs/TRD for overlapping features by subject. Read a file
+fully only once a grep says it is relevant.`,
+  conformance: `
+READ DISCIPLINE. Read stack.md and constitution.md -- short, and your baseline. Then grep
+the PRD for what they constrain. Do NOT read the PRD end to end.`,
+}
+
 const VERIFIERS = [
   {
     key: 'source-fidelity',
@@ -220,7 +237,7 @@ prohibited pattern, a gate below a stated floor.`,
 
 const waves = await parallel(
   VERIFIERS.map((v) => () =>
-    agent(`${v.prompt}\n${FINDABLE_ONLY}`, {
+    agent(`${v.prompt}\n${READ_DISCIPLINE[v.key] || ''}\n${FINDABLE_ONLY}`, {
       label: `verify:${v.key}`,
       phase: 'Verify',
       effort: v.effort,

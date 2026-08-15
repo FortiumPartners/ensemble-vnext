@@ -278,6 +278,46 @@ severity is the observed failure here, far more than reviewers striking valid re
 Returning zero findings is a legitimate result. Do not manufacture findings to look thorough.
 `
 
+// ---------------------------------------------------------------------------
+// Per-verifier READ DISCIPLINE.
+//
+// Measured on the A/B run: 6 parallel verifiers drove 49.2M cache reads against the old
+// single-agent path's 3.3M -- 15x. Fan-out multiplies context loading and nothing here
+// amortized it: every verifier loaded the whole TRD and the whole PRD regardless of what
+// it needed. The script cannot pre-slice files (workflow scripts have no filesystem
+// access), so the lever is telling each verifier what NOT to read.
+//
+// This narrows HOW a verifier reads, never WHAT it is asked to find.
+// ---------------------------------------------------------------------------
+const READ_DISCIPLINE = {
+  'objective-audit': `
+READ DISCIPLINE. You need the objectives, not the whole document. Grep for tables and lines
+stating what must be true (acceptance criteria, quality gates, NFRs, anything with a
+threshold) and read those sections. Read the PRD's requirement sections to check provenance.
+Do NOT read architecture, task list or grounding sections end to end.`,
+  'design-audit': `
+READ DISCIPLINE. You need the decisions, the task list and the grounding section -- read
+those fully, and read the actual code a decision depends on before judging it constructible.
+You do NOT need the PRD's prose beyond resolving a decision's stated objective.`,
+  'derivation-audit': `
+READ DISCIPLINE. You need the task table's Serves column, the Key Technical Decisions table,
+and any section proposing delivery machinery. Grep for flags, rollout, migration, gates and
+guards rather than reading linearly. Check the PRD only to confirm a named objective exists
+-- grep it by ID, do not read it whole.`,
+  'omission-audit': `
+READ DISCIPLINE. Your traversal starts at the SOURCE. Read the PRD's objectives fully --
+that is your checklist -- then grep the TRD for each by ID and subject. Do NOT read the TRD
+linearly; "is this present" is a lookup per source item, not a full read.`,
+  citations: `
+READ DISCIPLINE. Do not read either document linearly. Grep the TRD for citation-shaped
+strings (IDs, section refs, file:line), then grep each referenced ID in its live target.
+This is a series of lookups; whole-document reads cost more than the check is worth.`,
+  conformance: `
+READ DISCIPLINE. Read stack.md and constitution.md -- short, and your baseline. Then grep
+the TRD for what they constrain (technologies, coverage figures, prohibited patterns,
+architectural invariants). Do NOT read the TRD end to end.`,
+}
+
 const VERIFIERS = [
   {
     key: 'objective-audit',
@@ -371,7 +411,7 @@ invariant contradicted.`,
 
 const waves = await parallel(
   VERIFIERS.map((v) => () =>
-    agent(`${v.prompt}\n${FINDABLE_ONLY}`, {
+    agent(`${v.prompt}\n${READ_DISCIPLINE[v.key] || ''}\n${FINDABLE_ONLY}`, {
       label: `verify:${v.key}`,
       phase: 'Verify',
       effort: v.effort,

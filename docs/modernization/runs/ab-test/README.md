@@ -71,3 +71,44 @@ correct: it removes the influence rather than relying on the author to notice.
 once in the old TRD. An invented accuracy target became a technical requirement one stage
 downstream. That is the mechanism behind the task-inflation perception: the TRD is not
 inventing, it is faithfully implementing invented PRD content.
+
+
+## End-to-end cost — the decisive measurement
+
+Both arms, same accounting (billed = input + output + cache-write; cache reads shown
+separately because they are cheap but reveal context duplication):
+
+| | old | new | ratio |
+|---|---|---|---|
+| billed tokens | 1,016,116 | **4,467,301** | **4.4x** |
+| cache reads | 3,277,360 | **49,244,446** | **15x** |
+| tool calls | 23 | 299 | 13x |
+| wall clock | 13 min | **49 min** | 3.8x |
+| agents | 2 | 14 | 7x |
+| **TRD tasks** | **36** -> 180 loop invocations | **24** -> 120 | **-33%** |
+
+### Break-even
+
+Planning costs **+3.45M billed** and buys back **60 avoided implement-loop invocations**.
+Break-even is therefore **57,500 billed tokens per avoided invocation**.
+
+That bar is probably cleared — the old arm's TRD-authoring agent alone spent 627k billed,
+and an implement agent writes code and runs tests — but it is **unmeasured**, and the whole
+economic case rests on it.
+
+Not captured by that arithmetic: the new arm found requirement 1 was already built. If the
+old arm's 36 tasks include reimplementing `/rebase-project --dry-run`, that is not a
+granularity difference but wasted implementation plus later reconciliation.
+
+## DECISION (2026-08-14): the new path is NOT the default
+
+4.4x is not adoptable on a projection. Two conditions, both required:
+
+1. **Context duplication fixed.** The 49.2M cache reads were six verifiers each loading the
+   whole TRD and the whole PRD regardless of need. Addressed by per-verifier read discipline
+   (`READ_DISCIPLINE` in both scripts) — narrows how each verifier reads, never what it is
+   asked to find. **Effect unmeasured until the next run.**
+2. **Phase-1 implement measured from both arms**, same starting commit, separate branches.
+   That yields the real cost-per-invocation and settles the break-even.
+
+Until both land, the old path stays default and the new path is opt-in.
