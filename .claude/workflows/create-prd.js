@@ -36,6 +36,12 @@ const a = readArgs(args)
 const SOURCE = a.source || ''
 const BRIEF = a.brief || ''
 const PRD = a.prd
+const PROJECT = a.project || ''
+// Corpus and code both live in the PROJECT under design, which is NOT always the repo this
+// workflow runs from -- designing for repo B while sitting in repo A is a normal case. Left
+// unscoped, the corpus stage indexes the AUTHORING repo's design docs and hands the author
+// another project's decisions as if they were its own.
+const CORPUS_ROOT = PROJECT ? (PROJECT.replace(/\/+$/, '') + '/') : ''
 const FEATURE = a.feature || 'feature'
 
 if (!PRD) throw new Error('create-prd workflow: args.prd (output path) is required')
@@ -84,8 +90,8 @@ const corpus = await agent(
   `Index the existing design corpus so the PRD author can inherit decisions instead of
 re-deciding them. You are producing a MAP, not a summary.
 
-Look in docs/PRD/ and docs/TRD/ (and any sibling location the repo actually uses -- check
-before assuming). For each document that plausibly relates to "${FEATURE}" by subject:
+Look in ${CORPUS_ROOT}docs/PRD/ and ${CORPUS_ROOT}docs/TRD/ (and any sibling location that
+project actually uses -- check before assuming; do NOT assume a layout). For each document that plausibly relates to "${FEATURE}" by subject:
 
   - its path and title
   - the decisions it records: grep its decisions table, any "Decisions" or "Rejected"

@@ -42,6 +42,10 @@ const FEATURE = a.feature || 'feature'
 // repo A about project B is a legitimate and common case; nothing told the verifiers which
 // repo a relative path meant.
 const PROJECT = a.project || ''
+// Corpus and code both live in the PROJECT under design, which is NOT always the repo this
+// workflow runs from. Left unscoped, the corpus stage indexes the AUTHORING repo's design
+// docs and hands the author another project's decisions as if they were its own.
+const CORPUS_ROOT = PROJECT ? (PROJECT.replace(/\/+$/, '') + '/') : ''
 const EXTRA = a.transcript ? `\nSession-derived additions: ${a.transcript}` : ''
 
 if (!TRD) throw new Error('create-trd workflow: args.trd (output path) is required')
@@ -109,8 +113,8 @@ const corpus = await agent(
   `Index the existing design corpus so the TRD author can inherit decisions instead of
 re-deciding them. You are producing a MAP, not a summary.
 
-Look in docs/PRD/ and docs/TRD/ (and any sibling location the repo actually uses -- check
-before assuming). For each document that plausibly relates to "${FEATURE}" by subject:
+Look in ${CORPUS_ROOT}docs/PRD/ and ${CORPUS_ROOT}docs/TRD/ (and any sibling location that
+project actually uses -- check before assuming; do NOT assume a layout). For each document that plausibly relates to "${FEATURE}" by subject:
 
   - its path and title
   - the decisions it records: grep its Key Technical Decisions table, any "Decisions" or
