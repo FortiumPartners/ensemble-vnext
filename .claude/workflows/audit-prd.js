@@ -288,6 +288,19 @@ const readout = await agent(
 FINDINGS (JSON):
 ${JSON.stringify(findings, null, 2)}
 
+WHERE THESE FINDINGS CAME FROM, so you judge them correctly. Verifier agents read
+${PRD} directly. To target their reads they were each handed an in-memory INDEX of the
+artifact's own IDs -- a JSON script variable, NOT a document, NOT a separate provenance
+file, and NOT something that exists on disk or can be opened, edited or cited. It is gone
+the moment this workflow ends.
+
+So when a finding does not match what ${PRD} actually says, there is exactly one
+conclusion available: THE VERIFIER WAS WRONG. Reject it on that basis. Do NOT infer that
+some other artifact carries the error, do NOT report an external index as needing repair,
+and do NOT open a Could Not Verify row about being unable to inspect one. A previous run
+invented exactly that artifact and logged it as an open item; the rejections were right and
+the explanation described something that has never existed.
+
 Apply each using Edit. Where a finding is WRONG — the verifier missed a source that does
 exist, or resolved a path against the wrong repository — do not apply it, and say so in the
 readout naming the file that refutes it. Rejecting a bad finding is as valuable as applying a
