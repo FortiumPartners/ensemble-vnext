@@ -654,5 +654,67 @@ mechanism question rather than a restatement — but it does not demonstrate tha
 reading `create-trd.md`'s verifier prompts cold would find them.
 
 **The real test is a fresh agent given only the verifier prompt and the fixture, with no
-access to this table.** Until that runs, the behavioural half of item 10 remains at zero
-independent evidence.
+access to this table.** That run is now recorded in §10.3, and it supersedes this one.
+
+
+### 10.3 Blind fixture run (2026-08-14) — VALID, and it FAILS the stated bar
+
+A fresh `general-purpose` agent was given `create-trd.md`'s typing rule and verification
+wave as its mandate, plus the fixture at `0aea2dc`, and barred from reading anything under
+`docs/modernization/`. **Contamination check passed**: its transcript records exactly two
+files opened — the fixture and `create-trd.md`. It never saw §10.2's table or any prior
+analysis.
+
+#### Against §8's condition: FAIL
+
+§8 requires flagging **7 of 8** known fabrications. The blind run got roughly **4–5**:
+
+| Known fabrication | Result |
+|---|---|
+| A5 `p95 ≤ 2000 ms` | **found**, high confidence, and it traced the downstream damage (§2.2.1 defers model-pinning on A5's strength; DISC-T002 exists only to measure it) |
+| §3.4 kill switch | **found**, high confidence — and reasoned better than the original human finding, using the TRD's own §1.4 ("a prompt-type hook does not execute project code") against §3.4 |
+| A4 / §2.3 no-result premise | **found**, framed as a Non-Goals contradiction rather than a misread premise — same defect, different angle |
+| A2 "zero tolerance" severity | **found**, but only `low` confidence, and it noted the *absence* of a constitution floor as a reason the exceedance rule doesn't bite |
+| B009 vs D5 | **partial** — it found a *different* B009 contradiction (below), not this pair |
+| §3.1 corpus floors | **not found** — and correctly so: they were already revised at this revision, and the run explicitly credits them as tracing to measurements |
+| A2/A3 single-run framing | **not found** |
+| B009 deferral premise | not found — the documented permitted miss |
+
+**Do not round this up.** The bar is 7 of 8 and the run cleared roughly 4–5. As specified,
+the condition is not met.
+
+#### What it found that the answer key does not contain
+
+Five further defects, all findable, all sourced:
+
+- **The `dispatch-ledger.js` orphaning — found prospectively.** Converting
+  `subagent-discipline.js` to prompt-type stops the JS that writes the ledger's compensating
+  `blocked` row; §8's "not touching `dispatch-ledger.js`" is satisfied file-literally while
+  the ledger's behaviour changes silently. **This is the exact failure §3.6(c) cites as its
+  worked example — the one that historically was found days later, by accident, when an agent
+  noticed a documentation claim had gone false.** A cold reader found it from the TRD, before
+  implementation, and correctly attributed it to the absence of a Task Grounding section.
+- **R5's mitigation names Shape B**, which the same document withdrew.
+- **R6's mitigation rests on the kill switch**, which cannot be built — the D5 failure
+  propagating into risk mitigation.
+- **DISC-D001 was recorded with an unsatisfied declared dependency** (P001 had not reported),
+  and §4.1's dependency column was never corrected.
+- **§6 omits the constitution's coverage floors entirely**, substituting raw test counts
+  ("359 jest; 364 BATS") that do not survive a change in suite size. An omission finding, from
+  a wave with no omission verifier in it.
+
+#### What this actually tells us
+
+1. **The findable-only mandate held.** Twelve findings, every one naming a source, a
+   contradiction, or a mechanism. **Zero manufactured objections, zero opinions.** This was
+   the failure mode most feared — a challenger inflating severity or striking valid
+   requirements — and it did not occur.
+2. **It did not over-fire.** It explicitly declined to flag the corpus floors, crediting
+   their provenance. A checker that flagged everything would have "caught" more.
+3. **The 7-of-8 bar measures against an answer key that is not ground truth.** The humans
+   found eight; the blind run found a partially-overlapping twelve, including one the humans
+   took days to find by accident. Recall against a hand-made list is the wrong metric.
+
+**Revise the done-condition rather than the run.** A better bar: *finds the kill switch and
+A5 (both high-confidence, both cheap), manufactures nothing, and does not flag anything whose
+provenance is sound.* This run passes that. It fails the one that is written down.
