@@ -17,22 +17,41 @@ The product-manager specializes in requirements refinement and stakeholder align
 
 ## Modes
 
-| Mode | When | Behaviour |
-|---|---|---|
-| **Interactive** (default when a human invoked it) | A person is watching | Run the challenge pass, present findings, ask, apply their decisions. |
-| **Non-interactive** (`--non-interactive`, or invoked by another command) | Unattended runs, composition into other commands | Same checks, resolved deterministically: unsourced requirements **removed** and listed; contradictions raised as **STUCK**. One readout, no questions. |
+`/refine-prd` exists to get judgment the author did not have into the artifact. The author
+recorded every such gap in the PRD's `## Open Questions` section — that is this command's input.
 
-**The autonomy exemption is conditional on MODE, not on command name.**
-`.claude/rules/autonomy.md` exempts this command because it is *intentionally interactive*
-— that applies to **interactive mode only.** In non-interactive mode it obeys autonomy
-discipline like every other command, and "this requirement has no source" is explicitly
-**not** grounds to ask: the deterministic resolution is to remove it and say so.
+| Mode | Who answers | When |
+|---|---|---|
+| **Interactive** (default) | **You**, via `AskUserQuestion`, one question at a time with the author's assumption offered as an option | A human is available |
+| **`--auto`** | One `product-manager` subagent with the design corpus and the codebase | Unattended, or a first pass to shrink the list |
+
+**The autonomy exemption is conditional on mode.** Interactive mode's purpose is to ask;
+`--auto` obeys autonomy discipline and asks nothing.
 
 ---
 
-## Workflow
+## Phase 0: Answer the open questions
 
-### Phase 1: Challenge pass (runs in both modes)
+**Interactive:** put each open question to the user with `AskUserQuestion`. Real options, not
+a blank prompt — the author stated its assumption and what breaks if that is wrong, so offer
+both. Highest-consequence question first.
+
+**`--auto`:** one `product-manager` subagent answers from evidence, marking each:
+**answered** (cite the file or document), **default** (no evidence, one choice is conventional
+here — say so), or **owner-only** (genuinely needs the owner; leave it open).
+
+`owner-only` is the one that matters. An agent asked to answer everything will, and a
+confident answer to a question only the owner can settle is worse than an open question,
+because it looks resolved. Business priority, scope trade-offs and risk appetite are
+owner-only. **The corpus states intent; the code states fact** — where they disagree the code
+wins, and the disagreement is worth reporting.
+
+Unanswered `owner-only` questions stay in `## Open Questions` and lead the readout.
+
+---
+
+## Phase 1: Challenge pass (runs in both modes)
+
 
 **Deletion is a first-class outcome.** Previously every question this command asked was
 about what was *absent* — unclear requirements, missing scenarios, incomplete criteria —

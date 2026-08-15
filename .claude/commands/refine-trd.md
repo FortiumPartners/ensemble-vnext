@@ -17,29 +17,66 @@ The technical-architect specializes in technical requirements refinement and arc
 
 ## Modes
 
-`/refine-trd` runs in one of two modes. **The mode determines whether questions are allowed.**
+`/refine-trd` exists to get judgment the author did not have into the artifact. The author
+recorded every such gap in the TRD's `## Open Questions` section — that section is this
+command's input.
 
-| Mode | When | Behaviour |
+| Mode | Who answers | When |
 |---|---|---|
-| **Interactive** (default when a human invoked it) | A person is watching | Run the challenge pass, present findings, ask, apply their decisions. |
-| **Non-interactive** (`--non-interactive`, or invoked by another command) | Unattended runs, composition into `/implement-trd` | Same checks, resolved deterministically: unsourced requirements are **removed** and listed; contradictions are raised as **STUCK**; buildability failures are reported with evidence. One readout, no questions. |
+| **Interactive** (default) | **You.** Each open question is put to you with `AskUserQuestion`. | A human is available. Your judgment is the point. |
+| **`--auto`** | A `product-manager` subagent, armed with the design corpus and the codebase. | Unattended runs, or a first pass to shrink the list before you look. |
 
-**The autonomy exemption is conditional on MODE, not on command name.**
-`.claude/rules/autonomy.md` exempts this command because it is *intentionally interactive*.
-That exemption applies to **interactive mode only.** In non-interactive mode this command
-obeys autonomy discipline like every other, with `AskUserQuestion` restricted to the four
-documented cases — and "this requirement has no source" is explicitly **not** grounds to
-ask, because the deterministic resolution is to remove it and say so.
-
-A fabricated requirement is *most* dangerous unattended, because nobody is there to ask
-"what's the impact of this?" — which is how most of them were historically caught. That is
-exactly why the challenge pass must be able to run without a human.
+**The autonomy exemption is conditional on mode, not on command name.** `autonomy.md` exempts
+this command because interactive mode's purpose is to ask. `--auto` obeys autonomy discipline
+like any other command and asks nothing.
 
 ---
 
-## Workflow
+## Phase 0: Answer the open questions
 
-### Phase 1: Challenge pass (runs in both modes)
+### Interactive
+
+Read `## Open Questions`. For each one, use **`AskUserQuestion`** — one question per call, with
+the author's assumption offered as an option so a default is always one keystroke away.
+
+Give real options, not a blank prompt. The author already stated what it assumed and what
+goes wrong if that is mistaken; put both in front of the user. Batch related questions into
+one call where the tool allows it, and ask the highest-consequence one first — the owner may
+stop reading.
+
+Do not ask questions the artifact already answers, and do not re-ask something the changelog
+records as settled. A question the source resolved is a question the author should not have
+raised; strike it and say so.
+
+### `--auto`
+
+Spawn **one `product-manager` subagent** and give it the open questions, the source, the
+design corpus and the codebase. Its job is to answer as well as the evidence allows and to be
+honest about which is which. Every answer carries one of:
+
+| Verdict | Meaning |
+|---|---|
+| **answered** | Evidence settles it. Cite the file, line, or document. |
+| **default** | No evidence, but one choice is clearly conventional here. Say why, and that it is a default. |
+| **owner-only** | Genuinely requires the owner. Leave it open. |
+
+**`owner-only` is the important one.** An agent asked to answer everything will answer
+everything, and a confident answer to a question only you can settle is worse than an open
+question — it looks resolved. Business priority, scope trade-offs, risk appetite, and
+anything where the evidence supports two reasonable readings are owner-only. The measured
+failure this prevents: an author with no source for a performance target invented one, and
+everything downstream treated it as real.
+
+**The corpus states intent; the code states fact.** A design document is evidence of what was
+decided, never of what exists. Where they disagree, the code wins and the disagreement is
+itself worth reporting.
+
+Questions answered `owner-only` stay in `## Open Questions`, and the readout leads with them.
+
+---
+
+## Phase 1: Challenge pass (runs in both modes)
+
 
 **Deletion is a first-class outcome of this command.** This is the change that matters:
 previously every question this command asked was about what was *absent* — missing

@@ -351,3 +351,46 @@ Use appendices for reference material that doesn't fit in main sections.
 
 ---
 
+---
+
+## Two sections you MUST emit, and who consumes them
+
+These are the handoff contract. Each has a different consumer, and an artifact that omits
+them silently claims a completeness it has not earned.
+
+### `## Open Questions` — consumed by `/refine`
+
+**Every decision you made that the source did not settle.** Not doubts — decisions. You had
+to pick something to finish the document; this is where you say what you picked and that
+nobody told you to.
+
+| ID | Question | What I assumed | Why it matters | If I'm wrong |
+|----|----------|----------------|----------------|--------------|
+| OQ-1 | No latency requirement is stated anywhere. Is there one? | None. No performance objective written. | An invented budget consumes a whole task proving it | A real SLA is missing and gets discovered late |
+
+This is where the manufactured-requirement failure goes to die. The measured instance: an
+author needed a performance row, had no source, and wrote `p95 ≤ 2000 ms`. That consumed a
+task, two wrong analyses, and a withdrawal. **The correct output was an Open Question, not a
+number.** When you find yourself reaching for a plausible value, write the question instead.
+
+Also belongs here: a tension the source names and does not resolve; two readings of a
+requirement where you picked one; a convention you inherited from a sibling document that
+may not apply.
+
+**A question with no assumption is not finished.** Always state what you did, so the
+document is usable if nobody ever answers.
+
+### `## Could Not Verify` — consumed by `/audit`
+
+**Every claim you made from inference rather than from reading or running.** Mirror of the
+`[inferred]` markers in grounding, promoted to document level so a reader sees it without
+hunting.
+
+| Claim | How I'd check it |
+|-------|------------------|
+| `publish_log.error_category` carries the F016 CHECK constraint | read the migration that adds the column |
+
+An empty section is a legitimate outcome and means you verified everything you asserted. It
+is not a place to be generous with yourself: the measured cost of the opposite is an
+implementer who stopped checking because the citations looked uniformly verified, and the one
+claim asserting something was *safe* was the one that was wrong.
