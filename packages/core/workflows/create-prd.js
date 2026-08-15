@@ -197,6 +197,17 @@ READ DISCIPLINE. Read stack.md and constitution.md -- short, and your baseline. 
 the PRD for what they constrain. Do NOT read the PRD end to end.`,
 }
 
+// Model tiers. Measured on the A/B run: 93.6% of billed cost is CACHE WRITE (context
+// establishment), only 6.3% is output. So model choice acts almost entirely on the bulk of
+// context each agent loads, and the verifiers are the many-agents half.
+//
+// Verifiers run findable-only checks -- grep an ID in a target file, compare a figure
+// against a rule file, confirm a threshold names a source. Mechanical enough for Sonnet.
+// The AUTHOR stays on its own frontmatter model (Opus): it is one agent, it produces the
+// document everything else audits, and architecture/decomposition quality is the one
+// dimension the findable-only wave structurally cannot backstop.
+const VERIFIER_MODEL = 'sonnet'
+
 const VERIFIERS = [
   {
     key: 'source-fidelity',
@@ -241,6 +252,7 @@ const waves = await parallel(
       label: `verify:${v.key}`,
       phase: 'Verify',
       effort: v.effort,
+      model: v.model || VERIFIER_MODEL,
       schema: FINDING_SCHEMA,
     }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
   )
