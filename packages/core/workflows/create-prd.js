@@ -247,11 +247,16 @@ underlying need was real.`,
     // High: 'does this already exist / contradict the codebase' is §9.1's second-largest
     // category (~45 hits) and needs real repository reading, not a skim.
     effort: 'high',
-    prompt: `Check ${PRD} against the codebase and existing docs.
+    prompt: `Check ${PRD} against the CODE, using the design corpus only for provenance.
 
-  - Does any of this ALREADY EXIST? Name the file.
-  - Does any requirement CONTRADICT how the system currently works?
-  - Does it duplicate an existing PRD or TRD? Search docs/PRD/ and docs/TRD/.
+  - Does any of this ALREADY EXIST? Name the file. Establish this by reading CODE, never by
+    reading a design document that claims it was built.
+  - Does any requirement CONTRADICT how the system currently works, as the code shows it?
+  - Is it duplicating an effort already designed? Search docs/PRD/ and docs/TRD/ by subject
+    and name the document -- that is a provenance finding ("this was already decided in X"),
+    not a claim about what exists.
+  - If a design document and the code disagree, say so. A stale design doc is itself worth
+    reporting, and in this repository most stop being maintained once implementation starts.
 
 Report what you find with paths. Do not propose requirements.`,
   },

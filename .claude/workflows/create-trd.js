@@ -88,6 +88,86 @@ for this job -- the typing rule and the document structure. Do NOT read
 pay for on every turn. Do not restate the contract back to me; apply it.
 `
 
+// --------------------------------------------------------------------------- 0.5 CORPUS
+// Design documents are a valuable source and an UNRELIABLE one: most PRDs and TRDs stop
+// being maintained the moment implementation starts. So the corpus is used for PROVENANCE
+// -- what was decided, why, and what conventions exist -- and never as a statement of
+// current fact. Verifiers check the CODE (see CORPUS_RULE below).
+//
+// Cost control: this is one cheap agent producing a compact INDEX, passed to the author via
+// a script variable. It does NOT read documents end to end, and the author never opens the
+// corpus itself. Same shape as the records-as-index change, for the same reason -- a full
+// corpus read would give back the planning savings measured at -21%.
+phase('Corpus')
+
+const corpus = await agent(
+  `Index the existing design corpus so the TRD author can inherit decisions instead of
+re-deciding them. You are producing a MAP, not a summary.
+
+Look in docs/PRD/ and docs/TRD/ (and any sibling location the repo actually uses -- check
+before assuming). For each document that plausibly relates to "${FEATURE}" by subject:
+
+  - its path and title
+  - the decisions it records: grep its Key Technical Decisions table, any "Decisions" or
+    "Rejected" section, and any supersession banner. Capture the CHOICE and the ID, not the
+    rationale prose.
+  - whether anything marks it superseded, and by what
+
+Then, separately, note conventions visible ACROSS documents: ID prefixes in use, recurring
+architectural choices, testing conventions.
+
+READ DISCIPLINE -- this is the whole point of doing it as one cheap pass. Grep for headings
+and table rows. Do NOT read documents end to end. If a repo has 30 TRDs you should be
+reading a few hundred lines total, not thirty documents.
+
+Return at most 40 entries. If more relate, return the closest 40 by subject and say how many
+you skipped -- a truncated index that says so is useful; a silent one is not.`,
+  {
+    label: 'corpus-index',
+    phase: 'Corpus',
+    effort: 'low',
+    model: 'haiku',
+    schema: {
+      type: 'object', additionalProperties: false,
+      required: ['documents', 'conventions'],
+      properties: {
+        documents: {
+          type: 'array',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['path', 'subject'],
+            properties: {
+              path: { type: 'string' }, subject: { type: 'string' },
+              decisions: { type: 'array', items: { type: 'string' }, description: 'ID + choice, terse' },
+              superseded_by: { type: 'string' },
+            },
+          },
+        },
+        conventions: { type: 'array', items: { type: 'string' } },
+        skipped_count: { type: 'number' },
+        note: { type: 'string' },
+      },
+    },
+  }
+)
+required(corpus, 'Corpus')
+log(`corpus: ${corpus.documents.length} related documents, ${corpus.conventions.length} conventions${corpus.skipped_count ? `, ${corpus.skipped_count} skipped` : ''}`)
+
+// The rule every verifier carries. Stated once, used in every verifier prompt.
+const CORPUS_RULE = `
+THE CORPUS STATES INTENT. THE CODE STATES FACT.
+
+Existing PRDs and TRDs are provenance -- they tell you what was decided and why. They are
+NOT a description of the current system: most stop being maintained the moment
+implementation begins, so a design document and the code it describes routinely disagree,
+and the code is what is true.
+
+  - You may cite a design document as the SOURCE of a decision or a convention.
+  - You may NOT cite one as evidence that something is built, works, or behaves a given way.
+    For that, read the code.
+  - If a document and the code disagree, the code wins and the disagreement is a finding
+    worth reporting -- it means a design doc has gone stale.`
+
 // --------------------------------------------------------------------------- 1. AUTHOR
 
 phase('Author')
@@ -97,6 +177,15 @@ const authored = await agent(
 
 ${MANDATE}
 ${SOURCES}
+
+EXISTING DESIGN CORPUS (provenance -- inherit from it, do not re-decide):
+${JSON.stringify(corpus, null, 1)}
+
+Use this to reuse decisions and follow conventions already established in this repository.
+Where you deliberately depart from a prior decision, say so and say why -- an unexplained
+divergence from a sibling TRD is how a schema ends up flapping across three documents.
+Treat these as statements of INTENT, not of what is currently built: check the code before
+asserting anything exists.
 
 Write the TRD to ${TRD} using the Write tool. Do not return its content as text.
 
