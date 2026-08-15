@@ -673,6 +673,24 @@ directly by the team commands; smoke harness still green.
 > **Both are unrun.** The keep-or-revert call this item exists to make is still outstanding,
 > and needs a real invocation against a real PRD.
 >
+> **Code review, 2026-08-14 (`code-reviewer` on the scripts).** Ten findings, nine fixed:
+> null from a dead `agent()` was mapped into a truthy object, so `filter(Boolean)` never
+> dropped it — every "incomplete coverage" warning was unreachable, and an all-verifiers-died
+> run would have emitted *"NO ACTION — every objective traces to a source"* over a completely
+> unverified TRD; `conformance` was missing from `create-trd`'s `check` enum, so that
+> verifier's findings could never validate; `id`/`line` were required on a schema whose
+> highest-value verifier (omission) produces findings that by construction have neither;
+> unguarded null dereferences in every sequential stage, the reconcile one crashing *after*
+> it had already edited the artifact; both author prompts pointed at
+> `packages/core/commands/*.md`, a path that does not exist in any scaffolded project, so the
+> binding typing rule reached the agent through no channel at all.
+>
+> **Open, unresolved:** both `technical-architect` and `product-manager` declare
+> `background: true` (set deliberately in item 3). `agent()` awaits a result inline, and it is
+> unverified which wins when a background-declared agent is driven from a workflow. This is
+> the most likely first-run failure and should be tested before the keep-or-revert call, not
+> reasoned about.
+>
 > Delivery gap found and fixed while wiring this: `scaffold-project.sh` had no `copy_workflows`,
 > so a scaffolded project would have received the commands but not the scripts and silently
 > taken the fallback forever — the same shape as the five hook files that never shipped before

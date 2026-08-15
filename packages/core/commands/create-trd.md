@@ -690,7 +690,7 @@ Before completing, verify:
 
 ## Execution: the workflow is the orchestrator
 
-**The five stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
+**The four stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
 
 ```
 Workflow({ name: "create-trd", args: { prd: "<prd path>", trd: "docs/TRD/<feature>.md", feature: "<feature>" } })

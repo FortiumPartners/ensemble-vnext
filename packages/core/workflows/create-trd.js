@@ -1,9 +1,7 @@
 export const meta = {
   name: 'create-trd',
   description: 'Author a TRD from a PRD, ground it in the codebase, verify it, and emit the readout',
-  whenToUse:
-    'Invoked by the /create-trd command. Authors one TRD, grounds it against the existing ' +
-    'code, runs the verification wave, and returns a reconciled readout.',
+  whenToUse: 'Invoked by the /create-trd command. Authors one TRD, grounds it against the existing code, runs the verification wave, and returns a reconciled readout.',
   phases: [
     { title: 'Author', detail: 'one technical-architect, fresh context, types every line' },
     { title: 'Ground', detail: 'reconcile the plan against the codebase; emit Task Grounding' },
@@ -20,12 +18,35 @@ export const meta = {
 // ---------------------------------------------------------------------------
 
 const a = args || {}
-const PRD = a.prd || '(none — source is stated in the brief below)'
 const TRD = a.trd
 const FEATURE = a.feature || 'feature'
 const EXTRA = a.transcript ? `\nSession-derived additions: ${a.transcript}` : ''
 
 if (!TRD) throw new Error('create-trd workflow: args.trd (output path) is required')
+
+// No placeholder default for the source. A prose stand-in would be spliced into the
+// omission-audit's enumeration target and into the user-facing readout's SOURCE: line,
+// degrading the run into a verification pass with no baseline -- silently.
+if (!a.prd && !a.transcript) {
+  throw new Error(
+    'create-trd workflow: a source is required — pass args.prd (a PRD path) or ' +
+    'args.transcript (a session transcript path). Verification has no baseline without one.'
+  )
+}
+const PRD = a.prd || a.transcript
+
+// A stage that dies returns null (documented agent() behaviour). Dereferencing it yields an
+// opaque TypeError; worse, the reconcile stage dies AFTER it has already edited the artifact
+// on disk, discarding the readout and leaving a mutated document with no record of why.
+function required(value, stage) {
+  if (value === null || value === undefined) {
+    throw new Error(
+      `${stage} stage returned no result (the agent died or was skipped). ` +
+      `Nothing downstream can run without it. Re-run, or run the command's prose fallback.`
+    )
+  }
+  return value
+}
 
 const SOURCES = `
 SOURCE OF TRUTH for every objective in this TRD:
@@ -38,11 +59,11 @@ If the PRD carries a supersession marker, resolve what supersedes it and treat t
 in-scope source. A TRD verified against a retired PRD certifies a retired design.
 `
 
-// The typing rule and the content rules live in packages/core/commands/create-trd.md and in
+// The typing rule and the content rules live in .claude/commands/create-trd.md and in
 // the technical-architect agent definition. Agents are told to read them rather than having
 // them restated here -- one copy, in markdown, reviewable in a diff.
 const MANDATE = `
-Read packages/core/commands/create-trd.md first -- specifically the sections
+Read .claude/commands/create-trd.md first -- specifically the sections
 "The typing rule: invent the HOW, never the HOW WELL" and "TRD Document Structure".
 Those are binding. Do not restate them back to me; apply them.
 `
@@ -100,6 +121,10 @@ Return ONLY a JSON object describing what you wrote.`,
   }
 )
 
+required(authored, 'Author')
+if (authored.trd_path && authored.trd_path !== TRD) {
+  log(`WARNING: author wrote ${authored.trd_path}, not ${TRD} — downstream stages target ${TRD}`)
+}
 log(`authored ${authored.task_ids.length} tasks, ${authored.objective_ids.length} objectives, ${authored.decision_ids.length} decisions`)
 
 // --------------------------------------------------------------------------- 2. GROUND
@@ -120,7 +145,7 @@ READ THE CODE. Grep for the functions, modules and patterns this plan touches. T
 worthless if written from assumption.
 
 Reconcile on four axes and emit a "## Task Grounding" section into the TRD (Write/Edit),
-one block per task ID, exactly as specified in packages/core/commands/create-trd.md:
+one block per task ID, exactly as specified in .claude/commands/create-trd.md:
 
   Touches   (mandatory) files this task will modify
   Reuse     existing code it must NOT reimplement
@@ -153,6 +178,7 @@ rather than padding it.`,
   }
 )
 
+required(grounded, 'Ground')
 log(`grounded ${grounded.grounded_task_ids.length} tasks; ${grounded.replaces_found.length} things named for deletion`)
 
 // --------------------------------------------------------------------------- 3. VERIFY
@@ -171,19 +197,23 @@ const FINDING_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'check', 'line', 'why', 'confidence'],
+        // id/line are NOT required: an omission finding's whole content is that no
+        // TRD id and no TRD line exist. Requiring them would force the highest-value
+        // verifier to fabricate an ID the reconcile stage would then try to Edit.
+        required: ['check', 'why', 'confidence'],
         properties: {
-          id: { type: 'string', description: "the TRD's own ID for the line" },
+          id: { type: 'string', description: "the TRD's own ID; omit for omission findings" },
+          source_ref: { type: 'string', description: 'for omission findings: where in the SOURCE the missing objective is stated' },
           check: {
             type: 'string',
-            enum: ['provenance', 'severity', 'omission', 'buildability', 'consistency', 'derivation', 'grounding', 'citation'],
+            enum: ['provenance', 'severity', 'omission', 'buildability', 'consistency', 'derivation', 'grounding', 'citation', 'conformance'],
           },
-          line: { type: 'string', description: 'the text as written' },
+          line: { type: 'string', description: 'the text as written; omit for omission findings' },
           why: { type: 'string', description: 'the source, contradiction, or mechanism failure' },
           confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
           action: {
             type: 'string',
-            enum: ['delete', 'lower-to-floor', 'add-back', 'unbuildable', 'pick-one', 'confirm-wanted', 'check-reasoning'],
+            enum: ['delete', 'lower-to-floor', 'add-back', 'unbuildable', 'pick-one', 'confirm-wanted', 'check-reasoning', 'fix-citation'],
           },
         },
       },
@@ -297,7 +327,7 @@ const waves = await parallel(
       phase: 'Verify',
       effort: v.effort,
       schema: FINDING_SCHEMA,
-    }).then((r) => ({ verifier: v.key, findings: (r && r.findings) || [] }))
+    }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
   )
 )
 
@@ -372,6 +402,8 @@ Ordered by how expensive the failure is to discover later.`,
     },
   }
 )
+
+required(readout, 'Reconcile')
 
 return {
   trd: TRD,

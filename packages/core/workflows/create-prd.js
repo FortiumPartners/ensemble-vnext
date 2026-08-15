@@ -1,9 +1,7 @@
 export const meta = {
   name: 'create-prd',
   description: 'Author a PRD from a verbatim source package, verify it against source, emit the readout',
-  whenToUse:
-    'Invoked by the /create-prd command. Authors one PRD in a fresh product-manager, runs ' +
-    'three read-only verifiers against the SOURCE (never a summary of it), returns a readout.',
+  whenToUse: 'Invoked by the /create-prd command. Authors one PRD in a fresh product-manager, runs three read-only verifiers against the SOURCE (never a summary of it), returns a readout.',
   phases: [
     { title: 'Author', detail: 'one product-manager, fresh context, sees the source verbatim' },
     { title: 'Verify', detail: 'three read-only verifiers, findable-only mandates' },
@@ -26,6 +24,20 @@ const FEATURE = a.feature || 'feature'
 
 if (!PRD) throw new Error('create-prd workflow: args.prd (output path) is required')
 if (!SOURCE && !BRIEF) throw new Error('create-prd workflow: one of args.source / args.brief is required')
+
+// A stage that dies returns null (documented agent() behaviour). Dereferencing it yields an
+// opaque TypeError; worse, the reconcile stage dies AFTER it has already edited the artifact
+// on disk, discarding the readout and leaving a mutated document with no record of why.
+function required(value, stage) {
+  if (value === null || value === undefined) {
+    throw new Error(
+      `${stage} stage returned no result (the agent died or was skipped). ` +
+      `Nothing downstream can run without it. Re-run, or run the command's prose fallback.`
+    )
+  }
+  return value
+}
+
 
 // Distillation is a LOSSY transform. A source document is passed through verbatim; a brief
 // exists only where nothing else can carry the information (defined live in session), and
@@ -52,7 +64,7 @@ phase('Author')
 const authored = await agent(
   `You are the product-manager authoring a Product Requirements Document.
 
-Read packages/core/commands/create-prd.md first -- specifically "What a PRD may contain" and
+Read .claude/commands/create-prd.md first -- specifically "What a PRD may contain" and
 "PRD Document Structure". Those are binding; apply them rather than restating them.
 
 ${SOURCE_PACKAGE}
@@ -99,6 +111,10 @@ Return ONLY a JSON object describing what you wrote.`,
   }
 )
 
+required(authored, 'Author')
+if (authored.prd_path && authored.prd_path !== PRD) {
+  log(`WARNING: author wrote ${authored.prd_path}, not ${PRD} — downstream stages target ${PRD}`)
+}
 log(`authored ${authored.requirement_ids.length} requirements`)
 
 // --------------------------------------------------------------------------- 2. VERIFY
@@ -118,11 +134,13 @@ const FINDING_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'check', 'line', 'why', 'confidence'],
+        // id/line omitted for omission findings — see create-trd.js for the reasoning.
+        required: ['check', 'why', 'confidence'],
         properties: {
-          id: { type: 'string' },
+          id: { type: 'string', description: "the PRD's own ID; omit for omission findings" },
+          source_ref: { type: 'string', description: 'for omission findings: where in the SOURCE it is stated' },
           check: { type: 'string', enum: ['provenance', 'severity', 'omission', 'grounding', 'conformance'] },
-          line: { type: 'string' },
+          line: { type: 'string', description: 'the text as written; omit for omission findings' },
           why: { type: 'string' },
           confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
           action: { type: 'string', enum: ['delete', 'add-back', 'record-rejection', 'lower', 'check-reasoning'] },
@@ -188,7 +206,7 @@ const waves = await parallel(
       phase: 'Verify',
       effort: v.effort,
       schema: FINDING_SCHEMA,
-    }).then((r) => ({ verifier: v.key, findings: (r && r.findings) || [] }))
+    }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
   )
 )
 
@@ -251,6 +269,8 @@ One screen. If there are 40 sourced requirements, print the COUNT as one line, n
     },
   }
 )
+
+required(readout, 'Reconcile')
 
 return {
   prd: PRD,

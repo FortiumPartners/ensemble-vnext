@@ -454,7 +454,7 @@ The TRD will reference:
 
 ## Execution: the workflow is the orchestrator
 
-**The five stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
+**The three stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
 
 ```
 Workflow({ name: "create-prd", args: { source: "<verbatim doc path or empty>", brief: "<brief path or empty>", prd: "docs/PRD/<feature>.md", feature: "<feature>" } })
