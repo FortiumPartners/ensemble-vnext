@@ -95,7 +95,8 @@ Type every line by NATURE, not by section heading:
 For each, capture its ID, its statement, the source it claims (verbatim, if it names one),
 and roughly where in the document it sits.
 
-Also capture, verbatim if present: the ## Could Not Verify section, and the ## Open Questions
+MANDATORY -- do not skip and do not return empty without checking. Grep the document for
+"## Could Not Verify" and "## Open Questions" and capture EVERY row of each, verbatim: the ## Could Not Verify section, and the ## Open Questions
 section. Both may be absent -- older artifacts will not have them.
 
 BATCH YOUR READS. Grep for the tables and headings; do not read the document linearly.`,
@@ -309,7 +310,13 @@ const CNV = `
 REWRITE THE ## Could Not Verify SECTION. This is what makes the artifact carry its own
 verification state, and it is the reason audit exists as a separate command.
 
-The artifact declared these as unverified when it was written:
+READ THE SECTION FROM THE DOCUMENT YOURSELF -- grep ${TRD} for "## Could Not Verify" and
+read what is actually there. Do NOT rely on the index for this. The index is a cheap pass and
+has been observed returning an EMPTY list for a document that carried four populated rows; a
+reconcile that trusted it would have silently deleted every one of them while believing it
+was rewriting an empty section.
+
+For reference only, the index reported (which may be wrong, and may be empty):
 ${JSON.stringify(index.could_not_verify || [], null, 1)}
 
 Replace that section with what is true AFTER this audit:
