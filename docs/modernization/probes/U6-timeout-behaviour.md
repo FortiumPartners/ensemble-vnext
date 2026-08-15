@@ -230,3 +230,53 @@ output) and the scratch `strings -a` dump (`$CLAUDE_JOB_DIR/tmp/strings_full.txt
 of extracted binary text) were deleted after evidence extraction. No files under
 `packages/`, `.claude/`, or `test/` in this repository were modified. Only this findings
 file was created.
+
+---
+
+## 8. Follow-up (2026-08-14, CLI v2.1.232) — the unverified error path is now being hit
+
+§6 flagged the non-timeout error path as **[INFERRED, unverified]**. It is now firing in
+practice, reported by the user across more than one session after updating to **v2.1.232**
+(this probe was verified against **v2.1.229**):
+
+```
+Ran 5 stop hooks
+  ⎿ Stop hook error: [<the entire prompt text>]: ...
+```
+
+**Root cause is on our side, not the platform's: `timeout: 5` on hooks that make a full
+model call.** The value is a leftover from when these three were command-type hooks doing
+regex matching, where 5s was generous. The 4.1.9–4.1.11 conversion to `hookType: "prompt"`
+changed what the hook *does* — a ~3,400-token prompt plus the interpolated `$ARGUMENTS`
+payload, evaluated by a model — without revisiting the budget.
+
+**It also overrode a sane default with a worse one.** §4 of this probe extracted
+`e.timeout ? e.timeout*1000 : 30000` — omitting `timeout` entirely would have given 30s.
+The manifest specified a value 6× smaller than the default it replaced.
+
+**Implication for everything this probe concluded.** §1–§5 established that a timeout
+resolves to ALLOW, silently — no log, no stdout, no transcript trace. Combined with a 5s
+budget on a call that routinely needs longer, **these guards have most likely been failing
+open intermittently since the conversion shipped**, invisibly, and v2.1.232 is what made it
+visible rather than what caused it. The guards demonstrably do fire sometimes (observed
+live this session, twice), which is the signature of a marginal budget rather than a broken
+one: sometimes the evaluator lands inside 5s, sometimes it does not.
+
+**Fix applied:** `timeout` raised 5 → 30 for all three `hookType: "prompt"` manifest
+entries, regenerated, and applied to the live `.claude/settings.json`.
+
+**Not established by this follow-up** — flagged rather than assumed:
+
+- Whether the v2.1.232 message is the *timeout* path having become loud, or the genuine
+  evaluator-error path being reached for some other reason. The distinction matters: if it
+  is the latter, raising the timeout will not stop it. The error text is truncated after the
+  echoed prompt in the report, and the tail — which carries the actual error — was not
+  captured.
+- Whether the error path blocks or fails open. Sessions continued in practice, which
+  suggests fail-open, consistent with §4's inference, but this was not tested.
+- The report says **"Ran 5 stop hooks"**; this repository registers **4** on `Stop`. The
+  discrepancy is unexplained and may indicate a plugin-registered hook or a second source
+  of registration in the affected project.
+
+**Reproduce properly with:** `claude --debug --debug-file <path>` and read the tail of the
+hook's error line — per §1, `--print` alone cannot distinguish these cases.
