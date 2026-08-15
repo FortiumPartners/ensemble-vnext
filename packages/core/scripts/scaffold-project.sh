@@ -187,6 +187,37 @@ copy_agents() {
     REFRESH_AGENTS_COUNT=$count
 }
 
+# Copy authoring contracts (.claude/contracts/*.md).
+# These are what the create-prd / create-trd AUTHOR agents read instead of the full command
+# file -- measured at ~10.5k tokens re-cached every turn vs ~5.9k for the contract. A
+# project that gets the commands but not these has authors reading a path that does not
+# exist, which is the same delivery gap that left five hook files unshipped before 4.1.1.
+copy_contracts() {
+    local dest="$1/.claude/contracts"
+    local src=""
+    if [[ -z "$PLUGIN_DIR" ]]; then warn "No plugin directory specified, skipping contracts"; return 0; fi
+    if [[ -d "$PLUGIN_DIR/contracts" ]]; then src="$PLUGIN_DIR/contracts"
+    elif [[ -d "$PLUGIN_DIR/../core/contracts" ]]; then src="$PLUGIN_DIR/../core/contracts"
+    else warn "No contracts directory found in plugin, skipping"; REFRESH_CONTRACTS_COUNT=0; return 0; fi
+
+    if [[ "$REFRESH" != "true" ]]; then mkdir -p "$dest"
+    elif [[ ! -d "$dest" ]]; then REFRESH_CONTRACTS_COUNT=0; return 0; fi
+
+    local count=0 c_path c
+    for c_path in "$src"/*.md; do
+        [[ -f "$c_path" ]] || continue
+        c="$(basename "$c_path")"
+        if [[ "$REFRESH" == "true" ]]; then
+            if [[ -f "$dest/$c" ]]; then cp "$c_path" "$dest/"; info "Refreshed contract: $c"; ((count++)) || true; fi
+            continue
+        fi
+        if [[ -f "$dest/$c" && "$FORCE" != "true" ]]; then info "Contract exists: $c"
+        else cp "$c_path" "$dest/"; info "Copied contract: $c"; ((count++)) || true; fi
+    done
+    if [[ "$REFRESH" == "true" ]]; then info "Refreshed $count contracts"; else info "Copied $count contracts"; fi
+    REFRESH_CONTRACTS_COUNT=$count
+}
+
 # Copy workflow scripts (.claude/workflows/*.js) from plugin directory.
 # These are the executors the create-prd / create-trd commands invoke. A project that
 # receives the commands but not these silently falls back to the prose path -- the exact
@@ -1155,6 +1186,7 @@ refresh_project() {
     echo "--- Commands ---"
     copy_commands "$(pwd)"
     copy_workflows "$(pwd)"
+    copy_contracts "$(pwd)"
     echo ""
 
     echo "--- Agents ---"
@@ -1203,7 +1235,7 @@ refresh_project() {
     # Machine-readable tally, parsed by the runtime-refresh.sh SessionStart
     # hook (RUNTIME-B011+). MUST be the final line of stdout — nothing may
     # print after this.
-    echo "REFRESH_SUMMARY commands=${REFRESH_COMMANDS_COUNT} workflows=${REFRESH_WORKFLOWS_COUNT:-0} agents=${REFRESH_AGENTS_COUNT} hooks=${REFRESH_HOOKS_COUNT} skills=${REFRESH_SKILLS_COUNT}"
+    echo "REFRESH_SUMMARY commands=${REFRESH_COMMANDS_COUNT} workflows=${REFRESH_WORKFLOWS_COUNT:-0} contracts=${REFRESH_CONTRACTS_COUNT:-0} agents=${REFRESH_AGENTS_COUNT} hooks=${REFRESH_HOOKS_COUNT} skills=${REFRESH_SKILLS_COUNT}"
 
     return 0
 }
@@ -1245,6 +1277,7 @@ scaffold_project() {
     create_dir ".claude/skills"
     create_dir ".claude/commands"
     create_dir ".claude/workflows"
+    create_dir ".claude/contracts"
     create_dir ".claude/hooks"
     create_dir ".claude/lib"
     echo ""
@@ -1312,6 +1345,7 @@ scaffold_project() {
         echo "--- Commands ---"
         copy_commands "$(pwd)"
     copy_workflows "$(pwd)"
+    copy_contracts "$(pwd)"
         echo ""
 
         echo "--- Hooks ---"
@@ -1349,6 +1383,7 @@ scaffold_project() {
     echo "  .claude/skills/"
     echo "  .claude/commands/"
     echo "  .claude/workflows/"
+    echo "  .claude/contracts/"
     echo "  .claude/hooks/"
     echo "  .claude/lib/"
     echo "  docs/PRD/"

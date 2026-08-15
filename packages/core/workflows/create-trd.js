@@ -76,13 +76,16 @@ If the PRD carries a supersession marker, resolve what supersedes it and treat t
 in-scope source. A TRD verified against a retired PRD certifies a retired design.
 `
 
-// The typing rule and the content rules live in .claude/commands/create-trd.md and in
-// the technical-architect agent definition. Agents are told to read them rather than having
-// them restated here -- one copy, in markdown, reviewable in a diff.
+// LEVER 1. The author reads the compact authoring contract, NOT the whole command file.
+// Measured: create-trd.md is ~10.5k tokens and the author re-cached it on all ~17 of its
+// turns (~180k), including the verification-wave spec, the readout format and the fallback
+// path -- none of which an author uses. The contract is ~5.9k and is only what it needs.
+// Still one copy in markdown, just split by audience.
 const MANDATE = `
-Read .claude/commands/create-trd.md first -- specifically the sections
-"The typing rule: invent the HOW, never the HOW WELL" and "TRD Document Structure".
-Those are binding. Do not restate them back to me; apply them.
+Read .claude/contracts/trd-authoring.md first. It is the complete binding instruction set
+for this job -- the typing rule and the document structure. Do NOT read
+.claude/commands/create-trd.md; it carries orchestration detail you do not need and would
+pay for on every turn. Do not restate the contract back to me; apply it.
 `
 
 // --------------------------------------------------------------------------- 1. AUTHOR
@@ -140,17 +143,54 @@ Return ONLY a JSON object describing what you wrote.`,
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['trd_path', 'task_ids', 'objective_ids', 'decision_ids'],
+      // LEVER 2. Return the RECORDS, not just the IDs. Workflow results live in script
+      // variables, so these can be interpolated into verifier prompts -- which means three
+      // of the four verifiers never open the TRD at all. Measured: the TRD is ~25.8k tokens
+      // and was being re-cached by every downstream agent on every turn.
+      required: ['trd_path', 'objectives', 'decisions', 'tasks'],
       properties: {
         trd_path: { type: 'string' },
-        task_ids: { type: 'array', items: { type: 'string' } },
-        objective_ids: { type: 'array', items: { type: 'string' } },
-        decision_ids: { type: 'array', items: { type: 'string' } },
-        empty_sections: {
+        objectives: {
           type: 'array',
-          items: { type: 'string' },
-          description: 'Sections deliberately left empty because nothing sourced belonged there',
+          description: 'EVERY line asserting what must be true and how well -- acceptance criteria, NFRs, thresholds, quality gates, coverage targets. Typed by nature, not by section.',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['id', 'statement', 'source'],
+            properties: {
+              id: { type: 'string' },
+              statement: { type: 'string' },
+              source: { type: 'string', description: 'PRD line, stack.md, constitution.md, a measurement, an explicit user instruction, or "domain-derived: <reasoning>"' },
+              severity_note: { type: 'string', description: 'why any figure exceeding a constitution floor is higher; omit if at or below' },
+              section: { type: 'string' },
+            },
+          },
         },
+        decisions: {
+          type: 'array',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['id', 'choice', 'serves'],
+            properties: {
+              id: { type: 'string' }, choice: { type: 'string' },
+              serves: { type: 'string', description: 'the objective ID this exists to satisfy' },
+              alternatives: { type: 'string' }, revisit_when: { type: 'string' },
+            },
+          },
+        },
+        tasks: {
+          type: 'array',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['id', 'description', 'serves'],
+            properties: {
+              id: { type: 'string' }, description: { type: 'string' },
+              serves: { type: 'string', description: 'objective or decision ID' },
+              depends_on: { type: 'array', items: { type: 'string' } },
+              acceptance: { type: 'string' },
+            },
+          },
+        },
+        empty_sections: { type: 'array', items: { type: 'string' } },
       },
     },
   }
@@ -160,7 +200,29 @@ required(authored, 'Author')
 if (authored.trd_path && authored.trd_path !== TRD) {
   log(`WARNING: author wrote ${authored.trd_path}, not ${TRD} — downstream stages target ${TRD}`)
 }
-log(`authored ${authored.task_ids.length} tasks, ${authored.objective_ids.length} objectives, ${authored.decision_ids.length} decisions`)
+log(`authored ${authored.tasks.length} tasks, ${authored.objectives.length} objectives, ${authored.decisions.length} decisions`)
+
+// Shared finding shape. Used by the grounding stage (which now also reports design
+// findings) and by every verifier, so the reconcile stage sees one uniform record.
+// id/line are NOT required: an omission finding's whole content is that no TRD id and no
+// TRD line exist, and requiring them would force the highest-value check to fabricate one.
+const FINDING_ITEMS = {
+  type: 'array',
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['check', 'why', 'confidence'],
+    properties: {
+      check: { type: 'string', enum: ['provenance','severity','omission','buildability','consistency','derivation','grounding','citation','conformance'] },
+      why: { type: 'string', description: 'the source, contradiction, or mechanism failure' },
+      confidence: { type: 'string', enum: ['high','medium','low'] },
+      id: { type: 'string', description: "the TRD's own ID; omit for omission findings" },
+      line: { type: 'string', description: 'the text as written; omit for omission findings' },
+      source_ref: { type: 'string', description: 'for omission findings: where in the SOURCE it is stated' },
+      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation'] },
+    },
+  },
+}
 
 // --------------------------------------------------------------------------- 2. GROUND
 // Sequential and alone: this stage is GENERATIVE (it writes task context), and the rule
@@ -174,7 +236,7 @@ const grounded = await agent(
   `You are grounding an already-authored TRD against the code that actually exists.
 
 TRD: ${TRD}
-Tasks needing grounding: ${authored.task_ids.join(', ')}
+Tasks needing grounding: ${authored.tasks.map((t) => t.id).join(', ')}
 
 READ THE CODE. Grep for the functions, modules and patterns this plan touches. This stage is
 worthless if written from assumption.
@@ -192,7 +254,29 @@ one block per task ID, exactly as specified in .claude/commands/create-trd.md:
 does this make unreachable? A superseded thing that still exists still looks live.
 
 An empty grounding block is a legitimate result for genuinely greenfield work -- say so
-rather than padding it.`,
+rather than padding it.
+
+---
+
+SECOND JOB, same context: you have now read the code, so you are the ONLY agent positioned
+to judge these. Report them as findings; do not fix them yourself.
+
+  BUILDABILITY -- can each decision be built AS SPECIFIED, given how the mechanism it
+  governs actually works? Check the mechanism; do not assume it works the way the TRD says.
+  This is the cheapest check in the wave and historically the one never performed.
+
+  CONSISTENCY -- does any decision or task contradict a sibling, or a document that
+  supersedes this one?
+
+  GROUNDING COMPLETENESS -- does every task carry a block, and does anything the plan
+  replaces go unnamed and orphaned?
+
+FINDABLE ONLY: every finding names a file, a line, a contradiction or a mechanism. No
+opinions, no proposed new requirements, nothing struck on judgment. If a finding asserts
+severity, source that assertion or drop it. Zero findings is legitimate.
+
+BATCH YOUR READS. Prefer one grep over five; prefer reading a file once over returning to
+it. Each tool call re-caches your whole context, so turn count is a real cost.`,
   {
     label: 'ground:brownfield',
     phase: 'Ground',
@@ -203,22 +287,19 @@ rather than padding it.`,
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['grounded_task_ids', 'replaces_found'],
+      required: ['grounded_task_ids', 'replaces_found', 'findings'],
       properties: {
         grounded_task_ids: { type: 'array', items: { type: 'string' } },
-        replaces_found: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Things the plan makes unreachable, named for deletion',
-        },
+        replaces_found: { type: 'array', items: { type: 'string' } },
         greenfield_task_ids: { type: 'array', items: { type: 'string' } },
+        findings: FINDING_ITEMS,
       },
     },
   }
 )
 
 required(grounded, 'Ground')
-log(`grounded ${grounded.grounded_task_ids.length} tasks; ${grounded.replaces_found.length} things named for deletion`)
+log(`grounded ${grounded.grounded_task_ids.length} tasks; ${grounded.replaces_found.length} named for deletion; ${(grounded.findings || []).length} design findings`)
 
 // --------------------------------------------------------------------------- 3. VERIFY
 // Findings live in script variables. They never enter the orchestrator's context -- which
@@ -230,34 +311,7 @@ const FINDING_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['findings'],
-  properties: {
-    findings: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        // id/line are NOT required: an omission finding's whole content is that no
-        // TRD id and no TRD line exist. Requiring them would force the highest-value
-        // verifier to fabricate an ID the reconcile stage would then try to Edit.
-        required: ['check', 'why', 'confidence'],
-        properties: {
-          id: { type: 'string', description: "the TRD's own ID; omit for omission findings" },
-          source_ref: { type: 'string', description: 'for omission findings: where in the SOURCE the missing objective is stated' },
-          check: {
-            type: 'string',
-            enum: ['provenance', 'severity', 'omission', 'buildability', 'consistency', 'derivation', 'grounding', 'citation', 'conformance'],
-          },
-          line: { type: 'string', description: 'the text as written; omit for omission findings' },
-          why: { type: 'string', description: 'the source, contradiction, or mechanism failure' },
-          confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
-          action: {
-            type: 'string',
-            enum: ['delete', 'lower-to-floor', 'add-back', 'unbuildable', 'pick-one', 'confirm-wanted', 'check-reasoning', 'fix-citation'],
-          },
-        },
-      },
-    },
-  },
+  properties: { findings: FINDING_ITEMS },
 }
 
 // Every mandate below is FINDABLE-ONLY. A verifier may not invent an objective or strike one
@@ -278,45 +332,6 @@ severity is the observed failure here, far more than reviewers striking valid re
 Returning zero findings is a legitimate result. Do not manufacture findings to look thorough.
 `
 
-// ---------------------------------------------------------------------------
-// Per-verifier READ DISCIPLINE.
-//
-// Measured on the A/B run: 6 parallel verifiers drove 49.2M cache reads against the old
-// single-agent path's 3.3M -- 15x. Fan-out multiplies context loading and nothing here
-// amortized it: every verifier loaded the whole TRD and the whole PRD regardless of what
-// it needed. The script cannot pre-slice files (workflow scripts have no filesystem
-// access), so the lever is telling each verifier what NOT to read.
-//
-// This narrows HOW a verifier reads, never WHAT it is asked to find.
-// ---------------------------------------------------------------------------
-const READ_DISCIPLINE = {
-  'objective-audit': `
-READ DISCIPLINE. You need the objectives, not the whole document. Grep for tables and lines
-stating what must be true (acceptance criteria, quality gates, NFRs, anything with a
-threshold) and read those sections. Read the PRD's requirement sections to check provenance.
-Do NOT read architecture, task list or grounding sections end to end.`,
-  'design-audit': `
-READ DISCIPLINE. You need the decisions, the task list and the grounding section -- read
-those fully, and read the actual code a decision depends on before judging it constructible.
-You do NOT need the PRD's prose beyond resolving a decision's stated objective.`,
-  'derivation-audit': `
-READ DISCIPLINE. You need the task table's Serves column, the Key Technical Decisions table,
-and any section proposing delivery machinery. Grep for flags, rollout, migration, gates and
-guards rather than reading linearly. Check the PRD only to confirm a named objective exists
--- grep it by ID, do not read it whole.`,
-  'omission-audit': `
-READ DISCIPLINE. Your traversal starts at the SOURCE. Read the PRD's objectives fully --
-that is your checklist -- then grep the TRD for each by ID and subject. Do NOT read the TRD
-linearly; "is this present" is a lookup per source item, not a full read.`,
-  citations: `
-READ DISCIPLINE. Do not read either document linearly. Grep the TRD for citation-shaped
-strings (IDs, section refs, file:line), then grep each referenced ID in its live target.
-This is a series of lookups; whole-document reads cost more than the check is worth.`,
-  conformance: `
-READ DISCIPLINE. Read stack.md and constitution.md -- short, and your baseline. Then grep
-the TRD for what they constrain (technologies, coverage figures, prohibited patterns,
-architectural invariants). Do NOT read the TRD end to end.`,
-}
 
 // Model tiers. Measured on the A/B run: 93.6% of billed cost is CACHE WRITE (context
 // establishment), only 6.3% is output. So model choice acts almost entirely on the bulk of
@@ -329,100 +344,100 @@ architectural invariants). Do NOT read the TRD end to end.`,
 // dimension the findable-only wave structurally cannot backstop.
 const VERIFIER_MODEL = 'sonnet'
 
+// LEVER 2 + 4. Three verifiers, not six. `design-audit` moved into the grounding stage
+// (it had already read the code); `citations` and `conformance` merged into one
+// deterministic pass. Crucially, the first three get their subject matter INLINE from the
+// author's structured return, so they never open the 25.8k-token TRD.
+const OBJ = JSON.stringify(authored.objectives, null, 1)
+const DEC = JSON.stringify(authored.decisions, null, 1)
+const TSK = JSON.stringify(authored.tasks, null, 1)
+
+const BATCH = `
+BATCH YOUR READS. Every tool call re-caches your entire context, so turn count costs as
+much as context size. Prefer one grep over five. Do not re-open a file you have read.`
+
 const VERIFIERS = [
   {
     key: 'objective-audit',
     effort: 'high',
-    prompt: `Audit every OBJECTIVE in ${TRD} for PROVENANCE and SEVERITY.
+    prompt: `Audit these objectives for PROVENANCE and SEVERITY. They are given to you in
+full below -- you do NOT need to open ${TRD}.
+
+OBJECTIVES:
+${OBJ}
+
 ${SOURCES}
-Type by nature, not by section -- a measurable threshold is an objective wherever it appears,
-including inside a specification section.
 
-  provenance: does it trace to a named source, a measurement, or an explicit instruction?
-  severity:   is the STRICTNESS sourced, not just the requirement's existence? Any number
-              exceeding a .claude/rules/constitution.md floor must state why, inline.
+  provenance: does each trace to a named source, a measurement, or an explicit instruction?
+              An objective labelled "domain-derived" is permitted -- check the reasoning is
+              stated and holds.
+  severity:   is the STRICTNESS sourced, not just the requirement's existence? Read the
+              coverage floors in .claude/rules/constitution.md; any figure above a floor
+              must carry a severity_note saying why. "Zero tolerance" and "<=1 per run" are
+              different requirements.
 
-"Zero tolerance" and "<=1 per run" are different requirements; the gap between them is where
-unexamined severity hides.`,
-  },
-  {
-    key: 'design-audit',
-    effort: 'high',
-    prompt: `Audit the DECISIONS and TASKS in ${TRD} for:
-
-  buildability: can each decision be built AS SPECIFIED, given how the mechanism it governs
-                actually works? Check the mechanism -- read the code, read the docs. Do not
-                assume it works the way the TRD says.
-  consistency:  does any decision or task contradict a sibling, or a document that supersedes
-                this one?
-  grounding:    does every task carry a grounding block? And -- the valuable half -- does
-                anything the plan replaces go unnamed, left orphaned?
-
-Buildability is the cheapest check and the one never performed. "Can this be built as
-written?" costs one agent and has historically saved a whole task plus a wrong deferral.`,
+Verify claimed sources by checking the PRD and the rule files. A source that does not say
+what the objective claims is a finding.`,
   },
   {
     key: 'derivation-audit',
-    // High, not medium: C2 targets §9.1's LARGEST category -- invented delivery machinery,
-    // ~55 hits, >4x requirement invention. Effort was originally set by how familiar the
-    // check felt rather than by measured frequency.
     effort: 'high',
-    prompt: `For every TASK and every piece of DELIVERY MACHINERY in ${TRD} -- feature flags,
-rollout phases, migration paths, guard infrastructure, eval gates, config toggles, staged
-enablement -- check that it names the objective it serves.
+    prompt: `Check that every task and every piece of delivery machinery names the objective
+it serves. Both lists are given in full -- you do NOT need to open ${TRD}.
 
-A task or a flag that serves nothing is work nobody asked for. This is the largest single
-category of wasted implementation effort in this framework: machinery added because it is how
-one normally ships, which then gets built and deployed dark.
+TASKS:
+${TSK}
 
-Report anything whose 'Serves' column is empty, or whose named objective does not exist.`,
+DECISIONS:
+${DEC}
+
+  - Any task whose 'serves' is empty, or names an ID absent from the objectives/decisions?
+  - Any DECISION that is really delivery machinery -- feature flags, rollout phases,
+    migration paths, guard infrastructure, eval gates, config toggles -- serving no
+    objective? That is the largest category of wasted implementation work in this
+    framework: machinery added because it is how one normally ships, then built and
+    deployed dark.
+
+Check the PRD only to confirm a named objective exists -- grep it by ID, do not read it whole.`,
   },
   {
     key: 'omission-audit',
-    // High, not medium: §9.2 measured dropping requirements (~20) as commoner than
-    // inventing them (~12), and §3.3 established omission is structurally invisible to
-    // every artifact->source check. This is the only pass that can see it.
     effort: 'high',
-    prompt: `Traverse SOURCE -> TRD, not TRD -> source.
+    prompt: `Traverse SOURCE -> TRD. Read ${PRD} fully; its objectives are your checklist.
 
-Enumerate every objective stated in ${PRD} (and in stack.md / constitution.md where they bind
-this feature). For each one, assert that it either appears in ${TRD} or is explicitly listed
-under Non-Goals.
+The TRD's objectives are given below in full, so you do NOT need to open ${TRD}:
 
-A per-line audit of the TRD cannot find a line that is not there. Dropping a requirement is
+${OBJ}
+
+For every objective the PRD states, assert it either appears above or is explicitly listed
+under Non-Goals in the TRD (grep the TRD for "Non-Goal" only -- do not read it through).
+
+A per-line audit of the TRD cannot see a line that is not there. Dropping a requirement is
 commoner than inventing one, and silent narrowing -- reproducing seven of eight metrics and
-dropping the eighth without comment -- has no other check that can see it.
-
-Report each source objective that is neither present nor non-goaled.`,
+dropping the eighth without comment -- has no other check that can catch it.`,
   },
   {
-    key: 'citations',
-    // The one stage where a cheaper model is clearly correct: grep an ID in a target file
-    // and report misses. Deterministic, no judgment. Every other stage inherits the
-    // session model deliberately.
+    key: 'deterministic',
     effort: 'low',
     model: 'haiku',
-    prompt: `For every cross-artifact citation in ${TRD} -- any reference to an ID in another
-document (AC-F1.1, NFR-2, PRD §5.1, another TRD's task ID) -- grep the referenced ID in the
-LIVE target document and confirm it resolves.
+    prompt: `Two mechanical checks over ${TRD}. Do NOT read it linearly -- both are lookups.
 
-Report every citation that does not resolve, with the ID and the target file searched. This
-check is deterministic: a miss is a miss.`,
-  },
-  {
-    key: 'conformance',
-    effort: 'low',
-    prompt: `Check ${TRD} against .claude/rules/stack.md and .claude/rules/constitution.md.
+  CITATIONS: grep the TRD for citation-shaped strings (IDs, section refs, file:line), then
+  grep each referenced ID in its live target file. Report every one that does not resolve,
+  naming the ID and the file searched.
 
-Report anything that violates a stated constraint: a technology outside the declared stack, a
-pattern the constitution prohibits, a quality gate below a stated floor, an architectural
-invariant contradicted.`,
+  CONFORMANCE: read .claude/rules/stack.md and .claude/rules/constitution.md -- both short
+  -- then grep the TRD for what they constrain: technologies outside the declared stack,
+  coverage figures below a stated floor, prohibited patterns, contradicted architectural
+  invariants.
+
+Both are pass/fail per item. A miss is a miss; do not interpret.`,
   },
 ]
 
 const waves = await parallel(
   VERIFIERS.map((v) => () =>
-    agent(`${v.prompt}\n${READ_DISCIPLINE[v.key] || ''}\n${FINDABLE_ONLY}`, {
+    agent(`${v.prompt}\n${FINDABLE_ONLY}`, {
       label: `verify:${v.key}`,
       phase: 'Verify',
       effort: v.effort,

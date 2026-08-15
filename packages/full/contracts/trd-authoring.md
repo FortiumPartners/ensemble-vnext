@@ -1,0 +1,1 @@
+../../core/contracts/trd-authoring.md

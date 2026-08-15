@@ -81,8 +81,9 @@ phase('Author')
 const authored = await agent(
   `You are the product-manager authoring a Product Requirements Document.
 
-Read .claude/commands/create-prd.md first -- specifically "What a PRD may contain" and
-"PRD Document Structure". Those are binding; apply them rather than restating them.
+Read .claude/contracts/prd-authoring.md first. It is the complete binding instruction set
+for this job. Do NOT read .claude/commands/create-prd.md -- it carries orchestration detail
+you do not need and would re-cache on every turn.
 
 ${SOURCE_PACKAGE}
 
@@ -112,17 +113,25 @@ Return ONLY a JSON object describing what you wrote.`,
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['prd_path', 'requirement_ids'],
+      // LEVER 2. Return the RECORDS so verifiers get them inline and never re-read the PRD.
+      required: ['prd_path', 'requirements'],
       properties: {
         prd_path: { type: 'string' },
-        requirement_ids: { type: 'array', items: { type: 'string' } },
-        nfr_ids: { type: 'array', items: { type: 'string' } },
-        empty_sections: { type: 'array', items: { type: 'string' } },
-        beliefs: {
+        requirements: {
           type: 'array',
-          items: { type: 'string' },
-          description: 'claims labelled "Belief, not fact", with what would settle each',
+          description: 'every requirement and NFR, with where it came from',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['id', 'statement', 'source'],
+            properties: {
+              id: { type: 'string' }, statement: { type: 'string' },
+              source: { type: 'string', description: 'the source text it traces to, or "domain-derived: <reasoning>"' },
+              severity_note: { type: 'string' },
+            },
+          },
         },
+        empty_sections: { type: 'array', items: { type: 'string' } },
+        beliefs: { type: 'array', items: { type: 'string' } },
       },
     },
   }
@@ -132,7 +141,7 @@ required(authored, 'Author')
 if (authored.prd_path && authored.prd_path !== PRD) {
   log(`WARNING: author wrote ${authored.prd_path}, not ${PRD} — downstream stages target ${PRD}`)
 }
-log(`authored ${authored.requirement_ids.length} requirements`)
+log(`authored ${authored.requirements.length} requirements`)
 
 // --------------------------------------------------------------------------- 2. VERIFY
 // Runs on EVERY invocation. No complexity threshold: a threshold is itself an unsourced
@@ -212,7 +221,13 @@ const VERIFIERS = [
   {
     key: 'source-fidelity',
     effort: 'high',
-    prompt: `Check ${PRD} against the SOURCE in BOTH directions. ${BASELINE_NOTE}
+    prompt: `Check these requirements against the SOURCE in BOTH directions. They are given
+in full below, so you do NOT need to open ${PRD}.
+
+REQUIREMENTS:
+${JSON.stringify(authored.requirements, null, 1)}
+
+${BASELINE_NOTE}
 
   source -> PRD:  which requirements, decisions and REJECTIONS in the source never made it
                   into the PRD, and are not listed under Non-Goals? Dropping is the commoner
