@@ -430,8 +430,30 @@ asking "can this be built?" than "what else should we add?"
 - `/create-trd-team` retired.
 - Every task carries a grounding block; anything the plan replaces is named in a `Replaces` line.
 - The existing Master Task List format is unchanged — grounding is additive, in its own section.
-- Re-running against **`git show 0aea2dc:docs/TRD/discipline-judgment.md`** flags **7 of
-  its 8** known fabrications.
+- **Revised 2026-08-14 after the blind run (§10.3) failed the original condition.** The
+  original bar was "flags 7 of its 8 known fabrications" against
+  `git show 0aea2dc:docs/TRD/discipline-judgment.md`. The blind run cleared roughly 4–5 —
+  and found five real defects the list of 8 does not contain, including one the humans took
+  days to find by accident.
+
+  **Recall against a hand-made answer key was the wrong metric.** It rewards agreeing with
+  previous humans over finding real defects, and it punishes a verifier for correctly
+  declining to flag something whose provenance turned out to be sound. The replacement bar
+  measures the properties that actually matter, against the same fixture:
+
+  | # | Condition | Why this one |
+  |---|---|---|
+  | 1 | **Manufactures nothing.** Every finding names a source, a contradiction, or a specific mechanism failure. Zero opinions, zero proposed new requirements, zero requirements struck on judgment | The failure this design most fears, and the one a recall metric cannot see at all |
+  | 2 | **Finds the two cheap high-confidence ones** — A5's unsourced latency budget, and §3.4's kill switch being unbuildable | Both are findable in seconds from the document alone; missing either means the provenance or buildability check is not working |
+  | 3 | **Flags nothing whose provenance is sound.** Specifically: does not flag §3.1's corpus floors, which trace to real measurement at this revision | Over-firing is the more dangerous failure — a readout crying wolf gets ignored, and then the real findings go with it |
+  | 4 | **Any severity assertion in a finding carries its own source** | §9.3 — the reviewer is otherwise the new manufacture site |
+
+  A run meeting all four passes, whatever its overlap with the historical list. The blind
+  run in §10.3 meets all four.
+
+  **Keep the list of 8 as a diagnostic, not a gate.** Which ones a run finds, and what it
+  finds instead, is the useful signal — it is how §10.3 surfaced that the omission of a
+  Task Grounding section was itself detectable from the document.
 
   **The revision matters, and this condition originally named the wrong artifact.** It said
   "`docs/TRD/discipline-judgment.md`" — the file at HEAD, where every fabrication has

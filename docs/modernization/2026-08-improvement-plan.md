@@ -76,7 +76,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c+5e done; 5b discipline hooks done (4.1.9–4.1.11); Wiggum + 5d open** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
-| 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | **Retargeted to `/create-trd`** — no item-7 dependency |
+| 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | **Shipped for `/create-prd` + `/create-trd`** — unrun; keep-or-revert call outstanding |
 | 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
@@ -663,6 +663,21 @@ directly by the team commands; smoke harness still green.
 > script; the content rules (typing, severity sourcing, grounding axes) move into agent
 > prompts, where they arguably belong. There are **no workflows in this repo today** and the
 > tooling is unverified here.
+>
+> **Status 2026-08-14: both converted.** `.claude/workflows/create-trd.js` (5 stages, 6
+> parallel verifiers) and `.claude/workflows/create-prd.js` (3 stages, 3 verifiers). Commands
+> now invoke `Workflow({name})` and keep the prose path as an explicit fallback, so a project
+> without the scripts still runs — and the COMMAND COMPLETE summary states which path was
+> taken, so a surprising result can be attributed.
+>
+> **Both are unrun.** The keep-or-revert call this item exists to make is still outstanding,
+> and needs a real invocation against a real PRD.
+>
+> Delivery gap found and fixed while wiring this: `scaffold-project.sh` had no `copy_workflows`,
+> so a scaffolded project would have received the commands but not the scripts and silently
+> taken the fallback forever — the same shape as the five hook files that never shipped before
+> 4.1.1. Added, with `--refresh` semantics (updates what is present, never adds), a
+> `workflows=` field in `REFRESH_SUMMARY`, and `packages/full/workflows/` symlinks.
 >
 > **Sequencing: validate item 10 first.** The conversion re-hosts the same prompts under a
 > different executor. If the checks don't catch 7 of 8, a workflow faithfully runs wrong

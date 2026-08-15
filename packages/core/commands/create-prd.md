@@ -452,6 +452,35 @@ The TRD will reference:
 
 ---
 
+## Execution: the workflow is the orchestrator
+
+**The five stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
+
+```
+Workflow({ name: "create-prd", args: { source: "<verbatim doc path or empty>", brief: "<brief path or empty>", prd: "docs/PRD/<feature>.md", feature: "<feature>" } })
+```
+
+The script is `.claude/workflows/create-prd.js`. It owns sequencing, fan-out, and the schemas
+that force structured findings. **Read it before changing any stage description here** — the
+prompts live in the script; this file carries the content rules the script's agents are told
+to read.
+
+Three things the script gives you that this prose cannot:
+
+- **`agent({schema})` enforces the findings contract** at the tool-call layer, and the model
+  retries on mismatch. Stated as prose, the contract is a request.
+- **Findings live in script variables**, never in the orchestrator's context. The
+  `.trd-state/<feature>/findings/` mechanism described below is the *fallback* for running
+  this command without the workflow; under the workflow it is unnecessary.
+- **Sequence is `await`, not instruction.** The grounding stage cannot be skipped or
+  reordered ahead of authoring.
+
+**Fallback.** If the workflow is unavailable, run the stages below directly as described —
+the content rules, mandates and readout format are identical either way. Say which path you
+took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
+
+---
+
 ## Workflow: source, author, verify
 
 ### 0. Resolve the source

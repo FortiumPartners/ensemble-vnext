@@ -1700,7 +1700,7 @@ print('\n'.join(names))
     # Last line of stdout must be the REFRESH_SUMMARY tally.
     local last_line
     last_line="$(printf '%s\n' "$output" | tail -1)"
-    [[ "$last_line" =~ ^REFRESH_SUMMARY\ commands=[0-9]+\ agents=[0-9]+\ hooks=[0-9]+\ skills=[0-9]+$ ]]
+    [[ "$last_line" =~ ^REFRESH_SUMMARY\ commands=[0-9]+\ workflows=[0-9]+\ agents=[0-9]+\ hooks=[0-9]+\ skills=[0-9]+$ ]]
 
     local actual_commands actual_agents
     actual_commands="$(printf '%s' "$last_line" | sed -n 's/.*commands=\([0-9][0-9]*\).*/\1/p')"

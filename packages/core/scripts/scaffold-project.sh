@@ -187,6 +187,69 @@ copy_agents() {
     REFRESH_AGENTS_COUNT=$count
 }
 
+# Copy workflow scripts (.claude/workflows/*.js) from plugin directory.
+# These are the executors the create-prd / create-trd commands invoke. A project that
+# receives the commands but not these silently falls back to the prose path -- the exact
+# delivery gap that left five hook files unshipped before 4.1.1.
+copy_workflows() {
+    local dest="$1/.claude/workflows"
+    local src=""
+
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        warn "No plugin directory specified, skipping workflows"
+        return 0
+    fi
+
+    if [[ -d "$PLUGIN_DIR/workflows" ]]; then
+        src="$PLUGIN_DIR/workflows"
+    elif [[ -d "$PLUGIN_DIR/../core/workflows" ]]; then
+        src="$PLUGIN_DIR/../core/workflows"
+    else
+        warn "No workflows directory found in plugin, skipping"
+        REFRESH_WORKFLOWS_COUNT=0
+        return 0
+    fi
+
+    # --refresh updates only what is already present; it never adds or removes.
+    if [[ "$REFRESH" != "true" ]]; then
+        mkdir -p "$dest"
+    elif [[ ! -d "$dest" ]]; then
+        REFRESH_WORKFLOWS_COUNT=0
+        return 0
+    fi
+
+    local count=0
+    local wf_path wf
+    for wf_path in "$src"/*.js; do
+        [[ -f "$wf_path" ]] || continue
+        wf="$(basename "$wf_path")"
+
+        if [[ "$REFRESH" == "true" ]]; then
+            if [[ -f "$dest/$wf" ]]; then
+                cp "$wf_path" "$dest/"
+                info "Refreshed workflow: $wf"
+                ((count++)) || true
+            fi
+            continue
+        fi
+
+        if [[ -f "$dest/$wf" && "$FORCE" != "true" ]]; then
+            info "Workflow exists: $wf"
+        else
+            cp "$wf_path" "$dest/"
+            info "Copied workflow: $wf"
+            ((count++)) || true
+        fi
+    done
+
+    if [[ "$REFRESH" == "true" ]]; then
+        info "Refreshed $count workflows"
+    else
+        info "Copied $count workflows"
+    fi
+    REFRESH_WORKFLOWS_COUNT=$count
+}
+
 # Copy workflow commands from plugin directory
 copy_commands() {
     local dest="$1/.claude/commands"
@@ -1091,6 +1154,7 @@ refresh_project() {
 
     echo "--- Commands ---"
     copy_commands "$(pwd)"
+    copy_workflows "$(pwd)"
     echo ""
 
     echo "--- Agents ---"
@@ -1139,7 +1203,7 @@ refresh_project() {
     # Machine-readable tally, parsed by the runtime-refresh.sh SessionStart
     # hook (RUNTIME-B011+). MUST be the final line of stdout — nothing may
     # print after this.
-    echo "REFRESH_SUMMARY commands=${REFRESH_COMMANDS_COUNT} agents=${REFRESH_AGENTS_COUNT} hooks=${REFRESH_HOOKS_COUNT} skills=${REFRESH_SKILLS_COUNT}"
+    echo "REFRESH_SUMMARY commands=${REFRESH_COMMANDS_COUNT} workflows=${REFRESH_WORKFLOWS_COUNT:-0} agents=${REFRESH_AGENTS_COUNT} hooks=${REFRESH_HOOKS_COUNT} skills=${REFRESH_SKILLS_COUNT}"
 
     return 0
 }
@@ -1180,6 +1244,7 @@ scaffold_project() {
     create_dir ".claude/rules"
     create_dir ".claude/skills"
     create_dir ".claude/commands"
+    create_dir ".claude/workflows"
     create_dir ".claude/hooks"
     create_dir ".claude/lib"
     echo ""
@@ -1246,6 +1311,7 @@ scaffold_project() {
 
         echo "--- Commands ---"
         copy_commands "$(pwd)"
+    copy_workflows "$(pwd)"
         echo ""
 
         echo "--- Hooks ---"
@@ -1282,6 +1348,7 @@ scaffold_project() {
     echo "  .claude/rules/"
     echo "  .claude/skills/"
     echo "  .claude/commands/"
+    echo "  .claude/workflows/"
     echo "  .claude/hooks/"
     echo "  .claude/lib/"
     echo "  docs/PRD/"
