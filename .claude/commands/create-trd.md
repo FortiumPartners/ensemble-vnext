@@ -721,8 +721,12 @@ Workflow({ name: "create-trd", args: {
 
 **The workflow does not own every stage.** Source resolution stays in the main agent
 (it is the only thing holding the conversation), and the final readout is printed by the
-main agent. The script owns authoring through reconcile — its `meta.phases` is the
-authoritative count.
+main agent. The script owns corpus indexing, authoring and grounding — its `meta.phases` is
+the authoritative count.
+
+**The script does NOT verify.** Verification is `/audit-trd`, a separate command that runs
+the wave against any TRD — this one, or one written by hand years ago. Create writes; audit
+checks. See "Verification is a separate command" below.
 
 The script is `.claude/workflows/create-trd.js`. It owns sequencing, fan-out, and the schemas
 that force structured findings. **Read it before changing any stage description here** — the
@@ -733,96 +737,14 @@ Three things the script gives you that this prose cannot:
 
 - **`agent({schema})` enforces the findings contract** at the tool-call layer, and the model
   retries on mismatch. Stated as prose, the contract is a request.
-- **Findings live in script variables**, never in the orchestrator's context. The
-  `.trd-state/<feature>/findings/` mechanism described below is the *fallback* for running
-  this command without the workflow; under the workflow it is unnecessary.
-- **Sequence is `await`, not instruction.** The grounding stage cannot be skipped or
-  reordered ahead of authoring.
+- **The corpus index is a cheap script variable**, not something the author reads. One
+  `haiku` pass greps headings and decision tables; the author inherits the index.
+- **Sequence is `await`, not instruction.** Grounding cannot be reordered ahead of authoring,
+  where grounding a decision nobody has made yet is meaningless.
 
 **Fallback.** If the workflow is unavailable, run the stages below directly as described —
 the content rules, mandates and readout format are identical either way. Say which path you
 took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
-
----
-
-## `--light` — one agent, no fan-out
-
-**Use `--light` when you want the design discipline without the verification wave.** It is
-one agent doing author + ground + self-check, and it is the right default for a small
-feature, a repo with no meaningful corpus, or any time the full wave's cost is not earned.
-
-The full path's cost is the fan-out. Its *design* value is almost entirely this prompt.
-Measured across three A/B cases, of ten distinct failures the pre-rewrite command produced,
-**seven needed no fan-out to prevent** — they were instructions nobody had written down:
-
-| Failure measured in the old command | Fixed by |
-|---|---|
-| Read 0 of 49 design documents before a 43-task plan | step 1 below |
-| Read 3 source files before planning against a mature codebase | step 2 |
-| Shipped `REFERENCES drafts(id)` into a DB whose migrations rename-then-drop `drafts` | step 2 |
-| Batched all 8 test tasks behind the entire build | step 4 |
-| 25 numbers with units, from a spec containing zero | the typing rule |
-| No `Replaces` line anywhere; superseded code left looking live | step 2 |
-| Inherited a design-doc claim about code that was false | step 1 |
-
-What `--light` does NOT give you: independent adversarial verification, schema-forced
-findings, and a reconcile stage that can reject a bad finding. Those need the wave. If the
-feature is load-bearing, run the full path.
-
-### The five steps, in order. Do not skip step 2.
-
-**1. Read the corpus as provenance — not as truth.**
-Grep `docs/PRD/` and `docs/TRD/` for documents on this subject. Read their decision tables
-and supersession banners, not their prose. Inherit what was decided; where you depart from a
-sibling design, say so and say why.
-
-**THE CORPUS STATES INTENT. THE CODE STATES FACT.** These documents mostly stop being
-maintained the moment implementation starts. Cite one as the *source of a decision*; never as
-evidence that something is built or behaves a given way. If a document and the code disagree,
-the code wins — and say so, because a stale design doc is worth reporting.
-
-**2. Ground in the code BEFORE you plan.**
-Read the code your plan touches. Grep for the functions, tables and patterns involved. This
-is the step that pays for itself, and the one a single agent skips first.
-
-For each task, record — with `[read]`, `[ran]` or `[inferred]` on every factual claim:
-  - **Touches** — files this will modify
-  - **Reuse** — what exists that must not be reimplemented
-  - **Replaces** — *what does this make unreachable?* Name it, and instruct its deletion in
-    the same change. This is the line nobody writes and the reason superseded code keeps
-    passing its tests while running nowhere.
-  - **Careful** — contracts, callers, and traps a reader would not see
-
-Precision you have not earned is worse than vagueness: it stops the implementer checking.
-Mark `[inferred]` honestly.
-
-**3. Type every line.** Objective / decision / task, by nature not by section. Objectives
-need provenance and sourced severity; decisions are free to invent but must name the
-objective they serve; tasks name what they serve. Read coverage floors from
-`constitution.md` — do not carry a number in from anywhere else.
-
-**4. Put verification where the risk is.** Do not batch test tasks behind the build. A phase
-that constructs something non-obvious contains the task that verifies it. Measured: a TRD
-that deferred all eight test tasks to Phase 3 had two DST bugs in Phase 1 code, found only
-because the implementer wrote tests the plan never asked for.
-
-**5. Self-check before you finish.** You are your own verifier here, so be adversarial about
-your own draft, and state what you could not confirm:
-  - Every objective — does it trace to the PRD, a named constraint, a measurement, or the
-    user? Any number without a source is invented; delete it.
-  - Every task — does it name the objective or decision it serves? A task serving nothing is
-    work nobody asked for, and delivery machinery is the usual culprit.
-  - Every citation — grep the referenced ID in its live target. A miss is a miss.
-  - Every decision — can it be built as specified? Check the mechanism, do not assume it
-    works the way you wrote it.
-  - Anything you asserted but did not verify — say so, in the TRD, where the reader will see
-    it. An honest gap is worth more than a confident guess.
-
-### Readout
-
-Emit the same action-register readout the full path uses, with one addition: a
-**COULD NOT VERIFY** section listing what a verification wave would have checked and you
-did not. That is the honest price of `--light`, and it belongs in the document.
 
 ---
 
@@ -845,14 +767,19 @@ did not. That is the honest price of `--light`, and it belongs in the document.
      Reconciles the decisions against the codebase: consistency, reuse, what
      becomes unreachable, per-task context. Emits Section 10, Task Grounding.
 
-3. VERIFY                6 subagents, parallel, read-only, none may invent
-     each WRITES findings to .trd-state/<feature>/findings/<name>.json
-     and RETURNS ONE LINE: "<n> findings → <path>"
+3. READOUT               main agent — prints the readout, COMMAND COMPLETE,
+     and names /audit-trd as the next step. The TRD is NOT verified yet.
 
-4. RECONCILE             1 subagent — reads the findings files + the draft,
-     applies them, drafts the readout. Spawns nothing.
+   ── /audit-trd runs the rest, as a separate command, whenever you choose ──
 
-5. READOUT               main agent — prints the readout, COMMAND COMPLETE
+4. INDEX                 1 cheap subagent — re-derives objectives/decisions/tasks
+     from the DOCUMENT, so audit works on any TRD, not just one create wrote.
+
+5. VERIFY                5 subagents, parallel, read-only, none may invent.
+     Findings live in script variables, never in an orchestrator context.
+
+6. RECONCILE             1 subagent — applies what survives, REJECTS bad findings
+     naming the file that refutes each, and rewrites ## Could Not Verify.
 ```
 
 **Grounding runs sequentially and alone, not as part of the verify wave.** It is
@@ -866,37 +793,32 @@ outperform a single one when challenging and checking, and manufacture when gene
 
 ---
 
-## Verification wave
+## Verification is a separate command
 
-After the TRD is drafted and grounded, **run these verifiers in parallel as read-only
-subagents.** They
-run on every invocation — there is no complexity threshold, because a threshold is itself an
-unsourced requirement and would skip verification exactly when a one-line prompt got
-elaborated into something large. Verifiers return empty quickly on a small draft.
+**This command does not verify. `/audit-trd` does**, and it carries the full wave —
+provenance, severity, derivation, omission, buildability, consistency, citations,
+conformance — with the findable-only mandate and the reject-bad-findings discipline. See
+`.claude/commands/audit-trd.md` for what each verifier checks.
 
-| Verifier | Checks | Mandate |
+Create ends by writing two sections that make the handoff explicit:
+
+| Section | Consumed by | Means |
 |---|---|---|
-| `objective-audit` | Provenance of every objective, and the **severity** of every number. Any figure exceeding a constitution floor without a stated reason is a finding | Findable only |
-| `design-audit` | **Buildability** — can each decision be built as written? **Consistency** — does it contradict a sibling, or a document that supersedes it? **Grounding** — does every task have a block, and is anything superseded left unnamed? | Findable only |
-| `derivation-audit` | Does every task and every piece of delivery machinery — flags, rollout phases, migration paths, guard infra, eval gates — name the objective it serves? | Findable only |
-| `omission-audit` | Enumerate the **source's** objectives and assert each one either appears in the TRD or is listed under Non-Goals | Findable only |
-| `citations` | For every cross-artifact citation, grep the referenced ID in the live target document. Fail on a miss | Deterministic |
-| `conformance` | Does anything violate `stack.md` or `constitution.md`? | Findable only |
+| `## Open Questions` | `/refine-trd` | "I had to decide this without you" |
+| `## Could Not Verify` | `/audit-trd` | "I asserted this but did not check it" |
 
-**Every mandate is *findable*.** Each finding must name a source, a contradiction, or a
-failed grep, and be verifiable in seconds.
+Both are required output. They are how the artifact declares its own state, so anyone can
+open a TRD and see what has been checked without running anything.
 
-**No verifier may invent an objective or strike one on judgment.** *"REQ-4 traces to nothing
-in the PRD"* is checkable and permitted. *"I think REQ-4 is unnecessary"* is manufactured and
-forbidden. A challenger asked an open-ended question produces objections exactly the way an
-author produces requirements — by filling the role it was handed — and striking a real
-acceptance criterion is harder to detect than adding a fake one.
+**Grounding still runs inside create**, sequentially and alone, because it is *generative* —
+it writes task context rather than finding faults, and fan-out is for verification only. Four
+grounding agents in parallel would produce four opinions about which code to reuse. The
+findings grounding notices as a side effect are **reported, not applied**: a generative agent
+applying its own findings blurs the line this pipeline depends on. `/audit-trd` applies them.
 
-**The severity rule applies to the verifiers themselves.** A finding that asserts severity —
-*"this will regress checkout"*, *"this needs a guard"* — carries the same sourcing burden as
-an objective. Reviewers inflating severity is the observed failure here, far more than
-reviewers striking valid requirements. An unsourced severity claim from a verifier is itself
-a finding to discard.
+**Fan out for verification; never for generation.** Independent agents demonstrably
+outperform a single one when challenging and checking, and manufacture when generating.
+
 
 **Buildability is the cheapest check and the one never performed.** *"Can this be built as
 written?"* costs one agent. In this project's own history, a specified mechanism was designed
@@ -1031,9 +953,15 @@ Path is optional if `.trd-state/current.json` has PRD reference.
 ## Handoff
 
 After TRD creation:
-1. Review TRD with stakeholders
-2. Use `/refine-trd` for adjustments if needed
-3. Use `/implement-trd` to begin execution
+1. **`/refine-trd`** — answers the `## Open Questions` this command raised. Interactive by
+   default; `--auto` has a product-manager answer from the corpus and code, marking each
+   **answered** / **default** / **owner-only**.
+2. **`/audit-trd`** — runs the verification wave and rewrites `## Could Not Verify`.
+   **The TRD is not verified until this has run.**
+3. **`/implement-trd`** — begins execution.
+
+`create → refine → audit` is the full-quality path. Each command has exactly one job: create
+designs, refine gets human judgment in, audit verifies.
 
 The implementation phase:
 - Uses execution plan for phasing and parallelization

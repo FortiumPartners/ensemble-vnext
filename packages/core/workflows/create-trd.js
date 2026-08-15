@@ -1,12 +1,11 @@
 export const meta = {
   name: 'create-trd',
-  description: 'Author a TRD from a PRD, ground it in the codebase, verify it, and emit the readout',
-  whenToUse: 'Invoked by the /create-trd command. Authors one TRD, grounds it against the existing code, runs the verification wave, and returns a reconciled readout.',
+  description: 'Author a TRD from a PRD and ground it in the codebase that already exists',
+  whenToUse: 'Invoked by /create-trd. Indexes the design corpus for provenance, authors one TRD in a fresh technical-architect, then grounds every task against real code. Verification is a separate command: /audit-trd.',
   phases: [
+    { title: 'Corpus', detail: 'cheap index of related design docs — provenance, not fact' },
     { title: 'Author', detail: 'one technical-architect, fresh context, types every line' },
     { title: 'Ground', detail: 'reconcile the plan against the codebase; emit Task Grounding' },
-    { title: 'Verify', detail: 'six read-only verifiers, findable-only mandates' },
-    { title: 'Reconcile', detail: 'apply findings, draft the action-register readout' },
   ],
 }
 
@@ -407,293 +406,36 @@ it. Each tool call re-caches your whole context, so turn count is a real cost.`,
 required(grounded, 'Ground')
 log(`grounded ${grounded.grounded_task_ids.length} tasks; ${grounded.replaces_found.length} named for deletion; ${(grounded.findings || []).length} design findings`)
 
-// --------------------------------------------------------------------------- 3. VERIFY
-// Findings live in script variables. They never enter the orchestrator's context -- which
-// is why the command's findings-to-disk contract is unnecessary here.
-
-phase('Verify')
-
-const FINDING_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['findings'],
-  properties: { findings: FINDING_ITEMS },
-}
-
-// Every mandate below is FINDABLE-ONLY. A verifier may not invent an objective or strike one
-// on judgment: that is the manufactured-objection failure, and in a TRD it deletes real
-// acceptance criteria. The severity rule (§9.3) applies to the verifiers' own findings.
-const FINDABLE_ONLY = `
-FINDABLE ONLY. Every finding must name a source, a contradiction, or a specific mechanism
-failure, and be checkable in seconds.
-
-  - "A5 traces to nothing in ${PRD}" is checkable and permitted.
-  - "I think A5 is unnecessary" is manufactured and FORBIDDEN.
-
-Do NOT propose new requirements. Do NOT strike a requirement on judgment. If your finding
-asserts severity ("this will regress checkout", "this needs a guard"), that assertion carries
-the same sourcing burden as an objective -- source it or drop it. Reviewers inflating
-severity is the observed failure here, far more than reviewers striking valid requirements.
-
-Returning zero findings is a legitimate result. Do not manufacture findings to look thorough.
-`
-
-
-// Model tiers. Measured on the A/B run: 93.6% of billed cost is CACHE WRITE (context
-// establishment), only 6.3% is output. So model choice acts almost entirely on the bulk of
-// context each agent loads, and the verifiers are the many-agents half.
+// ---------------------------------------------------------------------------
+// create stops here. The verification wave lives in /audit-trd, which runs against ANY
+// TRD -- this one, or one written months ago by hand. Splitting it that way means create
+// is 3 agents instead of 9, and audit can be run more than once, later, by someone else.
 //
-// Verifiers run findable-only checks -- grep an ID in a target file, compare a figure
-// against a rule file, confirm a threshold names a source. Mechanical enough for Sonnet.
-// The AUTHOR stays on its own frontmatter model (Opus): it is one agent, it produces the
-// document everything else audits, and architecture/decomposition quality is the one
-// dimension the findable-only wave structurally cannot backstop.
-const VERIFIER_MODEL = 'sonnet'
+// Grounding's findings are REPORTED, not applied: the stage that found them is generative
+// (it wrote the grounding blocks), and a generative agent applying its own findings blurs
+// the line this pipeline depends on. /audit-trd is what applies findings.
 
-// LEVER 2 (CORRECTED) + 4. Three verifiers, not six. `design-audit` moved into the
-// grounding stage (it had already read the code); `citations` and `conformance` merged
-// into one deterministic pass.
-//
-// The first version of lever 2 handed verifiers the author's structured RETURN and let
-// them audit that. It cut cost 26% and broke verification: findings quoted a JSON
-// `"serves"` field the markdown TRD does not contain, and cited an ID (`OBJ-CMD-STATUS`)
-// with zero hits repo-wide -- fabricated inside the finding's own quoted line. Findings
-// fell 16 -> 2 and both were wrong. That is the manufactured-findings failure this design
-// exists to prevent, introduced in the name of saving tokens.
-//
-// The records are an INDEX, not the subject. They say what exists and where to look, which
-// still avoids a linear read of a 25.8k-token document. But the audit runs against the
-// artifact text, because that is what implementers read and what ships.
-const OBJ = JSON.stringify(authored.objectives, null, 1)
-const DEC = JSON.stringify(authored.decisions, null, 1)
-const TSK = JSON.stringify(authored.tasks, null, 1)
-
-const SCOPE = `
-PATH SCOPING -- read this before resolving any relative path.
-${PROJECT ? `The project under design is ${PROJECT}. Every source, test, config and
-.claude/rules/* path resolves against THAT project, not against the repository this TRD
-document lives in. Before reporting that a file or section does not exist, resolve it under
-${PROJECT} and check there.` : `The project under design is the repository containing the
-TRD. Relative paths resolve against it.`}
-A "does not exist" finding that was resolved against the wrong repository is a false
-positive, and this has happened: an entire verifier's output was discarded for it.
-`
-
-const BATCH = `
-BATCH YOUR READS. Every tool call re-caches your entire context, so turn count costs as
-much as context size. Prefer one grep over five. Do not re-open a file you have read.`
-
-const VERIFIERS = [
-  {
-    key: 'objective-audit',
-    effort: 'high',
-    prompt: `Audit these objectives for PROVENANCE and SEVERITY. They are given to you in
-full below -- you do NOT need to open ${TRD}.
-
-OBJECTIVES:
-${OBJ}
-
-${SOURCES}
-
-  provenance: does each trace to a named source, a measurement, or an explicit instruction?
-              An objective labelled "domain-derived" is permitted -- check the reasoning is
-              stated and holds.
-  severity:   is the STRICTNESS sourced, not just the requirement's existence? Read the
-              coverage floors in .claude/rules/constitution.md; any figure above a floor
-              must carry a severity_note saying why. "Zero tolerance" and "<=1 per run" are
-              different requirements.
-
-Verify claimed sources by checking the PRD and the rule files. A source that does not say
-what the objective claims is a finding.
-
-GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
-roughly where. They are NOT the artifact. The artifact is ${TRD}, and it is Markdown.
-
-  - Use the index to target your reads. Do not read the document linearly.
-  - Before reporting ANY finding, grep ${TRD} for the exact text you are about to quote and
-    confirm it is there. Quote the document's own words, not the index's field names.
-  - If the index and the document disagree, THAT is the finding -- report the disagreement
-    with both versions, and do not audit the index as though it were the document.
-  - A finding citing an ID or a field that does not appear in ${TRD} is a fabrication. This
-    has happened: a previous run reported a JSON "serves" field against a document made of
-    Markdown tables, and quoted an ID with zero hits anywhere in the repository.`,
-  },
-  {
-    key: 'derivation-audit',
-    effort: 'high',
-    prompt: `Check that every task and every piece of delivery machinery names the objective
-it serves. Both lists are given in full -- you do NOT need to open ${TRD}.
-
-TASKS:
-${TSK}
-
-DECISIONS:
-${DEC}
-
-  - Any task whose 'serves' is empty, or names an ID absent from the objectives/decisions?
-  - Any DECISION that is really delivery machinery -- feature flags, rollout phases,
-    migration paths, guard infrastructure, eval gates, config toggles -- serving no
-    objective? That is the largest category of wasted implementation work in this
-    framework: machinery added because it is how one normally ships, then built and
-    deployed dark.
-
-Check the PRD only to confirm a named objective exists -- grep it by ID, do not read it whole.
-
-GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
-roughly where. They are NOT the artifact. The artifact is ${TRD}, and it is Markdown.
-
-  - Use the index to target your reads. Do not read the document linearly.
-  - Before reporting ANY finding, grep ${TRD} for the exact text you are about to quote and
-    confirm it is there. Quote the document's own words, not the index's field names.
-  - If the index and the document disagree, THAT is the finding -- report the disagreement
-    with both versions, and do not audit the index as though it were the document.
-  - A finding citing an ID or a field that does not appear in ${TRD} is a fabrication. This
-    has happened: a previous run reported a JSON "serves" field against a document made of
-    Markdown tables, and quoted an ID with zero hits anywhere in the repository.`,
-  },
-  {
-    key: 'omission-audit',
-    effort: 'high',
-    prompt: `Traverse SOURCE -> TRD. Read ${PRD} fully; its objectives are your checklist.
-
-The TRD's objectives are given below in full, so you do NOT need to open ${TRD}:
-
-${OBJ}
-
-For every objective the PRD states, assert it either appears above or is explicitly listed
-under Non-Goals in the TRD (grep the TRD for "Non-Goal" only -- do not read it through).
-
-A per-line audit of the TRD cannot see a line that is not there. Dropping a requirement is
-commoner than inventing one, and silent narrowing -- reproducing seven of eight metrics and
-dropping the eighth without comment -- has no other check that can catch it.
-
-GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
-roughly where. They are NOT the artifact. The artifact is ${TRD}, and it is Markdown.
-
-  - Use the index to target your reads. Do not read the document linearly.
-  - Before reporting ANY finding, grep ${TRD} for the exact text you are about to quote and
-    confirm it is there. Quote the document's own words, not the index's field names.
-  - If the index and the document disagree, THAT is the finding -- report the disagreement
-    with both versions, and do not audit the index as though it were the document.
-  - A finding citing an ID or a field that does not appear in ${TRD} is a fabrication. This
-    has happened: a previous run reported a JSON "serves" field against a document made of
-    Markdown tables, and quoted an ID with zero hits anywhere in the repository.`,
-  },
-  {
-    key: 'deterministic',
-    effort: 'low',
-    model: 'haiku',
-    prompt: `Two mechanical checks over ${TRD}. Do NOT read it linearly -- both are lookups.
-
-  CITATIONS: grep the TRD for citation-shaped strings (IDs, section refs, file:line), then
-  grep each referenced ID in its live target file. Report every one that does not resolve,
-  naming the ID and the file searched.
-
-  CONFORMANCE: read .claude/rules/stack.md and .claude/rules/constitution.md -- both short
-  -- then grep the TRD for what they constrain: technologies outside the declared stack,
-  coverage figures below a stated floor, prohibited patterns, contradicted architectural
-  invariants.
-
-Both are pass/fail per item. A miss is a miss; do not interpret.`,
-  },
-]
-
-const waves = await parallel(
-  VERIFIERS.map((v) => () =>
-    agent(`${v.prompt}\n${FINDABLE_ONLY}`, {
-      label: `verify:${v.key}`,
-      phase: 'Verify',
-      effort: v.effort,
-      model: v.model || VERIFIER_MODEL,
-      schema: FINDING_SCHEMA,
-    }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
-  )
-)
-
-const alive = waves.filter(Boolean)
-const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
-
-const dead = VERIFIERS.length - alive.length
-if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
-log(`${findings.length} findings from ${alive.length}/${VERIFIERS.length} verifiers`)
-
-// --------------------------------------------------------------------------- 4. RECONCILE
-
-phase('Reconcile')
-
-if (findings.length === 0) {
-  return {
-    trd: TRD,
-    findings: 0,
-    verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
-    readout:
-      `TRD: ${TRD}\nSOURCE: ${PRD} + stack.md + constitution.md\n\n` +
-      `  NO ACTION — every objective traces to a source, every decision names one, ` +
-      `every task is grounded.\n` +
-      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report; coverage is incomplete.\n` : ''),
-  }
-}
-
-const readout = await agent(
-  `Apply these verifier findings to ${TRD}, then draft the readout.
-
-FINDINGS (JSON):
-${JSON.stringify(findings, null, 2)}
-
-Apply each finding to the TRD using Edit. Where a finding is wrong -- the verifier missed a
-source that does exist -- do not apply it, and say so in the readout with the source you found.
-
-Then draft the readout. EVERY LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Readouts in this
-project have been rejected repeatedly for being unreadable: "I read your full response but come
-away not knowing what ACTUAL action should I be taking next." A heading like "Unsourced
-severities" tells the reader nothing to do.
-
-Use exactly these headings, omitting any that are empty:
-
-  DELETE — nothing in the source asks for these
-  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher
-  ADD BACK — in the source, missing from this TRD
-  CANNOT BE BUILT AS WRITTEN
-  PICK ONE — these contradict
-  CONFIRM THESE ARE WANTED — invented machinery, no objective named
-  CHECK THE REASONING — derived from the domain, not from a document
-  FIX THE CITATION — referenced ID does not resolve
-  NO ACTION — sourced, listed for completeness
-
-One screen. If there are 40 sourced objectives, print the COUNT as one line, not forty.
-Ordered by how expensive the failure is to discover later.`,
-  {
-    label: 'reconcile',
-    phase: 'Reconcile',
-    // High: this stage EDITS the artifact and drafts the only output the user reads. It
-    // must also correctly reject findings that are themselves wrong -- see the prompt.
-    effort: 'high',
-    schema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['readout', 'applied', 'rejected'],
-      properties: {
-        readout: { type: 'string', description: 'the one-screen readout, action register' },
-        applied: { type: 'array', items: { type: 'string' } },
-        rejected: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'findings NOT applied, each with the source that refutes it',
-        },
-      },
-    },
-  }
-)
-
-required(readout, 'Reconcile')
+const gf = grounded.findings || []
+const gfLines = gf.length
+  ? '\n  NOTED BY GROUNDING — not applied. Run /audit-trd to verify and apply:\n' +
+    gf.map((f) => `    [${f.check}] ${f.id ? f.id + ': ' : ''}${f.why}`).join('\n') + '\n'
+  : ''
 
 return {
   trd: TRD,
   feature: FEATURE,
-  findings: findings.length,
-  applied: readout.applied.length,
-  rejected: readout.rejected.length,
-  verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
-  incomplete_coverage: dead > 0,
-  readout: readout.readout,
+  tasks: authored.tasks.length,
+  objectives: (authored.objectives || []).length,
+  grounded_tasks: grounded.grounded_task_ids.length,
+  replaces_found: grounded.replaces_found.length,
+  grounding_findings: gfLines ? gf.length : 0,
+  next: `/audit-trd ${TRD}`,
+  readout:
+    `TRD: ${TRD}    SOURCE: ${PRD}${EXTRA ? ' + session transcript' : ''}\n` +
+    `  ${authored.tasks.length} tasks, ${(authored.objectives || []).length} objectives\n` +
+    `  grounded ${grounded.grounded_task_ids.length} tasks; ` +
+    `${grounded.replaces_found.length} things named for deletion\n` +
+    gfLines +
+    `\n  NOT YET VERIFIED. Run  /audit-trd ${TRD}  to check provenance, derivation,\n` +
+    `  omission and citations, and to apply what survives.\n`,
 }

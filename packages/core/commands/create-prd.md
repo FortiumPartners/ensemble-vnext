@@ -441,9 +441,15 @@ Before completing, verify:
 ## Handoff
 
 After PRD creation:
-1. Review with stakeholders
-2. Use `/refine-prd` for iterations
-3. When approved, use `/create-trd` to generate technical requirements
+1. **`/refine-prd`** — answers the `## Open Questions` this command raised. Interactive by
+   default (each question put to the owner); `--auto` has a product-manager answer from the
+   corpus and code, marking each **answered** / **default** / **owner-only**.
+2. **`/audit-prd`** — runs the verification wave: source fidelity both directions, whether
+   any of it already exists, conformance. Consumes and rewrites `## Could Not Verify`.
+3. **`/create-trd`** — generates technical requirements.
+
+`create → refine → audit` is the full-quality path. Each command has exactly one job: create
+designs, refine gets human judgment in, audit verifies.
 
 The TRD will reference:
 - Goals for success criteria
@@ -462,10 +468,14 @@ The TRD will reference:
 Workflow({ name: "create-prd", args: { source: "<verbatim doc path or empty>", brief: "<brief path or empty>", prd: "docs/PRD/<feature>.md", feature: "<feature>" } })
 ```
 
-**The workflow does not own every stage.** Source resolution stays in the main agent
-(it is the only thing holding the conversation), and the final readout is printed by the
-main agent. The script owns authoring through reconcile — its `meta.phases` is the
+**The workflow does not own every stage.** Source resolution and brief assembly stay in the
+main agent (it is the only thing holding the conversation), and the final readout is printed
+by the main agent. The script owns corpus indexing and authoring — its `meta.phases` is the
 authoritative count.
+
+**The script does NOT verify.** Verification is `/audit-prd`, a separate command that runs
+the wave against any PRD — this one, or one written by hand years ago. Create writes; audit
+checks. See "Verification" below.
 
 The script is `.claude/workflows/create-prd.js`. It owns sequencing, fan-out, and the schemas
 that force structured findings. **Read it before changing any stage description here** — the
@@ -476,11 +486,11 @@ Three things the script gives you that this prose cannot:
 
 - **`agent({schema})` enforces the findings contract** at the tool-call layer, and the model
   retries on mismatch. Stated as prose, the contract is a request.
-- **Findings live in script variables**, never in the orchestrator's context. The
-  `.trd-state/<feature>/findings/` mechanism described below is the *fallback* for running
-  this command without the workflow; under the workflow it is unnecessary.
-- **Sequence is `await`, not instruction.** The grounding stage cannot be skipped or
-  reordered ahead of authoring.
+- **The corpus index is a cheap script variable**, not something the author reads. One
+  `haiku` pass greps headings and decision tables; the author inherits the index and never
+  opens the corpus itself.
+- **Sequence is `await`, not instruction.** The corpus stage cannot be reordered after
+  authoring, where it would be useless.
 
 **Fallback.** If the workflow is unavailable, run the stages below directly as described —
 the content rules, mandates and readout format are identical either way. Say which path you
@@ -488,54 +498,22 @@ took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
 
 ---
 
-## `--light` — one agent, no fan-out
-
-One agent doing author + self-check. The right default for a small feature or a repo with no
-meaningful corpus. What it gives up: independent verification against the source, and a
-reconcile stage that can reject a bad finding.
-
-**1. Read the corpus as provenance — not as truth.** Grep `docs/PRD/` and `docs/TRD/` for
-prior work on this subject. Inherit decisions; name any departure. **The corpus states
-intent, the code states fact** — cite a document as the source of a decision, never as
-evidence something is built. If they disagree, the code wins and the disagreement is worth
-reporting.
-
-**2. Check the code before writing a requirement about it.** Does this already exist? Name
-the file. A requirement to build what is already there is the most expensive kind of
-invention — measured on a real product, a PRD asserted a verification mechanism
-(`HERALD_STUB_ERROR`) whose only occurrences anywhere were two design documents describing
-it as something to be built.
-
-**3. Every requirement traces to something real** — the user's words, a source document, a
-measurement, or a named constraint. **Never invent a number.** A spec with no numbers should
-produce a PRD with no numbers; measured, the pre-rewrite command produced 23 against a spec
-containing zero. Source the *severity*, not just the requirement.
-
-**4. An empty section is a correct outcome.** Most features have no non-functional
-requirement anyone asked for. Never fill a heading to look complete.
-
-**5. Self-check, adversarially.** Which requirements trace to nothing — delete them. What did
-the source ask for that is missing — dropping is the commoner failure. Then state, in the
-PRD, what you asserted but did not verify.
-
-### Readout
-
-The standard action-register readout, plus a **COULD NOT VERIFY** section naming what a
-verification wave would have checked and you did not.
-
----
-
 ## Workflow: source, author, verify
 
 ### 0. Resolve the source
 
-Establish what this PRD is accountable to, and record the path in the PRD header.
+Establish what this PRD is accountable to, and record the path (or issue key) in the PRD
+header. Sources come in three kinds and they compose:
 
-- A **source document** was given (ticket, spec, story, design doc) → that document is the
-  source.
-- The feature was **defined in this session** (discussion, decisions reached live) → the
-  session transcript is the source. Record its path.
-- **Both** — the common case: a ticket, then refined in conversation.
+| Kind | How to obtain it |
+|---|---|
+| **A file in the repo** — spec, ticket export, story, design doc | Read it. |
+| **An external issue** — Jira, Linear, GitHub, Sentry | **Fetch it.** Check for an MCP server or skill that reaches that tracker before concluding you cannot. Pull the issue body *and its comment thread* — requirements routinely live in comment 14, not the description. If no tool reaches it, say so and ask for the text rather than designing from the issue key alone. |
+| **This session's conversation** | The transcript is the source. Record its path. |
+
+**Both a document and a conversation is the common case** — a ticket, then refined live —
+and the refinement usually overrides the ticket. Treat neither as automatically winning; see
+supersession below.
 
 ### 1. Build the source package
 
@@ -553,37 +531,91 @@ document is low-risk (someone wrote it down deliberately, outside this session),
 session-distilled content is where requirements get invented and an aside becomes an
 acceptance criterion.
 
+#### 1a. Writing a brief from a long conversation — supersession is the whole problem
+
+A discovery conversation is not a specification. It is a record of thinking, and thinking
+changes direction. **The conversation contains positions that were abandoned, and abandoning
+them was the work.** A brief that flattens it into "everything discussed" reinstates every
+dead end as a requirement.
+
+Four failures, all observed in this class of input:
+
+| Failure | What it looks like |
+|---|---|
+| **Superseded position taken as current** | The first answer captured, when a later exchange replaced it. |
+| **Exploration taken as commitment** | *"Could we also do X?"* — asked, discussed, never adopted — becomes REQ-7. |
+| **Rejection silently dropped** | X was considered and ruled out. The brief omits it entirely, so the author re-proposes it. |
+| **Aside promoted** | A passing remark about performance becomes an acceptance criterion. |
+
+The third is the subtle one: **a rejection is a finding, not an absence.** Dropping it loses
+information, and the next author rediscovers the same dead end.
+
+**Write the brief in three registers. Every line goes in exactly one.**
+
+```markdown
+## Settled
+Conclusions as they stand at the END of the conversation. These are the requirements.
+| What | Where it was settled |
+|---|---|
+
+## Superseded
+Positions held earlier and replaced. Recording these is what stops an earlier position
+leaking back in, and what lets a reader see the decision was made rather than missed.
+| Earlier position | Replaced by | Why |
+|---|---|---|
+
+## Raised, not adopted
+Explored and not taken up — including things nobody ever said no to, that simply were not
+chosen. NOT requirements. They belong in the PRD's Rejected Alternatives, not its
+Requirements.
+| Idea | Status at end of conversation |
+|---|---|
+```
+
+**The resolution rule: the later statement wins.** When the conversation contradicts itself,
+the position stated last is the one that holds — unless the speaker explicitly returned to
+the earlier one, in which case *that* return is the last statement. Read the conversation
+**backwards from the end** when resolving a contradiction: the end is where the conclusions
+are, and reading forwards makes the first plausible statement feel authoritative.
+
+**A question is not a requirement.** *"What about X?"*, *"Could we...?"*, *"Should this
+also...?"* commit to nothing. Promote one only if the conversation went on to answer it and
+adopt the answer. If it was asked and never resolved, it is not a requirement and not a
+rejection — **it is an Open Question**, and it goes in that section of the PRD where `/refine`
+will put it back in front of the owner.
+
+**When you cannot tell whether something was settled, do not guess.** Uncertain
+settled-vs-explored is the exact case Open Questions exists for. Guessing wrong in the
+*adopt* direction manufactures a requirement; guessing wrong in the *drop* direction loses
+one silently, which is worse because nothing downstream can detect it.
+
+**The brief is a checkable claim.** Every Settled line names where it was settled, so a
+verifier — or you, later — can go back to the transcript and confirm the conversation
+actually concluded that. A brief line with no locator is unfalsifiable, which is how invented
+requirements survive.
+
 ### 2. Author
 
 One `product-manager` subagent, fresh context, seeing the source package **verbatim** plus
 the repository. A PRD is synthesis and needs one voice; merged reports produce a stitched
 document.
 
-### 3. Verify — parallel, read-only, findable-only
+### 3. Verification is a separate command
 
-Run on **every** invocation. No complexity threshold: a threshold is itself an unsourced
-requirement, and it would skip verification exactly when a one-line prompt got elaborated
-into something large. Verifiers return empty quickly on a small draft.
+**This command does not verify. `/audit-prd` does.**
 
-| Verifier | Checks |
-|---|---|
-| `source-fidelity` | **Both directions, against the SOURCE — never against the brief.** source → PRD: which requirements, decisions and rejections are missing? PRD → source: which requirements trace to nothing? |
-| `grounding` | Does this already exist, or contradict the codebase or existing docs? |
-| `conformance` | Does anything violate `stack.md` or `constitution.md`? |
+Create ends by writing two sections that make the handoff explicit:
 
-**Verify against source, never against the brief.** The brief is derived; checking the PRD
-against it only proves the PRD is faithful to a summary, and *certifies* anything the brief
-already dropped or invented. Where a source document exists, that document is what the check
-runs against.
+| Section | Consumed by | Means |
+|---|---|---|
+| `## Open Questions` | `/refine-prd` | "I had to decide this without you" |
+| `## Could Not Verify` | `/audit-prd` | "I asserted this but did not check it" |
 
-**No verifier may invent a requirement or strike one on judgment.** *"REQ-4 traces to nothing
-in the source"* is checkable and permitted. *"I think REQ-4 is unnecessary"* is manufactured
-and forbidden — a challenger fills the role it was handed exactly as an author does, and
-striking a real requirement is harder to detect than adding a fake one.
+Both are required output, and both are how the artifact declares its own state. A PRD that
+claims certainty it does not have is the failure this whole pipeline exists to stop.
 
-**A verifier finding that asserts severity carries the same sourcing burden as a
-requirement.** Reviewers inflating severity is the observed failure, not reviewers striking
-valid requirements.
+**Say so in the readout**: the PRD is not verified until `/audit-prd` has run.
+
 
 #### Verifier return contract — FALLBACK PATH ONLY
 

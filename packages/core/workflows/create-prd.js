@@ -1,11 +1,10 @@
 export const meta = {
   name: 'create-prd',
-  description: 'Author a PRD from a verbatim source package, verify it against source, emit the readout',
-  whenToUse: 'Invoked by the /create-prd command. Authors one PRD in a fresh product-manager, runs three read-only verifiers against the SOURCE (never a summary of it), returns a readout.',
+  description: 'Author a PRD from a verbatim source package, inheriting decisions from the existing design corpus',
+  whenToUse: 'Invoked by /create-prd. Indexes the existing design corpus for provenance, then authors one PRD in a fresh product-manager that sees the source VERBATIM. Verification is a separate command: /audit-prd.',
   phases: [
+    { title: 'Corpus', detail: 'cheap index of related design docs — provenance, not fact' },
     { title: 'Author', detail: 'one product-manager, fresh context, sees the source verbatim' },
-    { title: 'Verify', detail: 'three read-only verifiers, findable-only mandates' },
-    { title: 'Reconcile', detail: 'apply findings, draft the action-register readout' },
   ],
 }
 
@@ -64,15 +63,91 @@ const SOURCE_PACKAGE = [
   BRIEF ? `SESSION BRIEF (in-session delta only; NOT the baseline): ${BRIEF}` : '',
 ].filter(Boolean).join('\n')
 
-// The baseline every verifier checks against. Verifying a PRD against the brief would only
-// prove the PRD is faithful to a summary, and would CERTIFY anything the brief already
-// dropped or invented.
+// What this PRD is accountable to. Recorded in the readout and handed to /audit-prd, which
+// checks fidelity against THIS -- the source document itself, never a summary of it.
+// Auditing a PRD against a brief would only prove it faithful to a summary, and would
+// CERTIFY anything the brief already dropped or invented.
 const BASELINE = SOURCE || BRIEF
-const BASELINE_NOTE = SOURCE
-  ? `Verify against ${SOURCE} -- the source document itself, never a summary of it.`
-  : `Verify against ${BRIEF}. NOTE: this is a distilled brief, the only carrier for ` +
-    `in-session requirements. Treat a mismatch as a finding about the PRD, but flag any ` +
-    `place the brief itself looks lossy.`
+
+// --------------------------------------------------------------------------- 0.5 CORPUS
+// Design documents are a valuable source and an UNRELIABLE one: most PRDs and TRDs stop
+// being maintained the moment implementation starts. The corpus is used for PROVENANCE --
+// what was decided, why, what conventions exist -- and never as a statement of current
+// fact. Checking current fact is /audit-prd's job, and it reads code to do it.
+//
+// Cost control: ONE cheap agent producing a compact INDEX, handed to the author via a
+// script variable. It does NOT read documents end to end, and the author never opens the
+// corpus itself.
+phase('Corpus')
+
+const corpus = await agent(
+  `Index the existing design corpus so the PRD author can inherit decisions instead of
+re-deciding them. You are producing a MAP, not a summary.
+
+Look in docs/PRD/ and docs/TRD/ (and any sibling location the repo actually uses -- check
+before assuming). For each document that plausibly relates to "${FEATURE}" by subject:
+
+  - its path and title
+  - the decisions it records: grep its decisions table, any "Decisions" or "Rejected"
+    section, and any supersession banner. Capture the CHOICE and the ID, not the rationale.
+  - REJECTED alternatives specifically -- these are the highest-value entries. A rejection
+    nobody recorded is a dead end the next author walks into again.
+  - whether anything marks it superseded, and by what
+
+Then note conventions visible ACROSS documents: ID prefixes in use, recurring product
+decisions, recurring non-goals.
+
+READ DISCIPLINE -- this is the whole point of doing it as one cheap pass. Grep for headings
+and table rows. Do NOT read documents end to end. If a repo has 30 PRDs you should be
+reading a few hundred lines total, not thirty documents.
+
+Return at most 40 entries. If more relate, return the closest 40 by subject and say how many
+you skipped -- a truncated index that says so is useful; a silent one is not.`,
+  {
+    label: 'corpus-index',
+    phase: 'Corpus',
+    effort: 'low',
+    model: 'haiku',
+    schema: {
+      type: 'object', additionalProperties: false,
+      required: ['documents', 'conventions'],
+      properties: {
+        documents: {
+          type: 'array',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['path', 'subject'],
+            properties: {
+              path: { type: 'string' }, subject: { type: 'string' },
+              decisions: { type: 'array', items: { type: 'string' }, description: 'ID + choice, terse' },
+              rejected: { type: 'array', items: { type: 'string' } },
+              superseded_by: { type: 'string' },
+            },
+          },
+        },
+        conventions: { type: 'array', items: { type: 'string' } },
+        skipped_count: { type: 'number' },
+        note: { type: 'string' },
+      },
+    },
+  }
+)
+required(corpus, 'Corpus')
+log(`corpus: ${corpus.documents.length} related documents, ${corpus.conventions.length} conventions${corpus.skipped_count ? `, ${corpus.skipped_count} skipped` : ''}`)
+
+const CORPUS_BLOCK = corpus.documents.length
+  ? `
+EXISTING DESIGN CORPUS -- PROVENANCE ONLY (index, not fact):
+${JSON.stringify({ documents: corpus.documents, conventions: corpus.conventions }, null, 1)}
+
+THE CORPUS STATES INTENT. THE CODE STATES FACT. These documents tell you what was decided
+and why. They do NOT tell you what is built -- most stopped being maintained when
+implementation started. Inherit decisions, conventions and REJECTIONS from them so you do
+not re-litigate settled ground or re-propose a rejected alternative. Do NOT assert that
+anything described here exists; if that matters, say so in ## Could Not Verify and let
+/audit-prd check it against the code.`
+  : `
+No related design documents were found in the corpus. Treat this as genuinely new ground.`
 
 // --------------------------------------------------------------------------- 1. AUTHOR
 
@@ -86,6 +161,7 @@ for this job. Do NOT read .claude/commands/create-prd.md -- it carries orchestra
 you do not need and would re-cache on every turn.
 
 ${SOURCE_PACKAGE}
+${CORPUS_BLOCK}
 
 Write the PRD to ${PRD} using the Write tool. Do not return its content as text.
 
@@ -143,216 +219,22 @@ if (authored.prd_path && authored.prd_path !== PRD) {
 }
 log(`authored ${authored.requirements.length} requirements`)
 
-// --------------------------------------------------------------------------- 2. VERIFY
-// Runs on EVERY invocation. No complexity threshold: a threshold is itself an unsourced
-// requirement, and it would skip verification exactly when a one-line prompt got elaborated
-// into something large. Verifiers return empty quickly on a small draft.
-
-phase('Verify')
-
-const FINDING_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['findings'],
-  properties: {
-    findings: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        // id/line omitted for omission findings — see create-trd.js for the reasoning.
-        required: ['check', 'why', 'confidence'],
-        properties: {
-          id: { type: 'string', description: "the PRD's own ID; omit for omission findings" },
-          source_ref: { type: 'string', description: 'for omission findings: where in the SOURCE it is stated' },
-          check: { type: 'string', enum: ['provenance', 'severity', 'omission', 'grounding', 'conformance'] },
-          line: { type: 'string', description: 'the text as written; omit for omission findings' },
-          why: { type: 'string' },
-          confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
-          action: { type: 'string', enum: ['delete', 'add-back', 'record-rejection', 'lower', 'check-reasoning'] },
-        },
-      },
-    },
-  },
-}
-
-const FINDABLE_ONLY = `
-FINDABLE ONLY. Every finding names a source, a contradiction, or a failed lookup, and is
-checkable in seconds.
-
-  - "REQ-4 traces to nothing in the source" is checkable and permitted.
-  - "I think REQ-4 is unnecessary" is manufactured and FORBIDDEN.
-
-A challenger fills the role it was handed exactly as an author does, and striking a real
-requirement is harder to detect than adding a fake one. Do NOT propose new requirements.
-If your finding asserts severity, that assertion carries the same sourcing burden as a
-requirement. Zero findings is a legitimate result.
-`
-
-// Per-verifier READ DISCIPLINE -- see create-trd.js for the measurement behind it
-// (6 verifiers drove 49.2M cache reads vs 3.3M single-agent). Narrows HOW each verifier
-// reads, never WHAT it is asked to find.
-const READ_DISCIPLINE = {
-  'source-fidelity': `
-READ DISCIPLINE. Read the SOURCE fully -- it is your checklist and it is short. Then work
-through the PRD's requirement sections. You do not need its diagrams or architecture prose
-except where a requirement hides in them.`,
-  grounding: `
-READ DISCIPLINE. Grep before you read. Search the codebase for what the PRD proposes
-building, and search docs/PRD and docs/TRD for overlapping features by subject. Read a file
-fully only once a grep says it is relevant.`,
-  conformance: `
-READ DISCIPLINE. Read stack.md and constitution.md -- short, and your baseline. Then grep
-the PRD for what they constrain. Do NOT read the PRD end to end.`,
-}
-
-// Model tiers. Measured on the A/B run: 93.6% of billed cost is CACHE WRITE (context
-// establishment), only 6.3% is output. So model choice acts almost entirely on the bulk of
-// context each agent loads, and the verifiers are the many-agents half.
-//
-// Verifiers run findable-only checks -- grep an ID in a target file, compare a figure
-// against a rule file, confirm a threshold names a source. Mechanical enough for Sonnet.
-// The AUTHOR stays on its own frontmatter model (Opus): it is one agent, it produces the
-// document everything else audits, and architecture/decomposition quality is the one
-// dimension the findable-only wave structurally cannot backstop.
-const VERIFIER_MODEL = 'sonnet'
-
-const VERIFIERS = [
-  {
-    key: 'source-fidelity',
-    effort: 'high',
-    prompt: `Check these requirements against the SOURCE in BOTH directions. They are given
-in full below, so you do NOT need to open ${PRD}.
-
-REQUIREMENTS INDEX (what exists and where to look -- NOT the artifact):
-${JSON.stringify(authored.requirements, null, 1)}
-
-GROUNDING RULE: the index is not the document. Use it to target your reads of ${PRD}, then
-verify every finding against the PRD's own text before reporting it. Quote the document, not
-the index. If index and document disagree, that mismatch is itself the finding.
-
-${BASELINE_NOTE}
-
-  source -> PRD:  which requirements, decisions and REJECTIONS in the source never made it
-                  into the PRD, and are not listed under Non-Goals? Dropping is the commoner
-                  failure -- do this direction FIRST and thoroughly.
-  PRD -> source:  which requirements in the PRD trace to nothing in the source?
-
-Also flag any number in the PRD that does not appear in the source and is not attributed to
-a measurement -- a figure that appeared during authoring is an invention even when the
-underlying need was real.`,
-  },
-  {
-    key: 'grounding',
-    // High: 'does this already exist / contradict the codebase' is §9.1's second-largest
-    // category (~45 hits) and needs real repository reading, not a skim.
-    effort: 'high',
-    prompt: `Check ${PRD} against the CODE, using the design corpus only for provenance.
-
-  - Does any of this ALREADY EXIST? Name the file. Establish this by reading CODE, never by
-    reading a design document that claims it was built.
-  - Does any requirement CONTRADICT how the system currently works, as the code shows it?
-  - Is it duplicating an effort already designed? Search docs/PRD/ and docs/TRD/ by subject
-    and name the document -- that is a provenance finding ("this was already decided in X"),
-    not a claim about what exists.
-  - If a design document and the code disagree, say so. A stale design doc is itself worth
-    reporting, and in this repository most stop being maintained once implementation starts.
-
-Report what you find with paths. Do not propose requirements.`,
-  },
-  {
-    key: 'conformance',
-    effort: 'low',
-    prompt: `Check ${PRD} against .claude/rules/stack.md and .claude/rules/constitution.md.
-
-Report anything violating a stated constraint -- a technology outside the declared stack, a
-prohibited pattern, a gate below a stated floor.`,
-  },
-]
-
-const waves = await parallel(
-  VERIFIERS.map((v) => () =>
-    agent(`${v.prompt}\n${READ_DISCIPLINE[v.key] || ''}\n${FINDABLE_ONLY}`, {
-      label: `verify:${v.key}`,
-      phase: 'Verify',
-      effort: v.effort,
-      model: v.model || VERIFIER_MODEL,
-      schema: FINDING_SCHEMA,
-    }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
-  )
-)
-
-const alive = waves.filter(Boolean)
-const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
-const dead = VERIFIERS.length - alive.length
-if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
-log(`${findings.length} findings from ${alive.length}/${VERIFIERS.length} verifiers`)
-
-// --------------------------------------------------------------------------- 3. RECONCILE
-
-phase('Reconcile')
-
-if (findings.length === 0) {
-  return {
-    prd: PRD,
-    findings: 0,
-    verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
-    readout:
-      `PRD: ${PRD}\nSOURCE: ${BASELINE}\n\n` +
-      `  NO ACTION — every requirement traces to the source, and nothing the source asks ` +
-      `for is missing.\n` +
-      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report; coverage is incomplete.\n` : ''),
-  }
-}
-
-const readout = await agent(
-  `Apply these verifier findings to ${PRD}, then draft the readout.
-
-FINDINGS (JSON):
-${JSON.stringify(findings, null, 2)}
-
-Apply each using Edit. Where a finding is wrong -- the verifier missed a source that does
-exist -- do not apply it, and say so in the readout naming the source you found.
-
-EVERY LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Use exactly these headings, omitting
-empty ones, in this order -- missing requirements FIRST, because dropping one is commoner
-than inventing one:
-
-  ADD BACK — in the source, missing from this PRD
-  RECORD THIS REJECTION — decided in the source, not written down
-  DELETE — nothing in the source asks for these
-  LOWER — the requirement is real, the strictness is not
-  CHECK THE REASONING — derived, not stated
-  NO ACTION — sourced, listed for completeness
-
-One screen. If there are 40 sourced requirements, print the COUNT as one line, not forty.`,
-  {
-    label: 'reconcile',
-    phase: 'Reconcile',
-    // High: edits the artifact and drafts the only output the user reads.
-    effort: 'high',
-    schema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['readout', 'applied', 'rejected'],
-      properties: {
-        readout: { type: 'string' },
-        applied: { type: 'array', items: { type: 'string' } },
-        rejected: { type: 'array', items: { type: 'string' } },
-      },
-    },
-  }
-)
-
-required(readout, 'Reconcile')
+// ---------------------------------------------------------------------------
+// create stops here. The verification wave lives in /audit-prd, which runs against ANY PRD
+// -- this one, or one written months ago by hand. Splitting it that way means create is
+// 2 agents instead of 5, and audit can be run more than once, later, by someone else.
 
 return {
   prd: PRD,
   feature: FEATURE,
-  findings: findings.length,
-  applied: readout.applied.length,
-  rejected: readout.rejected.length,
-  verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
-  incomplete_coverage: dead > 0,
-  readout: readout.readout,
+  source: BASELINE,
+  requirements: authored.requirements.length,
+  corpus_documents: corpus.documents.length,
+  next: `/audit-prd ${PRD}`,
+  readout:
+    `PRD: ${PRD}    SOURCE: ${BASELINE}\n` +
+    `  ${authored.requirements.length} requirements` +
+    `${corpus.documents.length ? `, inheriting from ${corpus.documents.length} corpus documents` : ''}\n` +
+    `\n  NOT YET VERIFIED. Run  /audit-prd ${PRD}  to check source fidelity in both\n` +
+    `  directions, whether any of it is already built, and conformance.\n`,
 }
