@@ -37,6 +37,12 @@ function readArgs(raw) {
 const a = readArgs(args)
 const TRD = a.trd
 const FEATURE = a.feature || 'feature'
+// Target project root. Case 3 measured the cost of not having this: 6 of 9 findings were
+// wrong because a verifier resolved .claude/rules against the AUTHORING repo instead of the
+// project being designed for, and five were reported at HIGH confidence. A TRD authored in
+// repo A about project B is a legitimate and common case; nothing told the verifiers which
+// repo a relative path meant.
+const PROJECT = a.project || ''
 const EXTRA = a.transcript ? `\nSession-derived additions: ${a.transcript}` : ''
 
 if (!TRD) throw new Error('create-trd workflow: args.trd (output path) is required')
@@ -339,6 +345,17 @@ one block per task ID, exactly as specified in .claude/commands/create-trd.md:
   Follow    an existing pattern in this repo it should match
   Careful   contracts, callers, constraints
 
+MARK HOW YOU KNOW. Every factual claim in a grounding block carries one of:
+  [read]     -- you opened the file and saw it
+  [ran]      -- you executed it and observed the result
+  [inferred] -- you reasoned it from something you read, but did not confirm directly
+
+An implementer told us why this matters: "Precision that isn't uniformly earned is worse
+than vagueness, because it stops the implementer checking." A block that cites line numbers
+uniformly looks uniformly verified. In one run a test file was quoted as a passing
+regression guard when it had not run in months, and the one claim asserting something was
+SAFE was the one that was wrong. Unmarked claims will be treated as [read] and trusted.
+
 'Replaces' is the highest-value line and the one nobody writes. For every task ask: what
 does this make unreachable? A superseded thing that still exists still looks live.
 
@@ -450,6 +467,17 @@ const VERIFIER_MODEL = 'sonnet'
 const OBJ = JSON.stringify(authored.objectives, null, 1)
 const DEC = JSON.stringify(authored.decisions, null, 1)
 const TSK = JSON.stringify(authored.tasks, null, 1)
+
+const SCOPE = `
+PATH SCOPING -- read this before resolving any relative path.
+${PROJECT ? `The project under design is ${PROJECT}. Every source, test, config and
+.claude/rules/* path resolves against THAT project, not against the repository this TRD
+document lives in. Before reporting that a file or section does not exist, resolve it under
+${PROJECT} and check there.` : `The project under design is the repository containing the
+TRD. Relative paths resolve against it.`}
+A "does not exist" finding that was resolved against the wrong repository is a false
+positive, and this has happened: an entire verifier's output was discarded for it.
+`
 
 const BATCH = `
 BATCH YOUR READS. Every tool call re-caches your entire context, so turn count costs as

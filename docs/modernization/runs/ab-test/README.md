@@ -100,7 +100,7 @@ Not captured by that arithmetic: the new arm found requirement 1 was already bui
 old arm's 36 tasks include reimplementing `/rebase-project --dry-run`, that is not a
 granularity difference but wasted implementation plus later reconciliation.
 
-## DECISION (2026-08-14): the new path is NOT the default
+## DECISION (2026-08-14): the new path is NOT the default  — **REVERSED, see below**
 
 4.4x is not adoptable on a projection. Two conditions, both required:
 
@@ -146,3 +146,57 @@ modified and framework rules are preserved as-is.
 Fewer findings than the pre-optimisation run's 13, from a better starting draft: the author
 now reads a 2,931-token contract rather than a 6,819-token command file padded with
 orchestration detail it never uses.
+
+
+---
+
+## DECISION REVERSED (2026-08-15): the new path IS the default
+
+The earlier decision optimised the wrong variable. It weighed a 4.5x planning-token premium
+against an implement-stage saving and concluded the premium did not repay. Both halves of
+that framing were wrong:
+
+1. **The metric understated the premium.** `billed` excluded cache reads entirely; weighted
+   properly the premium is larger, not smaller. So the original decision was not even right
+   on its own terms.
+2. **The variable was wrong.** Token cost is not what a planning stage is for. Across three
+   cases the new path produced materially better designs, and the owner's position is that
+   better designs and tighter implementations are close to priceless. A 4.5x premium on the
+   cheap stage of the pipeline is not a reason to ship worse designs.
+
+### What the three cases actually showed
+
+| | cost | design |
+|---|---|---|
+| case 1 — in-repo brownfield | v3 worse once weighted | v3 |
+| case 2 — greenfield | old, decisively | v3 marginally |
+| case 3 — herald, external brownfield | old, decisively (4.5x) | **v3 clearly** |
+
+The case-3 evidence is the load-bearing part, because it is the only comparison of DELIVERED
+CODE rather than of self-reports or token counts:
+
+- The old arm shipped `draft_id INTEGER NOT NULL REFERENCES drafts(id)` into a codebase that
+  runs `PRAGMA foreign_keys=ON` and whose migrations do `ALTER TABLE drafts RENAME TO
+  drafts_backup_f014` then `DROP TABLE drafts_backup_f014`. Reproduced in five lines: SQLite
+  silently rewrites the REFERENCES clause on rename, and the insert then fails with
+  `no such table: main.drafts_backup_f014`. Latent corruption, invisible to every test.
+  The v3 arm's grounding block caught it and omitted the clause with the reason written into
+  the schema file.
+- On the spec's hard problem, the old arm's design fails toward DUPLICATE PUBLISHING (its
+  reconciliation oracle is an exact hash of a body platforms rewrite, and a non-match routes
+  to republish). The v3 design refuses to guess, finds a real signature for
+  "dispatched, outcome unknown", and routes adjudication through the same ledger everything
+  else consults.
+- Shape: old added 2,530 lines as a new parallel subsystem; v3 added 1,177 and deleted 243,
+  extending what existed.
+
+### Why this matters beyond one feature
+
+`lightning-lane` carries 61 PRDs and 96 TRDs. Its `packages/workers/src/poi/reconcile/`
+holds v1 (6 files, 2,264 lines) and v2 (5 files, 2,012 lines) side by side. v2 imports
+nothing from v1; v1's only remaining consumers are its own barrel export and its own tests,
+and two v2-era code comments reference it as a pattern. ~2,264 lines that pass their tests
+and run nowhere, indistinguishable in the tree from live code.
+
+That is precisely what `Replaces` and the corpus index target, and it compounds with every
+TRD authored without sight of the others.
