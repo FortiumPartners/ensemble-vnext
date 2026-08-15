@@ -16,7 +16,24 @@ export const meta = {
 //   prd      path the PRD should be written to
 // ---------------------------------------------------------------------------
 
-const a = args || {}
+// `args` may arrive as a JSON-encoded STRING rather than an object when a caller passes it
+// stringified. Left unhandled, every field reads as undefined and the script dies with a
+// misleading "required arg missing" -- pointing at the caller's payload instead of its shape.
+function readArgs(raw) {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw)
+    } catch (e) {
+      throw new Error(
+        'workflow args arrived as a string and is not valid JSON. Pass args as an actual ' +
+        'JSON object in the tool call, not a JSON-encoded string.'
+      )
+    }
+  }
+  return raw || {}
+}
+
+const a = readArgs(args)
 const SOURCE = a.source || ''
 const BRIEF = a.brief || ''
 const PRD = a.prd
@@ -180,7 +197,9 @@ underlying need was real.`,
   },
   {
     key: 'grounding',
-    effort: 'medium',
+    // High: 'does this already exist / contradict the codebase' is §9.1's second-largest
+    // category (~45 hits) and needs real repository reading, not a skim.
+    effort: 'high',
     prompt: `Check ${PRD} against the codebase and existing docs.
 
   - Does any of this ALREADY EXIST? Name the file.
@@ -257,6 +276,8 @@ One screen. If there are 40 sourced requirements, print the COUNT as one line, n
   {
     label: 'reconcile',
     phase: 'Reconcile',
+    // High: edits the artifact and drafts the only output the user reads.
+    effort: 'high',
     schema: {
       type: 'object',
       additionalProperties: false,

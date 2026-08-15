@@ -17,7 +17,24 @@ export const meta = {
 //   feature      short slug, used only for labels
 // ---------------------------------------------------------------------------
 
-const a = args || {}
+// `args` may arrive as a JSON-encoded STRING rather than an object when a caller passes it
+// stringified. Left unhandled, every field reads as undefined and the script dies with a
+// misleading "required arg missing" -- pointing at the caller's payload instead of its shape.
+function readArgs(raw) {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw)
+    } catch (e) {
+      throw new Error(
+        'workflow args arrived as a string and is not valid JSON. Pass args as an actual ' +
+        'JSON object in the tool call, not a JSON-encoded string.'
+      )
+    }
+  }
+  return raw || {}
+}
+
+const a = readArgs(args)
 const TRD = a.trd
 const FEATURE = a.feature || 'feature'
 const EXTRA = a.transcript ? `\nSession-derived additions: ${a.transcript}` : ''
@@ -96,12 +113,30 @@ Binding constraints, in priority order:
      we'd normally ship", leave it out.
   6. Sections are containers, not quotas. An empty section is a correct outcome. No diagram
      quota. Never invent a number to make a table look complete.
+  7. DO NOT write the "Task Grounding" section. A later stage owns it, and it reads the
+     codebase properly to do so. Grounding decisions you have not finished making is
+     premature, and writing it here means the work is done twice with two sources of truth.
+     Leave it out entirely -- do not stub it, do not add a placeholder heading.
 
 Return ONLY a JSON object describing what you wrote.`,
   {
     label: 'author:technical-architect',
     phase: 'Author',
     agentType: 'technical-architect',
+    // Overrides the agent's own `effort: xhigh` frontmatter, deliberately, and ONLY here.
+    //
+    // A direct Agent call to technical-architect has no safety net, so xhigh is right there.
+    // In THIS pipeline the author is followed by six verifiers and a reconcile stage. The
+    // first live run (23 min, 1.02M tokens) spent 634s of 1357s wall-clock -- 47% -- in this
+    // one stage, and every checkable defect it produced was caught downstream: six citation
+    // errors (five stale line numbers), four omissions. Those are exactly the classes a
+    // lower-effort author produces more of, and exactly what the wave is built to find.
+    //
+    // What the wave CANNOT see is architecture and decomposition quality -- no verifier
+    // mandate permits "this decomposition is wrong". That is the real risk of this change,
+    // and the reason it is a measured hypothesis rather than a settled call: re-run the same
+    // PRD and compare the architecture sections, not the finding counts.
+    effort: 'high',
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -161,6 +196,10 @@ rather than padding it.`,
   {
     label: 'ground:brownfield',
     phase: 'Ground',
+    // High: this is the only GENERATIVE stage after authoring, and its output is piped
+    // straight into implementer prompts. Weak grounding is how reimplementation happens --
+    // §9.1's second-largest category at ~45 hits.
+    effort: 'high',
     schema: {
       type: 'object',
       additionalProperties: false,
@@ -273,7 +312,10 @@ written?" costs one agent and has historically saved a whole task plus a wrong d
   },
   {
     key: 'derivation-audit',
-    effort: 'medium',
+    // High, not medium: C2 targets §9.1's LARGEST category -- invented delivery machinery,
+    // ~55 hits, >4x requirement invention. Effort was originally set by how familiar the
+    // check felt rather than by measured frequency.
+    effort: 'high',
     prompt: `For every TASK and every piece of DELIVERY MACHINERY in ${TRD} -- feature flags,
 rollout phases, migration paths, guard infrastructure, eval gates, config toggles, staged
 enablement -- check that it names the objective it serves.
@@ -286,7 +328,10 @@ Report anything whose 'Serves' column is empty, or whose named objective does no
   },
   {
     key: 'omission-audit',
-    effort: 'medium',
+    // High, not medium: §9.2 measured dropping requirements (~20) as commoner than
+    // inventing them (~12), and §3.3 established omission is structurally invisible to
+    // every artifact->source check. This is the only pass that can see it.
+    effort: 'high',
     prompt: `Traverse SOURCE -> TRD, not TRD -> source.
 
 Enumerate every objective stated in ${PRD} (and in stack.md / constitution.md where they bind
@@ -301,7 +346,11 @@ Report each source objective that is neither present nor non-goaled.`,
   },
   {
     key: 'citations',
+    // The one stage where a cheaper model is clearly correct: grep an ID in a target file
+    // and report misses. Deterministic, no judgment. Every other stage inherits the
+    // session model deliberately.
     effort: 'low',
+    model: 'haiku',
     prompt: `For every cross-artifact citation in ${TRD} -- any reference to an ID in another
 document (AC-F1.1, NFR-2, PRD §5.1, another TRD's task ID) -- grep the referenced ID in the
 LIVE target document and confirm it resolves.
@@ -386,6 +435,9 @@ Ordered by how expensive the failure is to discover later.`,
   {
     label: 'reconcile',
     phase: 'Reconcile',
+    // High: this stage EDITS the artifact and drafts the only output the user reads. It
+    // must also correctly reject findings that are themselves wrong -- see the prompt.
+    effort: 'high',
     schema: {
       type: 'object',
       additionalProperties: false,

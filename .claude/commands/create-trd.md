@@ -565,6 +565,11 @@ MUST reject requests that fall into these categories.
 
 ### Section 10: Task Grounding
 
+> **Not written by the authoring stage.** A dedicated grounding pass emits this section
+> after the decisions exist, having actually read the code. An author that writes it
+> while drafting is grounding decisions it has not finished making, and the work then
+> gets done twice with two sources of truth. If you are authoring, skip this section.
+
 **REQUIRED whenever the repository already contains code.** This is the section that stops
 implementers reimplementing what exists, contradicting how the system already works, and
 leaving dead code behind. Those are collectively the largest source of wasted work in this
