@@ -112,3 +112,37 @@ granularity difference but wasted implementation plus later reconciliation.
    That yields the real cost-per-invocation and settles the break-even.
 
 Until both land, the old path stays default and the new path is opt-in.
+
+
+## Optimisation A/B — PRD stage (2026-08-15)
+
+Same spec, same output shape. `new/` is pre-optimisation, `new-v2/` is post.
+
+| create-prd stage | before | after | delta |
+|---|---|---|---|
+| cache write | 1,223,282 | **954,749** | **-22%** |
+| output | 77,719 | 47,307 | -39% |
+| cache read | 11,328,877 | 6,715,844 | **-41%** |
+| tool calls | 91 | 58 | -36% |
+| **wall clock** | **14.2 min** | **9.3 min** | **-35%** |
+| agents | 5 | 5 | — |
+
+Projection was 14%; cache write came in at 22% and wall clock at 35%.
+
+Per-agent cache write, sorted: before `309k 301k 291k 183k 139k`, after
+`287k 270k 188k 147k 63k`. The smallest agent fell to near bare startup cost (58.6k
+measured), which is the signature of a verifier that stopped opening the artifact and
+worked from the inline records instead.
+
+**Quality held.** 3 findings, all applied, none rejected, 3/3 verifiers. It again found
+that `/rebase-project` §2.1-2.5 already does per-file byte comparison with `--dry-run`
+report-only, so F1 became "reuse it". It also found something the pre-optimisation run
+missed: `runtime-refresh.sh` performs the silent overwrite automatically at every
+SessionStart on version comparison alone, with four guards that gate *whether* a refresh
+runs and none that inspect content. And it isolated the one piece of genuinely new work --
+rules are the only component kind with no existing diff, since governance files are never
+modified and framework rules are preserved as-is.
+
+Fewer findings than the pre-optimisation run's 13, from a better starting draft: the author
+now reads a 2,931-token contract rather than a 6,819-token command file padded with
+orchestration detail it never uses.
