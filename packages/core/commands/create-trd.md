@@ -745,6 +745,87 @@ took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
 
 ---
 
+## `--light` — one agent, no fan-out
+
+**Use `--light` when you want the design discipline without the verification wave.** It is
+one agent doing author + ground + self-check, and it is the right default for a small
+feature, a repo with no meaningful corpus, or any time the full wave's cost is not earned.
+
+The full path's cost is the fan-out. Its *design* value is almost entirely this prompt.
+Measured across three A/B cases, of ten distinct failures the pre-rewrite command produced,
+**seven needed no fan-out to prevent** — they were instructions nobody had written down:
+
+| Failure measured in the old command | Fixed by |
+|---|---|
+| Read 0 of 49 design documents before a 43-task plan | step 1 below |
+| Read 3 source files before planning against a mature codebase | step 2 |
+| Shipped `REFERENCES drafts(id)` into a DB whose migrations rename-then-drop `drafts` | step 2 |
+| Batched all 8 test tasks behind the entire build | step 4 |
+| 25 numbers with units, from a spec containing zero | the typing rule |
+| No `Replaces` line anywhere; superseded code left looking live | step 2 |
+| Inherited a design-doc claim about code that was false | step 1 |
+
+What `--light` does NOT give you: independent adversarial verification, schema-forced
+findings, and a reconcile stage that can reject a bad finding. Those need the wave. If the
+feature is load-bearing, run the full path.
+
+### The five steps, in order. Do not skip step 2.
+
+**1. Read the corpus as provenance — not as truth.**
+Grep `docs/PRD/` and `docs/TRD/` for documents on this subject. Read their decision tables
+and supersession banners, not their prose. Inherit what was decided; where you depart from a
+sibling design, say so and say why.
+
+**THE CORPUS STATES INTENT. THE CODE STATES FACT.** These documents mostly stop being
+maintained the moment implementation starts. Cite one as the *source of a decision*; never as
+evidence that something is built or behaves a given way. If a document and the code disagree,
+the code wins — and say so, because a stale design doc is worth reporting.
+
+**2. Ground in the code BEFORE you plan.**
+Read the code your plan touches. Grep for the functions, tables and patterns involved. This
+is the step that pays for itself, and the one a single agent skips first.
+
+For each task, record — with `[read]`, `[ran]` or `[inferred]` on every factual claim:
+  - **Touches** — files this will modify
+  - **Reuse** — what exists that must not be reimplemented
+  - **Replaces** — *what does this make unreachable?* Name it, and instruct its deletion in
+    the same change. This is the line nobody writes and the reason superseded code keeps
+    passing its tests while running nowhere.
+  - **Careful** — contracts, callers, and traps a reader would not see
+
+Precision you have not earned is worse than vagueness: it stops the implementer checking.
+Mark `[inferred]` honestly.
+
+**3. Type every line.** Objective / decision / task, by nature not by section. Objectives
+need provenance and sourced severity; decisions are free to invent but must name the
+objective they serve; tasks name what they serve. Read coverage floors from
+`constitution.md` — do not carry a number in from anywhere else.
+
+**4. Put verification where the risk is.** Do not batch test tasks behind the build. A phase
+that constructs something non-obvious contains the task that verifies it. Measured: a TRD
+that deferred all eight test tasks to Phase 3 had two DST bugs in Phase 1 code, found only
+because the implementer wrote tests the plan never asked for.
+
+**5. Self-check before you finish.** You are your own verifier here, so be adversarial about
+your own draft, and state what you could not confirm:
+  - Every objective — does it trace to the PRD, a named constraint, a measurement, or the
+    user? Any number without a source is invented; delete it.
+  - Every task — does it name the objective or decision it serves? A task serving nothing is
+    work nobody asked for, and delivery machinery is the usual culprit.
+  - Every citation — grep the referenced ID in its live target. A miss is a miss.
+  - Every decision — can it be built as specified? Check the mechanism, do not assume it
+    works the way you wrote it.
+  - Anything you asserted but did not verify — say so, in the TRD, where the reader will see
+    it. An honest gap is worth more than a confident guess.
+
+### Readout
+
+Emit the same action-register readout the full path uses, with one addition: a
+**COULD NOT VERIFY** section listing what a verification wave would have checked and you
+did not. That is the honest price of `--light`, and it belongs in the document.
+
+---
+
 ## Workflow
 
 ```

@@ -488,6 +488,43 @@ took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
 
 ---
 
+## `--light` — one agent, no fan-out
+
+One agent doing author + self-check. The right default for a small feature or a repo with no
+meaningful corpus. What it gives up: independent verification against the source, and a
+reconcile stage that can reject a bad finding.
+
+**1. Read the corpus as provenance — not as truth.** Grep `docs/PRD/` and `docs/TRD/` for
+prior work on this subject. Inherit decisions; name any departure. **The corpus states
+intent, the code states fact** — cite a document as the source of a decision, never as
+evidence something is built. If they disagree, the code wins and the disagreement is worth
+reporting.
+
+**2. Check the code before writing a requirement about it.** Does this already exist? Name
+the file. A requirement to build what is already there is the most expensive kind of
+invention — measured on a real product, a PRD asserted a verification mechanism
+(`HERALD_STUB_ERROR`) whose only occurrences anywhere were two design documents describing
+it as something to be built.
+
+**3. Every requirement traces to something real** — the user's words, a source document, a
+measurement, or a named constraint. **Never invent a number.** A spec with no numbers should
+produce a PRD with no numbers; measured, the pre-rewrite command produced 23 against a spec
+containing zero. Source the *severity*, not just the requirement.
+
+**4. An empty section is a correct outcome.** Most features have no non-functional
+requirement anyone asked for. Never fill a heading to look complete.
+
+**5. Self-check, adversarially.** Which requirements trace to nothing — delete them. What did
+the source ask for that is missing — dropping is the commoner failure. Then state, in the
+PRD, what you asserted but did not verify.
+
+### Readout
+
+The standard action-register readout, plus a **COULD NOT VERIFY** section naming what a
+verification wave would have checked and you did not.
+
+---
+
 ## Workflow: source, author, verify
 
 ### 0. Resolve the source
