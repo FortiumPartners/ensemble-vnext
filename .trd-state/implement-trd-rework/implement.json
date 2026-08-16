@@ -5,7 +5,7 @@
   "branch": "feature/implement-trd-rework",
   "strategy": "refactor",
   "strategy_rationale": "TRD reworks existing commands, hooks and tests. refactor requires tests pass before AND after; 66 pre-existing failures are baselined in test-baseline.txt so the gate blocks on NEW failures only.",
-  "phase_cursor": 4,
+  "phase_cursor": 5,
   "active_sessions": {},
   "tasks": {
     "ITR-P001": {
@@ -248,15 +248,16 @@
     "ITR-T002": {
       "description": "",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": null,
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T15:25:27.390972+00:00",
+      "notes": "5 of 8 items measured; agent-per-task untestable on these fixtures (see docs/modernization/runs/itr-t002-measurements.md)"
     },
     "ITR-T003": {
       "description": "",
