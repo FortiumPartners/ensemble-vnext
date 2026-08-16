@@ -1,1 +1,0 @@
-../../core/contracts/prd-authoring.md
