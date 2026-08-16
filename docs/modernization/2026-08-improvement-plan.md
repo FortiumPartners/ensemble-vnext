@@ -1054,6 +1054,40 @@ cross-session coordination point in the design, so a malformed write is precisel
 silently loses a phase. **Item 7's `lib/` is the home for a schema and validator** — it is the
 tested deterministic layer, and this is the cheapest possible thing to put in it.
 
+#### Concurrency across TRDs — status and the shape that follows, 2026-08-16
+
+**Within a phase: solved, by construction.** Workflow scripts have no filesystem access, so
+parallel agents never touch `implement.json` — they return values and the command writes once
+when the workflow returns. Single writer, no contention. The platform constraint that forced
+command-owned state removed intra-phase races for free.
+
+**Across TRDs: two of item 7's five breakages are answered, three remain.**
+
+| Breakage | Status |
+|---|---|
+| `implement.json` collision | **Never existed** — already per-feature at `.trd-state/<feature>/` |
+| `current.json` single git-tracked pointer | **Decided** — derive from the branch, stop storing it |
+| Cross-TRD *file* conflicts (`implement.lock` is per-TRD) | **Open** |
+| `.trd-state/` per-repo vs per-worktree | **Open** |
+| Session-scoped task list, never uploaded | **Open** |
+
+**The shape that follows from decisions already made.** Item 7's own observation is the key:
+*"cross-TRD conflict detection is the same computation as intra-TRD, just over a wider set."*
+`Touches` was already adopted to gate parallelism inside a phase; the cross-TRD mechanism is
+the same data published somewhere shared. A phase appends its `Touches` set to a **repo-wide
+claims file** before dispatch; another TRD's phase reads it before dispatching its own.
+
+That also splits the per-repo/per-worktree question rather than answering it once, which is
+what item 7 suspected:
+
+- **`implement.json` is per-branch** — it tracks one TRD's progress and should travel with the
+  worktree.
+- **The claims file is repo-wide** — a lock nobody else can see is not a lock.
+
+Still genuinely open: what a claim conflict *does* (block, warn, or queue), and whether the
+session-scoped task list needs replacing at all once claims are file-based rather than
+task-based. Both are item 7 design work, not decided here.
+
 #### Hardening is a dedicated agent, decided 2026-08-16
 
 **Revises the CLAUDE.md-only answer given earlier the same day.** Hardening gets its own agent,
