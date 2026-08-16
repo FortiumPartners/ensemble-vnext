@@ -567,3 +567,112 @@ describe('parseTrd — real TRDs in this repository', () => {
     expect(Object.keys(result.grounding).length).toBeGreaterThan(0);
   });
 });
+
+describe('parseTrd — Session Details agent assignment', () => {
+  const withSessions = (body) => `## 4. Master Task List
+
+### 4.1 Phase 1
+
+| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
+|---|---|---|---|---|---|
+| AA-B001 | Build the thing | AC-1 | | None | works |
+| AA-B002 | Build the other thing | AC-2 | | None | works |
+| AA-F001 | Build the UI | AC-3 | | None | works |
+
+## 5. Execution Plan
+
+### 5.2 Session Details
+
+${body}
+`;
+
+  it('assigns the declared agent to every task in the session block', () => {
+    const r = parseTrd(
+      withSessions(`**Session 1A: API**
+- Tasks: AA-B001, AA-B002
+- Agent: @backend-implementer
+
+**Session 1B: UI**
+- Tasks: AA-F001
+- Agent: @frontend-implementer`)
+    );
+    const byId = Object.fromEntries(r.tasks.map((t) => [t.id, t.agent]));
+    expect(byId['AA-B001']).toBe('backend-implementer');
+    expect(byId['AA-B002']).toBe('backend-implementer');
+    expect(byId['AA-F001']).toBe('frontend-implementer');
+    expect(r.sessionAgents['AA-B001']).toBe('backend-implementer');
+  });
+
+  it('tolerates a missing @ and bold labels', () => {
+    const r = parseTrd(
+      withSessions(`**Session 1A: API**
+- **Tasks:** AA-B001
+- **Agent:** backend-implementer`)
+    );
+    expect(r.tasks.find((t) => t.id === 'AA-B001').agent).toBe('backend-implementer');
+  });
+
+  // The failure this guards: a session block whose Agent: line is missing must not
+  // leak its task ids into the NEXT block's agent, silently assigning the wrong
+  // specialist to work nobody routed there.
+  it('does not leak unpaired task ids into the next session block', () => {
+    const r = parseTrd(
+      withSessions(`**Session 1A: orphaned, no agent line**
+- Tasks: AA-B001
+
+**Session 1B: UI**
+- Tasks: AA-F001
+- Agent: @frontend-implementer`)
+    );
+    expect(r.tasks.find((t) => t.id === 'AA-B001').agent).toBeUndefined();
+    expect(r.tasks.find((t) => t.id === 'AA-F001').agent).toBe('frontend-implementer');
+  });
+
+  it('ignores ids that are not real tasks rather than inventing an assignment', () => {
+    const r = parseTrd(
+      withSessions(`**Session 1A**
+- Tasks: AA-B001, ZZ-B999
+- Agent: @backend-implementer`)
+    );
+    expect(r.sessionAgents['ZZ-B999']).toBeUndefined();
+    expect(r.sessionAgents['AA-B001']).toBe('backend-implementer');
+  });
+
+  it('warns and keeps the first when one task is assigned twice', () => {
+    const r = parseTrd(
+      withSessions(`**Session 1A**
+- Tasks: AA-B001
+- Agent: @backend-implementer
+
+**Session 1B**
+- Tasks: AA-B001
+- Agent: @frontend-implementer`)
+    );
+    expect(r.sessionAgents['AA-B001']).toBe('backend-implementer');
+    expect(r.warnings.some((w) => /assigned to both/.test(w))).toBe(true);
+  });
+
+  it('returns no assignments when the TRD has no Execution Plan', () => {
+    const r = parseTrd(`## 4. Master Task List
+
+### 4.1 Phase 1
+
+| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
+|---|---|---|---|---|---|
+| AA-B001 | Build the thing | AC-1 | | None | works |
+`);
+    expect(r.sessionAgents).toEqual({});
+    expect(r.tasks[0].agent).toBeUndefined();
+  });
+
+  it('recovers assignments from this repository real TRD', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const p = path.join(__dirname, '..', '..', '..', 'docs', 'TRD', 'implement-trd-rework.md');
+    if (!fs.existsSync(p)) return;
+    const r = parseTrd(fs.readFileSync(p, 'utf8'));
+    const assigned = r.tasks.filter((t) => t.agent);
+    expect(assigned.length).toBeGreaterThan(10);
+    expect(r.sessionAgents['ITR-T001']).toBe('verify-app');
+  });
+});

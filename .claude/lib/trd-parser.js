@@ -613,6 +613,61 @@ function parseCouldNotVerify(lines, warnings) {
  *   warnings: string[]
  * }}
  */
+/**
+ * Extract the agent each task is assigned to, from the Execution Plan's Session
+ * Details (§5.2). The template `create-trd.md` emits blocks shaped:
+ *
+ *     **Session 1A: Sunstone read**
+ *     - Tasks: ITR-P001, ITR-P002
+ *     - Agent: @backend-implementer
+ *
+ * The TRD's author already decided which specialist each task needs, with the whole
+ * design in front of it. The pre-rework command honoured that (`trdTask.assignee`);
+ * the rework dropped it and fell back to keyword-matching the task description, which
+ * is a strictly worse signal — it re-derives, from a one-line summary, a decision the
+ * architect made from the full context.
+ *
+ * Returns { taskId: 'backend-implementer', ... }. Absent section, malformed block, or
+ * unknown task id yields no entry rather than a guess: an assignment nobody wrote is
+ * exactly the manufactured-requirement failure this project keeps finding elsewhere.
+ */
+function parseSessionAgents(lines, tasks, warnings) {
+  const known = new Set(tasks.map((t) => t.id));
+  const section = findSection(lines, 'Session Details') || findSection(lines, 'Execution Plan');
+  const assignments = {};
+  if (!section) return assignments;
+
+  let pending = [];
+  for (const raw of lines.slice(section.start, section.end)) {
+    // Strip bold markers before matching: the template writes `- **Tasks:** A, B`, where
+    // the colon sits INSIDE the emphasis. Normalising once beats a pattern that has to
+    // allow the colon on either side of the asterisks.
+    const line = raw.replace(/\*\*/g, '');
+    const tasksMatch = /^\s*[-*]\s*Tasks?\s*:\s*(.+)$/i.exec(line);
+    if (tasksMatch) {
+      // A new Tasks: line supersedes any un-paired previous one — a session block
+      // missing its Agent: line must not leak its ids into the next block's agent.
+      pending = parseCommaList(tasksMatch[1]).filter((id) => known.has(id));
+      continue;
+    }
+    const agentMatch = /^\s*[-*]\s*Agents?\s*:\s*@?([A-Za-z0-9-]+)/i.exec(line);
+    if (agentMatch) {
+      const agent = agentMatch[1];
+      for (const id of pending) {
+        if (assignments[id] && assignments[id] !== agent) {
+          warnings.push(
+            `${id} is assigned to both "${assignments[id]}" and "${agent}" in Session Details — using the first`
+          );
+          continue;
+        }
+        assignments[id] = agent;
+      }
+      pending = [];
+    }
+  }
+  return assignments;
+}
+
 function parseTrd(markdown, opts = {}) {
   const warnings = [];
   const lines = splitLines(markdown);
@@ -626,6 +681,10 @@ function parseTrd(markdown, opts = {}) {
   }
 
   const grounding = parseGrounding(lines, tasks, warnings);
+  const sessionAgents = parseSessionAgents(lines, tasks, warnings);
+  for (const task of tasks) {
+    if (sessionAgents[task.id]) task.agent = sessionAgents[task.id];
+  }
   const couldNotVerify = parseCouldNotVerify(lines, warnings);
   const openQuestions = parseOpenQuestions(lines, warnings);
 
@@ -633,6 +692,7 @@ function parseTrd(markdown, opts = {}) {
     tasks,
     phases,
     grounding,
+    sessionAgents,
     couldNotVerify,
     openQuestions,
     warnings,
@@ -641,6 +701,7 @@ function parseTrd(markdown, opts = {}) {
 
 module.exports = {
   parseTrd,
+  parseSessionAgents,
   normalizeLineEndings,
   headingContains,
   findSection,

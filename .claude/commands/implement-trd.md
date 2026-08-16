@@ -303,7 +303,24 @@ no path on which it reaches the implementer after work has begun).
 ### 3.3 Implementer selection
 
 For every task, resolve `agentType` (passed through to `implement-phase.js`, which forwards
-it to `agent()` as `opts.agentType` when present):
+it to `agent()` as `opts.agentType` when present), **in this precedence order**:
+
+**1. The TRD's own assignment — `task.agent`, and it wins.** `trd-parser.js` extracts it from
+the Execution Plan's Session Details (§5.2), where `/create-trd` writes blocks like:
+
+```
+**Session 1B: Review-path probe**
+- Tasks: ITR-P002
+- Agent: @agent-implementer
+```
+
+The architect chose that specialist with the entire design in front of it. Keyword-matching a
+one-line task summary re-derives the same decision from strictly less information, so it is a
+fallback, never an override. On this project's own TRD the parser recovers assignments for
+14 of 19 tasks — including `agent-implementer` for the prompt-engineering work and
+`verify-app` for the measurement tasks.
+
+**2. Keyword match** on the task description, when the TRD assigned nothing:
 
 | Task Keywords | agentType |
 |---------------|-----------|
@@ -314,7 +331,8 @@ it to `agent()` as `opts.agentType` when present):
 | pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
 | llm, agent, rag, prompt, embedding, vector, langgraph, langfuse, openai, anthropic, claude, gpt, sonar, retrieval, tool-calling, multi-agent | `agent-implementer` |
 
-**When nothing matches, use `backend-implementer`.** Do NOT leave `agentType` unset.
+**3. When neither the TRD nor a keyword decides, use `backend-implementer`.** Do NOT leave
+`agentType` unset.
 
 An unset `agentType` does not mean "no agent" — it means the platform's generic workflow
 subagent, which **inherits the session model**. In a session led by Opus that routes ordinary
