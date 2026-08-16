@@ -888,11 +888,27 @@ above:
 - a phase-1 defect surfaces only after phases 2–4 were built on it — the expensive failure
   this pipeline exists to move earlier
 
-Fixed in `packages/core/contracts/trd-authoring.md`: test tasks go in the phase that
-introduces the code they test; each phase must end in a state where its own tests pass; a
-terminal phase is legitimate only for `[LIVE]` end-to-end work that genuinely needs the whole
-system assembled. E2E coverage is required to be a task, and a feature with no exercisable
+**REVISED within the hour — the first fix moved the wrong thing.** It relocated unit-test
+tasks to earlier phases while leaving them as separate tasks. Owner's model is better: unit
+tests as you go, feature-level verification at the end. The tasks should not exist.
+
+The double-count is verifiable. Herald's constitution states *"No production code is written
+before a failing test exists for it"*, and its implementation tasks' grounding already names
+the test files they touch — yet the TRD also created `CPUB-T004/T005/T006`, all prefixed
+`Unit:`. The unit tests were in the plan twice: once implicitly inside the implementation
+task where TDD puts them, once as standalone tasks. Ensemble did the same with `DRIFT-T001`.
+
+`packages/core/contracts/trd-authoring.md` now says: **unit tests are not tasks** — they are
+acceptance criteria on the task that adds the behaviour. What earns a task is (a) an
+integration test crossing a seam no single implementation task owns, and (b) `[LIVE]`
+end-to-end verification of the assembled feature, which is the one thing that legitimately
+belongs in a terminal phase. E2E remains required as a task; a feature with no exercisable
 path must say so in Quality Requirements rather than silently omitting it.
+
+This solves the runnable-phase problem structurally rather than by scheduling rule: code and
+its unit tests land together, so every phase ends executable by construction.
+
+Expected effect on the profile TRDs: ensemble 12 → 11 tasks, herald 27 → 24.
 
 Unmeasured: whether the instruction takes. Both the corpus mechanism and this are prompt
 changes awaiting their first real run — and this session twice measured that a stated rule
