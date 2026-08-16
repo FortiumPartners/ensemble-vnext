@@ -7,22 +7,32 @@
  * stage progression (via the native Task tools / blockedBy graph) and writes the
  * durable implement.json. This hook is a best-effort safety net that runs on every
  * SubagentStop to: (1) clear session_id on subagent completion (TRD-H004), and
- * (2) advance cycle_position for the single in-progress task so the DURABLE marker
- * keeps moving even if the session dies mid-loop.
+ * (2) advance cycle_position for every in-progress task so the DURABLE marker keeps
+ * moving even if the session dies mid-loop.
  *
  * Design intent: the command sets cycle_position when ENTERING a stage
  * (state-write-before-delegate); this hook advances it when the stage's subagent
  * stops. They are meant to interleave, not both advance the same transition.
  *
- * Safety guards (fix for the previously-documented over-advance bug):
- *   - advanceCyclePosition() SKIPS when the in-progress task signals active debugging
- *     (retry_count > 0 OR current_problem is set). This prevents the hook from
- *     advancing past 'verify'/'verify_post_simplify' during DEBUG cycles, when the
- *     command will re-dispatch verify after app-debugger completes.
- *   - 'verify_red' is now part of CYCLE_ORDER (advances to 'implement') so TDD's
- *     RED phase is tracked rather than ignored.
+ * CYCLE_ORDER, the advance() step function, and the atomic implement.json writer now
+ * live in `../lib/implement-state.js` (ITR-B004) — this hook imports them rather than
+ * keeping its own copy, so the command and this hook can no longer drift apart on what
+ * the cycle is. See implement-state.js's own header and docs/TRD/implement-trd-rework.md
+ * §3.3 for the binding spec.
+ *
+ * Safety guards, carried over from this hook's previous local implementation but now
+ * enforced inside implement-state.advance() instead of here:
+ *   - Skips a task mid-DEBUG retry (retry_count > 0 OR current_problem is set), UNLESS
+ *     the task is already AT 'debug' — a successful retry needs to leave that position,
+ *     not get stuck at it.
+ *   - The old "exactly one in_progress task in the whole file" guard does not carry
+ *     forward: task-graph.js's parallel waves put more than one task legitimately
+ *     in_progress at once. This hook now attempts advance() for every in_progress task
+ *     it finds, one call per task, rather than requiring a single global one.
  *   - The command's explicit cycle_position writes remain authoritative; this hook
- *     stays a best-effort safety net for happy-path stage transitions.
+ *     stays a best-effort safety net for happy-path stage transitions. It does not
+ *     infer the 'checks -> complete' skip on a passing check — that write belongs to
+ *     the command (see implement-state.js's recordResult() doc comment).
  *
  * Environment Variables:
  *   STATUS_HOOK_DISABLE - Set to "1" to disable (default: enabled)
@@ -50,6 +60,8 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveProjectRoot } = require('./lib/resolve-project-root');
+const implementState = require('../lib/implement-state');
+const { CYCLE_ORDER } = implementState;
 
 // TRD State directory name
 const TRD_STATE_DIR = '.trd-state';
@@ -179,6 +191,13 @@ function wasModifiedRecently(filePath, minutesAgo = 30) {
  * Update session tracking in implement.json.
  * Clears session_id to indicate subagent completion.
  *
+ * Routed through implement-state.save() (atomic temp-file + rename, ITR-B004) rather
+ * than the bare fs.writeFileSync() this used previously — implement-state.js is now the
+ * only writer of implement.json semantics, and this was the one call site in this file
+ * that hadn't already gone through that discipline. See implement-state.js's save() doc
+ * comment for why a non-atomic write here matters: this hook races the command's own
+ * writes to the same file on every SubagentStop.
+ *
  * @param {string} filePath - Path to implement.json
  * @param {Object} data - Current implement.json data
  * @returns {boolean} True if update succeeded
@@ -195,7 +214,7 @@ function clearSessionId(filePath, data) {
     data.session_id = null;
     data.last_session_completed = new Date().toISOString();
 
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    implementState.save(filePath, data);
     debugLog(`Cleared session_id in ${filePath}`);
     return true;
   } catch (error) {
@@ -205,20 +224,18 @@ function clearSessionId(filePath, data) {
 }
 
 /**
- * Cycle position progression order.
- */
-const CYCLE_ORDER = ['verify_red', 'implement', 'verify', 'simplify', 'verify_post_simplify', 'review', 'complete'];
-
-/**
- * Advance cycle_position for the single in-progress task in implement.json.
+ * Advance cycle_position for every in-progress task in implement.json.
  *
- * Safety: Only advances when exactly 1 task has status "in_progress".
- * If 0 or 2+ tasks are in_progress, skip (parallel execution or no active task).
- * Writes atomically via temp file + rename.
+ * Delegates the actual step (guards included: active-task check, active-debugging skip,
+ * unrecognized-position migration warning) to implement-state.advance(), which is scoped
+ * per taskId rather than requiring exactly one in_progress task file-wide — task-graph.js's
+ * parallel waves make "exactly one" wrong now (see this file's header comment). This hook
+ * calls advance() once per in_progress task found and persists the whole state in a single
+ * implement-state.save() if at least one of them actually moved.
  *
  * @param {string} filePath - Path to implement.json
  * @param {Object} data - Parsed implement.json data
- * @returns {boolean} True if cycle was advanced
+ * @returns {boolean} True if any task's cycle was advanced
  */
 function advanceCyclePosition(filePath, data) {
   if (!data || !data.tasks) {
@@ -230,48 +247,31 @@ function advanceCyclePosition(filePath, data) {
   const inProgressEntries = Object.entries(data.tasks)
     .filter(([, task]) => task.status === 'in_progress');
 
-  if (inProgressEntries.length !== 1) {
-    debugLog(`Found ${inProgressEntries.length} in_progress tasks, skipping cycle advance (need exactly 1)`);
+  if (inProgressEntries.length === 0) {
+    debugLog('No in_progress tasks, skipping cycle advance');
     return false;
   }
 
-  const [taskId, task] = inProgressEntries[0];
-
-  // Active-debugging guard: when the command has put the task into a DEBUG cycle
-  // (retry_count > 0 or current_problem set), do NOT advance. The command will
-  // re-dispatch verify after app-debugger completes; advancing here would skip past
-  // verify/verify_post_simplify into simplify or review, abandoning the retry.
-  if ((typeof task.retry_count === 'number' && task.retry_count > 0)
-      || (task.current_problem && String(task.current_problem).trim() !== '')) {
-    debugLog(`Task ${taskId} is mid-debug (retry_count=${task.retry_count}, problem=${!!task.current_problem}); skipping advance`);
-    return false;
+  let advancedAny = false;
+  for (const [taskId] of inProgressEntries) {
+    const result = implementState.advance(data, taskId);
+    if (result) {
+      debugLog(`Advanced task ${taskId}: ${result.from} -> ${result.to}`);
+      advancedAny = true;
+    } else {
+      debugLog(`Task ${taskId} not advanceable (mid-debug, at terminal position, or unrecognized cycle_position)`);
+    }
   }
 
-  const currentPosition = task.cycle_position || 'implement';
-  const currentIndex = CYCLE_ORDER.indexOf(currentPosition);
-
-  if (currentIndex === -1 || currentIndex >= CYCLE_ORDER.length - 1) {
-    debugLog(`Task ${taskId} at ${currentPosition}, no further advancement`);
+  if (!advancedAny) {
     return false;
   }
-
-  const nextPosition = CYCLE_ORDER[currentIndex + 1];
 
   try {
-    data.tasks[taskId].cycle_position = nextPosition;
-    data.tasks[taskId].last_advanced = new Date().toISOString();
-
-    // Atomic write: temp file + rename
-    const tmpPath = filePath + '.tmp';
-    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tmpPath, filePath);
-
-    debugLog(`Advanced task ${taskId}: ${currentPosition} -> ${nextPosition}`);
+    implementState.save(filePath, data);
     return true;
   } catch (error) {
-    debugLog(`Error advancing cycle for ${taskId}: ${error.message}`);
-    // Clean up temp file if it exists
-    try { fs.unlinkSync(filePath + '.tmp'); } catch { /* ignore */ }
+    debugLog(`Error saving after cycle advance: ${error.message}`);
     return false;
   }
 }
