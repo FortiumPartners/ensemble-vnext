@@ -717,14 +717,67 @@ describing a capability treated as proof it exists.
 it — that part holds. `ci.yml` is `on: pull_request`, which fires on every push to a PR
 branch. `/implement-trd` opens a PR at `implement-trd.md:719`, at the END of the run.
 
-**OPEN — owner decision, cannot be derived.** Automatic Claude review requires enabling a
-GitHub app or adding a review step to `ci.yml`; both are account/org actions. Until one is
-chosen there is NO path by which this framework produces an automatic Claude code review.
-The options: (a) install a Claude review app, which makes the per-phase design below work as
-written; (b) add the Claude Code GitHub Action to `ci.yml` — automatable and scaffoldable,
-but its current interface must be verified against live docs, not reconstructed from memory;
-(c) keep `coderabbitai` and decide whether governance belongs in `REVIEW.md` or a CodeRabbit
-config. **Item 8 must not assume (a).**
+**RESOLVED 2026-08-15 — interface verified against live docs**
+(`https://code.claude.com/docs/en/github-actions`). Automating review needs no change to any
+model-invocation rule, because **the CI path involves no model invocation at all** — the
+GitHub runner executes the action.
+
+Two supported routes, both real:
+
+- **(a) Code Review app** — `docs/en/code-review`: *"automatic review on every pull request,
+  without writing a workflow."* Install once; no workflow file to maintain.
+- **(b) `anthropics/claude-code-action@v1` in `ci.yml`** — a file this project fully controls
+  and can scaffold into every project it initializes. The documented review workflow:
+
+```yaml
+name: Code Review
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 1 }
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+```
+
+**`synchronize` is what makes per-phase review work** — it fires on every push to the PR
+branch. Pushing at each phase checkpoint therefore triggers a review per phase, exactly as
+designed below, with no orchestration.
+
+**CORRECTION to the per-phase design: the PR must NOT be a draft.** The docs state Claude
+skips draft and closed pull requests, pull requests it judges trivial, and any that already
+carry a Claude comment. The earlier "open a draft PR at the start" instruction would have
+produced zero reviews. Open a normal PR early instead, or mark ready at the first checkpoint
+(`ready_for_review` is a trigger type).
+
+**Two inputs are load-bearing and easy to omit:** `--comment` in the prompt (without it
+findings go only to the workflow run log, not the PR), and the `claude_args --allowedTools`
+line — the action starts the inline-comment MCP server only when `--allowedTools` names it,
+even though the skill's own frontmatter already does.
+
+**Still owner-only:** which route, and the `ANTHROPIC_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN`
+secret, which needs repo-admin access. `/install-github-app` automates route (a) plus the
+secret. Note the org caveat: an OAuth token is tied to whoever ran `claude setup-token`, so
+shared use wants an API key.
+
+**Still unverified:** item 6's claim that `REVIEW.md` is read by Code Review. This page names
+`CLAUDE.md` for project standards and does not mention `REVIEW.md`. Do not build on that
+claim until it is checked against `docs/en/code-review` directly — it is the same
+document-as-evidence pattern corrected above.
 
 **The design below is conditional on that decision.** If per-phase automated review is
 available by any of those routes, run it per phase rather than once at the end:
