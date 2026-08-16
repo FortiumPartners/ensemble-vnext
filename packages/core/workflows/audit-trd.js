@@ -95,6 +95,13 @@ Type every line by NATURE, not by section heading:
 For each, capture its ID, its statement, the source it claims (verbatim, if it names one),
 and roughly where in the document it sits.
 
+FOR EVERY TASK, ALSO CAPTURE ITS TOUCHES FILES. Grep the Task Grounding section for the
+task's ID and read the Touches line under it. Return the file paths as a list. This is what
+lets a later verifier compute, mechanically, which tasks would serialize on the same file --
+it cannot do that without this data, and reading the whole grounding section itself is
+exactly the linear read this pass exists to avoid. An empty list is a real answer: it means
+the task named no files.
+
 MANDATORY -- do not skip and do not return empty without checking. Grep the document for headings CONTAINING "Could Not Verify" and "Open Questions" --
 match loosely, because authors number them into the document's own scheme ("## 9. Open
 Questions", "## 10. Could Not Verify") and an exact "## Open Questions" match silently
@@ -141,6 +148,7 @@ BATCH YOUR READS. Grep for the tables and headings; do not read the document lin
             properties: {
               id: { type: 'string' }, description: { type: 'string' },
               serves: { type: 'string' }, section: { type: 'string' },
+              touches: { type: 'array', items: { type: 'string' }, description: 'files from this task Task Grounding block; empty list if none' },
             },
           },
         },
@@ -228,13 +236,12 @@ DECISIONS (index):
 ${DEC}
 
   - Any task whose serves is empty, or names an ID absent from the objectives/decisions?
-  - SIZING -- check the grounding blocks, not just the task table. Collect each task's
-    Touches files from the Task Grounding section. Any FILE named by two or more tasks means
-    those tasks serialize (two agents editing one file is a lost update). Report each such
+  - SIZING -- the index gives every task a touches list. Invert it: build file -> tasks.
+    Any FILE named by two or more tasks means those tasks serialize (two agents editing one file is a lost update). Report each such
     cluster unless the task rows state a size or verifiability reason for staying split.
     Splitting for parallelism that cannot happen costs an implement-loop pass per extra task.
     Measured: four tasks on one command file, two folded on review with no loss.
-  - EMPTY TOUCHES on a non-greenfield repo. A task whose grounding block names no file
+  - EMPTY TOUCHES on a non-greenfield repo. A task whose index touches list is empty
     produces no durable change. Report it unless it names where its findings land -- a probe
     document, a decision record, an added line. Measured: four such tasks in one TRD, none
     naming an output.
