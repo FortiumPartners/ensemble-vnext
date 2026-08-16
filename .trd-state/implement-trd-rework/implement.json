@@ -256,8 +256,9 @@
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": "2026-08-16T15:25:27.390972+00:00",
-      "notes": "5 of 8 items measured; agent-per-task untestable on these fixtures (see docs/modernization/runs/itr-t002-measurements.md)"
+      "completed_at": "2026-08-16T15:54:57.757070+00:00",
+      "notes": "agents-per-task measured at 1.0 on an 8-task single-phase fixture (run4); method deviates from the AC (agent-type + dispatch order, not labels \u2014 labels proven not to reach hooks). 3 items remain unmeasured, none load-bearing. See docs/modernization/runs/itr-t002-measurements.md",
+      "last_advanced": "2026-08-16T15:51:13.260Z"
     },
     "ITR-T003": {
       "description": "",
@@ -274,9 +275,9 @@
     }
   },
   "coverage": {
-    "unit": 0.0,
-    "integration": 0.0,
-    "e2e": 0.0
+    "unit": 0,
+    "integration": 0,
+    "e2e": 0
   },
   "checkpoints": [
     {
@@ -294,7 +295,7 @@
       ],
       "coverage": {
         "unit": 0.959,
-        "integration": 0.0
+        "integration": 0
       },
       "note": "Gate: full suite 30 failures vs 30-test baseline \u2014 zero NEW failures. lib/ coverage 95.9% (floor 80%)."
     },
@@ -313,7 +314,7 @@
       ],
       "coverage": {
         "unit": 0.959,
-        "integration": 0.0
+        "integration": 0
       },
       "note": "Gate: jest 30 = 30 baseline (zero new), bats 40/40, validate-init 22/22, smoke fixture parses. implement-trd.md 1466 -> 896."
     },
@@ -327,7 +328,7 @@
       ],
       "coverage": {
         "unit": 0.959,
-        "integration": 0.0
+        "integration": 0
       },
       "note": "Gate: bats 40/40, jest 30 = baseline. 1,607 lines of team commands removed; /audit-build added. KNOWN BREAK: verify-goal/SKILL.md defined itself by pointer into the deleted file; repair in flight."
     }

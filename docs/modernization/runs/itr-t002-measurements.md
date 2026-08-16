@@ -1,6 +1,6 @@
 # ITR-T002 — live measurement of the reworked `/implement-trd`
 
-Three real headless runs, 2026-08-16, against throwaway scaffolded projects under
+Four real headless runs, 2026-08-16, against throwaway scaffolded projects under
 `$CLAUDE_JOB_DIR/tmp`. Nothing under `test/smoke/` was modified.
 
 | Run | Fixture | Outcome |
@@ -8,6 +8,12 @@ Three real headless runs, 2026-08-16, against throwaway scaffolded projects unde
 | run1 | 2 phases, 3 tasks, one `Replaces` | COMMAND COMPLETE, both phases |
 | run2 | deliberately-failing phase | COMMAND STUCK |
 | run3 | two tasks colliding on `src/shared.js` | ended early, no banner |
+| run4 | **1 phase, 8 independent tasks** | COMMAND COMPLETE, 8/8 |
+
+`run4` exists because runs 1–3 could not test the rework's central claim in either
+direction: with three tasks, the fixed per-phase and per-run agent cost is roughly three
+times the per-task cost, so the ratio mostly measures fixture size. Sizing a fixture so a
+claim *can* fail is part of testing it.
 
 Every claim below is marked `[ran]` or `[read]`. **Items that could not be measured say so
 rather than carrying an inferred number** — this TRD exists because inferred numbers got
@@ -45,25 +51,56 @@ created no `package.json`, both Non-Goals of that fixture.
 `[[CX-001],[CX-002]]` for two tasks both touching `src/shared.js`. The *runtime* claim is
 separate and is not measured (see below).
 
+## The headline claim — MEASURED, and it holds
+
+**1.0 agent per task.** `run4` (`smoke-measure`, added after the first three runs proved
+unable to test this) put **eight independent tasks in one phase**, so per-task cost dominates
+the fixed floor. Result: COMMAND COMPLETE, 8/8 tasks success, all 8 modules and 8 tests
+produced, fixture `jest` 8/8 green.
+
+```
+16 agents total for 8 tasks
+   9  workflow-subagent      8 task agents (one wave) + 1
+   3  code-reviewer          end-of-run 3-lens fan-out, once per run
+   2  general-purpose
+   1  verify-app             ┐ per-phase gate
+   1  code-simplifier        ┘
+```
+
+**The dispatch order is the evidence, not the arithmetic:**
+
+```
+W W W W W W W W  verify-app  code-simplifier  W  general  code-reviewer ×3  general
+└──── 8 untyped, one wave ────┘ └──────────── gates, then end-of-run review ────────┘
+```
+
+Eight untyped agents dispatched first and together, before any typed agent appears. Gate
+agents are identifiable because `implement-phase.js` sets `agentType` explicitly; the task
+agents are untyped because this fixture's tasks carry no agent hint. Earlier I attributed
+task agents by count alone, which was inference; the ordering corroborates it independently.
+
+Against the pre-rework loop's ~5 invocations per task, these 8 tasks would have cost ~40
+agents. Fixed overhead was 8 — a floor that is paid once per phase and once per run, and so
+amortizes as task count grows. **This is why the earlier 3-task fixtures could not test the
+claim in either direction**, and why their raw ratios (5.0, 6.0, 3.0) were not evidence
+of anything except fixture size.
+
+**Deviation from the acceptance criterion, recorded rather than glossed:** the AC asks for
+the count "from `dispatch.jsonl`" via labels. Labels do not exist (see below), so the count
+comes from agent-type plus dispatch ordering. The number is measured; the method is not the
+one the AC assumed.
+
+## Measured: `opts.label` never reaches a hook
+
+Every ledger row in `run4` — written with the label-capture fix from `4f03ec2` in place —
+came back `label=None` **and** `extra=None`. The `extra` bag was built to report whatever
+unrecognised keys *do* arrive; it came back empty, which makes this a definitive negative
+rather than a failed guess. The `SubagentStart` payload carries only the known fields.
+
 ## Not measured, and why
 
-**Agent invocations per task.** The headline claim (~1 per task against a ~5 baseline) is
-**untested — neither confirmed nor refuted.** Two independent reasons:
-
-1. **The ledger cannot attribute an agent to a task.** Every agent dispatched inside a
-   workflow records `agent_type: "workflow-subagent"`, so per-task agents and per-phase gate
-   agents are indistinguishable. The acceptance criterion — *"measure agent invocations per
-   task from `dispatch.jsonl`"* — is not satisfiable as the ledger was written. Fixed in
-   `4f03ec2` (label capture + an `extra` bag that reports the real payload shape on the next
-   run); the fix cannot retroactively label these runs.
-
-2. **The fixtures are too small to carry the signal, which is my error in approving them.**
-   Raw totals were 15 agents / 3 tasks, 12 / 2, and 6 / 2 — but that metric conflates three
-   different costs. `implement-phase.js` dispatches one agent per task, *plus* three fixed
-   per-phase gate agents (`verify-app` → `code-simplifier` → review), *plus* a three-lens
-   `code-reviewer` fan-out once per run. On a 3-task fixture the fixed floor is roughly three
-   times the variable part; on a 19-task TRD it amortizes to near nothing. A fixture whose
-   per-task cost dominates is required, and does not exist yet.
+**Runtime file-collision serialization.** `run3` ended before its collision could be
+observed. Design-time serialization is confirmed (see above); the runtime half is not.
 
 **Whether only phase-level results reach orchestrator context.** Not established from the
 transcripts.
@@ -97,9 +134,11 @@ confirmed. run3 ended before its collision could be observed at runtime.
    no primitive that blocks and waits, so dispatch-then-end-turn is their only shape. This
    orchestrator misread it as an agent that had given up. Logged in the improvement plan.
 
-## What would close the gap
+## Where this leaves the rework
 
-One fixture with enough tasks per phase that per-task cost dominates the fixed floor, run
-after `4f03ec2` so the ledger carries labels. That single run answers the headline question
-and the context-isolation question together. Until then the rework's central claim is
-**plausible and unmeasured**, which is a different thing from supported.
+The central claim — ~1 agent per task — is **measured and holds at 1.0**, on a fixture built
+so the claim could fail if it were false. Fixed overhead is real but amortizes.
+
+What remains genuinely open is narrower than it was: runtime file-collision serialization,
+context isolation, and whole-phase retry. None of those is load-bearing for the rework's
+main argument, and each needs a differently-shaped fixture rather than a bigger one.
