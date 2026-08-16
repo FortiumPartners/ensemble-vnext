@@ -1054,6 +1054,41 @@ cross-session coordination point in the design, so a malformed write is precisel
 silently loses a phase. **Item 7's `lib/` is the home for a schema and validator** — it is the
 tested deterministic layer, and this is the cheapest possible thing to put in it.
 
+#### GAP FOUND 2026-08-16 — owner-only questions have no gate
+
+`/refine-* --auto` marks a question **owner-only** and leaves it in `## Open Questions`. The
+readout mentions it. **Nothing then requires it to reach the owner.** `/create-trd`,
+`/audit-*` and `/implement-trd` all run over an artifact carrying unanswered owner-only
+questions without complaint.
+
+Found by the owner asking why four owner-only questions raised in the item-10 profile run were
+never presented. The defensible answer is that they belonged to a throwaway measurement
+artifact — but the count had been cited as *evidence the mechanism works*, and that claim only
+holds if the questions actually reach a human. Raised-and-buried is theatre.
+
+On the real path the item-8 PRD's OQ-3 did reach the owner via `AskUserQuestion` — but because
+the orchestrator chose to, not because anything required it.
+
+**This is F5's shape one level up.** F5 covers "owner-only unresolved Open Questions surfaced
+before the task runs" at implement time; the gap is at every artifact handoff. A command that
+consumes an artifact carrying unanswered owner-only questions should say so before doing its
+work, and `--auto` runs should end by naming them rather than burying them in a readout.
+
+**Not yet in the PRD or TRD.** Adding a requirement after its TRD is authored means
+re-refining both; recorded here so the change is deliberate rather than a silent patch of two
+artifacts.
+
+#### OWNER DECISION OWED — `stack.md` names tools that are not installed
+
+`.claude/rules/stack.md:65-66` lists Prettier (`.prettierrc`) and ESLint (`.eslintrc`).
+Neither is installed and neither config exists — `package.json` devDependencies are exactly
+`bats`, `jest`, `js-yaml`, `mock-fs`. ShellCheck IS present.
+
+The TRD's refine pass removed both from the check battery and **declined to edit `stack.md`**,
+correctly: the Governance Split makes it owner-governed. So the divergence stands until the
+owner either installs the toolchain or corrects the file. It is recorded, not reconciled in
+either direction.
+
 #### Concurrency across TRDs — status and the shape that follows, 2026-08-16
 
 **Within a phase: solved, by construction.** Workflow scripts have no filesystem access, so
