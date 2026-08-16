@@ -1,6 +1,6 @@
 # TRD: Rework `/implement-trd` and Build the Deterministic Task Graph
 
-**Version**: 1.4.0
+**Version**: 1.5.0
 **Status**: Draft
 **Created**: 2026-08-16
 **Last Updated**: 2026-08-16
@@ -19,6 +19,7 @@
 | 1.2.0 | 2026-08-16 | OQ-1 and OQ-5 closed as **OWNER-CALL** decisions under the revised `--auto` contract: `--auto` now closes every question rather than leaving owner-territory ones open, and records the decision plus its reasoning so the owner can review and countermand. `<design_references>` points at `## 9. Task Grounding`; the team-command replacements are `/harden-build` and `/verify-build`. **No open questions remain.** | @technical-architect |
 | 1.3.0 | 2026-08-16 | ITR-B013 retired and D15 narrowed: `/verify-build` is not command-shaped. `/harden-build` survives as the whole-feature adversarial pass, distinct from the per-phase hardening agent inside `implement-phase.js`. Task count 22 -> 21. | @technical-architect |
 | 1.4.0 | 2026-08-16 | ITR-B012 narrowed to removal only and D15 emptied: F14 adds no commands. The hardening agent runs per phase inside `implement-phase.js` and once at feature scale from `/implement-trd` after the last phase. Task count unchanged at 21; ITR-B012 no longer authors a replacement. | @technical-architect |
+| 1.5.0 | 2026-08-16 | Sizing correction after the owner asked what 21 tasks consists of. **Four** tasks edited `packages/core/commands/implement-trd.md` (B005, B006, B007, B009); under this TRD's own `Touches`-gates-parallelism rule they serialize, so the split bought no parallelism and cost three extra implement-loop passes. ITR-B007 and ITR-B009 folded into ITR-B005. ITR-B006 kept separate — distinct mechanism (branch-derived resolution) with its own acceptance criteria and a larger blast radius. 21 -> 19 live tasks. | @technical-architect |
 
 ---
 
@@ -658,12 +659,12 @@ hook), `T` testing, `D` documentation/contract. `ITR` is unused elsewhere in `do
 |---------|-------------|--------|--------|--------------|---------------------|
 | ITR-B004 | Rewrite `packages/core/hooks/status.js` to import `CYCLE_ORDER` from `implement-state.js`; delete the local declaration at line 210 and the `simplify` / `verify_post_simplify` / `review` positions; update `status.test.js` to assert the import rather than restate the order. **Note `status.js` already re-exports `CYCLE_ORDER` (:411) — that export stays, now re-exporting the imported constant** | AC-F7.7, D5, R9 | `jest` | ITR-B003, ITR-B014 | `grep -c "verify_post_simplify" packages/core/hooks/status.js` returns 0; a `SubagentStop` against a state file at `checks` advances to `debug` or `complete`, never to a deleted stage; existing `status.test.js` cases for the single-in-progress and active-debugging guards still pass; mirrored to `.claude/` |
 | ITR-D001 | Create `packages/core/contracts/task-delegation.md` carrying the per-task implementer instruction set moved out of `implement-trd.md` Appendix A, with the four new elements and one correction from §3.5 | AC-F2.1, AC-F2.2, AC-F2.3, AC-F2.4, AC-F3.1, AC-F3.2, AC-F4.2, AC-F4.3, AC-F5.3, AC-F6.1, AC-F6.3, AC-F13.1, D11, D12 | | None | All three evidence markers defined; `[inferred]` carries a verify-before-relying instruction; `[ran]` named most trustworthy; the `<replaces>` deletion instruction present verbatim; `<unverified_claims>` and `<open_question>` documented as omitted-when-empty; `<design_references>` matched by heading text with no section number anywhere in the file; mirrored to `.claude/` |
-| ITR-B005 | Rework `packages/core/commands/implement-trd.md`: per-task cycle becomes IMPLEMENT → checks → [DEBUG]; call the `lib/` modules instead of describing them; **assemble each task's delegation prompt and the gate prompts, and pass them in `args`** (§3.4 — the workflow cannot read files); delegate one phase per `Workflow` call; run the phase-gate check battery (D9) in the command itself; move the delegation template out to `task-delegation.md`; retain orchestration only; keep DISPATCHED / RESUMED / COMMAND COMPLETE banners | AC-F1.3, AC-F7.1, AC-F7.2, AC-F7.3, AC-F7.4, AC-F7.5, AC-F13.2, AC-F13.3, AC-F16.1, G6, NFR-3, D6, D8, D9, D12 | | ITR-B002, ITR-B003, ITR-B004, ITR-D001 | `verify-app`, `code-simplifier` and `code-reviewer` appear nowhere in the per-task loop; the phase-gate battery — **targeted `npx jest`, `npm run smoke`, `shellcheck` on changed shell; no ESLint, no Prettier, no typecheck, because none is installed here (D9)** — runs without spawning an agent; the `Workflow(…)` call passes assembled prompt text, and no `args` field is a path the workflow would have to open; the file remains a command (YAML frontmatter, not a `.js` workflow); `wc -l` shows 400–600 lines lost from the 1466-line baseline; all **seven** `notify-on-complete.test.sh` assertions against this file still pass — `implement-trd` is in every one of the seven hard-coded arrays (`notify-complete.sh` call with `implement-trd` as first arg, absence of the legacy inline form, `.claude/` mirror in sync, `Autonomous-execution discipline` block, `HEDGED OFFERS ARE STILL OFFERS`, `doubly enforced`); banners present and COMMAND COMPLETE is the last line; mirrored to `.claude/` |
+| ITR-B005 | **Widened v1.5.0 (absorbs ITR-B007, ITR-B009).** Rework `packages/core/commands/implement-trd.md` as one edit: per-task cycle becomes IMPLEMENT → checks → [DEBUG]; call the `lib/` modules; route parsed `## Could Not Verify` rows and owner-only `## Open Questions` into the per-task delegation; add the end-of-run full-branch `/code-review high` after the last phase | AC-F7.1, AC-F7.4, AC-F4.1, AC-F5.1, AC-F8.3 | | ITR-B003, ITR-D001 | All four behaviours land in one file; per-task cycle shows IMPLEMENT → checks → [DEBUG] only; CNV rows and unresolved owner-only questions reach the implementer prompt; the end-of-run review runs after the final phase; `.claude/` mirror synced |
 | ITR-B015 | **NEW v1.1.0.** Rework the smoke fixture in the **same phase** as ITR-B005: convert `smoke_write_trd()`'s bullet-list Master Task List to the table form `trd-authoring.md` mandates, and replace `implement-one-task.sh`'s hard `verify-app` assertion with one that matches the reworked loop | AC-F1.7, AC-F7.3, AC-F7.5, AC-N8, NFR-8, D2 | | ITR-B001, ITR-B005 | `smoke_write_trd()` emits a Master Task List table that `trd-parser.js` parses to exactly one task; `implement-one-task.sh:96–99`'s `smoke_agent_invoked "$SESSION_FILE" "verify-app"` / `assert_fail_raw` pair no longer asserts a per-task `verify-app` invocation; `npm run smoke` is green **on the same commit as ITR-B005**, not a phase later; the scenario still asserts an implementer agent, the banner tail, the artifact, `implement.json` fields and the branch |
 | ITR-B006 | Implement branch-derived active-TRD resolution per §3.6 in `implement-trd.md`; remove all three `current.json` reads; remove `active_sessions` from `packages/core/templates/trd-state/implement.json.template` and from **all nine** sites under `packages/core/` | AC-F11.1, AC-F11.2, AC-F11.3, AC-F11.4, G5, D13 | | ITR-B003 | `grep -c "current.json" packages/core/commands/implement-trd.md` returns 0 (baseline exactly 3 [ran]); `grep -rc active_sessions packages/core/` returns 0 across all nine baseline sites — `implement-trd.md` ×4, `harden-trd-team.md` ×2, `verify-trd-team.md` ×2, template ×1; a run on a branch matching either documented pattern resolves without `current.json` present; an explicit path argument overrides (AC-F11.2); removal tolerates both on-disk shapes — three `implement.json` files carry `active_sessions: {}` and `runtime-refresh/implement.json` has no such key; `notify-complete.sh`'s own `current.json` read is **left intact** (notification metadata, not TRD resolution — `notify-on-complete.test.sh:127` tests it); mirrored to `.claude/` |
-| ITR-B007 | Route the parsed `## Could Not Verify` rows and owner-only unresolved `## Open Questions` to the tasks they touch, and surface a covered task's Open Question in the DISPATCHED banner before dispatch — informationally, without an `AskUserQuestion` | AC-F4.1, AC-F5.1, AC-F5.2, NFR-2 | | ITR-B001, ITR-B005, ITR-D001 | A task whose grounding names a file cited in a Could Not Verify row receives that row; a task with no relevant rows receives no `<unverified_claims>` element; the Open Question appears in the banner before the dispatch that covers it; no `AskUserQuestion` outside `autonomy.md`'s four cases |
+| ~~ITR-B007~~ | ~~absorbed into ITR-B005 v1.5.0~~ | — | | — | **Folded.** It edits `implement-trd.md`, which ITR-B005 already rewrites. `Touches` overlap means it serialized behind B005 anyway, so the split bought no parallelism and cost a full implement-loop pass. |
 | ITR-B008 | Build `packages/core/workflows/implement-phase.js` per §3.4 — parameterized by `{trd, phase, tasks, gate, project}`, `parallel()` over waves with **thunks**, sequential `await` between waves (D7), phase gate per ITR-P003's verdict, returning a phase result | AC-F7.3, AC-F7.4, AC-F8.3, AC-F8.4, AC-F16.2, AC-F16.3, AC-F16.4, AC-F16.5, AC-F16.7, AC-N4, AC-N9, NFR-4, NFR-9, D6, D7, D10 | | ITR-P002, ITR-P003, ITR-B002, ITR-D001 | Exactly one such script exists and is never generated per phase; **the script opens no file, runs no shell, calls no `git`, and uses no `Date.now()` / `Math.random()` / argless `new Date()`** — every input arrives in `args` and the runtime forbids the rest; `pipeline()` is not used and D7's reason is stated in a comment; the review agent's prompt names the phase diff range, not the branch; the return value contains no per-task agent output (AC-F16.7); it carries `audit-trd.js`'s `readArgs`/`required` guards and its dead-agent accounting; where ITR-P003 returned a negative, the code takes the recorded branch and says so in a comment; mirrored to `.claude/` |
-| ITR-B009 | Add the end-of-run full-branch `/code-review high` to `implement-trd.md`, after the last phase and before PR creation (today at `implement-trd.md:719`); assert no `ultra` tier is invoked anywhere in the reworked surface | AC-F8.5, AC-F8.7, D10 | | ITR-B005, ITR-P002 | One `/code-review high` over `main...<branch>` at end of run; `grep -rn "ultra" ` over the reworked command, contract and workflow returns nothing invoking that tier; mirrored to `.claude/` |
+| ~~ITR-B009~~ | ~~absorbed into ITR-B005 v1.5.0~~ | — | | — | **Folded.** It edits `implement-trd.md`, which ITR-B005 already rewrites. `Touches` overlap means it serialized behind B005 anyway, so the split bought no parallelism and cost a full implement-loop pass. |
 | ITR-B010 | Remove `code-reviewer` from the per-task loop across all ten referencing files under `packages/core/`, keeping the agent itself on disk; reconcile `scripts/validate-init.sh` and `scripts/validate-init.test.sh` so scaffolding neither asserts a stale expectation nor drops the agent | AC-F9.1, AC-F9.3, D16, D17, R8 | | ITR-B005 | All ten files assessed with a per-file verdict; `code-reviewer.md` still ships and `validate-init.sh:125` still passes; `harden-trd-team.md` and `fix-issue.md` no longer place it in a per-task loop; `vendoring.test.sh` green |
 
 ### 4.4 Phase 3: `/audit-build` and the team-command replacements
@@ -747,11 +748,13 @@ a fixture rework required for the phase gate to be green at all, not a test task
 - Can parallelize with: 2A (touches no file 2A touches)
 
 **Session 2C: Command and workflow**
-- Tasks: ITR-B005 → ITR-B007, ITR-B008, ITR-B009, ITR-B010, ITR-B015
+- Tasks: ITR-B005 → ITR-B008, ITR-B010, ITR-B015
 - Agent: @agent-implementer
-- Blocked by: 2A, 2B, and ITR-P002 / ITR-P003. ITR-B005, ITR-B007 and ITR-B009 all edit
-  `implement-trd.md`, so the `Touches` partition serializes them regardless of the dependency
-  graph — this is the D3 conflict edge doing its job.
+- Blocked by: 2A, 2B, and ITR-P002 / ITR-P003.
+- **v1.5.0:** ITR-B007 and ITR-B009 were folded into ITR-B005. The `Touches` partition had
+  already serialized all three on `implement-trd.md` — the D3 conflict edge doing its job — so
+  the split bought no parallelism and cost two extra implement-loop passes. Serializing coupled
+  tasks is correct; keeping them separate once serialized is not.
 - **ITR-B015 must land on the same commit as ITR-B005.** `implement-one-task.sh` is in
   `run-smoke.sh:103`'s default scenario set and hard-asserts a per-task `verify-app`
   invocation, so the moment ITR-B005 removes `verify-app` from the loop, `npm run smoke` goes
@@ -1350,23 +1353,10 @@ convenience beside them and rot on the first edit.
     `current.json` read is **out of scope** for D13 (it is notification metadata, not TRD
     resolution) — do not delete it while removing the command's reads.
 
-### ITR-B007 — route Could Not Verify + owner-only Open Questions to tasks
+### ~~ITR-B007~~ — folded into ITR-B005 (v1.5.0)
 
-- **Touches:** `packages/core/commands/implement-trd.md` (dispatch/banner path),
-  `packages/core/contracts/task-delegation.md` (the elements), `.claude/` mirrors.
-- **Reuse:** `trd-parser.js`'s `couldNotVerify` / `openQuestions` output (ITR-B001). Do not
-  re-grep the TRD from the command.
-- **Replaces:** nothing — these elements do not exist today (`grep` for `unverified_claims` /
-  `open_question` in `packages/core/` returns nothing) [ran].
-- **Follow:** the loose-heading rationale is already written and cited in `audit-trd.js`'s CNV
-  stage — *"grep ${TRD} for `## Could Not Verify` and read what is actually there. Do NOT rely
-  on the index"* (:311-330), including the recorded failure where an index returned an empty
-  list for a section with four populated rows [read]. Same hazard applies to routing.
-- **Careful:** this TRD's own `## Could Not Verify` and `## Open Questions` headings carry **no
-  section number** (:873, :887) while `## 8. Non-Goals` (:844) does [read] — which is exactly
-  why §3.1 mandates loose matching. `_workflow-test-stop-hook.md` places its open-questions
-  content in a table *inside* the grounding preamble, not under a `## Open Questions` heading
-  [read]; absence must be handled, not assumed.
+> Routing `## Could Not Verify` and owner-only `## Open Questions` into the per-task prompt is now part of
+> ITR-B005's single edit to `implement-trd.md`. See that task's grounding block.
 
 ### ITR-B008 — `packages/core/workflows/implement-phase.js`
 
@@ -1405,19 +1395,10 @@ convenience beside them and rot on the first edit.
   - `verify-app` declares `background: true` and `disallowedTools: Agent` in its frontmatter
     [read `.claude/agents/verify-app.md`], so it cannot fan out further from inside the gate.
 
-### ITR-B009 — end-of-run full-branch review
+### ~~ITR-B009~~ — folded into ITR-B005 (v1.5.0)
 
-- **Touches:** `packages/core/commands/implement-trd.md`, `.claude/commands/implement-trd.md`.
-- **Reuse:** the existing completion block already prints the exact diff range —
-  `1. Review changes: git diff main...{branch_name}` (:718), immediately above
-  `2. Create PR: gh pr create --title "{TRD title}"` (:719) [read]. That is the insertion point
-  the task names, and it is accurate.
-- **Replaces:** nothing; this is an addition inside `## Step 7: Completion` (:677).
-- **Follow:** `## Step 7`'s fenced report block ends with `<promise>COMPLETE</promise>` for
-  Wiggum mode (:725) [read] — the review must run before that, not after.
-- **Careful:** `grep -rn "ultra"` over `packages/core/` currently returns nothing in the command,
-  contract or workflow surface [ran], so AC-F8.7's assertion starts satisfied; the risk is
-  reintroduction, not removal.
+> The end-of-run full-branch `/code-review high` is now part of
+> ITR-B005's single edit to `implement-trd.md`. See that task's grounding block.
 
 ### ITR-B010 — remove `code-reviewer` from the per-task loop
 
