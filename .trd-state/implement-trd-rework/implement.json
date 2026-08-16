@@ -122,15 +122,16 @@
     "ITR-D001": {
       "description": "",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
-      "implementer_type": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "technical-architect",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T11:14:48.664420+00:00",
+      "evidence": "packages/core/contracts/task-delegation.md, 2939 tokens (under trd-authoring 7601 / prd-authoring 3493). All three TRD-required additions present: evidence-marker key with per-marker trust levels, <replaces> as an explicit DELETE instruction with rationale and a deliverable naming what was deleted, and Could Not Verify / Open Questions routing. Scope-discipline and non-goals blocks retained. Delivery verified by temp-dir scaffold, not by symlink existence."
     },
     "ITR-B005": {
       "description": "",
@@ -297,7 +298,7 @@
   },
   "metrics": {
     "total_tasks": 19,
-    "completed_tasks": 7,
+    "completed_tasks": 8,
     "failed_tasks": 0,
     "total_retries": 0
   },
