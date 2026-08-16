@@ -529,6 +529,12 @@ remain.
 > project's Quality Gates, Definition of Done and prohibited-pattern table reach the reviewer
 > doing the work. It is no longer one improvement among several — item 8's review design does
 > not function without it.
+>
+> **Qualified 2026-08-15:** `REVIEW.md` only pays off if a reviewer that reads it is actually
+> enabled on the repo. Verified: none is today — no Claude review app in `.github/`, and the
+> one existing PR was reviewed by `coderabbitai`. Ship `REVIEW.md` regardless (it costs
+> little and is mostly relocating constitution content), but the enablement decision in item
+> 8 is what determines whether anything consumes it.
 
 The highest value per line of work on the list. `REVIEW.md` is read by Anthropic's Code Review and
 injected into *every agent in the review pipeline as the highest-priority instruction block* — the docs
@@ -699,9 +705,29 @@ it is *"a poor substitute for the built in one — not nearly as effective."* Re
 (the earlier item-6 proposal) is not enough; the loop should not be spending an agent per
 task on a job something else does better.
 
-**The built-in reviewer runs per phase, not once at the end.** `/code-review` is marked
-`disable-model-invocation` so no command can call it — but Anthropic's Code Review runs on
-GitHub PRs, and `ci.yml` is `on: pull_request`, which fires on every push to the PR branch.
+**CORRECTED 2026-08-15 — the premise below was not verified when first written.** The
+original text asserted that Anthropic's Code Review runs on this repo's PRs, sourcing that
+to item 6's description of `REVIEW.md`. That is a design document describing a product, not
+evidence the product is wired here. Checked afterwards: there is **no Claude review action or
+app in `.github/`**, and the repository's only PR to date was reviewed by **`coderabbitai`**.
+This is the same failure the item-10 profile measured (`sanitize_error_detail()`): a document
+describing a capability treated as proof it exists.
+
+**What is verified:** `/code-review` is `disable-model-invocation`, so no command can invoke
+it — that part holds. `ci.yml` is `on: pull_request`, which fires on every push to a PR
+branch. `/implement-trd` opens a PR at `implement-trd.md:719`, at the END of the run.
+
+**OPEN — owner decision, cannot be derived.** Automatic Claude review requires enabling a
+GitHub app or adding a review step to `ci.yml`; both are account/org actions. Until one is
+chosen there is NO path by which this framework produces an automatic Claude code review.
+The options: (a) install a Claude review app, which makes the per-phase design below work as
+written; (b) add the Claude Code GitHub Action to `ci.yml` — automatable and scaffoldable,
+but its current interface must be verified against live docs, not reconstructed from memory;
+(c) keep `coderabbitai` and decide whether governance belongs in `REVIEW.md` or a CodeRabbit
+config. **Item 8 must not assume (a).**
+
+**The design below is conditional on that decision.** If per-phase automated review is
+available by any of those routes, run it per phase rather than once at the end:
 `/implement-trd` already opens a PR (`implement-trd.md:719`) — but at the END, so today
 exactly one review happens, after all the work is done, when findings cost the most to act
 on.
