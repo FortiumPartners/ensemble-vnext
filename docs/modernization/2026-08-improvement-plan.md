@@ -803,13 +803,25 @@ section's history:
 
 | Tier | Fan-out? | Can Claude start it? | Billing |
 |---|---|---|---|
-| local `/code-review` | **No** — one background subagent, *"depth scales with the effort argument"* | **Yes — verified empirically 2026-08-15** | normal plan usage |
+| local `/code-review` | **YES — measured at 7 agents** (parent + 6 children, `dispatch.jsonl` 2026-08-16 04:08–04:11) | **Yes — verified empirically** | normal plan usage |
 | `/code-review ultra` | **Yes** — *"multi-agent fleet with independent verification"* | **NO** — *"Claude doesn't start an ultrareview on its own"* | 3 free (Pro/Max), then $5–25 credits |
 | managed Code Review | **Yes** — *"fleet of specialized agents… then a verification step"* | n/a — automatic on PRs | Team/Enterprise only, $15–25 credits |
 
-**The fan-out review with independent verification — the one worth having before a merge —
-cannot be started by a model in-session, at any effort level.** Only the local single-agent
-review can. So the CI route is NOT optional after all; it is the only way to automate fan-out.
+**CORRECTED 2026-08-16 — the local review DOES fan out.** An earlier revision of this section
+claimed it was a single agent, reading *"runs as a background subagent with its own context
+window"* as a statement about its internals. That phrase describes the launch wrapper. The
+dispatch ledger settles it: one `/code-review` run at default effort produced a parent plus
+**six** child agents. The ultrareview docs say ultra uses *"a **larger** fleet"* — comparative,
+not fleet-versus-none.
+
+**So the free, model-startable tier is already a fan-out review**, and it found 14 real
+defects in 1,495 lines of this project's own workflow code, including two that surviving a
+full end-to-end run on two codebases had not surfaced.
+
+What `ultra` still adds over it: a larger fleet, **independent reproduction and verification
+of every finding**, and a cloud sandbox that leaves local resources free. That is a
+confidence and scale difference, not a fan-out difference — and it is worth paying for
+pre-merge, not per phase.
 
 **`claude ultrareview` is the automation seam.** The subcommand *"launches the same review as
 `/code-review ultra`, blocks until the remote review finishes, and prints the findings to
