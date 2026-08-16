@@ -148,8 +148,9 @@ your-project/
 |   |   |-- refine-prd.md
 |   |   |-- refine-trd.md
 |   |   |-- implement-trd.md
-|   |   |-- harden-trd-team.md
-|   |   |-- verify-trd-team.md
+|   |   |-- audit-build.md
+|   |   |-- audit-prd.md
+|   |   |-- audit-trd.md
 |   |   |-- investigate-issue.md
 |   |   |-- fix-issue.md
 |   |   |-- fold-prompt.md
@@ -284,9 +285,8 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 |---------|-------|--------|
 | `/create-trd` | Approved PRD | `docs/TRD/<feature>.md` |
 | `/refine-trd` | Existing TRD + feedback | Updated TRD |
-| `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking |
-| `/harden-trd-team` | Implemented TRD | Gap/edge-case/regression hardening via parallel teammates |
-| `/verify-trd-team` | Implemented TRD | Live verification (API/UI/integration) that the feature actually works |
+| `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking; per-phase gate includes adversarial hardening and, for `[LIVE]` tasks, live verification; a feature-scale hardening pass runs after the last phase |
+| `/audit-build` | Implemented TRD + PRD | Verification (matches TRD), validation (matches PRD), traceability (implementation AND test per requirement) report |
 
 #### Issue Triage & Fixes
 
@@ -304,25 +304,29 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 | `--wiggum` | Enable autonomous mode |
 | `--resume` / `--continue` | Resume from last checkpoint |
 
-### The Three-Pass Workflow
+### The Implementation Workflow
 
-The recommended approach is to run three commands in sequence, each in a fresh `--dangerously-skip-permissions` session:
+Through 4.1.15 this was a three-pass workflow — `/implement-trd`, then `/harden-trd-team`,
+then `/verify-trd-team`, each a fresh `--dangerously-skip-permissions` session. Both team
+commands were removed in 4.1.16 (ITR-B012); their jobs run inside `/implement-trd`'s own
+loop instead, and `/audit-build` runs afterward:
 
-| Pass | Command | Focus | What Happens |
+| Stage | Command | Focus | What Happens |
 |------|---------|-------|-------------|
-| **Pass 1** | `/implement-trd` | Build reference implementation | TDD-based: tests first, code second. Meet acceptance criteria. |
-| **Pass 2** | `/harden-trd-team` | Harden | Edge cases, error handling, robustness against reference, via parallel teammates. |
-| *(Optional)* | — | *CI/Reviewer pipeline* | *Automated quality/coverage/security assessment between passes.* |
-| **Pass 3** | `/verify-trd-team` | Validate against PRD | Live testing against original requirements. True definition of done. |
-| **Human** | — | Debug and finish | Developer steps in for remaining ~5-15% of nuanced work. |
+| **Build + harden + verify** | `/implement-trd` | Per-phase implementation | TDD-based: tests first, code second, meet acceptance criteria; each phase gate runs an adversarial hardening fan-out and (for `[LIVE]` tasks) live verification; the last phase adds one more hardening pass at feature scale. |
+| *(Optional)* | — | *CI/Reviewer pipeline* | *Automated quality/coverage/security assessment on top of what `/implement-trd` produced.* |
+| **Audit** | `/audit-build` | Validate against PRD, verify against TRD, check traceability | Confirms the delivered code matches the TRD's tasks and the PRD's requirements, and that every requirement carries both an implementation and a test. True definition of done. |
+| **Human** | — | Debug and finish | Developer steps in for remaining ~5-15% of nuanced work, guided by the audit report. |
 
-Between each pass, run `/fold-prompt`, exit, and restart Claude Code for fresh context.
+For long-running implementations, run `/fold-prompt`, exit, and restart Claude Code
+between phases for fresh context.
 
-See [Concepts: The Three-Pass Approach](./CONCEPTS.md#phase-3-implementation-the-three-pass-approach) for the full rationale.
+See [Concepts: Implementation](./CONCEPTS.md#phase-3-implementation) for the full rationale,
+including why this used to be three separate commands.
 
 ### The Staged Execution Loop
 
-Within each pass, `/implement-trd` follows a strict cycle for each task:
+Per phase, `/implement-trd` follows a strict cycle for each task:
 
 ```
 IMPLEMENT --> VERIFY --> [DEBUG if fail] --> SIMPLIFY --> VERIFY --> REVIEW --> COMPLETE

@@ -30,7 +30,7 @@ small, low-risk changes.
 - Built-in verification against reproduction steps (not just unit tests)
 - Uses a team only when 2+ tasks exist; single-agent for 1 task
 - Max 2 debug retries (not 3) — small fixes shouldn't need deep debugging
-- Automatic verification run at the end (no separate /verify-trd-team needed)
+- Automatic verification run at the end (no separate verification pass needed)
 
 ## User Input
 

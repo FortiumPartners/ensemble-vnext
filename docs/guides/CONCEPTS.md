@@ -175,61 +175,59 @@ Quit + Restart  -------->  Fresh context for next iteration
 - Execution plan with phases and work sessions
 - Testing strategy and quality requirements
 
-### Phase 3: Implementation (The Three-Pass Approach)
+### Phase 3: Implementation
 
-A single implementation pass rarely produces production-ready code -- just as a single draft rarely produces a publishable document. Ensemble's recommended workflow runs three commands in sequence, each pass with a different focus. Each pass runs in its own Claude Code session with `--dangerously-skip-permissions` for uninterrupted execution.
+A single implementation pass rarely produces production-ready code -- just as a single draft rarely produces a publishable document. Ensemble used to run this as three separate commands, each in its own session (`/implement-trd`, then `/harden-trd-team`, then `/verify-trd-team`). As of 4.1.16 those two team commands are gone, and the work they did runs *inside* `/implement-trd` instead — one command, one session, still `--dangerously-skip-permissions` for uninterrupted execution.
 
-**Why three passes?** Each pass operates against an increasingly complete codebase. The first pass creates the skeleton. The second pass strengthens it. The third pass validates it against the original requirements. This mirrors how experienced engineers naturally iterate, but at machine speed.
+**Why fold the passes into one loop?** The three-pass split existed because each pass needed an increasingly complete codebase to work against: skeleton, then hardening, then live validation. That's still true — but it turned out those checkpoints line up with phase boundaries `/implement-trd` already tracks, so there was no need for a human to manually launch a second and third session at the right moment. The command now inserts the hardening pass and the live-verification gate at the point in its own loop where the codebase is ready for them.
 
-#### Pass 1: Build the Reference Implementation
+#### Per-phase loop
 
-```bash
-claude --dangerously-skip-permissions
-> /implement-trd
-```
-
-Focus: TDD-based implementation meeting acceptance criteria. Tests first, code second. The goal is a working skeleton that satisfies the TRD's task list with passing tests.
-
-#### Pass 2: Harden Against the Reference
-
-```bash
-claude --dangerously-skip-permissions
-> /harden-trd-team
-```
-
-Focus: Edge cases, error handling, robustness. The framework now has a reference implementation to harden against. This pass closes gaps, handles failure modes, and refines the code that Pass 1 built, using parallel teammates.
-
-**(Optional: CI/Reviewer Pipeline)** Between passes 2 and 3, run your CI/CD and code review pipeline. Let automated tools assess coverage, quality, and security requirements. Feed any findings back into the TRD or CLAUDE.md before Pass 3.
-
-#### Pass 3: Validate Against the Original PRD
-
-```bash
-claude --dangerously-skip-permissions
-> /verify-trd-team
-```
-
-Focus: Live testing against the original PRD's acceptance criteria and definition of done. This pass ensures the implementation actually delivers what was requested, not just what was technically specified.
-
-#### After Three Passes: Human Finishes
-
-After three passes, the human developer steps in to debug remaining issues and get the feature over the finish line. At this point, the code is substantially complete -- typically 85-95% -- and the remaining work is the kind of nuanced problem-solving that humans still do best.
-
-Within each pass, `/implement-trd` executes a staged loop for every task:
+For every phase, and for every task within it:
 
 ```
 IMPLEMENT --> VERIFY --> [DEBUG if fail] --> SIMPLIFY --> VERIFY --> REVIEW
 ```
 
-For each task in the TRD:
 1. The appropriate specialist agent implements the task
 2. `verify-app` runs tests
 3. If tests fail, `app-debugger` investigates (up to 3 retries)
 4. `code-simplifier` refactors for clarity
-5. `code-reviewer` checks for security and quality
+5. `code-reviewer` checks for security and quality (phase-scoped review)
+
+Each phase's gate (`implement-phase.js`) runs a `parallel()` verifier fan-out over that
+phase's tasks — this is the adversarial "does the code hold up to scrutiny" check that used
+to be `/harden-trd-team`'s job, now scoped to what just landed rather than run separately
+after the fact. Any task marked `[LIVE]` in the TRD (or a TRD whose `verification_level` is
+`live-required`/`e2e-required`) is verified against a running instance, not mocks — this is
+the E2E gate that used to be `/verify-trd-team`'s job.
+
+#### Feature-scale hardening pass
+
+After the last phase's checkpoint and before the end-of-run review, `/implement-trd` runs
+the same hardening agent once more, at feature scale — a lens no single phase's review could
+apply, because interaction risk *between* phases only exists once every phase is assembled.
+This is the "once more, but for the whole feature" half of what `/harden-trd-team` used to
+do as a standalone pass.
+
+#### After the run: `/audit-build`
+
+`/implement-trd` finishing does not mean the feature is verified against its source
+documents. Run `/audit-build` afterward for post-implementation verification (does the code
+match the TRD's tasks?), validation (does it match the PRD's requirements?), and
+traceability (does every requirement have both an implementation AND a test proving it?).
+A requirement with code and no test is a **gap**, not a pass — that's the check nothing
+else in this pipeline performs.
+
+#### Human Finishes
+
+At this point the code is substantially complete -- typically 85-95% -- and the remaining
+work is the kind of nuanced problem-solving that humans still do best: debugging what
+`/audit-build` surfaced, and final acceptance.
 
 ### Phase 4: Fold and Restart
 
-Between each pass (and at the end), fold learnings and restart:
+Between phases of a long-running implementation (and at the end), fold learnings and restart:
 
 ```bash
 /fold-prompt     # Capture learnings into CLAUDE.md
@@ -267,11 +265,28 @@ Instead of one bloated conversation trying to handle everything, Ensemble mainta
 
 ### Team Execution and Parallel Operation
 
-The team variants (`/harden-trd-team`, `/verify-trd-team`) take the sub-agent pattern further by running multiple specialists concurrently. Instead of sequential task execution, team mode spawns teammates directly (`Agent({subagent_type, name, prompt})`) that work on independent tasks simultaneously — a team forms automatically on the first spawn, with no setup or teardown step.
+Ensemble used to have two commands (`/harden-trd-team`, `/verify-trd-team`) that took the
+sub-agent pattern further by running multiple specialists concurrently as agent-team
+teammates spawned directly (`Agent({subagent_type, name, prompt})`) — a team forms
+automatically on the first spawn, with no setup or teardown step. Both were removed in
+4.1.16 (ITR-B012); their jobs did not disappear, they moved *inside* `/implement-trd`'s
+own loop (see [Phase 3: Implementation](#phase-3-implementation)).
 
-This is what makes the air traffic controller model concrete: you launch a team session with `--dangerously-skip-permissions`, and multiple agents work in parallel -- just as multiple aircraft fly simultaneously under ATC coordination. The `wiggum` hook monitors progress and manages session lifecycle. The `status` hook tracks which tasks complete and which need attention.
+**Why fold parallel teams into the loop instead of keeping them as standalone commands?**
+The team commands existed to run an entire phase's worth of independent hardening/verification
+work concurrently. But `/implement-trd` already knows when a phase's tasks are done — it's
+the one holding the phase boundary — so the natural place for that fan-out is the phase gate
+itself, not a second command a human has to remember to launch afterward. `implement-phase.js`
+now runs the hardening agent as a `parallel()` verifier fan-out at that gate, per phase, and
+`/implement-trd` runs it once more at feature scale after the last phase. No standalone
+replacement command was created for either job — a command adds nothing either job needs, and
+`/implement-trd` was already the right place to reach concurrently-eligible work. (This is
+a deliberate design decision, recorded as D15 in `docs/TRD/implement-trd-rework.md` — revisit
+only if hardening code the loop did not build becomes routine; today `/code-review high`
+covers that case.)
 
-The tradeoff is API cost for speed and breadth. A single `/implement-trd` session processes tasks sequentially; `/harden-trd-team` and `/verify-trd-team` can process an entire phase's worth of independent tasks concurrently via parallel teammates.
+The `wiggum` hook still monitors progress and manages session lifecycle across the whole
+run; the `status` hook still tracks which tasks complete and which need attention.
 
 ### The 13 Specialist Agents
 
@@ -302,15 +317,15 @@ The boundary has shifted further toward AI autonomy than most engineers initiall
 ### Human Responsibilities
 
 - **Before execution:** Define intent, goals, and constraints. Review and approve PRD and TRD.
-- **Between passes:** Review results, adjust plan, run CI/reviewer pipelines. Course-correct.
-- **After three passes:** Debug remaining issues. Final testing and acceptance.
+- **Between phases (for long runs):** Review progress via `/fold-prompt`, adjust plan, run CI/reviewer pipelines. Course-correct.
+- **After the run:** Debug what `/audit-build` surfaced. Final testing and acceptance.
 - **Always:** Make risk and priority decisions. Approve PRs and releases. Maintain team standards.
 
 ### AI Responsibilities
 
 - Draft PRDs from requirements
 - Generate TRDs with architecture, task breakdown, and execution plans
-- Implement all tasks from TRDs across three passes (TDD, hardening, validation)
+- Implement all tasks from TRDs, phase by phase, including in-loop hardening and live verification
 - Write and run tests based on acceptance criteria
 - Debug test failures (up to 3 retries per task)
 - Refactor for clarity and review for security
@@ -365,24 +380,23 @@ Use `--resume` or `--continue` with `/implement-trd` to pick up where you left o
 
 ---
 
-## Team Variants
+## Where Agent Teams Still Run
 
-For complex features that benefit from parallel work, Ensemble offers team variants of the requirements commands:
+Ensemble no longer has standalone "team variant" commands for implementation. Through
+4.1.15, `/harden-trd-team` and `/verify-trd-team` ran *after* `/implement-trd` as separate
+sessions that spawned parallel teammates for hardening and live verification. Both were
+removed in 4.1.16 (see [Team Execution and Parallel Operation](#team-execution-and-parallel-operation)
+above for why, and where their jobs live now — inside `/implement-trd`'s own phase gate and
+feature-scale hardening pass).
 
-| Standard | Team Variant | Difference |
-|----------|-------------|------------|
+Agent teams (`Agent({subagent_type, name, prompt})`, forming automatically on first spawn,
+no setup/teardown step) are still used where a command's own work genuinely fans out into
+independent pieces within a single session:
 
-Implementation is a single sequential command (`/implement-trd` — see plan item 7/8 for a
-future task-graph-driven parallel mode). Two team commands operate *after* an
-implementation pass, using parallel teammates:
+| Command | Team use |
+|---------|----------|
+| `/fix-issue` | Spawns one teammate per task (or group of related tasks) when an issue TRD has 2+ tasks; runs single-agent for 1 task |
 
-| Command | Purpose |
-|---------|---------|
-| `/harden-trd-team` | Hardening pass — closes gaps, edge cases, contract/interaction risks, and regressions against an implemented TRD |
-| `/verify-trd-team` | Live verification pass — confirms the feature actually works via API, UI, and service-integration testing |
-
-These map onto the three-pass workflow: `/implement-trd` for the build pass, `/harden-trd-team` for hardening, and `/verify-trd-team` for validation against the PRD.
-
-Team variants use Claude Code's agent teams feature to run multiple specialists simultaneously, trading API cost for speed and breadth of analysis. Teammates spawn directly via `Agent({subagent_type, name, prompt})` — a team forms automatically on the first spawn, with no setup or teardown step. Teammate `SendMessage` auto-delivery reliably re-invokes the orchestrating session as new turns; commands additionally pair each spawn with a recommended (not mandatory) `ScheduleWakeup` safety-net (see `.claude/rules/async-discipline.md`).
-
-**`/harden-trd-team` and `/verify-trd-team` are the recommended commands for passes 2 and 3 of the three-pass workflow.** They launch parallel teammate sessions for independent tasks within each phase, significantly reducing wall-clock time compared to sequential execution. Combined with `--dangerously-skip-permissions`, a full pass can run unattended while you work on other things -- the air traffic controller model in practice.
+Teammate `SendMessage` auto-delivery reliably re-invokes the orchestrating session as new
+turns; commands pair each spawn with a recommended (not mandatory) `ScheduleWakeup`
+safety-net (see `.claude/rules/async-discipline.md`).
