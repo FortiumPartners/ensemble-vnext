@@ -52,6 +52,18 @@ There is exactly one legitimate escape valve, and it applies to judgment (a) onl
   `ScheduleWakeup` is, so this is genuinely possible and genuinely legitimate. If
   `background_tasks` is populated, allow a deferral claim it plausibly explains.
 
+**NON-EMPTY IS NOT ENOUGH — the entry must plausibly BE what the message is waiting on.**
+`background_tasks` accumulates and carries no timestamp or completion marker, so it cannot be
+read as a live-process list. Measured 2026-08-16 in this project: a session whose own dispatch
+ledger showed **2 open agents** was handed a `background_tasks` array of **49**. Treated as a
+boolean, this valve stays open for the rest of any session that ever dispatched background
+work, and every later deferral claim passes regardless of truth.
+
+So do not count entries — ask whether one CORRESPONDS to the claim. A message naming a
+specific nested agent or task that matches an entry: allow. A message claiming its own work
+is still running while every entry is unrelated: block. A message too vague to check either
+way: allow, per "when uncertain" — vagueness is weak evidence of a lie, not proof.
+
 There is no escape valve for judgment (b) — a turn either hands back something usable or it
 doesn't; there is no field in the payload that excuses returning nothing.
 
