@@ -836,8 +836,38 @@ credits would bill.
 - **per phase** — local `/code-review`, started by `/implement-trd` itself. Model-startable,
   plan-billed, background subagent so it costs no orchestrator context. Fast feedback while
   the phase is fresh.
-- **pre-merge** — fan-out, by whichever route fits: `claude ultrareview` in CI, or the
-  managed Code Review service on the PR. Paid, deep, once per branch rather than per phase.
+- **end of run** — one more `/code-review high` over the FULL branch diff. Phase-scoped
+  reviews are blind to exactly one class, cross-phase integration, and today's run found that
+  class in miniature: *"both handoffs drop `--source`/`--project`"* spans create → audit and
+  no single-scope review sees it. One extra review covers it.
+
+**DECIDED 2026-08-16 — review per phase, not only at the end.** Owner ruled out the paid
+`ultra` step, so the whole design runs on the plan-billed 7-agent local review.
+
+Reasoning, from measurement rather than preference:
+
+- **Today review runs per TASK.** End-only would swing from the most frequent option to the
+  least. Per-task review was removed because a reviewer seeing one task cannot judge
+  integration — not because review should happen later. Per phase is the smallest coherent
+  scope.
+- **The failure being optimised against is the late find.** The item-10 profile measured
+  `sanitize_error_detail()` surviving two passes into delivered code. A flaw found in phase 1
+  and built on through phase 5 is the expensive case, and end-only review guarantees it.
+- **`--fix` degrades with age.** A fix applied to phase-1 code during phase 1 is mechanical;
+  the same fix at the end lands on code later phases have built on and can conflict. Today's
+  14 findings applied cleanly to a settled tree — the easy case, and the one per-phase review
+  reproduces.
+- **Scope the review to the PHASE DIFF, not the branch.** Reviewing the whole branch each
+  phase re-reviews settled code and produces churn. Anthropic's own managed-service guidance
+  concedes this, suggesting *"after the first review, suppress new nits and post Important
+  findings only"* — a phase-scoped diff solves it structurally instead of by instruction.
+
+Cost, measured: 3.5 min for 413 lines, 8.5 min for 1,495. Roughly six reviews on a five-phase
+feature, ~25–45 min, against the ~4 agent invocations per task the loop rework removes.
+
+**What would change this:** phases of 8+ tasks make the phase diff unbounded and the churn
+argument returns. The answer then is smaller phases, not less review. Watch it on the first
+real run.
 
 **ITEM 6'S disable-model-invocation CLAIM IS OUTDATED for the local tier — but holds for
 `ultra`.**
