@@ -456,6 +456,36 @@ adversarial pass (the shape that found real defects on both codebases in the ite
 profile) and a plain deterministic E2E gate — run the tests; do not convene agents to
 discuss them.
 
+#### Execution model — decided 2026-08-16
+
+**`/implement-trd` stays a command. A workflow runs ONE phase.** Not a workflow per phase, and
+not a workflow for the whole run.
+
+The constraint is already recorded in item 7's open-design block: *"Workflows cannot resume
+across sessions, which makes the durable state file the only cross-session coordination
+point."* `resumeFromRunId` is same-session only, and an implement run spans sessions —
+`--resume`, checkpoints, compaction, hours across sittings. A whole-run workflow would trade
+away exactly the durability `implement.json` exists to provide.
+
+| Layer | Owns |
+|---|---|
+| `/implement-trd` (prompt) | TRD parsing, the task graph, phase sequencing, `implement.json`, cross-session resume |
+| `implement-phase.js` (workflow) | one phase: `parallel()` over independent tasks, `pipeline()` over chains, then the phase-boundary `/code-review high` |
+
+**One parameterized script, never generated per phase:**
+`Workflow({ name: "implement-phase", args: { trd, phase, tasks, project } })` — the task list
+comes from item 7's graph.
+
+**A phase is the right unit because it is the largest chunk that reliably completes inside one
+session.** Measured on the profile TRDs: 4–5.4 tasks per phase; at ~1 agent per task after the
+loop rework plus one review, that is 5–7 agents — the same shape as `audit-trd`, which ran 7
+agents in 13 minutes. A phase either completes or is retried whole, and `implement.json`
+carries the boundary.
+
+It also delivers what the loop most needs: **per-task results stop entering orchestrator
+context.** `implement-trd.md` is ~13.4k tokens re-cached every turn today — the same problem
+the item-10 conversion already solved for `create-trd`.
+
 #### Dependency — item 7 merges into this item
 
 The concurrent-TRD question gates the state model, and the two are the same problem:

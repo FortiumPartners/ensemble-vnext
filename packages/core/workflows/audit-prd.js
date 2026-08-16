@@ -80,8 +80,10 @@ Type every line by NATURE, not by section heading:
 For each, capture its ID, its statement, the source it claims (verbatim, if it names one),
 and roughly where in the document it sits.
 
-MANDATORY -- do not skip and do not return empty without checking. Grep the document for
-"## Could Not Verify" and "## Open Questions" and capture EVERY row of each, verbatim.
+MANDATORY -- do not skip and do not return empty without checking. Grep the document for headings CONTAINING "Could Not Verify" and "Open Questions" --
+match loosely, because authors number them into the document's own scheme ("## 9. Open
+Questions", "## 10. Could Not Verify") and an exact "## Open Questions" match silently
+finds nothing. Capture EVERY row of each, verbatim.
 Both may be absent -- older artifacts will not have them.
 
 BATCH YOUR READS. Grep for the tables and headings; do not read the document linearly.`,
