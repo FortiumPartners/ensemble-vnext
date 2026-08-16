@@ -1,6 +1,6 @@
 # PRD: Rework `/implement-trd` and Build the Deterministic Task Graph
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Status**: Draft
 **Created**: 2026-08-15
 **Last Updated**: 2026-08-15
@@ -14,6 +14,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-08-15 | Initial PRD creation from `docs/modernization/runs/item8/SPEC.md` (improvement-plan items 7 + 8, verbatim) | @product-manager |
+| 1.1.0 | 2026-08-15 | `/refine-prd --auto` pass against the **re-extracted** SPEC.md (497 lines). **Added:** F16 (execution model — command + one parameterized `implement-phase.js` workflow, SPEC:459–488), G8, NFR-9, AC-F1.9 (`Touches`-derived partition), AC-F7.7 (`status.js`), AC-F14.5. **Removed:** AC-F8.1 and AC-F8.2 (early non-draft PR + per-phase push) — superseded by the 2026-08-16 execution-model decision, which starts the review locally rather than via a PR trigger; R7 (resolved by OQ-2). **Corrected against code:** §1.1 defect 3 and F12 bullet 1 (`current.json` is no longer git-tracked — commit `cb9fcda`), F9's reference set (10 files under `packages/core/`, not six). **Resolved:** OQ-1, OQ-2, OQ-4, OQ-5, OQ-6, OQ-7, OQ-8. **Still open:** OQ-3 (owner-only). | @product-manager |
 
 ---
 
@@ -54,11 +55,20 @@ document:
    contracts hooks scripts templates workflows` and no `lib`. Dependencies, eligibility,
    parallel sets and file-ownership conflicts are re-derived from TRD prose by the model on
    every invocation.
-3. **The state model is single-tenant by construction.** `.trd-state/current.json` is one
-   git-tracked pointer (currently `{"prd": null, "trd": "docs/TRD/discipline-judgment.md",
-   ...}`), and `active_sessions` is `{}` in all three `implement.json` files on disk
-   (`testing-phase`, `discipline-judgment`, `ensemble-vnext`) — the multi-session mechanism
-   was designed and never used.
+3. **The state model is single-tenant by construction — but the worst of it is already
+   fixed.** `.trd-state/current.json` is still one repo-wide pointer, and `active_sessions`
+   is `{}` in all three `implement.json` files on disk (`testing-phase`,
+   `discipline-judgment`, `ensemble-vnext`) — the multi-session mechanism was designed and
+   never used.
+
+   **Corrected 2026-08-15 against the code.** SPEC.md:17 calls `current.json`
+   *"git-tracked"* and *"a merge conflict by construction"*; that is no longer true.
+   Commit `cb9fcda` (*"fix(state): untrack current.json and wiggum-state.json"*) added both
+   to `.gitignore:21-22`, and `git ls-files .trd-state` returns neither. The `.gitignore`
+   comment already records the branch-derivation fallback this PRD's F11 asks for:
+   *"If absent, derive from the branch name; fall back to an explicit path argument."*
+   F11 is therefore **partially delivered**, and F12's first named breakage no longer
+   describes the tree. THE CODE STATES FACT.
 
 And the economics have inverted. Source-stated measurements: TRD authoring costs $39.45,
 while the implement loop runs **~5 agent invocations per task** — 215 invocations for a
@@ -70,6 +80,9 @@ the loop, not the planner, now dominates total cost.
 One combined change, because the source merges item 7 into item 8 ("Build item 7's `lib/`
 as part of this item, not after"):
 
+- **Fix the execution model** — `/implement-trd` stays a command; **one parameterized
+  workflow runs one phase** (F16). Not a workflow per phase, not a workflow for the whole
+  run.
 - **Build the deterministic `lib/`** — TRD parser, task graph, state machine — under
   `packages/core/lib/`, and have `implement-trd.md` call them instead of describing them.
 - **Wire the consumer to the producer** — evidence markers explained, `Replaces` surfaced as
@@ -120,10 +133,15 @@ graph TB
         P --> G
     end
 
-    subgraph Consumer["/implement-trd (reworked)"]
-        ORCH["Orchestrator<br/>runs targeted tests,<br/>typecheck, lint itself"]
+    subgraph Consumer["/implement-trd — PROMPT (cross-session)"]
+        ORCH["Orchestrator<br/>TRD parsing, phase sequencing,<br/>implement.json, --resume<br/>runs targeted tests/typecheck/lint itself"]
+    end
+
+    subgraph WF["implement-phase.js — WORKFLOW (one phase, same-session)"]
         DELEG["Delegation template<br/>+ evidence-marker key<br/>+ Replaces deletion<br/>+ Could Not Verify<br/>+ owner-only Open Qs"]
-        PHASE["Phase gate:<br/>verify-app on ACs<br/>SIMPLIFY<br/>/code-review on PHASE DIFF"]
+        PAR["parallel() over independent tasks<br/>pipeline() over chains<br/>(gated by Touches overlap)"]
+        PHASE["Phase gate:<br/>verify-app on ACs<br/>SIMPLIFY<br/>/code-review high on PHASE DIFF"]
+        PAR --> DELEG
     end
 
     AB["/audit-build (NEW)<br/>verification + validation<br/>+ traceability"]
@@ -132,11 +150,12 @@ graph TB
     TRD --> DELEG
     CNV --> DELEG
     G -->|blockedBy edges| ORCH
-    G -->|file-ownership partition| ORCH
+    G -->|file-ownership partition<br/>from mandatory Touches| ORCH
     S --> ORCH
-    ORCH --> DELEG
+    ORCH -->|"Workflow(name, {trd, phase, tasks, project})"| PAR
     DELEG --> PHASE
-    PHASE --> AB
+    PHASE -->|phase result only,<br/>not per-task results| ORCH
+    ORCH --> AB
 ```
 
 ---
@@ -209,6 +228,7 @@ journey
 | G5 | Active-TRD state is derived from the branch, not a repo-wide pointer | `current.json`'s single-pointer role removed; explicit-argument fallback exists for unresolvable branches | P0 |
 | G6 | `implement-trd.md` shrinks materially | Source-stated expectation: 400–600 lines lost | P1 |
 | G7 | Every requirement has both an implementation and a test proving it | `/audit-build` reports traceability gaps | P1 |
+| G8 | Per-task results stop entering orchestrator context | One phase = one `Workflow` call; the orchestrator sees a phase result, not per-task results (SPEC:485–488) | P0 |
 
 ### 3.2 Non-Goals (Explicit Scope Exclusions)
 
@@ -263,6 +283,11 @@ harness, then the graph, then state.
 - [ ] AC-F1.8: The Sunstone fork (`Sunstone-Partners/ensemble`) is cloned fresh and read before
       any of this is written, against the source's three named questions; adoption decisions
       are recorded with evidence
+- [ ] AC-F1.9: The file-ownership partition is computed from each task's **`Touches`** field —
+      the one grounding field the producer contract makes mandatory
+      (`packages/core/contracts/trd-authoring.md:591,599`: *"Only `Touches` is mandatory"*).
+      Two tasks whose `Touches` sets overlap are serialized even when the dependency graph
+      would allow them to run in parallel
 
 **Dependencies**: `Sunstone-Partners/ensemble` clone (baseline is no longer on disk — the
 `~/dev/ensemble` checkout named in CLAUDE.md does not exist as of 2026-08-12, and its `main`
@@ -386,26 +411,40 @@ duplication *between* tasks is the real target and is only visible there.
 - [ ] AC-F7.4: `code-simplifier` runs at the phase boundary, not per task
 - [ ] AC-F7.5: `code-reviewer` no longer appears in the per-task loop
 - [ ] AC-F7.6: Agent invocations per task measured on a real run and reported against the ~1 target
+- [ ] AC-F7.7: `status.js` is rewritten or retired in the same change. **Code fact, verified
+      2026-08-15:** `packages/core/hooks/status.js:210` hard-codes
+      `CYCLE_ORDER = ['verify_red','implement','verify','simplify','verify_post_simplify','review','complete']`
+      and advances `cycle_position` along it on every `SubagentStop`
+      (`hooks.manifest.json`, order 1). This feature deletes `simplify`,
+      `verify_post_simplify` and `review` from the per-task cycle, so the hook would advance
+      in-progress tasks through stages that no longer exist. It cannot survive the rework
+      unchanged
 
 ---
 
 #### F8: Code review moves to per-phase and end-of-run
 
 **Priority**: P0
-**Description**: Two review points, both on the plan-billed local `/code-review`:
+**Description**: Two review points, both on the plan-billed **local** `/code-review` — the
+tier the source measures at 7 agents (parent + 6 children), model-startable and plan-billed:
 
-- **Per phase** — local `/code-review` started by `/implement-trd` itself, **scoped to the
-  PHASE DIFF**, run as a background subagent so it costs no orchestrator context.
+- **Per phase** — `/code-review high` started by the phase workflow itself (F16, SPEC:473),
+  **scoped to the PHASE DIFF**, run as a background subagent so it costs no orchestrator
+  context.
 - **End of run** — one `/code-review high` over the FULL branch diff, covering cross-phase
   integration, which phase-scoped reviews are structurally blind to.
 
-The PR is opened early and is **not a draft** (Claude skips draft PRs); `ready_for_review` is
-also a valid trigger. `/implement-trd` currently creates the PR at `implement-trd.md:719`, at
-the END of the run.
+**Revised 2026-08-15 — the early-PR mechanism is superseded.** PRD 1.0.0 required a non-draft
+PR at the start of implementation with a push at each checkpoint. That instruction existed
+only to fire a **PR-triggered** review (the managed app's `pull_request` event, or route
+(b)'s `synchronize`). The 2026-08-16 execution-model decision starts the review **locally,
+from the phase workflow**, so no PR event is in the path and an early PR buys nothing. PR
+creation stays where it is today — at the end of the run,
+`packages/core/commands/implement-trd.md:719`. Phase checkpoints still commit, as they
+already do. NG5 (no draft PR) is retained but now moot on the primary path; it still governs
+the R1 CI contingency, where draft PRs would produce zero reviews.
 
 **Acceptance Criteria**:
-- [ ] AC-F8.1: A non-draft PR is opened at the start of implementation
-- [ ] AC-F8.2: Each phase checkpoint pushes to the PR branch
 - [ ] AC-F8.3: Per-phase review is scoped to the phase diff, not the branch
 - [ ] AC-F8.4: Per-phase review runs as a background subagent
 - [ ] AC-F8.5: One `/code-review high` runs over the full branch diff at end of run
@@ -421,16 +460,24 @@ the END of the run.
 **Description**: The agent leaves the per-task loop. The source names four referencing
 commands, *"each needs the same treatment"*.
 
-**Verified reference set (2026-08-15, `grep -rln "code-reviewer"`):**
-`packages/core/commands/fix-issue.md`, `init-project.md`, `harden-trd-team.md`,
-`implement-trd.md`, plus `packages/core/agents/agent-validation.test.js` and
-`packages/core/agents/skill-affinity.json` — **two references the source does not name.**
+**Corrected reference set (re-measured 2026-08-15, `grep -rln "code-reviewer" packages/core/`
+— PRD 1.0.0 said six; there are **ten**):** `commands/fix-issue.md`,
+`commands/init-project.md`, `commands/harden-trd-team.md`, `commands/implement-trd.md`,
+`agents/agent-validation.test.js`, `agents/skill-affinity.json`,
+`scripts/validate-init.sh`, `scripts/validate-init.test.sh`,
+`templates/process.md.template`, `templates/constitution.md.template`. Six of these the
+source does not name; two of them (`validate-init.sh` and its test) **assert the agent's
+presence in a scaffolded project**, so they fail or mis-scaffold if the agent is handled
+carelessly. The vendored `.claude/` tree carries its own copies (F9 AC-F9.3).
 
+The agent is **not deleted** — it leaves the per-task implement loop.
 `code-reviewer`'s one distinctive job is not code review: acceptance-criteria verification is
 traceability and belongs in `/audit-build` (F10).
 
 **Acceptance Criteria**:
-- [ ] AC-F9.1: All six referencing files are addressed, including the two the source does not name
+- [ ] AC-F9.1: All **ten** referencing files under `packages/core/` are assessed, including the
+      six the source does not name; `validate-init.sh` / `validate-init.test.sh` are
+      reconciled so scaffolding neither asserts a stale expectation nor silently drops the agent
 - [ ] AC-F9.2: Acceptance-criteria verification is relocated to `/audit-build`, not dropped
 - [ ] AC-F9.3: The vendored `.claude/` copies are updated in step with `packages/core/`
 
@@ -472,13 +519,19 @@ Branch names already encode the workstream (`<issue-id>-<session>`,
 must be hand-synced with the branch will drift by construction — *"that is the reported
 symptom."* Fall back to an explicit argument when the branch does not resolve.
 
-**Verified (2026-08-15):** `.trd-state/current.json` is a single pointer; `active_sessions` is
-`{}` in `testing-phase`, `discipline-judgment` and `ensemble-vnext` `implement.json`.
+**Partially delivered — verified 2026-08-15.** Commit `cb9fcda` already untracked
+`current.json` and `wiggum-state.json` (`.gitignore:21-22`; `git ls-files .trd-state` returns
+neither), and the `.gitignore` comment states the intended fallback verbatim: *"If absent,
+derive from the branch name; fall back to an explicit path argument."* **The remaining work
+is in the command, not in git:** `implement-trd.md` still reads `current.json` (3
+occurrences) and has no branch-derivation path. `active_sessions` is still `{}` in
+`testing-phase`, `discipline-judgment` and `ensemble-vnext` `implement.json`.
 
 **Acceptance Criteria**:
 - [ ] AC-F11.1: The active TRD is derived from the current branch
 - [ ] AC-F11.2: An explicit path argument overrides / covers the unresolvable-branch case
-- [ ] AC-F11.3: `current.json` no longer acts as the single repo-wide source of the active TRD
+- [ ] AC-F11.3: The command no longer requires `current.json` to identify the active TRD, and
+      tolerates its absence (it is now gitignored, so a fresh clone or new worktree has none)
 - [ ] AC-F11.4: The unused `active_sessions` mechanism is resolved (removed or given a purpose), not left as dead `{}`
 
 ---
@@ -490,7 +543,10 @@ symptom."* Fall back to an explicit argument when the branch does not resolve.
 states plainly: *"It is not solved today and neither item works without an answer."* Five
 named breakages:
 
-- `.trd-state/current.json` is a single git-tracked pointer — *"a merge conflict by construction"*
+- ~~`.trd-state/current.json` is a single git-tracked pointer — *"a merge conflict by
+  construction"*~~ — **closed 2026-08-15 by commit `cb9fcda`**, which gitignored it and
+  `wiggum-state.json`. The source's premise is stale; the residue is the command's own
+  dependence on the file (F11)
 - `implement.lock` is per-TRD, so it prevents two sessions racing the *same* TRD but says
   nothing about two TRDs racing the same *files*
 - the shared task list is session-scoped (`~/.claude/tasks/session-<id>/`) and never uploaded
@@ -504,12 +560,60 @@ wider set."* One precedent to reuse the reasoning of, not the mechanism: RUNTIME
 monotonic refresh gate.
 
 **Acceptance Criteria**:
-- [ ] AC-F12.1: A written decision covers all five named breakages
+- [ ] AC-F12.1: A written decision covers the four breakages still open (the fifth,
+      `current.json` being git-tracked, is closed by `cb9fcda`)
 - [ ] AC-F12.2: The decision is made after the graph exists, not before (NG10)
 - [ ] AC-F12.3: `cross-trd-deps.js` in the Sunstone fork is read before ours is designed
 - [ ] AC-F12.4: The worktree question (`.trd-state/` shared vs per-tree) is answered separately for the state file and for any cross-TRD lock
 
 **Dependencies**: F1 (the graph).
+
+---
+
+#### F16: Execution model — `/implement-trd` stays a command; one workflow runs one phase
+
+**Priority**: P0
+**Description**: Decided in the source 2026-08-16 (SPEC.md:459–488) and absent from PRD
+1.0.0. **`/implement-trd` stays a command. A workflow runs ONE phase.** Not a workflow per
+phase, and not a workflow for the whole run.
+
+The constraint is already recorded in the source's item-7 open-design block: *"Workflows
+cannot resume across sessions, which makes the durable state file the only cross-session
+coordination point."* `resumeFromRunId` is same-session only, and an implement run spans
+sessions — `--resume`, checkpoints, compaction, hours across sittings. A whole-run workflow
+would trade away exactly the durability `implement.json` exists to provide.
+
+| Layer | Owns |
+|---|---|
+| `/implement-trd` (prompt) | TRD parsing, the task graph, phase sequencing, `implement.json`, cross-session resume |
+| `implement-phase.js` (workflow) | one phase: `parallel()` over independent tasks, `pipeline()` over chains, then the phase-boundary `/code-review high` |
+
+**One parameterized script, never generated per phase:**
+`Workflow({ name: "implement-phase", args: { trd, phase, tasks, project } })` — the task list
+comes from F1's graph.
+
+**A phase is the right unit because it is the largest chunk that reliably completes inside
+one session.** Source-measured on the profile TRDs: 4–5.4 tasks per phase; at ~1 agent per
+task after the F7 rework plus one review, that is 5–7 agents — the same shape as `audit-trd`,
+which ran 7 agents in 13 minutes. A phase either completes or is retried whole, and
+`implement.json` carries the boundary.
+
+It also delivers what the loop most needs: **per-task results stop entering orchestrator
+context** (G8).
+
+**Acceptance Criteria**:
+- [ ] AC-F16.1: `/implement-trd` remains a prompt/command, not a workflow
+- [ ] AC-F16.2: Exactly one workflow script exists for the loop — `implement-phase.js`,
+      parameterized by `{ trd, phase, tasks, project }` — and is never generated per phase
+- [ ] AC-F16.3: The workflow uses `parallel()` over independent tasks and `pipeline()` over
+      dependency chains, with the task list supplied by F1's graph
+- [ ] AC-F16.4: The phase-boundary `/code-review high` runs inside the phase workflow
+- [ ] AC-F16.5: `implement.json`, phase sequencing and `--resume` stay with the command; the
+      workflow writes no durable state (NFR-9)
+- [ ] AC-F16.6: A phase is retried whole; `implement.json` carries the phase boundary
+- [ ] AC-F16.7: Per-task results do not reach orchestrator context — only a phase result does
+
+**Dependencies**: F1 (the graph supplies the task list).
 
 ---
 
@@ -549,6 +653,9 @@ edge-case review, and forcing an end-to-end test path. *"Neither needs a team."*
 - [ ] AC-F14.2: The E2E gate runs tests deterministically with no agent convened to interpret them
 - [ ] AC-F14.3: The two jobs are separated rather than collapsed into one replacement
 - [ ] AC-F14.4: Both original commands are removed or reduced once their replacements exist
+- [ ] AC-F14.5: Neither replacement spawns a teammate — *"Neither needs a team."* Whether the
+      files are deleted or rewritten in place is an implementation choice; convening no team
+      is the requirement (resolves OQ-5)
 
 ---
 
@@ -584,7 +691,8 @@ profile TRDs: ensemble 12 → 11 tasks, herald 27 → 24.
 | NFR-5 | The orchestrator owns the task list; `lib/`-emitted `blockedBy` edges are applied by the command, never by a subagent | `.claude/rules/constitution.md` CONST-D1; background subagents have task tools removed and *"the removal reports no error"* |
 | NFR-6 | No new subagent nesting; implementers hitting out-of-scope work report the conflict rather than delegating | `.claude/rules/constitution.md` CONST-D2 / CONST-D3 |
 | NFR-7 | `lib/` modules are JavaScript/Node 18+ tested with Jest ^29 | `.claude/rules/stack.md` |
-| NFR-8 | The smoke harness stays green after each of the three `lib/` increments | SPEC.md item 7 "Done when": *"smoke harness still green"* |
+| NFR-8 | The smoke harness stays green after each of the three `lib/` increments — `npm run smoke` (`test/smoke/run-smoke.sh`, per `package.json`) | SPEC.md item 7 "Done when": *"smoke harness still green"* |
+| NFR-9 | `implement.json`, phase sequencing and cross-session resume are owned by the **command**; `implement-phase.js` owns one phase's execution and writes no durable state | SPEC.md:470–474 layer table |
 
 **No latency, throughput or uptime requirement is stated anywhere in the source.** The cost
 figures that do appear (5 → ~1 agents per task; ~215 → ~50 invocations; 400–600 lines; ~25–45
@@ -607,6 +715,7 @@ enforced thresholds, and are recorded as goal metrics in §3.1 rather than as NF
 | AC-F1.6 | F1 | Cycles detected and reported | Unit test |
 | AC-F1.7 | F1 | Smoke harness green after each increment | Integration (BATS) |
 | AC-F1.8 | F1 | Sunstone fork cloned fresh and read; adoption decisions evidenced | Manual |
+| AC-F1.9 | F1 | Partition computed from mandatory `Touches`; overlap serializes | Unit test |
 | AC-F2.1 | F2 | Template defines `[read]` / `[ran]` / `[inferred]` | Manual review |
 | AC-F2.2 | F2 | Template instructs verification of `[inferred]` before reliance | Manual review |
 | AC-F2.3 | F2 | Template states `[ran]` is most trustworthy | Manual review |
@@ -629,14 +738,13 @@ enforced thresholds, and are recorded as goal metrics in §3.1 rather than as NF
 | AC-F7.4 | F7 | `code-simplifier` at phase boundary only | Manual (session log review) |
 | AC-F7.5 | F7 | `code-reviewer` absent from per-task loop | Unit test (structure test) |
 | AC-F7.6 | F7 | Invocations per task measured on a real run | Manual (dispatch ledger) |
-| AC-F8.1 | F8 | Non-draft PR opened at start | Manual (session log review) |
-| AC-F8.2 | F8 | Push at each phase checkpoint | Manual (git log) |
+| AC-F7.7 | F7 | `status.js` rewritten or retired; no advance through deleted stages | Unit test (Jest) |
 | AC-F8.3 | F8 | Review scoped to phase diff | Manual review |
 | AC-F8.4 | F8 | Review runs as background subagent | Manual (dispatch ledger) |
 | AC-F8.5 | F8 | Full-branch `/code-review high` at end | Manual (session log review) |
 | AC-F8.6 | F8 | In-loop non-ultra path verified empirically | Manual (live experiment) |
 | AC-F8.7 | F8 | No `ultra` tier invoked | Manual review |
-| AC-F9.1 | F9 | All six referencing files addressed | Unit test (grep-based structure test) |
+| AC-F9.1 | F9 | All ten `packages/core/` referencing files assessed | Unit test (grep-based structure test) |
 | AC-F9.2 | F9 | AC verification relocated to `/audit-build` | Manual review |
 | AC-F9.3 | F9 | Vendored `.claude/` copies in step | Unit test (vendoring.test.sh) |
 | AC-F10.1 | F10 | `/audit-build` follows index → verifiers → reconcile | Manual review |
@@ -659,9 +767,17 @@ enforced thresholds, and are recorded as goal metrics in §3.1 rather than as NF
 | AC-F14.2 | F14 | E2E gate deterministic, no agents convened | Manual review |
 | AC-F14.3 | F14 | Two jobs separated | Manual review |
 | AC-F14.4 | F14 | Original commands removed/reduced | Manual (`ls`) |
+| AC-F14.5 | F14 | Neither replacement spawns a teammate | Manual (dispatch ledger) |
 | AC-F15.1 | F15 | Next `/create-trd` run has no standalone `Unit:` tasks | Manual review |
 | AC-F15.2 | F15 | Every non-terminal phase ends runnable | Manual review |
 | AC-F15.3 | F15 | No-exercisable-path stated in Quality Requirements | Manual review |
+| AC-F16.1 | F16 | `/implement-trd` remains a command, not a workflow | Manual (`ls`) |
+| AC-F16.2 | F16 | Exactly one parameterized `implement-phase.js`, never per-phase generated | Manual (`ls`) |
+| AC-F16.3 | F16 | `parallel()` over independents, `pipeline()` over chains, list from the graph | Manual review |
+| AC-F16.4 | F16 | Phase-boundary `/code-review high` runs inside the phase workflow | Manual (dispatch ledger) |
+| AC-F16.5 | F16 | Command owns `implement.json`; workflow writes no durable state | Manual review |
+| AC-F16.6 | F16 | A phase is retried whole; boundary carried in `implement.json` | Manual (live run) |
+| AC-F16.7 | F16 | Only a phase result reaches orchestrator context | Manual (session log review) |
 
 ### Non-Functional Acceptance Criteria
 
@@ -674,7 +790,8 @@ enforced thresholds, and are recorded as goal metrics in §3.1 rather than as NF
 | AC-N5 | NFR-5 | No task-tool call originates from a subagent | Manual (session log review) |
 | AC-N6 | NFR-6 | No `Agent` invocation from within an implementer | Manual (dispatch ledger) |
 | AC-N7 | NFR-7 | `lib/` modules run on Node 18+ under Jest ^29 | Unit test |
-| AC-N8 | NFR-8 | Smoke harness green after each `lib/` increment | Integration (BATS) |
+| AC-N8 | NFR-8 | `npm run smoke` green after each `lib/` increment | Integration (BATS) |
+| AC-N9 | NFR-9 | No durable-state write originates from `implement-phase.js` | Manual review |
 
 ---
 
@@ -688,12 +805,14 @@ enforced thresholds, and are recorded as goal metrics in §3.1 rather than as NF
 | R4 | Concurrent-TRD design is attempted before the graph exists and produces guesswork | Med | High | NG10 and AC-F12.2 sequence it explicitly after F1 |
 | R5 | Phases grow to 8+ tasks, the phase diff becomes unbounded, and the churn argument against per-phase review returns | Low | Med | Source-stated answer: *"smaller phases, not less review."* Measured on the profile TRDs, phases sit at ~4 (ensemble) and ~5.4 (herald) tasks. Watch on the first real run |
 | R6 | Removing `code-reviewer` from the loop drops acceptance-criteria verification, which nothing else owns until `/audit-build` exists | Med | High | AC-F9.2 makes relocation to `/audit-build` a condition of removal; F10 is P0 for this reason |
-| R7 | Item 6 (`REVIEW.md`) is declared a hard dependency — *"Do item 6 first"* — but `REVIEW.md`'s value is tied to route (a), which the billing table then argues against | Med | Med | Recorded as OQ-2. Do not treat "do item 6 first" as settled until the route decision is made |
+| R7 | ~~Item 6 (`REVIEW.md`) is a hard dependency~~ | — | — | **Retired 2026-08-15.** OQ-2 is answered from the source: `REVIEW.md` governs only the managed Code Review service, and the local `/code-review` *"doesn't read `REVIEW.md`"* (SPEC:224–228). The decided design uses the local tier exclusively, so item 6 does not block this item |
+| R9 | `status.js` keeps advancing `cycle_position` through stages F7 deletes, silently corrupting `implement.json` for in-progress tasks | High | Med | AC-F7.7 makes rewriting or retiring it part of F7 rather than a follow-up. The hook is order 1 on `SubagentStop` and writes atomically to the same file the command owns |
 | R8 | The vendored `.claude/` copies drift from `packages/core/` during a change this wide | Med | Med | AC-F9.3; the existing `vendoring.test.sh` structure test covers this class |
 
 ### Contingency Plans
 
-**R1 Contingency**: If `/implement-trd` cannot start `/code-review` itself, fall back to route
+**R1 Contingency** *(the only path on which OQ-1's route/secret question returns — see §8)*:
+If `/implement-trd` cannot start `/code-review` itself, fall back to route
 (b) — `anthropics/claude-code-action@v1` in `ci.yml` — using the `synchronize` trigger, which
 fires on every push to the PR branch and therefore produces a review per phase checkpoint with
 no orchestration. Two inputs are load-bearing and easy to omit: `--comment` in the prompt
@@ -732,6 +851,35 @@ NG6 — per-task review stays removed.
 | Port group-naming to `blockedBy` (ITEM-2-R1) | Rejected (inherited) | Wrong construct for team semantics | Team semantics change in the platform |
 | Recreate `/implement-trd-team` (ITEM-2-D1) | Rejected (inherited) | Parallelism derives from task-graph properties, not a separate command | Never — this is the architecture principle the graph work exists to establish |
 | Permit subagent nesting by default (CONST-R1) | Rejected (inherited) | Observed `backend-implementer → backend-implementer → backend-implementer` with an identical task at the last two levels, ~567k tokens | An agent's work genuinely fans out, with a named rationale in its own definition |
+| A workflow for the whole implement run, or one per phase (F16) | Rejected | *"Workflows cannot resume across sessions."* `resumeFromRunId` is same-session only; an implement run spans sessions (`--resume`, checkpoints, compaction). A whole-run workflow trades away the durability `implement.json` exists to provide. One parameterized script, never generated per phase | Workflows gain cross-session resume |
+| Open a non-draft PR at the start and push per phase to trigger review (PRD 1.0.0 AC-F8.1/8.2) | **Removed 2026-08-15** | Superseded by the 2026-08-16 execution-model decision: the phase review is started locally by the phase workflow, so no PR event is in the path. PR creation stays at end of run (`implement-trd.md:719`) | The R1 contingency fires and review moves to a PR-triggered CI route |
+
+### Resolved this pass (`/refine-prd --auto`, 2026-08-15)
+
+| Was | Verdict | Evidence |
+|---|---|---|
+| OQ-1 — which review route, which secret | **Descoped, not chosen** | The 2026-08-16 execution-model decision (SPEC:459–488) puts the phase review inside `implement-phase.js` as the local `/code-review high`. No CI workflow, no GitHub App, no PR event in the path — so no route and no secret is needed to build the design as decided. The owner-only route/secret question returns **only if the R1 contingency fires**, and is recorded there rather than as a blocker |
+| OQ-2 — is item 6 (`REVIEW.md`) a hard dependency? | **No** | SPEC:224–228: `REVIEW.md` is *"CONFIRMED"* but *"only applies to the managed Code Review service"*; the local `/code-review` *"doesn't read `REVIEW.md`"*, and on the Action route it is *"not documented"*. The design uses the local tier. R7 retired |
+| OQ-4 — what are the per-task deterministic checks? | **Default, stated** | The source names only *"targeted tests, typecheck and lint"*. Resolved per project from `stack.md`; for this repo `package.json` gives `npm test` (Jest) and `npm run smoke`, with ESLint / ShellCheck / Prettier named in `stack.md`. No number or threshold is invented — TRD authoring picks the concrete commands per stack |
+| OQ-5 — delete or rewrite the team commands? | **Answered on substance** | *"Neither needs a team."* The requirement is that no teammate is convened (AC-F14.5); delete-vs-rewrite is an implementation choice |
+| OQ-6 — coverage bar scope | **`lib/` only** | SPEC:85 scopes it in one sentence: *"Three modules exist under `packages/core/lib/` with Jest coverage above 80%"* |
+| OQ-7 — which line-count baseline? | **The current file** | Measured 2026-08-15: `wc -l packages/core/commands/implement-trd.md` = **1466**. The source's 1,372 is stale. AC-F13.3 measures from 1466 |
+| OQ-8 — the unnamed `code-reviewer` references | **Yes, and there are more than reported** | `grep -rln "code-reviewer" packages/core/` returns **ten** files, not six. F9's set is corrected; `scripts/validate-init.sh` and its test are the consequential additions |
+
+### Relayed but not present in the source — confirm before implementing
+
+The orchestrator's briefing for this pass named four further decisions. Each was checked
+against the 497-line `SPEC.md` and **is not in it**; they are recorded here rather than
+written into requirements, because a requirement sourced only to a relayed message is
+exactly what this pass exists to remove. Two are partly corroborated elsewhere and are noted
+as such.
+
+| Relayed claim | Status against evidence |
+|---|---|
+| Hardening is a dedicated agent running in parallel with the phase review, both read-only, findings reconciled together | **Not in SPEC.md** (no occurrence of "harden" beyond the two lines about replacing the team commands, and none of "read-only" or "reconcile" in that sense). F14 as written keeps the adversarial pass as a verifier fan-out, which is what the source says |
+| Parallelism is gated by `Touches`, not just the dependency graph | **Corroborated, and adopted** — the source calls for *"inferred file-ownership conflicts"* and the producer contract makes `Touches` the one mandatory grounding field (`trd-authoring.md:591,599`). Written into AC-F1.9 |
+| Do NOT isolate implementers into worktrees | **Not in SPEC.md.** No non-goal added; the source's only worktree text is the open question about `.trd-state/` scope (F12) |
+| Cross-implementation parallel guards are out of scope; each session merges into its own branch | **Contradicts the source.** SPEC:31–35 and 489–496 place the concurrent-TRD design *inside* this item (*"Item 7 is where this gets designed"*), which is what F12 records. Flagged as STUCK — the source and the briefing disagree and choosing between them is the owner's call |
 
 ### Confirmed grounding — do not re-litigate
 
@@ -752,16 +900,18 @@ NG6 — per-task review stays removed.
 
 ## 9. Open Questions
 
+Seven of the eight questions carried by PRD 1.0.0 were resolved by the `--auto` refinement
+pass — see §8 *"Resolved this pass"* for each verdict and its evidence. **One remains, and
+it is genuinely owner-only.**
+
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
 |----|----------|----------------|----------------|--------------|
-| OQ-1 | Which review route, and which secret (`ANTHROPIC_API_KEY` vs `CLAUDE_CODE_OAUTH_TOKEN`)? The source marks both **still owner-only**, needing repo-admin access | Neither is decided. NG11 puts installation out of scope; F8 designs against the local model-startable path with route (b) as the R1 contingency | Route determines billing ($75–125 per five-phase feature on route (a) vs subscription-covered on route (b)) and whether `REVIEW.md` applies at all | The design is built against a path the owner does not choose, and F8's per-phase cadence has no mechanism |
-| OQ-2 | Is item 6 (`REVIEW.md`) really a hard dependency? The source says *"Do item 6 first"*, then its own billing table argues for route (b), where `REVIEW.md` is *"not documented"* | I recorded the tension as R7 rather than resolving it, and did not make item 6 a stated dependency of any P0 feature | If item 6 is genuinely blocking, this whole item is sequenced behind it. If it is tied to route (a) only, it is not blocking under route (b) | Either the work starts blocked on something that does not block it, or review ships without this project's Quality Gates reaching the reviewer |
-| OQ-3 | Are the seven "Done conditions" all equally P0, and are `/audit-build` and the team-command replacement in the same release? | I made done conditions 1–7 P0 except the contract split (F13, P1, because it is a cost optimisation rather than a correctness gap), made `/audit-build` P0 because AC-F9.2 depends on it, and made the team-command replacement P1 | Priority drives phase assignment in the TRD and what a partial delivery contains | A P1 turns out to be blocking, or a P0 inflates the first phase past what one run can carry |
-| OQ-4 | What exactly are the "deterministic checks" the orchestrator runs per task? The source names *"targeted tests, typecheck and lint"* but not the commands | I left them as the three named categories, to be resolved against `stack.md` (Jest, pytest, BATS, ESLint, ShellCheck, Prettier) during TRD authoring | A vague instruction here is exactly the prose the `lib/` work exists to remove | Per-task checks are under- or over-scoped, and the ~1-invocation target is measured against the wrong baseline |
-| OQ-5 | Are `harden-trd-team` and `verify-trd-team` deleted, or rewritten in place? The source says *"replaced"* | I wrote AC-F14.4 as "removed or reduced", covering both | ITEM-2-D2 notes teams cannot restore via `/resume` or `/rewind`; a rewrite that keeps teammates inherits that | Existing invocations break, or the team incompatibility survives the replacement |
-| OQ-6 | Does the >80% Jest coverage bar apply only to the new `lib/`, or to `implement-trd`'s wider surface? | Applied it to the three `lib/` modules only — that is what the "Done when" sentence scopes it to | An over-broad reading turns a module bar into a repo-wide gate that nothing in the source asked for | A coverage expectation is missed or an invented one is enforced |
-| OQ-7 | The source's line-count figure for `implement-trd.md` (1,372) does not match today's file (1466, measured 2026-08-15). Is the 400–600 line reduction measured from the old figure or the current one? | Measured from the current file (F13/AC-F13.3) | A reduction target measured against a stale baseline is not a target | The reduction is over- or under-claimed by ~94 lines |
-| OQ-8 | Two `code-reviewer` references the source does not name — `packages/core/agents/agent-validation.test.js` and `packages/core/agents/skill-affinity.json` — need the same treatment? | Included them in AC-F9.1, since the source's instruction is *"each needs the same treatment"* and its list of four was not exhaustive | A test asserting `code-reviewer`'s presence will fail; a routing table will keep routing to it | Either a test breaks unexpectedly, or the agent keeps getting routed work after leaving the loop |
+| OQ-3 | Are the seven "Done conditions" all equally P0, and are `/audit-build` and the team-command replacement in the same release? | I made done conditions 1–7 P0 except the contract split (F13, P1, because it is a cost optimisation rather than a correctness gap), made `/audit-build` P0 because AC-F9.2 depends on it, and made the team-command replacement P1. F16 was added at P0 this pass — it is an architectural constraint the rest is built inside, not a preference | Priority drives phase assignment in the TRD and what a partial delivery contains. **Business priority and scope trade-offs are the owner's, not derivable from any document in this repo** | A P1 turns out to be blocking, or a P0 inflates the first phase past what one run can carry. With F16 added, the P0 set is now sixteen features wide |
+
+**Conditional, not blocking:** if the R1 contingency fires (the local `/code-review` turns
+out not to be model-startable in this environment), the review route and its secret become an
+owner decision again — see the R1 contingency in §7. Nothing in the design as decided depends
+on it.
 
 ---
 
@@ -783,6 +933,8 @@ NG6 — per-task review stays removed.
 | Profile TRD shapes: ensemble 12 tasks / 3 phases, herald 27 / 5; herald's `CPUB-T007` is a `[LIVE]` Playwright E2E assigned to `@verify-app` | Inherited from SPEC.md. Herald is a separate repository not present here. For ensemble: `grep -c "^| ENS" docs/TRD/ensemble-vnext.md` and read its Execution Plan |
 | The `poi/reconcile/` problem — superseded code accumulating because `Replaces` was not acted on | Inherited from SPEC.md as a named precedent. No such path exists in this repo; it is from another codebase. Ask the owner which repo, or treat it as illustrative only |
 | The concurrent-TRD breakages: the shared task list is session-scoped at `~/.claude/tasks/session-<id>/` and never uploaded; workflows cannot resume across sessions | Inherited from SPEC.md. `ls ~/.claude/tasks/` and a live two-session experiment. I verified only the two file-based claims (`current.json` single pointer, `active_sessions: {}`) |
+| `resumeFromRunId` is same-session only, so a workflow cannot resume across sessions (the constraint F16 turns on) | Inherited from SPEC:465–468. Check the live workflow docs, or run a workflow, end the session, and attempt resume |
+| `audit-trd` ran 7 agents in 13 minutes — the shape F16 argues a phase matches | Inherited from SPEC:480–483. `.trd-state/*/dispatch.jsonl` for an `audit-trd` run |
 | The item-10 measurement that `sanitize_error_detail()` survived two review passes into delivered code | Inherited from SPEC.md and the PRD-authoring contract. It is cited here as a cautionary precedent, not as a fact about this repo's code |
 
 ---
