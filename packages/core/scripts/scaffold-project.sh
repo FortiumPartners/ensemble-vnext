@@ -224,18 +224,30 @@ copy_contracts() {
 # implement-state.js) -- without this function .claude/lib/ is never
 # created and every such require fails on a scaffolded project (ITR-B014).
 #
-# Source resolution deliberately does NOT check "$PLUGIN_DIR/lib" first the
-# way copy_contracts/copy_workflows check "$PLUGIN_DIR/<dir>" first: in a
-# plugin-cache install PLUGIN_DIR is packages/full, and packages/full/lib/
-# is a REAL directory containing only plugin-config.sh -- not a hook-lib
-# symlink the way contracts/workflows/templates/scripts are. Checking it
-# first would glob *.js there, find nothing, and silently copy zero files.
-# Go straight to the monorepo layout.
+# Source resolution, corrected 2026-08-16. The previous version resolved ONLY
+# "$PLUGIN_DIR/../core/lib" on the reasoning that packages/full/lib held just
+# plugin-config.sh and globbing it would find no *.js. That reasoning was right
+# about the directory and wrong about the consequence: a real plugin-cache
+# install has NO core sibling at all. The cache layout is
+# ~/.claude/plugins/cache/<mp>/full/<version>/, so "$PLUGIN_DIR/../core/lib"
+# resolves to ".../full/core/lib" and does not exist -- copy_libs warned once
+# and returned 0, .claude/lib/ came out EMPTY, and every hook require plus the
+# reworked /implement-trd's three require()s failed on first use.
+#
+# Verified against the real cache on 2026-08-16 (only `full/<version>/` present,
+# no core) and reproduced by scaffolding from a copy with the sibling removed:
+# workflows 9 files, contracts 3, audit-build.md present, lib EMPTY.
+#
+# packages/full/lib/ now carries per-file symlinks to the three modules -- the
+# same pattern hooks/ and agents/ use, which demonstrably survives packaging.
+# So check "$PLUGIN_DIR/lib" FIRST, but only when it actually contains *.js, and
+# keep the monorepo path as the dev-checkout fallback.
 copy_libs() {
     local dest="$1/.claude/lib"
     local src=""
     if [[ -z "$PLUGIN_DIR" ]]; then warn "No plugin directory specified, skipping lib"; return 0; fi
-    if [[ -d "$PLUGIN_DIR/../core/lib" ]]; then src="$PLUGIN_DIR/../core/lib"
+    if compgen -G "$PLUGIN_DIR/lib/*.js" > /dev/null 2>&1; then src="$PLUGIN_DIR/lib"
+    elif [[ -d "$PLUGIN_DIR/../core/lib" ]]; then src="$PLUGIN_DIR/../core/lib"
     else warn "No lib directory found in plugin, skipping"; REFRESH_LIBS_COUNT=0; return 0; fi
 
     if [[ "$REFRESH" != "true" ]]; then mkdir -p "$dest"
