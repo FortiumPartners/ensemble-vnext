@@ -3,7 +3,7 @@
     "bats": "^1.13.0",
     "jest": "^29.7.0",
     "js-yaml": "^4.1.0",
-    "mock-fs": "^5.2.0"
+    "mock-fs": "^5.5.0"
   },
   "name": "ensemble-vnext",
   "version": "4.1.15",
