@@ -1,6 +1,6 @@
 # PRD: Rework `/implement-trd` and Build the Deterministic Task Graph
 
-**Version**: 1.2.1
+**Version**: 1.3.0
 **Status**: Draft
 **Created**: 2026-08-15
 **Last Updated**: 2026-08-15
@@ -17,6 +17,7 @@
 | 1.1.0 | 2026-08-15 | `/refine-prd --auto` pass against the **re-extracted** SPEC.md (497 lines). **Added:** F16 (execution model — command + one parameterized `implement-phase.js` workflow, SPEC:459–488), G8, NFR-9, AC-F1.9 (`Touches`-derived partition), AC-F7.7 (`status.js`), AC-F14.5. **Removed:** AC-F8.1 and AC-F8.2 (early non-draft PR + per-phase push) — superseded by the 2026-08-16 execution-model decision, which starts the review locally rather than via a PR trigger; R7 (resolved by OQ-2). **Corrected against code:** §1.1 defect 3 and F12 bullet 1 (`current.json` is no longer git-tracked — commit `cb9fcda`), F9's reference set (10 files under `packages/core/`, not six). **Resolved:** OQ-1, OQ-2, OQ-4, OQ-5, OQ-6, OQ-7, OQ-8. **Still open:** OQ-3 (owner-only). | @product-manager |
 | 1.2.0 | 2026-08-16 | OQ-3 answered by owner ruling: all thirteen P0 features ship in release 1 including `/audit-build`. F12 (concurrent TRDs) descoped to Non-Goal NG13 — cross-implementation parallel guards are out of scope, each session manages its own merge; the worktree-pointer half already shipped in `cb9fcda`. F13/F14/F15 unchanged at P1. **No open questions remain.** | @product-manager |
 | 1.2.1 | 2026-08-16 | `/audit-prd` pass against SPEC.md, 3/3 verifiers. **Removed:** AC-F12.1–.4 (orphaned when 1.2.0 descoped F12 to NG13 without propagating to §6). **Retired:** R4 — the risk it guarded against is out of scope under NG13; its `AC-F12.2` citation no longer resolved. **Corrected:** §9's lead-in still claimed one question remained while its only row read ANSWERED. **Grounded:** G8 and F16 now record the partial prior art at `packages/core/commands/implement-trd.md:431–435` (per-task returns are already compressed to one line today) instead of implying a full-output baseline. **Rewritten:** §10 Could Not Verify now states this audit's coverage and why each remaining row is still unchecked. | @product-manager |
+| 1.3.0 | 2026-08-16 | **OWNER-CALL:** `/verify-build` dropped. AC-F14.2's own wording — deterministic, no agent convened — makes it a script wrapper, not a command; the job is already discharged by the `[LIVE]` E2E task and the phase gate. `/harden-build` survives: a verifier fan-out over delivered code is real agent work, and it is a different scope from the per-phase hardening agent, which cannot see a weakness that only exists once all phases are assembled. AC-F14.3 still satisfied — one command, one task+gate. | @product-manager |
 
 ---
 
@@ -631,8 +632,15 @@ edge-case review, and forcing an end-to-end test path. *"Neither needs a team."*
 
 **Acceptance Criteria**:
 - [ ] AC-F14.1: The adversarial pass runs as a verifier fan-out, not a team
-- [ ] AC-F14.2: The E2E gate runs tests deterministically with no agent convened to interpret them
-- [ ] AC-F14.3: The two jobs are separated rather than collapsed into one replacement
+- [ ] AC-F14.2: The E2E gate runs tests deterministically with no agent convened to interpret
+      them. **Corrected 2026-08-16 (OWNER-CALL):** it is therefore NOT a command. A gate that
+      shells out to `test/smoke/run-smoke.sh` and reports an exit status, convening no agents,
+      adds nothing over the script. The job is discharged by the `[LIVE]` E2E task (TRD
+      ITR-T002) and the phase gate. `/verify-build` is dropped.
+- [ ] AC-F14.3: The two jobs are separated rather than collapsed into one replacement — still
+      satisfied with one command and one task+gate. The criterion presupposed both were
+      command-shaped; only the adversarial pass is. **Countermand if** you want a single
+      invocation that runs the E2E gate on demand rather than `npm run smoke`.
 - [ ] AC-F14.4: Both original commands are removed or reduced once their replacements exist
 - [ ] AC-F14.5: Neither replacement spawns a teammate — *"Neither needs a team."* Whether the
       files are deleted or rewritten in place is an implementation choice; convening no team
