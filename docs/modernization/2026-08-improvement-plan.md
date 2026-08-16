@@ -630,109 +630,65 @@ directly by the team commands; smoke harness still green.
 
 ## Phase F — The architectural bet (Week 11 onward)
 
-### 8. Prototype one phase as a dynamic workflow — retarget to `/create-trd`
+### 8. Rework `/implement-trd` — wire it to what the planner now produces
 
-> **Retargeted 2026-08-14.** This item was scoped to an `/implement-trd` phase. **`/create-trd`
-> is the better prototype**, and it is available now rather than after item 7.
->
-> Item 8 names three limits that keep workflows a hybrid rather than a replacement. All three
-> bind `/implement-trd`. **None binds `/create-trd`:**
->
-> | Limit | `/implement-trd` | `/create-trd` |
-> |---|---|---|
-> | Resume only within one session | Binds hard — `implement.json` must stay the durable outer loop | Doesn't bite; single-session command |
-> | No mid-run user input | Binds — the STUCK `AskUserQuestion` path stays in the command | Doesn't bite; `autonomy.md` forbids it asking at all |
-> | Script has no filesystem/shell access | Binds — the loop is all file mutation | Doesn't bite; agents do the reads and writes |
->
-> **It also does not depend on item 7.** That prerequisite exists because `/implement-trd`
-> needs the task graph to know what to fan out. `/create-trd` is a fixed five-stage pipeline
-> (resolve → author → ground → verify ×6 → reconcile), already fully specified by item 10.
->
-> What the script buys, concretely:
-> - **`agent({schema})` enforces the findings contract.** Item 10 currently states it as prose
->   and hopes verifiers honour it; a schema validates at the tool-call layer and retries on
->   mismatch.
-> - **The findings-to-disk mechanism becomes unnecessary.** It exists only to keep verifier
->   output out of the orchestrator's context; in a workflow, results live in script variables
->   and never enter a model's context except where the script passes them.
-> - **Sequence becomes `await`, not prose** a model may reorder or skip.
-> - **Nesting stops being a governance question** — the script fans out, so no agent spawns
->   another and `constitution.md` §1 simply does not apply.
->
-> Cost: `create-trd.md` is 956 lines doing two jobs. Only the orchestration half belongs in a
-> script; the content rules (typing, severity sourcing, grounding axes) move into agent
-> prompts, where they arguably belong. There are **no workflows in this repo today** and the
-> tooling is unverified here.
->
-> **Superseded 2026-08-15 by item 10's split** — `create-prd.js` is now 2 stages and
-> `create-trd.js` 3; the wave they used to carry lives in `audit-prd.js` / `audit-trd.js`.
-> Four workflow scripts, all delivered via `packages/full/workflows -> ../core/workflows`.
->
-> **Status 2026-08-14: both converted.** `.claude/workflows/create-trd.js` (5 stages, 6
-> parallel verifiers) and `.claude/workflows/create-prd.js` (3 stages, 3 verifiers). Commands
-> now invoke `Workflow({name})` and keep the prose path as an explicit fallback, so a project
-> without the scripts still runs — and the COMMAND COMPLETE summary states which path was
-> taken, so a surprising result can be attributed.
->
-> **Both are unrun.** The keep-or-revert call this item exists to make is still outstanding,
-> and needs a real invocation against a real PRD.
->
-> **Code review, 2026-08-14 (`code-reviewer` on the scripts).** Ten findings, nine fixed:
-> null from a dead `agent()` was mapped into a truthy object, so `filter(Boolean)` never
-> dropped it — every "incomplete coverage" warning was unreachable, and an all-verifiers-died
-> run would have emitted *"NO ACTION — every objective traces to a source"* over a completely
-> unverified TRD; `conformance` was missing from `create-trd`'s `check` enum, so that
-> verifier's findings could never validate; `id`/`line` were required on a schema whose
-> highest-value verifier (omission) produces findings that by construction have neither;
-> unguarded null dereferences in every sequential stage, the reconcile one crashing *after*
-> it had already edited the artifact; both author prompts pointed at
-> `packages/core/commands/*.md`, a path that does not exist in any scaffolded project, so the
-> binding typing rule reached the agent through no channel at all.
->
-> **Open, unresolved:** both `technical-architect` and `product-manager` declare
-> `background: true` (set deliberately in item 3). `agent()` awaits a result inline, and it is
-> unverified which wins when a background-declared agent is driven from a workflow. This is
-> the most likely first-run failure and should be tested before the keep-or-revert call, not
-> reasoned about.
->
-> Delivery gap found and fixed while wiring this: `scaffold-project.sh` had no `copy_workflows`,
-> so a scaffolded project would have received the commands but not the scripts and silently
-> taken the fallback forever — the same shape as the five hook files that never shipped before
-> 4.1.1. Added, with `--refresh` semantics (updates what is present, never adds), a
-> `workflows=` field in `REFRESH_SUMMARY`, and `packages/full/workflows/` symlinks.
->
-> **Sequencing: validate item 10 first.** The conversion re-hosts the same prompts under a
-> different executor. If the checks don't catch 7 of 8, a workflow faithfully runs wrong
-> prompts in the right order; if they do, the passing fixture becomes the regression test that
-> makes conversion safe. Converting first means converting blind, unable to distinguish a
-> conversion bug from a prompt bug.
+*Replaces the former "prototype one phase as a dynamic workflow" item, which item 10
+delivered and superseded: `create-prd.js` is 2 stages, `create-trd.js` is 3, and the
+verification wave lives in `audit-prd.js` / `audit-trd.js`.*
 
+**Take this next, while the planning work is fresh.** Item 10 rebuilt the producer and left
+the consumer untouched. `/implement-trd` was last shaped for TRDs that no longer exist.
 
+#### The gap, measured 2026-08-15
 
-> Inherits the concurrent-TRD/session/worktree design question raised in item 7 — see the
-> callout there. A workflow's inability to resume across sessions makes it more acute, not less.
+| Producer now emits | `/implement-trd` mentions it |
+|---|---|
+| `[read]` / `[ran]` / `[inferred]` evidence markers | **0 times** |
+| `Replaces` — the line naming what becomes unreachable | **0 times** |
+| `## Could Not Verify` (written by `/audit-*`) | **0 times** |
+| `## Open Questions` (owner-only items `/refine` left open) | **0 times** |
+| `Serves` columns (objective each task derives from) | **0 times** |
 
-The workflows documentation reads like a critique of `/implement-trd`. Where subagents, skills, and teams
-all have "Claude, turn by turn" deciding what runs next and intermediate results landing in the context
-window, a workflow has *the script* deciding and results living in *script variables*. The staged loop —
-implement → verify → debug → simplify → verify → review → update — *is* a script, currently expressed as prose.
+It is not wholly unwired — the delegation template at `implement-trd.md:921` does pass the
+Task Grounding block verbatim per task. But it hands over evidence markers **without the
+key**. The markers exist so an implementer can tell a claim someone ran from a claim someone
+guessed; passing them unexplained returns the document to uniform-looking precision, which is
+the exact failure they were introduced to fix: *"precision that isn't uniformly earned is
+worse than vagueness, because it stops the implementer checking."*
 
-As a workflow it becomes roughly 80 lines: `pipeline()` per task, `agent({schema})` forcing structured
-verify verdicts instead of prose you parse, per-stage `effort` and `model`, and `isolation: 'worktree'`
-only where it actually helps. Saved workflows become commands in `.claude/workflows/`, and plugins can ship
-a `workflows/` directory — a first-class distribution path you don't have today.
+**A concrete defect found while measuring this:** the `<design_references>` extraction at
+`implement-trd.md:1056` reads *"TRD Section 10 'Reference Documents'"*. No generated TRD
+contains such a section — real TRDs run `## 1. Overview` through `## 9. Task Grounding`.
+The extraction targets a phantom.
 
-**Three limits protect the existing design, so this is a hybrid, not a replacement.** Workflow resume works
-only within the same session — exit Claude Code and the next session starts fresh — so `implement.json`
-remains the durable outer loop. There is no mid-run user input, so the STUCK-condition `AskUserQuestion`
-path stays in the command. And the script itself has no filesystem or shell access; agents do the work.
+#### Why now, and why it is where the money is
 
-The shape: the command stays the resumable outer loop over `implement.json`; each phase's fan-out becomes
-one workflow invocation. Prototype on *one* phase against a fixture, compare it to the prose path on five
-hand-scored scenarios, and only then decide whether to convert the rest.
+Planning is no longer the expensive half. Measured: TRD authoring $39.45, and **~5 agent
+invocations per task** in the implement loop. The same feature at 43 tasks is 215 invocations;
+at 12 it is 60. Every per-task overhead multiplies by task count, so the loop — not the
+planner — now dominates total cost.
 
-**Done when:** One phase runs as a saved workflow end to end; a five-scenario comparison against the prose
-path is written down; you have made an explicit keep-or-revert call.
+#### Done conditions
+
+1. The delegation template explains the evidence markers, and instructs an implementer to
+   **verify any `[inferred]` claim before relying on it** and to trust `[ran]` most.
+2. `Replaces` is surfaced as an explicit deletion instruction, not prose in a passed block.
+   This is the line that stops superseded code accumulating — the `poi/reconcile/` problem.
+3. `## Could Not Verify` reaches the implementer for the tasks it touches. A task resting on
+   an unverified claim must be treated differently from one resting on a checked fact.
+4. An unresolved **owner-only** `## Open Question` covering a task is surfaced before that
+   task runs, not discovered mid-implementation.
+5. `<design_references>` points at a section that exists.
+6. The 5-invocations-per-task loop is re-examined against measured cost. `SIMPLIFY → VERIFY`
+   re-running a full verify may not earn its place on every task.
+7. `implement-trd.md` is ~13.4k tokens and re-caches every turn. The `create-trd` fix —
+   splitting the authoring contract out from orchestration detail — cut author cost
+   materially and applies here unchanged.
+
+#### Dependency
+
+Item 7's concurrent-TRD question still gates the state model (one TRD, one person, one
+session, one tree). Items 1–6 above do not depend on it and can land first.
 
 ### 9. Native quality gates and worker loops
 
