@@ -21,10 +21,12 @@
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
+      "<rootDir>/.claude/worktrees/",
       "<rootDir>/test/evals/analysis-archive/",
       "<rootDir>/test/evals/results/"
     ],
     "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/worktrees/",
       "<rootDir>/test/evals/analysis-archive/",
       "<rootDir>/test/evals/results/"
     ]
