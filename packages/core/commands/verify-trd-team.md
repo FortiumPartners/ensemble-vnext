@@ -229,8 +229,7 @@ safety model); cross-group dependencies are expressed via the shared task list's
 For each phase (or single phase if `--phase N`), for each parallel group within the phase:
 
 **1. Update state before spawn** -- for each assertion group being assigned, write to
-verify.json: `{ "run": run_counter, "teammate_session_id": "{session_name}" }`. Update
-`active_sessions` map with session name entries.
+verify.json: `{ "run": run_counter, "teammate_session_id": "{session_name}" }`.
 
 **2. Spawn teammates directly** -- one per session, using the **Agent** tool. No team
 creation step is needed: a team forms automatically on the first spawn.
@@ -583,7 +582,6 @@ Stored at `.trd-state/<trd-name>/verify.json`:
       ]
     }
   },
-  "active_sessions": {},
   "checkpoints": [],
   "recovery": {
     "last_healthy_checkpoint": null,

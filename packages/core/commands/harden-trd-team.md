@@ -163,7 +163,6 @@ For each phase (or single phase if `--phase N`), for each parallel group within 
 ```json
 { "status": "in_progress", "cycle_position": "audit", "teammate_session_id": "{session_name}" }
 ```
-Update `active_sessions` map with session name entries.
 
 **2. Spawn teammates directly** -- one per session, using the **Agent** tool. No team
 creation step is needed: a team forms automatically on the first spawn.
@@ -385,7 +384,6 @@ Additions per task entry:
       "completed_at": "ISO8601 or null"
     }
   },
-  "active_sessions": {},
   "coverage": { "unit": 0.0, "integration": 0.0, "e2e": 0.0 },
   "checkpoints": [],
   "recovery": {

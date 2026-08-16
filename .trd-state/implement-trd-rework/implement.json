@@ -165,15 +165,16 @@
     "ITR-B006": {
       "description": "",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
-      "implementer_type": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T11:39:12.542402+00:00",
+      "evidence": "current.json reads 3 -> 0 in implement-trd.md and its mirror. Branch-derived resolution per SS3.6: explicit path -> branch pattern (process.md Branch Naming) -> single in-progress implement.json -> STUCK. active_sessions removed from all 7 real sites (TRD claimed 9; agent counted and reported the real number), 0 remaining under packages/core/ and .claude/."
     },
     "ITR-B008": {
       "description": "",
@@ -302,7 +303,7 @@
   },
   "metrics": {
     "total_tasks": 19,
-    "completed_tasks": 12,
+    "completed_tasks": 13,
     "failed_tasks": 0,
     "total_retries": 0
   },

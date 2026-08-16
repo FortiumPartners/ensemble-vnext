@@ -12,7 +12,6 @@
     "e2e": 0.0
   },
   "checkpoints": [],
-  "active_sessions": {},
   "recovery": {
     "last_healthy_checkpoint": null,
     "last_checkpoint_timestamp": null,

@@ -9,7 +9,7 @@ category: implementation
 > **Usage:** `/implement-trd [trd-path] [options]` from project root with `docs/TRD/` directory.
 >
 > **Arguments:**
-> - `<trd-path>` - Path to TRD file (optional if `.trd-state/current.json` exists)
+> - `<trd-path>` - Path to TRD file (optional — derived from the current branch name, or from the single in-progress TRD, if omitted; see Step 1.2)
 > - `--phase N` - Execute only phase N
 > - `--session <name>` - Execute only named work session
 > - `--resume` or `--continue` - Resume from last checkpoint (attempts session resume first)
@@ -71,26 +71,39 @@ Read `.claude/rules/constitution.md`. Extract quality gates:
 - Unit coverage target (default: 80%)
 - Integration coverage target (default: 70%)
 
-### 1.2 TRD Selection
+### 1.2 TRD Selection (branch-derived, D13)
 
-**Priority order:**
-1. Explicit path from `$ARGUMENTS`
-2. Pattern match in `docs/TRD/`
-3. Active TRD from `.trd-state/current.json` (field: `trd`)
-4. Single in-progress TRD with uncompleted tasks
-5. Prompt user to select
+The legacy per-tree active-TRD pointer file under `.trd-state/` is not part of this chain,
+and its absence is never an error — `.gitignore` untracks it deliberately; see that file's
+comment for why a git-tracked pointer breaks two worktrees off one repo. **Priority order,
+stopping at the first hit:**
+
+1. **Explicit path argument** — `$ARGUMENTS` names a TRD path that exists. This step is
+   first because it is a user override (AC-F11.2): an explicit argument must win even when
+   the branch would resolve to something else.
+2. **Branch-derived** — read the current branch (`git branch --show-current`) and parse it
+   against the two documented patterns from `.claude/rules/process.md`'s "## Branch Naming"
+   (`<issue-id>-<session>`, `feature/<trd-name>/<session>`); match the derived slug against
+   `docs/TRD/*.md` filenames and `.trd-state/*/` directory names.
+3. **Single in-progress** — exactly one `.trd-state/*/implement.json` exists with
+   uncompleted tasks; use its `trd_file`.
+4. **STUCK** — emit `═══ COMMAND STUCK ═══` naming the current branch and every candidate
+   TRD/state-dir found in steps 2–3. This is a legitimate `AskUserQuestion` case under
+   `autonomy.md` case 2 (information that cannot be derived), but STUCK with the candidates
+   listed is the cheaper answer and is preferred.
 
 **Validation:** Must contain a "Master Task List" section, parsed by `trd-parser.js` (Step 3) —
 see that step's Error Handling for what a missing or unparseable section does.
 
 ### 1.3 Git Branch Management
 
-Branch naming: `<issue-id>-<session>` or `feature/<trd-name>`
+Branch naming: `<issue-id>-<session>` or `feature/<trd-name>/<session>` — the same two
+patterns Step 1.2 parses to derive the active TRD, so a branch created here resolves
+correctly on the next invocation with no argument.
 
 1. Check `git status` for current branch
 2. Switch to feature branch (create if missing)
 3. Ensure working directory is clean (suggest `git stash` if dirty)
-4. Update `.trd-state/current.json` with branch name
 
 ### 1.4 Strategy Detection
 
@@ -547,9 +560,6 @@ the durable companion to `implement.json` — state records *what* happened, the
   "branch": "<branch-name>",
   "strategy": "tdd|characterization|test-after|bug-fix|refactor|flexible",
   "phase_cursor": 1,
-  "active_sessions": {
-    "<phase_task_key>": "<session_id or null>"
-  },
   "tasks": {
     "TRD-XXX": {
       "description": "Task description",
@@ -586,11 +596,13 @@ the durable companion to `implement.json` — state records *what* happened, the
 (`verify_red|verify|debug|simplify|verify_post_simplify|review`) no longer exists; `status.js`
 imports `CYCLE_ORDER` from the same module (D5) so the two cannot drift.
 
-**On `active_sessions` and `current.json`:** both still appear above and in Step 1.2/1.3 —
-**left untouched by this task deliberately.** Their removal is D13/ITR-B006's job (branch-derived
-active-TRD resolution), a separate task from this one that also edits this file; per the
-`Touches`-gates-parallelism rule the two serialize on this file regardless of split, and
-touching D13's surface here would create exactly the conflict that rule exists to avoid.
+**On the retired session-coordination map and the legacy pointer file (ITR-B006, D13):**
+neither appears in the schema above or anywhere in Step 1.2/1.3 any more. The
+session-coordination map existed for cross-implementation coordination that NG13 descopes;
+it held an empty object on every `implement.json` this project ever produced, so removing
+it changes nothing observable. The pointer file is untracked (`.gitignore`) and out of the
+active-TRD resolution chain entirely — Step 1.2 derives the active TRD from the branch name
+or from the single in-progress state file instead.
 
 ### Session vs Persistent State
 
