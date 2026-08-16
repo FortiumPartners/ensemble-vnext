@@ -774,10 +774,43 @@ secret, which needs repo-admin access. `/install-github-app` automates route (a)
 secret. Note the org caveat: an OAuth token is tied to whoever ran `claude setup-token`, so
 shared use wants an API key.
 
-**Still unverified:** item 6's claim that `REVIEW.md` is read by Code Review. This page names
-`CLAUDE.md` for project standards and does not mention `REVIEW.md`. Do not build on that
-claim until it is checked against `docs/en/code-review` directly — it is the same
-document-as-evidence pattern corrected above.
+**`REVIEW.md` — CONFIRMED** (`docs/en/code-review`). Item 6 was right: *"review-only
+instructions, injected directly into every agent in the review pipeline as highest priority."*
+**But it only applies to the managed Code Review service.** The local `/code-review` command
+explicitly *"doesn't read `REVIEW.md`"*, and the Action route runs the `code-review` plugin
+skill, where it is undocumented. So `REVIEW.md`'s value is tied to route (a).
+
+**BILLING — decisive for route choice, and they are not equivalent:**
+
+| | route (a) managed Code Review | route (b) `claude-code-action` |
+|---|---|---|
+| Plans | **Team / Enterprise only** (research preview) | Pro, Max, Team, Enterprise |
+| Auth | org-level GitHub App | `claude_code_oauth_token` from `claude setup-token` |
+| Billing | **usage credits, ~$15–25 per review**, separate from plan usage | *"runs use your Claude subscription instead of API billing"* |
+| Reads `REVIEW.md` | yes | not documented |
+| Not available with | Zero Data Retention | — |
+
+At $15–25 per review, per-phase review on route (a) costs **$75–125 for a five-phase
+feature**, on top of the plan. Route (b) with an OAuth token is subscription-covered. **That
+inverts the earlier recommendation: prefer (b) unless `REVIEW.md` governance is worth
+per-review credits.** Route (b)'s YAML above should use
+`claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}` rather than the API key the
+docs' examples show.
+
+**ITEM 6'S disable-model-invocation CLAIM IS OUTDATED — re-check before building on it.**
+`docs/en/code-review` states plainly: *"Claude can start `/code-review` on its own. Ask it to
+review your changes in plain language and it can run the skill without you typing the
+command, and a scheduled task with `/code-review` as its prompt runs the review."* There is
+even a `skillOverrides: {"code-review": "user-invocable-only"}` setting to DISABLE that,
+which implies the default permits it. Documented exceptions: cloud-provider sessions, the
+Claude apps gateway, and privacy env vars.
+
+If that holds, `/implement-trd` may be able to invoke `/code-review` directly at a phase
+boundary, and this item's whole CI detour becomes optional rather than necessary. Two
+caveats before relying on it: the **`ultra` cloud tier is separately restricted** (user-typed
+and billed), and a scheduled task *"never launches the cloud review"*. Verify the non-ultra
+in-loop path empirically before designing on it — this claim has already been wrong once in
+the other direction.
 
 **The design below is conditional on that decision.** If per-phase automated review is
 available by any of those routes, run it per phase rather than once at the end:
