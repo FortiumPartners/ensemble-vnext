@@ -664,6 +664,10 @@ directly by the team commands; smoke harness still green.
 > prompts, where they arguably belong. There are **no workflows in this repo today** and the
 > tooling is unverified here.
 >
+> **Superseded 2026-08-15 by item 10's split** — `create-prd.js` is now 2 stages and
+> `create-trd.js` 3; the wave they used to carry lives in `audit-prd.js` / `audit-trd.js`.
+> Four workflow scripts, all delivered via `packages/full/workflows -> ../core/workflows`.
+>
 > **Status 2026-08-14: both converted.** `.claude/workflows/create-trd.js` (5 stages, 6
 > parallel verifiers) and `.claude/workflows/create-prd.js` (3 stages, 3 verifiers). Commands
 > now invoke `Workflow({name})` and keep the prose path as an explicit fallback, so a project
@@ -761,6 +765,26 @@ acceptance criteria against code; `TeammateIdle` re-engages a worker that stoppe
 > `/implement-trd`'s delegation template, the verifier wave, action-register readouts,
 > mode-conditional refine commands, and the retirement of `/create-prd-team` and
 > `/create-trd-team`. Designs: `item-10-prd-path.md`, `item-10-trd-path.md`.
+>
+> **Extended 2026-08-15 — split into create / refine / audit, and profiled.** The
+> verification wave moved out of `create` into standalone `/audit-prd` and `/audit-trd`,
+> which re-derive their own index from the document and therefore run on ANY artifact,
+> including one written by hand years ago, and more than once. `--light` was dropped —
+> `create` *is* light now. `refine` gained interactive and `--auto` modes consuming
+> `## Open Questions`; `audit` consumes and rewrites `## Could Not Verify`, so every
+> artifact carries its own verification state.
+>
+> Measured end-to-end on two codebases (ensemble-vnext + herald), non-interactive:
+> PRD $32.70 → $21.49 create+audit (−34%); TRD $76.25 → $67.75 (−11%); tasks on the same
+> feature 43 → 12. Full profile and the pre-registered rubric:
+> `docs/modernization/runs/profile/RESULTS.md`.
+>
+> **One pre-registered failure condition triggered:** an author cited a design document as
+> evidence that `sanitize_error_detail()` exists. It does not. Both create workflows now
+> require a source-file citation for any claim that something IS built — a mechanism, where
+> the corpus rule had been only a prohibition. Two defects in the audit workflow itself were
+> found by running it (`18faa57`, `2d90735`) and one delivery bug by scaffolding it
+> (`fb72dbf`) — none were visible in review.
 
 #### The generators were manufacturing it
 
