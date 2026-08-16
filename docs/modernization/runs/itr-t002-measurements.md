@@ -212,7 +212,42 @@ the TRD-assignment path never fires — it exercises the `backend-implementer` d
 assignment path has seven unit tests and no live run. Keeping the fixture byte-identical to
 `run4` is what makes the cost delta attributable to the fix rather than to fixture drift.
 
-### Wall clock is a real regression, not noise
+### Wall clock: explained — concentration, not serialization
+
+Measured from per-agent transcript spans, 2026-08-16:
+
+| | OLD | NEW (post-fix) |
+|---|---:|---:|
+| agents | 40 | 16 |
+| total agent-time | 14.0 min | 24.4 min |
+| turns | 289 | 337 |
+| sec/turn | 2.9 | 4.3 |
+| median agent duration | 20s | 68s |
+| parallelism (agent-time / wall) | 1.69x | 1.54x |
+
+**The serialization hypothesis is refuted.** Parallelism is essentially unchanged — the
+reworked loop is not stacking gate agents behind the wave in a way that starves concurrency.
+
+The cause is *concentration*. Collapsing five agents per task into one did not remove the
+work; it moved the work inside a single agent. Five short agents per task (median 20s) can
+interleave with *other tasks'* agents. One long agent per task (median 68s) contains an
+irreducible sequential chain — implement, then test, then self-check — that nothing else can
+overlap with. The two slowest NEW agents ran 220s and 200s across ~46 turns each; those are
+task implementers doing in one conversation what the old loop split across four.
+
+Total turns also rose (337 vs 289): one agent carrying a task end to end re-establishes
+context every turn, where four specialists each started already focused.
+
+**So the trade is real and now understood: fewer agents, lower cost, longer wall clock.**
+Cost fell because Sonnet-tier implementers replaced a mixed fleet and cache reads dominate
+the token bill. Wall time rose because the critical path through any single task got longer.
+
+The regression scales with the *longest task in a phase*, not with task count — a phase of
+eight trivial tasks and a phase of eight substantial ones pay a similar penalty, because the
+penalty is per-task-chain, not per-phase. That also means it does NOT compound the way a
+serialization bug would.
+
+### Original note (superseded by the measurement above)
 
 Called noise after one sample. At three it isn't: 11.5 (old) against 16.6 and 20.0 (both new
 arms). The new command is consistently **slower in wall clock while cheaper in cost**, and
