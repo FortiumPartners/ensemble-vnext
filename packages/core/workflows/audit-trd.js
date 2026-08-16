@@ -228,6 +228,16 @@ DECISIONS (index):
 ${DEC}
 
   - Any task whose serves is empty, or names an ID absent from the objectives/decisions?
+  - **SIZING — check the grounding blocks, not just the task table.** Collect each task's
+    `Touches` files from the `## Task Grounding` section. Any FILE named by two or more tasks
+    means those tasks serialize (two agents editing one file is a lost update). Report each
+    such cluster unless the task rows state a size or verifiability reason for staying split.
+    Splitting for parallelism that cannot happen costs an implement-loop pass per extra task.
+    Measured: four tasks on one command file, two folded on review with no loss.
+  - **EMPTY TOUCHES on a non-greenfield repo.** A task whose grounding block names no file
+    produces no durable change. Report it unless it names where its findings land — a probe
+    document, a decision record, an added line. Measured: four such tasks in one TRD, none
+    naming an output.
   - Any DECISION that is really delivery machinery -- feature flags, rollout phases,
     migration paths, guard infrastructure, eval gates, config toggles -- serving no stated
     objective? That is the largest category of wasted implementation work: machinery added

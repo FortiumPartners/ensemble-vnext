@@ -320,6 +320,48 @@ fall back to the agent's full skills list at delegation time.
 | [PREFIX]-B001 | [Task description] | AC-F1.1 | `developing-with-dotnet` | [PREFIX]-P002 | [Criteria] |
 | [PREFIX]-F001 | [Task description] | D2 | `developing-with-react`, `jest` | [PREFIX]-B001 (API contract only) | [Criteria] |
 
+**TWO TASKS THAT TOUCH THE SAME FILE WILL SERIALIZE. MERGE THEM, OR SAY WHY NOT.**
+
+Work gets split to run in parallel. When two tasks name the same file, the `Touches` partition
+serializes them regardless of what the dependency graph permits — two agents editing one file
+is a lost update that raises no error. So the parallelism justification is gone, and the split
+now needs a *different* reason.
+
+There are only two good ones, and you must state whichever applies in the task row:
+
+- **Size** — merged, the task would be too large to implement in one pass, or would return a
+  partial result VERIFY cannot judge as pass or fail.
+- **Verifiability** — the behaviours have genuinely separate acceptance criteria that cannot
+  be checked as one unit.
+
+If neither holds, **merge**. Splitting for parallelism that cannot happen costs a full
+implement-loop pass per extra task and buys nothing.
+
+Measured, in this contract's own first TRD: four tasks edited
+`packages/core/commands/implement-trd.md`. The execution plan had already noticed and
+sequenced them — *"the `Touches` partition serializes them regardless of the dependency
+graph"* — and kept them as four tasks anyway. Two were folded on review with no loss.
+**Serializing coupled tasks is correct; leaving them split once serialized is not.**
+
+**EVERY TASK PRODUCES A DURABLE CHANGE. NAME WHERE IT LANDS.**
+
+A task with an empty `Touches` block on a non-greenfield repo is not a task — it is
+investigation, and investigation that writes nothing down cannot be verified, resumed, or
+handed on. "Clone a repository and read three files" leaves nothing behind and consumes a full
+implement-loop pass to do it.
+
+If the work is genuinely investigative and genuinely needed, it still names the file its
+findings land in — a probe document, a decision record, an added `Careful:` line. Then it is a
+task. If nothing lands, it belongs in source resolution or as a gate on another task, not in
+the Master Task List.
+
+Same TRD, same first run: four tasks carried no `Touches` — clone-and-read, an experiment, a
+narrowed remnant, and "observe the next run." None named an output.
+
+**Task count is an output, never a target.** Do not split to look thorough, and do not merge to
+look lean. These two rules bound it from below and above; the number that falls out is the
+number.
+
 **The `Serves` column is mandatory and machine-readable.** Every task names the objective
 or decision ID it exists to satisfy. A task that serves nothing is work nobody asked for —
 the commonest form being delivery machinery (flags, rollout stages, guard infrastructure)
