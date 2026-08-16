@@ -417,9 +417,17 @@ function splitGroundingFieldBody(label, body) {
   if (!trimmed) return [];
   if (label === 'touches') {
     const backticked = trimmed.match(/`([^`]+)`/g);
-    if (backticked) {
-      return Array.from(new Set(backticked.map((s) => s.replace(/`/g, '').trim()))).filter(Boolean);
-    }
+      if (backticked) {
+        // Not every backticked span in a Touches body is a path. Grounding prose carries
+        // evidence markers and symbol names in the same code spans -- [ran cmp] and
+        // smoke_write_trd() both surfaced as "files" before this filter, which fabricates
+        // conflict edges: task-graph.js then serializes two tasks that share nothing. A false
+        // conflict costs parallelism silently, which is the harder failure to notice.
+        const isPathLike = (t) => t.includes('/') || /\.[A-Za-z0-9]{1,6}$/.test(t);
+        return Array.from(
+          new Set(backticked.map((s) => s.replace(/`/g, '').trim()))
+        ).filter((t) => t && isPathLike(t));
+      }
     return trimmed
       .split(',')
       .map((s) => stripMarkup(s))

@@ -497,6 +497,37 @@ describe('parseTrd — Could Not Verify', () => {
 // the failure ITR-P001 found in the Sunstone reference (docs/modernization/runs/item8/sunstone-read.md).
 // ---------------------------------------------------------------------------
 
+  it('excludes non-path backticked tokens from Touches (symbols, shell commands)', () => {
+    // Regression: grounding prose puts evidence markers and symbol names in code spans
+    // alongside real paths. Extracting every span made `cmp` and `smoke_write_trd()` into
+    // "files", which fabricates conflict edges in task-graph.js and silently serializes
+    // tasks that share nothing.
+    const md = [
+      '# TRD: Touches filter',
+      '',
+      '## 4. Master Task List',
+      '',
+      '### 4.2 Phase 1: Only',
+      '',
+      '| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |',
+      '|---------|-------------|--------|--------|--------------|---------------------|',
+      '| AAA-B001 | Does a thing | G1 | | None | It works |',
+      '',
+      '## 9. Task Grounding',
+      '',
+      '### AAA-B001',
+      '- **Touches:** `packages/core/lib/a.js` `[read]`, `cmp`, `smoke_write_trd()`,',
+      '  `package.json`, `test/smoke/lib/project.sh`',
+      '',
+    ].join('\n');
+    const r = parseTrd(md);
+    expect(r.grounding['AAA-B001'].touches).toEqual([
+      'packages/core/lib/a.js',
+      'package.json',
+      'test/smoke/lib/project.sh',
+    ]);
+  });
+
 describe('parseTrd — real TRDs in this repository', () => {
   it('parses docs/TRD/implement-trd-rework.md (six-column, struck rows, 19 live tasks)', () => {
     const markdown = readRepoDoc('docs/TRD/implement-trd-rework.md');

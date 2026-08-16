@@ -45,6 +45,7 @@ create_valid_structure() {
     mkdir -p "$dir/.claude/skills"
     mkdir -p "$dir/.claude/commands"
     mkdir -p "$dir/.claude/hooks"
+    mkdir -p "$dir/.claude/lib"
 
     # Create docs directories
     mkdir -p "$dir/docs/PRD"
@@ -200,6 +201,17 @@ EOF
 
     [ "$status" -ne 0 ]
     [[ "$output" == *".claude/skills/"*"missing"* ]]
+    [[ "$output" == *"Validation FAILED"* ]]
+}
+
+@test "ITR-B014: Missing .claude/lib/ gives specific error" {
+    create_valid_structure "$TEST_DIR"
+    rm -rf "$TEST_DIR/.claude/lib"
+
+    run "$VALIDATE_SCRIPT" "$TEST_DIR"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *".claude/lib/"*"missing"* ]]
     [[ "$output" == *"Validation FAILED"* ]]
 }
 

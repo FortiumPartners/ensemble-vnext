@@ -451,6 +451,100 @@ _get_plugin_dir() {
     [ -f "$TEST_DIR/.claude/agents/verify-app.md" ]
 }
 
+@test "ITR-B014: fresh scaffold delivers .claude/lib/*.js matching packages/core/lib" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    [ -d "$TEST_DIR/.claude/lib" ]
+
+    # *.test.js is deliberately excluded: packages/core/lib/ mixes test
+    # files alongside modules, and a scaffolded project has no runner wired
+    # up to execute them.
+    local expected_count actual_count
+    expected_count=$(ls -1 "$plugin_dir/../core/lib/"*.js 2>/dev/null | grep -vc '\.test\.js$')
+    actual_count=$(ls -1 "$TEST_DIR/.claude/lib/"*.js 2>/dev/null | wc -l | tr -d ' ')
+    [ "$actual_count" -eq "$expected_count" ]
+
+    # No test file should ever land in a scaffolded project.
+    local test_leak
+    test_leak=$(ls -1 "$TEST_DIR/.claude/lib/"*.test.js 2>/dev/null | wc -l | tr -d ' ')
+    [ "$test_leak" -eq 0 ]
+
+    # Every non-test module packages/core/lib ships must actually land, by name.
+    local lib_path lib_basename
+    for lib_path in "$plugin_dir/../core/lib/"*.js; do
+        [ -f "$lib_path" ] || continue
+        [[ "$lib_path" == *.test.js ]] && continue
+        lib_basename="$(basename "$lib_path")"
+        [ -f "$TEST_DIR/.claude/lib/$lib_basename" ]
+    done
+}
+
+@test "ITR-B014: --refresh does not create .claude/lib when absent (present-only semantic)" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+
+    # Scaffold WITHOUT --plugin-dir content beyond templates, then strip
+    # .claude/lib/ so it is absent the way an older scaffold would be.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    [ -d "$TEST_DIR/.claude/lib" ]
+    rm -rf "$TEST_DIR/.claude/lib"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    # --refresh replaces only what is already present; it must not recreate
+    # a destination directory that was removed.
+    [ ! -d "$TEST_DIR/.claude/lib" ]
+}
+
+@test "ITR-B014: --refresh DOES update .claude/lib when already present" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local first_lib
+    first_lib="$(ls -1 "$TEST_DIR/.claude/lib/"*.js 2>/dev/null | head -1)"
+    [ -n "$first_lib" ]
+
+    # Corrupt it locally, then confirm --refresh restores it from source.
+    echo "// locally corrupted" > "$first_lib"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    ! grep -q "locally corrupted" "$first_lib"
+}
+
+@test "ITR-B014: --force delivers .claude/lib over a pre-existing modified copy" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local first_lib
+    first_lib="$(ls -1 "$TEST_DIR/.claude/lib/"*.js 2>/dev/null | head -1)"
+    [ -n "$first_lib" ]
+    echo "// locally modified, no --force yet" > "$first_lib"
+
+    # Without --force, a second plain scaffold leaves the existing file alone.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    grep -q "locally modified, no --force yet" "$first_lib"
+
+    # With --force, it is overwritten from source.
+    run "$SCAFFOLD_SCRIPT" --force --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+    ! grep -q "locally modified, no --force yet" "$first_lib"
+}
+
 @test "Plugin copy: Copies all vendorable command files with --plugin-dir" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
@@ -1700,7 +1794,7 @@ print('\n'.join(names))
     # Last line of stdout must be the REFRESH_SUMMARY tally.
     local last_line
     last_line="$(printf '%s\n' "$output" | tail -1)"
-    [[ "$last_line" =~ ^REFRESH_SUMMARY\ commands=[0-9]+\ workflows=[0-9]+\ contracts=[0-9]+\ agents=[0-9]+\ hooks=[0-9]+\ skills=[0-9]+$ ]]
+    [[ "$last_line" =~ ^REFRESH_SUMMARY\ commands=[0-9]+\ workflows=[0-9]+\ contracts=[0-9]+\ libs=[0-9]+\ agents=[0-9]+\ hooks=[0-9]+\ skills=[0-9]+$ ]]
 
     local actual_commands actual_agents
     actual_commands="$(printf '%s' "$last_line" | sed -n 's/.*commands=\([0-9][0-9]*\).*/\1/p')"
