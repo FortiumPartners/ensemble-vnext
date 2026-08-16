@@ -314,8 +314,31 @@ it to `agent()` as `opts.agentType` when present):
 | pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
 | llm, agent, rag, prompt, embedding, vector, langgraph, langfuse, openai, anthropic, claude, gpt, sonar, retrieval, tool-calling, multi-agent | `agent-implementer` |
 
-Leave `agentType` unset when nothing matches — `implement-phase.js` tolerates its absence and
-the platform falls back to its own default.
+**When nothing matches, use `backend-implementer`.** Do NOT leave `agentType` unset.
+
+An unset `agentType` does not mean "no agent" — it means the platform's generic workflow
+subagent, which **inherits the session model**. In a session led by Opus that routes ordinary
+implementation work to Opus, silently and at roughly five times the token price of the Sonnet
+implementer that should have taken it.
+
+Measured 2026-08-16 on an identical 8-task fixture run through both the pre-rework and
+reworked commands. The pre-rework command carried a named fallback
+(`taskState.implementer_type || "backend-implementer"`); this one dropped it during the
+rework:
+
+| | pre-rework | reworked (before this fix) |
+|---|---|---|
+| model turns | 367 Opus / **330 Sonnet** | 393 Opus / **8 Sonnet** |
+| task agents | 8 × `backend-implementer` | 8 × generic workflow subagent |
+
+The fixture's tasks — "create a module, add a Jest test" — match no keyword in the table
+above, which is not an exotic case: plenty of real tasks are phrased without a routing noun.
+
+`backend-implementer` is the right default because it is the broadest implementer, it is
+Sonnet-tier, and being wrong about it is cheap — a frontend task handled by
+`backend-implementer` still gets a competent implementer, whereas an unset type silently
+escalates the model tier for every unmatched task in the run. **Fail toward the cheaper
+agent, never toward the more expensive one.**
 
 ### 3.4 Skill Matching (per task)
 

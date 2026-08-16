@@ -142,3 +142,46 @@ so the claim could fail if it were false. Fixed overhead is real but amortizes.
 What remains genuinely open is narrower than it was: runtime file-collision serialization,
 context isolation, and whole-phase retry. None of those is load-bearing for the rework's
 main argument, and each needs a differently-shaped fixture rather than a bigger one.
+
+---
+
+## A/B against the pre-rework command — identical fixture, both arms
+
+`run4` (reworked, 938 lines) vs `run5` (pre-rework `a17316c`, 1466 lines), same 8-task
+single-phase TRD, same scaffold, same plugin. Both reached COMMAND COMPLETE and produced
+8 modules + 8 tests.
+
+| | OLD | NEW | delta |
+|---|---:|---:|---:|
+| agents | 40 (5.00/task) | 16 (2.00/task) | **−60%** |
+| raw tokens | 41.0M | 22.6M | **−45%** |
+| cost | $131.24 | $80.02 | **−39%** |
+| wall clock | 11.5 min | 16.6 min | **+44%** |
+| cache-read share | 81% | 89% | |
+| model turns | 367 opus / 330 sonnet | 393 opus / 8 sonnet | see below |
+
+The old arm's 40 agents decompose exactly as the pre-rework loop predicts: 8
+`backend-implementer` + 16 `verify-app` (verify, then verify-post-simplify) + 8
+`code-simplifier` + 8 `code-reviewer`. The projected ~5-per-task baseline was right to two
+decimal places.
+
+**The new command wins on cost while handicapped.** It spent almost everything on Opus
+because of the `agentType` regression below; the old arm ran 330 of its 697 turns on Sonnet.
+Fixing the regression moves the 8 task agents to Sonnet and should widen the gap.
+
+**Wall clock is the one metric that got worse**, and it is also the least trustworthy number
+here: one run per arm, no repeats, and wall time is sensitive to load and network in a way
+token counts are not. Treat −45% tokens as the solid finding and +44% wall clock as a signal
+worth re-measuring, not a conclusion.
+
+### The regression this comparison exposed
+
+The pre-rework command carried a named implementer fallback
+(`taskState.implementer_type || "backend-implementer"`). The rework dropped it and instructed
+the model to leave `agentType` unset when no keyword matches. Unset does not mean "no agent" —
+it means the platform's generic workflow subagent, which **inherits the session model**. Under
+an Opus lead, every unmatched task silently runs on Opus.
+
+This fixture's tasks ("create a module, add a Jest test") match no keyword, which is not an
+exotic case. Fixed by defaulting to `backend-implementer`: broadest implementer, Sonnet-tier,
+and cheap to be wrong about. **Fail toward the cheaper agent, never the more expensive one.**
