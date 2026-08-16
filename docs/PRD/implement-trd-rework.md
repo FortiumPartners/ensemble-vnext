@@ -1,6 +1,6 @@
 # PRD: Rework `/implement-trd` and Build the Deterministic Task Graph
 
-**Version**: 1.2.0
+**Version**: 1.2.1
 **Status**: Draft
 **Created**: 2026-08-15
 **Last Updated**: 2026-08-15
@@ -16,6 +16,7 @@
 | 1.0.0 | 2026-08-15 | Initial PRD creation from `docs/modernization/runs/item8/SPEC.md` (improvement-plan items 7 + 8, verbatim) | @product-manager |
 | 1.1.0 | 2026-08-15 | `/refine-prd --auto` pass against the **re-extracted** SPEC.md (497 lines). **Added:** F16 (execution model — command + one parameterized `implement-phase.js` workflow, SPEC:459–488), G8, NFR-9, AC-F1.9 (`Touches`-derived partition), AC-F7.7 (`status.js`), AC-F14.5. **Removed:** AC-F8.1 and AC-F8.2 (early non-draft PR + per-phase push) — superseded by the 2026-08-16 execution-model decision, which starts the review locally rather than via a PR trigger; R7 (resolved by OQ-2). **Corrected against code:** §1.1 defect 3 and F12 bullet 1 (`current.json` is no longer git-tracked — commit `cb9fcda`), F9's reference set (10 files under `packages/core/`, not six). **Resolved:** OQ-1, OQ-2, OQ-4, OQ-5, OQ-6, OQ-7, OQ-8. **Still open:** OQ-3 (owner-only). | @product-manager |
 | 1.2.0 | 2026-08-16 | OQ-3 answered by owner ruling: all thirteen P0 features ship in release 1 including `/audit-build`. F12 (concurrent TRDs) descoped to Non-Goal NG13 — cross-implementation parallel guards are out of scope, each session manages its own merge; the worktree-pointer half already shipped in `cb9fcda`. F13/F14/F15 unchanged at P1. **No open questions remain.** | @product-manager |
+| 1.2.1 | 2026-08-16 | `/audit-prd` pass against SPEC.md, 3/3 verifiers. **Removed:** AC-F12.1–.4 (orphaned when 1.2.0 descoped F12 to NG13 without propagating to §6). **Retired:** R4 — the risk it guarded against is out of scope under NG13; its `AC-F12.2` citation no longer resolved. **Corrected:** §9's lead-in still claimed one question remained while its only row read ANSWERED. **Grounded:** G8 and F16 now record the partial prior art at `packages/core/commands/implement-trd.md:431–435` (per-task returns are already compressed to one line today) instead of implying a full-output baseline. **Rewritten:** §10 Could Not Verify now states this audit's coverage and why each remaining row is still unchecked. | @product-manager |
 
 ---
 
@@ -229,7 +230,7 @@ journey
 | G5 | Active-TRD state is derived from the branch, not a repo-wide pointer | `current.json`'s single-pointer role removed; explicit-argument fallback exists for unresolvable branches | P0 |
 | G6 | `implement-trd.md` shrinks materially | Source-stated expectation: 400–600 lines lost | P1 |
 | G7 | Every requirement has both an implementation and a test proving it | `/audit-build` reports traceability gaps | P1 |
-| G8 | Per-task results stop entering orchestrator context | One phase = one `Workflow` call; the orchestrator sees a phase result, not per-task results (SPEC:485–488) | P0 |
+| G8 | Per-task results stop entering orchestrator context | One phase = one `Workflow` call; the orchestrator sees a phase result, not per-task results (SPEC:485–488). Today's baseline is compression, not full output — `implement-trd.md:431–435` already summarizes each return to one line; F16 eliminates the per-task return instead of compressing it (see F16 *Prior art*) | P0 |
 
 ### 3.2 Non-Goals (Explicit Scope Exclusions)
 
@@ -569,6 +570,18 @@ which ran 7 agents in 13 minutes. A phase either completes or is retried whole, 
 It also delivers what the loop most needs: **per-task results stop entering orchestrator
 context** (G8).
 
+**Prior art — this is a stronger property, not a new one.**
+`packages/core/commands/implement-trd.md:431–435` already carries a partial mitigation of the
+same problem: *"When a subagent returns, immediately extract ONLY: status (pass/fail),
+files_changed list, error_summary (if any)"*, *"Record a single-line summary"*, *"Pass only
+the summary (not full output) to downstream stages."* So today's orchestrator does **not** see
+full per-task output — it sees a compressed per-task line, and the compression is a prompt rule
+subject to R2 (a stated prompt rule may not produce the behaviour). F16's claim is the stronger
+one: per-task results do not reach the orchestrator **at all**, because the phase boundary is a
+`Workflow` call return rather than N subagent returns the orchestrator must remember to
+compress. AC-F16.7 should be measured against the existing compressed-line baseline, not
+against a hypothetical full-output baseline.
+
 **Acceptance Criteria**:
 - [ ] AC-F16.1: `/implement-trd` remains a prompt/command, not a workflow
 - [ ] AC-F16.2: Exactly one workflow script exists for the loop — `implement-phase.js`,
@@ -724,10 +737,6 @@ enforced thresholds, and are recorded as goal metrics in §3.1 rather than as NF
 | AC-F11.2 | F11 | Explicit-argument fallback exists | Unit test |
 | AC-F11.3 | F11 | `current.json` no longer the single source | Manual review |
 | AC-F11.4 | F11 | `active_sessions` resolved, not left dead | Manual review |
-| AC-F12.1 | F12 | Decision covers all five named breakages | Manual review |
-| AC-F12.2 | F12 | Decision made after the graph exists | Manual review |
-| AC-F12.3 | F12 | `cross-trd-deps.js` read first | Manual |
-| AC-F12.4 | F12 | Worktree question answered separately for state file and lock | Manual review |
 | AC-F13.1 | F13 | Implementer contract in its own file | Manual (`ls`) |
 | AC-F13.2 | F13 | `implement-trd.md` retains orchestration only | Manual review |
 | AC-F13.3 | F13 | 400–600 lines lost | Manual (`wc -l`) |
@@ -770,7 +779,7 @@ enforced thresholds, and are recorded as goal metrics in §3.1 rather than as NF
 | R1 | The in-loop `/code-review` path turns out not to be model-startable in this environment, and F8's per-phase design has no mechanism | Med | High | AC-F8.6 requires empirical verification **before** designing on it. The source itself flags: *"this claim has already been wrong once in the other direction."* Fall back to the CI route (F8 contingency) |
 | R2 | A stated prompt rule does not produce the behaviour — the source measured this twice in one session, and F2/F3/F4/F5 are all prompt changes | High | High | Verify each against a real run, not against the file's text. AC-F7.6 and AC-F15.1 are the observation points |
 | R3 | The parser demands a TRD format `/create-trd` does not produce, turning a parser change into a producer change | Med | High | Source flags it directly: *"a graph is only as deterministic as its input. If it requires structured task declarations, that is a change to `/create-trd`, not just to the parser."* Read Sunstone's parser first (AC-F1.8) and decide the format question before writing the graph |
-| R4 | Concurrent-TRD design is attempted before the graph exists and produces guesswork | Med | High | NG10 and AC-F12.2 sequence it explicitly after F1 |
+| R4 | ~~Concurrent-TRD design is attempted before the graph exists and produces guesswork~~ | — | — | **Retired 2026-08-16.** The risk assumed the design happens inside this item. Owner ruling descoped it to NG13 — cross-implementation parallel guards are out of scope — so there is no concurrent-TRD design in this item to sequence. NG10 is retained as the standing rationale for why it was never designed early. The AC-F12.2 citation was removed with F12's acceptance criteria |
 | R5 | Phases grow to 8+ tasks, the phase diff becomes unbounded, and the churn argument against per-phase review returns | Low | Med | Source-stated answer: *"smaller phases, not less review."* Measured on the profile TRDs, phases sit at ~4 (ensemble) and ~5.4 (herald) tasks. Watch on the first real run |
 | R6 | Removing `code-reviewer` from the loop drops acceptance-criteria verification, which nothing else owns until `/audit-build` exists | Med | High | AC-F9.2 makes relocation to `/audit-build` a condition of removal; F10 is P0 for this reason |
 | R7 | ~~Item 6 (`REVIEW.md`) is a hard dependency~~ | — | — | **Retired 2026-08-15.** OQ-2 is answered from the source: `REVIEW.md` governs only the managed Code Review service, and the local `/code-review` *"doesn't read `REVIEW.md`"* (SPEC:224–228). The decided design uses the local tier exclusively, so item 6 does not block this item |
@@ -869,8 +878,9 @@ as such.
 ## 9. Open Questions
 
 Seven of the eight questions carried by PRD 1.0.0 were resolved by the `--auto` refinement
-pass — see §8 *"Resolved this pass"* for each verdict and its evidence. **One remains, and
-it is genuinely owner-only.**
+pass — see §8 *"Resolved this pass"* for each verdict and its evidence. The eighth, OQ-3, was
+genuinely owner-only and was answered by owner ruling on 2026-08-16. **No open questions
+remain.** The row below is retained as the record of that ruling.
 
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
 |----|----------|----------------|----------------|--------------|
@@ -884,6 +894,36 @@ on it.
 ---
 
 ## 10. Could Not Verify
+
+**Verification state as of the 2026-08-16 audit** (`/audit-prd`, source of truth
+`docs/modernization/runs/item8/SPEC.md`, 3 of 3 verifiers reporting — conformance, citation,
+grounding).
+
+**What that audit did check, and cleared:**
+
+- **Technology and architecture conformance** against `.claude/rules/stack.md` and
+  `.claude/rules/constitution.md` — Jest ^29 / BATS / Node 18+, subagent nesting forbidden,
+  COMMAND COMPLETE banner required, `autonomy.md` integration. No violations.
+- **Internal ID resolution** — every `AC-*`, `F*`, `G*`, `NG*`, `NFR-*` and `R*` reference
+  resolves to a definition in this document. One class of orphan was found and removed
+  (AC-F12.1–.4 and R4's `AC-F12.2` citation, stranded when F12 was descoped to NG13 in 1.2.0).
+- **One grounding claim against real code** — G8 / AC-F16.7's premise that per-task results
+  reach orchestrator context today. Checked against
+  `packages/core/commands/implement-trd.md:431–435` and found partially mitigated already;
+  F16 now records that prior art rather than implying a full-output baseline.
+
+**What it did not check** — the table below, unchanged. Every row is an *empirical* claim
+inherited verbatim from SPEC.md: a cost figure, a timing, a live-docs reading, a measurement
+from a run, or a fact about a repository that is not on this machine. Confirming any of them
+requires running an experiment, cloning `Sunstone-Partners/ensemble`, re-fetching
+`code.claude.com/docs`, or accessing the separate `herald` repository. The audit's verifiers
+read this PRD, SPEC.md, and this repository's code — none of those three capabilities was in
+scope for a document audit, and none was exercised. These rows therefore stand exactly as
+written, still unverified.
+
+Nothing in this section is unresolvable for want of a verifier or a source: all three
+verifiers reported and the source was supplied. The rows persist because checking them is
+field work, not reading.
 
 | Claim | How I'd check it |
 |-------|------------------|
