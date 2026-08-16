@@ -774,11 +774,17 @@ secret, which needs repo-admin access. `/install-github-app` automates route (a)
 secret. Note the org caveat: an OAuth token is tied to whoever ran `claude setup-token`, so
 shared use wants an API key.
 
-**`REVIEW.md` — CONFIRMED** (`docs/en/code-review`). Item 6 was right: *"review-only
-instructions, injected directly into every agent in the review pipeline as highest priority."*
-**But it only applies to the managed Code Review service.** The local `/code-review` command
-explicitly *"doesn't read `REVIEW.md`"*, and the Action route runs the `code-review` plugin
-skill, where it is undocumented. So `REVIEW.md`'s value is tied to route (a).
+**`REVIEW.md` — CONFIRMED, and NOT a dependency of this design** (`docs/en/code-review`).
+Item 6 was right about what it does: *"review-only instructions, injected directly into every
+agent in the review pipeline as highest priority."* But it applies **only to the managed Code
+Review service**, and the local command — the one this design uses — explicitly *"follows your
+`CLAUDE.md` like any Claude Code session, but it doesn't read `REVIEW.md`."*
+
+**So `CLAUDE.md` is the governance channel for the reviewer actually in the loop.** Review
+guidance goes where this framework already writes, not into a new file. Ship `REVIEW.md` for
+whoever enables the PR service; it is not on the critical path for item 8, and OQ-2 in
+`docs/PRD/implement-trd-rework.md` is right to flag the contradiction it inherited from a
+source written before this was settled.
 
 **BILLING — decisive for route choice, and they are not equivalent:**
 
@@ -1001,13 +1007,29 @@ and no test is exactly how `sanitize_error_detail()` survived two review passes.
 Same proven shape as `audit-prd` / `audit-trd` — index → parallel verifiers → reconcile —
 except the artifact is the delivered code and the source is TRD + PRD.
 
-#### `harden-trd-team` / `verify-trd-team` — replaced
+#### `harden-trd-team` / `verify-trd-team` — replaced, decided 2026-08-16
 
-1,607 lines doing two unrelated jobs: adversarial edge-case review, and forcing an
-end-to-end test path. Neither needs a team. Replace with a verifier fan-out for the
-adversarial pass (the shape that found real defects on both codebases in the item-10
-profile) and a plain deterministic E2E gate — run the tests; do not convene agents to
-discuss them.
+1,607 lines doing two unrelated jobs — adversarial edge-case hunting, and forcing an
+end-to-end test path. Neither needs a team.
+
+**Hardening is NOT redundant with code review, and the distinction is load-bearing: review
+examines what you wrote; hardening asks what you did not.** Review finds bugs in existing
+lines. Hardening finds the missing error path, the unhandled boundary, the behaviour with no
+test. A per-line review structurally cannot see a line that is not there — the same reason
+`audit-*` carries a separate `omission-audit` verifier rather than folding omission into the
+others.
+
+Replacement, in three parts:
+
+1. **Hardening's mandate moves into `CLAUDE.md`** — "flag missing error handling, unhandled
+   boundary conditions, and behaviour with no test." The local `/code-review` reads
+   `CLAUDE.md`, so this reaches every phase review at no additional cost and with no command
+   to maintain.
+2. **One terminal adversarial pass before the PR** — a verifier fan-out, the shape that found
+   real defects on both codebases in the item-10 profile. Whole-feature weaknesses only exist
+   once the whole feature does, so this cannot be folded into a phase.
+3. **The `[LIVE]` E2E task** already required by `trd-authoring.md`, which is the
+   forcing-an-end-to-end-path half of what these commands were for.
 
 #### Parallelism and file ownership — decided 2026-08-16
 
