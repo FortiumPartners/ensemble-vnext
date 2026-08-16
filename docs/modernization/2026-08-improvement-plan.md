@@ -1009,6 +1009,46 @@ adversarial pass (the shape that found real defects on both codebases in the ite
 profile) and a plain deterministic E2E gate — run the tests; do not convene agents to
 discuss them.
 
+#### Parallelism and file ownership — decided 2026-08-16
+
+**`Touches` gates parallelism, not just the dependency graph. On overlap, serialize — do not
+isolate into worktrees.**
+
+Dependency-independent is NOT the same as safe to run concurrently. Two tasks with disjoint
+`Blocked by` can both write `broadcast_db.py`; two agents editing one file is a lost update
+that raises no error. The TRD already carries the data to prevent this — 18 `Touches` blocks
+in the herald plan — and nothing currently consumes it for this purpose.
+
+**Measured, before choosing a mechanism:** in a real 27-task TRD only **1 of 7** tracked files
+is shared (`broadcast_db.py`, by CPUB-B001/B004/B007), and the dependency graph had **already
+serialized all three** — B001 in phase 1, B004 and B007 inside phase 2's session 2A, which is
+*"sequential internally."* Overlap is rare, and when it occurs the DAG frequently orders it
+anyway. The residual case is small.
+
+**Why not `isolation: "worktree"` per implementer**, despite the platform's guidance that it
+is for agents that "mutate files in parallel and would otherwise conflict":
+
+- **Worktrees solve the race, not the merge.** Isolation prevents the lost update and says
+  nothing about integrating two divergent versions of one file. That integration needs an
+  agent, which costs more than the serialization saved.
+- **Textual mergeability is not semantic correctness.** Two agents each adding a method merge
+  cleanly and can still produce duplicate helpers or incompatible assumptions. Git sees
+  disjoint hunks; nothing catches the rest until the phase review, by which point both tasks
+  report done.
+- **Cleanup is a real cost, demonstrated here.** This repository is carrying **275 MB across
+  four abandoned agent worktrees** from one day of experiments, and they broke jest discovery
+  (205 stale test files against 19 real) until `28ef0f8`.
+- **Serialization is nearly free at this scale.** Phases are 4–6 tasks; serializing an
+  overlapping pair costs one task's duration inside a phase that still completes in a session.
+
+**Where worktrees DO belong: the workstream level.** Two developers, two TRDs, two branches —
+what git worktrees are actually for, where the merge is a normal PR merge under human review.
+That is item 7's concurrent-TRD problem, not intra-phase task scheduling.
+
+**Escape hatch:** a phase with many genuinely independent tasks on one file is a design smell
+— the file is doing too much, or the tasks are wrong-sized. Report it as a finding rather than
+engineering around it.
+
 #### Execution model — decided 2026-08-16
 
 **`/implement-trd` stays a command. A workflow runs ONE phase.** Not a workflow per phase, and
