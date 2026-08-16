@@ -2,7 +2,7 @@
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
 argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
-version: 3.2.0
+version: 4.0.0
 category: implementation
 ---
 
@@ -33,19 +33,33 @@ Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--re
 ## Execution Model
 
 ```
-PREFLIGHT -> RESUME CHECK -> EXPAND TASKS -> MAIN LOOP -> CHECKPOINT -> COMPLETE
+PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN HARDENING & REVIEW -> COMPLETE
 
-Main Loop (per task):
-  IMPLEMENT -> VERIFY -> [DEBUG if fail] -> SIMPLIFY -> VERIFY -> [DEBUG if fail] -> REVIEW -> UPDATE
+Phase Loop (per phase N):
+  mark phase N's tasks in_progress (state-write-before-dispatch)
+  -> Workflow(implement-phase, {trd, phase: N, tasks, gate, project})
+       (per task, inside the workflow: IMPLEMENT -> checks -> [self-debug on fail])
+       (phase gate, inside the workflow: verify-app -> code-simplifier -> phase-scoped /code-review high)
+  -> command runs the full deterministic battery (`npm run smoke`) at the phase gate
+  -> on failure: retry the WHOLE phase (whole-phase retry, capped) or STUCK
+  -> checkpoint + commit + PHASE banner -> next phase (no pause)
 ```
 
-**Task vs Agent (do not conflate):**
-- **Work-list verbs** — `TaskCreate`, `TaskGet`, `TaskUpdate`, `TaskList` — manage the in-session
-  task graph (stages + `blockedBy` dependencies). They track *what to do*; they do not run agents.
-- **Spawning** — the **`Agent`** tool (`Agent(subagent_type="…", prompt="…")`) dispatches a subagent
-  to execute a stage. It runs *the work*.
+The per-task cycle — `IMPLEMENT -> checks -> [DEBUG on fail]` — happens **inside**
+`packages/core/workflows/implement-phase.js`, dispatched once per task with no
+separate debugging agent (D8): the implementer runs its own targeted check battery and
+self-corrects before returning. This command never spawns a per-task agent directly; it
+computes the graph, assembles every prompt the workflow needs, and dispatches one
+`Workflow(implement-phase, …)` call per phase.
 
-Each stage MUST wait for the spawned subagent to complete before proceeding.
+**Task vs Agent:** this command does not use the platform's `TaskCreate`/`TaskUpdate`/`TaskList`
+work-list tools. The task graph — dependency chains, eligibility waves, file-conflict
+serialization — is now computed deterministically by `packages/core/lib/task-graph.js`, and
+dispatch is a single `Workflow` call per phase rather than a claimed-and-tracked TaskTools
+item per stage. `constitution.md` Principle 1's "orchestrator owns the task list" still holds
+for the **subagent-nesting** question this command answers by construction: it never lets a
+subagent spawn a subagent, because it never spawns per-task subagents itself — the phase
+workflow does, and workflow-started agents have no `Agent` tool at all (§1.3 of the TRD).
 
 ---
 
@@ -66,7 +80,8 @@ Read `.claude/rules/constitution.md`. Extract quality gates:
 4. Single in-progress TRD with uncompleted tasks
 5. Prompt user to select
 
-**Validation:** Must contain "Master Task List" section with format `- [ ] **TRD-XXX**: Description`.
+**Validation:** Must contain a "Master Task List" section, parsed by `trd-parser.js` (Step 3) —
+see that step's Error Handling for what a missing or unparseable section does.
 
 ### 1.3 Git Branch Management
 
@@ -83,12 +98,21 @@ Branch naming: `<issue-id>-<session>` or `feature/<trd-name>`
 
 | Strategy | Behavior | Auto-detect Keywords |
 |----------|----------|---------------------|
-| `tdd` | RED-GREEN-REFACTOR, block on failures | (default) |
+| `tdd` | Implementer writes the failing test and the fix in the same task; block on failures | (default) |
 | `characterization` | Document AS-IS, failures informational | legacy, brownfield, untested |
 | `test-after` | Implement then test | prototype, spike, POC |
 | `bug-fix` | Reproduce -> failing test -> fix | bug fix, regression, defect |
 | `refactor` | Tests pass before AND after | refactor, optimize, tech debt |
 | `flexible` | No enforcement, log only | (explicit only) |
+
+**Note on `tdd` (changed from v3.2.0):** the old model had `verify-app` write RED in a
+separate stage before the implementer ran. The per-task cycle is now one agent invocation
+(D8) — no separate RED dispatch exists in `implement-phase.js`. For `tdd` strategy, the
+per-task prompt (Step 3.5) instructs the implementer to write the failing test and the
+minimal fix **within its own task**, not to wait for a prior stage's output. This is a
+documented deviation from `task-delegation.md`'s `<strategy_instructions>` text, which still
+describes RED as something the implementer "receives" — see this task's deliverables for the
+finding.
 
 ### 1.5 Concurrent Execution Check
 
@@ -101,7 +125,7 @@ Check for `.trd-state/<trd-name>/implement.lock`:
 
 **Non-Goals (TRD Section 8):** Extract as hard boundaries. Agents MUST reject work in non-goal categories.
 
-**Risks (TRD Section 7):** Extract PRD risks, technical risks, implementation risks, contingency plans. Used during DEBUG stage for risk matching.
+**Risks (TRD Section 7):** Extract PRD risks, technical risks, implementation risks, contingency plans. Used during self-debug (Step 3.5's check battery instruction) for risk matching.
 
 ---
 
@@ -118,30 +142,16 @@ If provided:
 
 These flags have identical behavior:
 
-**1. Attempt Session Resume First**
+**1. Load state:**
 
-Check `active_sessions` map in state file for recent session IDs:
-```json
-"active_sessions": {
-  "phase1_task5": "sess_abc123def456"
-}
+```bash
+node -e '
+  const { load } = require("./packages/core/lib/implement-state");
+  console.log(JSON.stringify(load(process.argv[1])));
+' ".trd-state/<trd-name>/implement.json"
 ```
 
-If session_id exists and recent (<24 hours):
-```
-Attempting to resume Claude session: {session_id}
-Command: claude --resume {session_id}
-```
-
-If resume fails, fall back to checkpoint-based resume.
-
-**2. Checkpoint Fallback**
-
-- Set `phase_cursor` to last checkpoint phase
-- Skip tasks with `status: "success"` or `"complete"`
-- Resume from first `pending`, `in_progress`, or `failed` task
-
-**3. Verify Git State**
+**2. Verify Git State**
 
 ```bash
 git log --oneline -1 {checkpoint_commit}
@@ -149,90 +159,27 @@ git log --oneline -1 {checkpoint_commit}
 
 If checkpoint commit missing, offer: "pull" / "ignore" / "reset"
 
-**4. Re-expand Tasks to TaskTools**
+**3. Resume point.** Set `phase_cursor` to the last incomplete phase (the first phase with any
+task not `status: "success"`). There is no per-task TaskTools re-expansion step — Step 3 rebuilds
+the graph from the TRD on every invocation (parsing is cheap and deterministic), and Step 4
+re-dispatches whichever phase `phase_cursor` names. A task already `status: "success"` is
+excluded from that phase's wave partition before the `Workflow` call is made, so a resumed
+phase does not re-implement finished work — see Step 4.2.
 
-After checkpoint recovery, re-create TaskTools tasks from persistent state:
-
-1. Read tasks from state file where `status != "success"` and `status != "complete"`
-2. For each incomplete task, determine which stages to create based on `cycle_position`:
-
-The `cycle_position` enum on disk (written by both this command and `status.js`) is:
-
-`implement | verify_red | verify | debug | simplify | verify_post_simplify | review | update | complete`
-
-Resume coalesces those into the four stage groups created downstream (`:impl`, `:verify`,
-`:simplify`, `:review`) per this table:
-
-| cycle_position on disk | Stages to Create | Mark as Completed |
-|----------------|------------------|-------------------|
-| null, `"implement"`, `"verify_red"` | :impl, :verify, :simplify, :review | (none) |
-| `"verify"`, `"debug"` | :verify, :simplify, :review | :impl |
-| `"simplify"`, `"verify_post_simplify"` | :simplify, :review | :impl, :verify |
-| `"review"`, `"update"` | :review | :impl, :verify, :simplify |
-| `"complete"` | (none — task is done; skip) | :impl, :verify, :simplify, :review |
-
-3. Create each stage with full metadata (see Section 3.4 for TaskCreate format)
-4. Set dependencies between stages (see Section 3.4 for TaskUpdate pattern)
-5. Mark prior stages as completed: `TaskUpdate({ taskId: `${id}:impl`, status: "completed" })`
-
-Example:
-```javascript
-const stateFile = readStateFile(trdName);
-const stageOrder = ["impl", "verify", "simplify", "review"];
-// Coalesce the on-disk cycle_position enum into one of the four stage-group anchors.
-// Anchors map to indices in stageOrder above; everything from the anchor onward is created.
-const stageAnchor = {
-  null: "impl", implement: "impl", verify_red: "impl",
-  verify: "verify", debug: "verify",
-  simplify: "simplify", verify_post_simplify: "simplify",
-  review: "review", update: "review",
-  complete: null,  // task is done — skip create entirely
-};
-const agentMap = {
-  impl: taskState.implementer_type || "backend-implementer",
-  verify: "verify-app",
-  simplify: "code-simplifier",
-  review: "code-reviewer"
-};
-
-for (const [taskId, taskState] of Object.entries(stateFile.tasks)) {
-  if (taskState.status === "success") continue;
-
-  const currentStageIndex = stageOrder.indexOf(taskState.cycle_position) || 0;
-
-  // Create remaining stages
-  for (let i = currentStageIndex; i < stageOrder.length; i++) {
-    const stage = stageOrder[i];
-    TaskCreate({
-      subject: `${taskId}:${stage} - ${taskState.description}`,
-      description: `[See Template A.${i + 2}]`,
-      activeForm: `${stage} ${taskId}`,
-      metadata: { trd_task_id: taskId, stage, intended_agent: agentMap[stage] }
-    });
-  }
-
-  // Mark prior stages as completed
-  for (let i = 0; i < currentStageIndex; i++) {
-    TaskUpdate({ taskId: `${taskId}:${stageOrder[i]}`, status: "completed" });
-  }
-
-  // Set dependencies for remaining stages
-  for (let i = currentStageIndex + 1; i < stageOrder.length; i++) {
-    TaskUpdate({
-      taskId: `${taskId}:${stageOrder[i]}`,
-      addBlockedBy: [`${taskId}:${stageOrder[i - 1]}`]
-    });
-  }
-}
-```
+A task's `cycle_position` (`implement | checks | debug | complete`, per `implement-state.js`
+`CYCLE_ORDER`) is a **diagnostic** field on resume, not a re-entry point: because dispatch is
+per-phase (not per-task), there is no partial-phase resume finer than "this task is done" /
+"this task is not done yet". A task stuck mid-cycle from a killed session is simply re-run
+whole the next time its phase's `Workflow` call fires.
 
 ### 2.3 State Validation
 
 On every start, validate state file:
 
-1. **JSON Structure:** Parse `.trd-state/<trd-name>/implement.json`. Empty/zero-byte files = corrupted.
+1. **JSON Structure:** `implement-state.load()` throws on unreadable/malformed JSON — catch
+   and treat as corrupted.
 2. **Required Fields:** version, trd_file, trd_hash, phase_cursor, tasks
-3. **Task ID Match:** Compare TRD task IDs vs state file. Report mismatches.
+3. **Task ID Match:** Compare TRD task IDs (from Step 3's parse) vs state file. Report mismatches.
 4. **Commit Verification:** Check task commits exist in git history.
 
 ### 2.4 State Repair (Git Reconstruction)
@@ -261,183 +208,62 @@ Parse commit messages for patterns:
 
 ---
 
-## Step 3: Expand Tasks to TaskTools
+## Step 3: Parse the TRD and Build the Task Graph
 
-### 3.1 Parse TRD Tasks
+This step replaces v3.2.0's prose-driven "Expand Tasks to TaskTools" (Section 3), "Cross-Task
+Dependencies" (Section 3.3) and "Concurrency and File Conflict Detection". All three described,
+in prose, exactly what `packages/core/lib/trd-parser.js` and `packages/core/lib/task-graph.js`
+now compute deterministically. Call them; do not re-derive their output by reading the TRD text
+directly.
 
-Extract from "Master Task List":
-```
-- [ ] **PREFIX-CATSEQ**: Description
-- [x] **PREFIX-CATSEQ**: Completed (skip)
-```
+### 3.1 Parse
 
-For each task extract: `id`, `description`, `dependencies` (from "Depends: TRD-YYY"), `parallelizable` (from "[P]" marker).
-
-### 3.2 Stage Expansion
-
-Each TRD task expands to sub-tasks with dependencies:
-
-```
-TRD Task: AUTH-F001 -> frontend-implementer
-
-Creates TaskTools tasks:
-  AUTH-F001:impl     [owner: frontend-implementer]
-  AUTH-F001:verify   [owner: verify-app, blockedBy: :impl]
-  AUTH-F001:simplify [owner: code-simplifier, blockedBy: :verify]
-  AUTH-F001:review   [owner: code-reviewer, blockedBy: :simplify]
+```bash
+node -e '
+  const { parseTrd } = require("./packages/core/lib/trd-parser");
+  const { buildGraph } = require("./packages/core/lib/task-graph");
+  const fs = require("fs");
+  const trdPath = process.argv[1];
+  const markdown = fs.readFileSync(trdPath, "utf8");
+  const parsed = parseTrd(markdown, { path: trdPath });
+  const graph = buildGraph(parsed.tasks, parsed.grounding);
+  console.log(JSON.stringify({ ...parsed, ...graph }, null, 2));
+' "$TRD_PATH"
 ```
 
-**For TDD strategy, prepend RED phase:**
-```
-  AUTH-F001:red      [owner: verify-app]
-  AUTH-F001:impl     [blockedBy: :red]
-  ...
-```
+Read the result as one object carrying: `tasks[]`, `phases{}`, `grounding{}`,
+`couldNotVerify[]`, `openQuestions[]`, `warnings[]` (from `trd-parser.js`), and `nodes[]`,
+`edges[]`, `waves[][]`, `criticalPath[]`, `cycles[][]`, `partition{}` (from `task-graph.js`).
 
-### 3.3 Cross-Task Dependencies
+**Error Handling:**
+- `tasks.length === 0` (parser's own warning: "zero tasks were parsed") — STUCK. Report the
+  file path and suggest checking the Master Task List is a table, per
+  `packages/core/contracts/trd-authoring.md`.
+- `cycles.length > 0` — STUCK, naming every participating task ID from `cycles`. This is
+  AC-F1.6: report, do not loop trying to resolve it.
+- Non-empty `warnings` that are genuine defects (malformed rows, unknown dependency IDs,
+  a grounding block missing the mandatory `Touches` field) — report them in the DISPATCHED
+  banner for the affected phase; they are not individually fatal.
 
-If TRD declares `Task B depends on Task A`:
-- Default: `B:impl` blockedBy `A:review`
-- If file sets disjoint: `B:impl` blockedBy `A:verify` (parallelization opportunity)
+### 3.2 Surface owner-only Open Questions before dispatch
 
-### 3.4 Create Tasks
+For every `openQuestions[]` entry where `ownerOnly === true`: determine which task(s) it
+covers (its `question`/`assumed` text names a file in that task's `grounding.touches`, or
+names the task's ID directly). Before dispatching **any** phase whose tasks are covered,
+include the question's `id`, `question` and `assumed` text in that phase's DISPATCHED banner.
+This is informational surfacing (NFR-2) — never `AskUserQuestion` for it; the assumption is
+proceeded on, and the per-task delegation (Step 3.5) carries it into the prompt itself so the
+implementer sees it before starting, not after (AC-F5.2 — the ordering is structural: the
+question is written into the prompt string assembled before the `Workflow` call, so there is
+no path on which it reaches the implementer after work has begun).
 
-**CRITICAL:** For each TRD task, create ALL four sub-tasks (or five for TDD strategy).
+### 3.3 Implementer selection
 
-**Before creating tasks, check for existing:**
+For every task, resolve `agentType` (passed through to `implement-phase.js`, which forwards
+it to `agent()` as `opts.agentType` when present):
 
-```javascript
-const existingTasks = TaskList();
-const existingIds = new Set(existingTasks.map(t => t.subject.split(' ')[0]));
-```
-
-**Create all sub-tasks for each TRD task:**
-
-```javascript
-for (const trdTask of trdTasks) {
-  const baseId = trdTask.id;
-  const agent = trdTask.assignee;  // e.g., "frontend-implementer"
-
-  // Skip if already exists
-  if (existingIds.has(`${baseId}:impl`)) continue;
-
-  // 1. Create :impl task
-  TaskCreate({
-    subject: `${baseId}:impl - ${trdTask.description}`,
-    description: `[Full context - see Template A.2]`,
-    activeForm: `Implementing ${baseId}`,
-    metadata: { trd_task_id: baseId, stage: "impl", intended_agent: agent }
-  });
-
-  // 2. Create :verify task
-  TaskCreate({
-    subject: `${baseId}:verify - Verify ${trdTask.description}`,
-    description: `[Full context - see Template A.3]`,
-    activeForm: `Verifying ${baseId}`,
-    metadata: { trd_task_id: baseId, stage: "verify", intended_agent: "verify-app" }
-  });
-
-  // 3. Create :simplify task
-  TaskCreate({
-    subject: `${baseId}:simplify - Simplify ${trdTask.description}`,
-    description: `[Full context - see Template A.6]`,
-    activeForm: `Simplifying ${baseId}`,
-    metadata: { trd_task_id: baseId, stage: "simplify", intended_agent: "code-simplifier" }
-  });
-
-  // 4. Create :review task
-  TaskCreate({
-    subject: `${baseId}:review - Review ${trdTask.description}`,
-    description: `[Full context - see Template A.7]`,
-    activeForm: `Reviewing ${baseId}`,
-    metadata: { trd_task_id: baseId, stage: "review", intended_agent: "code-reviewer" }
-  });
-
-  // 5. For TDD strategy, also create :red task (prepended)
-  if (strategy === "tdd") {
-    TaskCreate({
-      subject: `${baseId}:red - Write failing tests for ${trdTask.description}`,
-      description: `[Full context - see Template A.1]`,
-      activeForm: `Writing tests for ${baseId}`,
-      metadata: { trd_task_id: baseId, stage: "red", intended_agent: "verify-app" }
-    });
-  }
-}
-```
-
-**Then set up dependency chains:**
-
-```javascript
-for (const trdTask of trdTasks) {
-  const baseId = trdTask.id;
-
-  if (strategy === "tdd") {
-    // TDD: red -> impl -> verify -> simplify -> review
-    TaskUpdate({ taskId: `${baseId}:impl`, addBlockedBy: [`${baseId}:red`] });
-    TaskUpdate({ taskId: `${baseId}:verify`, addBlockedBy: [`${baseId}:impl`] });
-  } else {
-    // Standard: impl -> verify -> simplify -> review
-    TaskUpdate({ taskId: `${baseId}:verify`, addBlockedBy: [`${baseId}:impl`] });
-  }
-
-  TaskUpdate({ taskId: `${baseId}:simplify`, addBlockedBy: [`${baseId}:verify`] });
-  TaskUpdate({ taskId: `${baseId}:review`, addBlockedBy: [`${baseId}:simplify`] });
-}
-```
-
-**Note:** The `intended_agent` is stored in metadata for routing purposes. The `owner` field is only set when an agent claims the task for execution (see Section 4.2).
-
----
-
-## Step 4: Main Execution Loop
-
-### 4.1 Find Available Tasks
-
-```javascript
-TaskList() -> filter:
-  - status: "pending"
-  - blockedBy: [] (empty or all completed)
-  - owner: null (unclaimed)
-```
-
-### 4.2 Claim and Execute
-
-For each available task:
-
-**Before updating any task, verify current state:**
-
-```javascript
-const task = TaskGet({ taskId });
-if (task.status !== "pending") {
-  // Task was claimed/modified by another process
-  // Skip and move to next available task
-  continue;
-}
-TaskUpdate({ taskId, status: "in_progress" });
-```
-
-1. **Claim:** `TaskUpdate({ taskId, status: "in_progress" })`
-   - Do NOT pass `owner: "self"` — the platform reads `owner` as an agent name and files
-     a task-assignment message into that agent's mailbox. `"self"` is not a real teammate,
-     so this leaves an unread, undeliverable message in a `self` inbox for every task
-     claimed this way. Setting `status: "in_progress"` alone is sufficient to claim the
-     task for the lead session; no ensemble code (state schema, `status.js`) reads or
-     writes an `owner` field, so nothing depends on it being set.
-   - The `intended_agent` in metadata determines which subagent receives the work
-2. **Dispatch:** `Agent` tool with stage-appropriate prompt (see Appendix A)
-3. **Handle Result:**
-   - Success: `TaskUpdate({ taskId, status: "completed" })`
-   - Failure: Route to DEBUG (for blocking strategies)
-4. **Summarize Result (Context Management):**
-   - When a subagent returns, immediately extract ONLY: status (pass/fail), files_changed list, error_summary (if any)
-   - Discard the full subagent output — do NOT retain verbose results in orchestrator context
-   - Record a single-line summary: `"[TASK_ID:stage] PASS | files: a.js, b.js"` or `"[TASK_ID:stage] FAIL | error: <one-liner>"`
-   - Pass only the summary (not full output) to downstream stages that need context
-
-### 4.3 Agent Selection
-
-| Task Keywords | Agent |
-|---------------|-------|
+| Task Keywords | agentType |
+|---------------|-----------|
 | backend, api, endpoint, database, server, service | `backend-implementer` |
 | frontend, ui, component, react, vue, angular, web, page | `frontend-implementer` |
 | mobile, flutter, react-native, ios, android, app | `mobile-implementer` |
@@ -445,123 +271,247 @@ TaskUpdate({ taskId, status: "in_progress" });
 | pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
 | llm, agent, rag, prompt, embedding, vector, langgraph, langfuse, openai, anthropic, claude, gpt, sonar, retrieval, tool-calling, multi-agent | `agent-implementer` |
 
-### 4.4 Stage Execution
+Leave `agentType` unset when nothing matches — `implement-phase.js` tolerates its absence and
+the platform falls back to its own default.
 
-**Stage: VERIFY-RED (TDD only)**
+### 3.4 Skill Matching (per task)
 
-Delegate to `verify-app` using **Template: VERIFY-RED** (Appendix A.1).
-Wait for failing tests before proceeding to IMPLEMENT.
+Before assembling each task's prompt, resolve `matched_skills[]`:
 
-**Stage: IMPLEMENT**
+1. **TRD task table `Skills` column** — highest priority, author-declared. Parse the task's
+   `skills` field (comma-separated).
+2. **Agent frontmatter fallback** — if empty, read the target agent's `.claude/agents/{agent}.md`
+   frontmatter `skills:` list.
 
-Select implementer per 4.3. For UI tasks, include V0/visual context.
+**Intersection rule:** only include skills that appear in the target agent's `skills:`
+frontmatter, so a task never carries a skill its implementer doesn't declare.
 
-**State-Write-Before-Delegate (CRITICAL):** Before spawning the subagent, write state to disk:
-1. Set `tasks[id].status = "in_progress"` and `tasks[id].cycle_position = "implement"` in implement.json
-2. Write implement.json to disk
-3. THEN dispatch the `Agent` tool
+### 3.5 Assemble each task's delegation prompt
 
-This ensures the status.js hook can find and advance the in-progress task on SubagentStop.
+Read `packages/core/contracts/task-delegation.md` — it is the complete, binding per-task
+instruction set (evidence markers, `<replaces>` deletion instruction, `<unverified_claims>`,
+`<open_question>`, `<ui_context>`, scope discipline, strategy instructions, deliverables).
+**This command fills its placeholders; it does not restate its content.**
 
-Delegate using **Template: IMPLEMENT** (Appendix A.2).
-Update state: `implementer_type`, `cycle_position = "implement"`.
+For task `id`:
 
-**Stage: VERIFY**
+- `{task_id}`, `{task_description}` — from `tasks[]`.
+- `{trd_path}`, `{strategy}` — Step 1.
+- `{constitution.unit_coverage}` / `{constitution.integration_coverage}` — Step 1.1.
+- `{completed_tasks}` — every task ID with `state.tasks[id].status === "success"` so far,
+  across all phases including earlier waves of this one.
+- `<grounding>` — omit the whole element (evidence key included) when `grounding[id]` is
+  absent. Otherwise emit `<touches>`, `<reuse>`, `<replaces>`, `<follow>`, `<careful>` from
+  the parsed arrays. Evidence markers (`[ran]`/`[read]`/`[inferred]`) live inline in the
+  prose of `reuse`/`replaces`/`follow`/`careful` (the parser preserves them — only `touches`
+  is stripped to bare paths, since a marker there annotates a claim about the file, not the
+  file's identity).
+- `<unverified_claims>` — emit **only** when a `couldNotVerify[]` entry's `claim` or `check`
+  text names a file in `grounding[id].touches`, or names task `id` directly. Never emit an
+  empty element.
+- `<open_question>` — emit **only** for the owner-only, unresolved question(s) from Step 3.2
+  that cover this task. Never emit an empty element.
+- `<scope_boundaries>` — non-goals from Step 1.6.
+- `<objective>` — the task's acceptance criteria (Master Task List row).
+- `<skills>` — `matched_skills[]` from Step 3.4.
+- `<tdd_context>` — omit. No RED phase runs separately (Step 1.4's note); the `tdd` branch of
+  `<strategy_instructions>` still describes RED as prior output, which no longer applies —
+  the per-task prompt appends a corrective note when `strategy === "tdd"` telling the
+  implementer to write the failing test itself, in this same task, before the fix.
+- `<ui_context>` — per the contract's own D11 match rule: search the whole TRD (appendices
+  included) for a heading containing `Task Grounding`, then `Design References`, then
+  `Reference Documents`, first match wins. Omit the whole element when none matches.
 
-Delegate to `verify-app` using **Template: VERIFY** (Appendix A.3).
+**Then append a check-battery element the contract does not carry** (D9, resolved per-project
+— this repo has no TypeScript and no installed linter, so those two slots stay empty rather
+than filled with a tool that isn't there):
 
-| Strategy | On Test Failure | On Coverage Gap |
-|----------|-----------------|-----------------|
-| `tdd` | BLOCK -> DEBUG | BLOCK |
-| `characterization` | CONTINUE | SKIP |
-| `test-after` | WARN | WARN |
-| `bug-fix` | BLOCK -> DEBUG | WARN |
-| `refactor` | BLOCK -> DEBUG | BLOCK |
-| `flexible` | LOG | LOG |
+```xml
+<check_battery>
+  <unit>npx jest {paths this task touches that Jest can run}</unit>
+  <shell>shellcheck {changed .sh files, if any}</shell>
+  <!-- typecheck and lint are empty for this project — no tsconfig, no eslint/prettier
+       config anywhere in the tree. Do not invent commands for them. -->
+  <instruction>
+    Run the commands above against files you changed. On failure, debug it yourself
+    (5 Whys, fix, re-run) before returning — do NOT return status "failed" on the first
+    red run. Only report "failed" if the battery is still red after you've genuinely
+    tried to fix it. This is the entire DEBUG step for this task: no separate debugging
+    agent is spawned for it (D8).
+  </instruction>
+</check_battery>
+```
 
-For UI tasks: Visual verification is BLOCKING. On visual issues, return to `frontend-implementer` with **Template: VISUAL-FIX** (Appendix A.4).
+The assembled string is `rec.prompt` in `implement-phase.js`'s `args.tasks.records[]`.
 
-**Stage: DEBUG (Conditional)**
+---
 
-Only when VERIFY fails and strategy blocks. Delegate to `app-debugger` using **Template: DEBUG** (Appendix A.5).
+## Step 4: Main Execution Loop — Per Phase
 
-Retry tracking:
-- New problem: `retry_count = 1`
-- Same problem: `retry_count++`
-- If `retry_count >= 3`: STUCK -> pause for user
+### 4.1 Mark phase tasks in progress (state-write-before-dispatch)
 
-After debug fix, return to VERIFY.
+Before calling `Workflow`, for every task in phase N not already `status: "success"`:
 
-**Stage: SIMPLIFY**
+```javascript
+task.status = "in_progress";
+task.cycle_position = "implement";
+```
 
-Delegate to `code-simplifier` using **Template: SIMPLIFY** (Appendix A.6).
-After simplification, run VERIFY POST-SIMPLIFY.
+Write `implement.json` (`implement-state.save()`) **before** the `Workflow` call. The
+`SubagentStop` hook (`status.js`) advances every `in_progress` task by one `CYCLE_ORDER` step
+on each subagent completion it observes — this is a best-effort safety net, not the
+authoritative write; it does not correlate a specific `SubagentStop` to a specific task
+(parallel waves put more than one task `in_progress` at once by design).
 
-**Stage: REVIEW**
+### 4.2 Compute this phase's wave partition and dispatch
 
-Delegate to `code-reviewer` using **Template: REVIEW** (Appendix A.7).
+```javascript
+const phaseTaskIds = tasks.filter(t => t.phase === N && state.tasks[t.id].status !== "success").map(t => t.id);
+const phaseWaves = graph.waves
+  .map(wave => wave.filter(id => phaseTaskIds.includes(id)))
+  .filter(wave => wave.length > 0);
+```
 
-| Result | Action |
-|--------|--------|
-| APPROVED | Proceed to UPDATE |
-| APPROVED_WITH_RECOMMENDATIONS | Log, proceed to UPDATE |
-| REJECTED | Return to IMPLEMENT (same implementer) with issues |
+Dispatch:
 
-### 4.5 Stage: UPDATE ARTIFACTS
+```javascript
+Workflow({ name: "implement-phase", args: {
+  trd: trdPath,
+  phase: N,
+  tasks: {
+    waves: phaseWaves,
+    records: phaseTaskIds.map(id => ({ ...taskRecord(id), prompt: assembledPrompt(id), agentType: agentTypeFor(id) }))
+  },
+  gate: { verifyPrompt, simplifyPrompt, reviewPrompt },   // Step 4.3
+  project: ""   // set only when the TRD targets a codebase other than this repo
+} })
+```
 
-1. Update TRD checkbox: `- [ ]` -> `- [x]`
-2. Update state: `status = "success"`, `cycle_position = "complete"`, `completed_at`
-3. Commit: `git commit -m "<type>({task_id}): {description}"`
-4. Record commit SHA in state
+### 4.3 Assemble the phase-gate prompts
+
+`implement-phase.js` runs these three **inside** the workflow (`verify-app` and
+`code-simplifier` dispatched by `agentType`, foreground; the review is a foreground
+`agent()` call whose prompt instructs it to invoke the `/code-review` Skill — that skill
+self-forks to background, which is what satisfies "costs no orchestrator context" without
+the workflow needing a background variant of `agent()` itself). This command assembles all
+three prompt strings — the workflow opens no file and runs no `git`.
+
+**`verifyPrompt`** — full test suite for this phase's changed files, scoped against every
+acceptance criterion of every task in phase N:
+
+```xml
+<phase_verification phase="{N}">
+  <tasks>{task ids in this phase}</tasks>
+  <acceptance_criteria>{concatenated acceptance criteria for this phase's tasks}</acceptance_criteria>
+</phase_verification>
+<instructions>
+Run the full test suite against files changed since the last checkpoint (git diff
+{last_checkpoint_commit_or_merge_base}). Report pass/fail counts and unit/integration
+coverage %. Read .claude/rules/constitution.md's verification_level; if any task in this
+phase carries [LIVE] or the level is live-required/e2e-required, start the service and
+verify against a running instance — do not approve on mocked tests alone.
+Return status "pass" only when every acceptance criterion above is met.
+</instructions>
+```
+
+**`simplifyPrompt`** — across the phase's changed files:
+
+```xml
+<simplification_request phase="{N}">
+  <files_to_simplify>{git diff --name-only since last checkpoint}</files_to_simplify>
+</simplification_request>
+<instructions>
+Read every file listed and apply concrete improvements (reduce complexity, eliminate
+duplication, improve naming, early returns, extract reusable functions). If already
+clean, say so with specific evidence — never skip silently. All tests must still pass.
+Return changed: true/false and a one-line summary.
+</instructions>
+```
+
+**`reviewPrompt`** — scoped to the **phase diff**, not the branch (AC-F8.3):
+
+```xml
+<phase_review_request phase="{N}">
+  <diff_range>{last_checkpoint_commit_or_merge_base}</diff_range>
+</phase_review_request>
+<instructions>
+Invoke the code-review Skill at "high" effort, scoped to the diff range above (the
+working tree against that commit — this phase's changes only, not the full branch).
+Report the total finding count.
+</instructions>
+```
+
+`{last_checkpoint_commit_or_merge_base}` is `state.checkpoints`'s last entry's `commit` when
+one exists, else `git merge-base main HEAD` (phase 1, nothing checkpointed yet).
+
+### 4.4 Interpret the phase result
+
+`Workflow` returns `{ phase, tasks: [{id, status, filesChanged, error?}], gate: {verifyApp,
+simplify, review: {findings}}, status: "complete"|"failed" }`.
+
+For every task in the result: `implement-state.recordResult(state, id, {status, filesChanged,
+error})`. On `status: "success"`, set `task.cycle_position = "complete"` explicitly — per
+`implement-state.js`'s own documented ambiguity, `recordResult()` deliberately does not
+perform the `checks -> complete` skip on a passing result; this command, as the documented
+state-write owner, makes that write.
+
+**Run the deterministic phase-gate battery** (D8: the command runs the FULL battery here;
+the per-task battery in Step 3.5 was targeted):
+
+```bash
+npm run smoke
+```
+
+**On phase success** (`status === "complete"` and `npm run smoke` green): proceed to Step 5.
+
+**On phase failure** (`status === "failed"` or `npm run smoke` red): the workflow does not
+retry itself (§3.4's Error Handling — retry policy is durable state and belongs to this
+command). Increment a phase-level retry counter (stored per failed task's `retry_count`,
+already incremented by `recordResult`). If every failed task's `retry_count < 3`: re-dispatch
+the **whole phase** (AC-F16.6 — "a retried phase re-runs its whole task set", including tasks
+that succeeded on the prior attempt, since `implement-phase.js` has no partial-retry input).
+If any failed task's `retry_count >= 3`: STUCK (Step 9.1), naming the task, the phase, and
+whether the failure matches a documented risk (Step 1.6).
 
 ---
 
 ## Step 5: Phase Checkpoint
 
-After completing all tasks in a phase:
+After a phase's `Workflow` call returns `status: "complete"` and `npm run smoke` is green:
 
-### 5.1 Quality Gate Verification
+### 5.1 Update State
 
-Delegate to `verify-app` for full test suite:
-```xml
-<phase_verification phase="{N}" files="{all_files}">
-  Run FULL test suite. Report: total pass/fail, unit%, integration%, e2e status.
-</phase_verification>
+```bash
+node -e '
+  const { checkpoint, save } = require("./packages/core/lib/implement-state");
+  const state = require(process.argv[1]);
+  checkpoint(state, Number(process.argv[2]), { commit: process.argv[3], review: JSON.parse(process.argv[4]) });
+  save(process.argv[1], state);
+' ".trd-state/<trd-name>/implement.json" "$N" "$COMMIT_SHA" "$REVIEW_JSON"
 ```
 
-**Quality gate by strategy:**
-
-| Strategy | Test Failure | Coverage Below Threshold |
-|----------|--------------|--------------------------|
-| `tdd`, `refactor` | BLOCK | BLOCK |
-| `bug-fix` | BLOCK | WARN |
-| `characterization` | CONTINUE | SKIP |
-| `test-after`, `flexible` | WARN/LOG | WARN/LOG |
+Advance `phase_cursor`.
 
 ### 5.2 Git Checkpoint
 
 ```bash
 git add -A
-git commit -m "chore(phase {N}): checkpoint (tests {status}; unit {X}%; integration {Y}%)"
+git commit -m "chore(phase {N}): checkpoint (smoke green; verify-app {status}; simplify {changed|no-change}; review {findings} finding(s))"
 git push -u origin {branch_name}
 ```
 
-### 5.3 Update State
-
-Add checkpoint entry, advance `phase_cursor`, update `recovery.last_healthy_checkpoint`.
-
-### 5.4 Context Management at Phase Boundary — DO NOT PAUSE
+### 5.3 Context Management at Phase Boundary — DO NOT PAUSE
 
 **Phase boundaries are NOT user-pause points.** After a phase checkpoint, emit the PHASE
 banner (per `.claude/rules/command-status.md`) and **immediately spawn the next phase in
 the same orchestration loop** — no "Run /compact" prompt, no waiting for user input.
 
 ```
-[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, coverage unit {X}% / int {Y}%, commit {sha}
+[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, smoke green, review {findings} finding(s), commit {sha}
 ```
 
 Then continue into the next phase. Pause ONLY on the explicit conditions enumerated in
-Step 8 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase
+Step 9 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase
 transitions are NOT pause conditions.
 
 **Compaction is automatic, not user-driven.** `/compact` will auto-fire at ~95% context;
@@ -591,7 +541,7 @@ the durable companion to `implement.json` — state records *what* happened, the
 
 ```json
 {
-  "version": "3.1.0",
+  "version": "4.0.0",
   "trd_file": "docs/TRD/<feature>.md",
   "trd_hash": "<sha256>",
   "branch": "<branch-name>",
@@ -605,24 +555,21 @@ the durable companion to `implement.json` — state records *what* happened, the
       "description": "Task description",
       "phase": 1,
       "status": "pending|in_progress|success|failed|blocked",
-      "cycle_position": "implement|verify|verify_red|debug|simplify|verify_post_simplify|review|complete",
-      "implementer_type": "backend-implementer|frontend-implementer|mobile-implementer|null",
+      "cycle_position": "implement|checks|debug|complete",
       "current_problem": "Description or null",
       "retry_count": 0,
-      "session_id": "sess_xxx or null",
+      "files_changed": [],
       "commit": "sha or null",
       "started_at": "ISO8601 or null",
       "completed_at": "ISO8601 or null"
     }
   },
-  "coverage": { "unit": 0.0, "integration": 0.0, "e2e": 0.0 },
   "checkpoints": [
     {
       "phase": 1,
       "commit": "sha",
-      "timestamp": "ISO8601",
-      "tasks_completed": ["TRD-001", "TRD-002"],
-      "coverage": { "unit": 0.82, "integration": 0.71 }
+      "review": { "findings": 0 },
+      "timestamp": "ISO8601"
     }
   ],
   "recovery": {
@@ -630,51 +577,74 @@ the durable companion to `implement.json` — state records *what* happened, the
     "last_checkpoint_timestamp": "ISO8601",
     "interrupted": false,
     "interrupt_reason": null
-  },
-  "metrics": {
-    "total_tasks": 0,
-    "completed_tasks": 0,
-    "failed_tasks": 0,
-    "total_retries": 0
-  },
-  "risk_tracking": {
-    "materialized_risks": [],
-    "contingencies_applied": [],
-    "scope_violations_caught": 0
   }
 }
 ```
 
-**Session ID Storage:**
-- `active_sessions`: Quick lookup for `claude --resume` attempts
-- `tasks[id].session_id`: Historical record of completing session
+**On `cycle_position`:** reduced to `implement-state.js`'s exported `CYCLE_ORDER` —
+`implement | checks | debug | complete`. The v3.2.0 five-position enum
+(`verify_red|verify|debug|simplify|verify_post_simplify|review`) no longer exists; `status.js`
+imports `CYCLE_ORDER` from the same module (D5) so the two cannot drift.
+
+**On `active_sessions` and `current.json`:** both still appear above and in Step 1.2/1.3 —
+**left untouched by this task deliberately.** Their removal is D13/ITR-B006's job (branch-derived
+active-TRD resolution), a separate task from this one that also edits this file; per the
+`Touches`-gates-parallelism rule the two serialize on this file regardless of split, and
+touching D13's surface here would create exactly the conflict that rule exists to avoid.
 
 ### Session vs Persistent State
 
 | Scope | Storage | Purpose |
 |-------|---------|---------|
-| Session | TaskTools | In-session orchestration, parallelism, progress display |
-| Persistent | `.trd-state/*/implement.json` | Cross-session recovery, audit trail, metrics |
+| Persistent | `.trd-state/*/implement.json` | Cross-session recovery, audit trail |
 
-**Important:** TaskTools are session-scoped. When a Claude session ends, all TaskTools data is lost. The state file is the source of truth for cross-session state.
-
-**On Session Start:**
-1. Read persistent state file
-2. Expand incomplete tasks to TaskTools (Step 3)
-3. Use TaskTools for in-session execution
-
-**On Checkpoint/Stage Completion:**
-1. Update persistent state file with task status
-2. TaskTools status is transient
-
-**On Resume:**
-1. Read persistent state file
-2. Re-expand incomplete tasks to TaskTools (Step 2.2.4)
-3. Resume from persisted cycle_position
+There is no session-scoped TaskTools mirror in this design — dispatch is per-phase via
+`Workflow`, not per-task via claimed TaskTools items (see Execution Model, above).
 
 ---
 
-## Step 7: Completion
+## Step 7: End-of-Run Hardening and Review
+
+After the final phase's checkpoint (Step 5) and before Step 8's completion report:
+
+### 7.1 Feature-scale hardening pass (verifier fan-out)
+
+The per-phase adversarial pass already ran inside `implement-phase.js`'s gate (the phase-scoped
+review). This step is the "once more at feature scale" half (D15, AC-F14.1): a lens no
+single phase's review could apply, because interaction risk between phases only exists once
+every phase is assembled.
+
+Dispatch the following in **one turn** (the Agent tool runs same-turn calls concurrently —
+this is a plain foreground fan-out from this command, not a nested subagent spawn, and not a
+team: no `Agent({name, team_name})` is used, satisfying AC-F14.5):
+
+```
+Agent(subagent_type="code-reviewer", prompt="<edge-case lens over the full branch diff>")
+Agent(subagent_type="code-reviewer", prompt="<contract-compliance lens: does every task's grounding <replaces> actually get deleted; do declared <reuse> targets get used>")
+Agent(subagent_type="code-reviewer", prompt="<regression + cross-phase interaction lens: does anything from an earlier phase break under a later phase's changes>")
+```
+
+Each prompt scopes to `git diff {branch_base}...HEAD` (full branch diff, computed once via
+`git merge-base main HEAD`). Collect findings; apply straightforward, clearly-justified fixes
+inline (mirroring `audit-trd.js`'s reconcile stage — "apply what survives"); report anything
+non-trivial as a finding rather than guessing at a fix outside this task's scope.
+
+### 7.2 End-of-run full-branch code review
+
+```
+Skill({ skill: "code-review", args: "high {branch_base}...HEAD" })
+```
+
+This is the **full branch diff** review (AC-F8.5), distinct from every phase-scoped review
+that already ran. Per the attested finding (ITR-P002/ITR-P003), `/code-review` is
+model-startable and forks itself to background subagents — this command does not block
+waiting for it to finish, and does not claim it "will report back": it states, in the past
+tense, that the review was dispatched (with its session reference, if the tool returns one),
+which is a factual statement about a completed dispatch, not a deferred-notification claim.
+
+---
+
+## Step 8: Completion
 
 When all phases complete:
 
@@ -697,17 +667,12 @@ QUALITY METRICS
 ---------------
 Unit Coverage:        {X}% (target: 80%)  {PASS/FAIL}
 Integration Coverage: {Y}% (target: 70%)  {PASS/FAIL}
-Security Review:      {Clean/Issues found}
+Smoke:                {green/red} (npm run smoke, last phase gate)
 
-RISK & SCOPE TRACKING
----------------------
-Scope violations caught:    {count}
-Risks materialized:         {count}
-Contingency plans applied:  {count}
-
-{If materialized_risks > 0:}
-Materialized risks:
-  - {risk_id}: {description} -> {resolution}
+HARDENING & REVIEW
+-------------------
+Feature-scale hardening findings: {count} ({applied} applied, {reported} reported)
+End-of-run /code-review high:     dispatched over {branch_base}...HEAD
 
 COMMITS
 -------
@@ -726,7 +691,7 @@ For Wiggum mode, signal: `<promise>COMPLETE</promise>`
 
 ---
 
-## Step 8: Pause Conditions (NOT phase boundaries)
+## Step 9: Pause Conditions (NOT phase boundaries)
 
 The command runs **uninterrupted** through every phase from start to completion — phase
 checkpoints emit the PHASE banner and immediately spawn the next phase. The ONLY
@@ -734,7 +699,7 @@ conditions under which the command pauses for user input are below. Routine phas
 transitions, /compact recommendations, and successful checkpoint commits are NOT pause
 conditions.
 
-### 8.1 STUCK (retry count >= 3)
+### 9.1 STUCK (retry count >= 3, or a cycle in the task graph)
 
 ```
 ===============================================================================
@@ -764,6 +729,9 @@ Waiting for input...
 ===============================================================================
 ```
 
+A cycle detected at Step 3.1 uses the same banner shape, with `Stage` replaced by "graph
+cycle" and `Problem` naming every participating task ID.
+
 ---
 
 ## Error Handling
@@ -771,86 +739,36 @@ Waiting for input...
 | Error | Response |
 |-------|----------|
 | No TRD found | List available in `docs/TRD/`, suggest `/create-trd` |
-| TRD has no tasks | Validate format, check "Master Task List" section |
+| TRD parses to zero tasks | STUCK — check Master Task List is a table (Step 3.1) |
+| Cycle in task graph | STUCK — name participants (Step 3.1) |
 | Git branch conflict | Suggest `git stash` or `git commit` |
-| Task failure (3+ retries) | Pause for user (Step 8) |
-| Coverage below threshold | Strategy-dependent: block, warn, or continue |
+| Phase failure (3+ retries) | Pause for user (Step 9) |
+| `npm run smoke` red at phase gate | Treated as phase failure (Step 4.4) |
 | State file corrupted | Attempt git reconstruction, offer `--reset-state` |
 | Network error (git push) | Retry 3x with backoff, then pause |
 
 ---
 
-## Skill Matching
+## Task Priority (within a wave)
 
-Before each delegation, resolve which skills the subagent should explicitly invoke.
+`task-graph.js`'s `waves` already fix the eligibility order across waves. Within one wave,
+tasks run concurrently via `parallel()` inside `implement-phase.js`, so priority only affects
+narration order in banners, not execution:
 
-**Resolution order:**
-
-1. **TRD task table `Skills` column** — highest priority, author-declared.
-   Parse the task's Skills column for comma-separated skill names.
-2. **Agent frontmatter fallback** — if Skills column is empty or the TRD
-   predates this feature, read the target agent's `.claude/agents/{agent}.md`
-   frontmatter `skills:` list. Include all skills the agent declares — the
-   agent can determine which are relevant at invocation time.
-
-**Intersection rule:** Only include skills that appear in the target agent's
-`skills:` frontmatter. This prevents passing skills an agent doesn't support
-(e.g., `developing-with-dotnet` to frontend-implementer).
-
-**Result:** `matched_skills[]` — passed to `<skills>` block in delegation templates.
-
----
-
-## Concurrency and File Conflict Detection
-
-**There is no fixed concurrency limit. The task graph decides.** A hardcoded cap was a
-heuristic from when subagents could not nest and the platform allowed very few at once; it
-throttled work the dependency graph had already proven safe to run together.
-
-Derive concurrency instead:
-
-1. **Infer file touches** — explicit `Files:` in the task, else keyword patterns and domain
-   inference. This is the input the graph needs; a TRD that declares file ownership per task
-   gives a far better answer than inference.
-2. **Build the eligible set** — every task that is `pending`, unowned, and whose `blockedBy`
-   list is fully resolved. The platform enforces this: a task with unresolved dependencies
-   cannot be claimed.
-3. **Partition by file ownership** — tasks touching disjoint file sets run concurrently;
-   tasks sharing a file run sequentially. Conflict, not a constant, is what serializes work.
-4. **Spawn the whole partition.** Let the platform's own ceiling be the backstop: 20
-   concurrent subagents by default (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`), and spawning
-   past it fails with `Concurrent subagent limit reached` rather than corrupting anything.
-
-**Count the whole tree, not the top layer.** Subagents may nest (see the nesting stance in
-`constitution.md`), and nested subagents occupy the same 20-slot pool. Six implementers that
-each dispatch two verifiers is eighteen slots, not six. When a phase's partition is wide
-enough that nesting could exhaust the pool, spawn in waves rather than all at once.
-
-If a conflict is detected mid-execution that the partition missed, pause the conflicting task
-rather than letting two agents write the same file.
-
----
-
-## Task Priority
-
-When multiple tasks are available (pending, unblocked, unowned), select by priority:
-
-1. **Earlier phase first** - Phase 1 tasks before Phase 2
-2. **Critical path** - Tasks that block the most other tasks
-3. **Smaller scope** - Tasks with fewer expected file changes
-4. **Deterministic fallback** - Alphabetical by task ID
+1. **Critical path first** — tasks on `graph.criticalPath` narrated first
+2. **Deterministic fallback** — alphabetical by task ID
 
 ---
 
 ## Task Timeout
 
-If a dispatched subagent task has not returned within 30 minutes:
+If a dispatched `Workflow(implement-phase, …)` call has not returned within 30 minutes:
 
 1. Log timeout to state file's `recovery` section
-2. Mark task as `stalled` in persistent state
+2. Mark the phase as `stalled` in persistent state
 3. Present user options:
    - "wait" - Continue waiting
-   - "restart" - Restart the task from current stage
+   - "restart" - Restart the phase from current tasks
    - "skip" - Mark as blocked and continue
 
 ---
@@ -858,497 +776,9 @@ If a dispatched subagent task has not returned within 30 minutes:
 ## Compatibility
 
 - Works with/without `.claude/rules/constitution.md`
-- Standard TRD task format supported
+- Standard TRD task format supported (table-based Master Task List; see Step 3.1)
 - State files git-tracked for coordination
 - Local CLI and Claude Code web supported
-
----
-
-# Appendix A: Delegation Prompt Templates
-
-## A.1 Template: VERIFY-RED (TDD Only)
-
-```xml
-<tdd_red_phase>
-  <task_id>{task_id}</task_id>
-  <description>{task_description}</description>
-  <acceptance_criteria>{extracted from TRD}</acceptance_criteria>
-</tdd_red_phase>
-
-<instructions>
-You are performing the RED phase of TDD.
-
-Write failing tests that define the acceptance criteria for this task:
-
-1. Read the acceptance criteria carefully
-2. Write test cases that would pass ONLY if the criteria are met
-3. Verify the tests FAIL (since implementation doesn't exist yet)
-4. Return the list of test files created
-
-Do NOT write any implementation code. Your job is only to define
-the tests that the implementer must satisfy.
-
-The tests should fail with clear, meaningful error messages that
-guide the implementer toward the correct solution.
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
-
----
-
-## A.2 Template: IMPLEMENT
-
-```xml
-<task>
-  <id>{task_id}</id>
-  <description>{task_description}</description>
-</task>
-
-<context>
-  <trd_file>{trd_path}</trd_file>
-  <strategy>{strategy}</strategy>
-  <quality_gates>
-    <!-- Read from constitution.md Quality Gates. Do NOT substitute a remembered
-         or conventional number: constitution.md is the single source of truth for
-         these floors, and a TRD may only exceed one where it states why inline. -->
-    <unit_coverage>{constitution.unit_coverage}%</unit_coverage>
-    <integration_coverage>{constitution.integration_coverage}%</integration_coverage>
-  </quality_gates>
-  <completed_tasks>{list of completed task IDs this phase}</completed_tasks>
-</context>
-
-<grounding>
-  <!-- Verbatim from the TRD's Task Grounding section for THIS task id.
-       Omit the element entirely if the TRD has no block for this task. -->
-  <touches>{files this task is expected to modify}</touches>
-  <reuse>{existing code to use rather than reimplement}</reuse>
-  <replaces>{what this makes unreachable, and the instruction to delete it}</replaces>
-  <follow>{existing pattern this should match}</follow>
-  <careful>{contracts, callers, or constraints to respect}</careful>
-  <instruction>
-    This grounding was established by reading the codebase during TRD authoring.
-    Treat it as findings you already own, not as suggestions:
-
-    - Do NOT reimplement anything named in <reuse>. Import and use it. If it genuinely
-      does not fit, say so in your deliverables and explain why — do not silently
-      build a parallel path.
-    - If <replaces> names something, DELETE it and its tests in the same change.
-      Leaving superseded code in place is a defect, not a safe default: it still
-      looks live to every later reader.
-    - <follow> names an existing pattern in this repository. Match it rather than
-      introducing a second way of doing the same thing.
-    - If the grounding turns out to be wrong or stale, report the discrepancy in your
-      deliverables. Do not just work around it silently — the next task's grounding
-      is probably wrong in the same way.
-  </instruction>
-</grounding>
-
-<scope_discipline>
-  <instruction>
-    Implement what the task asks for. Do NOT add delivery machinery — feature flags,
-    rollout phases, migration scaffolding, guard infrastructure, eval gates, config
-    toggles — unless the task or the TRD explicitly calls for it and names the
-    objective it serves.
-
-    This is the largest single source of wasted work in this framework: machinery
-    nobody asked for gets built, and features end up shipped dark behind flags no one
-    turns on. If you believe such machinery is genuinely needed, report it as a
-    finding for the orchestrator; do not build it on your own judgment.
-  </instruction>
-</scope_discipline>
-
-<tdd_context>
-  <!-- Only included when strategy=tdd -->
-  <failing_tests>{list of test files from VERIFY-RED stage}</failing_tests>
-  <instruction>
-    These failing tests were written in the RED phase. Your job is to write
-    the MINIMAL implementation to make these tests pass. Do NOT add features
-    beyond what the tests require. Do NOT modify the tests.
-  </instruction>
-</tdd_context>
-
-<scope_boundaries>
-  <non_goals>
-    <!-- Extracted from TRD Section 8 - MUST NOT implement these -->
-    {list of non-goals from TRD with IDs and descriptions}
-  </non_goals>
-  <instruction>
-    If the task requirements or your implementation approach would address any
-    non-goal item, STOP and report the scope conflict. Do not proceed with
-    work that falls outside the defined scope.
-  </instruction>
-</scope_boundaries>
-
-<objective>
-{acceptance_criteria extracted from task description}
-</objective>
-
-<skills>
-  <!-- Populated by Skill Matching resolution -->
-  <matched>{comma-separated list of matched skill names, or "none"}</matched>
-  <instruction>
-    You MUST invoke each listed skill using the Skill tool BEFORE writing code.
-    Extract concrete rules from each skill and apply them to your implementation.
-    In your deliverables, report:
-    - SKILLS_USED: exact skill names invoked (or "none available")
-    - RULES_APPLIED: 1-2 concrete rules per skill that influenced your code
-  </instruction>
-</skills>
-
-<strategy_instructions>
-Strategy is: {strategy}
-
-**If strategy is `tdd` (Test-Driven Development):**
-RED-GREEN-REFACTOR with Agent Specialization:
-- RED Phase is handled by verify-app (writes failing tests first)
-- GREEN Phase is your responsibility (write minimal code to make tests pass)
-- REFACTOR Phase is handled by code-simplifier
-
-Your role in TDD:
-1. You will receive failing tests from verify-app (RED phase complete)
-2. Write the MINIMAL implementation to make those tests pass
-3. Do NOT add features beyond what tests require
-4. Do NOT refactor - that's handled by code-simplifier
-
-**If strategy is `bug-fix`:**
-Reproduce-Test-Fix Methodology Required:
-1. REPRODUCE: Confirm you can trigger the bug
-2. FAILING TEST: Write a test that fails due to the bug (captures the regression)
-3. FIX: Implement the minimal fix to make the test pass
-
-**If strategy is `characterization`:**
-Document Current Behavior AS-IS:
-1. Write tests that capture EXISTING behavior, not desired behavior
-2. Do NOT refactor or change behavior during this task
-3. Test failures are INFORMATIONAL - they document current state
-
-**If strategy is `test-after`:**
-Implement First, Then Test:
-1. Implement the feature according to acceptance criteria
-2. After implementation is complete, write tests to cover the code
-
-**If strategy is `refactor`:**
-Preserve Behavior Exactly:
-1. All tests must pass BEFORE you start any changes
-2. Make refactoring changes incrementally
-
-**If strategy is `flexible`:**
-Use your judgment on test-first vs test-after based on task nature.
-</strategy_instructions>
-
-<deliverables>
-1. Implementation complete per objective
-2. List all files changed with paths
-3. Tests written (for tdd/bug-fix strategies)
-4. Brief outcome summary
-5. Scope compliance confirmation (no non-goal work performed)
-6. Skills used and rules applied (from <skills> instruction above)
-</deliverables>
-```
-
-**For UI/Frontend Tasks, prepend UI context from TRD:**
-
-If the TRD contains a "Design References" or "UI Context" section, extract and include:
-
-```xml
-<ui_context>
-  <!-- Extract from TRD Section 10 "Reference Documents" or dedicated "Design References" section -->
-  <design_references>{paths to wireframes, component catalog, design tokens, etc. from TRD}</design_references>
-  <visual_capture>
-    <screenshot_path>{from TRD or default: tests/visual/__screenshots__/}</screenshot_path>
-  </visual_capture>
-  <instructions>
-    1. Reference design documents listed above before building components
-    2. Use V0 MCP tools if available for presentational components
-    3. Capture screenshots after implementation for visual verification
-    4. Include screenshot paths in deliverables
-  </instructions>
-</ui_context>
-```
-
-**Note:** Design file paths are project-specific and should be declared in the TRD, not hardcoded in this command.
-
-**Invoke:** `Agent(subagent_type="{selected-implementer}", prompt="[above]")`
-
----
-
-## A.3 Template: VERIFY
-
-```xml
-<verification_request>
-  <task_id>{task_id}</task_id>
-  <files_changed>{list of files modified in IMPLEMENT stage}</files_changed>
-  <strategy>{strategy}</strategy>
-  <verification_level>{from constitution.md or "unit-only" default}</verification_level>
-  <live_required>{true if task description contains [LIVE] marker, false otherwise}</live_required>
-</verification_request>
-
-<skills>
-  <matched>{test-framework skills from agent's skills list: jest, pytest, rspec, exunit, xunit, writing-playwright-tests — whichever are relevant}</matched>
-  <instruction>
-    Invoke the matched test skill using the Skill tool to ensure correct test
-    runner invocation and assertion patterns for this project's stack.
-  </instruction>
-</skills>
-
-<instructions>
-Run the test suite for the modified files.
-
-Report:
-1. Pass/fail status (total tests, passed, failed)
-2. Coverage percentages (unit, integration)
-3. For failures: file path, line number, error message, expected vs actual
-
-Use appropriate test skill (jest, pytest, rspec, etc.) based on project stack.
-
-**Verification level enforcement**: Read `.claude/rules/constitution.md` for `verification_level`.
-If `live_required` is true OR `verification_level` is `live-required` or `e2e-required`,
-you MUST start the service and verify against a running instance. Include actual HTTP
-responses or runtime output as evidence. Do NOT approve based solely on unit/mock tests.
-</instructions>
-```
-
-**For UI Tasks, append visual verification (using design references from TRD):**
-
-```xml
-<visual_verification_request>
-  <task_id>{task_id}</task_id>
-  <screenshot_paths>{paths provided by frontend-implementer}</screenshot_paths>
-  <design_references>{extracted from TRD Section 10 or "Design References" section}</design_references>
-</visual_verification_request>
-
-<instructions>
-In addition to functional testing, perform visual verification:
-
-1. Review screenshots against design references from TRD
-2. Verify design tokens/styling conventions are followed
-3. Check component layout matches wireframes
-4. Look for visual glitches, overflow, alignment issues
-
-If visual issues found:
-- Provide specific feedback with file:line references
-- Return visual_issues[] in your response
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
-
----
-
-## A.4 Template: VISUAL-FIX
-
-```xml
-<visual_fix_request>
-  <task_id>{task_id}</task_id>
-  <screenshot_paths>{paths that failed visual review}</screenshot_paths>
-  <visual_issues>
-    {list of visual_issues[] from verify-app response}
-  </visual_issues>
-</visual_fix_request>
-
-<instructions>
-Visual verification found issues with the implementation. Fix the visual problems listed above.
-
-For each issue:
-1. Review the specific feedback and file:line references
-2. If V0 refinement prompt is suggested, use it to regenerate the component
-3. Update the component/styling to match design spec
-4. Capture new screenshots after fixes
-
-Return:
-- files_changed: list of files modified
-- screenshot_paths: updated screenshot paths for re-verification
-- fixes_applied: brief description of each visual fix
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="frontend-implementer", prompt="[above]")`
-
----
-
-## A.5 Template: DEBUG
-
-```xml
-<debug_request>
-  <task_id>{task_id}</task_id>
-  <test_failures>
-    {detailed test failure output from VERIFY stage}
-  </test_failures>
-  <files_modified>{list of files changed}</files_modified>
-  <current_problem>{description of the problem}</current_problem>
-  <retry_count>{number of previous debug attempts}</retry_count>
-</debug_request>
-
-<known_risks>
-  <!-- Extracted from TRD Section 7 - check if problem matches -->
-  <technical_risks>
-    {list of technical risks with IDs, descriptions, and mitigations}
-  </technical_risks>
-  <implementation_risks>
-    {list of implementation risks with IDs, descriptions, and mitigations}
-  </implementation_risks>
-  <contingency_plans>
-    {high-impact risk contingency plans if available}
-  </contingency_plans>
-</known_risks>
-
-<instructions>
-Analyze the test failures using systematic debugging methodology:
-
-1. Reproduce the failure
-2. **Check if problem matches a documented risk** (see known_risks above)
-   - If match found: Apply the documented mitigation strategy FIRST
-   - If contingency plan exists: Reference it for guidance
-3. Identify root cause using 5 Whys analysis
-4. Implement the fix
-5. Document what was wrong and how it was fixed
-6. Note if a documented risk materialized (for tracking)
-
-Do NOT execute tests - return to VERIFY stage for that.
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="app-debugger", prompt="[above]")`
-
----
-
-## A.6 Template: SIMPLIFY
-
-```xml
-<simplification_request>
-  <task_id>{task_id}</task_id>
-  <files_to_simplify>{list of files modified in this task}</files_to_simplify>
-</simplification_request>
-
-<skills>
-  <matched>{language/framework skills carried from the IMPLEMENT stage for this task}</matched>
-  <instruction>
-    Invoke matched skills to reference idiomatic patterns when simplifying.
-  </instruction>
-</skills>
-
-<instructions>
-YOU MUST actually execute simplification. Read every file listed above and
-apply concrete improvements. If the code is already clean, document WHY with
-specific evidence (e.g., "cyclomatic complexity is 3, naming follows conventions,
-no duplication found across N files"). NEVER skip this stage silently or return
-without reading the files.
-
-Review the implemented code and simplify where possible:
-
-1. Reduce complexity (cyclomatic, cognitive)
-2. Eliminate duplication (DRY)
-3. Improve naming for clarity
-4. Apply early return patterns
-5. Extract reusable functions
-
-CRITICAL: All tests must continue to pass after refactoring.
-Do NOT change behavior - only improve code quality.
-
-Deliverables (ALL required):
-- files_reviewed: list of every file you read
-- changes_made: list of specific edits (or "none needed" with evidence)
-- complexity_before_after: brief metric comparison if changes were made
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="code-simplifier", prompt="[above]")`
-
----
-
-## A.7 Template: REVIEW
-
-```xml
-<review_request>
-  <task_id>{task_id}</task_id>
-  <files_to_review>{list of all files modified in this task}</files_to_review>
-  <acceptance_criteria>{from task description}</acceptance_criteria>
-</review_request>
-
-<skills>
-  <matched>{all skills from IMPLEMENT + VERIFY stages for this task}</matched>
-  <instruction>
-    Invoke matched skills to validate implementation follows framework
-    conventions and best practices.
-  </instruction>
-</skills>
-
-<instructions>
-Perform comprehensive code review:
-
-1. Security Review:
-   - Check for OWASP Top 10 vulnerabilities
-   - Verify input validation
-   - Check for secrets in code
-   - Verify authentication/authorization
-
-2. Quality Review:
-   - Code complexity acceptable
-   - Naming is clear
-   - Error handling is comprehensive
-   - Tests are meaningful
-
-3. DoD Verification:
-   - Acceptance criteria met
-   - Coverage thresholds met
-   - Documentation updated (if applicable)
-
-Report:
-- APPROVED: Ready to proceed
-- APPROVED_WITH_RECOMMENDATIONS: Minor improvements suggested but not blocking
-- REJECTED: Issues that must be fixed (list specific issues)
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
-
----
-
-## A.8 Template: REJECTION-FIX
-
-```xml
-<implementation_feedback>
-  <task_id>{task_id}</task_id>
-  <original_implementation>{files_changed from original IMPLEMENT stage}</original_implementation>
-  <rejection_issues>{list of issues from code-reviewer}</rejection_issues>
-</implementation_feedback>
-
-<instructions>
-The code review identified issues that must be fixed before this task can be completed.
-
-Fix the specific issues listed above. Do NOT refactor beyond what is required to
-address the review feedback. After fixing, the code will go through VERIFY again.
-
-Return:
-- files_changed: list of files modified
-- fixes_applied: brief description of each fix
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="{original_implementer_type}", prompt="[above]")`
-
----
-
-# Appendix B: Stage Handoff Contract
-
-Each stage returns specific outputs consumed by the next stage:
-
-| Stage | Agent | Returns | Used By |
-|-------|-------|---------|---------|
-| VERIFY-RED | verify-app | test_files[], failure_messages | IMPLEMENT (TDD) |
-| IMPLEMENT | *-implementer | files_changed[], implementation_summary, screenshots (UI) | VERIFY |
-| VERIFY | verify-app | pass/fail, coverage_metrics, failure_details[], visual_issues[] | DEBUG or SIMPLIFY |
-| DEBUG | app-debugger | files_fixed[], root_cause, risk_match | VERIFY (retry) |
-| SIMPLIFY | code-simplifier | files_changed[], refactoring_summary | VERIFY POST-SIMPLIFY |
-| REVIEW | code-reviewer | decision, issues[], recommendations[] | UPDATE or IMPLEMENT |
-
-**Handoff Rules:**
-- Each stage MUST wait for previous stage completion
-- Failed VERIFY -> DEBUG (not IMPLEMENT) for analysis
-- REJECTED review -> SAME implementer that did original work
-- Visual issues -> frontend-implementer with specific feedback
-
 
 ---
 
