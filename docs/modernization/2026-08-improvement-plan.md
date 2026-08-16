@@ -1200,6 +1200,41 @@ That is item 7's concurrent-TRD problem, not intra-phase task scheduling.
 — the file is doing too much, or the tasks are wrong-sized. Report it as a finding rather than
 engineering around it.
 
+#### NEW FINDING 2026-08-16 — the loop-continuation guarantee is behind a flag
+
+Measured during this TRD's own implementation. The orchestrator stopped **four times** with
+work remaining, always at a boundary and always immediately after emitting a good status
+summary: after preflight, after ITR-B001 verified, after the Phase 1 gate, after the Phase 2
+gate. Never mid-task, never on ambiguity, never lacking information.
+
+**The mechanism: the summary IS the stopping behaviour.** A phase banner and a verified table
+complete a narrative arc, and the turn ends because the narrative finished rather than the
+work. The cleaner the report, the stronger the pull.
+
+**No guard catches it.** All four stops were grammatically declarative -- *"dispatching all
+three"*, *"ITR-B005 is next"* -- so nothing asked permission:
+
+| Stop hook | Catches | Caught these? |
+|---|---|---|
+| `async-discipline` (prompt) | false claims of work in flight | no claim was made |
+| `autonomy-discipline` (prompt) | asking permission mid-loop | nothing was asked |
+| `wiggum.js` (command) | exit while work remains | **gated on `WIGGUM_ACTIVE=1`, set only by `--wiggum`** |
+
+So an honest, complete report followed by silence with tasks outstanding falls between the two
+model-judged guards, and the one mechanism that would catch it is opt-in. Only the `/goal`
+condition caught it -- four times.
+
+`implement-trd.md:516` already forbids this in prose: *"Phase boundaries are NOT user-pause
+points… immediately spawn the next phase."* The rule was open in the editor, had just been
+rewritten, and was violated four times. **Same shape as every other finding in this plan: a
+stated rule that produces no behaviour.**
+
+**Proposed fix, ungated:** a `Stop` hook that reads `implement.json` -- if a TRD is in flight,
+tasks remain incomplete, and no `COMMAND COMPLETE` banner was emitted, block and name the next
+eligible task. `wiggum.js` already proves the shape works and that `{"decision":"block"}` is
+honoured on `Stop`; it needs to fire on the default path rather than behind a flag. Not in the
+current TRD -- this is a hook, and belongs to item 5's surface.
+
 #### Execution model — decided 2026-08-16
 
 **`/implement-trd` stays a command. A workflow runs ONE phase.** Not a workflow per phase, and
