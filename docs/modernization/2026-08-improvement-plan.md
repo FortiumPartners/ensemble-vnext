@@ -866,8 +866,37 @@ Cost, measured: 3.5 min for 413 lines, 8.5 min for 1,495. Roughly six reviews on
 feature, ~25–45 min, against the ~4 agent invocations per task the loop rework removes.
 
 **What would change this:** phases of 8+ tasks make the phase diff unbounded and the churn
-argument returns. The answer then is smaller phases, not less review. Watch it on the first
-real run.
+argument returns. The answer then is smaller phases, not less review. Measured on the two
+profile TRDs, phases are well inside that: ensemble 12 tasks / 3 phases (~4 each), herald 27
+/ 5 (~5.4 each), split by dependency structure rather than count. Watch it on the first real
+run.
+
+#### Test-task placement — fixed in the contract 2026-08-16
+
+Measured on the same two TRDs: **test tasks are real tasks, not assumed follow-on** — 3 of 12
+and 7 of 27 carry `-T###` IDs with their own dependencies and acceptance criteria, and
+herald's `CPUB-T007` is a `[LIVE]` Playwright E2E assigned to `@verify-app`. Good.
+
+**But both TRDs put every verification task in the FINAL phase** (ensemble phase 3 of 3,
+herald phase 5 of 5), and nothing in `trd-authoring.md` asked for it — both authors reached
+for that shape independently. It directly contradicts the per-phase review cadence decided
+above:
+
+- every phase but the last ends with nothing runnable, so the phase gate has nothing to check
+  and the phase-boundary review reads code instead of running it
+- the per-task deterministic checks the loop rework depends on have nothing to execute
+- a phase-1 defect surfaces only after phases 2–4 were built on it — the expensive failure
+  this pipeline exists to move earlier
+
+Fixed in `packages/core/contracts/trd-authoring.md`: test tasks go in the phase that
+introduces the code they test; each phase must end in a state where its own tests pass; a
+terminal phase is legitimate only for `[LIVE]` end-to-end work that genuinely needs the whole
+system assembled. E2E coverage is required to be a task, and a feature with no exercisable
+path must say so in Quality Requirements rather than silently omitting it.
+
+Unmeasured: whether the instruction takes. Both the corpus mechanism and this are prompt
+changes awaiting their first real run — and this session twice measured that a stated rule
+does not by itself produce the behaviour.
 
 **ITEM 6'S disable-model-invocation CLAIM IS OUTDATED for the local tier — but holds for
 `ultra`.**
