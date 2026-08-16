@@ -40,7 +40,7 @@ Phase Loop (per phase N):
   -> Workflow(implement-phase, {trd, phase: N, tasks, gate, project})
        (per task, inside the workflow: IMPLEMENT -> checks -> [self-debug on fail])
        (phase gate, inside the workflow: verify-app -> code-simplifier -> phase-scoped /code-review high)
-  -> command runs the full deterministic battery (`npm run smoke`) at the phase gate
+  -> command runs the full deterministic battery (resolved per project) at the phase gate
   -> on failure: retry the WHOLE phase (whole-phase retry, capped) or STUCK
   -> checkpoint + commit + PHASE banner -> next phase (no pause)
 ```
@@ -189,7 +189,7 @@ These flags have identical behavior:
 
 ```bash
 node -e '
-  const { load } = require("./packages/core/lib/implement-state");
+  const { load } = require("./.claude/lib/implement-state");
   console.log(JSON.stringify(load(process.argv[1])));
 ' ".trd-state/<trd-name>/implement.json"
 ```
@@ -263,8 +263,8 @@ directly.
 
 ```bash
 node -e '
-  const { parseTrd } = require("./packages/core/lib/trd-parser");
-  const { buildGraph } = require("./packages/core/lib/task-graph");
+  const { parseTrd } = require("./.claude/lib/trd-parser");
+  const { buildGraph } = require("./.claude/lib/task-graph");
   const fs = require("fs");
   const trdPath = process.argv[1];
   const markdown = fs.readFileSync(trdPath, "utf8");
@@ -540,15 +540,39 @@ perform the `checks -> complete` skip on a passing result; this command, as the 
 state-write owner, makes that write.
 
 **Run the deterministic phase-gate battery** (D8: the command runs the FULL battery here;
-the per-task battery in Step 3.5 was targeted):
+the per-task battery in Step 3.5 was targeted).
 
-```bash
-npm run smoke
-```
+**Resolve the battery command for THIS project — do not assume one.** In priority order:
 
-**On phase success** (`status === "complete"` and `npm run smoke` green): proceed to Step 5.
+1. A command named by `stack.md` or `constitution.md` for the full suite.
+2. A `package.json` script, preferred in this order: `smoke`, `test:ci`, `test`.
+3. The language-conventional runner when its config is present: `pytest` (`pytest.ini`,
+   `pyproject.toml`), `go test ./...`, `cargo test`, `bundle exec rspec`, `mvn test`.
+4. **None found → SKIP the battery and say so** in the phase banner:
+   `phase gate: no project-wide battery resolved — gate rests on verify-app alone`.
 
-**On phase failure** (`status === "failed"` or `npm run smoke` red): the workflow does not
+**A missing battery is not a phase failure.** Skipping is the correct behaviour: the phase
+gate already ran `verify-app` inside the workflow, so the deterministic battery is a second,
+project-wide check on top of it — not the only one.
+
+This step read `npm run smoke` literally until 2026-08-16. That is this repository's own
+script name, and `scaffold-project.sh`'s `copy_commands()` ships this file verbatim to every
+project while `templates/` carries no smoke harness. In any scaffolded project the command
+was missing, Step 4.4 read the non-zero exit as phase failure, and the phase retried three
+times and went STUCK — **blaming the tasks for a gate that never existed.** Step 3.5's
+per-task `<check_battery>` had been marked "empty for THIS project"; the phase gate got the
+same this-repo resolution with none of the marking.
+
+It went undetected through four green end-to-end runs because the executing model routed
+around it: one run's own log reads *"No `package.json` exists, so `npm run smoke` … does not
+exist in this project"* and it proceeded anyway. **A prompt-based command masks its own
+defects, because the executor adapts.** Passing runs are not evidence that a hardcoded path
+is correct — only that the model papered over it.
+
+**On phase success** (`status === "complete"` and the resolved battery green, or skipped):
+proceed to Step 5.
+
+**On phase failure** (`status === "failed"`, or a *resolved* battery red): the workflow does not
 retry itself (§3.4's Error Handling — retry policy is durable state and belongs to this
 command). Increment a phase-level retry counter (stored per failed task's `retry_count`,
 already incremented by `recordResult`). If every failed task's `retry_count < 3`: re-dispatch
@@ -561,13 +585,13 @@ whether the failure matches a documented risk (Step 1.6).
 
 ## Step 5: Phase Checkpoint
 
-After a phase's `Workflow` call returns `status: "complete"` and `npm run smoke` is green:
+After a phase's `Workflow` call returns `status: "complete"` and the resolved battery is green (or was skipped):
 
 ### 5.1 Update State
 
 ```bash
 node -e '
-  const { checkpoint, save } = require("./packages/core/lib/implement-state");
+  const { checkpoint, save } = require("./.claude/lib/implement-state");
   const state = require(process.argv[1]);
   checkpoint(state, Number(process.argv[2]), { commit: process.argv[3], review: JSON.parse(process.argv[4]) });
   save(process.argv[1], state);
@@ -750,7 +774,7 @@ QUALITY METRICS
 ---------------
 Unit Coverage:        {X}% (target: 80%)  {PASS/FAIL}
 Integration Coverage: {Y}% (target: 70%)  {PASS/FAIL}
-Smoke:                {green/red} (npm run smoke, last phase gate)
+Battery:              {green/red/skipped} ({resolved command}, last phase gate)
 
 HARDENING & REVIEW
 -------------------
@@ -826,7 +850,8 @@ cycle" and `Problem` naming every participating task ID.
 | Cycle in task graph | STUCK — name participants (Step 3.1) |
 | Git branch conflict | Suggest `git stash` or `git commit` |
 | Phase failure (3+ retries) | Pause for user (Step 9) |
-| `npm run smoke` red at phase gate | Treated as phase failure (Step 4.4) |
+| Resolved battery red at phase gate | Treated as phase failure (Step 4.4) |
+| No battery resolvable for the project | SKIPPED, reported in the banner — never a failure (Step 4.4) |
 | State file corrupted | Attempt git reconstruction, offer `--reset-state` |
 | Network error (git push) | Retry 3x with backoff, then pause |
 
