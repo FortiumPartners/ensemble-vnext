@@ -521,7 +521,14 @@ remain.
 > existing first. This item is about the hooks that exist today. Sequencing, not subject matter,
 > separates them.
 
-### 6. Ship a `REVIEW.md`; retire the reviewer CLI
+### 6. Ship a `REVIEW.md`; retire the reviewer CLI — **DO THIS FIRST**
+
+> **Promoted 2026-08-15 to a hard dependency of item 8.** Item 8 removes our `code-reviewer`
+> agent from the implement loop and hands code review to the built-in reviewer running on
+> every push to the PR branch. `REVIEW.md` then becomes the ONLY channel through which this
+> project's Quality Gates, Definition of Done and prohibited-pattern table reach the reviewer
+> doing the work. It is no longer one improvement among several — item 8's review design does
+> not function without it.
 
 The highest value per line of work on the list. `REVIEW.md` is read by Anthropic's Code Review and
 injected into *every agent in the review pipeline as the highest-priority instruction block* — the docs
@@ -685,10 +692,101 @@ planner — now dominates total cost.
    splitting the authoring contract out from orchestration detail — cut author cost
    materially and applies here unchanged.
 
-#### Dependency
+#### The review layer — decided 2026-08-15
 
-Item 7's concurrent-TRD question still gates the state model (one TRD, one person, one
-session, one tree). Items 1–6 above do not depend on it and can land first.
+**Our `code-reviewer` agent leaves the implement loop.** Owner judgment, stated directly:
+it is *"a poor substitute for the built in one — not nearly as effective."* Re-scoping it
+(the earlier item-6 proposal) is not enough; the loop should not be spending an agent per
+task on a job something else does better.
+
+**The built-in reviewer runs per phase, not once at the end.** `/code-review` is marked
+`disable-model-invocation` so no command can call it — but Anthropic's Code Review runs on
+GitHub PRs, and `ci.yml` is `on: pull_request`, which fires on every push to the PR branch.
+`/implement-trd` already opens a PR (`implement-trd.md:719`) — but at the END, so today
+exactly one review happens, after all the work is done, when findings cost the most to act
+on.
+
+Fix: **open a draft PR at the start of implementation and push at each phase checkpoint.**
+The command already commits at checkpoints, so this is a reordering, not new machinery. The
+result is the good reviewer running four or five times instead of once, at zero cost to the
+loop, with no `disable-model-invocation` problem — nothing is being invoked by a model.
+
+**`code-reviewer`'s one distinctive job is not code review.** Acceptance-criteria
+verification — does the delivered code satisfy AC-F2.3, and is there a test proving it — is
+traceability, and it belongs in `/audit-build` (below). The agent is referenced by
+`fix-issue`, `harden-trd-team`, `implement-trd` and `init-project`; each needs the same
+treatment.
+
+**This makes item 6 (`REVIEW.md`) a hard dependency, not an adjacent improvement.** If the
+built-in reviewer is doing essentially all code review, `REVIEW.md` is the only channel
+through which this project's Quality Gates, Definition of Done and prohibited-pattern table
+reach it. Without it, review is handed to a capable reviewer that does not know the rules.
+**Do item 6 first.**
+
+#### The loop — decided 2026-08-15
+
+| | today | target |
+|---|---|---|
+| per task | IMPLEMENT → VERIFY → SIMPLIFY → VERIFY → REVIEW | IMPLEMENT → deterministic checks → [DEBUG on fail] |
+| agents / task | 5 | **~1** |
+| per phase | — | `verify-app` on acceptance criteria; push → built-in review |
+| at end | PR created, one review | `/audit-build` |
+
+At 43 tasks that is ~215 agent invocations today against ~50.
+
+**Verification does not need an agent when it is deterministic.** This repo's full suite
+runs in **3.15 s**; a verify agent costs $5–15. The expensive thing is not running tests, it
+is spawning an agent to decide whether they passed. The orchestrator runs targeted tests,
+typecheck and lint itself; a `verify-app` agent is warranted only where acceptance criteria
+need judgment — at the phase boundary.
+
+**`SIMPLIFY` drops out of the per-task loop.** It costs two of the five invocations (itself
+plus the re-verify it forces) to refactor code that just passed, by an agent lacking the
+authoring context, at the moment the implementer's local choices were most deliberate.
+Duplication *between* tasks is the real target and is only visible at a phase boundary.
+Demoted there rather than deleted — there is no measurement either way, which is itself the
+reason not to delete it outright.
+
+#### State — decided 2026-08-15
+
+**Derive the active TRD from the branch; stop storing a global pointer.** `current.json` is
+a single repo-wide pointer, and `active_sessions` in `implement.json` is `{}` — the
+multi-session mechanism was designed and never used. Branch names already encode the
+workstream (`<issue-id>-<session>`, `feature/<trd-name>/<session>`) and git already isolates
+them per worktree, so a file that must be hand-synced with the branch will drift by
+construction. That is the reported symptom. Fall back to an explicit argument when the
+branch does not resolve.
+
+#### `/audit-build` — new, post-implementation
+
+Verification **and** validation, plus the part nothing covers today:
+
+- (a) delivered code matches TRD tasks — *verification* (built it right)
+- (b) delivered code matches PRD requirements — *validation* (built the right thing)
+- (c) **every requirement has both an implementation and a test proving it** — traceability
+
+(c) is the highest-value check and the one with no current owner. A requirement with code
+and no test is exactly how `sanitize_error_detail()` survived two review passes.
+
+Same proven shape as `audit-prd` / `audit-trd` — index → parallel verifiers → reconcile —
+except the artifact is the delivered code and the source is TRD + PRD.
+
+#### `harden-trd-team` / `verify-trd-team` — replaced
+
+1,607 lines doing two unrelated jobs: adversarial edge-case review, and forcing an
+end-to-end test path. Neither needs a team. Replace with a verifier fan-out for the
+adversarial pass (the shape that found real defects on both codebases in the item-10
+profile) and a plain deterministic E2E gate — run the tests; do not convene agents to
+discuss them.
+
+#### Dependency — item 7 merges into this item
+
+The concurrent-TRD question gates the state model, and the two are the same problem:
+deterministic sequencing is what makes phase boundaries meaningful, and branch-derived state
+is what makes concurrent workstreams possible. **Item 10 already laid the groundwork** —
+tasks now carry `Dependencies` and `Serves` in structured, parser-consumable position, so
+tasks + dependencies → DAG is mechanical, and "what can run in parallel" becomes
+deterministic rather than LLM-judged. Build item 7's `lib/` as part of this item, not after.
 
 ### 9. Native quality gates and worker loops
 
