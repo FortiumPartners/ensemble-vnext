@@ -30,7 +30,6 @@ effort: medium
 color: purple
 # background: Reads, edits, WebFetch for provider docs — all retained in background.
 background: true
-disallowedTools: Agent
 # Leaf node — does the work and reports it. Nesting was permitted by default and
 # produced backend-implementer -> backend-implementer -> backend-implementer with an
 # IDENTICAL task at the last two levels: recursion, not decomposition, ~567k tokens

@@ -12,7 +12,6 @@ color: purple
 # background: Reads and reports findings; leaf node — must not spawn.
 background: true
 # Leaf node: may not spawn subagents (constitution nesting stance).
-disallowedTools: Agent
 ---
 
 ## Role

@@ -21,43 +21,48 @@ subagent to update its own task fails silently. If a worker genuinely needs to s
 that is an agent-team teammate (teammates keep the task tools), not a subagent — and needing
 one is a signal the wrong construct was chosen.
 
-**Nesting stance: forbidden by default, permitted only with a named fan-out rationale.**
-Subagents *may* spawn subagents (platform default; `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`), and
-this project deliberately does not use that capability.
+**Nesting stance: permitted, with one narrow prohibition.**
+Subagents may spawn subagents (platform default; `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`).
 
-**Revised 2026-08-14, user-approved, against an observed failure.** The previous stance permitted
-nesting by default and forbade it for three named leaf agents. That inverted its own justification:
-the rationale given was *"agents whose work genuinely fans out — the canonical case is a reviewer
-dispatching a verifier per finding"*, and `code-reviewer` — the canonical case — was one of the
-three forbidden. Meanwhile every implementer, which fans nothing out, was permitted by default.
+**Revised 2026-08-16, user-approved.** The 2026-08-14 revision forbade nesting by default and
+had every working agent declare `disallowedTools: Agent`. That ban is lifted. Two reasons, one
+measured and one structural:
 
-What that produced, observed in a live session:
-`backend-implementer → backend-implementer → backend-implementer`, with an **identical task
-description at the last two levels**. Not decomposition — an agent handed a task and spawning a
-copy of itself with the same task. Roughly **567k tokens** across the chain, the deepest agent
-doing the actual work while two wrappers waited on it.
+- **The tooling this project rates most highly is itself a nested fan-out.** `/code-review` at
+  default effort was measured on 2026-08-16 producing a parent plus **six** child agents
+  (`.trd-state/discipline-judgment/dispatch.jsonl`, 04:08–04:11). A rule that forbids our agents
+  from doing what the built-in reviewer does is a rule that guarantees ours stay worse — which is
+  the owner's stated experience of `code-reviewer` as *"a poor substitute for the built in one."*
+- **The verification patterns this project has since adopted require fan-out.** A hardening agent
+  running beside a review, a verifier wave reconciled by one agent, a phase workflow dispatching
+  implementers — all are agents dispatching agents, and all have measured value in this
+  repository's own audit runs.
 
-- **Forbidden for every agent that does work and reports it** — which is all of them today.
-  `backend-implementer`, `frontend-implementer`, `mobile-implementer`, `agent-implementer`,
-  `app-debugger`, `code-reviewer`, `code-simplifier` and `verify-app` all declare
-  `disallowedTools: Agent`.
-- **Permitted only where an agent's work genuinely fans out**, stated as a named rationale in that
-  agent's own definition. No agent qualifies today. Adding one is a deliberate act, not a default.
-- **Same-type self-delegation is forbidden outright**, even where nesting is otherwise permitted.
-  A depth limit does not catch it: three levels of the same agent on the same task is within
-  depth 3 and is pure recursion.
-- **Concurrency counts the whole tree.** Nested subagents occupy the same 20-slot pool
-  (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`).
+**What remains forbidden — same-type self-delegation on the same task.** An agent handed a task
+must not spawn its own type with that task. This is the one thing that was actually measured going
+wrong: a live session produced
+`backend-implementer → backend-implementer → backend-implementer` with an **identical task
+description at the last two levels** — not decomposition, an agent spawning a copy of itself —
+costing roughly **567k tokens**, the deepest agent doing the work while two wrappers waited. A
+depth limit does not catch it: three levels of one agent on one task sits inside depth 3 and is
+pure recursion. Nothing in legitimate fan-out requires it.
 
-**An implementer that hits work outside its scope reports the conflict; it does not delegate.**
-The orchestrator owns the task list, so a scope conflict is information the orchestrator must
+**Fan out for verification; be deliberate about generation.** Independent agents outperform a
+single one when challenging and checking, and tend to manufacture when generating. Four grounding
+agents in parallel produce four opinions about which code to reuse.
+
+**Concurrency counts the whole tree.** Nested subagents occupy the same 20-slot pool
+(`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`).
+
+**An implementer that hits work outside its scope still reports the conflict rather than
+delegating it.** The orchestrator owns the task list, so a scope conflict is information it must
 receive — a nested spawn hides both the decision and its reasoning from the only context that can
-act on it. The three implementers previously carried an explicit *"delegate appropriately"*
-instruction for cross-domain work, which contradicted this principle and has been removed.
+act on it. This is unchanged by lifting the ban: it is about who owns the plan, not about whether
+spawning is allowed.
 
-The cost this avoids: intermediate output from a nested subagent is *designed* not to reach the
-orchestrator, so a wrong conclusion several layers down arrives as a confident summary with its
-reasoning discarded.
+The cost to stay alert to: intermediate output from a nested subagent is *designed* not to reach
+the orchestrator, so a wrong conclusion several layers down arrives as a confident summary with
+its reasoning discarded. That argues for shallow, purposeful nesting — not for none.
 
 ### 2. Skills and Agents are PROMPTS Only
 
@@ -272,6 +277,14 @@ Given the non-deterministic nature of LLM-based systems:
   (`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`) moved to
   `hookType: "prompt"` (model-judged), per `docs/TRD/discipline-judgment.md`. User-approved
   2026-08-13 (recorded in that TRD as decision D6).
+
+### Version 1.3.0 (2026-08-16)
+
+- Nesting ban lifted, user-approved. Subagents may spawn subagents. Only same-type
+  self-delegation on the same task remains forbidden — the one pathology actually measured.
+  `disallowedTools: Agent` removed from all eight agents that carried it. Prompted by measuring
+  `/code-review` as a 7-agent fan-out: a rule forbidding our agents from doing what the built-in
+  reviewer does guarantees ours stay worse.
 
 ### Version 1.2.0 (2026-08-14)
 

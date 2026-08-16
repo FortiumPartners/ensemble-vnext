@@ -1,6 +1,6 @@
 # TRD: Rework `/implement-trd` and Build the Deterministic Task Graph
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Status**: Draft
 **Created**: 2026-08-16
 **Last Updated**: 2026-08-16
@@ -15,6 +15,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-08-16 | Initial TRD creation from PRD v1.2.1 (items 7 + 8 of the improvement plan) | @technical-architect |
+| 1.1.0 | 2026-08-16 | `/refine-trd --auto` pass. **Open questions:** OQ-2, OQ-3, OQ-4, OQ-7 **answered** from the `Workflow` tool contract and from code; OQ-6 recorded as a **default**; OQ-1 and OQ-5 confirmed **owner-only** and left open. **Removed:** ESLint and Prettier from D9's check battery, §1.3's stack table, §6.2's Code Quality row and ITR-B005's acceptance criteria — neither is installed or configured in this repo (`package.json` devDependencies are `bats`, `jest`, `js-yaml`, `mock-fs`; no `.eslintrc*` / `.prettierrc*` / `eslint.config.*` anywhere); the claim traced to `stack.md`'s Code Quality table, a design document, not to the code. **Removed:** D8's "have `implement-phase.js` shell out per task" alternative and TR1's shell half — a workflow script has no shell and no filesystem access, so the alternative was never available. **Corrected:** D7 (`pipeline()` exists but applies uniform stages to items and cannot express heterogeneous dependency chains — sequential `await` is now the decision, not a fallback); §3.4 (the workflow cannot read `task-delegation.md` from disk — the command assembles the prompt and passes it in `args`); §3.1's phase-heading rule (real TRDs use `### 4.2 Phase 1:`, `### 4.1 Phase 1 —` and `### 5.1 Phase 1 —`); ITR-B001's acceptance criterion (its own grounding shows `discipline-judgment.md`'s five-column schema would warn on every row); §7.1 R8 and ITR-T001's `vendoring.test.sh` premise (that file contains zero occurrences of `packages/core`, performs no `diff`/`cmp`, and is skipped by default); the `notify-on-complete.test.sh` hard-coded command array count (**seven** loops, not five). **Added:** ITR-B014 (`copy_libs()` in `scaffold-project.sh` — `packages/core/lib/` had no delivery path into a scaffolded `.claude/`), ITR-B015 (smoke-fixture rework in Phase 2 — the fixture's bullet-list Master Task List parses to zero tasks and its hard `verify-app` assertion goes red at ITR-B005), AC-N2 to ITR-T002, G1's five-artifact metric to ITR-T001, and `G4` / `G5` / `AC-N1` / `AC-N8` / `AC-N9` references that had no `Serves` entry. **STUCK:** none. | @technical-architect |
 
 ---
 

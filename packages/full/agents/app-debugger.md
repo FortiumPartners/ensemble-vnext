@@ -27,7 +27,6 @@ effort: high
 color: red
 # background: Root-cause investigation; may dispatch its own probes when nesting allows.
 background: true
-disallowedTools: Agent
 # Leaf node — does the work and reports it. Nesting was permitted by default and
 # produced backend-implementer -> backend-implementer -> backend-implementer with an
 # IDENTICAL task at the last two levels: recursion, not decomposition, ~567k tokens

@@ -24,7 +24,7 @@ command's input.
 | Mode | Who answers | When |
 |---|---|---|
 | **Interactive** (default) | **You.** Each open question is put to you with `AskUserQuestion`. | A human is available. Your judgment is the point. |
-| **`--auto`** | A `product-manager` subagent, armed with the design corpus and the codebase. | Unattended runs, or a first pass to shrink the list before you look. |
+| **`--auto`** | A `technical-architect` subagent, armed with the design corpus and the codebase. | Unattended runs, or a first pass to shrink the list before you look. |
 
 **The autonomy exemption is conditional on mode, not on command name.** `autonomy.md` exempts
 this command because interactive mode's purpose is to ask. `--auto` obeys autonomy discipline
@@ -50,8 +50,10 @@ raised; strike it and say so.
 
 ### `--auto`
 
-Spawn **one `product-manager` subagent** and give it the open questions, the source, the
-design corpus and the codebase. Its job is to answer as well as the evidence allows and to be
+Spawn **one `technical-architect` subagent** and give it the open questions, the source, the
+design corpus and the codebase. **`technical-architect`, not `product-manager`** — this pass
+turns on buildability, grounding and citations against real code, which is the architect's job;
+the `product-manager` reading was carried over from `/refine-prd` and is wrong for a TRD. Its job is to answer as well as the evidence allows and to be
 honest about which is which. Every answer carries one of:
 
 | Verdict | Meaning |
