@@ -151,7 +151,7 @@ main argument, and each needs a differently-shaped fixture rather than a bigger 
 single-phase TRD, same scaffold, same plugin. Both reached COMMAND COMPLETE and produced
 8 modules + 8 tests.
 
-| | OLD | NEW | delta |
+| | OLD | NEW (pre-fix) | NEW (post-fix) |
 |---|---:|---:|---:|
 | agents | 40 (5.00/task) | 16 (2.00/task) | **−60%** |
 | raw tokens | 41.0M | 22.6M | **−45%** |
@@ -185,3 +185,43 @@ an Opus lead, every unmatched task silently runs on Opus.
 This fixture's tasks ("create a module, add a Jest test") match no keyword, which is not an
 exotic case. Fixed by defaulting to `backend-implementer`: broadest implementer, Sonnet-tier,
 and cheap to be wrong about. **Fail toward the cheaper agent, never the more expensive one.**
+
+### Post-fix re-run (`run6`) — same fixture, agent-routing fixes applied
+
+Only the new arm was re-run; the old command is unchanged, so `$131.24 / 41.0M / 40 agents`
+stands as the baseline.
+
+| | OLD | NEW pre-fix | NEW post-fix | vs OLD |
+|---|---:|---:|---:|---:|
+| cost | $131.24 | $80.02 | **$67.13** | **−49%** |
+| agents | 40 (5.00/task) | 16 (2.00) | 16 (2.00) | **−60%** |
+| raw tokens | 41.0M | 22.6M | 26.7M | −35% |
+| opus / sonnet turns | 367 / 330 | 393 / 8 | 322 / 166 | |
+| wall clock | 11.5 min | 16.6 min | 20.0 min | **+74%** |
+
+Task agents now dispatch as `8 × backend-implementer` where `run4` produced 8 generic
+workflow subagents. Agent count is unchanged at 16 — the fix changed *which* agent, not how
+many.
+
+**Raw tokens rose while cost fell.** 26.7M > 22.6M, but 166 turns moved to Sonnet, which is
+5× cheaper per input token. This is the expected shape of a tier fix and worth stating
+plainly, because a token-count-only metric would have read this change as a regression.
+
+**What this run does NOT test:** the fixture has no `Agent:` lines in its Execution Plan, so
+the TRD-assignment path never fires — it exercises the `backend-implementer` default. The
+assignment path has seven unit tests and no live run. Keeping the fixture byte-identical to
+`run4` is what makes the cost delta attributable to the fix rather than to fixture drift.
+
+### Wall clock is a real regression, not noise
+
+Called noise after one sample. At three it isn't: 11.5 (old) against 16.6 and 20.0 (both new
+arms). The new command is consistently **slower in wall clock while cheaper in cost**, and
+both directions are large.
+
+A plausible mechanism, not yet verified: the reworked loop serialises three phase-gate agents
+after the task wave, where the old loop interleaved per-task verify/simplify/review with other
+tasks' implementation. Fewer agents doing more each can finish later even while costing less.
+Confirming that needs per-agent timing from the transcripts, which was not collected here.
+
+Whether it matters is a judgment call for the owner: 8 minutes on an 8-task fixture, against
+half the cost and 60% fewer agents. It scales with phase count, not task count.
