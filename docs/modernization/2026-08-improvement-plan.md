@@ -1229,11 +1229,43 @@ points… immediately spawn the next phase."* The rule was open in the editor, h
 rewritten, and was violated four times. **Same shape as every other finding in this plan: a
 stated rule that produces no behaviour.**
 
+**Why `async-discipline` did not catch it, and why widening it is the wrong fix.** Its
+"about to" clause names two tenses -- *"the same underlying falsehood as claiming the action
+already happened, differing only in tense"* -- and every example is an explicit future marker
+(*"Next I'll run"*, *"now I'll read"*). **"Dispatching all three" is a bare present participle**:
+neither *"I'll dispatch"* nor *"I dispatched"*. It reads as an action already underway, which is
+precisely what a compliant DISPATCHED banner sounds like -- and the prompt exempts those. With
+its fail-open-on-ambiguity instruction, the judge behaved correctly by its own rules.
+
+The deeper reason is scope. `async-discipline` asks *"are you claiming work is running
+asynchronously?"* -- and "Dispatching all three" claims nothing of the kind. No notification is
+promised. It is an **action claim that was false when made**. The question that catches it is
+neither guard's:
+
+| Guard | Its question |
+|---|---|
+| `async-discipline` | are you falsely claiming async work? |
+| `autonomy-discipline` | are you asking permission? |
+| **absent** | **did you do what you just said you did?** |
+
+Widening `async-discipline` to judge tense would make it brittle in exactly the way its own
+history warns about: the regex battery it replaced died on *"waiting on"* versus *"waiting
+for"*. A bigger dictionary is the same mistake in a new form.
+
 **Proposed fix, ungated:** a `Stop` hook that reads `implement.json` -- if a TRD is in flight,
 tasks remain incomplete, and no `COMMAND COMPLETE` banner was emitted, block and name the next
 eligible task. `wiggum.js` already proves the shape works and that `{"decision":"block"}` is
 honoured on `Stop`; it needs to fire on the default path rather than behind a flag. Not in the
 current TRD -- this is a hook, and belongs to item 5's surface.
+
+**This hook needs no tense judgement at all**, which is its main advantage over widening a
+model-judged guard. It reads `implement.json` for ground truth: a TRD in flight, tasks
+incomplete, no COMMAND COMPLETE emitted. That catches "Dispatching all three", "ITR-B005 is
+next", AND a silent stop making no claim whatsoever -- three shapes, one check, no grammar.
+
+**One cheap addition to `async-discipline` regardless:** name the present-progressive form in
+the "about to" clause. It is the shape most easily mistaken for a compliant DISPATCHED banner,
+and the clause currently names only past and future.
 
 #### Execution model — decided 2026-08-16
 
