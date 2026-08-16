@@ -112,21 +112,26 @@ or
 | `--resume` | Resume from last checkpoint |
 | `--continue` | Alias for `--resume` |
 
-**Staged Execution Loop**:
+**Staged Execution Loop** (per phase):
 ```
-IMPLEMENT --> VERIFY --> [DEBUG if fail] --> SIMPLIFY --> VERIFY --> REVIEW --> UPDATE --> COMPLETE
+[per task] IMPLEMENT --> checks --> [self-debug if fail]
+[phase gate] verify-app --> code-simplifier --> phase-scoped /code-review high
+--> checkpoint + commit --> next phase
+--> [end of run] feature-scale hardening pass --> full-branch /code-review high --> COMPLETE
 ```
 
 **Process**:
-1. Parses TRD for tasks and phases
-2. For each task:
-   - Delegates to appropriate implementer (frontend/backend/mobile)
-   - Runs `verify-app` for testing
-   - On failure: `app-debugger` investigates (max 3 retries)
-   - `code-simplifier` for post-verification refactoring
-   - `code-reviewer` for security/quality review
-3. Updates `.trd-state/<feature>/implement.json`
-4. Commits at checkpoints
+1. Parses TRD for tasks and phases; builds the task graph
+2. For each phase, dispatched as a single `Workflow(implement-phase, …)` call:
+   - Per task: delegates to appropriate implementer (frontend/backend/mobile), which
+     runs its own targeted checks and self-corrects — no separate per-task debugging or
+     review agent
+   - Phase gate: `verify-app` for testing, `code-simplifier` for refactoring, then the
+     `/code-review` skill (not the `code-reviewer` subagent) scoped to the phase's diff
+3. After the final phase: a feature-scale hardening pass, then `/code-review high` over
+   the full branch diff
+4. Updates `.trd-state/<feature>/implement.json`
+5. Commits at phase checkpoints
 
 ### /update-project
 

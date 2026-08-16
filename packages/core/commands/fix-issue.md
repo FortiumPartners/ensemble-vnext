@@ -24,7 +24,9 @@ small, low-risk changes.
 
 **Key differences from /implement-trd:**
 - No phase structure — all tasks run in one pass
-- Compressed cycle: FIX → VERIFY → [DEBUG] → REVIEW → DONE (no SIMPLIFY — it's already small)
+- Compressed cycle: FIX → VERIFY → [DEBUG] → DONE per task (no SIMPLIFY — it's already
+  small); review runs once, after final verification, via the `/code-review` skill —
+  not per task via a `code-reviewer` subagent (see Step 4.5)
 - Built-in verification against reproduction steps (not just unit tests)
 - Uses a team only when 2+ tasks exist; single-agent for 1 task
 - Max 2 debug retries (not 3) — small fixes shouldn't need deep debugging
@@ -43,11 +45,15 @@ Parse: issue TRD path, `--resume`/`--continue`, `--reset-state`.
 ## Execution Model
 
 ```
-PREFLIGHT -> [TEAM SPAWN if 2+ tasks] -> FIX LOOP -> FINAL VERIFY -> COMPLETE
+PREFLIGHT -> [TEAM SPAWN if 2+ tasks] -> FIX LOOP -> FINAL VERIFY -> REVIEW -> COMPLETE
 
 Fix Loop (per task):
-  FIX -> VERIFY -> [DEBUG if fail, max 2] -> REVIEW -> UPDATE
+  FIX -> VERIFY -> [DEBUG if fail, max 2] -> UPDATE
 ```
+
+Review is a single end-of-run stage (Step 4.5), not part of the per-task loop — the
+built-in `/code-review` skill covers the whole fix's diff in one pass, which is both more
+effective than a per-task `code-reviewer` delegation and cheaper for a compressed pipeline.
 
 **Strategy:** Always `bug-fix` — reproduce, write failing test, fix.
 
@@ -110,8 +116,7 @@ If the issue TRD has only 1 task, execute directly without spawning a team:
 1. **FIX** — Delegate to appropriate implementer (Template F.1)
 2. **VERIFY** — Delegate to verify-app (Template F.2)
 3. **DEBUG** — If verify fails, delegate to app-debugger (max 2 retries)
-4. **REVIEW** — Delegate to code-reviewer (Template F.3)
-5. **UPDATE** — Mark complete, commit
+4. **UPDATE** — Mark complete, commit
 
 ### 3.2 Multiple Tasks (team mode)
 
@@ -122,8 +127,10 @@ automatically on the first spawn:
 Agent({ subagent_type, name, prompt });
 ```
 
-Spawn one teammate per task (or group related tasks). Each teammate runs the full fix
-cycle using the templates below. Teammates share the working tree (no
+Spawn one teammate per task (or group related tasks). Each teammate runs the FIX -> VERIFY
+-> [DEBUG] -> UPDATE cycle using the templates below — REVIEW is not part of the per-task
+cycle; it runs once, over the whole issue's diff, at Step 4.5. Teammates share the working
+tree (no
 `isolation: "worktree"`); keep each teammate's files disjoint. Express task grouping via
 task names plus `blockedBy` dependencies on the shared task list
 (`TaskCreate`, then `TaskUpdate({taskId, addBlockedBy: [...]})`) rather than `team_name`,
@@ -183,6 +190,23 @@ If final verification fails:
 - If reproduction still occurs: route back to fix loop for the relevant task
 - If regression: route to app-debugger, then re-verify
 - Max 1 additional cycle — if still failing, pause for user
+
+---
+
+## Step 4.5: Code Review
+
+Once final verification passes, review the whole fix in a single pass over the issue's
+diff — not per task, and not via a `code-reviewer` subagent delegation (removed, ITR-B010):
+the built-in reviewer is more effective and this pipeline is compressed enough that one
+pass over the full diff is proportional.
+
+```
+Skill({ skill: "code-review", args: "medium {branch_base}...HEAD" })
+```
+
+`{branch_base}` is `main` (or the branch `/fix-issue` started from). Apply straightforward,
+clearly-justified findings inline; if a finding is non-trivial or changes scope, report it
+in Step 5's output rather than guessing at a fix.
 
 ---
 
@@ -376,37 +400,6 @@ Report:
 
 **Invoke:** `Agent(subagent_type="verify-app", prompt="[above]")`
 
-## F.3 Template: REVIEW
-
-```xml
-<review_request>
-  <issue_id>{issue_id}</issue_id>
-  <task_id>{task_id}</task_id>
-  <files_to_review>{all files modified}</files_to_review>
-  <root_cause>{from issue TRD}</root_cause>
-  <fix_description>{from FIX stage}</fix_description>
-</review_request>
-
-<instructions>
-Quick review of a bug fix. Focus on:
-
-1. **Correctness**: Does the fix actually address the root cause?
-   (Not just masking the symptom)
-2. **Regression risk**: Could this fix break anything else?
-3. **Test quality**: Does the regression test actually catch the bug?
-4. **Security**: No new vulnerabilities introduced?
-
-This is a small, targeted fix — keep review proportional.
-
-Report:
-- APPROVED: Fix is correct and safe
-- APPROVED_WITH_RECOMMENDATIONS: Minor suggestions
-- REJECTED: Fix is wrong or risky (explain why)
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="code-reviewer", prompt="[above]")`
-
 ---
 
 # Appendix S: Stage Handoff Contract
@@ -414,10 +407,10 @@ Report:
 | Stage | Agent | Returns | Used By |
 |-------|-------|---------|---------|
 | FIX | *-implementer | files_changed, test_added, fix_description | VERIFY |
-| VERIFY | verify-app | pass/fail, reproduction_check | DEBUG or REVIEW |
+| VERIFY | verify-app | pass/fail, reproduction_check | DEBUG or UPDATE |
 | DEBUG | app-debugger | files_fixed, root_cause | VERIFY (retry) |
-| REVIEW | code-reviewer | decision, issues[] | UPDATE or FIX |
-| FINAL VERIFY | verify-app | reproduction_fixed, regression_issues | COMPLETE |
+| FINAL VERIFY | verify-app | reproduction_fixed, regression_issues | REVIEW |
+| REVIEW | `/code-review` skill (Step 4.5) | applied fixes, reported findings | COMPLETE |
 
 
 ---

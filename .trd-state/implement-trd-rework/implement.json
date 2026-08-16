@@ -5,7 +5,7 @@
   "branch": "feature/implement-trd-rework",
   "strategy": "refactor",
   "strategy_rationale": "TRD reworks existing commands, hooks and tests. refactor requires tests pass before AND after; 66 pre-existing failures are baselined in test-baseline.txt so the gate blocks on NEW failures only.",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "active_sessions": {},
   "tasks": {
     "ITR-P001": {
@@ -193,15 +193,16 @@
     "ITR-B010": {
       "description": "",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
-      "implementer_type": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T11:40:55.954139+00:00",
+      "evidence": "All 10 files assessed with a per-file verdict. Only 2 carried genuine per-task-loop wiring: fix-issue.md (per-task review replaced by one end-of-run Skill code-review over the whole issue diff) and process.md.template (stale five-stage loop rewritten to match post-B005 reality). 8 left unchanged as agent-still-ships references. code-reviewer.md ships in .claude/agents and packages/full/agents; validate-init.sh:125 passes. bats 40/40, validate-init 22/22, jest 30 = baseline."
     },
     "ITR-B011": {
       "description": "",
@@ -293,6 +294,25 @@
         "integration": 0.0
       },
       "note": "Gate: full suite 30 failures vs 30-test baseline \u2014 zero NEW failures. lib/ coverage 95.9% (floor 80%)."
+    },
+    {
+      "phase": 2,
+      "commit": null,
+      "timestamp": "2026-08-16T11:40:55.954139+00:00",
+      "tasks_completed": [
+        "ITR-D001",
+        "ITR-B004",
+        "ITR-B005",
+        "ITR-B006",
+        "ITR-B008",
+        "ITR-B010",
+        "ITR-B015"
+      ],
+      "coverage": {
+        "unit": 0.959,
+        "integration": 0.0
+      },
+      "note": "Gate: jest 30 = 30 baseline (zero new), bats 40/40, validate-init 22/22, smoke fixture parses. implement-trd.md 1466 -> 896."
     }
   ],
   "recovery": {
@@ -303,7 +323,7 @@
   },
   "metrics": {
     "total_tasks": 19,
-    "completed_tasks": 13,
+    "completed_tasks": 14,
     "failed_tasks": 0,
     "total_retries": 0
   },
