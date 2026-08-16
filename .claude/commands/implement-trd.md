@@ -812,12 +812,25 @@ COMMITS
 
 NEXT STEPS
 ----------
-1. Review changes: git diff main...{branch_name}
-2. Create PR: gh pr create --title "{TRD title}"
-3. After merge: mv docs/TRD/{filename} docs/TRD/completed/
+1. Verify delivery against the TRD and PRD: /audit-build {trd_path} --prd {prd_path}
+2. Review changes: git diff main...{branch_name}
+3. Create PR: gh pr create --title "{TRD title}"
+4. After merge: mv docs/TRD/{filename} docs/TRD/completed/
 
 ===============================================================================
 ```
+
+**Why `/audit-build` leads that list.** D16/ITR-B010 moved the acceptance-criteria check OUT
+of the per-task loop and INTO `/audit-build` — the relocation happened, but until 2026-08-16
+the handoff did not: this command never invoked it and never named it, so nobody checked a
+single task's acceptance criteria unless the user independently remembered a command the
+completion banner never mentioned.
+
+It is a recommendation to the user rather than an automatic invocation because it is a
+separate, individually-priced verification wave (7 agents on this project's own TRD), and
+`.claude/rules/autonomy.md` governs what this command does unattended — not what it spends
+on a second command's behalf. Naming it is the fix; auto-running it is a different decision.
+
 
 For Wiggum mode, signal: `<promise>COMPLETE</promise>`
 
