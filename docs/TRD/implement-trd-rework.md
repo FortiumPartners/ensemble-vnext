@@ -1633,51 +1633,72 @@ owner can overturn cheaply.
 
 ## Could Not Verify
 
-**Rewritten v1.6.0 by `/audit-trd`.** Coverage of that audit, stated rather than inferred:
-**5 of 5 verifiers reported** — none died, so no row below exists because a verifier was lost.
-The source of truth checked against was `docs/PRD/implement-trd-rework.md`.
+**Rewritten 2026-08-16 by `/audit-build`**, replacing the v1.6.0 `/audit-trd` version. This is
+the *delivered-state* pass: the previous version recorded what could not be settled by reading
+the design; this one records what survives after the code was built and the three probe tasks
+(ITR-P001, ITR-P002, ITR-P003) and the `[LIVE]` measurement task (ITR-T002) ran.
 
-**What that audit could and could not settle, by construction.** It read documents — this TRD,
-its PRD, the contracts, the tree — and ran `grep`, `wc` and `sed` against files on disk. It
-started no session, ran no workflow script, dispatched no agent and cloned no repository.
-**Every remaining row below is therefore out of its scope for the same reason**: each one is a
-claim about *runtime behaviour* (what the `Workflow` runtime permits, what a real
-`/implement-trd` run costs, what a remote repository contains), and no amount of reading
-settles those. That is not a gap in the audit; it is the boundary between reading and field
-work, and the rows are annotated with the field work each needs.
+**Coverage of this audit, stated rather than inferred.** **5 of 5 verifiers reported** — none
+died. But **2 of those 5 (test-quality, deterministic) reported against
+`docs/TRD/discipline-judgment.md`, not against this artifact**, so their findings are rejected
+as out-of-scope rather than applied here. Effective coverage of *this* delivery is **3 of 5**
+(traceability, verification, validation). The source of truth checked against was
+`docs/PRD/implement-trd-rework.md`. The practical consequence is the first row of the table
+below: **no test-quality opinion of this delivery was produced**, which matters more than usual
+because test coverage is this command's headline check.
 
-**Rows removed in this pass** (checked, and no longer unverified):
-- ~~`trd-authoring.md:344–382` is the correct citation for the unit-tests-are-not-tasks rule~~ —
-  **false, and now a fix.** The quoted strings were right; the line numbers were wrong by ~46
-  lines. The block runs **:390–425** (`UNIT TESTS ARE NOT TASKS` at :390, the terminal-phase
-  clause at :423) [ran]. Corrected in D8, NG9, OQ-3 and ITR-T003's grounding.
-- ~~`implement-trd.md` is 1466 lines / 53,685 bytes~~ — **re-confirmed by `wc` in this pass**
-  [ran]. Only the *token* figure (~13.4k) remains inherited, and it keeps its row below.
-- ~~A `/create-trd`-produced TRD carries a heading matching D11's search~~ — **checked, and it
-  did not.** `grep -rln '^#\+ .*\(Design References\|Reference Documents\)' docs/TRD/*.md`
-  returns **zero files**; `Task Grounding` returns two [ran]. This is what forced D11's
-  reconciliation with OQ-1 in this version, and it is settled, not open.
+**What this audit could and could not settle, by construction.** It read the delivered code
+(`packages/core/lib/*.js`, `packages/core/workflows/*.js`, `packages/core/commands/*.md`), the
+tests (`npx jest --listTests`, `test/integration/tests/`), the probe records under
+`docs/modernization/runs/`, and `.trd-state/implement-trd-rework/implement.json`. It started no
+session, ran no `/implement-trd`, and executed no test suite. Rows that need a *new* run stay
+below; rows a *completed* run already answered are removed and named as removed.
 
-**Rows carried forward from v1.1.0's resolutions** (already settled, kept only as the record of
-why they are not below): `pipeline()` exists and a workflow script has no shell or filesystem
-access — both from the `Workflow` tool contract. The `Touches`-populated-in-practice row is also
-settled, with one operational caveat worth restating because it survives every version of this
-design: exactly two TRDs on disk carry `## 9. Task Grounding` and both populate `Touches`; every
-older TRD has zero, so **D3's conflict edges are inert against any TRD authored before item 10**,
-and so is D11's `<design_references>` match. That is a caveat on `/implement-trd` runs against
-older TRDs, not a defect in this design.
+**Rows removed in this pass** (settled by delivered evidence, not by argument):
+
+- ~~A workflow script can start a **background** subagent (AC-F8.4 / NFR-4 / AC-N4)~~ —
+  **settled NO.** ITR-P003's lead-session probe (`docs/modernization/runs/item8/workflow-probes.md`,
+  summarised in this TRD's Attested Runtime Findings) returned *"No such tool available: Agent.
+  Agent is disabled for this session, in subagents as well as here."* A workflow-started agent
+  has no `Agent` tool at all. This is no longer an open question — it is a **superseded
+  requirement**, reported as a mismatch in the audit readout, and the delivered foreground call
+  at `implement-phase.js:211` is the only available path.
+- ~~`agent(prompt, opts)` accepts a `subagent_type`~~ — **settled YES** (ITR-P003). Delivered
+  and in use: `implement-phase.js:171` (`agentType: 'verify-app'`) and `:189`
+  (`agentType: 'code-simplifier'`). OQ-6 resolves to the workflow, as its default assumed.
+- ~~An agent started from inside a workflow script can invoke the `/code-review` **skill**
+  (AC-F16.4)~~ — **settled YES** (ITR-P003): *"Skill code-review launched (forked execution,
+  running in the background)."*
+- ~~`/code-review high` is model-startable here and fans out to ~7 agents~~ — **settled, and
+  independently re-counted in this audit.** `.trd-state/discipline-judgment/dispatch.jsonl`
+  shows one parent (`ab5d5d609e3d56aba`, start 04:08:00Z → stop 04:11:33Z) and **six** distinct
+  child agents stopping inside that window [ran]. Parent + 6 = 7. ITR-P002's recorded verdict
+  checks out.
+- ~~`Sunstone-Partners/ensemble` contains `trd-parser.js`, `trd-graph.js`, `cross-trd-deps.js`
+  with 76 test files~~ — **repository read (ITR-P001, clone at `b2ef8ca`,
+  `docs/modernization/runs/item8/sunstone-read.md`), with the figure corrected.** The modules
+  live under `packages/development/lib/`, `trd-graph.js` exists *only* there (not in
+  `packages/full/lib/`), and the record counts **79 `it(` cases in `trd-parser.test.js`** — the
+  inherited "76 test files" figure is not what the clone shows. NG1 is unaffected; only the
+  number was wrong.
+- ~~`/implement-trd` runs ~5 agent invocations per task today — the baseline G3 is measured
+  against~~ — **measured.** `run5` (pre-rework command at `a17316c`, same 8-task fixture)
+  produced **40 agents / 8 tasks = 5.00 per task**, decomposing exactly as the old loop predicts
+  (8 implementer + 16 `verify-app` + 8 `code-simplifier` + 8 `code-reviewer`)
+  (`docs/modernization/runs/itr-t002-measurements.md`). The reworked arm measured **1.0 task
+  agent per task** on the same fixture. G3 holds on measured numbers, not projection.
 
 | Claim | Why this audit did not settle it, and how to settle it |
 |-------|--------------------------------------------------------|
-| A workflow script can start a **background** subagent (AC-F8.4 / NFR-4 / AC-N4, for the phase review) | **Out of scope: platform runtime behaviour, unreachable by reading.** The contract states `agent()` calls are subagents and names no background variant inside a script; `audit-trd.js` uses `parallel()` over foreground `agent()` calls. **ITR-P003 probes it.** What this audit *did* fix is the document's own inconsistency about it: D10 asserted "as a background subagent" as settled while §1.3, §3.4 and this section all recorded it as unattested. D10 now asserts only the routing and defers the mechanism to ITR-P003. The fallback still costs little — AC-F16.7 holds either way, because the workflow's return is one phase result regardless of how the review ran |
-| `agent(prompt, opts)` accepts a `subagent_type`, so `verify-app` and `code-simplifier` can be dispatched *as those agents* from inside `implement-phase.js` (AC-F7.3, AC-F7.4, and OQ-6's answer) | **Out of scope: same reason.** The observed `opts` across all four existing scripts are exactly `label`, `phase`, `effort`, `model`, `schema` (`audit-trd.js:288–297`) [read] — evidence about this repo's usage, not about the API, and the same inference shape that got `pipeline()` wrong. **ITR-P003 probes it.** Read the `Workflow` tool's parameter documentation, or dispatch one and read `dispatch.jsonl`'s `agent_type` field |
-| An agent started from inside a workflow script can invoke the `/code-review` **skill** (AC-F16.4) | **Out of scope: same reason.** `/code-review` is a Skill, not a subagent type, so `dispatch.jsonl`'s `subagent_type`-shaped matching will not find it either (`test/smoke/lib/project.sh:236–241`) [read]. **ITR-P003 probes it**; ITR-P002 probes the model-startability half separately |
-| Agents spawned inside a `Workflow` script surface as `tool_use` records in the **lead** session's stream-json | **Out of scope: requires running the canary.** Silently invalidates every `smoke_agent_invoked` assertion in `implement-one-task.sh` if false — including the ones ITR-B015 keeps. The assertion matches `select(.type=="tool_use") \| select(.name=="Agent" or .name=="Task") \| select(.input.subagent_type==$a)` in the lead stream (`project.sh:236–241`) [read]. Run the reworked canary once and inspect the raw stream before trusting a green |
-| `/code-review high` is model-startable in this environment and fans out to ~7 agents | **Out of scope: requires starting one.** Inherited from the PRD's own Could Not Verify, which inherits it from SPEC.md; never measured in this repo. AC-F8.6 makes empirical verification a requirement and **ITR-P002 is that verification** — the TRD treats the figure as inherited throughout and asserts it nowhere as fact, which this audit checked |
-| `Sunstone-Partners/ensemble` contains `trd-parser.js`, `trd-graph.js`, `cross-trd-deps.js` with 76 test files | **Out of scope: the repository is not on this machine** (`~/dev/ensemble` gone as of 2026-08-12) and this audit made no network call. `git clone` and read — that is ITR-P001 |
-| `/implement-trd` runs ~5 agent invocations per task today — the baseline G3's ~1 target is measured against | **Out of scope: requires a completed run.** Inherited from SPEC.md via the PRD. Count `start` events per task ID in a real `.trd-state/<feature>/dispatch.jsonl`. The *stage list* in `implement-trd.md` (5 stages) is read; no run was counted |
-| `implement-trd.md` is ~13.4k tokens — the figure D12's saving is argued from | **Partially settled, token count still open.** 1466 lines / 53,685 bytes re-confirmed by `wc` in this pass [ran]; the token count needs a tokenizer this audit did not run |
-| `resumeFromRunId` is same-session only — the premise D6 turns on | **Out of scope: requires running a workflow across a session boundary.** Inherited from SPEC:465–468 via the PRD, not from observed behaviour. This audit marked D6's rationale `[inherited, unverified]` so the decision no longer reads as resting on established fact. Check the live workflow docs, or run a workflow, end the session, and attempt resume |
-| Phase sizes of 4–5.4 tasks on the profile TRDs, which R5's assessment rests on | **Out of scope: the profile TRDs were not in this audit's read set.** Inherited from SPEC.md. This TRD's own phases (6/7/3/3) are measured; the profile TRDs' are not |
-| Extending `implement-one-task.sh` to multiple phases is feasible within the smoke harness's per-scenario budget | **Out of scope: requires timing a run.** The scenario header and the harness's budget mechanism (`declare -A` per-scenario budgets) are read; no multi-phase elapsed time was measured. Run it |
-| **NEW —** AC-F5.2's "surfaced **before** dispatch" ordering holds in a real run | The ordering is now argued **structurally** in §3.5 — the `<open_question>` element is part of the prompt string the command assembles, so it exists before the `Agent` call, and the DISPATCHED banner naming it is emitted in the same turn. That is a design argument, not an observation. **ITR-T002's session log is the check**: confirm the question appears in the banner and in the delegation, and that neither appears after the implementer has started. Added because AC-F5.2 had no TRD citation at all until this audit |
+| **NEW —** Whether the delivered tests actually *prove* what they assert (test quality, as opposed to test presence) | **Not checked: the test-quality verifier in this wave audited a different TRD** (`docs/TRD/discipline-judgment.md`) and produced no opinion on this delivery. Presence was checked by this audit and is reported in the readout (`packages/core/workflows/*.js` has no test of any kind); *depth* was not. Re-run `/audit-build` with the verifier scoped to this artifact, or read `packages/core/lib/*.test.js` against ITR-B001/B002/B003's acceptance criteria directly |
+| **NEW —** Runtime file-collision serialization: two tasks sharing a `Touches` file really do serialize at run time (AC-F1.9, D3) | **Design-time half is settled** — `task-graph.js` computes `[[CX-001],[CX-002]]` for two tasks both touching `src/shared.js` [ran, ITR-T002]. The **runtime** half is not: `run3`, the fixture built for exactly this, ended before its collision could be observed. Re-run a two-task colliding fixture to completion and check the dispatch ordering in `dispatch.jsonl` |
+| **NEW —** Only phase-level results reach orchestrator context (AC-F16.7 / AC-N9's runtime half) | **Out of scope: requires reading a completed run's transcripts, not its artifacts.** The property is satisfied *by construction* in the script (the return value carries no per-task agent output) but was **not established from the ITR-T002 transcripts**, which is where a leak would actually show. Diff the lead transcript against the per-agent transcripts under `.../subagents/` |
+| **NEW —** Whole-phase retry from `implement.json` (AC-F16.6) | **Out of scope: requires a failing run that then resumes.** `run2` reached COMMAND STUCK on a deliberately-failing phase, which is consistent, but the retry-the-whole-phase behaviour itself was not exercised. Fail a phase, then `/implement-trd --resume`, and confirm the whole phase re-dispatches |
+| **NEW —** The TRD-assignment path for `agentType` (an `Agent:` line in a TRD's Execution Plan) | **Out of scope: no live run exercises it.** It carries seven unit tests and zero live coverage — every ITR-T002 fixture was deliberately kept byte-identical across runs, and none carries an `Agent:` line, so all six runs exercised the `backend-implementer` default instead. Add one `Agent:`-bearing task to a fixture and re-run |
+| **NEW —** Why the reworked loop is **slower in wall clock** (+44% `run4`, +74% `run6`) while 49% cheaper | **Out of scope: requires per-agent timing from transcripts, which was not collected.** Three samples make this a real regression rather than noise. The stated mechanism — three phase-gate agents serialised after the task wave, where the old loop interleaved them per task — is a **plausible, unverified** explanation. Collect per-agent start/stop deltas from the ledger and attribute the gap |
+| Agents spawned inside a `Workflow` script surface as `tool_use` records in the **lead** session's stream-json | **Still out of scope, and now more urgent.** `implement-one-task.sh`'s `smoke_agent_invoked` assertions match `.input.subagent_type` in the lead stream (`project.sh:236–241`) [read]. ITR-T002 identified agents from `dispatch.jsonl` and agent-type ordering, **never from the lead stream**, so the assertion's premise is still untested — and the related negative is now measured: **`opts.label` never reaches a hook at all** (every `run4` ledger row returned `label=None` *and* an empty `extra` bag, making it a definitive negative). Run the canary and inspect the raw stream before trusting a green |
+| Extending `implement-one-task.sh` to multiple phases is feasible within the smoke harness's per-scenario budget | **Still out of scope.** ITR-T002 *did* run multi-phase fixtures — but explicitly outside the harness (*"Nothing under `test/smoke/` was modified"*), against throwaway scaffolds in `$CLAUDE_JOB_DIR/tmp`. That answers "does a multi-phase run work", not "does it fit the per-scenario budget". Time one inside the harness |
+| AC-F5.2's "surfaced **before** dispatch" ordering holds in a real run | **Still out of scope: the ordering remains a structural argument (§3.5), not an observation.** ITR-T002 ran, but its measurement record reports nothing about `<open_question>` placement or the DISPATCHED banner's contents, so the check the previous version deferred to it did not happen. Read a run's session log for the banner and the delegation prompt, and confirm neither appears after the implementer starts |
+| `resumeFromRunId` is same-session only — the premise D6 turns on | **Still out of scope: requires running a workflow across a session boundary**, which no ITR-T002 run did. Inherited from SPEC:465–468 via the PRD; D6's rationale stays marked `[inherited, unverified]`. The split survives a negative; its *forcing* argument does not |
+| `implement-trd.md` is ~13.4k tokens — the figure D12's saving is argued from | **Still open, and now partly historical.** The 1466-line baseline was re-confirmed by `wc`; the reworked file is 908–938 lines across the measured runs, so the *saving* is real in lines. The **token** figure still needs a tokenizer no pass has run |
+| Phase sizes of 4–5.4 tasks on the profile TRDs, which R5's assessment rests on | **Still out of scope: the profile TRDs were not in this audit's read set** either. Inherited from SPEC.md. This TRD's own phases (6/7/3/3) are measured; the profile TRDs' are not. R5 now has one real data point from ITR-T002 (an 8-task single phase completed 8/8) that the original assessment did not have |

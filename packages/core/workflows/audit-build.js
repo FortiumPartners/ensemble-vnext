@@ -148,6 +148,17 @@ required(index, 'Index')
 log(`indexed ${index.requirements.length} requirements, ${index.tasks.length} tasks` +
     `${(index.could_not_verify || []).length ? `; ${index.could_not_verify.length} unverified claims declared` : ''}`)
 
+// An empty index is the one failure this command must never report as a clean pass. The
+// traceability verifier iterates `requirements`; hand it none and it finds nothing wrong,
+// every other verifier follows, and the zero-findings path below prints "every requirement
+// is implemented and has a test proving it" — maximal confidence from zero evidence, which
+// is precisely the failure mode audit-build exists to catch. A cheap haiku Index missing
+// the AC table, or a TRD with no requirement table at all, both land here.
+const EMPTY_REQS = index.requirements.length === 0
+const EMPTY_TASKS = index.tasks.length === 0
+if (EMPTY_REQS) log('WARNING: the Index found ZERO requirements — traceability, the headline check, has nothing to check')
+if (EMPTY_TASKS) log('WARNING: the Index found ZERO tasks — verification against the TRD has nothing to check')
+
 // --------------------------------------------------------------------------- 2. VERIFY
 
 phase('Verify')
@@ -329,15 +340,33 @@ const COVERAGE = `
 COVERAGE OF THIS AUDIT -- state it, do not infer it from the findings:
   verifiers reporting: ${alive.length}/${VERIFIERS.length}${dead ? `   NO REPORT FROM: ${deadKeys.join(', ')}` : ''}
   PRD supplied: ${PRD || 'NO -- validation against the PRD was skipped or degraded'}
+  requirements indexed: ${index.requirements.length}   tasks indexed: ${index.tasks.length}
 ${dead
   ? `Whatever those verifier(s) cover is UNVERIFIED by this run. Add a Could Not Verify row
 naming them and what they would have checked.`
-  : ''}${PRD ? '' : `No PRD was supplied, so validation is UNCHECKED. Say so.`}`
+  : ''}${PRD ? '' : `No PRD was supplied, so validation is UNCHECKED. Say so.`}${EMPTY_REQS
+  ? `
+ZERO REQUIREMENTS WERE INDEXED, so traceability -- this command's headline check -- ran
+against an empty list and could not have found anything. Do NOT report this run as clean.
+Add a Could Not Verify row saying traceability is UNCHECKED because no requirements were
+recovered from ${TRD}${PRD ? ` or ${PRD}` : ''}, and say so in the readout.`
+  : ''}${EMPTY_TASKS
+  ? `
+ZERO TASKS WERE INDEXED, so verification against the TRD's tasks could not have found
+anything. Add a Could Not Verify row saying so.`
+  : ''}`
+
+const NOTHING_INDEXED = EMPTY_REQS || EMPTY_TASKS
 
 if (findings.length === 0) {
   const clean = await agent(
-    `This audit of the code delivered against ${TRD} raised NO findings -- verification,
-validation and traceability all confirm. Your only job is the ## Could Not Verify section in
+    `This audit of the code delivered against ${TRD} raised NO findings.${NOTHING_INDEXED
+      ? ` That is NOT a
+clean bill of health on this run: the Index recovered ${index.requirements.length} requirements and
+${index.tasks.length} tasks, so the checks below had nothing to run against. Report the audit as
+INCONCLUSIVE, not passing.`
+      : ` Verification, validation and traceability all
+confirm.`} Your only job is the ## Could Not Verify section in
 ${TRD} -- do not otherwise edit the document, and do not invent findings.
 ${COVERAGE}${CNV}`,
     {
@@ -353,13 +382,18 @@ ${COVERAGE}${CNV}`,
   )
   if (!clean) log('WARNING: Could Not Verify rewrite returned nothing — the section is unchanged')
   return {
-    trd: TRD, findings: 0, applied: 0, rejected: 0,
+    trd: TRD, prd: PRD, findings: 0, applied: 0, rejected: 0,
     still_unverified: ((clean && clean.could_not_verify_remaining) || []).length,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
-    incomplete_coverage: dead > 0,
+    incomplete_coverage: dead > 0 || NOTHING_INDEXED,
     readout: `AUDIT-BUILD: ${TRD}\nPRD: ${PRD || '(none supplied)'}\n\n` +
-      `  NO ACTION — every requirement is implemented and has a test proving it, every task\n` +
-      `  matches its delivered code, nothing in the PRD was dropped.\n` +
+      (NOTHING_INDEXED
+        ? `  INCONCLUSIVE — the Index recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks,\n` +
+          `  so traceability and verification ran against an empty list. Zero findings here means\n` +
+          `  nothing was checked, NOT that everything passed. Re-run once the TRD's requirement\n` +
+          `  and task tables parse.\n`
+        : `  NO ACTION — every requirement is implemented and has a test proving it, every task\n` +
+          `  matches its delivered code, nothing in the PRD was dropped.\n`) +
       (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
   }
 }

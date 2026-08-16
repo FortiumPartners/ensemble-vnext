@@ -652,6 +652,43 @@ ${body}
     expect(r.warnings.some((w) => /assigned to both/.test(w))).toBe(true);
   });
 
+  // With no "Session Details" heading the scan widens to the whole Execution Plan,
+  // where prose bullets like "- Agents: 3 in parallel" live. Without a shape check
+  // that yields the agentType "3" — and task.agent OUTRANKS the keyword fallback,
+  // so a junk value replaces a sane default rather than degrading to one.
+  it('ignores an Agent: value that is not shaped like an agent name', () => {
+    const r = parseTrd(`## 4. Master Task List
+
+### 4.1 Phase 1
+
+| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
+|---|---|---|---|---|---|
+| AA-B001 | Build the thing | AC-1 | | None | works |
+
+## 5. Execution Plan
+
+- Tasks: AA-B001
+- Agents: 3 in parallel
+`);
+    expect(r.sessionAgents['AA-B001']).toBeUndefined();
+    expect(r.tasks[0].agent).toBeUndefined();
+    expect(r.warnings.some((w) => /not shaped like an agent name/.test(w))).toBe(true);
+  });
+
+  // The unpaired-ids guard must not depend on the next block listing Tasks before
+  // Agent — a block written Agent-first would otherwise absorb the orphan's ids.
+  it('does not leak unpaired ids into a block whose Agent: line precedes its Tasks:', () => {
+    const r = parseTrd(
+      withSessions(`**Session 1A: orphaned, no agent line**
+- Tasks: AA-B001
+
+**Session 1B: UI, reversed field order**
+- Agent: @frontend-implementer
+- Tasks: AA-F001`)
+    );
+    expect(r.sessionAgents['AA-B001']).toBeUndefined();
+  });
+
   it('returns no assignments when the TRD has no Execution Plan', () => {
     const r = parseTrd(`## 4. Master Task List
 

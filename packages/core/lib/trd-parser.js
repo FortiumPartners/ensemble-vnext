@@ -627,10 +627,26 @@ function parseCouldNotVerify(lines, warnings) {
  * is a strictly worse signal — it re-derives, from a one-line summary, a decision the
  * architect made from the full context.
  *
- * Returns { taskId: 'backend-implementer', ... }. Absent section, malformed block, or
- * unknown task id yields no entry rather than a guess: an assignment nobody wrote is
- * exactly the manufactured-requirement failure this project keeps finding elsewhere.
+ * Returns { taskId: 'backend-implementer', ... }. Absent section, malformed block,
+ * unknown task id, or an agent token that is not shaped like an agent name yields no
+ * entry rather than a guess: an assignment nobody wrote is exactly the
+ * manufactured-requirement failure this project keeps finding elsewhere.
  */
+
+/**
+ * Agent names in this framework are lowercase kebab-case with at least one hyphen
+ * (`backend-implementer`, `verify-app`, `agent-implementer`). The shape check matters
+ * because the fallback scan widens to the WHOLE Execution Plan when a TRD has no
+ * "Session Details" heading, and that span routinely carries prose bullets such as
+ * `- Agents: 3 in parallel` — which the Agent: pattern otherwise matches, yielding the
+ * agentType `"3"`. `task.agent` OUTRANKS the keyword fallback in implement-trd §3.3, so
+ * a junk value does not degrade to a sane default; it replaces one.
+ */
+const AGENT_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
+
+/** A `**Session 2A: ...**`/`#### Phase 2` line starts a new block. */
+const SESSION_BOUNDARY_RE = /^\s*(?:#{1,6}\s|Session\b|Phase\b)/i;
+
 function parseSessionAgents(lines, tasks, warnings) {
   const known = new Set(tasks.map((t) => t.id));
   const section = findSection(lines, 'Session Details') || findSection(lines, 'Execution Plan');
@@ -653,6 +669,13 @@ function parseSessionAgents(lines, tasks, warnings) {
     const agentMatch = /^\s*[-*]\s*Agents?\s*:\s*@?([A-Za-z0-9-]+)/i.exec(line);
     if (agentMatch) {
       const agent = agentMatch[1];
+      if (!AGENT_NAME_RE.test(agent)) {
+        warnings.push(
+          `"${agent}" in Session Details is not shaped like an agent name — ignoring the assignment for ${pending.join(', ') || '(no pending tasks)'}`
+        );
+        pending = [];
+        continue;
+      }
       for (const id of pending) {
         if (assignments[id] && assignments[id] !== agent) {
           warnings.push(
@@ -663,7 +686,12 @@ function parseSessionAgents(lines, tasks, warnings) {
         assignments[id] = agent;
       }
       pending = [];
+      continue;
     }
+    // Clearing `pending` only on the next Tasks: line leaves the no-Agent-line guard
+    // order-dependent: a block that writes `- Agent:` BEFORE `- Tasks:` would absorb
+    // the previous unpaired block's ids. A block boundary drops them instead.
+    if (SESSION_BOUNDARY_RE.test(line)) pending = [];
   }
   return assignments;
 }
