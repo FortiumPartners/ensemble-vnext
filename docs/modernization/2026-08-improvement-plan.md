@@ -1655,6 +1655,29 @@ retractions propagate; and the always-on cost of the mechanism is measured rathe
   modes the wave was built around. It is a **cross-reference internal to the artifact**, and
   it survived precisely because every existing verifier looks outward.
 
+- **A subagent's idle notification means "turn ended", not "work stopped" — the lead has no
+  way to tell them apart.** Observed 2026-08-16. `ITR-T002` dispatched three real headless
+  `/implement-trd` runs and ended its turn, because **a subagent has no primitive that blocks
+  and waits inside one turn** for a multi-minute external process: `ScheduleWakeup` is removed
+  from subagents by the platform's tool filter, so dispatch-then-end-turn is the only shape
+  available. From the lead's side that is indistinguishable from an agent that gave up. This
+  orchestrator read `stop` in the ledger, saw nothing on disk, and concluded the agent had
+  stopped without working — wrong, and it cost a nudge round-trip. Three `claude --print`
+  processes were alive the whole time (verified by PID).
+
+  It compounds with the known `blocked`-row gap: since the prompt-hook conversion nothing
+  writes a `blocked` row, so `dispatch-ledger.js --open` cannot separate "finished",
+  "blocked-and-resumed" and "mid-flight between turns". This agent's ledger read
+  `stop / stop / start / stop` on a single `agent_id` — resumption churn that looks like
+  completion.
+
+  The lesson is the cheap half: **the ledger is necessary but not sufficient, and the check
+  that actually resolved it was looking at the world** — `ps` for live PIDs, `wc -l` on the
+  output logs twice a few seconds apart. Before concluding a subagent has stopped, check
+  whether its work is still running. A fix worth considering is having dispatching agents
+  write their PIDs somewhere the lead can poll, so "is it alive" does not depend on the lead
+  guessing which process to look for.
+
 - **Retire the ULTRATHINK keyword.** Eight commands still use it. `effort` is the structured successor and
   is already set on all 13 agents. Redundant at best, conflicting at worst.
 - **Re-test teammate auto-delivery.** A 30-minute experiment. `implement-trd-team.md:163` asserts
