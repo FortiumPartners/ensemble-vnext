@@ -1031,6 +1031,49 @@ Replacement, in three parts:
 3. **The `[LIVE]` E2E task** already required by `trd-authoring.md`, which is the
    forcing-an-end-to-end-path half of what these commands were for.
 
+#### State ownership and `status.js` — decided 2026-08-16
+
+**`implement.json` is maintained by the COMMAND, and that is forced by the platform, not
+chosen: workflow scripts have no filesystem access.** The command writes phase-in-flight
+before dispatch and results after the workflow returns. A phase workflow returns values; it
+never persists them.
+
+**`status.js` breaks under the new loop and must be rewritten or retired — a deliverable
+nothing in this plan previously named.** It advances `cycle_position` on every SubagentStop
+through `CYCLE_ORDER = ['verify_red','implement','verify','simplify','verify_post_simplify',
+'review', …]` — exactly the five-stage cycle this item deletes. A phase workflow fires 5–7
+SubagentStops; the hook would advance a cursor through stages that no longer exist, once per
+agent. Its own header describes it as a safety net for a model where *"the command sets
+cycle_position when ENTERING a stage"*; when the workflow drives execution instead, the safety
+net becomes a hazard. `wiggum.js` and `precompact.js` also write this file and need the same
+audit.
+
+**`implement.json` has no schema.** It carries a `version` field and nothing validates shape,
+with five writers (command + three hooks + a workflow's returned results). It is also the only
+cross-session coordination point in the design, so a malformed write is precisely how a resume
+silently loses a phase. **Item 7's `lib/` is the home for a schema and validator** — it is the
+tested deterministic layer, and this is the cheapest possible thing to put in it.
+
+#### Hardening is a dedicated agent, decided 2026-08-16
+
+**Revises the CLAUDE.md-only answer given earlier the same day.** Hardening gets its own agent,
+run per phase, in parallel with the phase review.
+
+The reasoning that overturns the earlier answer is this project's own: `audit-*` carries a
+dedicated `omission-audit` verifier *because* a per-line audit cannot see a line that is not
+there. Hardening asks the identical question — what is missing — so appending it to a reviewer
+whose mandate is finding bugs in written lines merges two different questions into one prompt.
+`CLAUDE.md` is also the wrong channel: it applies to every Claude Code session, so hardening
+instructions would leak into implementation sessions, not just reviews.
+
+Shape: hardening agent and `/code-review high` run **concurrently, both read-only**, over the
+phase diff; their findings reconcile together and apply once. That is the audit pattern —
+parallel verifiers → reconcile → apply — and it avoids `--fix` writing underneath a concurrent
+reader. Cost: one extra agent per phase, 4–6 per feature.
+
+The terminal adversarial pass still stands for whole-feature weaknesses, which only exist once
+the whole feature does.
+
 #### Parallelism and file ownership — decided 2026-08-16
 
 **`Touches` gates parallelism, not just the dependency graph. On overlap, serialize — do not
