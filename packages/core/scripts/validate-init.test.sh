@@ -77,6 +77,9 @@ create_valid_structure() {
     echo "# Constitution" > "$dir/.claude/rules/constitution.md"
     echo "# Stack" > "$dir/.claude/rules/stack.md"
     echo "# Process" > "$dir/.claude/rules/process.md"
+    # validate-init.sh has required this since 4c5c20a; the fixture never accounted for it,
+    # so TRD-TEST-018/019 have been failing on a missing file rather than on what they test.
+    echo "# Async discipline" > "$dir/.claude/rules/async-discipline.md"
 
     # Create required hook files
     echo "# Router hook" > "$dir/.claude/hooks/router.py"
