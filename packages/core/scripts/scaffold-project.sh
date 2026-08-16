@@ -200,15 +200,16 @@ copy_contracts() {
     elif [[ -d "$PLUGIN_DIR/../core/contracts" ]]; then src="$PLUGIN_DIR/../core/contracts"
     else warn "No contracts directory found in plugin, skipping"; REFRESH_CONTRACTS_COUNT=0; return 0; fi
 
-    if [[ "$REFRESH" != "true" ]]; then mkdir -p "$dest"
-    elif [[ ! -d "$dest" ]]; then REFRESH_CONTRACTS_COUNT=0; return 0; fi
+    mkdir -p "$dest"
 
     local count=0 c_path c
     for c_path in "$src"/*.md; do
         [[ -f "$c_path" ]] || continue
         c="$(basename "$c_path")"
         if [[ "$REFRESH" == "true" ]]; then
-            if [[ -f "$dest/$c" ]]; then cp "$c_path" "$dest/"; info "Refreshed contract: $c"; ((count++)) || true; fi
+            if [[ -f "$dest/$c" ]]; then cp "$c_path" "$dest/"; info "Refreshed contract: $c"
+            else cp "$c_path" "$dest/"; info "Added contract: $c"; fi
+            ((count++)) || true
             continue
         fi
         if [[ -f "$dest/$c" && "$FORCE" != "true" ]]; then info "Contract exists: $c"
@@ -242,6 +243,22 @@ copy_contracts() {
 # same pattern hooks/ and agents/ use, which demonstrably survives packaging.
 # So check "$PLUGIN_DIR/lib" FIRST, but only when it actually contains *.js, and
 # keep the monorepo path as the dev-checkout fallback.
+# REFRESH SEMANTICS, corrected 2026-08-16. `--refresh` used to update only files
+# that ALREADY existed, and returned immediately when the destination directory
+# was absent. That is right for user-authored content and wrong for
+# framework-owned artifacts, because a version upgrade that ADDS files could
+# never deliver them.
+#
+# Measured: a 4.1.15-era project refreshed against 4.2.0 reported "Refreshed 13
+# commands" and exit 0 while delivering lib=0, workflows=0, and neither
+# audit-build.md nor task-delegation.md. The refreshed commands INCLUDED
+# implement-trd.md -- so the upgrade replaced the command with the version that
+# requires those exact files, without shipping them. The project came out
+# strictly worse than before the refresh, silently.
+#
+# These four directories are framework-owned: the plugin is the only author, so
+# re-adding a missing file cannot clobber user work. New files are reported as
+# "Added" rather than "Refreshed" so the distinction stays visible in the log.
 copy_libs() {
     local dest="$1/.claude/lib"
     local src=""
@@ -250,8 +267,7 @@ copy_libs() {
     elif [[ -d "$PLUGIN_DIR/../core/lib" ]]; then src="$PLUGIN_DIR/../core/lib"
     else warn "No lib directory found in plugin, skipping"; REFRESH_LIBS_COUNT=0; return 0; fi
 
-    if [[ "$REFRESH" != "true" ]]; then mkdir -p "$dest"
-    elif [[ ! -d "$dest" ]]; then REFRESH_LIBS_COUNT=0; return 0; fi
+    mkdir -p "$dest"
 
     local count=0 l_path l
     for l_path in "$src"/*.js; do
@@ -263,7 +279,9 @@ copy_libs() {
         # them.
         [[ "$l" == *.test.js ]] && continue
         if [[ "$REFRESH" == "true" ]]; then
-            if [[ -f "$dest/$l" ]]; then cp -L "$l_path" "$dest/"; info "Refreshed lib: $l"; ((count++)) || true; fi
+            if [[ -f "$dest/$l" ]]; then cp -L "$l_path" "$dest/"; info "Refreshed lib: $l"
+            else cp -L "$l_path" "$dest/"; info "Added lib: $l"; fi
+            ((count++)) || true
             continue
         fi
         if [[ -f "$dest/$l" && "$FORCE" != "true" ]]; then info "Lib exists: $l"
@@ -296,13 +314,9 @@ copy_workflows() {
         return 0
     fi
 
-    # --refresh updates only what is already present; it never adds or removes.
-    if [[ "$REFRESH" != "true" ]]; then
-        mkdir -p "$dest"
-    elif [[ ! -d "$dest" ]]; then
-        REFRESH_WORKFLOWS_COUNT=0
-        return 0
-    fi
+    # --refresh updates what is present AND adds framework-owned files that are
+    # missing (see the note above copy_libs). It still never REMOVES anything.
+    mkdir -p "$dest"
 
     local count=0
     local wf_path wf
@@ -314,8 +328,11 @@ copy_workflows() {
             if [[ -f "$dest/$wf" ]]; then
                 cp "$wf_path" "$dest/"
                 info "Refreshed workflow: $wf"
-                ((count++)) || true
+            else
+                cp "$wf_path" "$dest/"
+                info "Added workflow: $wf"
             fi
+            ((count++)) || true
             continue
         fi
 
@@ -387,13 +404,18 @@ copy_commands() {
         fi
 
         if [[ "$REFRESH" == "true" ]]; then
-            # Refresh: replace only if this command already exists in the
-            # target. Never create — that stays /rebase-project's job.
+            # Refresh replaces what exists and ADDS what a version upgrade
+            # introduced. Withholding new commands meant an upgrade could hand a
+            # project the new implement-trd.md while withholding the audit-build.md
+            # it hands off to -- measured 2026-08-16 on a 4.1.15 -> 4.2.0 refresh.
             if [[ -f "$dest/$cmd" ]]; then
                 cp "$cmd_path" "$dest/"
                 info "Refreshed command: $cmd"
-                ((count++)) || true
+            else
+                cp "$cmd_path" "$dest/"
+                info "Added command: $cmd"
             fi
+            ((count++)) || true
             continue
         fi
 
