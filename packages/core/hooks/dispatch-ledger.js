@@ -112,16 +112,29 @@ function main(hookData) {
   const labelled = hookData.label || hookData.agent_name || hookData.name || hookData.description;
   if (labelled) fields.label = String(labelled).slice(0, 200);
 
+  // `.trd-state/<feature>/dispatch.jsonl` is GIT-TRACKED. Anything that lands in
+  // `extra` gets committed, so this list is a disclosure boundary, not tidiness.
+  //
+  // `last_assistant_message` is the dangerous one and it is present on SubagentStop
+  // (this module's own probed-payload list says so, and the test fixture carries it).
+  // It is a string, so without an explicit exclusion it falls straight through to
+  // `extra` — meaning any subagent that closes by quoting a credential, a customer
+  // record, or a file excerpt would have 200 bytes of it committed to the repo.
+  // Excluded by name rather than by heuristic: a "does this look like a secret"
+  // check is exactly the kind of filter that fails on the one payload that matters.
   const KNOWN = new Set([
     'hook_event_name', 'agent_id', 'agent_type', 'session_id', 'prompt_id',
     'agent_transcript_path', 'transcript_path', 'label', 'agent_name', 'name',
     'description', 'cwd', 'prompt', 'stop_hook_active', 'permission_mode',
+    'last_assistant_message', 'background_tasks', 'session_crons', 'effort',
   ]);
+  const MAX_EXTRA_KEYS = 12;   // bounded so an oversized row is never DROPPED whole
   const extra = {};
   for (const [k, v] of Object.entries(hookData)) {
     if (KNOWN.has(k)) continue;
     if (v === null || v === undefined) continue;
     if (typeof v === 'object') continue;          // never inline nested payloads
+    if (Object.keys(extra).length >= MAX_EXTRA_KEYS) break;
     extra[k] = String(v).slice(0, 200);
   }
   if (Object.keys(extra).length) fields.extra = extra;

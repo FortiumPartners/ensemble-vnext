@@ -162,11 +162,30 @@ function appendEvent(projectRoot, event, fields, nowIso) {
 
   let line = JSON.stringify(row);
   if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
-    // agent_transcript_path is the only realistically-long field; drop it
-    // rather than risk an interleaved partial line.
+    // Shed the optional fields in order of dispensability, re-checking after each.
+    // The comment here used to say agent_transcript_path was "the only realistically
+    // long field" — that stopped being true when `extra` was added, and `extra` is
+    // unbounded in a way the transcript path never was.
+    //
+    // Shedding order matters more than it looks: a dropped ROW is far worse than a
+    // dropped FIELD, because openAgents() keys state off the last event per agent_id.
+    // Lose a `stop` row and that agent is reported open forever — `--open` shows a
+    // ghost, and an orchestrator following the documented nudge pattern SendMessages
+    // an agent that finished long ago. Measured 2026-08-16: a stop payload with 20
+    // unknown scalar keys dropped its row entirely and stranded the agent.
     delete row.agent_transcript_path;
     line = JSON.stringify(row);
-    if (Buffer.byteLength(line) > MAX_LINE_BYTES) return false;
+    if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
+      delete row.extra;
+      line = JSON.stringify(row);
+    }
+    if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
+      // Last resort: keep ONLY the fields openAgents() needs to track state, so the
+      // row still lands and the agent is not stranded.
+      const { ts, event, agent_id, agent_type, session_id } = row;
+      line = JSON.stringify({ ts, event, agent_id, agent_type, session_id, truncated: true });
+      if (Buffer.byteLength(line) > MAX_LINE_BYTES) return false;
+    }
   }
 
   try {

@@ -67,7 +67,20 @@ function load(filePath) {
  * @throws {Error} If the write fails (temp file is cleaned up before re-throwing)
  */
 function save(filePath, state) {
-  const tmpPath = filePath + '.tmp';
+  // Per-writer temp path, NOT a shared `.tmp`. The temp+rename dance gives crash
+  // atomicity either way, but a shared temp name gives no protection against the
+  // SECOND writer -- which is the one this module's header names as existing by
+  // construction (the command and the SubagentStop hook, plus one hook process per
+  // subagent when a wave runs in parallel).
+  //
+  // Measured 2026-08-16 with two processes doing 200 saves each to one path:
+  // ~40% of saves threw ENOENT because writer A's rename consumed the temp file
+  // writer B was about to rename, and a concurrent reader got 1 unparseable read in
+  // ~1008 because A's still-open fd kept writing into the inode after B renamed it
+  // into place. Both failures are silent: status.js only debug-logs a failed save,
+  // so a lost phase advance leaves no trace, and load() throws on the truncated
+  // read, which surfaces as STUCK on a state file nobody can explain.
+  const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}`;
   try {
     fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf-8');
     fs.renameSync(tmpPath, filePath);
