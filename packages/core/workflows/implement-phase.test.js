@@ -182,7 +182,7 @@ describe('implement-phase: gate fallbacks (dead gate agents)', () => {
   // reader of the phase result to distinguish "simplifier died" from "simplifier had no work."
   // This is a known reporting fail-open (see the team-lead's brief); this test documents current
   // behaviour so a future change to it is a deliberate diff, not a silent regression.
-  it('[PINNED, known fail-open] records a dead code-simplifier as no-change, indistinguishable from "nothing to change"', async () => {
+  it('distinguishes a dead code-simplifier from a genuine no-change via simplifyReported', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
@@ -203,9 +203,11 @@ describe('implement-phase: gate fallbacks (dead gate agents)', () => {
     expect(logs.some((l) => /code-simplifier returned nothing/i.test(l))).toBe(true);
   });
 
-  // PINNED, NOT ENDORSED: a dead review is recorded as findings: 0, indistinguishable from a
-  // genuinely clean review. Same fail-open shape as code-simplifier above.
-  it('[PINNED, known fail-open] records a dead review as findings: 0, indistinguishable from a clean review', async () => {
+  // FIXED 2026-08-16. findings still defaults to 0 (there is no honest alternative number),
+  // but `reviewReported: false` now says the reviewer never answered. Without that flag a
+  // dead reviewer's 0 was byte-identical to a clean review and propagated into the
+  // checkpoint commit message and PHASE banner as though a review had passed.
+  it('distinguishes a dead review from a clean one via reviewReported', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
@@ -220,52 +222,147 @@ describe('implement-phase: gate fallbacks (dead gate agents)', () => {
       args: baseArgs(),
     });
 
-    expect(result.gate.review).toEqual({ findings: 0 });
+    expect(result.gate.review.findings).toBe(0);
+    expect(result.gate.reviewReported).toBe(false);
     expect(result.status).toBe('complete');
     expect(logs.some((l) => /review returned nothing/i.test(l))).toBe(true);
   });
 });
 
-describe('implement-phase: gateOk reads verifyStatus captured before code-simplifier runs', () => {
-  // PINNED, KNOWN DEFECT (implement-phase.js ~line 182 vs ~line 185): `verifyStatus` is read
-  // into `gateOk` from the verify-app call that ran BEFORE code-simplifier, not re-checked after
-  // it. A code-simplifier that breaks something introduced after verify-app already passed has
-  // no mechanism in this script to fail the phase on that basis -- the phase still reports
-  // 'complete'. This test demonstrates and pins that behaviour; it does not endorse it.
-  it('a simplifier that (per its own report) changed code after verify-app already passed still yields a complete phase', async () => {
+describe('implement-phase: post-simplify re-verification', () => {
+  // FIXED 2026-08-16. Previously `gateOk` read a verifyStatus captured BEFORE code-simplifier
+  // ran, so a refactor that reddened the suite still produced a 'complete' phase. The
+  // pre-rework loop ran VERIFY twice for exactly this reason; the rework dropped the second
+  // pass. The script now re-verifies when, and only when, the simplifier reports `changed`.
+  it('re-verifies after a simplifier that changed code, and fails the phase when the re-verify is red', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      // code-simplifier reports it changed something -- nothing re-verifies after this.
-      if (opts.label === 'gate:code-simplifier') return { changed: true, notes: 'refactored X, potentially unsafe' };
+      if (opts.label === 'gate:code-simplifier') return { changed: true, notes: 'refactored X' };
+      if (opts.label === 'gate:verify-app (post-simplify)') return { status: 'fail' };
       if (opts.label === 'gate:review') return { findings: 0 };
       return null;
     });
 
     const { result } = await runWorkflow(SOURCE, {
-      agent,
-      parallel: makeParallelStub(),
-      args: baseArgs(),
+      agent, parallel: makeParallelStub(), args: baseArgs(),
     });
 
     expect(result.gate.simplify).toBe('changed');
-    // Known defect: no re-verification happens, so the phase is still reported complete even
-    // though code-simplifier's own change is now unverified.
+    expect(result.gate.postSimplify).toBe('fail');
+    expect(result.status).toBe('failed');
+    expect(agent.calls.some((c) => c.opts.label === 'gate:verify-app (post-simplify)')).toBe(true);
+  });
+
+  it('does NOT re-verify when the simplifier changed nothing — the first pass stands', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
+      if (opts.label === 'gate:verify-app') return { status: 'pass' };
+      if (opts.label === 'gate:code-simplifier') return { changed: false };
+      if (opts.label === 'gate:review') return { findings: 0 };
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent, parallel: makeParallelStub(), args: baseArgs(),
+    });
+
+    // Conditional on `changed` so the common case costs nothing — re-running verify over an
+    // unchanged tree can only reproduce the result already in hand.
+    expect(agent.calls.some((c) => c.opts.label === 'gate:verify-app (post-simplify)')).toBe(false);
+    expect(result.gate.postSimplify).toBeNull();
     expect(result.status).toBe('complete');
+  });
+
+  it('a dead post-simplify verify fails the phase rather than defaulting green', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
+      if (opts.label === 'gate:verify-app') return { status: 'pass' };
+      if (opts.label === 'gate:code-simplifier') return { changed: true };
+      if (opts.label === 'gate:review') return { findings: 0 };
+      return undefined;   // post-simplify verify dies
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent, parallel: makeParallelStub(), args: baseArgs(),
+    });
+
+    expect(result.gate.postSimplify).toBe('fail');
+    expect(result.status).toBe('failed');
+  });
+});
+
+describe('implement-phase: review findings are applied, not merely counted', () => {
+  // FIXED 2026-08-16. The gate schema carried only `findings`, and additionalProperties:false
+  // drops anything it does not name — so even a reviewer that fixed things could not say so.
+  // Every per-phase finding was reduced to an integer that nothing gates on and which ends up
+  // in a commit message reading like diligence.
+  it('carries applied / reported / summary through the gate result', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
+      if (opts.label === 'gate:verify-app') return { status: 'pass' };
+      if (opts.label === 'gate:code-simplifier') return { changed: false };
+      if (opts.label === 'gate:review') {
+        return { findings: 4, applied: 3, reported: 1, summary: ['unbounded loop in parser'] };
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent, parallel: makeParallelStub(), args: baseArgs(),
+    });
+
+    expect(result.gate.review).toEqual({
+      findings: 4, applied: 3, reported: 1, summary: ['unbounded loop in parser'],
+    });
+  });
+
+  it('a reviewer that returns only a bare count still works (applied/reported default to 0)', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
+      if (opts.label === 'gate:verify-app') return { status: 'pass' };
+      if (opts.label === 'gate:code-simplifier') return { changed: false };
+      if (opts.label === 'gate:review') return { findings: 2 };
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent, parallel: makeParallelStub(), args: baseArgs(),
+    });
+
+    expect(result.gate.review.findings).toBe(2);
+    expect(result.gate.review.applied).toBe(0);
+    expect(result.gate.review.reported).toBe(0);
   });
 });
 
 describe('implement-phase: empty waves', () => {
-  // PINNED: args.tasks.waves = [] throws, per the script's own explicit guard
-  // ("args.tasks.waves is required and must be a non-empty array of waves"). This documents
-  // that as current behaviour -- callers must never pass an empty waves array.
-  it('throws when args.tasks.waves is an empty array', async () => {
+  // FIXED 2026-08-16. An empty waves array is a legitimate state, not an error: every task in
+  // the phase already succeeded, which is what --resume sees after a crash between this
+  // workflow returning and the command writing its checkpoint. Throwing turned an ordinary
+  // resume into an unhandled workflow error the command has no catch for.
+  it('skips the phase (rather than throwing) when every task already succeeded', async () => {
+    const { result } = await runWorkflow(SOURCE, {
+      agent: makeAgentStub(happyPlan()),
+      parallel: makeParallelStub(),
+      args: baseArgs({ tasks: { waves: [], records: [] } }),
+    });
+
+    expect(result.status).toBe('complete');
+    expect(result.skipped).toBe(true);
+    expect(result.tasks).toEqual([]);
+    // The gate is marked skipped so nothing downstream mistakes it for a gate that ran green.
+    expect(result.gate.verify).toBe('skipped');
+    expect(result.gate.reviewReported).toBe(false);
+  });
+
+  it('still throws when waves is not an array at all', async () => {
     await expect(
       runWorkflow(SOURCE, {
         agent: makeAgentStub(happyPlan()),
         parallel: makeParallelStub(),
-        args: baseArgs({ tasks: { waves: [], records: [] } }),
+        args: baseArgs({ tasks: { waves: 'nope', records: [] } }),
       })
-    ).rejects.toThrow(/non-empty array of waves/i);
+    ).rejects.toThrow(/must be an array of waves/i);
   });
 });

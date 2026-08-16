@@ -521,12 +521,30 @@ Return changed: true/false and a one-line summary.
 <instructions>
 Invoke the code-review Skill at "high" effort, scoped to the diff range above (the
 working tree against that commit — this phase's changes only, not the full branch).
-Report the total finding count.
+
+APPLY what you find, do not merely count it. Mirror Step 7.1 and audit-trd.js's
+reconcile stage: apply straightforward, clearly-justified fixes inline; report
+anything non-trivial, ambiguous, or outside this phase's scope as a finding rather
+than guessing at a fix.
+
+Return `findings` (total), `applied` (fixed inline), and `reported` (left for the
+human), plus a one-line summary of each reported item.
 </instructions>
 ```
 
 `{last_checkpoint_commit_or_merge_base}` is `state.checkpoints`'s last entry's `commit` when
 one exists, else `git merge-base main HEAD` (phase 1, nothing checkpointed yet).
+
+**Why apply rather than count.** Until 2026-08-16 this prompt said only "Report the total
+finding count", and nothing downstream did anything with the number: Step 4.4 does not gate
+on it and Step 5.2 writes it into a commit message. Every finding from every per-phase review
+was therefore reduced to an integer and discarded — while `review 4 finding(s)` in the git log
+read like diligence.
+
+The asymmetry was backwards. Step 7.1's end-of-run pass already applies what it finds; the
+per-phase review is the *cheaper* place to fix, because the diff is small, scoped, and the
+work just happened. Fixing at the end of the run means fixing across a branch-wide diff with
+the context cold.
 
 ### 4.4 Interpret the phase result
 
@@ -604,7 +622,7 @@ Advance `phase_cursor`.
 
 ```bash
 git add -A
-git commit -m "chore(phase {N}): checkpoint (smoke green; verify-app {status}; simplify {changed|no-change}; review {findings} finding(s))"
+git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status}; simplify {changed|no-change}; review {findings} finding(s): {applied} applied, {reported} open)"
 git push -u origin {branch_name}
 ```
 
@@ -615,8 +633,15 @@ banner (per `.claude/rules/command-status.md`) and **immediately spawn the next 
 the same orchestration loop** — no "Run /compact" prompt, no waiting for user input.
 
 ```
-[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, smoke green, review {findings} finding(s), commit {sha}
+[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, battery {green|skipped}, review {findings} finding(s) ({applied} applied, {reported} open), commit {sha}
+   open findings: {one line per reported item, or "none"}
 ```
+
+**Print the reported findings, do not just count them.** `gate.review.summary` carries one
+line per item the reviewer left open. A phase that fixed three things and left one for a
+human is a different phase from one that found four and fixed none, and the banner is the
+only place a human sees either. Open findings are NOT a pause condition — print them and
+continue; Step 7's feature-scale pass sees them again over the whole branch.
 
 Then continue into the next phase. Pause ONLY on the explicit conditions enumerated in
 Step 9 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase

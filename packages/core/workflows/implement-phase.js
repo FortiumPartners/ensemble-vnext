@@ -72,8 +72,32 @@ const GATE = a.gate || {}
 
 if (!TRD) throw new Error('implement-phase: args.trd (the TRD path, for citation) is required')
 if (PHASE === undefined || PHASE === null) throw new Error('implement-phase: args.phase (1-based phase number) is required')
-if (!Array.isArray(WAVES) || WAVES.length === 0) {
-  throw new Error('implement-phase: args.tasks.waves is required and must be a non-empty array of waves')
+if (!Array.isArray(WAVES)) {
+  throw new Error('implement-phase: args.tasks.waves is required and must be an array of waves')
+}
+// An EMPTY waves array is a legitimate state, not an error: every task in this phase is
+// already `success`, which is what a --resume sees after a crash between this workflow
+// returning and the command writing its Step 5 checkpoint. Throwing there turned an
+// ordinary resume into an unhandled workflow error -- the command has no catch around this
+// call -- so the phase could never be closed out. Return the shape a completed phase
+// returns, with the gate marked skipped so nothing downstream mistakes it for a gate that
+// ran and passed.
+if (WAVES.length === 0) {
+  log(`Phase ${PHASE}: no remaining tasks -- every task already succeeded; skipping to checkpoint`)
+  return {
+    phase: PHASE,
+    tasks: [],
+    status: 'complete',
+    skipped: true,
+    gate: {
+      verify: 'skipped',
+      simplify: 'skipped',
+      simplifyReported: false,
+      reviewReported: false,
+      postSimplify: null,
+      review: { findings: 0, applied: 0, reported: 0, summary: [] },
+    },
+  }
 }
 
 const recordsById = {}
@@ -197,8 +221,41 @@ const simplifyResult = await agent(GATE.simplifyPrompt, {
   },
 })
 if (!simplifyResult) log('WARNING: gate:code-simplifier returned nothing -- recording no-change rather than dereferencing it')
+const simplifyReported = Boolean(simplifyResult)
 const simplifyStatus = simplifyResult && simplifyResult.changed ? 'changed' : 'no-change'
 log(`gate: code-simplifier -> ${simplifyStatus}`)
+
+// RE-VERIFY AFTER SIMPLIFICATION -- only when the simplifier actually edited files.
+//
+// Without this, `gateOk` below reads a verifyStatus captured BEFORE the simplifier ran, so
+// a refactor that reddens the suite still yields a "complete" phase. The pre-rework loop
+// ran VERIFY twice for exactly this reason (`verify_post_simplify` was a first-class cycle
+// position); the rework collapsed the stages and dropped the second one without recording
+// where it went. Found 2026-08-16 by the regression review lens.
+//
+// Conditional on `changed` so the common case costs nothing: a simplifier reporting
+// no-change edited nothing, and re-running verify-app over an unchanged tree can only
+// reproduce the result already in hand.
+let postSimplifyStatus = null
+if (simplifyStatus === 'changed') {
+  const reVerify = await agent(GATE.verifyPrompt, {
+    label: 'gate:verify-app (post-simplify)',
+    phase: `Phase ${PHASE}`,
+    agentType: 'verify-app',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: {
+        status: { type: 'string', enum: ['pass', 'fail'] },
+        notes: { type: 'string' },
+      },
+    },
+  })
+  if (!reVerify) log('WARNING: gate:verify-app (post-simplify) returned nothing -- treating the phase gate as failed on this stage')
+  postSimplifyStatus = reVerify ? reVerify.status : 'fail'
+  log(`gate: verify-app (post-simplify) -> ${postSimplifyStatus}`)
+}
 
 // The review prompt is pre-assembled by the command and already names the phase diff range,
 // not the branch (§3.4) -- this script computes no diff and runs no git command. It also
@@ -217,17 +274,32 @@ const reviewResult = await agent(GATE.reviewPrompt, {
     required: ['findings'],
     properties: {
       findings: { type: 'number' },
+      // `applied` / `reported` split the total into what the reviewer FIXED inline and what
+      // it left for a human. A bare count is what made per-phase findings vanish: nothing
+      // gates on it and it lands in a commit message reading like diligence.
+      // additionalProperties:false drops any field this schema does not name, so changing
+      // the prompt to "apply what you find" WITHOUT widening the schema would have changed
+      // nothing observable.
+      applied: { type: 'number' },
+      reported: { type: 'number' },
+      summary: { type: 'array', items: { type: 'string' } },
     },
   },
 })
 if (!reviewResult) log('WARNING: gate:review returned nothing -- recording zero findings, which is NOT the same as a clean review')
+const reviewReported = Boolean(reviewResult)
 const reviewFindings = reviewResult ? reviewResult.findings || 0 : 0
-log(`gate: review -> ${reviewFindings} finding(s)`)
+const reviewApplied = reviewResult ? reviewResult.applied || 0 : 0
+const reviewOpen = reviewResult ? reviewResult.reported || 0 : 0
+const reviewSummary = (reviewResult && reviewResult.summary) || []
+log(`gate: review -> ${reviewFindings} finding(s): ${reviewApplied} applied, ${reviewOpen} left open`)
 
 // --------------------------------------------------------------------------- RETURN
 
 const allTasksOk = deadTasks.length === 0
-const gateOk = verifyStatus === 'pass'
+// Both verify passes must be green. postSimplifyStatus is null when the simplifier changed
+// nothing, in which case there is nothing new to verify and the first pass stands.
+const gateOk = verifyStatus === 'pass' && postSimplifyStatus !== 'fail'
 const status = allTasksOk && gateOk ? 'complete' : 'failed'
 
 return {
@@ -236,7 +308,15 @@ return {
   gate: {
     verifyApp: verifyStatus,
     simplify: simplifyStatus,
-    review: { findings: reviewFindings },
+    // *Reported flags distinguish "the agent ran and said this" from "the agent died and we
+    // defaulted". Without them a dead reviewer's `findings: 0` is byte-identical to a clean
+    // review, and that laundered "the reviewer died" into "the reviewer approved" in the
+    // checkpoint commit message and the PHASE banner -- a durable git record asserting a
+    // review that never happened.
+    simplifyReported,
+    reviewReported,
+    postSimplify: postSimplifyStatus,
+    review: { findings: reviewFindings, applied: reviewApplied, reported: reviewOpen, summary: reviewSummary },
   },
   status,
 }
