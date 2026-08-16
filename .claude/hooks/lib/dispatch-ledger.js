@@ -149,6 +149,14 @@ function appendEvent(projectRoot, event, fields, nowIso) {
   const row = { ts: nowIso || new Date().toISOString(), event };
   for (const [k, v] of Object.entries(fields || {})) {
     if (v === undefined || v === null || v === '') continue;
+    // Plain objects (currently only `extra`, the unrecognised-payload-keys bag)
+    // are kept as structure. String(v) would render one "[object Object]" — a
+    // row that looks populated and carries nothing, which is worse than an
+    // absent field because it reads as data.
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      if (Object.keys(v).length) row[k] = v;
+      continue;
+    }
     row[k] = typeof v === 'string' ? v : String(v);
   }
 
@@ -218,6 +226,10 @@ function openAgents(projectRoot, sessionId) {
     open.push({
       agent_id: agentId,
       agent_type: row.agent_type || null,
+      // Carried so --open can name a workflow agent by what it DOES. Inside a
+      // workflow every agent_type is "workflow-subagent", so without this the
+      // open-set report cannot distinguish a task agent from a phase gate.
+      label: row.label || null,
       started_at: firstSeen.get(agentId) || row.ts || null,
       last_event: row.event,
       last_event_at: row.ts || null,

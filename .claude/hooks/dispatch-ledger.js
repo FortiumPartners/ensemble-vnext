@@ -94,6 +94,37 @@ function main(hookData) {
     session_id: hookData.session_id,
     prompt_id: hookData.prompt_id,
   };
+
+  // Every agent dispatched INSIDE a workflow records agent_type
+  // "workflow-subagent" — measured 2026-08-16 across three real /implement-trd
+  // runs. So the ledger cannot tell a per-task agent from a per-phase gate
+  // agent, which is exactly the question ITR-T002's acceptance criteria ask it
+  // to answer ("measure agent invocations per task from dispatch.jsonl"). The
+  // workflow sets opts.label ("task:MP-001" vs "gate:verify-app"); whether that
+  // reaches a hook is unknown, and guessing a key name would produce a field
+  // that is silently always undefined — the same defect class as a kill switch
+  // no test exercises.
+  //
+  // So: capture any plausible label key that IS present, and record every other
+  // unrecognised scalar under `extra`. The next real run then TELLS us the
+  // payload shape instead of us asserting it. Values are truncated and bulk
+  // keys skipped so a ledger row stays a row.
+  const labelled = hookData.label || hookData.agent_name || hookData.name || hookData.description;
+  if (labelled) fields.label = String(labelled).slice(0, 200);
+
+  const KNOWN = new Set([
+    'hook_event_name', 'agent_id', 'agent_type', 'session_id', 'prompt_id',
+    'agent_transcript_path', 'transcript_path', 'label', 'agent_name', 'name',
+    'description', 'cwd', 'prompt', 'stop_hook_active', 'permission_mode',
+  ]);
+  const extra = {};
+  for (const [k, v] of Object.entries(hookData)) {
+    if (KNOWN.has(k)) continue;
+    if (v === null || v === undefined) continue;
+    if (typeof v === 'object') continue;          // never inline nested payloads
+    extra[k] = String(v).slice(0, 200);
+  }
+  if (Object.keys(extra).length) fields.extra = extra;
   // SubagentStop only — how to inspect what a suspect agent actually did.
   if (kind === 'stop') fields.agent_transcript_path = hookData.agent_transcript_path;
 
@@ -124,7 +155,11 @@ function reportOpen(argv, cwd) {
       ? 'unknown'
       : `${Math.round((now - started) / 1000)}s`;
     const flag = a.last_event === 'blocked' ? ' [resumed after discipline block]' : '';
-    lines.push(`  ${a.agent_id}  type=${a.agent_type || '?'}  running=${age}${flag}`);
+    // Prefer the label when one was captured: inside a workflow every agent_type
+    // is "workflow-subagent", so the type column alone cannot tell a task agent
+    // from a phase-gate agent.
+    const who = a.label ? `${a.label}` : `type=${a.agent_type || '?'}`;
+    lines.push(`  ${a.agent_id}  ${who}  running=${age}${flag}`);
   }
   lines.push('');
   lines.push('Nudge one with: SendMessage({to: "<agent_id>", message: "status check — what have you completed and what is blocking you?"})');

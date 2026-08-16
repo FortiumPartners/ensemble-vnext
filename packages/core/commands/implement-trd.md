@@ -105,6 +105,36 @@ correctly on the next invocation with no argument.
 2. Switch to feature branch (create if missing)
 3. Ensure working directory is clean (suggest `git stash` if dirty)
 
+### 1.3a Write the feature pointer — `.trd-state/current.json`
+
+**Do this once the TRD and branch are both known, before Step 3 builds the graph.**
+
+```json
+{ "prd": "<path or null>", "trd": "<resolved TRD path>",
+  "status": ".trd-state/<feature>/implement.json", "branch": "<branch>" }
+```
+
+Preserve any key you cannot determine rather than nulling it — a `--resume` run that
+rediscovers the TRD from the branch must not blank a `prd` a previous run recorded.
+
+**This is not bookkeeping.** Three consumers read this file and each degrades differently
+without it:
+
+- `dispatch-ledger.js` resolves the ledger path through it. With a null `trd` it falls back
+  to `.trd-state/_dispatch.jsonl` — it still records, so nothing looks broken, but every
+  feature's dispatches pile into one undifferentiated file.
+- `notify-complete.sh` derives `NOTIFY_FEATURE` from it; a null yields an empty variable in
+  the user's webhook payload.
+- The SessionStart context banner reads it to answer "what are we working on?" — the whole
+  point of the pointer.
+
+Measured 2026-08-16: three real runs produced a populated
+`.trd-state/<feature>/implement.json` alongside an all-null `current.json`, and the ledger
+duly wrote to the fallback path. The rework dropped this step — the pre-rework command
+wrote the pointer during branch management and no task in this TRD carried it forward.
+**Silent degradation is what makes it worth an explicit step:** every consumer has a
+fallback, so nothing fails loudly and the omission survives a full run looking like success.
+
 ### 1.4 Strategy Detection
 
 **Priority:** Explicit argument > TRD declaration > Constitution default > Auto-detect > Default (`tdd`)
