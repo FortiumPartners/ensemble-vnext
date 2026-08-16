@@ -797,7 +797,38 @@ per-review credits.** Route (b)'s YAML above should use
 `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}` rather than the API key the
 docs' examples show.
 
-**ITEM 6'S disable-model-invocation CLAIM IS OUTDATED — re-check before building on it.**
+**THREE TIERS, AND THEY ARE NOT INTERCHANGEABLE** (verified `docs/en/ultrareview`,
+`docs/en/code-review`). Confusing them is what produced two wrong conclusions in this
+section's history:
+
+| Tier | Fan-out? | Can Claude start it? | Billing |
+|---|---|---|---|
+| local `/code-review` | **No** — one background subagent, *"depth scales with the effort argument"* | **Yes — verified empirically 2026-08-15** | normal plan usage |
+| `/code-review ultra` | **Yes** — *"multi-agent fleet with independent verification"* | **NO** — *"Claude doesn't start an ultrareview on its own"* | 3 free (Pro/Max), then $5–25 credits |
+| managed Code Review | **Yes** — *"fleet of specialized agents… then a verification step"* | n/a — automatic on PRs | Team/Enterprise only, $15–25 credits |
+
+**The fan-out review with independent verification — the one worth having before a merge —
+cannot be started by a model in-session, at any effort level.** Only the local single-agent
+review can. So the CI route is NOT optional after all; it is the only way to automate fan-out.
+
+**`claude ultrareview` is the automation seam.** The subcommand *"launches the same review as
+`/code-review ultra`, blocks until the remote review finishes, and prints the findings to
+stdout"*, and is explicitly *"to start an ultrareview from CI or a script without an
+interactive session."* Running it constitutes billing consent, `--json` gives a parseable
+payload, `--timeout` defaults to 30 min, exit 0 completed / 1 failed / 130 interrupted.
+Note `claude -p '/code-review ultra'` is NOT equivalent — it stops before launching whenever
+credits would bill.
+
+**Design that follows, and both tiers earn a place:**
+
+- **per phase** — local `/code-review`, started by `/implement-trd` itself. Model-startable,
+  plan-billed, background subagent so it costs no orchestrator context. Fast feedback while
+  the phase is fresh.
+- **pre-merge** — fan-out, by whichever route fits: `claude ultrareview` in CI, or the
+  managed Code Review service on the PR. Paid, deep, once per branch rather than per phase.
+
+**ITEM 6'S disable-model-invocation CLAIM IS OUTDATED for the local tier — but holds for
+`ultra`.**
 `docs/en/code-review` states plainly: *"Claude can start `/code-review` on its own. Ask it to
 review your changes in plain language and it can run the skill without you typing the
 command, and a scheduled task with `/code-review` as its prompt runs the review."* There is
