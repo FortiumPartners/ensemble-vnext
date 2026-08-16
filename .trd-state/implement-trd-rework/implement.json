@@ -5,7 +5,7 @@
   "branch": "feature/implement-trd-rework",
   "strategy": "refactor",
   "strategy_rationale": "TRD reworks existing commands, hooks and tests. refactor requires tests pass before AND after; 66 pre-existing failures are baselined in test-baseline.txt so the gate blocks on NEW failures only.",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "active_sessions": {},
   "tasks": {
     "ITR-P001": {
@@ -67,41 +67,44 @@
     "ITR-B002": {
       "description": "",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": null,
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T11:05:14.639906+00:00",
+      "evidence": "task-graph.js + .test.js. 35/35, 99.3% stmts. 9 waves from the real TRD; both known shared-file pairs separated. Its real-data run found a parser defect (non-path backticked tokens becoming files) \u2014 fixed with a regression test."
     },
     "ITR-B003": {
       "description": "",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": null,
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T11:05:14.639906+00:00",
+      "evidence": "implement-state.js + .test.js. 32/32, 100% stmts/funcs. Exports the NEW CYCLE_ORDER ['implement','checks','debug','complete'], not status.js's six-stage loop. Atomicity proven at BOTH failure points (mid-write and mid-rename). Reported 5 spec findings incl. a \u00a73.3 gap on checks->complete."
     },
     "ITR-B014": {
       "description": "",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": null,
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T11:05:14.639906+00:00",
+      "evidence": "copy_libs() in scaffold-project.sh. End-to-end verified: fresh scaffold delivers all three modules to .claude/lib/; --refresh correctly does NOT recreate them."
     },
     "ITR-B004": {
       "description": "",
@@ -265,7 +268,27 @@
     "integration": 0.0,
     "e2e": 0.0
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "timestamp": "2026-08-16T11:05:14.639906+00:00",
+      "tasks_completed": [
+        "ITR-B001",
+        "ITR-B002",
+        "ITR-B003",
+        "ITR-B014",
+        "ITR-P001",
+        "ITR-P002",
+        "ITR-P003"
+      ],
+      "coverage": {
+        "unit": 0.959,
+        "integration": 0.0
+      },
+      "note": "Gate: full suite 30 failures vs 30-test baseline \u2014 zero NEW failures. lib/ coverage 95.9% (floor 80%)."
+    }
+  ],
   "recovery": {
     "last_healthy_checkpoint": null,
     "last_checkpoint_timestamp": null,
@@ -274,7 +297,7 @@
   },
   "metrics": {
     "total_tasks": 19,
-    "completed_tasks": 4,
+    "completed_tasks": 7,
     "failed_tasks": 0,
     "total_retries": 0
   },
