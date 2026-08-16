@@ -235,15 +235,15 @@
     "ITR-T001": {
       "description": "",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": null,
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T14:53:27.272780+00:00"
     },
     "ITR-T002": {
       "description": "",
@@ -261,15 +261,15 @@
     "ITR-T003": {
       "description": "",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": null,
+      "status": "success",
+      "cycle_position": "complete",
       "implementer_type": null,
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T14:53:27.272780+00:00"
     }
   },
   "coverage": {

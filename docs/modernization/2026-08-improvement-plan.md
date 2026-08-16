@@ -1634,6 +1634,27 @@ retractions propagate; and the always-on cost of the mechanism is measured rathe
 
 ## Opportunistic — do these while you're already in the file
 
+- **Add an internal-consistency verifier to the audit wave — TRD row vs TRD row.** Found
+  2026-08-16 by `ITR-T002` while reading its own prerequisites. `implement-trd-rework.md`
+  §4.5:721 asserts that `ITR-B015` extended the smoke fixture to a multi-task, multi-phase
+  TRD. `ITR-B015`'s own row and grounding block at §4.5:701 claim nothing of the sort — they
+  scope it to a bullet-list→table conversion and note *"Overlaps `ITR-T002`'s Touches"*,
+  which implies `T002` was expected to do the extension itself. Two adjacent rows in one
+  section, one asserting a deliverable the other never promised.
+
+  **Both `/refine-trd` and `/audit-trd` ran over this document and neither caught it**, which
+  is the part worth acting on. The five verifiers each traverse a different axis and none of
+  them is this one: `omission-audit` goes source→TRD, `derivation-audit` goes task→objective,
+  `design-audit` asks whether a decision is buildable, `deterministic` resolves citations
+  outward. Nothing compares what one task row says a *sibling task* delivers against what
+  that sibling's own row and acceptance criteria claim. It is a cheap check — the assertions
+  are adjacent and both are already parsed — and the failure it catches is expensive, because
+  a task that believes its prerequisite is done starts work that cannot succeed.
+
+  Note the shape: this is not a hallucinated requirement or a dropped one, the two failure
+  modes the wave was built around. It is a **cross-reference internal to the artifact**, and
+  it survived precisely because every existing verifier looks outward.
+
 - **Retire the ULTRATHINK keyword.** Eight commands still use it. `effort` is the structured successor and
   is already set on all 13 agents. Redundant at best, conflicting at worst.
 - **Re-test teammate auto-delivery.** A 30-minute experiment. `implement-trd-team.md:163` asserts
