@@ -4,8 +4,22 @@
 .claude/settings.local.json
 .claude/*.local.*
 
-# Note: .trd-state/ IS tracked for parallel execution coordination
-# Do NOT add .trd-state/ to gitignore
+# Note: .trd-state/ IS tracked for parallel execution coordination.
+# Do NOT add .trd-state/ to gitignore. implement.json is per-feature, carries the
+# durable progress, and never collides.
+#
+# TWO EXCEPTIONS -- both are per-session working state, not project artifacts, and
+# tracking them makes every feature branch rewrite one shared file. That is a merge
+# conflict by construction, and it is what breaks two worktrees off one repo.
+#
+#   current.json      pointer at whichever TRD this working tree is on. Coordinates
+#                     nothing. If absent, derive from the branch name; fall back to an
+#                     explicit path argument.
+#   wiggum-state.json within-session loop state (iteration_count, stop_hook_active,
+#                     last_prompt, started_at). Two worktrees running --wiggum would
+#                     otherwise share one counter.
+.trd-state/current.json
+.trd-state/wiggum-state.json
 
 # OS files
 .DS_Store

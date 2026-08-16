@@ -1066,10 +1066,31 @@ command-owned state removed intra-phase races for free.
 | Breakage | Status |
 |---|---|
 | `implement.json` collision | **Never existed** — already per-feature at `.trd-state/<feature>/` |
-| `current.json` single git-tracked pointer | **Decided** — derive from the branch, stop storing it |
+| `current.json` single git-tracked pointer | **FIXED 2026-08-16** — untracked and gitignored; derive from the branch, fall back to an explicit path |
 | Cross-TRD *file* conflicts (`implement.lock` is per-TRD) | **Open** |
 | `.trd-state/` per-repo vs per-worktree | **Open** |
 | Session-scoped task list, never uploaded | **Open** |
+
+**Two-worktree pointer conflict — FIXED, narrowly.** `.gitignore` carried
+*"`.trd-state/` IS tracked for parallel execution coordination — Do NOT add `.trd-state/` to
+gitignore"*, and `current.json` had **4 distinct TRD values committed** across history. Every
+feature branch rewrote one shared tracked file; two worktrees off one repo conflict on merge
+by construction.
+
+Both `current.json` and `wiggum-state.json` are now untracked and gitignored. They are
+per-session working state, not project artifacts: the first is a pointer that coordinates
+nothing, the second is within-session loop counters that two `--wiggum` runs would otherwise
+share. Everything else under `.trd-state/` stays tracked — `implement.json` is per-feature,
+carries durable progress, and never collided.
+
+**Follow-up owed:** 17 commands, 4 hooks and 3 scripts read `current.json`. Existing checkouts
+keep the file, but a NEW worktree will not have it — which is precisely the case being fixed.
+Each reader needs the documented fallback (derive from branch, then explicit argument). That
+is item 8 scope.
+
+**Cross-implementation parallel guards are OUT OF SCOPE** — each session manages merging into
+its own branch. The claims-file sketch below is recorded as the shape item 7 would take if it
+is ever wanted, not as planned work.
 
 **The shape that follows from decisions already made.** Item 7's own observation is the key:
 *"cross-TRD conflict detection is the same computation as intra-TRD, just over a wider set."*
