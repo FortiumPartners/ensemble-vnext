@@ -1,6 +1,6 @@
 # PRD: Rework `/implement-trd` and Build the Deterministic Task Graph
 
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Status**: Draft
 **Created**: 2026-08-15
 **Last Updated**: 2026-08-15
@@ -15,6 +15,7 @@
 |---------|------|---------|--------|
 | 1.0.0 | 2026-08-15 | Initial PRD creation from `docs/modernization/runs/item8/SPEC.md` (improvement-plan items 7 + 8, verbatim) | @product-manager |
 | 1.1.0 | 2026-08-15 | `/refine-prd --auto` pass against the **re-extracted** SPEC.md (497 lines). **Added:** F16 (execution model — command + one parameterized `implement-phase.js` workflow, SPEC:459–488), G8, NFR-9, AC-F1.9 (`Touches`-derived partition), AC-F7.7 (`status.js`), AC-F14.5. **Removed:** AC-F8.1 and AC-F8.2 (early non-draft PR + per-phase push) — superseded by the 2026-08-16 execution-model decision, which starts the review locally rather than via a PR trigger; R7 (resolved by OQ-2). **Corrected against code:** §1.1 defect 3 and F12 bullet 1 (`current.json` is no longer git-tracked — commit `cb9fcda`), F9's reference set (10 files under `packages/core/`, not six). **Resolved:** OQ-1, OQ-2, OQ-4, OQ-5, OQ-6, OQ-7, OQ-8. **Still open:** OQ-3 (owner-only). | @product-manager |
+| 1.2.0 | 2026-08-16 | OQ-3 answered by owner ruling: all thirteen P0 features ship in release 1 including `/audit-build`. F12 (concurrent TRDs) descoped to Non-Goal NG13 — cross-implementation parallel guards are out of scope, each session manages its own merge; the worktree-pointer half already shipped in `cb9fcda`. F13/F14/F15 unchanged at P1. **No open questions remain.** | @product-manager |
 
 ---
 
@@ -246,6 +247,7 @@ journey
 | NG10 | Solving concurrent-TRD coordination before the task graph exists | Source: *"Sketching a solution before the graph exists would be guesswork"* — the design lands with item 7's graph work, inside this item |
 | NG11 | Installing the managed Code Review app (route a) or the `claude-code-action` workflow as part of this work | Source marks route choice and the `ANTHROPIC_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN` secret as **still owner-only**, needing repo-admin access |
 | NG12 | Changing any model-invocation rule to enable CI review | Source, resolved against live docs: *"the CI path involves no model invocation at all"* — the GitHub runner executes the action |
+| NG13 | Cross-implementation parallel guards — coordinating two TRDs, sessions or developers against each other (formerly F12: Concurrent TRDs, sessions, worktrees and developers — designed here) | **Owner ruling 2026-08-16:** out of scope; each session manages merging into its own branch. The worktree-pointer half already shipped (`current.json` and `wiggum-state.json` untracked, `cb9fcda`). Recorded as a Non-Goal rather than dropped, so the descope is visible |
 
 ---
 
@@ -533,40 +535,6 @@ occurrences) and has no branch-derivation path. `active_sessions` is still `{}` 
 - [ ] AC-F11.3: The command no longer requires `current.json` to identify the active TRD, and
       tolerates its absence (it is now gitignored, so a fresh clone or new worktree has none)
 - [ ] AC-F11.4: The unused `active_sessions` mechanism is resolved (removed or given a purpose), not left as dead `{}`
-
----
-
-#### F12: Concurrent TRDs, sessions, worktrees and developers — designed here
-
-**Priority**: P0
-**Description**: The source carries this as an open design question into items 7 and 8 and
-states plainly: *"It is not solved today and neither item works without an answer."* Five
-named breakages:
-
-- ~~`.trd-state/current.json` is a single git-tracked pointer — *"a merge conflict by
-  construction"*~~ — **closed 2026-08-15 by commit `cb9fcda`**, which gitignored it and
-  `wiggum-state.json`. The source's premise is stale; the residue is the command's own
-  dependence on the file (F11)
-- `implement.lock` is per-TRD, so it prevents two sessions racing the *same* TRD but says
-  nothing about two TRDs racing the same *files*
-- the shared task list is session-scoped (`~/.claude/tasks/session-<id>/`) and never uploaded
-- workflows cannot resume across sessions
-- worktrees: whether `.trd-state/` is shared per repo or per tree, with different answers for
-  the state file (per-branch) and a cross-TRD lock (repo-wide to be useful)
-
-Item 7 is where this gets designed, *"because the task graph is where file ownership becomes
-explicit — and cross-TRD conflict detection is the same computation as intra-TRD, just over a
-wider set."* One precedent to reuse the reasoning of, not the mechanism: RUNTIME-D4's
-monotonic refresh gate.
-
-**Acceptance Criteria**:
-- [ ] AC-F12.1: A written decision covers the four breakages still open (the fifth,
-      `current.json` being git-tracked, is closed by `cb9fcda`)
-- [ ] AC-F12.2: The decision is made after the graph exists, not before (NG10)
-- [ ] AC-F12.3: `cross-trd-deps.js` in the Sunstone fork is read before ours is designed
-- [ ] AC-F12.4: The worktree question (`.trd-state/` shared vs per-tree) is answered separately for the state file and for any cross-TRD lock
-
-**Dependencies**: F1 (the graph).
 
 ---
 
@@ -906,7 +874,7 @@ it is genuinely owner-only.**
 
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
 |----|----------|----------------|----------------|--------------|
-| OQ-3 | Are the seven "Done conditions" all equally P0, and are `/audit-build` and the team-command replacement in the same release? | I made done conditions 1–7 P0 except the contract split (F13, P1, because it is a cost optimisation rather than a correctness gap), made `/audit-build` P0 because AC-F9.2 depends on it, and made the team-command replacement P1. F16 was added at P0 this pass — it is an architectural constraint the rest is built inside, not a preference | Priority drives phase assignment in the TRD and what a partial delivery contains. **Business priority and scope trade-offs are the owner's, not derivable from any document in this repo** | A P1 turns out to be blocking, or a P0 inflates the first phase past what one run can carry. With F16 added, the P0 set is now sixteen features wide |
+| OQ-3 | **ANSWERED — owner ruling 2026-08-16.** All thirteen P0 features ship in release 1, including `/audit-build` (F10). F12 is descoped to a Non-Goal per the owner's out-of-scope ruling on cross-implementation parallel guards. F13/F14/F15 remain P1. | Owner-only, as recorded: business priority and scope trade-offs are not derivable from any document in this repo | Priority drives phase assignment and what a partial delivery contains | n/a — answered |
 
 **Conditional, not blocking:** if the R1 contingency fires (the local `/code-review` turns
 out not to be model-startable in this environment), the review route and its secret become an
