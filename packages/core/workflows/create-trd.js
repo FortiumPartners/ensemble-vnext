@@ -44,9 +44,18 @@ const FEATURE = a.feature || 'feature'
 const PROJECT = a.project || ''
 // Corpus and code both live in the PROJECT under design, which is NOT always the repo this
 // workflow runs from. Left unscoped, the corpus stage indexes the AUTHORING repo's design
-// docs and hands the author another project's decisions as if they were its own.
-const CORPUS_ROOT = PROJECT ? (PROJECT.replace(/\/+$/, '') + '/') : ''
-const EXTRA = a.transcript ? `\nSession-derived additions: ${a.transcript}` : ''
+// docs and hands the author another project's decisions as if they were its own -- and the
+// Ground stage, whose entire job is reading real code, greps the wrong tree.
+const PROJECT_ROOT = PROJECT ? (PROJECT.replace(/\/+$/, '') + '/') : ''
+// Every stage that resolves a path gets this. Ground is the one that matters most: a
+// grounding block written against the authoring repo's code is confidently, uniformly wrong.
+const SCOPE = PROJECT
+  ? `
+PATH SCOPING. The project under design is ${PROJECT}. Every source, test, config and
+.claude/rules/* path resolves against THAT project, not against the repository this session
+runs in. Read and grep code there. A path resolved against the wrong repository invents
+things that do not exist and misses things that do.`
+  : ''
 
 if (!TRD) throw new Error('create-trd workflow: args.trd (output path) is required')
 
@@ -60,6 +69,10 @@ if (!a.prd && !a.transcript) {
   )
 }
 const PRD = a.prd || a.transcript
+// Only an ADDITION when there is something to add to. With no PRD the transcript IS the
+// baseline (PRD, above), and listing it twice told the author it had two sources and made
+// the readout claim a transcript supplemented itself.
+const EXTRA = a.prd && a.transcript ? `\nSession-derived additions: ${a.transcript}` : ''
 
 // A stage that dies returns null (documented agent() behaviour). Dereferencing it yields an
 // opaque TypeError; worse, the reconcile stage dies AFTER it has already edited the artifact
@@ -77,9 +90,9 @@ function required(value, stage) {
 const SOURCES = `
 SOURCE OF TRUTH for every objective in this TRD:
   - PRD: ${PRD}
-  - .claude/rules/stack.md
-  - .claude/rules/constitution.md
-  - the codebase itself${EXTRA}
+  - ${PROJECT_ROOT}.claude/rules/stack.md
+  - ${PROJECT_ROOT}.claude/rules/constitution.md
+  - the codebase itself${PROJECT ? ` (in ${PROJECT})` : ''}${EXTRA}
 
 If the PRD carries a supersession marker, resolve what supersedes it and treat that as the
 in-scope source. A TRD verified against a retired PRD certifies a retired design.
@@ -101,7 +114,8 @@ pay for on every turn. Do not restate the contract back to me; apply it.
 // Design documents are a valuable source and an UNRELIABLE one: most PRDs and TRDs stop
 // being maintained the moment implementation starts. So the corpus is used for PROVENANCE
 // -- what was decided, why, and what conventions exist -- and never as a statement of
-// current fact. Verifiers check the CODE (see CORPUS_RULE below).
+// current fact. The Ground stage checks the CODE (see CORPUS_RULE below, which it carries;
+// /audit-trd's verifiers carry their own copy).
 //
 // Cost control: this is one cheap agent producing a compact INDEX, passed to the author via
 // a script variable. It does NOT read documents end to end, and the author never opens the
@@ -113,7 +127,7 @@ const corpus = await agent(
   `Index the existing design corpus so the TRD author can inherit decisions instead of
 re-deciding them. You are producing a MAP, not a summary.
 
-Look in ${CORPUS_ROOT}docs/PRD/ and ${CORPUS_ROOT}docs/TRD/ (and any sibling location that
+Look in ${PROJECT_ROOT}docs/PRD/ and ${PROJECT_ROOT}docs/TRD/ (and any sibling location that
 project actually uses -- check before assuming; do NOT assume a layout). For each document that plausibly relates to "${FEATURE}" by subject:
 
   - its path and title
@@ -162,7 +176,8 @@ you skipped -- a truncated index that says so is useful; a silent one is not.`,
 required(corpus, 'Corpus')
 log(`corpus: ${corpus.documents.length} related documents, ${corpus.conventions.length} conventions${corpus.skipped_count ? `, ${corpus.skipped_count} skipped` : ''}`)
 
-// The rule every verifier carries. Stated once, used in every verifier prompt.
+// The rule every agent that asserts a fact about the built system carries. In this workflow
+// that is the Ground stage -- the only one that reads code and writes claims about it.
 const CORPUS_RULE = `
 THE CORPUS STATES INTENT. THE CODE STATES FACT.
 
@@ -201,6 +216,7 @@ const authored = await agent(
 
 ${MANDATE}
 ${SOURCES}
+${SCOPE}
 
 EXISTING DESIGN CORPUS (provenance -- inherit from it, do not re-decide):
 ${JSON.stringify(corpus, null, 1)}
@@ -218,7 +234,7 @@ Binding constraints, in priority order:
      to stack.md/constitution.md, to a measurement you cite, or to an explicit user
      instruction. You may not invent one. Label genuinely domain-derived objectives as
      'domain-derived' with the reasoning.
-  2. Read the coverage floors from .claude/rules/constitution.md and use those numbers.
+  2. Read the coverage floors from ${PROJECT_ROOT}.claude/rules/constitution.md and use those numbers.
      Any objective exceeding a constitution floor must state why, inline.
   3. Every DECISION is free to be invented -- that is your job -- but must name the
      objective it serves in the Key Technical Decisions table's 'Serves Objective' column,
@@ -350,12 +366,15 @@ const grounded = await agent(
 
 TRD: ${TRD}
 Tasks needing grounding: ${authored.tasks.map((t) => t.id).join(', ')}
+${SCOPE}
+READ THE CODE${PROJECT ? ` IN ${PROJECT}` : ''}. Grep for the functions, modules and patterns
+this plan touches. This stage is worthless if written from assumption.
+${CORPUS_RULE}
 
-READ THE CODE. Grep for the functions, modules and patterns this plan touches. This stage is
-worthless if written from assumption.
-
-Reconcile on four axes and emit a "## Task Grounding" section into the TRD (Write/Edit),
-one block per task ID, exactly as specified in .claude/commands/create-trd.md:
+Reconcile on four axes and emit a "## Task Grounding" section into the TRD (Write/Edit), one
+block per task ID, exactly as specified in .claude/contracts/trd-authoring.md, "Section 10:
+Task Grounding" (read that section only -- do NOT read .claude/commands/create-trd.md, which
+carries orchestration detail you do not need and would re-cache on every turn):
 
   Touches   (mandatory) files this task will modify
   Reuse     existing code it must NOT reimplement
@@ -448,6 +467,13 @@ const gfLines = gf.length
     gf.map((f) => `    [${f.check}] ${f.id ? f.id + ': ' : ''}${f.why}`).join('\n') + '\n'
   : ''
 
+// The handoff carries the SOURCE and the PROJECT. Without --source, audit-trd's
+// omission-audit reports "no source supplied" as its single finding and stops, and the
+// objective-audit falls back to the artifact's own claims -- so the two checks this readout
+// promises are exactly the two that would not run. Without --project, its verifiers resolve
+// every path against the wrong repository; that has already cost 6 of 9 findings once.
+const NEXT = `/audit-trd ${TRD} --source ${PRD}` + (PROJECT ? ` --project ${PROJECT}` : '')
+
 return {
   trd: TRD,
   feature: FEATURE,
@@ -455,14 +481,14 @@ return {
   objectives: (authored.objectives || []).length,
   grounded_tasks: grounded.grounded_task_ids.length,
   replaces_found: grounded.replaces_found.length,
-  grounding_findings: gfLines ? gf.length : 0,
-  next: `/audit-trd ${TRD}`,
+  grounding_findings: gf.length,
+  next: NEXT,
   readout:
     `TRD: ${TRD}    SOURCE: ${PRD}${EXTRA ? ' + session transcript' : ''}\n` +
     `  ${authored.tasks.length} tasks, ${(authored.objectives || []).length} objectives\n` +
     `  grounded ${grounded.grounded_task_ids.length} tasks; ` +
     `${grounded.replaces_found.length} things named for deletion\n` +
     gfLines +
-    `\n  NOT YET VERIFIED. Run  /audit-trd ${TRD}  to check provenance, derivation,\n` +
-    `  omission and citations, and to apply what survives.\n`,
+    `\n  NOT YET VERIFIED. Run  ${NEXT}\n` +
+    `  to check provenance, derivation, omission and citations, and to apply what survives.\n`,
 }

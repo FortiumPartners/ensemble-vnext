@@ -81,7 +81,7 @@ For each, capture its ID, its statement, the source it claims (verbatim, if it n
 and roughly where in the document it sits.
 
 MANDATORY -- do not skip and do not return empty without checking. Grep the document for
-"## Could Not Verify" and "## Open Questions" and capture EVERY row of each, verbatim: the ## Could Not Verify and ## Open Questions sections.
+"## Could Not Verify" and "## Open Questions" and capture EVERY row of each, verbatim.
 Both may be absent -- older artifacts will not have them.
 
 BATCH YOUR READS. Grep for the tables and headings; do not read the document linearly.`,
@@ -239,7 +239,8 @@ const waves = await parallel(
 
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
-const dead = VERIFIERS.length - alive.length
+const deadKeys = VERIFIERS.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
+const dead = deadKeys.length
 if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
 log(`${findings.length} findings from ${alive.length}/${VERIFIERS.length} verifiers`)
 
@@ -270,20 +271,66 @@ Replace that section with what is true AFTER this audit:
 If the artifact has no such section, add one. A reader must be able to open this document and
 see what has been verified and what has not, without running anything.`
 
+// The section above asks for "anything this audit could not resolve (a verifier died, a
+// source was missing)". NOTHING in the findings JSON carries that: a verifier that dies
+// returns null and vanishes, so the reconcile agent cannot tell a check that passed from one
+// that never ran. Unstated, the document records a clean bill of health for checks that were
+// never performed -- the precise failure ## Could Not Verify exists to prevent.
+const COVERAGE = `
+
+COVERAGE OF THIS AUDIT -- state it, do not infer it from the findings:
+  verifiers reporting: ${alive.length}/${VERIFIERS.length}${dead ? `   NO REPORT FROM: ${deadKeys.join(', ')}` : ''}
+  source supplied: ${SOURCE || 'NO -- every check needing a baseline was skipped or degraded'}
+${dead
+  ? `Whatever those verifier(s) cover is UNVERIFIED by this run. Add a Could Not Verify row
+naming them and what they would have checked.`
+  : ''}${SOURCE ? '' : `No baseline was supplied, so source fidelity is UNCHECKED. Say so.`}`
+
 if (findings.length === 0) {
+  // Zero findings is NOT zero work. The ## Could Not Verify section still has to be
+  // reconciled: claims this audit checked and confirmed must come OUT, and any coverage gap
+  // must go IN. Returning straight from here left a clean audit invisible in the document --
+  // the artifact went on listing as unverified exactly what had just been verified, which is
+  // the one thing audit-as-a-separate-command exists to fix. Cheap pass: one edit, no
+  // findings to weigh.
+  const clean = await agent(
+    `This audit of ${PRD} raised NO findings. Your only job is the ## Could Not Verify
+section -- do not otherwise edit the document, and do not invent findings.
+${COVERAGE}${CNV}`,
+    {
+      label: 'reconcile:could-not-verify',
+      phase: 'Reconcile',
+      effort: 'low',
+      schema: {
+        type: 'object', additionalProperties: false,
+        required: ['could_not_verify_remaining'],
+        properties: { could_not_verify_remaining: { type: 'array', items: { type: 'string' } } },
+      },
+    }
+  )
+  if (!clean) log('WARNING: Could Not Verify rewrite returned nothing — the section is unchanged')
   return {
     prd: PRD, findings: 0, applied: 0, rejected: 0,
+    still_unverified: ((clean && clean.could_not_verify_remaining) || []).length,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${PRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
       `  NO ACTION — every requirement traces to the source, nothing is already built,\n` +
       `  every citation resolves.\n` +
-      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report; coverage is incomplete.\n` : ''),
+      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
   }
 }
 
 const readout = await agent(
   `Apply these audit findings to ${PRD}, then draft the readout.
+
+SOURCE OF TRUTH for this artifact: ${SOURCE || '(none supplied)'}
+${SCOPE}
+
+You are charged below with REJECTING findings where a verifier missed a source
+that does exist, or resolved a path against the wrong repository. You cannot do
+either without the two facts above -- which is why they are here. Re-resolve a
+disputed path yourself before accepting OR rejecting a finding about it.
 
 FINDINGS (JSON):
 ${JSON.stringify(findings, null, 2)}
@@ -306,7 +353,7 @@ exist, or resolved a path against the wrong repository — do not apply it, and 
 readout naming the file that refutes it. Rejecting a bad finding is as valuable as applying a
 good one: in one measured run 6 of 9 findings were wrong because a verifier read the wrong
 repository's constitution, five of them at high confidence.
-${CNV}
+${COVERAGE}${CNV}
 
 EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Use exactly these headings,
 omitting empty ones:

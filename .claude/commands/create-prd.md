@@ -465,8 +465,19 @@ The TRD will reference:
 **The stages below run as a saved workflow, not as prose you re-interpret.** Invoke it:
 
 ```
-Workflow({ name: "create-prd", args: { source: "<verbatim doc path or empty>", brief: "<brief path or empty>", prd: "docs/PRD/<feature>.md", feature: "<feature>" } })
+Workflow({ name: "create-prd", args: {
+  source: "<verbatim doc path or empty>",
+  brief: "<brief path or empty>",
+  prd: "docs/PRD/<feature>.md",
+  feature: "<feature>",
+  project: "<dir, when the PRD is about a codebase other than this one>"
+} })
 ```
+
+**Pass `project` whenever you are designing for a repository other than the one this session
+runs in.** Without it the corpus stage indexes *this* repo's design docs and hands the author
+another project's decisions as its own, and every path the author checks resolves against the
+wrong tree. It is also carried into the `/audit-prd` handoff the script prints.
 
 **The workflow does not own every stage.** Source resolution and brief assembly stay in the
 main agent (it is the only thing holding the conversation), and the final readout is printed

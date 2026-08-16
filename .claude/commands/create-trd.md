@@ -712,12 +712,20 @@ Workflow({ name: "create-trd", args: {
   prd: "<prd path>",                        // or omit and pass transcript
   trd: "docs/TRD/<feature>.md",
   feature: "<feature>",
-  transcript: "<session transcript path>"   // REQUIRED when requirements were settled
+  transcript: "<session transcript path>",  // REQUIRED when requirements were settled
                                             // in-session: it is the only channel that
                                             // carries them. The script hard-fails when
                                             // neither prd nor transcript is given.
+  project: "<dir>"                          // REQUIRED when the TRD designs a codebase
+                                            // other than the repo this session runs in.
 } })
 ```
+
+**`project` is not optional decoration.** The Ground stage's entire job is reading real code;
+unscoped, it greps the authoring repo and every grounding block it writes is confidently,
+uniformly wrong. The same argument scopes the corpus index and `.claude/rules/*` lookups, and
+is carried into the `/audit-trd` handoff the script prints — the measured cost of not having
+it was 6 of 9 findings wrong, five at high confidence.
 
 **The workflow does not own every stage.** Source resolution stays in the main agent
 (it is the only thing holding the conversation), and the final readout is printed by the

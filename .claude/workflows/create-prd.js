@@ -40,8 +40,10 @@ const PROJECT = a.project || ''
 // Corpus and code both live in the PROJECT under design, which is NOT always the repo this
 // workflow runs from -- designing for repo B while sitting in repo A is a normal case. Left
 // unscoped, the corpus stage indexes the AUTHORING repo's design docs and hands the author
-// another project's decisions as if they were its own.
-const CORPUS_ROOT = PROJECT ? (PROJECT.replace(/\/+$/, '') + '/') : ''
+// another project's decisions as if they were its own, and the author's "cite a source file
+// you opened" rule resolves against the wrong tree -- which manufactures both false
+// already-exists claims and false does-not-exist ones.
+const PROJECT_ROOT = PROJECT ? (PROJECT.replace(/\/+$/, '') + '/') : ''
 const FEATURE = a.feature || 'feature'
 
 if (!PRD) throw new Error('create-prd workflow: args.prd (output path) is required')
@@ -75,6 +77,16 @@ const SOURCE_PACKAGE = [
 // CERTIFY anything the brief already dropped or invented.
 const BASELINE = SOURCE || BRIEF
 
+// Handed to every stage that resolves a path. Without it, an agent designing for repo B
+// while running in repo A greps repo A -- the measured failure behind --project.
+const SCOPE = PROJECT
+  ? `
+PATH SCOPING. The project under design is ${PROJECT}. Every source, test, config and
+.claude/rules/* path resolves against THAT project, not against the repository this session
+runs in. Read and grep code there. A claim resolved against the wrong repository is worthless
+in both directions -- it invents things that do not exist and misses things that do.`
+  : ''
+
 // --------------------------------------------------------------------------- 0.5 CORPUS
 // Design documents are a valuable source and an UNRELIABLE one: most PRDs and TRDs stop
 // being maintained the moment implementation starts. The corpus is used for PROVENANCE --
@@ -90,7 +102,7 @@ const corpus = await agent(
   `Index the existing design corpus so the PRD author can inherit decisions instead of
 re-deciding them. You are producing a MAP, not a summary.
 
-Look in ${CORPUS_ROOT}docs/PRD/ and ${CORPUS_ROOT}docs/TRD/ (and any sibling location that
+Look in ${PROJECT_ROOT}docs/PRD/ and ${PROJECT_ROOT}docs/TRD/ (and any sibling location that
 project actually uses -- check before assuming; do NOT assume a layout). For each document that plausibly relates to "${FEATURE}" by subject:
 
   - its path and title
@@ -183,6 +195,7 @@ you do not need and would re-cache on every turn.
 
 ${SOURCE_PACKAGE}
 ${CORPUS_BLOCK}
+${SCOPE}
 
 Write the PRD to ${PRD} using the Write tool. Do not return its content as text.
 
@@ -245,17 +258,26 @@ log(`authored ${authored.requirements.length} requirements`)
 // -- this one, or one written months ago by hand. Splitting it that way means create is
 // 2 agents instead of 5, and audit can be run more than once, later, by someone else.
 
+// The handoff carries the BASELINE and the PROJECT. Without --source, audit-prd's
+// source-fidelity verifier has no baseline and reports that as its single finding: the
+// check this readout promises is exactly the one that would not run. Without --project, its
+// verifiers resolve every path against the wrong repository.
+const NEXT = `/audit-prd ${PRD}` +
+  (BASELINE ? ` --source ${BASELINE}` : '') +
+  (PROJECT ? ` --project ${PROJECT}` : '')
+
 return {
   prd: PRD,
   feature: FEATURE,
   source: BASELINE,
   requirements: authored.requirements.length,
   corpus_documents: corpus.documents.length,
-  next: `/audit-prd ${PRD}`,
+  next: NEXT,
   readout:
     `PRD: ${PRD}    SOURCE: ${BASELINE}\n` +
     `  ${authored.requirements.length} requirements` +
     `${corpus.documents.length ? `, inheriting from ${corpus.documents.length} corpus documents` : ''}\n` +
-    `\n  NOT YET VERIFIED. Run  /audit-prd ${PRD}  to check source fidelity in both\n` +
-    `  directions, whether any of it is already built, and conformance.\n`,
+    `\n  NOT YET VERIFIED. Run  ${NEXT}\n` +
+    `  to check source fidelity in both directions, whether any of it is already built,\n` +
+    `  and conformance.\n`,
 }
