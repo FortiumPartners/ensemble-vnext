@@ -137,15 +137,16 @@
     "ITR-B005": {
       "description": "",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": null,
-      "implementer_type": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T11:34:04.592534+00:00",
+      "evidence": "implement-trd.md 1466 -> 896 lines (-570). All three VERIFY/SIMPLIFY/REVIEW stages deleted (0 remain); Stage Expansion, Parse TRD Tasks, Cross-Task Dependencies, Concurrency prose, Appendix A and B all removed and replaced by lib/ calls + a pointer to task-delegation.md. Absorbed B007 (CNV/owner-only routing into the per-task prompt) and B009 (end-of-run 3-lens review + /code-review high). agentType populated, matching implement-phase.js's field. Mirror byte-identical. bats 40/40, jest 30 failures = baseline."
     },
     "ITR-B015": {
       "description": "",
@@ -300,7 +301,7 @@
   },
   "metrics": {
     "total_tasks": 19,
-    "completed_tasks": 10,
+    "completed_tasks": 11,
     "failed_tasks": 0,
     "total_retries": 0
   },
