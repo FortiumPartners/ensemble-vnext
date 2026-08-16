@@ -22,10 +22,13 @@ const {
   readImplementJson,
   wasModifiedRecently,
   clearSessionId,
+  advanceCyclePosition,
   getSessionId,
   debugLog,
-  main
+  main,
+  CYCLE_ORDER
 } = status;
+const implementState = require('../lib/implement-state');
 
 // Store original environment variables
 const originalEnv = { ...process.env };
@@ -639,21 +642,34 @@ describe('error handling - permission denied', () => {
     expect(files).toEqual([]);
   });
 
-  it('should handle unwritable file in clearSessionId', () => {
+  it('should handle a write failure in clearSessionId', () => {
+    // NOTE (ITR-B004): clearSessionId() now writes through implement-state.save(),
+    // which is atomic (temp file + rename, same pattern advanceCyclePosition already
+    // used). A rename only requires write permission on the DIRECTORY, not on the
+    // target file being replaced -- so a read-only implement.json no longer blocks the
+    // write the way a bare fs.writeFileSync() did before this change (mock-fs confirms
+    // real Unix rename() semantics: renaming over a 0o444 file succeeds when the
+    // directory is writable). To exercise the failure path that DOES survive the move
+    // to save(), force the underlying write to throw directly, matching the technique
+    // implement-state.test.js's own save() tests use for the same reason.
     const data = {
       session_id: 'test-session',
       tasks: {}
     };
 
     mockFs({
-      '/tmp/readonly.json': mockFs.file({
-        content: JSON.stringify(data),
-        mode: 0o444  // Read-only
-      })
+      '/tmp/implement.json': JSON.stringify(data)
     });
 
-    const result = clearSessionId('/tmp/readonly.json', { ...data });
+    const fs = require('fs');
+    const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {
+      throw new Error('simulated disk-full during temp write');
+    });
+
+    const result = clearSessionId('/tmp/implement.json', { ...data });
     expect(result).toBe(false);
+
+    writeSpy.mockRestore();
   });
 });
 
@@ -1027,5 +1043,99 @@ describe('module exports', () => {
     expect(typeof getSessionId).toBe('function');
     expect(typeof debugLog).toBe('function');
     expect(typeof main).toBe('function');
+  });
+});
+
+// =============================================================================
+// CYCLE_ORDER — imported from implement-state.js (ITR-B004)
+// =============================================================================
+//
+// status.js used to declare its own five-stage CYCLE_ORDER
+// (verify_red|implement|verify|simplify|verify_post_simplify|review|complete). That
+// local copy is deleted; status.js now imports the constant from
+// `../lib/implement-state.js` so the hook and the command share one definition instead
+// of two that can drift apart. These tests assert the import, not a restated literal —
+// a restated array here would silently pass even if the hook were pointed at a stale or
+// forked copy of the module.
+
+describe('CYCLE_ORDER (imported from implement-state.js)', () => {
+  it('is the exact same array reference as implement-state.js exports', () => {
+    expect(CYCLE_ORDER).toBe(implementState.CYCLE_ORDER);
+  });
+
+  it('reflects the four-stage cycle, not the retired five-stage one', () => {
+    expect(CYCLE_ORDER).toEqual(['implement', 'checks', 'debug', 'complete']);
+    expect(CYCLE_ORDER).not.toContain('verify_post_simplify');
+    expect(CYCLE_ORDER).not.toContain('simplify');
+    expect(CYCLE_ORDER).not.toContain('review');
+    expect(CYCLE_ORDER).not.toContain('verify_red');
+  });
+});
+
+// =============================================================================
+// advanceCyclePosition — per-task advance via implement-state.advance() (ITR-B004)
+// =============================================================================
+
+describe('advanceCyclePosition', () => {
+  it('advances every in_progress task, not just a single global one (parallel waves)', () => {
+    const data = {
+      tasks: {
+        T001: { status: 'in_progress', cycle_position: 'implement' },
+        T002: { status: 'in_progress', cycle_position: 'checks' },
+        T003: { status: 'success', cycle_position: 'complete' }
+      }
+    };
+
+    mockFs({ '/tmp/parallel.json': JSON.stringify(data) });
+
+    const result = advanceCyclePosition('/tmp/parallel.json', data);
+    expect(result).toBe(true);
+
+    const fs = require('fs');
+    const written = JSON.parse(fs.readFileSync('/tmp/parallel.json', 'utf-8'));
+    expect(written.tasks.T001.cycle_position).toBe('checks');
+    expect(written.tasks.T002.cycle_position).toBe('debug');
+    // T003 wasn't in_progress; untouched.
+    expect(written.tasks.T003.cycle_position).toBe('complete');
+  });
+
+  it('skips a task mid-debug retry (retry_count > 0) rather than advancing past it', () => {
+    const data = {
+      tasks: {
+        T001: {
+          status: 'in_progress',
+          cycle_position: 'checks',
+          retry_count: 1,
+          current_problem: 'flaky assertion'
+        }
+      }
+    };
+
+    mockFs({ '/tmp/mid-debug.json': JSON.stringify(data) });
+
+    const result = advanceCyclePosition('/tmp/mid-debug.json', data);
+    expect(result).toBe(false);
+    expect(data.tasks.T001.cycle_position).toBe('checks');
+  });
+
+  it('lets a task already AT debug advance to complete once retry clears', () => {
+    const data = {
+      tasks: {
+        T001: { status: 'in_progress', cycle_position: 'debug' }
+      }
+    };
+
+    mockFs({ '/tmp/at-debug.json': JSON.stringify(data) });
+
+    const result = advanceCyclePosition('/tmp/at-debug.json', data);
+    expect(result).toBe(true);
+    expect(data.tasks.T001.cycle_position).toBe('complete');
+  });
+
+  it('returns false when no task is in_progress', () => {
+    const data = { tasks: { T001: { status: 'success', cycle_position: 'complete' } } };
+    mockFs({ '/tmp/none.json': JSON.stringify(data) });
+
+    expect(advanceCyclePosition('/tmp/none.json', data)).toBe(false);
   });
 });

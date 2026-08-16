@@ -10,7 +10,9 @@
 #   - src/greet.js exists
 #   - .trd-state/<feature>/implement.json shows the task at status "success"
 #     and cycle_position "complete"
-#   - an implementer agent + verify-app appear in the session log
+#   - an implementer agent appears in the session log (verify-app runs only at
+#     the phase gate as of ITR-B005, not per task, so it is no longer asserted
+#     here — see ITR-B015)
 #   - git is on the expected feature branch
 #
 # Skips (not fail) when the `claude` CLI is unavailable.
@@ -91,12 +93,6 @@ for agent in backend-implementer frontend-implementer mobile-implementer agent-i
 done
 if [[ "$IMPLEMENTER_SEEN" == "false" ]]; then
     assert_fail_raw "an implementer agent invoked (backend/frontend/mobile/agent-implementer)"
-fi
-
-if smoke_agent_invoked "$SESSION_FILE" "verify-app"; then
-    assert_pass_raw "verify-app agent invoked"
-else
-    assert_fail_raw "verify-app agent invoked"
 fi
 
 assert_git_branch "$PROJECT_DIR" '.+' "git is on a feature branch (not detached/empty)"

@@ -82,7 +82,7 @@ else
 fi
 
 # Check subdirectories
-for dir in ".claude/agents" ".claude/rules" ".claude/skills" ".claude/commands" ".claude/hooks"; do
+for dir in ".claude/agents" ".claude/rules" ".claude/skills" ".claude/commands" ".claude/hooks" ".claude/lib"; do
     if [[ -d "$dir" ]]; then
         pass "$dir/ exists"
     else

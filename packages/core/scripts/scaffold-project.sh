@@ -218,6 +218,49 @@ copy_contracts() {
     REFRESH_CONTRACTS_COUNT=$count
 }
 
+# Copy the shared project-level helper library (.claude/lib/*.js) from
+# packages/core/lib. Hooks running from the vendored .claude/hooks/ tree
+# `require('../lib/<module>')` to reach these (e.g. status.js's
+# implement-state.js) -- without this function .claude/lib/ is never
+# created and every such require fails on a scaffolded project (ITR-B014).
+#
+# Source resolution deliberately does NOT check "$PLUGIN_DIR/lib" first the
+# way copy_contracts/copy_workflows check "$PLUGIN_DIR/<dir>" first: in a
+# plugin-cache install PLUGIN_DIR is packages/full, and packages/full/lib/
+# is a REAL directory containing only plugin-config.sh -- not a hook-lib
+# symlink the way contracts/workflows/templates/scripts are. Checking it
+# first would glob *.js there, find nothing, and silently copy zero files.
+# Go straight to the monorepo layout.
+copy_libs() {
+    local dest="$1/.claude/lib"
+    local src=""
+    if [[ -z "$PLUGIN_DIR" ]]; then warn "No plugin directory specified, skipping lib"; return 0; fi
+    if [[ -d "$PLUGIN_DIR/../core/lib" ]]; then src="$PLUGIN_DIR/../core/lib"
+    else warn "No lib directory found in plugin, skipping"; REFRESH_LIBS_COUNT=0; return 0; fi
+
+    if [[ "$REFRESH" != "true" ]]; then mkdir -p "$dest"
+    elif [[ ! -d "$dest" ]]; then REFRESH_LIBS_COUNT=0; return 0; fi
+
+    local count=0 l_path l
+    for l_path in "$src"/*.js; do
+        [[ -f "$l_path" || -L "$l_path" ]] || continue
+        l="$(basename "$l_path")"
+        # Skip test files -- packages/core/lib/ mixes *.test.js alongside the
+        # modules themselves (unlike hooks/lib/, which has no test files at
+        # all), and a scaffolded project has no test runner wired up to run
+        # them.
+        [[ "$l" == *.test.js ]] && continue
+        if [[ "$REFRESH" == "true" ]]; then
+            if [[ -f "$dest/$l" ]]; then cp -L "$l_path" "$dest/"; info "Refreshed lib: $l"; ((count++)) || true; fi
+            continue
+        fi
+        if [[ -f "$dest/$l" && "$FORCE" != "true" ]]; then info "Lib exists: $l"
+        else cp -L "$l_path" "$dest/"; info "Copied lib: $l"; ((count++)) || true; fi
+    done
+    if [[ "$REFRESH" == "true" ]]; then info "Refreshed $count libs"; else info "Copied $count libs"; fi
+    REFRESH_LIBS_COUNT=$count
+}
+
 # Copy workflow scripts (.claude/workflows/*.js) from plugin directory.
 # These are the executors the create-prd / create-trd commands invoke. A project that
 # receives the commands but not these silently falls back to the prose path -- the exact
@@ -1187,6 +1230,7 @@ refresh_project() {
     copy_commands "$(pwd)"
     copy_workflows "$(pwd)"
     copy_contracts "$(pwd)"
+    copy_libs "$(pwd)"
     echo ""
 
     echo "--- Agents ---"
@@ -1235,7 +1279,7 @@ refresh_project() {
     # Machine-readable tally, parsed by the runtime-refresh.sh SessionStart
     # hook (RUNTIME-B011+). MUST be the final line of stdout — nothing may
     # print after this.
-    echo "REFRESH_SUMMARY commands=${REFRESH_COMMANDS_COUNT} workflows=${REFRESH_WORKFLOWS_COUNT:-0} contracts=${REFRESH_CONTRACTS_COUNT:-0} agents=${REFRESH_AGENTS_COUNT} hooks=${REFRESH_HOOKS_COUNT} skills=${REFRESH_SKILLS_COUNT}"
+    echo "REFRESH_SUMMARY commands=${REFRESH_COMMANDS_COUNT} workflows=${REFRESH_WORKFLOWS_COUNT:-0} contracts=${REFRESH_CONTRACTS_COUNT:-0} libs=${REFRESH_LIBS_COUNT:-0} agents=${REFRESH_AGENTS_COUNT} hooks=${REFRESH_HOOKS_COUNT} skills=${REFRESH_SKILLS_COUNT}"
 
     return 0
 }
@@ -1346,6 +1390,7 @@ scaffold_project() {
         copy_commands "$(pwd)"
     copy_workflows "$(pwd)"
     copy_contracts "$(pwd)"
+    copy_libs "$(pwd)"
         echo ""
 
         echo "--- Hooks ---"

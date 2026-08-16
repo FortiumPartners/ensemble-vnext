@@ -45,6 +45,7 @@ create_valid_structure() {
     mkdir -p "$dir/.claude/skills"
     mkdir -p "$dir/.claude/commands"
     mkdir -p "$dir/.claude/hooks"
+    mkdir -p "$dir/.claude/lib"
 
     # Create docs directories
     mkdir -p "$dir/docs/PRD"
@@ -76,6 +77,9 @@ create_valid_structure() {
     echo "# Constitution" > "$dir/.claude/rules/constitution.md"
     echo "# Stack" > "$dir/.claude/rules/stack.md"
     echo "# Process" > "$dir/.claude/rules/process.md"
+    # validate-init.sh has required this since 4c5c20a; the fixture never accounted for it,
+    # so TRD-TEST-018/019 have been failing on a missing file rather than on what they test.
+    echo "# Async discipline" > "$dir/.claude/rules/async-discipline.md"
 
     # Create required hook files
     echo "# Router hook" > "$dir/.claude/hooks/router.py"
@@ -200,6 +204,17 @@ EOF
 
     [ "$status" -ne 0 ]
     [[ "$output" == *".claude/skills/"*"missing"* ]]
+    [[ "$output" == *"Validation FAILED"* ]]
+}
+
+@test "ITR-B014: Missing .claude/lib/ gives specific error" {
+    create_valid_structure "$TEST_DIR"
+    rm -rf "$TEST_DIR/.claude/lib"
+
+    run "$VALIDATE_SCRIPT" "$TEST_DIR"
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *".claude/lib/"*"missing"* ]]
     [[ "$output" == *"Validation FAILED"* ]]
 }
 

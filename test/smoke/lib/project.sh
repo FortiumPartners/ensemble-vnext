@@ -148,12 +148,20 @@ smoke_final_text() {
 }
 
 # smoke_write_trd <trd_path> <task_id> <feature_name>
-# Writes a minimal, valid single-task TRD: one Master Task List entry,
-# one Execution Plan phase, Risk Assessment + Non-Goals sections (required by
-# constitution.md's task-graph expectations). The task creates src/greet.js
-# exporting a function that returns 'hello' — deliberately trivial so
-# implement-one-task's assertions are about wiring (did the loop advance the
-# task through IMPLEMENT -> VERIFY -> ... -> success), not code quality.
+# Writes a minimal, valid single-task TRD: one Master Task List entry (as a
+# GFM table under a "Phase <n>" heading — the shape `trd-parser.js` is built
+# against per trd-authoring.md §5, e.g. `docs/TRD/*.md`'s own
+# `| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |`
+# tables), one Execution Plan phase, Risk Assessment + Non-Goals sections
+# (required by constitution.md's task-graph expectations). The task creates
+# src/greet.js exporting a function that returns 'hello' — deliberately
+# trivial so implement-one-task's assertions are about wiring (did the loop
+# advance the task through IMPLEMENT -> ... -> success), not code quality.
+#
+# ITR-B015: this used to be a bullet-list body, which trd-parser.js's
+# table-only Master Task List extraction parses to zero tasks. Converting the
+# fixture (not widening the parser) matches D2's rule that trd-authoring.md
+# is the format authority, not a test fixture.
 smoke_write_trd() {
     local trd_path="$1" task_id="$2" feature_name="$3"
     mkdir -p "$(dirname "$trd_path")"
@@ -169,13 +177,11 @@ a \`greet()\` function that returns the string \`'hello'\`. No other behavior.
 
 ## 4. Master Task List
 
-- [ ] **${task_id}**: Create src/greet.js exporting greet()
-  - File: \`src/greet.js\`
-  - Behavior: \`module.exports.greet = () => 'hello';\` (or equivalent ESM export)
-  - Test: a Jest test file at \`src/greet.test.js\` asserting \`greet() === 'hello'\`
-  - Dependencies: None
-  - Assignee: backend-implementer
-  - AC Reference: AC-1
+### 4.1 Phase 1 — Single task
+
+| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
+|---------|-------------|--------|--------|--------------|----------------------|
+| ${task_id} | Create \`src/greet.js\` exporting \`greet()\`: \`module.exports.greet = () => 'hello';\` (or equivalent ESM export). Add a Jest test at \`src/greet.test.js\` asserting \`greet() === 'hello'\`. | AC-1 | | None | \`greet()\` returns the exact string \`'hello'\`, verified by a passing Jest test. |
 
 ## 5. Execution Plan
 

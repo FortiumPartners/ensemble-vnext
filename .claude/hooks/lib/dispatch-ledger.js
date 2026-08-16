@@ -149,16 +149,43 @@ function appendEvent(projectRoot, event, fields, nowIso) {
   const row = { ts: nowIso || new Date().toISOString(), event };
   for (const [k, v] of Object.entries(fields || {})) {
     if (v === undefined || v === null || v === '') continue;
+    // Plain objects (currently only `extra`, the unrecognised-payload-keys bag)
+    // are kept as structure. String(v) would render one "[object Object]" — a
+    // row that looks populated and carries nothing, which is worse than an
+    // absent field because it reads as data.
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      if (Object.keys(v).length) row[k] = v;
+      continue;
+    }
     row[k] = typeof v === 'string' ? v : String(v);
   }
 
   let line = JSON.stringify(row);
   if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
-    // agent_transcript_path is the only realistically-long field; drop it
-    // rather than risk an interleaved partial line.
+    // Shed the optional fields in order of dispensability, re-checking after each.
+    // The comment here used to say agent_transcript_path was "the only realistically
+    // long field" — that stopped being true when `extra` was added, and `extra` is
+    // unbounded in a way the transcript path never was.
+    //
+    // Shedding order matters more than it looks: a dropped ROW is far worse than a
+    // dropped FIELD, because openAgents() keys state off the last event per agent_id.
+    // Lose a `stop` row and that agent is reported open forever — `--open` shows a
+    // ghost, and an orchestrator following the documented nudge pattern SendMessages
+    // an agent that finished long ago. Measured 2026-08-16: a stop payload with 20
+    // unknown scalar keys dropped its row entirely and stranded the agent.
     delete row.agent_transcript_path;
     line = JSON.stringify(row);
-    if (Buffer.byteLength(line) > MAX_LINE_BYTES) return false;
+    if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
+      delete row.extra;
+      line = JSON.stringify(row);
+    }
+    if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
+      // Last resort: keep ONLY the fields openAgents() needs to track state, so the
+      // row still lands and the agent is not stranded.
+      const { ts, event, agent_id, agent_type, session_id } = row;
+      line = JSON.stringify({ ts, event, agent_id, agent_type, session_id, truncated: true });
+      if (Buffer.byteLength(line) > MAX_LINE_BYTES) return false;
+    }
   }
 
   try {
@@ -218,6 +245,10 @@ function openAgents(projectRoot, sessionId) {
     open.push({
       agent_id: agentId,
       agent_type: row.agent_type || null,
+      // Carried so --open can name a workflow agent by what it DOES. Inside a
+      // workflow every agent_type is "workflow-subagent", so without this the
+      // open-set report cannot distinguish a task agent from a phase gate.
+      label: row.label || null,
       started_at: firstSeen.get(agentId) || row.ts || null,
       last_event: row.event,
       last_event_at: row.ts || null,

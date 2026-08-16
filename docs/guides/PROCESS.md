@@ -21,15 +21,16 @@ Every feature follows the same lifecycle:
 /refine-trd          -->  (optional) Iterate with technical feedback
        |
        v
-/implement-trd       -->  Pass 1: Build (TDD, meet acceptance criteria)
-/fold-prompt + exit  -->  Capture learnings, restart fresh
-/harden-trd-team     -->  Pass 2: Harden (edge cases, error handling)
-  (CI/review pipeline)    (optional) Verify coverage and quality
-/verify-trd-team     -->  Pass 3: Validate (live test against PRD)
-/fold-prompt + exit  -->  Capture learnings
+/implement-trd       -->  Build, phase by phase (TDD, meet acceptance criteria);
+                          each phase gate runs an adversarial hardening pass and,
+                          for [LIVE] tasks, live verification; the last phase adds
+                          one more feature-scale hardening pass before the run ends
+/fold-prompt + exit  -->  (optional, between phases on a long run) capture learnings
+/audit-build         -->  Verify + validate delivered code against the TRD/PRD,
+                          with traceability (implementation AND test per requirement)
        |
        v
-Human debug          -->  Developer finishes remaining ~5-15%
+Human debug          -->  Developer finishes remaining ~5-15%, guided by /audit-build's report
        |
        v
 /fold-prompt         -->  Final learning capture
@@ -261,9 +262,19 @@ This is the last chance to course-correct the plan before implementation. The TR
 
 ---
 
-## Step 7: Implement (`/implement-trd`, `/harden-trd-team`, `/verify-trd-team` — Three Passes)
+## Step 7: Implement (`/implement-trd`)
 
-This is where the air traffic controller model comes to life. You launch implementation sessions with `--dangerously-skip-permissions` and let the agents work autonomously through the TRD's task list. The recommended workflow runs three passes, each in a fresh session, using a different command per pass.
+This is where the air traffic controller model comes to life. You launch one implementation
+session with `--dangerously-skip-permissions` and let the agents work autonomously through
+the TRD's task list, phase by phase.
+
+> **Note on history:** through 4.1.15 this step ran as three separate commands and sessions
+> — `/implement-trd`, then `/harden-trd-team`, then `/verify-trd-team`, each a fresh pass
+> over an increasingly complete codebase. Both team commands were removed in 4.1.16; their
+> jobs (adversarial hardening, live verification) did not go away, they moved *inside*
+> `/implement-trd`'s own loop, because the command already knows exactly when a phase is
+> done and is the natural place to trigger both. There is no replacement command for either
+> — that was a deliberate decision (D15 in `docs/TRD/implement-trd-rework.md`).
 
 ### Reinforcing Subagent Behavior
 
@@ -278,58 +289,58 @@ pattern for each task. Delegate to specialist agents based on task type.
 
 This reminds the orchestrating agent to lean on the full staged execution loop rather than trying to do everything in the prime context.
 
-### Pass 1: Build the Reference Implementation
+### Run the implementation
 
 ```bash
 claude --dangerously-skip-permissions
 > /implement-trd
 ```
 
-**Focus:** TDD-based implementation. Tests first, code second. Meet the TRD's acceptance criteria with passing tests. The goal is a working skeleton -- correctness over polish.
+**Per phase:** TDD-based implementation of that phase's tasks — tests first, code second,
+meeting the TRD's acceptance criteria. At the phase gate, `implement-phase.js` runs
+`verify-app`, `code-simplifier`, a phase-scoped `code-review`, and a `parallel()` adversarial
+hardening fan-out over the phase's tasks (closing gaps, edge cases, and regressions —
+the job `/harden-trd-team` used to do as a separate pass). Any task marked `[LIVE]`, or any
+TRD whose `verification_level` is `live-required`/`e2e-required`, is verified against a
+running instance rather than mocks (the job `/verify-trd-team` used to do as a separate
+pass).
 
-When complete:
+**After the last phase:** the hardening agent runs once more at feature scale — catching
+interaction risk between phases that no single phase's gate could see — before the
+end-of-run review.
+
+For a long-running implementation, fold between phases if context is filling up:
 
 ```
 /fold-prompt
 exit
 claude
-```
-
-### Pass 2: Harden Against the Reference
-
-```bash
-claude --dangerously-skip-permissions
-> /harden-trd-team
-```
-
-**Focus:** Edge cases, error handling, robustness. The framework now has a reference implementation to harden against. This pass closes gaps, handles failure modes, and refines what Pass 1 built, using parallel teammates. The teammates see the existing code and tests from Pass 1 and work to strengthen them.
-
-When complete:
-
-```
-/fold-prompt
-exit
+> /implement-trd --resume
 ```
 
 ### Optional: CI/Reviewer Pipeline
 
-Between passes 2 and 3, run your CI/CD and code review pipeline. Let automated tools assess:
+You can still run your own CI/CD and code review pipeline on top of what `/implement-trd`
+produces. Let automated tools assess:
 
 - Test coverage against your quality gate thresholds
 - Lint and type-checking compliance
 - Security scanning results
 - Code quality metrics
 
-Feed any findings back into the TRD or CLAUDE.md before launching Pass 3. This gives the final validation pass the best possible context.
+Feed any findings back into the TRD or CLAUDE.md before running `/audit-build`.
 
-### Pass 3: Validate Against the Original PRD
+### After the run: `/audit-build`
 
 ```bash
-claude --dangerously-skip-permissions
-> /verify-trd-team
+> /audit-build
 ```
 
-**Focus:** Live testing against the original PRD's acceptance criteria and definition of done, using parallel teammates. This pass ensures the implementation actually delivers what was requested -- not just what was technically specified in the TRD, but what the product stakeholder intended in the PRD.
+**Focus:** verification (does the code match the TRD's tasks?), validation (does it match
+the PRD's requirements?), and traceability (does every requirement have both an
+implementation AND a test proving it — a requirement with code and no test is a gap, not a
+pass). This is the check that confirms the implementation delivers what the PRD's
+stakeholder actually intended, not just what the TRD technically specified.
 
 When complete:
 
@@ -338,23 +349,13 @@ When complete:
 exit
 ```
 
-### Why Three Passes Work
-
-Each pass operates against an increasingly complete codebase:
-
-| Pass | Sees | Produces |
-|------|------|----------|
-| 1 | Empty project (or existing code) | Working skeleton with tests |
-| 2 | Pass 1 code + tests | Hardened implementation |
-| 3 | Pass 2 hardened code | Validated, production-proximate code |
-
-This mirrors how experienced engineers naturally iterate, but at machine speed. A single pass rarely produces production-ready code -- just as a single draft rarely produces a publishable document.
-
 ---
 
 ## Step 8: Human Debug
 
-After three passes, the code is substantially complete -- typically 85-95% of the way there. The remaining work is the kind of nuanced problem-solving that humans still do best:
+After `/implement-trd` and `/audit-build`, the code is substantially complete -- typically
+85-95% of the way there. The remaining work is the kind of nuanced problem-solving that
+humans still do best, guided by what `/audit-build` surfaced:
 
 - Edge cases that require domain knowledge the AI doesn't have
 - Integration issues with external systems
@@ -417,10 +418,9 @@ Backups are created before any destructive operation. Use `--dry-run` to preview
 | Architecture | `/create-trd` | Approved PRD (auto-resolved) | `docs/TRD/<feature>.md` |
 | Independent review | `/review-trd` | TRD (auto-resolved) | Review findings |
 | Refine architecture | `/refine-trd` | Review findings or feedback | Updated TRD |
-| Build (Pass 1) | `/implement-trd` | Approved TRD | Working code + tests |
-| Harden (Pass 2) | `/harden-trd-team` | Pass 1 code | Hardened implementation |
-| Validate (Pass 3) | `/verify-trd-team` | Pass 2 code | Validated implementation |
-| Human finish | Manual debugging | Pass 3 code | Production-ready code |
+| Build (phase loop) | `/implement-trd` | Approved TRD | Working, hardened, live-verified code + tests |
+| Post-build audit | `/audit-build` | Implemented code, TRD, PRD | Verification/validation/traceability report |
+| Human finish | Manual debugging | Audit report | Production-ready code |
 | Capture learnings | `/fold-prompt` | Session context | Updated CLAUDE.md |
 | Upgrade runtime | `/rebase-project` | New plugin version | Updated vendored runtime |
 

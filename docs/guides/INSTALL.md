@@ -185,13 +185,13 @@ After initialization, verify the key components and run your first feature.
 ```
 # In Claude Code, type / to see available commands
 # You should see:
-/create-prd
-/create-trd
-/refine-prd            /refine-trd
-/implement-trd         /harden-trd-team
-/verify-trd-team       /investigate-issue
-/fix-issue             /fold-prompt
-/update-project        /cleanup-project
+/create-prd             /create-trd
+/refine-prd              /refine-trd
+/audit-prd               /audit-trd
+/implement-trd           /audit-build
+/investigate-issue       /fix-issue
+/fold-prompt             /update-project
+/cleanup-project
 ```
 
 ### Running Implementation
@@ -203,9 +203,13 @@ claude --dangerously-skip-permissions
 > /implement-trd
 ```
 
-This skips all permission prompts, allowing the agent to work autonomously through the full staged execution loop (implement, verify, debug, simplify, review) without pausing for approval.
+This skips all permission prompts, allowing the agent to work autonomously through the full staged execution loop per phase (implement, verify, debug, simplify, review), plus a
+feature-scale hardening pass after the final phase, without pausing for approval.
 
-See [Concepts: The Three-Pass Approach](./CONCEPTS.md#phase-3-implementation-the-three-pass-approach) for the recommended three-pass workflow.
+See [Concepts: Implementation](./CONCEPTS.md#phase-3-implementation) for how the adversarial
+hardening pass and the live-verification gate now run inside that single loop, and
+[`/audit-build`](../../.claude/commands/audit-build.md) for the post-implementation
+verification/validation/traceability pass.
 
 ### Hooks Active
 

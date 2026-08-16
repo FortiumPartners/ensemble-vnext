@@ -1,0 +1,353 @@
+{
+  "version": "3.1.0",
+  "trd_file": "docs/TRD/implement-trd-rework.md",
+  "trd_hash": "3635b3d1573f7f25821cbd80181de6b1f8adbfb809d656b26d8985a95f512d25",
+  "branch": "feature/implement-trd-rework",
+  "strategy": "refactor",
+  "strategy_rationale": "TRD reworks existing commands, hooks and tests. refactor requires tests pass before AND after; 66 pre-existing failures are baselined in test-baseline.txt so the gate blocks on NEW failures only.",
+  "phase_cursor": 5,
+  "active_sessions": {},
+  "tasks": {
+    "ITR-P001": {
+      "description": "",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T10:36:18.169417+00:00",
+      "evidence": "docs/modernization/runs/item8/sunstone-read.md (19.7KB). R3 verdict YES: reference parser extracts ZERO tasks from all three of our TRDs, and its own TRDs do not parse either. All three modules REJECTED as designs; 4 narrow mechanics + 1 algorithm adopted. Clone at $CLAUDE_JOB_DIR/tmp/sunstone/ensemble, git status empty after read."
+    },
+    "ITR-P002": {
+      "description": "",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T10:28:55.353759+00:00",
+      "evidence": "Performed 2026-08-16. /code-review is model-startable (launched via Skill tool); measured as a 7-agent fan-out (parent + 6 children) in .trd-state/discipline-judgment/dispatch.jsonl 04:08-04:11. /code-review high --fix produced 14 real findings over 1,495 lines. Recorded in improvement-plan item 8 and constitution v1.3.0."
+    },
+    "ITR-P003": {
+      "description": "",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T10:36:18.169417+00:00",
+      "evidence": "docs/modernization/runs/item8/workflow-probes.md + lead-session probe wf_fcc44fab-e84. ATTESTED: (a) agent() accepts opts.agentType YES; (b) workflow agent CANNOT spawn a subagent -- 'No such tool available: Agent. Agent is disabled for this session, in subagents as well as here' -- so AC-F8.4/NFR-4 unbuildable as written; (c) workflow agent CAN invoke /code-review via Skill, which self-backgrounds. Workflow agents DO have Bash/Read/Write/Edit; they lack Agent, Workflow and all Task tools. NOTE: Workflow is unavailable inside subagents, so this probe must run from the lead session."
+    },
+    "ITR-B001": {
+      "description": "",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T10:54:30.736057+00:00",
+      "evidence": "packages/core/lib/trd-parser.js + .test.js. 40/40 tests, 93.9% stmts / 100% funcs (floor 80%). Parses all 3 real TRDs: 19 / 21 (5-col, em-dash) / 9 tasks, 0 warnings. Found a real 5-cell-vs-4-header defect in the TRD's OQ-5 row (introduced by the supersede rewrite); document fixed."
+    },
+    "ITR-B002": {
+      "description": "",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:05:14.639906+00:00",
+      "evidence": "task-graph.js + .test.js. 35/35, 99.3% stmts. 9 waves from the real TRD; both known shared-file pairs separated. Its real-data run found a parser defect (non-path backticked tokens becoming files) \u2014 fixed with a regression test."
+    },
+    "ITR-B003": {
+      "description": "",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:05:14.639906+00:00",
+      "evidence": "implement-state.js + .test.js. 32/32, 100% stmts/funcs. Exports the NEW CYCLE_ORDER ['implement','checks','debug','complete'], not status.js's six-stage loop. Atomicity proven at BOTH failure points (mid-write and mid-rename). Reported 5 spec findings incl. a \u00a73.3 gap on checks->complete."
+    },
+    "ITR-B014": {
+      "description": "",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:05:14.639906+00:00",
+      "evidence": "copy_libs() in scaffold-project.sh. End-to-end verified: fresh scaffold delivers all three modules to .claude/lib/; --refresh correctly does NOT recreate them."
+    },
+    "ITR-B004": {
+      "description": "",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:17:47.694309+00:00",
+      "evidence": "status.js imports CYCLE_ORDER from ../lib/implement-state; local 7-stage array deleted (verify_post_simplify: 0 hits). advanceCyclePosition() calls advance() once per in_progress task, so parallel waves do not block. clearSessionId() routed through save() (atomic temp+rename). 67/67 tests (61 + 6 new). .claude/ mirror synced and verified executable."
+    },
+    "ITR-D001": {
+      "description": "",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "technical-architect",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:14:48.664420+00:00",
+      "evidence": "packages/core/contracts/task-delegation.md, 2939 tokens (under trd-authoring 7601 / prd-authoring 3493). All three TRD-required additions present: evidence-marker key with per-marker trust levels, <replaces> as an explicit DELETE instruction with rationale and a deliverable naming what was deleted, and Could Not Verify / Open Questions routing. Scope-discipline and non-goals blocks retained. Delivery verified by temp-dir scaffold, not by symlink existence."
+    },
+    "ITR-B005": {
+      "description": "",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:34:04.592534+00:00",
+      "evidence": "implement-trd.md 1466 -> 896 lines (-570). All three VERIFY/SIMPLIFY/REVIEW stages deleted (0 remain); Stage Expansion, Parse TRD Tasks, Cross-Task Dependencies, Concurrency prose, Appendix A and B all removed and replaced by lib/ calls + a pointer to task-delegation.md. Absorbed B007 (CNV/owner-only routing into the per-task prompt) and B009 (end-of-run 3-lens review + /code-review high). agentType populated, matching implement-phase.js's field. Mirror byte-identical. bats 40/40, jest 30 failures = baseline."
+    },
+    "ITR-B015": {
+      "description": "",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:37:50.336482+00:00",
+      "evidence": "smoke fixture Master Task List converted from bullet list to the six-column table trd-parser.js requires; parser now extracts the task (was zero, which the reworked Step 3.1 treats as STUCK). verify-app assertion updated \u2014 it runs at the phase gate now, not per task."
+    },
+    "ITR-B006": {
+      "description": "",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:39:12.542402+00:00",
+      "evidence": "current.json reads 3 -> 0 in implement-trd.md and its mirror. Branch-derived resolution per SS3.6: explicit path -> branch pattern (process.md Branch Naming) -> single in-progress implement.json -> STUCK. active_sessions removed from all 7 real sites (TRD claimed 9; agent counted and reported the real number), 0 remaining under packages/core/ and .claude/."
+    },
+    "ITR-B008": {
+      "description": "",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:23:52.693683+00:00",
+      "evidence": "packages/core/workflows/implement-phase.js (242 lines) + mirror, byte-identical. node --check clean, 34 backticks balanced, zero require/process.env/child_process. Date.now/Math.random/pipeline appear ONLY in header comments explaining why they are not used. Built to the ATTESTED constraints: review via Skill (self-backgrounding) not a spawn the runtime forbids; verify-app and code-simplifier via opts.agentType; return carries structured summaries only, so no per-task agent output reaches orchestrator context (AC-F16.7). Scaffold delivery verified by temp-dir scaffold."
+    },
+    "ITR-B010": {
+      "description": "",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T11:40:55.954139+00:00",
+      "evidence": "All 10 files assessed with a per-file verdict. Only 2 carried genuine per-task-loop wiring: fix-issue.md (per-task review replaced by one end-of-run Skill code-review over the whole issue diff) and process.md.template (stale five-stage loop rewritten to match post-B005 reality). 8 left unchanged as agent-still-ships references. code-reviewer.md ships in .claude/agents and packages/full/agents; validate-init.sh:125 passes. bats 40/40, validate-init 22/22, jest 30 = baseline."
+    },
+    "ITR-B011": {
+      "description": "",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T14:25:35.848598+00:00",
+      "evidence": "audit-build.md (204 lines) + audit-build.js (443) on the audit-trd shape. Traceability verifier requires a test asserting the requirement OUTCOME, not a name match; a second test-quality verifier hunts tautological assertions so a decoy test cannot game the bar. Built against the sanitize_error_detail case (0 hits src/, 5 docs). Registered in all 7 arrays; bats 40/40; scaffold-delivered without scaffolder edits."
+    },
+    "ITR-B012": {
+      "description": "",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T14:37:23.361000+00:00",
+      "evidence": "harden-trd-team.md (765) + verify-trd-team.md (842) deleted outright, no replacement command (D15: None). All 7 notify-on-complete arrays reconciled 18->16 and 16->14; two stale test titles fixed that were already wrong before this edit. command-status.md's four worked examples repointed. autonomy-discipline.prompt.md is GENERATED -- edited the generator, reran it, confirmed the other two prompts regenerated byte-identical. bats 40/40."
+    },
+    "ITR-T001": {
+      "description": "",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T14:53:27.272780+00:00"
+    },
+    "ITR-T002": {
+      "description": "",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T15:54:57.757070+00:00",
+      "notes": "agents-per-task measured at 1.0 on an 8-task single-phase fixture (run4); method deviates from the AC (agent-type + dispatch order, not labels \u2014 labels proven not to reach hooks). 3 items remain unmeasured, none load-bearing. See docs/modernization/runs/itr-t002-measurements.md",
+      "last_advanced": "2026-08-16T15:51:13.260Z"
+    },
+    "ITR-T003": {
+      "description": "",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "session_id": null,
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-16T14:53:27.272780+00:00"
+    }
+  },
+  "coverage": {
+    "unit": 0,
+    "integration": 0,
+    "e2e": 0
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": null,
+      "timestamp": "2026-08-16T11:05:14.639906+00:00",
+      "tasks_completed": [
+        "ITR-B001",
+        "ITR-B002",
+        "ITR-B003",
+        "ITR-B014",
+        "ITR-P001",
+        "ITR-P002",
+        "ITR-P003"
+      ],
+      "coverage": {
+        "unit": 0.959,
+        "integration": 0
+      },
+      "note": "Gate: full suite 30 failures vs 30-test baseline \u2014 zero NEW failures. lib/ coverage 95.9% (floor 80%)."
+    },
+    {
+      "phase": 2,
+      "commit": null,
+      "timestamp": "2026-08-16T11:40:55.954139+00:00",
+      "tasks_completed": [
+        "ITR-D001",
+        "ITR-B004",
+        "ITR-B005",
+        "ITR-B006",
+        "ITR-B008",
+        "ITR-B010",
+        "ITR-B015"
+      ],
+      "coverage": {
+        "unit": 0.959,
+        "integration": 0
+      },
+      "note": "Gate: jest 30 = 30 baseline (zero new), bats 40/40, validate-init 22/22, smoke fixture parses. implement-trd.md 1466 -> 896."
+    },
+    {
+      "phase": 3,
+      "commit": null,
+      "timestamp": "2026-08-16T14:37:23.361000+00:00",
+      "tasks_completed": [
+        "ITR-B011",
+        "ITR-B012"
+      ],
+      "coverage": {
+        "unit": 0.959,
+        "integration": 0
+      },
+      "note": "Gate: bats 40/40, jest 30 = baseline. 1,607 lines of team commands removed; /audit-build added. KNOWN BREAK: verify-goal/SKILL.md defined itself by pointer into the deleted file; repair in flight."
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "metrics": {
+    "total_tasks": 19,
+    "completed_tasks": 16,
+    "failed_tasks": 0,
+    "total_retries": 0
+  },
+  "risk_tracking": {
+    "materialized_risks": [],
+    "contingencies_applied": [],
+    "scope_violations_caught": 0
+  }
+}

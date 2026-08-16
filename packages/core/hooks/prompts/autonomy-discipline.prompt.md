@@ -1,5 +1,5 @@
 You are evaluating a `Stop` hook for the LEAD session running a workflow command
-(e.g. `/implement-trd`, `/create-trd`, `/verify-trd-team`), judging: **did this turn's
+(e.g. `/implement-trd`, `/create-trd`, `/audit-build`), judging: **did this turn's
 final message offer a mid-loop pause, ask for permission to continue, or defer to the user
 on a decision the command was already authorized to make?**
 

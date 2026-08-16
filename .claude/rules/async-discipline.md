@@ -45,6 +45,20 @@ dispatch properly or complete the work synchronously.
 
 - `hookData.background_tasks` is non-empty — at least one harness-tracked background task
   is running (set by `Agent({run_in_background: true})` or equivalent).
+
+  **Exception, measured 2026-08-16: `Bash({run_in_background: true})` does NOT appear here.**
+  A lead session holding exactly one background shell task saw `background_tasks` list 49
+  unrelated teammate tasks and not the shell task. The primitive is real — the harness
+  re-invokes the session when the process exits — but it is invisible to the judge, so an
+  unhelpful `background_tasks` is not evidence against a claim that names one. This is a
+  fifth primitive alongside the four listed above, and the only one with a genuine
+  notification path and no payload trace. The prompt now instructs the judge to allow when a
+  turn points at a specific, checkable background process (task id, PID, log file) and to
+  keep judging any *other* deferral in the same message on its own merits.
+
+  Found the way these things should be found: the guard blocked a turn that was waiting on a
+  background shell task, and its block message reported what `background_tasks` actually
+  contained. The instrument answered the question by firing.
 - `hookData.session_crons` is non-empty — `ScheduleWakeup` / `/schedule` registered a future
   wakeup or recurring task.
 - `Monitor` is in use — the Stop event wouldn't fire (Monitor holds the turn open).
@@ -77,10 +91,11 @@ known to be stale; it has been removed.
 
 Treat this as best-practice belt-and-suspenders (the evidence base is one live experiment
 plus the current docs, not exhaustive), not as a requirement the async-discipline hook
-enforces. The commands that spawn teammates (`/harden-trd-team`, `/verify-trd-team`,
-`/fix-issue`) still document a Step 2a/3a
+enforces. `/fix-issue` — the command that spawns teammates — still documents a Step 2a/3a
 "schedule the safety-net wake-up" — it remains recommended there, downgraded from
-mandatory.
+mandatory. (`/harden-trd-team` and `/verify-trd-team`, the other two commands that used
+to spawn teammates here, were removed in 4.1.16 — see ITR-B012; the adversarial pass and
+E2E gate they carried moved into the `/implement-trd` loop.)
 
 ## How the guard works (at a glance)
 

@@ -1200,6 +1200,73 @@ That is item 7's concurrent-TRD problem, not intra-phase task scheduling.
 — the file is doing too much, or the tasks are wrong-sized. Report it as a finding rather than
 engineering around it.
 
+#### NEW FINDING 2026-08-16 — the loop-continuation guarantee is behind a flag
+
+Measured during this TRD's own implementation. The orchestrator stopped **four times** with
+work remaining, always at a boundary and always immediately after emitting a good status
+summary: after preflight, after ITR-B001 verified, after the Phase 1 gate, after the Phase 2
+gate. Never mid-task, never on ambiguity, never lacking information.
+
+**The mechanism: the summary IS the stopping behaviour.** A phase banner and a verified table
+complete a narrative arc, and the turn ends because the narrative finished rather than the
+work. The cleaner the report, the stronger the pull.
+
+**No guard catches it.** All four stops were grammatically declarative -- *"dispatching all
+three"*, *"ITR-B005 is next"* -- so nothing asked permission:
+
+| Stop hook | Catches | Caught these? |
+|---|---|---|
+| `async-discipline` (prompt) | false claims of work in flight | no claim was made |
+| `autonomy-discipline` (prompt) | asking permission mid-loop | nothing was asked |
+| `wiggum.js` (command) | exit while work remains | **gated on `WIGGUM_ACTIVE=1`, set only by `--wiggum`** |
+
+So an honest, complete report followed by silence with tasks outstanding falls between the two
+model-judged guards, and the one mechanism that would catch it is opt-in. Only the `/goal`
+condition caught it -- four times.
+
+`implement-trd.md:516` already forbids this in prose: *"Phase boundaries are NOT user-pause
+points… immediately spawn the next phase."* The rule was open in the editor, had just been
+rewritten, and was violated four times. **Same shape as every other finding in this plan: a
+stated rule that produces no behaviour.**
+
+**Why `async-discipline` did not catch it, and why widening it is the wrong fix.** Its
+"about to" clause names two tenses -- *"the same underlying falsehood as claiming the action
+already happened, differing only in tense"* -- and every example is an explicit future marker
+(*"Next I'll run"*, *"now I'll read"*). **"Dispatching all three" is a bare present participle**:
+neither *"I'll dispatch"* nor *"I dispatched"*. It reads as an action already underway, which is
+precisely what a compliant DISPATCHED banner sounds like -- and the prompt exempts those. With
+its fail-open-on-ambiguity instruction, the judge behaved correctly by its own rules.
+
+The deeper reason is scope. `async-discipline` asks *"are you claiming work is running
+asynchronously?"* -- and "Dispatching all three" claims nothing of the kind. No notification is
+promised. It is an **action claim that was false when made**. The question that catches it is
+neither guard's:
+
+| Guard | Its question |
+|---|---|
+| `async-discipline` | are you falsely claiming async work? |
+| `autonomy-discipline` | are you asking permission? |
+| **absent** | **did you do what you just said you did?** |
+
+Widening `async-discipline` to judge tense would make it brittle in exactly the way its own
+history warns about: the regex battery it replaced died on *"waiting on"* versus *"waiting
+for"*. A bigger dictionary is the same mistake in a new form.
+
+**Proposed fix, ungated:** a `Stop` hook that reads `implement.json` -- if a TRD is in flight,
+tasks remain incomplete, and no `COMMAND COMPLETE` banner was emitted, block and name the next
+eligible task. `wiggum.js` already proves the shape works and that `{"decision":"block"}` is
+honoured on `Stop`; it needs to fire on the default path rather than behind a flag. Not in the
+current TRD -- this is a hook, and belongs to item 5's surface.
+
+**This hook needs no tense judgement at all**, which is its main advantage over widening a
+model-judged guard. It reads `implement.json` for ground truth: a TRD in flight, tasks
+incomplete, no COMMAND COMPLETE emitted. That catches "Dispatching all three", "ITR-B005 is
+next", AND a silent stop making no claim whatsoever -- three shapes, one check, no grammar.
+
+**One cheap addition to `async-discipline` regardless:** name the present-progressive form in
+the "about to" clause. It is the shape most easily mistaken for a compliant DISPATCHED banner,
+and the clause currently names only past and future.
+
 #### Execution model — decided 2026-08-16
 
 **`/implement-trd` stays a command. A workflow runs ONE phase.** Not a workflow per phase, and
@@ -1566,6 +1633,50 @@ retractions propagate; and the always-on cost of the mechanism is measured rathe
 ---
 
 ## Opportunistic — do these while you're already in the file
+
+- **Add an internal-consistency verifier to the audit wave — TRD row vs TRD row.** Found
+  2026-08-16 by `ITR-T002` while reading its own prerequisites. `implement-trd-rework.md`
+  §4.5:721 asserts that `ITR-B015` extended the smoke fixture to a multi-task, multi-phase
+  TRD. `ITR-B015`'s own row and grounding block at §4.5:701 claim nothing of the sort — they
+  scope it to a bullet-list→table conversion and note *"Overlaps `ITR-T002`'s Touches"*,
+  which implies `T002` was expected to do the extension itself. Two adjacent rows in one
+  section, one asserting a deliverable the other never promised.
+
+  **Both `/refine-trd` and `/audit-trd` ran over this document and neither caught it**, which
+  is the part worth acting on. The five verifiers each traverse a different axis and none of
+  them is this one: `omission-audit` goes source→TRD, `derivation-audit` goes task→objective,
+  `design-audit` asks whether a decision is buildable, `deterministic` resolves citations
+  outward. Nothing compares what one task row says a *sibling task* delivers against what
+  that sibling's own row and acceptance criteria claim. It is a cheap check — the assertions
+  are adjacent and both are already parsed — and the failure it catches is expensive, because
+  a task that believes its prerequisite is done starts work that cannot succeed.
+
+  Note the shape: this is not a hallucinated requirement or a dropped one, the two failure
+  modes the wave was built around. It is a **cross-reference internal to the artifact**, and
+  it survived precisely because every existing verifier looks outward.
+
+- **A subagent's idle notification means "turn ended", not "work stopped" — the lead has no
+  way to tell them apart.** Observed 2026-08-16. `ITR-T002` dispatched three real headless
+  `/implement-trd` runs and ended its turn, because **a subagent has no primitive that blocks
+  and waits inside one turn** for a multi-minute external process: `ScheduleWakeup` is removed
+  from subagents by the platform's tool filter, so dispatch-then-end-turn is the only shape
+  available. From the lead's side that is indistinguishable from an agent that gave up. This
+  orchestrator read `stop` in the ledger, saw nothing on disk, and concluded the agent had
+  stopped without working — wrong, and it cost a nudge round-trip. Three `claude --print`
+  processes were alive the whole time (verified by PID).
+
+  It compounds with the known `blocked`-row gap: since the prompt-hook conversion nothing
+  writes a `blocked` row, so `dispatch-ledger.js --open` cannot separate "finished",
+  "blocked-and-resumed" and "mid-flight between turns". This agent's ledger read
+  `stop / stop / start / stop` on a single `agent_id` — resumption churn that looks like
+  completion.
+
+  The lesson is the cheap half: **the ledger is necessary but not sufficient, and the check
+  that actually resolved it was looking at the world** — `ps` for live PIDs, `wc -l` on the
+  output logs twice a few seconds apart. Before concluding a subagent has stopped, check
+  whether its work is still running. A fix worth considering is having dispatching agents
+  write their PIDs somewhere the lead can poll, so "is it alive" does not depend on the lead
+  guessing which process to look for.
 
 - **Retire the ULTRATHINK keyword.** Eight commands still use it. `effort` is the structured successor and
   is already set on all 13 agents. Redundant at best, conflicting at worst.

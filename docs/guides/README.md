@@ -101,31 +101,32 @@ This analyzes your project and creates:
                  # READ IT. This is your flight plan.
 ```
 
-### 4. Run the Three-Pass Implementation
+### 4. Run Implementation
 
-We recommend running with `--dangerously-skip-permissions` and executing the TRD three times:
+We recommend running with `--dangerously-skip-permissions`:
 
 ```bash
-# Pass 1: Build the reference implementation (TDD, meet acceptance criteria)
 claude --dangerously-skip-permissions
 > /implement-trd
-
-# Pass 2: Harden (edge cases, error handling, close gaps) — parallel teammates
-claude --dangerously-skip-permissions
-> /harden-trd-team
-
-# (Optional: run CI/reviewer pipeline between passes 2 and 3)
-
-# Pass 3: Validate against the original PRD with live testing — parallel teammates
-claude --dangerously-skip-permissions
-> /verify-trd-team
 ```
 
-After three passes, the human developer steps in to debug and get it over the finish line. See [Concepts](./CONCEPTS.md#the-three-pass-implementation) for the full rationale.
+Per phase, this runs TDD-based implementation meeting acceptance criteria, then a
+per-phase adversarial hardening pass and (for `[LIVE]` tasks) live verification, at the
+phase gate. After the last phase it runs the hardening pass once more at feature scale.
+
+```bash
+# After the run: verify what was delivered against the TRD and PRD, with traceability
+> /audit-build
+```
+
+The human developer then steps in to debug what `/audit-build` surfaced and get the
+feature over the finish line. See [Concepts](./CONCEPTS.md#phase-3-implementation) for the
+full rationale, including why this used to be three separate commands and why that work
+now runs inside `/implement-trd`'s own loop.
 
 ### 5. Fold and Restart
 
-Between passes (and at the end), fold learnings into CLAUDE.md:
+Between phases of a long-running implementation (and at the end), fold learnings into CLAUDE.md:
 
 ```
 /fold-prompt     # Capture learnings into CLAUDE.md
@@ -139,11 +140,11 @@ This prevents context bloat and ensures each session starts with consolidated kn
 
 ### You Are Air Traffic Controller, Not Pilot
 
-The mental model isn't hand-flying one aircraft -- it's orchestrating multiple flights from a control tower. You file the flight plan (PRD/TRD), clear flights for takeoff (`--dangerously-skip-permissions`), monitor several in-flight simultaneously (team agents), and course-correct when they land. The framework handles the flying; you handle the plan and the adjustments between passes.
+The mental model isn't hand-flying one aircraft -- it's orchestrating a flight through phases from a control tower. You file the flight plan (PRD/TRD), clear it for takeoff (`--dangerously-skip-permissions`), let `/implement-trd` fly the whole route -- implementing, hardening, and live-verifying at each phase gate -- and course-correct via `/audit-build` when it lands. The framework handles the flying; you handle the plan and the audit.
 
 ### Trust the Plan, Iterate on Results
 
-Perfect execution on the first pass isn't the goal. A perfect *plan* is the goal. With a solid PRD/TRD and three implementation passes, the framework converges on production-ready code through iteration -- not through constant human supervision of every line.
+Perfect execution on the first pass isn't the goal. A perfect *plan* is the goal. With a solid PRD/TRD, `/implement-trd`'s per-phase loop (implement, harden, verify) plus `/audit-build` afterward converge on production-ready code through iteration -- not through constant human supervision of every line.
 
 ### Context Is a Budget
 
@@ -159,7 +160,7 @@ Your workflow (commands, templates, quality gates) is durable IP that survives t
 |----------|---------|
 | [Installation Guide](./INSTALL.md) | Detailed setup, configuration, updating, and troubleshooting |
 | [Concepts](./CONCEPTS.md) | Mental models, artifact flow, context management, human/AI responsibilities |
-| [Process Guide](./PROCESS.md) | Step-by-step workflow from init through three-pass implementation |
+| [Process Guide](./PROCESS.md) | Step-by-step workflow from init through implementation and post-build audit |
 | [Architecture](./ARCHITECTURE.md) | Complete reference for agents, commands, hooks, skills, and governance files |
 
 ## License
