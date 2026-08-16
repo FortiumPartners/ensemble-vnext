@@ -20,6 +20,7 @@
 | 1.3.0 | 2026-08-16 | ITR-B013 retired and D15 narrowed: `/verify-build` is not command-shaped. `/harden-build` survives as the whole-feature adversarial pass, distinct from the per-phase hardening agent inside `implement-phase.js`. Task count 22 -> 21. | @technical-architect |
 | 1.4.0 | 2026-08-16 | ITR-B012 narrowed to removal only and D15 emptied: F14 adds no commands. The hardening agent runs per phase inside `implement-phase.js` and once at feature scale from `/implement-trd` after the last phase. Task count unchanged at 21; ITR-B012 no longer authors a replacement. | @technical-architect |
 | 1.6.0 | 2026-08-16 | `/audit-trd` pass, 5/5 verifiers reporting, against PRD `docs/PRD/implement-trd-rework.md`. **Contradictions resolved:** D11 vs OQ-1 — D11's matcher searched only for `Design References` / `Reference Documents`, headings **zero** TRDs on disk carry [ran], while OQ-1's OWNER-CALL named `## 9. Task Grounding`; D11 now matches all three with `Task Grounding` first, so AC-F6.1 is satisfiable against real `/create-trd` output. **Hedges added:** D10 no longer asserts the phase review is "a background subagent" (§1.3, §3.4 and Could Not Verify all record that as unattested, ITR-P003-gated); D6's `resumeFromRunId` premise marked `[inherited, unverified]`. **Citations fixed:** `trd-authoring.md:344–382` → **:390–425** in D8, NG9, OQ-3 and ITR-T003 (quoted strings were correct, line numbers off by ~46). **Added back from the PRD:** AC-F5.2 (surfaced before dispatch) had **zero** references in this TRD — now served by ITR-B005 with the ordering argued structurally in §3.5; AC-F8.5 reached no task's `Serves` — now on ITR-B005. **Rewritten:** `## Could Not Verify`, with this audit's scope boundary stated per row. No task count change (19). | @technical-architect |
+| 1.7.0 | 2026-08-16 | ITR-P001 and ITR-P003 complete; findings folded in. **R3 answered YES** — the Sunstone parser extracts zero tasks from all three of our TRDs and its own do not parse either; all three modules rejected as designs, four mechanics and one algorithm adopted. **Attested runtime findings added**: a workflow agent cannot spawn a subagent (AC-F8.4/NFR-4 unbuildable as written), can invoke /code-review via Skill (which self-backgrounds), and does have Bash (reopening AC-F7.2's in-workflow check battery). | @technical-architect |
 | 1.5.0 | 2026-08-16 | Sizing correction after the owner asked what 21 tasks consists of. **Four** tasks edited `packages/core/commands/implement-trd.md` (B005, B006, B007, B009); under this TRD's own `Touches`-gates-parallelism rule they serialize, so the split bought no parallelism and cost three extra implement-loop passes. ITR-B007 and ITR-B009 folded into ITR-B005. ITR-B006 kept separate — distinct mechanism (branch-derived resolution) with its own acceptance criteria and a larger blast radius. 21 -> 19 live tasks. | @technical-architect |
 
 ---
@@ -51,7 +52,37 @@ dependency order:
 
 Four smaller wiring fixes ride along because they are all edits to the same delegation
 template: the evidence-marker key (`[read]` / `[ran]` / `[inferred]`), the `Replaces` deletion
-instruction, `## Could Not Verify` routing, and owner-only `## Open Questions` surfacing. The
+instruction, `## Could Not Verify` routing, and owner-only `## Attested Runtime Findings (ITR-P003, lead-session probe wf_fcc44fab-e84, 2026-08-16)
+
+Established by execution, not inference. Full record: `docs/modernization/runs/item8/workflow-probes.md`.
+
+| Question | Verdict | Evidence |
+|---|---|---|
+| (a) Can `agent()` name a `subagent_type`? | **YES** | A dispatch with `opts.agentType: 'general-purpose'` ran and returned |
+| (b) Can a workflow-started agent spawn a **background** subagent? | **NO** | *"No such tool available: Agent. Agent is disabled for this session, in subagents as well as here."* |
+| (c) Can a workflow-started agent invoke `/code-review`? | **YES** | *"Skill code-review launched (forked execution, running in the background)"* |
+
+Tool surface inside a workflow agent: **present** — `Skill`, `Bash`, `Read`, `Write`, `Edit`,
+`ToolSearch`, `EnterWorktree`, `ListAgents`. **Absent** — `Agent`, `Workflow`, and every Task tool.
+
+**Consequences, which supersede the affected criteria:**
+
+1. **AC-F8.4 and NFR-4 are unbuildable as written.** They require the phase review to be a
+   background subagent started from inside `implement-phase.js`. A workflow agent has no
+   `Agent` tool at all. D10's foreground path is not a fallback — it is the only option.
+2. **(c) rescues the design.** The review still runs concurrently, reached through the `Skill`
+   tool rather than a spawn the script controls, because `/code-review` forks to background
+   itself.
+3. **Workflow agents DO have `Bash`.** The earlier statement that "a workflow script has no
+   shell" is true of the SCRIPT and false of its AGENTS. AC-F7.2's deterministic check battery
+   can therefore run inside the phase workflow via an agent — a branch previously closed.
+4. **`Workflow` is unavailable inside subagents.** Any future probe of workflow behaviour must
+   run from the lead session; delegating it reproduces a structural blocker rather than an
+   answer. ITR-P003's row is annotated accordingly.
+
+---
+
+## Open Questions` surfacing. The
 `<design_references>` extraction target — which today names a TRD "Section 10 'Reference
 Documents'" that no generated TRD has — is corrected in the same file.
 

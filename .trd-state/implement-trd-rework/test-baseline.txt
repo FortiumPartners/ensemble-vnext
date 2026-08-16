@@ -1,0 +1,66 @@
+packages/core/hooks/status.test.js :: edge cases should handle multiple implement.json files with mixed states
+packages/core/hooks/status.test.js :: edge cases should prioritize session_cleared over verified
+packages/core/hooks/status.test.js :: error handling - permission denied should handle unwritable file in clearSessionId
+packages/core/hooks/status.test.js :: findImplementFiles should find implement.json files in subdirectories
+packages/core/hooks/status.test.js :: findImplementFiles should not include files directly in .trd-state (only subdirectories)
+packages/core/hooks/status.test.js :: findImplementFiles should skip directories without implement.json
+packages/core/hooks/status.test.js :: findTrdStateDir should find .trd-state directory in current directory
+packages/core/hooks/status.test.js :: findTrdStateDir should find .trd-state in parent when nested two levels deep
+packages/core/hooks/status.test.js :: findTrdStateDir should find .trd-state when starting from nested directory
+packages/core/hooks/status.test.js :: findTrdStateDir should return first .trd-state found when walking up
+packages/core/hooks/status.test.js :: main function should output no_files when no implement.json found
+packages/core/hooks/status.test.js :: main function should output session_cleared when session_id is cleared
+packages/core/hooks/status.test.js :: main function should output unchanged when file was not modified recently
+packages/core/hooks/status.test.js :: main function should output verified when file was modified recently
+packages/core/hooks/status.test.js :: main function should use process.cwd() when cwd not provided in hookData
+packages/core/hooks/status.test.js :: readImplementJson should parse complex nested JSON
+packages/core/hooks/status.test.js :: readImplementJson should parse valid JSON file
+packages/core/hooks/wiggum.test.js :: autonomous loop continuation should NOT force exit based on a persisted stop_hook_active flag (regression for the every-other-Stop bug)
+packages/core/hooks/wiggum.test.js :: autonomous loop continuation should block (re-inject) while tasks are incomplete and under the iteration cap
+packages/core/hooks/wiggum.test.js :: autonomous loop continuation should not force exit on Claude Code hookData.stop_hook_active while work remains
+packages/core/hooks/wiggum.test.js :: checkCompletionPromise should detect promise tag in transcript_path file
+packages/core/hooks/wiggum.test.js :: checkCompletionPromise should return false when no promise tag exists
+packages/core/hooks/wiggum.test.js :: edge cases should handle missing implementJson gracefully
+packages/core/hooks/wiggum.test.js :: edge cases should set started_at on first blocking invocation
+packages/core/hooks/wiggum.test.js :: findProjectRoot should find project root with .trd-state directory
+packages/core/hooks/wiggum.test.js :: findProjectRoot should find root when starting from nested directory
+packages/core/hooks/wiggum.test.js :: iteration bounds should block exit when iteration equals maxIterations
+packages/core/hooks/wiggum.test.js :: iteration bounds should increment iteration count on each invocation
+packages/core/hooks/wiggum.test.js :: main function should block exit when tasks are incomplete
+packages/core/hooks/wiggum.test.js :: main function should use process.cwd() when cwd not provided in hookData
+packages/core/hooks/wiggum.test.js :: max iterations parsing should handle non-numeric value by using NaN parsing
+packages/core/hooks/wiggum.test.js :: max iterations parsing should parse valid integer
+packages/core/hooks/wiggum.test.js :: max iterations parsing should return default when env var not set
+packages/core/hooks/wiggum.test.js :: output format should output valid JSON with correct structure for allow
+packages/core/hooks/wiggum.test.js :: output format should output valid JSON with correct structure for block
+packages/core/hooks/wiggum.test.js :: readCurrentJson should parse valid current.json
+packages/core/hooks/wiggum.test.js :: readImplementJson should find implement.json in subdirectories as fallback
+packages/core/hooks/wiggum.test.js :: readImplementJson should read implement.json via current.json status path
+packages/core/hooks/wiggum.test.js :: readWiggumState should parse valid JSON state file
+packages/core/hooks/wiggum.test.js :: writeWiggumState should create .trd-state directory if it does not exist
+packages/core/hooks/wiggum.test.js :: writeWiggumState should write state file correctly
+test/evals/framework/judge.test.js :: judge.js invokeClaude security should safely handle prompts with newlines and special characters
+test/evals/framework/judge.test.js :: judge.js invokeClaude security should safely handle prompts with quotes
+test/evals/framework/judge.test.js :: judge.js invokeClaude security should safely handle prompts with shell metacharacters
+test/evals/framework/judge.test.js :: judge.js invokeClaude should call claude CLI with correct arguments
+test/evals/framework/judge.test.js :: judge.js invokeClaude should parse JSON response
+test/evals/framework/judge.test.js :: judge.js invokeClaude should request JSON output format
+test/evals/framework/judge.test.js :: judge.js invokeClaude should retry on API error up to max retries
+test/evals/framework/judge.test.js :: judge.js invokeClaude should use opus model
+test/evals/framework/judge.test.js :: judge.js output format should include list of judged files
+test/evals/framework/judge.test.js :: judge.js output format should include required fields in score output
+test/evals/framework/judge.test.js :: judge.js run should judge with all rubrics when --all flag provided
+test/evals/framework/judge.test.js :: judge.js run should return exit code 0 on success
+test/evals/framework/judge.test.js :: judge.js run should save scores to output directory
+test/evals/framework/judge.test.js :: judge.js run should use custom output directory when provided
+test/evals/framework/run-eval.test.js :: run-eval.js CLI interface should return exit code 0 on success
+test/evals/framework/run-eval.test.js :: run-eval.js dryRun should print what would be executed
+test/evals/framework/run-eval.test.js :: run-eval.js dryRun should validate spec without running sessions
+test/evals/framework/run-eval.test.js :: run-eval.js handleErrors should log session launch failures but not fail entire eval
+test/evals/framework/run-eval.test.js :: run-eval.js launchSession error handling should handle missing run-session.sh script
+test/evals/framework/run-eval.test.js :: run-eval.js launchSession error handling should handle spawn ENOENT error
+test/evals/framework/run-eval.test.js :: run-eval.js output directory should create results/<eval-name>_<timestamp>/ by default
+test/evals/framework/run-eval.test.js :: run-eval.js output directory should save session outputs and metadata
+test/evals/framework/run-eval.test.js :: run-eval.js parseArgs should use default values when flags not provided
+test/evals/framework/run-eval.test.js :: run-eval.js validateSpec should pass validation for spec with all required fields
+test/evals/framework/run-eval.test.js :: run-eval.js validateSpec should throw error when metrics is missing
