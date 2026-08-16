@@ -103,8 +103,8 @@ reports as present with nothing behind it.
 |-------|------------|---------|-------|
 | Deterministic library | JavaScript / Node.js 18+ | `packages/core/lib/` parser, graph, state machine | Per `stack.md`; NFR-7 |
 | Unit tests | Jest ^29.7.0 | `packages/core/lib/*.test.js`, `status.test.js` | Already the project's runner (`package.json` `"test": "jest"`) |
-| Workflow scripts | JavaScript (ESM, `Workflow` runtime) | `implement-phase.js`, `audit-build.js`, `harden-build.js` | Same shape as the four existing scripts in `packages/core/workflows/` |
-| Commands / contracts | Markdown | `implement-trd.md`, `task-delegation.md`, `/audit-build`, `/harden-build`, `/verify-build` | Prompts only, per constitution principle 2/3 |
+| Workflow scripts | JavaScript (ESM, `Workflow` runtime) | `implement-phase.js`, `audit-build.js` | Same shape as the four existing scripts in `packages/core/workflows/` |
+| Commands / contracts | Markdown | `implement-trd.md`, `task-delegation.md`, `/audit-build` | Prompts only, per constitution principle 2/3 |
 | Hooks | JavaScript / Node.js | `status.js` rewrite | `hookType: "command"`, `SubagentStop` order 1 |
 | Structure / integration tests | BATS ^1.9.0 | banner assertions, vendoring, structure greps | `test/integration/tests/` |
 | Behavioural smoke | Bash | `npm run smoke` → `test/smoke/run-smoke.sh` | Seven scenarios incl. `implement-one-task.sh` |
@@ -175,9 +175,8 @@ graph TB
 
     HOOK["hooks/status.js<br/>imports CYCLE_ORDER (D5)"]
     AB["/audit-build — NEW (D14)<br/>verification · validation · traceability"]
-    HB["/harden-build (D15)<br/>verifier fan-out, no team"]
-    VB["/verify-build (D15)<br/>deterministic E2E gate, no agents"]
-
+    HARD["hardening agent (D15)<br/>in-loop: per phase, then feature scale"]
+    HARD["hardening agent (D15)<br/>in-loop: per phase, then feature scale"]
     TRD --> PARSE
     TRD --> DELEG
     GRAPH -->|blockedBy edges,<br/>Touches partition| SEQ
@@ -190,8 +189,7 @@ graph TB
     SEQ -->|"Workflow(implement-phase,<br/>{trd, phase, tasks, project})"| WAVE
     GATE -->|phase result only| SEQ
     SEQ --> ENDREV --> AB
-    AB --> HB
-    AB --> VB
+    AB --> HARD
 ```
 
 ### 2.2 Component Architecture
@@ -767,15 +765,14 @@ a fixture rework required for the phase gate to be green at all, not a test task
 - Agent: @agent-implementer
 - Blocked by: 2C
 
-**Session 3B: `/harden-build`**
-- Tasks: ITR-B012
+**Session 3B: Remove the team commands**
+**Session 3B: Remove the team commands**
 - Agent: @agent-implementer
 - Blocked by: 3A; can parallelize with 3C
 
-**Session 3C: `/verify-build`**
-- Tasks: ITR-B013
-- Agent: @agent-implementer
-- Blocked by: 3A; can parallelize with 3B
+**~~Session 3C~~ — retired v1.3.0: the E2E gate is ITR-T002 plus the phase gate**
+- Note: removal only. Neither job gains a command — the adversarial pass is a loop stage,
+  the E2E gate is ITR-T002 plus the phase gate.
 
 #### Phase 4: Verification
 
@@ -816,9 +813,8 @@ gantt
 
     section Phase 3
     3A audit-build        : p3a, after p2c, 1
-    3B harden-build       : p3b, after p3a, 1
-    3C verify-build       : p3c, after p3a, 1
-
+    3B remove team cmds   : p3b, after p3a, 1
+    3B remove team cmds   : p3b, after p3a, 1
     section Phase 4
     4A Structure battery  : p4a, after p3b p3c, 1
     4B Live measurement   : p4b, after p3b p3c, 1
@@ -1475,43 +1471,27 @@ convenience beside them and rot on the first edit.
   v1.0.0 recorded this and gave it no owner; ITR-B011, ITR-B012 and ITR-B013 now each name it in
   their acceptance criteria.
 
-### ITR-B012 — `/harden-build`
+### ITR-B012 — remove the team commands
 
-- **Touches:** `packages/core/commands/harden-trd-team.md` (765 lines [ran]),
-  `packages/core/commands/harden-build.md` (new),
-  `packages/core/workflows/harden-build.js` (new), `.claude/` mirrors.
-- **Reuse:** `audit-build.js` from ITR-B011 (same fan-out shape) and the adversarial prompt
-  content already in `harden-trd-team.md` — extract it, do not re-author it.
-- **Replaces:** `harden-trd-team.md`'s teammate machinery: the stage table row
-  `| REVIEW | code-reviewer | decision, issues[], recommendations[] | UPDATE or HARDEN |` (:669),
-  `**Invoke:** Agent(subagent_type="code-reviewer", …)` (:657), the per-task stage line
-  `AUTH-F001:review [owner: code-reviewer, blockedBy: :verify]` (:149), and
-  `active_sessions` at :166 and :388 [read].
-- **Follow:** `/audit-build`'s command+workflow split from ITR-B011.
-- **Careful (corrected v1.1.0):** `harden-trd-team` appears in **all seven** hard-coded arrays in
-  `notify-on-complete.test.sh` — :210, :227, :246, :263, :314 (17-name list) and :365, :382
-  (15-name non-refine list) — each of which greps `${CANON_COMMANDS}/harden-trd-team.md` [ran].
-  **Deleting the file fails seven tests, not five.** Reducing it to a pointer passes only if the
-  pointer retains the `notify-complete.sh "harden-trd-team" …` call, the `Autonomous-execution
-  discipline` heading, the `HEDGED OFFERS ARE STILL OFFERS` string and the `doubly enforced`
-  clause. The AC's "removed or reduced to a pointer" is not free in either direction.
+- **Touches:** `packages/core/commands/harden-trd-team.md` (765 lines) `[read]`,
+  `packages/core/commands/verify-trd-team.md` (842) `[read]`,
+  `test/integration/tests/notify-on-complete.test.sh` (seven command arrays) `[ran]`,
+  `.claude/rules/command-status.md` (four `/verify-trd-team` worked examples) `[read]`,
+  `.claude/` mirrors.
+- **Replaces:** both commands become unreachable. Neither is replaced by a new command —
+  the adversarial pass is a loop stage in `implement-phase.js` (per phase) and in
+  `/implement-trd` (once at feature scale, after the last phase); the E2E gate is
+  ITR-T002 plus the phase gate.
+- **Careful:** outright deletion fails all seven `notify-on-complete.test.sh` arrays.
+  A pointer stub passes only if it keeps the `notify-complete.sh` call with its own
+  name, the `Autonomous-execution discipline` heading, the `HEDGED OFFERS ARE STILL
+  OFFERS` string and the `doubly enforced` clause.
 
-### ITR-B013 — `/verify-build`
+### ~~ITR-B013~~ — retired v1.3.0
 
-- **Touches:** `packages/core/commands/verify-trd-team.md` (842 lines [ran]),
-  `packages/core/commands/verify-build.md` (new), `.claude/` mirrors.
-- **Reuse:** `test/smoke/run-smoke.sh` is the existing deterministic gate in this repo —
-  `ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-task)` (:103),
-  `LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path)` (:110), per-scenario budgets via
-  `declare -A SCENARIO_TIMEOUT=(` (:57) and `SMOKE_TOTAL_BUDGET` (:71) [read]. A "deterministic
-  E2E gate that convenes no agent" should invoke this, not reimplement a runner.
-- **Replaces:** `verify-trd-team.md`'s `active_sessions` sites (:233, :586) and its teammate
-  convening path [read].
-- **Follow:** ITR-B012's replacement shape, for family consistency (OQ-5).
-- **Careful:** identical to ITR-B012 — `verify-trd-team` is in the same **seven** hard-coded
-  arrays in `notify-on-complete.test.sh` [ran]. Also `.claude/rules/command-status.md` uses
-  `/verify-trd-team` as its worked example in four places [read]; a rename leaves that rule file
-  documenting a command that no longer exists.
+> `/verify-build` is not command-shaped: its own acceptance criterion described
+> invoking `run-smoke.sh` and reporting an exit status with no agent in the path.
+> The E2E job is ITR-T002 (`[LIVE]`) plus the phase gate. No grounding needed.
 
 ### ITR-T001 — BATS structure battery
 
@@ -1610,7 +1590,7 @@ owner can overturn cheaply.
 | ID | Question | Why only the owner can settle it | The default that ships meanwhile |
 |----|----------|----------------------------------|----------------------------------|
 | OQ-1 | `trd-authoring.md` defines no "Reference Documents" or "Design References" section, so AC-F6.1's "a section that exists in a generated TRD" has no canonical target. Should the **producer contract** gain one? | **OWNER-CALL — decided: point `<design_references>` at `## 9. Task Grounding`.** | Weighed: no `Reference Documents` or `Design References` section exists in `trd-authoring.md`, so AC-F6.1 cannot point at one. The three candidates were (a) add a new section to the contract, (b) delete `<design_references>` from the delegation template, (c) repoint it at an existing section. Chose (c): `## 9. Task Grounding` already carries per-task file context and is the only section whose content matches what `<design_references>` was reaching for. (a) adds a section nothing populates; (b) loses a real delegation input. **Countermand if** you want the contract to gain a genuine references section — then AC-F6.1 changes to creating it.  D11: loose heading-text matching anywhere in the TRD, element omitted when no match. No producer change. If the matcher finds nothing across the first few real TRDs, that is the evidence that reopens this |
-| OQ-5 | What should the two team-command replacements be called? | **OWNER-CALL — decided: `/harden-build` and `/verify-build`.** | Weighed: the PRD specifies behaviour (verifier fan-out; deterministic E2E gate) and leaves naming open. `-build` matches `/audit-build`, already named in the PRD, and the three then read as one post-implementation family acting on delivered code — against `-trd`, which names the artifact rather than the target. Rejected keeping `-team` names: no teammate is convened, so the name would describe a mechanism that no longer exists. **Countermand if** you would rather these stay `/harden-trd` and `/verify-trd` for continuity with muscle memory; the behaviour is identical either way.  `/harden-build` and `/verify-build`, to sit alongside `/audit-build` and read as a family |
+| OQ-5 | What should the two team-command replacements be called? | **SUPERSEDED v1.4.0 — there are no replacements.** Both jobs moved into the loop: the adversarial pass runs per phase in `implement-phase.js` and once at feature scale from `/implement-trd`; the E2E gate is ITR-T002 plus the phase gate. | The v1.2.0 answer (`/harden-build`, `/verify-build`) took the question's premise — that both jobs need commands — without testing it. Owner challenged it twice; neither survived. | n/a — question dissolved |
 
 ### Answered this pass
 
