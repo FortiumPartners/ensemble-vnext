@@ -1054,29 +1054,25 @@ cross-session coordination point in the design, so a malformed write is precisel
 silently loses a phase. **Item 7's `lib/` is the home for a schema and validator** — it is the
 tested deterministic layer, and this is the cheapest possible thing to put in it.
 
-#### GAP FOUND 2026-08-16 — owner-only questions have no gate
+#### `--auto` closes every question — contract corrected 2026-08-16
 
-`/refine-* --auto` marks a question **owner-only** and leaves it in `## Open Questions`. The
-readout mentions it. **Nothing then requires it to reach the owner.** `/create-trd`,
-`/audit-*` and `/implement-trd` all run over an artifact carrying unanswered owner-only
-questions without complaint.
+The original `--auto` marked a question **owner-only** and left it open, and nothing downstream
+gated on it. That was wrong for the mode's purpose: `--auto` exists to produce a finished
+artifact unattended, and an open question ships an incomplete document that
+`/create-trd`, `/audit-*` and `/implement-trd` all run straight over.
 
-Found by the owner asking why four owner-only questions raised in the item-10 profile run were
-never presented. The defensible answer is that they belonged to a throwaway measurement
-artifact — but the count had been cited as *evidence the mechanism works*, and that claim only
-holds if the questions actually reach a human. Raised-and-buried is theatre.
+**Owner ruling:** `--auto` decides everything. A `product-manager` subagent — separate from the
+agent running the technical challenge pass, because product judgment and code checking are
+different mandates — makes the best call the evidence supports, and the artifact records the
+question, **the decision, and the reasoning**, marked `OWNER-CALL`. The owner reviews the
+thinking afterwards and countermands what they disagree with. Nothing waits on them.
 
-On the real path the item-8 PRD's OQ-3 did reach the owner via `AskUserQuestion` — but because
-the orchestrator chose to, not because anything required it.
+The failure this replaces is not "an agent answered a question it should not have" — it is "an
+agent answered without showing its work." A decision with no reasoning can only be accepted,
+not reviewed.
 
-**This is F5's shape one level up.** F5 covers "owner-only unresolved Open Questions surfaced
-before the task runs" at implement time; the gap is at every artifact handoff. A command that
-consumes an artifact carrying unanswered owner-only questions should say so before doing its
-work, and `--auto` runs should end by naming them rather than burying them in a readout.
-
-**Not yet in the PRD or TRD.** Adding a requirement after its TRD is authored means
-re-refining both; recorded here so the change is deliberate rather than a silent patch of two
-artifacts.
+Applied: `refine-prd.md` and `refine-trd.md` rewritten; the item-8 TRD's OQ-1 and OQ-5 closed
+as `OWNER-CALL` with reasoning and countermand conditions.
 
 #### OWNER DECISION OWED — `stack.md` names tools that are not installed
 

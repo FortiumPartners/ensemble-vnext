@@ -24,7 +24,7 @@ command's input.
 | Mode | Who answers | When |
 |---|---|---|
 | **Interactive** (default) | **You.** Each open question is put to you with `AskUserQuestion`. | A human is available. Your judgment is the point. |
-| **`--auto`** | A `technical-architect` subagent, armed with the design corpus and the codebase. | Unattended runs, or a first pass to shrink the list before you look. |
+| **`--auto`** | Two subagents: a `product-manager` closes the open questions, a `technical-architect` runs the challenge pass. | Unattended runs, or a first pass to shrink the list before you look. |
 
 **The autonomy exemption is conditional on mode, not on command name.** `autonomy.md` exempts
 this command because interactive mode's purpose is to ask. `--auto` obeys autonomy discipline
@@ -50,30 +50,47 @@ raised; strike it and say so.
 
 ### `--auto`
 
-Spawn **one `technical-architect` subagent** and give it the open questions, the source, the
-design corpus and the codebase. **`technical-architect`, not `product-manager`** — this pass
-turns on buildability, grounding and citations against real code, which is the architect's job;
-the `product-manager` reading was carried over from `/refine-prd` and is wrong for a TRD. Its job is to answer as well as the evidence allows and to be
-honest about which is which. Every answer carries one of:
+**`--auto` closes every question. It leaves nothing open.**
+
+The point of `--auto` is an unattended run that produces a finished artifact. A question left
+open ships an incomplete document and gates nothing downstream — `/create-trd`, `/audit-*` and
+`/implement-trd` all run straight over it. So every question gets a decision, and the owner
+reviews the decisions afterwards rather than being waited on.
+
+Spawn **one `product-manager` subagent** for this phase specifically — separate from whichever
+agent runs the Phase 1 challenge pass. The two jobs are different: Phase 0 is product judgment
+about what the owner would most likely want; Phase 1 is technical checking against code. One
+agent doing both blurs the mandates.
+
+Give it the open questions, the source, the design corpus and the codebase. Every answer
+carries one of:
 
 | Verdict | Meaning |
 |---|---|
 | **answered** | Evidence settles it. Cite the file, line, or document. |
 | **default** | No evidence, but one choice is clearly conventional here. Say why, and that it is a default. |
-| **owner-only** | Genuinely requires the owner. Leave it open. |
+| **OWNER-CALL** | Genuinely the owner's to make — business priority, scope trade-offs, risk appetite, naming, or a case where the evidence supports two reasonable readings. **Decide it anyway**, on the owner's behalf, and make the decision maximally reviewable. |
 
-**`owner-only` is the important one.** An agent asked to answer everything will answer
-everything, and a confident answer to a question only you can settle is worse than an open
-question — it looks resolved. Business priority, scope trade-offs, risk appetite, and
-anything where the evidence supports two reasonable readings are owner-only. The measured
-failure this prevents: an author with no source for a performance target invented one, and
-everything downstream treated it as real.
+**`OWNER-CALL` is the one that matters, and "decide anyway" is the point.** Do not leave it
+open and do not disguise it as `answered`. Record, in the artifact:
+
+- the question, unchanged
+- **the decision taken**
+- **the reasoning** — what you weighed, and what you would have needed to decide differently
+- an explicit marker that this was the owner's call, taken in their absence
+
+The owner reads these and countermands what they disagree with. That only works if the
+thinking is visible: a decision with no reasoning cannot be reviewed, only accepted. A
+confident answer with its basis hidden is the failure this format exists to prevent — the
+measured case being an author with no source for a performance target inventing one, where
+everything downstream then treated it as real.
+
+**The readout LEADS with every `OWNER-CALL` decision**, before removals, additions or anything
+else. They are the reason the owner is reading it.
 
 **The corpus states intent; the code states fact.** A design document is evidence of what was
 decided, never of what exists. Where they disagree, the code wins and the disagreement is
 itself worth reporting.
-
-Questions answered `owner-only` stay in `## Open Questions`, and the readout leads with them.
 
 ---
 

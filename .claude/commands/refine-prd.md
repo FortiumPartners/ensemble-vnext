@@ -23,7 +23,7 @@ recorded every such gap in the PRD's `## Open Questions` section — that is thi
 | Mode | Who answers | When |
 |---|---|---|
 | **Interactive** (default) | **You**, via `AskUserQuestion`, one question at a time with the author's assumption offered as an option | A human is available |
-| **`--auto`** | One `product-manager` subagent with the design corpus and the codebase | Unattended, or a first pass to shrink the list |
+| **`--auto`** | Two subagents: one `product-manager` closes the open questions, a second agent runs the challenge pass | Unattended, or a first pass to shrink the list |
 
 **The autonomy exemption is conditional on mode.** Interactive mode's purpose is to ask;
 `--auto` obeys autonomy discipline and asks nothing.
@@ -36,17 +36,47 @@ recorded every such gap in the PRD's `## Open Questions` section — that is thi
 a blank prompt — the author stated its assumption and what breaks if that is wrong, so offer
 both. Highest-consequence question first.
 
-**`--auto`:** one `product-manager` subagent answers from evidence, marking each:
-**answered** (cite the file or document), **default** (no evidence, one choice is conventional
-here — say so), or **owner-only** (genuinely needs the owner; leave it open).
+**`--auto` closes every question. It leaves nothing open.**
 
-`owner-only` is the one that matters. An agent asked to answer everything will, and a
-confident answer to a question only the owner can settle is worse than an open question,
-because it looks resolved. Business priority, scope trade-offs and risk appetite are
-owner-only. **The corpus states intent; the code states fact** — where they disagree the code
-wins, and the disagreement is worth reporting.
+The point of `--auto` is an unattended run that produces a finished artifact. A question left
+open ships an incomplete document and gates nothing downstream — `/create-trd`, `/audit-*` and
+`/implement-trd` all run straight over it. So every question gets a decision, and the owner
+reviews the decisions afterwards rather than being waited on.
 
-Unanswered `owner-only` questions stay in `## Open Questions` and lead the readout.
+Spawn **one `product-manager` subagent** for this phase specifically — separate from whichever
+agent runs the Phase 1 challenge pass. The two jobs are different: Phase 0 is product judgment
+about what the owner would most likely want; Phase 1 is technical checking against code. One
+agent doing both blurs the mandates.
+
+Give it the open questions, the source, the design corpus and the codebase. Every answer
+carries one of:
+
+| Verdict | Meaning |
+|---|---|
+| **answered** | Evidence settles it. Cite the file, line, or document. |
+| **default** | No evidence, but one choice is clearly conventional here. Say why, and that it is a default. |
+| **OWNER-CALL** | Genuinely the owner's to make — business priority, scope trade-offs, risk appetite, naming, or a case where the evidence supports two reasonable readings. **Decide it anyway**, on the owner's behalf, and make the decision maximally reviewable. |
+
+**`OWNER-CALL` is the one that matters, and "decide anyway" is the point.** Do not leave it
+open and do not disguise it as `answered`. Record, in the artifact:
+
+- the question, unchanged
+- **the decision taken**
+- **the reasoning** — what you weighed, and what you would have needed to decide differently
+- an explicit marker that this was the owner's call, taken in their absence
+
+The owner reads these and countermands what they disagree with. That only works if the
+thinking is visible: a decision with no reasoning cannot be reviewed, only accepted. A
+confident answer with its basis hidden is the failure this format exists to prevent — the
+measured case being an author with no source for a performance target inventing one, where
+everything downstream then treated it as real.
+
+**The readout LEADS with every `OWNER-CALL` decision**, before removals, additions or anything
+else. They are the reason the owner is reading it.
+
+**The corpus states intent; the code states fact.** A design document is evidence of what was
+decided, never of what exists. Where they disagree, the code wins and the disagreement is
+itself worth reporting.
 
 ---
 
