@@ -643,7 +643,30 @@ directly by the team commands; smoke harness still green.
 
 ## Phase F — The architectural bet (Week 11 onward)
 
-### 8. Rework `/implement-trd` — wire it to what the planner now produces
+### 8. Rework `/implement-trd` — wire it to what the planner now produces — **DELIVERED 2026-08-16**
+
+> **Delivered** in `539258e` (4.2.0), TRD archived at `docs/TRD/completed/implement-trd-rework.md`.
+> Measured on an identical 8-task fixture against the pre-rework command: **1.00 vs 5.00 agents
+> per task, $67.13 vs $131.24 (−49%), 26.7M vs 41.0M tokens (−35%), 20.0 vs 11.5 min wall clock
+> (+74%)**. The wall-clock cost is an architectural trade, not a defect — concentrating five
+> agents into one lengthens the per-task critical path; parallelism is essentially unchanged
+> (1.69x → 1.54x), and the penalty scales with the longest task in a phase rather than with
+> task count, so it does not compound.
+>
+> Twenty defects were found across four review lenses plus `/audit-build`'s own first
+> execution; sixteen fixed. **The three that would have broken real users all shared one shape
+> — correct in this checkout, wrong where it ships** (`npm run smoke` hardcoded,
+> `packages/core/lib/` in require paths, hand-edited generated prompts). None failed a test,
+> and four green end-to-end runs passed anyway because the executing model routed around two
+> of them and the generator had not been re-run for the third. **A prompt-based command masks
+> its own defects: the executor adapts, so passing runs are not evidence a hardcoded path is
+> correct.** That is the transferable lesson from this item, and it now has three structural
+> guards behind it (mirror parity, rules-template parity, generator no-op).
+>
+> Still open, none blocking: coverage severed end-to-end with a printed target nothing
+> produces; `known_risks` reaches no agent; no wave cap against the 20-slot pool;
+> `trd-parser.js` has no fenced-code-block awareness.
+
 
 *Replaces the former "prototype one phase as a dynamic workflow" item, which item 10
 delivered and superseded: `create-prd.js` is 2 stages, `create-trd.js` is 3, and the
