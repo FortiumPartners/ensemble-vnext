@@ -77,10 +77,11 @@ known to be stale; it has been removed.
 
 Treat this as best-practice belt-and-suspenders (the evidence base is one live experiment
 plus the current docs, not exhaustive), not as a requirement the async-discipline hook
-enforces. The commands that spawn teammates (`/harden-trd-team`, `/verify-trd-team`,
-`/fix-issue`) still document a Step 2a/3a
+enforces. `/fix-issue` — the command that spawns teammates — still documents a Step 2a/3a
 "schedule the safety-net wake-up" — it remains recommended there, downgraded from
-mandatory.
+mandatory. (`/harden-trd-team` and `/verify-trd-team`, the other two commands that used
+to spawn teammates here, were removed in 4.1.16 — see ITR-B012; the adversarial pass and
+E2E gate they carried moved into the `/implement-trd` loop.)
 
 ## How the guard works (at a glance)
 
