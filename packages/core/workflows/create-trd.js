@@ -175,7 +175,22 @@ and the code is what is true.
   - You may NOT cite one as evidence that something is built, works, or behaves a given way.
     For that, read the code.
   - If a document and the code disagree, the code wins and the disagreement is a finding
-    worth reporting -- it means a design doc has gone stale.`
+    worth reporting -- it means a design doc has gone stale.
+
+HOW TO INHERIT A CLAIM ABOUT BUILT BEHAVIOUR -- this has a measured failure behind it.
+A PRD inherited "sanitize_error_detail() sanitizes every log write" from a design document
+that showed it as a code sample. The function has never existed: zero hits in src/ and
+tests/, five in docs/. Two review passes missed it, because both checked the QUOTE against
+the design document instead of the SUBJECT against the code.
+
+So, whenever you are about to state that something IS built, works, or behaves a given way:
+  - Cite a SOURCE FILE you opened -- path, and the symbol or literal string you saw there.
+  - A design-document reference is NEVER sufficient evidence for that class of claim, no
+    matter how specific the document is or how confidently it reads.
+  - If you did not open a source file, do not make the claim. Put it in ## Could Not Verify
+    with the grep that would settle it.
+Verifying a citation's ACCURACY is not verifying its SUBJECT. A perfectly accurate quote
+from a document that describes something unbuilt is exactly the failure above.`
 
 // --------------------------------------------------------------------------- 1. AUTHOR
 
@@ -352,6 +367,14 @@ MARK HOW YOU KNOW. Every factual claim in a grounding block carries one of:
   [read]     -- you opened the file and saw it
   [ran]      -- you executed it and observed the result
   [inferred] -- you reasoned it from something you read, but did not confirm directly
+
+ANCHOR ON SOMETHING GREPPABLE, NOT ONLY A LINE NUMBER. Measured: grounding cited
+cli.py:2437 and :2477 where the truth was :2444 and :2473, and a later audit had to correct
+seven such anchors. A reader following a drifted line number lands in the middle of a
+DIFFERENT branch and reads the wrong code with no signal that anything is off -- worse than
+having no anchor at all. So cite the symbol, signature or literal string you actually
+matched (the def line, the exact quoted token), and give the line number as a convenience
+beside it. Symbols survive edits; line numbers rot immediately.
 
 An implementer told us why this matters: "Precision that isn't uniformly earned is worse
 than vagueness, because it stops the implementer checking." A block that cites line numbers

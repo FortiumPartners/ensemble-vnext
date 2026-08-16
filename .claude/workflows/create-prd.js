@@ -151,7 +151,22 @@ and why. They do NOT tell you what is built -- most stopped being maintained whe
 implementation started. Inherit decisions, conventions and REJECTIONS from them so you do
 not re-litigate settled ground or re-propose a rejected alternative. Do NOT assert that
 anything described here exists; if that matters, say so in ## Could Not Verify and let
-/audit-prd check it against the code.`
+/audit-prd check it against the code.
+
+HOW TO INHERIT A CLAIM ABOUT BUILT BEHAVIOUR -- this has a measured failure behind it.
+A PRD inherited "sanitize_error_detail() sanitizes every log write" from a design document
+that showed it as a code sample. The function has never existed: zero hits in src/ and
+tests/, five in docs/. Two review passes missed it, because both checked the QUOTE against
+the design document instead of the SUBJECT against the code.
+
+So, whenever you are about to state that something IS built, works, or behaves a given way:
+  - Cite a SOURCE FILE you opened -- path, and the symbol or literal string you saw there.
+  - A design-document reference is NEVER sufficient evidence for that class of claim, no
+    matter how specific the document is or how confidently it reads.
+  - If you did not open a source file, do not make the claim. Put it in ## Could Not Verify
+    with the grep that would settle it.
+Verifying a citation's ACCURACY is not verifying its SUBJECT. A perfectly accurate quote
+from a document that describes something unbuilt is exactly the failure above.`
   : `
 No related design documents were found in the corpus. Treat this as genuinely new ground.`
 
