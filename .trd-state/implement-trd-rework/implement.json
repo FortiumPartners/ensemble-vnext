@@ -207,15 +207,16 @@
     "ITR-B011": {
       "description": "",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": null,
-      "implementer_type": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "agent-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T14:25:35.848598+00:00",
+      "evidence": "audit-build.md (204 lines) + audit-build.js (443) on the audit-trd shape. Traceability verifier requires a test asserting the requirement OUTCOME, not a name match; a second test-quality verifier hunts tautological assertions so a decoy test cannot game the bar. Built against the sanitize_error_detail case (0 hits src/, 5 docs). Registered in all 7 arrays; bats 40/40; scaffold-delivered without scaffolder edits."
     },
     "ITR-B012": {
       "description": "",
@@ -323,7 +324,7 @@
   },
   "metrics": {
     "total_tasks": 19,
-    "completed_tasks": 14,
+    "completed_tasks": 15,
     "failed_tasks": 0,
     "total_retries": 0
   },

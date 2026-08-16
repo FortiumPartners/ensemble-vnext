@@ -208,7 +208,7 @@ JSON
 
 @test "L2: all 17 workflow commands invoke the notify-complete.sh helper" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd create-trd audit-prd audit-trd
+                fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
@@ -225,7 +225,7 @@ JSON
 
 @test "L2: each command's helper call uses its own name as the first arg" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd create-trd audit-prd audit-trd
+                fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local mismatched=()
@@ -244,7 +244,7 @@ JSON
 
 @test "L2: legacy inline bracket-guarded form is fully removed" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd create-trd audit-prd audit-trd
+                fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local stale=()
@@ -261,7 +261,7 @@ JSON
 
 @test "L2: dogfood .claude/commands mirrors stay in sync with canonical" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd create-trd audit-prd audit-trd
+                fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 refine-prd refine-trd update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local drift=()
@@ -312,7 +312,7 @@ JSON
 
 @test "L2b: every non-refine workflow command embeds the autonomy block" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd create-trd audit-prd audit-trd
+                fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
@@ -363,7 +363,7 @@ JSON
 
 @test "L2b: every non-refine command's embedded block forbids hedged offers" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd create-trd audit-prd audit-trd
+                fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
@@ -380,7 +380,7 @@ JSON
 
 @test "L2b: every non-refine command's embedded block mentions --wiggum doubly-enforced rule" {
     local cmds=(implement-trd verify-trd-team harden-trd-team
-                fix-issue create-prd create-trd audit-prd audit-trd
+                fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
     local missing=()
