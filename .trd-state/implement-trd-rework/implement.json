@@ -53,15 +53,16 @@
     "ITR-B001": {
       "description": "",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": null,
-      "implementer_type": null,
+      "status": "success",
+      "cycle_position": "complete",
+      "implementer_type": "backend-implementer",
       "current_problem": null,
       "retry_count": 0,
       "session_id": null,
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-08-16T10:54:30.736057+00:00",
+      "evidence": "packages/core/lib/trd-parser.js + .test.js. 40/40 tests, 93.9% stmts / 100% funcs (floor 80%). Parses all 3 real TRDs: 19 / 21 (5-col, em-dash) / 9 tasks, 0 warnings. Found a real 5-cell-vs-4-header defect in the TRD's OQ-5 row (introduced by the supersede rewrite); document fixed."
     },
     "ITR-B002": {
       "description": "",
@@ -273,7 +274,7 @@
   },
   "metrics": {
     "total_tasks": 19,
-    "completed_tasks": 3,
+    "completed_tasks": 4,
     "failed_tasks": 0,
     "total_retries": 0
   },
