@@ -521,10 +521,20 @@ remain.
 > existing first. This item is about the hooks that exist today. Sequencing, not subject matter,
 > separates them.
 
-### 6. Ship a `REVIEW.md`; retire the reviewer CLI — **NOT a dependency of item 8 (corrected 2026-08-16)**
+### 6. Ship a `REVIEW.md`; retire the reviewer CLI — ⛔ **RETIRED 2026-08-16**
 
-> **Correction, 2026-08-16.** The "hard dependency of item 8" framing below is **wrong**, and
-> acting on it would have been wasted work. It conflated two different reviewers:
+> **RETIRED — it no longer applies.** `REVIEW.md`'s only consumer is Anthropic's managed Code
+> Review service, which is not enabled on this repo and is not part of item 8's shipped design.
+> A file nothing reads is not worth shipping, and "inert" is not operationally different from
+> "retired": either way nobody does the work.
+>
+> The one part with standalone merit is **done** — `packages/reviewer/` deleted 2026-08-16, no
+> live references. The other part (re-scope `code-reviewer.md` toward acceptance-criteria
+> verification) is superseded: `/audit-build` owns that job now, and the agent's surviving role
+> is the three-lens hardening fan-out at Step 7.1.
+>
+> **Why it was wrongly promoted to a blocker**, kept because the mistake is instructive: the
+> framing below conflated two different reviewers.
 >
 > - **`REVIEW.md` is read by Anthropic's managed Code Review** — the service that reviews pushes
 >   to a PR branch. The 2026-08-15 qualification already verified none is enabled on this repo.
@@ -1779,6 +1789,13 @@ retractions propagate; and the always-on cost of the mechanism is measured rathe
 ---
 
 ## Opportunistic — do these while you're already in the file
+
+- **`packages/full/commands/router` is a dangling symlink.** It points at `../../router/commands`,
+  which does not exist — `packages/router/` holds only `hooks/` and `tests/`, and no
+  `generate-router-rules` command exists anywhere in the tree. Found 2026-08-16 while correcting
+  the founding TRD's component table, which listed it as a live component. A scaffold does not
+  currently break on it, but it is a dangling reference inside the shipped plugin and should
+  either be removed or the commands written. Note the founding TRD had claimed it for months.
 
 - **Add an internal-consistency verifier to the audit wave — TRD row vs TRD row.** Found
   2026-08-16 by `ITR-T002` while reading its own prerequisites. `implement-trd-rework.md`

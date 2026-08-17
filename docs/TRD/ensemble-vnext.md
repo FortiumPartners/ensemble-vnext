@@ -296,13 +296,17 @@ ensemble-vnext/
 | Component | Path (Plugin) | Description |
 |-----------|---------------|-------------|
 | Generator Commands | `packages/core/commands/` | init-project, rebase-project, add-skill |
-| Workflow Commands | `packages/core/commands/` | create-prd, refine-prd, create-trd, refine-trd, implement-trd, update-project, cleanup-project |
-| Router Commands | `packages/router/commands/` | generate-router-rules, generate-project-router-rules |
+| Workflow Commands | `packages/core/commands/` | create-prd, refine-prd, audit-prd, create-trd, refine-trd, audit-trd, implement-trd, audit-build, investigate-issue, fix-issue, update-project, cleanup-project |
+| Router Commands | *(none — see note)* | `packages/router/` holds only `hooks/` and `tests/`; no router commands exist. `packages/full/commands/router` is a **dangling symlink** to the absent `../../router/commands` |
 | Skills Library | `packages/skills/` | Full skill library, selected based on stack.md |
-| Agent Definitions | `packages/core/agents/` | Base agent templates (12 agents), tailored during init |
-| Permitter Hook | `packages/permitter/hooks/permitter.js` | Node.js - copied from existing ensemble |
+| Agent Definitions | `packages/full/agents/` | 13 agent templates, tailored during init. `packages/core/agents/` holds only `skill-affinity.json` + its test |
 | Router Hook | `packages/router/hooks/router.py` | Python - copied from existing ensemble |
-| Review CLI | `packages/reviewer/cli/` | Secondary LLM review tool (OpenAI gpt-5.2) |
+
+**Corrected 2026-08-16.** Two rows named packages that no longer exist — `packages/reviewer/`
+(deleted with item 6) and `packages/permitter/` (retired in 4.1.0) — and the agent row pointed at
+`packages/core/agents/`, which holds only `skill-affinity.json` and its test. This table is the
+architecture reference; every path in it is checkable with `ls`, so a stale row here is a
+dangling reference of exactly the kind this project keeps finding elsewhere.
 
 #### 2.2.2 Vendored Runtime Components
 
