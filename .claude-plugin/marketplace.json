@@ -7,14 +7,14 @@
     "email": "support@fortiumpartners.com"
   },
   "metadata": {
-    "version": "4.2.0",
+    "version": "4.1.16",
     "description": "Local marketplace for ensemble-vnext plugin"
   },
   "plugins": [
     {
       "name": "full",
       "description": "Streamlined ensemble workflow framework for Claude Code with 13 specialized agents",
-      "version": "4.2.0",
+      "version": "4.1.16",
       "author": {
         "name": "Fortium Partners",
         "email": "support@fortiumpartners.com"

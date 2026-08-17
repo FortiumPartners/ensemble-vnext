@@ -10,6 +10,61 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.16] - 2026-08-16
+
+### Changed
+
+- **`/implement-trd` reworked onto `lib/` + per-phase workflows** (improvement-plan item 8).
+  The 1466-line staged per-task loop becomes a 979-line command that computes its task graph
+  deterministically (`trd-parser.js`, `task-graph.js`, `implement-state.js` — 117 tests) and
+  dispatches one `Workflow(implement-phase)` per phase.
+
+  Measured on an identical 8-task fixture run through both the old and new command:
+  **1.00 vs 5.00 agents per task, $67.13 vs $131.24 (−49%), 26.7M vs 41.0M tokens (−35%),
+  20.0 vs 11.5 min wall clock (+74%)**. The wall-clock cost is an architectural trade, not a
+  defect: concentrating five agents into one lengthens the per-task critical path. Parallelism
+  is essentially unchanged (1.69× → 1.54×), and the penalty scales with the longest task in a
+  phase rather than task count, so it does not compound.
+
+- **`/audit-build` added** — verifies delivered code against its TRD and PRD, with traceability
+  as the headline check: a requirement with an implementation and no test proving it is a gap,
+  not a pass. This is where the per-task acceptance-criteria job removed from the implement
+  loop now lives, and `/implement-trd` names it in NEXT STEPS.
+
+- **Per-phase review now applies what it finds.** It previously reported a bare finding count
+  that nothing gated on and which ended in a commit message, so every per-phase finding was
+  discarded while `review 4 finding(s)` read like diligence.
+
+### Fixed — delivery layer
+
+Four defects that would have broken this release for users, all found by inspecting a real
+plugin-cache install rather than by running the command:
+
+- **`.claude/lib/` was empty in every install.** `copy_libs` resolved only
+  `$PLUGIN_DIR/../core/lib`; a real install has no `core` sibling. The reworked command would
+  have thrown `MODULE_NOT_FOUND` on first use for every user.
+- **`--refresh` withheld every file a version upgrade adds.** A 4.1.15 project refreshing to
+  this release received the new `implement-trd.md` while being denied the three lib modules,
+  the workflows, and `audit-build.md` it depends on — leaving the project strictly worse than
+  before the refresh, at exit 0.
+- Post-simplify verification restored; a refactor that reddened the suite previously still
+  passed the phase gate.
+- `implement-state.save()` shared one temp path between two documented concurrent writers
+  (~40% of concurrent saves failed, measured).
+
+### Removed
+
+- **BREAKING:** `/harden-trd-team` and `/verify-trd-team`. Their work folded into the
+  `/implement-trd` loop — in-gate hardening per phase, feature-scale hardening after the last
+  phase. No replacement command.
+
+### Note on versioning
+
+Still a patch release. Per this file's policy, items 1–9 land as 4.1.x and the minor bump
+marks the point the modernization run is actually released to users. Items 4, 5, 7, 9 and 11
+remain open, so that point has not arrived — this release was briefly tagged 4.2.0 in
+development and corrected before publication.
+
 ## [4.1.15] - 2026-08-14
 
 ### Changed
