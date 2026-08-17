@@ -1353,7 +1353,80 @@ tasks now carry `Dependencies` and `Serves` in structured, parser-consumable pos
 tasks + dependencies → DAG is mechanical, and "what can run in parallel" becomes
 deterministic rather than LLM-judged. Build item 7's `lib/` as part of this item, not after.
 
-### 9. Native quality gates and worker loops
+### 9. Native quality gates and worker loops — **RETIRED 2026-08-16, replaced by item 9a**
+
+> **Retired, not deferred.** Two of this item's three "Done when" clauses target machinery
+> item 8 removed:
+>
+> - **`TaskCompleted` / `TaskCreated` gates** — `implement-trd.md:55` now states the command
+>   "does not use the platform's `TaskCreate`/`TaskUpdate`/`TaskList` work-list tools". The
+>   task list was replaced by a deterministic graph plus one workflow per phase, so
+>   `TaskCompleted` **can never fire in the main implementation flow.** Building gates on it
+>   would produce structurally unreachable hooks — the same defect class as the
+>   `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` lever this project deleted for pointing at files no
+>   scaffolded project ever received.
+> - **`TeammateIdle` re-engagement** — scoped for three team commands, two of which
+>   (`/harden-trd-team`, `/verify-trd-team`) were deleted by ITR-B012. Only `/fix-issue`
+>   still spawns teammates.
+>
+> The third clause — an **agent hook** (`type: "agent"`, a subagent with `Read`/`Grep`/`Glob`)
+> verifying acceptance criteria against code — is a good mechanism aimed at a problem
+> `/audit-build` now owns, and **the 2026-08-16 evidence says it would not have helped.**
+>
+> `implement.json` recorded **19/19 tasks success**, every acceptance criterion met, and
+> `/audit-build` confirmed traceability. Four defects would still have broken the release for
+> every user: an empty `.claude/lib/` on install, `--refresh` withholding every new file,
+> `npm run smoke` hardcoded into the phase gate, and hand-edited generated prompts. **None is
+> an acceptance-criteria failure.** An agent hook checking "does this task satisfy its
+> criteria" passes all four — while adding one subagent per transition to a loop whose headline
+> result is 1.0 agents per task.
+>
+> Zero of this item was built (no `TaskCompleted`, `TaskCreated`, `TeammateIdle`, or
+> `type: "agent"` entries in the manifest), so retiring it costs nothing.
+
+### 9a. Full-scope TRD verification — the vehicle, not the hook
+
+**The gap is real and it is command-shaped.** `/verify-trd-team` did live E2E verification
+against a running instance — API testing, UI testing, a Completion Promise decomposed into
+checkable assertions. ITR-B012 folded it into the loop, and what survived is **one conditional
+line** in the phase-gate verify prompt (`implement-trd.md:495`). That is a genuine reduction in
+capability, and it is what needs rebuilding.
+
+**Design the axes from what actually caught defects on 2026-08-16**, not from what sounds
+thorough. Measured yield that day, across 20 findings:
+
+| Axis | What it found |
+|---|---|
+| **Environment realism** — does it work where it SHIPS, not where it was authored | 2 release-breakers, in minutes, by filesystem inspection alone |
+| **Differential** — what did this change silently REMOVE | 2 blockers, from diffing the old command against the new |
+| **Adversarial lenses with distinct mandates** | 18 findings across three agents with near-zero overlap |
+| **Live functional** — Completion Promise decomposition | the axis we deleted; unmeasured because it did not run |
+| **End-to-end execution** | the performance numbers — **and it MASKED two defects** |
+
+**Environment realism leads.** It is the cheapest axis and had the highest yield: two defects
+that would each have broken the release outright, found by inspecting a real plugin-cache
+install and simulating a scaffold without the `../core` sibling. No LLM runs. `/verify-trd-team`
+never had this axis, and neither does `/audit-build`.
+
+**Live functional follows**, reviving the Completion Promise mechanism from
+`git show b78f34a~1:packages/core/commands/verify-trd-team.md` — the decomposition into
+assertions was the good part and should come back close to intact.
+
+**The finding that should shape the whole item:** end-to-end execution is NOT verification when
+the executor is adaptive. Four green runs passed while silently routing around two hardcoded
+paths — one run's own log reads *"Framework libs live at `.claude/lib/`, not
+`packages/core/lib/` — used the actual paths"*, and it proceeded to COMMAND COMPLETE. A
+verification pass that only runs the thing will be defeated the same way. It has to inspect the
+artifact where it lands.
+
+**Done when:** a command exists that (1) verifies delivered artifacts in a realistic install /
+refresh layout rather than the dev checkout, (2) diffs against the prior version for silently
+dropped capability, (3) runs live functional assertions from a Completion Promise, and
+(4) reports what it could NOT verify. Its first run must be against a TRD it did not author.
+
+---
+
+### 9-original. Native quality gates and worker loops (retained for reference)
 
 Three hook events now exist that are purpose-built for what the team commands enforce in prose.
 `TaskCompleted` and `TaskCreated` block the transition and return feedback on exit code 2 — that is where
