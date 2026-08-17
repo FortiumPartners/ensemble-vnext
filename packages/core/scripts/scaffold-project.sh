@@ -323,6 +323,12 @@ copy_workflows() {
     for wf_path in "$src"/*.js; do
         [[ -f "$wf_path" ]] || continue
         wf="$(basename "$wf_path")"
+        # Never ship test files or their harness into a user's project. copy_libs
+        # already skips *.test.js for the same reason; workflows/ gained tests on
+        # 2026-08-16 and this filter did not exist, so a scaffold delivered
+        # audit-build.test.js, implement-phase.test.js and test-harness.js --
+        # dead weight in a tree with no runner wired up to execute them.
+        [[ "$wf" == *.test.js || "$wf" == test-harness.js ]] && continue
 
         if [[ "$REFRESH" == "true" ]]; then
             if [[ -f "$dest/$wf" ]]; then

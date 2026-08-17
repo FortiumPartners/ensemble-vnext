@@ -12,8 +12,18 @@ const { parseTrd, normalizeLineEndings, findSection, findTables, splitRowCells }
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
+// Resolve a repo doc at its live path OR under docs/TRD/completed/. Archiving a
+// finished TRD is a normal lifecycle step (process.md's Artifact Flow ends with
+// `mv docs/TRD/<f> docs/TRD/completed/`), and hard-coding the live path made two
+// suites fail the moment this TRD was archived -- a test breaking on a documented
+// workflow step, not on a code change.
 function readRepoDoc(relPath) {
-  return fs.readFileSync(path.join(REPO_ROOT, relPath), 'utf8');
+  const candidates = [relPath, relPath.replace('docs/TRD/', 'docs/TRD/completed/')];
+  for (const c of candidates) {
+    const p = path.join(REPO_ROOT, c);
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+  }
+  throw new Error(`readRepoDoc: not found at any of ${candidates.join(', ')}`);
 }
 
 // ---------------------------------------------------------------------------
