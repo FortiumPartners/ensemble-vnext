@@ -521,9 +521,35 @@ remain.
 > existing first. This item is about the hooks that exist today. Sequencing, not subject matter,
 > separates them.
 
-### 6. Ship a `REVIEW.md`; retire the reviewer CLI — **DO THIS FIRST**
+### 6. Ship a `REVIEW.md`; retire the reviewer CLI — **NOT a dependency of item 8 (corrected 2026-08-16)**
 
-> **Promoted 2026-08-15 to a hard dependency of item 8.** Item 8 removes our `code-reviewer`
+> **Correction, 2026-08-16.** The "hard dependency of item 8" framing below is **wrong**, and
+> acting on it would have been wasted work. It conflated two different reviewers:
+>
+> - **`REVIEW.md` is read by Anthropic's managed Code Review** — the service that reviews pushes
+>   to a PR branch. The 2026-08-15 qualification already verified none is enabled on this repo.
+> - **Item 8 shipped using the LOCAL `/code-review` skill**, invoked in-loop: per phase via the
+>   gate's `reviewPrompt`, and once over the full branch at Step 7.2. Confirmed in the 2026-08-16
+>   ledger — a workflow agent really did call `Skill({skill: "code-review", args: "high <sha>"})`.
+>   **The local skill does not read `REVIEW.md`.**
+>
+> So item 8's review design does NOT depend on this item, and shipping `REVIEW.md` would not have
+> changed what the per-phase reviewer knows. The two remaining parts of this item stand on their
+> own merits and neither is urgent:
+>
+> - delete `packages/reviewer/cli/review.js` — still correct, still trivial
+> - re-scope `code-reviewer.md` toward acceptance-criteria verification with `ReportFindings`
+>   output — **partly superseded**: `/audit-build` now owns acceptance-criteria checking, and the
+>   agent's surviving role is the three-lens hardening fan-out at Step 7.1
+>
+> Ship `REVIEW.md` if a managed reviewer is ever enabled. Until then it is a file nothing reads.
+>
+> **The transferable lesson** is the conflation itself. This project has now made the
+> local-vs-managed `/code-review` mistake twice in one day: once when I claimed I could not invoke
+> `/code-review` (the `ultra` restriction applies to the cloud tier, not the local skill), and once
+> in the framing corrected here. When a plan entry names "the built-in reviewer", it must say WHICH.
+
+> **Superseded framing, retained for the record — promoted 2026-08-15 to a hard dependency of item 8.** Item 8 removes our `code-reviewer`
 > agent from the implement loop and hands code review to the built-in reviewer running on
 > every push to the PR branch. `REVIEW.md` then becomes the ONLY channel through which this
 > project's Quality Gates, Definition of Done and prohibited-pattern table reach the reviewer
