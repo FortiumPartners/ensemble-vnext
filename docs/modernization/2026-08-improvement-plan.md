@@ -1455,6 +1455,77 @@ paths — one run's own log reads *"Framework libs live at `.claude/lib/`, not
 verification pass that only runs the thing will be defeated the same way. It has to inspect the
 artifact where it lands.
 
+### 9a.1 Goals must produce EVIDENCE, not assert booleans (owner design input, 2026-08-16)
+
+**The deterministic-predicate framing is insufficient, and the owner is right about why.** A
+conjunction of state reads — all tasks success, battery green, zero open findings, audit clean —
+is satisfiable while the software does not work. This release proved it: 19/19 tasks success,
+every acceptance criterion met, traceability confirmed, and four defects that would have broken
+it for every user.
+
+The goals actually wanted are shaped differently:
+
+> - *"The PRD features have been validated in a live environment with screenshots to prove it"*
+> - *"Every API endpoint has been tested and confirmed to work, as well as conform to the
+>   interface contract"*
+
+Neither is a boolean an agent can set. Each names an artifact that must **exist** and must
+**show** something. That is what makes them unfakeable where `status: "success"` is not.
+
+**Two-tier structure.** Tier 1 is deterministic, cheap, and where the gate lives; tier 2 is
+where meaning is checked and only runs on artifacts that passed tier 1.
+
+| Tier | Check | Cost |
+|---|---|---|
+| 1 | Does the artifact exist? Screenshot file, HTTP request/response transcript, contract diff. Is it non-trivial — non-empty, right type, **mtime after the last code change**? | free, scriptable |
+| 2 | Does it SHOW what it claims? Vision check on the screenshot; transcript response diffed against the declared interface | one agent per artifact |
+
+An agent cannot satisfy *"a PNG exists at `evidence/AC-3.png`, newer than HEAD"* by asserting
+success. That is the whole point, and it is the half `/verify-trd-team`'s Completion Promise
+decomposition was missing: it decomposed a promise into assertions, but the assertions were
+still claims.
+
+**Consequence for the PRD/TRD format:** an acceptance criterion has to name its evidence.
+`"users can sign in with SSO"` is unverifiable; `"users can sign in with SSO — evidence: a
+screenshot of the post-login dashboard, and an HTTP transcript of the callback returning 302"`
+is. That is a change to `/create-prd` and `/create-trd`, not just to a verifier, and it is the
+same shape as the `Touches`/`Replaces` grounding requirement those commands already enforce.
+
+### 9a.2 Why the enforcement mechanism must be wiggum, not a discipline hook
+
+The owner's first problem — *"agent coming back with questions and stopping legitimately when it
+knows the next step"* — cannot be fixed by improving the autonomy judge, and the reason is
+structural.
+
+| | async / autonomy hooks | wiggum |
+|---|---|---|
+| judges | the final message's LANGUAGE | `implement.json` STATE |
+| on `stop_hook_active: true` | **allows unconditionally** — one corrective round-trip, then any stop wins | **deliberately ignored** (`wiggum.js:487`: "Do NOT force exit on it") |
+| bound | a single block | iteration cap (default 50) |
+
+The loop guard that keeps the discipline hooks from wedging a session IS the bypass: a
+determined stop always succeeds on its second attempt. Measured 2026-08-16 — the autonomy guard
+blocked this session twice and both stops went through on the retry.
+
+Wiggum has no such hole. It blocks on state and keeps blocking, so an agent that believes it
+needs input **cannot stop** while the condition is unmet, and the re-injection tells it what
+remains. **So the goal gate belongs in wiggum's completion check, evaluated against evidence
+artifacts** — not in a judge reading intent from prose.
+
+Wiggum changes required, all small:
+- **Delete `CYCLE_POSITION`** — declares the retired 8-stage cycle
+  (`implement/verify/debug/simplify/verify_post_simplify/review/update_artifacts/complete`)
+  against the live 4-stage `CYCLE_ORDER`. Dead code: `grep 'CYCLE_POSITION\.'` returns nothing.
+  Harmless at runtime, but it is a stale specification sitting in the file that reads
+  `implement.json`.
+- **Widen `checkTaskCompletion`** from "all tasks success" to the evidence conjunction above.
+- **Re-tune the iteration cap.** 50 was sized for a turn-by-turn per-task loop with a Stop per
+  stage. The reworked loop dispatches one workflow per phase and awaits it, so Stops are roughly
+  per-phase — 50 now implies a 50-phase TRD.
+- **Distrust `<promise>COMPLETE</promise>`.** It is a substring match against the transcript, so
+  any turn that merely mentions the tag satisfies it. Keep it only as a documented manual
+  override, never as something an autonomous run can trip.
+
 **Done when:** a command exists that (1) verifies delivered artifacts in a realistic install /
 refresh layout rather than the dev checkout, (2) diffs against the prior version for silently
 dropped capability, (3) runs live functional assertions from a Completion Promise, and
