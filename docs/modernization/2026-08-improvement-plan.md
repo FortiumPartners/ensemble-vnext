@@ -558,7 +558,31 @@ gone; `code-reviewer.md` describes acceptance-criteria verification and specifie
 
 ## Phase E — Move logic out of prose (Weeks 8–10)
 
-### 7. Extract a tested `lib/` — build the task graph
+### 7. Extract a tested `lib/` — build the task graph — **MOSTLY DELIVERED 2026-08-16; coordination design DEFERRED**
+
+> **Status, measured against this item's own "Done when" clauses:**
+>
+> | Clause | Verdict |
+> |---|---|
+> | Three modules under `packages/core/lib/`, Jest coverage >80% | **MET** — 96.16% stmts overall (implement-state 100%, task-graph 99.28%, trd-parser 94.50%), 117 tests |
+> | `implement-trd.md` calls them instead of describing them | **MET** — 4 `require()` calls; command 1466 → 1042 lines (the item predicted losing 400–600; actual 424) |
+> | Graph emits `blockedBy` edges consumed by the team commands | **SUPERSEDED** — the graph emits exactly that, including file-ownership edges, but `/harden-trd-team` and `/verify-trd-team` were deleted by ITR-B012. The consumer is now `implement-trd.md`. The intent (the graph is consumed, not re-derived from prose) holds |
+> | Smoke harness still green | **UNVERIFIED** — the harness runs real Claude sessions and item 4, which builds it, is itself still open |
+>
+> Delivered as a side effect of item 8 rather than before it, which inverts the intended order.
+>
+> **DEFERRED, owner decision 2026-08-16: the open design question below.** Cross-TRD
+> coordination — two TRDs racing the same files, worktree scope for `.trd-state/`, reading
+> Sunstone's `cross-trd-deps.js` — is NOT done and is not scheduled. Item 8 answered part of it
+> incidentally: `current.json` is now gitignored (killing the merge-conflict-by-construction
+> problem), branch-derived TRD selection replaced the global pointer, and file ownership within
+> a single TRD is explicit in the graph. What remains is genuinely cross-TRD: `implement.lock`
+> is per-TRD, so two features touching the same files cannot see each other.
+>
+> Deferring is reasonable while there is one developer on one TRD at a time — the failure needs
+> concurrency to occur. It should be split into its own item before that stops being true,
+> rather than left as a blockquote on an otherwise-delivered item.
+
 
 > #### Open design question — concurrent TRDs, sessions, worktrees, and developers
 >
