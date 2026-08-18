@@ -1505,6 +1505,62 @@ software functionality rather than test execution. But it is TRD-scoped today �
 mentions, **zero** PRD mentions. Either repoint it or add a sibling whose input is the success
 definition.
 
+### The loop is a WORKFLOW, not a Stop hook — and that is a true Ralph loop
+
+**Owner proposal, 2026-08-17, and researching the original pattern confirms it.**
+
+A genuine Ralph/Wiggum loop (Geoffrey Huntley, mid-2025) works like this:
+
+> *"Each iteration starts with a **clean context window**, reads persistent state **from disk**,
+> completes a bounded unit of work, and writes results back before restarting."*
+> *"...using **the file system instead of conversation history** as its memory."*
+> *"Progress does not lie in the model's memory but in the repository: in specifications, in a
+> continuously updated plan, in tests, in Git history."*
+> — codecentric, AgentPatterns.ai
+
+**Fresh context is the point.** It is what prevents accumulation and degradation.
+
+**Our `wiggum.js` is therefore not a Ralph loop.** It blocks `Stop` and continues the SAME
+session, so context accumulates until compaction removes it — the exact failure Ralph's design
+avoids. It is a nagging loop, not a fresh-context loop. (An earlier note in this plan claimed the
+classic practice was to feed the transcript forward. That is backwards and is corrected here.)
+
+**A workflow loop at the tail of `/implement-trd` is the correct implementation:**
+
+```
+  phase loop completes
+    ↓
+  Workflow(verify-functional):
+    while (!satisfied && i < CAP) {
+      verdict = agent(judge PRD success definition against the built system)   // fresh context
+      if (verdict.satisfied) break
+      agent(remediate: fix exactly verdict.gaps)                               // fresh context
+      i++
+    }
+    return { satisfied, iterations: i, gaps: verdict.gaps }
+```
+
+| Ralph property | How the workflow satisfies it |
+|---|---|
+| fresh context per iteration | every `agent()` call is a fresh context by construction |
+| state on disk, not conversation | `implement.json`, the success definition, evidence artifacts |
+| deterministic driver | the script's `while` — same role as Ralph's shell loop, better tooling |
+| bounded unit of work | one verify → judge → remediate cycle |
+| hard stop condition | `verdict.satisfied === true`, plus an iteration cap |
+| *"if a test suite can confirm completion, Ralph can probably get there"* | the success definition IS that confirmation |
+
+**The split is the strength: control flow deterministic, judgment delegated.** The workflow decides
+whether to loop; the agent decides only whether the promise is met. That is stronger than the
+original shell-loop Ralph, which has no structured verdict and simply re-runs until a human looks.
+It also sidesteps the `stop_hook_active` bypass entirely — there is no `Stop` to block, so a
+determined stop cannot defeat it.
+
+**This also answers "what changes between iterations":** the judge returns `gaps`, and the
+remediation agent receives exactly those. Not "try again" — a specific list, from disk.
+
+**Placement:** a workflow at the tail of `/implement-trd`, after the last phase and after the
+end-of-run review. Re-triggerable on its own, because a workflow invocation is just a call.
+
 ### The two things this design still owes
 
 **1. What changes between iterations.** Re-running a verifier against unchanged code returns the
