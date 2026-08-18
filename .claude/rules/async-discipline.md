@@ -176,45 +176,48 @@ action as imminent-and-unstarted and the turn ends right there, contradicted by 
 Ambiguous cases (is this stage-setting for something the message goes on to do, or a bare
 assertion the turn stops on?) fail open — allow.
 
-## "Stop hook error" is how a BLOCK is displayed — not a failure
+## "Stop hook error" carries a real verdict — what is evidenced, and what is not
 
-**Settled 2026-08-16 by reading the transcript. Do not re-investigate this.**
+**Do not read a `Stop hook error:` line as a broken guard.** Every one inspected carried a
+genuine verdict reason. But the underlying mechanism is NOT documented, and an earlier version
+of this section overstated it as settled. What follows separates the two.
 
-A prompt-type hook returning `ok: false` is recorded in the session transcript as a
-`stop_hook_summary` record with a populated `hookErrors` array, whose single entry is:
+### Evidenced, from one full session's transcript (2026-08-16)
 
-```
-[<the entire 13-17 KB prompt text>]: <the verdict reason>
-```
+- 251 `stop_hook_summary` records; **27 with a non-empty `hookErrors`**.
+- **Every one of the 27 carried a real verdict reason**, formatted as
+  `[<the entire 13-17 KB prompt text>]: <reason>` — roughly half autonomy, half async, zero
+  unexplained. Each matched a block the agent received as "Stop hook feedback" and acted on.
+- The CLI renders these as `Stop hook error:` followed by the leading prompt text, so the
+  reason sits ~13,000 characters in and is invisible in normal output.
+- `hookInfos` lists only **command** hooks with `durationMs`. Prompt hooks do not appear there.
+- **`preventedContinuation` was `false` on all 251 records, including all 27** — because the
+  session continued afterward with corrected behaviour. Reading it as "was this blocked?" gives
+  exactly the wrong answer; that misread caused a correct hypothesis to be discarded once
+  already. To find blocks: non-empty `hookErrors`, split on `]: `, read the tail.
 
-The CLI renders that as `Stop hook error:` followed by the leading prompt text, so the only
-useful part — the reason — sits ~13,000 characters in and is invisible in normal output. **The
-guard is working. Nothing is misconfigured.**
+### NOT evidenced — do not repeat these as fact
 
-Measured over one full session: **249 `stop_hook_summary` records, 26 with `hookErrors`, 13
-autonomy and 13 async, and all 26 carried a real verdict reason** — every one a block the agent
-received as "Stop hook feedback" and acted on. Zero were unexplained failures.
+- **That `hookErrors` is simply how the harness records a block.** The session received ~30
+  autonomy/async blocks against 27 `hookErrors` records. That gap may be classification error
+  (the counting was heuristic on message text) or may mean some blocks record differently. It
+  was not resolved.
+- **Anything from the docs.** `code.claude.com/docs/en/hooks` documents the `prompt` hook type
+  and its `prompt` / `$ARGUMENTS` / `model` fields — matching this project's config — but states
+  it does not detail how a blocking decision is surfaced, and does not mention `hookErrors` or
+  `preventedContinuation` at all. The mechanism here is inferred from transcript data only.
 
-**`preventedContinuation` is not the field that tells you a block happened.** It was `false` on
-all 249 records, including all 26 blocks, because the session *did* continue afterward — the
-agent got the corrective feedback and produced a new turn. Reading it as "was this blocked?"
-produces exactly the wrong conclusion, which is the mistake made once already while diagnosing
-this. To find blocks, look for a non-empty `hookErrors`, then split the entry on `]: ` and read
-what follows.
-
-Three hypotheses were tested and eliminated before the transcript settled it. They are recorded
-so nobody spends a turn re-deriving them:
+### Eliminated hypotheses, so nobody re-derives them
 
 | Hypothesis | Verdict |
 |---|---|
-| Prompt text emitted into a `command` field, so the harness executes the prompt | **No.** `generate-hooks-artifacts.sh` emits `{"type":"prompt","prompt":…}`; consuming projects' `settings.json` files carry correct prompt entries with no prompt text in any command field |
+| Prompt text emitted into a `command` field, so the harness executes the prompt | **No.** `generate-hooks-artifacts.sh` emits `{"type":"prompt","prompt":…}`; consuming projects carry correct prompt entries with no prompt text in any command field |
 | Stale or broken scaffolded config | **No.** A consuming project's inlined prompts were within ~120 bytes of source |
-| Prompt too large / 5-second timeout | **No.** All three carry `timeout: 60`, and the guard observed "erroring" most often was the *smallest* of the three prompts, not the largest |
+| Prompt too large / short timeout | **No.** All three carry `timeout: 60`, and the guard appearing to "error" most was the *smallest* of the three prompts |
 
-**The one real problem here is legibility**, and it is worth keeping in mind when writing verdict
-reasons: a working guard looks like a failure in the terminal, and the reason is unreadable
-without opening the transcript. Keep reasons short and concrete — the display already buries
-them.
+**The actionable point is legibility**: a working guard looks like a failure in the terminal and
+its reason is unreadable without opening the transcript. Keep verdict reasons short and
+concrete — the display already buries them.
 
 ## Override
 
