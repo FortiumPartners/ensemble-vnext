@@ -1,7 +1,8 @@
 # PRD: Functional Verification of Delivered Software
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Status**: Draft
+**Last Updated**: 2026-08-18 — FR-3, FR-4 and AC-7 amended to match owner decisions taken during TRD review; see the inline *Amended* notes
 **Created**: 2026-08-17
 **Author**: extracted from `docs/modernization/2026-08-improvement-plan.md` item 9a
 **Source**: improvement-plan item 9a, and the owner decisions recorded there 2026-08-16/17
@@ -78,8 +79,15 @@ contract diff — not by an agent asserting success. `status: "success"` is sett
 PNG that exists, is newer than HEAD, and shows the post-login dashboard is not.
 
 Two tiers: existence and freshness are deterministic and cheap and gate the criterion; content
-(does the screenshot show it, does the response match the declared interface) is one agent per
-artifact and runs only on artifacts that passed tier 1.
+(does the screenshot show it, does the response match the declared interface) is judged by **one
+agent per iteration** across all artifacts that passed tier 1.
+
+*Amended 2026-08-18.* This originally said one agent per artifact. Per-artifact fan-out costs N
+app startups competing for one port, each paying the boot cost — for live verification that is not
+an efficiency question, it may simply not work. One exerciser brings the app up once and walks
+every criterion; one judge reads the resulting evidence. Independence is preserved where it
+matters: the judge is a different agent from the exerciser, so it has no stake in its own output,
+and every iteration is a fresh context.
 
 ### FR-4 — Bounded remediation loop
 
@@ -89,9 +97,19 @@ Failures drive an automatic loop: judge → remediate → judge, bounded by
 - **no progress** — an iteration closes zero gaps, exit stalled
 - **3 iterations** — exit STUCK, matching this project's existing retry convention
 
-Remediation is dispatched as a **TRD remediation phase** through the existing phase workflow, not
-as a loose agent, so it inherits wave partitioning, file-conflict serialization, agent selection,
-and the phase gate.
+Remediation is **one `app-debugger` agent per iteration**, handed every gap with its evidence, the
+judge's stated reason and the implicated files. It fixes the code directly.
+
+*Amended 2026-08-18.* This originally required dispatch as a TRD remediation phase through the
+existing phase workflow, for its wave partitioning and file-conflict serialization. That was
+wrong twice over. The phase workflow's gate re-verifies work the loop's own next iteration
+verifies seconds later, and the partitioning solved a conflict that only exists if remediation is
+parallel — one agent fixing gaps sequentially cannot clobber itself. The mechanism was chosen for
+one feature and dragged four unwanted agents and a TRD-mutation step behind it.
+
+**A criterion the judge reports as UNBUILT is not remediated.** `app-debugger`'s mandate excludes
+missing features — that is implementation work. The loop exits and the report states that
+implementation did not deliver, rather than iterating a debugger over absent code.
 
 ### FR-5 — Persist what was learned about how to test this project
 
@@ -127,7 +145,7 @@ that never ran — which is precisely the failure that produced the 4.1.16 defec
 | AC-4 | Each criterion resolves to `met` / `not met` / `not verifiable here`, with an evidence artifact or a stated reason |
 | AC-5 | The loop exits on all three conditions: satisfied, zero-progress, and the 3-iteration cap |
 | AC-6 | The loop is opt-in behind a flag and does not run by default |
-| AC-7 | Remediation is dispatched as a phase through the existing phase workflow, not as a direct agent call |
+| AC-7 | Remediation is one `app-debugger` agent per iteration, fixing code directly; a criterion reported UNBUILT exits rather than being remediated (amended 2026-08-18) |
 | AC-8 | The verifier's notes persist across iterations and record derivation markers |
 | AC-9 | The report names every criterion, including unverifiable ones |
 
