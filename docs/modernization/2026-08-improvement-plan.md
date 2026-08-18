@@ -1530,6 +1530,53 @@ gets told so in the report rather than having one invented for it.
 `verification_level` and honours per-task `[LIVE]` markers. Extending it to read `stack.md` and
 project memory for *how* to exercise the system is the same move one level out.
 
+### `.claude/rules/verification.md` — a fourth governance doc, owner-governed
+
+**Owner proposal, 2026-08-17. Adopted, with one correction to ownership.**
+
+`stack.md` is a declarative inventory — languages, frameworks, hosting, CI/CD. It says nothing
+about **how to reach a running instance**, and that is exactly what a functional verifier needs:
+
+| Section | Example content |
+|---|---|
+| **Local** | how the app is started, which ports, whether a shared localhost convention exists |
+| **Shared environments** | dev/staging instance URLs, who owns them, whether they are safe to exercise |
+| **Preview deployments** | whether the team uses them, how a branch maps to a URL, how long they live |
+| **Verification tooling** | Playwright/browser driver, API client, simulator, load harness — what is actually installed and wired up |
+| **Test identities** | **where** credentials live (env var names, secret-manager item IDs) — **never the values** |
+| **Cannot be verified here** | explicitly: "no browser harness", "no staging" — so the verifier reports rather than invents |
+
+That last row matters as much as the rest. A declared absence turns "we didn't check the UI" from
+an invisible gap into a stated one.
+
+**Ownership: the USER, like `stack.md` — NOT `verify-app`.**
+
+The proposal was for `verify-app` to maintain it. That breaks this project's governance split
+(`constitution.md`): `constitution.md` and `stack.md` are slow-layer, owner-governed, "requires
+confirmation"; only `/update-project` and `/cleanup-project` write `CLAUDE.md`, and only on
+explicit invocation. An agent writing a governance doc as a side effect of its own run is the
+pattern retired in 4.1.0 — `learning.sh` and `save-remote-logs.js` were deleted precisely for
+writing to git on an ambient trigger rather than an explicit request.
+
+The content here is also genuinely a team decision, not an observation: which instance is safe to
+hit, whether preview deploys exist, where secrets live. An agent inferring those from a codebase
+would be guessing at infrastructure policy.
+
+**So the contract is:**
+
+- `verify-app` **reads** it, the same way it already reads `constitution.md` for
+  `verification_level`.
+- `verify-app` **reports discrepancies** — "the documented dev URL is unreachable", "`stack.md`
+  lists Playwright but no config exists" — as findings in its report. It does not edit the file.
+- Updates flow through `/update-project`, which may **propose** changes for confirmation, exactly
+  as it does for `constitution.md` and `stack.md` today.
+- `/init-project` scaffolds it with the "cannot be verified here" section pre-populated, so a new
+  project starts honest rather than silent.
+
+**Security note, load-bearing:** this file is committed. It names **where** credentials live and
+never what they are. A test password in a governance doc is a leaked credential in git history —
+the same class as the `last_assistant_message` leak into the dispatch ledger fixed on 2026-08-16.
+
 ### Loop bound: 3, plus a no-progress exit
 
 **Not 50.** `wiggum.js`'s `DEFAULT_MAX_ITERATIONS = 50` was sized for a turn-by-turn per-task loop
