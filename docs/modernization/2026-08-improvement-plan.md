@@ -1505,6 +1505,68 @@ software functionality rather than test execution. But it is TRD-scoped today �
 mentions, **zero** PRD mentions. Either repoint it or add a sibling whose input is the success
 definition.
 
+### How to verify is the PROJECT's responsibility; we supply hints and the loop
+
+**Owner decision, 2026-08-17. This closes the "how do we exercise a system generically" question
+by declining to solve it generically.**
+
+We do not need a universal verification harness. We need:
+
+1. **The promise** — the functional success definition, derived from the PRD in parallel with
+   implementation (see above).
+2. **An agent that knows HOW to test in this project** — and that knowledge belongs to the
+   project, not to the framework: `CLAUDE.md`, `stack.md`, project memories, git history, the
+   existing test suites.
+3. **A bounded loop** against the promise.
+4. **A clean report** of exactly where things stand.
+
+**The framework supplies hints, not capability.** A stack-keyed table in the agent's prompt —
+web UI → Playwright / browser driving; HTTP API → request/response transcripts diffed against the
+declared interface; mobile → simulator harness; CLI → invoke and assert on output — steers the
+agent toward the right tool. It does not implement any of them. A project with no browser harness
+gets told so in the report rather than having one invented for it.
+
+**This is an existing pattern, not a new one.** `verify-app` already reads `constitution.md` for
+`verification_level` and honours per-task `[LIVE]` markers. Extending it to read `stack.md` and
+project memory for *how* to exercise the system is the same move one level out.
+
+### Loop bound: 3, plus a no-progress exit
+
+**Not 50.** `wiggum.js`'s `DEFAULT_MAX_ITERATIONS = 50` was sized for a turn-by-turn per-task loop
+and is meaningless here. This project's established convention is **3 attempts, then STUCK**
+(`implement-trd.md:599`), and the verification loop should match it — an operator reading a STUCK
+report should not have to learn a second retry rule.
+
+**A raw cap is not enough on its own.** Add a convergence check:
+
+```
+  stop when   verdict.satisfied              -> success
+  stop when   an iteration closes ZERO gaps  -> stalled, more attempts will not help
+  stop when   iterations == 3                -> STUCK, report what remains
+```
+
+The middle condition is the valuable one and it is cheaper than the cap: an iteration that closes
+3 of 5 gaps is converging and has earned another turn; one that closes none is repeating itself,
+and two more rounds of the same will cost three agents apiece to learn nothing. This is the
+`loop-until-dry` shape the Workflow docs already describe, inverted — stop when dry, rather than
+continue until dry.
+
+### The report is a deliverable, not a log line
+
+"Exactly where we are" means, per success criterion:
+
+| | |
+|---|---|
+| **status** | met / not met / **not verifiable here** |
+| **evidence** | the artifact that proves it, or the reason none exists |
+| **attempts** | what remediation tried, across iterations |
+| **blocker** | for anything unmet after the loop ends |
+
+**`not verifiable here` is a first-class outcome**, not a failure. A project with no browser
+harness cannot have its UI criteria verified, and saying so plainly is worth more than a green
+tick from a check that did not run — that failure shape has already cost this project a release
+(`19/19` acceptance criteria met, four defects that would have broken every install).
+
 ### The loop is a WORKFLOW, not a Stop hook — and that is a true Ralph loop
 
 **Owner proposal, 2026-08-17, and researching the original pattern confirms it.**
