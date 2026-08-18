@@ -10,6 +10,43 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.17] - 2026-08-17
+
+### Fixed
+
+- **The discipline judges sometimes answered in prose instead of calling `submit`.** With no
+  structured verdict the harness recorded the loose output as a `hookErrors` entry, formatted
+  `[<the entire 13-17 KB prompt>]: <reasoning>`, which the CLI renders as
+  `Stop hook error:` followed by pages of prompt and no useful information.
+
+  **Measured: 31 of 257 evaluations, 12.1%.** It occurred on **ALLOW verdicts as well as
+  blocks** — which is what proved it a response-format defect rather than a guard failing to
+  run. The guards were working throughout; the display was reporting their reasoning as an
+  error.
+
+  Root cause: the prompts carried **zero** instruction that the response must be the tool call
+  alone, and **ended** on the violation branch (*"Call `submit` with `ok: false` and a
+  `reason`…"* plus three sub-points on composing a good reason). The last thing the judge read
+  was an instruction to write prose.
+
+  Fixed in `build-judge-prompts.js` — the generator, not the generated files — by appending a
+  response contract as the final section of all three prompts: *"Your entire response is a
+  single `submit` tool call. Nothing else."* with an explicit escape for the observed failure
+  mode: if you find yourself composing an explanation for why something is fine, call
+  `submit({ ok: true })`.
+
+### Added
+
+- **`packages/core/scripts/hook-verdict-rate.js`** — measures the prose-leak rate from any
+  session transcript, so the fix is verified by counting rather than by looking. 88% of
+  evaluations were already invisible, so absence of the symptom over a few turns proves
+  nothing. Exits non-zero above a 5% leak rate.
+
+  It encodes the two counting traps that cost real time during the investigation: count
+  `hookErrors` **array entries, not records** (one Stop event where both guards fire yields one
+  record with two entries), and `preventedContinuation` is **not** "was this blocked?" — it was
+  `false` on all 251 records including every one carrying a block.
+
 ## [4.1.16] - 2026-08-16
 
 ### Changed
