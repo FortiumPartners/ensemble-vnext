@@ -1530,52 +1530,56 @@ gets told so in the report rather than having one invented for it.
 `verification_level` and honours per-task `[LIVE]` markers. Extending it to read `stack.md` and
 project memory for *how* to exercise the system is the same move one level out.
 
-### `.claude/rules/verification.md` — a fourth governance doc, owner-governed
+### `.claude/verification-notes.md` — the verifier's OWN memory, agent-written
 
-**Owner proposal, 2026-08-17. Adopted, with one correction to ownership.**
+**Owner correction, 2026-08-17. I first proposed this as a governance doc and objected to
+`verify-app` maintaining it. Both halves of that were wrong.**
 
-`stack.md` is a declarative inventory — languages, frameworks, hosting, CI/CD. It says nothing
-about **how to reach a running instance**, and that is exactly what a functional verifier needs:
+This is not governance. It is the **disk half of the Ralph loop** — *"the file system instead of
+conversation history as its memory."* A fresh context each iteration is only affordable if the
+expensive discoveries persist. Without this file, every iteration rediscovers the boot sequence,
+the health endpoint, the seeding step, and where the Playwright config actually lives.
 
-| Section | Example content |
-|---|---|
-| **Local** | how the app is started, which ports, whether a shared localhost convention exists |
-| **Shared environments** | dev/staging instance URLs, who owns them, whether they are safe to exercise |
-| **Preview deployments** | whether the team uses them, how a branch maps to a URL, how long they live |
-| **Verification tooling** | Playwright/browser driver, API client, simulator, load harness — what is actually installed and wired up |
-| **Test identities** | **where** credentials live (env var names, secret-manager item IDs) — **never the values** |
-| **Cannot be verified here** | explicitly: "no browser harness", "no staging" — so the verifier reports rather than invents |
+Two different kinds of knowledge, and I collapsed them:
 
-That last row matters as much as the rest. A declared absence turns "we didn't check the UI" from
-an invisible gap into a stated one.
+| | Owner | Lives in |
+|---|---|---|
+| **Governance** — how things SHOULD be: coverage floors, verification level, prohibited patterns | human, requires confirmation | `constitution.md`, `stack.md`, `CLAUDE.md` |
+| **Learned mechanics** — how this app ACTUALLY works: boot time, health path, seed script, harness location, which env vars must be set | **the verifier**, by design | `.claude/verification-notes.md` |
 
-**Ownership: the USER, like `stack.md` — NOT `verify-app`.**
+An agent writing the second is not an agent rewriting policy. The 4.1.0 precedent I cited
+(`learning.sh`, `save-remote-logs.js`) is about agents mutating governance and committing on
+ambient triggers — a different thing from an agent keeping its own notes.
 
-The proposal was for `verify-app` to maintain it. That breaks this project's governance split
-(`constitution.md`): `constitution.md` and `stack.md` are slow-layer, owner-governed, "requires
-confirmation"; only `/update-project` and `/cleanup-project` write `CLAUDE.md`, and only on
-explicit invocation. An agent writing a governance doc as a side effect of its own run is the
-pattern retired in 4.1.0 — `learning.sh` and `save-remote-logs.js` were deleted precisely for
-writing to git on an ambient trigger rather than an explicit request.
+**Not in `.claude/rules/`.** That directory signals governance; putting agent-written notes there
+invites exactly the confusion above. Committed, so the team and every future run share it.
 
-The content here is also genuinely a team decision, not an observation: which instance is safe to
-hit, whether preview deploys exist, where secrets live. An agent inferring those from a codebase
-would be guessing at infrastructure policy.
+**What it holds** — observations, not decisions:
 
-**So the contract is:**
+- how the app starts, how long it takes, how you know it is ready
+- the health/readiness path, and what a healthy response looks like
+- setup steps a cold environment needs (seed scripts, migrations, fixture users)
+- where the harness config actually is, and how to invoke it
+- known-flaky checks and what makes them flake
+- **what could not be verified, and why** — so a later run does not re-attempt a dead end
 
-- `verify-app` **reads** it, the same way it already reads `constitution.md` for
-  `verification_level`.
-- `verify-app` **reports discrepancies** — "the documented dev URL is unreachable", "`stack.md`
-  lists Playwright but no config exists" — as findings in its report. It does not edit the file.
-- Updates flow through `/update-project`, which may **propose** changes for confirmation, exactly
-  as it does for `constitution.md` and `stack.md` today.
-- `/init-project` scaffolds it with the "cannot be verified here" section pre-populated, so a new
-  project starts honest rather than silent.
+**Team decisions still belong to the owner.** Which shared instance is safe to exercise, whether
+preview deployments exist, where secrets live — those are infrastructure policy, not observation.
+They belong in `stack.md`, and the notes file may only record what it OBSERVED about them.
 
-**Security note, load-bearing:** this file is committed. It names **where** credentials live and
-never what they are. A test password in a governance doc is a leaked credential in git history —
-the same class as the `last_assistant_message` leak into the dispatch ledger fixed on 2026-08-16.
+**Two disciplines this file needs, learned the hard way today.**
+
+1. **Every note carries how it was established.** The `[read]` / `[ran]` / `[inferred]` markers
+   already used in task grounding apply directly. *"Health path is `/healthz` `[ran]`"* is worth
+   keeping; *"health path is probably `/health` `[inferred]`"* is a lead, not a fact.
+2. **A note that fails must be corrected, never worked around.** If the file says `/healthz` and
+   it 404s, the fix is to update the note — a stale note is worse than no note, because the next
+   fresh context trusts it completely. This session wrote three successive wrong conclusions into
+   a rule file before the data settled it; agent-written memory has the same failure mode and no
+   reviewer.
+
+**Security is unchanged:** the file is committed. It records WHERE credentials come from, never
+their values.
 
 ### Loop bound: 3, plus a no-progress exit
 
