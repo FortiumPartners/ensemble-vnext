@@ -39,7 +39,7 @@ Phase Loop (per phase N):
   mark phase N's tasks in_progress (state-write-before-dispatch)
   -> Workflow(implement-phase, {trd, phase: N, tasks, gate, project})
        (per task, inside the workflow: IMPLEMENT -> checks -> [self-debug on fail])
-       (phase gate, inside the workflow: verify-app -> code-simplifier -> phase-scoped /code-review high)
+       (phase gate, inside the workflow: verify-app -> phase-scoped /code-review high)
   -> command runs the full deterministic battery (resolved per project) at the phase gate
   -> on failure: retry the WHOLE phase (whole-phase retry, capped) or STUCK
   -> checkpoint + commit + PHASE banner -> next phase (no pause)
@@ -466,15 +466,15 @@ Workflow({ name: "implement-phase", args: {
     waves: phaseWaves,
     records: phaseTaskIds.map(id => ({ ...taskRecord(id), prompt: assembledPrompt(id), agentType: agentTypeFor(id) }))
   },
-  gate: { verifyPrompt, simplifyPrompt, reviewPrompt },   // Step 4.3
+  gate: { verifyPrompt, reviewPrompt },   // Step 4.3
   project: ""   // set only when the TRD targets a codebase other than this repo
 } })
 ```
 
 ### 4.3 Assemble the phase-gate prompts
 
-`implement-phase.js` runs these three **inside** the workflow (`verify-app` and
-`code-simplifier` dispatched by `agentType`, foreground; the review is a foreground
+`implement-phase.js` runs these two **inside** the workflow (`verify-app`
+dispatched by `agentType`, foreground; the review is a foreground
 `agent()` call whose prompt instructs it to invoke the `/code-review` Skill — that skill
 self-forks to background, which is what satisfies "costs no orchestrator context" without
 the workflow needing a background variant of `agent()` itself). This command assembles all
@@ -495,20 +495,6 @@ coverage %. Read .claude/rules/constitution.md's verification_level; if any task
 phase carries [LIVE] or the level is live-required/e2e-required, start the service and
 verify against a running instance — do not approve on mocked tests alone.
 Return status "pass" only when every acceptance criterion above is met.
-</instructions>
-```
-
-**`simplifyPrompt`** — across the phase's changed files:
-
-```xml
-<simplification_request phase="{N}">
-  <files_to_simplify>{git diff --name-only since last checkpoint}</files_to_simplify>
-</simplification_request>
-<instructions>
-Read every file listed and apply concrete improvements (reduce complexity, eliminate
-duplication, improve naming, early returns, extract reusable functions). If already
-clean, say so with specific evidence — never skip silently. All tests must still pass.
-Return changed: true/false and a one-line summary.
 </instructions>
 ```
 

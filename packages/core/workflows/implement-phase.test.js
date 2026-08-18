@@ -182,25 +182,19 @@ describe('implement-phase: gate fallbacks (dead gate agents)', () => {
   // reader of the phase result to distinguish "simplifier died" from "simplifier had no work."
   // This is a known reporting fail-open (see the team-lead's brief); this test documents current
   // behaviour so a future change to it is a deliberate diff, not a silent regression.
-  it('distinguishes a dead code-simplifier from a genuine no-change via simplifyReported', async () => {
+  it('reports simplify as skipped, not no-change, now that the stage is removed', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:code-simplifier') return undefined; // dead
       if (opts.label === 'gate:review') return { findings: 0 };
       return null;
     });
-
-    const { result, logs } = await runWorkflow(SOURCE, {
-      agent,
-      parallel: makeParallelStub(),
-      args: baseArgs(),
+    const { result } = await runWorkflow(SOURCE, {
+      agent, parallel: makeParallelStub(), args: baseArgs(),
     });
-
-    expect(result.gate.simplify).toBe('no-change');
-    // The phase still "completes" -- the dead simplifier does not fail the gate.
-    expect(result.status).toBe('complete');
-    expect(logs.some((l) => /code-simplifier returned nothing/i.test(l))).toBe(true);
+    // 'skipped' is deliberately distinct from 'no-change': one means the stage does not exist,
+    // the other meant a simplifier ran and found nothing. Collapsing them would hide the removal.
+    expect(result.gate.simplify).toBe('skipped');
   });
 
   // FIXED 2026-08-16. findings still defaults to 0 (there is no honest alternative number),
@@ -229,17 +223,18 @@ describe('implement-phase: gate fallbacks (dead gate agents)', () => {
   });
 });
 
-describe('implement-phase: post-simplify re-verification', () => {
-  // FIXED 2026-08-16. Previously `gateOk` read a verifyStatus captured BEFORE code-simplifier
-  // ran, so a refactor that reddened the suite still produced a 'complete' phase. The
-  // pre-rework loop ran VERIFY twice for exactly this reason; the rework dropped the second
-  // pass. The script now re-verifies when, and only when, the simplifier reports `changed`.
-  it('re-verifies after a simplifier that changed code, and fails the phase when the re-verify is red', async () => {
+describe('implement-phase: the simplifier stages are GONE', () => {
+  // REMOVED 2026-08-18, owner decision. gate:code-simplifier reported `no-change` in every
+  // phase of every measured run, and gate:verify-app (post-simplify) fires only when the
+  // simplifier changed something -- so it never fired. 1-2 of the gate's 4 agents for zero
+  // observed benefit, paid once per phase forever.
+  //
+  // These tests replace the ones that pinned those stages. They assert ABSENCE, which is the
+  // only thing that catches a silent reintroduction.
+  it('dispatches exactly two gate agents: verify-app then review', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:code-simplifier') return { changed: true, notes: 'refactored X' };
-      if (opts.label === 'gate:verify-app (post-simplify)') return { status: 'fail' };
       if (opts.label === 'gate:review') return { findings: 0 };
       return null;
     });
@@ -248,47 +243,43 @@ describe('implement-phase: post-simplify re-verification', () => {
       agent, parallel: makeParallelStub(), args: baseArgs(),
     });
 
-    expect(result.gate.simplify).toBe('changed');
-    expect(result.gate.postSimplify).toBe('fail');
-    expect(result.status).toBe('failed');
-    expect(agent.calls.some((c) => c.opts.label === 'gate:verify-app (post-simplify)')).toBe(true);
-  });
-
-  it('does NOT re-verify when the simplifier changed nothing — the first pass stands', async () => {
-    const agent = makeAgentStub((prompt, opts) => {
-      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
-      if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:code-simplifier') return { changed: false };
-      if (opts.label === 'gate:review') return { findings: 0 };
-      return null;
-    });
-
-    const { result } = await runWorkflow(SOURCE, {
-      agent, parallel: makeParallelStub(), args: baseArgs(),
-    });
-
-    // Conditional on `changed` so the common case costs nothing — re-running verify over an
-    // unchanged tree can only reproduce the result already in hand.
-    expect(agent.calls.some((c) => c.opts.label === 'gate:verify-app (post-simplify)')).toBe(false);
-    expect(result.gate.postSimplify).toBeNull();
+    const gateLabels = agent.calls.map((c) => c.opts.label).filter((l) => l.startsWith('gate:'));
+    expect(gateLabels).toEqual(['gate:verify-app', 'gate:review']);
     expect(result.status).toBe('complete');
   });
 
-  it('a dead post-simplify verify fails the phase rather than defaulting green', async () => {
+  it('never dispatches code-simplifier or a post-simplify re-verify', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:code-simplifier') return { changed: true };
+      if (opts.label === 'gate:review') return { findings: 2 };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+
+    const labels = agent.calls.map((c) => c.opts.label);
+    expect(labels.some((l) => l.includes('simplif'))).toBe(false);
+    expect(labels.filter((l) => l === 'gate:verify-app')).toHaveLength(1);
+  });
+
+  it('reports simplify as skipped in the returned gate shape', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
+      if (opts.label === 'gate:verify-app') return { status: 'pass' };
       if (opts.label === 'gate:review') return { findings: 0 };
-      return undefined;   // post-simplify verify dies
+      return null;
     });
 
     const { result } = await runWorkflow(SOURCE, {
       agent, parallel: makeParallelStub(), args: baseArgs(),
     });
 
-    expect(result.gate.postSimplify).toBe('fail');
-    expect(result.status).toBe('failed');
+    // Kept in the shape rather than deleted so a consumer sees an explicit skipped/null
+    // instead of an absent key it might read as undefined-means-passed.
+    expect(result.gate.simplify).toBe('skipped');
+    expect(result.gate.simplifyReported).toBe(false);
+    expect(result.gate.postSimplify).toBeNull();
   });
 });
 

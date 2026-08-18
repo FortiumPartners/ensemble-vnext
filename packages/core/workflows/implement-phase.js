@@ -4,7 +4,7 @@ export const meta = {
   whenToUse: 'Invoked by /implement-trd once per phase, after the command has computed the wave partition (task-graph.js) and pre-assembled every prompt this script needs. This script opens no file and runs no shell -- every input arrives in args. It dispatches each eligibility wave of tasks in parallel, awaits sequentially between waves so a later wave never starts before an earlier one that shares a touched file finishes, then gates the phase with verify-app, code-simplifier and a phase-scoped code review.',
   phases: [
     { title: 'Dispatch', detail: 'run each wave of tasks in parallel, sequential between waves (D7)' },
-    { title: 'Gate', detail: 'verify-app, code-simplifier, phase-scoped code review' },
+    { title: 'Gate', detail: 'verify-app, then phase-scoped code review' },
   ],
 }
 
@@ -206,56 +206,24 @@ if (!verifyResult) log('WARNING: gate:verify-app returned nothing -- treating th
 const verifyStatus = verifyResult ? verifyResult.status : 'fail'
 log(`gate: verify-app -> ${verifyStatus}`)
 
-const simplifyResult = await agent(GATE.simplifyPrompt, {
-  label: 'gate:code-simplifier',
-  phase: `Phase ${PHASE}`,
-  agentType: 'code-simplifier',
-  schema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['changed'],
-    properties: {
-      changed: { type: 'boolean' },
-      notes: { type: 'string' },
-    },
-  },
-})
-if (!simplifyResult) log('WARNING: gate:code-simplifier returned nothing -- recording no-change rather than dereferencing it')
-const simplifyReported = Boolean(simplifyResult)
-const simplifyStatus = simplifyResult && simplifyResult.changed ? 'changed' : 'no-change'
-log(`gate: code-simplifier -> ${simplifyStatus}`)
-
-// RE-VERIFY AFTER SIMPLIFICATION -- only when the simplifier actually edited files.
+// REMOVED 2026-08-18: gate:code-simplifier and gate:verify-app (post-simplify).
 //
-// Without this, `gateOk` below reads a verifyStatus captured BEFORE the simplifier ran, so
-// a refactor that reddens the suite still yields a "complete" phase. The pre-rework loop
-// ran VERIFY twice for exactly this reason (`verify_post_simplify` was a first-class cycle
-// position); the rework collapsed the stages and dropped the second one without recording
-// where it went. Found 2026-08-16 by the regression review lens.
+// The simplifier reported `no-change` in every phase of every measured run, and the
+// post-simplify re-verify exists ONLY to catch a simplifier that broke something -- so it
+// never fired either. Together they were 1-2 of the gate's 4 agents for zero observed
+// benefit, paid once per phase forever.
 //
-// Conditional on `changed` so the common case costs nothing: a simplifier reporting
-// no-change edited nothing, and re-running verify-app over an unchanged tree can only
-// reproduce the result already in hand.
-let postSimplifyStatus = null
-if (simplifyStatus === 'changed') {
-  const reVerify = await agent(GATE.verifyPrompt, {
-    label: 'gate:verify-app (post-simplify)',
-    phase: `Phase ${PHASE}`,
-    agentType: 'verify-app',
-    schema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['status'],
-      properties: {
-        status: { type: 'string', enum: ['pass', 'fail'] },
-        notes: { type: 'string' },
-      },
-    },
-  })
-  if (!reVerify) log('WARNING: gate:verify-app (post-simplify) returned nothing -- treating the phase gate as failed on this stage')
-  postSimplifyStatus = reVerify ? reVerify.status : 'fail'
-  log(`gate: verify-app (post-simplify) -> ${postSimplifyStatus}`)
-}
+// The post-simplify re-verify was itself added on 2026-08-16 to fix a real defect (gateOk
+// read a verifyStatus captured before the simplifier ran, so a refactor that reddened the
+// suite still passed). Removing the simplifier removes the defect's cause, so the fix goes
+// with it rather than guarding a stage that no longer exists.
+//
+// Refactoring is not abandoned -- it moves to where it has an objective. The end-of-run
+// hardening pass still reviews the whole branch, and a task whose TRD asks for refactoring
+// gets an implementer that does it.
+const simplifyStatus = 'skipped'
+const simplifyReported = false
+const postSimplifyStatus = null
 
 // The review prompt is pre-assembled by the command and already names the phase diff range,
 // not the branch (§3.4) -- this script computes no diff and runs no git command. It also
@@ -299,7 +267,9 @@ log(`gate: review -> ${reviewFindings} finding(s): ${reviewApplied} applied, ${r
 const allTasksOk = deadTasks.length === 0
 // Both verify passes must be green. postSimplifyStatus is null when the simplifier changed
 // nothing, in which case there is nothing new to verify and the first pass stands.
-const gateOk = verifyStatus === 'pass' && postSimplifyStatus !== 'fail'
+// postSimplifyStatus is always null now (the stage is gone); kept in the return shape so a
+// consumer reading gate.postSimplify sees an explicit null rather than an absent key.
+const gateOk = verifyStatus === 'pass'
 const status = allTasksOk && gateOk ? 'complete' : 'failed'
 
 return {
