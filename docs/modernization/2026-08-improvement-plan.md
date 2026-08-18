@@ -1472,41 +1472,59 @@ catastrophic granularity mismatch for "the login button 404s". Wiggum's existing
 with tasks incomplete) is correctly scoped because its unit matches: task and phase. Verification's
 unit is a **defect**, and it does not.
 
-### PRD gaps are not issues — they are unbuilt work
+### The design: a parallel success-definition pass + a re-triggerable post-implement gate
 
-**Owner correction, second pass.** Routing verification failures through
-`/investigate-issue` → `/fix-issue` is wrong. That chain exists for a **bug report against
-shipped software**: unverified on arrival, so it must be reproduced and classified before anyone
-acts.
-
-A PRD verification failure is neither. The implement chain just ran, the verifier proved the
-failure with evidence, and the requirement it violates is written down. **There is nothing to
-triage** — you already know what is missing, that it is real, and why it matters. Sending it to
-bug-triage adds a classification step whose answer is already in hand.
-
-What a PRD gap actually is: **work the implementation chain has not done.** Its natural container
-is a **TRD task** — which `/implement-trd` already consumes, tracks in `implement.json`, schedules
-into phases, and gates.
+**Owner proposal, 2026-08-17. This supersedes the remediation-phase sketch below it, and it is
+better for a specific reason: it removes the upstream blocker.**
 
 ```
-  /verify-prd     run the built system against the PRD's functional requirements
-                  → per requirement: PASS + evidence, or FAIL + evidence
-                       ↓ append a REMEDIATION PHASE to the TRD, one task per failure,
-                         each carrying the failing requirement and the evidence
-  /implement-trd --phase N     runs only that phase
-                       ↓
-  /verify-prd     again, until zero failures
+  DURING implementation (parallel, off the critical path)
+    subagent reads the PRD -> "true functional success" definition
+      independent of the TRD by construction: it never sees the TRD,
+      so it cannot inherit the TRD's interpretation of the PRD
+
+  AFTER everything else in /implement-trd
+    verification agent runs TRUE end-to-end checks against that definition
+      -> per criterion: PASS + evidence, or FAIL + evidence
+      -> re-triggerable: a small step, cheap to run again
 ```
 
-**This also fixes the granularity objection properly.** The earlier complaint was that blocking
-`Stop` can only re-run existing phases. Appending a phase containing *only* the gap tasks is
-exactly the right unit: `/implement-trd --phase N` already exists and runs that phase alone.
-Nothing re-runs, no graph replay, and the task graph's file-conflict serialization applies to the
-new tasks for free.
+**Why this beats the previously-recorded design.** That one required `/create-prd` to name
+evidence per functional requirement before anything could be built — upstream, expensive,
+blocking. Deriving the success definition from the PRD at implement time removes that dependency
+entirely. No format change, nothing to sequence first.
 
-`/fix-issue` stays what it is — for defects reported against shipped software, outside a TRD
-cycle. The two paths stay separate because their inputs differ in kind: one is a claim needing
-verification, the other is a verified gap needing implementation.
+**Why parallel matters twice.** It costs no wall clock, and the independence is load-bearing: a
+success definition written after reading the TRD would restate the TRD. Today's regression review
+lens found two release-breakers precisely because it compared old against new instead of reviewing
+the new code on its own terms — same principle.
+
+**`verify-app` is a repointing, not a new capability.** It already carries Verification Level
+Enforcement (`unit-only` / `live-required` / `e2e-required`) and already claims to confirm
+software functionality rather than test execution. But it is TRD-scoped today — 26 TRD/acceptance
+mentions, **zero** PRD mentions. Either repoint it or add a sibling whose input is the success
+definition.
+
+### The two things this design still owes
+
+**1. What changes between iterations.** Re-running a verifier against unchanged code returns the
+same answer. "Re-triggered many times, iterating toward the solution" needs a remediation step
+between runs. The remediation-phase mechanism below still applies — appending gap tasks and
+running `/implement-trd --phase N` — but it is far lighter here, because the success definition
+gives precise targets rather than a vague gap list.
+
+**2. The success definition is an INTERPRETATION and can manufacture.** An agent asked "what does
+true success look like?" will produce criteria whether or not the PRD supports them. That is item
+10's exact failure, in a new place. It needs the discipline the generators already carry:
+
+> **Every success criterion cites the PRD line it derives from. A criterion that cannot cite one
+> is dropped, not invented.** Domain-derived criteria (a payment flow must not double-charge) are
+> permitted but must be labelled as such, exactly as `/create-trd` labels domain-derived
+> objectives.
+
+Without that rule the verifier tests requirements nobody wrote, and its failures generate
+remediation work nobody asked for — the most expensive possible form of manufactured requirement,
+because it is executed rather than merely read.
 
 ### Evidence, still — that part survives
 
