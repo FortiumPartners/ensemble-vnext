@@ -176,6 +176,36 @@ action as imminent-and-unstarted and the turn ends right there, contradicted by 
 Ambiguous cases (is this stage-setting for something the message goes on to do, or a bare
 assertion the turn stops on?) fail open — allow.
 
+## When the judge ERRORS rather than allowing or blocking
+
+Observed 2026-08-16 in a consuming project (`lightning-lane-dining`): a `Stop` turn produced
+`Stop hook error:` followed by the guard's own prompt text, instead of a verdict.
+
+**It is fail-open, so a session is never wedged by it** — see "How the guard works". But an
+erroring judge is a guard that is not guarding, and nothing records that it happened: a
+prompt-type hook runs no code of ours, so there is no place for us to log the failure. Repeated
+errors mean the discipline guards are silently off while still appearing configured.
+
+**Ruled out on 2026-08-16, so nobody re-derives them:**
+
+| Hypothesis | Verdict |
+|---|---|
+| Prompt text emitted into a `command` field (would make the harness execute the prompt, and the error text WOULD be the prompt) | **No.** `generate-hooks-artifacts.sh` emits `{"type":"prompt","prompt":…}` for prompt-type entries; the consuming project's `settings.json` has three correct prompt-type entries and no prompt text in any command field |
+| Stale or broken scaffolded config | **No.** That project's inlined prompts were within ~120 bytes of source — essentially current |
+| 5-second timeout | **No.** All three prompt hooks carry `timeout: 60` |
+
+**Not ruled out, and untested:** these prompts are large (13.6–16.9 KB) and `$ARGUMENTS` embeds
+`last_assistant_message`, so a long final message makes for a large evaluation. The observed
+error followed an unusually long final message. That is a correlation of one, not a cause — do
+not act on it without more instances.
+
+**What to capture if it recurs:** the text AFTER the echoed prompt. That is the actual failure
+reason (rate limit, context length, malformed tool call, evaluator unavailable) and it is the
+only thing that distinguishes a transient platform fault from a prompt that breaks the judge
+under some condition. Also note whether the final message was unusually long, and how many Stop
+hooks ran — this framework registers four (`async-discipline`, `autonomy-discipline`,
+`wiggum.js`, `notify.sh`); a fifth is something else in that project.
+
 ## Override
 
 **There is no runtime kill switch, and as of 4.1.11 there is no build-time one either.**
