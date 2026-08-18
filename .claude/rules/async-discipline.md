@@ -176,48 +176,58 @@ action as imminent-and-unstarted and the turn ends right there, contradicted by 
 Ambiguous cases (is this stage-setting for something the message goes on to do, or a bare
 assertion the turn stops on?) fail open — allow.
 
-## "Stop hook error" carries a real verdict — what is evidenced, and what is not
+## "Stop hook error" is a guard BLOCKING, not a guard failing
 
-**Do not read a `Stop hook error:` line as a broken guard.** Every one inspected carried a
-genuine verdict reason. But the underlying mechanism is NOT documented, and an earlier version
-of this section overstated it as settled. What follows separates the two.
+**Do not read a `Stop hook error:` line as a broken hook.** It is how a prompt-type hook's
+block surfaces, and the accounting is exact.
 
-### Evidenced, from one full session's transcript (2026-08-16)
+### The accounting, from one full session's transcript (2026-08-16)
 
-- 251 `stop_hook_summary` records; **27 with a non-empty `hookErrors`**.
-- **Every one of the 27 carried a real verdict reason**, formatted as
-  `[<the entire 13-17 KB prompt text>]: <reason>` — roughly half autonomy, half async, zero
-  unexplained. Each matched a block the agent received as "Stop hook feedback" and acted on.
-- The CLI renders these as `Stop hook error:` followed by the leading prompt text, so the
-  reason sits ~13,000 characters in and is invisible in normal output.
-- `hookInfos` lists only **command** hooks with `durationMs`. Prompt hooks do not appear there.
-- **`preventedContinuation` was `false` on all 251 records, including all 27** — because the
-  session continued afterward with corrected behaviour. Reading it as "was this blocked?" gives
-  exactly the wrong answer; that misread caused a correct hypothesis to be discarded once
-  already. To find blocks: non-empty `hookErrors`, split on `]: `, read the tail.
+| | |
+|---|---|
+| `stop_hook_summary` records | 251 |
+| …with a non-empty `hookErrors` | 27 — **24 holding one reason, 3 holding two** |
+| **total reasons across those records** | **30** |
+| prompt-hook blocks the agent actually received | **30** (15 autonomy + 15 async) |
+| `/goal` blocks received | 7 — a different mechanism, correctly producing no `hookErrors` |
 
-### NOT evidenced — do not repeat these as fact
+**30 = 30, exactly.** Every prompt-hook block produces one `hookErrors` entry; a single Stop
+event where BOTH guards block yields one record with a two-element array. An earlier version of
+this section reported a "gap of 3" — that was counting records instead of entries.
 
-- **That `hookErrors` is simply how the harness records a block.** The session received ~30
-  autonomy/async blocks against 27 `hookErrors` records. That gap may be classification error
-  (the counting was heuristic on message text) or may mean some blocks record differently. It
-  was not resolved.
-- **Anything from the docs.** `code.claude.com/docs/en/hooks` documents the `prompt` hook type
-  and its `prompt` / `$ARGUMENTS` / `model` fields — matching this project's config — but states
-  it does not detail how a blocking decision is surfaced, and does not mention `hookErrors` or
-  `preventedContinuation` at all. The mechanism here is inferred from transcript data only.
+Each entry is formatted `[<the entire 13-17 KB prompt text>]: <reason>`. The CLI renders it as
+`Stop hook error:` followed by the leading prompt, so the reason sits ~13,000 characters in and
+never appears in normal output.
+
+### Two fields that mislead
+
+- **`preventedContinuation` is NOT "was this blocked?"** It was `false` on all 251 records,
+  including all 27 that carried blocks, because the session continued afterward with corrected
+  behaviour. Misreading it caused a correct hypothesis to be discarded once already.
+- **`hookInfos` lists only `command` hooks**, with `durationMs`. Prompt hooks never appear there,
+  so a prompt hook's absence from `hookInfos` means nothing.
+
+**To find blocks in a transcript:** non-empty `hookErrors` → iterate the array (not the record)
+→ split each entry on `]: ` → read the tail.
+
+### Status of this claim
+
+The accounting above is exact and reproducible from the transcript. The *mechanism* is still
+inferred: `code.claude.com/docs/en/hooks` documents the `prompt` hook type and its
+`prompt` / `$ARGUMENTS` / `model` fields, but explicitly does not detail how a blocking decision
+is surfaced, and does not mention `hookErrors` or `preventedContinuation` at all. Treat the
+numbers as fact and the mechanism as a well-supported inference.
 
 ### Eliminated hypotheses, so nobody re-derives them
 
 | Hypothesis | Verdict |
 |---|---|
-| Prompt text emitted into a `command` field, so the harness executes the prompt | **No.** `generate-hooks-artifacts.sh` emits `{"type":"prompt","prompt":…}`; consuming projects carry correct prompt entries with no prompt text in any command field |
+| Prompt text emitted into a `command` field, so the harness executes the prompt | **No.** The generator emits `{"type":"prompt","prompt":…}`; consuming projects carry correct entries with no prompt text in any command field |
 | Stale or broken scaffolded config | **No.** A consuming project's inlined prompts were within ~120 bytes of source |
-| Prompt too large / short timeout | **No.** All three carry `timeout: 60`, and the guard appearing to "error" most was the *smallest* of the three prompts |
+| Prompt too large / short timeout | **No.** All three carry `timeout: 60`, and the guard appearing to "error" most was the *smallest* prompt |
 
-**The actionable point is legibility**: a working guard looks like a failure in the terminal and
-its reason is unreadable without opening the transcript. Keep verdict reasons short and
-concrete — the display already buries them.
+**The one real problem is legibility** — a working guard looks like a failure and its reason is
+unreadable without opening the transcript. Keep verdict reasons short and concrete.
 
 ## Override
 
