@@ -1581,6 +1581,58 @@ They belong in `stack.md`, and the notes file may only record what it OBSERVED a
 **Security is unchanged:** the file is committed. It records WHERE credentials come from, never
 their values.
 
+### Resolved design decisions (2026-08-17)
+
+**D-9a-1: remediation is a TRD PHASE dispatch, not a loose agent.**
+
+I had drifted to writing *"agent(remediate: fix exactly verdict.gaps)"*, which leaves scope
+unbounded — and an unscoped agent inside a loop that runs three times is how a fix for criterion 3
+breaks criterion 1. That is the same file-conflict problem `task-graph.js` already solves, and a
+bare agent call throws the solution away.
+
+**Decision:** each verification failure becomes a task appended to the TRD as a remediation phase,
+and the loop dispatches `implement-phase.js` for that phase — the same workflow the implement loop
+already uses. It inherits, for free:
+
+- wave partitioning and **file-conflict serialization** across simultaneous gap fixes
+- `agentType` resolution (TRD assignment → keyword → `backend-implementer`)
+- the phase gate: `verify-app`, `code-simplifier`, post-simplify re-verify, scoped review
+- per-task `filesChanged` accounting, and `retry_count` / `current_problem` on disk
+
+No new agent type. No new scope mechanism. The remediation step is a phase, and the loop is the
+thing that decides whether to run another one.
+
+**D-9a-2: the loop is OPT-IN — `/implement-trd --verify-functional`, default off.**
+
+Three iterations of (judge + remediation phase) is roughly a 40% agent increase on a command whose
+headline result is 1.0 agents per task, and the harness cost on top is unmeasured. Turning that on
+for every run without a number would repeat the mistake this project keeps finding — shipping a
+cost nobody priced.
+
+It also matches existing convention: `/audit-build` is an expensive verification wave and is
+invoked deliberately, not automatically. Default flips to on once a real run produces a cost
+figure, which is a measurement, not a design question.
+
+**D-9a-3: the promise lives at `.trd-state/<feature>/success-definition.md`.**
+
+Markdown, one criterion per row: id, the functional statement, the **PRD line it cites**, the
+evidence that would prove it, and how it was derived (`[read]` / `[inferred]` / `domain-derived`).
+Sits beside `implement.json` because it is per-feature working state with the same lifetime.
+
+**If the PRD yields no citable criteria, the pass writes that and the loop does not run.** An
+empty success definition is a correct, reportable outcome. Inventing criteria to have something to
+verify is the manufactured-requirement failure in its most expensive form — the invented criterion
+generates remediation work that is then *executed*.
+
+**D-9a-4: ordering and re-trigger.**
+
+The loop runs at the very tail of `/implement-trd`, **after** Step 7's end-of-run hardening and
+full-branch review — so the code being verified is the code after review fixes land, not before.
+
+Re-triggering runs the loop again from current disk state: the success definition and prior gaps
+are already persisted, so a re-trigger resumes rather than restarting. That is the Ralph property
+doing real work — fresh context, disk state, no re-derivation.
+
 ### Loop bound: 3, plus a no-progress exit
 
 **Not 50.** `wiggum.js`'s `DEFAULT_MAX_ITERATIONS = 50` was sized for a turn-by-turn per-task loop
