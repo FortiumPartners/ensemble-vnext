@@ -458,6 +458,35 @@ condition?`,
   },
 };
 
+// The LAST thing the judge reads. Deliberately placed after the violation
+// instructions, which end on "compose a good reason" and otherwise leave the
+// model primed to write prose.
+//
+// WHY THIS EXISTS: measured 2026-08-16 over one session -- 31 of 251 hook
+// evaluations (~12%) recorded a `hookErrors` entry containing the judge's
+// REASONING TEXT, for ALLOW verdicts as well as blocks. The CLI renders those as
+// "Stop hook error:" followed by the entire 13-17 KB prompt, so the operator sees
+// pages of prompt and no useful information. The prompt had zero instructions
+// that the response must be the tool call alone, and ended on the branch that
+// asks for a written reason.
+const RESPONSE_CONTRACT_BLOCK = `## How to respond — this overrides any impulse to explain
+
+**Your entire response is a single \`submit\` tool call. Nothing else.**
+
+Do not write prose before it, after it, or instead of it. Do not restate the payload, narrate
+your reasoning, or summarise the rule you applied. Every judgment above resolves to exactly one
+of two calls:
+
+    submit({ ok: true })
+    submit({ ok: false, reason: "<short, concrete, second-person>" })
+
+The \`reason\` field is the ONLY place any explanation belongs, and only on \`ok: false\`.
+An \`ok: true\` verdict carries no reason and needs no justification — allowing is the default
+and the cheap mistake.
+
+If you find yourself composing an explanation for why something is fine, stop and call
+\`submit({ ok: true })\` instead.`;
+
 function buildPrompt(hookName) {
   const h = HOOKS[hookName];
   if (!h) throw new Error(`Unknown hook "${hookName}". Known: ${Object.keys(HOOKS).join(', ')}`);
@@ -474,6 +503,7 @@ function buildPrompt(hookName) {
     UNCERTAINTY_BLOCK,
     NO_TOOLS_BLOCK,
     violationInstructionBlock(h.claimDescription, h.whatToDoInstead),
+    RESPONSE_CONTRACT_BLOCK,
   ];
 
   return parts.join('\n\n');

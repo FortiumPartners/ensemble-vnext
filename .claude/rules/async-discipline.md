@@ -176,58 +176,63 @@ action as imminent-and-unstarted and the turn ends right there, contradicted by 
 Ambiguous cases (is this stage-setting for something the message goes on to do, or a bare
 assertion the turn stops on?) fail open — allow.
 
-## "Stop hook error" is a guard BLOCKING, not a guard failing
+## "Stop hook error: <pages of prompt>" — a real defect, fixed 2026-08-16
 
-**Do not read a `Stop hook error:` line as a broken hook.** It is how a prompt-type hook's
-block surfaces, and the accounting is exact.
+**If you see the CLI print `Stop hook error:` followed by pages of prompt text and nothing
+useful, that is this bug.** It is not intended behaviour and it is not a guard failing to run.
 
-### The accounting, from one full session's transcript (2026-08-16)
+### What it actually is
 
-| | |
-|---|---|
-| `stop_hook_summary` records | 251 |
-| …with a non-empty `hookErrors` | 27 — **24 holding one reason, 3 holding two** |
-| **total reasons across those records** | **30** |
-| prompt-hook blocks the agent actually received | **30** (15 autonomy + 15 async) |
-| `/goal` blocks received | 7 — a different mechanism, correctly producing no `hookErrors` |
+The judge sometimes answered in PROSE instead of calling the `submit` tool. With no structured
+verdict, the harness recorded the loose output as a `hookErrors` entry — formatted
+`[<the entire 13-17 KB prompt>]: <the judge's reasoning>` — and the CLI renders that as an
+error, leading with the prompt.
 
-**30 = 30, exactly.** Every prompt-hook block produces one `hookErrors` entry; a single Stop
-event where BOTH guards block yields one record with a two-element array. An earlier version of
-this section reported a "gap of 3" — that was counting records instead of entries.
+Measured over one session: **31 of 251 evaluations (~12%)**, and — decisively —
+**it happens on ALLOW verdicts as well as blocks.** Two of the most recent were
+*"Your final message does not claim to be doing work asynchronously"* and *"You are not running
+a workflow command… No autonomy violation exists."* Both allows. Both displayed as errors.
 
-Each entry is formatted `[<the entire 13-17 KB prompt text>]: <reason>`. The CLI renders it as
-`Stop hook error:` followed by the leading prompt, so the reason sits ~13,000 characters in and
-never appears in normal output.
+### Why the judge did it
 
-### Two fields that mislead
+The prompt contained **zero** instruction that the response must be the tool call alone, and it
+**ended** on the violation branch — *"Call `submit` with `ok: false` and a `reason`…"* followed
+by three sub-points on composing a good reason. The last thing the judge read was an
+instruction to write prose.
+
+### The fix
+
+`build-judge-prompts.js` now appends `RESPONSE_CONTRACT_BLOCK` as the final section of all three
+prompts: *"Your entire response is a single `submit` tool call. Nothing else."* — plus the
+explicit instruction that if it finds itself composing an explanation for why something is
+fine, it should call `submit({ ok: true })` instead.
+
+**Verify the fix by counting, not by looking.** The rate was 31/251 (~12%); a session with
+comparable hook traffic and near-zero `hookErrors` entries confirms it. To count:
+
+```
+non-empty hookErrors on stop_hook_summary records → iterate the ARRAY (not the record)
+→ split each entry on "]: " → the tail is the judge's text
+```
+
+### Two fields that mislead, and a counting trap
 
 - **`preventedContinuation` is NOT "was this blocked?"** It was `false` on all 251 records,
-  including all 27 that carried blocks, because the session continued afterward with corrected
-  behaviour. Misreading it caused a correct hypothesis to be discarded once already.
-- **`hookInfos` lists only `command` hooks**, with `durationMs`. Prompt hooks never appear there,
-  so a prompt hook's absence from `hookInfos` means nothing.
-
-**To find blocks in a transcript:** non-empty `hookErrors` → iterate the array (not the record)
-→ split each entry on `]: ` → read the tail.
-
-### Status of this claim
-
-The accounting above is exact and reproducible from the transcript. The *mechanism* is still
-inferred: `code.claude.com/docs/en/hooks` documents the `prompt` hook type and its
-`prompt` / `$ARGUMENTS` / `model` fields, but explicitly does not detail how a blocking decision
-is surfaced, and does not mention `hookErrors` or `preventedContinuation` at all. Treat the
-numbers as fact and the mechanism as a well-supported inference.
+  including every one carrying a block, because the session continued afterward with corrected
+  behaviour.
+- **`hookInfos` lists only `command` hooks**, with `durationMs`. Prompt hooks never appear there.
+- **Count entries, not records.** A single Stop event where both guards fire yields ONE record
+  with a two-element array. Counting records produced a phantom "gap of 3" and sent this
+  investigation down a wrong path.
 
 ### Eliminated hypotheses, so nobody re-derives them
 
 | Hypothesis | Verdict |
 |---|---|
-| Prompt text emitted into a `command` field, so the harness executes the prompt | **No.** The generator emits `{"type":"prompt","prompt":…}`; consuming projects carry correct entries with no prompt text in any command field |
-| Stale or broken scaffolded config | **No.** A consuming project's inlined prompts were within ~120 bytes of source |
-| Prompt too large / short timeout | **No.** All three carry `timeout: 60`, and the guard appearing to "error" most was the *smallest* prompt |
-
-**The one real problem is legibility** — a working guard looks like a failure and its reason is
-unreadable without opening the transcript. Keep verdict reasons short and concrete.
+| Prompt text emitted into a `command` field | **No.** The generator emits `{"type":"prompt","prompt":…}`; consuming projects carry correct entries |
+| Stale or broken scaffolded config | **No.** A consuming project's prompts were within ~120 bytes of source |
+| Prompt too large / short timeout | **No.** All three carry `timeout: 60`, and the guard erroring most was the *smallest* prompt |
+| Blocks display as errors; allows do not | **No.** ALLOW verdicts appear in `hookErrors` too. This was believed and committed before the newest records refuted it |
 
 ## Override
 
