@@ -1,9 +1,9 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Status**: Draft
 **Created**: 2026-08-17
-**Last Updated**: 2026-08-17
+**Last Updated**: 2026-08-18
 **Author**: @technical-architect
 **Source PRD**: `docs/PRD/functional-verification.md`
 **Task ID Prefix**: FV
@@ -15,6 +15,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-08-17 | Initial TRD creation | @technical-architect |
+| 1.2.0 | 2026-08-18 | **D8 correction propagated.** Remediation no longer dispatches a nested `implement-phase` workflow: the Persist agent partitions the gap set with `buildGraph()` (`task-graph.js`) and the loop dispatches `parallel()` per wave, one `agent()` per gap scoped to its own files — no nested workflow, no phase gate. Reasons: the gate is redundant (the loop's own Exercise/Judge re-runs the same class of check seconds later), it costs 4 fixed agents per iteration on top of one per gap (18 agents vs 6 over three iterations on two gaps), `buildGraph()` supplies the serialization that was the only reason `implement-phase` was chosen, and it removes the `workflow()`-invokes-`workflow()` dependency entirely. Knock-on: D1's rationale, §1.1, §1.3, §2.1, §2.2.3, §2.3, §3.3 (the `gate` arg is dropped — it existed only to feed `implement-phase`), §3.3a, §3.5, §3.7, FV-B002/FV-B005 and their grounding, R2, TR2, TR4 (**removed** — the risk existed only because of the nested call), FV-T001's grounding, and the Could Not Verify row on nested workflows. Task count unchanged at 7; grounding blocks unchanged at 7 | `/refine-trd` |
 | 1.1.0 | 2026-08-17 | `/refine-trd` — six owner decisions applied. **D1 inverted**: the loop moves out of `/implement-trd` Step 7.3 and into `verify-functional.js`, which now owns iteration, judgment, remediation dispatch (`workflow('implement-phase', …)`, one level of nesting) and the report; Step 7.3 becomes a single `Workflow(verify-functional, …)` call. v1.0.1's rationale rested on a misread of `implement-trd-rework.md:79` ("unavailable inside subagents", not inside workflow scripts) and on treating the script's lack of a filesystem as the loop's lack of one — the agents it dispatches supply it, via the new Persist stage (§3.3a). Knock-on: D2, D3, D5, D8, D9, §1.1, §1.3, §1.4, §2.1–§2.4, §3.1, §3.3, §3.4, §3.6, §3.7, FV-B001/B002/B004/B005 and their grounding, §5's phase names, TR1/TR2, and a new TR4 for the unexercised nesting primitive. **OQ-1 decided**: iterations after the first exercise `priorGaps` plus the criteria whose `files` intersect the remediation's `Touches`, not the full set. **OQ-4 decided**: the derive pass uses the existing `product-manager` agent, not an untyped one and not a fourteenth agent type. **OQ-2/3/5/6 confirmed**; OQ-6 adds `R = Remediation` to `trd-authoring.md`'s category list via FV-P001. Task count unchanged at 7 | `/refine-trd` |
 | 1.0.1 | 2026-08-17 | `/audit-trd` pass. Resolved two self-contradictions (`trd_hash` recomputation: §3.7 wins, TR2/FV-B005/§2.3 corrected; the absent-definition path: no wait, no inline derivation, `not run: no definition produced` per TR3). Removed FV-B005's undisciplined inline-derivation fallback. Replaced the undefined `Q-1` coverage identifier with §6.1's floor. Corrected §8's `PRD ID` column header (NG1–NG4 are TRD-local). Corrected OQ-6's stated parser mechanism. Added the missing `G2` citation to D1 and FV-B005. Rewrote Could Not Verify | `/audit-trd` |
 
@@ -34,7 +35,7 @@ of the run — after Step 7's hardening and full-branch review — `/implement-t
 call, `Workflow(verify-functional, …)`, and that workflow owns the whole bounded loop: it fans
 out one fresh-context agent per criterion to exercise the system and a second per criterion to
 judge the evidence, and it dispatches remediation for whatever came back unmet through the
-**existing phase workflow** (`implement-phase.js`), invoked as a nested `workflow()` call.
+gap set partitioned by `buildGraph()` and dispatched as one scoped `agent()` per gap — no nested workflow, no phase gate (the loop's own Exercise/Judge is the gate).
 
 Two workflows, one command invocation. The script has no filesystem, so every disk touch —
 reading the definition, writing evidence, mutating the TRD, writing the report — is an
@@ -61,14 +62,16 @@ which is the honest answer and the one that would have caught the 4.1.16 defects
 
 | ID | Decision | Choice | Serves Objective | Rationale | Alternatives Considered |
 |----|----------|--------|------------------|-----------|------------------------|
-| D1 | Where the loop lives | The outer loop lives **inside the workflow**. `packages/core/workflows/verify-functional.js` owns iteration, the exercise/judge fan-out, the loop-exit decision, remediation dispatch and the report. `/implement-trd`'s Step 7.3 is a **single** `Workflow(verify-functional, …)` call that hands over every input and receives one outcome | G2, FR-4, AC-5, AC-7 | The `Workflow` tool's own contract states that `workflow(nameOrRef, args)` *"runs another workflow inline as a sub-step and returns whatever it returns"*, sharing the parent run's concurrency cap, agent counter, abort signal and token budget, with nesting permitted to exactly one level (*"`workflow()` inside a child throws"*). One level is all remediation needs: `verify-functional` → `implement-phase`, and `implement-phase` invokes no workflow itself. The three capabilities v1.0.1 claimed only a command has are all reachable from a script: the script has no filesystem, but **the agents it dispatches via `agent()` do** — so reading the definition, inserting the remediation phase into the TRD, re-parsing it and writing the report are `agent()` calls (one Persist agent per iteration, §3.3a), not script operations. v1.0.1's rationale rested on a misread of `docs/TRD/completed/implement-trd-rework.md` §1.3, whose line 79 says *"`Workflow` is unavailable inside subagents"* — subagents, not workflow scripts. This restores improvement-plan item 9a's *"the loop is a WORKFLOW, not a Stop hook"* in full, rather than keeping only its second half | **Command-driven loop (v1.0.1's D1)** — rejected on re-reading: its premise was that a script cannot dispatch a phase, which the `Workflow` contract contradicts. It also put the loop's control flow in prose an LLM re-derives per run, which is what AC-5 is trying to make checkable. **A `Stop` hook / wiggum gate** — rejected, inherited from item 9a: wiggum's finest correction is a phase re-run, a granularity mismatch for a single failing criterion |
+| D1 | Where the loop lives | The outer loop lives **inside the workflow**. `packages/core/workflows/verify-functional.js` owns iteration, the exercise/judge fan-out, the loop-exit decision, remediation dispatch and the report. `/implement-trd`'s Step 7.3 is a **single** `Workflow(verify-functional, …)` call that hands over every input and receives one outcome | G2, FR-4, AC-5, AC-7 | The three capabilities v1.0.1 claimed only a command has are all reachable from a script: the script has no filesystem, but **the agents it dispatches via `agent()` do** — so reading the definition, inserting the remediation phase into the TRD, re-parsing it and writing the report are `agent()` calls (one Persist agent per iteration, §3.3a), not script operations. Remediation needs no second workflow either: `buildGraph()` supplies the
+file-conflict serialization and the script dispatches one `agent()` per gap within each wave
+(D8), so the loop is built entirely from `agent()`, `parallel()` and the lib CLI. v1.0.1's rationale rested on a misread of `docs/TRD/completed/implement-trd-rework.md` §1.3, whose line 79 says *"`Workflow` is unavailable inside subagents"* — subagents, not workflow scripts. This restores improvement-plan item 9a's *"the loop is a WORKFLOW, not a Stop hook"* in full, rather than keeping only its second half | **Command-driven loop (v1.0.1's D1)** — rejected on re-reading: its premise was that a script cannot dispatch remediation, which `agent()` and `parallel()` contradict. It also put the loop's control flow in prose an LLM re-derives per run, which is what AC-5 is trying to make checkable. **A `Stop` hook / wiggum gate** — rejected, inherited from item 9a: wiggum's finest correction is a phase re-run, a granularity mismatch for a single failing criterion |
 | D2 | Shape of one iteration | Inside the loop, each iteration is three stages: Exercise (`parallel()`, one agent per in-scope criterion, `agentType: 'verify-app'`), Judge (`parallel()`, one untyped agent per criterion), then Persist (one untyped agent, §3.3a) | FR-2, FR-3 | Fan-out of fresh-context agents whose per-agent output does **not** reach the orchestrator is exactly what `implement-phase.js` established (AC-F16.7 there). The whole run then costs the command one structured outcome, not 3N transcripts | **Direct `Agent` fan-out from the command** — rejected: per-criterion transcripts land in orchestrator context, and the loop runs up to three times. **Revisit** if the workflow's per-call overhead is ever measured to dominate the agent cost |
 | D3 | Deterministic half | One module, `packages/core/lib/functional-verification.js`, exporting `checkEvidence()`, `decideNext()`, `renderRemediationPhase()`, `renderReport()`, plus a CLI entry point exposing all four as subcommands | FR-3, FR-4, AC-4, AC-5 | Every loop-control question — is this artifact real, has a gap closed, is the cap hit, what does the remediation phase look like — is arithmetic over data, and arithmetic belongs in a unit-tested pure module rather than in prose an LLM re-derives per run. Same shape as `trd-parser.js` / `task-graph.js`. A workflow script has no `require` (it is a prompt-DSL body, not a module — `test-harness.js`'s header), so the loop reaches this module the same way the judge reaches `checkEvidence`: through the CLI, invoked by the Persist agent. The module, not the script, stays the single source of the arithmetic | **Reimplement `decideNext()` inline in the workflow script** — rejected: two copies of the loop-exit rule is exactly the drift AC-5 is guarding against, and the script is testable through `test-harness.js` either way. **Four separate modules** — rejected: they share one verdict shape, and splitting it invites drift between the renderer and the checker |
 | D4 | Tier-1 evidence gate placement | The **judge** agent's first action is to run the checker CLI over its criterion's artifact; it short-circuits to `not met` without reading content when tier 1 fails | FR-3, AC-4 | Keeps the whole pass to one workflow call per iteration. The exerciser and the judge are different agents, so the assertion is still not self-certified — which is what FR-3 is defending | **Tier 1 in the command between two workflow calls** (exercise → check → judge) — rejected: three dispatches per iteration for a saving that only applies to already-failing criteria. **Revisit** if judge dispatches on tier-1 failures show up as measurable waste in the first costed run |
 | D5 | How the success definition is produced | A **background `product-manager` agent** dispatched by the command before the phase loop, whose entire instruction set is `packages/core/contracts/functional-verification.md`, handed the PRD path and never the TRD path or any TRD text | FR-1, AC-1, AC-2, AC-3 | Owner decision, 2026-08-17: *"I'd assumed a product manager would write up 'what constitutes success from the users perspective'."* `product-manager` is already on `constitution.md`'s 13-agent roster, so no roster change and no `agent-validation.test.js` change is needed, and its declared mandate — *"Analyze user needs and define acceptance criteria"* — is this task exactly. Its frontmatter already carries `background: true` [read] `packages/full/agents/product-manager.md:14`. `Agent({run_in_background: true})` is the primitive that makes "parallel, no wall clock" real rather than claimed. Independence is enforced structurally: the prompt names one file. PRD path is resolved by the command from the TRD's `**Source PRD**:` header, falling back to `.trd-state/current.json`'s `prd` | **An untyped `general-purpose` agent carrying the contract** (v1.0.1's choice) — rejected by the owner: the roster already holds the agent whose job this is, and an untyped agent discards its accumulated requirements discipline for no gain. **A new `prd-verifier` agent type** — rejected: `constitution.md`'s 13-agent roster is owner-governed and adding to it is an architecture change requiring approval (`agent-validation.test.js` enforces the list). **Adding `sourcePrd` to `trd-parser.js`** — rejected: that module's contract is Master Task List → records, and three commands depend on it; a header grep in the command is the smaller blast radius |
 | D6 | `verify-app`'s role | **Repointed, not replaced**: a second mode that takes a success-definition criterion instead of a TRD acceptance criterion, plus the stack-keyed harness hint table and the notes discipline. Dispatched by the workflow as `agentType: 'verify-app'` for the Exercise stage | FR-2, FR-5, G1 | It already carries Verification Level Enforcement and a live-evidence format; this is the same move one level out, per item 9a. `agentType` from a workflow is attested (ITR-P003, cited in `implement-phase.js`) | **A sibling agent** — same roster objection as D5. **A plain untyped exerciser** — rejected: it would duplicate the verification-level and evidence-format text that already exists |
 | D7 | Judge independence | The Judge stage uses an **untyped** agent, not `verify-app` | FR-3 | The exerciser has an interest in its own artifacts. A judge that is a different agent, reading only the artifact and the checker's output, is what makes "evidence, not assertion" structural rather than aspirational | **Same agent judges its own evidence** — rejected outright; it re-creates the failure FR-3 names |
-| D8 | Remediation dispatch | Each unmet criterion becomes one task in a **remediation phase INSERTED into the TRD at two points — inside `## 4. Master Task List` and inside `## 9. Task Grounding`** (never appended: `findSection` bounds a section at the next heading of equal-or-lower level, so anything after `## Could Not Verify` is invisible to `parseTrd`, and the dispatch that follows is a silent no-op that reads as success), rendered deterministically by `renderRemediationPhase()`, then dispatched from inside the loop as `workflow('implement-phase', …)` — one level of workflow nesting, which the tool's contract permits (D1) | FR-4, AC-7, R2 | Inherited from D-9a-1. It buys wave partitioning, file-conflict serialization, `agentType` resolution, the phase gate and per-task accounting for free. **Added here:** when the judge implicates no files for a gap, the renderer emits that phase's tasks as a serial chain rather than a parallel wave, because an empty `Touches` conflicts with nothing and would let two blind fixes race | **A loose remediation agent** — rejected by D-9a-1: unscoped fixes inside a 3-iteration loop are how a fix for criterion 3 breaks criterion 1 |
+| D8 | Remediation dispatch | Each unmet criterion becomes one remediation task. `buildGraph()` from `packages/core/lib/task-graph.js` partitions the gap set into waves — `blockedBy(t) = Dependencies(t) ∪ {u : Touches(u) ∩ Touches(t) ≠ ∅ ∧ u <ᴵᴰ t}` — and the loop dispatches `parallel()` within each wave, one `agent()` per gap scoped to its own files. **No `workflow('implement-phase')` call, and no phase gate.** | FR-4, AC-7 | Two gaps touching one file must serialize; `buildGraph` already does exactly that and is a pure function — no filesystem, no shell, 35 passing tests, 9 naming the partition directly. Verified 2026-08-18: three gaps where two share `a.js` yield waves `[[R001,R003],[R002]]`. **The phase gate is deliberately omitted because the loop IS the gate** — Exercise and Judge re-run the moment remediation returns, so `implement-phase`'s `verify-app` → `code-simplifier` → post-simplify re-verify → review would duplicate, seconds earlier, the check the next iteration performs anyway. Cost per iteration falls from N+4 agents to N: three iterations on two gaps is 6 agents, not 18. | Nested `workflow('implement-phase')` — **rejected 2026-08-18**: chosen originally only for its file-conflict serialization, without asking what else came attached. It brought a redundant 4-agent gate and made `workflow()`-invokes-workflow load-bearing, an API documented in the tool contract but never once exercised in this repository. Revisit only if remediation ever needs the full gate for a reason the loop cannot supply. |
 | D9 | Persistent state layout | `success-definition.md`, `verification.json`, `verification-report.md` and `evidence/` all under `.trd-state/<feature>/`; the verifier's learned mechanics at `.claude/verification-notes.md` | FR-1, FR-4, FR-5, FR-6, AC-8 | Definition path is D-9a-3, verbatim. Notes path and its "not in `.claude/rules/`" placement are the owner's 2026-08-17 correction. All four are written by the loop's Persist agent (§3.3a), which is the only participant in this feature with a filesystem. Loop state is a **separate file from `implement.json`** because that file already has two writers (the command and `status.js` on `SubagentStop`) | **Extend `implement.json`** — rejected on the write-contention ground above. **Revisit** if a consumer ever needs the two atomically consistent |
 | D10 | Evidence artifacts are not committed | `.trd-state/*/evidence/` is added to `.gitignore`; the definition, the report and the notes stay tracked | FR-3, FR-6 | `.trd-state/` is deliberately tracked, and screenshots/transcripts are binary working state with a per-run lifetime. Freshness is unaffected — the tier-1 check compares mtime to HEAD's commit time, not to git status | **Commit everything** — rejected: repository bloat with no consumer. **Revisit** if a reviewer ever needs to re-read an artifact after the branch merges |
 | D11 | Opt-in flag | `/implement-trd --verify-functional`, default off | AC-6, R3 | AC-6 names this outright; D-9a-2 gives the reason (unpriced cost on a 1.0-agents-per-task loop) and the condition for flipping it | **On by default** — rejected until a real run yields a cost figure. **Revisit** is explicit: the first costed run |
@@ -79,7 +82,7 @@ which is the honest answer and the one that would have caught the 4.1.16 defects
 | Layer | Technology | Purpose | Notes |
 |-------|------------|---------|-------|
 | Deterministic core | JavaScript / Node.js 18+ | `packages/core/lib/functional-verification.js` — evidence gate, loop decision, remediation-phase and report renderers | `stack.md` Languages table; same shape as `trd-parser.js` / `task-graph.js` |
-| Orchestration (loop and pass) | `Workflow` prompt-DSL script | `packages/core/workflows/verify-functional.js` — the bounded loop, its Exercise/Judge/Persist stages, and the nested `workflow('implement-phase', …)` remediation dispatch (D1) | No filesystem, no shell, no `require`, no `Date.now()`; every input arrives in `args`, every disk touch is an `agent()` call |
+| Orchestration (loop and pass) | `Workflow` prompt-DSL script | `packages/core/workflows/verify-functional.js` — the bounded loop, its Exercise/Judge/Persist stages, and the `parallel()`-per-wave remediation dispatch (D1, D8) | No filesystem, no shell, no `require`, no `Date.now()`; every input arrives in `args`, every disk touch is an `agent()` call |
 | Command surface | Command prompt (Markdown) | `/implement-trd` Step 7.3 — resolve inputs, one `Workflow(verify-functional, …)` call, banner | Commands are prompts with optional shell — `constitution.md` Principle 3 |
 | Agent prompts | Markdown | `verify-app` second mode; `packages/core/contracts/functional-verification.md` | `constitution.md` Principle 2 — prompts only, no executable code |
 | Unit tests | Jest ^29.7.0 | Lib module and workflow script | `stack.md` Testing table; workflow scripts are exercised through `packages/core/workflows/test-harness.js` |
@@ -91,7 +94,7 @@ No new runtime dependency is introduced.
 
 | System | Type | Direction | Notes |
 |--------|------|-----------|-------|
-| `packages/core/workflows/implement-phase.js` | Nested workflow invocation | Out | Remediation phases are dispatched through it unchanged, as `workflow('implement-phase', …)` from inside `verify-functional.js` (D1, D8) |
+| `packages/core/lib/task-graph.js` | Direct module import (`buildGraph`) | In | Partitions the remediation gap set into file-conflict-safe waves. Pure function; no nested workflow invocation. |
 | `packages/core/lib/trd-parser.js`, `task-graph.js` | Node modules | In | Re-parsed by the Persist agent after the remediation phase is inserted, to produce that phase's waves |
 | `packages/core/lib/implement-state.js` | Node module | In | `save()` is filepath-generic; reused by the Persist agent for `verification.json`'s atomic write |
 | `docs/PRD/<feature>.md` | Markdown artifact | In | Sole input to the success-definition pass (D5) |
@@ -127,7 +130,7 @@ graph TB
         REP["renderReport()"]
     end
 
-    IP["Workflow: implement-phase.js<br/>(existing, unchanged)"]
+    IP["buildGraph() waves<br/>+ one agent() per gap"]
 
     PRD[("docs/PRD/&lt;feature&gt;.md")] --> DERIVE
     DERIVE --> SD[(".trd-state/&lt;feature&gt;/success-definition.md")]
@@ -144,7 +147,7 @@ graph TB
     PS --> DEC
     DEC -->|remediate| TRD[("docs/TRD/&lt;feature&gt;.md<br/>+ remediation phase")]
     TRD --> IP
-    IP -->|"workflow('implement-phase')"| EX
+    IP -->|"parallel() per wave"| EX
     DEC -->|exit| RPT[(".trd-state/&lt;feature&gt;/verification-report.md")]
     WF -->|outcome| CALL
 ```
@@ -177,11 +180,12 @@ only path from the loop to this module.
 
 **Responsibility**: the whole bounded loop (D1). Per iteration: Exercise each in-scope
 criterion in parallel, Judge each in parallel with the tier-1 gate first, then Persist — one
-agent that runs the lib CLI, writes state and, on `remediate`, mutates the TRD and returns the
-assembled `implement-phase` args, which the script dispatches as `workflow('implement-phase', …)`.
+agent that runs the lib CLI, writes state and, on `remediate`, mutates the TRD, re-parses it and
+returns the `buildGraph()` waves plus one delegation prompt per gap, which the script dispatches
+as `parallel()` over each wave in turn (D8) — no nested workflow.
 **Interfaces**: `args` in (§3.3), one structured outcome out (§3.3).
-**Dependencies**: the platform's `agent()` / `parallel()` / `phase()` / `log()` / `workflow()`;
-nothing on disk, no `require`.
+**Dependencies**: the platform's `agent()` / `parallel()` / `phase()` / `log()`;
+nothing on disk, no `require`, and no `workflow()`.
 
 #### 2.2.4 `verify-app` (second mode)
 
@@ -213,7 +217,7 @@ sequenceDiagram
     participant E as exerciser (verify-app)
     participant J as judge (untyped)
     participant S as persist agent (untyped)
-    participant P as implement-phase workflow
+    participant P as remediation agents (untyped, one per gap)
 
     C->>D: PRD path + contract (never the TRD)
     Note over C,D: runs during the phase loop — no wall clock
@@ -238,10 +242,10 @@ sequenceDiagram
                 S->>S: renderReport CLI → verification-report.md
                 S-->>W: outcome
             else remediate
-                S->>S: renderRemediationPhase CLI; insert at §3.7's two points; re-parse; assemble waves + prompts
-                S-->>W: implement-phase args
-                W->>P: workflow('implement-phase', args)
-                P-->>W: phase result
+                S->>S: renderRemediationPhase CLI; insert at §3.7's two points; re-parse; buildGraph waves + prompts
+                S-->>W: waves + per-gap prompts + Touches union
+                W->>P: parallel() per wave — one agent() per gap (D8)
+                P-->>W: per-gap results
                 Note over W: next iteration exercises priorGaps + the regression subset (§3.3)
             end
         end
@@ -376,7 +380,6 @@ interface VerifyFunctionalArgs {
   existingIds: string[]; // task ids already in the TRD, for uniqueness
   statePath: string;     // ".trd-state/<feature>/verification.json"
   reportPath: string;    // ".trd-state/<feature>/verification-report.md"
-  gate: { verifyPrompt: string; simplifyPrompt: string; reviewPrompt: string };
   resume: { iteration: number; priorGaps: string[] } | null;  // from a prior run's state file
   project: string;       // "" when the target is the repo the workflow runs in
 }
@@ -413,8 +416,11 @@ iteration runs three stages in order:
   the checker CLI over its criterion's claim **first** and skips content analysis when tier 1
   fails, recording `tier1: 'fail'` and `status: 'not_met'`.
 - **Persist stage**: one untyped agent, §3.3a. It is where the loop's arithmetic and every disk
-  touch happen, and it returns either an exit outcome or the assembled `implement-phase` args.
-  On `remediate` the script then calls `workflow('implement-phase', args)` and continues the loop.
+  touch happen, and it returns either an exit outcome or the remediation waves and per-gap
+  prompts. On `remediate` the script dispatches `parallel()` over each wave in turn — one
+  `agent()` per gap, awaiting each wave before the next — and continues the loop (D8). There is
+  no `workflow()` call and no phase gate: Exercise and Judge re-run on the next iteration and
+  are the gate.
 
 **Which criteria are in scope** (owner decision, 2026-08-17, OQ-1 — *failed plus regression
 subset*, not full re-verify):
@@ -453,9 +459,11 @@ Other behavior:
   written to disk and the loop has no decision. Following `audit-trd.js`'s Index stage, it is a
   thrown error via `required()` — the command sees the throw and reports `stuck`, which is
   honest, where continuing would silently drop an iteration's state.
-- A `workflow('implement-phase', …)` call that throws is caught: the iteration records the
-  remediation as failed, and the loop exits `stuck` with that reason rather than re-exercising
-  against a phase that never ran.
+- A dead remediation `agent()` returns `null` like any other. The iteration records that gap's
+  remediation as not performed with a stated reason, and the gap stays open into the next
+  iteration rather than being read as fixed. No new exit is introduced for it: an iteration in
+  which nothing was actually remediated closes no gap, so `decideNext` reaches `exit-stalled`
+  by its existing rule (§3.4).
 - `readArgs` / `required` guards are copied from `implement-phase.js`, which copied them from
   `audit-trd.js`. Missing `criteria` is a thrown error (nothing downstream can run); an
   **empty** `criteria` array is not — it skips Exercise and Judge entirely, runs one Persist
@@ -470,7 +478,7 @@ dispatched by the script with a fully-specified instruction set.
 
 **What it is given**: the iteration number, the judge verdicts, the carried-forward statuses,
 `args.statePath`, `args.reportPath`, `args.trd`, `args.prefix`, `args.phaseNumber`,
-`args.existingIds`, `args.cap`, `args.gate` and the previous iteration's `priorGaps`.
+`args.existingIds`, `args.cap` and the previous iteration's `priorGaps`.
 
 **What it does, in order**:
 1. `node .claude/lib/functional-verification.js decide-next '<json>'` — the loop-exit decision
@@ -482,8 +490,9 @@ dispatched by the script with a fully-specified instruction set.
 4. On `remediate`: `render-remediation` over the gaps, inserts the two returned strings at
    §3.7's two insertion points in the TRD, re-parses the mutated file through `trd-parser.js`
    and `task-graph.js`, filters the waves to the new phase's task ids exactly as Step 4.2 does,
-   assembles each task's delegation prompt and passes `args.gate` through unchanged, and returns
-   that args object plus the phase's `Touches` union.
+   assembles each task's delegation prompt, and returns the waves, those prompts and the phase's
+   `Touches` union for the script to dispatch. It assembles no gate prompts: there is no phase
+   gate (D8).
 
 **Why an agent and not the script**: this is the mechanism the `Workflow` contract leaves open —
 the script cannot open a file, but the agents it dispatches have `Read`, `Write` and `Bash`. Every
@@ -525,7 +534,8 @@ empty remediation phases.
 
 ### 3.5 Remediation phase — `renderRemediationPhase()`
 
-**Purpose**: turn gaps into a phase the existing workflow can dispatch (D8, AC-7).
+**Purpose**: turn gaps into a phase table the TRD carries and `buildGraph()` can partition into
+file-conflict-safe waves (D8, AC-7).
 
 **Interface**:
 
@@ -606,9 +616,8 @@ is *"Analyze user needs and define acceptance criteria"* (D5); its frontmatter a
    `render-report` so there is one renderer, and both are distinct from AC-3's empty definition.
 2. Read `.claude/verification-notes.md` (or `""`), the `stack.md` / `CLAUDE.md` excerpts, and
    the contract text. Resolve `since` from `git log -1 --format=%ct`. Read the TRD's task-ID
-   prefix, its highest existing phase number and its existing task ids. Assemble the three gate
-   prompts exactly as Step 4.2 does. Read `verification.json` if a prior run left one, for
-   `resume`.
+   prefix, its highest existing phase number and its existing task ids. Read `verification.json`
+   if a prior run left one, for `resume`.
 3. `Workflow({ name: "verify-functional", args: { … §3.3 … } })` — once.
 4. Render the returned outcome into Step 8's banner. Nothing else.
 
@@ -654,7 +663,7 @@ Task IDs follow `[PREFIX]-[CATEGORY][SEQ]` with PREFIX `FV`.
 
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
-| FV-B002 | Build `packages/core/workflows/verify-functional.js` per §3.3/§3.3a — **the whole bounded loop** (D1): per iteration, Exercise stage (`parallel`, `agentType: 'verify-app'`, thunks), Judge stage (`parallel`, untyped, checker-first), Persist stage (one untyped agent running the lib CLI and touching disk), then `workflow('implement-phase', …)` on `remediate`. Includes the narrowed re-verify set (§3.3, OQ-1). With its Jest suite via `workflows/test-harness.js`. Mirror to `.claude/workflows/` | G2, FR-2, FR-3, FR-4, AC-4, AC-5, AC-7, D1, D2, D4, D7 | `jest` | FV-P001, FV-B001 | The script opens no file, runs no shell, uses no `require`, and uses no `Date.now()`/`Math.random()`/argless `new Date()`; tests assert Exercise completes before Judge dispatches and Judge before Persist, that `agentType: 'verify-app'` is passed on Exercise and absent on Judge and Persist, that a `null` Exercise/Judge result yields `not_met` with a stated reason and is reflected in `exercised` while a `null` Persist result throws, that an empty `criteria` array runs one Persist agent and no Exercise/Judge dispatch and returns `outcome: 'satisfied'` with `iterations: 0`, that the judge prompt instructs the checker CLI call before any content reading, that iteration 2 exercises only `priorGaps` plus criteria whose `files` intersect the previous remediation's `Touches` union while unexercised criteria carry their prior status and `lastExercisedIteration` forward, that remediation is dispatched through `workflow('implement-phase', …)` and never through `agent(`, and that the loop stops at `args.cap`; coverage meets §6.1's unit-test floor (>= 60%, `constitution.md` Quality Gates) |
+| FV-B002 | Build `packages/core/workflows/verify-functional.js` per §3.3/§3.3a — **the whole bounded loop** (D1): per iteration, Exercise stage (`parallel`, `agentType: 'verify-app'`, thunks), Judge stage (`parallel`, untyped, checker-first), Persist stage (one untyped agent running the lib CLI and touching disk), then on `remediate` a `parallel()` dispatch over the Persist agent's `buildGraph()` waves — one `agent()` per gap, no nested workflow and no phase gate (D8). Includes the narrowed re-verify set (§3.3, OQ-1). With its Jest suite via `workflows/test-harness.js`. Mirror to `.claude/workflows/` | G2, FR-2, FR-3, FR-4, AC-4, AC-5, AC-7, D1, D2, D4, D7, D8 | `jest` | FV-P001, FV-B001 | The script opens no file, runs no shell, uses no `require`, and uses no `Date.now()`/`Math.random()`/argless `new Date()`; tests assert Exercise completes before Judge dispatches and Judge before Persist, that `agentType: 'verify-app'` is passed on Exercise and absent on Judge and Persist, that a `null` Exercise/Judge result yields `not_met` with a stated reason and is reflected in `exercised` while a `null` Persist result throws, that an empty `criteria` array runs one Persist agent and no Exercise/Judge dispatch and returns `outcome: 'satisfied'` with `iterations: 0`, that the judge prompt instructs the checker CLI call before any content reading, that iteration 2 exercises only `priorGaps` plus criteria whose `files` intersect the previous remediation's `Touches` union while unexercised criteria carry their prior status and `lastExercisedIteration` forward, that remediation is dispatched as `parallel()` over the waves the Persist agent returns — one `agent()` per gap, each wave awaited before the next — with **no** `workflow(` call anywhere in the script and no gate agents, and that the loop stops at `args.cap`; coverage meets §6.1's unit-test floor (>= 60%, `constitution.md` Quality Gates) |
 | FV-B003 | Repoint `packages/full/agents/verify-app.md`: add a Functional Success Definition mode (input is one criterion, output is a claim plus an artifact path or a stated reason, never a verdict on its own evidence), the D12 hint table, the `stack.md`/`CLAUDE.md` read mandate, S-2's authorization rule, and the `.claude/verification-notes.md` read/write discipline. Mirror to `.claude/agents/` | FR-2, FR-5, AC-8, D6, D12, S-2 | | FV-P001 | The existing TRD-acceptance-criteria mode and Verification Level Enforcement are unchanged and still first in the file; the new mode states that the agent does not decide `met`/`not met`; the notes section names the three derivation markers and the correct-on-failure rule; `agent-validation.test.js` still passes with 13 agents |
 | FV-B004 | Add `--verify-functional` to `/implement-trd` (`packages/core/commands/implement-trd.md`): usage block, `Parse:` line, Execution Model diagram, and Step 3.6's background derive dispatch with PRD-path resolution (TRD `**Source PRD**:` header → `.trd-state/current.json`). Mirror to `.claude/commands/` | FR-1, AC-1, AC-6, D5, D11 | | FV-P001 | Without the flag no derive agent is dispatched and no `.trd-state/*/success-definition.md` appears; with it the dispatch is `subagent_type: "product-manager"` with `run_in_background: true`, and its prompt contains the PRD path and the contract text and **no** TRD path or TRD excerpt; an unresolvable PRD path is reported as `not run: no PRD resolved`, distinct from an empty definition; `constitution.md`'s agent roster is unchanged and `agent-validation.test.js` still passes with 13 agents |
 
@@ -662,7 +671,7 @@ Task IDs follow `[PREFIX]-[CATEGORY][SEQ]` with PREFIX `FV`.
 
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
-| FV-B005 | Add Step 7.3 to `/implement-trd` per §3.7 — **one dispatch, not a loop** (D1): read the definition from disk (absent → `not run: no definition produced` per §3.1/TR3; never wait on the background task and never derive one inline — no primitive exists for a lead to block on a specific `Agent({run_in_background})`, and an inline derivation would bypass FV-P001's citation discipline), read the notes / stack hints / contract, resolve `since` from `git log -1 --format=%ct`, read the TRD's prefix, highest phase number and existing task ids, assemble the three gate prompts as Step 4.2 does, then make a single `Workflow(verify-functional, …)` call and render its outcome. Also extend Step 6's state-file documentation and Step 8's banner, and add `.trd-state/*/evidence/` to `.gitignore`. Mirror to `.claude/commands/`. **Split from FV-B004 despite sharing `implement-trd.md`** on both permitted grounds: size (a whole new step with input resolution, gate-prompt assembly, banner and `.gitignore` work would return a partial result VERIFY could not judge alongside the flag work) and verifiability (AC-1/AC-6 and AC-3/AC-9 are separately checkable) | G2, FR-2, FR-6, AC-3, AC-9, D1, D9, D10, D11 | | FV-B001, FV-B002, FV-B003, FV-B004 | Step 7.3 sits after Step 7.2 and before Step 8; it contains exactly one `Workflow(` call and **no** iteration, no `decideNext` reasoning in prose, no TRD mutation and no `Agent(` call — all of those live in FV-B002's workflow; an absent definition file is reported as `not run: no definition produced` and no definition is derived inside Step 7.3; both `not run` reports are rendered through the lib CLI's `render-report`; the args it assembles carry every field §3.3 names, including a non-empty `gate` block (`implement-phase.js` dereferences `GATE.verifyPrompt`/`simplifyPrompt`/`reviewPrompt` unconditionally); `.gitignore` excludes evidence while the definition, report and notes stay tracked |
+| FV-B005 | Add Step 7.3 to `/implement-trd` per §3.7 — **one dispatch, not a loop** (D1): read the definition from disk (absent → `not run: no definition produced` per §3.1/TR3; never wait on the background task and never derive one inline — no primitive exists for a lead to block on a specific `Agent({run_in_background})`, and an inline derivation would bypass FV-P001's citation discipline), read the notes / stack hints / contract, resolve `since` from `git log -1 --format=%ct`, read the TRD's prefix, highest phase number and existing task ids, then make a single `Workflow(verify-functional, …)` call and render its outcome. Also extend Step 6's state-file documentation and Step 8's banner, and add `.trd-state/*/evidence/` to `.gitignore`. Mirror to `.claude/commands/`. **Split from FV-B004 despite sharing `implement-trd.md`** on both permitted grounds: size (a whole new step with input resolution, banner and `.gitignore` work would return a partial result VERIFY could not judge alongside the flag work) and verifiability (AC-1/AC-6 and AC-3/AC-9 are separately checkable) | G2, FR-2, FR-6, AC-3, AC-9, D1, D9, D10, D11 | | FV-B001, FV-B002, FV-B003, FV-B004 | Step 7.3 sits after Step 7.2 and before Step 8; it contains exactly one `Workflow(` call and **no** iteration, no `decideNext` reasoning in prose, no TRD mutation and no `Agent(` call — all of those live in FV-B002's workflow; an absent definition file is reported as `not run: no definition produced` and no definition is derived inside Step 7.3; both `not run` reports are rendered through the lib CLI's `render-report`; the args it assembles carry every field §3.3 names and no `gate` block (there is no phase gate under D8); `.gitignore` excludes evidence while the definition, report and notes stay tracked |
 
 ### 4.5 Phase 4: End-to-end
 
@@ -823,7 +832,7 @@ number nobody asked for; see OQ-1.
 | PRD Risk ID | Risk | Technical Mitigation |
 |-------------|------|---------------------|
 | R1 | The success definition manufactures criteria the PRD does not support | The citation rule is in the contract (FV-P001) and the definition's table has a mandatory `Cites` column (§3.1). A row with neither a citation nor a `domain-derived` label is dropped by the deriving agent, and its absence is visible because the report names every row that survived |
-| R2 | Remediation for one criterion breaks another | Dispatch as a phase (D8), inheriting `task-graph.js`'s file-conflict serialization. Sharpened here: the judge returns implicated `files` per gap so the remediation tasks have real `Touches`, and `renderRemediationPhase()` falls back to a serial chain when it does not — an empty `Touches` conflicts with nothing by design and would otherwise defeat the very mechanism this mitigation relies on |
+| R2 | Remediation for one criterion breaks another | Partition the gaps with `buildGraph()` and dispatch one wave at a time (D8), inheriting `task-graph.js`'s file-conflict serialization. Sharpened here: the judge returns implicated `files` per gap so the remediation tasks have real `Touches`, and `renderRemediationPhase()` falls back to a serial chain when it does not — an empty `Touches` conflicts with nothing by design and would otherwise defeat the very mechanism this mitigation relies on |
 | R3 | Cost per cycle makes it unaffordable | Opt-in behind `--verify-functional` (D11). The E2E scenario is registered opt-in rather than in `ALL_SCENARIOS`, so it does not add cost to the default smoke run either |
 | R4 | Notes accumulate wrong beliefs with no reviewer | Derivation markers and correct-on-failure are in the contract (FV-P001) and in `verify-app`'s prompt (FV-B003). The file is committed, so it is at least diff-reviewable |
 | R5 | The verifier reports green for checks that never ran | `not verifiable here` is a distinct status all the way through the type: the workflow's return schema, `renderReport()`'s sections, and the completion banner's counts. The `exercised: "n/m"` field makes a dead agent visible rather than laundering it into a pass — the same defect `implement-phase.js` fixed with its `*Reported` flags |
@@ -833,9 +842,8 @@ number nobody asked for; see OQ-1.
 | ID | Risk | Likelihood | Impact | Mitigation |
 |----|------|------------|--------|------------|
 | TR1 | **FR-2's ordering is not fully achievable as written.** Step 7.2 dispatches `/code-review` and deliberately does **not** block on it (it forks to background subagents). Verification at Step 7.3 therefore runs after Step 7.1's *applied* hardening fixes, but possibly before Step 7.2's review fixes land | High | Med | Do not paper over it: Step 7.3 records in `verification.json` and in the report which review passes had completed when the loop started. Step 7.1's fan-out **is** blocking and is where fixes are applied inline, so the majority of "code after review" is real. **Owner-confirmed 2026-08-17 (OQ-2)**: the gap is resolved by sequencing, not by making Step 7.2 blocking — verification stays last and records what had landed |
-| TR2 | Inserting a remediation phase mutates the TRD mid-run, invalidating the parse the command has in hand | Med | Med | The Persist agent (§3.3a, built in FV-B002) re-parses through `trd-parser.js`/`task-graph.js` before the script dispatches `workflow('implement-phase', …)`, so the wave partition sees the mutated document. It does **not** recompute `trd_hash` — §3.7 governs: nothing in `packages/core/lib/` or in `implement-trd.md` computes or compares that value (Step 2.3 requires only that the field be *present*), so there is no consumer a stale hash could mislead and computing one here would make this task the field's first producer for no reader. FV-B001's round-trip test (rendered markdown → parser → expected records) is what keeps the renderer and the parser from drifting |
+| TR2 | Inserting a remediation phase mutates the TRD mid-run, invalidating the parse the command has in hand | Med | Med | The Persist agent (§3.3a, built in FV-B002) re-parses through `trd-parser.js`/`task-graph.js` before the script dispatches anything, so the wave partition sees the mutated document. It does **not** recompute `trd_hash` — §3.7 governs: nothing in `packages/core/lib/` or in `implement-trd.md` computes or compares that value (Step 2.3 requires only that the field be *present*), so there is no consumer a stale hash could mislead and computing one here would make this task the field's first producer for no reader. FV-B001's round-trip test (rendered markdown → parser → expected records) is what keeps the renderer and the parser from drifting |
 | TR3 | The background derive agent is dispatched at Step 3.6 and read at Step 7.3, hundreds of tool calls later. If it died, the loop sees an absent file | Med | Low | Two outcomes are kept distinct by construction: an absent file is `not run: no definition produced`, a present file with zero rows is AC-3's correct empty outcome. Conflating them would report a crashed agent as "the PRD had nothing to verify" |
-| TR4 | **D1 rests on `workflow()`-invokes-`workflow()`, which is documented in the `Workflow` tool's contract but exercised nowhere in this repository** — `grep` finds zero `workflow(` calls in `packages/core/workflows/` | Low | High | The contract is explicit that nesting is permitted to one level and that only a *child* calling `workflow()` throws, and this design uses exactly one level. It is nonetheless the first use here, so it is listed under Could Not Verify with the check that settles it, and FV-B002's test suite asserts the call through `test-harness.js`'s stub rather than proving the platform honours it. If the platform rejects it, the contingency is to move the remediation dispatch — and only that — back to the command: the workflow returns `outcome: 'remediate'` with the assembled args, the command dispatches `Workflow(implement-phase, …)` and re-enters `verify-functional` with `resume` set. The loop, the narrowing and the report stay where D1 puts them |
 
 ### 7.3 Contingency Plans
 
@@ -1006,17 +1014,19 @@ convenience and rot on the first edit.
   explaining why (*"a dead reviewer's `findings: 0` is byte-identical to a clean review"*)
   [read] — `exercised: "n/m"` is this TRD's version of the same defence.
 - **Replaces:** nothing.
-- **Careful (load-bearing):** this task owns the loop (D1, revised 2026-08-17). The nested
-  `workflow('implement-phase', …)` call it makes is **unexercised in this repository** — [ran]
-  `grep -rn "workflow(" packages/core/workflows/*.js` returns no hits, so there is no local
-  precedent to copy. The `Workflow` contract permits exactly one level and `implement-phase.js`
-  calls no workflow itself, so this design sits inside the limit; write the call, and let
-  FV-T001 be where the platform's behaviour is actually observed. See TR4 for the contingency
-  if it is rejected.
-- **Careful:** `implement-phase.js` dereferences `GATE.verifyPrompt`, `GATE.simplifyPrompt` and
-  `GATE.reviewPrompt` unconditionally (`:186`, `:203`, `:265`) [read] — the Persist agent must
-  pass `args.gate` through to the remediation dispatch unchanged. Omitting it dispatches gate
-  agents with `undefined` prompts.
+- **Careful (load-bearing):** this task owns the loop (D1) *and* its remediation dispatch
+  (D8, revised 2026-08-18). This script contains **no** `workflow(` call: remediation is
+  `parallel()` over the waves the Persist agent returns, one `agent()` per gap. `packages/core/workflows/`
+  holds zero `workflow(` calls today [ran] `grep -rn "workflow(" packages/core/workflows/*.js`,
+  and this task must not become the first — the nested-workflow primitive is documented but
+  unexercised here, and D8 removed the only reason to reach for it.
+- **Careful:** the wave partition is computed by the **Persist agent** through `buildGraph()`
+  (`task-graph.js`), not by the script — the script has no `require` (D3). The script dispatches
+  the waves it is handed, **in order, awaiting each before the next**; flattening them defeats
+  the file-conflict serialization that is R2's mechanical half [read] `task-graph.js`,
+  `function computeFilePartition(tasks, grounding)` (:66). Follow `implement-phase.js`'s
+  wave-at-a-time `for` loop over `WAVES` (:127) for the shape — the gate stages that follow it
+  there are exactly what D8 omits.
 - **Careful:** the Persist agent is dispatched by this script but is not a stage that can fail
   softly — §3.3's error handling makes it the one `required()` call, following `audit-trd.js`'s
   Index stage [read] `implement-phase.js:57` and the comment above it explaining why the task
@@ -1091,12 +1101,10 @@ convenience and rot on the first edit.
 - **Reuse:** Step 4.2's `Workflow({ name: "implement-phase", args: { … } })` call form
   verbatim (`:462`) [read] — Step 7.3's single `Workflow({ name: "verify-functional", args: … })`
   call is the same shape with a different name and arg set. Do not invent a second dispatch idiom.
-- **Reuse:** Step 4.2's gate-prompt assembly. `implement-phase.js` dereferences
-  `GATE.verifyPrompt`, `GATE.simplifyPrompt` and `GATE.reviewPrompt` unconditionally (`:186`,
-  `:203`, `:265`) [read], and Step 7.3 is now the only place those prompts can be built — the
-  workflow has no filesystem and the Persist agent passes `args.gate` through unchanged. Assemble
-  them here and put them in `args.gate`; a missing gate block dispatches remediation agents with
-  `undefined` prompts.
+- **Replaces (load-bearing):** the gate-prompt assembly this step carried in v1.1.0 is
+  **removed, not relocated**. Under D8 remediation runs no `verify-app`/`code-simplifier`/review
+  gate, so `args.gate` does not exist and Step 7.3 must not assemble the three prompts. If that
+  prose survives here, the command builds three prompts nothing reads.
 - **Reuse:** the lib CLI's `render-report` for the two `not run` outcomes rather than writing
   report markdown in prose — one renderer, per D3.
 - **Follow:** Step 5.1's `node -e` + `require("./.claude/lib/implement-state")` invocation form
@@ -1155,10 +1163,12 @@ convenience and rot on the first edit.
   `trap cleanup EXIT INT TERM`, and the commit-the-fixture step [read]. It is the closest
   sibling and already asserts a COMMAND COMPLETE banner and `implement.json` fields.
 - **Replaces:** nothing.
-- **Careful:** this scenario is the first place `workflow('implement-phase', …)` from inside
-  `verify-functional.js` actually meets the platform (TR4) — [ran] `grep -rn "workflow("
-  packages/core/workflows/*.js` shows no existing call. A failure there is a platform finding,
-  not a scenario bug: report it as such rather than working around it.
+- **Careful:** this scenario is the first place the Persist agent's `require()` of
+  `trd-parser.js`/`task-graph.js` and the script's per-gap `agent()` dispatch actually meet the
+  platform (see Could Not Verify) — [ran] `grep -rn "workflow(" packages/core/workflows/*.js`
+  confirms no script here invokes another workflow, and under D8 this one does not either. A
+  failure there is a platform finding, not a scenario bug: report it as such rather than
+  working around it.
 - **Careful:** there is **no** `smoke_write_prd` helper, and `smoke_write_trd()`'s heredoc
   emits no `**Source PRD**:` header — it goes from
   `# ${feature_name} — Technical Requirements Document` straight to `## 1. Overview`
@@ -1197,13 +1207,20 @@ rather than deleted so the reasoning stays reviewable and countermandable.
 
 | Claim | How I'd check it |
 |-------|------------------|
-| **A workflow script CAN invoke another workflow, one level deep (load-bearing for the revised D1, and for FV-B002's remediation dispatch)** | The `Workflow` tool's own contract states it: *"workflow(nameOrRef, args) — run another workflow inline as a sub-step and return whatever it returns. The child shares this run's concurrency cap, agent counter, abort signal, and token budget… Nesting is one level only: workflow() inside a child throws."* That is documentation, not observation: **zero calls to `workflow(` exist anywhere in `packages/core/workflows/`** [ran], so this design is the first use here. `implement-phase.js` calls no workflow itself, so `verify-functional` → `implement-phase` is exactly the one permitted level. Settled by FV-T001's live run, or earlier by a two-line scratch workflow that calls another and returns its result. TR4 carries the contingency. **This row replaces v1.0.1's inverse claim**, which read `implement-trd-rework.md:79` — *"`Workflow` is unavailable inside subagents"* — as a statement about workflow scripts |
 | `Agent({subagent_type: "product-manager", run_in_background: true})` from a command reliably produces a file on disk that a much later step can read (D5, TR3) | Dispatch one against a trivial prompt in a scratch project and read the file after an unrelated long-running step; confirm the background task also appears in the `Stop` payload's `background_tasks` while in flight. **Still open after the 2026-08-17 audit, and now more load-bearing**: §3.1 was corrected to never wait on the task and never derive a definition inline, so a background agent that silently fails to write the file costs the whole pass (`not run: no definition produced`) rather than degrading |
 | A workflow-dispatched agent can **write** files and mutate the TRD (the Persist stage, §3.3a — load-bearing for the revised D1) | Mostly settled, not fully: `implement-trd-rework.md:76–78` attests that workflow agents have `Bash` (*"true of the SCRIPT and false of its AGENTS"*), which is sufficient for every disk operation §3.3a needs. What is not separately attested is that such an agent can `require()` `trd-parser.js`/`task-graph.js` and return a large structured args object to the script — the same class of capability, exercised differently. Settle it on FV-T001's live run, or earlier with a scratch workflow whose one agent re-parses a TRD and returns its waves |
 | A workflow-dispatched agent can invoke a Node CLI (the judge's tier-1 call, D4) | ITR-P003 attested that a workflow-started agent can invoke the `/code-review` skill and that `agent()` accepts `agentType`; a plain `Bash` call from such an agent is the same class of capability but is not separately attested. Run one in a scratch workflow. **Still open after the 2026-08-17 audit** — a live workflow run is outside a document audit's reach |
 | `scaffold-project.sh` delivers a *new* file in `contracts/`, `lib/` and `workflows/` on `--refresh` without any change to the script | Read: `copy_libs`/`copy_workflows`/`copy_contracts` glob their source directory and, since the 2026-08-16 refresh-semantics fix, copy files absent from the destination as "Added". Confirm by running `scaffold-project.sh --refresh` against a project scaffolded before these files existed and checking all three arrive. **Still open after the 2026-08-17 audit** — the static read is done; only a run against a stale project settles it, and no such project was in reach |
 | Whether Step 7.2's `/code-review` fixes routinely land before Step 7.3 starts (TR1, OQ-2 — FR-2's ordering guarantee) | Unresolvable without a costed run: `/code-review` forks to background subagents and Step 7.2 does not block, so the answer is a timing distribution, not a fact about the source. The audit confirmed the TRD states the gap rather than hiding it (TR1, TR1 Contingency, OQ-2 all present); it cannot confirm the PRD's FR-2 ordering is delivered. Measure on the first `--verify-functional` run by diffing the review's applied fixes against the loop's start time, which Step 7.3 already records |
 | The wall-clock and token cost of a verification cycle (OQ-1; inherited from the PRD's own Could Not Verify) | No implementation exists to measure. Out of scope for a document audit; AC-6's opt-in default exists precisely because this is unmeasured. OQ-1's narrowing decision reduces the dispatch count from 3N to N + (gaps + regression subset) but does not make the figure known |
+
+**Removed from this table by the 2026-08-18 D8 correction — no longer load-bearing, not resolved:**
+
+- *"A workflow script CAN invoke another workflow, one level deep"* — the revised D8 dispatches
+  remediation as `parallel()` over `buildGraph()`'s waves, one `agent()` per gap, so nothing in
+  this design invokes a nested workflow. The `Workflow` contract's one-level nesting claim
+  remains undemonstrated in this repository and is now also unused by it. D8's Alternatives
+  column records the approach that would have needed it.
 
 **Verified by the 2026-08-17 audit and therefore removed from this table:**
 
