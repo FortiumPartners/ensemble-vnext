@@ -1455,76 +1455,88 @@ paths — one run's own log reads *"Framework libs live at `.claude/lib/`, not
 verification pass that only runs the thing will be defeated the same way. It has to inspect the
 artifact where it lands.
 
-### 9a.1 Goals must produce EVIDENCE, not assert booleans (owner design input, 2026-08-16)
+### 9a.1 Verify the PRD, not the TRD — and iterate on DEFECTS, not phases
 
-**The deterministic-predicate framing is insufficient, and the owner is right about why.** A
-conjunction of state reads — all tasks success, battery green, zero open findings, audit clean —
-is satisfiable while the software does not work. This release proved it: 19/19 tasks success,
-every acceptance criterion met, traceability confirmed, and four defects that would have broken
-it for every user.
+**Owner correction, 2026-08-17. The design previously recorded here was wrong on two counts.**
 
-The goals actually wanted are shaped differently:
+**Wrong artifact.** It verified TRD acceptance criteria. The implement chain already runs those:
+each task ships its own unit tests, the phase gate runs `verify-app` plus the resolved battery,
+and `/audit-build` checks traceability. Re-checking ACs adds a fourth pass over the same
+question. **The unverified question is the PRD's — can a user actually do the thing the PRD says
+they can do?** That is a different artifact and a different kind of check.
 
-> - *"The PRD features have been validated in a live environment with screenshots to prove it"*
-> - *"Every API endpoint has been tested and confirmed to work, as well as conform to the
->   interface contract"*
+**Wrong iteration unit.** It put the gate in wiggum, blocking `Stop` until a condition held.
+Wiggum's re-injection reaches the ORCHESTRATOR, whose unit of work is a phase workflow — so the
+finest correction it can make is *re-run a phase*, and at worst re-run the graph. That is a
+catastrophic granularity mismatch for "the login button 404s". Wiggum's existing job (do not stop
+with tasks incomplete) is correctly scoped because its unit matches: task and phase. Verification's
+unit is a **defect**, and it does not.
 
-Neither is a boolean an agent can set. Each names an artifact that must **exist** and must
-**show** something. That is what makes them unfakeable where `status: "success"` is not.
+### PRD gaps are not issues — they are unbuilt work
 
-**Two-tier structure.** Tier 1 is deterministic, cheap, and where the gate lives; tier 2 is
-where meaning is checked and only runs on artifacts that passed tier 1.
+**Owner correction, second pass.** Routing verification failures through
+`/investigate-issue` → `/fix-issue` is wrong. That chain exists for a **bug report against
+shipped software**: unverified on arrival, so it must be reproduced and classified before anyone
+acts.
 
-| Tier | Check | Cost |
-|---|---|---|
-| 1 | Does the artifact exist? Screenshot file, HTTP request/response transcript, contract diff. Is it non-trivial — non-empty, right type, **mtime after the last code change**? | free, scriptable |
-| 2 | Does it SHOW what it claims? Vision check on the screenshot; transcript response diffed against the declared interface | one agent per artifact |
+A PRD verification failure is neither. The implement chain just ran, the verifier proved the
+failure with evidence, and the requirement it violates is written down. **There is nothing to
+triage** — you already know what is missing, that it is real, and why it matters. Sending it to
+bug-triage adds a classification step whose answer is already in hand.
 
-An agent cannot satisfy *"a PNG exists at `evidence/AC-3.png`, newer than HEAD"* by asserting
-success. That is the whole point, and it is the half `/verify-trd-team`'s Completion Promise
-decomposition was missing: it decomposed a promise into assertions, but the assertions were
-still claims.
+What a PRD gap actually is: **work the implementation chain has not done.** Its natural container
+is a **TRD task** — which `/implement-trd` already consumes, tracks in `implement.json`, schedules
+into phases, and gates.
 
-**Consequence for the PRD/TRD format:** an acceptance criterion has to name its evidence.
-`"users can sign in with SSO"` is unverifiable; `"users can sign in with SSO — evidence: a
-screenshot of the post-login dashboard, and an HTTP transcript of the callback returning 302"`
-is. That is a change to `/create-prd` and `/create-trd`, not just to a verifier, and it is the
-same shape as the `Touches`/`Replaces` grounding requirement those commands already enforce.
+```
+  /verify-prd     run the built system against the PRD's functional requirements
+                  → per requirement: PASS + evidence, or FAIL + evidence
+                       ↓ append a REMEDIATION PHASE to the TRD, one task per failure,
+                         each carrying the failing requirement and the evidence
+  /implement-trd --phase N     runs only that phase
+                       ↓
+  /verify-prd     again, until zero failures
+```
 
-### 9a.2 Why the enforcement mechanism must be wiggum, not a discipline hook
+**This also fixes the granularity objection properly.** The earlier complaint was that blocking
+`Stop` can only re-run existing phases. Appending a phase containing *only* the gap tasks is
+exactly the right unit: `/implement-trd --phase N` already exists and runs that phase alone.
+Nothing re-runs, no graph replay, and the task graph's file-conflict serialization applies to the
+new tasks for free.
 
-The owner's first problem — *"agent coming back with questions and stopping legitimately when it
-knows the next step"* — cannot be fixed by improving the autonomy judge, and the reason is
-structural.
+`/fix-issue` stays what it is — for defects reported against shipped software, outside a TRD
+cycle. The two paths stay separate because their inputs differ in kind: one is a claim needing
+verification, the other is a verified gap needing implementation.
 
-| | async / autonomy hooks | wiggum |
-|---|---|---|
-| judges | the final message's LANGUAGE | `implement.json` STATE |
-| on `stop_hook_active: true` | **allows unconditionally** — one corrective round-trip, then any stop wins | **deliberately ignored** (`wiggum.js:487`: "Do NOT force exit on it") |
-| bound | a single block | iteration cap (default 50) |
+### Evidence, still — that part survives
 
-The loop guard that keeps the discipline hooks from wedging a session IS the bypass: a
-determined stop always succeeds on its second attempt. Measured 2026-08-16 — the autonomy guard
-blocked this session twice and both stops went through on the retry.
+A functional requirement is verified by an ARTIFACT, not an assertion. `status: "success"` is
+settable by an agent; *"a screenshot at `evidence/AC-3.png`, newer than HEAD, showing the
+post-login dashboard"* is not. Two tiers: existence and freshness are deterministic and cheap;
+content (does the screenshot show it, does the response match the contract) is one agent per
+artifact and only runs on artifacts that passed tier 1.
 
-Wiggum has no such hole. It blocks on state and keeps blocking, so an agent that believes it
-needs input **cannot stop** while the condition is unmet, and the re-injection tells it what
-remains. **So the goal gate belongs in wiggum's completion check, evaluated against evidence
-artifacts** — not in a judge reading intent from prose.
+This still implies **the PRD must name its evidence per functional requirement**, which is a
+change to `/create-prd` — same shape as the `Touches`/`Replaces` grounding `/create-trd` already
+demands. Without it a verifier invents what proof looks like, which is the manufactured-requirement
+failure item 10 exists to prevent.
 
-Wiggum changes required, all small:
-- **Delete `CYCLE_POSITION`** — declares the retired 8-stage cycle
-  (`implement/verify/debug/simplify/verify_post_simplify/review/update_artifacts/complete`)
-  against the live 4-stage `CYCLE_ORDER`. Dead code: `grep 'CYCLE_POSITION\.'` returns nothing.
-  Harmless at runtime, but it is a stale specification sitting in the file that reads
-  `implement.json`.
-- **Widen `checkTaskCompletion`** from "all tasks success" to the evidence conjunction above.
-- **Re-tune the iteration cap.** 50 was sized for a turn-by-turn per-task loop with a Stop per
-  stage. The reworked loop dispatches one workflow per phase and awaits it, so Stops are roughly
-  per-phase — 50 now implies a 50-phase TRD.
-- **Distrust `<promise>COMPLETE</promise>`.** It is a substring match against the transcript, so
-  any turn that merely mentions the tag satisfies it. Keep it only as a documented manual
-  override, never as something an autonomous run can trip.
+### What drives the outer loop
+
+`/goal` with a machine-checkable condition on the verification artifact — *"`/verify-prd` reports
+zero failures"* — not wiggum. Re-running verification is the loop's natural checkpoint, and it is
+far cheaper than re-running the implementation graph.
+
+### Open, and worth resolving before building
+
+- **Cost per verification cycle.** Exercising a live system per functional requirement is the
+  expensive part. Unknown whether a full re-verify per fix is affordable, or whether it should
+  re-check only the failed requirement plus a regression subset.
+- **How to exercise a system generically.** Playwright covers web UI; API contracts need request
+  transcripts diffed against a declared interface. A CLI or worker has neither. The command may
+  have to declare which harness applies, or the PRD may.
+- **What `/verify-prd` does when the PRD has no evidence fields yet** — degrade to reporting
+  which requirements are unverifiable, rather than guessing.
 
 **Done when:** a command exists that (1) verifies delivered artifacts in a realistic install /
 refresh layout rather than the dev checkout, (2) diffs against the prior version for silently
