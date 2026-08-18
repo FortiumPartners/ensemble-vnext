@@ -1,6 +1,6 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 1.0.0
+**Version**: 1.0.1
 **Status**: Draft
 **Created**: 2026-08-17
 **Last Updated**: 2026-08-17
@@ -15,6 +15,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-08-17 | Initial TRD creation | @technical-architect |
+| 1.0.1 | 2026-08-17 | `/audit-trd` pass. Resolved two self-contradictions (`trd_hash` recomputation: §3.7 wins, TR2/FV-B005/§2.3 corrected; the absent-definition path: no wait, no inline derivation, `not run: no definition produced` per TR3). Removed FV-B005's undisciplined inline-derivation fallback. Replaced the undefined `Q-1` coverage identifier with §6.1's floor. Corrected §8's `PRD ID` column header (NG1–NG4 are TRD-local). Corrected OQ-6's stated parser mechanism. Added the missing `G2` citation to D1 and FV-B005. Rewrote Could Not Verify | `/audit-trd` |
 
 ---
 
@@ -55,7 +56,7 @@ which is the honest answer and the one that would have caught the 4.1.16 defects
 
 | ID | Decision | Choice | Serves Objective | Rationale | Alternatives Considered |
 |----|----------|--------|------------------|-----------|------------------------|
-| D1 | Where the loop lives | The outer loop is **command-driven** — a new Step 7.3 in `/implement-trd` — not a workflow script | FR-4, AC-5, AC-7 | Each iteration must (a) read the success definition from disk, (b) append a remediation phase to the TRD, (c) dispatch `Workflow(implement-phase, …)`. A workflow script has **no filesystem, no shell**, and no attested primitive for invoking another `Workflow` (`docs/TRD/completed/implement-trd-rework.md` §1.3). All three are things only the command can do. **This is a deliberate departure** from improvement-plan item 9a's *"the loop is a WORKFLOW, not a Stop hook"*: the half of that statement this design keeps is *not a Stop hook* — the reason (`stop_hook_active` is bypassable, wiggum's unit is a phase) is untouched. The determinism the plan wanted from a script is preserved by moving the loop's arithmetic into a pure module the command calls (D3), rather than by moving the loop itself | **Workflow-driven loop** as sketched in item 9a — rejected: it cannot dispatch a phase, which D-9a-1 requires, and would force remediation back to the loose agent D-9a-1 rejected. **Revisit** if workflow-from-workflow invocation becomes attested, at which point the loop body moves wholesale with no change to the module boundaries below. **A `Stop` hook / wiggum gate** — rejected, inherited from item 9a: wiggum's finest correction is a phase re-run, a granularity mismatch for a single failing criterion |
+| D1 | Where the loop lives | The outer loop is **command-driven** — a new Step 7.3 in `/implement-trd` — not a workflow script | G2, FR-4, AC-5, AC-7 | Each iteration must (a) read the success definition from disk, (b) append a remediation phase to the TRD, (c) dispatch `Workflow(implement-phase, …)`. A workflow script has **no filesystem, no shell**, and no attested primitive for invoking another `Workflow` (`docs/TRD/completed/implement-trd-rework.md` §1.3). All three are things only the command can do. **This is a deliberate departure** from improvement-plan item 9a's *"the loop is a WORKFLOW, not a Stop hook"*: the half of that statement this design keeps is *not a Stop hook* — the reason (`stop_hook_active` is bypassable, wiggum's unit is a phase) is untouched. The determinism the plan wanted from a script is preserved by moving the loop's arithmetic into a pure module the command calls (D3), rather than by moving the loop itself | **Workflow-driven loop** as sketched in item 9a — rejected: it cannot dispatch a phase, which D-9a-1 requires, and would force remediation back to the loose agent D-9a-1 rejected. **Revisit** if workflow-from-workflow invocation becomes attested, at which point the loop body moves wholesale with no change to the module boundaries below. **A `Stop` hook / wiggum gate** — rejected, inherited from item 9a: wiggum's finest correction is a phase re-run, a granularity mismatch for a single failing criterion |
 | D2 | Where the verification pass lives | One workflow script, `packages/core/workflows/verify-functional.js`, two stages: Exercise (parallel, one agent per criterion) then Judge (parallel, one agent per criterion) | FR-2, FR-3 | Fan-out of fresh-context agents whose per-agent output does **not** reach the orchestrator is exactly what `implement-phase.js` established (AC-F16.7 there). Each iteration then costs the command one structured verdict, not N transcripts | **Direct `Agent` fan-out from the command** — rejected: per-criterion transcripts land in orchestrator context, and the loop runs up to three times. **Revisit** if the workflow's per-call overhead is ever measured to dominate the agent cost |
 | D3 | Deterministic half | One module, `packages/core/lib/functional-verification.js`, exporting `checkEvidence()`, `decideNext()`, `renderRemediationPhase()`, `renderReport()`, plus a CLI entry point | FR-3, FR-4, AC-4, AC-5 | Every loop-control question — is this artifact real, has a gap closed, is the cap hit, what does the remediation phase look like — is arithmetic over data, and arithmetic belongs in a unit-tested pure module rather than in prose an LLM re-derives per run. Same shape as `trd-parser.js` / `task-graph.js` | **Four separate modules** — rejected: they share one verdict shape, and splitting it invites drift between the renderer and the checker. **Prose in the command** — rejected: AC-5 would then be unverifiable except by running the whole loop three times |
 | D4 | Tier-1 evidence gate placement | The **judge** agent's first action is to run the checker CLI over its criterion's artifact; it short-circuits to `not met` without reading content when tier 1 fails | FR-3, AC-4 | Keeps the whole pass to one workflow call per iteration. The exerciser and the judge are different agents, so the assertion is still not self-certified — which is what FR-3 is defending | **Tier 1 in the command between two workflow calls** (exercise → check → judge) — rejected: three dispatches per iteration for a saving that only applies to already-failing criteria. **Revisit** if judge dispatches on tier-1 failures show up as measurable waste in the first costed run |
@@ -218,7 +219,7 @@ sequenceDiagram
                 C->>L: renderReport(...)
             else remediate
                 C->>L: renderRemediationPhase(gaps)
-                C->>C: append phase to the TRD, re-parse, re-hash
+                C->>C: append phase to the TRD, re-parse (no re-hash — §3.7)
                 C->>P: Workflow(implement-phase, {phase: R})
                 P-->>C: phase result
             end
@@ -278,9 +279,17 @@ how to start the app.
 - PRD path does not resolve → the file is not written; the command reports
   `not run: no PRD resolved` in the report and the banner. This is **distinct** from AC-3's
   empty definition and must not be reported as one.
-- The background agent has not finished when Step 7.3 begins → the command waits on the
-  outstanding background task before reading; if it never produced the file, that is the
-  `not run` path above.
+- The file is absent when Step 7.3 begins → `not run: no definition produced` (TR3), which is
+  again **distinct** from AC-3's empty definition. The command does **not** wait on the
+  background task and does **not** derive a definition inline: there is no attested primitive
+  for a lead to block on a specific `Agent({run_in_background: true})`
+  (`.claude/rules/async-discipline.md`, "Orchestration pattern: the scheduled nudge" — the
+  documented mechanism is `ScheduleWakeup` plus `dispatch-ledger.js --open`, neither of which
+  is a blocking wait), and an inline derivation would be a second production path for
+  `success-definition.md` outside FV-P001's contract, without the mandatory-citation
+  discipline R1 and AC-2 depend on. Step 7.3 runs at the tail of the run, hundreds of tool
+  calls after the Step 3.6 dispatch, so an absent file means the agent died — which is
+  information the report must carry, not a gap to paper over.
 
 ### 3.2 Evidence gate — `checkEvidence()`
 
@@ -507,13 +516,13 @@ Task IDs follow `[PREFIX]-[CATEGORY][SEQ]` with PREFIX `FV`.
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
 | FV-P001 | Write `packages/core/contracts/functional-verification.md`: the derive discipline (mandatory PRD citation, `domain-derived` labelling, empty-is-correct), the D12 stack-keyed harness hint table, what counts as an evidence artifact, the `[read]`/`[ran]`/`[inferred]` notes discipline and correct-don't-work-around rule, the credential rule (S-1), the authorization rule (S-2), and the report shape. Mirror to `.claude/contracts/` | FR-1, FR-3, FR-5, FR-6, AC-2, AC-3, S-1, S-2, D12 | | None | The file exists in both trees and is byte-identical; it states the citation rule, the empty-definition rule, the four stack hint rows, the three derivation markers, and that credentials are recorded by location only; it contains no instruction to invent a criterion or a harness |
-| FV-B001 | Build `packages/core/lib/functional-verification.js` per §3.2–§3.6 — `checkEvidence`, `decideNext`, `renderRemediationPhase`, `renderReport`, plus the `check-evidence` CLI — with its Jest suite. Mirror to `.claude/lib/` | FR-3, FR-4, FR-6, AC-4, AC-5, AC-9, D3, D8, R2 | `jest` | None | Unit tests cover all four `checkEvidence` failure modes, all four `decideNext` branches including `previousGaps === null`, the empty-`files` serial-chain fallback in `renderRemediationPhase`, and a `renderReport` case containing one criterion of each status; the rendered remediation markdown round-trips through `trd-parser.js` to the expected task and grounding records; the module uses no clock and no git; coverage of the module meets the Q-1 floor |
+| FV-B001 | Build `packages/core/lib/functional-verification.js` per §3.2–§3.6 — `checkEvidence`, `decideNext`, `renderRemediationPhase`, `renderReport`, plus the `check-evidence` CLI — with its Jest suite. Mirror to `.claude/lib/` | FR-3, FR-4, FR-6, AC-4, AC-5, AC-9, D3, D8, R2 | `jest` | None | Unit tests cover all four `checkEvidence` failure modes, all four `decideNext` branches including `previousGaps === null`, the empty-`files` serial-chain fallback in `renderRemediationPhase`, and a `renderReport` case containing one criterion of each status; the rendered remediation markdown round-trips through `trd-parser.js` to the expected task and grounding records; the module uses no clock and no git; coverage of the module meets §6.1's unit-test floor (>= 60%, `constitution.md` Quality Gates) |
 
 ### 4.3 Phase 2: Verification pass
 
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
-| FV-B002 | Build `packages/core/workflows/verify-functional.js` per §3.3 — Exercise stage (`parallel`, `agentType: 'verify-app'`, thunks) then Judge stage (`parallel`, untyped, checker-first) — with its Jest suite via `workflows/test-harness.js`. Mirror to `.claude/workflows/` | FR-2, FR-3, AC-4, D2, D4, D7 | `jest` | FV-P001, FV-B001 | The script opens no file, runs no shell, and uses no `Date.now()`/`Math.random()`/argless `new Date()`; tests assert Exercise completes before Judge dispatches, that `agentType: 'verify-app'` is passed on Exercise and absent on Judge, that a `null` agent result yields `not_met` with a stated reason and is reflected in `exercised`, that an empty `criteria` array returns `satisfied: true` without dispatching, and that the judge prompt instructs the checker CLI call before any content reading; coverage meets the Q-1 floor |
+| FV-B002 | Build `packages/core/workflows/verify-functional.js` per §3.3 — Exercise stage (`parallel`, `agentType: 'verify-app'`, thunks) then Judge stage (`parallel`, untyped, checker-first) — with its Jest suite via `workflows/test-harness.js`. Mirror to `.claude/workflows/` | FR-2, FR-3, AC-4, D2, D4, D7 | `jest` | FV-P001, FV-B001 | The script opens no file, runs no shell, and uses no `Date.now()`/`Math.random()`/argless `new Date()`; tests assert Exercise completes before Judge dispatches, that `agentType: 'verify-app'` is passed on Exercise and absent on Judge, that a `null` agent result yields `not_met` with a stated reason and is reflected in `exercised`, that an empty `criteria` array returns `satisfied: true` without dispatching, and that the judge prompt instructs the checker CLI call before any content reading; coverage meets §6.1's unit-test floor (>= 60%, `constitution.md` Quality Gates) |
 | FV-B003 | Repoint `packages/full/agents/verify-app.md`: add a Functional Success Definition mode (input is one criterion, output is a claim plus an artifact path or a stated reason, never a verdict on its own evidence), the D12 hint table, the `stack.md`/`CLAUDE.md` read mandate, S-2's authorization rule, and the `.claude/verification-notes.md` read/write discipline. Mirror to `.claude/agents/` | FR-2, FR-5, AC-8, D6, D12, S-2 | | FV-P001 | The existing TRD-acceptance-criteria mode and Verification Level Enforcement are unchanged and still first in the file; the new mode states that the agent does not decide `met`/`not met`; the notes section names the three derivation markers and the correct-on-failure rule; `agent-validation.test.js` still passes with 13 agents |
 | FV-B004 | Add `--verify-functional` to `/implement-trd` (`packages/core/commands/implement-trd.md`): usage block, `Parse:` line, Execution Model diagram, and Step 3.6's background derive dispatch with PRD-path resolution (TRD `**Source PRD**:` header → `.trd-state/current.json`). Mirror to `.claude/commands/` | FR-1, AC-1, AC-6, D5, D11 | | FV-P001 | Without the flag no derive agent is dispatched and no `.trd-state/*/success-definition.md` appears; with it the dispatch is `run_in_background: true` and its prompt contains the PRD path and the contract text and **no** TRD path or TRD excerpt; an unresolvable PRD path is reported as `not run: no PRD resolved`, distinct from an empty definition |
 
@@ -521,7 +530,7 @@ Task IDs follow `[PREFIX]-[CATEGORY][SEQ]` with PREFIX `FV`.
 
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
-| FV-B005 | Add Step 7.3 to `/implement-trd`: read the definition from disk (generate it inline if absent — never wait on the background task; no primitive exists for a lead to block on a specific `Agent({run_in_background})`, and Step 7.3 runs at the tail so the dispatch has long finished), skip on zero criteria, per iteration call `Workflow(verify-functional, …)`, apply `decideNext()`, on `remediate` append the rendered remediation phase to the TRD + recompute `trd_hash` + re-parse + `Workflow(implement-phase, …)`, persist `verification.json` before each dispatch, write the report, extend Step 6's state-file documentation and Step 8's banner, and add `.trd-state/*/evidence/` to `.gitignore`. Mirror to `.claude/commands/`. **Split from FV-B004 despite sharing `implement-trd.md`** on both permitted grounds: size (a whole new step with loop semantics, TRD mutation and report emission would return a partial result VERIFY could not judge alongside the flag work) and verifiability (AC-1/AC-6 and AC-5/AC-7/AC-9 are separately checkable) | FR-2, FR-4, FR-6, AC-3, AC-5, AC-7, AC-9, D1, D8, D9, D10 | | FV-B001, FV-B002, FV-B003, FV-B004 | Step 7.3 sits after Step 7.2 and before Step 8; all three exits are taken from `decideNext()` rather than re-derived in prose; remediation is dispatched **only** through `Workflow(implement-phase, …)` — no `Agent(` call appears in the remediation path; a zero-criteria definition produces a report and no workflow dispatch; `verification.json` is written before each dispatch; `.gitignore` excludes evidence while the definition, report and notes stay tracked |
+| FV-B005 | Add Step 7.3 to `/implement-trd`: read the definition from disk (an absent file is `not run: no definition produced` per §3.1/TR3 — never wait on the background task and never derive one inline; no primitive exists for a lead to block on a specific `Agent({run_in_background})`, and an inline derivation would bypass FV-P001's citation discipline), skip on zero criteria, per iteration call `Workflow(verify-functional, …)`, apply `decideNext()`, on `remediate` insert the rendered remediation phase into the TRD at §3.7's two insertion points + re-parse (do **not** compute `trd_hash` — §3.7), persist `verification.json` before each dispatch, write the report, extend Step 6's state-file documentation and Step 8's banner, and add `.trd-state/*/evidence/` to `.gitignore`. Mirror to `.claude/commands/`. **Split from FV-B004 despite sharing `implement-trd.md`** on both permitted grounds: size (a whole new step with loop semantics, TRD mutation and report emission would return a partial result VERIFY could not judge alongside the flag work) and verifiability (AC-1/AC-6 and AC-5/AC-7/AC-9 are separately checkable) | G2, FR-2, FR-4, FR-6, AC-3, AC-5, AC-7, AC-9, D1, D8, D9, D10 | | FV-B001, FV-B002, FV-B003, FV-B004 | Step 7.3 sits after Step 7.2 and before Step 8; an absent definition file is reported as `not run: no definition produced` and no definition is derived inside Step 7.3; all three exits are taken from `decideNext()` rather than re-derived in prose; remediation is dispatched **only** through `Workflow(implement-phase, …)` — no `Agent(` call appears in the remediation path; a zero-criteria definition produces a report and no workflow dispatch; `verification.json` is written before each dispatch; `.gitignore` excludes evidence while the definition, report and notes stay tracked |
 
 ### 4.5 Phase 4: End-to-end
 
@@ -642,7 +651,7 @@ serialization is intended, and the split is justified in FV-B005's row.
 | Type | Coverage Target | Source | Scope |
 |------|-----------------|--------|-------|
 | Unit Tests | >= 60% | `constitution.md` Quality Gates | `packages/core/lib/functional-verification.js`, `packages/core/workflows/verify-functional.js` |
-| Integration Tests | >= 50% **when applicable — not applicable here** | `constitution.md` Quality Gates ("when applicable") | This feature's integration surface is `test/smoke/scenarios/verify-functional.sh`, a BATS-driven live scenario. No coverage instrumentation exists for shell in this repository (`package.json`'s test script is `jest`; no kcov configuration exists anywhere outside design documents), so no percentage is measurable. The integration objective is discharged by FV-T001's named assertions instead |
+| Integration Tests | >= 50% **when applicable — not applicable here** | `constitution.md` Quality Gates ("when applicable") | This feature's integration surface is `test/smoke/scenarios/verify-functional.sh`, a BATS-driven live scenario. No coverage instrumentation exists for shell in this repository (`package.json`'s test script is `jest`; no kcov configuration exists anywhere outside design documents; `.github/workflows/ci.yml`'s `bats` job installs and invokes `bats` directly with no coverage step — read in full during the 2026-08-17 audit), so no percentage is measurable. The integration objective is discharged by FV-T001's named assertions instead |
 
 No figure here exceeds a `constitution.md` floor.
 
@@ -692,7 +701,7 @@ number nobody asked for; see OQ-1.
 | ID | Risk | Likelihood | Impact | Mitigation |
 |----|------|------------|--------|------------|
 | TR1 | **FR-2's ordering is not fully achievable as written.** Step 7.2 dispatches `/code-review` and deliberately does **not** block on it (it forks to background subagents). Verification at Step 7.3 therefore runs after Step 7.1's *applied* hardening fixes, but possibly before Step 7.2's review fixes land | High | Med | Do not paper over it: Step 7.3 records in `verification.json` and in the report which review passes had completed when the loop started. Step 7.1's fan-out **is** blocking and is where fixes are applied inline, so the majority of "code after review" is real. See OQ-2 |
-| TR2 | Appending a remediation phase mutates the TRD mid-run, invalidating `trd_hash` and the parse the command has in hand | Med | Med | FV-B005 recomputes `trd_hash` and re-parses through `trd-parser.js`/`task-graph.js` before dispatching the remediation phase, so Step 2.3's state validation and the wave partition both see the mutated document. FV-B001's round-trip test (rendered markdown → parser → expected records) is what keeps the renderer and the parser from drifting |
+| TR2 | Inserting a remediation phase mutates the TRD mid-run, invalidating the parse the command has in hand | Med | Med | FV-B005 re-parses through `trd-parser.js`/`task-graph.js` before dispatching the remediation phase, so the wave partition sees the mutated document. It does **not** recompute `trd_hash` — §3.7 governs: nothing in `packages/core/lib/` or in `implement-trd.md` computes or compares that value (Step 2.3 requires only that the field be *present*), so there is no consumer a stale hash could mislead and computing one here would make this task the field's first producer for no reader. FV-B001's round-trip test (rendered markdown → parser → expected records) is what keeps the renderer and the parser from drifting |
 | TR3 | The background derive agent is dispatched at Step 3.6 and read at Step 7.3, hundreds of tool calls later. If it died, the loop sees an absent file | Med | Low | Two outcomes are kept distinct by construction: an absent file is `not run: no definition produced`, a present file with zero rows is AC-3's correct empty outcome. Conflating them would report a crashed agent as "the PRD had nothing to verify" |
 
 ### 7.3 Contingency Plans
@@ -713,7 +722,11 @@ manual re-entry.
 The following are **explicitly out of scope** per the PRD. Implementation agents MUST reject
 requests that fall into these categories.
 
-| PRD ID | Non-Goal | Rationale |
+The PRD states these as four unlabelled bullets (`docs/PRD/functional-verification.md` §3).
+The `NG1`–`NG4` identifiers below are **this TRD's**, assigned so the decisions and tasks above
+can reference them; they are not PRD-assigned IDs.
+
+| ID (TRD-local) | Non-Goal (PRD §3) | Rationale |
 |--------|----------|-----------|
 | NG1 | Replacing any existing verification | Per-task unit tests, the phase gate and `/audit-build` all stay. This adds the functional layer none of them cover |
 | NG2 | A universal verification harness | How to exercise a given system is the project's responsibility (`CLAUDE.md`, `stack.md`, project memory, its existing suites). This ships hints, not capability |
@@ -932,9 +945,12 @@ convenience and rot on the first edit.
   and `## 9. Task Grounding` at `## Open Questions` [read] `trd-parser.js:120–140`, `:447`.
   Two insertion points are required, matching `renderRemediationPhase()`'s two return strings.
   See findings.
-- **Careful:** "recompute `trd_hash`" has no existing site to follow — nothing in the live
-  command or in `packages/core/lib/` computes it [ran] (ground-truth table). Whatever this
-  task does becomes the first producer.
+- **Resolved (2026-08-17 audit):** do **not** compute `trd_hash`. It has no producer and no
+  value-consumer — nothing in `packages/core/lib/` or `packages/core/commands/implement-trd.md`
+  computes or compares it; the only references are the state template's `{{TRD_HASH}}`
+  placeholder, the §2.3 "Required Fields" presence check, and an example state block [ran]
+  `grep -rn "trd_hash\|sha256" packages/core/lib packages/core/commands/implement-trd.md
+  packages/core/workflows`. §3.7, this row, TR2 and §2.3's diagram now agree.
 - **Careful:** Step 7.3 must sit between `### 7.2 End-of-run full-branch code review` (`:764`)
   and `## Step 8: Completion` (`:779`) [read].
 - **Careful:** Step 8's banner is one fenced ASCII block (`:781–825`) whose last content
@@ -944,10 +960,13 @@ convenience and rot on the first edit.
   `Integration Coverage: {Y}% (target: 70%)` (`:800–801`) while `constitution.md:197` sets the
   floors at 60% / 50% [read] — this task edits that block, so the mismatch is now in reach
   (see findings).
-- **Careful:** §3.1's "the command waits on the outstanding background task before reading"
-  has no attested primitive. The repository's documented mechanism is `ScheduleWakeup` plus
-  `node .claude/hooks/dispatch-ledger.js --open` [read] `.claude/rules/async-discipline.md`
-  *"Orchestration pattern: the scheduled nudge"*; `dispatch-ledger.js:17, :183`.
+- **Resolved (2026-08-17 audit):** §3.1 previously said "the command waits on the outstanding
+  background task before reading", which has no attested primitive — the repository's
+  documented mechanism is `ScheduleWakeup` plus `node .claude/hooks/dispatch-ledger.js --open`
+  [read] `.claude/rules/async-discipline.md` *"Orchestration pattern: the scheduled nudge"*;
+  `dispatch-ledger.js:17, :183`. §3.1 now specifies the no-wait behavior and TR3's
+  `not run: no definition produced` outcome, and the inline-generation fallback this row once
+  carried is removed: it was a second derivation path outside FV-P001's contract.
 
 ### FV-T001
 
@@ -993,7 +1012,7 @@ convenience and rot on the first edit.
 | OQ-3 | Are evidence artifacts wanted in git? | No — `.trd-state/*/evidence/` is gitignored (D10); definition, report and notes stay tracked | Screenshots and transcripts are binary and per-run; committing them bloats a tracked directory that exists for coordination | A reviewer cannot re-read an artifact after the branch merges, and the `.gitignore` line has to come back out |
 | OQ-4 | Should the derive pass be a registered agent type rather than an untyped background agent with a contract? | Untyped, contract-driven (D5) — adding a 14th agent is a `constitution.md` change requiring owner approval | The roster is owner-governed, and `agent-validation.test.js` enforces it | The contract is unwieldy as an inline prompt and a roster change is needed anyway |
 | OQ-5 | Where does `.claude/verification-notes.md` come from in a freshly scaffolded project? | Nowhere — the agent creates it on first write. No scaffold template, no seeded stub | A stub with example content is exactly the sort of thing that gets trusted as observed fact, which FR-5's stale-note rule exists to prevent | Projects want a documented starting shape and `scaffold-project.sh` needs a template |
-| OQ-6 | The remediation phase's task-ID category letter — the convention names `P/F/B/T/D/I` and none of them means "remediation" | `renderRemediationPhase()` emits `<PREFIX>-R###`. `trd-parser.js`'s ID token regex is generic, so `R` parses, but it is outside the documented set | A category letter nobody documented will confuse a later reader of the TRD | The letter changes to `B` and the contract's category list stays as it is |
+| OQ-6 | The remediation phase's task-ID category letter — the convention names `P/F/B/T/D/I` and none of them means "remediation" | `renderRemediationPhase()` emits `<PREFIX>-R###`. `R` parses because the ID column is **unconstrained** — `stripMarkup(rawId)` takes it verbatim (`trd-parser.js:349`) and `ID_TOKEN_RE` (`:25`) governs only the Dependencies cell via `parseDependencies` (`:253–256`) [ran, 2026-08-17 audit]. `FV-R001` satisfies both, so the conclusion stands; the earlier "the ID token regex is generic" wording named the wrong mechanism and is corrected here. The letter is still outside the documented category set | A category letter nobody documented will confuse a later reader of the TRD | The letter changes to `B` and the contract's category list stays as it is |
 
 ---
 
@@ -1001,8 +1020,26 @@ convenience and rot on the first edit.
 
 | Claim | How I'd check it |
 |-------|------------------|
-| A workflow script cannot invoke another `Workflow` (load-bearing for D1) | Read from `docs/TRD/completed/implement-trd-rework.md` §1.3's runtime table, which enumerates the injected globals as `agent`/`parallel`/`pipeline`/`phase`/`log` and states "No filesystem or Node.js API access." That table records an **absence**, and the same document warns that inferring an API's absence from this repository's usage was already wrong once (`pipeline()`). Confirm against the `Workflow` tool's own contract before treating D1's rationale as settled |
-| `Agent({run_in_background: true})` from a command reliably produces a file on disk that a much later step can read (D5, TR3) | Dispatch one against a trivial prompt in a scratch project and read the file after an unrelated long-running step; confirm the background task also appears in the `Stop` payload's `background_tasks` while in flight |
-| A workflow-dispatched agent can invoke a Node CLI (the judge's tier-1 call, D4) | ITR-P003 attested that a workflow-started agent can invoke the `/code-review` skill and that `agent()` accepts `agentType`; a plain `Bash` call from such an agent is the same class of capability but is not separately attested. Run one in a scratch workflow |
-| `scaffold-project.sh` delivers a *new* file in `contracts/`, `lib/` and `workflows/` on `--refresh` without any change to the script | Read: `copy_libs`/`copy_workflows`/`copy_contracts` glob their source directory and, since the 2026-08-16 refresh-semantics fix, copy files absent from the destination as "Added". Confirm by running `scaffold-project.sh --refresh` against a project scaffolded before these files existed and checking all three arrive |
-| No coverage instrumentation exists for BATS in this repository (§6.1) | Ran `grep -rn kcov` across `*.json`/`*.sh`/`*.yml` excluding `docs/` and `node_modules` — no hits; `package.json`'s `test` script is `jest`. A CI workflow exists (`.github/workflows/ci.yml`) that I did not read in full |
+| A workflow script cannot invoke another `Workflow` (load-bearing for D1) | Read from `docs/TRD/completed/implement-trd-rework.md` §1.3's runtime table, which enumerates the injected globals as `agent`/`parallel`/`pipeline`/`phase`/`log` and states "No filesystem or Node.js API access." That table records an **absence**, and the same document warns that inferring an API's absence from this repository's usage was already wrong once (`pipeline()`). Confirm against the `Workflow` tool's own contract before treating D1's rationale as settled. **Still open after the 2026-08-17 audit** — that contract is outside this repository, and the audit's source of truth was `docs/PRD/functional-verification.md` plus this tree |
+| `Agent({run_in_background: true})` from a command reliably produces a file on disk that a much later step can read (D5, TR3) | Dispatch one against a trivial prompt in a scratch project and read the file after an unrelated long-running step; confirm the background task also appears in the `Stop` payload's `background_tasks` while in flight. **Still open after the 2026-08-17 audit, and now more load-bearing**: §3.1 was corrected to never wait on the task and never derive a definition inline, so a background agent that silently fails to write the file costs the whole pass (`not run: no definition produced`) rather than degrading |
+| A workflow-dispatched agent can invoke a Node CLI (the judge's tier-1 call, D4) | ITR-P003 attested that a workflow-started agent can invoke the `/code-review` skill and that `agent()` accepts `agentType`; a plain `Bash` call from such an agent is the same class of capability but is not separately attested. Run one in a scratch workflow. **Still open after the 2026-08-17 audit** — a live workflow run is outside a document audit's reach |
+| `scaffold-project.sh` delivers a *new* file in `contracts/`, `lib/` and `workflows/` on `--refresh` without any change to the script | Read: `copy_libs`/`copy_workflows`/`copy_contracts` glob their source directory and, since the 2026-08-16 refresh-semantics fix, copy files absent from the destination as "Added". Confirm by running `scaffold-project.sh --refresh` against a project scaffolded before these files existed and checking all three arrive. **Still open after the 2026-08-17 audit** — the static read is done; only a run against a stale project settles it, and no such project was in reach |
+| Whether Step 7.2's `/code-review` fixes routinely land before Step 7.3 starts (TR1, OQ-2 — FR-2's ordering guarantee) | Unresolvable without a costed run: `/code-review` forks to background subagents and Step 7.2 does not block, so the answer is a timing distribution, not a fact about the source. The audit confirmed the TRD states the gap rather than hiding it (TR1, TR1 Contingency, OQ-2 all present); it cannot confirm the PRD's FR-2 ordering is delivered. Measure on the first `--verify-functional` run by diffing the review's applied fixes against the loop's start time, which Step 7.3 already records |
+| The wall-clock and token cost of a verification cycle (OQ-1; inherited from the PRD's own Could Not Verify) | No implementation exists to measure. Out of scope for a document audit; AC-6's opt-in default exists precisely because this is unmeasured |
+
+**Verified by the 2026-08-17 audit and therefore removed from this table:**
+
+- *"No coverage instrumentation exists for BATS in this repository"* (§6.1) — confirmed:
+  `.github/workflows/ci.yml` was read; its `bats` job (`:62`) installs `bats` (`:71`) and
+  invokes it directly (`:102`) with no `kcov` or coverage step anywhere in the file, and
+  `package.json`'s `test` script is `jest`. §6.1's "not applicable here" for integration
+  coverage stands.
+- *"`trd_hash` has no producer and no value-consumer"* (§3.7, TR2, FV-B005 grounding) —
+  confirmed by `grep -rn "trd_hash\|sha256"` over `packages/core/lib/`,
+  `packages/core/commands/implement-trd.md` and `packages/core/workflows/`: the only hits are
+  the state template's `{{TRD_HASH}}` placeholder, §2.3's required-*field* presence check and
+  an example state block. Nothing computes or compares the value. The three sites that
+  disagreed about recomputing it now agree not to.
+- *"`trd-parser.js` accepts an `FV-R###` task ID"* (OQ-6) — confirmed, with the mechanism
+  corrected: the ID column is unconstrained (`stripMarkup(rawId)`, `:349`), and `ID_TOKEN_RE`
+  (`:25`) applies only to the Dependencies cell (`:253–256`).
