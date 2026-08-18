@@ -1581,6 +1581,61 @@ They belong in `stack.md`, and the notes file may only record what it OBSERVED a
 **Security is unchanged:** the file is committed. It records WHERE credentials come from, never
 their values.
 
+### Grounding overturned three of those decisions (2026-08-17)
+
+`/create-trd`'s grounding stage read the code and found three things in the design above that
+**cannot be built as specified.** All three were mine. Recorded because the corrections matter
+more than the original decisions.
+
+**1. `D-9a-1`'s "append a remediation phase" is a SILENT NO-OP.**
+
+`trd-parser.js`'s `findSection` (`:120`) bounds a section at *the next heading whose level is
+<= the found heading's level*. So `## 4. Master Task List` ends at `## 5. Execution Plan`, and
+`Task Grounding` ends at `## Open Questions`. **A phase appended after `## Could Not Verify` sits
+outside every span the parser reads.** `parseTrd` returns zero new tasks, `buildGraph` returns no
+waves, and the `Workflow(implement-phase, …)` dispatch **succeeds while doing nothing** — reading
+as a completed remediation.
+
+Grounding proved it by running the parser both ways: the same content inside `## 9. Task
+Grounding` yields 7 ids and zero warnings; appended after `## Could Not Verify` it is invisible.
+
+**Corrected to: INSERT at two points — inside §4 and inside §9.** Never append.
+
+**2. Nothing can wait on a background agent, and nothing needs to.**
+
+I specced the parallel success-definition pass as something Step 7.3 would *wait on*. Grounding
+grepped every command: `run_in_background` appears once, in a list of primitives — **no command
+performs a wait**, and the documented mechanism (`ScheduleWakeup` + the dispatch ledger) is
+explicitly non-blocking.
+
+**Corrected to: read the definition from disk; generate it inline if absent.** Step 7.3 runs at
+the tail of the run, so the dispatch has long finished — there was never anything to wait for.
+The design's own Ralph property (disk state, no conversation coupling) already made the wait
+unnecessary, and I reached for a primitive that does not exist anyway.
+
+**3. `trd_hash` has no producer.**
+
+A task said "recompute `trd_hash`". Nothing in `packages/core/lib/` mentions it; on-disk state
+files carry `"phase3_complete"` and `"phase-5-added"` in that field. Only an archived v3 command
+ever described computing it.
+
+**Corrected to: re-parse the mutated TRD, and do not touch `trd_hash`.** The real concern —
+mutating the TRD mid-run invalidates the parse — is solved by re-parsing, which the design
+already needs in order to pick up the inserted tasks. Hashing added nothing.
+
+**Two pre-existing defects surfaced as a side effect**, neither caused by this feature:
+
+- `implement-trd.md:800` prints `Unit Coverage (target: 80%)` / `Integration (70%)` while
+  `constitution.md:197` sets `>= 60%` / `>= 50%`. The command prints a stricter target than the
+  constitution it loads at Step 1.1.
+- `implement-phase.js:189` states `verify-app` declares `disallowedTools: Agent`. Removed from
+  all agents in constitution v1.3.0 — `grep` returns zero hits. The comment is false and is now
+  load-bearing for two new tasks.
+
+**What this says about the pipeline:** grounding is the stage that reads code, and it caught
+three unbuildable specs in a design that had already survived five rounds of review. Buildability
+remains the cheapest check and the one nobody performs.
+
 ### Resolved design decisions (2026-08-17)
 
 **D-9a-1: remediation is a TRD PHASE dispatch, not a loose agent.**
