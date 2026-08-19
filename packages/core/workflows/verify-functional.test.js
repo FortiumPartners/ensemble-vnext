@@ -323,6 +323,86 @@ describe('verify-functional: Judge prompt instructs checker-first', () => {
   });
 });
 
+// --------------------------------------------------------------------------- report header (Finding A)
+
+describe('verify-functional: feature/prd/definitionPath reach the report header', () => {
+  // Finding A: renderReport() destructures feature/prd/definitionPath but nothing in the
+  // original args interface supplied them, so every report rendered "undefined" for all
+  // three. The judge has no other source for these -- they must arrive via args and be
+  // embedded verbatim in the judge's render-report instructions.
+  it('embeds args.feature/args.prd/args.definitionPath verbatim in the judge prompt', async () => {
+    let capturedPrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
+      if (opts.label === 'judge') {
+        capturedPrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [criterion('FS-1')],
+        feature: 'functional-verification',
+        prd: 'docs/PRD/functional-verification.md',
+        definitionPath: '.trd-state/functional-verification/success-definition.md',
+      }),
+    });
+
+    expect(capturedPrompt).toContain('"feature": "functional-verification"');
+    expect(capturedPrompt).toContain('"prd": "docs/PRD/functional-verification.md"');
+    expect(capturedPrompt).toContain(
+      '"definitionPath": ".trd-state/functional-verification/success-definition.md"'
+    );
+  });
+
+  it('defaults feature/prd/definitionPath to empty strings when args omits them', async () => {
+    let capturedPrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
+      if (opts.label === 'judge') {
+        capturedPrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+
+    expect(capturedPrompt).toContain('"feature": ""');
+    expect(capturedPrompt).toContain('"prd": ""');
+    expect(capturedPrompt).toContain('"definitionPath": ""');
+  });
+});
+
+// --------------------------------------------------------------------------- resume state shape
+
+describe('verify-functional: the Judge is told the exact state-file key names', () => {
+  // implement-trd Step 8.2 reads verification-state.json back and passes it as
+  // `resume: { iteration, criteria, gapsClosed }`. RESUME_ITERATION/RESUME_CRITERIA treat an
+  // unrecognised key as absent, which silently restarts the loop at iteration 1 -- so the
+  // writer (this prompt) and the reader (Step 8.2) must agree on the spelling.
+  it('names iteration / criteria / gapsClosed in STEP 4', async () => {
+    let capturedPrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
+      if (opts.label === 'judge') {
+        capturedPrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+
+    expect(capturedPrompt).toContain('"iteration": 1');
+    expect(capturedPrompt).toContain('"criteria"');
+    expect(capturedPrompt).toContain('"gapsClosed"');
+  });
+});
+
 // --------------------------------------------------------------------------- notesUpdated
 
 describe('verify-functional: notesUpdated is sourced from the Exercise stage', () => {

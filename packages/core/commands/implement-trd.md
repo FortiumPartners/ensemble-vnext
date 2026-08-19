@@ -34,13 +34,18 @@ Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--re
 ## Execution Model
 
 ```
-PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN HARDENING & REVIEW -> COMPLETE
+PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN HARDENING & REVIEW -> FUNCTIONAL VERIFICATION -> COMPLETE
 
   --verify-functional (Step 3.6, D5): right after the graph is built, before the phase
   loop, dispatch the success-definition derive pass in the background —
   Agent({subagent_type: "product-manager", run_in_background: true, ...}) — and continue
   straight into the phase loop with no wait. Absent the flag, no derive agent is
   dispatched and no .trd-state/<feature>/success-definition.md appears.
+
+  FUNCTIONAL VERIFICATION (Step 8, D1): one dispatch, not a loop. After Step 7's hardening
+  and review, resolve the definition from disk (never wait, never derive inline) and make
+  a single Workflow(verify-functional, {...}) call; render its outcome into Step 9's
+  banner. Absent the flag, this step is skipped entirely.
 
 Phase Loop (per phase N):
   mark phase N's tasks in_progress (state-write-before-dispatch)
@@ -477,8 +482,51 @@ as usual, and `--resume` without `--verify-functional` keeps its existing meanin
    `not run: no PRD resolved` for Step 8 to report later (functional-verification TRD §3.1,
    §3.7) and skip the rest of this step — dispatch nothing.
 
+   **Persist it — this is the only place the fact exists.** Step 8 runs hundreds of tool
+   calls later, possibly after a compaction; in-context memory does not survive that (the
+   same reasoning `.claude/rules/async-discipline.md`'s dispatch ledger exists for). Record
+   the fact in `implement.json` (Step 6's state file) so Step 8 reads it back rather than
+   inferring it from an absent `success-definition.md` — that absence is a **different,
+   distinct** outcome (`not run: no definition produced`, when the PRD resolved but the
+   background derive agent died) that must not be conflated with this one.
+
+   **Set it on the in-memory state object first, then persist — in that order, and never as
+   a bare `writeFileSync` to disk.** Two facts about this step's position in the run make the
+   obvious "read the file, add the key, write it back" wrong in both directions:
+
+   - On a fresh run, `.trd-state/<feature>/implement.json` **does not exist yet** — Step 4.1's
+     `implement-state.save()` is its first writer. A `readFileSync` here throws `ENOENT` and
+     the fact is never recorded at all.
+   - Even where the file does exist (a `--resume`), Step 4.1 writes the **whole** in-memory
+     `state` object through `implement-state.save()`. A key that exists only on disk is
+     clobbered by that first phase write, hundreds of tool calls before Step 8 reads it —
+     silently, and precisely into the `prd_resolved`-absent case Step 8 treats as "the PRD
+     resolved". That turns `not run: no PRD resolved` into `not run: no definition produced`,
+     which is the exact conflation this field exists to prevent (TR3).
+
+   So mutate the state object the command is already carrying:
+
+   ```javascript
+   // PRD unresolvable:
+   state.functional_verification = { prd_resolved: false, prd_path: null };
+   // PRD resolved (set before the step-2 dispatch below):
+   state.functional_verification = { prd_resolved: true, prd_path: "<resolved PRD path>" };
+   ```
+
+   then persist it with the only sanctioned writer, which needs no prior file to exist:
+
+   ```bash
+   node -e '
+     const { save } = require("./.claude/lib/implement-state");
+     save(process.argv[1], JSON.parse(process.argv[2]));
+   ' ".trd-state/<feature>/implement.json" "<the full state object as JSON>"
+   ```
+
+   Because the key now lives on the in-memory object, every later `save()` — Step 4.1's and
+   every checkpoint's — carries it forward instead of dropping it.
+
 **2. Dispatch the derive pass in the background**, same call shape as Step 7.1's
-`Agent(subagent_type="code-reviewer", prompt="…")` fan-out:
+`Agent(subagent_type=..., prompt="…")` verifier fan-out (the agent type differs; see §7.1):
 
 ```
 Agent(subagent_type="product-manager", run_in_background: true,
@@ -651,7 +699,7 @@ command). Increment a phase-level retry counter (stored per failed task's `retry
 already incremented by `recordResult`). If every failed task's `retry_count < 3`: re-dispatch
 the **whole phase** (AC-F16.6 — "a retried phase re-runs its whole task set", including tasks
 that succeeded on the prior attempt, since `implement-phase.js` has no partial-retry input).
-If any failed task's `retry_count >= 3`: STUCK (Step 9.1), naming the task, the phase, and
+If any failed task's `retry_count >= 3`: STUCK (Step 10.1), naming the task, the phase, and
 whether the failure matches a documented risk (Step 1.6).
 
 ---
@@ -699,7 +747,7 @@ only place a human sees either. Open findings are NOT a pause condition — prin
 continue; Step 7's feature-scale pass sees them again over the whole branch.
 
 Then continue into the next phase. Pause ONLY on the explicit conditions enumerated in
-Step 9 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase
+Step 10 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase
 transitions are NOT pause conditions.
 
 **Compaction is automatic, not user-driven.** `/compact` will auto-fire at ~95% context;
@@ -762,9 +810,31 @@ the durable companion to `implement.json` — state records *what* happened, the
     "last_checkpoint_timestamp": "ISO8601",
     "interrupted": false,
     "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "prd_path": "docs/PRD/<feature>.md or null"
   }
 }
 ```
+
+**On `functional_verification` (present only when `--verify-functional` was set, FV-B005):**
+written by Step 3.6 at PRD-resolution time, not by the loop itself — `verification-state.json`
+and `verification-report.md` (both written by the workflow's Judge agent, §3.3a) are the
+loop's own durable record; this field exists only to carry the **one** fact that predates the
+loop and would otherwise be lost to it. Step 3.6 runs hundreds of tool calls before Step 8,
+across a possible compaction, so `not run: no PRD resolved` cannot survive as in-context
+memory (the same reasoning `.claude/rules/async-discipline.md`'s dispatch ledger exists for
+— see its "Orchestration pattern" section). It is set on the in-memory `state` object, not
+written to disk on its own, so that Step 4.1's `implement-state.save()` — which writes the
+whole object — carries it forward rather than clobbering it. Step 8 reads `prd_resolved`
+first and, only when it is `true` (or, defensively, the field is missing altogether, which
+under `--verify-functional` can only mean the state write was lost), falls through to
+checking whether `success-definition.md` exists on disk. This keeps the
+three outcomes §3.1 requires distinct: `prd_resolved: false` → `not run: no PRD resolved`;
+`prd_resolved: true` and the definition file absent → `not run: no definition produced`
+(the derive agent died); `prd_resolved: true` and the file present with zero rows → AC-3's
+legitimate empty definition, which Step 8 does NOT report as either `not run` case.
 
 **On `cycle_position`:** reduced to `implement-state.js`'s exported `CYCLE_ORDER` —
 `implement | checks | debug | complete`. The v3.2.0 five-position enum
@@ -792,7 +862,8 @@ There is no session-scoped TaskTools mirror in this design — dispatch is per-p
 
 ## Step 7: End-of-Run Hardening and Review
 
-After the final phase's checkpoint (Step 5) and before Step 8's completion report:
+After the final phase's checkpoint (Step 5) and before Step 8's functional verification
+(when `--verify-functional` is set) and Step 9's completion report:
 
 ### 7.1 Feature-scale hardening pass (verifier fan-out)
 
@@ -831,7 +902,129 @@ which is a factual statement about a completed dispatch, not a deferred-notifica
 
 ---
 
-## Step 8: Completion
+## Step 8: Functional Verification (`--verify-functional` only)
+
+**Only when `--verify-functional` is set.** Absent the flag, skip this step entirely — Step 9's
+banner reads `not run (--verify-functional not set)` (functional-verification TRD §3.7, AC-6).
+
+This step is **one dispatch, not a loop** (D1, G2, FR-2). It contains exactly one `Workflow(`
+call. Everything that iterates, judges, or decides what to do next belongs to
+`verify-functional.js` (FV-B002) — this step never reasons about `decideNext`'s branches in
+prose, never reads or mutates the TRD, and never calls `Agent(` directly. Its whole job is
+resolving inputs from disk and rendering what the workflow returns.
+
+### 8.1 Resolve the definition, distinguishing all three outcomes (§3.1)
+
+1. Read `.trd-state/<feature>/implement.json`'s `functional_verification` field (written by
+   Step 3.6, §6 above) — both of its keys: `prd_resolved` decides which branch below runs, and
+   `prd_path` is the resolved PRD path that §8.1's second branch and §8.3's `prd` argument
+   both need (Step 3.6 ran hundreds of tool calls ago; this file, not memory, is where that
+   path lives). If `prd_resolved` is `false`: the PRD never resolved. Render
+   `not run: no PRD resolved` through the lib CLI's `render-report` — **do not write this by
+   hand** (D3, one renderer):
+
+   ```bash
+   node -e '
+     const fs = require("fs");
+     const input = {
+       feature: process.argv[1], prd: "", definitionPath: process.argv[2],
+       outcome: "not-run", reason: "no PRD resolved", criteria: [],
+     };
+     fs.writeFileSync(process.argv[3], JSON.stringify(input));
+   ' "<feature>" ".trd-state/<feature>/success-definition.md" "/tmp/fv-report-input-<feature>.json"
+   node .claude/lib/functional-verification.js render-report --file /tmp/fv-report-input-<feature>.json \
+     > ".trd-state/<feature>/verification-report.md"
+   ```
+
+   Skip the rest of this step — no `Workflow` call. Record the outcome as `not-run-no-prd`
+   for Step 9's banner and continue to Step 9.
+
+2. Otherwise (`prd_resolved` is `true`; or, defensively, the whole `functional_verification`
+   field is missing even though the flag was set — Step 3.6 writes it on both branches, so
+   that can only mean the state write itself was lost, and falling through here at least
+   produces a real report instead of a spurious `no PRD resolved`), check whether
+   `.trd-state/<feature>/success-definition.md` exists on disk. **Do not wait on the background
+   derive agent and do not derive a definition inline** — there is no attested primitive for a
+   lead session to block on a specific `Agent({run_in_background: true})`
+   (`.claude/rules/async-discipline.md`, "Orchestration pattern: the scheduled nudge"), and an
+   inline derivation would be a second, undisciplined production path for
+   `success-definition.md` outside FV-P001's mandatory-citation contract. Step 8 runs at the
+   tail of the run, hundreds of tool calls after the Step 3.6 dispatch — an absent file at this
+   point means the derive agent died, which is information the report must carry, not a gap to
+   paper over silently.
+
+   Absent → render `not run: no definition produced` (TR3), same renderer, same shape as
+   above but with `reason: "no definition produced"` and `prd` set to `prd_path` from the
+   state file (step 1). Skip the rest of this step — no `Workflow` call. Record `not-run-no-definition`
+   for Step 9 and continue.
+
+   Present → parse its table into `criteria` (§3.1's format; column → field: `ID` → `id`,
+   `Functional statement` → `statement`, `Cites` → `cites`, `Evidence that would prove it` →
+   `evidence`, `Derivation` → `derivation`). **Zero rows is legitimate** (AC-3) — proceed to
+   §8.3 with `criteria: []` rather than treating it as either `not run` outcome; the workflow's
+   own empty-criteria branch (§3.3, Error Handling) runs one Judge call and returns
+   `outcome: 'satisfied'` with a real, rendered report — that is the correct handling for a PRD
+   that yielded no functional criteria, and it is not this step's job to special-case it.
+
+### 8.2 The `--resume` composition (§3.7, D13) — already gated at Step 3.6
+
+When Step 3.6's step 0 fired (both flags set, a non-terminal `verification-state.json` on
+disk), the phase loop and Step 7 were skipped entirely and this is the first thing the run
+does. The definition file is guaranteed present in that case (the state file could only exist
+from a prior run that resolved one) — resolve `criteria` from it exactly as in §8.1's "Present"
+branch, then read `.trd-state/<feature>/verification-state.json` and pass its contents as
+`resume: { iteration, criteria, gapsClosed }` (D13). On a fresh run (no prior state file, or a
+terminal one), `resume` is `null`.
+
+### 8.3 Assemble the remaining args and dispatch
+
+Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/rules/stack.md`
+and `CLAUDE.md` (repo root) as `stackHints`, and `packages/core/contracts/functional-verification.md`
+as `contract`. Resolve `since` from `git log -1 --format=%ct`.
+
+```javascript
+Workflow({ name: "verify-functional", args: {
+  criteria,                                                    // §8.1
+  contract,                                                    // packages/core/contracts/functional-verification.md text
+  notes,                                                        // .claude/verification-notes.md text, or ""
+  stackHints,                                                   // stack.md + CLAUDE.md excerpts
+  evidenceDir: ".trd-state/<feature>/evidence",
+  checker: ".claude/lib/functional-verification.js",
+  since,                                                         // git log -1 --format=%ct
+  cap: 3,
+  statePath: ".trd-state/<feature>/verification-state.json",
+  reportPath: ".trd-state/<feature>/verification-report.md",
+  resume,                                                        // §8.2, null on a fresh run
+  project: "",                                                   // set only when the TRD targets a codebase other than this repo
+  feature: "<feature>",                                          // Finding A: renderReport()'s header
+  prd: prd_path,                                                 // Finding A — from implement.json's functional_verification (§8.1 step 1)
+  definitionPath: ".trd-state/<feature>/success-definition.md",  // Finding A
+} })
+```
+
+Same call shape as Step 4.2's `Workflow({ name: "implement-phase", args: {…} })` — one
+dispatch, one return, no fan-out helper. Notably absent from the arg list: `gate`, `prefix`,
+`phaseNumber`, `existingIds` — those exist only to feed `implement-phase.js`'s task-graph
+machinery (D8), which this loop has none of; carrying them here would be assembling args
+nothing reads.
+
+`verification-state.json` and `verification-report.md` are written **inside** the workflow, by
+its Judge agent (§3.3a) — this step does not write either one on the dispatch path (only on
+the two `not run` short-circuits in §8.1, which never reach the workflow at all).
+
+### 8.4 Render the outcome
+
+The `Workflow` call returns `{ outcome, reason, iterations, reportPath, criteria, gaps,
+unbuilt, exercised, debugAttempts, notesUpdated }` (§3.3). Carry `outcome` and `reportPath`
+into Step 9's FUNCTIONAL VERIFICATION block, along with `criteria` — the banner's
+met/not-met/not-verifiable/unbuilt counts are a tally of that array's `status` values, so
+dropping it here leaves those four counts with nothing to come from. Nothing beyond those
+three — no re-reading the rendered report, no re-deriving the verdict; the report and the
+state file are already the durable record.
+
+---
+
+## Step 9: Completion
 
 When all phases complete:
 
@@ -861,6 +1054,12 @@ HARDENING & REVIEW
 Feature-scale hardening findings: {count} ({applied} applied, {reported} reported)
 End-of-run /code-review high:     dispatched over {branch_base}...HEAD
 
+FUNCTIONAL VERIFICATION
+------------------------
+Outcome: {not run (--verify-functional not set) | not run: no PRD resolved | not run: no definition produced | satisfied | unbuilt | stalled | stuck}
+Met: {count}  Not met: {count}  Not verifiable: {count}  Unbuilt: {count}
+Report: {report_path or "n/a"}
+
 COMMITS
 -------
 {list of commit SHAs with messages}
@@ -886,12 +1085,23 @@ separate, individually-priced verification wave (7 agents on this project's own 
 `.claude/rules/autonomy.md` governs what this command does unattended — not what it spends
 on a second command's behalf. Naming it is the fix; auto-running it is a different decision.
 
+**Filling the FUNCTIONAL VERIFICATION block.** When `--verify-functional` was never passed,
+this block is not omitted — it reads `Outcome: not run (--verify-functional not set)` with
+every count at 0 and `Report: n/a`, so its absence is never mistaken for a pass
+(functional-verification TRD §3.7). When the flag was set, Step 8 resolved one of five
+states: the two `not run` short-circuits (§8.1 — no PRD resolved, no definition produced),
+or one of the workflow's four terminal outcomes (§8.4 — `satisfied`, `unbuilt`, `stalled`,
+`stuck`). The met/not-met/not-verifiable/unbuilt counts come from tallying the `criteria`
+array the workflow returned (or are all 0 for the two `not run` cases, since no criteria were
+ever evaluated); `Report` is `Step 8`'s `reportPath` in every case — the two `not run` reports
+are written by the same `render-report` CLI call, so the path is populated even when the loop
+itself never ran.
 
 For Wiggum mode, signal: `<promise>COMPLETE</promise>`
 
 ---
 
-## Step 9: Pause Conditions (NOT phase boundaries)
+## Step 10: Pause Conditions (NOT phase boundaries)
 
 The command runs **uninterrupted** through every phase from start to completion — phase
 checkpoints emit the PHASE banner and immediately spawn the next phase. The ONLY
@@ -899,7 +1109,7 @@ conditions under which the command pauses for user input are below. Routine phas
 transitions, /compact recommendations, and successful checkpoint commits are NOT pause
 conditions.
 
-### 9.1 STUCK (retry count >= 3, or a cycle in the task graph)
+### 10.1 STUCK (retry count >= 3, or a cycle in the task graph)
 
 ```
 ===============================================================================
@@ -942,7 +1152,7 @@ cycle" and `Problem` naming every participating task ID.
 | TRD parses to zero tasks | STUCK — check Master Task List is a table (Step 3.1) |
 | Cycle in task graph | STUCK — name participants (Step 3.1) |
 | Git branch conflict | Suggest `git stash` or `git commit` |
-| Phase failure (3+ retries) | Pause for user (Step 9) |
+| Phase failure (3+ retries) | Pause for user (Step 10) |
 | Resolved battery red at phase gate | Treated as phase failure (Step 4.4) |
 | No battery resolvable for the project | SKIPPED, reported in the banner — never a failure (Step 4.4) |
 | State file corrupted | Attempt git reconstruction, offer `--reset-state` |

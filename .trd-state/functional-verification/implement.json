@@ -4,7 +4,7 @@
   "trd_hash": "cd0e9bbfff1e32c94b8c8ca9ddd960a42311e8ced840d310f2371f0eacafd720",
   "branch": "feature/functional-verification/impl",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "FV-P001": {
       "description": "Write packages/core/contracts/functional-verification.md: the derive discipline (mandatory PRD citation, domain-derived labelling, empty-is-correct), the D12 stack-keyed harness hint table, what counts as an evidence artifact, the exercise discipline (bring the system up once, walk every criterion, ",
@@ -92,14 +92,22 @@
     "FV-B005": {
       "description": "Add Step 8 to /implement-trd per §3.7 — one dispatch, not a loop (D1): read the definition from disk (absent → not run: no definition produced per §3.1/TR3; never wait on the background task and never derive one inline — no primitive exists for a lead to block on a specific Agent({run_in_background}",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        ".gitignore"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-19T06:48:25.329Z",
+      "completed_at": "2026-08-19T07:05:56.567Z",
+      "last_advanced": "2026-08-19T06:59:37.755Z"
     },
     "FV-T001": {
       "description": "[LIVE]: add test/smoke/scenarios/verify-functional.sh and register it in run-smoke.sh's SCENARIO_TIMEOUT and LLM_OPT_IN_SCENARIOS. It scaffolds a throwaway project with a one-requirement PRD and a matching one-task TRD, runs /implement-trd without the flag and asserts no success definition appears, ",
@@ -124,11 +132,21 @@
         "reported": 2
       },
       "timestamp": "2026-08-19T06:21:26.018Z"
+    },
+    {
+      "phase": 2,
+      "commit": "a29fece43fbbbfa691f73e585c33fc6824ad36d9",
+      "review": {
+        "findings": 12,
+        "applied": 10,
+        "reported": 2
+      },
+      "timestamp": "2026-08-19T06:48:25.328Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "1cd1f9355caa9ff9bea94812944d888d0031e695",
-    "last_checkpoint_timestamp": "2026-08-19T06:21:26.018Z",
+    "last_healthy_checkpoint": "a29fece43fbbbfa691f73e585c33fc6824ad36d9",
+    "last_checkpoint_timestamp": "2026-08-19T06:48:25.328Z",
     "interrupted": false,
     "interrupt_reason": null
   }

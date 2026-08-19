@@ -73,6 +73,15 @@ if (!Number.isInteger(CAP) || CAP < 1) {
 }
 const STATE_PATH = a.statePath
 const REPORT_PATH = a.reportPath
+// Finding A (FV-B005): renderReport()'s header needs feature/prd/definitionPath and nothing
+// in §3.3's original interface supplied them -- every report rendered "undefined" for all
+// three. Resolved by adding them to VerifyFunctionalArgs (this is the one place the judge,
+// which has no other context, can get them from) rather than dropping them from
+// renderReport() -- the report's header is meaningless without a feature name and a source
+// PRD, and functional-verification.test.js already exercises renderReport() with all three.
+const FEATURE = a.feature || ''
+const PRD = a.prd || ''
+const DEFINITION_PATH = a.definitionPath || ''
 // Scratch directory for judge-input payload files (Finding: shell-quoting hazard, §3.3a).
 // Free-text `reason` strings from the exerciser can carry an apostrophe ("couldn't start the
 // server"), which would terminate a `'<json>'`-quoted shell argument mid-command. Payload
@@ -155,11 +164,21 @@ function buildJudgePrompt({ iteration, claims, previousGaps, forcedUnbuilt, exer
     `{"iteration":${iteration},"gaps":<not_met ids>,"unbuilt":<unbuilt ids>,` +
     `"previousGaps":${prevGapsJson},"cap":${CAP}} to ${decideFile}, then run:\n` +
     `  node ${CHECKER} decide-next --file ${decideFile}\n\n` +
-    `STEP 4: persist the run's state -- iteration, per-criterion status and evidence path, and ` +
-    `the gaps-closed history with this iteration appended -- to ${STATE_PATH}, BEFORE anything ` +
-    `else is dispatched.\n\n` +
+    `STEP 4: persist the run's state to ${STATE_PATH}, BEFORE anything else is dispatched. ` +
+    `Write EXACTLY these three top-level keys, spelled exactly as given -- the command that ` +
+    `dispatched this workflow reads them straight back to compose a --resume snapshot ` +
+    `(implement-trd Step 8.2), and a key it does not recognise is read as absent, which ` +
+    `silently restarts the loop at iteration 1 with no memory of this run:\n` +
+    `  {"iteration": ${iteration}, "criteria": [ <one entry per criterion: "id", "status", ` +
+    `"artifact"> ], "gapsClosed": [ <the gaps-closed history with this iteration appended> ]}` +
+    `\n\n` +
     `STEP 5: on any exit action (anything other than "remediate"), write the render-report input ` +
-    `to ${reportInputFile}, then run:\n` +
+    `to ${reportInputFile} -- it MUST include "feature": ${JSON.stringify(FEATURE)}, "prd": ` +
+    `${JSON.stringify(PRD)} and "definitionPath": ${JSON.stringify(DEFINITION_PATH)} verbatim ` +
+    `(do not invent or omit these three -- they are the report's header, supplied by the ` +
+    `command that dispatched this workflow) alongside "outcome", "reason" and "criteria" (one ` +
+    `entry per criterion: id, statement, cites, status, artifact, reason, attempts, blocker), ` +
+    `then run:\n` +
     `  node ${CHECKER} render-report --file ${reportInputFile}\n` +
     `and write the output to ${REPORT_PATH}.\n\n` +
     `STEP 6: on "remediate", do not render a report and do not touch anything besides the state ` +
