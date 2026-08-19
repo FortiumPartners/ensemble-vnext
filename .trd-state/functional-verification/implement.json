@@ -157,11 +157,21 @@
         "reported": 2
       },
       "timestamp": "2026-08-19T07:06:25.917Z"
+    },
+    {
+      "phase": 4,
+      "commit": "62b12af62b85550458967f38ee5ecf3fb1d81a70",
+      "review": {
+        "findings": 12,
+        "applied": 9,
+        "reported": 3
+      },
+      "timestamp": "2026-08-19T07:20:49.020Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "296f7c0f342ba88fea00e5dd729977a7d52bbbd5",
-    "last_checkpoint_timestamp": "2026-08-19T07:06:25.917Z",
+    "last_healthy_checkpoint": "62b12af62b85550458967f38ee5ecf3fb1d81a70",
+    "last_checkpoint_timestamp": "2026-08-19T07:20:49.020Z",
     "interrupted": false,
     "interrupt_reason": null
   }

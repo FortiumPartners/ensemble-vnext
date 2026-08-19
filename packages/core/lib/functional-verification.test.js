@@ -74,6 +74,27 @@ describe('checkEvidence', () => {
     expect(verdict.failure).toBe('stale');
   });
 
+  // CHARACTERIZATION of a KNOWN GAP, not an endorsement of it. `sinceSec` is HEAD's commit
+  // time, and HEAD does not move during a run -- the Debug stage never commits. On
+  // `--verify-functional --resume` the phase loop is skipped entirely, so HEAD dates from the
+  // PRIOR run and that run's leftover evidence, sitting at the same paths under
+  // .trd-state/<feature>/evidence/, passes this check having proved nothing about the current
+  // run. This test pins that behaviour so the gap stays visible in the suite rather than
+  // being rediscovered. See the freshness-floor row in the TRD's `## Could Not Verify`; the
+  // remedy (a per-iteration floor from a Judge-written marker) changes this parameter's
+  // meaning and is routed to /refine-trd.
+  test("KNOWN GAP: a prior run's artifact passes because HEAD predates it", () => {
+    const artifact = path.join(tmpDir, 'prior-run-evidence.txt');
+    fs.writeFileSync(artifact, 'evidence from the run before this one');
+
+    const headSec = 1_700_000_000; // HEAD, dating from the prior run
+    const artifactSec = headSec + 60; // the prior run wrote this AFTER that commit
+    fs.utimesSync(artifact, new Date(artifactSec * 1000), new Date(artifactSec * 1000));
+
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact }], headSec);
+    expect(verdict.tier1).toBe('pass');
+  });
+
   test('pass — exists, non-empty, strictly newer than sinceSec', () => {
     const artifact = path.join(tmpDir, 'fresh.txt');
     fs.writeFileSync(artifact, 'evidence');
@@ -87,6 +108,30 @@ describe('checkEvidence', () => {
       bytes: 8,
     });
     expect(verdict.failure).toBeUndefined();
+  });
+
+  test('a directory is not an artifact — non-empty and fresh, but nothing to read', () => {
+    // A directory satisfies every byte/mtime condition (statSync reports a non-zero size and
+    // a current mtime) while containing no evidence a judge could read. Passing tier 1 here
+    // is a vacuous pass: the deterministic gate, the one thing an agent cannot set, waves
+    // through a claim whose "artifact" is the evidence directory itself.
+    const dir = path.join(tmpDir, 'evidence-dir');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'inner.txt'), 'x');
+    const mtimeSec = Math.floor(fs.statSync(dir).mtimeMs / 1000);
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact: dir }], mtimeSec - 3600);
+    expect(verdict.tier1).toBe('fail');
+    expect(verdict.failure).toBe('not-a-file');
+  });
+
+  test('a symlink to a valid artifact still passes — statSync follows it to a real file', () => {
+    const target = path.join(tmpDir, 'real.txt');
+    fs.writeFileSync(target, 'evidence');
+    const link = path.join(tmpDir, 'link.txt');
+    fs.symlinkSync(target, link);
+    const mtimeSec = Math.floor(fs.statSync(link).mtimeMs / 1000);
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact: link }], mtimeSec - 3600);
+    expect(verdict.tier1).toBe('pass');
   });
 
   test('maps multiple claims independently, preserving order', () => {
@@ -167,6 +212,16 @@ describe('decideNext', () => {
     });
     expect(result.action).toBe('remediate');
     expect(result.closed).toEqual([]);
+  });
+
+  test('previousGaps === [] never triggers stalled — no gap existed to close', () => {
+    // Reachable from a resume: verify-functional.js seeds previousGaps by filtering the resume
+    // snapshot for `not_met`, so a snapshot in which nothing was not_met (a prior run that
+    // exited satisfied or unbuilt) yields [] rather than null. Treating that as a stall
+    // reports "remediation is not converging" on an iteration where no remediation ran, and
+    // exits before the Debug stage is ever dispatched.
+    const result = decideNext({ iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: [], cap: 3 });
+    expect(result.action).toBe('remediate');
   });
 
   test('exit-stuck when iteration reaches the cap with gaps still open', () => {
@@ -344,6 +399,26 @@ describe('renderReport', () => {
     expect(metSection).not.toContain('| ID |');
   });
 
+  test('a criterion with an unrecognised status still appears, and is not counted as absent', () => {
+    // renderReport()'s input file is written by the Judge agent by hand and is not validated
+    // by JUDGE_SCHEMA (that schema covers the agent's RETURN value, not the report-input file
+    // it writes in STEP 5). A single typo -- `not-met` for `not_met` -- made the criterion
+    // vanish from every section while the header still counted it in the total, under an
+    // Outcome line reading "Satisfied". The contract requires every criterion to appear.
+    const withTypo = {
+      ...baseInput,
+      outcome: 'satisfied',
+      criteria: [
+        baseInput.criteria[0],
+        { ...baseInput.criteria[1], status: 'not-met' },
+      ],
+    };
+    const report = renderReport(withTypo);
+    expect(report).toContain('FS-2');
+    expect(report).toContain('not-met');
+    expect(report).toMatch(/1 unrecognised status/);
+  });
+
   test('handles a criteria set with no entries in a given status without throwing', () => {
     const onlyMet = {
       ...baseInput,
@@ -459,6 +534,22 @@ describe('CLI', () => {
   // -------------------------------------------------------------------------
   // --file / stdin payload input (Finding: shell-quoting hazard with inline JSON)
   // -------------------------------------------------------------------------
+
+  test('check-evidence rejects a zero or negative sinceSec rather than passing every artifact', () => {
+    // Number('') === 0 and 0 is finite, so this slipped past the non-numeric guard. With
+    // sinceSec 0 every mtime since 1970 is "strictly greater than" it, and the staleness rule
+    // — the part of tier 1 that ties evidence to the code it claims to prove — passes an
+    // artifact of any age. A year-2000 file returned tier1 "pass" and exit 0.
+    const artifact = path.join(tmpDir, 'ancient.txt');
+    fs.writeFileSync(artifact, 'x');
+    fs.utimesSync(artifact, new Date(2000, 0, 1), new Date(2000, 0, 1));
+    const claims = JSON.stringify([{ criterion: 'FS-1', artifact }]);
+    for (const bad of ['0', '-1', '']) {
+      expect(() => {
+        execFileSync('node', [MODULE_PATH, 'check-evidence', claims, bad], { stdio: 'pipe' });
+      }).toThrow();
+    }
+  });
 
   test('check-evidence accepts the claims payload via --file <path>', () => {
     const artifact = path.join(tmpDir, 'evidence.txt');

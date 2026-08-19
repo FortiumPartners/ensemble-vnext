@@ -456,14 +456,25 @@ derive agent is dispatched and no `.trd-state/<feature>/success-definition.md` a
 
 **0. The `--resume` composition gate (§3.7, D13).** When `--verify-functional` AND
 `--resume`/`--continue` are both set and `.trd-state/<feature>/verification-state.json`
-exists with a **non-terminal** outcome (its recorded action is `remediate`, or it carries no
-terminal outcome at all), this run re-enters the verification loop and nothing else: **skip
+exists with a **non-terminal** outcome — that is, its top-level `outcome` key is `null` (the
+run stopped mid-loop) — this run re-enters the verification loop and nothing else: **skip
 this step entirely — dispatch no derive agent — and skip the phase loop (Steps 4–6) and the
 end-of-run hardening (Step 7)**, going straight to Step 8, which reads that state file as its
 `resume` argument. A definition already exists from the run that wrote the state file;
 deriving a second one would overwrite it mid-loop. Every other combination is unaffected:
 `--verify-functional` with no state file (or a terminal one) derives and runs the phase loop
 as usual, and `--resume` without `--verify-functional` keeps its existing meaning.
+
+**Read `outcome` and nothing else to decide this.** A non-null `outcome` (`satisfied`,
+`unbuilt`, `stalled`, `stuck`) means the loop finished and MUST NOT be re-entered; a `null`
+one means it stopped mid-loop and should be. A state file with no `outcome` key at all is a
+file written by a Judge that did not follow its instructions — treat it as terminal (do not
+resume) and say so in the banner, because the alternative reading resumes forever.
+
+Do NOT try to infer terminality from `criteria` instead: `unbuilt` and `stalled` runs both
+finish with `not_met` criteria still on the books at an iteration below the cap, so any
+"there are still open gaps, therefore resumable" rule misreads both as resumable and re-enters
+a loop that already gave its final answer.
 
 **1. Resolve the PRD path**, in order:
 
@@ -973,7 +984,8 @@ disk), the phase loop and Step 7 were skipped entirely and this is the first thi
 does. The definition file is guaranteed present in that case (the state file could only exist
 from a prior run that resolved one) — resolve `criteria` from it exactly as in §8.1's "Present"
 branch, then read `.trd-state/<feature>/verification-state.json` and pass its contents as
-`resume: { iteration, criteria, gapsClosed }` (D13). On a fresh run (no prior state file, or a
+`resume: { iteration, criteria, gapsClosed }` (D13) — `outcome` is read by Step 3.6's gate,
+not passed to the workflow, which derives its own. On a fresh run (no prior state file, or a
 terminal one), `resume` is `null`.
 
 ### 8.3 Assemble the remaining args and dispatch

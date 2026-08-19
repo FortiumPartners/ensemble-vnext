@@ -32,8 +32,18 @@ const fs = require('fs');
  * @param {Array<{criterion: string, artifact: string|null, reason?: string}>} claims
  * @param {number} sinceSec - HEAD commit time (seconds). An artifact whose mtime is not
  *   strictly greater than this is stale: it predates the code it claims to prove.
+ *
+ *   NOTE: this floor is weaker than it looks. HEAD does not move during a run (the Debug
+ *   stage never commits), so it establishes only "newer than the last phase-loop commit" --
+ *   not "produced by this iteration's Exercise", and not "newer than an uncommitted Debug
+ *   fix". On `--verify-functional --resume` it is weakest of all: the phase loop is skipped,
+ *   HEAD dates from the prior run, and that run's leftover evidence passes unconditionally.
+ *   Recorded as a stated gap in the TRD's `## Could Not Verify`; the remedy under
+ *   consideration is a per-iteration floor from a Judge-written marker file, which is a
+ *   change to this parameter's meaning and so belongs in `/refine-trd`, not here.
  * @returns {Array<{criterion: string, tier1: 'pass'|'fail', artifact: string|null,
- *   bytes: number|null, mtimeSec: number|null, failure?: 'missing'|'empty'|'stale'|'no-artifact'}>}
+ *   bytes: number|null, mtimeSec: number|null,
+ *   failure?: 'missing'|'empty'|'stale'|'no-artifact'|'not-a-file'}>}
  */
 function checkEvidence(claims, sinceSec) {
   return claims.map((claim) => {
@@ -68,6 +78,17 @@ function checkEvidence(claims, sinceSec) {
 
     const bytes = stat.size;
     const mtimeSec = Math.floor(stat.mtimeMs / 1000);
+
+    if (!stat.isFile()) {
+      // A directory passes every other condition in this function -- statSync reports a
+      // non-zero size for one and its mtime is whatever the run just made it -- while holding
+      // nothing a judge can read. So does a socket, a fifo, or a device node. The contract
+      // defines an artifact as "a file on disk that a deterministic check can gate before any
+      // agent reads its content"; anything the judge cannot open and read is not that, and
+      // waving it through here is a vacuous pass in the one check an agent cannot set.
+      // statSync follows symlinks, so a symlink pointing at a real file is still a file.
+      return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'not-a-file' };
+    }
 
     if (bytes === 0) {
       return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'empty' };
@@ -125,7 +146,13 @@ function decideNext(input) {
     };
   }
 
-  if (previousGaps != null && closed.length === 0) {
+  // `previousGaps.length > 0` is load-bearing, not defensive. An empty previousGaps is
+  // reachable -- verify-functional.js seeds it by filtering a resume snapshot for `not_met`,
+  // so a snapshot from a run that exited satisfied or unbuilt yields [] rather than null --
+  // and with no gap to close, "closed no gaps" is vacuously true. Without this clause a
+  // resumed run exits `stalled` ("remediation is not converging") on its first iteration,
+  // before the Debug stage has been dispatched even once.
+  if (previousGaps != null && previousGaps.length > 0 && closed.length === 0) {
     return {
       action: 'exit-stalled',
       reason: 'iteration closed no gaps — remediation is not converging',
@@ -186,6 +213,17 @@ function renderReport(input) {
   const notMet = criteria.filter((c) => c.status === 'not_met');
   const notVerifiable = criteria.filter((c) => c.status === 'not_verifiable');
   const unbuilt = criteria.filter((c) => c.status === 'unbuilt');
+  // Anything that is none of the four. The report-input file is composed by hand by the Judge
+  // agent and is NOT covered by verify-functional.js's JUDGE_SCHEMA (that schema constrains
+  // the agent's return value, not the file it writes in STEP 5), so a one-character slip --
+  // `not-met` for `not_met` -- reaches here intact. Filtered into no section and counted in
+  // no tally, such a criterion vanished from the report entirely while the header still
+  // counted it in the total: a report reading "Satisfied / 2 total / 1 met" with the failing
+  // criterion nowhere on the page. The contract requires every criterion in the definition to
+  // appear in the report, so surface it as the anomaly it is rather than inventing a verdict
+  // for it.
+  const KNOWN = ['met', 'not_met', 'not_verifiable', 'unbuilt'];
+  const unrecognised = criteria.filter((c) => !KNOWN.includes(c.status));
 
   const lines = [];
   lines.push(`# Functional Verification Report: ${feature}`);
@@ -195,9 +233,30 @@ function renderReport(input) {
   lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}`);
   lines.push(`**Reason**: ${reason}`);
   lines.push(
-    `**Criteria**: ${criteria.length} total — ${met.length} met, ${notMet.length} not met, ${notVerifiable.length} not verifiable, ${unbuilt.length} unbuilt`
+    `**Criteria**: ${criteria.length} total — ${met.length} met, ${notMet.length} not met, ${notVerifiable.length} not verifiable, ${unbuilt.length} unbuilt` +
+      (unrecognised.length > 0 ? `, ${unrecognised.length} unrecognised status` : '')
   );
   lines.push('');
+
+  if (unrecognised.length > 0) {
+    lines.push('## Unrecognised Status');
+    lines.push('');
+    lines.push(
+      'These criteria carry a status that is none of `met` / `not_met` / `not_verifiable` / ' +
+        '`unbuilt`. No verdict has been assigned to them and none is implied here — the ' +
+        'report renders them so they cannot go missing, and whoever composed the report input ' +
+        'has to resolve them.'
+    );
+    lines.push('');
+    lines.push('| ID | Statement | Status as written | Reason |');
+    lines.push('|----|-----------|-------------------|--------|');
+    for (const c of unrecognised) {
+      lines.push(
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.status)} | ${escapeCell(c.reason)} |`
+      );
+    }
+    lines.push('');
+  }
 
   if (unbuilt.length > 0) {
     lines.push('## Unbuilt');
@@ -329,9 +388,15 @@ if (require.main === module) {
     const [claimsJson, remaining] = resolveJsonPayload(rest);
     const [sinceSecArg] = remaining;
     const sinceSec = Number(sinceSecArg);
-    if (!claimsJson || sinceSecArg === undefined || !Number.isFinite(sinceSec)) {
+    if (!claimsJson || sinceSecArg === undefined || !Number.isFinite(sinceSec) || sinceSec <= 0) {
       // A non-numeric sinceSec would make every `mtimeSec > NaN` comparison false, silently
       // reporting every artifact as `stale`. Fail loudly instead of fabricating gaps.
+      //
+      // `<= 0` is the same guard against the strictly worse direction. `Number('')` is 0 and
+      // finite, so an empty or zeroed sinceSec slipped past the finiteness check and made
+      // every mtime since 1970 "strictly greater than" it — the staleness rule, the one part
+      // of tier 1 that ties evidence to the code it claims to prove, silently passing an
+      // artifact of any age. A real HEAD commit time is never zero or negative.
       usage();
     } else {
       const claims = JSON.parse(claimsJson);

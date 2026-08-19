@@ -384,7 +384,7 @@ describe('verify-functional: the Judge is told the exact state-file key names', 
   // `resume: { iteration, criteria, gapsClosed }`. RESUME_ITERATION/RESUME_CRITERIA treat an
   // unrecognised key as absent, which silently restarts the loop at iteration 1 -- so the
   // writer (this prompt) and the reader (Step 8.2) must agree on the spelling.
-  it('names iteration / criteria / gapsClosed in STEP 4', async () => {
+  it('names iteration / criteria / gapsClosed / outcome in STEP 4', async () => {
     let capturedPrompt = null;
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
@@ -400,6 +400,62 @@ describe('verify-functional: the Judge is told the exact state-file key names', 
     expect(capturedPrompt).toContain('"iteration": 1');
     expect(capturedPrompt).toContain('"criteria"');
     expect(capturedPrompt).toContain('"gapsClosed"');
+    expect(capturedPrompt).toContain('"outcome"');
+    expect(capturedPrompt).toContain('four top-level keys');
+  });
+
+  // THE TERMINALITY MARKER. implement-trd Step 3.6 step 0 gates the --resume composition on
+  // this state file having a non-terminal outcome. Before `outcome` existed the Judge wrote
+  // exactly three keys and none of them was one, so "carries no terminal outcome at all" was
+  // ALWAYS true: any existing verification-state.json -- including one left by a run that
+  // exited satisfied -- made every later `--verify-functional --resume` skip the derive pass,
+  // the entire phase loop AND the end-of-run hardening, and dispatch nothing. Composed with a
+  // cap-exhausted resume, the whole run became a silent no-op that blamed the Judge for it.
+  // Terminality cannot be derived from the other three keys: exit-unbuilt and exit-stalled
+  // both leave not_met criteria behind at an iteration below the cap, so any
+  // "has open gaps -> resumable" rule misreads both as resumable.
+  it('tells the Judge that outcome is null on remediate and non-null on an exit action', async () => {
+    let capturedPrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
+      if (opts.label === 'judge') {
+        capturedPrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+
+    // null on remediate, a real outcome string otherwise -- both halves stated.
+    expect(capturedPrompt).toMatch(/null when decide-next returned "remediate"/);
+    expect(capturedPrompt).toMatch(/"satisfied", "unbuilt", "stalled" or "stuck"/);
+    // The consequence is spelled out, so a judge that is tempted to omit the key knows why not.
+    expect(capturedPrompt).toMatch(/Omitting the key\s+entirely reads as null/);
+    expect(capturedPrompt).toContain('Write it on EVERY iteration');
+    // gapsClosed is explicitly demoted to a record so nobody reads it as driving the loop.
+    expect(capturedPrompt).toMatch(/"gapsClosed" is an AUDIT RECORD, not a loop input/);
+  });
+
+  // §3.3a step 3 and FV-B001's Reuse clause both bind the state write to
+  // `implement-state.save()` -- a bare Write can leave a truncated state file that the next
+  // `--resume` throws on. The script cannot require the module, so the prompt must name it.
+  it('instructs the state write through implement-state.save(), not a plain file write', async () => {
+    let capturedPrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
+      if (opts.label === 'judge') {
+        capturedPrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+
+    expect(capturedPrompt).toContain('./.claude/lib/implement-state');
+    expect(capturedPrompt).toMatch(/save\(filePath, state\)/);
+    expect(capturedPrompt).toMatch(/Do NOT write it with a plain file write/);
   });
 });
 
@@ -506,6 +562,39 @@ describe('verify-functional: resume', () => {
     expect(capturedJudgePrompt).toMatch(/"FS-1"/); // previousGaps JSON includes the seeded gap
     expect(result.iterations).toBe(3);
   });
+
+  // Cross-phase regression: implement-trd Step 3.6 step 0 skips the derive pass, the phase
+  // loop AND the hardening step whenever a verification-state.json exists, then hands its
+  // contents here as `resume`. A prior run that spent the whole cap leaves exactly such a
+  // file, so this composition is reachable in normal use -- and before the guard below
+  // existed it dispatched zero agents, rendered no report, and blamed the Judge for a cap
+  // exhaustion the Judge was never given a turn to declare.
+  it.each([
+    ['at the cap', 3],
+    ['past the cap', 5],
+  ])('resuming %s dispatches nothing and says why, instead of blaming the Judge', async (_label, resumeIteration) => {
+    const agent = makeAgentStub(() => satisfiedJudge());
+    const resume = {
+      iteration: resumeIteration,
+      criteria: [
+        { id: 'FS-1', status: 'not_met', artifact: null, reason: 'still broken' },
+        { id: 'FS-2', status: 'met', artifact: 'b.txt', reason: null },
+      ],
+      gapsClosed: [],
+    };
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume, cap: 3 }) });
+
+    expect(agent.calls).toHaveLength(0);
+    expect(result.outcome).toBe('stuck');
+    expect(result.reason).toMatch(/prior run already spent the whole budget/);
+    expect(result.reason).not.toMatch(/without the Judge returning an exit action/);
+    // The banner tallies result.criteria; an empty array would report every count as 0 and
+    // read as "nothing was ever established", which is false on a resume.
+    expect(result.criteria).toHaveLength(2);
+    expect(result.gaps).toEqual(['FS-1']);
+    expect(result.iterations).toBe(resumeIteration);
+  });
 });
 
 // --------------------------------------------------------------------------- cap
@@ -588,6 +677,28 @@ describe('verify-functional: args.project scoping', () => {
       expect(call.prompt).toMatch(/\/tmp\/target-repo/);
     }
   });
+
+  // Cross-phase: `checker`, `evidenceDir`, `statePath` and `reportPath` are supplied by
+  // implement-trd Step 8.3 as paths relative to the ORCHESTRATING repo (".claude/lib/...",
+  // ".trd-state/<feature>/..."). A scope line that told the agent to re-root "every ... path"
+  // under args.project would send it looking for the checker inside the target repo. The
+  // scope line must therefore exempt the run's own artifacts explicitly.
+  it('exempts the run-owned paths (checker, evidence, state, report, notes) from re-rooting', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return satisfiedJudge();
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ project: '/tmp/target-repo' }) });
+
+    for (const call of agent.calls) {
+      expect(call.prompt).toMatch(/do not re-root them under \/tmp\/target-repo/);
+      expect(call.prompt).toMatch(/checker CLI, the evidence directory, the state file/);
+      // The old wording claimed evidence and state paths resolve against the project.
+      expect(call.prompt).not.toMatch(/config, evidence and state path resolves against THAT project/);
+    }
+  });
 });
 
 // --------------------------------------------------------------------------- malformed resume
@@ -609,6 +720,77 @@ describe('verify-functional: malformed resume snapshot', () => {
 });
 
 // --------------------------------------------------------------------------- mirror parity
+
+describe('verify-functional: Exercise claim reconciliation', () => {
+  it('drops a claim for an unknown criterion id and does not count it as exercised', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        // FS-2 is never walked; FS-99 is not in the definition at all.
+        return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-99', artifact: 'z' }]);
+      }
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    const { result, logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    // Before reconciliation this read '2/2' -- two claims, two criteria -- even though one of
+    // them was for an id the definition does not contain and FS-2 was never walked.
+    expect(result.exercised).toBe('1/2');
+    expect(capturedJudgePrompt).not.toMatch(/FS-99/);
+    expect(logs.join('\n')).toMatch(/FS-99/);
+  });
+
+  it('synthesises an unbacked claim for a criterion the exerciser omitted', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }]);
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    expect(result.exercised).toBe('1/2');
+    const claimsLine = capturedJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1];
+    const claims = JSON.parse(claimsLine);
+    expect(claims.map((c) => c.criterion)).toEqual(['FS-1', 'FS-2']);
+    expect(claims[1]).toMatchObject({ artifact: null });
+    expect(claims[1].reason).toMatch(/no claim for this criterion/);
+  });
+
+  it('keeps the first of duplicate claims for the same criterion', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        return exercisePlanClaims([
+          { criterion: 'FS-1', artifact: 'first' },
+          { criterion: 'FS-1', artifact: 'second' },
+          { criterion: 'FS-2', artifact: 'b' },
+        ]);
+      }
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    expect(result.exercised).toBe('2/2');
+    const claims = JSON.parse(capturedJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1]);
+    expect(claims).toHaveLength(2);
+    expect(claims[0].artifact).toBe('first');
+  });
+});
 
 describe('verify-functional: mirror parity', () => {
   it('is byte-identical to the .claude/workflows/ copy', () => {

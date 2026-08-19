@@ -89,6 +89,14 @@ const DEFINITION_PATH = a.definitionPath || ''
 // evidence -- it does not violate the "checker call before any content reading" ordering
 // constraint) and passes the CLI a `--file <path>` instead of interpolating the JSON text.
 const STATE_DIR = STATE_PATH.replace(/\/[^/]*$/, '')
+// The sanctioned writer for a `.trd-state/` JSON file is `implement-state.save()` (§3.3a
+// step 3, D9) -- per-writer temp + rename, so a crash mid-write cannot leave a truncated
+// state file that `load()` then throws on. The script cannot require it, but the Judge agent
+// can shell into it, so the path is resolved here (string ops only) and handed over in the
+// prompt. Node module resolution needs an explicit `./` on a relative path, or it reads the
+// path as a package name instead of a file.
+const LIB_DIR = CHECKER.replace(/\/[^/]*$/, '')
+const STATE_WRITER = `${LIB_DIR.startsWith('/') ? LIB_DIR : `./${LIB_DIR}`}/implement-state`
 const RESUME = a.resume || null
 const PROJECT = a.project || ''
 const N = CRITERIA.length
@@ -96,10 +104,18 @@ const N = CRITERIA.length
 // Same lesson as audit-trd.js's and audit-build.js's SCOPE: an agent that resolves paths
 // against the wrong repository boots the wrong system and reports gaps that do not exist.
 const SCOPE = PROJECT
-  ? `\nPATH SCOPING. The system under verification lives at ${PROJECT}. Every source, test, ` +
-    `config, evidence and state path resolves against THAT project, not against the ` +
-    `repository this script runs in. Bring THAT project up, and resolve a path there before ` +
-    `reporting anything missing.\n`
+  ? `\nPATH SCOPING. The system under verification lives at ${PROJECT}. Every SOURCE, TEST and ` +
+    `CONFIG path -- anything belonging to the software you are exercising or fixing -- ` +
+    `resolves against THAT project, not against the repository this script runs in. Bring ` +
+    `THAT project up, and resolve a path there before reporting anything missing.\n` +
+    `The run's OWN artifacts are the exception and do NOT move: the checker CLI, the ` +
+    `evidence directory, the state file, the report path and the verification notes are all ` +
+    `given to you as explicit paths in this prompt, and every one of them belongs to the ` +
+    `orchestrating repository that holds this run's requirements document and its ` +
+    `.trd-state/ directory. Use those paths exactly as ` +
+    `written -- do not re-root them under ${PROJECT}. The checker is framework machinery ` +
+    `(the target project may not even be a Node project), and the loop's record belongs ` +
+    `beside the rest of the run's state, not scattered into a repository this run does not own.\n`
   : ''
 
 // --------------------------------------------------------------------------- prompt builders
@@ -136,6 +152,7 @@ function buildJudgePrompt({ iteration, claims, previousGaps, forcedUnbuilt, exer
   const claimsFile = `${STATE_DIR}/judge-claims-${iteration}.json`
   const decideFile = `${STATE_DIR}/judge-decide-${iteration}.json`
   const reportInputFile = `${STATE_DIR}/judge-report-input-${iteration}.json`
+  const stateFile = `${STATE_DIR}/judge-state-${iteration}.json`
   const forced =
     forcedUnbuilt && forcedUnbuilt.length
       ? `\n\nThe Debug stage that just ran reported these criteria as UNBUILT (absent capability, ` +
@@ -165,13 +182,33 @@ function buildJudgePrompt({ iteration, claims, previousGaps, forcedUnbuilt, exer
     `"previousGaps":${prevGapsJson},"cap":${CAP}} to ${decideFile}, then run:\n` +
     `  node ${CHECKER} decide-next --file ${decideFile}\n\n` +
     `STEP 4: persist the run's state to ${STATE_PATH}, BEFORE anything else is dispatched. ` +
-    `Write EXACTLY these three top-level keys, spelled exactly as given -- the command that ` +
+    `Do NOT write it with a plain file write: ${STATE_PATH} is a .trd-state JSON file, and the ` +
+    `repository's only sanctioned writer for one is the save(filePath, state) function exported ` +
+    `by ${STATE_WRITER} (per-writer temp file + rename, so a crash mid-write cannot leave a ` +
+    `truncated state file the next --resume throws on). Write the state JSON to ${stateFile} ` +
+    `first, then shell into node, load that module, and call save(${STATE_PATH}, <the parsed ` +
+    `contents of ${stateFile}>). Going through the payload file keeps the JSON off the command ` +
+    `line, same reason as the CLI calls above.\n` +
+    `Write EXACTLY these four top-level keys, spelled exactly as given -- the command that ` +
     `dispatched this workflow reads them straight back to compose a --resume snapshot ` +
     `(implement-trd Step 8.2), and a key it does not recognise is read as absent, which ` +
     `silently restarts the loop at iteration 1 with no memory of this run:\n` +
     `  {"iteration": ${iteration}, "criteria": [ <one entry per criterion: "id", "status", ` +
-    `"artifact"> ], "gapsClosed": [ <the gaps-closed history with this iteration appended> ]}` +
+    `"artifact"> ], "gapsClosed": [ <the gaps-closed history with this iteration appended> ], ` +
+    `"outcome": <null when decide-next returned "remediate"; otherwise the outcome string ` +
+    `this run exits with: "satisfied", "unbuilt", "stalled" or "stuck">}` +
     `\n\n` +
+    `"outcome" IS THE TERMINALITY MARKER and it is the one key that decides whether a later ` +
+    `--verify-functional --resume re-enters this loop or runs the implementation normally ` +
+    `(implement-trd Step 3.6 step 0). A null outcome means "this run stopped mid-loop, resume ` +
+    `it"; a non-null one means "this run finished, do not resume it". Omitting the key ` +
+    `entirely reads as null, so a finished run would be resumed forever -- skipping the derive ` +
+    `pass, the whole phase loop and the end-of-run hardening on every subsequent invocation. ` +
+    `Write it on EVERY iteration, including remediate ones, where its value is null.\n` +
+    `"gapsClosed" is an AUDIT RECORD, not a loop input: nothing reads it back to drive the ` +
+    `stall rule (previousGaps is reconstructed from "criteria"). Write it as an array of ` +
+    `integers -- one count per completed iteration, in order, being how many gaps that ` +
+    `iteration closed -- so the history stays readable by a human reviewing the run.\n\n` +
     `STEP 5: on any exit action (anything other than "remediate"), write the render-report input ` +
     `to ${reportInputFile} -- it MUST include "feature": ${JSON.stringify(FEATURE)}, "prd": ` +
     `${JSON.stringify(PRD)} and "definitionPath": ${JSON.stringify(DEFINITION_PATH)} verbatim ` +
@@ -305,6 +342,44 @@ const DEBUG_SCHEMA = {
   },
 }
 
+// --------------------------------------------------------------------------- claim reconciliation
+
+// The Exercise prompt instructs the exerciser to return exactly one claim per criterion,
+// id-for-id, and not to narrow to a subset. It is an agent, so "instructed" is not
+// "guaranteed", and nothing downstream re-derives the correspondence: `checkEvidence` maps
+// over whatever claims it is handed, so a criterion with no claim simply produces no verdict,
+// and the Judge -- which is told the full criterion list but sees only the claims -- is the
+// sole thing standing between a missing claim and a report that never mentions it.
+//
+// Two concrete wrong answers this closes, both silent:
+//   - An exerciser that claimed one real criterion plus one id absent from the definition
+//     reported `exercised: "2/2"` -- the label was `claims.length` over N and never checked
+//     WHICH ids those claims were for, so the report's coverage figure was fabricated while
+//     one criterion in the definition had not been walked at all.
+//   - That unwalked criterion reached the Judge as an absence rather than as a stated gap,
+//     with no verdict of its own from tier 1 to anchor the Judge's reading.
+//
+// Reconciling here uses the same device the dead-Exercise branch below already uses: a claim
+// with a null artifact and a stated reason, which tier 1 fails as `no-artifact` and the Judge
+// resolves on the reason. A claim naming an id that is not in the definition is dropped and
+// logged -- there is no criterion for it to be evidence of.
+function reconcileClaims(returned) {
+  const byId = new Map()
+  let duplicates = 0
+  for (const claim of returned) {
+    if (byId.has(claim.criterion)) duplicates++
+    else byId.set(claim.criterion, claim)
+  }
+  const claims = CRITERIA.map((c) =>
+    byId.has(c.id)
+      ? byId.get(c.id)
+      : { criterion: c.id, artifact: null, reason: 'the exerciser returned no claim for this criterion' }
+  )
+  const walked = CRITERIA.filter((c) => byId.has(c.id)).length
+  const unknown = [...byId.keys()].filter((id) => !CRITERIA.some((c) => c.id === id))
+  return { claims, walked, unknown, duplicates }
+}
+
 // --------------------------------------------------------------------------- result assembly
 
 const OUTCOME_BY_ACTION = {
@@ -357,6 +432,31 @@ const RESUME_CRITERIA = RESUME && Array.isArray(RESUME.criteria) ? RESUME.criter
 
 let iteration = RESUME_ITERATION + 1
 let previousGaps = RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 'not_met').map((c) => c.id) : null
+
+// A resume whose last completed iteration already reached the cap has no budget left --
+// `iterations` is defined (§3.3) as the total ACROSS resumes, so the cap is a total budget,
+// not a per-invocation one. Left to the loop, `iteration <= CAP` is false on the first check:
+// zero agents dispatch and the fall-through at the bottom of this file reports
+// "cap reached without the Judge returning an exit action", which blames the Judge for a
+// state it was never given a turn to produce, and returns `criteria: []` so the caller's
+// banner tallies every count at 0. Worse, the caller reached here having ALREADY skipped the
+// derive pass, the phase loop and the hardening step (implement-trd Step 3.6 step 0), so the
+// whole run becomes a silent no-op. Name the real cause and carry the resumed statuses
+// forward so the banner reports what the prior run actually established.
+if (iteration > CAP) {
+  return {
+    outcome: 'stuck',
+    reason: `resumed at iteration ${iteration} with an iteration cap of ${CAP} -- the prior run already spent the whole budget, so no iteration ran on this invocation; raise the cap or reset the loop state to make further progress`,
+    iterations: RESUME_ITERATION,
+    reportPath: REPORT_PATH,
+    criteria: RESUME_CRITERIA || [],
+    gaps: previousGaps || [],
+    unbuilt: RESUME_CRITERIA ? RESUME_CRITERIA.filter((c) => c.status === 'unbuilt').map((c) => c.id) : [],
+    exercised: `0/${N}`,
+    debugAttempts: [],
+    notesUpdated: false,
+  }
+}
 const debugAttempts = []
 let exercisedLabel = `0/${N}`
 let skipExercise = false
@@ -390,8 +490,18 @@ for (; iteration <= CAP; iteration++) {
       claims = CRITERIA.map((c) => ({ criterion: c.id, artifact: null, reason: 'exerciser returned nothing' }))
       exercisedLabel = `0/${N}`
     } else {
-      claims = exerciseResult.claims || []
-      exercisedLabel = `${claims.length}/${N}`
+      const reconciled = reconcileClaims(exerciseResult.claims || [])
+      claims = reconciled.claims
+      exercisedLabel = `${reconciled.walked}/${N}`
+      if (reconciled.unknown.length > 0) {
+        log(`iteration ${iteration}: dropping ${reconciled.unknown.length} claim(s) for criterion id(s) not in the definition: ${reconciled.unknown.join(', ')}`)
+      }
+      if (reconciled.duplicates > 0) {
+        log(`iteration ${iteration}: ${reconciled.duplicates} duplicate claim(s) ignored -- first claim per criterion kept`)
+      }
+      if (reconciled.walked < N) {
+        log(`iteration ${iteration}: the exerciser returned no claim for ${N - reconciled.walked} criterion/criteria -- recording each as an unbacked claim for the Judge`)
+      }
       exerciseNotesUpdated = Boolean(exerciseResult.notesUpdated)
     }
   }

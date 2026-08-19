@@ -289,3 +289,36 @@ setup() {
     [ ! -f "${REPO_ROOT}/.claude/commands/harden-trd-team.md" ]
     [ ! -f "${REPO_ROOT}/.claude/commands/verify-trd-team.md" ]
 }
+
+# =============================================================================
+# 8. The --verify-functional --resume composition gate reads `outcome`
+# =============================================================================
+# The gate at Step 3.6 step 0 is PROSE executed by a model, not code, so this is
+# a documentation-level assertion — it proves the command tells the model to read
+# the terminality marker, not that a given run obeyed. That is the strongest
+# check available at this layer, and it is worth having: the gate was written as
+# "resumable iff the state file records a non-terminal outcome" while the Judge
+# wrote no outcome key at all, so every state file read as non-terminal and
+# `--verify-functional --resume` skipped the derive pass, the whole phase loop
+# and Step 7 even after a run that exited satisfied.
+
+@test "Step 3.6's resume gate names the outcome key and both of its readings" {
+    # The gate's own sentence, not merely the word "outcome" — which already
+    # appeared elsewhere in this file (Step 8.4 carries the workflow's outcome)
+    # and so would pass vacuously.
+    grep -q 'top-level `outcome` key is `null`' "$IMPLEMENT_TRD_MD"
+    # Read the marker and nothing else; a terminal outcome must NOT be resumed.
+    grep -q 'Read `outcome` and nothing else' "$IMPLEMENT_TRD_MD"
+    # And the gate must forbid the derivation that looks right and is not.
+    grep -qi 'Do NOT try to infer terminality from' "$IMPLEMENT_TRD_MD"
+}
+
+@test "Step 8.2 does not forward outcome into the workflow's resume argument" {
+    # The state file has four keys; only three reach the workflow. The command
+    # must say so, or the next editor "fixes" the asymmetry by forwarding a field
+    # nothing would read.
+    grep -q 'resume: { iteration, criteria, gapsClosed }' "$IMPLEMENT_TRD_MD"
+    # That three-key line predates the marker, so it passes vacuously on its own.
+    # The load-bearing half is the stated reason for the asymmetry.
+    grep -q 'not passed to the workflow' "$IMPLEMENT_TRD_MD"
+}

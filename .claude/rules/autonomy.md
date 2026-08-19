@@ -36,7 +36,7 @@ The model MAY (and SHOULD) use `AskUserQuestion` when:
    state mutations (`implement.json` updates, file writes during normal task execution,
    git commits on the feature branch) are NOT in this category.
 4. **STUCK conditions** — retry exhaustion in implement loops (documented in
-   `implement-trd §8.1`). The model has tried 3+ times, the documented mitigations have
+   `implement-trd §10.1`). The model has tried 3+ times, the documented mitigations have
    been exhausted, and the user genuinely needs to unblock.
 
 Asking outside these four cases is a bug. **Before reaching for `AskUserQuestion`, ask
