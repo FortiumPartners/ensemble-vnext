@@ -11,10 +11,10 @@ disable-model-invocation: true
 >
 > **Options:**
 > - `--dry-run` - Preview changes without applying anything
-> - `--preserve-all` - Conservative mode: update only commands/hooks; keep existing agents/skills/settings as-is (escape hatch for projects with heavy customization)
+> - `--preserve-all` - Conservative mode: update only commands/hooks/workflows/libs/contracts; keep existing agents/skills/settings as-is (escape hatch for projects with heavy customization)
 >
 > **Default behavior (no flags) — applied automatically, no prompts:**
-> - For agents/skills/commands/hooks: any file that **differs from the plugin's current version** is replaced. Anything not currently in the plugin is preserved as a user customization.
+> - For agents/skills/commands/hooks/workflows/libs/contracts: any file that **differs from the plugin's current version** is replaced. Anything not currently in the plugin is preserved as a user customization.
 > - **Backups are always created** before any replacement (`.claude/<dir>.backup.<timestamp>/`). Nothing is destroyed without a recoverable copy.
 > - **User governance files** (`constitution.md`, `stack.md`, `process.md`) are NEVER modified.
 > - **Framework-shipped rules** (`async-discipline.md`, future drop-ins) are copied-if-missing.
@@ -30,14 +30,14 @@ $ARGUMENTS
 Examples:
 - (no args) - Apply all updates with backups, no prompts
 - "--dry-run" - Show what would change without writing anything
-- "--preserve-all" - Update only commands/hooks; leave agents/skills/settings alone
+- "--preserve-all" - Update only commands/hooks/workflows/libs/contracts; leave agents/skills/settings alone
 
 ---
 
 ## Goals
 
 - Upgrade vendored runtime in `.claude/` to match the current plugin version
-- **Update any file whose content differs from the plugin** (agents, skills, commands, hooks)
+- **Update any file whose content differs from the plugin** (agents, skills, commands, hooks, workflows, libs, contracts)
 - Always create timestamped backups before replacing
 - Preserve user governance files (constitution.md, stack.md, process.md)
 - Preserve user-created files (agents/skills/commands not shipped by the plugin)
@@ -377,7 +377,51 @@ drift to be repaired by re-adding them.
    - Custom hooks (preserved): [list if any]
    ```
 
-#### 2.5 Settings Diff
+#### 2.5 Runtime Module Diff (`workflows/`, `lib/`, `contracts/`)
+
+**Behavior:** REPLACED, never customized. These three directories are framework machinery,
+not per-project content.
+
+**This step exists because it was missing.** Until 2026-08-19 `/rebase-project` handled
+agents, skills, commands, hooks, rules and settings — and nothing else. `.claude/workflows/`,
+`.claude/lib/` and `.claude/contracts/` were delivered ONLY by `scaffold-project.sh`, so any
+project scaffolded before those directories existed and rebased since never received them.
+**The failure is silent**: every affected command documents a fallback, so nothing errors —
+`/create-prd` runs its stages inline, `/implement-trd` loses `trd-parser.js` and
+`task-graph.js` and cannot compute a wave graph at all, and per-task prompts lose
+`task-delegation.md`. It looks like it worked.
+
+1. **List plugin sources:**
+   - Workflows: `*.js` from `@packages/core/workflows/`, **excluding** `*.test.js` and
+     `test-harness.js` — never ship tests into a project with no runner wired up.
+   - Libs: `*.js` from `@packages/core/lib/`, **excluding** `*.test.js`.
+   - Contracts: `*.md` from `@packages/core/contracts/`.
+
+2. **List vendored:** `.claude/workflows/`, `.claude/lib/`, `.claude/contracts/`.
+   **A missing directory is the expected case on an old install, not an error.**
+
+3. **Categorize** (per directory):
+
+   | Category | Condition | Action |
+   |----------|-----------|--------|
+   | **New** | In plugin, not in vendored | Will be added |
+   | **Updated** | In both, content differs | Will be replaced |
+   | **Unchanged** | In both, content same | No action |
+   | **Stale** | In vendored, not in plugin | Will be REMOVED (backup first) |
+
+   No custom-file category here, unlike commands: these directories are framework-owned in
+   full. A file in them that the plugin does not ship is a leftover from a retired component.
+
+4. **Generate diff:**
+   ```
+   Runtime modules:
+   - New workflows/libs/contracts: [list]
+   - Updated: [list]
+   - Unchanged: [count]
+   - Stale (will remove): [list if any]
+   ```
+
+#### 2.6 Settings Diff
 
 **Behavior:** Settings are MERGED - new defaults added, local overrides preserved.
 
@@ -395,7 +439,7 @@ drift to be repaired by re-adding them.
    - Local overrides preserved: [count]
    ```
 
-#### 2.6 Generate Summary Diff
+#### 2.7 Generate Summary Diff
 
 **Compile full diff report:**
 
@@ -413,6 +457,9 @@ Target Version: [version]
 | Skills | [n] | - | [n] | [n] |
 | Commands | [n] | [n] | [n] | [n] |
 | Hooks | [n] | [n] | [n] | [n] |
+| Workflows | [n] | [n] | [n] | - |
+| Libs | [n] | [n] | [n] | - |
+| Contracts | [n] | [n] | [n] | - |
 | Settings | [n] keys | [n] values | 0 | all |
 
 ### Detailed Changes
@@ -626,16 +673,47 @@ Plus `.claude/hooks/notify-complete.sh` (not event-registered — invoked direct
 
 **The table above is generated from `hooks.manifest.json`.** Use it as the authority for what a
 current install must contain — never a hand-maintained list. Counting the rows gives the expected
-registration count for the pre-write check in §4.5.
+registration count for the pre-write check in §4.6.
 
 7. **Settings.json hook path sanity:**
    After updating hooks, verify the project's `settings.json` references match the
    installed paths, and that no registration survives for a retired hook
    (`permitter/permitter.js`, `learning.sh`, `save-remote-logs.js`). A registration pointing
    at a file that no longer ships fails on every event — remove it in the settings merge
-   step (§4.5).
+   step (§4.6).
 
-#### 4.5 Update Settings (Merge)
+#### 4.5 Update Runtime Modules (`workflows/`, `lib/`, `contracts/`) — Replace
+
+**Preservation Rule:** Framework-owned; safe to replace. Backup created for safety.
+
+1. **Create the directories if absent** — `mkdir -p .claude/workflows .claude/lib
+   .claude/contracts`. On an old install all three are missing, and creating them IS the fix.
+
+2. **Back up any modified file** to `.claude/<dir>.backup.<timestamp>/` before overwriting.
+
+3. **For each plugin file**, copy to the matching vendored directory and overwrite.
+   Report `Added` when the destination did not exist and `Updated` when it did — the two
+   read very differently in a rebase report, and on a stale project the whole set will be
+   `Added`.
+
+4. **Exclusions, which are not optional:**
+   - `*.test.js` from BOTH `workflows/` and `lib/`
+   - `test-harness.js` from `workflows/`
+
+   A scaffold shipped `audit-build.test.js`, `implement-phase.test.js` and
+   `test-harness.js` into user projects before this filter existed — dead weight in a tree
+   with no runner to execute them.
+
+5. **For STALE files:** back up, then remove. Report `Removed stale <kind>: [name]`.
+
+6. **Verify before reporting success:**
+   ```bash
+   ls .claude/workflows .claude/lib .claude/contracts
+   ```
+   A rebase that reports success while `.claude/lib/trd-parser.js` is absent has not
+   delivered a working `/implement-trd`.
+
+#### 4.6 Update Settings (Merge)
 
 **Preservation Rule:** Merge new defaults, preserve local settings
 
@@ -719,7 +797,7 @@ registration count for the pre-write check in §4.5.
 - Do NOT modify any existing values
 - Report: "Settings merge minimal (preserve mode)"
 
-#### 4.6 Rules: split user governance from framework-shipped
+#### 4.7 Rules: split user governance from framework-shipped
 
 Rules under `.claude/rules/` come in two categories with opposite update policies:
 
