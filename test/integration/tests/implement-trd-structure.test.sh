@@ -322,3 +322,36 @@ setup() {
     # The load-bearing half is the stated reason for the asymmetry.
     grep -q 'not passed to the workflow' "$IMPLEMENT_TRD_MD"
 }
+
+# =============================================================================
+# FR-1 / AC-1 — "the derive pass never sees the TRD".
+#
+# /audit-build reported this as a TRACEABILITY GAP: implemented as prose at
+# Step 3.6 with FV-B004's acceptance column naming exactly the check that should
+# exist, and no test implementing it. The only reachable proof was the opt-in
+# smoke scenario, which is not in CI and has never completed a live run — but
+# the dispatch SHAPE is greppable, needs no LLM, and closes the cheap half.
+#
+# Documentation-level, like the two above: it proves the command instructs the
+# model correctly, not that a run obeyed.
+
+@test "Step 3.6 dispatches the derive pass as a background SUBAGENT, not a teammate" {
+    grep -q 'subagent_type="product-manager"' "$IMPLEMENT_TRD_MD"
+    grep -q 'run_in_background: true' "$IMPLEMENT_TRD_MD"
+
+    # REGRESSION GUARD. This shipped as `name="success-definition"`, which makes
+    # it a TEAMMATE spawn (async-discipline.md, "Teammate spawns") rather than a
+    # background subagent -- violating FV-B004's acceptance criteria and
+    # contradicting Step 7.1 of this same file, which explicitly forgoes
+    # Agent({name}) to satisfy AC-F14.5. Caught by the phase-2 review.
+    ! grep -q 'name="success-definition"' "$IMPLEMENT_TRD_MD"
+}
+
+@test "Step 3.6's derive prompt is barred from carrying the TRD" {
+    # FR-1/AC-1: the definition is derived from the PRD ALONE. A TRD path or
+    # excerpt in this prompt would let the deriving agent inherit the very plan
+    # the loop is supposed to check independently -- the criteria would then
+    # describe what was built rather than what was asked for.
+    grep -q 'no TRD path, no' "$IMPLEMENT_TRD_MD"
+    grep -qi 'TRD excerpt' "$IMPLEMENT_TRD_MD"
+}
