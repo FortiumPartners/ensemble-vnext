@@ -74,24 +74,63 @@ describe('checkEvidence', () => {
     expect(verdict.failure).toBe('stale');
   });
 
-  // CHARACTERIZATION of a KNOWN GAP, not an endorsement of it. `sinceSec` is HEAD's commit
-  // time, and HEAD does not move during a run -- the Debug stage never commits. On
-  // `--verify-functional --resume` the phase loop is skipped entirely, so HEAD dates from the
-  // PRIOR run and that run's leftover evidence, sitting at the same paths under
-  // .trd-state/<feature>/evidence/, passes this check having proved nothing about the current
-  // run. This test pins that behaviour so the gap stays visible in the suite rather than
-  // being rediscovered. See the freshness-floor row in the TRD's `## Could Not Verify`; the
-  // remedy (a per-iteration floor from a Judge-written marker) changes this parameter's
-  // meaning and is routed to /refine-trd.
-  test("KNOWN GAP: a prior run's artifact passes because HEAD predates it", () => {
+  // The --verify-functional --resume composition (TRD §3.2, §3.7 step 2). That path skips the
+  // phase loop, so HEAD dates from the PRIOR run and the prior run's leftover evidence -- at
+  // the same paths under .trd-state/<feature>/evidence/ -- all postdates it. Under a HEAD-only
+  // floor every one of those cleared the gate having proved nothing about the current run.
+  // Both halves are asserted: the artifact must PASS the old floor (or this test proves
+  // nothing) and FAIL the floor as specified.
+  test("stale — a prior run's artifact postdates HEAD but predates this run's loop start", () => {
     const artifact = path.join(tmpDir, 'prior-run-evidence.txt');
     fs.writeFileSync(artifact, 'evidence from the run before this one');
 
     const headSec = 1_700_000_000; // HEAD, dating from the prior run
     const artifactSec = headSec + 60; // the prior run wrote this AFTER that commit
+    const loopStartSec = headSec + 3600; // this resumed run's loop starts an hour later
     fs.utimesSync(artifact, new Date(artifactSec * 1000), new Date(artifactSec * 1000));
 
-    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact }], headSec);
+    // The old floor: HEAD's commit time alone. The stale artifact sailed through.
+    const [underHeadOnly] = checkEvidence([{ criterion: 'FS-1', artifact }], headSec);
+    expect(underHeadOnly.tier1).toBe('pass');
+
+    // The floor as specified: max(HEAD commit time, loop start time).
+    const sinceSec = Math.max(headSec, loopStartSec);
+    expect(sinceSec).toBe(loopStartSec);
+    const [underMaxFloor] = checkEvidence([{ criterion: 'FS-1', artifact }], sinceSec);
+    expect(underMaxFloor.tier1).toBe('fail');
+    expect(underMaxFloor.failure).toBe('stale');
+  });
+
+  // The max() is not redundant: a commit authored on a machine with a skewed clock can carry a
+  // timestamp ahead of local now, and the floor must not fall below HEAD when it does. Without
+  // this the line reads as "max of two things where one always wins" and gets simplified away.
+  test('the floor takes HEAD when a skewed-clock commit postdates the loop start', () => {
+    const artifact = path.join(tmpDir, 'evidence.txt');
+    fs.writeFileSync(artifact, 'evidence');
+
+    const loopStartSec = 1_700_000_000;
+    const headSec = loopStartSec + 3600; // commit timestamp ahead of local now
+    const artifactSec = loopStartSec + 60; // after the loop started, before HEAD's stamp
+    fs.utimesSync(artifact, new Date(artifactSec * 1000), new Date(artifactSec * 1000));
+
+    const sinceSec = Math.max(headSec, loopStartSec);
+    expect(sinceSec).toBe(headSec);
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact }], sinceSec);
+    expect(verdict.failure).toBe('stale');
+  });
+
+  // CHARACTERIZATION of the half the per-run floor does NOT close (TRD `## Could Not Verify`):
+  // it is per-RUN, so iteration 1's artifact still clears it when iteration 3 is judged. Pinned
+  // so the remaining gap stays visible rather than being rediscovered.
+  test('KNOWN GAP: an earlier iteration\'s artifact still clears the per-run floor', () => {
+    const artifact = path.join(tmpDir, 'iteration-1-evidence.txt');
+    fs.writeFileSync(artifact, 'produced by iteration 1');
+
+    const loopStartSec = 1_700_000_000;
+    const artifactSec = loopStartSec + 30; // iteration 1 wrote it; iteration 3 is judging now
+    fs.utimesSync(artifact, new Date(artifactSec * 1000), new Date(artifactSec * 1000));
+
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact }], loopStartSec);
     expect(verdict.tier1).toBe('pass');
   });
 

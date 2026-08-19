@@ -3,7 +3,7 @@ export const meta = {
   description:
     'Run the bounded functional-verification loop: Exercise, Judge, and (when needed) Debug, once per iteration, until the criteria are satisfied, found unbuilt, stalled, or the iteration cap is reached.',
   whenToUse:
-    'Invoked once (not looped) when --verify-functional is set. This script owns the whole bounded loop (D1) -- the caller dispatches it a single time. Every input arrives in args: the success-definition criteria, the contract text, project notes/stack hints, evidence paths, the checker CLI path, the HEAD commit time, the iteration cap, state/report paths, and an optional resume snapshot from a prior run\'s state file (D13).',
+    'Invoked once (not looped) when --verify-functional is set. This script owns the whole bounded loop (D1) -- the caller dispatches it a single time. Every input arrives in args: the success-definition criteria, the contract text, project notes/stack hints, evidence paths, the checker CLI path, the evidence freshness floor, the iteration cap, state/report paths, and an optional resume snapshot from a prior run\'s state file (D13).',
   phases: [
     { title: 'Exercise', detail: 'one verify-app agent walks every criterion against the running system (D2)' },
     { title: 'Judge', detail: 'one untyped agent runs the checker CLI first, reads content only for tier-1 passes, decides next, and writes state/report (D4, D7, §3.3a)' },

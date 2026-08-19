@@ -30,17 +30,26 @@ const fs = require('fs');
  * what is actually on disk.
  *
  * @param {Array<{criterion: string, artifact: string|null, reason?: string}>} claims
- * @param {number} sinceSec - HEAD commit time (seconds). An artifact whose mtime is not
- *   strictly greater than this is stale: it predates the code it claims to prove.
+ * @param {number} sinceSec - The freshness floor, in seconds:
+ *   `max(HEAD commit time, this run's verification-loop start time)`, derived by the command
+ *   (`/implement-trd` Step 8.3, TRD §3.2) and passed in whole. An artifact whose mtime is not
+ *   strictly greater than this is stale.
  *
- *   NOTE: this floor is weaker than it looks. HEAD does not move during a run (the Debug
- *   stage never commits), so it establishes only "newer than the last phase-loop commit" --
- *   not "produced by this iteration's Exercise", and not "newer than an uncommitted Debug
- *   fix". On `--verify-functional --resume` it is weakest of all: the phase loop is skipped,
- *   HEAD dates from the prior run, and that run's leftover evidence passes unconditionally.
- *   Recorded as a stated gap in the TRD's `## Could Not Verify`; the remedy under
- *   consideration is a per-iteration floor from a Judge-written marker file, which is a
- *   change to this parameter's meaning and so belongs in `/refine-trd`, not here.
+ *   It is NOT HEAD's commit time alone. That is only a proxy for "when the code last changed",
+ *   and it breaks on `--verify-functional --resume`: the phase loop is skipped, no new commit
+ *   exists, HEAD dates from the prior run, and that run's leftover evidence at the same paths
+ *   all postdates it -- clearing this check having proved nothing about the current run. The
+ *   `max` also is not redundant: a commit authored on a skewed clock can carry a timestamp
+ *   ahead of local now, and the floor must not fall below HEAD.
+ *
+ *   Deriving it here is not an option and not an oversight: this function is required to be
+ *   pure (no clock, no git) so it is testable without a repository or a wall clock.
+ *
+ *   KNOWN LIMIT: the floor is per-RUN, not per-ITERATION. It cannot distinguish iteration 1's
+ *   artifact from iteration 3's at the same path, and since the Debug stage never commits it
+ *   can never establish that an artifact postdates an uncommitted debug fix. Stated in the
+ *   TRD's `## Could Not Verify`; the remedy (a per-iteration floor from a Judge-written marker
+ *   file) changes this parameter's meaning and so is `/refine-trd` work.
  * @returns {Array<{criterion: string, tier1: 'pass'|'fail', artifact: string|null,
  *   bytes: number|null, mtimeSec: number|null,
  *   failure?: 'missing'|'empty'|'stale'|'no-artifact'|'not-a-file'}>}

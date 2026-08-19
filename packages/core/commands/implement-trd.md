@@ -992,7 +992,36 @@ terminal one), `resume` is `null`.
 
 Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/rules/stack.md`
 and `CLAUDE.md` (repo root) as `stackHints`, and `packages/core/contracts/functional-verification.md`
-as `contract`. Resolve `since` from `git log -1 --format=%ct`.
+as `contract`.
+
+**Resolve `since` as the LATER of HEAD's commit time and this run's loop start time**
+(functional-verification TRD §3.2):
+
+```bash
+HEAD_SEC=$(git log -1 --format=%ct)
+LOOP_START_SEC=$(date +%s)
+SINCE=$(( HEAD_SEC > LOOP_START_SEC ? HEAD_SEC : LOOP_START_SEC ))
+```
+
+HEAD's commit time alone is only a proxy for "when the code last changed", and on the
+`--resume` composition that proxy breaks: §8.2's path skips the phase loop, so no new commit
+exists, HEAD dates from the **prior** run, and that run's leftover artifacts under
+`.trd-state/<feature>/evidence/` all carry mtimes newer than it. Every one of them would clear
+the tier-1 freshness gate having proved nothing about this run — so a criterion whose new
+Exercise produces nothing could be scored against a stale artifact at the same path. Raising
+the floor to the loop start enforces the invariant actually wanted (*this artifact was
+produced by THIS run's verification loop*) and rejects nothing legitimate, because D2 has
+every iteration re-walk every criterion — all evidence on a resumed run is freshly produced
+anyway.
+
+Keep the `max`, do not simplify it to `date +%s`: a commit authored on a machine with a
+skewed clock can carry a timestamp ahead of local now, and the floor must never fall below
+HEAD. And take `LOOP_START_SEC` **here**, at the dispatch — not earlier in the run — or it
+stops being the loop's start.
+
+The derivation lives in this step and nowhere else: `verify-functional.js` must stay
+clock-free (`Date.now()` is forbidden in workflow source by a source-level test) and
+`checkEvidence()` must stay pure, so only the resulting number crosses either interface.
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -1002,7 +1031,7 @@ Workflow({ name: "verify-functional", args: {
   stackHints,                                                   // stack.md + CLAUDE.md excerpts
   evidenceDir: ".trd-state/<feature>/evidence",
   checker: ".claude/lib/functional-verification.js",
-  since,                                                         // git log -1 --format=%ct
+  since,                                                         // max(HEAD commit time, loop start) -- see above, TRD §3.2
   cap: 3,
   statePath: ".trd-state/<feature>/verification-state.json",
   reportPath: ".trd-state/<feature>/verification-report.md",
