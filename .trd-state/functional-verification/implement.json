@@ -170,8 +170,8 @@
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "62b12af62b85550458967f38ee5ecf3fb1d81a70",
-    "last_checkpoint_timestamp": "2026-08-19T07:20:49.020Z",
+    "last_healthy_checkpoint": "46447d0",
+    "last_checkpoint_timestamp": "2026-08-19T07:39:49.365Z",
     "interrupted": false,
     "interrupt_reason": null
   }
