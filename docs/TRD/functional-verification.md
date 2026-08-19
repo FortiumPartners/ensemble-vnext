@@ -1263,43 +1263,50 @@ so the reasoning stays reviewable and countermandable.
 
 ## Could Not Verify
 
-**State after the 2026-08-18 audit** (5/5 verifiers reporting; source of truth
-`docs/PRD/functional-verification.md`). That audit was a document audit: it re-read this TRD, the
-PRD, `.claude/commands/implement-trd.md`, `packages/core/{lib,contracts,workflows}/` and
-`packages/full/agents/`. It ran no workflow, dispatched no agent and scaffolded no project, so
-every row below that needs a live run survives unchanged and is marked as such. What it did settle
-is recorded in §9's ground-truth table and in the corrections logged in the changelog.
+**State after the 2026-08-19 build audit** (5/5 verifiers reporting; source of truth
+`docs/PRD/functional-verification.md`, v1.1.0; 15 requirements and 7 tasks indexed). This audit
+read the *delivered* artifacts — `packages/core/{lib,contracts,workflows}/` and their Jest suites,
+`packages/full/agents/verify-app.md`, `packages/core/commands/implement-trd.md`,
+`test/integration/tests/implement-trd-structure.test.sh` and
+`test/smoke/scenarios/verify-functional.sh` — against this TRD and the PRD. It **ran no test
+suite, executed no workflow, dispatched no agent and scaffolded no project.** Every row below
+either needs an execution this audit did not perform, or needs an owner. Gaps found in the
+delivered code and tests are reported in the audit readout, not here.
 
 | Claim | How I'd check it |
 |-------|------------------|
-| `Agent({subagent_type: "product-manager", run_in_background: true})` from a command reliably produces a file on disk that a much later step can read (D5, TR3) | Dispatch one against a trivial prompt in a scratch project and read the file after an unrelated long-running step; confirm the background task also appears in the `Stop` payload's `background_tasks` while in flight. **Still open after the 2026-08-17 and 2026-08-18 audits** — both were document audits and neither dispatched a background agent — **and now more load-bearing**: §3.1 was corrected to never wait on the task and never derive a definition inline, so a background agent that silently fails to write the file costs the whole pass (`not run: no definition produced`) rather than degrading |
-| A workflow-dispatched agent can **write** files (the judge's state and report writes, §3.3a — load-bearing for D1) | Mostly settled: `implement-trd-rework.md:76–78` attests that workflow agents have `Bash` (*"true of the SCRIPT and false of its AGENTS"*), which is sufficient for every disk operation §3.3a needs. What remains unattested is only that such an agent returns a structured verdict object of this size to the script. Settle it on FV-T001's live run. **Narrowed by v2.0.0**: the harder half of this row — that the agent can `require()` `trd-parser.js`/`task-graph.js` and mutate the TRD — is gone with the remediation phase |
-| A workflow-dispatched agent can invoke a Node CLI (the judge's tier-1 call, D4) | ITR-P003 attested that a workflow-started agent can invoke the `/code-review` skill and that `agent()` accepts `agentType`; a plain `Bash` call from such an agent is the same class of capability but is not separately attested. Run one in a scratch workflow. **Still open after the 2026-08-17 and 2026-08-18 audits** — a live workflow run is outside a document audit's reach |
-| `scaffold-project.sh` delivers a *new* file in `contracts/`, `lib/` and `workflows/` on `--refresh` without any change to the script | Read: `copy_libs`/`copy_workflows`/`copy_contracts` glob their source directory and, since the 2026-08-16 refresh-semantics fix, copy files absent from the destination as "Added". Confirm by running `scaffold-project.sh --refresh` against a project scaffolded before these files existed and checking all three arrive. **Still open after the 2026-08-17 and 2026-08-18 audits** — the static read is done (and §9's ground-truth row re-attests it); only a run against a stale project settles it, and no such project was in reach |
-| Whether Step 7.2's `/code-review` fixes routinely land before Step 8 starts (TR1, OQ-2 — FR-2's ordering guarantee) | Unresolvable without a costed run: `/code-review` forks to background subagents and Step 7.2 does not block, so the answer is a timing distribution, not a fact about the source. The audit confirmed the TRD states the gap rather than hiding it (TR1, TR1 Contingency, OQ-2 all present); it cannot confirm the PRD's FR-2 ordering is delivered. Measure on the first `--verify-functional` run by diffing the review's applied fixes against the loop's start time, which Step 8 already records. **Re-confirmed 2026-08-18**: TR1, its Contingency and OQ-2 all still state the gap plainly, and TR1's mitigation is a *record* of which review passes had completed — not evidence that their fixes landed. Any downstream summary claiming FR-2 delivers "verification against the code after review fixes land" overstates this document |
-| **Whether AC-7 and FR-3's literal wording still stand, or D8 and D2 supersede them** — the PRD conflict of record recorded under §1.2 | **Unresolvable by an audit; it needs an owner decision.** AC-7 ("remediation is dispatched as a phase through the existing phase workflow, not as a direct agent call") and FR-3's *"one agent per artifact"* are live PRD acceptance criteria that v2.0.0 does not satisfy, and neither is a PRD Non-Goal, so §8's NG1–NG4 do not cover them. This TRD argues both divergences are improvements and states the reasoning in full, but an artifact cannot retire its own source's acceptance criteria. Settle it by either amending `docs/PRD/functional-verification.md` (AC-7, FR-4's closing paragraph, FR-3's second paragraph) or reversing D8/D2 — then delete this row and the §1.2 conflict-of-record block together. Until then, an `/audit-build` run against this feature will correctly report AC-7 as unmet |
-| **The freshness floor is per-RUN, not per-ITERATION — the gate cannot prove an artifact postdates the iteration that claims it, nor an uncommitted Debug fix** | §3.2's floor, `max(HEAD commit time, loop start)`, correctly rejects a prior run's leftovers on `--resume` (v2.1.0). It does **not** reject an artifact produced by iteration 1 and still sitting at the same path when iteration 3 is judged: both clear the same per-run floor. And because the Debug stage never commits, HEAD does not advance within a run either — so the gate can never establish that an artifact postdates the debug fix it is supposed to be evidence for, which is the thing the loop most needs it to prove. **Known remedy**: a per-iteration floor — each iteration's judge writes a marker file, and the next iteration passes `max(sinceSec, marker mtime)` to `check-evidence`. **Not applied here**, deliberately: it rewrites §3.2's binding contract, the judge prompt's STEP 1 and STEP 4, and `checkEvidence()`'s documented parameter meaning, so it is `/refine-trd` work rather than a hardening-pass fix. Owner decision 2026-08-19: the per-run floor ships now because it is strictly stronger than the HEAD-only proxy it replaces, is accurately documented as partial, and does not preclude the per-iteration floor later. Until then a stale-but-in-run artifact can be scored as fresh |
-| The wall-clock and token cost of a verification cycle (OQ-1; inherited from the PRD's own Could Not Verify) | No implementation exists to measure. Out of scope for a document audit; AC-6's opt-in default exists precisely because this is unmeasured. v2.0.0 makes the dispatch count flat in the criterion count — 2 agents on a clean iteration, 3 when there are gaps, at most 9 across the cap, against v1.3.0's 3N+ — but a flat count is not a measured cost |
+| `Agent({subagent_type: "product-manager", run_in_background: true})` from a command reliably produces a file on disk that a much later step can read (D5, TR3) | Dispatch one against a trivial prompt in a scratch project and read the file after an unrelated long-running step; confirm the background task also appears in the `Stop` payload's `background_tasks` while in flight. **Still open after the 2026-08-17, 2026-08-18 and 2026-08-19 audits** — none dispatched a background agent. Out of scope for a build audit, which reads delivered source and tests. Load-bearing: §3.1 never waits on the task and never derives a definition inline, so a background agent that silently fails to write the file costs the whole pass (`not run: no definition produced`) rather than degrading |
+| A workflow-dispatched agent can **write** files (the judge's state and report writes, §3.3a — load-bearing for D1) | Mostly settled: `implement-trd-rework.md:76–78` attests that workflow agents have `Bash`, which is sufficient for every disk operation §3.3a needs. What remains unattested is only that such an agent returns a structured verdict object of this size to the script. `verify-functional.test.js` exercises the workflow against a stubbed `agent()`, which proves the script's handling of such an object and **not** that a real agent produces one. Settle it on FV-T001's live run |
+| A workflow-dispatched agent can invoke a Node CLI (the judge's tier-1 call, D4) | ITR-P003 attested that a workflow-started agent can invoke the `/code-review` skill; a plain `Bash` call from such an agent is the same class of capability but is not separately attested. The Jest suite asserts the judge *prompt* orders the checker call before any content reading — it cannot assert the call happens. Run one in a scratch workflow |
+| `scaffold-project.sh` delivers a *new* file in `contracts/`, `lib/` and `workflows/` on `--refresh` without any change to the script | The static read is done (`copy_libs`/`copy_workflows`/`copy_contracts` glob their source directory and copy absent files as "Added"). **Still open after all three audits** — only a `--refresh` run against a project scaffolded before these files existed settles it, and no such project was in reach |
+| Whether Step 7.2's `/code-review` fixes routinely land before Step 8 starts (TR1, OQ-2 — FR-2's ordering guarantee) | Unresolvable without a costed run: `/code-review` forks to background subagents and Step 7.2 does not block, so the answer is a timing distribution, not a fact about the source. **Re-confirmed 2026-08-19**: TR1, its Contingency and OQ-2 all still state the gap plainly, and TR1's mitigation is a *record* of which review passes had completed — not evidence that their fixes landed. Measure on the first `--verify-functional` run by diffing the review's applied fixes against the loop's start time, which Step 8 already records |
+| **The freshness floor is per-RUN, not per-ITERATION — the gate cannot prove an artifact postdates the iteration that claims it, nor an uncommitted Debug fix** | §3.2's floor, `max(HEAD commit time, loop start)`, correctly rejects a prior run's leftovers on `--resume`. It does **not** reject an artifact produced by iteration 1 and still sitting at the same path when iteration 3 is judged. This is a documented limitation, not an unverified claim: `packages/core/lib/functional-verification.test.js:125` pins it as an explicit `KNOWN GAP` test, and `:83`/`:107` pin the two behaviours the floor *does* deliver. **Known remedy**: a per-iteration floor — each iteration's judge writes a marker file, and the next iteration passes `max(sinceSec, marker mtime)` to `check-evidence`. Not applied here: it rewrites §3.2's binding contract, the judge prompt's STEP 1 and STEP 4, and `checkEvidence()`'s documented parameter meaning, so it is `/refine-trd` work. Owner decision 2026-08-19 stands — ship the per-run floor, accurately documented as partial |
+| Whether the three prompt-governed halves of this feature — the derive pass not seeing the TRD (FR-1/AC-1), an uncitable criterion being *dropped* rather than invented (AC-2), and the notes file's marker discipline and cross-iteration persistence (FR-5/AC-8) — can be proven by any automated test at all | These are LLM behaviours produced by contract and prompt text, not by code with a testable seam; the delivered tests can only assert that the instruction is present and that the plumbing around it is correct, which they do. The one artifact that could observe the behaviour is `test/smoke/scenarios/verify-functional.sh`, which is registered in `LLM_OPT_IN_SCENARIOS` (AC-6/NG4), costs a live `claude` run, and — for AC-2 — uses a one-requirement fixture PRD with no uncitable line to drop. **Not settled here**: this audit did not run the smoke scenario and did not decide whether an uncitable-line fixture is worth adding. Settle it by extending the smoke fixture PRD with a deliberately uncitable requirement and asserting its absence from the definition; the FR-1 and FR-5 halves stay live-only |
+| Whether the delivered tests **pass** | This audit read test files; it executed none. `npx jest packages/core` and `npx bats test/integration/tests/implement-trd-structure.test.sh` settle it in seconds and were deliberately out of scope for a source-reading pass |
+| The wall-clock and token cost of a verification cycle (OQ-1; inherited from the PRD's own Could Not Verify) | No run has been made. Out of scope for a build audit; AC-6's opt-in default exists precisely because this is unmeasured. v2.0.0 makes the dispatch count flat in the criterion count — 2 agents on a clean iteration, 3 when there are gaps, at most 9 across the cap — but a flat count is not a measured cost |
 
-**Removed from this table by the 2026-08-18 simplifications — no longer load-bearing, not resolved:**
+**Resolved by the 2026-08-19 audit and therefore removed from this table:**
 
-- *"A workflow script CAN invoke another workflow, one level deep"* — removed by the D8 correction
-  earlier that day: remediation is a direct `agent()` call, so nothing here invokes a nested
-  workflow. The `Workflow` contract's one-level nesting claim remains undemonstrated in this
-  repository and is now also unused by it.
+- *"Whether AC-7 and FR-3's literal wording still stand, or D8 and D2 supersede them — the PRD
+  conflict of record"* — **settled in the PRD's favour of this TRD.**
+  `docs/PRD/functional-verification.md` v1.1.0 (2026-08-18) amends FR-3 (*"one exerciser… one
+  judge reads the resulting evidence"*), FR-4's closing paragraph, and AC-7 itself, which now
+  reads *"Remediation is one `app-debugger` agent per iteration, fixing code directly; a criterion
+  reported UNBUILT exits rather than being remediated (amended 2026-08-18)"*. D8 and D2 are no
+  longer divergences from the source. §1.2's conflict-of-record block is now stale and should come
+  out on the next `/refine-trd`; so should the PRD's own R2 mitigation, which still reads *"Dispatch
+  as a phase, inheriting file-conflict serialization"*.
+
+**Removed by the 2026-08-18 simplifications — no longer load-bearing, not resolved:**
+
+- *"A workflow script CAN invoke another workflow, one level deep"* — removed by the D8
+  correction: remediation is a direct `agent()` call, so nothing here invokes a nested workflow.
 - *"A workflow-dispatched agent can `require()` `trd-parser.js` / `task-graph.js`, mutate the TRD
-  in place and return a wave partition"* — removed by v2.0.0. There is no remediation phase, no
-  insertion point and no re-parse, so no participant in this feature reads or writes the TRD at
-  all. The claim is neither settled nor needed.
+  in place and return a wave partition"* — removed by v2.0.0. No participant in this feature reads
+  or writes the TRD at all.
 
-**Verified by the 2026-08-17 audit and therefore removed from this table:**
-
-- *"No coverage instrumentation exists for BATS in this repository"* (§6.1) — confirmed:
-  `.github/workflows/ci.yml` was read; its `bats` job (`:62`) installs `bats` (`:71`) and
-  invokes it directly (`:102`) with no `kcov` or coverage step anywhere in the file, and
-  `package.json`'s `test` script is `jest`. §6.1's "not applicable here" for integration
-  coverage stands.
-Two further entries — the `trd_hash` producer question and whether `trd-parser.js` accepts an
-`FV-R###` id — were verified by the 2026-08-17 audit and have since become **moot**: v2.0.0
-neither writes state into the TRD nor emits a generated task id, so neither fact is load-bearing
-anywhere in this document.
+**Verified by the 2026-08-17 audit and therefore removed from this table:** *"No coverage
+instrumentation exists for BATS in this repository"* (§6.1) — confirmed against
+`.github/workflows/ci.yml`. Two further entries — the `trd_hash` producer question and whether
+`trd-parser.js` accepts an `FV-R###` id — became **moot** with v2.0.0, which neither writes state
+into the TRD nor emits a generated task id.
