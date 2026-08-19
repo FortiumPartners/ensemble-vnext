@@ -71,7 +71,13 @@ single, trivially-checkable user-facing behavior.
 
 - FR-1: Calling \`greet()\` returns the exact string \`'hello'\`.
 
-## 3. Non-Goals
+## 3. Aspirations (non-normative)
+
+The greeting should feel warm and modern, and the module should be pleasant to
+work with. Nothing here is a requirement; this section exists so the fixture
+contains something a deriving agent may be tempted to promote.
+
+## 4. Non-Goals
 
 - Anything beyond the single \`greet()\` behavior. No CLI, no additional
   modules, no auth, no persistence.
@@ -285,6 +291,19 @@ if [[ -f "$DEFINITION_FILE" ]]; then
             fi
             if [[ -n "$fs_id" ]]; then
                 assert_contains "$REPORT_FILE" "$fs_id" "verification-report.md names criterion ${fs_id}"
+            fi
+            # AC-2, the DROP half. Until 2026-08-19 the fixture was a
+            # one-requirement PRD with nothing uncitable in it, so "a row that can
+            # neither cite nor be labelled domain-derived is DROPPED, not invented"
+            # had nothing to bite on -- /audit-build reported it as a traceability
+            # gap on exactly that ground. The PRD now carries a non-normative
+            # Aspirations section ("warm and modern", "pleasant to work with"),
+            # which is precisely the shape a deriving agent promotes into an
+            # acceptance criterion. No row may be built from it.
+            if printf '%s' "$row" | grep -qiE 'warm|modern|pleasant'; then
+                assert_fail_raw "criterion ${fs_id} was promoted from the non-normative Aspirations section: ${row}"
+            else
+                assert_pass_raw "criterion ${fs_id} was not promoted from a non-normative aspiration"
             fi
         done
     fi
