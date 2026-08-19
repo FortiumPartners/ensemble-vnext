@@ -4,7 +4,7 @@
   "trd_hash": "cd0e9bbfff1e32c94b8c8ca9ddd960a42311e8ced840d310f2371f0eacafd720",
   "branch": "feature/functional-verification/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FV-P001": {
       "description": "Write packages/core/contracts/functional-verification.md: the derive discipline (mandatory PRD citation, domain-derived labelling, empty-is-correct), the D12 stack-keyed harness hint table, what counts as an evidence artifact, the exercise discipline (bring the system up once, walk every criterion, ",
@@ -43,38 +43,51 @@
     "FV-B002": {
       "description": "Build packages/core/workflows/verify-functional.js per §3.3/§3.3a/§3.5 — the whole bounded loop (D1) as three sequential agent() calls per iteration: Exercise (one agent, agentType: 'verify-app', every criterion), Judge (one untyped agent, checker-first, runs the lib CLI and touches disk), and Debug",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        ".claude/workflows/verify-functional.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-19T06:21:26.018Z",
+      "completed_at": "2026-08-19T06:47:57.300Z",
+      "last_advanced": "2026-08-19T06:24:36.621Z"
     },
     "FV-B003": {
       "description": "Repoint packages/full/agents/verify-app.md: add a Functional Success Definition mode — input is the whole criterion set, the agent brings the system up once and walks it, output is one claim plus an artifact path or a stated reason per criterion, never a verdict on its own evidence — plus the D12 hi",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/full/agents/verify-app.md",
+        ".claude/agents/verify-app.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-19T06:21:26.018Z",
+      "completed_at": "2026-08-19T06:47:57.301Z",
+      "last_advanced": "2026-08-19T06:24:36.621Z"
     },
     "FV-B004": {
       "description": "Add --verify-functional to /implement-trd (packages/core/commands/implement-trd.md): usage block, Parse: line, Execution Model diagram, its composition with the existing --resume (§3.7, D13), and Step 3.6's background derive dispatch with PRD-path resolution (TRD Source PRD: header → .trd-state/curr",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-19T06:21:26.018Z",
+      "completed_at": "2026-08-19T06:47:57.301Z",
+      "last_advanced": "2026-08-19T06:24:36.621Z"
     },
     "FV-B005": {
       "description": "Add Step 8 to /implement-trd per §3.7 — one dispatch, not a loop (D1): read the definition from disk (absent → not run: no definition produced per §3.1/TR3; never wait on the background task and never derive one inline — no primitive exists for a lead to block on a specific Agent({run_in_background}",
@@ -101,10 +114,21 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1cd1f9355caa9ff9bea94812944d888d0031e695",
+      "review": {
+        "findings": 4,
+        "applied": 2,
+        "reported": 2
+      },
+      "timestamp": "2026-08-19T06:21:26.018Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "1cd1f9355caa9ff9bea94812944d888d0031e695",
+    "last_checkpoint_timestamp": "2026-08-19T06:21:26.018Z",
     "interrupted": false,
     "interrupt_reason": null
   }

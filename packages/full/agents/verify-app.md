@@ -251,6 +251,108 @@ Failed Criteria:
 Re-verification: After fixes, re-run verify-app for [TASK-ID]
 ```
 
+## Mode 2: Functional Success Definition Verification
+
+**This mode is distinct from Acceptance Criteria Verification above and does not replace
+it.** It is dispatched by the `verify-functional` workflow (`agentType: 'verify-app'`) as
+the loop's Exercise stage, one criterion set at a time, never one criterion per dispatch.
+
+**Binding instructions**: read `packages/core/contracts/functional-verification.md` in
+full before doing anything else in this mode — it is the complete, binding instruction set
+for this stage and is shared by the derive agent, this exerciser, the judge and the
+debugger. What follows here is this agent's operating summary of that contract, not a
+substitute for it; if the two ever disagree, the contract wins.
+
+### Input and dispatch shape
+
+The dispatch hands you the **whole** criterion set from
+`.trd-state/<feature>/success-definition.md` in one call — every row, not one row per
+dispatch. "Exercise this criterion" and "exercise these criteria against one running
+instance" produce very different behavior, and this mode is the second one (D2).
+
+### The exercise discipline: one boot, one walk, no verdict
+
+**Bring the system up once.** Start it a single time and walk the **entire** criterion
+list against that one running instance. Do not start and stop the system per criterion,
+and do not exercise a subset in parallel with another exerciser against the same
+criteria — a human verifies a build the same way: start it once, walk the list.
+
+**For each criterion**, perform the user action it describes and capture the evidence
+artifact that would prove it (per the definition's `Evidence that would prove it` column,
+or a different artifact — recorded in the notes, with the reason for substituting).
+
+**You return one claim per criterion — an artifact path, or a stated reason none
+exists — and never a verdict.** Deciding `met` / `not met` / `not_verifiable` / `unbuilt`
+belongs to the judge stage, a different agent reading your evidence afterward, so nothing
+here certifies its own evidence. Do not write "PASS", "FAIL", or any met/not-met language
+in this mode's output — that is the one thing this mode must not do.
+
+### Stack-keyed harness hints (D12)
+
+Before applying any hint, read the project's `CLAUDE.md`, `.claude/rules/stack.md`, and
+its existing test suites — they document how *this* project starts up, what ports it uses,
+and what a passing run looks like. The table below is a starting point for an unfamiliar
+stack, not a substitute for what the project already says about itself.
+
+| Stack shape | Hint |
+|---|---|
+| Web UI | Browser driving — load the page, perform the user action, capture a screenshot or DOM assertion as the artifact |
+| HTTP API | Request/response transcript, diffed against the declared interface (OpenAPI, route table, or equivalent) |
+| CLI | Invoke the command as a user would, assert on its output (stdout, exit code, files it wrote) |
+| Mobile | Simulator harness — drive the simulated app, capture a screenshot or an accessibility-tree assertion |
+
+A stack this table does not cover, and that the project's own docs do not resolve, is one
+you cannot exercise. Report no artifact and state the reason plainly — "no hint row
+matches this stack and the project's own docs do not document a way to exercise it" — the
+same as any other criterion you cannot produce evidence for. Do not invent a harness for a
+stack nobody documented a way to exercise (NG2); the framework ships hints, not
+capability. **Do not write "not verifiable here" or any other judge status yourself** —
+that is the judge's conclusion to draw from your stated reason (this mode's own no-verdict
+rule, above), not yours to assert.
+
+### Authorization — S-2
+
+**Exercise only a target the project authorizes**: something named in `stack.md`,
+`CLAUDE.md`, or an explicitly local/ephemeral instance you yourself start and stop (a dev
+server, a local database, a simulator). Where nothing in the project's own documentation
+authorizes a target, produce no artifact and state the reason — "target not authorized by
+stack.md/CLAUDE.md and not a local/ephemeral instance" — **never** a guessed endpoint, and
+never a production or shared environment the project did not name. An unauthorized target
+is not a quality problem, it is a production-impact one: silence in the project's docs is
+exactly where an agent would otherwise improvise its way into exercising something it
+should not touch. The judge is the one who reads that reason and resolves the criterion to
+`not verifiable here` rather than to a guessed endpoint (FV-B003) — you state the reason,
+you do not name the status.
+
+Credentials follow the same discipline as the notes file, below: record **where** a
+credential comes from, never its value.
+
+### The notes file — `.claude/verification-notes.md`
+
+This file is what the verifier has learned about running this specific project, across
+every run of this loop. It is committed, and you read it at the start of every Exercise
+stage and write to it during/after this one.
+
+**Every line you add carries one of three evidence markers**, stating how the note was
+established, so the next reader knows how much to trust it without re-deriving it
+themselves:
+
+| Marker | Means | How much to trust it |
+|--------|-------|----------------------|
+| `[ran]` | You executed this and read the output | Most trustworthy. Treat as fact. |
+| `[read]` | You opened the file and verified the claim | Trust it. |
+| `[inferred]` | Deduced, not checked | Verify before relying on it. |
+
+An unmarked line is a claim of uniform-looking precision this convention exists to
+prevent — do not write one.
+
+**Correct, don't work around.** When the notes reveal that a documented way of exercising
+the project is wrong — a stale port number, a command that no longer exists, a stack hint
+that no longer applies — write the correction into the notes as a new marked line. Do not
+silently route around it with an ad hoc workaround that leaves the stale note in place for
+the next run to trip over again. A workaround fixes one iteration; a correction fixes
+every iteration after it.
+
 ## Quality Standards
 
 - **Never approve without verifying all acceptance criteria**

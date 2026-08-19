@@ -455,6 +455,81 @@ describe('CLI', () => {
       });
     }).toThrow();
   });
+
+  // -------------------------------------------------------------------------
+  // --file / stdin payload input (Finding: shell-quoting hazard with inline JSON)
+  // -------------------------------------------------------------------------
+
+  test('check-evidence accepts the claims payload via --file <path>', () => {
+    const artifact = path.join(tmpDir, 'evidence.txt');
+    fs.writeFileSync(artifact, 'proof');
+    const stat = fs.statSync(artifact);
+    const mtimeSec = Math.floor(stat.mtimeMs / 1000);
+
+    // A reason string carrying an apostrophe -- the exact shape that breaks a '<json>'-quoted
+    // inline argument -- must round-trip cleanly through a file.
+    const claimsFile = path.join(tmpDir, 'claims.json');
+    fs.writeFileSync(
+      claimsFile,
+      JSON.stringify([{ criterion: 'FS-1', artifact, reason: "couldn't start the server" }])
+    );
+
+    const stdout = execFileSync('node', [
+      MODULE_PATH,
+      'check-evidence',
+      '--file',
+      claimsFile,
+      String(mtimeSec - 10),
+    ]).toString();
+
+    const parsed = JSON.parse(stdout);
+    expect(parsed[0]).toMatchObject({ criterion: 'FS-1', tier1: 'pass' });
+  });
+
+  test('check-evidence accepts the claims payload via stdin (-)', () => {
+    const artifact = path.join(tmpDir, 'evidence.txt');
+    fs.writeFileSync(artifact, 'proof');
+    const stat = fs.statSync(artifact);
+    const mtimeSec = Math.floor(stat.mtimeMs / 1000);
+    const claims = JSON.stringify([{ criterion: 'FS-1', artifact, reason: "couldn't start it" }]);
+
+    const stdout = execFileSync('node', [MODULE_PATH, 'check-evidence', '-', String(mtimeSec - 10)], {
+      input: claims,
+    }).toString();
+
+    const parsed = JSON.parse(stdout);
+    expect(parsed[0]).toMatchObject({ criterion: 'FS-1', tier1: 'pass' });
+  });
+
+  test('decide-next accepts the input payload via --file <path>', () => {
+    const inputFile = path.join(tmpDir, 'decide.json');
+    fs.writeFileSync(
+      inputFile,
+      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null })
+    );
+
+    const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', '--file', inputFile]).toString();
+    const parsed = JSON.parse(stdout);
+    expect(parsed.action).toBe('exit-satisfied');
+  });
+
+  test('render-report accepts the input payload via --file <path>', () => {
+    const inputFile = path.join(tmpDir, 'report.json');
+    fs.writeFileSync(
+      inputFile,
+      JSON.stringify({
+        feature: 'demo',
+        prd: 'docs/PRD/demo.md',
+        definitionPath: '.trd-state/demo/success-definition.md',
+        outcome: 'satisfied',
+        reason: 'all criteria met',
+        criteria: [],
+      })
+    );
+
+    const stdout = execFileSync('node', [MODULE_PATH, 'render-report', '--file', inputFile]).toString();
+    expect(stdout).toContain('# Functional Verification Report: demo');
+  });
 });
 
 // ---------------------------------------------------------------------------

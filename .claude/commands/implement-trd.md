@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum]"
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum] [--verify-functional]"
 version: 4.0.0
 category: implementation
 ---
@@ -15,8 +15,9 @@ category: implementation
 > - `--resume` or `--continue` - Resume from last checkpoint (attempts session resume first)
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
 > - `--wiggum` - Enable autonomous mode (intercepts exit until complete or max 50 iterations)
+> - `--verify-functional` - Opt in to the functional-verification pass (default off, D11): dispatches a background success-definition derive early (Step 3.6) and, at the tail of the run, an outcome-bearing verification loop. Composes with `--resume` (D13): with both set and a non-terminal `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and the whole phase loop and re-enters the verification loop directly; `--resume` alone keeps its existing meaning (resume the implementation checkpoint) and is unaffected when `--verify-functional` is absent.
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`
+> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --verify-functional`, `/implement-trd --verify-functional --resume`
 
 ---
 
@@ -26,7 +27,7 @@ category: implementation
 $ARGUMENTS
 ```
 
-Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`, `--wiggum`.
+Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`, `--wiggum`, `--verify-functional`.
 
 ---
 
@@ -34,6 +35,12 @@ Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--re
 
 ```
 PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN HARDENING & REVIEW -> COMPLETE
+
+  --verify-functional (Step 3.6, D5): right after the graph is built, before the phase
+  loop, dispatch the success-definition derive pass in the background —
+  Agent({subagent_type: "product-manager", run_in_background: true, ...}) — and continue
+  straight into the phase loop with no wait. Absent the flag, no derive agent is
+  dispatched and no .trd-state/<feature>/success-definition.md appears.
 
 Phase Loop (per phase N):
   mark phase N's tasks in_progress (state-write-before-dispatch)
@@ -43,6 +50,14 @@ Phase Loop (per phase N):
   -> command runs the full deterministic battery (resolved per project) at the phase gate
   -> on failure: retry the WHOLE phase (whole-phase retry, capped) or STUCK
   -> checkpoint + commit + PHASE banner -> next phase (no pause)
+
+--verify-functional --resume composition (§3.7, D13): `--resume` alone keeps its existing
+meaning (resume the implementation checkpoint) regardless of `--verify-functional`. When
+BOTH are set and `.trd-state/<feature>/verification-state.json` exists with a non-terminal
+outcome, the run skips the derive pass and the whole phase loop and re-enters the
+verification loop directly at the iteration after the last completed one. `--verify-functional`
+with no prior state file starts derivation and the phase loop as usual — the two flags
+compose rather than overloading each other.
 ```
 
 The per-task cycle — `IMPLEMENT -> checks -> [DEBUG on fail]` — happens **inside**
@@ -427,6 +442,60 @@ than filled with a tool that isn't there):
 ```
 
 The assembled string is `rec.prompt` in `implement-phase.js`'s `args.tasks.records[]`.
+
+### 3.6 `--verify-functional`: dispatch the background success-definition derive pass
+
+**Only when `--verify-functional` is set.** Absent the flag, skip this step entirely — no
+derive agent is dispatched and no `.trd-state/<feature>/success-definition.md` appears
+(functional-verification TRD AC-6).
+
+**0. The `--resume` composition gate (§3.7, D13).** When `--verify-functional` AND
+`--resume`/`--continue` are both set and `.trd-state/<feature>/verification-state.json`
+exists with a **non-terminal** outcome (its recorded action is `remediate`, or it carries no
+terminal outcome at all), this run re-enters the verification loop and nothing else: **skip
+this step entirely — dispatch no derive agent — and skip the phase loop (Steps 4–6) and the
+end-of-run hardening (Step 7)**, going straight to Step 8, which reads that state file as its
+`resume` argument. A definition already exists from the run that wrote the state file;
+deriving a second one would overwrite it mid-loop. Every other combination is unaffected:
+`--verify-functional` with no state file (or a terminal one) derives and runs the phase loop
+as usual, and `--resume` without `--verify-functional` keeps its existing meaning.
+
+**1. Resolve the PRD path**, in order:
+
+1. Read the TRD's `**Source PRD**:` header (the line parsed in Step 1). Its on-disk form is
+   not uniform — handle all of these:
+   - a bare backticked path: `` **Source PRD**: `docs/PRD/<feature>.md` ``
+   - a markdown link: `**Source PRD**: [docs/PRD/<feature>.md](docs/PRD/<feature>.md)`
+   - a backticked link: `` **Source PRD**: [`docs/PRD/<feature>.md`](docs/PRD/<feature>.md) ``
+   - the literal `**Source PRD**: None — <reason>` — this resolves to **no PRD**, not to a
+     file literally named `None`.
+   - no header at all — treat as **no PRD** and fall through to step 2.
+2. If step 1 yields no PRD, fall back to `.trd-state/current.json`'s `prd` field (written by
+   Step 1.3a). This file is gitignored — present in-session, absent on a fresh clone — so its
+   absence is a normal fallback miss, not an error.
+3. If neither resolves to an existing file path, the PRD is **unresolvable**: record
+   `not run: no PRD resolved` for Step 8 to report later (functional-verification TRD §3.1,
+   §3.7) and skip the rest of this step — dispatch nothing.
+
+**2. Dispatch the derive pass in the background**, same call shape as Step 7.1's
+`Agent(subagent_type="code-reviewer", prompt="…")` fan-out:
+
+```
+Agent(subagent_type="product-manager", run_in_background: true,
+      prompt="<packages/core/contracts/functional-verification.md text> + <PRD path> + <output path .trd-state/<feature>/success-definition.md>")
+```
+
+The prompt carries the PRD path and the output path and **nothing else** — no TRD path, no
+TRD excerpt, no task list (functional-verification TRD FR-1, AC-1, D5). `product-manager` is
+already on `constitution.md`'s 13-agent roster and its frontmatter already declares
+`background: true`; this step adds no agent, no roster edit, and no change to
+`product-manager.md` — the contract text passed in the prompt is the entire instruction set.
+
+**3. Do not wait.** This is a fire-and-forget dispatch: the command continues straight into
+the phase loop in the same turn. Nothing here blocks on the derive agent, and nothing here
+reads its output — that happens at Step 8, hundreds of tool calls later, which reads
+whatever `success-definition.md` contains (or reports `not run: no definition produced` if
+the agent never wrote one).
 
 ---
 

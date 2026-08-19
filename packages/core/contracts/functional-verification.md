@@ -100,10 +100,14 @@ and its existing test suites — they may already document how this specific pro
 what ports it uses, and what a passing run looks like. The hint table is a starting point for
 an unfamiliar stack, not a substitute for what the project already says about itself.
 
-**A stack this table does not cover, and that the project's own docs do not resolve, is `not
-verifiable here`.** That is the honest answer. Inventing a harness for a stack nobody
-documented a way to exercise is explicitly out of scope (NG2) — do not build one, however
-plausible it seems in the moment.
+**A stack this table does not cover, and that the project's own docs do not resolve, is one
+the exerciser cannot exercise.** It produces no artifact and states the reason plainly — "no
+hint row matches this stack and the project's own docs do not document a way to exercise it" —
+the same as any other criterion it cannot produce evidence for. It does **not** write `not
+verifiable here` or any other judge status itself (see "The exercise discipline", below): that
+is the judge's conclusion, drawn from the stated reason, not the exerciser's to assert.
+Inventing a harness for a stack nobody documented a way to exercise is explicitly out of scope
+(NG2) — do not build one, however plausible it seems in the moment.
 
 ---
 
@@ -235,11 +239,14 @@ optional — a value written once is a value in git history permanently.
 The verifier exercises only a target the project authorizes: something named in `stack.md`,
 `CLAUDE.md`, or an explicitly local/ephemeral instance (a dev server the exerciser itself
 starts and stops, a local database, a simulator). Where nothing in the project's own
-documentation authorizes a target, the criterion resolves to `not_verifiable here` — never to
-a guessed endpoint, and never to a production or shared environment the project did not name.
-An unauthorized target is not a quality problem; it is a production-impact one, and silence in
+documentation authorizes a target, the exerciser produces no artifact and states the reason —
+"target not authorized by stack.md/CLAUDE.md and not a local/ephemeral instance" — never to
+a guessed endpoint, and never to a production or shared environment the project did not name. An
+unauthorized target is not a quality problem; it is a production-impact one, and silence in
 the project's docs is exactly where an agent would otherwise improvise its way into exercising
-something it should not touch.
+something it should not touch. The judge is the one who reads that stated reason and resolves
+the criterion to `not_verifiable here` — the exerciser states the reason, it does not name the
+status.
 
 ---
 

@@ -275,25 +275,59 @@ module.exports = {
 // Follows trd-parser.js's manual entry point shape (`:741`): a usage line on stderr and
 // `process.exit(1)` on misuse.
 //
+// The JSON payload for every subcommand accepts three forms, so the caller (the judge agent,
+// per §3.3a) is never forced to interpolate free-text `reason` strings into a shell-quoted
+// argument -- a single apostrophe in an exerciser's claim ("couldn't start the server") would
+// otherwise terminate the shell quote and break the command:
+//
+//   '<json>'          the JSON text itself, inline (kept working -- phase 1's tests use it)
+//   --file <path>     read the JSON payload from a file (the judge already writes files, so
+//                      it can write the payload first, then pass the path)
+//   -                 read the JSON payload from stdin
+//
 //   node functional-verification.js check-evidence '<claims-json>' <sinceSec>
+//   node functional-verification.js check-evidence --file <path> <sinceSec>
+//   node functional-verification.js check-evidence - <sinceSec>        (payload piped on stdin)
 //   node functional-verification.js decide-next '<input-json>'
+//   node functional-verification.js decide-next --file <path>
+//   node functional-verification.js decide-next -
 //   node functional-verification.js render-report '<input-json>'
+//   node functional-verification.js render-report --file <path>
+//   node functional-verification.js render-report -
 
 if (require.main === module) {
   const usage = () => {
     console.error(
-      'Usage:\n' +
-        "  node functional-verification.js check-evidence '<claims-json>' <sinceSec>\n" +
-        "  node functional-verification.js decide-next '<input-json>'\n" +
-        "  node functional-verification.js render-report '<input-json>'"
+      'Usage (JSON payload arg accepts inline JSON, `--file <path>`, or `-` for stdin):\n' +
+        "  node functional-verification.js check-evidence '<claims-json>'|--file <path>|- <sinceSec>\n" +
+        "  node functional-verification.js decide-next '<input-json>'|--file <path>|-\n" +
+        "  node functional-verification.js render-report '<input-json>'|--file <path>|-"
     );
     process.exit(1);
   };
 
+  // Resolves the JSON payload from the head of `rest`, whichever of the three forms it is,
+  // and returns [jsonText|undefined, remainingArgs]. `jsonText` is undefined (not thrown) when
+  // the form was well-formed but nothing was actually supplied, so callers can still run their
+  // existing "was it provided" check and call usage() uniformly.
+  function resolveJsonPayload(rest) {
+    const [head, ...tail] = rest;
+    if (head === '--file') {
+      const [filePath, ...remaining] = tail;
+      if (!filePath) return [undefined, remaining];
+      return [fs.readFileSync(filePath, 'utf8'), remaining];
+    }
+    if (head === '-') {
+      return [fs.readFileSync(0, 'utf8'), tail];
+    }
+    return [head, tail];
+  }
+
   const [, , subcommand, ...rest] = process.argv;
 
   if (subcommand === 'check-evidence') {
-    const [claimsJson, sinceSecArg] = rest;
+    const [claimsJson, remaining] = resolveJsonPayload(rest);
+    const [sinceSecArg] = remaining;
     const sinceSec = Number(sinceSecArg);
     if (!claimsJson || sinceSecArg === undefined || !Number.isFinite(sinceSec)) {
       // A non-numeric sinceSec would make every `mtimeSec > NaN` comparison false, silently
@@ -304,14 +338,14 @@ if (require.main === module) {
       console.log(JSON.stringify(checkEvidence(claims, sinceSec)));
     }
   } else if (subcommand === 'decide-next') {
-    const [inputJson] = rest;
+    const [inputJson] = resolveJsonPayload(rest);
     if (!inputJson) {
       usage();
     } else {
       console.log(JSON.stringify(decideNext(JSON.parse(inputJson))));
     }
   } else if (subcommand === 'render-report') {
-    const [inputJson] = rest;
+    const [inputJson] = resolveJsonPayload(rest);
     if (!inputJson) {
       usage();
     } else {
