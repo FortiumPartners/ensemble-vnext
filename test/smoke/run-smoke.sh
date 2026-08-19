@@ -69,7 +69,7 @@ declare -A SCENARIO_TIMEOUT=(
     # "double a single dispatch" — it is one dispatch plus a larger one. This
     # cap must exceed the scenario's own TIMEOUT_OFF + TIMEOUT_ON (840 + 1500)
     # plus two scaffolds; raise all three together.
-    [verify-functional]=2500
+    [verify-functional]=3300
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a

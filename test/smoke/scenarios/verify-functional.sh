@@ -188,12 +188,19 @@ trap cleanup EXIT INT TERM
 # as run 1 would produce a SIGTERM that reads as a behavioral failure but is
 # purely the clock. Raise these and SCENARIO_TIMEOUT[verify-functional]
 # together, and never lower the model instead.
-TIMEOUT_OFF=840
+# Measured 2026-08-19 on the first real run of this scenario: the flag run, which
+# does strictly MORE work (derive pass + verification loop on top of the same
+# implement loop), completed in 1471s. The no-flag run was killed at 840s having
+# not finished, so the base loop alone needs more than that on this fixture. 840
+# was extrapolated from implement-one-task's 341s in baseline.json; this TRD is
+# heavier. Both arms now get the same budget.
+TIMEOUT_OFF=1500
 TIMEOUT_ON=1500
 
 SESSION_FILE_OFF="${PROJECT_DIR_OFF}/.session.jsonl"
 RUN_SCAFFOLD_OK=false
 run_implement_trd "$PROJECT_DIR_OFF" "$SESSION_FILE_OFF" "/implement-trd ${TRD_REL}" "$TIMEOUT_OFF"
+RUN_OFF_RC=$?
 # Scaffolding failed: nothing downstream can mean anything. Report the one real
 # failure rather than a cascade of misleading missing-file assertions. (A
 # global flag, not the return code — the function also returns claude's exit
@@ -209,6 +216,13 @@ fi
 SD_OFF_FOUND="$(find "${PROJECT_DIR_OFF}/.trd-state" -name success-definition.md 2>/dev/null | head -1)"
 if [[ -n "$SD_OFF_FOUND" ]]; then
     assert_fail_raw "no success-definition.md without --verify-functional (found: $SD_OFF_FOUND)"
+elif [[ "$RUN_OFF_RC" -ne 0 ]]; then
+    # VACUOUS-PASS GUARD, and it caught itself on 2026-08-19. The baseline run
+    # hit the timeout (exit 124) and was killed mid-loop, so of course no
+    # definition existed -- and this assertion PASSED, reporting AC-6 proven by
+    # a run that never reached the point where a definition could be written.
+    # Absence only means something when the run got far enough to produce one.
+    assert_fail_raw "no success-definition.md without --verify-functional — INCONCLUSIVE: the baseline run exited $RUN_OFF_RC (124 = timeout) so absence proves nothing"
 else
     assert_pass_raw "no success-definition.md without --verify-functional"
 fi
