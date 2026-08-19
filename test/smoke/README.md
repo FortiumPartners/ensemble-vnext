@@ -34,8 +34,10 @@ preface) — that's a judged, statistical concern, not a pass/fail smoke check.
 | `prd-run` | Yes | Opt-in (`--with-llm`) | `/create-prd` in a throwaway project: exit 0, last output line is a `COMMAND COMPLETE`/`STUCK` banner, `docs/PRD/*.md` created and non-empty, `product-manager` appears in the session log. |
 | `trd-run` | Yes | Opt-in (`--with-llm`) | `/create-trd` in a throwaway project: exit 0, banner, `docs/TRD/*.md` created and non-empty. |
 | `debug-path` | Yes | Opt-in (`--with-llm`) | Same shape as `implement-one-task`, but the task's test is pre-written to fail — exercises VERIFY → DEBUG. A `STUCK` banner is a **pass** here (the point is entering the debug path, not fixing an intentionally-unfixable bug). Asserts `app-debugger` appears in the log and `retry_count` incremented. |
+| `verify-functional` | Yes | Opt-in (`--with-llm`) | `/implement-trd` run TWICE against a one-task TRD + matching one-requirement PRD, in two separate throwaway projects: **without** `--verify-functional` no `.trd-state/*/success-definition.md` may appear (AC-6); **with** it, `success-definition.md` exists and every data row carries a non-empty `Cites` value (`domain-derived` reasoning lives in that same column per the contract), `verification-state.json` carries a numeric `iteration` and a `criteria` array in which every entry has a `status`, and `verification-report.md` names every criterion. Both runs must end with a banner. The most expensive scenario in the set (two live runs, ~40 min cap). |
 
-`prd-run`, `trd-run`, and `debug-path` each cost roughly five to six minutes to assert
+`prd-run`, `trd-run`, `debug-path`, and `verify-functional` each cost roughly five to six
+minutes (`verify-functional` roughly double — it runs `/implement-trd` twice) to assert
 things a user would notice within seconds of looking at the output ("a PRD file appeared").
 That is not worth paying on every run before a commit — it is exactly the kind of check
 worth keeping, but as something you reach for deliberately (`--with-llm`, or by scenario
@@ -98,6 +100,7 @@ test/smoke/
     prd-run.sh                # LLM, opt-in (--with-llm)
     trd-run.sh                 # LLM, opt-in (--with-llm)
     debug-path.sh               # LLM, opt-in (--with-llm)
+    verify-functional.sh         # LLM, opt-in (--with-llm) — two live runs
   baseline.json        # captured pass/fail + elapsed + assertion counts (see below)
   README.md            # this file
 ```
@@ -184,8 +187,8 @@ even load or an artifact contract has drifted, every downstream behavioral asser
 noise. Fail fast and cheap.
 
 The default set's one LLM scenario, `implement-one-task`, then runs alone (nothing left to
-share the machine with by default). When `--with-llm` pulls in `prd-run`, `trd-run`, and
-`debug-path`, all four LLM scenarios run **concurrently** — this is not an optimisation, it's
+share the machine with by default). When `--with-llm` pulls in `prd-run`, `trd-run`,
+`debug-path`, and `verify-functional`, all five LLM scenarios run **concurrently** — this is not an optimisation, it's
 what keeps a full `--with-llm` pass from blowing past ten minutes. Measured serially the LLM
 scenarios cost 352s + 297s + 291s + ~380s ≈ over 22 minutes; concurrently the total is the
 slowest one, roughly 6 minutes. They are independent by construction — each builds its own

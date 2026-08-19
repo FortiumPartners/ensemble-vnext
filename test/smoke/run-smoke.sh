@@ -13,7 +13,7 @@
 #   ./run-smoke.sh                        Deterministic checks + implement-one-task canary
 #   ./run-smoke.sh hooks-health            Run one scenario by name
 #   ./run-smoke.sh hooks-health prd-run    Run a subset by name
-#   ./run-smoke.sh --with-llm              Default set + prd-run/trd-run/debug-path
+#   ./run-smoke.sh --with-llm              Default set + the opt-in LLM scenarios
 #   ./run-smoke.sh prd-run                 A single opt-in LLM scenario, by name
 #
 # Exit codes:
@@ -62,6 +62,14 @@ declare -A SCENARIO_TIMEOUT=(
     [trd-run]=900
     [implement-one-task]=900
     [debug-path]=900
+    # verify-functional runs TWO sequential live `/implement-trd` invocations
+    # (without the flag, then with it) in separate throwaway projects. The
+    # second additionally pays for the Step 3.6 derive pass and Step 8's
+    # verification loop (up to 3 exercise/judge/debug iterations), so it is not
+    # "double a single dispatch" — it is one dispatch plus a larger one. This
+    # cap must exceed the scenario's own TIMEOUT_OFF + TIMEOUT_ON (840 + 1500)
+    # plus two scaffolds; raise all three together.
+    [verify-functional]=2500
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
@@ -102,12 +110,13 @@ export ENSEMBLE_RUNTIME_REFRESH_DISABLE=1
 # leverage single LLM scenario to keep paying for by default.
 ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-task)
 
-# Opt-in LLM scenarios: prd-run, trd-run, debug-path. These cost ~5-6 minutes
-# each to assert things a user would notice within seconds ("a PRD file
+# Opt-in LLM scenarios: prd-run, trd-run, debug-path, verify-functional. These
+# cost ~5-6 minutes each (verify-functional roughly double, two live runs)
+# to assert things a user would notice within seconds ("a PRD file
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()
