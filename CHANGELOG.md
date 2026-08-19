@@ -10,6 +10,86 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.18] - 2026-08-19
+
+**Still a patch, per the versioning note above.** The modernization run is NOT finished —
+item 5 has Wiggum and 5d open, and item 11 has not started — so the single minor bump that
+marks "the point the work is actually released" is not this one. This release carries 17
+unreleased commits from `main` plus the functional-verification feature.
+
+### Fixed
+
+- **`/rebase-project` never delivered `workflows/`, `lib/` or `contracts/`.** It handled
+  agents, skills, commands, hooks, rules and settings — and nothing else. Those three
+  directories were delivered ONLY by `scaffold-project.sh`, so any project scaffolded before
+  they existed and rebased since never received them. Reported from multiple real projects.
+
+  **The failure is silent, which is why it survived.** Every affected command documents a
+  fallback, so nothing errors: `/create-prd` runs its stages inline, `/implement-trd` loses
+  `trd-parser.js` and `task-graph.js` and cannot compute a wave graph at all, and per-task
+  prompts ship without `task-delegation.md`'s binding instruction set. It looks like it worked.
+
+  New `§2.5 Runtime Module Diff` and `§4.5 Update Runtime Modules`. A missing directory is the
+  expected case on an old install, not an error, and `mkdir -p` on the three is the fix. Also
+  corrected the three places that enumerate coverage — the usage block, the behaviour bullet
+  and `--preserve-all` all said "agents/skills/commands/hooks", which is how the gap stayed
+  invisible to anyone reading the command to check.
+
+- **Version manifests had drifted.** `package.json` sat at 4.1.15 while the plugin manifests
+  were tagged 4.1.16 and 4.1.17, so `npm run check:versions` failed on `main`. All four now
+  agree.
+
+### Added
+
+- **Functional verification — `/implement-trd --verify-functional`** (opt-in, default off).
+  Asks whether a user can do what the **PRD** says they can, answered with artifacts rather
+  than assertions, and iterated until satisfied or provably stalled.
+
+  One iteration is three agents: a `verify-app` exerciser that brings the system up **once**
+  and walks every criterion; an untyped judge that runs a deterministic evidence gate before
+  reading any content and does the iteration's disk work; and an `app-debugger` that fixes gaps
+  in place, dispatched only when there are gaps.
+
+  Evidence outranks assertion: a criterion is gated first by `checkEvidence()` — the artifact
+  exists, is non-empty, and is newer than the freshness floor — before any agent is asked what
+  it shows. `not verifiable here` is a distinct status all the way through, so a stack the
+  framework has no hint for reports honestly instead of passing.
+
+  **A wholly absent capability is the one thing the loop refuses to iterate on.** It exits and
+  says implementation did not deliver, rather than asking a debugger to build a feature.
+
+  Ships as `packages/core/lib/functional-verification.js` (+ CLI),
+  `packages/core/workflows/verify-functional.js`, a second mode on `verify-app`, Step 3.6's
+  background derive pass and Step 8's single dispatch, plus an opt-in smoke scenario.
+
+### Changed
+
+- **`code-simplifier` and the post-simplify re-verify are gone from the phase gate.** The
+  simplifier reported `no-change` in every phase of every measured run, and the post-simplify
+  re-verify existed only to catch a simplifier that broke something — removing the cause
+  removes the need for the fix.
+
+  Its commit carries a `!` marker, but **no interface breaks**: the workflow still accepts
+  `gate.simplifyPrompt`, still returns `simplify: 'skipped'` and `simplifyReported: false`,
+  and the agent stays on disk and in the constitution's roster. No caller passes or reads
+  anything different. What changed is behaviour — the per-phase gate went from four agents to
+  two. The `!` is telling a reader of the log not to be surprised the simplifier stopped
+  running, not signalling an API change.
+
+- **`--verify-functional --resume`** re-enters the verification loop and runs no implementation
+  work at all — no derive pass, no phase loop, straight to Step 8.
+
+### Known open
+
+- The live E2E smoke scenario has never completed a run, so `FV-T001`'s acceptance rests on a
+  static read plus unit tests. Three follow-ups unblock together on the first successful
+  `npm run smoke:full`: that acceptance, a `.outcome` assertion covering the terminality
+  marker, and a deliberate `baseline.json` recapture.
+- The evidence freshness floor is **per-run, not per-iteration** — it proves an artifact
+  postdates the loop start, not the iteration claiming it, and `HEAD` does not advance within a
+  run because Debug never commits. Recorded in the TRD's `Could Not Verify` with the
+  per-iteration-marker remedy named.
+
 ## [4.1.17] - 2026-08-17
 
 ### Fixed
