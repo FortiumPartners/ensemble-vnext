@@ -120,6 +120,25 @@ backstop underneath that, not the mechanism this rule relies on. A judge call th
 times out resolves to **allow** — the hook never wedges a session on evaluator
 unavailability.
 
+### A block is displayed as `Stop hook error:` — that is upstream, not us
+
+When one of these guards blocks, the CLI renders it as **`Stop hook error: [<prompt>]: <reason>`**.
+It is not an error and nothing here is misconfigured. This is
+[anthropics/claude-code#62139](https://github.com/anthropics/claude-code/issues/62139) — OPEN,
+labelled `area:hooks` / `area:tui` / `enhancement` — whose own reproduction is a `type: "prompt"`
+Stop hook returning `{ok: false, reason: "test"}`, and which states that returning `ok: false` is
+the *intended success path* for review-style hooks. Same family: #34600 (exit-2 Stop hook shown as
+an error rather than feedback), #34713 (false "Hook Error" on exit 0 with valid JSON). Do not spend
+another session diagnosing it; there is nothing on this side to fix until upstream relabels.
+
+**The one shape that IS ours** is an *allow* appearing the same way. An allow has nothing to
+report, so it should be silent — it surfaces only when the judge attaches a `reason` to an
+`ok: true` verdict, and the CLI displays whatever reason is present.
+`build-judge-prompts.js`'s response-contract block forbids exactly that. Measured across this
+project's transcripts: 38 blocks to 5 such allows (~1.7% of 296 evaluations). Measure with
+`node packages/core/scripts/hook-verdict-rate.js --project <slug>`; a high BLOCK count is the
+guards working and is not a regression.
+
 ## What counts as a violation (judged, not pattern-matched)
 
 The judge reads `last_assistant_message` for an ASSERTION that something will notify or

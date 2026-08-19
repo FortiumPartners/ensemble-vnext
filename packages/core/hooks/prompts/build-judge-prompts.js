@@ -464,6 +464,18 @@ condition?`,
 //
 // WHY THIS EXISTS: measured 2026-08-16 over one session -- 31 of 251 hook
 // evaluations (~12%) recorded a `hookErrors` entry containing the judge's
+// KEEP THIS BLOCK (re-justified 2026-08-18 against upstream, after it was queued for
+// possible reversion as ~2.5KB spent on a ~1% problem). Research settled which half of
+// the "Stop hook error" noise is ours:
+//   - BLOCKS rendering as "Stop hook error:" is anthropics/claude-code#62139, an OPEN
+//     upstream TUI labelling bug (ok:false is the intended success path for review
+//     hooks). Nothing in this file can fix it and nothing here should try.
+//   - ALLOWS rendering that way IS ours: the CLI surfaces whatever `reason` is present,
+//     so an ok:true verdict that attaches prose is displayed identically to a block.
+//     That is precisely what this block forbids. Measured 41 blocks vs 2 such allows.
+// #11947 (prompt Stop hook returning {decision, reason} instead of {ok}) is upstream
+// evidence that a judge's response shape needs stating explicitly, not assuming.
+//
 // REASONING TEXT, for ALLOW verdicts as well as blocks. The CLI renders those as
 // "Stop hook error:" followed by the entire 13-17 KB prompt, so the operator sees
 // pages of prompt and no useful information. The prompt had zero instructions
