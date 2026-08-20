@@ -39,7 +39,8 @@
   "opt_in_llm_scenarios": [
     "prd-run",
     "trd-run",
-    "debug-path"
+    "debug-path",
+    "verify-functional"
   ],
   "totals": {
     "scenarios": 4,
