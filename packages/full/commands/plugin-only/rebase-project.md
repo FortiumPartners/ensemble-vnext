@@ -193,7 +193,27 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    | **New** | In plugin, not in vendored | Will be added |
    | **Updated** | In both, content differs | Will be REPLACED (backup created) |
    | **Unchanged** | In both, content identical | No action |
-   | **Custom** | In vendored, not in plugin | Preserved (report only; not removed) |
+   | **Stale** | In vendored, not in plugin, AND named in the retired-agent list below | Will be REMOVED (backup first) |
+   | **Custom** | In vendored, not in plugin, AND not on that list | Preserved (report only; not removed) |
+
+   **Why agents need an explicit list when commands do not.** A command carries
+   `category:` in its frontmatter, so a retired plugin command is distinguishable from
+   a user-written one by inspection. **Agents carry only `name:` and `description:` —
+   there is no marker.** So "in vendored, not in plugin" is genuinely ambiguous, and
+   before 2026-08-20 this table resolved every such file to *Custom → preserved*.
+   The result: a retired framework agent survived every rebase forever, and the run
+   was not being timid — it had no category to put it in.
+
+   **Retired framework agents** (same precedent as the retired-hooks list in §2.4):
+
+   | Agent | Retired |
+   |---|---|
+   | *(none yet — the 13-agent roster has only grown)* | |
+
+   Keep this list current when an agent is removed from the roster, or the removal
+   will not propagate to any existing project. An agent NOT on this list is preserved,
+   because a wrong deletion of user work is far worse than a stale file — but that
+   safety costs the list its automation, so it is maintenance, not a mechanism.
 
 4. **Generate agent diff:**
    ```
@@ -527,7 +547,15 @@ a backup before replacing. Never touch user-created agents.
 4. **For each UNCHANGED agent:**
    - No action; no log line (silent — covered by summary count)
 
-5. **For CUSTOM agents (in vendored, not in plugin):**
+5. **For STALE agents (on §2.1's retired list):**
+   - Back up to `.claude/agents.backup.<timestamp>/` first
+   - **DELETE from `.claude/agents/`. This is not a judgement call** — the file was
+     classified by the diff step and the backup is already written. A retired agent
+     left in place stays selectable by name and re-introduces behaviour the framework
+     deliberately removed.
+   - Report: "Removed stale agent: [name]"
+
+6. **For CUSTOM agents (in vendored, not in plugin, not on the retired list):**
    - DO NOT remove
    - Report: "Kept custom agent: [name]"
 
@@ -593,6 +621,20 @@ the plugin's version. Always create a backup of anything removed or replaced.
    - Remove from `.claude/commands/`
    - Report: "Removed stale command: [name]"
 
+   **DELETE IT. This is not a judgement call.** A stale file is one the plugin
+   shipped and no longer ships — its classification was already decided by the diff
+   step, and the backup was already written. Leaving it in place is the failure
+   mode, not the safe option: a retired hook still registered fires on every event
+   and errors; a retired agent stays selectable by name; a retired command stays
+   invocable and re-introduces behaviour the framework deliberately removed.
+   Reported from a live rebase 2026-08-20 — the run classified files as stale and
+   then declined to remove them.
+
+   If you find yourself reasoning about whether the user might still want it: they
+   have the backup, and the plugin's current contents are the authority on what the
+   framework ships. Preservation applies to CUSTOM files (never plugin-shipped),
+   which is a separate branch below.
+
 4. **For CUSTOM commands (user-created, not from plugin):**
    - DO NOT remove
    - Report: "Kept custom command: [name]"
@@ -622,6 +664,46 @@ the plugin's version. Always create a backup of anything removed or replaced.
    - Back up to `.claude/hooks.backup.<timestamp>/` before removing
    - Remove from `.claude/hooks/`
    - Report: "Removed stale hook: [name]"
+
+   **DELETE IT. This is not a judgement call.** A stale file is one the plugin
+   shipped and no longer ships — its classification was already decided by the diff
+   step, and the backup was already written. Leaving it in place is the failure
+   mode, not the safe option: a retired hook still registered fires on every event
+   and errors; a retired agent stays selectable by name; a retired command stays
+   invocable and re-introduces behaviour the framework deliberately removed.
+   Reported from a live rebase 2026-08-20 — the run classified files as stale and
+   then declined to remove them.
+
+   If you find yourself reasoning about whether the user might still want it: they
+   have the backup, and the plugin's current contents are the authority on what the
+   framework ships. Preservation applies to CUSTOM files (never plugin-shipped),
+   which is a separate branch below.
+
+3a. **RESTORE THE EXECUTE BIT ON EVERY HOOK — this is not optional.**
+
+   ```bash
+   chmod +x .claude/hooks/*.js .claude/hooks/*.py .claude/hooks/*.sh 2>/dev/null
+   chmod +x .claude/hooks/lib/*.js 2>/dev/null || true
+   ```
+
+   Hooks are invoked DIRECTLY by the harness, not through an interpreter it chooses,
+   so a hook without `+x` fails with `/bin/sh: .claude/hooks/router.py: Permission
+   denied` on every single event it is registered for. **A file copy does not carry
+   the mode**, and the failure is silent until an event fires.
+
+   `scaffold-project.sh` has always done this (`chmod +x` on every hook file
+   regardless of extension, `copy_hooks()`), and this step did not — so a project
+   scaffolded correctly and then REBASED came out worse than one never rebased at
+   all. Reported from a live project 2026-08-20: six hooks lost the bit
+   (`router.py`, `status.js`, `wiggum.js`, `dispatch-ledger.js`, `precompact.js`,
+   `session-context.js`) — precisely the `.js` and `.py` files, because only `.sh`
+   had been re-chmodded.
+
+   Do it for EVERY hook you wrote, not just the ones you think need it. Verify:
+
+   ```bash
+   ls -l .claude/hooks/*.js .claude/hooks/*.py .claude/hooks/*.sh | grep -v '^-rwx' && echo "STILL NOT EXECUTABLE"
+   ```
 
 4. **For CUSTOM hooks (user-created):**
    - DO NOT remove
@@ -704,7 +786,9 @@ registration count for the pre-write check in §4.6.
    `test-harness.js` into user projects before this filter existed — dead weight in a tree
    with no runner to execute them.
 
-5. **For STALE files:** back up, then remove. Report `Removed stale <kind>: [name]`.
+5. **For STALE files:** back up, then **DELETE**. Report `Removed stale <kind>: [name]`.
+   Not a judgement call — see the note under §4.3. The backup is already written and
+   the plugin's contents are the authority on what ships.
 
 6. **Verify before reporting success:**
    ```bash

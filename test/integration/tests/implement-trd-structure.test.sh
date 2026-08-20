@@ -398,3 +398,36 @@ setup() {
     # different claim, and the banner must not conflate them.
     grep -q 'reads as "checked, found none"' "$IMPLEMENT_TRD_MD"
 }
+
+# =============================================================================
+# /rebase-project defects reported from a live rebase, 2026-08-20.
+
+@test "rebase restores the execute bit on every hook, not just .sh" {
+    REBASE_MD="${CORE_COMMANDS}/rebase-project.md"
+    # Hooks are invoked DIRECTLY by the harness, so a copy that drops the mode
+    # yields "/bin/sh: .claude/hooks/router.py: Permission denied" on every event.
+    # scaffold-project.sh has always chmod'd every hook regardless of extension;
+    # this step did not, so a scaffolded-then-rebased project came out WORSE than
+    # one never rebased. Six hooks lost the bit in the reported case.
+    grep -q 'RESTORE THE EXECUTE BIT ON EVERY HOOK' "$REBASE_MD"
+    grep -q 'chmod +x .claude/hooks/\*.js' "$REBASE_MD"
+    grep -q 'Permission denied' "$REBASE_MD"
+}
+
+@test "stale removal is stated as an instruction, not a judgement call" {
+    REBASE_MD="${CORE_COMMANDS}/rebase-project.md"
+    # A live rebase classified files as stale and then declined to remove them.
+    grep -qi 'This is not a judgement call' "$REBASE_MD"
+    grep -qi 'Leaving it in place is the failure' "$REBASE_MD"
+}
+
+@test "agents have a STALE category at all — they had none" {
+    REBASE_MD="${CORE_COMMANDS}/rebase-project.md"
+    # The real defect: agents carry no `category:` marker, so "in vendored, not in
+    # plugin" resolved to Custom -> preserved for EVERY such file. A retired
+    # framework agent survived every rebase forever, and the run had no category to
+    # put it in rather than being timid.
+    grep -q 'Removed stale agent' "$REBASE_MD"
+    grep -qi 'there is no marker' "$REBASE_MD"
+    grep -qi 'Retired framework agents' "$REBASE_MD"
+}
