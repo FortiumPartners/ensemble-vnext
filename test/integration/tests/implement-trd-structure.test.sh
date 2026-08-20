@@ -371,3 +371,30 @@ setup() {
     # And the report's own rule must not be mistaken for the terminator.
     grep -qi 'the end of the output; the banner is' "$IMPLEMENT_TRD_MD"
 }
+
+# =============================================================================
+# The discovered-work channel. Before it, an implementer that hit a bug outside
+# its scope had nowhere to put it: the finding went into its return summary, got
+# compressed to one line by TASK_RESULT_SCHEMA, and died. The command computes its
+# graph once and implement-phase.js iterates a fixed WAVES array, so there was no
+# mechanism at all for "this run found work it did not do".
+
+@test "the per-task prompt gives implementers a place to record out-of-scope finds" {
+    grep -q '<discovered>' "$IMPLEMENT_TRD_MD"
+    grep -q 'lib/discovered' "$IMPLEMENT_TRD_MD"
+    # Record and carry on -- NOT fix, NOT expand scope, NOT spawn.
+    grep -qi 'do not spawn an agent for it' "$IMPLEMENT_TRD_MD"
+}
+
+@test "discoveries are records, not tasks, and never injected mid-flight" {
+    # The load-bearing constraint: acting on one goes through the TRD and --resume,
+    # never into a dispatch already in flight.
+    grep -qi 'never by injecting a task into a dispatch already in' "$IMPLEMENT_TRD_MD"
+    grep -qi 'discoveries are NOT a pause condition' "$IMPLEMENT_TRD_MD"
+}
+
+@test "an empty discovery channel prints nothing rather than 'none found'" {
+    # "DISCOVERED: none" claims a check happened. Nothing being recorded is a
+    # different claim, and the banner must not conflate them.
+    grep -q 'reads as "checked, found none"' "$IMPLEMENT_TRD_MD"
+}

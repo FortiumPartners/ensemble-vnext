@@ -446,6 +446,35 @@ than filled with a tool that isn't there):
 </check_battery>
 ```
 
+**Then append the discovery channel** — the answer to "I found something that is not my
+task":
+
+```xml
+<discovered>
+  <instruction>
+    If you find work this task does not cover -- a bug outside your scope, grounding that
+    is stale, a gap nobody planned for -- RECORD it and carry on with your own task. Do not
+    fix it, do not expand your scope, and do not spawn an agent for it:
+
+      node .claude/lib/discovered.js  # (module; call from a one-liner)
+      node -e 'require("./.claude/lib/discovered").record(
+        ".trd-state/{feature}", {
+          kind: "bug",            // bug | scope-conflict | stale-grounding | gap | risk
+          foundBy: "{task_id}",
+          phase: {phase},
+          summary: "one line, what it is",
+          file: "path/to/file.js", // optional
+          evidence: "how you know"  // optional
+        })'
+
+    This is a RECORD, not a task. The orchestrator reads it at the phase boundary and
+    decides. Recording costs you nothing and loses nothing; the alternative -- which is
+    what happened before this channel existed -- is that your finding lives in your
+    return summary, gets compressed into one line, and is gone.
+  </instruction>
+</discovered>
+```
+
 The assembled string is `rec.prompt` in `implement-phase.js`'s `args.tasks.records[]`.
 
 ### 3.6 `--verify-functional`: dispatch the background success-definition derive pass
@@ -750,6 +779,23 @@ the same orchestration loop** — no "Run /compact" prompt, no waiting for user 
 [STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, battery {green|skipped}, review {findings} finding(s) ({applied} applied, {reported} open), commit {sha}
    open findings: {one line per reported item, or "none"}
 ```
+
+**Then print the discovery channel**, which is separate from review findings — a review
+finding is about code that was written; a discovery is about work that was NOT done:
+
+```bash
+node -e 'process.stdout.write(require("./.claude/lib/discovered").render(".trd-state/<feature>", {phase: <N>}))'
+```
+
+It prints nothing when nothing was recorded, deliberately: an empty "DISCOVERED: none"
+section reads as "checked, found none", and that is a different claim from "nothing was
+recorded". Do not synthesise one.
+
+**Discoveries are NOT a pause condition and NOT auto-actioned.** Print them and continue.
+To act on one, it goes into the TRD and the next `--resume` picks it up through the normal
+parse → graph → dispatch path — never by injecting a task into a dispatch already in
+flight, which would leave the wave partition, the file-conflict serialization and the phase
+gate all computed against a task set that no longer exists.
 
 **Print the reported findings, do not just count them.** `gate.review.summary` carries one
 line per item the reviewer left open. A phase that fixed three things and left one for a
@@ -1104,6 +1150,10 @@ Report: {report_path or "n/a"}
 COMMITS
 -------
 {list of commit SHAs with messages}
+
+DISCOVERED (work this run found but did not do)
+-----------------------------------------------
+{render(".trd-state/<feature>") across ALL phases, or the line "none recorded"}
 
 NEXT STEPS
 ----------
