@@ -454,3 +454,21 @@ setup() {
     # And the correctness reason, not just the tidiness one.
     grep -qi 'destroys the evidence gate' "$IMPLEMENT_TRD_MD"
 }
+
+@test "the environment is preflighted before iterations are spent" {
+    grep -q 'Preflight the environment BEFORE spending iterations' "$IMPLEMENT_TRD_MD"
+    # One batched question, up front, with a stated default -- not a mid-loop discovery.
+    grep -qi 'asked' "$IMPLEMENT_TRD_MD"
+    grep -q 'ONCE, here, as a single batched question' "$IMPLEMENT_TRD_MD"
+    # And partial verification beats none.
+    grep -qi 'worth far more than no verification' "$IMPLEMENT_TRD_MD"
+}
+
+@test "the debugger must bring the environment to the new code" {
+    CONTRACT="${REPO_ROOT}/packages/core/contracts/functional-verification.md"
+    grep -q 'Brings the environment to the new code' "$CONTRACT"
+    # The specific failure: a working fix reported as a debugger failure.
+    grep -qi 'blaming the debugger for a fix that actually worked' "$CONTRACT"
+    # And that no sandbox rule was ever written.
+    grep -qi 'no rule anywhere that forbids the loop from deploying' "$CONTRACT"
+}

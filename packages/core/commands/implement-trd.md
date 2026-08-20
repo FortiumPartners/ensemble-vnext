@@ -1111,6 +1111,40 @@ state file are already the durable record.
 
 ---
 
+### 8.4a Preflight the environment BEFORE spending iterations
+
+Read `.claude/rules/verification.md` and resolve, per criterion, whether it can be exercised
+at all — **before** the `Workflow` call, not four criteria into iteration 1.
+
+For each criterion, one of:
+
+- **exercisable** — the environment it needs is listed, reachable, and (if the loop will need
+  to correct) has a refresh command in §2.
+- **not verifiable here** — no environment listed covers it, the tooling is not installed, or
+  §5 already names it as unverifiable. Mark it now. It goes into the report as
+  `not_verifiable` with the reason, and it is never handed to the debugger.
+- **needs one thing from the owner** — a credential that has expired, an approval to deploy to
+  a shared environment, a service that must be started by hand.
+
+**That third bucket is the ONLY legitimate `AskUserQuestion` on this path, and it is asked
+ONCE, here, as a single batched question** naming every criterion affected and the default
+you will apply if unanswered (mark them `not_verifiable` and continue). This is
+`autonomy.md` case 2 — information that genuinely cannot be derived — and asking it up front
+is the difference between one question before the run and a discovery mid-loop that strands
+half the criteria.
+
+**Then run the loop on whatever remains.** A partial verification with the gaps stated is
+worth far more than no verification: the criteria you CAN check still get checked, and the
+ones you cannot are named rather than silently absent.
+
+Observed 2026-08-20 (fanfare): a run reached iteration 1, discovered an expired Salesforce
+token blocking four criteria, and reported those four as `not_met` — recording them as code
+failures when the code was never exercised. Both halves were avoidable here: the expiry was
+discoverable before the loop started, and `not_verifiable` is the status that distinguishes
+"we could not look" from "we looked and it is broken".
+
+---
+
 ### 8.5 While the loop is in flight, its gaps are NOT yours to fix
 
 **The loop owns remediation. The orchestrator does not touch it, does not offer to, and

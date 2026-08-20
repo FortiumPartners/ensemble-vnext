@@ -186,6 +186,31 @@ notes and the stack hints.
 
 **Does:** fixes the code in place, one gap at a time. Nothing else.
 
+**Brings the environment to the new code before returning — and this is not optional.**
+
+The next iteration's Exercise stage measures whatever is RUNNING, not the source you just
+edited. On a hot-reloading local server those are the same thing. Anywhere else they are
+not, and if nothing refreshes the environment the loop measures the OLD build: the gap
+cannot close, the same gaps come back, the stall rule fires, and the run exits `stalled`
+**blaming the debugger for a fix that actually worked.**
+
+`checkEvidence` does not save you here — it makes it worse. The artifact from the next
+iteration is genuinely newer than the freshness floor, so tier 1 PASSES. The evidence looks
+fresh while describing stale code, which is the precise shape of a false negative this
+whole feature exists to prevent.
+
+So: read `.claude/rules/verification.md` §2 and run the refresh command for the environment
+you are verifying against. If that file names no refresh command for it, or marks the
+environment as one the loop may not deploy to, then **say so in your return** — the loop
+must report that it cannot correct against this target rather than iterating into a stall.
+
+**There is no rule anywhere that forbids the loop from deploying.** Observed 2026-08-20: a
+run asserted it was "deliberately sandboxed — it edits + re-checks but doesn't perform
+outward-facing deploys" and stopped at source. Nothing in this contract said that, then or
+now. A live verification loop that cannot bring its target to the code it just wrote has no
+correction loop at all. What governs deploys is §2 of `verification.md` — the owner's
+explicit per-environment answer — not an inference.
+
 **Does not re-verify its own fix.** The next iteration's Exercise and Judge stages are the
 check, running seconds later against a fresh boot of the system. A debugger that tries to
 confirm its own fix is re-creating the self-certification problem the judge exists to avoid
