@@ -311,6 +311,23 @@ log(`${findings.length} findings from ${alive.length}/${VERIFIERS.length} verifi
 
 // --------------------------------------------------------------------------- 3. RECONCILE
 
+// ABSENCE CLAIMS MUST EXHIBIT THE SEARCH. This audit's headline check -- "implemented, but
+// nothing tests it" -- is an absence claim by construction, and so is "never built". A search
+// that was wrong finds nothing in exactly the way a correct one does.
+//
+// So a finding resting on absence carries the literal patterns and paths that were run, and
+// reconcile REJECTS one that does not: it is a hypothesis. It also rejects a search too narrow
+// to conclude from -- one exact-name grep does not establish a capability is unbuilt, because
+// real code rarely uses the document's names.
+//
+// Measured twice in one session here: a verifier grepped the literal "[read]/[ran]/[inferred]",
+// a string that appears nowhere in any form, and reported the marker discipline untested. It
+// was tested in two files. The grep could not have succeeded, so its emptiness carried no
+// information -- and the finding still read as authoritative.
+//
+// Absence drives deletion, which is why this is stricter than the bar for a positive finding:
+// a requirement believed unimplemented gets struck from the owner's document.
+
 phase('Reconcile')
 
 const CNV = `

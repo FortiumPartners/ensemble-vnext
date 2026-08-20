@@ -361,9 +361,40 @@ Use appendices for reference material that doesn't fit in main sections.
 - [Link to technical spec]
 
 ### Appendix C: Open Questions (optional)
-| Question | Status | Resolution |
-|----------|--------|------------|
-| [Question] | Open/Resolved | [Answer if resolved] |
+
+**DECIDE FIRST. This section is for what you could not decide, not for what you would
+rather not.** Every row costs the owner attention, and a table of eight questions where
+one matters trains them to skim past the one that matters.
+
+Before a question goes in this table, it must survive all four:
+
+| Test | If it fails |
+|---|---|
+| Is the answer in the source package, the corpus, or the code? | Answer it. Cite where. |
+| Is there a conventional default for this stack or domain? | Apply it. Say it was a default. |
+| Would a reasonable reader of the source infer this? | Infer it. Record the inference. |
+| Does a wrong guess here cost more than a round-trip with the owner? | If no — **decide it**. |
+
+**What genuinely belongs here:** business priority and scope trade-offs, risk appetite,
+naming the owner will live with, a case where the evidence supports two readings and they
+lead somewhere materially different, and anything needing information that exists only in
+the owner's head — a URL, a credential's location, an external commitment.
+
+**What does not:** a technical choice with a conventional answer, anything the source
+already settles, a preference you could infer and record, or a detail whose wrong guess is
+cheap to correct later via `/refine-prd`. Reported from a live run 2026-08-20: a PRD raised
+"a number of items as blockers that were not important or relevant at all" — the failure is
+not that the questions were unanswerable, it is that they were **askable** and got asked
+instead of decided.
+
+**Every row states its own consequence**, so the owner can triage without reading the whole
+PRD — which is the actual ask. A question with no stated consequence is unrankable:
+
+| Question | What I assumed | What breaks if that's wrong | Status |
+|----------|----------------|------------------------------|--------|
+| [The one specific decision] | [The default applied] | [Concretely, what has to change] | Open |
+
+An empty Appendix C is a **good** outcome, not a gap.
 ```
 
 ---

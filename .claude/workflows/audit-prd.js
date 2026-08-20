@@ -252,6 +252,27 @@ phase('Reconcile')
 
 const CNV = `
 
+ABSENCE CLAIMS MUST EXHIBIT THE SEARCH. A finding that rests on something NOT being there --
+"not implemented", "no source", "nothing in the code" -- is only as good as the search behind
+it, and a search that was wrong finds nothing in exactly the same way a correct search does.
+
+So any such finding MUST carry the commands you actually ran and their output. Not "I looked"
+-- the literal patterns and paths.
+
+  REJECT an absence finding that does not exhibit its search. It is a hypothesis.
+  REJECT one whose exhibited search is too narrow to be conclusive -- one exact-name grep in
+  one directory does not establish that a capability is unbuilt. Real code uses different
+  names than the document does.
+
+Measured, twice in one session on this codebase: a verifier searched for the literal string
+"[read]/[ran]/[inferred]", which appears nowhere in any form, and concluded the marker
+discipline was untested. It was tested, in two files. The grep could not have succeeded, so
+its emptiness carried no information -- but the finding read as authoritative.
+
+This matters more here than for a positive finding because ABSENCE DRIVES DELETION: a
+requirement believed unimplemented gets rewritten or struck, and that edit is applied to the
+owner's document. A wrong positive is noise; a wrong absence destroys work.
+
 REWRITE THE ## Could Not Verify SECTION. This is what makes the artifact carry its own
 verification state, and it is the reason audit exists as a separate command.
 
