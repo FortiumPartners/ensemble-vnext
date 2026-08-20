@@ -323,6 +323,24 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    **Stale detection:** To distinguish "removed plugin command" from "user-created custom command,"
    check if the file contains YAML frontmatter with a `category:` field matching known ensemble
    categories (`generator`, `implementation`, `verification`, `artifact`, `maintenance`).
+
+   **Retired framework commands — DELETE THESE BY NAME, no inference required.**
+   Every one shipped with a valid `category:`, so the rule above already classifies
+   them Stale; naming them removes the frontmatter-reading step between classifying
+   and acting, which is where a live rebase went wrong on 2026-08-20 (it classified
+   correctly, then declined to delete).
+
+   | Command | Retired | Replaced by |
+   |---|---|---|
+   | `harden-trd-team.md` | 4.1.16 (ITR-B012) | the adversarial pass inside `/implement-trd`'s phase gate |
+   | `verify-trd-team.md` | 4.1.16 (ITR-B012) | the E2E gate inside `/implement-trd`, and `--verify-functional` |
+   | `implement-trd-team.md` | earlier | `/implement-trd` — the team variant was built on agent teams |
+
+   These three are the highest-value removals in this whole step. Each is a fully
+   functional command that a user can still invoke, which spawns teammates against a
+   design the framework has since abandoned — so leaving one in place is not a stale
+   file sitting inert, it is a working alternate path that bypasses the phase gate,
+   the hardening lenses and the functional-verification loop.
    Files with this marker were vendored by the plugin and should be removed when the plugin
    no longer ships them. Files without it are user-created and preserved.
 

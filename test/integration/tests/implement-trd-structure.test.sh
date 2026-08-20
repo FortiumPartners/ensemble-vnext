@@ -431,3 +431,15 @@ setup() {
     grep -qi 'there is no marker' "$REBASE_MD"
     grep -qi 'Retired framework agents' "$REBASE_MD"
 }
+
+@test "the retired -team commands are named for deletion, not left to inference" {
+    REBASE_MD="${CORE_COMMANDS}/rebase-project.md"
+    # All three shipped with a valid `category:`, so the frontmatter rule already
+    # classifies them Stale. Naming them removes the inference step between
+    # classifying and acting -- which is exactly where a live rebase failed.
+    grep -q 'harden-trd-team.md' "$REBASE_MD"
+    grep -q 'verify-trd-team.md' "$REBASE_MD"
+    grep -q 'implement-trd-team.md' "$REBASE_MD"
+    # And the reason they matter more than an inert stale file.
+    grep -qi 'working alternate path that bypasses the phase gate' "$REBASE_MD"
+}
