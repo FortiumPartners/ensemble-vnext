@@ -1140,6 +1140,29 @@ itself never ran.
 
 For Wiggum mode, signal: `<promise>COMPLETE</promise>`
 
+### 9.1 The banner closes the turn — nothing after it
+
+**Emit `═══ COMMAND COMPLETE: /implement-trd ═══` plus its one-line summary as the LAST
+lines of the turn, immediately after the report block above.** The report's `====` rule is
+not the end of the output; the banner is.
+
+**Nothing may follow it** — not a caveat, not a finding, not a recommendation, not an
+explanation of something the run noticed. Anything worth saying goes ABOVE the report block
+or inside it, and anything worth keeping goes in a commit message or a file, not in trailing
+prose. `.claude/rules/command-status.md` states this and it is not decorative: the banner is
+how a human and a harness both detect that the command terminated.
+
+**Measured 2026-08-19**, third live run of the `verify-functional` smoke scenario: the run
+completed successfully, wrote every artifact, and then continued past the report with three
+paragraphs of genuinely useful analysis — a scaffold gap, two checker bugs, a note on review
+scope. All worth having. None of it belonged after the banner, and the banner was never
+emitted at all, so the scenario's terminator assertion failed on an otherwise clean run. The
+step ended on the report block and said nothing about what came next, so there was nothing
+here to obey.
+
+If the run discovered something important, that is exactly what the `NEXT STEPS` list and
+the commit trail are for.
+
 ---
 
 ## Step 10: Pause Conditions (NOT phase boundaries)

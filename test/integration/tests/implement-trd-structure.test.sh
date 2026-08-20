@@ -355,3 +355,19 @@ setup() {
     grep -q 'no TRD path, no' "$IMPLEMENT_TRD_MD"
     grep -qi 'TRD excerpt' "$IMPLEMENT_TRD_MD"
 }
+
+# =============================================================================
+# The completion report is not the end of the output. Measured 2026-08-19 on the
+# third live run of the verify-functional scenario: the run completed cleanly,
+# wrote every artifact, and then continued past the report block with three
+# paragraphs of real analysis instead of the banner — so the scenario's
+# terminator assertion failed on an otherwise green run. Step 9 ended on the
+# report and said nothing about what followed, so there was nothing to obey.
+
+@test "Step 9 tells the run the banner is the last line, with nothing after it" {
+    grep -q 'The banner closes the turn' "$IMPLEMENT_TRD_MD"
+    # The specific failure mode, named: useful trailing analysis is still trailing.
+    grep -q 'not a caveat, not a finding' "$IMPLEMENT_TRD_MD"
+    # And the report's own rule must not be mistaken for the terminator.
+    grep -qi 'the end of the output; the banner is' "$IMPLEMENT_TRD_MD"
+}
