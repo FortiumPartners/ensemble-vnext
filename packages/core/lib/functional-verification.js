@@ -130,6 +130,22 @@ const DEFAULT_CAP = 3;
  */
 function decideNext(input) {
   const { iteration, gaps, unbuilt, previousGaps } = input;
+
+  // Validate rather than default. Found twice independently by the phase review and the
+  // end-of-run review on the 2026-08-19 live smoke run, where an omitted key died with a bare
+  // `TypeError: Cannot read properties of undefined (reading 'length')` and no indication of
+  // which field was missing.
+  //
+  // Defaulting to [] would be WORSE than throwing: an absent `unbuilt` would silently read as
+  // "nothing is unbuilt", so criteria that were never built would fall through to `remediate`
+  // and be handed to the debugger — exactly what D14 exists to prevent. A missing field is a
+  // caller bug, and the loop must not paper over it.
+  if (!Array.isArray(gaps)) {
+    throw new TypeError('decideNext: input.gaps is required and must be an array');
+  }
+  if (!Array.isArray(unbuilt)) {
+    throw new TypeError('decideNext: input.unbuilt is required and must be an array (an absent value would silently read as "nothing unbuilt" and remediate never-built criteria — D14)');
+  }
   const cap = input.cap ?? DEFAULT_CAP;
 
   // `closed` is previousGaps \ gaps — computed unconditionally so it is always accurate on
@@ -197,7 +213,14 @@ const OUTCOME_LABEL = {
 };
 
 function escapeCell(text) {
-  return String(text ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  // Order matters: the backslash MUST be escaped before the pipe, or a statement containing
+  // `\` immediately before `|` produces `\\|` — a literal backslash followed by an
+  // UNescaped cell break, which shifts every later column in that row. Found on the
+  // 2026-08-19 live run. `\r` is normalised alongside `\n` so CRLF content cannot split a row.
+  return String(text ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r\n?|\n/g, ' ');
 }
 
 /**

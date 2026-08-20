@@ -1,0 +1,1 @@
+../../core/lib/functional-verification.js

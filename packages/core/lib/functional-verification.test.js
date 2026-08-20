@@ -687,3 +687,61 @@ describe('mirror parity', () => {
     expect(fs.readFileSync(MIRROR_PATH, 'utf8')).toBe(fs.readFileSync(MODULE_PATH, 'utf8'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regressions from the 2026-08-19 LIVE smoke run. Both were found independently
+// by two separate reviews inside that run, which is what makes them solid — and
+// neither was reachable from unit tests written against the happy path.
+// ---------------------------------------------------------------------------
+
+describe('decideNext: missing array fields are rejected, not defaulted', () => {
+  const base = { gaps: [], unbuilt: [], previousGaps: null, iteration: 1, cap: 3 };
+
+  test('an omitted `unbuilt` throws and names the field', () => {
+    const { unbuilt, ...withoutUnbuilt } = base;
+    expect(() => decideNext(withoutUnbuilt)).toThrow(/input\.unbuilt is required/);
+  });
+
+  test('an omitted `gaps` throws and names the field', () => {
+    const { gaps, ...withoutGaps } = base;
+    expect(() => decideNext(withoutGaps)).toThrow(/input\.gaps is required/);
+  });
+
+  test('the message says WHY defaulting would be worse', () => {
+    // Defaulting `unbuilt` to [] reads as "nothing is unbuilt", so never-built
+    // criteria fall through to remediate and reach the debugger — the one thing
+    // D14 forbids. The next person to "simplify" this guard needs that in reach.
+    const { unbuilt, ...withoutUnbuilt } = base;
+    expect(() => decideNext(withoutUnbuilt)).toThrow(/D14/);
+  });
+});
+
+describe('renderReport: a cell cannot break out of its row', () => {
+  const render = (statement) =>
+    renderReport({
+      feature: 'f', prd: 'p', definitionPath: 'd',
+      outcome: 'satisfied', iterations: 1, exercised: '1/1',
+      criteria: [{ id: 'FS-1', statement, status: 'met', reason: '' }],
+    }).split('\n').find((l) => l.startsWith('| FS-1 '));
+
+  // Count only UNESCAPED pipes — a naive split('|') counts the escaped ones too,
+  // which is how a first draft of this test "passed" while measuring nothing.
+  const cellBreaks = (row) => row.replace(/\\\|/g, '').split('|').length;
+  const PLAIN = cellBreaks(render('plain statement'));
+
+  test('a backslash before a pipe does not shift the columns', () => {
+    // The bug: `|` was escaped before `\`, so `\|` became `\\|` — a literal
+    // backslash followed by an UNescaped cell break.
+    expect(cellBreaks(render('a b\\|c'))).toBe(PLAIN);
+  });
+
+  test('a carriage return does not split the row', () => {
+    const row = render('before\rafter');
+    expect(row).toContain('before after');
+    expect(cellBreaks(row)).toBe(PLAIN);
+  });
+
+  test('a CRLF collapses to one space, not two', () => {
+    expect(render('before\r\nafter')).toContain('before after');
+  });
+});
