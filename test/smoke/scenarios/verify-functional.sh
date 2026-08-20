@@ -181,7 +181,24 @@ run_implement_trd() {
 
 PROJECT_DIR_OFF="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-fvoff.XXXXXX")"
 PROJECT_DIR_ON="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-fvon.XXXXXX")"
-cleanup() { rm -rf "$PROJECT_DIR_OFF" "$PROJECT_DIR_ON"; }
+# PRESERVE THE EVIDENCE ON FAILURE. Measured 2026-08-19: the second live run of
+# this scenario failed with verification-state.json and verification-report.md
+# absent while success-definition.md was present -- a real, non-deterministic
+# defect in the loop -- and the trap deleted the only copy of the scaffolded
+# project before it could be examined. A scenario that destroys the state needed
+# to diagnose its own failure can only ever tell you THAT something broke.
+#
+# Clean up on success; keep and announce the path on failure.
+cleanup() {
+    if [[ "${ASSERT_FAIL_COUNT:-0}" -gt 0 ]]; then
+        echo "  scratch projects PRESERVED for diagnosis (${ASSERT_FAIL_COUNT} failure(s)):"
+        [[ -d "$PROJECT_DIR_OFF" ]] && echo "    no-flag: $PROJECT_DIR_OFF"
+        [[ -d "$PROJECT_DIR_ON" ]] && echo "    flag:    $PROJECT_DIR_ON"
+        echo "  remove them yourself when done: rm -rf /tmp/ensemble-smoke-fv*"
+        return 0
+    fi
+    rm -rf "$PROJECT_DIR_OFF" "$PROJECT_DIR_ON"
+}
 trap cleanup EXIT INT TERM
 
 # Internal per-run timeouts. Both must stay BELOW the runner's per-scenario cap
