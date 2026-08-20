@@ -1111,6 +1111,43 @@ state file are already the durable record.
 
 ---
 
+### 8.5 While the loop is in flight, its gaps are NOT yours to fix
+
+**The loop owns remediation. The orchestrator does not touch it, does not offer to, and
+does not dispatch anyone else to.** This holds from the `Workflow(verify-functional, …)`
+call until it returns, and it holds even when the fix is obvious and one line.
+
+If the owner asks what the loop has found so far, **report the findings and say the loop
+owns them.** Do not offer to fix one "in parallel" — that offer is the failure, not the
+fixing.
+
+Four reasons, and the first two are correctness rather than tidiness:
+
+- **Two writers, one tree.** The Debug stage edits the same files. A concurrent orchestrator
+  edit races it, and the loser is silently overwritten.
+- **It destroys the evidence gate.** The next Exercise pass measures a tree someone else is
+  editing, so `checkEvidence`'s freshness check stops meaning "this artifact proves this
+  code" — the whole tier-1 mechanism rests on the code being still while it is measured.
+- **It corrupts the loop's own accounting.** `gapsClosed` and the stall rule assume the
+  Debug stage closed what closed. A gap fixed from outside reads as the debugger succeeding,
+  so a debugger that is actually failing looks effective.
+- **It pre-empts the answer.** Whether the loop can close a gap on its own is the thing the
+  loop exists to establish. Fixing it first replaces a measurement with an assumption.
+
+**Observed 2026-08-20 (fanfare).** The loop surfaced a real editor crash and a UI gap. The
+owner asked about the interim results, and the orchestrator offered to *"start on the
+editor-crash fix in parallel"* while the loop was still running. Nothing here forbade it,
+which is why this section exists. The findings were correct and useful; the offer was still
+wrong.
+
+**The one thing to do instead:** record it, exactly as an implementer would
+(`node -e 'require("./.claude/lib/discovered").record(...)'`), and let the loop finish. If
+the loop exits `stuck` or `stalled` with that gap still open, THEN it is the orchestrator's
+— and by then you know the loop could not close it, which is information you did not have
+before.
+
+---
+
 ## Step 9: Completion
 
 When all phases complete:

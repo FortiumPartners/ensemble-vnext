@@ -443,3 +443,14 @@ setup() {
     # And the reason they matter more than an inert stale file.
     grep -qi 'working alternate path that bypasses the phase gate' "$REBASE_MD"
 }
+
+@test "the orchestrator may not fix the verification loop's gaps in flight" {
+    # Observed in fanfare 2026-08-20: the loop surfaced a real editor crash, the owner
+    # asked about interim results, and the orchestrator offered to fix it "in parallel"
+    # while the loop was still running. Nothing in Step 8 forbade it.
+    grep -q 'its gaps are NOT yours to fix' "$IMPLEMENT_TRD_MD"
+    # The offer is the failure, not the fixing.
+    grep -qi 'that offer is the failure, not the' "$IMPLEMENT_TRD_MD"
+    # And the correctness reason, not just the tidiness one.
+    grep -qi 'destroys the evidence gate' "$IMPLEMENT_TRD_MD"
+}
