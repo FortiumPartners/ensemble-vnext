@@ -392,19 +392,45 @@ function buildReinjectionPrompt(iteration, maxIterations, completion, implementD
   const { completed, total } = completion;
   const remaining = total - completed;
 
-  // Get current phase and task info if available
   let currentPhase = implementData?.phase_cursor || 1;
   let currentTask = 'unknown';
+  let attempted = [];
 
   if (implementData?.tasks) {
-    // Find first non-complete task
     for (const [taskId, task] of Object.entries(implementData.tasks)) {
-      if (task.status !== TASK_STATUS.SUCCESS && task.status !== TASK_STATUS.COMPLETE) {
-        currentTask = taskId;
-        break;
+      const done = task.status === TASK_STATUS.SUCCESS || task.status === TASK_STATUS.COMPLETE;
+      if (!done && currentTask === 'unknown') currentTask = taskId;
+      // WHAT WAS ALREADY TRIED. implement.json records current_problem and
+      // retry_count per task and this prompt ignored both until 2026-08-17, so a
+      // task that had failed twice the same way was re-injected as a bare
+      // "Next Task: X" -- the loop could repeat an identical failing approach with
+      // no signal that it had already been tried.
+      //
+      // Note the mechanism: this reads from DISK (implement.json), not from
+      // conversation history. That is the actual Ralph-loop practice -- fresh
+      // context each iteration, state persisted to the filesystem, "progress does
+      // not lie in the model's memory but in the repository". An earlier version
+      // of this comment justified it as "feeding prior context forward", which is
+      // backwards: Ralph deliberately discards context and relies on disk.
+      if (!done && (task.retry_count > 0 || task.current_problem)) {
+        attempted.push(
+          `  - ${taskId}: ${task.retry_count || 0} prior attempt(s)` +
+          (task.current_problem ? ` — last problem: ${String(task.current_problem).slice(0, 200)}` : '')
+        );
       }
     }
   }
+
+  // Our loop BLOCKS Stop rather than spawning a fresh session, so the transcript
+  // normally survives into the next iteration and does not need re-feeding. The
+  // exception is compaction: on a long run the history is summarised away, and
+  // precompact.js writes the decision trail to session-log.md precisely for that.
+  // Point at it explicitly -- after a compaction the agent otherwise resumes with
+  // counts and no reasoning.
+  const feature = implementData?.trd_file
+    ? String(implementData.trd_file).replace(/^docs\/TRD\//, '').replace(/\.md$/, '')
+    : null;
+  const logPath = feature ? `.trd-state/${feature}/session-log.md` : '.trd-state/<feature>/session-log.md';
 
   const prompt = `
 [WIGGUM AUTONOMOUS MODE - Iteration ${iteration}/${maxIterations}]
@@ -412,6 +438,9 @@ function buildReinjectionPrompt(iteration, maxIterations, completion, implementD
 Status: ${completed}/${total} tasks complete (${remaining} remaining)
 Current Phase: ${currentPhase}
 Next Task: ${currentTask}
+${attempted.length ? `\nALREADY ATTEMPTED — do not repeat an approach that already failed:\n${attempted.join('\n')}\n` : ''}
+If your context was compacted since the last iteration, read ${logPath} FIRST — it
+carries the decision trail and in-flight reasoning that compaction removed.
 
 Continue implementing the TRD. Do not stop until all tasks are complete.
 When all tasks are done, emit: <promise>COMPLETE</promise>

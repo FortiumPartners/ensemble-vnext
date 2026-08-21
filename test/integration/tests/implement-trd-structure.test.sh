@@ -472,3 +472,47 @@ setup() {
     # And that no sandbox rule was ever written.
     grep -qi 'no rule anywhere that forbids the loop from deploying' "$CONTRACT"
 }
+
+# =============================================================================
+# DISCOVERED parity, not a curated list. The test above enumerates 14 files --
+# "every file this TRD adds or edits" -- which was true when written and cannot
+# stay true. Found 2026-08-21: .claude/hooks/wiggum.js had been sitting COMMITTED
+# at an older revision than packages/core/hooks/wiggum.js, missing the
+# retry-context feature entirely, because wiggum.js was not on the list. This
+# repo dogfoods its own runtime, so it had been running the stale hook.
+#
+# This walks the trees instead. A new mirrored file is covered the moment it
+# exists, with nobody remembering to add it.
+
+@test "every file mirrored into .claude/ matches its packages/ source" {
+    run python3 - "$REPO_ROOT" <<'PY'
+import os, sys, filecmp
+root = sys.argv[1]
+PAIRS = [('packages/core/hooks', '.claude/hooks'),
+         ('packages/core/hooks/lib', '.claude/hooks/lib'),
+         ('packages/core/lib', '.claude/lib'),
+         ('packages/core/workflows', '.claude/workflows'),
+         ('packages/core/contracts', '.claude/contracts'),
+         ('packages/core/commands', '.claude/commands'),
+         ('packages/full/agents', '.claude/agents')]
+# Tests and their harness are deliberately NOT shipped into a project -- a tree
+# with no runner wired up does not need them (copy_workflows/copy_libs skip them).
+SKIP = lambda f: f.endswith('.test.js') or f == 'test-harness.js'
+drift = []
+for a, b in PAIRS:
+    da, db = os.path.join(root, a), os.path.join(root, b)
+    if not (os.path.isdir(da) and os.path.isdir(db)):
+        continue
+    for f in sorted(os.listdir(da)):
+        fa, fb = os.path.join(da, f), os.path.join(db, f)
+        if not os.path.isfile(fa) or not os.path.isfile(fb) or SKIP(f):
+            continue
+        if not filecmp.cmp(fa, fb, shallow=False):
+            drift.append(f"{a}/{f} != {b}/{f}")
+if drift:
+    print("MIRROR DRIFT:")
+    for d in drift: print("  " + d)
+    sys.exit(1)
+PY
+    [ "$status" -eq 0 ] || { echo "$output"; false; }
+}
