@@ -10,6 +10,52 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.19] - 2026-08-21
+
+**Still a patch, per the versioning note above.** Three `/rebase-project` defects, all
+surfaced by one live rebase report from another project — none found by 39 structure tests,
+the review lenses, or `/audit-build`. All three are 4.1.18's shape: correct in this
+checkout, wrong or absent where it lands.
+
+### Fixed
+
+- **Framework-shipped rules could never be updated.** §4.7 declared "two categories with
+  opposite update policies" and then gave both the same policy: never overwrite. So
+  `async-discipline.md`, `autonomy.md`, `command-status.md` and `verification.md` were copied
+  once, at a project's first rebase, and frozen from then on. Surfaced by a project reading
+  its `autonomy.md` still documenting, at length, an autonomous-mode flag deleted five
+  releases earlier — nothing had failed; no mechanism existed that could ever have updated
+  that file.
+
+  Rules were getting strictly worse treatment than commands, which have always been
+  replaced-if-differs with a backup and carry the identical "the user may have annotated it"
+  risk — and rules matter more than that implies, since the discipline guards are
+  `hookType: "prompt"` and the rule file is the only place an agent can read what the guard
+  enforces. Now replaced-if-differs with a `.bak-<timestamp>`. `--preserve-all` remains the
+  escape hatch. `constitution.md`, `stack.md` and `process.md` are still never touched.
+
+- **A user-authored skill was classified for deletion on every rebase.** Commands get a
+  `category:` frontmatter discriminator, agents get a name list, hooks get extension rules —
+  skills had nothing, only "remove what no longer matches the stack", computed from a table
+  that only knows plugin skills. Four survived the reported rebase only because that agent
+  noticed they were cited in `stack.md` and `CLAUDE.md` and overrode its own instructions.
+
+  Added a Custom category keyed on absence from `packages/skills/` — a skill the plugin never
+  shipped cannot have been retired by the plugin, so no frontmatter or citation search is
+  needed. Wired into the apply step, not just the diff table. This is the one category where
+  a wrong removal destroys work that exists nowhere else.
+
+- **Three rows of the skill stack-match table** (Tailwind, Jira, Linear) sat outside the
+  table, after a prose paragraph, rendering as stray text.
+
+- **`CLAUDE.md` documented a four-entry `Stop` array** including `wiggum.js`. The real array
+  has three.
+
+### Not a defect
+
+The "13 event registrations" in that report is a stale vendored copy talking. The generator
+emits 12 here and has since the hook was removed.
+
 ## [4.1.18] - 2026-08-19
 
 **Still a patch, per the versioning note above.** The modernization run is NOT finished —
