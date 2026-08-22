@@ -1,11 +1,11 @@
 # Ensemble vNext — Improvement Plan
 
 **Created**: 2026-08-11
-**Status** (refreshed 2026-08-21): Items 1–4, 9a, 10 shipped. Item 5 open on 5d only. Items 6, 7, 8, 11, 12 open — 12 partly done in 4.1.18. HISTORICAL TEXT BELOW may lag; the table above is authoritative.
+**Status** (refreshed 2026-08-22): Items 1–5, 9a, 10 shipped. Items 6, 7, 8, 11, 12 open — 12 partly done in 4.1.18. HISTORICAL TEXT BELOW may lag; the table above is authoritative.
 
-Item 1 complete (released as 4.1.1). Item 5a done. Item 5b's discipline-hook
-conversion done (2026-08-13, `docs/TRD/discipline-judgment.md`); 5b's Wiggum sub-item is
-still open, so item 5 as a whole remains open. Items 2–4, 5b–5d, 6–9 open.
+Item 5 **closed 2026-08-22**: 5a/5b/5c/5e delivered, 5b's Wiggum sub-item mooted by the
+flag's retirement in 4.1.19, and 5d retired on the reasoning recorded in its own section
+below.
 **Basis**: Comparison against `Sunstone-Partners/ensemble` + audit of Claude Code features shipped March–August 2026
 **Companion artifact**: https://claude.ai/code/artifact/13c683ff-2acf-4ec7-8078-4408126f7602
 
@@ -75,7 +75,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | **Done (4.1.6)** — `test/smoke/`, 4 deterministic scenarios |
-| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5b+5c+5e done. Only 5d (`InstructionsLoaded`) open** |
+| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **Done (4.1.19/4.1.20)** — 5a/5b/5c/5e shipped; Wiggum sub-item mooted by the flag's retirement; 5d retired |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | **Shipped for `/create-prd` + `/create-trd`** — unrun; keep-or-revert call outstanding |
@@ -335,10 +335,10 @@ time has meant each is examined only when it breaks. Do the layer at once.
 | 5a | Router decision (was a modification, not a deletion) | ✅ 4.1.4 — kept, made conditional, rewritten |
 | 5b | Discipline hooks → `type: "prompt"` hooks | ✅ done (2026-08-13, `docs/TRD/discipline-judgment.md`) |
 | 5b | `transcript_path` → `last_assistant_message` (3 hooks) | ✅ 4.1.7 |
-| 5b | Wiggum: re-inject current state + restated completion promise | ❌ **open** |
+| 5b | Wiggum: re-inject current state + restated completion promise | ⛔ **moot** — `--wiggum` and `wiggum.js` retired in 4.1.19; autonomy is unconditional, so there is no flag-gated loop left to re-inject into |
 | 5c | `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR` | ✅ 4.1.4 |
 | 5c | Formatter: npx cost + `/init-project` installing what it configures | ✅ 4.1.5 / 4.1.6 |
-| 5d | Adopt `InstructionsLoaded` | ❌ **open** |
+| 5d | Adopt `InstructionsLoaded` | ⛔ **retired 2026-08-22** — see 5d below |
 | 5e | Discipline guard on `SubagentStop` | ✅ 4.1.7 |
 | 5e | Scheduled-nudge pattern documented (no timeouts, per decision) | ✅ 4.1.7 |
 | 5e | Dispatch ledger (`SubagentStart`+`SubagentStop`) + `--open` reporting | ✅ 4.1.8 |
@@ -507,11 +507,46 @@ dispatch, the way `test/smoke/lib/` wraps each invocation in `smoke_timeout`. Do
 orchestration moves into code (items 7/8), where a timeout is one argument rather than a
 paragraph the model must remember.
 
-**5d. Adopt `InstructionsLoaded`.** It fires when `CLAUDE.md` or `.claude/rules/*.md` loads — the
-invented rules directory is now a natively recognised path. Both a validation point and a place to
-assert rule integrity at load time.
+**5d. Adopt `InstructionsLoaded`** — ⛔ **RETIRED 2026-08-22.**
 
-**Done when:** ~~`learning.sh` and `save-remote-logs.js` are gone~~ ✅; a written decision exists for ~~`permitter`~~ ✅ (deleted)
+The investigation completed and the event is real and usable: it fires per-file at session
+start and on lazy load, the payload carries `file_path` and `load_reason`
+(`session_start` / `nested_traversal` / `path_glob_match` / `include` / `compact`), and it
+supports all five hook types including `prompt`. So this is a decision not to build it, not
+a finding that it cannot be built.
+
+**The proposed use — assert rule-file integrity at load time in a project with no CI — was
+overtaken by work that removes the condition rather than reporting it.**
+
+- The reason rule files went stale in consuming projects was that `/rebase-project` could
+  **never update them**: §4.7 declared "two categories with opposite update policies" and
+  then gave both the same one, preserve-as-is. A framework rule was copied once and frozen
+  forever. Fixed in 4.1.19. This sub-item would have detected a condition we have stopped
+  producing.
+- Generated-artifact drift — the shape that let 4.1.18's judge-prompt fix ship dead — is now
+  caught by `generate-hooks-artifacts.sh --check`, running in CI (4.1.20).
+
+**And it could not have enforced anything anyway.** `InstructionsLoaded` is observational:
+exit codes are ignored. The most it can do is inject a warning. It cannot block a session
+whose `autonomy.md` has been weakened, and it cannot repair the file — `/rebase-project` is
+the repair.
+
+**What it would actually report is mostly legitimate.** A project owns its `.claude/rules/`.
+After 4.1.19 the common remaining difference between a project's rules and the plugin's is a
+deliberate local edit. A hook firing on every session start to flag those is noise, and
+per-session noise is worse than silence: it trains the reader to ignore the channel.
+
+**The residual risk this leaves, stated plainly:** a truncated or corrupted rules file can
+silently weaken a `hookType: "prompt"` guard, because the rule text is the only place the
+guard's reasoning lives. Nothing detects that today. It is accepted rather than solved,
+because a load-time nag does not solve it either — and if it becomes worth solving, the
+cheaper form is an integrity check inside `/rebase-project` (which already reads both the
+project's rules and the plugin's) rather than adopting a new hook event to carry a warning.
+
+**Reversal condition:** adopt this if rule drift is observed in a project that HAS rebased at
+4.1.19 or later — that would falsify the claim that delivery was the whole cause.
+
+**Done when** — ✅ **all met as of 2026-08-22:** ~~`learning.sh` and `save-remote-logs.js` are gone~~ ✅; a written decision exists for ~~`permitter`~~ ✅ (deleted)
 and for `router`, with a test behind it if kept; both discipline hooks are under
 ~80 LOC with semantic matching in a prompt hook; no hook reads `transcript_path` to find the last
 assistant message; `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR`; every surviving hook loads and exits 0 on a
