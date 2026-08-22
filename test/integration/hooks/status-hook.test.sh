@@ -53,6 +53,15 @@ SESSION_DIR="${BATS_TEST_DIRNAME}/../sessions"
 # Test Setup and Teardown
 # =============================================================================
 
+# `touch -d "2 hours ago"` is GNU syntax. BSD/macOS touch rejects it outright
+# ("out of range or illegal time specification"), so four tests here failed on
+# every macOS run — unnoticed because nobody was reading this file's results.
+# python3 is already a hard dependency of this repo (the router hook is Python).
+age_file() {
+    local file="$1" hours="$2"
+    python3 -c "import os,sys,time; p=sys.argv[1]; h=float(sys.argv[2]); t=time.time()-h*3600; os.utime(p,(t,t))" "$file" "$hours"
+}
+
 setup() {
     # Create temporary test directory
     TEST_DIR="$(mktemp -d -t "status-hook-test-XXXXXX")"
@@ -239,7 +248,7 @@ has_hook_output_structure() {
     create_trd_state "$TEST_DIR" "active-session-trd" '{"tasks":{},"current_phase":1,"session_id":"test-session-123"}'
 
     # Set file mtime to old (more than 30 minutes ago)
-    touch -d "2 hours ago" "${TEST_DIR}/.trd-state/active-session-trd/implement.json"
+    age_file "${TEST_DIR}/.trd-state/active-session-trd/implement.json" 2
 
     local input='{"cwd":"'"${TEST_DIR}"'"}'
     run_status_hook_with_exit "$input"
@@ -255,7 +264,7 @@ has_hook_output_structure() {
     create_trd_state "$TEST_DIR" "old-trd" '{"tasks":{},"current_phase":1}'
 
     # Set file mtime to old (more than 30 minutes ago)
-    touch -d "2 hours ago" "${TEST_DIR}/.trd-state/old-trd/implement.json"
+    age_file "${TEST_DIR}/.trd-state/old-trd/implement.json" 2
 
     local input='{"cwd":"'"${TEST_DIR}"'"}'
     run_status_hook_with_exit "$input"
@@ -482,7 +491,7 @@ has_hook_output_structure() {
     create_trd_state "$TEST_DIR" "session-trd" '{"tasks":{},"session_id":"session-to-clear"}'
 
     # Make file old so session_cleared wins over verified
-    touch -d "2 hours ago" "${TEST_DIR}/.trd-state/session-trd/implement.json"
+    age_file "${TEST_DIR}/.trd-state/session-trd/implement.json" 2
 
     local input='{"cwd":"'"${TEST_DIR}"'"}'
     run_status_hook_with_exit "$input"
@@ -505,7 +514,7 @@ has_hook_output_structure() {
     create_trd_state "$TEST_DIR" "preserve-trd" "$original_json"
 
     # Make old
-    touch -d "2 hours ago" "${TEST_DIR}/.trd-state/preserve-trd/implement.json"
+    age_file "${TEST_DIR}/.trd-state/preserve-trd/implement.json" 2
 
     local input='{"cwd":"'"${TEST_DIR}"'"}'
     run_status_hook_with_exit "$input"

@@ -615,7 +615,13 @@ EOF
 
     local status_value
     status_value=$(echo "$output" | jq -r '.hookSpecificOutput.status')
-    [[ "$status_value" == "formatted" || "$status_value" == "no_formatter" ]]
+    # format_error is accepted because this test is about SELECTION, and a
+    # format_error proves selection happened — the hook found rustfmt and ran it
+    # (a miss would report no_formatter instead). Whether the toolchain then
+    # works is not this hook's contract: seen 2026-08-21 with a Homebrew
+    # rust/llvm mismatch making rustfmt itself abort with exit 134. The hook did
+    # the right thing — exit 0, error reported, nothing blocked.
+    [[ "$status_value" == "formatted" || "$status_value" == "no_formatter" || "$status_value" == "format_error" ]]
 
     if [ "$status_value" = "formatted" ]; then
         local message

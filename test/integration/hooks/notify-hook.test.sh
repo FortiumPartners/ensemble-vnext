@@ -398,9 +398,13 @@ EOF
 
     # Check that notify.sh is in the Stop hooks array
     if command -v jq &>/dev/null; then
+        # Entries are `bash -c 'cd ... && .claude/hooks/notify.sh'`, not a bare
+        # path, and notify.sh is not in Stop[0] — it is the LAST Stop group. The
+        # old exact-match-on-Stop[0] selector matched nothing and had been failing
+        # since the hooks became bash -c wrappers.
         local hook_exists
-        hook_exists=$(jq '.hooks.Stop[0].hooks[] | select(.command == ".claude/hooks/notify.sh")' "$SETTINGS_FILE" 2>/dev/null)
-        [[ -n "$hook_exists" ]]
+        hook_exists=$(jq -r '[.hooks.Stop[].hooks[] | select(.type == "command") | .command] | map(select(test("notify\\.sh"))) | length' "$SETTINGS_FILE" 2>/dev/null)
+        [[ "$hook_exists" -ge 1 ]]
     else
         # Fallback: grep-based check
         grep -q "notify.sh" "$SETTINGS_FILE"
@@ -413,8 +417,10 @@ EOF
     fi
 
     if command -v jq &>/dev/null; then
+        # Same stale selector as the registration test above: bash -c wrapper, and
+        # not in Stop[0]. Match on the command CONTAINING notify.sh instead.
         local timeout
-        timeout=$(jq '.hooks.Stop[0].hooks[] | select(.command == ".claude/hooks/notify.sh") | .timeout' "$SETTINGS_FILE" 2>/dev/null)
+        timeout=$(jq -r '[.hooks.Stop[].hooks[] | select(.type == "command") | select(.command | test("notify\\.sh")) | .timeout] | first' "$SETTINGS_FILE" 2>/dev/null)
         [[ "$timeout" == "60" ]]
     else
         # Fallback: grep for timeout near notify.sh
@@ -437,51 +443,12 @@ EOF
     fi
 }
 
-@test "NOTIFY-I001: notify hook runs after learning.sh in Stop array" {
-    if [[ ! -f "$SETTINGS_FILE" ]]; then
-        skip "settings.json not found at: $SETTINGS_FILE"
-    fi
-
-    if command -v jq &>/dev/null; then
-        # Get the array of hook commands in order
-        local hooks_order
-        hooks_order=$(jq -r '.hooks.Stop[0].hooks[].command' "$SETTINGS_FILE" 2>/dev/null)
-
-        # learning.sh should appear before notify.sh
-        local learning_pos notify_pos
-        learning_pos=$(echo "$hooks_order" | grep -n "learning.sh" | cut -d: -f1)
-        notify_pos=$(echo "$hooks_order" | grep -n "notify.sh" | cut -d: -f1)
-
-        [[ -n "$learning_pos" ]]
-        [[ -n "$notify_pos" ]]
-        [[ "$learning_pos" -lt "$notify_pos" ]]
-    else
-        skip "jq required for order verification"
-    fi
-}
-
-# =============================================================================
-# Coexistence Tests
-# =============================================================================
-
-@test "NOTIFY-I001: notify hook does not interfere with learning hook" {
-    # This test verifies that both hooks can be configured without conflict
-    if [[ ! -f "$SETTINGS_FILE" ]]; then
-        skip "settings.json not found at: $SETTINGS_FILE"
-    fi
-
-    # Both hooks should be present
-    grep -q "learning.sh" "$SETTINGS_FILE"
-    grep -q "notify.sh" "$SETTINGS_FILE"
-
-    # Both should be in Stop array
-    if command -v jq &>/dev/null; then
-        local stop_hooks
-        stop_hooks=$(jq '.hooks.Stop[0].hooks[].command' "$SETTINGS_FILE" 2>/dev/null)
-        [[ "$stop_hooks" == *"learning.sh"* ]]
-        [[ "$stop_hooks" == *"notify.sh"* ]]
-    fi
-}
+# The two tests that stood here asserted notify.sh's position relative to
+# learning.sh, and that both coexist in the Stop array. learning.sh was retired
+# and deleted in 4.1.0, so both were asserting against a hook that does not
+# exist. Deleted 2026-08-21 rather than rewritten: notify.sh being last in the
+# Stop chain is already covered by notify-on-complete.test.sh, which compares
+# the whole chain against hooks.manifest.json.
 
 # =============================================================================
 # Performance Tests

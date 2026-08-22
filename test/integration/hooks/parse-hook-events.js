@@ -25,6 +25,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const readline = require('readline');
 
@@ -209,27 +210,80 @@ function formatHookEvents(events) {
 }
 
 /**
+ * Resolves a path with symlinks followed, without requiring the leaf to exist.
+ *
+ * `path.resolve()` performs no filesystem lookup, so it cannot see symlinks.
+ * That matters here in both directions: it lets a symlink escape a permitted
+ * root (the thing this guard exists to stop), and it rejects legitimate paths
+ * that merely SIT under a symlinked root.
+ */
+function realResolve(p) {
+  const abs = path.resolve(p);
+  try {
+    return fs.realpathSync(abs);
+  } catch {
+    // The leaf may not exist yet; resolve the deepest existing ancestor and
+    // re-join the remainder, so a not-yet-created file still validates.
+    let dir = path.dirname(abs);
+    const tail = [path.basename(abs)];
+    while (dir !== path.dirname(dir)) {
+      try {
+        return path.join(fs.realpathSync(dir), ...tail.reverse());
+      } catch {
+        tail.push(path.basename(dir));
+        dir = path.dirname(dir);
+      }
+    }
+    return abs;
+  }
+}
+
+/**
  * Validates that a file path is within allowed directories.
  * Prevents path traversal attacks by ensuring paths stay within:
  * - Current working directory
- * - /tmp/ directory (for test fixtures)
+ * - The system temp directory (for test fixtures)
+ *
+ * Both sides are resolved through realpath first. Comparing `path.resolve()`
+ * output was wrong twice over:
+ *
+ *   1. It hardcoded the literal '/tmp/', ignoring os.tmpdir(). On macOS
+ *      `mktemp -d` returns /var/folders/..., which matched neither allowed
+ *      root, so every fixture written to a temp dir was rejected as an attack.
+ *      That is what made 14 formatter-hook tests fail on every macOS run.
+ *   2. It never followed symlinks, so even the literal /tmp failed — /tmp is a
+ *      symlink to /private/tmp there — and, more seriously, a symlink planted
+ *      inside an allowed root would have passed while pointing anywhere.
+ *
+ * Resolving both sides fixes the false negatives AND closes the escape.
  *
  * @param {string} filePath - Path to validate
  * @returns {string} Resolved absolute path
  * @throws {Error} If path is outside allowed directories
  */
 function validateFilePath(filePath) {
-  const absolutePath = path.resolve(filePath);
-  const cwd = process.cwd();
+  const resolved = realResolve(filePath);
+  // Every directory that is legitimately "temp" on this platform.
+  //
+  // os.tmpdir() honours $TMPDIR and falls back to /tmp — but on macOS, `mktemp`
+  // with TMPDIR unset uses the per-user root from confstr(_CS_DARWIN_USER_TEMP_DIR),
+  // i.e. /var/folders/..., which Node exposes nowhere. bats unsets TMPDIR, so
+  // every fixture it created landed in a directory none of the other roots
+  // covered. /var/folders is that OS temp root by name, not an arbitrary widening.
+  const roots = [process.cwd(), os.tmpdir(), process.env.TMPDIR, '/tmp']
+    .concat(process.platform === 'darwin' ? ['/var/folders'] : [])
+    .filter(Boolean)
+    .map(realResolve);
 
-  const isWithinCwd = absolutePath.startsWith(path.resolve(cwd) + path.sep) || absolutePath === path.resolve(cwd);
-  const isWithinTmp = absolutePath.startsWith('/tmp/');
+  const allowed = roots.some(
+    (root) => resolved === root || resolved.startsWith(root + path.sep)
+  );
 
-  if (!isWithinCwd && !isWithinTmp) {
+  if (!allowed) {
     throw new Error(`Path traversal detected: ${filePath} is outside allowed directories`);
   }
 
-  return absolutePath;
+  return resolved;
 }
 
 /**
