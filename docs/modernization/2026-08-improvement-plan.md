@@ -1,7 +1,15 @@
 # Ensemble vNext — Improvement Plan
 
 **Created**: 2026-08-11
-**Status** (refreshed 2026-08-22): Items 1–5, 9a, 10 shipped. Items 6, 7, 8, 11, 12 open — 12 partly done in 4.1.18. HISTORICAL TEXT BELOW may lag; the table above is authoritative.
+**Status** (refreshed 2026-08-22): Items 1–10 are CLOSED — shipped, or closed on a recorded
+decision not to build (6, 9, and sub-item 5d).
+**Genuinely open: 11, and 12 (partly done in 4.1.18).** Item 7's cross-TRD coordination design
+is deferred by owner decision, not open work.
+
+*The at-a-glance table is authoritative and was corrected on 2026-08-22 — rows 6, 7 and 8 had
+gone stale against their own sections, three of them closed or delivered back on
+2026-08-16 while the table still showed them unstarted. This status line repeated the error
+because it was edited by copying the previous line rather than reading the sections.*
 
 Item 5 **closed 2026-08-22**: 5a/5b/5c/5e delivered, 5b's Wiggum sub-item mooted by the
 flag's retirement in 4.1.19, and 5d retired on the reasoning recorded in its own section
@@ -76,10 +84,10 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | **Done (4.1.6)** — `test/smoke/`, 4 deterministic scenarios |
 | 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **Done (4.1.19/4.1.20)** — 5a/5b/5c/5e shipped; Wiggum sub-item mooted by the flag's retirement; 5d retired |
-| 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
-| 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
-| 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | **Shipped for `/create-prd` + `/create-trd`** — unrun; keep-or-revert call outstanding |
-| 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | **RETIRED 2026-08-16 → item 9a** |
+| 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | **CLOSED 2026-08-16** — `REVIEW.md`'s only consumer is Anthropic's managed Code Review, not enabled here; the local `/code-review` skill does not read it. `packages/reviewer/` deleted; acceptance-criteria checking moved to `/audit-build` |
+| 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | **Mostly delivered 2026-08-16** — 3 modules, 96% stmt coverage, 117 tests; `implement-trd.md` 1466→1042 lines. Cross-TRD coordination design **deferred, owner decision** |
+| 8 | Rework `/implement-trd` onto the task graph | 3–5 days | The architectural bet | **Delivered 2026-08-16** (`539258e`) — measured vs pre-rework on an 8-task fixture: 1.00 vs 5.00 agents/task, −49% cost, −35% tokens, +74% wall clock (an accepted architectural trade) |
+| 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | **CLOSED 2026-08-16** — superseded by item 9a |
 | 9a | Functional verification of delivered software | 3–5 days | A green suite says nothing about whether a user can do what the PRD promised | **Shipped 4.1.18** — `--verify`, `/verify-build`, live-verified 20/20 |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
@@ -335,10 +343,10 @@ time has meant each is examined only when it breaks. Do the layer at once.
 | 5a | Router decision (was a modification, not a deletion) | ✅ 4.1.4 — kept, made conditional, rewritten |
 | 5b | Discipline hooks → `type: "prompt"` hooks | ✅ done (2026-08-13, `docs/TRD/discipline-judgment.md`) |
 | 5b | `transcript_path` → `last_assistant_message` (3 hooks) | ✅ 4.1.7 |
-| 5b | Wiggum: re-inject current state + restated completion promise | ⛔ **moot** — `--wiggum` and `wiggum.js` retired in 4.1.19; autonomy is unconditional, so there is no flag-gated loop left to re-inject into |
+| 5b | Wiggum: re-inject current state + restated completion promise | ✅ **CLOSED 2026-08-22** — moot: `--wiggum` and `wiggum.js` retired in 4.1.19; autonomy is unconditional, so there is no flag-gated loop left to re-inject into |
 | 5c | `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR` | ✅ 4.1.4 |
 | 5c | Formatter: npx cost + `/init-project` installing what it configures | ✅ 4.1.5 / 4.1.6 |
-| 5d | Adopt `InstructionsLoaded` | ⛔ **retired 2026-08-22** — see 5d below |
+| 5d | Adopt `InstructionsLoaded` | ✅ **CLOSED 2026-08-22** — decided not to build; see 5d below |
 | 5e | Discipline guard on `SubagentStop` | ✅ 4.1.7 |
 | 5e | Scheduled-nudge pattern documented (no timeouts, per decision) | ✅ 4.1.7 |
 | 5e | Dispatch ledger (`SubagentStart`+`SubagentStop`) + `--open` reporting | ✅ 4.1.8 |
@@ -507,7 +515,7 @@ dispatch, the way `test/smoke/lib/` wraps each invocation in `smoke_timeout`. Do
 orchestration moves into code (items 7/8), where a timeout is one argument rather than a
 paragraph the model must remember.
 
-**5d. Adopt `InstructionsLoaded`** — ⛔ **RETIRED 2026-08-22.**
+**5d. Adopt `InstructionsLoaded`** — ✅ **CLOSED 2026-08-22, decided not to build.**
 
 The investigation completed and the event is real and usable: it fires per-file at session
 start and on lazy load, the payload carries `file_path` and `load_reason`
@@ -543,7 +551,7 @@ because a load-time nag does not solve it either — and if it becomes worth sol
 cheaper form is an integrity check inside `/rebase-project` (which already reads both the
 project's rules and the plugin's) rather than adopting a new hook event to carry a warning.
 
-**Reversal condition:** adopt this if rule drift is observed in a project that HAS rebased at
+**Re-open condition:** adopt this if rule drift is observed in a project that HAS rebased at
 4.1.19 or later — that would falsify the claim that delivery was the whole cause.
 
 **Done when** — ✅ **all met as of 2026-08-22:** ~~`learning.sh` and `save-remote-logs.js` are gone~~ ✅; a written decision exists for ~~`permitter`~~ ✅ (deleted)
@@ -559,9 +567,9 @@ remain.
 > existing first. This item is about the hooks that exist today. Sequencing, not subject matter,
 > separates them.
 
-### 6. Ship a `REVIEW.md`; retire the reviewer CLI — ⛔ **RETIRED 2026-08-16**
+### 6. Ship a `REVIEW.md`; retire the reviewer CLI — ✅ **CLOSED 2026-08-16**
 
-> **RETIRED — it no longer applies.** `REVIEW.md`'s only consumer is Anthropic's managed Code
+> **CLOSED — it no longer applies.** `REVIEW.md`'s only consumer is Anthropic's managed Code
 > Review service, which is not enabled on this repo and is not part of item 8's shipped design.
 > A file nothing reads is not worth shipping, and "inert" is not operationally different from
 > "retired": either way nobody does the work.
@@ -1471,7 +1479,7 @@ from a hardcoded 14-file list to a discovered sweep (which immediately found
 **Why it sits here:** this is the delivery half of every other item on this list. A fix that
 cannot reach a project is a fix nobody has.
 
-### 9. Native quality gates and worker loops — **RETIRED 2026-08-16, replaced by item 9a**
+### 9. Native quality gates and worker loops — ✅ **CLOSED 2026-08-16, replaced by item 9a**
 
 > **Retired, not deferred.** Two of this item's three "Done when" clauses target machinery
 > item 8 removed:
