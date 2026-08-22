@@ -26,7 +26,7 @@ mapfile -t FILES < <(find test packages -name '*.test.sh' \
     -not -path '*/analysis-archive/*' -not -path '*/ensemble-vnext-test-fixtures/*' \
     2>/dev/null | sort)
 
-broken=(); empty=(); failing=(); total_ok=0
+broken=(); empty=(); aborted=(); failing=(); total_ok=0
 
 for f in "${FILES[@]}"; do
     out="$(npx bats "$f" 2>&1)"
@@ -35,6 +35,14 @@ for f in "${FILES[@]}"; do
     fi
     ok=$(grep -cE '^ok' <<<"$out"); nok=$(grep -cE '^not ok' <<<"$out")
     total_ok=$((total_ok + ok))
+    # THIRD silent-zero mode, found 2026-08-21: a failing setup_file aborts the
+    # whole file. bats reports ONE failure and warns "Executed 1 instead of
+    # expected 22 tests" — so 21 tests did not run, while the summary line looks
+    # like a single ordinary failure. Counting ok/not-ok cannot see it.
+    if grep -q 'instead of expected' <<<"$out"; then
+        aborted+=("$f — $(grep -o 'Executed [0-9]* instead of expected [0-9]* tests' <<<"$out" | head -1)")
+        continue
+    fi
     if [[ "$ok" -eq 0 && "$nok" -eq 0 ]]; then empty+=("$f")
     elif [[ "$nok" -gt 0 ]]; then failing+=("$f ($nok failing)")
     fi
@@ -55,6 +63,11 @@ fi
 if [[ ${#empty[@]} -gt 0 ]]; then
     echo; echo "NO TESTS — file gathers but defines nothing:" >&2
     printf '  %s\n' "${empty[@]}" >&2
+    status=1
+fi
+if [[ ${#aborted[@]} -gt 0 ]]; then
+    echo; echo "ABORTED — setup_file failed, so most tests never ran:" >&2
+    printf '  %s\n' "${aborted[@]}" >&2
     status=1
 fi
 if [[ ${#failing[@]} -gt 0 ]]; then

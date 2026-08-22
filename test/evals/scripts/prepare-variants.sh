@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # prepare-variants.sh - Prepare Test Variants for Eval Framework
 # =============================================================================
@@ -56,6 +56,19 @@
 
 set -euo pipefail
 
+# This script uses associative arrays (COMPONENT_DIRS), which need bash 4+.
+# macOS ships bash 3.2 as /bin/bash, where `declare -A` fails and the array
+# literal is then parsed as arithmetic — producing the useless error
+# `line 83: without: unbound variable` under `set -u`. That is why 15 tests here
+# failed on every macOS run. The shebang is `env bash` (matching
+# scaffold-project.sh) so a newer bash on PATH is used; this guard makes the
+# remaining failure mode legible instead of cryptic.
+if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+    echo "ERROR: $(basename "$0") requires bash 4+ (found ${BASH_VERSION})." >&2
+    echo "       macOS ships bash 3.2 as /bin/bash; install a newer bash" >&2
+    echo "       (e.g. 'brew install bash') and ensure it precedes /bin on PATH." >&2
+    exit 1
+fi
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -207,7 +220,7 @@ count_files() {
     local pattern="${2:-*}"
 
     if [[ -d "$dir" ]]; then
-        find "$dir" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | wc -l
+        find "$dir" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | wc -l | tr -d " "
     else
         echo "0"
     fi
@@ -218,7 +231,7 @@ count_items() {
     local dir="$1"
 
     if [[ -d "$dir" ]]; then
-        find "$dir" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l
+        find "$dir" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d " "
     else
         echo "0"
     fi
@@ -418,7 +431,7 @@ validate_init_output() {
             ((errors++))
         else
             local count
-            count=$(ls -A "$workspace/.claude/$dir" 2>/dev/null | wc -l)
+            count=$(ls -A "$workspace/.claude/$dir" 2>/dev/null | wc -l | tr -d " ")
             log_debug "Validation: .claude/$dir OK ($count items)"
         fi
     done
@@ -433,9 +446,9 @@ validate_init_output() {
 
     # Gate 5: Check for minimum expected file counts (sanity check)
     local agents_count skills_count commands_count
-    agents_count=$(ls -A "$workspace/.claude/agents" 2>/dev/null | wc -l)
-    skills_count=$(ls -A "$workspace/.claude/skills" 2>/dev/null | wc -l)
-    commands_count=$(ls -A "$workspace/.claude/commands" 2>/dev/null | wc -l)
+    agents_count=$(ls -A "$workspace/.claude/agents" 2>/dev/null | wc -l | tr -d " ")
+    skills_count=$(ls -A "$workspace/.claude/skills" 2>/dev/null | wc -l | tr -d " ")
+    commands_count=$(ls -A "$workspace/.claude/commands" 2>/dev/null | wc -l | tr -d " ")
 
     # We expect at least some agents (12 streamlined agents defined in constitution)
     if [[ "$agents_count" -lt 5 ]]; then

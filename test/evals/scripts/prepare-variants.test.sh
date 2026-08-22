@@ -62,10 +62,15 @@ create_fixture_with_claude() {
     [[ "$output" =~ "Fixture source is required" ]]
 }
 
-@test "prepare-variants.sh requires output-dir argument" {
-    run "$SCRIPT_UNDER_TEST" "$TEST_FIXTURE_DIR"
-    [[ "$status" -ne 0 ]]
-    [[ "$output" =~ "Output directory is required" ]]
+@test "prepare-variants.sh defaults output-dir when omitted" {
+    # INVERTED 2026-08-21. This asserted output-dir was REQUIRED, contradicting
+    # the script's documented interface: usage shows `[output-dir]` as optional
+    # with "default: /tmp/ensemble-test-fixtures", and the script announces the
+    # default it picked. The test, not the script, was wrong — and it had been
+    # failing on every run, unseen, behind the bash-3.2 shebang bug that made
+    # all 15 tests in this file fail for an unrelated reason.
+    run "$SCRIPT_UNDER_TEST" --dry-run "$TEST_FIXTURE_DIR"
+    [[ "$output" =~ "Using default output directory" ]]
 }
 
 @test "prepare-variants.sh fails on non-existent fixture" {

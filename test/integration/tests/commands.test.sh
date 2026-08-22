@@ -58,23 +58,39 @@ setup_file() {
     export QUIET="true"
 
     if ! command -v claude &>/dev/null; then
-        if [[ "${SKIP_HEADLESS:-false}" != "true" ]]; then
+        if [[ "${SKIP_HEADLESS:-true}" != "true" ]]; then
             echo "WARNING: Claude CLI not found. Set SKIP_HEADLESS=true to run non-headless tests only." >&2
         fi
     fi
 
-    # For headless tests, create fixture and run init-project once
-    if [[ "${SKIP_HEADLESS:-false}" != "true" ]]; then
+    # Headless tests default to SKIPPED, matching vendoring.test.sh. They need
+    # both the claude CLI and the taskflow-api fixture, and this checkout has
+    # neither — ensemble-vnext-test-fixtures/ ships ag-grid and variants/, with
+    # no fixtures/ directory at all.
+    #
+    # This defaulted to :-false (i.e. RUN headless), so setup_file called
+    # setup_from_fixture, got a missing-fixture error, and `return 1` aborted the
+    # WHOLE FILE: bats reported one failure and warned "Executed 1 instead of
+    # expected 22 tests". 21 tests silently stopped running. Found 2026-08-21.
+    #
+    # A missing optional fixture must degrade to skipping the tests that need it,
+    # never to killing the ones that don't.
+    if [[ "${SKIP_HEADLESS:-true}" != "true" ]]; then
         # Use taskflow-api fixture for the init-project test
         local persistent_dir
-        persistent_dir=$(setup_from_fixture "taskflow-api")
+        persistent_dir=$(setup_from_fixture "taskflow-api") || {
+            echo "SKIP: taskflow-api fixture unavailable; headless tests will skip" >&2
+            export SKIP_HEADLESS=true
+            return 0
+        }
 
         # Verify we have a PROJECT.md to work with
         if [[ -f "${persistent_dir}/PROJECT.md" ]]; then
             echo "Using fixture with PROJECT.md: $persistent_dir" >&2
         else
-            echo "ERROR: Fixture missing PROJECT.md" >&2
-            return 1
+            echo "SKIP: fixture missing PROJECT.md; headless tests will skip" >&2
+            export SKIP_HEADLESS=true
+            return 0
         fi
 
         # Commands are invoked without plugin prefix (prefix only needed for disambiguation)
@@ -118,7 +134,7 @@ teardown_file() {
 
 setup() {
     # Per-test setup: load state from file
-    if [[ "${SKIP_HEADLESS:-false}" != "true" && -f "$(_state_file)" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" != "true" && -f "$(_state_file)" ]]; then
         # shellcheck source=/dev/null
         source "$(_state_file)"
     fi
@@ -136,7 +152,7 @@ teardown() {
 # =============================================================================
 
 @test "TRD-TEST-054: /init-project command creates complete structure" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled (set SKIP_HEADLESS=false to enable)"
     fi
 
@@ -153,7 +169,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project artifacts - .claude directory exists" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -161,7 +177,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project artifacts - agents directory exists" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -169,7 +185,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project artifacts - rules directory exists" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -177,7 +193,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project artifacts - docs directory exists" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -185,7 +201,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project artifacts - docs/PRD directory exists" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -193,7 +209,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project artifacts - docs/TRD directory exists" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -201,7 +217,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project artifacts - CLAUDE.md exists" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -209,7 +225,7 @@ teardown() {
 }
 
 @test "TRD-TEST-055: /init-project full structure verification" {
-    if [[ "${SKIP_HEADLESS:-false}" == "true" ]]; then
+    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
@@ -242,9 +258,13 @@ teardown() {
     declare -f check_implement_state > /dev/null
 }
 
-@test "functions: verify_router_rules function exists" {
-    declare -f verify_router_rules > /dev/null
-}
+# The "verify_router_rules function exists" test stood here. That helper was
+# removed along with the mechanism it verified: router.py used to keyword-match
+# against router-rules.json to pick subagents, and that was replaced by Claude
+# Code's native description-based selection (see router.py's own header — it
+# misfired on analysis turns, recommending an implementer for a research
+# question). The helper exists nowhere in the tree. Deleted 2026-08-21.
+
 
 @test "functions: run_headless_session function exists" {
     declare -f run_headless_session > /dev/null
