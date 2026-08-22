@@ -44,8 +44,10 @@ from dataclasses import dataclass
 # not the answer.
 FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
 
-* FLOW. Feature work: /create-prd -> /create-trd -> /implement-trd -> /harden-trd-team
-  -> /verify-trd-team (three passes, fresh session each). Bug or defect:
+* FLOW. Feature work: /create-prd -> /create-trd -> /implement-trd (hardening and
+  verification run INSIDE it; add --verify for the functional loop). Then /audit-build
+  to check delivery against the TRD and PRD. /verify-build re-runs the verification
+  loop on its own. Bug or defect:
   /investigate-issue -> /fix-issue (implement + verify + review in one pass).
   Iterate an artifact with /refine-prd or /refine-trd. Check .trd-state/current.json
   for in-flight work before starting something new, and don't hand-roll what a

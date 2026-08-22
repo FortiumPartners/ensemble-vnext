@@ -536,3 +536,21 @@ PY
     [ ! -f "${REPO_ROOT}/.claude/hooks/wiggum.js" ]
     ! grep -q 'wiggum' "${REPO_ROOT}/packages/core/hooks/hooks.manifest.json"
 }
+
+@test "the router banner does not advertise retired commands" {
+    # It runs on EVERY UserPromptSubmit, so a stale banner is the most-repeated
+    # wrong statement in the framework. It advertised /harden-trd-team and
+    # /verify-trd-team for five releases after ITR-B012 deleted them.
+    R="${REPO_ROOT}/packages/router/hooks/router.py"
+    ! grep -q 'harden-trd-team' "$R"
+    ! grep -q 'verify-trd-team' "$R"
+    grep -q 'verify-build' "$R"
+}
+
+@test "autonomy.md covers the declarative offer, not just the question form" {
+    A="${REPO_ROOT}/.claude/rules/autonomy.md"
+    # "Would you like me to X?" was covered; "say the word and I'll X" was not --
+    # same move, different grammar, and it is the one that slips through.
+    grep -qi "Say the word and I'll do X" "$A"
+    grep -qi 'declarative form of the same offer' "$A"
+}

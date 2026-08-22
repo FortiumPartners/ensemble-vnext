@@ -67,6 +67,7 @@ These have all been observed in command drift and are explicitly forbidden:
 | "Checkpoint reached. Continue?" | The only stop point is COMMAND COMPLETE. | Continue without asking. |
 | "Have you verified this is what you want?" | The user already verified by invoking the command. | Proceed. |
 | "Would you like me to also do X?" | If X is needed to satisfy the command, do X; if not, don't. | Decide based on scope; proceed. |
+| **"Say the word and I'll do X." / "I can do X if you want." / "Tell me and I'll settle it."** | **The declarative form of the same offer, and the one that slips through.** It reads as disclosing a capability rather than requesting permission, so it does not look like a question — but it hands the decision back identically and the work does not happen. Observed 2026-08-21: the same investigation was offered this way twice, two turns apart, and neither was done. | If you can do it, do it. Report the result. |
 | "I'm about to make a significant change. Confirm?" | Routine state mutations don't require confirmation. | If it's NOT in the irreversible-destructive category, proceed. |
 
 ## How to handle real ambiguity (when one of the four cases DOES apply)
