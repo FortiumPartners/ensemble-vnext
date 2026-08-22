@@ -91,7 +91,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 9a | Functional verification of delivered software | 3–5 days | A green suite says nothing about whether a user can do what the PRD promised | **Shipped 4.1.18** — `--verify`, `/verify-build`, live-verified 20/20 |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
-| 12 | Command-fix delivery — get a framework bug fix into existing projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; the four structural sub-items in §12 remain |
+| 12 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; the four structural sub-items in §12 remain |
 
 ---
 
@@ -1435,7 +1435,12 @@ tasks now carry `Dependencies` and `Serves` in structured, parser-consumable pos
 tasks + dependencies → DAG is mechanical, and "what can run in parallel" becomes
 deterministic rather than LLM-judged. Build item 7's `lib/` as part of this item, not after.
 
-### 12. Command-fix delivery — getting a framework bug fix into existing projects
+### 12. Rebase delivery — getting a framework fix out to projects already scaffolded
+
+*Renamed 2026-08-22. It was "Command-fix delivery", which reads as "a command that fixes
+things" and was mistaken for `/fix-issue` by the owner. This item is about the DELIVERY PIPE —
+`/rebase-project` — not about fixing anything. `/fix-issue` is unrelated and appears in this
+plan only as a command that items 1 and 2 happened to touch.*
 
 **The gap:** every defect found in a shipped command is fixed in `packages/core`, mirrored to
 `.claude/`, committed — and reaches no existing project until someone runs `/rebase-project`.
