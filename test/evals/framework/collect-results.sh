@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # collect-results.sh - Collect Results from Claude Sessions
 # =============================================================================
@@ -56,6 +56,16 @@
 
 set -euo pipefail
 
+# Requires bash 4.3+ for namerefs (`local -n`, lines ~346) and GNU coreutils
+# behaviour for `head -z`. macOS ships bash 3.2 as /bin/bash, where the nameref
+# fails with `local: -n: invalid option` and BSD head rejects -z outright — which
+# is what made 25 tests in collect-results.test.sh fail on every macOS run.
+if [[ "${BASH_VERSINFO[0]}" -lt 4 || ("${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -lt 3) ]]; then
+    echo "ERROR: $(basename "$0") requires bash 4.3+ (found ${BASH_VERSION})." >&2
+    echo "       macOS ships bash 3.2 as /bin/bash; install a newer bash" >&2
+    echo "       (e.g. 'brew install bash') and ensure it precedes /bin on PATH." >&2
+    exit 1
+fi
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -142,6 +152,26 @@ log_info() {
 
 log_error() {
     echo "[ERROR] $*" >&2
+}
+
+# Emit at most N NUL-delimited records from stdin, NUL-delimited.
+#
+# Replaces `head -z -n N`, which is a GNU extension: BSD/macOS head rejects -z
+# outright ("head: invalid option -- z"). The pipeline's failure was SILENT —
+# the surrounding find|while loop simply saw no input, so collection reported
+# SUCCESS having extracted zero files. That is what failed 7 tests here, and on
+# any macOS run it would have produced empty eval results that looked fine.
+#
+# Reads NUL-delimited so filenames containing newlines survive — the whole point
+# of -print0; a `tr '\0' '\n' | head | tr` round-trip would defeat it.
+head_nul() {
+    local limit="$1" count=0 rec
+    while IFS= read -r -d '' rec; do
+        printf '%s\0' "$rec"
+        count=$((count + 1))
+        [[ "$count" -ge "$limit" ]] && break
+    done
+    return 0
 }
 
 log_debug() {
@@ -302,7 +332,7 @@ extract_files() {
         done < <(find "$source_workspace" -type f -name "$pattern" \
              -size "-${MAX_FILE_SIZE}" \
              ! -type l \
-             -print0 2>/dev/null | head -z -n "$MAX_FILES")
+             -print0 2>/dev/null | head_nul "$MAX_FILES")
     done
 
     # Return file lists as JSON-compatible output
@@ -722,7 +752,7 @@ if [[ -d "$WORKSPACE_DIR" ]]; then
         done < <(find "$WORKSPACE_DIR" -type f -name "$pattern" \
              -size "-${MAX_FILE_SIZE}" \
              ! -type l \
-             -print0 2>/dev/null | head -z -n "$MAX_FILES")
+             -print0 2>/dev/null | head_nul "$MAX_FILES")
     done
 fi
 
