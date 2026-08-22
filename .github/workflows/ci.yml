@@ -43,7 +43,6 @@ jobs:
       # permanently red. `npm test` locally still runs everything and shows the
       # real state. Known-failing suites, all predating this workflow:
       #   packages/core/hooks/status.test.js
-      #   packages/core/hooks/wiggum.test.js
       #   test/evals/framework/judge.test.js
       #   test/evals/framework/run-eval.test.js
       # Delete entries from this list as they are fixed.
@@ -55,7 +54,6 @@ jobs:
               '<rootDir>/test/evals/analysis-archive/' \
               '<rootDir>/test/evals/results/' \
               '<rootDir>/packages/core/hooks/status.test.js' \
-              '<rootDir>/packages/core/hooks/wiggum.test.js' \
               '<rootDir>/test/evals/framework/judge.test.js' \
               '<rootDir>/test/evals/framework/run-eval.test.js'
 
@@ -69,34 +67,51 @@ jobs:
           node-version: '20'
       - name: Install BATS
         run: npm install -g bats
-      - name: Run shell test suites
+      - name: Run every shell suite
         env:
           # Headless suites shell out to the `claude` CLI and need the external
-          # ensemble-vnext-test-fixtures/fixtures/ tree; neither exists on a CI
-          # runner. commands.test.sh defaults SKIP_HEADLESS to false, so it must
-          # be set explicitly or setup_file aborts the whole suite.
+          # ensemble-vnext-test-fixtures/fixtures/ tree; neither exists on a
+          # runner. Both suites now DEFAULT to skipping, so this is belt-and-
+          # braces rather than load-bearing.
           SKIP_HEADLESS: 'true'
+        # check-test-suites.sh replaced a hand-maintained find + grep-exclusion
+        # list here on 2026-08-22. The list had gone stale in both directions:
+        # it excluded validate-init.test.sh and commands.test.sh as "known
+        # failing" when both pass, and it never ran test/evals/** or
+        # test/integration/hooks/** at all — five suites, 146 assertions,
+        # invisible to CI including the one whose script silently collected zero
+        # files on macOS.
+        #
+        # More importantly the checker fails on the three ways a suite can look
+        # healthy while running NOTHING: a gather failure (a @test header
+        # deleted, its body left as top-level code), a file defining no tests,
+        # and a setup_file abort ("Executed 1 instead of expected 22 tests").
+        # All three occurred in this repo, and counting ok/not-ok sees none of
+        # them. A green tick from `bats <files>` was not evidence the tests ran.
+        run: ./packages/core/scripts/check-test-suites.sh
+
+  structure:
+    name: Structure and generated-artifact drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Command and rule files are edited by string replacement and reviewed by
+      # grep, which cannot see structure. Caught in one session: a block
+      # inserted ABOVE the YAML frontmatter, numbered lists broken into 1,3,4,5,
+      # and table rows stranded after a paragraph where they render as prose.
+      - name: Lint command/rule structure
         run: |
-          # `find -prune` rather than packages/**: packages/full/scripts is a
-          # symlink to packages/core/scripts, and following it runs the same
-          # suites twice.
-          #
-          # Scoped to suites that pass today so this gate is meaningful rather
-          # than permanently red. Known-failing suites, all predating this
-          # workflow (run them locally to see the real state):
-          #   packages/core/scripts/validate-init.test.sh (3 failing)
-          #   test/integration/tests/commands.test.sh    (1 failing —
-          #     asserts a verify_router_rules helper that exists nowhere)
-          # Delete entries from this list as they are fixed.
-          mapfile -t files < <(
-            {
-              find packages -path packages/full -prune -o -name '*.test.sh' -print
-              find test/integration/tests -maxdepth 1 -name '*.test.sh' -print
-            } | grep -v -E '(validate-init|commands)\.test\.sh$'
-          )
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No BATS suites found"; exit 0
-          fi
-          printf 'Running %d suites:\n' "${#files[@]}"
-          printf '  %s\n' "${files[@]}"
-          bats "${files[@]}"
+          node packages/core/scripts/lint-command-structure.js \
+            packages/core/commands/*.md \
+            packages/core/contracts/*.md \
+            .claude/rules/*.md \
+            packages/core/templates/claude-directory/rules/*.md
+      # settings.json is GENERATED from hooks.manifest.json + the prompt files.
+      # 4.1.18 regenerated a judge prompt, tested the prompt FILE, and shipped —
+      # while every live settings.json kept the old text, so the fix was not in
+      # force anywhere for two releases. This is the check that catches that.
+      - name: Check generated hook artifacts are current
+        run: ./packages/core/scripts/generate-hooks-artifacts.sh --check

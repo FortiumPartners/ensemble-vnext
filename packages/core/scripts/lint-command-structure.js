@@ -38,13 +38,29 @@ function lint(file) {
   }
 
   // 4. fences (needed first — list/table checks skip fenced regions)
+  //
+  // Fence LENGTH matters: a block opened with ``` is closed by the next fence of
+  // at least that length, so a ````-delimited block may legally contain ```
+  // blocks. A tracker that toggles on every ``` reports the inner opener as the
+  // outer closer, then reads the rest of the block as prose — which is exactly
+  // the false positive this linter produced on update-project.md's proposal
+  // template until 2026-08-22.
   const fenced = new Array(lines.length).fill(false);
-  let open = false;
+  let openLen = 0;
+  let openedAt = -1;
   lines.forEach((l, i) => {
-    if (/^\s*```/.test(l)) { open = !open; fenced[i] = true; return; }
-    fenced[i] = open;
+    const m = l.match(/^\s*(`{3,})/);
+    if (m) {
+      const len = m[1].length;
+      if (openLen === 0) { openLen = len; openedAt = i; fenced[i] = true; return; }
+      if (len >= openLen) { openLen = 0; fenced[i] = true; return; }
+      // shorter fence inside a longer block — ordinary content
+    }
+    fenced[i] = openLen > 0;
   });
-  if (open) add(lines.length, 'fence', 'unbalanced code fence — a ``` block is never closed');
+  if (openLen > 0) {
+    add(openedAt + 1, 'fence', `unbalanced code fence — this ${'`'.repeat(openLen)} block is never closed`);
+  }
 
   // 2. ordered lists: same indent, contiguous block, must increment by 1
   let run = null;

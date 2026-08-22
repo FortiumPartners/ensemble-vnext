@@ -270,7 +270,7 @@ Default: "No, skip constitution changes"
 
 1. **Format the proposal clearly:**
 
-```
+````
 ## Proposed Stack Changes
 
 The following changes are proposed for `.claude/rules/stack.md`:
@@ -293,7 +293,7 @@ The following changes are proposed for `.claude/rules/stack.md`:
 - `[skill-name]` - [Brief description of what this skill provides]
 
 ---
-```
+````
 
 2. **Use AskUserQuestion tool** to request confirmation:
 
