@@ -1,9 +1,9 @@
 ---
 name: rebase-project
-description: Upgrade vendored runtime to the latest plugin version — non-interactive, always backs up, updates anything that differs
+description: Upgrade vendored runtime to the latest plugin version — non-interactive, requires a clean git tree, updates anything that differs
 version: 2.0.0
 category: generator
-argument-hint: "[--dry-run] [--preserve-all]"
+argument-hint: "[--dry-run] [--preserve-all] [--force]"
 disable-model-invocation: true
 ---
 
@@ -12,12 +12,15 @@ disable-model-invocation: true
 > **Options:**
 > - `--dry-run` - Preview changes without applying anything
 > - `--preserve-all` - Conservative mode: update only commands/hooks/workflows/libs/contracts; keep existing agents/skills/settings as-is (escape hatch for projects with heavy customization)
+> - `--force` - Proceed even when `.claude/` has uncommitted changes or the project is not a git repository. Means "I accept that anything uncommitted is discarded with no way back."
 >
 > **Default behavior (no flags) — applied automatically, no prompts:**
 > - For agents/skills/commands/hooks/workflows/libs/contracts: any file that **differs from the plugin's current version** is replaced. Anything not currently in the plugin is preserved as a user customization.
-> - **Backups are always created** before any replacement (`.claude/<dir>.backup.<timestamp>/`). Nothing is destroyed without a recoverable copy.
+> - **Git is the undo.** `.claude/` is committed (the constitution requires it), so every
+>   replacement is already recoverable with `git diff` and `git restore`. This command writes
+>   NO backup copies — see "Recovery is git" below.
 > - **User governance files** (`constitution.md`, `stack.md`, `process.md`) are NEVER modified.
-> - **Framework-shipped rules** (`async-discipline.md`, future drop-ins) are copied-if-missing.
+> - **Framework-shipped rules** (`async-discipline.md`, `autonomy.md`, …) are replaced when they differ.
 
 ---
 
@@ -28,9 +31,10 @@ $ARGUMENTS
 ```
 
 Examples:
-- (no args) - Apply all updates with backups, no prompts
+- (no args) - Apply all updates, no prompts
 - "--dry-run" - Show what would change without writing anything
 - "--preserve-all" - Update only commands/hooks/workflows/libs/contracts; leave agents/skills/settings alone
+- "--force" - Skip the clean-git-tree precondition (uncommitted work under .claude/ is discarded)
 
 ---
 
@@ -38,10 +42,10 @@ Examples:
 
 - Upgrade vendored runtime in `.claude/` to match the current plugin version
 - **Update any file whose content differs from the plugin** (agents, skills, commands, hooks, workflows, libs, contracts)
-- Always create timestamped backups before replacing
+- Leave recovery to git — never write parallel backup copies
 - Preserve user governance files (constitution.md, stack.md, process.md)
 - Preserve user-created files (agents/skills/commands not shipped by the plugin)
-- Copy framework-shipped rules (async-discipline.md, etc.) if missing
+- Update framework-shipped rules (async-discipline.md, autonomy.md, etc.) when they differ
 - Merge new settings.json defaults while preserving local overrides
 - Generate comprehensive rebase report
 
@@ -67,6 +71,20 @@ Examples:
 3. If missing required files:
    - List missing files
    - Offer: "Run /init-project to create missing files, or continue with partial rebase?"
+
+4. **Check the working tree. Do this BEFORE anything else writes.**
+
+   ```bash
+   git rev-parse --git-dir >/dev/null 2>&1 || echo "NOT-A-REPO"
+   git status --porcelain -- .claude/
+   ```
+
+   Apply the table in "Recovery is git" below: proceed on a clean tree inside a repo; abort
+   and report otherwise, unless `--force`. This command creates no backups, so a clean tree
+   is the ONLY thing standing between an uncommitted local edit and its permanent loss.
+
+   Run it here — at Step 0, before the diff, before any copy — so the abort costs nothing
+   and leaves nothing half-applied.
 
 ### Path Resolution
 
@@ -96,20 +114,41 @@ Examples:
 
 **Implementation note:** When copying files, use absolute resolved paths. The `@` notation is for documentation clarity only.
 
-### Timestamp Format
+### Recovery is git. Check the working tree BEFORE touching anything.
 
-All backup directories use a consistent timestamp format for file system compatibility:
+**This command writes no backups, and that is deliberate.** `.claude/` is committed —
+`constitution.md`'s Architecture Invariants require it ("Runtime is committed to git for
+reproducibility"), and `.gitignore` excludes only `*.local.*`. So git already holds every
+byte this command is about to replace, with better tooling than a copied directory: `git
+diff` shows exactly what the rebase changed, which a timestamped parallel tree cannot.
 
-**Format:** `YYYYMMDD-HHmmss` (ISO8601 without special characters)
+Backups were removed on 2026-08-21. They duplicated git, cluttered `.claude/` with four
+parallel `<dir>.backup.<timestamp>/` trees, needed their own cleanup step, and made the
+rollback procedure *more* dangerous than git — the documented restore was
+`rm -rf .claude/skills && mv .claude/skills.backup.<ts> .claude/skills`, which silently
+destroys any skill added since the backup was taken.
 
-**Examples:**
-- `.claude/skills.backup.20260113-143022/`
-- `.claude/commands.backup.20260113-143022/`
+**Git covers everything except one case: edits that were never committed.** So check for
+that case up front, which this command previously never did:
 
-**Generation:** Use this pattern to generate timestamps:
-```javascript
-const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+```bash
+git rev-parse --git-dir >/dev/null 2>&1 || echo "NOT-A-REPO"
+git status --porcelain -- .claude/
 ```
+
+| Result | Action |
+|---|---|
+| Clean tree, inside a repo | **Proceed.** Git holds the current state; everything is recoverable. |
+| Uncommitted changes under `.claude/` | **STOP.** Report the exact files and stop. Those edits exist nowhere else, and this command is about to overwrite them. The user commits or stashes, then re-runs. |
+| Not a git repository | **STOP.** Report that the runtime is unversioned, so a rebase is unrecoverable. `git init && git add .claude && git commit` is the fix. |
+
+`--force` overrides both stops. It means "I accept that anything uncommitted is gone" —
+say that plainly in the report rather than proceeding quietly.
+
+**Stopping is correct here, and is not the defensive-checkpointing anti-pattern**
+(`.claude/rules/autonomy.md`): this is case 3, an irreversible destructive operation on
+user-authored work that no mechanism can recover. It is a precondition failure reported
+once at the start, not a mid-loop request for permission to continue.
 
 ---
 
@@ -178,7 +217,7 @@ Analyze each component category to identify changes.
 
 **Behavior:** Agents are UPDATED whenever the plugin's content differs from the vendored
 copy. The plugin is the source of truth for any agent it ships; the user's customization
-is preserved in a backup. User-created agents (not shipped by the plugin) are never touched.
+is recoverable from git. User-created agents (not shipped by the plugin) are never touched.
 
 1. **List plugin agents:**
    Read agent files from plugin source: `@packages/full/agents/`
@@ -191,9 +230,9 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    | Category | Condition | Action |
    |----------|-----------|--------|
    | **New** | In plugin, not in vendored | Will be added |
-   | **Updated** | In both, content differs | Will be REPLACED (backup created) |
+   | **Updated** | In both, content differs | Will be REPLACED |
    | **Unchanged** | In both, content identical | No action |
-   | **Stale** | In vendored, not in plugin, AND named in the retired-agent list below | Will be REMOVED (backup first) |
+   | **Stale** | In vendored, not in plugin, AND named in the retired-agent list below | Will be REMOVED |
    | **Custom** | In vendored, not in plugin, AND not on that list | Preserved (report only; not removed) |
 
    **Why agents need an explicit list when commands do not.** A command carries
@@ -219,7 +258,7 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    ```
    Agents:
    - New agents to add: [list]
-   - Updated agents (will replace, backup created): [list]
+   - Updated agents (will replace): [list]
    - Unchanged agents: [count]
    - Custom agents (preserved): [list if any]
    ```
@@ -232,8 +271,7 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
     are added.
   - **(b) Content diff** — for skills retained in (a), compare every file
     (`SKILL.md`, `REFERENCE.md`, templates, examples) byte-for-byte against the plugin's
-    current version. If ANY file differs, the entire skill folder is replaced (backup
-    created). This catches updates to `paths:` globs, `when_to_use`, currency-check
+    current version. If ANY file differs, the entire skill folder is replaced. This catches updates to `paths:` globs, `when_to_use`, currency-check
     directives, and any other frontmatter or content change.
 
 1. **Read current stack.md:**
@@ -292,9 +330,9 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    | Category | Condition | Action |
    |----------|-----------|--------|
    | **Add** | Matches the stack, not vendored | Install from the plugin library |
-   | **Update** | Matches the stack, in both, content differs | Replace (backup first) |
+   | **Update** | Matches the stack, in both, content differs | Replace |
    | **Unchanged** | Matches the stack, in both, identical | No action |
-   | **Stale** | Vendored, **exists in the plugin's skill library**, no longer matches the stack | Remove (backup first) |
+   | **Stale** | Vendored, **exists in the plugin's skill library**, no longer matches the stack | Remove |
    | **Custom** | Vendored, **does not exist in the plugin's skill library at all** | Report, **preserve** |
 
    **The Custom row is load-bearing and was missing until 2026-08-21.** The stack-match
@@ -310,7 +348,7 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    shipped by the plugin, therefore cannot have been retired by the plugin, therefore is the
    user's. Skills are the one category where a wrong removal destroys work that exists
    nowhere else — a stale plugin skill is always re-installable from the plugin, a deleted
-   user skill is only in the backup.
+   user skill only exists in the user's own history.
 
    Report:
    ```
@@ -424,7 +462,7 @@ drift to be repaired by re-adding them.
    | **New** | In plugin, not in vendored | Will be added |
    | **Updated** | In both, content differs | Will be replaced |
    | **Unchanged** | In both, content same | No action |
-   | **Stale** | In vendored, not in plugin, AND matches known hook extensions (`*.js`, `*.py`, `*.sh`) in the hooks root | Will be REMOVED with backup |
+   | **Stale** | In vendored, not in plugin, AND matches known hook extensions (`*.js`, `*.py`, `*.sh`) in the hooks root | Will be REMOVED |
    | **Custom** | In vendored subdirectory not matching plugin structure | Report, preserve |
 
    **Do NOT classify the `lib/` subdirectory as "stale" or "custom" — it is the correct
@@ -471,7 +509,7 @@ project scaffolded before those directories existed and rebased since never rece
    | **New** | In plugin, not in vendored | Will be added |
    | **Updated** | In both, content differs | Will be replaced |
    | **Unchanged** | In both, content same | No action |
-   | **Stale** | In vendored, not in plugin | Will be REMOVED (backup first) |
+   | **Stale** | In vendored, not in plugin | Will be REMOVED |
 
    No custom-file category here, unlike commands: these directories are framework-owned in
    full. A file in them that the plugin does not ship is a leftover from a retired component.
@@ -540,7 +578,7 @@ Target Version: [version]
 **Behavior: non-interactive.** Display the diff summary (counts + per-category lists) so
 the user can see what's about to change, then proceed automatically. Do NOT call
 `AskUserQuestion` — the user invoked `/rebase-project` knowing it would update; asking
-"are you sure?" is anti-pattern after that opt-in. Safety comes from always-on backups,
+"are you sure?" is anti-pattern after that opt-in. Safety comes from the committed tree,
 not prompts.
 
 **For ALL modes, print the summary block:**
@@ -558,7 +596,7 @@ Rebase preview
 
 | Flag | Behavior |
 |------|----------|
-| (none) | Print summary, then proceed straight to Step 4 (apply with backups). |
+| (none) | Print summary, then proceed straight to Step 4 (apply). |
 | `--dry-run` | Print summary with "DRY RUN — no files written" header, then **skip Step 4**, proceed to Step 5 (report). |
 | `--preserve-all` | Print summary, set `agent_preserve=true`, `skill_preserve=true`, `settings_preserve=true` (Step 4 will still update commands and hooks but leave the preserved categories alone), proceed to Step 4. |
 
@@ -570,73 +608,62 @@ Rebase preview
 
 **TRD-C604: Implement selective update**
 
-#### 4.1 Update Agents (content-diff, always-backup)
+#### 4.1 Update Agents (content-diff)
 
-**Rule:** Update any agent whose content differs from the plugin's version. Always create
-a backup before replacing. Never touch user-created agents.
+**Rule:** Update any agent whose content differs from the plugin's version. Never touch
+user-created agents. Recovery is git — no backup step; see "Recovery is git" above.
 
-1. **Create backup of any agents that will be replaced:**
-   - For every agent classified **Updated** in §2.1, copy the current vendored file to
-     `.claude/agents.backup.<timestamp>/<agent>.md` before replacing.
-   - If no agents will be replaced, no backup directory is created (don't clutter).
-
-2. **For each NEW agent in plugin:**
+1. **For each NEW agent in plugin:**
    - Copy from plugin source to `.claude/agents/`
    - Report: "Added new agent: [name]"
 
-3. **For each UPDATED agent (content differs):**
-   - Backup created in step 1; overwrite `.claude/agents/<agent>.md` with plugin version
-   - Report: "Updated agent: [name] (backup: .claude/agents.backup.<timestamp>/<name>.md)"
+2. **For each UPDATED agent (content differs):**
+   - Overwrite `.claude/agents/<agent>.md` with the plugin version
+   - Report: "Updated agent: [name]"
 
-4. **For each UNCHANGED agent:**
+3. **For each UNCHANGED agent:**
    - No action; no log line (silent — covered by summary count)
 
-5. **For STALE agents (on §2.1's retired list):**
-   - Back up to `.claude/agents.backup.<timestamp>/` first
+4. **For STALE agents (on §2.1's retired list):**
    - **DELETE from `.claude/agents/`. This is not a judgement call** — the file was
-     classified by the diff step and the backup is already written. A retired agent
-     left in place stays selectable by name and re-introduces behaviour the framework
-     deliberately removed.
+     classified by the diff step, and `git restore` brings it back if that was wrong. A
+     retired agent left in place stays selectable by name and re-introduces behaviour the
+     framework deliberately removed.
    - Report: "Removed stale agent: [name]"
 
-6. **For CUSTOM agents (in vendored, not in plugin, not on the retired list):**
+5. **For CUSTOM agents (in vendored, not in plugin, not on the retired list):**
    - DO NOT remove
    - Report: "Kept custom agent: [name]"
 
 **If `agent_preserve=true` (set by `--preserve-all`):**
-- Skip steps 1-3; only add NEW agents (step 2).
+- Skip steps 2 and 4; only add NEW agents (step 1).
 - Report: "Existing agents preserved (preserve-all mode)"
 
-#### 4.2 Update Skills (recompute + content-diff, always-backup)
+#### 4.2 Update Skills (recompute + content-diff)
 
 **Rule:** Two-phase update. (a) Recompute the set of installed skills against the current
 `stack.md`. (b) For skills retained, replace folder content whenever any file differs from
-the plugin's version. Always create a backup of anything removed or replaced.
+the plugin's version. Recovery is git — no backup step; see "Recovery is git" above.
 
-1. **Create backup** (only if there's something to remove or replace):
-   - For each skill classified **Updated** or **Remove** in §2.2, copy the entire current
-     folder to `.claude/skills.backup.<timestamp>/<skill-name>/` before any change.
-
-2. **Remove STALE skills** — plugin-shipped, no longer matching `stack.md`:
+1. **Remove STALE skills** — plugin-shipped, no longer matching `stack.md`:
    - **Check the Custom guard FIRST:** if `@packages/skills/<skill-name>/` does not exist,
      this is a user-authored skill. **Do not delete it. Do not back it up and delete it.
      Leave it exactly where it is** and report it under "Custom skills (preserved)".
      Deleting it destroys work that exists nowhere else in the framework.
-   - Otherwise: delete `.claude/skills/<skill-name>/` (already backed up in step 1)
-   - Report: "Removed skill: [name] (backup: .claude/skills.backup.<timestamp>/<name>/)"
+   - Otherwise: delete `.claude/skills/<skill-name>/`
+   - Report: "Removed skill: [name]"
 
-3. **Add new skills** (newly match stack.md):
+2. **Add new skills** (newly match stack.md):
    - Copy entire folder from `@packages/skills/<skill-name>/` to `.claude/skills/<skill-name>/`
      including SKILL.md, REFERENCE.md, templates/, examples/, paths-globbed files
    - Report: "Added skill: [name]"
 
-4. **Update retained skills whose content differs** (the bucket from §2.2 step 3):
+3. **Update retained skills whose content differs** (the bucket from §2.2 step 3):
    - For each: remove the existing folder, then re-copy the plugin's current folder
      (mirror behavior — no merge; the plugin is the source of truth for skill content).
-     Already backed up in step 1.
-   - Report: "Updated skill: [name] (backup: .claude/skills.backup.<timestamp>/<name>/)"
+   - Report: "Updated skill: [name]"
 
-5. **Report:**
+4. **Report:**
    ```
    Skills:
    - Added:     [list]
@@ -647,48 +674,43 @@ the plugin's version. Always create a backup of anything removed or replaced.
    ```
 
 **If `skill_preserve=true` (set by `--preserve-all`):**
-- Skip steps 2 and 4 (no removals or content updates)
-- Step 3 still runs (newly-required skills are added)
+- Skip steps 1 and 3 (no removals or content updates)
+- Step 2 still runs (newly-required skills are added)
 - Report: "Existing skills preserved (preserve-all mode)"
 
 #### 4.3 Update Commands (Replace)
 
-**Preservation Rule:** Safe to replace - not customized per project. Backup created for safety.
+**Preservation Rule:** Safe to replace — not customized per project. Recovery is git; see
+"Recovery is git" above.
 
-1. **Create backup of modified commands:**
-   - Compare each vendored command with plugin version
-   - If content differs, copy to `.claude/commands.backup.<timestamp>/`
-   - Report: "Backed up modified command: [name]"
-
-2. **For each plugin command:**
+1. **For each plugin command:**
    - Copy from plugin source to `.claude/commands/`
    - Overwrite existing
    - Report: "Updated command: [name]"
 
-3. **For STALE commands (was plugin, no longer shipped):**
-   - Back up to `.claude/commands.backup.<timestamp>/` before removing
+2. **For STALE commands (was plugin, no longer shipped):**
    - Remove from `.claude/commands/`
    - Report: "Removed stale command: [name]"
 
    **DELETE IT. This is not a judgement call.** A stale file is one the plugin
    shipped and no longer ships — its classification was already decided by the diff
-   step, and the backup was already written. Leaving it in place is the failure
+   step, and `git restore` brings it back if that was wrong. Leaving it in place is the failure
    mode, not the safe option: a retired hook still registered fires on every event
    and errors; a retired agent stays selectable by name; a retired command stays
    invocable and re-introduces behaviour the framework deliberately removed.
    Reported from a live rebase 2026-08-20 — the run classified files as stale and
    then declined to remove them.
 
-   If you find yourself reasoning about whether the user might still want it: they
-   have the backup, and the plugin's current contents are the authority on what the
+   If you find yourself reasoning about whether the user might still want it: it is one
+   `git restore` away, and the plugin's current contents are the authority on what the
    framework ships. Preservation applies to CUSTOM files (never plugin-shipped),
    which is a separate branch below.
 
-4. **For CUSTOM commands (user-created, not from plugin):**
+3. **For CUSTOM commands (user-created, not from plugin):**
    - DO NOT remove
    - Report: "Kept custom command: [name]"
 
-5. **Command discovery:**
+4. **Command discovery:**
    - Dynamically discover all `.md` files from `@packages/core/commands/` and `@packages/router/commands/`
    - Exclude plugin-only commands: `init-project.md`, `rebase-project.md`
    - This ensures new commands added to the plugin are automatically picked up without
@@ -696,27 +718,22 @@ the plugin's version. Always create a backup of anything removed or replaced.
 
 #### 4.4 Update Hooks (Replace)
 
-**Preservation Rule:** Safe to replace - not customized per project. Backup created for safety.
+**Preservation Rule:** Safe to replace — not customized per project. Recovery is git; see
+"Recovery is git" above.
 
-1. **Create backup of modified hooks:**
-   - Compare each vendored hook with plugin version
-   - If content differs, copy to `.claude/hooks.backup.<timestamp>/`
-   - Report: "Backed up modified hook: [name]"
-
-2. **For each plugin hook:**
+1. **For each plugin hook:**
    - Copy from plugin source to `.claude/hooks/`
    - Overwrite existing
    - Ensure execute permission on shell scripts
    - Report: "Updated hook: [name]"
 
-3. **For STALE hooks (was plugin, no longer shipped):**
-   - Back up to `.claude/hooks.backup.<timestamp>/` before removing
+2. **For STALE hooks (was plugin, no longer shipped):**
    - Remove from `.claude/hooks/`
    - Report: "Removed stale hook: [name]"
 
    **DELETE IT. This is not a judgement call.** A stale file is one the plugin
    shipped and no longer ships — its classification was already decided by the diff
-   step, and the backup was already written. Leaving it in place is the failure
+   step, and `git restore` brings it back if that was wrong. Leaving it in place is the failure
    mode, not the safe option: a retired hook still registered fires on every event
    and errors; a retired agent stays selectable by name; a retired command stays
    invocable and re-introduces behaviour the framework deliberately removed.
@@ -724,7 +741,7 @@ the plugin's version. Always create a backup of anything removed or replaced.
    then declined to remove them.
 
    If you find yourself reasoning about whether the user might still want it: they
-   have the backup, and the plugin's current contents are the authority on what the
+   is one `git restore` away, and the plugin's current contents are the authority on what the
    framework ships. Preservation applies to CUSTOM files (never plugin-shipped),
    which is a separate branch below.
 
@@ -754,11 +771,11 @@ the plugin's version. Always create a backup of anything removed or replaced.
    ls -l .claude/hooks/*.js .claude/hooks/*.py .claude/hooks/*.sh | grep -v '^-rwx' && echo "STILL NOT EXECUTABLE"
    ```
 
-4. **For CUSTOM hooks (user-created):**
+3. **For CUSTOM hooks (user-created):**
    - DO NOT remove
    - Report: "Kept custom hook: [name]"
 
-5. **Hook discovery — flat hooks (most):**
+4. **Hook discovery — flat hooks (most):**
    - Dynamically scan these plugin directories for hook files:
      - `@packages/router/hooks/` - Routing hooks
      - `@packages/core/hooks/` - Core workflow hooks (excluding `lib/`)
@@ -766,7 +783,7 @@ the plugin's version. Always create a backup of anything removed or replaced.
    - Install at `.claude/hooks/<basename>` (flat).
    - This ensures new hooks added to the plugin are automatically picked up.
 
-6. **Hook discovery — special-layout hooks (always handle):**
+5. **Hook discovery — special-layout hooks (always handle):**
    These MUST be installed at fixed subdirectory paths per the scaffold convention:
 
    | Plugin source path | Installed path | Action on content diff |
@@ -805,7 +822,7 @@ Plus `.claude/hooks/notify-complete.sh` (not event-registered — invoked direct
 current install must contain — never a hand-maintained list. Counting the rows gives the expected
 registration count for the pre-write check in §4.6.
 
-7. **Settings.json hook path sanity:**
+6. **Settings.json hook path sanity:**
    After updating hooks, verify the project's `settings.json` references match the
    installed paths, and that no registration survives for a retired hook
    (`permitter/permitter.js`, `learning.sh`, `save-remote-logs.js`). A registration pointing
@@ -814,19 +831,17 @@ registration count for the pre-write check in §4.6.
 
 #### 4.5 Update Runtime Modules (`workflows/`, `lib/`, `contracts/`) — Replace
 
-**Preservation Rule:** Framework-owned; safe to replace. Backup created for safety.
+**Preservation Rule:** Framework-owned; safe to replace. Recovery is git.
 
 1. **Create the directories if absent** — `mkdir -p .claude/workflows .claude/lib
    .claude/contracts`. On an old install all three are missing, and creating them IS the fix.
 
-2. **Back up any modified file** to `.claude/<dir>.backup.<timestamp>/` before overwriting.
-
-3. **For each plugin file**, copy to the matching vendored directory and overwrite.
+2. **For each plugin file**, copy to the matching vendored directory and overwrite.
    Report `Added` when the destination did not exist and `Updated` when it did — the two
    read very differently in a rebase report, and on a stale project the whole set will be
    `Added`.
 
-4. **Exclusions, which are not optional:**
+3. **Exclusions, which are not optional:**
    - `*.test.js` from BOTH `workflows/` and `lib/`
    - `test-harness.js` from `workflows/`
 
@@ -834,11 +849,11 @@ registration count for the pre-write check in §4.6.
    `test-harness.js` into user projects before this filter existed — dead weight in a tree
    with no runner to execute them.
 
-5. **For STALE files:** back up, then **DELETE**. Report `Removed stale <kind>: [name]`.
-   Not a judgement call — see the note under §4.3. The backup is already written and
+4. **For STALE files: DELETE.** Report `Removed stale <kind>: [name]`.
+   Not a judgement call — see the note under §4.3. `git restore` brings it back and
    the plugin's contents are the authority on what ships.
 
-6. **Verify before reporting success:**
+5. **Verify before reporting success:**
    ```bash
    ls .claude/workflows .claude/lib .claude/contracts
    ```
@@ -951,12 +966,12 @@ These encode behavioral guarantees enforced by hooks: the discipline guards are
 enforces and why. A stale rule file is therefore not cosmetic — it documents behaviour the
 framework no longer has.
 
-Policy — **replace if it differs from the framework template, back up first**:
+Policy — **replace if it differs from the framework template**:
 
 - If missing: copy from the framework template.
 - If present and byte-identical: leave it, count as unchanged.
-- If present and DIFFERENT: back up to `.claude/rules/<basename>.bak-<timestamp>` and
-  replace with the framework version.
+- If present and DIFFERENT: replace with the framework version. Recovery is git, same as
+  every other replaced file — see "Recovery is git" above.
 - `--preserve-all` is the escape hatch: it leaves these alone, same as it does for agents
   and skills.
 
@@ -967,20 +982,20 @@ rebase, and then frozen forever. A live project reported its `autonomy.md` still
 documenting, at length, an autonomous-mode flag this framework had deleted five releases
 earlier — not because anything failed, but because no mechanism existed that could ever
 update that file. Rules were
-receiving strictly worse treatment than commands, which have always been replaced-if-differs
-with a backup, and which carry the same "the user may have annotated" risk.
+receiving strictly worse treatment than commands, which have always been replaced when they
+differ and which carry the same "the user may have annotated" risk.
 
-The backup is what makes this safe, and it is the same protection commands and hooks
-already rely on. A user who genuinely annotated a framework rule finds their version in the
-`.bak` file and can re-apply it; a user who did not — the overwhelming majority — silently
-gets the current rules for the first time.
+What makes this safe is the clean-tree precondition plus the commit history — the same
+protection commands and hooks already rely on. A user who annotated a framework rule sees
+it in `git diff` after the rebase and can `git restore` or re-apply; a user who did not —
+the overwhelming majority — silently gets the current rules for the first time.
 
 **This does not touch user-owned governance.** `constitution.md`, `stack.md` and
 `process.md` are still never modified, with or without `--force`.
 
 Report:
 - "Governance files preserved (not modified by rebase)"
-- "Framework rules: N installed, M updated (backed up), K unchanged"
+- "Framework rules: N installed, M updated, K unchanged"
 
 </selective-update>
 
@@ -1041,7 +1056,7 @@ Report:
 
 ### Framework Rules
 - Installed (new): [list]
-- Updated (differed from the plugin; previous version saved to `<name>.bak-<timestamp>`): [list]
+- Updated (differed from the plugin; see `git diff` for what changed): [list]
 - Unchanged: [count]
 
 ### Recommended Manual Review
@@ -1057,14 +1072,18 @@ The following files may benefit from manual review:
 3. **Skills removed** - Verify these are no longer needed:
    [list of removed skills]
 
-### Backups Created
+### Reviewing and undoing this rebase
 
-| Backup | Location |
-|--------|----------|
-| Skills | `.claude/skills.backup.[timestamp]/` |
-| Agents (if any updated) | `.claude/agents.backup.[timestamp]/` |
-| Commands (if modified) | `.claude/commands.backup.[timestamp]/` |
-| Hooks (if modified) | `.claude/hooks.backup.[timestamp]/` |
+Everything above was written to a git-tracked tree that was clean before the run:
+
+```bash
+git diff --stat .claude/          # what this rebase changed
+git diff .claude/rules/           # e.g. just the framework rules
+git restore .claude/              # undo the whole rebase
+git restore .claude/agents/foo.md # undo one file
+```
+
+No backup directories are created — see "Recovery is git".
 
 ### Next Steps
 
@@ -1096,65 +1115,27 @@ The following files may benefit from manual review:
 
 ---
 
-## Rollback Procedure
+## Rollback
 
-If issues occur after rebase, you can restore from backups:
-
-### Automatic Rollback
-
-If rebase fails mid-execution, partial changes may exist. To restore:
-
-1. **Check for backup directories:**
-   ```
-   ls -la .claude/*.backup.*
-   ```
-
-2. **Restore each component as needed:**
-
-   **Restore Skills:**
-   ```bash
-   rm -rf .claude/skills
-   mv .claude/skills.backup.<timestamp> .claude/skills
-   ```
-
-   **Restore Agents (if any were replaced):**
-   ```bash
-   rm -rf .claude/agents
-   mv .claude/agents.backup.<timestamp> .claude/agents
-   ```
-
-   **Restore Commands:**
-   ```bash
-   rm -rf .claude/commands
-   mv .claude/commands.backup.<timestamp> .claude/commands
-   ```
-
-   **Restore Hooks:**
-   ```bash
-   rm -rf .claude/hooks
-   mv .claude/hooks.backup.<timestamp> .claude/hooks
-   ```
-
-3. **Reset version in settings.json:**
-   - Edit `.claude/settings.json`
-   - Change `ensemble.version` to previous version
-   - Change `ensemble.rebased_at` to previous timestamp
-
-### Manual Rollback
-
-If backups are missing, you can reinstall:
-
-1. **Full reset:** Run `/init-project --force` to regenerate all vendored files
-2. **Partial reset:** Use `/add-skill` to re-add specific skills
-
-### Cleanup Old Backups
-
-After verifying the rebase is successful:
+The working tree was clean before this ran (the precondition in "Recovery is git" enforces
+it), so the rebase is exactly one commit's worth of uncommitted change:
 
 ```bash
-# Remove backup directories older than 7 days
-find .claude -name "*.backup.*" -type d -mtime +7 -exec rm -rf {} \;
+git restore .claude/          # undo everything this command wrote
+git restore --staged .claude/ # if you already staged it
 ```
+
+Undo one component by narrowing the path — `git restore .claude/skills/`. Inspect before
+undoing with `git diff .claude/`.
+
+**If the rebase failed part-way through**, the same command applies: partial changes are
+still just uncommitted modifications. There is no partial-restore ordering to get right,
+which is the main thing the old backup-directory procedure got wrong — its documented
+restore was `rm -rf .claude/skills && mv .claude/skills.backup.<ts> .claude/skills`, which
+destroys any skill added since the backup was taken.
+
+**Reinstalling from scratch** (if `.claude/` is beyond repair): `/init-project --force`
+regenerates the whole vendored runtime.
 
 ---
 
@@ -1165,28 +1146,32 @@ find .claude -name "*.backup.*" -type d -mtime +7 -exec rm -rf {} \;
 | `.claude/` doesn't exist | Report error, suggest /init-project |
 | Plugin source not accessible | Report error, abort |
 | Permission denied on file write | Report specific file, suggest permissions fix |
-| Backup creation fails | Abort update for that component, report |
 | JSON parse error in settings | Report error, offer to reset settings |
 | Skill copy fails | Log warning, continue with other skills |
-| Git conflicts detected | Warn user, suggest committing changes first |
+| Uncommitted changes under `.claude/` | **Abort before writing anything**, list the files, tell the user to commit or stash (or pass `--force` to discard them) |
+| Not a git repository | **Abort before writing anything** — the rebase would be unrecoverable. Suggest `git init && git add .claude && git commit` |
 
 ---
 
 ## Flag Behavior Summary
 
-| Flag | Agents | Skills | Commands | Hooks | Settings | Rules |
-|------|--------|--------|----------|-------|----------|-------|
-| (default) | Add new only | Recompute | Replace | Replace | Merge | Preserve |
-| (default)        | Update on content-diff | Recompute + update on content-diff | Replace | Replace | Merge | Preserve |
-| `--dry-run`      | Report only | Report only | Report only | Report only | Report only | Report only |
-| `--preserve-all` | Add new only | Add new only | Replace | Replace | Add new only | Preserve |
+`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`) is never
+touched by any flag; **framework-shipped** (`async-discipline.md`, `autonomy.md`,
+`command-status.md`, `verification.md`) behaves like commands.
+
+| Flag | Agents | Skills | Commands | Hooks | Settings | Framework rules | Governance |
+|------|--------|--------|----------|-------|----------|-----------------|------------|
+| (default)        | Update on content-diff | Recompute + update on content-diff | Replace | Replace | Merge | Update on content-diff | Never |
+| `--dry-run`      | Report only | Report only | Report only | Report only | Report only | Report only | Never |
+| `--preserve-all` | Add new only | Add new only | Replace | Replace | Add new only | Preserve | Never |
+| `--force`        | (does not change WHAT is updated — it only skips the clean-tree precondition) | | | | | | Never |
 
 ---
 
 ## Notes
 
 - This command is safe to run multiple times
-- Backups are created for destructive operations
+- Destructive operations are recoverable from git (clean tree enforced up front)
 - Rules files (constitution.md, stack.md, process.md) are NEVER modified
 - Custom agents/commands/hooks (not from plugin) are NEVER removed
 - Version tracking enables incremental upgrades

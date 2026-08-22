@@ -27,6 +27,18 @@
 #   npx bats test/integration/tests/notify-on-complete.test.sh
 # =============================================================================
 
+# `! cmd` does NOT fail a bats test unless it is the LAST line of the test: bash
+# suppresses errexit for any command prefixed with `!`. Three assertions here were
+# therefore dead, including the L3 injection check. `refute` is a plain command, so
+# its non-zero exit trips errexit normally. Found 2026-08-21.
+refute() {
+    if "$@"; then
+        echo "refute: expected failure, but this SUCCEEDED: $*" >&2
+        return 1
+    fi
+    return 0
+}
+
 setup() {
     REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/../../.." && pwd)"
     CANON_COMMANDS="${REPO_ROOT}/packages/core/commands"
@@ -332,8 +344,8 @@ JSON
     # still omit the standard block -- interactive mode is genuinely exempt -- but each
     # must state that non-interactive mode obeys autonomy discipline, or an unattended
     # refine run could stop to ask questions with nothing forbidding it.
-    ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-prd.md"
-    ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-trd.md"
+    refute grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-prd.md"
+    refute grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-trd.md"
 
     for cmd in refine-prd refine-trd; do
         grep -qi "non-interactive" "${CANON_COMMANDS}/${cmd}.md"
@@ -354,9 +366,15 @@ JSON
     grep -q "HEDGED OFFERS ARE STILL OFFERS\|Hedged offers to pause are STILL pauses\|even framing.*I'll proceed unless" "$f"
 }
 
+@test "L2b: autonomy.md narrows the four ask-cases to STUCK, with no flag to enable it" {
+    # This test lost its @test header in the 4.1.19 wiggum cleanup, leaving an orphaned
+    # body that broke test GATHERING for the whole file — every test here silently
+    # stopped running. Restored, and re-pointed at what autonomy.md says now that
+    # autonomy is the default rather than something a flag turned on.
     local f="${REPO_ROOT}/.claude/rules/autonomy.md"
-    grep -q "doubly enforced\|doubly-enforced" "$f"
-    grep -q "STUCK conditions" "$f"
+    grep -q "Autonomy is the default" "$f"
+    grep -q "There is no flag that enables this and none that disables it" "$f"
+    grep -qi "narrow, in practice, to the STUCK condition" "$f"
 }
 
 @test "L2b: every non-refine command's embedded block forbids hedged offers" {
@@ -376,17 +394,24 @@ JSON
     fi
 }
 
+@test "L2b: no command still carries the retired autonomous-mode flag block" {
+    # This was the --wiggum test. Its @test header was deleted in the 4.1.19 cleanup
+    # and the body left behind, which broke test GATHERING for this entire file — so
+    # every test in it silently stopped running rather than failing loudly. Rewritten
+    # as the useful inverse: autonomy is now unconditional, so no command may still
+    # describe a flag that "doubly enforces" it.
     local cmds=(implement-trd
                 fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 update-project cleanup-project fold-prompt
                 investigate-issue augment-trd-figma init-project rebase-project)
-    local missing=()
+    local stale=()
     for cmd in "${cmds[@]}"; do
-        if ! grep -q "doubly enforced\|doubly-enforced" "${CANON_COMMANDS}/${cmd}.md"; then
-            missing+=("$cmd")
+        if grep -qi "doubly enforced\|doubly-enforced\|wiggum" "${CANON_COMMANDS}/${cmd}.md"; then
+            stale+=("$cmd")
         fi
     done
-    if [[ ${#missing[@]} -gt 0 ]]; then
+    if [[ ${#stale[@]} -gt 0 ]]; then
+        printf 'Commands still describing the retired autonomous-mode flag:\n%s\n' "${stale[*]}" >&2
         return 1
     fi
 }
@@ -426,7 +451,7 @@ JSON
       | node "$SESSION_CTX_HOOK" >/dev/null 2>&1 || true
 
     # CLAUDE_SESSION_ID should NOT have been written
-    ! grep -q "CLAUDE_SESSION_ID=evil" "$TMP_ENV_FILE"
+    refute grep -q "CLAUDE_SESSION_ID=evil" "$TMP_ENV_FILE"
 
     rm -f "$TMP_ENV_FILE"
     unset CLAUDE_ENV_FILE
@@ -462,6 +487,11 @@ for h in manifest['hooks']:
         continue
     with open(os.path.join(prompts_dir, h['promptFile'])) as fh:
         prompt_text_to_file[fh.read().rstrip(chr(10))] = h['file']
+
+# The Stop chain after --wiggum's removal (4.1.19). This list was deleted along with
+# the flag, leaving `expected` undefined — a NameError that made this test error out
+# rather than compare, which is how 35413ce's settings.json drift went unnoticed.
+expected = ['async-discipline.js', 'autonomy-discipline.js', 'notify.sh']
 
 s = json.load(open('$settings'))
 names = []

@@ -13,6 +13,20 @@
 #   npx bats test/integration/tests/implement-trd-structure.test.sh
 # =============================================================================
 
+# `! cmd` does NOT fail a bats test unless it is the LAST line: bash suppresses
+# errexit for any command prefixed with `!` (POSIX: "the -e setting shall be ignored
+# ... when the command is preceded by !"). Every negated assertion above the last
+# line of its test was therefore dead — `! true` passed. Found 2026-08-21 when a
+# reintroduced backup step failed to trip its own guard. `refute` is a plain command,
+# so its non-zero exit DOES trip errexit.
+refute() {
+    if "$@"; then
+        echo "refute: expected failure, but this SUCCEEDED: $*" >&2
+        return 1
+    fi
+    return 0
+}
+
 setup() {
     REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/../../.." && pwd)"
     CORE_COMMANDS="${REPO_ROOT}/packages/core/commands"
@@ -344,7 +358,7 @@ setup() {
     # background subagent -- violating FV-B004's acceptance criteria and
     # contradicting Step 7.1 of this same file, which explicitly forgoes
     # Agent({name}) to satisfy AC-F14.5. Caught by the phase-2 review.
-    ! grep -q 'name="success-definition"' "$IMPLEMENT_TRD_MD"
+    refute grep -q 'name="success-definition"' "$IMPLEMENT_TRD_MD"
 }
 
 @test "Step 3.6's derive prompt is barred from carrying the TRD" {
@@ -528,13 +542,13 @@ PY
 }
 
 @test "autonomy is the default, with no flag anywhere in the runtime" {
-    ! grep -qi 'wiggum' "$IMPLEMENT_TRD_MD"
+    refute grep -qi 'wiggum' "$IMPLEMENT_TRD_MD"
     grep -q 'Autonomy is the default' "$IMPLEMENT_TRD_MD"
     # And nothing in the shipped runtime still references it.
-    ! grep -rqi 'wiggum' "${REPO_ROOT}/packages/core/commands" "${REPO_ROOT}/packages/core/hooks" "${REPO_ROOT}/.claude/rules"
+    refute grep -rqi 'wiggum' "${REPO_ROOT}/packages/core/commands" "${REPO_ROOT}/packages/core/hooks" "${REPO_ROOT}/.claude/rules"
     [ ! -f "${REPO_ROOT}/packages/core/hooks/wiggum.js" ]
     [ ! -f "${REPO_ROOT}/.claude/hooks/wiggum.js" ]
-    ! grep -q 'wiggum' "${REPO_ROOT}/packages/core/hooks/hooks.manifest.json"
+    refute grep -q 'wiggum' "${REPO_ROOT}/packages/core/hooks/hooks.manifest.json"
 }
 
 @test "the router banner does not advertise retired commands" {
@@ -542,8 +556,8 @@ PY
     # wrong statement in the framework. It advertised /harden-trd-team and
     # /verify-trd-team for five releases after ITR-B012 deleted them.
     R="${REPO_ROOT}/packages/router/hooks/router.py"
-    ! grep -q 'harden-trd-team' "$R"
-    ! grep -q 'verify-trd-team' "$R"
+    refute grep -q 'harden-trd-team' "$R"
+    refute grep -q 'verify-trd-team' "$R"
     grep -q 'verify-build' "$R"
 }
 
@@ -584,11 +598,12 @@ PY
 
     # The framework category must say UPDATED, and must NOT say preserve-as-is.
     grep -q 'Framework-shipped rules (UPDATED on rebase' <<<"$SECTION"
-    ! grep -q 'copied-if-missing on rebase' <<<"$SECTION"
-    ! grep -q 'preserve as-is' <<<"$SECTION"
+    refute grep -q 'copied-if-missing on rebase' <<<"$SECTION"
+    refute grep -q 'preserve as-is' <<<"$SECTION"
 
-    # Replacement must be backed up — that is what makes overwriting safe.
-    grep -q 'bak-' <<<"$SECTION"
+    # Replacement must point at git for recovery — no parallel backup copies.
+    grep -q 'Recovery is git' <<<"$SECTION"
+    refute grep -q 'bak-' <<<"$SECTION"
 
     # User-owned governance must STILL be untouchable. The fix must not have
     # widened to constitution/stack/process.
@@ -659,4 +674,44 @@ PY
         echo "orphaned table row: $line (preceded by: '$prev')" >&2
         false
     done
+}
+
+@test "rebase writes no backup copies — git is the undo" {
+    # Backups duplicated git (.claude/ is committed per constitution.md), cluttered the
+    # user's tree with four parallel <dir>.backup.<timestamp>/ directories, needed their
+    # own cleanup step, and made rollback MORE dangerous than git: the documented restore
+    # was `rm -rf .claude/skills && mv .claude/skills.backup.<ts> .claude/skills`, which
+    # destroys any skill added since the backup was taken.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+
+    # No step may instruct creating a backup directory.
+    refute grep -qi 'Create backup' "$RP"
+    refute grep -q 'copy to `.claude/commands.backup' "$RP"
+    refute grep -q 'copy the entire current' "$RP"
+    refute grep -qi 'Cleanup Old Backups' "$RP"
+    refute grep -qi 'always-backup\|always backs up\|Backups are always created' "$RP"
+
+    # Rollback must be git, and must not tell the user to rm -rf and mv a backup in.
+    ROLLBACK="$(sed -n '/^## Rollback/,/^## Error Handling/p' "$RP")"
+    grep -q 'git restore .claude/' <<<"$ROLLBACK"
+    refute grep -q 'mv .claude/skills.backup.<timestamp>' <<<"$ROLLBACK"
+}
+
+@test "rebase refuses to run on a dirty or unversioned .claude tree" {
+    # With no backups, a clean tree is the ONLY thing between an uncommitted local edit
+    # and permanent loss. The command previously had no git check of any kind.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+
+    # The check must live in the EXECUTION path (Step 0), not only in prose.
+    STEP0="$(sed -n '/^### Step 0: Validate Installation/,/^### Path Resolution/p' "$RP")"
+    grep -q 'git status --porcelain -- .claude/' <<<"$STEP0"
+    grep -q 'BEFORE anything else writes' <<<"$STEP0"
+
+    # Both failure modes must be named, and both must abort.
+    grep -q 'Uncommitted changes under `.claude/`' "$RP"
+    grep -q 'Not a git repository' "$RP"
+
+    # --force must be a documented flag, since the precondition points at it.
+    grep -q 'argument-hint.*--force' "$RP"
+    grep -q '`--force` - Proceed even when' "$RP"
 }

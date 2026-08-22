@@ -51,7 +51,16 @@ case "${1:-}" in
 esac
 
 MANIFEST="$REPO_ROOT/packages/core/hooks/hooks.manifest.json"
+# EVERY settings.json carrying a generated "hooks" block, colon-separated.
+#
+# Until 2026-08-21 this was the template alone, and the two live copies drifted
+# silently: 35413ce fixed the autonomy judge prompt, regenerated the template, and
+# left BOTH live copies running the OLD prompt — so the shipped fix was not in force
+# anywhere, including in this repo's own runtime. The template is what new projects
+# get; these two are what actually runs here and what the plugin ships.
 SETTINGS_TEMPLATE="$REPO_ROOT/packages/core/templates/claude-directory/settings.json"
+SETTINGS_TEMPLATE="$SETTINGS_TEMPLATE:$REPO_ROOT/.claude/settings.json"
+SETTINGS_TEMPLATE="$SETTINGS_TEMPLATE:$REPO_ROOT/packages/full/.claude/settings.json"
 INIT_PROJECT_CORE="$REPO_ROOT/packages/core/commands/init-project.md"
 INIT_PROJECT_VENDORED="$REPO_ROOT/.claude/commands/init-project.md"
 # rebase-project.md carries the same generated hook enumeration as init-project.md.
@@ -79,7 +88,9 @@ REBASE_PROJECT_VENDORED="$REPO_ROOT/.claude/commands/rebase-project.md"
 # the generator syncs them, and --check fails when they diverge.
 PLUGIN_ONLY_DIR="$REPO_ROOT/packages/full/commands/plugin-only"
 
-for f in "$MANIFEST" "$SETTINGS_TEMPLATE" "$INIT_PROJECT_CORE"; do
+# SETTINGS_TEMPLATE is colon-separated; split it for the existence check.
+IFS=':' read -r -a _settings_targets <<< "$SETTINGS_TEMPLATE"
+for f in "$MANIFEST" "${_settings_targets[@]}" "$INIT_PROJECT_CORE"; do
     if [[ ! -f "$f" ]]; then
         echo "ERROR: missing required file: $f" >&2
         exit 1
@@ -94,7 +105,8 @@ import re
 import sys
 import tempfile
 
-manifest_path, settings_path, init_core_path, init_vendored_path, check_str = sys.argv[1:6]
+manifest_path, settings_paths_arg, init_core_path, init_vendored_path, check_str = sys.argv[1:6]
+settings_paths = [p for p in settings_paths_arg.split(":") if p]
 rebase_core_path = sys.argv[6] if len(sys.argv) > 6 else None
 rebase_vendored_path = sys.argv[7] if len(sys.argv) > 7 else None
 # The caller passes bash's lowercase "true"/"false". Comparing against "True"
@@ -209,11 +221,16 @@ def build_hooks_block():
         out[event] = entries
     return out
 
-with open(settings_path) as fh:
-    settings = json.load(fh, object_pairs_hook=collections.OrderedDict)
-
 new_hooks_block = build_hooks_block()
-if settings.get("hooks") != new_hooks_block:
+
+for settings_path in settings_paths:
+    if not os.path.exists(settings_path):
+        fail(f"settings target not found: {settings_path}")
+    with open(settings_path) as fh:
+        settings = json.load(fh, object_pairs_hook=collections.OrderedDict)
+
+    if settings.get("hooks") == new_hooks_block:
+        continue
     if CHECK:
         print(f"DRIFT: {settings_path} hooks block is stale", file=sys.stderr)
         sys.exit(1)
