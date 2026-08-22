@@ -91,7 +91,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 9a | Functional verification of delivered software | 3–5 days | A green suite says nothing about whether a user can do what the PRD promised | **Shipped 4.1.18** — `--verify`, `/verify-build`, live-verified 20/20 |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
-| 12 | Command-fix delivery — get a framework bug fix into existing projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done 4.1.18** — see §12 |
+| 12 | Command-fix delivery — get a framework bug fix into existing projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; the four structural sub-items in §12 remain |
 
 ---
 
@@ -1458,6 +1458,41 @@ projects rather than from tests:
 frontmatter inference; agents given a Stale category they never had; and mirror parity moved
 from a hardcoded 14-file list to a discovered sweep (which immediately found
 `.claude/hooks/wiggum.js` committed at an older revision than its source).
+
+**Done in 4.1.19 — three MORE of the same class, again found from a live project's report,
+not from tests:**
+
+- **Framework rules could never be updated at all.** §4.7 of `rebase-project.md` opened by
+  declaring "two categories with opposite update policies" and then gave both the same one:
+  preserve-as-is. So `async-discipline.md`, `autonomy.md`, `command-status.md` and
+  `verification.md` were copied once, at a project's first rebase, and frozen permanently.
+  Surfaced by a project still reading `--wiggum` documented at length five releases after the
+  flag was deleted — nothing had failed; no mechanism existed that could ever have updated
+  that file. Rules were getting strictly WORSE treatment than commands, which had always been
+  replaced-if-differs.
+- **User-authored skills were classified for deletion on every rebase.** Commands have a
+  `category:` frontmatter discriminator, agents a name list, hooks extension rules — skills
+  had nothing, only "remove what no longer matches the stack", computed from a table that only
+  knows plugin skills. Four survived a live rebase solely because the agent noticed they were
+  cited in `stack.md` and overrode its own instructions. This is the one category where a
+  wrong removal destroys work that exists nowhere else.
+- **Backups removed in favour of git**, with a clean-tree precondition at Step 0. The four
+  `<dir>.backup.<timestamp>/` trees duplicated a committed runtime while offering worse
+  tooling, and made rollback *more* dangerous than git — the documented restore
+  (`rm -rf .claude/skills && mv .claude/skills.backup.<ts> .claude/skills`) destroys any skill
+  added since.
+
+**Done in 4.1.20 — the generated-artifact half of the same problem.** A fix can be correct in
+`packages/core`, mirrored, committed, AND still not be in force: 4.1.18's autonomy-judge fix
+was regenerated into its prompt FILE and tested against that file, while every live
+`settings.json` kept the old text for two releases. `generate-hooks-artifacts.sh` now writes
+all three settings files and `--check` detects drift in any, gated in CI along with a
+structural linter for command/rule markdown.
+
+**The pattern across all seven.** Every one was correct in this checkout and wrong or absent
+where it ships, and not one was found by a test — three came from live project reports, three
+from a user question about backups, one from reading a hook payload. That is the argument for
+sub-item 1 below: this class is invisible to assertions about what a command SAYS.
 
 **Still open, and why this is an item rather than a closed bug:**
 
