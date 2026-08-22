@@ -1756,6 +1756,8 @@ which is what makes the verdict trustworthy enough to act on unattended.
 **Hard rules, no judgment involved:**
 
 - **Non-reproducible → never AUTO.** If it cannot be reproduced it cannot be verified fixed.
+- **Zero derived criteria → never AUTO** (§12.6). Nothing would check the change. This is the
+  rule that covers conversational changes whose outcome cannot be stated checkably.
 - **An owner-governed "never unattended" path list** — auth, payments, migrations, secrets,
   deletion paths — forces REVIEW or ESCALATE regardless of how small the diff is. Owner-owned
   policy, like `verification.md`, not something an agent infers.
@@ -1830,7 +1832,45 @@ So Step 3.6 gains a second derivation source, and the state field records which 
 | Source | When | The criterion it yields |
 |---|---|---|
 | PRD | feature work | as today |
-| **Reproduction** | the TRD carries a `## Reproduction` section and no PRD | one row: *"<the repro steps> no longer produce <actual>; they produce <expected>"*, `Cites` the Reproduction section, `Evidence` = run the steps |
+| **Reproduction** | the TRD carries `## Reproduction` and no PRD (a defect) | one row: *"<the repro steps> no longer produce <actual>; they produce <expected>"*, `Cites` the Reproduction section, `Evidence` = run the steps |
+| **Intended change** | the TRD carries `## Intended Change` and no PRD (a small change decided in conversation) | one row per stated outcome: *"the export button sits in the page header"*, `Cites` the recorded decision, `Evidence` = exercise the changed surface |
+
+**The third source is not optional — it is what makes this work for the half of `/fix` that is
+not a bug.** A change decided in conversation ("move the export button to the header", "this
+copy should read X") has nothing to reproduce, so the reproduction source yields nothing and
+verification would silently do nothing again — the same defect one layer down.
+
+**`## Intended Change` is to a conversational change what `## Reproduction` is to a defect**:
+the durable, extractable record of what success means, written into the TRD by `/fix` and cited
+to the conversation turn it came from (§12.2 already requires a warm run to record that turn).
+Provenance is legitimate under §10 — "an explicit user instruction" is a named, valid source.
+
+**The isolation rule holds identically, and needs stating because it is less obvious here.**
+For a defect the reproduction is evidence recorded *before* the fix was designed, so it cannot
+be circular. For a change, the decision looks closer to the plan — but the two are still
+distinct: *"the button sits in the header"* is the **outcome**, while *"move it from
+`Sidebar.tsx` to `Header.tsx` and update the snapshot"* is the **plan**. The deriver gets the
+outcome, never the task list, exactly as before, and by the same means: an extract, never the
+TRD path.
+
+### Zero criteria ⇒ never AUTO
+
+This is the guard the conversational path specifically needs, and it unifies both.
+
+The contract's existing rules already handle vagueness correctly: a row that cannot state
+evidence is **dropped, not invented**, and "zero rows is a legitimate outcome, not a failure".
+So *"make the dashboard feel cleaner"* yields **no criteria** — correctly, because nothing
+about it is checkable.
+
+But zero criteria means **nothing will verify the change**, and letting a machine implement
+that unattended is exactly what §12.4's tier exists to prevent. So:
+
+> **A definition that derives zero criteria caps the tier at REVIEW.**
+
+It falls out of both paths for free: a defect that cannot be reproduced already never reaches
+AUTO, and a change whose outcome cannot be stated checkably now cannot either. The rule is
+mechanical — count the rows — and it closes the one route by which `/fix` could have written
+code unattended with nothing to check it against.
 
 `not run: no PRD resolved` then becomes `not run: no success definition derivable` — true when
 **neither** source is present, which is the condition that was always meant.
@@ -1853,8 +1893,8 @@ section**, never a path to the TRD.
 
 | # | Change | Where |
 |---|---|---|
-| 1 | Resolution order gains a second source: PRD, else the TRD's `## Reproduction` | `implement-trd.md` Step 3.6 |
-| 2 | Dispatch passes the reproduction **extract**, never the TRD path — D5's isolation intact | `implement-trd.md` Step 3.6 |
+| 1 | Resolution order gains two sources: PRD, else `## Reproduction`, else `## Intended Change` | `implement-trd.md` Step 3.6 |
+| 2 | Dispatch passes the **extract** of whichever source won, never the TRD path — D5's isolation intact | `implement-trd.md` Step 3.6 |
 | 3 | Generalise the source and the **mandatory citation rule** — `Cites` currently must name "a PRD line or section" (8 PRD references in the file) | `contracts/functional-verification.md` |
 | 4 | `not run: no PRD resolved` → `no success definition derivable`; state records which source was used | `implement-trd.md` Step 8 |
 
