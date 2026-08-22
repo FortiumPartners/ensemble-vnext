@@ -1630,11 +1630,31 @@ reported complete until the recorded reproduction has been re-run and fails to r
 eligibility gate demonstrably rejects something and names `/create-prd`; and
 `/investigate-issue` and `/fix-issue` are deleted rather than left invokable.
 
-### Open, and genuinely the owner's call
+### Bare `/spec` on a cold session: ask, never guess
 
-Whether the warm path should be able to run **without** a prior conversation about the issue —
-i.e. whether bare `/spec` on a cold session is an error or falls back to asking. Everything else
-above is decided.
+**Decided 2026-08-22.** Bare `/spec` reads the session for a specific, identifiable subject.
+
+- **Found one** → warm path, with the grounding pass above.
+- **Found nothing, or only vague discussion** → **ask what to spec**, one question, then run
+  the cold path on the answer.
+
+Erroring and asking cost the same round trip, so erroring buys nothing; and asking here is
+`autonomy.md` case 2 — information that genuinely cannot be derived from the codebase, env or
+docs. A command with no argument and no discussed subject has nothing to work from. That is
+the narrow, legitimate use of `AskUserQuestion`, not a defensive checkpoint.
+
+**The rule that actually matters is the failure mode, not the branch.** The danger in the warm
+path is not an unhelpful error — it is silently speccing the WRONG thing: assembling a
+plausible TRD out of loosely related conversation and grounding it convincingly, so the result
+looks well-founded and addresses a problem nobody raised. That is the same manufactured-
+requirement failure §10 exists to prevent, arriving through a new door.
+
+So the bar for taking the warm path is a subject specific enough to name in one line — a
+defect, a file, a behaviour. **Ambiguity resolves to asking, never to guessing**, and a warm
+run states in the TRD which conversation turn it took its subject from, so a wrong pickup is
+visible in one line rather than buried in a finished-looking plan.
+
+**Every part of this design is now decided.**
 
 
 ### 13. Rebase delivery — getting a framework fix out to projects already scaffolded
