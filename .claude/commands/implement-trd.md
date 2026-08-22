@@ -517,9 +517,30 @@ a loop that already gave its final answer.
 2. If step 1 yields no PRD, fall back to `.trd-state/current.json`'s `prd` field (written by
    Step 1.3a). This file is gitignored — present in-session, absent on a fresh clone — so its
    absence is a normal fallback miss, not an error.
-3. If neither resolves to an existing file path, the PRD is **unresolvable**: record
-   `not run: no PRD resolved` for Step 8 to report later (functional-verification TRD §3.1,
-   §3.7) and skip the rest of this step — dispatch nothing.
+3. If neither resolves to an existing file path there is **no PRD** — but that is no longer
+   the end of it. Fall through to the TRD's own sections, in order:
+
+   a. **`## Reproduction`** (a defect): extract the section text — steps, actual, expected.
+      Source kind `reproduction`.
+   b. **`## Intended Change`** (a small change decided in conversation): extract the section
+      text. Source kind `intended-change`.
+
+   **Extract the SECTION TEXT. Never pass the TRD path.** The dispatch below is required to
+   carry the source "and nothing else — no TRD path, no TRD excerpt, no task list" (FR-1,
+   AC-1, D5), and that isolation is what stops the deriver writing criteria the plan satisfies
+   by construction. A reproduction and a recorded decision are statements of *outcome* and are
+   legitimate sources; the TRD file containing them also contains the *plan*, and handing that
+   over would make verification circular. Passing the extracted section honours D5 exactly.
+
+4. If none of the three resolves, no success definition can be derived: record
+   `not run: no success definition derivable` for Step 8 to report later
+   (functional-verification TRD §3.1, §3.7) and skip the rest of this step — dispatch nothing.
+
+**Record which source won.** Write `functional_verification` with `source_kind`
+(`prd` | `reproduction` | `intended-change` | `none`) alongside the existing keys. `prd_path`
+keeps its meaning when `source_kind` is `prd`; for the two section kinds it holds the TRD path
+plus the section name (for the report header only — Step 8 renders it, nothing resolves it).
+`prd_resolved` stays for compatibility and means "a source resolved", true for all three.
 
    **Persist it — this is the only place the fact exists.** Step 8 runs hundreds of tool
    calls later, possibly after a compaction; in-context memory does not survive that (the
@@ -540,7 +561,7 @@ a loop that already gave its final answer.
      `state` object through `implement-state.save()`. A key that exists only on disk is
      clobbered by that first phase write, hundreds of tool calls before Step 8 reads it —
      silently, and precisely into the `prd_resolved`-absent case Step 8 treats as "the PRD
-     resolved". That turns `not run: no PRD resolved` into `not run: no definition produced`,
+     resolved". That turns `not run: no success definition derivable` into `not run: no definition produced`,
      which is the exact conflation this field exists to prevent (TR3).
 
    So mutate the state object the command is already carrying:
@@ -569,10 +590,13 @@ a loop that already gave its final answer.
 
 ```
 Agent(subagent_type="product-manager", run_in_background: true,
-      prompt="<packages/core/contracts/functional-verification.md text> + <PRD path> + <output path .trd-state/<feature>/success-definition.md>")
+      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <output path .trd-state/<feature>/success-definition.md>")
 ```
 
-The prompt carries the PRD path and the output path and **nothing else** — no TRD path, no
+`<the source>` is whatever step 1 resolved: the **PRD path** for `source_kind: prd`, or the
+**extracted section text** for `reproduction` / `intended-change`.
+
+The prompt carries the source and the output path and **nothing else** — no TRD path, no
 TRD excerpt, no task list (functional-verification TRD FR-1, AC-1, D5). `product-manager` is
 already on `constitution.md`'s 13-agent roster and its frontmatter already declares
 `background: true`; this step adds no agent, no roster edit, and no change to
@@ -879,7 +903,7 @@ written by Step 3.6 at PRD-resolution time, not by the loop itself — `verifica
 and `verification-report.md` (both written by the workflow's Judge agent, §3.3a) are the
 loop's own durable record; this field exists only to carry the **one** fact that predates the
 loop and would otherwise be lost to it. Step 3.6 runs hundreds of tool calls before Step 8,
-across a possible compaction, so `not run: no PRD resolved` cannot survive as in-context
+across a possible compaction, so `not run: no success definition derivable` cannot survive as in-context
 memory (the same reasoning `.claude/rules/async-discipline.md`'s dispatch ledger exists for
 — see its "Orchestration pattern" section). It is set on the in-memory `state` object, not
 written to disk on its own, so that Step 4.1's `implement-state.save()` — which writes the
@@ -887,7 +911,7 @@ whole object — carries it forward rather than clobbering it. Step 8 reads `prd
 first and, only when it is `true` (or, defensively, the field is missing altogether, which
 under `--verify` can only mean the state write was lost), falls through to
 checking whether `success-definition.md` exists on disk. This keeps the
-three outcomes §3.1 requires distinct: `prd_resolved: false` → `not run: no PRD resolved`;
+three outcomes §3.1 requires distinct: `prd_resolved: false` → `not run: no success definition derivable`;
 `prd_resolved: true` and the definition file absent → `not run: no definition produced`
 (the derive agent died); `prd_resolved: true` and the file present with zero rows → AC-3's
 legitimate empty definition, which Step 8 does NOT report as either `not run` case.
@@ -972,19 +996,20 @@ resolving inputs from disk and rendering what the workflow returns.
 ### 8.1 Resolve the definition, distinguishing all three outcomes (§3.1)
 
 1. Read `.trd-state/<feature>/implement.json`'s `functional_verification` field (written by
-   Step 3.6, §6 above) — both of its keys: `prd_resolved` decides which branch below runs, and
-   `prd_path` is the resolved PRD path that §8.1's second branch and §8.3's `prd` argument
-   both need (Step 3.6 ran hundreds of tool calls ago; this file, not memory, is where that
-   path lives). If `prd_resolved` is `false`: the PRD never resolved. Render
-   `not run: no PRD resolved` through the lib CLI's `render-report` — **do not write this by
-   hand** (D3, one renderer):
+   Step 3.6, §6 above) — `prd_resolved` decides which branch below runs, `source_kind` says
+   which of the three sources won, and `prd_path` is the display string §8.1's second branch
+   and §8.3's `prd` argument both need (Step 3.6 ran hundreds of tool calls ago; this file,
+   not memory, is where it lives). If `prd_resolved` is `false`: **no source resolved at all** —
+   no PRD, no `## Reproduction`, no `## Intended Change`. Render
+   `not run: no success definition derivable` through the lib CLI's `render-report` — **do not
+   write this by hand** (D3, one renderer):
 
    ```bash
    node -e '
      const fs = require("fs");
      const input = {
        feature: process.argv[1], prd: "", definitionPath: process.argv[2],
-       outcome: "not-run", reason: "no PRD resolved", criteria: [],
+       outcome: "not-run", reason: "no success definition derivable", criteria: [],
      };
      fs.writeFileSync(process.argv[3], JSON.stringify(input));
    ' "<feature>" ".trd-state/<feature>/success-definition.md" "/tmp/fv-report-input-<feature>.json"
@@ -992,13 +1017,13 @@ resolving inputs from disk and rendering what the workflow returns.
      > ".trd-state/<feature>/verification-report.md"
    ```
 
-   Skip the rest of this step — no `Workflow` call. Record the outcome as `not-run-no-prd`
+   Skip the rest of this step — no `Workflow` call. Record the outcome as `not-run-no-source`
    for Step 9's banner and continue to Step 9.
 
-2. Otherwise (`prd_resolved` is `true`; or, defensively, the whole `functional_verification`
-   field is missing even though the flag was set — Step 3.6 writes it on both branches, so
+2. Otherwise (`prd_resolved` is `true` — a source of some kind resolved; or, defensively, the
+   whole `functional_verification` field is missing even though the flag was set — Step 3.6 writes it on both branches, so
    that can only mean the state write itself was lost, and falling through here at least
-   produces a real report instead of a spurious `no PRD resolved`), check whether
+   produces a real report instead of a spurious `no success definition derivable`), check whether
    `.trd-state/<feature>/success-definition.md` exists on disk. **Do not wait on the background
    derive agent and do not derive a definition inline** — there is no attested primitive for a
    lead session to block on a specific `Agent({run_in_background: true})`
@@ -1011,7 +1036,8 @@ resolving inputs from disk and rendering what the workflow returns.
 
    Absent → render `not run: no definition produced` (TR3), same renderer, same shape as
    above but with `reason: "no definition produced"` and `prd` set to `prd_path` from the
-   state file (step 1). Skip the rest of this step — no `Workflow` call. Record `not-run-no-definition`
+   state file (step 1) — which for a section source is the TRD path plus section name, a
+   display string only. Skip the rest of this step — no `Workflow` call. Record `not-run-no-definition`
    for Step 9 and continue.
 
    Present → parse its table into `criteria` (§3.1's format; column → field: `ID` → `id`,
@@ -1213,7 +1239,7 @@ End-of-run /code-review high:     dispatched over {branch_base}...HEAD
 
 FUNCTIONAL VERIFICATION
 ------------------------
-Outcome: {not run (--verify not set) | not run: no PRD resolved | not run: no definition produced | satisfied | unbuilt | stalled | stuck}
+Outcome: {not run (--verify not set) | not run: no success definition derivable | not run: no definition produced | satisfied | unbuilt | stalled | stuck}
 Met: {count}  Not met: {count}  Not verifiable: {count}  Unbuilt: {count}
 Report: {report_path or "n/a"}
 
@@ -1250,7 +1276,7 @@ on a second command's behalf. Naming it is the fix; auto-running it is a differe
 this block is not omitted — it reads `Outcome: not run (--verify not set)` with
 every count at 0 and `Report: n/a`, so its absence is never mistaken for a pass
 (functional-verification TRD §3.7). When the flag was set, Step 8 resolved one of five
-states: the two `not run` short-circuits (§8.1 — no PRD resolved, no definition produced),
+states: the two `not run` short-circuits (§8.1 — no success definition derivable, no definition produced),
 or one of the workflow's four terminal outcomes (§8.4 — `satisfied`, `unbuilt`, `stalled`,
 `stuck`). The met/not-met/not-verifiable/unbuilt counts come from tallying the `criteria`
 array the workflow returned (or are all 0 for the two `not run` cases, since no criteria were

@@ -754,3 +754,31 @@ PY
         false
     fi
 }
+
+@test "--verify derives a success definition without a PRD, preserving deriver isolation" {
+    # Before this, --verify on a PRD-less TRD was a SILENT no-op: Step 3.6 recorded
+    # "no PRD resolved" and dispatched nothing, Step 8 rendered a not-run report and
+    # made no Workflow call. That makes /fix (item 12) impossible — nothing would
+    # ever check the bug stopped happening.
+    CONTRACT="${REPO_ROOT}/packages/core/contracts/functional-verification.md"
+
+    # Step 3.6 falls through to the TRD's own sections, in order.
+    grep -q '## Reproduction' "$IMPLEMENT_TRD_MD"
+    grep -q '## Intended Change' "$IMPLEMENT_TRD_MD"
+    grep -q 'source_kind' "$IMPLEMENT_TRD_MD"
+
+    # The not-run reason is about a SOURCE, not a PRD — the condition always meant.
+    grep -q 'no success definition derivable' "$IMPLEMENT_TRD_MD"
+    refute grep -q 'no PRD resolved' "$IMPLEMENT_TRD_MD"
+
+    # D5 ISOLATION IS THE POINT: the deriver gets extracted TEXT, never the TRD path.
+    # Handing over the TRD would hand over the task list, and a deriver that sees the
+    # plan writes criteria the plan satisfies by construction — circular verification.
+    grep -q 'Never pass the TRD path' "$IMPLEMENT_TRD_MD"
+    grep -q 'no TRD path, no' "$IMPLEMENT_TRD_MD"
+
+    # The contract admits three sources and its citation rule is no longer PRD-only.
+    grep -q 'Three source kinds are valid' "$CONTRACT"
+    grep -q 'a line or section of the' "$CONTRACT"
+    refute grep -q 'Every row.s .Cites. column names a PRD line or section' "$CONTRACT"
+}

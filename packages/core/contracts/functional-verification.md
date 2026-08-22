@@ -1,7 +1,7 @@
 # Functional verification contract
 
 **This is the complete, binding instruction set for the functional-verification loop** —
-deriving a success definition from a PRD, exercising a system against it, judging the
+deriving a success definition from a source, exercising a system against it, judging the
 evidence, and fixing what is genuinely broken. It is read by three different agents at three
 different moments (the success-definition author, the exerciser, the judge, and the
 debugger), each of whom sees only the sections that apply to their stage. None of them reads
@@ -41,16 +41,34 @@ convention exists to prevent — do not write one.
 
 ## Deriving the success definition
 
-**Who does this:** a `product-manager` agent, given the PRD path and nothing else — no TRD
+**Who does this:** a `product-manager` agent, given **the source and nothing else** — no TRD
 path, no TRD excerpt, no task list. It does not know what was built; it knows only what was
 asked for.
+
+**Three source kinds are valid.** The loop needs a statement of what success looks like; a PRD
+is one way to supply that, not the only one. Whichever applies, the agent receives **that
+source alone**:
+
+| Source | Given to the agent as | Used when |
+|---|---|---|
+| **PRD** | the PRD path | feature work |
+| **Reproduction** | the extracted `## Reproduction` text | a defect: steps, actual, expected |
+| **Intended change** | the extracted `## Intended Change` text | a small change decided in conversation |
+
+**The isolation rule is the same for all three, and it is why the last two are passed as
+EXTRACTED TEXT rather than as a TRD path.** A deriver that can see the task list writes
+criteria the plan satisfies by construction, and verification becomes circular — it confirms
+the plan was followed rather than that the outcome was reached. A reproduction and a recorded
+decision are statements of *outcome*, and stay legitimate sources; the TRD file that happens
+to contain them also contains the plan, and must never be handed over.
 
 **Output:** `.trd-state/<feature>/success-definition.md` —
 
 ```markdown
 # Functional Success Definition: <feature>
 
-**Source PRD**: docs/PRD/<feature>.md
+**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change -->
+**Source kind**: prd | reproduction | intended-change
 **Derived**: <ISO8601>
 **Criteria**: <n>
 
@@ -60,15 +78,16 @@ asked for.
 | FS-2 | A repeated submit does not create two orders | domain-derived: payment flows must not double-charge | Two POSTs with one idempotency key → one row in `orders` | domain-derived |
 ```
 
-**The citation rule (mandatory).** Every row's `Cites` column names a PRD line or section, or
+**The citation rule (mandatory).** Every row's `Cites` column names **a line or section of the
+source** — a PRD line, the reproduction's expected-behaviour line, the recorded decision — or
 the row is labelled `domain-derived` with its reasoning written out inline in that same
-column — never bare. A row that can do neither — no PRD line supports it and no domain
-reasoning is stated — is **dropped, not invented**. This mirrors the PRD-authoring contract's
+column — never bare. A row that can do neither — nothing in the source supports it and no
+domain reasoning is stated — is **dropped, not invented**. This mirrors the PRD-authoring contract's
 own rule: a missing criterion surfaces as a gap in coverage someone can notice; a fabricated
 one is executed as if it were real and consumes a debug round before anyone questions it.
 
-**The empty-definition rule.** Zero rows is a legitimate outcome, not a failure. When the PRD
-yields no criteria that satisfy the citation rule, the file is still written, with
+**The empty-definition rule.** Zero rows is a legitimate outcome, not a failure. When the
+source yields no criteria that satisfy the citation rule, the file is still written, with
 `**Criteria**: 0` and one paragraph explaining why — which line(s) were considered and why
 none qualified. A missing file and an empty-but-present file are different failures and must
 never be reported as the same thing: a missing file means the derive step did not run or
@@ -291,7 +310,7 @@ iteration, so there is never a carried-forward status to disambiguate from a fre
   touched that gap, so the report shows the history of an attempted fix, not just its final
   state.
 
-**What this contract never instructs:** inventing a criterion the PRD does not support, and
+**What this contract never instructs:** inventing a criterion the source does not support, and
 inventing a harness for a stack the hint table and the project's own docs do not cover. Both
 are explicit non-goals of this feature — the loop reports honestly what it cannot check or
 cannot verify rather than manufacturing a way to make the report look more complete than the
