@@ -1835,10 +1835,38 @@ So Step 3.6 gains a second derivation source, and the state field records which 
 `not run: no PRD resolved` then becomes `not run: no success definition derivable` — true when
 **neither** source is present, which is the condition that was always meant.
 
-This is a small change to `implement-trd.md` (Step 3.6's resolution order, Step 8's not-run
-branch, one state field) and none to `verify-functional.js`, which already takes criteria and
-does not care where they came from. It is a **prerequisite task of this item**, not a
-follow-up.
+**Four changes, and the isolation rule is the subtle one.** Step 3.6 dispatches the deriver as
+`Agent(subagent_type="product-manager", prompt=<contract text> + <PRD path> + <output path>)`
+and states that the prompt carries those "**and nothing else** — no TRD path, no TRD excerpt,
+no task list (FR-1, AC-1, D5)."
+
+That isolation is not incidental and must not be dropped. It exists so the deriver writes
+criteria for what was **promised**, not what was **planned**: an agent that can see the task
+list writes criteria the plan already satisfies, and verification becomes circular — you
+confirm you built your own plan.
+
+**A reproduction is not a plan.** It is observed behaviour, recorded before the fix was
+designed, so deriving criteria from it is not circular. But the TRD *containing* it also
+contains the fix plan. So the invariant to preserve is "**the deriver never sees the PLAN**",
+not "never sees the TRD file" — and it is preserved by passing the **extracted Reproduction
+section**, never a path to the TRD.
+
+| # | Change | Where |
+|---|---|---|
+| 1 | Resolution order gains a second source: PRD, else the TRD's `## Reproduction` | `implement-trd.md` Step 3.6 |
+| 2 | Dispatch passes the reproduction **extract**, never the TRD path — D5's isolation intact | `implement-trd.md` Step 3.6 |
+| 3 | Generalise the source and the **mandatory citation rule** — `Cites` currently must name "a PRD line or section" (8 PRD references in the file) | `contracts/functional-verification.md` |
+| 4 | `not run: no PRD resolved` → `no success definition derivable`; state records which source was used | `implement-trd.md` Step 8 |
+
+**Zero changes to `verify-functional.js`** — verified 2026-08-22: it requires `args.criteria`
+and touches `args.prd` only for the report header, with a safe default (`a.prd || ''`). The
+loop is already source-agnostic; the PRD coupling lives entirely in the command prose and the
+contract.
+
+Change 3 is the one to treat carefully: the contract text IS the deriver's entire instruction
+set, so an edit there changes behaviour with no code to test it against.
+
+This is a **prerequisite task of this item**, not a follow-up.
 
 ### It must run IN-SESSION, not as a subagent
 
