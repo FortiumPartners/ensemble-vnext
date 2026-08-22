@@ -190,20 +190,20 @@ claude --remote "Process data"
 
 **Integration with Other Hooks:**
 
-The notify hook is the last entry in the `Stop` hook array, after the discipline hooks and
-`wiggum.js` (`learning.sh`, referenced here in older docs, was retired in 4.1.0 — see
-`.claude/rules/constitution.md`'s Architecture Invariants):
+The notify hook is the last entry in the `Stop` hook array, after the two discipline
+guards (`learning.sh` and `wiggum.js`, both referenced here in older docs, were retired in
+4.1.0 and 4.1.18 respectively — see `.claude/rules/constitution.md`'s Architecture
+Invariants):
 
 ```json
 "Stop": [
   { "type": "prompt", "prompt": "...", "timeout": 5 },   // async-discipline.js
   { "type": "prompt", "prompt": "...", "timeout": 5 },   // autonomy-discipline.js
-  { "type": "command", "command": ".claude/hooks/wiggum.js", "timeout": 10 },
   { "type": "command", "command": ".claude/hooks/notify.sh", "timeout": 60 }
 ]
 ```
 
-All four fire on every session stop, independently — see the Discipline Hooks section
+All three fire on every session stop, independently — see the Discipline Hooks section
 above for what the first two actually evaluate. The notify hook sends any configured
 notification last.
 

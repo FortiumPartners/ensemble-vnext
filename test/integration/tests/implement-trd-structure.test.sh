@@ -570,3 +570,93 @@ PY
     # Generated from the generator, never hand-edited.
     grep -q 'autonomy-discipline' "${REPO_ROOT}/packages/core/hooks/prompts/build-judge-prompts.js"
 }
+
+@test "framework-shipped rules are UPDATED on rebase, not frozen on first install" {
+    # Found 2026-08-21 from a live rebase in another project: its autonomy.md still
+    # documented an autonomous-mode flag deleted five releases earlier. Nothing had
+    # failed — rebase-project's §4.7 declared "two categories with opposite update
+    # policies" and then gave BOTH categories the same policy (preserve-as-is), so a
+    # framework rule was copied once and could never be updated again. Rules were
+    # getting strictly worse treatment than commands, which are replaced-if-differs.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    SECTION="$(sed -n '/^#### 4.7 Rules/,/^<\/selective-update>/p' "$RP")"
+    [ -n "$SECTION" ]
+
+    # The framework category must say UPDATED, and must NOT say preserve-as-is.
+    grep -q 'Framework-shipped rules (UPDATED on rebase' <<<"$SECTION"
+    ! grep -q 'copied-if-missing on rebase' <<<"$SECTION"
+    ! grep -q 'preserve as-is' <<<"$SECTION"
+
+    # Replacement must be backed up — that is what makes overwriting safe.
+    grep -q 'bak-' <<<"$SECTION"
+
+    # User-owned governance must STILL be untouchable. The fix must not have
+    # widened to constitution/stack/process.
+    grep -q 'NEVER modified by rebase' <<<"$SECTION"
+    for g in constitution stack process; do
+        grep -q "rules/${g}.md" <<<"$SECTION"
+    done
+    grep -q 'still never modified' <<<"$SECTION"
+}
+
+@test "every framework rule template matches the live copy it ships" {
+    # The rebase fix above only delivers current rules if the TEMPLATE is current.
+    # A drifted template ships a stale rule to every project on the next rebase,
+    # which is the same failure one layer up.
+    TPL="${REPO_ROOT}/packages/core/templates/claude-directory/rules"
+    [ -d "$TPL" ]
+    count=0
+    for t in "$TPL"/*.md; do
+        base="$(basename "$t")"
+        live="${REPO_ROOT}/.claude/rules/${base}"
+        [ -f "$live" ]
+        diff -q "$t" "$live"
+        count=$((count + 1))
+    done
+    # Discovered, not hardcoded — but a template dir that went empty must fail.
+    [ "$count" -ge 4 ]
+}
+
+@test "a user-authored skill is never removed by rebase" {
+    # Found 2026-08-21 from a live rebase. Commands get a frontmatter discriminator,
+    # agents get a name list, hooks get extension rules — skills had NOTHING. The
+    # stack-match table only knows plugin skills, so a project-authored skill matched
+    # nothing and was classified "no longer matches the stack" -> removed, on EVERY
+    # rebase. Four survived only because that agent overrode its own instructions.
+    # This is the one category where a wrong removal destroys unrecoverable work.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+
+    # The diff step must carry a Custom row keyed on absence from the plugin library.
+    grep -q 'does not exist in the plugin.s skill library at all' "$RP"
+
+    # The APPLY step must check it before deleting — a table row nothing reads is not a guard.
+    APPLY="$(sed -n '/^#### 4.2 Update Skills/,/^#### 4.3/p' "$RP")"
+    grep -q 'Check the Custom guard FIRST' <<<"$APPLY"
+    grep -q 'Do not delete it' <<<"$APPLY"
+
+    # The discriminator it names must actually be a real, populated directory.
+    [ -d "${REPO_ROOT}/packages/skills" ]
+    [ "$(ls "${REPO_ROOT}/packages/skills" | wc -l)" -gt 10 ]
+}
+
+@test "the skill stack-match table has no rows orphaned outside it" {
+    # Three rows (Tailwind, Jira, Linear) sat AFTER a prose paragraph, outside the
+    # table, so they rendered as stray text and read as not-part-of-the-mapping.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    SECTION="$(sed -n '/^#### 2.2 Skill Diff/,/^#### 2.3/p' "$RP")"
+    # Every pipe-delimited mapping row must be preceded by another row or a header
+    # separator — never by a blank line or prose.
+    mapfile -t LINES <<<"$SECTION"
+    for i in "${!LINES[@]}"; do
+        line="${LINES[$i]}"
+        [[ "$line" =~ ^[[:space:]]*\|.*\|[[:space:]]*$ ]] || continue
+        prev="${LINES[$((i - 1))]:-}"
+        next="${LINES[$((i + 1))]:-}"
+        # Legitimate: a body row following another row, or a header row whose
+        # very next line is the |---|---| separator.
+        [[ "$prev" =~ ^[[:space:]]*\| ]] && continue
+        [[ "$next" =~ ^[[:space:]]*\|[[:space:]]*-+ ]] && continue
+        echo "orphaned table row: $line (preceded by: '$prev')" >&2
+        false
+    done
+}

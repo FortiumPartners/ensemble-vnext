@@ -272,6 +272,9 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
    | Database: pgvector / Postgres vector | `using-pgvector` |
    | Database: Weaviate | `using-weaviate` |
    | Background Jobs: Celery | `using-celery` |
+   | Styling: Tailwind | `styling-with-tailwind` |
+   | Issue Tracker: Jira | `managing-jira-issues` |
+   | Issue Tracker: Linear | `managing-linear-issues` |
 
    **Note on inference:** stack.md doesn't always declare these by name — infer from
    capability mentions. Examples:
@@ -283,17 +286,40 @@ is preserved in a backup. User-created agents (not shipped by the plugin) are ne
 
    When in doubt, **include the skill**. Skills are lazy — they cost nothing until
    invoked. Missing skills cost the model improvising from scratch.
-   | Styling: Tailwind | `styling-with-tailwind` |
-   | Issue Tracker: Jira | `managing-jira-issues` |
-   | Issue Tracker: Linear | `managing-linear-issues` |
 
-3. **Compare with current skills:**
+3. **Categorize — and a skill the plugin never shipped is NEVER removed:**
+
+   | Category | Condition | Action |
+   |----------|-----------|--------|
+   | **Add** | Matches the stack, not vendored | Install from the plugin library |
+   | **Update** | Matches the stack, in both, content differs | Replace (backup first) |
+   | **Unchanged** | Matches the stack, in both, identical | No action |
+   | **Stale** | Vendored, **exists in the plugin's skill library**, no longer matches the stack | Remove (backup first) |
+   | **Custom** | Vendored, **does not exist in the plugin's skill library at all** | Report, **preserve** |
+
+   **The Custom row is load-bearing and was missing until 2026-08-21.** The stack-match
+   table above only knows skills the plugin ships. A project-authored skill —
+   `building-dart-mobile`, `debugging-ios-safari`, `verifying-agent-features` — matches
+   nothing in it, so under the previous "remove what no longer matches the stack" rule it
+   was classified for removal **on every single rebase**. A live rebase on 2026-08-21
+   preserved four such skills only because the agent noticed they were cited in `stack.md`
+   and `CLAUDE.md` and overrode the instruction it had been given.
+
+   **The discriminator requires no frontmatter and no citation search:** enumerate
+   `@packages/skills/`. A vendored skill whose name is absent from that directory was never
+   shipped by the plugin, therefore cannot have been retired by the plugin, therefore is the
+   user's. Skills are the one category where a wrong removal destroys work that exists
+   nowhere else — a stale plugin skill is always re-installable from the plugin, a deleted
+   user skill is only in the backup.
+
+   Report:
    ```
    Skills:
-   - Skills to add (new in stack):                [list]
+   - Skills to add (new in stack):                 [list]
    - Skills to update (content differs vs plugin): [list]   ← drives the content sync
-   - Skills unchanged (match stack + identical):  [count]
-   - Skills to remove (no longer match stack):    [list]
+   - Skills unchanged (match stack + identical):   [count]
+   - Skills to remove (plugin skill, off-stack):   [list]
+   - Custom skills (not in plugin, preserved):     [list if any]
    ```
 
    The **"to update"** bucket is computed by, for each skill matching the stack and present
@@ -591,8 +617,12 @@ the plugin's version. Always create a backup of anything removed or replaced.
    - For each skill classified **Updated** or **Remove** in §2.2, copy the entire current
      folder to `.claude/skills.backup.<timestamp>/<skill-name>/` before any change.
 
-2. **Remove outdated skills** (no longer match stack.md):
-   - Delete `.claude/skills/<skill-name>/` (already backed up in step 1)
+2. **Remove STALE skills** — plugin-shipped, no longer matching `stack.md`:
+   - **Check the Custom guard FIRST:** if `@packages/skills/<skill-name>/` does not exist,
+     this is a user-authored skill. **Do not delete it. Do not back it up and delete it.
+     Leave it exactly where it is** and report it under "Custom skills (preserved)".
+     Deleting it destroys work that exists nowhere else in the framework.
+   - Otherwise: delete `.claude/skills/<skill-name>/` (already backed up in step 1)
    - Report: "Removed skill: [name] (backup: .claude/skills.backup.<timestamp>/<name>/)"
 
 3. **Add new skills** (newly match stack.md):
@@ -609,10 +639,11 @@ the plugin's version. Always create a backup of anything removed or replaced.
 5. **Report:**
    ```
    Skills:
-   - Added:    [list]
-   - Updated:  [list]
-   - Unchanged:[count]
-   - Removed:  [list]
+   - Added:     [list]
+   - Updated:   [list]
+   - Unchanged: [count]
+   - Removed:   [list]
+   - Custom (not in plugin, preserved): [list if any]
    ```
 
 **If `skill_preserve=true` (set by `--preserve-all`):**
@@ -910,24 +941,46 @@ Rules under `.claude/rules/` come in two categories with opposite update policie
 These are generated/customized at `init-project` and belong to the user. Even with
 `--force`, they are preserved.
 
-**Framework-shipped rules (copied-if-missing on rebase):**
-- `.claude/rules/async-discipline.md` (and any future `.md` files in
-  `@packages/core/templates/claude-directory/rules/`)
+**Framework-shipped rules (UPDATED on rebase, exactly like commands and hooks):**
+- Every `.md` file in `@packages/core/templates/claude-directory/rules/` —
+  `async-discipline.md`, `autonomy.md`, `command-status.md`, `verification.md`, and any
+  future additions.
 
-These encode behavioral guarantees enforced by hooks (e.g., `async-discipline.js`
-relies on `async-discipline.md` documenting the rule it enforces). Without the doc,
-agents that hit the guard have no context. Policy:
+These encode behavioral guarantees enforced by hooks: the discipline guards are
+`hookType: "prompt"`, so the rule file is the ONLY place an agent can read what the guard
+enforces and why. A stale rule file is therefore not cosmetic — it documents behaviour the
+framework no longer has.
 
-- For each `.md` file in the framework's `claude-directory/rules/` template directory:
-  - If the project already has it (`.claude/rules/<basename>` exists): **preserve as-is**
-    (the user may have annotated; never overwrite without explicit `--force-rules` —
-    not yet exposed).
-  - If missing: **copy from the framework template**.
-- Report each copied file under "Framework rules installed".
+Policy — **replace if it differs from the framework template, back up first**:
+
+- If missing: copy from the framework template.
+- If present and byte-identical: leave it, count as unchanged.
+- If present and DIFFERENT: back up to `.claude/rules/<basename>.bak-<timestamp>` and
+  replace with the framework version.
+- `--preserve-all` is the escape hatch: it leaves these alone, same as it does for agents
+  and skills.
+
+**Why this changed (2026-08-21).** This section previously declared "two categories with
+opposite update policies" and then gave both categories the SAME policy — preserve-as-is,
+never overwrite. The result: a framework rule was copied once, at the project's first
+rebase, and then frozen forever. A live project reported its `autonomy.md` still
+documenting, at length, an autonomous-mode flag this framework had deleted five releases
+earlier — not because anything failed, but because no mechanism existed that could ever
+update that file. Rules were
+receiving strictly worse treatment than commands, which have always been replaced-if-differs
+with a backup, and which carry the same "the user may have annotated" risk.
+
+The backup is what makes this safe, and it is the same protection commands and hooks
+already rely on. A user who genuinely annotated a framework rule finds their version in the
+`.bak` file and can re-apply it; a user who did not — the overwhelming majority — silently
+gets the current rules for the first time.
+
+**This does not touch user-owned governance.** `constitution.md`, `stack.md` and
+`process.md` are still never modified, with or without `--force`.
 
 Report:
 - "Governance files preserved (not modified by rebase)"
-- "Framework rules: N installed, M preserved (existing)"
+- "Framework rules: N installed, M updated (backed up), K unchanged"
 
 </selective-update>
 
@@ -982,14 +1035,14 @@ Report:
 - `.claude/rules/constitution.md`
 - `.claude/rules/stack.md`
 - `.claude/rules/process.md`
-- Existing framework-shipped rules under `.claude/rules/` (already-present `.md` files
-  matching the framework template — never overwritten without explicit force flag)
+- All custom rules under `.claude/rules/` that the framework does not ship
 - All custom agents
 - All local settings overrides
 
-### Framework Rules Installed
-- [list of `.md` files newly copied from `templates/claude-directory/rules/` into
-  `.claude/rules/`; empty if all were already present]
+### Framework Rules
+- Installed (new): [list]
+- Updated (differed from the plugin; previous version saved to `<name>.bak-<timestamp>`): [list]
+- Unchanged: [count]
 
 ### Recommended Manual Review
 
