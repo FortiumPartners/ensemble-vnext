@@ -715,3 +715,42 @@ PY
     grep -q 'argument-hint.*--force' "$RP"
     grep -q '`--force` - Proceed even when' "$RP"
 }
+
+@test "every command the router banner names exists on disk" {
+    # The banner is hand-maintained prose injected on EVERY UserPromptSubmit, so a
+    # stale name is the most-repeated wrong statement in the framework. It pushed
+    # /harden-trd-team and /verify-trd-team for five releases after ITR-B012
+    # deleted them. Test 33 greps for those two names specifically; this is the
+    # general form, and it fails in BOTH directions — a deleted command still
+    # advertised, and a command advertised before it is built.
+    R="${REPO_ROOT}/packages/router/hooks/router.py"
+    CMD_DIR="${REPO_ROOT}/packages/core/commands"
+
+    # Slash tokens inside the banner constant only.
+    banner="$(python3 - "$R" <<'PY'
+import re, sys
+src = open(sys.argv[1]).read()
+m = re.search(r'FRAMEWORK_HINT = """(.*?)"""', src, re.S)
+print(m.group(1) if m else '')
+PY
+)"
+    [ -n "$banner" ]
+
+    # A slash-COMMAND follows whitespace or starts a line; a path SEGMENT follows a
+    # path character. Without that boundary this matched `current` in
+    # `.trd-state/current.json` and `rules` in `.claude/rules/`.
+    missing=()
+    for name in $(grep -oE '(^|[[:space:]])/[a-z][a-z0-9-]+' <<<"$banner" \
+                  | sed -E 's|^[[:space:]]*/||' | sort -u); do
+        # Platform built-ins, not project commands.
+        case "$name" in
+            goal|compact|clear|help) continue ;;
+        esac
+        [ -f "${CMD_DIR}/${name}.md" ] || missing+=("$name")
+    done
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        printf 'Router banner names commands with no .md in packages/core/commands:\n%s\n' "${missing[*]}" >&2
+        false
+    fi
+}

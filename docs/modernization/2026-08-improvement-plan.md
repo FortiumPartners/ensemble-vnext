@@ -1613,22 +1613,33 @@ that.
 That is roughly 4–6 agents for a small fix instead of the 13–15 a feature-scale run costs, with
 no second code path and no flag for the owner to remember.
 
-### Naming
+### Naming — `/fix` (decided 2026-08-22)
 
-`/investigate-issue` and `/fix-issue` both go. "Issue" reads as bug-only, and this covers minor
-features too; "fix" describes the implementation, which `/implement-trd` now owns.
+`/investigate-issue` and `/fix-issue` both go.
 
-Recommended: **`/spec`** — "spec the login 500", "spec moving the button", and bare `/spec` for
-the warm path. Argument present = cold, absent = warm, so no flag. `/scope` is the alternative
-if `/spec` reads too close to "specification document".
+**The command is `/fix`.** An earlier draft proposed `/spec`, on the reasoning that the
+deliverable is a TRD. That reasoning stopped holding once §12.6 settled that AUTO chains
+straight into implementation: the command's *outcome* is a fix, and naming by outcome beats
+naming by intermediate artifact. `/fix the login 500` is also immediately obvious to the
+non-technical Slack caller §12.4 is designed for, which `/spec` never would be.
+
+Usage: `/fix <sentence | source>`, or bare `/fix` for the conversation path (§12.2).
+
+**That it sometimes does not fix anything is fine, not a mismatch.** A REVIEW or ESCALATE tier
+stops at the TRD and says why. The command attempted the fix and reported the blocker — the
+same contract as any operation that can fail. Naming it for the successful path is correct;
+naming it for the cautious path would undersell what it does most of the time.
 
 ### Done when
 
 A bug goes from report to a reviewed 3-task TRD in a few minutes, not half an hour; the TRD
-parses with `trd-parser.js` and runs through `/implement-trd` unmodified; the fix is not
-reported complete until the recorded reproduction has been re-run and fails to reproduce; the
-eligibility gate demonstrably rejects something and names `/create-prd`; and
-`/investigate-issue` and `/fix-issue` are deleted rather than left invokable.
+parses with `trd-parser.js` and runs through `/implement-trd` unmodified; **`--verify` derives a
+success definition from the TRD's `## Reproduction` when there is no PRD** (§12.6's prerequisite,
+without which the rest of this is decorative); the fix is not reported complete until the
+recorded reproduction has been re-run and fails to reproduce; the eligibility gate demonstrably
+rejects something and names `/create-prd`; the router banner proposes `/fix` and the
+banner-existence test passes; and `/investigate-issue` and `/fix-issue` are deleted rather than
+left invokable.
 
 ### Bare `/spec` on a cold session: ask, never guess
 
@@ -1871,6 +1882,37 @@ you run `/implement-trd` yourself — which is an explicit human decision, recor
 invocation, and is exactly the right semantics for "I looked at this and I'm satisfied."
 Adding a force flag would let the *command* claim that judgment on your behalf, which is the
 one thing the tier exists to prevent.
+
+## 12.7 The router banner must propose `/fix`
+
+The `UserPromptSubmit` banner is the framework's only always-on nudge, so it is where "you
+described something broken — use the command" actually has to live. It stays **deterministic
+static text**, not a prompt that reasons.
+
+**Replace the FLOW bullet** (`packages/router/hooks/router.py`, `FRAMEWORK_HINT`) with this —
+it leads with `/fix`, carries the behavioural instruction, and is SHORTER than what it replaces:
+
+```
+* FLOW. Something broken, or a small scoped change? -> /fix <what>: it
+  investigates, root-causes, writes a light TRD, audits it, then implements and
+  verifies when the fix is demonstrably safe. PROPOSE /fix instead of patching
+  inline — an unplanned edit is the commonest source of bad code here.
+  New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
+  and verification run INSIDE it; --verify adds the functional loop) ->
+  /audit-build. /verify-build re-runs verification alone; /refine-* iterates an
+  artifact. Check .trd-state/current.json for in-flight work first.
+```
+
+**This lands WITH the command, never before it.** A banner naming a command that does not exist
+is precisely the defect fixed in 4.1.18, where it pushed `/harden-trd-team` and
+`/verify-trd-team` for five releases after ITR-B012 deleted them — repeated on every single
+prompt.
+
+**Enforced, as of 2026-08-22.** A structure test extracts every slash-command from
+`FRAMEWORK_HINT` and asserts each resolves to a `.md` in `packages/core/commands/`. It fails in
+both directions — a deleted command still advertised, and a command advertised before it is
+built — so the ordering above is now mechanical rather than a matter of remembering. Verified
+by injecting both failures.
 
 
 
