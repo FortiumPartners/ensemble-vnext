@@ -1789,10 +1789,45 @@ Skill({ skill: "implement-trd", args: "docs/TRD/<slug>.md --verify" })
 There is precedent for the shape: `implement-trd.md:949` and `fix-issue.md:204` both invoke
 `Skill({skill: "code-review", ...})` from inside a command today.
 
-**`--verify` is not optional on a chained run.** For a defect, Step 8 re-running the recorded
+**`--verify` is not optional on a chained run.** For a defect, re-running the recorded
 reproduction IS the acceptance criterion (§12.3). An AUTO run that implemented without
 verifying would assert "fixed" on the strength of a passing test suite that also passed before
 the fix.
+
+### Blocker found 2026-08-22: `--verify` cannot currently work on a PRD-less TRD
+
+**This item cannot be built without fixing it first.** Traced end to end through
+`implement-trd.md`:
+
+- **Step 3.6** resolves a PRD from the TRD's `**Source PRD**:` header, then
+  `current.json`'s `prd`. If neither resolves it records `not run: no PRD resolved` and
+  **dispatches no derive agent**.
+- **Step 8** reads `prd_resolved`; when false it renders a "not run" report and makes
+  **no `Workflow` call at all**.
+
+A light TRD from `/spec` has no PRD, so today `--verify` on one is a silent no-op. An earlier
+draft of this section asserted the opposite.
+
+**The fix, and it improves the machinery rather than working around it:** the verification loop
+is coupled to PRDs by accident of history, not by necessity. Its actual input is a
+**success definition** — a table of `ID | Functional statement | Cites | Evidence that would
+prove it | Derivation`. A PRD is one source for that. **A reproduction is another, and for a
+defect it is a better one, because it is evidence rather than intent.**
+
+So Step 3.6 gains a second derivation source, and the state field records which was used:
+
+| Source | When | The criterion it yields |
+|---|---|---|
+| PRD | feature work | as today |
+| **Reproduction** | the TRD carries a `## Reproduction` section and no PRD | one row: *"<the repro steps> no longer produce <actual>; they produce <expected>"*, `Cites` the Reproduction section, `Evidence` = run the steps |
+
+`not run: no PRD resolved` then becomes `not run: no success definition derivable` — true when
+**neither** source is present, which is the condition that was always meant.
+
+This is a small change to `implement-trd.md` (Step 3.6's resolution order, Step 8's not-run
+branch, one state field) and none to `verify-functional.js`, which already takes criteria and
+does not care where they came from. It is a **prerequisite task of this item**, not a
+follow-up.
 
 ### It must run IN-SESSION, not as a subagent
 

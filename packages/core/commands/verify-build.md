@@ -4,7 +4,6 @@ description: Run the functional verification loop on its own — does the delive
 version: 1.0.0
 argument-hint: "[trd-path] [--resume] [--cap N]"
 category: verification
-disable-model-invocation: true
 ---
 
 Run the bounded functional-verification loop against already-delivered code.
