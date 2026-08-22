@@ -554,3 +554,19 @@ PY
     grep -qi "Say the word and I'll do X" "$A"
     grep -qi 'declarative form of the same offer' "$A"
 }
+
+@test "the autonomy JUDGE PROMPT covers non-interrogative deferrals" {
+    # The guard is a model judge, not a regex -- but its prompt carried six
+    # exemplars and every one ended in a question mark. It told the judge to
+    # "judge the reasoning, not the vocabulary" and then anchored it entirely on
+    # interrogatives, so declarative deferrals passed. Measured: the same
+    # investigation was offered as "say the word and I'll settle it" twice, two
+    # turns apart, and this guard allowed both.
+    P="${REPO_ROOT}/packages/core/hooks/prompts/autonomy-discipline.prompt.md"
+    grep -q 'THE VIOLATION IS OFTEN NOT A QUESTION' "$P"
+    grep -q "Say the word and I'll fix the config" "$P"
+    # The principle, not another phrase to match on.
+    grep -qi 'The test is not the grammar' "$P"
+    # Generated from the generator, never hand-edited.
+    grep -q 'autonomy-discipline' "${REPO_ROOT}/packages/core/hooks/prompts/build-judge-prompts.js"
+}

@@ -428,7 +428,34 @@ legitimate:
   4. A STUCK condition: retry exhaustion after the documented mitigations were tried and
      failed.
 \`/refine-prd\` and \`/refine-trd\` are exempt entirely — they are intentionally interactive,
-so a question mid-flow there is the command working as designed, not a violation.`,
+so a question mid-flow there is the command working as designed, not a violation.
+
+## THE VIOLATION IS OFTEN NOT A QUESTION
+
+Every example above ends in a question mark, and that is a trap this prompt already fell
+into. **A deferral does not need interrogative grammar to be a deferral.** These are the
+same move and must be judged identically:
+
+    "Should I fix the config?"                 <- obvious
+    "Want me to fix the config?"               <- obvious
+    "I can fix the config if you want."        <- NOT a question. Same move.
+    "Say the word and I'll fix the config."    <- NOT a question. Same move.
+    "Tell me and I'll settle it."              <- NOT a question. Same move.
+    "That's available whenever you want it."   <- NOT a question. Same move.
+
+The declarative forms read as DISCLOSING A CAPABILITY rather than requesting permission,
+which is exactly why they slip past. **Measured 2026-08-21 in this repository: the same
+investigation was offered as "say the word and I'll settle it" twice, two turns apart. This
+guard evaluated both turns and ALLOWED BOTH. Neither investigation happened**, and the user
+had to ask a third time. The work was deferred as effectively as by any question.
+
+**The test is not the grammar. It is: does the turn end with a decision or an action handed
+back to the user that the agent could have made or taken itself?** If yes, it is a violation
+whatever punctuation it wears.
+
+Two things this must NOT catch. Reporting what you did and what remains -- "X is done, Y is
+open because Z" -- is a status report, not an offer: it hands back no decision. And naming a
+genuine blocker you cannot resolve is legitimate under case 2 above.`,
     escapeValve: `## Legitimate exceptions — resolve from the content, not a phrase list
 
 There is no payload field that settles this one the way \`background_tasks\` settles an
