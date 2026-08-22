@@ -1656,6 +1656,124 @@ visible in one line rather than buried in a finished-looking plan.
 
 **Every part of this design is now decided.**
 
+---
+
+## 12.2 Input, and how the subject is chosen
+
+Three input shapes, all valid:
+
+| You type | Subject comes from |
+|---|---|
+| `/spec <sentence>` | the sentence |
+| `/spec <source>` | a written bug report, a Jam link, a GH issue ref, a pasted stack trace, a log excerpt |
+| `/spec` (bare) | **the conversation** |
+
+**A source beats a sentence, and both beat the conversation** — a bug report carries
+reproduction steps, environment and actual-vs-expected, which is most of what the
+investigation needs. Prefer handing it the artifact.
+
+**Bare `/spec` states its subject back before doing the work**, on the first line of output:
+
+```
+SPECCING: the 500 on /api/session when the refresh token has expired
+   from: your message at 14:02 ("...it blows up if you leave it overnight")
+```
+
+It then **proceeds**. This is deliberately not a "shall I continue?" checkpoint: it is the
+cheapest possible correction point — one line, read in a second, interruptible — and blocking
+there would also make the unattended path in §12.4 impossible, since nobody is present to
+answer. **If the conversation contains more than one candidate subject, it asks instead of
+picking**, per §12.1: ambiguity resolves to asking, never to guessing.
+
+## 12.3 What it actually does — investigation is the point
+
+**Yes, it does the full investigation.** Skipping it is what turns a "small fix" into a
+symptom patch, and symptom patches are the specific failure this command exists to prevent.
+The depth varies by input, not the rigour:
+
+| Input | Sequence |
+|---|---|
+| **Bug** | reproduce → identify the mechanism → ground against code → author |
+| **Minor change** | confirm the current behaviour → ground → author |
+| **Conversation** | extract the decision reached → **re-ground against the code** → author |
+
+**Reproduction is doing two jobs at once, and this is the hinge of the whole design.** It is
+both the entry gate and the acceptance criterion:
+
+- as a **gate**: a defect that cannot be reproduced cannot be *verified fixed* either, so it
+  can never be handled unattended;
+- as an **acceptance criterion**: `/implement-trd`'s Step 8 re-runs the recorded reproduction
+  and asserts it no longer reproduces — sourced from evidence, not invented.
+
+That single mechanism supplies the non-manufactured objective §10 demands AND the machine-
+checkable stopping condition §12.4 needs. It is why "reproduce first" is not ceremony here.
+
+**The conversation path re-grounds, always.** The corpus states intent; the code states fact.
+A discussion records what we decided, not what exists.
+
+## 12.4 Sizing — after investigation, on four axes, producing a tier
+
+**Sizing happens AFTER the investigation and BEFORE authoring the TRD**, and the ordering is
+the point: **you cannot size what you have not root-caused.** Sizing a raw bug report is
+guessing at exactly the moment guessing is most expensive. A one-line report can be a
+one-character fix or a data-model error; only the investigation distinguishes them.
+
+To avoid investigating something obviously enormous, there is a **cheap pre-triage on the raw
+input** first — "redesign the dashboard", "add SSO" — which rejects on scope alone and
+recommends `/create-prd`. It rejects; it never *accepts*. Acceptance requires the investigation.
+
+### The four axes — task count is the weakest of them
+
+| Axis | The question | How it is checked |
+|---|---|---|
+| **Root-cause confidence** | Is the mechanism *demonstrated*, or inferred? | The existing evidence markers: a root cause marked `[ran]` (repro isolated to a line) is demonstrated; `[inferred]` is not |
+| **Blast radius** | Is the touched code leaf or shared? | Callers of each changed symbol. A one-line change to a utility used in 40 places is not small |
+| **Regression risk** | Would a break be caught? | Existing test coverage over the touched files, plus whether the repro itself is re-runnable |
+| **Spec certainty** | Is the correct behaviour known, or is it a product judgment? | This is the PRD boundary. "It should not 500" is certain; "what should it show instead" may not be |
+
+These are largely **mechanical** — caller counts, coverage, evidence markers — not vibes,
+which is what makes the verdict trustworthy enough to act on unattended.
+
+### The output is a tier, and it is machine-readable
+
+| Tier | Meaning |
+|---|---|
+| **AUTO** | Root cause demonstrated, blast radius contained, repro re-runnable, spec certain. Safe to implement unattended |
+| **REVIEW** | Light path is right, but a human approves the TRD before `/implement-trd` runs |
+| **ESCALATE** | Not light-path work. Names the axis that failed and points at `/create-prd`, or at a human investigator when the blocker is a non-reproducible defect |
+
+**Hard rules, no judgment involved:**
+
+- **Non-reproducible → never AUTO.** If it cannot be reproduced it cannot be verified fixed.
+- **An owner-governed "never unattended" path list** — auth, payments, migrations, secrets,
+  deletion paths — forces REVIEW or ESCALATE regardless of how small the diff is. Owner-owned
+  policy, like `verification.md`, not something an agent infers.
+- **The design audit (§12.5) can only lower a tier, never raise it.**
+
+The tier is written to state as a field, not just printed. **That is the forward-compatibility
+hook for the Slack case**: an unattended caller reads the tier and either proceeds or reports
+"this needs a person, because <axis>" — with no part of the command needing to know it was
+invoked by a bot. Not built now; designed so it does not need re-designing later.
+
+## 12.5 The audit checks design correctness, not just paperwork
+
+§12.1's mechanical checks (grounding present, paths resolve, `Serves` resolves, objectives
+sourced, nothing outside the footprint) are necessary and cheap, but they only prove the TRD is
+well-formed. **They cannot tell whether the fix is right.** One adversarial agent carries that,
+with an explicit mandate:
+
+1. **Root cause or symptom?** Does this address the mechanism the investigation demonstrated,
+   or the place the error surfaced?
+2. **Regression in the blast radius?** Every caller identified in sizing — does the change hold
+   for each?
+3. **Is there a simpler correct fix?** Small diffs earn their place; a clever one is a smell.
+4. **Does it contradict the surrounding code?** A fix that fights local convention usually
+   means the root cause was misread.
+
+**Its verdict feeds back into the tier.** If the root cause turns out to be inferred rather
+than demonstrated, AUTO drops to REVIEW — the loop closes, and the command cannot talk itself
+into acting unattended on a guess.
+
 
 ### 13. Rebase delivery — getting a framework fix out to projects already scaffolded
 
