@@ -8,7 +8,6 @@
 #
 # Usage:
 #   ./run-hook-test.sh "Your prompt here"
-#   ./run-hook-test.sh "Your prompt here" --hook wiggum
 #   ./run-hook-test.sh "Your prompt here" --hook all --timeout 300
 #
 # Arguments:
@@ -17,7 +16,6 @@
 # Options:
 #   --hook NAME         Specify which hook(s) to test. Options:
 #                         all      - All hooks enabled (default)
-#                         wiggum   - Test wiggum.js (Stop event)
 #                         status   - Test status.js (SubagentStop event)
 #                         formatter - Test formatter.sh (PostToolUse event)
 #                         learning - Test learning.sh (SessionEnd event)
@@ -44,7 +42,6 @@
 #   - PostToolUse      - After tool execution (formatter.sh)
 #   - UserPromptSubmit - User prompt submission
 #   - Notification     - System notifications
-#   - Stop             - Session end attempt (wiggum.js)
 #   - SubagentStop     - Subagent completion (status.js)
 #   - SessionEnd       - Session termination (learning.sh)
 #
@@ -61,8 +58,6 @@
 #   # Test specific hook
 #   ./run-hook-test.sh "Edit test.py" --hook formatter
 #
-#   # Test wiggum with custom timeout
-#   ./run-hook-test.sh "/implement-trd" --hook wiggum --timeout 600
 #
 #   # Debug mode for troubleshooting
 #   ./run-hook-test.sh "Test prompt" --debug
@@ -137,7 +132,6 @@ Arguments:
 Options:
     --hook NAME         Which hook(s) to test:
                           all       - All hooks enabled (default)
-                          wiggum    - Test wiggum.js (Stop event)
                           status    - Test status.js (SubagentStop event)
                           formatter - Test formatter.sh (PostToolUse event)
                           learning  - Test learning.sh (SessionEnd event)
@@ -153,14 +147,12 @@ Hook Events:
     PostToolUse      - After tool execution (triggers formatter.sh)
     UserPromptSubmit - User prompt submission
     Notification     - System notifications
-    Stop             - Session end attempt (triggers wiggum.js)
     SubagentStop     - Subagent completion (triggers status.js)
     SessionEnd       - Session termination (triggers learning.sh)
 
 Examples:
     $(basename "$0") "Create a simple Python function"
     $(basename "$0") "Edit test.py" --hook formatter
-    $(basename "$0") "/implement-trd" --hook wiggum --timeout 600
 
 Environment Variables:
     OTEL_ENDPOINT         OpenTelemetry collector endpoint
@@ -222,14 +214,12 @@ validate_hook_exists() {
     local hook_file=""
 
     case "$hook_name" in
-        wiggum)   hook_file="$HOOKS_DIR/wiggum.js" ;;
         status)   hook_file="$HOOKS_DIR/status.js" ;;
         formatter) hook_file="$HOOKS_DIR/formatter.sh" ;;
         learning) hook_file="$HOOKS_DIR/learning.sh" ;;
         all)      return 0 ;;  # All hooks - check individually
         *)
             log_error "Unknown hook: $hook_name"
-            log_error "Valid hooks: all, wiggum, status, formatter, learning"
             exit 1
             ;;
     esac
@@ -246,7 +236,6 @@ get_hook_event() {
     # Return the hook event type for a given hook name
     local hook_name="$1"
     case "$hook_name" in
-        wiggum)   echo "Stop" ;;
         status)   echo "SubagentStop" ;;
         formatter) echo "PostToolUse" ;;
         learning) echo "SessionEnd" ;;
@@ -355,12 +344,7 @@ log_debug "  Project root: ${PROJECT_ROOT}"
 # Set up hook-specific environment variables
 export CLAUDE_PLUGIN_ROOT="$HOOKS_DIR"
 
-# For wiggum testing, we may want to set specific environment variables
-if [[ "$HOOK" == "wiggum" || "$HOOK" == "all" ]]; then
-    # Don't enable WIGGUM_ACTIVE by default - it should only be enabled
     # by /implement-trd command. But we can enable debug mode.
-    export WIGGUM_DEBUG="${WIGGUM_DEBUG:-0}"
-    log_debug "  WIGGUM_DEBUG: ${WIGGUM_DEBUG}"
 fi
 
 # Trust boundary: PROMPT comes from test scripts, not untrusted user input

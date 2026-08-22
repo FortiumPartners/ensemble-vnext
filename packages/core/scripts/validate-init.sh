@@ -177,7 +177,6 @@ REQUIRED_HOOKS=(
 OPTIONAL_HOOKS=(
     "formatter.sh"
     "notify.sh"
-    "wiggum.js"
 )
 
 for hook in "${REQUIRED_HOOKS[@]}"; do

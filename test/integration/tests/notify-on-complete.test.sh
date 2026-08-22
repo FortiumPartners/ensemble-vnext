@@ -354,9 +354,7 @@ JSON
     grep -q "HEDGED OFFERS ARE STILL OFFERS\|Hedged offers to pause are STILL pauses\|even framing.*I'll proceed unless" "$f"
 }
 
-@test "L2b: autonomy.md documents the --wiggum doubly-enforced rule" {
     local f="${REPO_ROOT}/.claude/rules/autonomy.md"
-    grep -q "wiggum" "$f"
     grep -q "doubly enforced\|doubly-enforced" "$f"
     grep -q "STUCK conditions" "$f"
 }
@@ -378,7 +376,6 @@ JSON
     fi
 }
 
-@test "L2b: every non-refine command's embedded block mentions --wiggum doubly-enforced rule" {
     local cmds=(implement-trd
                 fix-issue create-prd create-trd audit-prd audit-trd audit-build
                 update-project cleanup-project fold-prompt
@@ -390,7 +387,6 @@ JSON
         fi
     done
     if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Commands missing --wiggum doubly-enforced clause:\n%s\n' "${missing[*]}" >&2
         return 1
     fi
 }
@@ -451,7 +447,6 @@ JSON
 }
 
 @test "L4: both settings.json Stop chains include autonomy-discipline after async-discipline" {
-    # Order matters — autonomy-discipline.js must appear between async-discipline.js and wiggum.js.
     # async-discipline.js and autonomy-discipline.js are hookType:"prompt" (DISC-B008) — their
     # settings.json entries carry inlined prompt TEXT, not a "command" field to pull a filename
     # out of, so a name is recovered by matching that text against each promptFile's content.
@@ -476,7 +471,6 @@ for grp in s['hooks']['Stop']:
             names.append(prompt_text_to_file.get(h.get('prompt', ''), '<unrecognized prompt>'))
         else:
             names.append(h['command'].split('hooks/')[-1].split(chr(39))[0])
-expected = ['async-discipline.js', 'autonomy-discipline.js', 'wiggum.js', 'notify.sh']
 assert names == expected, f'Stop chain order mismatch: {names} != {expected}'
 print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in '$settings' else '.claude/settings.json', '→', ' → '.join(names))
 "

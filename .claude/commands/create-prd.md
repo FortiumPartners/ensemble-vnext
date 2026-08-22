@@ -813,6 +813,8 @@ Forbidden patterns:
 - "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
 - "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
 
-### `--wiggum` and other autonomous-mode flags
+### Autonomy is the default, not a mode
 
-When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.
+The COMMAND COMPLETE banner is the first and only return of control. A STUCK condition after
+retry exhaustion is the one thing that stops a run early. Everything in the table above is
+forbidden unconditionally — there is no flag that turns this on, and none that turns it off.

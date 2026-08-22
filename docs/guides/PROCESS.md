@@ -55,7 +55,6 @@ Run once per project. This bootstraps the full Ensemble runtime into your reposi
   agents/           13 specialist subagents, tailored to your stack
   commands/         Workflow slash commands
   hooks/            session-context, runtime-refresh, router, formatter, status,
-                    async-discipline, autonomy-discipline, wiggum, notify,
                     notify-complete, precompact
   skills/           Domain knowledge packs matched to your technology stack
   rules/

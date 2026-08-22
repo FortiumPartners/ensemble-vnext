@@ -108,7 +108,6 @@ or
 |--------|-------------|
 | `--phase N` | Execute only phase N |
 | `--session <name>` | Execute only named work session |
-| `--wiggum` | Enable autonomous mode |
 | `--resume` | Resume from last checkpoint |
 | `--continue` | Alias for `--resume` |
 
@@ -260,7 +259,6 @@ Commands delegate to these 12 streamlined subagents:
 2. **Use current.json** - avoid specifying paths when current feature is set
 3. **Review before approve** - examine proposed Constitution/stack changes
 4. **Commit at checkpoints** - don't lose progress
-5. **Use --wiggum carefully** - autonomous mode is powerful but resource-intensive
 
 ---
 

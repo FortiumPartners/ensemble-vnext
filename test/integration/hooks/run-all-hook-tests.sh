@@ -10,7 +10,6 @@
 #   ./run-all-hook-tests.sh                    # Run all tests
 #   ./run-all-hook-tests.sh --verbose          # Detailed output
 #   ./run-all-hook-tests.sh --junit            # Generate JUnit XML report
-#   ./run-all-hook-tests.sh --specific wiggum  # Run only wiggum tests
 #
 # Exit Codes:
 #   0 - All tests passed
@@ -35,7 +34,6 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 # Test files to run (ordered by task number)
 declare -A HOOK_TESTS=(
-    ["wiggum"]="wiggum-hook.test.sh"
     ["formatter"]="formatter-hook.test.sh"
     ["learning"]="learning-hook.test.sh"
     ["status"]="status-hook.test.sh"
@@ -44,7 +42,6 @@ declare -A HOOK_TESTS=(
 
 # Expected test counts (from TRD)
 declare -A EXPECTED_COUNTS=(
-    ["wiggum"]=36
     ["formatter"]=26
     ["learning"]=19
     ["status"]=28
@@ -74,7 +71,6 @@ Options:
     --verbose, -v       Detailed output during test execution
     --junit, -j         Generate JUnit XML report
     --specific <hook>   Run only tests for specified hook
-                        Valid hooks: wiggum, formatter, learning, status, permitter
     --parallel, -p      Run tests in parallel (requires GNU parallel)
     --jobs <n>          Number of parallel jobs (default: 1)
     --help, -h          Show this help message
@@ -83,7 +79,6 @@ Examples:
     $(basename "$0")                      # Run all tests
     $(basename "$0") --verbose            # Verbose output
     $(basename "$0") --junit              # Generate JUnit report
-    $(basename "$0") --specific wiggum    # Run wiggum tests only
     $(basename "$0") --parallel --jobs 4  # Parallel execution
 
 Report Output:
@@ -343,8 +338,6 @@ print_summary_report() {
     if [[ -n "$SPECIFIC_HOOK" ]]; then
         hooks_to_report=("$SPECIFIC_HOOK")
     else
-        # Maintain order: wiggum, formatter, learning, status, permitter
-        hooks_to_report=("wiggum" "formatter" "learning" "status" "permitter")
     fi
 
     for hook in "${hooks_to_report[@]}"; do
@@ -422,7 +415,6 @@ EOF
     if [[ -n "$SPECIFIC_HOOK" ]]; then
         hooks_to_report=("$SPECIFIC_HOOK")
     else
-        hooks_to_report=("wiggum" "formatter" "learning" "status" "permitter")
     fi
 
     for hook in "${hooks_to_report[@]}"; do
@@ -469,7 +461,6 @@ main() {
         hooks_to_test=("$SPECIFIC_HOOK")
     else
         # Maintain consistent order
-        hooks_to_test=("wiggum" "formatter" "learning" "status" "permitter")
     fi
 
     echo "Testing ${#hooks_to_test[@]} hook(s)..."

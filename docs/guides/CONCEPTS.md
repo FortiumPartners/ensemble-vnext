@@ -285,7 +285,6 @@ a deliberate design decision, recorded as D15 in `docs/TRD/implement-trd-rework.
 only if hardening code the loop did not build becomes routine; today `/code-review high`
 covers that case.)
 
-The `wiggum` hook still monitors progress and manages session lifecycle across the whole
 run; the `status` hook still tracks which tasks complete and which need attention.
 
 ### The 13 Specialist Agents

@@ -1258,8 +1258,6 @@ ever evaluated); `Report` is `Step 8`'s `reportPath` in every case — the two `
 are written by the same `render-report` CLI call, so the path is populated even when the loop
 itself never ran.
 
-For Wiggum mode, signal: `<promise>COMPLETE</promise>`
-
 ### 9.1 The banner closes the turn — nothing after it
 
 **Emit `═══ COMMAND COMPLETE: /implement-trd ═══` plus its one-line summary as the LAST
@@ -1486,23 +1484,8 @@ Forbidden patterns:
 - "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
 - "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
 
-### There is no autonomous MODE — this is the default
+### Autonomy is the default, not a mode
 
-`--wiggum` used to promise "doubly enforced" autonomy: the four valid `AskUserQuestion`
-cases shrink to one, only a STUCK condition after retry exhaustion. **That is now simply how
-this command behaves, with no flag.**
-
-The flag was retired 2026-08-21 because it did nothing. Its `Stop` hook fired only when
-`WIGGUM_ACTIVE=1`, and nothing in this command — or anywhere else in the framework — ever set
-it. It was registered in the manifest, shipped into every scaffolded project, and carried a
-test suite whose five failures were the repository's permanent baseline. Passing it changed
-only how these paragraphs read.
-
-Its job is also gone. It re-injected a PROMPT to stop the loop exiting early; the loop now
-runs phase-to-phase without pausing, `autonomy-discipline` blocks mid-loop pauses as a Stop
-hook, and `--resume` restarts from `implement.json` on disk. Re-injecting context is the
-thing the state file replaced — progress lives in the repository, not in the model's memory.
-
-**So: the COMMAND COMPLETE banner is the first and only return of control.** A STUCK
-condition after retry exhaustion is the one thing that stops the run early. Everything in the
-table above is forbidden whether or not anyone passes a flag.
+The COMMAND COMPLETE banner is the first and only return of control. A STUCK condition after
+retry exhaustion is the one thing that stops a run early. Everything in the table above is
+forbidden unconditionally — there is no flag that turns this on, and none that turns it off.

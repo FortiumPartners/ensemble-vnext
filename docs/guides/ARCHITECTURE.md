@@ -162,7 +162,6 @@ your-project/
 |   |   |-- status.js                # Implementation tracking (SubagentStop)
 |   |   |-- async-discipline.js      # Blocks hallucinated async claims (Stop)
 |   |   |-- autonomy-discipline.js   # Blocks hedged-pause offers (Stop)
-|   |   |-- wiggum.js                # Autonomous-loop / session-end processing (Stop)
 |   |   |-- notify.sh                # Per-Stop notifications (Stop)
 |   |   |-- notify-complete.sh       # COMMAND-COMPLETE notification helper (model-invoked)
 |   |   |-- session-context.js       # Session identity capture (SessionStart)
@@ -301,7 +300,6 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 |--------|-------------|
 | `--phase N` | Execute only phase N |
 | `--session <name>` | Execute only named work session |
-| `--wiggum` | Enable autonomous mode |
 | `--resume` / `--continue` | Resume from last checkpoint |
 
 ### The Implementation Workflow
@@ -353,7 +351,6 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 | **UserPromptSubmit** | Every user message | `router.py` | Analyzes the prompt and recommends appropriate agents and skills. Appends routing context to the prompt. |
 | **PostToolUse** | After Edit/Write/MultiEdit | `formatter.sh` | Auto-formats the changed file using the project's formatter (Prettier, Black, etc.). |
 | **SubagentStop** | When a sub-agent completes | `status.js` | Advances cycle position in `implement.json`. Tracks which stage (implement, verify, simplify, review) just completed. |
-| **Stop** | When a session stops | `async-discipline.js` → `autonomy-discipline.js` → `wiggum.js` → `notify.sh` | The Stop chain runs in order: `async-discipline` blocks hallucinated "I'll report back" claims with no async machinery; `autonomy-discipline` blocks hedged-pause offers in workflow commands; `wiggum` handles autonomous-loop / session-end processing; `notify.sh` runs last, executing any optional `NOTIFY_ON_STOP` command. |
 | **PreCompact** | Before context compaction | `precompact.js` | Handles pre-compaction bookkeeping so important state survives lossy summarization. |
 | *(model-invoked)* | Commands call it directly on their COMMAND COMPLETE turn | `notify-complete.sh` | Not tied to a lifecycle event — a workflow command invokes it explicitly to fire `NOTIFY_ON_COMPLETE` exactly once. See [command-status.md Path B](../../.claude/rules/command-status.md). |
 
@@ -378,10 +375,8 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 - `/refine-prd` and `/refine-trd` are exempt (intentionally interactive)
 - See `.claude/rules/autonomy.md`
 
-**Wiggum (`wiggum.js`):**
 - Third hook in the Stop chain — autonomous-loop and session-end processing
 - Manages session lifecycle for team and multi-pass workflows
-- Enables the "launch and land" pattern where sessions run unattended (the `--wiggum` autonomous mode on `/implement-trd`)
 
 **Status (`status.js`):**
 - Active hook (not passive) -- advances cycle position
@@ -652,7 +647,6 @@ The `permissions.allow` list auto-approves safe operations (git, test runners, f
 
 13. **User runs** `/fold-prompt`
 14. **Command** analyzes session, updates CLAUDE.md
-15. **Stop hooks** fire in order: async-discipline and autonomy-discipline vet the final turn, wiggum.js processes the session, notify.sh sends any configured notification
 
 ### Data Flow
 
@@ -675,5 +669,4 @@ User Prompt
 [Agent Completes] --> [Status Hook] --> implement.json updated
     |
     v
-[Session Stops] --> [Async + Autonomy Guards] --> [Wiggum + Notify] --> cleanup + notifications
 ```

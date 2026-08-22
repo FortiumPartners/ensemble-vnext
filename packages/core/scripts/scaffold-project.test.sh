@@ -600,7 +600,6 @@ _get_plugin_dir() {
     [ ! -e "$TEST_DIR/.claude/hooks/save-remote-logs.js" ]
 }
 
-@test "Plugin copy: Copies core hooks (router, formatter, status, wiggum)" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
 
@@ -610,7 +609,6 @@ _get_plugin_dir() {
     [ -f "$TEST_DIR/.claude/hooks/router.py" ]
     [ -f "$TEST_DIR/.claude/hooks/formatter.sh" ]
     [ -f "$TEST_DIR/.claude/hooks/status.js" ]
-    [ -f "$TEST_DIR/.claude/hooks/wiggum.js" ]
     [ -f "$TEST_DIR/.claude/hooks/notify.sh" ]
 }
 

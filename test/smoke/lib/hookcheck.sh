@@ -77,7 +77,6 @@ hookcheck_interpreter_for() {
 # ASSERT_*_COUNT accumulates normally):
 #   1. it loads and exits 0
 #   2. stdout is empty or valid JSON
-# <label> is the assertion description prefix (e.g. "Stop/wiggum.js").
 hookcheck_run_one() {
     local event="$1" hook_path="$2" work_dir="$3" label="$4"
     local interp

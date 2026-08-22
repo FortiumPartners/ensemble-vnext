@@ -75,7 +75,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | **Done (4.1.6)** — `test/smoke/`, 4 deterministic scenarios |
-| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5b+5c+5e done. 5b's Wiggum sub-item RETIRED not built (4.1.18) — the hook could never fire. Only 5d (`InstructionsLoaded`) open** |
+| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5b+5c+5e done. Only 5d (`InstructionsLoaded`) open** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | **Shipped for `/create-prd` + `/create-trd`** — unrun; keep-or-revert call outstanding |
@@ -514,8 +514,7 @@ assert rule integrity at load time.
 **Done when:** ~~`learning.sh` and `save-remote-logs.js` are gone~~ ✅; a written decision exists for ~~`permitter`~~ ✅ (deleted)
 and for `router`, with a test behind it if kept; both discipline hooks are under
 ~80 LOC with semantic matching in a prompt hook; no hook reads `transcript_path` to find the last
-assistant message; `wiggum` re-injects state plus a restated completion promise;
-`resolve-project-root` prefers `$CLAUDE_PROJECT_DIR`; every surviving hook loads and exits 0 on a
+assistant message; `resolve-project-root` prefers `$CLAUDE_PROJECT_DIR`; every surviving hook loads and exits 0 on a
 minimal payload (asserted in item 4's harness); item 1's hook manifest lists exactly the hooks that
 remain.
 

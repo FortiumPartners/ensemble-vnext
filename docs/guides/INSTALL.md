@@ -221,7 +221,6 @@ Check `.claude/settings.json` to verify hooks are configured:
 | `UserPromptSubmit` | `router.py` | Routes prompts to appropriate agents/skills |
 | `PostToolUse` | `formatter.sh` | Auto-formats edited files |
 | `SubagentStop` | `status.js` | Tracks implementation progress |
-| `Stop` | `async-discipline.js` → `autonomy-discipline.js` → `wiggum.js` → `notify.sh` | Async/autonomy guards, session-end processing, notifications |
 | `PreCompact` | `precompact.js` | Preserves state before context compaction |
 | *(model-invoked)* | `notify-complete.sh` | Called directly by commands on their COMMAND COMPLETE turn to fire `NOTIFY_ON_COMPLETE` exactly once |
 

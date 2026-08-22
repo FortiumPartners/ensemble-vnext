@@ -527,12 +527,11 @@ PY
     grep -qi 'Do not derive one' "$VB"
 }
 
-@test "--wiggum is gone, and autonomy is the default rather than a mode" {
-    # The flag was registered, tested, scaffolded into every project -- and could
-    # never fire: its hook needed WIGGUM_ACTIVE=1 and nothing ever set it. Its five
-    # permanently-failing tests were the repo's baseline.
-    ! grep -q -- '--wiggum' "$IMPLEMENT_TRD_MD"
-    grep -q 'There is no autonomous MODE' "$IMPLEMENT_TRD_MD"
+@test "autonomy is the default, with no flag anywhere in the runtime" {
+    ! grep -qi 'wiggum' "$IMPLEMENT_TRD_MD"
+    grep -q 'Autonomy is the default' "$IMPLEMENT_TRD_MD"
+    # And nothing in the shipped runtime still references it.
+    ! grep -rqi 'wiggum' "${REPO_ROOT}/packages/core/commands" "${REPO_ROOT}/packages/core/hooks" "${REPO_ROOT}/.claude/rules"
     [ ! -f "${REPO_ROOT}/packages/core/hooks/wiggum.js" ]
     [ ! -f "${REPO_ROOT}/.claude/hooks/wiggum.js" ]
     ! grep -q 'wiggum' "${REPO_ROOT}/packages/core/hooks/hooks.manifest.json"

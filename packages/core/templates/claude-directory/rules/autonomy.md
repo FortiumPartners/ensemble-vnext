@@ -92,26 +92,19 @@ Example of an illegitimate ask:
 > ❌ "I've completed Phase 2 of implementation. All tasks passed verification. Should I
 > proceed to Phase 3?"
 
-## `--wiggum` and autonomous-mode flags
+## Autonomy is the default
 
-When the user passes `--wiggum` (autonomous mode) on `/implement-trd`, the autonomy
-contract is **doubly enforced** — the user has explicitly opted into "do not stop until
-complete." Under `--wiggum`:
+The `COMMAND COMPLETE` banner is the first and only return of control during a run. A STUCK
+condition after retry exhaustion is the one thing that stops one early — everything in the
+anti-pattern table above is forbidden unconditionally.
 
-- **All four valid `AskUserQuestion` cases above shrink to ONE**: only STUCK conditions
-  after retry exhaustion. Ambiguity, missing info, and routine destructive operations
-  are resolved by the model picking the best available option and proceeding (the wiggum
-  flag IS the user's standing approval).
-- **All offers to pause, review, or check-in are forbidden** — including the hedged
-  forms ("I'll proceed unless...", "Want me to keep going?"). When `--wiggum` is set,
-  the answer to every "should I continue?" question is already YES. Don't ask. Don't
-  hedge. Don't announce intent — just do.
-- **The COMMAND COMPLETE banner is the FIRST and ONLY return of control** to the user
-  during a `--wiggum` run.
+There is no flag that enables this and none that disables it. Ambiguity, missing information
+and routine destructive operations are resolved by picking the best available option and
+proceeding; the four `AskUserQuestion` cases narrow, in practice, to the STUCK condition.
 
-If you find yourself drafting a "given X went cleanly, want me to pause?" message under
-`--wiggum`, you have already noticed there's nothing to pause for. **Delete the message
-and proceed.**
+If you find yourself drafting a "given X went cleanly, want me to pause?" message, you have
+already noticed there is nothing to pause for. **Delete the message and proceed.**
+
 
 ## Refine commands (`/refine-prd`, `/refine-trd`) — exempt by MODE, not by name
 
@@ -164,8 +157,7 @@ Two layers, doing different jobs:
    a corrective reason when it finds one. Like `async-discipline.js`, it reads the turn's
    substance rather than matching a fixed phrase list, so a hedged offer that avoids the
    anti-pattern table's exact wording is still caught if it's making the same move. It does
-   **not** ban `AskUserQuestion` outright — the four valid cases (and, under `--wiggum`, the
-   one valid case) are legitimate uses of that tool, and the judge is expected to
+   **not** ban `AskUserQuestion` outright — the four valid cases are legitimate uses of that tool, and the judge is expected to
    distinguish a genuine one of those from a disguised checkpoint request.
 
 Loop guard, override, and `if`-field caveat are identical to the async-discipline hook's —

@@ -367,7 +367,7 @@ SAME transformations or it will fight the scaffold:
 - **Core lib** — plugin source: `packages/full/hooks/lib` symlinked to
   `packages/core/hooks/lib/`. **Installed as a SUBDIRECTORY**:
   `.claude/hooks/lib/*.js` (shared helpers used by `precompact.js`, `session-context.js`,
-  `wiggum.js`, etc. via `require('./lib/resolve-project-root')`).
+  `status.js`, etc. via `require('./lib/resolve-project-root')`).
   - **Diff target:** plugin's `packages/core/hooks/lib/*.js` ↔ project's
     `.claude/hooks/lib/*.js`.
 
@@ -713,7 +713,7 @@ the plugin's version. Always create a backup of anything removed or replaced.
    regardless of extension, `copy_hooks()`), and this step did not — so a project
    scaffolded correctly and then REBASED came out worse than one never rebased at
    all. Reported from a live project 2026-08-20: six hooks lost the bit
-   (`router.py`, `status.js`, `wiggum.js`, `dispatch-ledger.js`, `precompact.js`,
+   (`router.py`, `status.js`, `dispatch-ledger.js`, `precompact.js`,
    `session-context.js`) — precisely the `.js` and `.py` files, because only `.sh`
    had been re-chmodded.
 
@@ -1204,6 +1204,8 @@ Forbidden patterns:
 - "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
 - "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
 
-### `--wiggum` and other autonomous-mode flags
+### Autonomy is the default, not a mode
 
-When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.
+The COMMAND COMPLETE banner is the first and only return of control. A STUCK condition after
+retry exhaustion is the one thing that stops a run early. Everything in the table above is
+forbidden unconditionally — there is no flag that turns this on, and none that turns it off.
