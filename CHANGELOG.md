@@ -10,7 +10,58 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.20] - 2026-08-21
+
+**This release exists because 4.1.19 shipped a fix that was not in force, and its notes
+said otherwise.** Correcting the record is the point of it.
+
+### Fixed
+
+- **The autonomy-judge fix was never live.** 4.1.18's `35413ce` regenerated the judge
+  *prompt file* and was tested against the *prompt file*. What the platform evaluates is
+  `settings.json`, and `generate-hooks-artifacts.sh` only ever wrote the **template** — so
+  both live copies (this repo's own runtime and the plugin's) kept running the old prompt
+  through 4.1.19. The generator now writes all three, and `--check` detects drift in any of
+  them. Same bug class 4.1.19 fixed in `/rebase-project`: correct in the checkout, absent
+  where it runs.
+
+- **`notify-on-complete.test.sh` had been running zero tests** since the `--wiggum` cleanup
+  deleted two `@test` headers but left their bodies behind, killing `bats-gather-tests` for
+  the whole file. Among the 40 tests not running was the one whose entire job is comparing
+  both live `settings.json` Stop chains against the manifest — the check that would have
+  caught the bug above. Restored.
+
+- **`! grep` does not fail a BATS test** unless it is the last line: bash suppresses
+  `errexit` for any `!`-prefixed command, so `! true` passes. 18 negated assertions across
+  two files were dead, including an env-file injection check. Replaced with a `refute`
+  helper.
+
+- **`/rebase-project` no longer writes backup copies.** `.claude/` is committed, so the four
+  `<dir>.backup.<timestamp>/` trees duplicated git while offering worse tooling — and made
+  rollback *more* dangerous, since the documented restore (`rm -rf .claude/skills && mv
+  .claude/skills.backup.<ts> .claude/skills`) destroys any skill added since. Rollback is
+  now `git restore .claude/`, and a dirty or non-git `.claude/` aborts at Step 0 with the
+  files named, since uncommitted edits are the one thing git cannot recover. `--force`
+  overrides and is now a documented flag rather than one referenced in prose but defined
+  nowhere.
+
+### Added
+
+- `packages/core/scripts/check-test-suites.sh` — fails when any suite gathers-but-runs-
+  nothing, defines nothing, or has failures. First honest baseline: **17 suites, 436 passing,
+  1 gather failure (`scaffold-project.test.sh`), 82 failing across 8 files.** Pre-existing
+  and not addressed here; some is stale rather than broken (`learning-hook.test.sh` tests a
+  hook retired in 4.1.0).
+- `packages/core/scripts/lint-command-structure.js` — frontmatter position, ordered-list
+  continuity, orphaned table rows, fence balance. These files are edited by string
+  replacement and checked by grep, and grep cannot see structure. Clean across 32 files
+  except a known fence imbalance at `update-project.md:288`.
+
 ## [4.1.19] - 2026-08-21
+
+> **Correction (4.1.20):** these notes are accurate about `/rebase-project`, but this tag
+> also carried the 4.1.18 autonomy-judge fix as *dead code* — present in the prompt file,
+> absent from every live `settings.json`. It became real in 4.1.20.
 
 **Still a patch, per the versioning note above.** Three `/rebase-project` defects, all
 surfaced by one live rebase report from another project — none found by 39 structure tests,
