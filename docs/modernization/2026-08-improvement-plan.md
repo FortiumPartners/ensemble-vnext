@@ -3,7 +3,7 @@
 **Created**: 2026-08-11
 **Status** (refreshed 2026-08-22): Items 1–10 are CLOSED — shipped, or closed on a recorded
 decision not to build (6, 9, and sub-item 5d).
-**Genuinely open: 11, and 12 (partly done in 4.1.18).** Item 7's cross-TRD coordination design
+**Genuinely open: 11, 12, and 13 (partly done).** Item 7's cross-TRD coordination design
 is deferred by owner decision, not open work.
 
 *The at-a-glance table is authoritative and was corrected on 2026-08-22 — rows 6, 7 and 8 had
@@ -91,7 +91,8 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 9a | Functional verification of delivered software | 3–5 days | A green suite says nothing about whether a user can do what the PRD promised | **Shipped 4.1.18** — `--verify`, `/verify-build`, live-verified 20/20 |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
-| 12 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; the four structural sub-items in §12 remain |
+| 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Open** |
+| 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
 ---
 
@@ -1435,12 +1436,69 @@ tasks now carry `Dependencies` and `Serves` in structured, parser-consumable pos
 tasks + dependencies → DAG is mechanical, and "what can run in parallel" becomes
 deterministic rather than LLM-judged. Build item 7's `lib/` as part of this item, not after.
 
-### 12. Rebase delivery — getting a framework fix out to projects already scaffolded
+### 12. Rework `/investigate-issue` + `/fix-issue` onto the current execution model
 
-*Renamed 2026-08-22. It was "Command-fix delivery", which reads as "a command that fixes
-things" and was mistaken for `/fix-issue` by the owner. This item is about the DELIVERY PIPE —
-`/rebase-project` — not about fixing anything. `/fix-issue` is unrelated and appears in this
-plan only as a command that items 1 and 2 happened to touch.*
+**These two are the last commands still running the architecture item 8 replaced.** Everything
+else — `/implement-trd`, `/create-prd`, `/create-trd`, `/audit-*` — was moved onto the
+deterministic task graph, one workflow per phase, and the functional-verification loop.
+The bug path was not, so a defect fix goes through machinery this project has already measured
+as worse and already stopped trusting.
+
+**What `/fix-issue` still does** (read 2026-08-22, `packages/core/commands/fix-issue.md`, 505 lines):
+
+| | Bug path today | What `/implement-trd` does since item 8 |
+|---|---|---|
+| Concurrency | Spawns **teammates** — `Agent({subagent_type, name, prompt})` (§3.2). The **last command in the framework that does**; item 9's closure note confirms it | One `Workflow(implement-phase)` per phase; workflow agents cannot spawn agents at all |
+| Dependencies | `TaskCreate` + `TaskUpdate({addBlockedBy})` | `task-graph.js` — waves, file-conflict serialization, computed |
+| Per-task cycle | Separate FIX then VERIFY dispatches (templates F.1/F.2) | ONE agent invocation with its own check battery and self-correction (D8) — measured 1.00 vs 5.00 agents/task, −49% cost, −35% tokens |
+| Orchestration | `ScheduleWakeup` safety net + `SendMessage` collection | None needed — the workflow returns |
+| Did the bug stop happening? | **Nothing checks.** Step 4 runs tests; there is no `--verify` equivalent | 9a's loop: exercise the running system against the criteria, correct, re-exercise |
+| Delivery audit | none | `/audit-build` |
+
+**The verification gap is the one that matters.** For a bug fix, "does the defect still
+reproduce?" IS the acceptance criterion — it is functional verification by definition, and 9a
+built exactly that machinery (`--verify`, `/verify-build`, the correction loop, the
+environment preflight). The command that most needs it is the one command that cannot reach
+it. A green test suite after a fix says the tests pass, which is what it said before the fix
+too.
+
+**`/investigate-issue` is coupled to this and cannot be treated separately.** It emits an
+"Issue TRD" whose tasks are bullets:
+
+```
+- [ ] **<issue-id>-001**: <description>
+  - Files: <file paths>
+```
+
+`trd-parser.js` reads a **`Master Task List` table** (`findSection(lines, 'Master Task List')`).
+So the Issue TRD is **structurally unparseable by the graph machinery** — `/fix-issue` could
+not adopt the task graph even if it wanted to, because its input is the wrong shape. Any rework
+starts here, and it is the reason this is one item and not two.
+
+**The open design question, and it is a real one:** how much of `/implement-trd` should a bug
+fix inherit? A one-file fix does not want phases, waves, or a hardening fan-out. The plausible
+answer is that `/fix-issue` becomes a thin caller — Issue TRD in the parseable format, then the
+same phase workflow with a single phase and the verification loop enabled — but that is a
+design decision to make against the code, not to assume here. What is NOT in question is that
+teammates, `TaskCreate` dependency chains and split FIX/VERIFY dispatches should go: all three
+were removed from the main path on measured evidence.
+
+**Done when:** the Issue TRD parses with `trd-parser.js`; `/fix-issue` spawns no teammates and
+uses no task-list tools; the per-task cycle is one implementer invocation; a fix is not reported
+complete until the reproduction from the Issue TRD has been re-run and fails to reproduce; and
+`/fix-issue`'s line count drops the way `/implement-trd`'s did (1466 → 1042) as prose is replaced
+by calls into `lib/`.
+
+**Why it sits here:** every other item improved the feature path. This is the path taken when
+something is already broken, which is when the framework's guarantees matter most and when the
+user is least willing to babysit it.
+
+### 13. Rebase delivery — getting a framework fix out to projects already scaffolded
+
+*Was item 12 until 2026-08-22. It was written up under that number on a misreading of the
+owner's request — "replacing/updating the commands to fix a bug" was taken as "update the
+commands SO THAT a bug is fixed [in projects]" when it meant "update the commands THAT fix a
+bug", i.e. item 12 above. The content stands on its own; only the number was wrong.*
 
 **The gap:** every defect found in a shipped command is fixed in `packages/core`, mirrored to
 `.claude/`, committed — and reaches no existing project until someone runs `/rebase-project`.
