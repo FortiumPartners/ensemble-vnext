@@ -291,7 +291,7 @@ setup() {
 }
 
 # =============================================================================
-# 8. The --verify-functional --resume composition gate reads `outcome`
+# 8. The --verify --resume composition gate reads `outcome`
 # =============================================================================
 # The gate at Step 3.6 step 0 is PROSE executed by a model, not code, so this is
 # a documentation-level assertion — it proves the command tells the model to read
@@ -299,7 +299,7 @@ setup() {
 # check available at this layer, and it is worth having: the gate was written as
 # "resumable iff the state file records a non-terminal outcome" while the Judge
 # wrote no outcome key at all, so every state file read as non-terminal and
-# `--verify-functional --resume` skipped the derive pass, the whole phase loop
+# `--verify --resume` skipped the derive pass, the whole phase loop
 # and Step 7 even after a run that exited satisfied.
 
 @test "Step 3.6's resume gate names the outcome key and both of its readings" {
@@ -515,4 +515,25 @@ if drift:
     sys.exit(1)
 PY
     [ "$status" -eq 0 ] || { echo "$output"; false; }
+}
+
+@test "verify-build runs the loop standalone and never implements" {
+    VB="${CORE_COMMANDS}/verify-build.md"
+    grep -q 'This command never implements' "$VB"
+    # Same loop, one dispatch -- not a reimplementation of Step 8.
+    grep -q 'name: "verify-functional"' "$VB"
+    # An absent definition stops it; it must not derive one (second production path).
+    grep -qi 'not run: no definition' "$VB"
+    grep -qi 'Do not derive one' "$VB"
+}
+
+@test "--wiggum is gone, and autonomy is the default rather than a mode" {
+    # The flag was registered, tested, scaffolded into every project -- and could
+    # never fire: its hook needed WIGGUM_ACTIVE=1 and nothing ever set it. Its five
+    # permanently-failing tests were the repo's baseline.
+    ! grep -q -- '--wiggum' "$IMPLEMENT_TRD_MD"
+    grep -q 'There is no autonomous MODE' "$IMPLEMENT_TRD_MD"
+    [ ! -f "${REPO_ROOT}/packages/core/hooks/wiggum.js" ]
+    [ ! -f "${REPO_ROOT}/.claude/hooks/wiggum.js" ]
+    ! grep -q 'wiggum' "${REPO_ROOT}/packages/core/hooks/hooks.manifest.json"
 }

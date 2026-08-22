@@ -74,7 +74,7 @@ describe('checkEvidence', () => {
     expect(verdict.failure).toBe('stale');
   });
 
-  // The --verify-functional --resume composition (TRD §3.2, §3.7 step 2). That path skips the
+  // The --verify --resume composition (TRD §3.2, §3.7 step 2). That path skips the
   // phase loop, so HEAD dates from the PRIOR run and the prior run's leftover evidence -- at
   // the same paths under .trd-state/<feature>/evidence/ -- all postdates it. Under a HEAD-only
   // floor every one of those cleared the gate having proved nothing about the current run.

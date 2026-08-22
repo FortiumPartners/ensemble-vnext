@@ -89,16 +89,6 @@
       "description": "Model-judged: blocks hedged mid-loop pause offers that violate autonomous-execution discipline (pairs with `.claude/rules/autonomy.md`)."
     },
     {
-      "file": "wiggum.js",
-      "event": "Stop",
-      "matcher": "",
-      "order": 3,
-      "timeout": 10,
-      "registration": "command",
-      "shippable": true,
-      "description": "Autonomous loop intercept/continuation, capped at 50 iterations."
-    },
-    {
       "file": "notify.sh",
       "event": "Stop",
       "matcher": "",

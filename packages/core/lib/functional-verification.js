@@ -36,7 +36,7 @@ const fs = require('fs');
  *   strictly greater than this is stale.
  *
  *   It is NOT HEAD's commit time alone. That is only a proxy for "when the code last changed",
- *   and it breaks on `--verify-functional --resume`: the phase loop is skipped, no new commit
+ *   and it breaks on `--verify --resume`: the phase loop is skipped, no new commit
  *   exists, HEAD dates from the prior run, and that run's leftover evidence at the same paths
  *   all postdates it -- clearing this check having proved nothing about the current run. The
  *   `max` also is not redundant: a commit authored on a skewed clock can carry a timestamp

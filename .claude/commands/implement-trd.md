@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--wiggum] [--verify-functional]"
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--verify]"
 version: 4.0.0
 category: implementation
 ---
@@ -14,10 +14,9 @@ category: implementation
 > - `--session <name>` - Execute only named work session
 > - `--resume` or `--continue` - Resume from last checkpoint (attempts session resume first)
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
-> - `--wiggum` - Enable autonomous mode (intercepts exit until complete or max 50 iterations)
-> - `--verify-functional` - Opt in to the functional-verification pass (default off, D11): dispatches a background success-definition derive early (Step 3.6) and, at the tail of the run, an outcome-bearing verification loop. Composes with `--resume` (D13): with both set and a non-terminal `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and the whole phase loop and re-enters the verification loop directly; `--resume` alone keeps its existing meaning (resume the implementation checkpoint) and is unaffected when `--verify-functional` is absent.
+> - `--verify` - Opt in to the functional-verification pass (default off, D11): dispatches a background success-definition derive early (Step 3.6) and, at the tail of the run, an outcome-bearing verification loop. Composes with `--resume` (D13): with both set and a non-terminal `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and the whole phase loop and re-enters the verification loop directly; `--resume` alone keeps its existing meaning (resume the implementation checkpoint) and is unaffected when `--verify` is absent.
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --verify-functional`, `/implement-trd --verify-functional --resume`
+> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --verify`, `/implement-trd --verify --resume`
 
 ---
 
@@ -27,7 +26,7 @@ category: implementation
 $ARGUMENTS
 ```
 
-Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`, `--wiggum`, `--verify-functional`.
+Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`, `--verify`.
 
 ---
 
@@ -36,7 +35,7 @@ Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--re
 ```
 PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN HARDENING & REVIEW -> FUNCTIONAL VERIFICATION -> COMPLETE
 
-  --verify-functional (Step 3.6, D5): right after the graph is built, before the phase
+  --verify (Step 3.6, D5): right after the graph is built, before the phase
   loop, dispatch the success-definition derive pass in the background —
   Agent({subagent_type: "product-manager", run_in_background: true, ...}) — and continue
   straight into the phase loop with no wait. Absent the flag, no derive agent is
@@ -56,11 +55,11 @@ Phase Loop (per phase N):
   -> on failure: retry the WHOLE phase (whole-phase retry, capped) or STUCK
   -> checkpoint + commit + PHASE banner -> next phase (no pause)
 
---verify-functional --resume composition (§3.7, D13): `--resume` alone keeps its existing
-meaning (resume the implementation checkpoint) regardless of `--verify-functional`. When
+--verify --resume composition (§3.7, D13): `--resume` alone keeps its existing
+meaning (resume the implementation checkpoint) regardless of `--verify`. When
 BOTH are set and `.trd-state/<feature>/verification-state.json` exists with a non-terminal
 outcome, the run skips the derive pass and the whole phase loop and re-enters the
-verification loop directly at the iteration after the last completed one. `--verify-functional`
+verification loop directly at the iteration after the last completed one. `--verify`
 with no prior state file starts derivation and the phase loop as usual — the two flags
 compose rather than overloading each other.
 ```
@@ -477,13 +476,13 @@ task":
 
 The assembled string is `rec.prompt` in `implement-phase.js`'s `args.tasks.records[]`.
 
-### 3.6 `--verify-functional`: dispatch the background success-definition derive pass
+### 3.6 `--verify`: dispatch the background success-definition derive pass
 
-**Only when `--verify-functional` is set.** Absent the flag, skip this step entirely — no
+**Only when `--verify` is set.** Absent the flag, skip this step entirely — no
 derive agent is dispatched and no `.trd-state/<feature>/success-definition.md` appears
 (functional-verification TRD AC-6).
 
-**0. The `--resume` composition gate (§3.7, D13).** When `--verify-functional` AND
+**0. The `--resume` composition gate (§3.7, D13).** When `--verify` AND
 `--resume`/`--continue` are both set and `.trd-state/<feature>/verification-state.json`
 exists with a **non-terminal** outcome — that is, its top-level `outcome` key is `null` (the
 run stopped mid-loop) — this run re-enters the verification loop and nothing else: **skip
@@ -491,8 +490,8 @@ this step entirely — dispatch no derive agent — and skip the phase loop (Ste
 end-of-run hardening (Step 7)**, going straight to Step 8, which reads that state file as its
 `resume` argument. A definition already exists from the run that wrote the state file;
 deriving a second one would overwrite it mid-loop. Every other combination is unaffected:
-`--verify-functional` with no state file (or a terminal one) derives and runs the phase loop
-as usual, and `--resume` without `--verify-functional` keeps its existing meaning.
+`--verify` with no state file (or a terminal one) derives and runs the phase loop
+as usual, and `--resume` without `--verify` keeps its existing meaning.
 
 **Read `outcome` and nothing else to decide this.** A non-null `outcome` (`satisfied`,
 `unbuilt`, `stalled`, `stuck`) means the loop finished and MUST NOT be re-entered; a `null`
@@ -875,7 +874,7 @@ the durable companion to `implement.json` — state records *what* happened, the
 }
 ```
 
-**On `functional_verification` (present only when `--verify-functional` was set, FV-B005):**
+**On `functional_verification` (present only when `--verify` was set, FV-B005):**
 written by Step 3.6 at PRD-resolution time, not by the loop itself — `verification-state.json`
 and `verification-report.md` (both written by the workflow's Judge agent, §3.3a) are the
 loop's own durable record; this field exists only to carry the **one** fact that predates the
@@ -886,7 +885,7 @@ memory (the same reasoning `.claude/rules/async-discipline.md`'s dispatch ledger
 written to disk on its own, so that Step 4.1's `implement-state.save()` — which writes the
 whole object — carries it forward rather than clobbering it. Step 8 reads `prd_resolved`
 first and, only when it is `true` (or, defensively, the field is missing altogether, which
-under `--verify-functional` can only mean the state write was lost), falls through to
+under `--verify` can only mean the state write was lost), falls through to
 checking whether `success-definition.md` exists on disk. This keeps the
 three outcomes §3.1 requires distinct: `prd_resolved: false` → `not run: no PRD resolved`;
 `prd_resolved: true` and the definition file absent → `not run: no definition produced`
@@ -920,7 +919,7 @@ There is no session-scoped TaskTools mirror in this design — dispatch is per-p
 ## Step 7: End-of-Run Hardening and Review
 
 After the final phase's checkpoint (Step 5) and before Step 8's functional verification
-(when `--verify-functional` is set) and Step 9's completion report:
+(when `--verify` is set) and Step 9's completion report:
 
 ### 7.1 Feature-scale hardening pass (verifier fan-out)
 
@@ -959,10 +958,10 @@ which is a factual statement about a completed dispatch, not a deferred-notifica
 
 ---
 
-## Step 8: Functional Verification (`--verify-functional` only)
+## Step 8: Functional Verification (`--verify` only)
 
-**Only when `--verify-functional` is set.** Absent the flag, skip this step entirely — Step 9's
-banner reads `not run (--verify-functional not set)` (functional-verification TRD §3.7, AC-6).
+**Only when `--verify` is set.** Absent the flag, skip this step entirely — Step 9's
+banner reads `not run (--verify not set)` (functional-verification TRD §3.7, AC-6).
 
 This step is **one dispatch, not a loop** (D1, G2, FR-2). It contains exactly one `Workflow(`
 call. Everything that iterates, judges, or decides what to do next belongs to
@@ -1214,7 +1213,7 @@ End-of-run /code-review high:     dispatched over {branch_base}...HEAD
 
 FUNCTIONAL VERIFICATION
 ------------------------
-Outcome: {not run (--verify-functional not set) | not run: no PRD resolved | not run: no definition produced | satisfied | unbuilt | stalled | stuck}
+Outcome: {not run (--verify not set) | not run: no PRD resolved | not run: no definition produced | satisfied | unbuilt | stalled | stuck}
 Met: {count}  Not met: {count}  Not verifiable: {count}  Unbuilt: {count}
 Report: {report_path or "n/a"}
 
@@ -1247,8 +1246,8 @@ separate, individually-priced verification wave (7 agents on this project's own 
 `.claude/rules/autonomy.md` governs what this command does unattended — not what it spends
 on a second command's behalf. Naming it is the fix; auto-running it is a different decision.
 
-**Filling the FUNCTIONAL VERIFICATION block.** When `--verify-functional` was never passed,
-this block is not omitted — it reads `Outcome: not run (--verify-functional not set)` with
+**Filling the FUNCTIONAL VERIFICATION block.** When `--verify` was never passed,
+this block is not omitted — it reads `Outcome: not run (--verify not set)` with
 every count at 0 and `Report: n/a`, so its absence is never mistaken for a pass
 (functional-verification TRD §3.7). When the flag was set, Step 8 resolved one of five
 states: the two `not run` short-circuits (§8.1 — no PRD resolved, no definition produced),
@@ -1487,6 +1486,23 @@ Forbidden patterns:
 - "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
 - "Given the previous step went cleanly, do you want me to pause and review?" → self-defeating: you just acknowledged there's nothing to address. PROCEED.
 
-### `--wiggum` and other autonomous-mode flags
+### There is no autonomous MODE — this is the default
 
-When the user has passed `--wiggum` on this command, the autonomy contract is **doubly enforced**: every "should I continue?" question is already answered YES by the flag itself. The FOUR valid `AskUserQuestion` cases shrink to ONE — only STUCK conditions after retry exhaustion. All other questions, hedged offers, and "want me to pause?" framings are forbidden. The COMMAND COMPLETE banner is the FIRST and ONLY return of control to the user during a `--wiggum` run.
+`--wiggum` used to promise "doubly enforced" autonomy: the four valid `AskUserQuestion`
+cases shrink to one, only a STUCK condition after retry exhaustion. **That is now simply how
+this command behaves, with no flag.**
+
+The flag was retired 2026-08-21 because it did nothing. Its `Stop` hook fired only when
+`WIGGUM_ACTIVE=1`, and nothing in this command — or anywhere else in the framework — ever set
+it. It was registered in the manifest, shipped into every scaffolded project, and carried a
+test suite whose five failures were the repository's permanent baseline. Passing it changed
+only how these paragraphs read.
+
+Its job is also gone. It re-injected a PROMPT to stop the loop exiting early; the loop now
+runs phase-to-phase without pausing, `autonomy-discipline` blocks mid-loop pauses as a Stop
+hook, and `--resume` restarts from `implement.json` on disk. Re-injecting context is the
+thing the state file replaced — progress lives in the repository, not in the model's memory.
+
+**So: the COMMAND COMPLETE banner is the first and only return of control.** A STUCK
+condition after retry exhaustion is the one thing that stops the run early. Everything in the
+table above is forbidden whether or not anyone passes a flag.

@@ -408,7 +408,7 @@ describe('verify-functional: the Judge is told the exact state-file key names', 
   // this state file having a non-terminal outcome. Before `outcome` existed the Judge wrote
   // exactly three keys and none of them was one, so "carries no terminal outcome at all" was
   // ALWAYS true: any existing verification-state.json -- including one left by a run that
-  // exited satisfied -- made every later `--verify-functional --resume` skip the derive pass,
+  // exited satisfied -- made every later `--verify --resume` skip the derive pass,
   // the entire phase loop AND the end-of-run hardening, and dispatch nothing. Composed with a
   // cap-exhausted resume, the whole run became a silent no-op that blamed the Judge for it.
   // Terminality cannot be derived from the other three keys: exit-unbuilt and exit-stalled

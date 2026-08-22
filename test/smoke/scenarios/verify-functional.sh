@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # =============================================================================
-# verify-functional - Scenario: /implement-trd --verify-functional
+# verify-functional - Scenario: /implement-trd --verify
 # =============================================================================
 #
 # Runs `/implement-trd` headlessly TWICE against a fixture TRD with exactly
 # ONE task and a matching one-requirement PRD:
 #
-#   1. WITHOUT --verify-functional  -> asserts a COMMAND COMPLETE/STUCK banner
+#   1. WITHOUT --verify  -> asserts a COMMAND COMPLETE/STUCK banner
 #      and that NO .trd-state/<feature>/success-definition.md appears (Step
 #      3.6 is skipped entirely when the flag is absent).
-#   2. WITH --verify-functional     -> asserts the banner, a success
+#   2. WITH --verify     -> asserts the banner, a success
 #      definition whose every row carries a `Cites` value or a
 #      `domain-derived` label, a verification-state.json carrying an
 #      iteration number and a per-criterion status, and a
@@ -176,7 +176,7 @@ run_implement_trd() {
 }
 
 # =============================================================================
-# Run 1: WITHOUT --verify-functional
+# Run 1: WITHOUT --verify
 # =============================================================================
 
 PROJECT_DIR_OFF="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-fvoff.XXXXXX")"
@@ -238,25 +238,25 @@ fi
 # silently passing.
 SD_OFF_FOUND="$(find "${PROJECT_DIR_OFF}/.trd-state" -name success-definition.md 2>/dev/null | head -1)"
 if [[ -n "$SD_OFF_FOUND" ]]; then
-    assert_fail_raw "no success-definition.md without --verify-functional (found: $SD_OFF_FOUND)"
+    assert_fail_raw "no success-definition.md without --verify (found: $SD_OFF_FOUND)"
 elif [[ "$RUN_OFF_RC" -ne 0 ]]; then
     # VACUOUS-PASS GUARD, and it caught itself on 2026-08-19. The baseline run
     # hit the timeout (exit 124) and was killed mid-loop, so of course no
     # definition existed -- and this assertion PASSED, reporting AC-6 proven by
     # a run that never reached the point where a definition could be written.
     # Absence only means something when the run got far enough to produce one.
-    assert_fail_raw "no success-definition.md without --verify-functional — INCONCLUSIVE: the baseline run exited $RUN_OFF_RC (124 = timeout) so absence proves nothing"
+    assert_fail_raw "no success-definition.md without --verify — INCONCLUSIVE: the baseline run exited $RUN_OFF_RC (124 = timeout) so absence proves nothing"
 else
-    assert_pass_raw "no success-definition.md without --verify-functional"
+    assert_pass_raw "no success-definition.md without --verify"
 fi
 
 # =============================================================================
-# Run 2: WITH --verify-functional
+# Run 2: WITH --verify
 # =============================================================================
 
 SESSION_FILE_ON="${PROJECT_DIR_ON}/.session.jsonl"
 RUN_SCAFFOLD_OK=false
-run_implement_trd "$PROJECT_DIR_ON" "$SESSION_FILE_ON" "/implement-trd ${TRD_REL} --verify-functional" "$TIMEOUT_ON"
+run_implement_trd "$PROJECT_DIR_ON" "$SESSION_FILE_ON" "/implement-trd ${TRD_REL} --verify" "$TIMEOUT_ON"
 if [[ "$RUN_SCAFFOLD_OK" != "true" ]]; then
     smoke_finish
 fi
