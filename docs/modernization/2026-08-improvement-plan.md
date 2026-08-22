@@ -1,7 +1,9 @@
 # Ensemble vNext — Improvement Plan
 
 **Created**: 2026-08-11
-**Status**: Item 1 complete (released as 4.1.1). Item 5a done. Item 5b's discipline-hook
+**Status** (refreshed 2026-08-21): Items 1–4, 9a, 10 shipped. Item 5 open on 5d only. Items 6, 7, 8, 11, 12 open — 12 partly done in 4.1.18. HISTORICAL TEXT BELOW may lag; the table above is authoritative.
+
+Item 1 complete (released as 4.1.1). Item 5a done. Item 5b's discipline-hook
 conversion done (2026-08-13, `docs/TRD/discipline-judgment.md`); 5b's Wiggum sub-item is
 still open, so item 5 as a whole remains open. Items 2–4, 5b–5d, 6–9 open.
 **Basis**: Comparison against `Sunstone-Partners/ensemble` + audit of Claude Code features shipped March–August 2026
@@ -73,13 +75,15 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 2 | Remove `TeamCreate`; put groups on the task graph | 1–2 days | Calls a tool that no longer exists | **Done (4.1.2)** |
 | 3 | Re-baseline the execution model | 1 day | Silent capability loss, no error | **Done (4.1.3)** |
 | 4 | Behavioral smoke harness | 1 day | Makes every later change verifiable | **Done (4.1.6)** — `test/smoke/`, 4 deterministic scenarios |
-| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5c+5e done; 5b discipline hooks done (4.1.9–4.1.11); Wiggum + 5d open** |
+| 5 | Rebuild the hook layer | 3–4 days | The whole enforcement surface, at once | **5a+5b+5c+5e done. 5b's Wiggum sub-item RETIRED not built (4.1.18) — the hook could never fire. Only 5d (`InstructionsLoaded`) open** |
 | 6 | `REVIEW.md` + retire reviewer CLI | 1 day | Best value-per-line on the list | |
 | 7 | Extract a tested `lib/` — the task graph | 4–6 days | Prerequisite for item 8 | |
 | 8 | One phase as a dynamic workflow | 3–5 days | The architectural bet | **Shipped for `/create-prd` + `/create-trd`** — unrun; keep-or-revert call outstanding |
-| 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | |
+| 9 | Native quality gates and worker loops | 1–2 days | Cheap once 8 lands | **RETIRED 2026-08-16 → item 9a** |
+| 9a | Functional verification of delivered software | 3–5 days | A green suite says nothing about whether a user can do what the PRD promised | **Shipped 4.1.18** — `--verify`, `/verify-build`, live-verified 20/20 |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
+| 12 | Command-fix delivery — get a framework bug fix into existing projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done 4.1.18** — see §12 |
 
 ---
 
@@ -1388,6 +1392,50 @@ is what makes concurrent workstreams possible. **Item 10 already laid the ground
 tasks now carry `Dependencies` and `Serves` in structured, parser-consumable position, so
 tasks + dependencies → DAG is mechanical, and "what can run in parallel" becomes
 deterministic rather than LLM-judged. Build item 7's `lib/` as part of this item, not after.
+
+### 12. Command-fix delivery — getting a framework bug fix into existing projects
+
+**The gap:** every defect found in a shipped command is fixed in `packages/core`, mirrored to
+`.claude/`, committed — and reaches no existing project until someone runs `/rebase-project`.
+That path was itself broken in three independent ways, all found on 2026-08-20 from live
+projects rather than from tests:
+
+- `/rebase-project` never delivered `workflows/`, `lib/` or `contracts/` at all. Any project
+  scaffolded before those directories existed and rebased since never received them, and the
+  failure is SILENT — every affected command documents a fallback, so `/implement-trd` simply
+  lost its task graph and carried on looking like it worked.
+- It copied hook content without restoring the execute bit, so `.js`/`.py` hooks failed with
+  `Permission denied` on every event. `scaffold-project.sh` had always done this correctly, so
+  a scaffolded-then-rebased project came out WORSE than one never rebased.
+- Retired commands classified as stale were then not deleted. `harden-trd-team`,
+  `verify-trd-team` and `implement-trd-team` remained invokable — not inert leftovers but
+  working alternate paths that bypass the phase gate, the hardening lenses and the
+  verification loop.
+
+**Done in 4.1.18:** all three fixed; retired commands named explicitly rather than left to
+frontmatter inference; agents given a Stale category they never had; and mirror parity moved
+from a hardcoded 14-file list to a discovered sweep (which immediately found
+`.claude/hooks/wiggum.js` committed at an older revision than its source).
+
+**Still open, and why this is an item rather than a closed bug:**
+
+1. **No test proves a real rebase works.** Step 4.5 is prose executed by a model. The BATS
+   assertions prove the command *instructs* correctly, not that a run obeyed — and the bug it
+   fixes hid for months precisely because nothing exercised the path. A smoke scenario that
+   scaffolds an OLD project, rebases it, and asserts the three directories arrive is the
+   missing check.
+2. **Version skew is undetectable from inside a project.** A project can sit three releases
+   behind with no signal. `runtime-refresh.sh` gates on a monotonic version, so it upgrades
+   what is PRESENT and cannot add what is absent — the same present-only limitation that
+   caused this class.
+3. **Multi-repo has no answer.** A parent repo holding `.claude/` with nested independent
+   repos (each possibly carrying its own vendored runtime) drifts per-tree. Observed in
+   fanfare: 4.1.16 at one level, 4.1.18 at another.
+4. **No way to ask "what would change?"** `--dry-run` exists for the diff, but there is no
+   command that answers "which of my projects are stale, and on what."
+
+**Why it sits here:** this is the delivery half of every other item on this list. A fix that
+cannot reach a project is a fix nobody has.
 
 ### 9. Native quality gates and worker loops — **RETIRED 2026-08-16, replaced by item 9a**
 
