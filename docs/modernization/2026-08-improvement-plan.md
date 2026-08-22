@@ -1774,6 +1774,70 @@ with an explicit mandate:
 than demonstrated, AUTO drops to REVIEW — the loop closes, and the command cannot talk itself
 into acting unattended on a guess.
 
+## 12.6 AUTO chains straight into `/implement-trd`
+
+**Yes, and no new mechanism is needed — the framework already permits exactly this.**
+`implement-trd.md` carries **no `disable-model-invocation`**, while `create-trd.md`,
+`create-prd.md`, `audit-trd.md`, `audit-build.md` and `verify-build.md` all do. The project has
+already decided which commands a model may start, and `/implement-trd` is on the allowed side.
+So the chain is one call:
+
+```
+Skill({ skill: "implement-trd", args: "docs/TRD/<slug>.md --verify" })
+```
+
+There is precedent for the shape: `implement-trd.md:949` and `fix-issue.md:204` both invoke
+`Skill({skill: "code-review", ...})` from inside a command today.
+
+**`--verify` is not optional on a chained run.** For a defect, Step 8 re-running the recorded
+reproduction IS the acceptance criterion (§12.3). An AUTO run that implemented without
+verifying would assert "fixed" on the strength of a passing test suite that also passed before
+the fix.
+
+### It must run IN-SESSION, not as a subagent
+
+The tempting alternative — dispatch `/implement-trd` as a background agent and let `/spec`
+finish — is wrong, and not merely stylistically. `/implement-trd` is an orchestrator: it
+dispatches a `Workflow` per phase and uses `ScheduleWakeup` in its loop. **`ScheduleWakeup` is
+removed from every subagent by the platform's first tool filter** — measured, and documented in
+`.claude/rules/async-discipline.md`. An orchestrator run as a subagent is therefore degraded at
+best. In-session invocation sidesteps the question entirely and keeps the lead's tool surface.
+
+It also inherits the investigation context, which for a bug fix is a feature: the implementer
+runs with the root-cause analysis already in the session rather than re-deriving it from the
+TRD alone.
+
+### Banner discipline on a chained run
+
+`command-status.md` requires `COMMAND COMPLETE` to be the LAST line of the turn, with nothing
+after it — so a chaining `/spec` must not emit one.
+
+- **Chaining (AUTO):** `/spec` emits a handoff status line — `[STATUS: /spec] PHASE 1/2
+  COMPLETE → TRD authored, tier AUTO, chaining to /implement-trd` — and **`/implement-trd`'s
+  `COMMAND COMPLETE` terminates the run.** One command from the user's point of view.
+- **Not chaining (REVIEW / ESCALATE / `--spec-only`):** `/spec` emits its own
+  `COMMAND COMPLETE`, naming the tier and the next command.
+
+### Safety — what makes unattended implementation acceptable
+
+- **The chained run works on a branch and never merges.** `/implement-trd` already does branch
+  management (Step 1.3). A human reviews a branch or PR, not `main`. This is the real safety
+  net; the tier only decides whether a machine may *write the branch*, never whether it lands.
+- **Failure is a clean stop.** If verification fails, `/implement-trd` exits `COMMAND STUCK`,
+  nothing is merged, and the report says what was attempted and why it failed — which for the
+  Slack case is precisely the right outcome.
+- **One hop, never recursive.** `/spec` may invoke `/implement-trd`; nothing invokes `/spec`.
+- **`--spec-only`** stops after the TRD regardless of tier, for when you want to read it first.
+
+### There is deliberately no `--force-auto`
+
+A flag that overrides the gate defeats the gate. If you want to implement a REVIEW-tier TRD,
+you run `/implement-trd` yourself — which is an explicit human decision, recorded as a human
+invocation, and is exactly the right semantics for "I looked at this and I'm satisfied."
+Adding a force flag would let the *command* claim that judgment on your behalf, which is the
+one thing the tier exists to prevent.
+
+
 
 ### 13. Rebase delivery — getting a framework fix out to projects already scaffolded
 
