@@ -1493,6 +1493,150 @@ by calls into `lib/`.
 something is already broken, which is when the framework's guarantees matter most and when the
 user is least willing to babysit it.
 
+---
+
+## 12.1 The design (owner-specified 2026-08-22)
+
+**The requirement, in the owner's words:** *"I want rigor, but when I'm just fixing a small bug
+I don't want to go through the whole PRD/refine/audit/TRD/refine/audit and spend 20-30 mins
+before we even start."* Plus: a plan is still required — *"I believe that's one of the biggest
+sources of bad code"* — so the answer is never "just chat and edit".
+
+### Why short-circuiting the PRD is CORRECT, not a compromise
+
+The PRD's real job is deciding **what to build and why**: it supplies provenance for
+objectives. For a bug, that question is already answered — the spec exists and is being
+violated. The PRD is not being *compressed*, it is genuinely **not applicable**.
+
+For a very minor feature (move a button, change copy) there IS a small product decision, and
+the honest treatment is that **the owner's instruction is the source**. §10's typing rule
+already admits "an explicit user instruction" as valid provenance. So a light TRD's objectives
+each trace to one of exactly two things:
+
+| Kind of work | Objective | Its source |
+|---|---|---|
+| Bug | "X no longer happens; Y happens instead" | the reproduction, recorded in the TRD |
+| Minor change | "the button sits in the header" | the owner's instruction, this session |
+
+Both are sourced and neither is invented. **That is the whole trick**: the rigor §10 exists to
+protect is preserved at near-zero cost, because small work has cheap, real provenance.
+
+### What must survive, and what is ceremony
+
+**Survives — this is what prevents bad code:**
+
+- **Root cause, not symptom.** For a bug this IS the work.
+- **Grounding blocks** (`Touches` / `Reuse` / `Replaces` / `Follow` / `Careful`, with
+  `[ran]`/`[read]`/`[inferred]` markers). Highest-value element in the whole framework;
+  ungrounded tasks are where invented code comes from.
+- **The reproduction as the acceptance criterion.** Free rigor — derived from evidence.
+- **Non-goals.** A small fix that grows is the classic failure of this path.
+
+**Dropped for small work:** personas, user stories, RICE, architecture diagrams, risk tables,
+phases, waves, parallelization maps, execution-plan session details, and the separate
+`/refine-*` round trips.
+
+### The format is the EXISTING format, with fewer sections
+
+Verified against `trd-parser.js` on 2026-08-22 — a light TRD needs only:
+
+- `## Master Task List` — a **table** (2–3 rows)
+- `## Task Grounding` — one block per task, `Touches` mandatory
+- optionally `## Non-Goals`, `## Could Not Verify`, `## Open Questions`
+
+**No phase headings are required**: the parser assigns everything to phase 1 and records it as
+"a structural default (no content was guessed)". No execution plan is required either —
+`parseSessionAgents` falls back to keyword-matched agent selection.
+
+**Consequence: zero new machinery.** `/implement-trd`, `/audit-build`, `current.json` and the
+whole graph path work on a light TRD unchanged. It also **fixes today's structural bug** —
+`/investigate-issue` emits `- [ ] **<id>**:` bullets, which `trd-parser.js` cannot read at all.
+
+### One command, two input modes
+
+Replaces BOTH `/investigate-issue` and `/fix-issue`.
+
+- **Cold** — `<command> <description | issue ref>`: investigate → reproduce → root-cause →
+  ground → light TRD. This is `/investigate-issue`'s real content, kept.
+- **Warm** — no argument: *"we just designed this in conversation; write it up."* Reads the
+  session for the decision already reached.
+
+**The warm path is where rigor is easiest to lose, and it needs a named guard.** This project's
+own rule — *the corpus states intent; the code states fact* — applies directly: a conversation
+records what we *decided*, not what *exists*. Capturing it into a TRD without re-grounding
+enshrines whatever was assumed mid-discussion. So the warm path still runs the grounding pass
+against the code, and marks any claim whose only source is the conversation.
+
+### The eligibility gate is what keeps this honest
+
+The command must be able to answer **"this is not small — use `/create-prd`"**, and say why.
+Without that, everything becomes "small", the light path absorbs work it cannot hold, and the
+rigor is gone. Fails eligibility if: more than ~3 tasks; the spec is genuinely undecided
+(a product question, not a defect); new architecture, dependency or data model; or the affected
+files cannot be identified.
+
+### The audit runs automatically, and is mostly DETERMINISTIC
+
+For a ≤3-task TRD most of `/audit-trd`'s wave is unnecessary, because most of what matters is
+mechanical:
+
+- every task has a grounding block with `Touches` (the parser already warns)
+- every cited path exists
+- every task's `Serves` resolves to a stated objective
+- every objective has a source (reproduction, or owner instruction)
+- no task touches files outside the grounding footprint — the scope-creep check
+
+Those are `lib/` checks, not agents. **One** adversarial agent carries the judgment half: *is
+any task unnecessary, does any overreach, and does this address the root cause or patch a
+symptom?* So the audit is deterministic checks plus one agent, not a verifier wave.
+
+### Implementation: reuse `/implement-trd`. Do not build a second one.
+
+Two reasons, one historical and one structural.
+
+**Historical:** this project has already paid for parallel command paths. `implement-trd-team`,
+`harden-trd-team` and `verify-trd-team` diverged from the main path and were deleted (ITR-B012),
+and the retired ones stayed invokable long enough to become "working alternate paths that bypass
+the phase gate" — §13's third delivery bug. A `/fix-lite` implementer would recreate exactly
+that.
+
+**Structural: the gates already scale by their own stated rationale, so no flag is needed.**
+
+| Gate | On a 1-phase, ≤3-task TRD | Why |
+|---|---|---|
+| Per-task implementer + self-debug | **runs** | it is the work |
+| Phase gate — `verify-app` + phase-scoped `/code-review` | **runs once** | one phase, one gate |
+| Step 7.1 three-lens hardening fan-out | **skipped** | 7.1's own text: it exists because "interaction risk between phases only exists once every phase is assembled." A single-phase TRD has no cross-phase interaction. Inapplicable by its own rationale — a principled skip, not a shortcut |
+| Step 7.2 full-branch `/code-review high` | **runs** | the main quality gate, dispatched in the background |
+| Step 8 functional verification | **runs — and for a bug it is THE check** | re-run the recorded reproduction and assert it no longer reproduces. This is precisely what `/fix-issue` never had |
+
+That is roughly 4–6 agents for a small fix instead of the 13–15 a feature-scale run costs, with
+no second code path and no flag for the owner to remember.
+
+### Naming
+
+`/investigate-issue` and `/fix-issue` both go. "Issue" reads as bug-only, and this covers minor
+features too; "fix" describes the implementation, which `/implement-trd` now owns.
+
+Recommended: **`/spec`** — "spec the login 500", "spec moving the button", and bare `/spec` for
+the warm path. Argument present = cold, absent = warm, so no flag. `/scope` is the alternative
+if `/spec` reads too close to "specification document".
+
+### Done when
+
+A bug goes from report to a reviewed 3-task TRD in a few minutes, not half an hour; the TRD
+parses with `trd-parser.js` and runs through `/implement-trd` unmodified; the fix is not
+reported complete until the recorded reproduction has been re-run and fails to reproduce; the
+eligibility gate demonstrably rejects something and names `/create-prd`; and
+`/investigate-issue` and `/fix-issue` are deleted rather than left invokable.
+
+### Open, and genuinely the owner's call
+
+Whether the warm path should be able to run **without** a prior conversation about the issue —
+i.e. whether bare `/spec` on a cold session is an error or falls back to asking. Everything else
+above is decided.
+
+
 ### 13. Rebase delivery — getting a framework fix out to projects already scaffolded
 
 *Was item 12 until 2026-08-22. It was written up under that number on a misreading of the
