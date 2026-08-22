@@ -106,6 +106,32 @@ error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
+# --refresh is "replace what is PRESENT; never create, never delete". A component
+# whose destination directory does not exist was never installed here, so refresh
+# skips it entirely rather than bringing it into being.
+#
+# Without this, refresh on a tree with no .claude/ ran `cp` into a non-existent
+# directory and died with `cp: .../.claude/commands: No such file or directory`,
+# exit 1 — and components that `mkdir -p "$dest"` first silently CREATED the
+# directory they were supposed to leave alone. Found 2026-08-21: three tests
+# (RUNTIME-T001, ITR-B014) were written for exactly this and had been failing
+# unseen, because a missing @test header stopped the whole file from gathering.
+#
+# Note this is about the DIRECTORY, not the files in it. Once a component
+# directory is present, refresh does add files new to this version — deliberate,
+# 2026-08-16: withholding them handed projects the new implement-trd.md without
+# the audit-build.md it hands off to.
+#
+# Returns 0 when the caller should skip, 1 when it should proceed.
+refresh_skips_absent() {
+    local dest="$1" label="$2"
+    if [[ "${REFRESH:-false}" == "true" && ! -d "$dest" ]]; then
+        info "Skipped $label: not installed here (refresh never creates)"
+        return 0
+    fi
+    return 1
+}
+
 # Create directory if it doesn't exist
 create_dir() {
     local dir="$1"
@@ -141,6 +167,7 @@ copy_template() {
 copy_agents() {
     local src="$PLUGIN_DIR/agents"
     local dest="$1/.claude/agents"
+    refresh_skips_absent "$dest" "agents" && return 0
 
     if [[ -z "$PLUGIN_DIR" ]]; then
         warn "No plugin directory specified, skipping agents"
@@ -194,6 +221,7 @@ copy_agents() {
 # exist, which is the same delivery gap that left five hook files unshipped before 4.1.1.
 copy_contracts() {
     local dest="$1/.claude/contracts"
+    refresh_skips_absent "$dest" "contracts" && return 0
     local src=""
     if [[ -z "$PLUGIN_DIR" ]]; then warn "No plugin directory specified, skipping contracts"; return 0; fi
     if [[ -d "$PLUGIN_DIR/contracts" ]]; then src="$PLUGIN_DIR/contracts"
@@ -261,6 +289,7 @@ copy_contracts() {
 # "Added" rather than "Refreshed" so the distinction stays visible in the log.
 copy_libs() {
     local dest="$1/.claude/lib"
+    refresh_skips_absent "$dest" "lib" && return 0
     local src=""
     if [[ -z "$PLUGIN_DIR" ]]; then warn "No plugin directory specified, skipping lib"; return 0; fi
     if compgen -G "$PLUGIN_DIR/lib/*.js" > /dev/null 2>&1; then src="$PLUGIN_DIR/lib"
@@ -297,6 +326,7 @@ copy_libs() {
 # delivery gap that left five hook files unshipped before 4.1.1.
 copy_workflows() {
     local dest="$1/.claude/workflows"
+    refresh_skips_absent "$dest" "workflows" && return 0
     local src=""
 
     if [[ -z "$PLUGIN_DIR" ]]; then
@@ -362,6 +392,7 @@ copy_workflows() {
 # Copy workflow commands from plugin directory
 copy_commands() {
     local dest="$1/.claude/commands"
+    refresh_skips_absent "$dest" "commands" && return 0
 
     if [[ -z "$PLUGIN_DIR" ]]; then
         warn "No plugin directory specified, skipping commands"
@@ -716,6 +747,7 @@ ensure_hooks_executable() {
 # RUNTIME-B001).
 copy_hooks() {
     local dest="$1/.claude/hooks"
+    refresh_skips_absent "$dest" "hooks" && return 0
 
     if [[ -z "$PLUGIN_DIR" ]]; then
         warn "No plugin directory specified, skipping hooks"
@@ -803,6 +835,7 @@ copy_skills() {
     local target_dir="$1"
     local selection_file="$target_dir/.claude/selected-skills.txt"
     local dest="$target_dir/.claude/skills"
+    refresh_skips_absent "$dest" "skills" && return 0
 
     if [[ -z "$PLUGIN_DIR" ]]; then
         warn "No plugin directory specified, skipping skills"

@@ -600,6 +600,10 @@ _get_plugin_dir() {
     [ ! -e "$TEST_DIR/.claude/hooks/save-remote-logs.js" ]
 }
 
+# This test lost its @test header in an earlier edit, leaving the body as
+# top-level code — which broke test GATHERING for this entire file, so none of
+# its tests have been running. Found 2026-08-21 by check-test-suites.sh.
+@test "Plugin copy: live hooks are scaffolded" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
 
@@ -1820,8 +1824,25 @@ print('\n'.join(names))
     run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
     [ "$status" -eq 0 ]
 
-    # Never recreated — refresh must not un-curate.
-    [ ! -f "$TEST_DIR/.claude/commands/fold-prompt.md" ]
+    # INVERTED 2026-08-21 to match the behaviour scaffold-project.sh has actually
+    # had since 2026-08-16. This test asserted "never recreated — refresh must not
+    # un-curate", and it has been failing ever since, unseen, because a missing
+    # @test header stopped this whole file from gathering.
+    #
+    # The two intents genuinely conflict and cannot both be satisfied: from the
+    # destination directory alone, "the user deleted this command" and "this
+    # command is new in this version" are the same observation — an absent file.
+    #
+    # Completeness won, on measured harm: withholding new commands handed a
+    # project the new implement-trd.md while withholding the audit-build.md it
+    # hands off to. Un-curation is the milder cost — a deleted command reappears
+    # and the user deletes it again.
+    #
+    # KNOWN INCONSISTENCY, recorded not fixed: agents did NOT get this change, so
+    # "absent agent stays absent" (the next test) still holds. Commands and agents
+    # therefore behave differently on refresh. Resolving that properly needs an
+    # explicit record of intentional removals, which nothing has today.
+    [ -f "$TEST_DIR/.claude/commands/fold-prompt.md" ]
 }
 
 @test "RUNTIME-T002: absent agent stays absent after refresh" {
