@@ -33,9 +33,6 @@ function lint(file) {
   if (fmIdx > 0 && lines.slice(0, fmIdx).some((l) => /^(name|description):/.test(l.trim()))) {
     add(1, 'frontmatter', 'frontmatter keys appear before the opening --- delimiter');
   }
-  if (lines.some((l) => /^name:\s*\S/.test(l)) && lines[0].trim() !== '---') {
-    add(1, 'frontmatter', `file has a name: key but does not start with --- (starts with "${lines[0].slice(0, 40)}")`);
-  }
 
   // 4. fences (needed first — list/table checks skip fenced regions)
   //
@@ -60,6 +57,17 @@ function lint(file) {
   });
   if (openLen > 0) {
     add(openedAt + 1, 'fence', `unbalanced code fence — this ${'`'.repeat(openLen)} block is never closed`);
+  }
+
+  // Scope the "has frontmatter" sniff to the head of the file and to unfenced
+  // lines. Scanning the whole document matched a `name:` inside a YAML EXAMPLE
+  // far down a prose doc and reported the whole file as broken frontmatter —
+  // seen 2026-08-22 on the improvement plan, which has no frontmatter at all.
+  const headHasName = lines
+    .slice(0, 20)
+    .some((l, i) => !fenced[i] && /^name:\s*\S/.test(l));
+  if (headHasName && lines[0].trim() !== '---') {
+    add(1, 'frontmatter', `file has a name: key but does not start with --- (starts with "${lines[0].slice(0, 40)}")`);
   }
 
   // 2. ordered lists: same indent, contiguous block, must increment by 1
