@@ -1,0 +1,64 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/precompact-schema.md",
+  "trd_hash": "fbbdaca42581f94245729e9ceffa846b04e140d7ddd1bb9ef2bc69c46290a71c",
+  "branch": "fix/precompact-schema",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "emit {} and delete the false spec comment",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/precompact.js",
+        ".claude/hooks/precompact.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-23T07:02:13.885Z",
+      "completed_at": "2026-08-23T07:16:02.706Z",
+      "last_advanced": "2026-08-23T07:07:33.677Z"
+    },
+    "FIX-002": {
+      "description": "add precompact.test.js",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/precompact.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-23T07:02:13.907Z",
+      "completed_at": "2026-08-23T07:16:02.710Z",
+      "last_advanced": "2026-08-23T07:07:33.678Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "PENDING",
+      "review": {
+        "findings": 6,
+        "applied": 5,
+        "reported": 1
+      },
+      "timestamp": "2026-08-23T07:16:02.710Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "PENDING",
+    "last_checkpoint_timestamp": "2026-08-23T07:16:02.710Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/precompact-schema.md §Reproduction"
+  }
+}
