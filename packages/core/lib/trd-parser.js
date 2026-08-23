@@ -792,6 +792,25 @@ function parseTrd(markdown, opts = {}) {
   }
 
   const grounding = parseGrounding(structural, tasks, warnings);
+
+  // Warn on the OUTCOME — a task ended up with no grounding — rather than on each
+  // cause. The causes are open-ended and were all SILENT: a block simply omitted,
+  // a task id with no hyphen (the block regex requires one), or a heading loosely
+  // containing "Task Grounding" capturing the section. The existing
+  // missing-Touches warning fires per BLOCK, so zero blocks meant zero warnings.
+  //
+  // Not fatal: a TRD may legitimately have tasks without grounding, and
+  // implement-trd §3.5 handles that by omitting the <grounding> element. This is
+  // about visibility. Grounding is the highest-value element in a task prompt —
+  // losing it silently means the implementer invents its own file list.
+  const ungrounded = tasks.filter((t) => !grounding[t.id]).map((t) => t.id);
+  if (ungrounded.length > 0 && tasks.length > 0) {
+    warnings.push(
+      Object.keys(grounding).length === 0
+        ? `No grounding block matched any task (${ungrounded.length} task(s): ${ungrounded.join(', ')}) — check the "Task Grounding" section exists and its "### <task-id>" headings match the Master Task List ids`
+        : `No grounding block for: ${ungrounded.join(', ')}`
+    );
+  }
   const sessionAgents = parseSessionAgents(structural, tasks, warnings);
   for (const task of tasks) {
     if (sessionAgents[task.id]) task.agent = sessionAgents[task.id];

@@ -279,7 +279,11 @@ describe('parseTrd — column schemas and phase-heading formats', () => {
     const result = parseTrd(SIX_COLUMN_TRD);
     const ids = result.tasks.map((t) => t.id);
     expect(ids).toEqual(['EX-P001', 'EX-B001', 'EX-B002']);
-    expect(result.warnings).toEqual([]);
+    // Scoped to what this test covers — column parsing. It used to assert NO
+    // warnings at all, which broke when absent grounding started warning: this
+    // fixture has tasks and no Task Grounding section, which is exactly the
+    // silent-loss case now worth flagging.
+    expect(result.warnings.filter((w) => /Malformed|zero tasks/.test(w))).toEqual([]);
   });
 
   it('parses a five-column table (ID | Task | Description | Dependencies | Assignee) without warning on every row', () => {
@@ -817,5 +821,47 @@ describe('fenced code blocks are illustration, not structure (GLS-001)', () => {
       H2('Master Task List'), '', HDR, SEP, row('REAL-001', 'x'), '',
     ].join('\n');
     expect(parseTrd(md, { path: 't.md' }).decision).toMatch(/console\.log/);
+  });
+});
+
+describe('absent grounding is warned, never silent', () => {
+  const H2 = (t) => '#'.repeat(2) + ' ' + t;
+  const H3 = (t) => '#'.repeat(3) + ' ' + t;
+  const HDR = '| Task ID | Description | Serves | Dependencies | Acceptance Criteria |';
+  const SEP = '|---|---|---|---|---|';
+  const row = (id) => `| ${id} | x | O1 | None | y |`;
+  const build = (taskIds, groundingIds) => [
+    '# T', '', '**Source PRD**: None', '',
+    H2('Master Task List'), '', HDR, SEP, ...taskIds.map(row), '',
+    H2('Task Grounding'), '',
+    ...groundingIds.flatMap((id) => [H3(id), '- **Touches:** `src/a.ts`', '']),
+  ].join('\n');
+
+  test('a task with no block is named in a warning', () => {
+    const p = parseTrd(build(['FIX-001', 'FIX-002'], ['FIX-001']), { path: 't.md' });
+    expect(p.warnings.join(' ')).toMatch(/No grounding block for: FIX-002/);
+  });
+
+  test('zero blocks gets a diagnostic naming the likely cause', () => {
+    // The three routes all land here, and all were silent: an omitted section, a
+    // hyphen-less id the block regex cannot match, or a heading that captured it.
+    const p = parseTrd(build(['FIX-001'], []), { path: 't.md' });
+    expect(p.warnings.join(' ')).toMatch(/No grounding block matched any task/);
+    expect(p.warnings.join(' ')).toMatch(/FIX-001/);
+  });
+
+  test('a hyphen-less task id is now visible rather than silent', () => {
+    const p = parseTrd(build(['T1'], ['T1']), { path: 't.md' });
+    expect(p.warnings.join(' ')).toMatch(/No grounding block matched any task/);
+  });
+
+  test('fully grounded tasks warn about nothing', () => {
+    const p = parseTrd(build(['FIX-001', 'FIX-002'], ['FIX-001', 'FIX-002']), { path: 't.md' });
+    expect(p.warnings.filter((w) => /grounding/i.test(w))).toEqual([]);
+  });
+
+  test('it is a warning, not an error — parsing still succeeds', () => {
+    const p = parseTrd(build(['FIX-001'], []), { path: 't.md' });
+    expect(p.tasks).toHaveLength(1);
   });
 });
