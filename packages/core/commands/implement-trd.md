@@ -414,6 +414,23 @@ For task `id`:
   empty element.
 - `<open_question>` — emit **only** for the owner-only, unresolved question(s) from Step 3.2
   that cover this task. Never emit an empty element.
+- `<decision>` — emit from `parsed.decision` (the TRD's top-level `## Decision` section)
+  into **every** task's prompt, and append `grounding[id].decision` when that task carries a
+  per-task override. Omit the element entirely when both are empty.
+
+  **This element exists because its absence was measured.** A blind trace (2026-08-23) walked
+  every placeholder in this list and found the `## Decision` section reached NO implementer by
+  any route — not through `<grounding>`, not `<scope_boundaries>` (Non-Goals only), not
+  `<objective>`, and not via `serves`, which the parser captures but this step never emits. The
+  only working carrier was an author manually duplicating the decision into each task's
+  `**Follow:**` bullet, under a field whose own instruction calls it *"an existing pattern in
+  this repository"* — untrue of a decision being taken right now.
+
+  The cost is measured too: on a real run FIX-001 was told to emit `{}` while FIX-002, a
+  different agent, wrote a test asserting the opposite. The phase gate caught it, after a
+  failed gate and a repair pass. **Two tasks of one change must not have to rediscover its
+  decision independently.**
+
 - `<scope_boundaries>` — non-goals from Step 1.6.
 - `<objective>` — the task's acceptance criteria (Master Task List row).
 - `<skills>` — `matched_skills[]` from Step 3.4.

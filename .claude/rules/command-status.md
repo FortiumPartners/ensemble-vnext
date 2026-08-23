@@ -278,3 +278,14 @@ noticing their absence as a sign of a broken command (file a fix).
 If you find a command that doesn't end with `═══ COMMAND COMPLETE` or
 `═══ COMMAND STUCK`, that's a bug — open an issue or patch the command's final-output
 instructions.
+
+**One legitimate exception: a command that CHAINS into another.** `/fix` on an AUTO tier
+invokes `/implement-trd` and deliberately emits no banner of its own, because the banner is
+the LAST line of the turn and an implementation run follows it. The run still terminates with
+a banner; it carries the chained command's name. Emitting one before the chain would put a
+terminator mid-turn; emitting one after would put text after `/implement-trd`'s. Both are the
+thing this rule forbids.
+
+So the invariant is **one banner per RUN, not one per command name**. A chaining command that
+emits none is correct, and mechanically auditing every command for its own banner produces a
+false report against exactly the commands that hand off properly.

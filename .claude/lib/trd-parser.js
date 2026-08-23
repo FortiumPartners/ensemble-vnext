@@ -27,7 +27,13 @@ const LIVE_MARKER_RE = /\[LIVE\]/;
 const OWNER_ONLY_RE = /owner-only|owner ruling/i;
 // The label may carry a parenthetical qualifier before its closing colon, e.g.
 // "**Careful (delivery — now owned by ITR-B014, v1.1.0):**" — match past it, non-greedily.
-const BULLET_FIELD_RE = /^\s*-\s+\*\*(Touches|Reuse|Replaces|Follow|Careful)[^*]*?:\*\*\s*(.*)$/i;
+// `Decision` is in this whitelist for a reason found by a blind audit 2026-08-23:
+// an UNRECOGNISED top-level bullet does not merely get ignored, it FLUSHES the
+// preceding field's body (see the ANY_BULLET_RE branch below). So an author who
+// wrote the intuitive `- **Decision:** ...` lost both that line AND the tail of
+// whatever field came before it, with no warning. Recognising the label costs
+// nothing and removes a silent double-loss.
+const BULLET_FIELD_RE = /^\s*-\s+\*\*(Touches|Reuse|Replaces|Follow|Careful|Decision)[^*]*?:\*\*\s*(.*)$/i;
 const ANY_BULLET_RE = /^\s*-\s+/;
 const NUMBERED_SUBITEM_RE = /(?:^|\n)\s*\d+\.\s+/;
 
@@ -410,6 +416,7 @@ const GROUNDING_FIELD_KEYS = {
   replaces: 'replaces',
   follow: 'follow',
   careful: 'careful',
+  decision: 'decision',
 };
 
 function splitGroundingFieldBody(label, body) {
@@ -471,7 +478,7 @@ function parseGrounding(lines, tasks, warnings) {
   for (const block of blocks) {
     if (grounding[block.id]) continue; // first occurrence wins
 
-    const fields = { touches: [], reuse: [], replaces: [], follow: [], careful: [] };
+    const fields = { touches: [], reuse: [], replaces: [], follow: [], careful: [], decision: [] };
     let currentLabel = null;
     let currentBody = '';
 
@@ -569,6 +576,34 @@ function parseOpenQuestions(lines, warnings) {
 // ---------------------------------------------------------------------------
 // Could Not Verify
 // ---------------------------------------------------------------------------
+
+/**
+ * The TRD's top-level `## Decision` section: the approach chosen, and why an
+ * alternative was rejected.
+ *
+ * WHY THIS IS PARSED AT ALL. A blind audit (2026-08-23) traced every placeholder
+ * `/implement-trd` §3.5 enumerates and found the `## Decision` section reaches NO
+ * implementer by any route. The only working carrier was the author manually
+ * duplicating the sentence into each task's `**Follow:**` bullet — under a field
+ * whose own instruction calls it "an existing pattern in this repository", which
+ * for a decision being made right now is simply untrue.
+ *
+ * The cost of the gap is measured: FIX-001 was told to emit `{}` while FIX-002,
+ * a different agent, wrote a test asserting the opposite. The phase gate caught
+ * it, but only after a failed gate and a repair pass.
+ *
+ * Returns '' when absent, which is the common and legitimate case — most TRDs
+ * record decisions in their Key Technical Decisions table instead.
+ */
+function parseDecision(lines) {
+  const section = findSection(lines, 'Decision');
+  if (!section) return '';
+  return lines
+    .slice(section.start, section.end)
+    .join('\n')
+    .replace(/^#+\s*Decision\s*$/im, '')
+    .trim();
+}
 
 function parseCouldNotVerify(lines, warnings) {
   const section = findSection(lines, 'Could Not Verify', { strategy: 'last' });
@@ -715,6 +750,7 @@ function parseTrd(markdown, opts = {}) {
   }
   const couldNotVerify = parseCouldNotVerify(lines, warnings);
   const openQuestions = parseOpenQuestions(lines, warnings);
+  const decision = parseDecision(lines);
 
   return {
     tasks,
@@ -723,6 +759,7 @@ function parseTrd(markdown, opts = {}) {
     sessionAgents,
     couldNotVerify,
     openQuestions,
+    decision,
     warnings,
   };
 }

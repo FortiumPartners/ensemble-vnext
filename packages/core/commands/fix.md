@@ -154,9 +154,18 @@ structure is better**. So the investigation is different in kind:
 
 1. **Establish the behaviour that must survive.** Find the tests that cover the code you are
    about to move, and RUN them. Record that they pass, now, before you touch anything.
-2. **If there are no such tests, stop and say so.** Sizing will hold this at REVIEW and that
-   is correct: nothing would witness that behaviour was preserved. Writing tests first is a
-   legitimate separate `/fix`, and a better one than refactoring blind.
+2. **If there are no such tests, record that and CONTINUE — do not abort.** Write
+   `covered: false` and let sizing hold it at REVIEW, which is correct: nothing would
+   witness that behaviour was preserved. You still produce the TRD, the audit and the
+   report; a human then decides.
+
+   ("Stop and say so" stood here and contradicted the next sentence — REVIEW *means* write
+   the TRD and then stop, which is more work than aborting at this step. A literal reader
+   would have produced no artifact at all.)
+
+   Writing tests first is a legitimate separate `/fix` — and as a `change`, where
+   `addsCoverage` does satisfy the coverage axis — and it is a better one than refactoring
+   blind.
 3. **Name what the refactor must NOT change** — the public surface, the call signature, the
    observable output. That goes in Non-Goals.
 
@@ -330,24 +339,24 @@ the worst available failure.
 ### Every task prompt must carry the DECISION, not just the task
 
 Add a `## Decision` section stating the approach chosen and, when an alternative was
-considered and rejected, **why** — **and repeat it as a `**Follow:**` bullet in EVERY task's
-grounding block.**
+considered and rejected, **why**. **That is all — no duplication into tasks is needed.**
 
-**That bullet is the only carrier that reaches an implementer.** Saying "put it in the task
-prompt" does not work, because `/fix` never writes task prompts: it writes a TRD, and
-`/implement-trd` assembles the prompts from it. That command's placeholder list
-(`implement-trd.md` §3.5) is exhaustive — `{task_id}`, `{task_description}`, `<grounding>`,
-`<unverified_claims>`, `<open_question>`, `<scope_boundaries>`, `<objective>`, `<skills>`,
-`<ui_context>` — and **there is no Decision element**, so a top-level `## Decision` section is
-dropped on the floor.
+`trd-parser.js` parses the section into `parsed.decision`, and `/implement-trd` §3.5 emits it
+as `<decision>` into **every** task's prompt. So one statement reaches every implementer of
+this change, which is the point: two tasks of one fix must not rediscover its approach
+independently.
 
-A `- **Decision:**` bullet fares no better: `trd-parser.js` matches only
-`Touches|Reuse|Replaces|Follow|Careful`, so it parses to **nothing at all** — not even into
-another field. That is the same silent-drop failure this command warns about for unbolded
-`Touches`, and it is why the carrier has to be a field the parser already knows.
+**This took three attempts and the first two fixed nothing** — worth knowing, because both
+looked right. "Repeat it in every task's prompt" failed because `/fix` never writes task
+prompts; `/implement-trd` does, and its placeholder list had no Decision element. Repeating it
+as a `**Follow:**` bullet did work, but only if the author hand-copied it into every block —
+and under a field whose own instruction calls it *"an existing pattern in this repository"*,
+which is untrue of a decision being taken right now.
 
-`**Follow:**` and `**Careful:**` are the two that reach every implementer verbatim. Use
-`**Follow:**`.
+A per-task `- **Decision:**` bullet is now also valid, for the rare case where one task needs
+an override. It is worth knowing why that used to be dangerous: an unrecognised bullet did not
+merely get ignored, it **flushed the preceding field's body**, so the intuitive thing to write
+silently destroyed the field above it.
 
 ```markdown
 ## Decision
@@ -370,9 +379,10 @@ only its own instruction cannot tell whether it is contradicting its sibling.
 assigns a phase-less task list to phase 1 as a structural default, and agent selection falls
 back to keyword matching. Adding those sections would be ceremony.
 
-**`## Reproduction` / `## Intended Change` are load-bearing, not documentation.** They are
-what `/implement-trd`'s `--verify` derives its success definition from when there is no PRD.
-Omit them and the fix ships unverified.
+**`## Reproduction` / `## Intended Change` / `## Behaviour Preserved` are load-bearing, not
+documentation.** Whichever one your `kind` calls for is what `/implement-trd`'s `--verify`
+derives its success definition from when there is no PRD. Omit it and the fix ships
+unverified — including a refactor, whose section is the one this sentence used to forget.
 
 **Every acceptance criterion must be able to FAIL if the fix does not work.** Measured on the
 first live run: a criterion read *"prints JSON with no `hookSpecificOutput` key"* while the
@@ -417,6 +427,8 @@ node -e '
   const parsed = parseTrd(fs.readFileSync(process.argv[1], "utf8"), { path: process.argv[1] });
   const r = audit(parsed, {
     objectiveIds: ["O1"],                       // IDs from the Objectives table
+    kind: "defect",                             // the SAME kind you passed to sizing
+    markdown: fs.readFileSync(process.argv[1], "utf8"),
     // Every path a task's grounding CREATES rather than edits — read them off the
     // Touches lines. Getting this wrong produces the false failure the paragraph
     // below warns about: a new file reported as a missing citation.
@@ -450,6 +462,13 @@ Agent(subagent_type="code-reviewer", prompt="<the TRD> + <the investigation> +
    3. Is there a simpler correct fix? A clever small diff is a smell.
    4. Does it contradict local convention? A fix fighting the surrounding code usually
       means the root cause was misread.
+   5. IS THE DECLARED `kind` HONEST? Look at the diff, not the label. If nothing about
+      observable behaviour changes, this is a REFACTOR however it was declared — and a
+      refactor on untested code must not reach AUTO. `kind` is the one sizing input a
+      caller can misstate to buy a laxer verdict: the default guards omission, not
+      misstatement, and `change` is laxer than `refactor` on coverage. The audit lib
+      checks that the declared kind matches the TRD's verification section; only you can
+      check it against what the code actually does.
   Report findings only. Do not edit.")
 ```
 

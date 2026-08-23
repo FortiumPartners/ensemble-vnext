@@ -80,15 +80,20 @@ describe('the /fix TRD template', () => {
   });
 });
 
-describe('the decision must reach implementers through a field that PARSES', () => {
-  // Blind audit 2026-08-23: /fix never writes task prompts — /implement-trd does,
-  // and its placeholder list has no Decision element. A top-level `## Decision`
-  // section is dropped on the floor, and a `- **Decision:**` bullet parses as
-  // NOTHING because trd-parser matches only Touches|Reuse|Replaces|Follow|Careful.
-  // So the previous fix ("repeat it in every task's prompt") fixed nothing.
-  const wrap = (groundingBody) => `# TRD: t
+describe('the decision reaches implementers BY CONSTRUCTION', () => {
+  // Three attempts, and the first two fixed nothing while looking right:
+  //   1. "repeat it in every task's prompt" — /fix never writes task prompts
+  //   2. "repeat it as a **Follow:** bullet"  — worked, but only if the author
+  //      hand-copied it into every block, under a field whose own instruction
+  //      calls it "an existing pattern in this repository"
+  //   3. parse `## Decision` and emit <decision> into every prompt — this one
+  const wrap = (body) => `# TRD: t
 
 **Source PRD**: None — defect
+
+## Decision
+
+Emit \`{}\`. NOT \`systemMessage\`: it is user-facing.
 
 ## Master Task List
 
@@ -100,46 +105,70 @@ describe('the decision must reach implementers through a field that PARSES', () 
 
 ### FIX-001
 - **Touches:** \`src/a.ts\`
-${groundingBody}
+${body}
 `;
 
-  test('a **Follow:** bullet carries the decision through the parser', () => {
-    const p = parseTrd(wrap('- **Follow:** emit `{}`, NOT systemMessage — it is user-facing'), { path: 't.md' });
-    const follow = p.grounding['FIX-001'].follow.join(' ');
-    expect(follow).toMatch(/NOT systemMessage/);
+  test('the top-level ## Decision section is parsed, not dropped', () => {
+    const p = parseTrd(wrap('- **Reuse:** the existing helper [read]'), { path: 't.md' });
+    expect(p.decision).toMatch(/NOT `systemMessage`/);
   });
 
-  test('a **Decision:** bullet is silently DROPPED — which is why Follow is used', () => {
-    const p = parseTrd(wrap('- **Decision:** emit `{}`, NOT systemMessage'), { path: 't.md' });
-    const g = p.grounding['FIX-001'];
-    // It lands in NO field — the parser has no key for it at all, so these are
-    // undefined rather than empty. Spreading them would throw; that was a bug in
-    // this test, not in the parser.
-    const all = []
-      .concat(g.follow || [], g.careful || [], g.reuse || [], g.replaces || [])
-      .join(' ');
-    expect(all).not.toMatch(/systemMessage/);
+  test('a per-task **Decision:** bullet is recognised, for the override case', () => {
+    const p = parseTrd(wrap('- **Decision:** this task overrides'), { path: 't.md' });
+    expect(p.grounding['FIX-001'].decision.join(' ')).toMatch(/overrides/);
   });
 
-  test('the command instructs the Follow carrier, not a bare "put it in the prompt"', () => {
+  test('a **Decision:** bullet no longer TRUNCATES the field before it', () => {
+    // The silent double-loss: an unrecognised bullet flushed the preceding
+    // field's body, so writing the intuitive thing destroyed the field above it.
+    const p = parseTrd(
+      wrap('- **Reuse:** the existing helper [read]\n- **Decision:** override'),
+      { path: 't.md' }
+    );
+    expect(p.grounding['FIX-001'].reuse.join(' ')).toMatch(/existing helper/);
+  });
+
+  test('the command no longer demands manual duplication into every task', () => {
     const src = fs.readFileSync(FIX_MD, 'utf8');
-    expect(src).toMatch(/repeat it as a `\*\*Follow/);
-    expect(src).toMatch(/dropped on the floor/);
+    expect(src).toMatch(/no duplication into tasks is needed/);
+  });
+
+  test('implement-trd emits it as <decision> into EVERY task prompt', () => {
+    const impl = fs.readFileSync(path.join(REPO, 'packages/core/commands/implement-trd.md'), 'utf8');
+    expect(impl).toMatch(/`<decision>`/);
+    expect(impl).toMatch(/into \*\*every\*\* task's prompt/);
+  });
+
+  test('the contract warns <decision> is NOT prior art', () => {
+    // Delivered under **Follow:** it read as "an existing pattern in this
+    // repository", which is untrue of a decision being taken right now.
+    const contract = fs.readFileSync(path.join(REPO, 'packages/core/contracts/task-delegation.md'), 'utf8');
+    expect(contract).toMatch(/NOT prior art/);
   });
 });
 
-describe('paths that end the command signal completion consistently', () => {
+describe('the command DELEGATES its branch decisions rather than restating them', () => {
   const src = () => fs.readFileSync(FIX_MD, 'utf8');
 
-  test('the completion helper is barred on a chained AUTO run', () => {
-    // It signals webhooks/queues. On a chained run the work is BEGINNING at handoff.
-    expect(src()).toMatch(/Never on a chained AUTO run/);
+  // These invariants used to be asserted against the command's prose. They now
+  // live in fix-plan.js with 15 tests of their own, because the same table
+  // written in five places disagreed with itself in four of them. What this file
+  // must check is that the command CALLS the lib and does not re-derive it.
+
+  test('Step 6 calls fix-plan instead of branching in prose', () => {
+    expect(src()).toMatch(/require\("\.\/\.claude\/lib\/fix-plan"\)/);
   });
 
-  test('the handoff line does not imply a phase 2 of /fix', () => {
-    // "PHASE 1/2" invited a second banner after implement-trd's, violating
-    // "nothing may follow it".
+  test('it forbids re-deriving the plan', () => {
+    expect(src()).toMatch(/Do not re-derive any of this in prose/);
+  });
+
+  test('a null banner is explicitly explained, not left to inference', () => {
+    // The one output a reader is most likely to override on instinct.
+    expect(src()).toMatch(/`banner: null`/);
+  });
+
+  test('the retired PHASE 1/2 numbering has not crept back', () => {
     expect(src()).not.toMatch(/\[STATUS: \/fix\] PHASE 1\/2 COMPLETE/);
-    expect(src()).toMatch(/\[STATUS: \/fix\] HANDOFF/);
   });
 });

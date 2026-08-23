@@ -70,6 +70,7 @@ probably wrong the same way.
   <reuse>{existing code to use rather than reimplement}</reuse>
   <replaces>{what this makes unreachable} — DELETE it and its tests in the same change.</replaces>
   <follow>{existing pattern this should match}</follow>
+  <decision>{the approach chosen for this change as a whole, and why an alternative was rejected}</decision>
   <careful>{contracts, callers, or constraints to respect}</careful>
   <instruction>
     This grounding was established by reading the codebase during TRD authoring.
@@ -90,6 +91,15 @@ probably wrong the same way.
       is probably wrong in the same way.
   </instruction>
 </grounding>
+
+`<decision>` is NOT prior art and must not be read as such. It is the approach chosen for
+THIS change, decided during planning, and it may describe behaviour that does not exist in
+the repository yet — the task next to yours may be the one creating it. Follow it as a
+constraint on your work, and do not "match the existing pattern" against it.
+
+**If your task would contradict it, stop and report that rather than proceeding.** Two tasks
+of one change disagreeing about its approach is a real, measured failure: one agent emitted
+`{}` while another wrote a test asserting the opposite.
 
 <unverified_claims>
   <!-- Emitted ONLY when the TRD's "Could Not Verify" section names a file, task or
