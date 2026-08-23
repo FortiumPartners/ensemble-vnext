@@ -239,6 +239,28 @@ the worst available failure.
 <anything asserted but not checked — empty is fine and honest>
 ```
 
+### Every task prompt must carry the DECISION, not just the task
+
+Add a `## Decision` section stating the approach chosen and, when an alternative was
+considered and rejected, **why** — then repeat it in every task's prompt.
+
+```markdown
+## Decision
+
+Emit `{}`. NOT `systemMessage`: it is user-facing while this text is written to the model,
+so it would add recurring noise and restore no function.
+```
+
+**Measured on the first live run.** FIX-001 was told to emit `{}` (the audit had refuted
+`systemMessage`). FIX-002 — a separate agent, told only "assert the key set" — wrote a test
+asserting the hook *"conveys the archived checkpoint via an allowed top-level key (not
+silently `{}`)"*, encoding the **rejected** remedy. The two tasks of one fix contradicted
+each other, and the test failed against both the old code and the new.
+
+The phase gate caught it and the review corrected it, so the loop held — but it cost a gate
+failure and a repair pass for something the prompt could have prevented. A task that knows
+only its own instruction cannot tell whether it is contradicting its sibling.
+
 **No phases. No execution plan. No architecture, risks, or personas.** `trd-parser.js`
 assigns a phase-less task list to phase 1 as a structural default, and agent selection falls
 back to keyword matching. Adding those sections would be ceremony.
