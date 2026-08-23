@@ -524,6 +524,11 @@ a loop that already gave its final answer.
       Source kind `reproduction`.
    b. **`## Intended Change`** (a small change decided in conversation): extract the section
       text. Source kind `intended-change`.
+   c. **`## Behaviour Preserved`** (a refactor): extract the section text — the test command
+      that passed before, and the public surface that must not move. Source kind
+      `behaviour-preserved`. The criterion a refactor yields is *"the named tests still pass
+      and the named surface is unchanged"*, which is a real, checkable statement even though
+      nothing about the system's behaviour was meant to change.
 
    **Extract the SECTION TEXT. Never pass the TRD path.** The dispatch below is required to
    carry the source "and nothing else — no TRD path, no TRD excerpt, no task list" (FR-1,
@@ -537,7 +542,7 @@ a loop that already gave its final answer.
    (functional-verification TRD §3.1, §3.7) and skip the rest of this step — dispatch nothing.
 
 **Record which source won.** Write `functional_verification` with `source_kind`
-(`prd` | `reproduction` | `intended-change` | `none`) alongside the existing keys. `prd_path`
+(`prd` | `reproduction` | `intended-change` | `behaviour-preserved` | `none`) alongside the existing keys. `prd_path`
 keeps its meaning when `source_kind` is `prd`; for the two section kinds it holds the TRD path
 plus the section name (for the report header only — Step 8 renders it, nothing resolves it).
 `prd_resolved` stays for compatibility and means "a source resolved", true for all three.
@@ -1000,7 +1005,7 @@ resolving inputs from disk and rendering what the workflow returns.
    which of the three sources won, and `prd_path` is the display string §8.1's second branch
    and §8.3's `prd` argument both need (Step 3.6 ran hundreds of tool calls ago; this file,
    not memory, is where it lives). If `prd_resolved` is `false`: **no source resolved at all** —
-   no PRD, no `## Reproduction`, no `## Intended Change`. Render
+   no PRD, no `## Reproduction`, no `## Intended Change`, no `## Behaviour Preserved`. Render
    `not run: no success definition derivable` through the lib CLI's `render-report` — **do not
    write this by hand** (D3, one renderer):
 

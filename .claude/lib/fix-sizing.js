@@ -43,6 +43,13 @@ function lower(a, b) {
 
 /**
  * @param {Object} input
+ * @param {'defect'|'change'|'refactor'} [input.kind]
+ *        WHAT KIND OF WORK THIS IS. Axes that cannot apply are not consulted:
+ *          defect   — root cause and reproducibility both apply
+ *          change   — neither applies; the outcome statement carries the weight
+ *          refactor — neither applies, AND coverage becomes mandatory (below)
+ *        Defaults to `defect`, the strictest reading, so an omitted kind cannot
+ *        buy a laxer verdict.
  * @param {number}  input.taskCount        tasks in the light TRD
  * @param {'demonstrated'|'inferred'} input.rootCause
  *        `demonstrated` = the repro was isolated to the mechanism ([ran]);
@@ -63,6 +70,7 @@ function size(input, opts = {}) {
   const maxCallers = opts.maxCallers ?? DEFAULT_MAX_CALLERS;
 
   const {
+    kind = 'defect',
     taskCount = 0,
     rootCause = 'inferred',
     reproducible = false,
@@ -98,12 +106,19 @@ function size(input, opts = {}) {
   }
 
   // ---- REVIEW: light path is right, but a human approves ------------------
-  if (rootCause !== 'demonstrated') {
-    drop('REVIEW', 'root cause is inferred, not demonstrated — the fix rests on a reading of the code');
-  }
-  if (!reproducible) {
-    // Hard rule. Cannot be verified fixed, so it cannot be fixed unattended.
-    drop('REVIEW', 'not reproducible — nothing could confirm the fix worked');
+  // Root cause and reproducibility are DEFECT axes. A refactor fixes nothing, so
+  // it has no root cause to demonstrate and nothing to reproduce; a change has an
+  // outcome rather than a mechanism. Scoring those two against work they cannot
+  // describe capped every refactor at REVIEW no matter how safe — measured
+  // 2026-08-23 on a one-file, fully-covered, four-caller extraction.
+  if (kind === 'defect') {
+    if (rootCause !== 'demonstrated') {
+      drop('REVIEW', 'root cause is inferred, not demonstrated — the fix rests on a reading of the code');
+    }
+    if (!reproducible) {
+      // Hard rule for a defect: cannot be verified fixed, so cannot be fixed unattended.
+      drop('REVIEW', 'not reproducible — nothing could confirm the fix worked');
+    }
   }
   if (criteriaCount === 0) {
     // Hard rule, and the one that covers conversational changes: the success
@@ -127,7 +142,19 @@ function size(input, opts = {}) {
   // nothing asserted?" — is real, and is deliberately left to the adversarial
   // audit, which can read the callers and say. A rule cannot judge that; a
   // reader can, and the audit's verdict can still lower this tier.
-  if (!covered && !addsCoverage) {
+  if (kind === 'refactor') {
+    // STRICTER for a refactor, not laxer, and this is the point of separating the
+    // kinds. A refactor's whole claim is "behaviour is unchanged", and the only
+    // evidence for that is a test suite that passed BEFORE and still passes after.
+    //
+    // `addsCoverage` must NOT rescue it: tests written as part of the refactor are
+    // written against the NEW structure, so they cannot witness that the OLD
+    // behaviour survived. Refactoring untested code is exactly the case a human
+    // should see.
+    if (!covered) {
+      drop('REVIEW', 'refactoring code with no existing tests — nothing witnesses that behaviour was preserved, and tests added by this change would only describe the new structure');
+    }
+  } else if (!covered && !addsCoverage) {
     drop('REVIEW', 'the touched files carry no tests and this change adds none — a regression would not be caught');
   }
 
@@ -142,6 +169,7 @@ function size(input, opts = {}) {
     tier,
     reasons,
     axes: {
+      kind,
       rootCause,
       blastRadius: { files: touches.length, callers },
       regressionRisk: { covered, addsCoverage, reproducible },

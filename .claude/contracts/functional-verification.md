@@ -54,6 +54,7 @@ source alone**:
 | **PRD** | the PRD path | feature work |
 | **Reproduction** | the extracted `## Reproduction` text | a defect: steps, actual, expected |
 | **Intended change** | the extracted `## Intended Change` text | a small change decided in conversation |
+| **Behaviour preserved** | the extracted `## Behaviour Preserved` text | a refactor: the tests that passed before, and the surface that must not move |
 
 **The isolation rule is the same for all three, and it is why the last two are passed as
 EXTRACTED TEXT rather than as a TRD path.** A deriver that can see the task list writes

@@ -1,6 +1,6 @@
 ---
 name: fix
-description: Fix a defect or make a small scoped change — investigate, root-cause, write a light TRD, audit it, and implement when it is demonstrably safe
+description: Defect, minor enhancement, or refactor where the full PRD/TRD pipeline is overkill — investigate, write a light TRD, audit it, and implement when it is demonstrably safe
 version: 1.0.0
 argument-hint: "[description | source path | issue ref] [--spec-only]"
 category: implementation
@@ -26,8 +26,21 @@ $ARGUMENTS
 
 ## What this command is for
 
-Small work that still deserves a plan. A defect where the spec is known and violated, or a
-scoped change already decided — moving a button, fixing copy, a contained backend change.
+**Work where the full `/create-prd → /audit-prd → /create-trd → /audit-trd → /implement-trd`
+pipeline is overkill relative to the complexity and risk of what you are doing** — and where
+the alternative would otherwise be straight prompting and editing.
+
+The gate is **proportion, not category**. Three kinds qualify:
+
+| Kind | Example | What success means |
+|---|---|---|
+| **defect** | the export returns an empty file across month boundaries | the reproduction no longer reproduces |
+| **change** | move the export button to the header; fix copy; a contained backend tweak | the stated outcome holds |
+| **refactor** | extract a helper; collapse a duplicated branch; rename through a module | **behaviour is unchanged** — the existing tests pass before AND after |
+
+**Say which kind it is.** Step 3 scores different axes for each, because a refactor has no root
+cause to demonstrate and nothing to reproduce, while its test coverage matters more than for
+either of the others.
 
 **It exists because the alternative is chatting and editing**, which is this framework's
 commonest source of bad code. And because the full
@@ -134,13 +147,28 @@ cannot be verified fixed.
 No reproduction exists. Instead confirm the **current** behaviour, so the TRD states a real
 before-and-after rather than an assumed one.
 
-### 2c. From conversation
+### 2c. Refactor
+
+There is no defect and no new outcome — the claim is that **behaviour is identical and the
+structure is better**. So the investigation is different in kind:
+
+1. **Establish the behaviour that must survive.** Find the tests that cover the code you are
+   about to move, and RUN them. Record that they pass, now, before you touch anything.
+2. **If there are no such tests, stop and say so.** Sizing will hold this at REVIEW and that
+   is correct: nothing would witness that behaviour was preserved. Writing tests first is a
+   legitimate separate `/fix`, and a better one than refactoring blind.
+3. **Name what the refactor must NOT change** — the public surface, the call signature, the
+   observable output. That goes in Non-Goals.
+
+`/implement-trd`'s `refactor` strategy already encodes the rule: *tests pass before AND after*.
+
+### 2d. From conversation
 
 Extract the decision reached — then **re-ground it against the code**. The corpus states
 intent; the code states fact. A discussion records what was decided, not what exists, and
 writing it up without re-grounding enshrines whatever was assumed mid-conversation.
 
-### 2d. Ground the fix (all paths)
+### 2e. Ground the fix (all paths)
 
 For every file the fix will touch, establish: what it does now, what to reuse, what this
 **replaces** (and must therefore delete), local conventions to follow, and what is risky
@@ -193,7 +221,7 @@ node -e '
   const { size } = require("./.claude/lib/fix-sizing");
   console.log(JSON.stringify(size(JSON.parse(process.argv[1])), null, 2));
 ' "$(cat <<'"'"'JSON'"'"'
-{ "taskCount": 2, "rootCause": "demonstrated", "reproducible": true,
+{ "kind": "defect", "taskCount": 2, "rootCause": "demonstrated", "reproducible": true,
   "specCertain": true, "criteriaCount": 1,
   "touches": ["src/session.ts"], "callers": 3,
   "covered": true, "addsCoverage": false,
@@ -205,6 +233,13 @@ JSON
 `criteriaCount` is how many checkable success criteria Step 4 will write. Zero is legitimate
 (some changes have no statable outcome) — and caps the tier at REVIEW, because nothing would
 verify the change.
+
+`kind` is `defect` | `change` | `refactor`, and it decides which axes are scored. A refactor
+is not asked for a root cause or a reproduction — it has neither — but its `covered` rule is
+**stricter**: `addsCoverage` does not satisfy it, because tests written during a refactor
+describe the NEW structure and cannot witness that the OLD behaviour survived. An omitted
+`kind` defaults to `defect`, the strictest reading, so forgetting it never buys a laxer
+verdict.
 
 `covered` is whether the touched files carry tests **today**; `addsCoverage` is whether one of
 this change's own tasks adds them. Either satisfies the axis, because the question is whether
@@ -253,8 +288,12 @@ objective until it disappears.
 ### Actual
 ### Expected
 
-## Intended Change           <!-- small changes only -->
+## Intended Change           <!-- changes only -->
 <the decided outcome, in checkable terms, cited to the conversation turn>
+
+## Behaviour Preserved       <!-- refactors only -->
+<the test command that passes BEFORE this change and must still pass after>
+<the public surface that must not move>
 
 ## Decision
 <the approach chosen; and if an alternative was considered and rejected, why>

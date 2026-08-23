@@ -158,3 +158,53 @@ describe('fix-sizing: coverage is about the state AFTER the change', () => {
     expect(size({ ...base, covered: false }).tier).toBe('REVIEW');
   });
 });
+
+describe('fix-sizing: work kind — defect / change / refactor', () => {
+  const base = {
+    taskCount: 1, specCertain: true, criteriaCount: 1,
+    touches: ['src/pricing.ts'], callers: 4, neverUnattended: [],
+  };
+  // A refactor fixes nothing: no root cause to demonstrate, nothing to reproduce.
+  const refactorish = { rootCause: 'inferred', reproducible: false };
+
+  test('a covered refactor reaches AUTO — defect axes are not scored against it', () => {
+    // Measured 2026-08-23: the safest possible refactor (one file, fully covered,
+    // four callers) was capped at REVIEW by two axes that cannot describe it.
+    expect(size({ ...base, ...refactorish, kind: 'refactor', covered: true }).tier).toBe('AUTO');
+  });
+
+  test('an UNCOVERED refactor is REVIEW, and addsCoverage does NOT rescue it', () => {
+    // The sharp rule. A refactor's claim is "behaviour unchanged", and only a suite
+    // that passed BEFORE can witness that. Tests written during the refactor
+    // describe the NEW structure and cannot speak for the old behaviour.
+    const r = size({ ...base, ...refactorish, kind: 'refactor', covered: false, addsCoverage: true });
+    expect(r.tier).toBe('REVIEW');
+    expect(r.reasons.join(' ')).toMatch(/only describe the new structure/);
+  });
+
+  test('a change is not scored on reproducibility', () => {
+    expect(size({ ...base, ...refactorish, kind: 'change', covered: true }).tier).toBe('AUTO');
+  });
+
+  test('a defect is still held to root cause and reproducibility', () => {
+    expect(size({ ...base, kind: 'defect', covered: true, rootCause: 'inferred', reproducible: true }).tier).toBe('REVIEW');
+    expect(size({ ...base, kind: 'defect', covered: true, rootCause: 'demonstrated', reproducible: false }).tier).toBe('REVIEW');
+  });
+
+  test('an omitted kind defaults to defect — the strictest reading', () => {
+    // An unset field must never buy a laxer verdict.
+    expect(size({ ...base, ...refactorish, covered: true }).tier).toBe('REVIEW');
+  });
+
+  test('kind does not weaken any non-defect axis', () => {
+    for (const kind of ['defect', 'change', 'refactor']) {
+      expect(size({ ...base, kind, covered: true, criteriaCount: 0, rootCause: 'demonstrated', reproducible: true }).tier).toBe('REVIEW');
+      expect(size({ ...base, kind, covered: true, specCertain: false, rootCause: 'demonstrated', reproducible: true }).tier).toBe('ESCALATE');
+      expect(size({ ...base, kind, covered: true, callers: 99, rootCause: 'demonstrated', reproducible: true }).tier).toBe('REVIEW');
+    }
+  });
+
+  test('kind is reported in the axes, so a verdict can be read back', () => {
+    expect(size({ ...base, kind: 'refactor', covered: true }).axes.kind).toBe('refactor');
+  });
+});

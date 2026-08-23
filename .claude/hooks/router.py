@@ -44,10 +44,11 @@ from dataclasses import dataclass
 # not the answer.
 FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
 
-* FLOW. Something broken, or a small scoped change? -> /fix <what>: it
-  investigates, root-causes, writes a light TRD, audits it, then implements and
-  verifies when the fix is demonstrably safe. PROPOSE /fix instead of patching
-  inline - an unplanned edit is the commonest source of bad code here.
+* FLOW. Bug, minor enhancement, or refactor - anything where the full PRD/TRD
+  pipeline is overkill for the risk? -> /fix <what>: it investigates, writes a
+  light TRD, audits it, then implements and verifies when it is demonstrably
+  safe. PROPOSE /fix instead of prompting-and-editing - an unplanned edit is the
+  commonest source of bad code here.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; --verify adds the functional loop) ->
   /audit-build. /verify-build re-runs verification alone; /refine-prd and
