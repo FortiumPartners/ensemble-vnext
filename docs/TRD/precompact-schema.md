@@ -105,12 +105,14 @@ PreCompact. No validation error.
 - **Whether the platform's printed schema listing is complete.** It omits `SessionStart`, whose
   `hookSpecificOutput` demonstrably works. The fix is grounded on the observed REJECTION —
   direct evidence — not on the listing's silence.
-- **`status.js` may carry the same defect, and this TRD deliberately does not touch it.**
-  `status.js:364-368` emits `hookSpecificOutput` on `SubagentStop` with non-standard fields
-  (`status`, `timestamp`). `SubagentStop` IS a listed variant, but if it rejects unknown keys
-  then `status.js` is failing validation on every subagent stop in exactly the same silent
-  way — nothing reads its stdout and the smoke check only requires exit 0 plus parseable
-  JSON. One-command probe, separate work.
+- ~~**`status.js` may carry the same defect**~~ — **PROBED 2026-08-23, it does not.**
+  `status.js` emits `hookSpecificOutput` on `SubagentStop` with non-standard `status` and
+  `timestamp` fields, which looked like the same shape as this defect. It is not: the
+  PreCompact failure was the **discriminator** having no union member, not unknown keys
+  being rejected. `SubagentStop` IS a listed variant, and unknown keys are tolerated —
+  evidenced by dozens of subagents running in this session with **zero**
+  `Hook JSON output validation failed` entries in the transcript, against one for PreCompact
+  at session start. Closed, not deferred.
 - **`docs/modernization/2026-05-phase2-recommendations.md:309` repeats the false claim**
   ("PreCompact `additionalContext` instructs post-compact model to re-read the log"). Left as
   historical record, but unannotated it reseeds the belief that produced this defect.
