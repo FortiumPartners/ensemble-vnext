@@ -806,9 +806,13 @@ PY
     refute grep -q 'argument-hint:.*force-auto' "$FIX"
     grep -q 'deliberately no `--force-auto`' "$FIX"
 
-    # AUTO chains with --verify. Without it the run asserts "fixed" on a suite
-    # that also passed before the fix.
-    grep -q 'skill: "implement-trd", args: "docs/TRD/<slug>.md --verify"' "$FIX"
+    # AUTO chains with --verify. That invariant moved into fix-plan.js (which
+    # always appends --verify and has a test for it) when five inconsistent prose
+    # copies of the same table were collapsed into one function. What this checks
+    # is that the command delegates rather than re-deriving.
+    grep -q 'lib/fix-plan' "$FIX"
+    grep -q 'Do not re-derive any of this in prose' "$FIX"
+    [ -f "${REPO_ROOT}/packages/core/lib/fix-plan.js" ]
 
     # Both verification sources are named — the defect path AND the conversational
     # path. Omitting either ships that half of /fix unverified.
@@ -816,7 +820,10 @@ PY
     grep -q '## Intended Change' "$FIX"
 
     # A chaining run must NOT emit its own COMMAND COMPLETE (nothing may follow it).
-    grep -q 'Do \*\*not\*\* emit a COMMAND COMPLETE banner here' "$FIX"
+    # fix-plan.js returns banner:null for that case and a test pins it; the command
+    # must explain the null rather than leave a reader to override it on instinct.
+    grep -q 'banner: null' "$FIX"
+    grep -q 'the run is over. Emit' "$FIX"
 }
 
 @test "no command spawns teammates any more" {

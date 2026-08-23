@@ -128,18 +128,28 @@ ${groundingBody}
   });
 });
 
-describe('paths that end the command signal completion consistently', () => {
+describe('the command DELEGATES its branch decisions rather than restating them', () => {
   const src = () => fs.readFileSync(FIX_MD, 'utf8');
 
-  test('the completion helper is barred on a chained AUTO run', () => {
-    // It signals webhooks/queues. On a chained run the work is BEGINNING at handoff.
-    expect(src()).toMatch(/Never on a chained AUTO run/);
+  // These invariants used to be asserted against the command's prose. They now
+  // live in fix-plan.js with 15 tests of their own, because the same table
+  // written in five places disagreed with itself in four of them. What this file
+  // must check is that the command CALLS the lib and does not re-derive it.
+
+  test('Step 6 calls fix-plan instead of branching in prose', () => {
+    expect(src()).toMatch(/require\("\.\/\.claude\/lib\/fix-plan"\)/);
   });
 
-  test('the handoff line does not imply a phase 2 of /fix', () => {
-    // "PHASE 1/2" invited a second banner after implement-trd's, violating
-    // "nothing may follow it".
+  test('it forbids re-deriving the plan', () => {
+    expect(src()).toMatch(/Do not re-derive any of this in prose/);
+  });
+
+  test('a null banner is explicitly explained, not left to inference', () => {
+    // The one output a reader is most likely to override on instinct.
+    expect(src()).toMatch(/`banner: null`/);
+  });
+
+  test('the retired PHASE 1/2 numbering has not crept back', () => {
     expect(src()).not.toMatch(/\[STATUS: \/fix\] PHASE 1\/2 COMPLETE/);
-    expect(src()).toMatch(/\[STATUS: \/fix\] HANDOFF/);
   });
 });

@@ -466,61 +466,56 @@ Apply clearly-correct findings; report the rest in `## Could Not Verify`.
 
 ---
 
-## Step 6: Implement, or stop
+## Step 6: Implement, or stop — the lib decides, you execute
 
-### AUTO — chain, unless `--spec-only`
-
-Do **not** emit a COMMAND COMPLETE banner here (`command-status.md`: nothing may follow it).
-Emit the handoff, then invoke:
-
-```
-[STATUS: /fix] HANDOFF → TRD authored, tier AUTO, chaining to /implement-trd
-```
-
-**This run has no phase 2 of its own, which is why the line does not say "PHASE 1/2".** That
-numbering implied `/fix` would get a second completion of its own, and the natural next act on
-seeing `/implement-trd`'s banner was to append `═══ COMMAND COMPLETE: /fix ═══` after it —
-two banners, and the second one violating "nothing may follow it" against the first.
-
-`Skill()` loads instructions into THIS session rather than dispatching a subagent, so control
-does come back here when `/implement-trd` finishes. **When it does, the run is over. Emit
-nothing.** `/implement-trd`'s banner is the terminator for the whole chain.
-
-```
-Skill({ skill: "implement-trd", args: "docs/TRD/<slug>.md --verify" })
+```bash
+node -e '
+  const { plan } = require("./.claude/lib/fix-plan");
+  console.log(JSON.stringify(plan({
+    tier: "AUTO",           // from Step 3.2
+    specOnly: false,        // was --spec-only passed?
+    kind: "defect",         // defect | change | refactor
+    slug: "<slug>"
+  }), null, 2));
+'
 ```
 
-`/implement-trd`'s own `COMMAND COMPLETE` terminates the run — one command from the user's
-point of view.
+Then do exactly what it returns, and nothing else:
 
-**`--verify` is not optional.** Re-running the reproduction is the acceptance criterion. Without
-it the run would assert "fixed" on the strength of a test suite that also passed before the fix.
+| Field | Meaning |
+|---|---|
+| `writeTrd` | false on ESCALATE — a light TRD would be the wrong artifact, not an incomplete one |
+| `writePointer` | write `.trd-state/current.json` only when **work actually begins** |
+| `chain` + `chainArgs` | `Skill({ skill: "implement-trd", args: chainArgs })` |
+| `handoffLine` | emit before chaining |
+| `banner` / `bannerBody` | emit as the LAST line — **or `null`, meaning emit nothing** |
+| `notify` | run `.claude/hooks/notify-complete.sh "fix" "complete" "<summary>"` |
+| `verificationSection` | which TRD section carries the success definition, per kind |
 
-**The chained run works on a branch and never merges.** The tier decides whether a machine may
-write the branch — never whether it lands. A human still reviews.
+**Do not re-derive any of this in prose, and do not second-guess a `null` banner.**
+`banner: null` on a chained run is correct: `command-status.md` forbids anything following
+`COMMAND COMPLETE`, and `/implement-trd` emits the run's terminator. `Skill()` loads into THIS
+session, so control returns here when it finishes — **when it does, the run is over. Emit
+nothing.**
 
-### REVIEW / ESCALATE / `--spec-only` — stop here
+**Why this is a lib call and not a table you read.** These six outputs were prose in five
+different places and disagreed with each other in four of them: `--spec-only` was honoured in
+one branch, the pointer was keyed on the tier rather than on whether work begins, the handoff
+was numbered `PHASE 1/2` (inviting a second banner after `/implement-trd`'s), and the
+completion signal had no guard at all — so a chained run told webhooks "complete" at the
+moment the work *began*. One table written five times cannot stay consistent; a function with
+tests can.
 
-```
-═══ COMMAND COMPLETE: /fix ═══
-<slug>: tier <TIER> — <why it stopped>. TRD at docs/TRD/<slug>.md. Run /implement-trd --verify when satisfied.
-```
-
-`<why it stopped>` is the failing axis on REVIEW or ESCALATE. **On AUTO + `--spec-only` there
-is no failing axis** — every axis passed and the flag is the reason — so write
-`stopped at --spec-only`. Do not invent a failing axis to fill the slot; that would report a
-downgrade the sizing lib never returned.
-
-**There is deliberately no `--force-auto`.** A flag overriding the gate defeats the gate. If
-you want to implement a REVIEW TRD, run `/implement-trd` yourself — an explicit human decision,
-recorded as a human invocation.
+**There is deliberately no `--force-auto`.** A flag overriding the gate defeats the gate. To
+implement a REVIEW TRD, run `/implement-trd` yourself — an explicit human decision, recorded
+as a human invocation.
 
 ---
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
-The banner is the LAST line of the final turn, nothing after it. On a chained AUTO run,
-`/implement-trd` emits it, not this command. On unrecoverable failure use
+The banner is the LAST line of the final turn, nothing after it. **Step 6's plan decides
+whether you emit one at all** — `banner: null` means emit nothing. On unrecoverable failure use
 `═══ COMMAND STUCK: /fix ═══` with `Reason:` and `Next:`.
 
 ```bash
