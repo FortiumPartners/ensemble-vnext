@@ -17,9 +17,6 @@
  *   - Append is idempotent in the sense that we never rewrite history — each invocation
  *     adds a new entry.
  *
- * Output (PreCompact spec): JSON with optional additionalContext nudging the model to
- * read session-log.md after compaction so the rationale survives.
- *
  * Environment variables:
  *   ENSEMBLE_PRECOMPACT_DISABLE=1   Skip entirely.
  *   PRECOMPACT_DEBUG=1              Log diagnostics to stderr.
@@ -38,14 +35,8 @@ function debug(msg) {
   }
 }
 
-function emit(additionalContext) {
-  const output = {
-    hookSpecificOutput: {
-      hookEventName: 'PreCompact',
-      additionalContext: additionalContext || '',
-    },
-  };
-  console.log(JSON.stringify(output));
+function emit() {
+  console.log('{}');
   process.exit(0);
 }
 
@@ -181,7 +172,7 @@ function ensureDirFor(filePath) {
 function main() {
   if (process.env.ENSEMBLE_PRECOMPACT_DISABLE === '1') {
     debug('disabled via env');
-    return emit('');
+    return emit();
   }
 
   // Read stdin (hook input)
@@ -204,13 +195,13 @@ function main() {
   const currentPath = path.join(projectRoot, '.trd-state', 'current.json');
   if (!fs.existsSync(currentPath)) {
     debug('no current.json — nothing to archive');
-    return emit('');
+    return emit();
   }
 
   const current = safeReadJson(currentPath);
   if (!current) {
     debug('current.json unreadable — skipping');
-    return emit('');
+    return emit();
   }
 
   // Find implement.json. Two layouts in the wild:
@@ -246,21 +237,12 @@ function main() {
     debug(`appended checkpoint to ${logPath}`);
   } catch (err) {
     debug(`append failed: ${err.message}`);
-    // Fall through — still emit a useful additionalContext below.
+    // Fall through — the hook must never block compaction.
   }
 
-  const relLog = path.relative(projectRoot, logPath);
-  const context = [
-    'Compaction imminent — a structured checkpoint was archived to:',
-    `  ${relLog}`,
-    '',
-    'After compaction, re-read this file (and any prior checkpoints in it) to recover the',
-    'reasoning trail. If you have decision rationale or open questions from the last burst',
-    'of work that aren\'t captured in implement.json, append them under the most recent',
-    '**Decisions & rationale** section BEFORE continuing the loop.',
-  ].join('\n');
-
-  return emit(context);
+  // No model-facing nudge is emitted: PreCompact rejects `hookSpecificOutput`, and the
+  // post-compaction "re-read session-log.md" instruction lives in implement-trd.md instead.
+  return emit();
 }
 
 main();
