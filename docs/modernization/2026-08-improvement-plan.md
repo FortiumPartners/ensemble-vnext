@@ -1436,6 +1436,35 @@ tasks now carry `Dependencies` and `Serves` in structured, parser-consumable pos
 tasks + dependencies → DAG is mechanical, and "what can run in parallel" becomes
 deterministic rather than LLM-judged. Build item 7's `lib/` as part of this item, not after.
 
+## Step 8's contract-inlining cost — CLOSED as accepted, 2026-08-23
+
+Found while running `/implement-trd --verify` end to end. Recorded because it is a standing
+cost on every verified run, not a one-off.
+
+`Workflow(verify-functional, …)` takes `contract` as a **string argument**. Workflows have no
+filesystem access, so a path cannot be passed — the command must read
+`packages/core/contracts/functional-verification.md` (**18.6 KB**) into its own context before
+it can dispatch Step 8, on every run that uses `--verify`.
+
+**Accepted, not fixed.** The alternatives are worse:
+
+- *Shrink the contract* — it is the deriver's and judge's entire instruction set; trimming it
+  to save orchestrator context trades correctness for cost in the wrong direction.
+- *Give workflows filesystem access* — a platform capability this project does not control,
+  and one that would undo the property making workflows deterministic and resumable.
+- *Split the contract* so only the loop's half is passed — plausible, and the only option
+  worth revisiting. Deferred because it is a real refactor of a file whose whole value is
+  being one authoritative document.
+
+**Re-open if** `--verify` runs start hitting compaction earlier than unverified ones, which
+would make the 18.6 KB a measurable operational cost rather than a noted one.
+
+**Consequence to remember:** a `/fix` or `/implement-trd` run that verifies pays this before
+it dispatches. It is why the first live `/fix` run checked its criteria with the evidence
+checker and the sanctioned renderer directly instead — same gate, same renderer, but no
+Exercise/Judge/Debug agents, so no correction loop. Fine for a fix already measured green;
+not fine for one with real gaps.
+
 ## Field report 2026-08-23 — `trd-parser.js` misses prose-form agent assignments
 
 **Reported from a live `/implement-trd` run in another session. Not fixed; logged here so it
