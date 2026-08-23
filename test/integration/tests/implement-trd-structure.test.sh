@@ -804,7 +804,13 @@ PY
     # ARGUMENT SURFACE, not the word — the command legitimately mentions
     # --force-auto in the sentence explaining why there isn't one.
     refute grep -q 'argument-hint:.*force-auto' "$FIX"
-    grep -q 'deliberately no `--force-auto`' "$FIX"
+    # The gate constrains what a MACHINE does unattended, never the owner: the
+    # capability is theirs either way via /implement-trd. What the missing flag
+    # prevents is the COMMAND deciding on their behalf that the gate did not apply.
+    grep -q 'no `--force-auto` flag' "$FIX"
+    grep -q 'never meant to constrain you' "$FIX"
+    # And every lowered tier must hand back a remedy, not just a verdict.
+    grep -q 'remedies' "$FIX"
 
     # AUTO chains with --verify. That invariant moved into fix-plan.js (which
     # always appends --verify and has a test for it) when five inconsistent prose

@@ -84,25 +84,35 @@ function size(input, opts = {}) {
   } = input || {};
 
   const reasons = [];
+  const remedies = [];
   let tier = 'AUTO';
 
-  const drop = (to, why) => {
+  // Every drop carries what would LIFT it. A gate that says only "no" is a cage;
+  // one that says "no, because X, and here is what changes X" is a guide rail —
+  // and the owner stays in control, because every remedy is something they decide
+  // to do or not. Added 2026-08-23 on the owner's rule: determinism, not at the
+  // expense of flexibility.
+  const drop = (to, why, remedy) => {
     tier = lower(tier, to);
     reasons.push(why);
+    if (remedy) remedies.push(remedy);
   };
 
   // ---- ESCALATE: not light-path work at all -------------------------------
   if (taskCount > MAX_TASKS) {
-    drop('ESCALATE', `${taskCount} tasks exceeds the ${MAX_TASKS}-task light-path ceiling`);
+    drop('ESCALATE', `${taskCount} tasks exceeds the ${MAX_TASKS}-task light-path ceiling`,
+      'split it into separate /fix runs, or use /create-prd if the parts are not independent');
   }
   if (!specCertain) {
     // The PRD boundary. "It should not 500" is certain; "what should it show
     // instead" may be a product decision, and deciding it here is exactly the
     // requirement-manufacturing the heavy path exists to prevent.
-    drop('ESCALATE', 'the correct behaviour is not settled — this is a product decision, not a defect');
+    drop('ESCALATE', 'the correct behaviour is not settled — this is a product decision, not a defect',
+      'if the correct behaviour IS decided and you can state it, say so and re-run — otherwise /create-prd');
   }
   if (touches.length > maxFiles) {
-    drop('ESCALATE', `${touches.length} files touched exceeds the ${maxFiles}-file ceiling`);
+    drop('ESCALATE', `${touches.length} files touched exceeds the ${maxFiles}-file ceiling`,
+      'narrow the change, or use /create-prd');
   }
 
   // ---- REVIEW: light path is right, but a human approves ------------------
@@ -113,21 +123,25 @@ function size(input, opts = {}) {
   // 2026-08-23 on a one-file, fully-covered, four-caller extraction.
   if (kind === 'defect') {
     if (rootCause !== 'demonstrated') {
-      drop('REVIEW', 'root cause is inferred, not demonstrated — the fix rests on a reading of the code');
+      drop('REVIEW', 'root cause is inferred, not demonstrated — the fix rests on a reading of the code',
+        'isolate the mechanism with the reproduction and re-run — or accept REVIEW and read the TRD yourself');
     }
     if (!reproducible) {
       // Hard rule for a defect: cannot be verified fixed, so cannot be fixed unattended.
-      drop('REVIEW', 'not reproducible — nothing could confirm the fix worked');
+      drop('REVIEW', 'not reproducible — nothing could confirm the fix worked',
+        'if you can reproduce it, record the steps in ## Reproduction and re-run');
     }
   }
   if (criteriaCount === 0) {
     // Hard rule, and the one that covers conversational changes: the success
     // definition derived nothing checkable, so the verification loop would run
     // against an empty criteria set and pass vacuously.
-    drop('REVIEW', 'the success definition derived zero criteria — nothing would verify this');
+    drop('REVIEW', 'the success definition derived zero criteria — nothing would verify this',
+      'state one outcome that could be checked, however small, and re-run');
   }
   if (callers > maxCallers) {
-    drop('REVIEW', `${callers} callers of the changed symbols — blast radius is not contained`);
+    drop('REVIEW', `${callers} callers of the changed symbols — blast radius is not contained`,
+      'narrow the change, or accept REVIEW and run /implement-trd yourself');
   }
   // The axis asks "would a regression be caught?" — and that is about the state
   // AFTER this change lands, not before it. A fix whose own tasks add the missing
@@ -152,15 +166,18 @@ function size(input, opts = {}) {
     // behaviour survived. Refactoring untested code is exactly the case a human
     // should see.
     if (!covered) {
-      drop('REVIEW', 'refactoring code with no existing tests — nothing witnesses that behaviour was preserved, and tests added by this change would only describe the new structure');
+      drop('REVIEW', 'refactoring code with no existing tests — nothing witnesses that behaviour was preserved, and tests added by this change would only describe the new structure',
+        'land tests for the CURRENT behaviour first as a separate /fix (kind: change, where addsCoverage counts), then re-run this one');
     }
   } else if (!covered && !addsCoverage) {
-    drop('REVIEW', 'the touched files carry no tests and this change adds none — a regression would not be caught');
+    drop('REVIEW', 'the touched files carry no tests and this change adds none — a regression would not be caught',
+      'add a task that writes the test and pass addsCoverage: true, or accept REVIEW');
   }
 
   const hit = matchNeverUnattended(touches, neverUnattended);
   if (hit.length > 0) {
-    drop('REVIEW', `touches an owner-designated never-unattended path: ${hit.join(', ')}`);
+    drop('REVIEW', `touches an owner-designated never-unattended path: ${hit.join(', ')}`,
+      'your own policy in verification.md — run /implement-trd yourself when you are satisfied');
   }
 
   if (reasons.length === 0) reasons.push('all axes clear');
@@ -168,6 +185,9 @@ function size(input, opts = {}) {
   return {
     tier,
     reasons,
+    // Never empty when a tier was lowered: whatever the gate says no to, it says
+    // how to change the answer. The owner decides whether any of it is worth doing.
+    remedies,
     axes: {
       kind,
       rootCause,

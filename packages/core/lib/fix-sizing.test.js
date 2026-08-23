@@ -208,3 +208,57 @@ describe('fix-sizing: work kind — defect / change / refactor', () => {
     expect(size({ ...base, kind: 'refactor', covered: true }).axes.kind).toBe('refactor');
   });
 });
+
+describe('fix-sizing: every gate says what would change its answer', () => {
+  // The owner's rule, 2026-08-23: determinism, but not at the expense of
+  // flexibility. A gate that says only "no" is a cage. One that says "no,
+  // because X, and here is what changes X" is a guide rail — and the owner stays
+  // in control, because every remedy is something they choose to do or not.
+  const clean = () => ({
+    kind: 'defect', taskCount: 2, rootCause: 'demonstrated', reproducible: true,
+    specCertain: true, criteriaCount: 1, touches: ['src/a.ts'], callers: 3,
+    covered: true, neverUnattended: [],
+  });
+
+  test('a clean run has no remedies, because nothing was refused', () => {
+    const r = size(clean());
+    expect(r.tier).toBe('AUTO');
+    expect(r.remedies).toEqual([]);
+  });
+
+  test.each([
+    ['taskCount', { taskCount: 99 }],
+    ['specCertain', { specCertain: false }],
+    ['touches', { touches: ['a', 'b', 'c', 'd', 'e', 'f'] }],
+    ['rootCause', { rootCause: 'inferred' }],
+    ['reproducible', { reproducible: false }],
+    ['criteriaCount', { criteriaCount: 0 }],
+    ['callers', { callers: 99 }],
+    ['covered', { covered: false }],
+    ['neverUnattended', { touches: ['src/auth/x.ts'], neverUnattended: ['auth'] }],
+    ['refactor-covered', { kind: 'refactor', covered: false }],
+  ])('a lowered tier from %s always carries a remedy', (_label, over) => {
+    const r = size({ ...clean(), ...over });
+    expect(r.tier).not.toBe('AUTO');
+    expect(r.remedies.length).toBeGreaterThan(0);
+    expect(r.remedies.every((m) => typeof m === 'string' && m.length > 10)).toBe(true);
+  });
+
+  test('remedies name an action the OWNER takes, not one the command refuses', () => {
+    // Each should point at something doable, not restate the refusal.
+    const r = size({ ...clean(), kind: 'refactor', covered: false });
+    expect(r.remedies[0]).toMatch(/then re-run this one/);
+  });
+
+  test('the never-unattended remedy defers to the owner, not to the gate', () => {
+    const r = size({ ...clean(), touches: ['src/auth/x.ts'], neverUnattended: ['auth'] });
+    expect(r.remedies.join(' ')).toMatch(/your own policy/);
+    expect(r.remedies.join(' ')).toMatch(/run \/implement-trd yourself/);
+  });
+
+  test('reasons and remedies stay paired one-for-one', () => {
+    const r = size({ ...clean(), reproducible: false, covered: false });
+    expect(r.reasons).toHaveLength(2);
+    expect(r.remedies).toHaveLength(2);
+  });
+});

@@ -118,8 +118,12 @@ anything naming a new subsystem — stop now:
 
 ```
 ═══ COMMAND COMPLETE: /fix ═══
-Not light-path work: <why>. Use /create-prd.
+Not light-path work: <why>. Use /create-prd — or narrow the ask to one behaviour and re-run.
 ```
+
+**Name the narrower version if there is one.** "Add SSO" has no small form; "redesign the
+dashboard" often does — *"if you meant just the export button's placement, that is a `/fix`."*
+Refusing is guidance; refusing without naming the smaller door is a dead end.
 
 **This gate may only REJECT, never accept.** Accepting requires the investigation, because
 you cannot size what you have not root-caused (Step 3).
@@ -282,8 +286,17 @@ way.**
 | Tier | Then |
 |---|---|
 | **AUTO** | write the TRD, audit it, chain into `/implement-trd` — **unless `--spec-only`, which stops after the audit** |
-| **REVIEW** | write the TRD, audit it, stop, report the tier and why |
-| **ESCALATE** | stop now, name the failing axis, point at `/create-prd` |
+| **REVIEW** | write the TRD, audit it, stop, report the tier, the reason, and the remedy |
+| **ESCALATE** | stop, name the failing axis AND its remedy, point at `/create-prd` |
+
+**Whenever a tier is lowered, report `remedies` alongside `reasons` — always, one per
+reason.** The lib returns them for exactly this: a gate that says only "no" is a cage; one
+that says "no, because X, and here is what changes X" leaves the owner in control, because
+every remedy is something they choose to do or not.
+
+A REVIEW that says *"no tests on the touched files"* is a verdict. The same REVIEW adding
+*"land tests for the current behaviour as a separate `/fix`, then re-run — or run
+`/implement-trd` yourself"* is a next step. Report the second.
 
 ---
 
@@ -549,9 +562,14 @@ completion signal had no guard at all — so a chained run told webhooks "comple
 moment the work *began*. One table written five times cannot stay consistent; a function with
 tests can.
 
-**There is deliberately no `--force-auto`.** A flag overriding the gate defeats the gate. To
-implement a REVIEW TRD, run `/implement-trd` yourself — an explicit human decision, recorded
-as a human invocation.
+**You can always implement a REVIEW TRD — that is what `/implement-trd` is.** The TRD is
+written, audited and on disk; running `/implement-trd docs/TRD/<slug>.md --verify` yourself
+does exactly what an AUTO run would have done.
+
+There is no `--force-auto` flag, and the distinction is narrow but real: the capability is
+yours either way, and what the missing flag prevents is **this command** deciding on your
+behalf that the gate did not apply. A human invocation is on the record as a human decision.
+The gate constrains what a machine does unattended; it was never meant to constrain you.
 
 ---
 
