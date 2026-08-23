@@ -47,10 +47,14 @@ decision. Step 3 detects that and sends you to `/create-prd`.
 
 ## Step 1: Establish the subject
 
-| Input | Subject from |
+**Strip the flags from the argument first.** `--spec-only` is not part of the subject.
+`/fix the login copy is wrong --spec-only` has the subject *"the login copy is wrong"*;
+leaving the flag in puts it into the stated subject line and into the TRD's slug.
+
+| Input (after flag-stripping) | Subject from |
 |---|---|
 | a sentence or source | the argument |
-| bare | this conversation |
+| nothing left | this conversation |
 
 **Bare invocation states its subject back, then proceeds.** First line of output:
 
@@ -154,7 +158,21 @@ root-caused; sizing a raw report is guessing at the moment guessing is most expe
 
 ### 3.1 Gather the evidence mechanically
 
-Do not estimate these. Measure them, so the numbers are in the transcript:
+**Six of the nine inputs are MEASURED; three are PLANNED. Keep them straight** — the "do not
+estimate" rule below applies to the measured ones, and pretending it applies to all nine
+makes it unfollowable, because Step 3 runs before Step 4 writes any tasks.
+
+| Input | Kind | How |
+|---|---|---|
+| `touches`, `callers`, `covered` | **measured** | the commands below |
+| `rootCause`, `reproducible`, `specCertain` | **measured** | Step 2's investigation |
+| `taskCount`, `criteriaCount`, `addsCoverage` | **planned** | what Step 4 is about to write |
+
+A planned input is a commitment, not a guess: if you pass `addsCoverage: true`, Step 4 **must**
+write that task, and the adversarial pass reads the task list. If you cannot yet say how many
+tasks Step 4 will need, you have not finished Step 2.
+
+Do not estimate the measured ones. Measure them, so the numbers are in the transcript:
 
 ```bash
 # callers of each symbol the fix changes
@@ -198,7 +216,7 @@ verdict; every rule in it can only lower a tier, never raise one.
 
 | Tier | Then |
 |---|---|
-| **AUTO** | write the TRD, audit it, chain into `/implement-trd` |
+| **AUTO** | write the TRD, audit it, chain into `/implement-trd` — **unless `--spec-only`, which stops after the audit** |
 | **REVIEW** | write the TRD, audit it, stop, report the tier and why |
 | **ESCALATE** | stop now, name the failing axis, point at `/create-prd` |
 
@@ -238,6 +256,10 @@ objective until it disappears.
 ## Intended Change           <!-- small changes only -->
 <the decided outcome, in checkable terms, cited to the conversation turn>
 
+## Decision
+<the approach chosen; and if an alternative was considered and rejected, why>
+<!-- repeat this as a **Follow:** bullet in every task's grounding — see below -->
+
 ## Non-Goals
 <what this fix must not grow into>
 
@@ -269,7 +291,24 @@ the worst available failure.
 ### Every task prompt must carry the DECISION, not just the task
 
 Add a `## Decision` section stating the approach chosen and, when an alternative was
-considered and rejected, **why** — then repeat it in every task's prompt.
+considered and rejected, **why** — **and repeat it as a `**Follow:**` bullet in EVERY task's
+grounding block.**
+
+**That bullet is the only carrier that reaches an implementer.** Saying "put it in the task
+prompt" does not work, because `/fix` never writes task prompts: it writes a TRD, and
+`/implement-trd` assembles the prompts from it. That command's placeholder list
+(`implement-trd.md` §3.5) is exhaustive — `{task_id}`, `{task_description}`, `<grounding>`,
+`<unverified_claims>`, `<open_question>`, `<scope_boundaries>`, `<objective>`, `<skills>`,
+`<ui_context>` — and **there is no Decision element**, so a top-level `## Decision` section is
+dropped on the floor.
+
+A `- **Decision:**` bullet fares no better: `trd-parser.js` matches only
+`Touches|Reuse|Replaces|Follow|Careful`, so it parses to **nothing at all** — not even into
+another field. That is the same silent-drop failure this command warns about for unbolded
+`Touches`, and it is why the carrier has to be a field the parser already knows.
+
+`**Follow:**` and `**Careful:**` are the two that reach every implementer verbatim. Use
+`**Follow:**`.
 
 ```markdown
 ## Decision
@@ -312,10 +351,14 @@ real `.trd-state/` session log, because the repro passed `cwd: $PWD`. Reproducin
 should be safe to run twice. `test/smoke/scenarios/hooks-health.sh` shows the pattern — an
 isolated temp `cwd`.
 
-**Write `.trd-state/current.json` only when the tier is AUTO** — `{prd: null, trd: "<path>",
-branch: "<branch>"}`.
+**Write `.trd-state/current.json` only when work is actually starting** — tier AUTO **and**
+no `--spec-only` — `{prd: null, trd: "<path>", branch: "<branch>"}`.
 
-On REVIEW or ESCALATE no work is starting, and `current.json` answers "what are we working
+Key it on whether work begins, not on the tier. An earlier version said "only when the tier is
+AUTO", which instructed writing the pointer on an AUTO `--spec-only` run — a run that
+deliberately starts nothing — contradicting its own reason two sentences later.
+
+On REVIEW, ESCALATE, or `--spec-only`, no work is starting, and `current.json` answers "what are we working
 on?" for the SessionStart banner, the dispatch ledger and `notify-complete.sh`. Overwriting a
 live pointer for work that is not beginning loses the real answer and replaces it with a
 false one. Report the TRD path in the banner instead; `/implement-trd` writes the pointer
@@ -335,6 +378,9 @@ node -e '
   const parsed = parseTrd(fs.readFileSync(process.argv[1], "utf8"), { path: process.argv[1] });
   const r = audit(parsed, {
     objectiveIds: ["O1"],                       // IDs from the Objectives table
+    // Every path a task's grounding CREATES rather than edits — read them off the
+    // Touches lines. Getting this wrong produces the false failure the paragraph
+    // below warns about: a new file reported as a missing citation.
     expectedNew: ["path/to/file/this/TRD/creates"],
   });
   console.log(JSON.stringify(r, null, 2));
@@ -372,6 +418,11 @@ Agent(subagent_type="code-reviewer", prompt="<the TRD> + <the investigation> +
 rather than demonstrated, AUTO becomes REVIEW — re-run Step 3.2 with the corrected input. This
 is what stops the command talking itself into acting unattended on a guess.
 
+**The adversarial pass runs ONCE.** Re-running Step 3.2 recomputes the tier; it does not
+re-enter Step 5.2. There is nothing to re-audit — the TRD has not changed, only the sizing
+input the audit corrected — and a pass that could re-trigger itself has no termination
+condition.
+
 Apply clearly-correct findings; report the rest in `## Could Not Verify`.
 
 ---
@@ -384,8 +435,17 @@ Do **not** emit a COMMAND COMPLETE banner here (`command-status.md`: nothing may
 Emit the handoff, then invoke:
 
 ```
-[STATUS: /fix] PHASE 1/2 COMPLETE → TRD authored, tier AUTO, chaining to /implement-trd
+[STATUS: /fix] HANDOFF → TRD authored, tier AUTO, chaining to /implement-trd
 ```
+
+**This run has no phase 2 of its own, which is why the line does not say "PHASE 1/2".** That
+numbering implied `/fix` would get a second completion of its own, and the natural next act on
+seeing `/implement-trd`'s banner was to append `═══ COMMAND COMPLETE: /fix ═══` after it —
+two banners, and the second one violating "nothing may follow it" against the first.
+
+`Skill()` loads instructions into THIS session rather than dispatching a subagent, so control
+does come back here when `/implement-trd` finishes. **When it does, the run is over. Emit
+nothing.** `/implement-trd`'s banner is the terminator for the whole chain.
 
 ```
 Skill({ skill: "implement-trd", args: "docs/TRD/<slug>.md --verify" })
@@ -404,8 +464,13 @@ write the branch — never whether it lands. A human still reviews.
 
 ```
 ═══ COMMAND COMPLETE: /fix ═══
-<slug>: tier <TIER> — <the failing axis>. TRD at docs/TRD/<slug>.md. Run /implement-trd --verify when satisfied.
+<slug>: tier <TIER> — <why it stopped>. TRD at docs/TRD/<slug>.md. Run /implement-trd --verify when satisfied.
 ```
+
+`<why it stopped>` is the failing axis on REVIEW or ESCALATE. **On AUTO + `--spec-only` there
+is no failing axis** — every axis passed and the flag is the reason — so write
+`stopped at --spec-only`. Do not invent a failing axis to fill the slot; that would report a
+downgrade the sizing lib never returned.
 
 **There is deliberately no `--force-auto`.** A flag overriding the gate defeats the gate. If
 you want to implement a REVIEW TRD, run `/implement-trd` yourself — an explicit human decision,
@@ -422,6 +487,15 @@ The banner is the LAST line of the final turn, nothing after it. On a chained AU
 ```bash
 .claude/hooks/notify-complete.sh "fix" "complete" "<one-line summary>"
 ```
+
+**Never on a chained AUTO run.** This helper signals completion to webhooks, queues and tmux
+panes, and `command-status.md` Path B requires it fire **exactly once, at the actual
+completion moment, never during dispatch**. On a chained run the work is just *beginning* at
+handoff — `/implement-trd` fires its own. Call this only on the paths that genuinely end here:
+the Step 1.1 early reject, and REVIEW / ESCALATE / `--spec-only`.
+
+Call it on the Step 1.1 early reject too. That path ends the command as surely as the others,
+and skipping it there makes the completion signal depend on *which* way the command finished.
 
 ---
 
