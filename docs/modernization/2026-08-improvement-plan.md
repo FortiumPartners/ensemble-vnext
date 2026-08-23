@@ -1436,6 +1436,55 @@ tasks now carry `Dependencies` and `Serves` in structured, parser-consumable pos
 tasks + dependencies → DAG is mechanical, and "what can run in parallel" becomes
 deterministic rather than LLM-judged. Build item 7's `lib/` as part of this item, not after.
 
+## Field report 2026-08-23 — `trd-parser.js` misses prose-form agent assignments
+
+**Reported from a live `/implement-trd` run in another session. Not fixed; logged here so it
+is not re-derived.**
+
+The parser recovers `Agent:` from Execution Plan §5.2 only in **bullet form**, which is what
+`implement-trd.md` Step 3.3 documents:
+
+```
+**Session 1B: Review-path probe**
+- Tasks: ITR-P002
+- Agent: @agent-implementer
+```
+
+A TRD writing the same information as **prose** is not matched:
+
+```
+**Session 1A** — WDAP-B001, WDAP-B002 · @backend-implementer
+```
+
+Observed: 11 tasks, all `agent` fields `null`.
+
+**Why this is not cosmetic.** An unset `agentType` does not mean "no agent" — it means the
+platform's generic workflow subagent, which **inherits the session model**. Step 3.3 documents
+the measurement: an identical 8-task fixture ran **367 Opus / 330 Sonnet** turns with named
+implementers and **393 Opus / 8 Sonnet** without, at roughly five times the token price. The
+architect's per-session choices are silently discarded and every task escalates a model tier.
+
+**It degrades silently in the worst way** — the run works, the tasks complete, and the only
+symptom is the bill.
+
+**Two candidate fixes, and they are not exclusive:**
+
+1. **Widen the parser** to accept the prose form (`**Session N** — IDS · @agent`) alongside
+   the bullet form. Cheap, and it makes `/create-trd`'s output format less load-bearing.
+2. **Warn on total loss.** When a TRD has a §5.2/Session Details section AND zero assignments
+   were recovered, that is near-certainly a format mismatch rather than an authored choice —
+   `trd-parser.js` should emit a warning, and Step 3.3 should surface it in the DISPATCHED
+   banner. Cheaper than (1) and catches every future format drift, not just this one.
+
+(2) is the more valuable of the two: the failure class is "the parser and the author disagree
+about a format", and widening the parser once fixes one instance of it while a warning catches
+all of them.
+
+**Correct handling in the field, worth keeping:** the operator read the TRD's own §5.2, applied
+the architect's assignments by hand, and dispatched with them rather than falling back to
+keyword-guessing — which is exactly Step 3.3's stated precedence ("The TRD's own assignment
+wins... keyword-matching re-derives the same decision from strictly less information").
+
 ### 12. Rework `/investigate-issue` + `/fix-issue` onto the current execution model
 
 **These two are the last commands still running the architecture item 8 replaced.** Everything

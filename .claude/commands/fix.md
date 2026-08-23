@@ -62,10 +62,37 @@ SPECCING: <one line>
 This is a correction point, not a checkpoint — do not stop for confirmation. Blocking here
 would also make unattended use impossible.
 
-**If the conversation holds more than one candidate subject, ask which** (`autonomy.md` case
-2 — information that cannot be derived). Ambiguity resolves to asking, **never to guessing**:
-assembling a plausible TRD out of loosely related discussion produces something that looks
-well-founded and addresses a problem nobody raised.
+**Two tests decide whether the warm path may proceed — a COUNT test and a QUALITY test.**
+Either one failing means ask (`autonomy.md` case 2 — information that cannot be derived):
+
+| Conversation holds | Do |
+|---|---|
+| exactly one subject, stated in checkable terms | state it back and PROCEED |
+| more than one candidate subject | **ASK** which |
+| no subject stated in checkable terms — vague, hedged, or withdrawn | **ASK** what to spec |
+
+**The quality test is not redundant with the count test, and omitting it was a real defect**
+(found by a blind test 2026-08-23, fixed here). The rule used to key only on "more than one",
+so a conversation containing exactly one *unusable* subject sailed through. The measured case:
+
+```
+User: the dashboard feels sluggish
+User: I dunno, it just doesn't feel as snappy as it used to. Maybe it's fine.
+User: hmm. anyway
+User: /fix
+```
+
+One candidate, so the count test passed, and `/fix` would have specced a problem the user had
+just **withdrawn**. Later gates would have caught it — a non-reproducible defect stops at
+REVIEW (Step 2a), and a definition deriving zero criteria caps the tier — but only after a
+full investigation, and the artifact would still be a plausible-looking TRD for a
+non-problem.
+
+**Ambiguity resolves to asking, never to guessing.** Assembling a TRD out of loosely related
+discussion produces something that *looks* well-founded and addresses a problem nobody
+raised — the manufactured-requirement failure arriving through a new door. "Specific enough
+to name in one line" is the bar: a defect, a file, a behaviour. *"It feels slow"* is not a
+subject; it is the start of a conversation that has not happened yet.
 
 ### 1.1 Cheap pre-triage — reject the obviously-large before investigating
 
