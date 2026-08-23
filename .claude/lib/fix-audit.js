@@ -31,12 +31,22 @@ const KIND_SECTION = {
  * @param {string[]} [opts.expectedNew] paths the TRD creates, so absence is correct
  * @param {string}   [opts.kind]        the kind passed to fix-sizing
  * @param {string}   [opts.markdown]    the TRD source, for the kind/section check
- * @returns {{ok: boolean, findings: {check: string, id: string, detail: string}[]}}
+ * @returns {{ok, findings, advisories, footprint}}
+ *
+ * FINDINGS vs ADVISORIES, and the distinction is the point:
+ *   findings   — the TRD is MALFORMED. Grounding missing, a cited path that does
+ *                not exist, a Serves pointing at no objective. Mechanical, and
+ *                there is a right answer.
+ *   advisories — the TRD is well-formed but you may have meant something else.
+ *                These never affect `ok`. The author's intent controls; this
+ *                surfaces the observation and gets out of the way.
  */
 function audit(parsed, opts = {}) {
   const { objectiveIds = [], root = process.cwd(), expectedNew = [], kind, markdown } = opts;
   const findings = [];
+  const advisories = [];
   const add = (check, id, detail) => findings.push({ check, id, detail });
+  const advise = (check, id, detail) => advisories.push({ check, id, detail });
 
   const objectives = new Set(objectiveIds);
   const tasks = parsed.tasks || [];
@@ -80,35 +90,40 @@ function audit(parsed, opts = {}) {
     }
   }
 
-  // KIND HONESTY. `kind` is the one sizing input a caller could misstate to buy a
-  // laxer verdict: fix-sizing's default guards OMISSION (defect, strictest) but not
-  // MISSTATEMENT, and `change` is laxer than `refactor` on the coverage axis — so a
-  // refactor declared as a change with addsCoverage:true reaches AUTO on untested
-  // code. Found by a blind audit 2026-08-23.
+  // KIND / SECTION MISMATCH — an ADVISORY, deliberately, not a finding.
   //
-  // Code cannot tell a refactor from a change by looking at the inputs. What it CAN
-  // do is require the declared kind to match the verification section the TRD
-  // actually carries, which catches the careless case and forces a deliberate one to
-  // write a section that contradicts itself. The remaining judgment — "is this
-  // really a refactor?" — belongs to the adversarial pass, which reads the diff.
+  // The declared `kind` decides which axes fix-sizing scores, so a refactor
+  // declared as a `change` is scored more leniently on coverage. That is worth
+  // SURFACING, and it is not worth blocking: the author's intent controls, and
+  // there are legitimate reasons to call something a change that a reviewer might
+  // have called a refactor. The line between them is a judgment, and it is not
+  // this module's judgment to make.
+  //
+  // So: say what was noticed, once, and get out of the way. `ok` is unaffected.
+  // An earlier version made this a finding and described the input as one a
+  // caller could "misstate to buy a laxer verdict" — which frames the author as
+  // an adversary rather than the person whose call it is.
   if (kind && markdown) {
     const expected = KIND_SECTION[kind];
     if (!expected) {
-      add('kind', '-', `unknown kind "${kind}" — expected defect | change | refactor`);
+      advise('kind', '-', `unknown kind "${kind}" — expected defect | change | refactor; sizing will default to defect`);
     } else if (!markdown.includes(expected)) {
       const present = Object.entries(KIND_SECTION)
         .filter(([, sec]) => markdown.includes(sec))
         .map(([k]) => k);
-      add('kind', '-',
-        `declared kind "${kind}" requires a "${expected}" section and the TRD has none` +
-        (present.length ? ` — it carries the ${present.join('/')} section instead` : ''));
+      advise('kind', '-',
+        `declared "${kind}"` +
+        (present.length
+          ? ` but the TRD carries the ${present.join('/')} section — worth a look, and fine if deliberate`
+          : ` but the TRD has no "${expected}" section, so --verify has nothing to derive from`));
     }
   }
 
   const fatal = (parsed.warnings || []).filter(isFatalWarning);
   for (const w of fatal) add('parser', '-', w);
 
-  return { ok: findings.length === 0, findings, footprint: [...footprint] };
+  // `ok` reflects malformation only. Advisories never fail an audit.
+  return { ok: findings.length === 0, findings, advisories, footprint: [...footprint] };
 }
 
 /**

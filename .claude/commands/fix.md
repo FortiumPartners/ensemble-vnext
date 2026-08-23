@@ -258,6 +258,27 @@ the TRD actually writes the test — the adversarial pass reads the task list.
 **The lib owns this decision.** Do not re-derive a tier in prose or talk yourself past its
 verdict; every rule in it can only lower a tier, never raise one.
 
+### The determinism here is a guide rail, not a cage
+
+The point of putting the tier in a module is that it decides the same way twice, so a
+verdict can be trusted and tested. It is **not** to police the person running the command.
+
+**The user's declared intent controls.** `kind` is a declaration, not a claim to be
+adjudicated — if you call something a `change` that a reviewer might have called a
+`refactor`, the command notes it and proceeds. Nothing here blocks on it: the audit
+distinguishes **findings** (the TRD is malformed — grounding missing, a cited path that does
+not exist, a Serves pointing at nothing) from **advisories** (well-formed, but you may have
+meant something else), and only findings mean anything is wrong.
+
+The one thing that stays firm is what a MACHINE does unattended: AUTO means this command
+implements without a human, so the axes that gate AUTO are worth being strict about. Every
+other tier hands you the TRD and the reasoning and lets you decide — including running
+`/implement-trd` yourself on a REVIEW TRD, which is exactly the escape hatch, and better
+than a flag because it is a human act on the record.
+
+When guidance and intent disagree, **guidance says its piece once and then gets out of the
+way.**
+
 | Tier | Then |
 |---|---|
 | **AUTO** | write the TRD, audit it, chain into `/implement-trd` — **unless `--spec-only`, which stops after the audit** |
@@ -442,6 +463,11 @@ It checks: grounding present with `Touches`, cited paths exist (or are declared 
 `Serves` resolves to a stated objective, and the parser reports no fatal warning. It returns
 `footprint` for the scope-creep check.
 
+It returns two lists, and they mean different things. **`findings`** are malformations —
+fix them. **`advisories`** are observations, such as a declared `kind` that does not match
+the TRD's verification section; they never set `ok: false`. **Report an advisory in one line
+and continue.** It exists so the reader sees what you noticed, not so you can refuse.
+
 **Do not hand-roll these.** The first live `/fix` run wrote them as an ad-hoc script and got
 `task.serves` wrong — it is an ARRAY, and comparing it as a string reported two false failures
 on a correct TRD. A false failure is worse than a missing check: it invites "fixing" a good
@@ -462,13 +488,11 @@ Agent(subagent_type="code-reviewer", prompt="<the TRD> + <the investigation> +
    3. Is there a simpler correct fix? A clever small diff is a smell.
    4. Does it contradict local convention? A fix fighting the surrounding code usually
       means the root cause was misread.
-   5. IS THE DECLARED `kind` HONEST? Look at the diff, not the label. If nothing about
-      observable behaviour changes, this is a REFACTOR however it was declared — and a
-      refactor on untested code must not reach AUTO. `kind` is the one sizing input a
-      caller can misstate to buy a laxer verdict: the default guards omission, not
-      misstatement, and `change` is laxer than `refactor` on coverage. The audit lib
-      checks that the declared kind matches the TRD's verification section; only you can
-      check it against what the code actually does.
+   5. Does the declared `kind` match what the diff actually does? If nothing observable
+      changes, a reviewer would call it a refactor whatever it was declared — and the
+      coverage axis is scored differently for those. **SAY SO IF IT DIFFERS; do not
+      override it.** The author may well have a reason, and the call is theirs. This is
+      one line in the report, not a veto.
   Report findings only. Do not edit.")
 ```
 
