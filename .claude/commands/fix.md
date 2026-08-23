@@ -189,6 +189,14 @@ parse with `trd-parser.js` and run through `/implement-trd` unmodified.
 |----|-----------|--------|
 | O1 | <what must be true> | the reproduction below / your instruction, <date> |
 
+**State the objective the DEFECT implies, not the one the fix happens to satisfy.** Live run:
+the reproduction correctly said the failure was *"silent in effect — the nudge never reaches
+anything"*, and the objective then shrank to *"stops erroring"* — which a fix that abandons
+the nudge entirely satisfies completely. Narrowing an objective until the intended fix clears
+it is how a plan comes to verify itself. If the fix genuinely does not restore some of the
+lost value, that is often fine — say so in `## Could Not Verify` rather than editing the
+objective until it disappears.
+
 ## Reproduction              <!-- defects only -->
 ### Steps
 ### Actual
@@ -209,11 +217,17 @@ parse with `trd-parser.js` and run through `/implement-trd` unmodified.
 ## Task Grounding
 
 ### FIX-001
-- Touches: `path/to/file.ts`
-- Reuse: ... [read]
-- Replaces: ... [ran]
-- Follow: ...
-- Careful: ...
+- **Touches:** `path/to/file.ts`
+- **Reuse:** ... [read]
+- **Replaces:** ... [ran]
+- **Follow:** ...
+- **Careful:** ...
+
+**The field names MUST be bold.** `trd-parser.js` matches
+`/^\s*-\s+\*\*(Touches|Reuse|...)[^*]*?:\*\*/` — an unbolded `- Touches:` parses as
+nothing, the block warns "missing the mandatory Touches field", and the task ships with
+EMPTY grounding. Grounding is this command's highest-value output; losing it silently is
+the worst available failure.
 
 ## Could Not Verify
 <anything asserted but not checked — empty is fine and honest>
@@ -227,22 +241,62 @@ back to keyword matching. Adding those sections would be ceremony.
 what `/implement-trd`'s `--verify` derives its success definition from when there is no PRD.
 Omit them and the fix ships unverified.
 
-Write `.trd-state/current.json` with `{prd: null, trd: "<path>", branch: "<branch>"}`.
+**Every acceptance criterion must be able to FAIL if the fix does not work.** Measured on the
+first live run: a criterion read *"prints JSON with no `hookSpecificOutput` key"* while the
+proposed fix swapped in a key that was schema-legal but delivered the message to the wrong
+audience. Both the criterion and its test passed **whether the message reached anyone or
+nobody**. The audit caught it; the criteria could not.
+
+Before writing each one, ask: *what would this criterion look like if the fix silently did
+nothing?* If the answer is "the same", it is not a criterion — it is a restatement of the
+diff. Write one that distinguishes the two, or record in `## Could Not Verify` that you
+could not.
+
+**A reproduction must not mutate live state.** The same run appended bogus checkpoints to a
+real `.trd-state/` session log, because the repro passed `cwd: $PWD`. Reproducing a defect
+should be safe to run twice. `test/smoke/scenarios/hooks-health.sh` shows the pattern — an
+isolated temp `cwd`.
+
+**Write `.trd-state/current.json` only when the tier is AUTO** — `{prd: null, trd: "<path>",
+branch: "<branch>"}`.
+
+On REVIEW or ESCALATE no work is starting, and `current.json` answers "what are we working
+on?" for the SessionStart banner, the dispatch ledger and `notify-complete.sh`. Overwriting a
+live pointer for work that is not beginning loses the real answer and replaces it with a
+false one. Report the TRD path in the banner instead; `/implement-trd` writes the pointer
+itself (its Step 1.3a) when a human later runs it.
 
 ---
 
 ## Step 5: Audit — automatically, always
 
-### 5.1 Mechanical checks
+### 5.1 Mechanical checks — call the lib, do not re-implement them
 
-Cheap, deterministic, no agent:
+```bash
+node -e '
+  const { parseTrd } = require("./.claude/lib/trd-parser");
+  const { audit } = require("./.claude/lib/fix-audit");
+  const fs = require("fs");
+  const parsed = parseTrd(fs.readFileSync(process.argv[1], "utf8"), { path: process.argv[1] });
+  const r = audit(parsed, {
+    objectiveIds: ["O1"],                       // IDs from the Objectives table
+    expectedNew: ["path/to/file/this/TRD/creates"],
+  });
+  console.log(JSON.stringify(r, null, 2));
+' "docs/TRD/<slug>.md"
+```
 
-- every task has a grounding block with `Touches`
-- every path cited in grounding exists
-- every task's `Serves` resolves to a stated objective
-- every objective has a source (the reproduction, or your instruction)
-- **no task touches a file outside the grounding footprint** — the scope-creep check
-- `trd-parser.js` parses the file without fatal warnings
+It checks: grounding present with `Touches`, cited paths exist (or are declared new),
+`Serves` resolves to a stated objective, and the parser reports no fatal warning. It returns
+`footprint` for the scope-creep check.
+
+**Do not hand-roll these.** The first live `/fix` run wrote them as an ad-hoc script and got
+`task.serves` wrong — it is an ARRAY, and comparing it as a string reported two false failures
+on a correct TRD. A false failure is worse than a missing check: it invites "fixing" a good
+document to satisfy a broken test.
+
+The one thing the lib cannot judge is whether an objective's *source* is real. Confirm by
+eye that each traces to the reproduction, the recorded decision, or the user.
 
 ### 5.2 One adversarial pass — design correctness
 
