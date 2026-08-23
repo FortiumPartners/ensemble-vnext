@@ -782,3 +782,48 @@ PY
     grep -q 'a line or section of the' "$CONTRACT"
     refute grep -q 'Every row.s .Cites. column names a PRD line or section' "$CONTRACT"
 }
+
+@test "/fix replaces investigate-issue and fix-issue, and cannot bypass its own gate" {
+    FIX="${REPO_ROOT}/packages/core/commands/fix.md"
+    [ -f "$FIX" ]
+
+    # The two it replaces are GONE, not left invokable. A retired command that
+    # still runs is a working alternate path that bypasses the newer gates —
+    # §13's third delivery bug, and the reason the -team commands had to be named
+    # for deletion explicitly.
+    [ ! -f "${REPO_ROOT}/packages/core/commands/fix-issue.md" ]
+    [ ! -f "${REPO_ROOT}/packages/core/commands/investigate-issue.md" ]
+    [ ! -f "${REPO_ROOT}/.claude/commands/fix-issue.md" ]
+    [ ! -f "${REPO_ROOT}/.claude/commands/investigate-issue.md" ]
+
+    # Sizing is delegated to the lib, never re-derived in prose.
+    grep -q 'fix-sizing' "$FIX"
+    grep -q 'lib owns this decision' "$FIX"
+
+    # The escape hatch that would defeat the gate must not exist. Check the
+    # ARGUMENT SURFACE, not the word — the command legitimately mentions
+    # --force-auto in the sentence explaining why there isn't one.
+    refute grep -q 'argument-hint:.*force-auto' "$FIX"
+    grep -q 'deliberately no `--force-auto`' "$FIX"
+
+    # AUTO chains with --verify. Without it the run asserts "fixed" on a suite
+    # that also passed before the fix.
+    grep -q 'skill: "implement-trd", args: "docs/TRD/<slug>.md --verify"' "$FIX"
+
+    # Both verification sources are named — the defect path AND the conversational
+    # path. Omitting either ships that half of /fix unverified.
+    grep -q '## Reproduction' "$FIX"
+    grep -q '## Intended Change' "$FIX"
+
+    # A chaining run must NOT emit its own COMMAND COMPLETE (nothing may follow it).
+    grep -q 'Do \*\*not\*\* emit a COMMAND COMPLETE banner here' "$FIX"
+}
+
+@test "no command spawns teammates any more" {
+    # /fix-issue was the last one. The rule files asserted otherwise until the
+    # command was deleted, which is how a rule goes stale: the claim was true
+    # when written and nothing re-checked it.
+    refute grep -rqE 'Agent\(\{ *(subagent_type[^)]*name:|name:)' "${REPO_ROOT}/packages/core/commands"
+    grep -q 'NO command in this framework spawns teammates' \
+        "${REPO_ROOT}/.claude/rules/async-discipline.md"
+}

@@ -219,10 +219,14 @@ JSON
 }
 
 @test "L2: all 16 workflow commands invoke the notify-complete.sh helper" {
-    local cmds=(implement-trd
-                fix-issue create-prd create-trd audit-prd audit-trd audit-build
-                refine-prd refine-trd update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
+    # DISCOVERED, not hardcoded. This roster listed fix-issue and
+    # investigate-issue and broke the moment item 12 deleted them — the same
+    # rot that took the mirror-parity test from a hardcoded 14-file list to a
+    # sweep. A roster that must be edited by hand is a roster that will be wrong.
+    local cmds=()
+    while IFS= read -r f; do cmds+=("$(basename "$f" .md)"); done \
+        < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
+    [ "${#cmds[@]}" -gt 10 ]
     local missing=()
     for cmd in "${cmds[@]}"; do
         if ! grep -q 'notify-complete\.sh' "${CANON_COMMANDS}/${cmd}.md"; then
@@ -236,10 +240,14 @@ JSON
 }
 
 @test "L2: each command's helper call uses its own name as the first arg" {
-    local cmds=(implement-trd
-                fix-issue create-prd create-trd audit-prd audit-trd audit-build
-                refine-prd refine-trd update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
+    # DISCOVERED, not hardcoded. This roster listed fix-issue and
+    # investigate-issue and broke the moment item 12 deleted them — the same
+    # rot that took the mirror-parity test from a hardcoded 14-file list to a
+    # sweep. A roster that must be edited by hand is a roster that will be wrong.
+    local cmds=()
+    while IFS= read -r f; do cmds+=("$(basename "$f" .md)"); done \
+        < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
+    [ "${#cmds[@]}" -gt 10 ]
     local mismatched=()
     for cmd in "${cmds[@]}"; do
         local file="${CANON_COMMANDS}/${cmd}.md"
@@ -255,10 +263,14 @@ JSON
 }
 
 @test "L2: legacy inline bracket-guarded form is fully removed" {
-    local cmds=(implement-trd
-                fix-issue create-prd create-trd audit-prd audit-trd audit-build
-                refine-prd refine-trd update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
+    # DISCOVERED, not hardcoded. This roster listed fix-issue and
+    # investigate-issue and broke the moment item 12 deleted them — the same
+    # rot that took the mirror-parity test from a hardcoded 14-file list to a
+    # sweep. A roster that must be edited by hand is a roster that will be wrong.
+    local cmds=()
+    while IFS= read -r f; do cmds+=("$(basename "$f" .md)"); done \
+        < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
+    [ "${#cmds[@]}" -gt 10 ]
     local stale=()
     for cmd in "${cmds[@]}"; do
         if grep -q '\[ -n "\$NOTIFY_ON_COMPLETE" \]' "${CANON_COMMANDS}/${cmd}.md"; then
@@ -272,10 +284,14 @@ JSON
 }
 
 @test "L2: dogfood .claude/commands mirrors stay in sync with canonical" {
-    local cmds=(implement-trd
-                fix-issue create-prd create-trd audit-prd audit-trd audit-build
-                refine-prd refine-trd update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
+    # DISCOVERED, not hardcoded. This roster listed fix-issue and
+    # investigate-issue and broke the moment item 12 deleted them — the same
+    # rot that took the mirror-parity test from a hardcoded 14-file list to a
+    # sweep. A roster that must be edited by hand is a roster that will be wrong.
+    local cmds=()
+    while IFS= read -r f; do cmds+=("$(basename "$f" .md)"); done \
+        < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
+    [ "${#cmds[@]}" -gt 10 ]
     local drift=()
     for cmd in "${cmds[@]}"; do
         local canon="${CANON_COMMANDS}/${cmd}.md"
@@ -323,10 +339,14 @@ JSON
 }
 
 @test "L2b: every non-refine workflow command embeds the autonomy block" {
-    local cmds=(implement-trd
-                fix-issue create-prd create-trd audit-prd audit-trd audit-build
-                update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
+    # Discovered, minus the two intentionally-interactive refine commands.
+    local cmds=()
+    while IFS= read -r f; do
+        local base; base="$(basename "$f" .md)"
+        case "$base" in refine-prd|refine-trd) continue ;; esac
+        cmds+=("$base")
+    done < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
+    [ "${#cmds[@]}" -gt 8 ]
     local missing=()
     for cmd in "${cmds[@]}"; do
         if ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/${cmd}.md"; then
@@ -378,10 +398,14 @@ JSON
 }
 
 @test "L2b: every non-refine command's embedded block forbids hedged offers" {
-    local cmds=(implement-trd
-                fix-issue create-prd create-trd audit-prd audit-trd audit-build
-                update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
+    # Discovered, minus the two intentionally-interactive refine commands.
+    local cmds=()
+    while IFS= read -r f; do
+        local base; base="$(basename "$f" .md)"
+        case "$base" in refine-prd|refine-trd) continue ;; esac
+        cmds+=("$base")
+    done < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
+    [ "${#cmds[@]}" -gt 8 ]
     local missing=()
     for cmd in "${cmds[@]}"; do
         if ! grep -q "HEDGED OFFERS ARE STILL OFFERS" "${CANON_COMMANDS}/${cmd}.md"; then
@@ -400,10 +424,14 @@ JSON
     # every test in it silently stopped running rather than failing loudly. Rewritten
     # as the useful inverse: autonomy is now unconditional, so no command may still
     # describe a flag that "doubly enforces" it.
-    local cmds=(implement-trd
-                fix-issue create-prd create-trd audit-prd audit-trd audit-build
-                update-project cleanup-project fold-prompt
-                investigate-issue augment-trd-figma init-project rebase-project)
+    # Discovered, minus the two intentionally-interactive refine commands.
+    local cmds=()
+    while IFS= read -r f; do
+        local base; base="$(basename "$f" .md)"
+        case "$base" in refine-prd|refine-trd) continue ;; esac
+        cmds+=("$base")
+    done < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
+    [ "${#cmds[@]}" -gt 8 ]
     local stale=()
     for cmd in "${cmds[@]}"; do
         if grep -qi "doubly enforced\|doubly-enforced\|wiggum" "${CANON_COMMANDS}/${cmd}.md"; then

@@ -44,15 +44,14 @@ from dataclasses import dataclass
 # not the answer.
 FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
 
-* FLOW. Feature work: /create-prd -> /create-trd -> /implement-trd (hardening and
-  verification run INSIDE it; add --verify for the functional loop). Then /audit-build
-  to check delivery against the TRD and PRD. /verify-build re-runs the verification
-  loop on its own. Bug or defect:
-  /investigate-issue -> /fix-issue (implement + verify + review in one pass).
-  Iterate an artifact with /refine-prd or /refine-trd. Check .trd-state/current.json
-  for in-flight work before starting something new, and don't hand-roll what a
-  command already does. Code review runs INSIDE /implement-trd via the code-reviewer
-  agent - it is not a separate step to remember.
+* FLOW. Something broken, or a small scoped change? -> /fix <what>: it
+  investigates, root-causes, writes a light TRD, audits it, then implements and
+  verifies when the fix is demonstrably safe. PROPOSE /fix instead of patching
+  inline - an unplanned edit is the commonest source of bad code here.
+  New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
+  and verification run INSIDE it; --verify adds the functional loop) ->
+  /audit-build. /verify-build re-runs verification alone; /refine-prd and
+  /refine-trd iterate an artifact. Check .trd-state/current.json first.
 
 * SKILLS + SUBAGENTS. Scan the available skills for one that fits this task and
   invoke it rather than reasoning from memory. Then decide deliberately whether this

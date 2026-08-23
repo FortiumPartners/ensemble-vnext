@@ -1,0 +1,1 @@
+../../core/lib/fix-sizing.js

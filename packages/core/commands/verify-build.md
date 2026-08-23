@@ -116,3 +116,7 @@ four cases in `autonomy.md` — and on this command the realistic one is §2's p
 information that genuinely cannot be derived, asked ONCE, up front, with a stated default.
 
 Do not pause to report interim findings. Do not offer to fix what the loop surfaces.
+
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- The declarative form is the same move: "I can fix that if you want", "say the word".
+  Neither is a question; both hand the decision back and the work does not happen.

@@ -27,9 +27,9 @@ turn**:
 
 Example:
 ```
-[STATUS: /fix-issue] DISPATCHED → 3 teammates in flight: api-001, ui-001, integ-001
-   waiting on: SendMessage delivery of per-task completion reports
-   next wake: ScheduleWakeup in 1200s (recommended fallback if auto-deliver stalls)
+[STATUS: /implement-trd] DISPATCHED → phase 2 workflow in flight: 4 tasks, 2 waves
+   waiting on: Workflow(implement-phase) return
+   next wake: on workflow completion
 ```
 
 ### 2. RESUMED (turn starts after a wake)
@@ -44,7 +44,7 @@ emit a RESUMED line **as the first line** of the new turn:
 
 Example:
 ```
-[STATUS: /fix-issue] RESUMED → teammate api-001 SendMessage received
+[STATUS: /implement-trd] RESUMED → phase 2 workflow returned
    completed since last turn: AUTH-B003 verified, files: api/login.ts, tests/login.test.ts
 ```
 
@@ -92,7 +92,7 @@ Next:   set OAUTH_CLIENT_SECRET env var and run /implement-trd --resume
 ## Optional: PHASE banner
 
 For long, multi-phase commands (`/implement-trd`, `/audit-build`,
-`/fix-issue`), emit at each phase boundary:
+`/fix`), emit at each phase boundary:
 
 ```
 [STATUS: /<command-name>] PHASE <N>/<M> COMPLETE → <one-line summary>
@@ -109,7 +109,7 @@ There are two delivery paths. Use them differently:
 ### Path A — `PushNotification` (preferred, direct, atomic with the banner)
 
 For **multi-turn / long-running commands** (`/implement-trd`,
-`/audit-build`, `/fix-issue`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
+`/audit-build`, `/fix`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
 call in the same final turn. This is precise (fires once, exactly when the command is
 done) and atomic with the banner (no transcript grep, no race with intermediate Stops).
 
