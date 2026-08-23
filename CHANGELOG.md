@@ -10,6 +10,61 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.21] - 2026-08-23
+
+**Item 12 ships: `/fix`.** One command for a defect, a minor enhancement, or a refactor —
+anything where the full `/create-prd → /audit-prd → /create-trd → /audit-trd → /implement-trd`
+pipeline is overkill for the risk, and where the alternative would otherwise be prompting and
+editing. Replaces `/investigate-issue` and `/fix-issue`, both deleted.
+
+### Added
+
+- **`/fix`** — investigates, root-causes, writes a light TRD in the existing format, audits it
+  automatically, and chains into `/implement-trd --verify` only when the change is
+  demonstrably verifiable. Three kinds (`defect` / `change` / `refactor`), each scored on the
+  axes that can describe it.
+- **Four `lib/` modules with 140+ tests** carrying the decisions: `fix-sizing` (the tier),
+  `fix-plan` (tier + flags → the run plan), `fix-audit` (mechanical checks), plus the
+  `## Decision` carrier in `trd-parser`.
+- **A fourth verification source.** `--verify` derived success definitions from a PRD only, so
+  a PRD-less TRD verified nothing at all — silently. It now derives from `## Reproduction`,
+  `## Intended Change` or `## Behaviour Preserved`, preserving D5's isolation by passing the
+  extracted section rather than the TRD path.
+
+### Fixed
+
+- **`trd-parser` read fenced code blocks as structure.** A `## Master Task List` inside a
+  ```markdown fence was parsed as the real one. Measured cost: `docs/TRD/ensemble-vnext.md`,
+  this project's own primary TRD, parsed to **0 tasks instead of 110** — a template example at
+  line 701 captured the section and the real one at line 1263 was never read.
+- **Absent grounding was silent.** The missing-`Touches` warning fires per block, so zero
+  blocks meant zero warnings. Surfaced four TRDs here carrying **199 ungrounded tasks**.
+- **The PreCompact hook emitted an invalid payload** on every compaction, rejected by the
+  platform. Root cause was a header comment asserting a spec that does not exist. Now emits
+  `{}`, with the hook's first tests.
+
+### On how this was built
+
+Four blind test rounds and two live runs found roughly twenty defects in `/fix` itself.
+Almost every one was in PROSE, not in the libs — which is why the branch decisions were
+extracted into `fix-plan`: one table written in five places disagreed with itself in four.
+
+Both live runs found real bugs in this repository. The second also caught a defect that did
+not exist — the reported premise was false, and reproducing it properly is what revealed the
+fence bug instead.
+
+**The gates guide rather than police.** Every lowered tier reports a `remedy` naming what
+would change the verdict, the audit separates malformations (`findings`) from observations
+(`advisories`), and the declared `kind` is the owner's call — noted when it looks off, never
+overridden. The strictness applies to what a machine does unattended; every other tier hands
+over the TRD and the reasoning.
+
+### Known gap
+
+The AUTO chain has not been exercised end-to-end against the current implementation. Run 1
+chained before `fix-plan` existed; run 2 sized AUTO and was implemented by hand. Non-AUTO
+tiers stop and hand over, which is the majority of the surface.
+
 ## [4.1.20] - 2026-08-21
 
 **This release exists because 4.1.19 shipped a fix that was not in force, and its notes

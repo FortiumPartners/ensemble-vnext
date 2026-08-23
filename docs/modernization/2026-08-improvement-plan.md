@@ -3,7 +3,7 @@
 **Created**: 2026-08-11
 **Status** (refreshed 2026-08-22): Items 1–10 are CLOSED — shipped, or closed on a recorded
 decision not to build (6, 9, and sub-item 5d).
-**Genuinely open: 11, 12, and 13 (partly done).** Item 7's cross-TRD coordination design
+**Genuinely open: 11, and 13 (partly done).** Item 12 shipped in 4.1.21. Item 7's cross-TRD coordination design
 is deferred by owner decision, not open work.
 
 *The at-a-glance table is authoritative and was corrected on 2026-08-22 — rows 6, 7 and 8 had
