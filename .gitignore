@@ -76,3 +76,11 @@ test/.env
 
 # Agent worktrees (transient, per-agent isolated checkouts)
 .claude/worktrees/
+
+# Per-session subagent telemetry. Written by dispatch-ledger.js on every
+# SubagentStart/Stop, so it churns constantly and conflicts on every cherry-pick
+# or rebase that crosses it — three times while splitting one branch. The ledger
+# is a live operational aid (`dispatch-ledger.js --open`), not history worth
+# keeping: `.trd-state/<feature>/implement.json` is the durable record.
+.trd-state/*/dispatch.jsonl
+.trd-state/_dispatch.jsonl
