@@ -723,3 +723,99 @@ ${body}
     expect(r.sessionAgents['ITR-T001']).toBe('verify-app');
   });
 });
+
+describe('fenced code blocks are illustration, not structure (GLS-001)', () => {
+  // Until 2026-08-23 the parser read fenced content as structure. Cost, measured:
+  // docs/TRD/ensemble-vnext.md — this project's own primary TRD — parsed to ZERO
+  // tasks, because line 701 has a "## Master Task List" inside a ```markdown
+  // template example and findSection's strategy:'first' picked it. The real
+  // section at line 1263 was never read. 110 tasks were invisible.
+  //
+  // Fixtures are BUILT FROM JOINED STRINGS, never written as literal fenced
+  // headings — otherwise this test file trips the defect it is testing.
+  const H2 = (t) => '#'.repeat(2) + ' ' + t;
+  const H3 = (t) => '#'.repeat(3) + ' ' + t;
+  const FENCE = '`'.repeat(3);
+  const HDR = '| Task ID | Description | Serves | Dependencies | Acceptance Criteria |';
+  const SEP = '|---|---|---|---|---|';
+  const row = (id, d) => `| ${id} | ${d} | O1 | None | y |`;
+
+  test('a task table inside a fence is not the Master Task List', () => {
+    const md = [
+      '# T', '', '**Source PRD**: None', '',
+      H2('Example'), '', FENCE + 'markdown',
+      H2('Master Task List'), '', HDR, SEP, row('FAKE-001', 'inside a fence'),
+      FENCE, '',
+      H2('Master Task List'), '', HDR, SEP, row('REAL-001', 'the actual task'), '',
+    ].join('\n');
+    expect(parseTrd(md, { path: 't.md' }).tasks.map((t) => t.id)).toEqual(['REAL-001']);
+  });
+
+  test('a fenced heading cannot capture a section from the real one below it', () => {
+    // The ensemble-vnext.md case: a fenced TEMPLATE listing section names.
+    const md = [
+      '# T', '', '**Source PRD**: None', '',
+      H2('Document shape'), '', FENCE + 'markdown',
+      H2('Master Task List'), '  - Task IDs: TRD-XXX format',
+      FENCE, '',
+      H2('Master Task List'), '', HDR, SEP, row('REAL-001', 'x'), '',
+    ].join('\n');
+    const p = parseTrd(md, { path: 't.md' });
+    expect(p.tasks).toHaveLength(1);
+    expect(p.tasks[0].id).toBe('REAL-001');
+  });
+
+  test('a grounding block inside a fence is not grounding', () => {
+    const md = [
+      '# T', '', '**Source PRD**: None', '',
+      H2('Master Task List'), '', HDR, SEP, row('REAL-001', 'x'), '',
+      H2('Task Grounding'), '',
+      H3('REAL-001'), '- **Touches:** `src/real.ts`', '',
+      H2('Example'), '', FENCE + 'markdown',
+      H3('FAKE-001'), '- **Touches:** `src/fake.ts`',
+      FENCE, '',
+    ].join('\n');
+    const p = parseTrd(md, { path: 't.md' });
+    expect(Object.keys(p.grounding)).toEqual(['REAL-001']);
+    expect(p.grounding['REAL-001'].touches).toEqual(['src/real.ts']);
+  });
+
+  test('a longer fence may contain shorter ones — length is tracked, not presence', () => {
+    // A length-blind toggle reads the inner opener as the outer closer, which
+    // un-masks the rest of the example. lint-command-structure.js had exactly
+    // this bug and reported a false positive on a real document.
+    const md = [
+      '# T', '', '**Source PRD**: None', '',
+      H2('Example'), '', '`'.repeat(4),
+      FENCE + 'markdown',
+      H2('Master Task List'), '', HDR, SEP, row('FAKE-001', 'nested'),
+      FENCE,
+      '`'.repeat(4), '',
+      H2('Master Task List'), '', HDR, SEP, row('REAL-001', 'x'), '',
+    ].join('\n');
+    expect(parseTrd(md, { path: 't.md' }).tasks.map((t) => t.id)).toEqual(['REAL-001']);
+  });
+
+  test('prose that MENTIONS a section name is untouched — only fences are masked', () => {
+    // The premise this investigation started from, and it was false: a prose
+    // mention never mattered, because headingContains checks headings only.
+    const md = [
+      '# T', '', '**Source PRD**: None', '',
+      H2('Decision'), '', 'we changed the Task Grounding format', '',
+      H2('Master Task List'), '', HDR, SEP, row('REAL-001', 'x'), '',
+      H2('Task Grounding'), '', H3('REAL-001'), '- **Touches:** `src/a.ts`', '',
+    ].join('\n');
+    const p = parseTrd(md, { path: 't.md' });
+    expect(p.grounding['REAL-001'].touches).toEqual(['src/a.ts']);
+  });
+
+  test('a Decision section that QUOTES code keeps the code in its text', () => {
+    // Structure comes from the masked copy; prose text from the original.
+    const md = [
+      '# T', '', '**Source PRD**: None', '',
+      H2('Decision'), '', 'Emit this:', '', FENCE, 'console.log("{}")', FENCE, '',
+      H2('Master Task List'), '', HDR, SEP, row('REAL-001', 'x'), '',
+    ].join('\n');
+    expect(parseTrd(md, { path: 't.md' }).decision).toMatch(/console\.log/);
+  });
+});

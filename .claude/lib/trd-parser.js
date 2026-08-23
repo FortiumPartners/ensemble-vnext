@@ -62,6 +62,49 @@ function headingText(line) {
  * without a leading number/separator. Applied uniformly — including to the Master Task List
  * heading, which the Sunstone reference does not do (and is why it silently misparses its own
  * "## 2. Master Task List"-numbered TRDs). */
+/**
+ * Blank out every line inside a fenced code block, KEEPING THE ARRAY THE SAME LENGTH.
+ *
+ * Fenced content is illustration, not structure. Until 2026-08-23 the parser read it
+ * as structure: a `## Master Task List` inside a ```markdown fence was parsed as the
+ * real one, and `findSection`'s `strategy: 'first'` meant the fenced example WON over
+ * the real section below it. Measured — a TRD documenting this very defect had its own
+ * task list replaced by the example inside its reproduction, silently.
+ *
+ * MASK, never splice. `findSection` returns `{start, end}` used to slice `lines`, so
+ * removing entries would shift every index after the first fence. A blanked line is
+ * not a heading, not a table row and not a bullet, which is all the structural scans
+ * ask.
+ *
+ * Fence LENGTH is tracked, not just presence: a ````-delimited block may legally
+ * contain ``` ones, and a length-blind toggle reads the inner opener as the outer
+ * closer. `packages/core/scripts/lint-command-structure.js` had exactly that bug and
+ * reported a false positive on a real document; this matches its corrected form.
+ */
+function maskFencedLines(lines) {
+  const out = lines.slice();
+  let openLen = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^\s*(`{3,})/.exec(lines[i]);
+    if (m) {
+      const len = m[1].length;
+      if (openLen === 0) {
+        openLen = len;
+        out[i] = '';
+        continue;
+      }
+      if (len >= openLen) {
+        openLen = 0;
+        out[i] = '';
+        continue;
+      }
+      // A shorter fence inside a longer block is ordinary content.
+    }
+    if (openLen > 0) out[i] = '';
+  }
+  return out;
+}
+
 function headingContains(text, phrase) {
   return text.toLowerCase().includes(phrase.toLowerCase());
 }
@@ -595,8 +638,10 @@ function parseOpenQuestions(lines, warnings) {
  * Returns '' when absent, which is the common and legitimate case — most TRDs
  * record decisions in their Key Technical Decisions table instead.
  */
-function parseDecision(lines) {
-  const section = findSection(lines, 'Decision');
+function parseDecision(lines, structural = lines) {
+  // Bounds from the masked copy so a fenced "## Decision" cannot define the section;
+  // text from the original so a decision that quotes code keeps it.
+  const section = findSection(structural, 'Decision');
   if (!section) return '';
   return lines
     .slice(section.start, section.end)
@@ -734,8 +779,11 @@ function parseSessionAgents(lines, tasks, warnings) {
 function parseTrd(markdown, opts = {}) {
   const warnings = [];
   const lines = splitLines(markdown);
+  // Structure comes from the masked copy; prose that legitimately CONTAINS a fence
+  // (the Decision section, say) is still read from the original.
+  const structural = maskFencedLines(lines);
 
-  const { tasks, phases } = parseMasterTaskList(lines, warnings, opts.path);
+  const { tasks, phases } = parseMasterTaskList(structural, warnings, opts.path);
 
   if (tasks.length === 0) {
     warnings.push(
@@ -743,14 +791,14 @@ function parseTrd(markdown, opts = {}) {
     );
   }
 
-  const grounding = parseGrounding(lines, tasks, warnings);
-  const sessionAgents = parseSessionAgents(lines, tasks, warnings);
+  const grounding = parseGrounding(structural, tasks, warnings);
+  const sessionAgents = parseSessionAgents(structural, tasks, warnings);
   for (const task of tasks) {
     if (sessionAgents[task.id]) task.agent = sessionAgents[task.id];
   }
-  const couldNotVerify = parseCouldNotVerify(lines, warnings);
-  const openQuestions = parseOpenQuestions(lines, warnings);
-  const decision = parseDecision(lines);
+  const couldNotVerify = parseCouldNotVerify(structural, warnings);
+  const openQuestions = parseOpenQuestions(structural, warnings);
+  const decision = parseDecision(lines, structural);
 
   return {
     tasks,
@@ -765,6 +813,7 @@ function parseTrd(markdown, opts = {}) {
 }
 
 module.exports = {
+  maskFencedLines,
   parseTrd,
   parseSessionAgents,
   normalizeLineEndings,
