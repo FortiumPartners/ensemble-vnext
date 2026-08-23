@@ -52,7 +52,8 @@ function lower(a, b) {
  * @param {number}  input.criteriaCount    rows the success definition derived
  * @param {string[]} input.touches         files the fix will change
  * @param {number}  input.callers          callers of the changed symbols
- * @param {boolean} input.covered          the touched files carry tests
+ * @param {boolean} input.covered          the touched files ALREADY carry tests
+ * @param {boolean} [input.addsCoverage]   this change's own tasks add tests for them
  * @param {string[]} [input.neverUnattended] owner-governed path fragments
  * @param {Object}  [opts]
  * @returns {{tier: string, reasons: string[], axes: Object}}
@@ -70,6 +71,7 @@ function size(input, opts = {}) {
     touches = [],
     callers = 0,
     covered = false,
+    addsCoverage = false,
     neverUnattended = [],
   } = input || {};
 
@@ -112,8 +114,21 @@ function size(input, opts = {}) {
   if (callers > maxCallers) {
     drop('REVIEW', `${callers} callers of the changed symbols — blast radius is not contained`);
   }
-  if (!covered) {
-    drop('REVIEW', 'the touched files carry no tests — a regression would not be caught');
+  // The axis asks "would a regression be caught?" — and that is about the state
+  // AFTER this change lands, not before it. A fix whose own tasks add the missing
+  // test satisfies it: from the moment it lands, a regression IS caught.
+  //
+  // Blocking on the absence of a test the change itself creates measures the
+  // wrong instant, and penalises exactly the fixes that improve coverage. Found
+  // on the first live run (2026-08-22): a hook fix whose second task added that
+  // hook's first-ever test was held at REVIEW for having no tests.
+  //
+  // The residual this does NOT cover — "did we break the old behaviour, which
+  // nothing asserted?" — is real, and is deliberately left to the adversarial
+  // audit, which can read the callers and say. A rule cannot judge that; a
+  // reader can, and the audit's verdict can still lower this tier.
+  if (!covered && !addsCoverage) {
+    drop('REVIEW', 'the touched files carry no tests and this change adds none — a regression would not be caught');
   }
 
   const hit = matchNeverUnattended(touches, neverUnattended);
@@ -129,7 +144,7 @@ function size(input, opts = {}) {
     axes: {
       rootCause,
       blastRadius: { files: touches.length, callers },
-      regressionRisk: { covered, reproducible },
+      regressionRisk: { covered, addsCoverage, reproducible },
       specCertainty: specCertain,
       criteriaCount,
       taskCount,

@@ -122,3 +122,39 @@ describe('matchNeverUnattended', () => {
     expect(hits).toEqual(['src/auth/pay.ts']);
   });
 });
+
+describe('fix-sizing: coverage is about the state AFTER the change', () => {
+  const base = {
+    taskCount: 2, rootCause: 'demonstrated', reproducible: true, specCertain: true,
+    criteriaCount: 1, touches: ['src/a.ts'], callers: 3, neverUnattended: [],
+  };
+
+  test('a fix that ADDS the missing test is not blocked for not having had one', () => {
+    // Live run 2026-08-22: a hook fix whose second task added the hook's
+    // first-ever test was held at REVIEW for having no tests — the gate
+    // penalising the fix for the gap it closes.
+    expect(size({ ...base, covered: false, addsCoverage: true }).tier).toBe('AUTO');
+  });
+
+  test('no tests and adding none is still REVIEW', () => {
+    const r = size({ ...base, covered: false, addsCoverage: false });
+    expect(r.tier).toBe('REVIEW');
+    expect(r.reasons.join(' ')).toMatch(/adds none/);
+  });
+
+  test('already-covered still passes without claiming to add anything', () => {
+    expect(size({ ...base, covered: true, addsCoverage: false }).tier).toBe('AUTO');
+  });
+
+  test('addsCoverage does not rescue any OTHER failing axis', () => {
+    // It must relax exactly one rule and nothing else.
+    expect(size({ ...base, covered: false, addsCoverage: true, reproducible: false }).tier).toBe('REVIEW');
+    expect(size({ ...base, covered: false, addsCoverage: true, criteriaCount: 0 }).tier).toBe('REVIEW');
+    expect(size({ ...base, covered: false, addsCoverage: true, rootCause: 'inferred' }).tier).toBe('REVIEW');
+    expect(size({ ...base, covered: false, addsCoverage: true, specCertain: false }).tier).toBe('ESCALATE');
+  });
+
+  test('it still defaults off — an omitted flag does not unlock AUTO', () => {
+    expect(size({ ...base, covered: false }).tier).toBe('REVIEW');
+  });
+});

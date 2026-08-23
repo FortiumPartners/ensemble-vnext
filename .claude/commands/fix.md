@@ -150,7 +150,8 @@ node -e '
 ' "$(cat <<'"'"'JSON'"'"'
 { "taskCount": 2, "rootCause": "demonstrated", "reproducible": true,
   "specCertain": true, "criteriaCount": 1,
-  "touches": ["src/session.ts"], "callers": 3, "covered": true,
+  "touches": ["src/session.ts"], "callers": 3,
+  "covered": true, "addsCoverage": false,
   "neverUnattended": [] }
 JSON
 )"
@@ -159,6 +160,11 @@ JSON
 `criteriaCount` is how many checkable success criteria Step 4 will write. Zero is legitimate
 (some changes have no statable outcome) — and caps the tier at REVIEW, because nothing would
 verify the change.
+
+`covered` is whether the touched files carry tests **today**; `addsCoverage` is whether one of
+this change's own tasks adds them. Either satisfies the axis, because the question is whether
+a regression would be caught **after** this lands. Do not claim `addsCoverage` unless a task in
+the TRD actually writes the test — the adversarial pass reads the task list.
 
 **The lib owns this decision.** Do not re-derive a tier in prose or talk yourself past its
 verdict; every rule in it can only lower a tier, never raise one.
