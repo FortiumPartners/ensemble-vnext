@@ -536,9 +536,27 @@ PY
     grep -q 'This command never implements' "$VB"
     # Same loop, one dispatch -- not a reimplementation of Step 8.
     grep -q 'name: "verify-functional"' "$VB"
-    # An absent definition stops it; it must not derive one (second production path).
-    grep -qi 'not run: no definition' "$VB"
-    grep -qi 'Do not derive one' "$VB"
+    # AN ABSENT DEFINITION IS DERIVED, NOT A DEAD END. This test previously asserted
+    # 'Do not derive one', which locked in a defect reported from the field
+    # 2026-08-23: a run without --verify followed by /verify-build stopped at
+    # "no definition produced" and refused to derive, citing Step 8's reasoning.
+    # That reasoning was inherited without checking its premises. Step 8 cannot
+    # derive because §3.6 already dispatched a background agent it cannot block on;
+    # /verify-build dispatched nothing, so there is nothing to race.
+    #
+    # A /verify-build that refuses to derive can only run SECOND, after an --verify
+    # run that already did the work — precisely when it is not needed.
+    grep -q 'DERIVE it' "$VB"
+    grep -qi 'Foreground, not background' "$VB"
+    refute grep -qi 'Do not derive one' "$VB"
+
+    # It must be the CONTRACT'S agent, not an inline derivation — that distinction
+    # is what makes it the same production path rather than a second one.
+    grep -q 'functional-verification.md text' "$VB"
+    grep -q 'product-manager' "$VB"
+
+    # The only real dead end is having no SOURCE to derive from.
+    grep -q 'no success definition derivable' "$VB"
 }
 
 @test "autonomy is the default, with no flag anywhere in the runtime" {

@@ -36,9 +36,13 @@ composition gate skips the phase loop; that is a subtle path to rely on for the 
 of "verify what is already built."
 
 **This command never implements.** It dispatches no implementer, runs no phase, writes no task
-state, and makes no commit beyond the loop's own artifacts. If the definition is missing it
-says so and stops — it does not derive one, for the same reason Step 8 does not (that would be
-a second production path outside the contract's citation discipline).
+state, and makes no commit beyond the loop's own artifacts.
+
+**It DOES derive the success definition when one is absent** — see step 3. That is the whole
+point of the command: the case it exists for is a run that used no `--verify`, or one whose
+loop crashed out, and in both the definition was never produced. A `/verify-build` that
+refuses to derive can only ever run second, after an `--verify` run that already did the work,
+which is precisely when you would not need it.
 
 ---
 
@@ -61,11 +65,47 @@ default, then run on whatever remains. Partial verification with stated gaps bea
 Exactly the inputs §8.1–§8.3 assemble. **Read those sections rather than restating them here** —
 a second copy of an argument list is a second copy to drift.
 
-- `.trd-state/<feature>/success-definition.md` — **absent → report `not run: no definition
-  produced` through the lib CLI's `render-report` and STOP.** Do not derive one.
+- `.trd-state/<feature>/success-definition.md` — **present → use it. Absent → DERIVE it,
+  then proceed.** See 3a.
 - `.claude/verification-notes.md`, the stack hints, the contract text, `.claude/rules/verification.md`
 - `.trd-state/<feature>/verification-state.json` — for `--resume`
 - `since` — resolved per §8.3
+
+### 3a. Absent definition → derive it, in the FOREGROUND
+
+Resolve the source exactly as `/implement-trd` §3.6 step 1 does — PRD, else the TRD's
+`## Reproduction`, `## Intended Change` or `## Behaviour Preserved`. **No source at all →
+`not run: no success definition derivable`, and STOP**; that one is a real dead end, because
+nothing states what success means.
+
+With a source, dispatch the same agent §3.6 dispatches, with the same contract text, and
+**wait for it**:
+
+```
+Agent(subagent_type="product-manager",
+      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <output path .trd-state/<feature>/success-definition.md>")
+```
+
+**Foreground, not background — and that is the difference from Step 8.** §3.6 backgrounds the
+derive because it has a phase loop to get on with; Step 8 then cannot wait for it, since no
+attested primitive lets a lead block on a specific background `Agent`. This command has
+nothing else to do, so it simply waits, and both of Step 8's objections evaporate:
+
+- *nothing to race* — no derive was dispatched earlier in this run, so an absent file here
+  means "never asked for", not "the agent died".
+- *not a second production path* — it is the SAME agent with the SAME contract, invoked from a
+  different command. The objection §8.1 raises is to deriving **inline**, in the orchestrator's
+  own context without the contract's mandatory-citation discipline. Passing the contract to the
+  contract's own agent is that discipline, not a bypass of it.
+
+**`not run: no definition produced` survives, narrowed:** it now means the derive ran and wrote
+nothing — the agent died, or found no criterion satisfying the citation rule and wrote a file
+you should read. It no longer means "nobody ever asked".
+
+**Reported from the field, 2026-08-23.** A run of `/implement-trd` without `--verify` was
+followed by `/verify-build`, which stopped at `no definition produced` and declined to derive,
+citing Step 8's reasoning. The reasoning was inherited without checking whether its premises
+held here. They did not.
 
 ### 4. Dispatch
 
