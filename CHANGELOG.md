@@ -10,6 +10,33 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.22] - 2026-08-24
+
+### Fixed
+
+- **`/verify-build` refused to derive a success definition, which defeated its purpose.**
+  Reported from a live run: `/implement-trd` ran without `--verify`, then `/verify-build` was
+  invoked on its own, stopped at `no definition produced`, and declined to derive one — citing
+  `/implement-trd` Step 8's reasoning.
+
+  Neither of Step 8's two reasons survives the move to a standalone command. *"No attested
+  primitive for a lead to block on a background `Agent`"* exists because §3.6 **already
+  dispatched one** and Step 8 cannot wait for it; `/verify-build` dispatched nothing, so there
+  is nothing to race. *"An **inline** derivation would be a second production path"* objects to
+  deriving in the orchestrator's own context **without** the contract — passing the contract to
+  the contract's own agent is that discipline, not a bypass.
+
+  `/verify-build` now dispatches the same `product-manager` agent with the same contract, in
+  the **foreground** — §3.6 backgrounds it only because it has a phase loop to get on with, and
+  this command has nothing else to do.
+
+  The command exists for "we ran implement without `--verify`, or the loop crashed out". In
+  both, no definition was ever produced — so a version that refuses to derive could only ever
+  run *second*, after an `--verify` run that already did the work.
+
+  `not run: no definition produced` survives, narrowed: the derive ran and wrote nothing. The
+  only remaining stop is having no **source** to derive from.
+
 ## [4.1.21] - 2026-08-23
 
 **Item 12 ships: `/fix`.** One command for a defect, a minor enhancement, or a refactor —
