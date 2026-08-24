@@ -268,6 +268,69 @@ recent assistant output. Rough recipe:
 export NOTIFY_ON_STOP='grep -q "═══ COMMAND COMPLETE" "$NOTIFY_TRANSCRIPT_PATH" && osascript -e "display notification \"Command complete\" with title \"Ensemble\""'
 ```
 
+## Artifact links (opt-in)
+
+A command that produces a document — a PRD, a TRD, a verification report — may publish it as
+an **artifact**: a private page on claude.ai the owner can click into, and later share if they
+choose. Off by default; enable per project with `ensemble.publishArtifacts: true` in
+`.claude/settings.json`.
+
+### Publish the FILE. Do not render it.
+
+```
+Artifact({ file_path: "docs/TRD/<feature>.md", favicon: "📐",
+           description: "<one sentence>", url: "<stored URL, if this is an update>" })
+```
+
+Markdown files publish directly. Three reasons this matters more than it looks:
+
+- **It costs one tool call.** Authoring an HTML rendering would cost output tokens
+  proportional to the document, and TRDs here run to 129 KB.
+- **Mermaid renders natively** from ```` ```mermaid ```` fences, so architecture and
+  dependency diagrams are drawn rather than shown as source. That is most of the value.
+- **A rendering is a second copy that drifts.** Publishing the file means the artifact is the
+  document, not a paraphrase of it.
+
+### Store the URL, and redeploy to it
+
+Write the returned URL to `.trd-state/<feature>/artifacts.json` keyed by artifact kind
+(`prd`, `trd`, `verification-report`). On a later `/refine-prd`, `/refine-trd` or re-verify,
+pass that URL back as `url:` so the same link updates in place.
+
+**Without this the link goes stale silently**, which is the failure this framework fights
+everywhere else: someone clicks a URL from three refinements ago and reads a superseded plan
+that looks current. A stale artifact is worse than none.
+
+### Where the link goes
+
+**Above the `COMMAND COMPLETE` banner, never after it** — the banner is the last line of the
+turn and nothing may follow it. One line:
+
+```
+📐 TRD: https://claude.ai/artifact/...
+═══ COMMAND COMPLETE: /create-trd ═══
+<summary>
+```
+
+### Failure is never fatal
+
+If the tool is unavailable or the publish fails, **say so in one line and carry on**. The
+document on disk is the deliverable; the artifact is a convenience. A command must not go
+STUCK, retry, or lose its banner because a link could not be made.
+
+### Why opt-in rather than default
+
+Publishing sends the document to an external service, where it may be cached or indexed even
+if later deleted. That is the owner's call to make for their own repository, not a default a
+framework imposes — a consuming project's TRD may carry design detail they would not choose to
+publish. The artifact is private by default, which makes this a small risk rather than none.
+
+**Never publish a document that contains a credential.** `verification.md` already requires
+recording where credentials live rather than their values; this is the reason that rule is
+load-bearing rather than tidy.
+
+---
+
 ## Enforcement
 
 This is a documented contract, not a hook-blocked invariant — the existing

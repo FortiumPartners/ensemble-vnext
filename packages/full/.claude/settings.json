@@ -165,6 +165,7 @@
     "state_dir": ".trd-state",
     "docs_dir": "docs",
     "prd_dir": "docs/PRD",
-    "trd_dir": "docs/TRD"
+    "trd_dir": "docs/TRD",
+    "publishArtifacts": false
   }
 }

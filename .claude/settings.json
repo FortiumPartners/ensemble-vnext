@@ -166,6 +166,7 @@
     "docs_dir": "docs",
     "prd_dir": "docs/PRD",
     "trd_dir": "docs/TRD",
+    "publishArtifacts": false,
     "version": "4.1.15"
   }
 }

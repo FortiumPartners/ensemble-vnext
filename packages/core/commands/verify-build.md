@@ -133,6 +133,14 @@ any of the four outcome strings means it finished and `--resume` starts a fresh 
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
+### Artifact link (opt-in — see `.claude/rules/command-status.md`)
+
+When `.claude/settings.json` sets `ensemble.publishArtifacts: true`, publish the verification report with
+`Artifact({ file_path: ".trd-state/<feature>/verification-report.md", favicon: "✅" })` — the markdown FILE, never a
+rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
+`verification-report`) when one is present, and storing it when one is not. Emit the link ABOVE the
+banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
+
 **The banner is the LAST line of the turn. Nothing after it — not a caveat, not a finding, not
 a recommendation.** Anything worth saying goes above it.
 

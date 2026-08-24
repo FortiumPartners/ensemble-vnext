@@ -1306,6 +1306,24 @@ ever evaluated); `Report` is `Step 8`'s `reportPath` in every case — the two `
 are written by the same `render-report` CLI call, so the path is populated even when the loop
 itself never ran.
 
+### 9.0a Artifact link, if the project opted in (see `.claude/rules/command-status.md`)
+
+When `.claude/settings.json` sets `ensemble.publishArtifacts: true` **and this run used
+`--verify`**, publish the verification report:
+
+```
+Artifact({ file_path: ".trd-state/<feature>/verification-report.md", favicon: "✅",
+           url: "<artifacts.json's verification-report key, if present>" })
+```
+
+Store the returned URL back into `.trd-state/<feature>/artifacts.json` under
+`verification-report`, so a later `/verify-build` updates the same link rather than minting a
+second one that competes with it.
+
+**Emit the link inside the report block, above the banner.** Publishing failure is one line
+of prose — never a STUCK, never a retry, never a missing banner. The report on disk is the
+deliverable.
+
 ### 9.1 The banner closes the turn — nothing after it
 
 **Emit `═══ COMMAND COMPLETE: /implement-trd ═══` plus its one-line summary as the LAST

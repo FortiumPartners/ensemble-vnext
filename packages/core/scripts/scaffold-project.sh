@@ -874,7 +874,7 @@ copy_skills() {
             skill="$(basename "$skill_dir")"
             if [[ -d "$src/$skill" ]]; then
                 rm -rf "${dest:?}/${skill:?}"
-                cp -r "$src/$skill" "$dest/"
+                cp -RL "$src/$skill" "$dest/"
                 info "Refreshed skill: $skill"
                 ((count++)) || true
             fi
@@ -903,7 +903,7 @@ copy_skills() {
                 if [[ "$FORCE" == "true" && -d "$dest/$skill" ]]; then
                     rm -rf "${dest:?}/${skill:?}"
                 fi
-                cp -r "$src/$skill" "$dest/"
+                cp -RL "$src/$skill" "$dest/"
                 if [[ "$FORCE" == "true" ]]; then
                     info "Replaced skill: $skill"
                 else
@@ -1169,6 +1169,10 @@ if not isinstance(ensemble, dict):
 ensemble["version"] = version
 ensemble["refreshed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 ensemble.setdefault("agents_dir", ".claude/agents")
+# Backfill for projects scaffolded before the key existed. False is the
+# shipped default, so this changes no behaviour — it makes the knob
+# discoverable in the file the owner would go looking in.
+ensemble.setdefault("publishArtifacts", False)
 data["ensemble"] = ensemble
 
 directory = os.path.dirname(path) or "."

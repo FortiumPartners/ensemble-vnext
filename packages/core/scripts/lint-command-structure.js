@@ -28,11 +28,12 @@ function lint(file) {
   const out = [];
   const add = (n, check, msg) => out.push({ file, line: n, check, msg });
 
-  // 1. frontmatter position
+  // 1. frontmatter position — see the fenced-lines note on check 2 below. This is
+  //    the SIBLING of that bug and was missed when it was fixed: a `description:`
+  //    inside a fenced example, before the first `---`, read as misplaced
+  //    frontmatter. Found 2026-08-24 on command-status.md's own Artifact snippet.
+  //    Both checks now require the match to be OUTSIDE a fence and near the head.
   const fmIdx = lines.findIndex((l) => l.trim() === '---');
-  if (fmIdx > 0 && lines.slice(0, fmIdx).some((l) => /^(name|description):/.test(l.trim()))) {
-    add(1, 'frontmatter', 'frontmatter keys appear before the opening --- delimiter');
-  }
 
   // 4. fences (needed first — list/table checks skip fenced regions)
   //
@@ -68,6 +69,15 @@ function lint(file) {
     .some((l, i) => !fenced[i] && /^name:\s*\S/.test(l));
   if (headHasName && lines[0].trim() !== '---') {
     add(1, 'frontmatter', `file has a name: key but does not start with --- (starts with "${lines[0].slice(0, 40)}")`);
+  }
+
+  if (
+    fmIdx > 0 &&
+    lines
+      .slice(0, fmIdx)
+      .some((l, i) => !fenced[i] && /^(name|description):/.test(l.trim()))
+  ) {
+    add(1, 'frontmatter', 'frontmatter keys appear before the opening --- delimiter');
   }
 
   // 2. ordered lists: same indent, contiguous block, must increment by 1

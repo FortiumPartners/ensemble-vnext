@@ -575,6 +575,14 @@ The gate constrains what a machine does unattended; it was never meant to constr
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
+### Artifact link (opt-in — see `.claude/rules/command-status.md`)
+
+When `.claude/settings.json` sets `ensemble.publishArtifacts: true`, publish the light TRD with
+`Artifact({ file_path: "docs/TRD/<slug>.md", favicon: "📐" })` — the markdown FILE, never a
+rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
+`trd`) when one is present, and storing it when one is not. Emit the link ABOVE the
+banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
+
 The banner is the LAST line of the final turn, nothing after it. **Step 6's plan decides
 whether you emit one at all** — `banner: null` means emit nothing. On unrecoverable failure use
 `═══ COMMAND STUCK: /fix ═══` with `Reason:` and `Next:`.

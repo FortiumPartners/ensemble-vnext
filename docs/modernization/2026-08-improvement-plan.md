@@ -2128,11 +2128,36 @@ sub-item 1 below: this class is invisible to assertions about what a command SAY
 
 **Still open, and why this is an item rather than a closed bug:**
 
-1. **No test proves a real rebase works.** Step 4.5 is prose executed by a model. The BATS
-   assertions prove the command *instructs* correctly, not that a run obeyed — and the bug it
-   fixes hid for months precisely because nothing exercised the path. A smoke scenario that
-   scaffolds an OLD project, rebases it, and asserts the three directories arrive is the
-   missing check.
+1. **No test proves a real rebase works** — *half-closed 2026-08-24.*
+
+   Step 4.5 is prose executed by a model. The BATS assertions prove the command *instructs*
+   correctly, not that a run obeyed — and the bug it fixes hid for months precisely because
+   nothing exercised the path.
+
+   **The deterministic half now has a test:**
+   `test/integration/tests/scaffold-delivery.test.sh` runs the real `scaffold-project.sh`
+   into a real temp tree — both fresh and `--refresh` — and asserts on the RESULT: zero
+   symlinks delivered, nothing dangling, every payload directory populated, every delivered
+   `lib/*.js` loadable via `require`, and every hook `settings.json` registers present with
+   its execute bit. No `claude` invocation, so it runs in CI.
+
+   Found while checking whether symlinks survive the flows (they do not — `cp -L`/`cp -RL`
+   throughout). The check earned its place immediately, three ways:
+
+   - It caught the last recursive copy still using bare `cp -r` (the skills loop). BSD
+     `cp -r` PRESERVES symlinks, so one symlink added inside a skill directory would have
+     shipped dangling into every consuming project. Nothing in the library has one today,
+     which is exactly when a latent hazard is cheapest to close.
+   - Mutation-tested: reverting `lib`'s `cp -L` to `cp -R` fails 5 of its 7 assertions,
+     including "delivered lib modules load". This class of bug is now visible.
+   - The **first** run of the check reported a clean tree that had received four files, and
+     was meaningless — the payload rides on `--plugin-dir` and the invocation omitted it.
+     Hence the "every payload directory is actually populated" assertion: a tree with no
+     symlinks because it received no files passes every other test in the file.
+
+   **Still open:** the model-executed half. `/rebase-project` on a deliberately-OLD tree —
+   retired commands gone, framework rules updated, a user-authored skill surviving,
+   governance files byte-identical — needs a real `claude` run and belongs in `test/smoke/`.
 2. **Version skew is undetectable from inside a project.** A project can sit three releases
    behind with no signal. `runtime-refresh.sh` gates on a monotonic version, so it upgrades
    what is PRESENT and cannot add what is absent — the same present-only limitation that

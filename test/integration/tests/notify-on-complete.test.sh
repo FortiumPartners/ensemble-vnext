@@ -544,3 +544,108 @@ print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in
     run bash -c "echo '{\"session_id\":\"sess_test\"}' | node \"$SESSION_CTX_HOOK\""
     [ "$status" -eq 0 ]
 }
+
+# =============================================================================
+# Layer 2c — Artifact-link contract (command-status.md + per-command pointers)
+# =============================================================================
+#
+# The convention is defined ONCE in command-status.md and referenced from each
+# command that produces a document. These tests exist because the alternative —
+# restating it per command — is the failure the fix-plan rework was built to
+# stop: one rule written in seven places disagrees with itself in six.
+
+ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd fix verify-build implement-trd)
+
+@test "L2c: command-status.md defines the artifact convention (dogfood + template)" {
+    for f in "${REPO_ROOT}/.claude/rules/command-status.md" \
+             "${REPO_ROOT}/packages/core/templates/claude-directory/rules/command-status.md"; do
+        [ -f "$f" ]
+        grep -q 'Artifact links (opt-in)' "$f"
+        grep -q 'ensemble.publishArtifacts' "$f"
+        grep -q 'artifacts.json' "$f"
+    done
+}
+
+@test "L2c: the rule publishes the FILE and forbids authoring a rendering" {
+    local f="${REPO_ROOT}/.claude/rules/command-status.md"
+    # The whole cost argument rests on this: publishing the .md is one tool call,
+    # authoring an HTML rendering costs output tokens proportional to a document
+    # that runs to 129 KB here, and produces a second copy that drifts.
+    grep -q 'Publish the FILE. Do not render it.' "$f"
+    grep -qi 'mermaid' "$f"
+}
+
+@test "L2c: the rule requires the link ABOVE the banner and makes failure non-fatal" {
+    local f="${REPO_ROOT}/.claude/rules/command-status.md"
+    grep -q 'Above the `COMMAND COMPLETE` banner, never after it' "$f"
+    grep -q 'Failure is never fatal' "$f"
+}
+
+@test "L2c: settings.json ships publishArtifacts in all three copies" {
+    for f in "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json" \
+             "${REPO_ROOT}/packages/full/.claude/settings.json" \
+             "${REPO_ROOT}/.claude/settings.json"; do
+        [ -f "$f" ]
+        run node -e '
+          const d = require(process.argv[1]);
+          if (typeof d.ensemble?.publishArtifacts !== "boolean") process.exit(1);
+        ' "$f"
+        [ "$status" -eq 0 ]
+    done
+}
+
+@test "L2c: publishArtifacts defaults to false — publishing is never implicit" {
+    # Publishing sends the document to an external service. Whether that happens
+    # is the owner's call, and a default of true would make it theirs only in
+    # retrospect.
+    run node -e '
+      const d = require(process.argv[1]);
+      process.exit(d.ensemble.publishArtifacts === false ? 0 : 1);
+    ' "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json"
+    [ "$status" -eq 0 ]
+}
+
+@test "L2c: every document-producing command points at the rule, not a copy of it" {
+    local missing=()
+    for cmd in "${ARTIFACT_CMDS[@]}"; do
+        local f="${CANON_COMMANDS}/${cmd}.md"
+        [ -f "$f" ] || { missing+=("$cmd:absent"); continue; }
+        grep -q 'ensemble.publishArtifacts' "$f" || missing+=("$cmd:no-settings-key")
+        grep -q 'command-status.md' "$f" || missing+=("$cmd:no-rule-ref")
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        printf 'Commands missing the artifact pointer:\n%s\n' "${missing[*]}" >&2
+        return 1
+    fi
+}
+
+@test "L2c: each command reuses a stored URL rather than minting a second link" {
+    # A fresh URL per refinement is the staleness bug wearing a fix's clothes:
+    # the owner clicks a link from three passes ago and reads a superseded plan
+    # that looks current.
+    local missing=()
+    for cmd in "${ARTIFACT_CMDS[@]}"; do
+        local f="${CANON_COMMANDS}/${cmd}.md"
+        [ -f "$f" ] || continue
+        grep -q 'artifacts.json' "$f" || missing+=("$cmd")
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        printf 'Commands that do not reuse a stored artifact URL:\n%s\n' "${missing[*]}" >&2
+        return 1
+    fi
+}
+
+@test "L2c: no command instructs authoring an HTML rendering of a document" {
+    # The one drift this convention must not take: a command that decides to
+    # "render" the TRD instead of publishing it.
+    local bad=()
+    for cmd in "${ARTIFACT_CMDS[@]}"; do
+        local f="${CANON_COMMANDS}/${cmd}.md"
+        [ -f "$f" ] || continue
+        if grep -qiE 'Artifact\(\{[^}]*\.html' "$f"; then bad+=("$cmd"); fi
+    done
+    if [[ ${#bad[@]} -gt 0 ]]; then
+        printf 'Commands publishing HTML instead of the source document:\n%s\n' "${bad[*]}" >&2
+        return 1
+    fi
+}
