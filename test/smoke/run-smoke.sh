@@ -55,6 +55,7 @@ source "${SMOKE_DIR}/lib/assert.sh"
 # CLAUDE_CODE_SUBAGENT_MODEL set to Haiku it finished in 315s and passed all six.
 # Hence the model default below.
 declare -A SCENARIO_TIMEOUT=(
+    [rebase-old-tree]=780
     [hooks-health]=15
     [scaffold-integrity]=60
     [artifact-contracts]=30
@@ -116,7 +117,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()

@@ -250,3 +250,127 @@ smoke_agent_invoked() {
     # Fallback: raw substring match (covers stream-json shape drift).
     grep -qF "\"subagent_type\":\"${agent_name}\"" "$session_file" 2>/dev/null
 }
+
+# smoke_age_project <target_dir>
+# Degrades a freshly-scaffolded tree so it looks like one scaffolded several
+# releases ago, then commits so the tree is CLEAN — rebase-project.md's Step 0
+# refuses to run on a dirty working tree ("Recovery is git. Check the working
+# tree BEFORE touching anything.").
+#
+# Each degradation reproduces one delivery bug that actually shipped, so the
+# rebase scenario's assertions are about history rather than hypotheticals:
+#   - workflows/ lib/ contracts/ absent   -> 4.1.18: never delivered at all
+#   - hook execute bits cleared           -> 4.1.18: Permission denied every event
+#   - retired team commands present       -> 4.1.18: classified stale, not deleted
+#   - a framework rule frozen stale       -> 4.1.19: rules could never be updated
+#   - a user-authored skill planted       -> 4.1.19: custom skills marked for deletion
+#   - ensemble.version rolled back        -> puts Step 1 on the "Older -> Newer" branch
+#
+# Prints the three governance-file hashes (constitution/stack/process) on stdout,
+# one "<name> <hash>" per line, so the caller can prove rebase left them alone.
+# Returns non-zero if any degradation did not take — see smoke_assert_aged.
+smoke_age_project() {
+    local d="$1"
+
+    rm -rf "${d}/.claude/workflows" "${d}/.claude/lib" "${d}/.claude/contracts"
+
+    # Retired commands MUST carry ensemble frontmatter with a `category:` field:
+    # rebase-project.md's diff step classifies a vendored-not-in-plugin file as
+    # Stale only if it looks framework-shipped. Without frontmatter it reads as
+    # a user-authored Custom command and is deliberately PRESERVED — the
+    # scenario would then fail against correct behaviour.
+    local c
+    for c in harden-trd-team verify-trd-team implement-trd-team; do
+        cat > "${d}/.claude/commands/${c}.md" <<EOF
+---
+name: ${c}
+description: Retired team-based command left behind by an old scaffold (smoke fixture)
+version: 1.0.0
+category: workflow
+---
+
+Retired in 4.1.16. Present here only so the rebase scenario can prove it gets removed.
+EOF
+    done
+
+    find "${d}/.claude/hooks" -type f \( -name '*.sh' -o -name '*.js' -o -name '*.py' \) \
+        -exec chmod a-x {} + 2>/dev/null || true
+
+    # A framework rule frozen at stale content. --wiggum was deleted in 4.1.18;
+    # a project still reading about it is the exact symptom that surfaced the
+    # "framework rules could never be updated" bug.
+    cat > "${d}/.claude/rules/autonomy.md" <<'EOF'
+# Autonomous-execution discipline (STALE FIXTURE)
+
+Pass `--wiggum` to run without confirmation prompts.
+
+This file is deliberately out of date. A correct rebase replaces it with the
+framework's current template.
+EOF
+
+    # User-authored skill: the discriminator is absence from packages/skills/.
+    mkdir -p "${d}/.claude/skills/smoke-user-skill"
+    cat > "${d}/.claude/skills/smoke-user-skill/SKILL.md" <<'EOF'
+---
+name: smoke-user-skill
+description: User-authored skill that exists nowhere in the plugin. Must survive rebase.
+---
+Deleting this destroys work that exists nowhere else. That is the bug this fixture guards.
+EOF
+
+    python3 - "$d" <<'PY'
+import json, sys, collections, pathlib
+p = pathlib.Path(sys.argv[1]) / ".claude/settings.json"
+d = json.loads(p.read_text(), object_pairs_hook=collections.OrderedDict)
+d.setdefault("ensemble", collections.OrderedDict())["version"] = "4.0.0"
+p.write_text(json.dumps(d, indent=2) + "\n")
+PY
+
+    # Governance files get a local edit, so "preserved" means "preserved AS THE
+    # USER LEFT THEM", not merely "still present".
+    local g
+    for g in constitution stack process; do
+        printf '\n<!-- smoke: local edit that rebase must not touch -->\n' \
+            >> "${d}/.claude/rules/${g}.md"
+    done
+
+    git -C "$d" add -A >/dev/null 2>&1
+    git -C "$d" commit -q -m "smoke: age the project to a pre-4.1.18 shape" --no-verify
+
+    for g in constitution stack process; do
+        echo "${g} $(smoke_file_hash "${d}/.claude/rules/${g}.md")"
+    done
+    return 0
+}
+
+# smoke_file_hash <path> — portable md5, macOS `md5 -q` or coreutils md5sum.
+smoke_file_hash() {
+    if command -v md5 &>/dev/null; then md5 -q "$1"; else md5sum "$1" | cut -d' ' -f1; fi
+}
+
+# smoke_assert_aged <target_dir>
+# Proves the degradation actually took, BEFORE the model turn runs.
+#
+# Without this the scenario's central assertions are vacuous: if smoke_age_project
+# silently no-ops on an item, the matching "rebase fixed it" assertion passes
+# because the bug was never planted. That is exactly how scaffold-delivery.test.sh's
+# first run reported a clean tree that had received four files.
+smoke_assert_aged() {
+    local d="$1" bad=0 p
+    for p in workflows lib contracts; do
+        [[ -e "${d}/.claude/${p}" ]] && { echo "aging failed: .claude/${p} still present" >&2; bad=1; }
+    done
+    for p in harden-trd-team verify-trd-team implement-trd-team; do
+        [[ -f "${d}/.claude/commands/${p}.md" ]] || { echo "aging failed: ${p}.md not planted" >&2; bad=1; }
+    done
+    if find "${d}/.claude/hooks" -type f \( -name '*.sh' -o -name '*.js' \) -perm -u+x 2>/dev/null | grep -q .; then
+        echo "aging failed: some hooks are still executable" >&2; bad=1
+    fi
+    grep -q -- '--wiggum' "${d}/.claude/rules/autonomy.md" 2>/dev/null \
+        || { echo "aging failed: autonomy.md not staled" >&2; bad=1; }
+    [[ -f "${d}/.claude/skills/smoke-user-skill/SKILL.md" ]] \
+        || { echo "aging failed: user skill not planted" >&2; bad=1; }
+    [[ -z "$(git -C "$d" status --porcelain)" ]] \
+        || { echo "aging failed: tree is dirty, rebase Step 0 will refuse" >&2; bad=1; }
+    return $bad
+}
