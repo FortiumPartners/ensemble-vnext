@@ -117,3 +117,42 @@ teardown_file() {
     run node -e 'require(process.argv[1])' "$TREE/.claude/lib/trd-parser.js"
     [ "$status" -eq 0 ]
 }
+
+@test "a fresh scaffold arrives with publishArtifacts ON" {
+    run node -e '
+      const d = require(process.argv[1] + "/.claude/settings.json");
+      process.exit(d.ensemble.publishArtifacts === true ? 0 : 1);
+    ' "$TREE"
+    [ "$status" -eq 0 ]
+}
+
+@test "an owner who turns publishArtifacts OFF keeps it off across refreshes" {
+    # The behavioural half of the setdefault grep in notify-on-complete.test.sh.
+    # Publishing sends documents to an external service; an owner who declined
+    # that has made a decision, and no upgrade may quietly reverse it. Two
+    # refreshes, because a bug that re-adds the key would plausibly do it on the
+    # pass that first notices it missing.
+    local off
+    off="$(mktemp -d)"
+    git -C "$off" init -q .
+    git -C "$off" commit -q --allow-empty -m init
+    bash "$SCAFFOLD" "$off" --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    node -e '
+      const fs = require("fs"), p = process.argv[1] + "/.claude/settings.json";
+      const d = JSON.parse(fs.readFileSync(p, "utf8"));
+      d.ensemble.publishArtifacts = false;
+      fs.writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+    ' "$off"
+
+    bash "$SCAFFOLD" "$off" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+    bash "$SCAFFOLD" "$off" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    run node -e '
+      const d = require(process.argv[1] + "/.claude/settings.json");
+      process.exit(d.ensemble.publishArtifacts === false ? 0 : 1);
+    ' "$off"
+    local rc="$status"
+    rm -rf "$off"
+    [ "$rc" -eq 0 ]
+}

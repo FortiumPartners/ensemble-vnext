@@ -268,12 +268,15 @@ recent assistant output. Rough recipe:
 export NOTIFY_ON_STOP='grep -q "═══ COMMAND COMPLETE" "$NOTIFY_TRANSCRIPT_PATH" && osascript -e "display notification \"Command complete\" with title \"Ensemble\""'
 ```
 
-## Artifact links (opt-in)
+## Artifact links
 
-A command that produces a document — a PRD, a TRD, a verification report — may publish it as
-an **artifact**: a private page on claude.ai the owner can click into, and later share if they
-choose. Off by default; enable per project with `ensemble.publishArtifacts: true` in
+A command that produces a document — a PRD, a TRD, a verification report — publishes it as an
+**artifact**: a private page on claude.ai the owner can click into, and later share if they
+choose. **On by default.** Turn it off per project with `ensemble.publishArtifacts: false` in
 `.claude/settings.json`.
+
+A document you have to go find in the tree is a document that does not get read. The link is
+the point of producing one.
 
 ### Publish the FILE. Do not render it.
 
@@ -318,16 +321,29 @@ If the tool is unavailable or the publish fails, **say so in one line and carry 
 document on disk is the deliverable; the artifact is a convenience. A command must not go
 STUCK, retry, or lose its banner because a link could not be made.
 
-### Why opt-in rather than default
+### What turning it on means, and how to turn it off
 
 Publishing sends the document to an external service, where it may be cached or indexed even
-if later deleted. That is the owner's call to make for their own repository, not a default a
-framework imposes — a consuming project's TRD may carry design detail they would not choose to
-publish. The artifact is private by default, which makes this a small risk rather than none.
+if later deleted. Artifacts are **private to the owner** on publish — nobody else sees one
+until the owner chooses to share it — which is what makes on-by-default reasonable rather than
+reckless.
+
+It is still a real property of the default, and it reaches consuming projects, not just this
+one. So the switch is stated here rather than left to be discovered:
+
+```json
+{ "ensemble": { "publishArtifacts": false } }
+```
+
+`false` is honored everywhere with no other change — commands skip the publish step and emit
+no link. A refresh will never turn it back on: `scaffold-project.sh` backfills the key with
+`setdefault`, so an owner's `false` survives every rebase. **An owner who turns this off has
+made a decision, and no upgrade may quietly reverse it.**
 
 **Never publish a document that contains a credential.** `verification.md` already requires
-recording where credentials live rather than their values; this is the reason that rule is
-load-bearing rather than tidy.
+recording where credentials live rather than their values; with publishing on by default,
+that rule is now what stands between a pasted token and a hosted page. This is the reason it
+is load-bearing rather than tidy.
 
 ---
 

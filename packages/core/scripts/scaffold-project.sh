@@ -1169,10 +1169,10 @@ if not isinstance(ensemble, dict):
 ensemble["version"] = version
 ensemble["refreshed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 ensemble.setdefault("agents_dir", ".claude/agents")
-# Backfill for projects scaffolded before the key existed. False is the
-# shipped default, so this changes no behaviour — it makes the knob
-# discoverable in the file the owner would go looking in.
-ensemble.setdefault("publishArtifacts", False)
+# Backfill for projects scaffolded before the key existed, matching the
+# shipped default. setdefault, never assignment: an owner who turned this
+# OFF must not have it turned back on by a refresh.
+ensemble.setdefault("publishArtifacts", True)
 data["ensemble"] = ensemble
 
 directory = os.path.dirname(path) or "."

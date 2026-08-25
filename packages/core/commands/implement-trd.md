@@ -1306,10 +1306,10 @@ ever evaluated); `Report` is `Step 8`'s `reportPath` in every case — the two `
 are written by the same `render-report` CLI call, so the path is populated even when the loop
 itself never ran.
 
-### 9.0a Artifact link, if the project opted in (see `.claude/rules/command-status.md`)
+### 9.0a Artifact link (see `.claude/rules/command-status.md`)
 
-When `.claude/settings.json` sets `ensemble.publishArtifacts: true` **and this run used
-`--verify`**, publish the verification report:
+Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, and **if this run
+used `--verify`**, publish the verification report:
 
 ```
 Artifact({ file_path: ".trd-state/<feature>/verification-report.md", favicon: "✅",

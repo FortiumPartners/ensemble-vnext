@@ -982,9 +982,9 @@ The implementation phase:
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
-### Artifact link (opt-in — see `.claude/rules/command-status.md`)
+### Artifact link (see `.claude/rules/command-status.md`)
 
-When `.claude/settings.json` sets `ensemble.publishArtifacts: true`, publish the TRD with
+Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the TRD with
 `Artifact({ file_path: "docs/TRD/<feature>.md", favicon: "📐" })` — the markdown FILE, never a
 rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
 `trd`) when one is present, and storing it when one is not. Emit the link ABOVE the

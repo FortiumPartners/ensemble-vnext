@@ -560,7 +560,7 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd fix verify-build impl
     for f in "${REPO_ROOT}/.claude/rules/command-status.md" \
              "${REPO_ROOT}/packages/core/templates/claude-directory/rules/command-status.md"; do
         [ -f "$f" ]
-        grep -q 'Artifact links (opt-in)' "$f"
+        grep -q '^## Artifact links$' "$f"
         grep -q 'ensemble.publishArtifacts' "$f"
         grep -q 'artifacts.json' "$f"
     done
@@ -594,15 +594,37 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd fix verify-build impl
     done
 }
 
-@test "L2c: publishArtifacts defaults to false — publishing is never implicit" {
-    # Publishing sends the document to an external service. Whether that happens
-    # is the owner's call, and a default of true would make it theirs only in
-    # retrospect.
-    run node -e '
-      const d = require(process.argv[1]);
-      process.exit(d.ensemble.publishArtifacts === false ? 0 : 1);
-    ' "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json"
+@test "L2c: publishArtifacts ships ON by default (owner decision, 2026-08-24)" {
+    # A document nobody can click into is a document nobody reads, and the link
+    # is most of the reason to produce one. Publishing does send the document to
+    # an external service, so the rule states the off switch explicitly rather
+    # than leaving it to be discovered.
+    for f in "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json" \
+             "${REPO_ROOT}/packages/full/.claude/settings.json" \
+             "${REPO_ROOT}/.claude/settings.json"; do
+        run node -e '
+          const d = require(process.argv[1]);
+          process.exit(d.ensemble.publishArtifacts === true ? 0 : 1);
+        ' "$f"
+        [ "$status" -eq 0 ]
+    done
+}
+
+@test "L2c: the rule documents the off switch and that a refresh cannot reverse it" {
+    local f="${REPO_ROOT}/.claude/rules/command-status.md"
+    grep -q 'publishArtifacts.*false' "$f"
+    grep -q 'no upgrade may quietly reverse it' "$f"
+}
+
+@test "L2c: the backfill uses setdefault so an owner false survives refresh" {
+    # Assignment here would silently re-enable publishing on every rebase for
+    # every owner who turned it off — the exact shape of bug item 13 collects.
+    run grep -n 'ensemble.setdefault("publishArtifacts"' \
+        "${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
     [ "$status" -eq 0 ]
+    run grep -c 'ensemble\["publishArtifacts"\] *=' \
+        "${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
+    [ "$output" = "0" ]
 }
 
 @test "L2c: every document-producing command points at the rule, not a copy of it" {
