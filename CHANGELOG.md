@@ -10,6 +10,68 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.23] - 2026-08-24
+
+### Added
+
+- **Artifact links on every document a command produces — ON by default.** `/create-prd`,
+  `/refine-prd`, `/create-trd`, `/refine-trd`, `/fix`, `/verify-build` and `/implement-trd`
+  Step 9 publish their output as a private page on claude.ai and print the link above the
+  `COMMAND COMPLETE` banner. A document you have to go find in the tree is a document that
+  does not get read.
+
+  **They publish the markdown FILE, never a rendering of it.** The `Artifact` tool accepts
+  markdown directly, so this costs one tool call; authoring an HTML rendering would cost
+  output tokens proportional to a document that reaches 126 KB in this repo, and would create
+  a second copy that drifts from the first. Mermaid renders natively from fences — 5 of 11
+  TRDs here carry diagrams that are now drawn rather than shown as source.
+
+  Defined **once** in `.claude/rules/command-status.md` and referenced from all seven
+  commands. Writing it seven times is the failure the `fix-plan` rework was built to stop:
+  one rule in seven places disagrees with itself in six.
+
+  Two properties the rule makes load-bearing:
+
+  - **The URL is stored in `.trd-state/<feature>/artifacts.json` and redeployed to.** Without
+    that, each refinement mints a second link and the first goes stale silently — someone
+    clicks a URL from three passes ago and reads a superseded plan that looks current. A
+    stale artifact is worse than none.
+  - **A failed publish is one line of prose.** Never a STUCK, never a retry, never a missing
+    banner. The document on disk is the deliverable; the artifact is a convenience.
+
+  **Turn it off** with `ensemble.publishArtifacts: false` in `.claude/settings.json`.
+  Publishing sends the document to an external service where it may be cached or indexed
+  after deletion; artifacts are private to the owner on publish, which is what makes
+  on-by-default reasonable. An owner who turns it off **stays** off: the scaffold backfills
+  the key with `setdefault`, never assignment, so no refresh can quietly re-enable it. Tested
+  behaviourally — scaffold, set false, refresh twice, assert still false — and mutation-tested
+  by changing `setdefault` to assignment, which fails it.
+
+  With publishing on by default, `verification.md`'s rule about recording **where** credentials
+  live rather than their values is now what stands between a pasted token and a hosted page.
+
+- **`test/integration/tests/scaffold-delivery.test.sh` — what a consuming project actually
+  receives.** Runs the real `scaffold-project.sh` into a real tree, fresh and `--refresh`, and
+  asserts on the RESULT rather than on what the script says: zero symlinks delivered, nothing
+  dangling, every payload directory populated, every delivered `lib/*.js` loadable via
+  `require`, every hook `settings.json` registers present with its execute bit. No `claude`
+  invocation, so it runs in CI. Half-closes improvement-plan item 13 sub-item 1; the
+  model-executed half (`/rebase-project` on a deliberately-old tree) still needs `test/smoke/`.
+
+### Fixed
+
+- **The skills copy was the last recursive `cp -r`, which on BSD PRESERVES symlinks.**
+  `packages/full` is 32 symlinks into `packages/core`; every other copy site already used
+  `cp -L`. One symlink added inside a skill directory would have shipped as a link into a
+  plugin path the consuming project does not have — dangling on arrival, and silent until
+  someone's first `require`. Now `cp -RL`. Nothing in the skills library has a symlink today,
+  which is exactly when a latent hazard is cheapest to close.
+
+- **`lint-command-structure.js` flagged a `description:` inside a fenced code block as
+  misplaced frontmatter.** The sibling of a bug already fixed in the adjacent `name:` check
+  and missed at the time — that one learned to skip fenced lines, this one did not. Found on
+  `command-status.md`'s own `Artifact({...})` snippet.
+
 ## [4.1.22] - 2026-08-24
 
 ### Fixed
