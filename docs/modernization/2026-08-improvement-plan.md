@@ -2168,6 +2168,18 @@ sub-item 1 below: this class is invisible to assertions about what a command SAY
 4. **No way to ask "what would change?"** `--dry-run` exists for the diff, but there is no
    command that answers "which of my projects are stale, and on what."
 
+5. **A default that reaches consuming projects is a decision made on their owner's behalf.**
+   Noted 2026-08-24 when `ensemble.publishArtifacts` shipped ON (4.1.23, owner-decided). A
+   scaffolded project publishes its PRDs and TRDs to claude.ai without its owner choosing
+   that. The exposure is small — artifacts are private to the owner on publish — and the rule
+   file now states the off switch in its opening paragraph, so the switch is discoverable.
+
+   **But placement fixes discoverability, not consent**, and the two should not be confused.
+   The mechanism that would actually make it their choice is a prompt at `/init-project`,
+   which does not exist. Recorded here rather than acted on: the default is deliberate and
+   settled, and this is the general shape of the question — *which framework defaults are
+   ours to set for someone else's repository?* — not a re-litigation of this one.
+
 **Why it sits here:** this is the delivery half of every other item on this list. A fix that
 cannot reach a project is a fix nobody has.
 
