@@ -181,6 +181,36 @@ Extract the decision reached — then **re-ground it against the code**. The cor
 intent; the code states fact. A discussion records what was decided, not what exists, and
 writing it up without re-grounding enshrines whatever was assumed mid-conversation.
 
+### 2f. A blocker sitting IN THE PATH of the fix is part of the fix
+
+**Absorb it. Do not bounce the user to another `/fix` for it.**
+
+When the investigation turns up a defect that must be repaired before the requested work is
+possible — a broken path the fix depends on, a dangling reference, a red test that would mask
+the result — that defect is **in scope**. Add a task for it, list it in `touches`, and size the
+whole thing. One invocation, one artifact, one run.
+
+**Why this rule exists.** Measured 2026-08-25: a request for a `/rebase-project` smoke scenario
+turned up three defects in that command's own path. The run escalated and handed back a list of
+follow-up `/fix` invocations — one per blocker. That is precisely the chat-and-edit loop this
+command replaces, with extra ceremony: the user asked for one thing and received homework.
+
+**The test is dependency, not tidiness.** Absorb what the requested work cannot proceed
+without. Do NOT absorb every defect the investigation happens to notice — an unrelated bug
+found while reading a file is a finding to report, not scope to claim. If the requested work
+would succeed with the defect still present, it is not in the path.
+
+**When absorbing changes the shape of the work, say so once, in the TRD's `## Decision`, and
+continue.** It is not a checkpoint.
+
+**`specCertain: false` is not the exit for this.** That axis means *the correct behaviour is a
+product call nobody has made* — not *I have not looked yet*. A blocker whose correct behaviour
+is discoverable by reading the code or the environment is `specCertain: true` with an extra
+task. Feeding uncertainty into it produces ESCALATE for a question that was never a product
+decision, which is exactly the wrong answer: it sends a knowable defect to `/create-prd`.
+
+---
+
 ### 2e. Ground the fix (all paths)
 
 For every file the fix will touch, establish: what it does now, what to reuse, what this
