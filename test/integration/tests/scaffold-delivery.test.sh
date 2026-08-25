@@ -156,3 +156,46 @@ teardown_file() {
     rm -rf "$off"
     [ "$rc" -eq 0 ]
 }
+
+@test "packages/full carries no dangling symlinks" {
+    # packages/full is built almost entirely out of symlinks into packages/core,
+    # and the delivery tests above only see what SURVIVES a copy. A link whose
+    # target was deleted is invisible to them: cp -L on a dangling link fails or
+    # skips, and the delivered tree simply lacks the file — which reads as "that
+    # component isn't shipped" rather than "this is broken."
+    #
+    # Found 2026-08-25 with two live examples, both dangling since Feb 2026:
+    #   commands/router -> ../../router/commands   (never existed)
+    #   router-lib      -> ../../packages/router/lib (never existed)
+    # rebase-project.md was instructing the model to discover commands from the
+    # first one, so a rebase looked for commands in a directory that has never
+    # been on disk and found none, silently.
+    run bash -c 'find "$1" -type l ! -exec test -e {} \; -print' _ "${REPO_ROOT}/packages/full"
+    [ "$status" -eq 0 ]
+    if [ -n "$output" ]; then
+        printf 'Dangling symlinks in the delivery source:\n%s\n' "$output" >&2
+        return 1
+    fi
+}
+
+@test "every @packages/ path rebase-project cites maps to a real plugin-root path" {
+    # rebase-project.md addresses plugin sources as `@packages/...`, which are
+    # DEVELOPMENT-repo paths. The installed plugin is a flattened tree with no
+    # packages/ directory at all, so the command carries a translation table.
+    # This asserts the right-hand column actually resolves under packages/full,
+    # which has the same flattened shape by construction.
+    local root="${REPO_ROOT}/packages/full"
+    local missing=()
+    for p in commands/core hooks hooks/lib hooks/prompts lib contracts \
+             workflows templates skills-lib agents; do
+        [ -e "${root}/${p}" ] || missing+=("$p")
+    done
+    if [ "${#missing[@]}" -gt 0 ]; then
+        printf 'Plugin-root paths cited by rebase-project.md that do not resolve: %s\n' \
+            "${missing[*]}" >&2
+        return 1
+    fi
+    # And the shape the OLD text assumed must NOT resolve — if it ever does,
+    # the translation table is no longer needed and this test should be revisited.
+    [ ! -e "${root}/packages/core/commands" ]
+}

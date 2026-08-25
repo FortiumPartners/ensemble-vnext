@@ -228,7 +228,15 @@ RETIRED_ALLOWLIST=(
     ".claude/rules/constitution.md"                     # documents the 4.1.0 retirement history
 )
 
-RETIRED_HITS="$(grep -rIl -E 'permitter|learning\.sh|save-remote-logs\.js' \
+# --exclude-dir=worktrees: .claude/worktrees/ holds transient git worktrees that
+# subagents create and the harness cleans up asynchronously. Each is a full
+# checkout of the repo at some OTHER commit, so grepping them makes this
+# assertion's result depend on whether an agent happened to leave one behind —
+# and an old enough worktree still contains the retired components by design.
+# Measured 2026-08-25: four stale agent worktrees turned this into a FAIL that
+# said nothing about the tracked tree.
+RETIRED_HITS="$(grep -rIl --exclude-dir=worktrees --exclude-dir=node_modules \
+    -E 'permitter|learning\.sh|save-remote-logs\.js' \
     "${REPO_ROOT}/packages" "${REPO_ROOT}/.claude" "${REPO_ROOT}/docs/guides" 2>/dev/null || true)"
 for allowed in "${RETIRED_ALLOWLIST[@]}"; do
     RETIRED_HITS="$(grep -vF "${REPO_ROOT}/${allowed}" <<< "$RETIRED_HITS" || true)"

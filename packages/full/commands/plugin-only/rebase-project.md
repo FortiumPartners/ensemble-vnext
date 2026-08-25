@@ -100,13 +100,40 @@ Examples:
 
 1. **Installed Plugin Path:**
    - Check environment variable `CLAUDE_PLUGIN_ROOT`
-   - Fallback: `~/.claude/plugins/ensemble-vnext/`
+   - Fallback: `~/.claude/plugins/cache/ensemble-vnext/full/<version>/`
 
-2. **For LLM execution:**
-   - Use file system tools to read from resolved paths
-   - Example: To read `@packages/core/commands/create-prd.md`:
-     - Resolve: `${CLAUDE_PLUGIN_ROOT}/packages/core/commands/create-prd.md`
-     - Read file contents
+2. **Translate `@packages/...` to the PLUGIN layout — they are not the same tree.**
+
+   Every `@packages/...` reference in this document names a path in the **development
+   repository**. The installed plugin is a FLATTENED tree with no `packages/` directory at
+   all, so joining them directly onto `${CLAUDE_PLUGIN_ROOT}` yields a path that exists in no
+   installation. Use this table:
+
+   | `@packages/...` reference | Path under `${CLAUDE_PLUGIN_ROOT}` |
+   |---|---|
+   | `@packages/core/commands/` | `commands/core/` |
+   | `@packages/core/hooks/` | `hooks/` |
+   | `@packages/core/hooks/lib/` | `hooks/lib/` |
+   | `@packages/core/hooks/prompts/` | `hooks/prompts/` |
+   | `@packages/router/hooks/router.py` | `hooks/router.py` |
+   | `@packages/core/lib/` | `lib/` |
+   | `@packages/core/contracts/` | `contracts/` |
+   | `@packages/core/workflows/` | `workflows/` |
+   | `@packages/core/templates/` | `templates/` |
+   | `@packages/skills/` | `skills-lib/` |
+   | `@packages/full/agents/` | `agents/` |
+
+   Example: to read `@packages/core/commands/create-prd.md`, resolve
+   `${CLAUDE_PLUGIN_ROOT}/commands/core/create-prd.md`.
+
+   **When running from a development checkout** (`--plugin-dir <repo>/packages/full`) the same
+   table applies — `packages/full` has that identical flattened shape, which is the point of
+   its symlinks.
+
+   **Verify before trusting this table.** If `${CLAUDE_PLUGIN_ROOT}/commands/core/` does not
+   exist, list `${CLAUDE_PLUGIN_ROOT}` and map by inspection rather than proceeding on a path
+   that does not resolve. A rebase that silently reads nothing reports success having copied
+   nothing — the exact silent-absence failure this command exists to repair.
 
 3. **If plugin path unavailable:**
    - Report error: "Cannot resolve plugin source path. Ensure ensemble-vnext plugin is installed."
@@ -368,7 +395,8 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
 **Behavior:** Commands are REPLACED (not customized per project). Stale plugin commands are removed.
 
 1. **List plugin commands:**
-   Dynamically discover all `.md` files from `@packages/core/commands/` and `@packages/router/commands/`.
+   Dynamically discover all `.md` files from `@packages/core/commands/` (i.e.
+   `${CLAUDE_PLUGIN_ROOT}/commands/core/`).
    Exclude plugin-only commands: `init-project.md`, `rebase-project.md`.
 
 2. **List vendored commands:**
@@ -711,7 +739,8 @@ the plugin's version. Recovery is git — no backup step; see "Recovery is git" 
    - Report: "Kept custom command: [name]"
 
 4. **Command discovery:**
-   - Dynamically discover all `.md` files from `@packages/core/commands/` and `@packages/router/commands/`
+   - Dynamically discover all `.md` files from `@packages/core/commands/` (i.e.
+     `${CLAUDE_PLUGIN_ROOT}/commands/core/`)
    - Exclude plugin-only commands: `init-project.md`, `rebase-project.md`
    - This ensures new commands added to the plugin are automatically picked up without
      needing to update a hardcoded list

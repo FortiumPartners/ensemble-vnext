@@ -116,7 +116,14 @@ REQUIRED_AGENTS=(
     verify-app code-simplifier code-reviewer app-debugger
     devops-engineer cicd-specialist
 )
-LEAF_AGENTS_NO_SPAWN=(code-reviewer code-simplifier verify-app)
+# Constitution v1.3.0 (2026-08-16) LIFTED the subagent-nesting ban and removed
+# `disallowedTools: Agent` from all eight agents that carried it. The assertion
+# that used to live here checked for that line on code-reviewer, code-simplifier
+# and verify-app, and had been FAILING ever since — three red assertions on the
+# default smoke set, which is the condition under which nobody trusts a result.
+# Removed 2026-08-25 rather than re-asserting its absence: the constitution is
+# the authority on the nesting stance, and a smoke scenario restating a
+# governance decision is a second copy that drifts from it.
 
 frontmatter_block() {
     # Prints the lines strictly between the opening and closing `---`
@@ -161,16 +168,6 @@ for agent in "${REQUIRED_AGENTS[@]}"; do
 done
 assert_true "all ${#REQUIRED_AGENTS[@]} required agents present ($AGENTS_PRESENT found)" \
     -- test "$AGENTS_PRESENT" -eq "${#REQUIRED_AGENTS[@]}"
-
-for agent in "${LEAF_AGENTS_NO_SPAWN[@]}"; do
-    agent_file="${PROJECT_DIR}/.claude/agents/${agent}.md"
-    block="$(frontmatter_block "$agent_file" 2>/dev/null || true)"
-    if grep -qE '^disallowedTools:[[:space:]]*Agent[[:space:]]*$' <<< "$block"; then
-        assert_pass_raw "${agent}.md: disallowedTools: Agent present"
-    else
-        assert_fail_raw "${agent}.md: disallowedTools: Agent present"
-    fi
-done
 
 # -----------------------------------------------------------------------------
 # Every shippable hook in hooks.manifest.json was delivered, plus lib/.
