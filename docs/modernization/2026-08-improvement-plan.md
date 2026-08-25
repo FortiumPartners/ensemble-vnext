@@ -2155,9 +2155,37 @@ sub-item 1 below: this class is invisible to assertions about what a command SAY
      Hence the "every payload directory is actually populated" assertion: a tree with no
      symlinks because it received no files passes every other test in the file.
 
-   **Still open:** the model-executed half. `/rebase-project` on a deliberately-OLD tree —
-   retired commands gone, framework rules updated, a user-authored skill surviving,
-   governance files byte-identical — needs a real `claude` run and belongs in `test/smoke/`.
+   **The model-executed half landed 2026-08-25** as `test/smoke/scenarios/rebase-old-tree.sh`
+   (LLM opt-in, 780s budget). It scaffolds, AGES the tree to a pre-4.1.18 shape, runs
+   `/rebase-project`, and asserts on the resulting filesystem — never on the command's own
+   prose report, which would pass for a run that reported perfectly and did nothing. The
+   aging is verified BEFORE the model turn, so a degradation that silently no-opped cannot
+   make its matching assertion pass. `§4.6`'s `version`/`previous_version` stamp serves as a
+   positive control, since two of the checks are preservation checks a no-op satisfies.
+
+   Building it turned up three defects in `/rebase-project`'s own path, all fixed in the
+   same run (4.1.23+):
+
+   - **Plugin sources resolved to a path that exists in no installation.** All 19
+     `@packages/...` references were joined onto `${CLAUDE_PLUGIN_ROOT}` as
+     `packages/core/...`; the installed root has no `packages/` directory — it is flattened
+     (`commands/core`, `agents`, `hooks`, `lib`, ...). A rebase reading nothing copies
+     nothing and reports success: this item's own failure mode, inside the command that
+     exists to repair it. A translation table now maps the two layouts.
+   - **Two dangling symlinks in the delivery source**, dead since Feb 2026:
+     `packages/full/commands/router` and `router-lib`, both pointing at directories that
+     never existed. `rebase-project.md` twice instructed the model to discover commands from
+     the first.
+   - **`scaffold-integrity.sh` had been failing since 2026-08-16**, asserting
+     `disallowedTools: Agent` on three agents that constitution v1.3.0 stripped it from. The
+     DEFAULT smoke set was exiting 1, which is why the rest went unnoticed.
+
+   **Still open:** the scenario has never been run end to end — it costs a model turn, and
+   `implement-one-task` (the harness's other LLM scenario) is currently timing out at ~840s
+   against a 341s baseline, failing on `exit=143` rather than on substance. Two runs of
+   identical code produced different failure counts, so that is flakiness or a speed
+   regression in `/implement-trd`, not a rebase problem — but it needs its own investigation
+   before either LLM scenario's result can be trusted.
 2. **Version skew is undetectable from inside a project.** A project can sit three releases
    behind with no signal. `runtime-refresh.sh` gates on a monotonic version, so it upgrades
    what is PRESENT and cannot add what is absent — the same present-only limitation that
