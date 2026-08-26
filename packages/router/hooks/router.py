@@ -233,6 +233,13 @@ def command_run_state_path(cwd: str, session_id: str) -> str:
     return os.path.join(root, ".trd-state", "_command-runs", f"{session_id}.json")
 
 
+# How long an `active` run-state record stays believable. Beyond this it degrades
+# to "unknown" (guard ON). 30 minutes matches the staleness window
+# `/implement-trd` already uses for implement.lock, so the framework has one
+# answer to "how long before we stop believing a lock" rather than two.
+ACTIVE_RUN_CEILING_SECONDS = 1800
+
+
 def read_command_run_state(path: str) -> tuple:
     """Read the run-state file at `path`.
 
@@ -259,8 +266,39 @@ def read_command_run_state(path: str) -> tuple:
         return "unknown", None, None
 
     if data.get("state") == "active":
+        # A stale `active` is the guard-OFF failure, and it is the COMMON case, not
+        # an edge one: the router opens a run for ANY prompt starting with "/", but
+        # only the ensemble commands call notify-complete.sh to close it. One
+        # `/code-review`, `/simplify`, `/loop` or `/run` therefore opens a run that
+        # nothing ever closes, and an unbounded `active` suppresses Judgment B for
+        # the remainder of the session — the exact inversion D12 exists to prevent.
+        #
+        # An allowlist of ensemble commands would fix that one cause and miss the
+        # others (TR2's crash and interrupt). Age covers all of them uniformly, so
+        # a run older than the ceiling degrades to "unknown", which by D5 means
+        # Judgment B applies. Fail toward the guard being ON.
+        if _active_is_stale(data.get("ts")):
+            return "unknown", None, None
         return "active", data.get("command"), data.get("feature")
     return "none", None, None
+
+
+def _active_is_stale(ts: object) -> bool:
+    """True when an `active` record is older than ACTIVE_RUN_CEILING_SECONDS.
+
+    An unparseable or absent timestamp counts as stale: the record cannot be
+    shown to be current, and D12's direction is to fail toward the guard being ON.
+    """
+    if not isinstance(ts, str):
+        return True
+    try:
+        recorded = datetime.fromisoformat(ts)
+    except (ValueError, TypeError):
+        return True
+    if recorded.tzinfo is None:
+        recorded = recorded.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - recorded).total_seconds()
+    return age > ACTIVE_RUN_CEILING_SECONDS or age < -ACTIVE_RUN_CEILING_SECONDS
 
 
 def write_command_run_state(path: str, state: dict) -> bool:

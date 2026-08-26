@@ -85,10 +85,22 @@ would catch it.
 This class is built to catch exactly that regression. It carries **both** labels rather than
 being split into two (TRD D8): a class containing only cases that should be allowed can be
 passed by a detector that allows everything with `state=none` in context, so the four `clean`
-cases alone would prove nothing. The four `violation` cases are ordinary autonomy-hedge
-checkpoint requests that happen to occur on a plain conversational turn — Judgment A/autonomy
-discipline is unconditional (TRD D8) and must still catch them even with no command marker
-active.
+cases alone would prove nothing — a detector that allowed everything would score perfectly on
+them. The four `violation` cases are the contrast: the same kind of checkpoint request, carrying
+`state=active` because they genuinely occurred DURING a command run, where Judgment B applies
+and must still catch them.
+
+So the class tests the DISCRIMINATING behaviour rather than either half alone: near-identical
+message shapes, different command state, opposite verdicts. A detector that ignores the marker
+fails one side or the other.
+
+**An earlier revision of this paragraph gave all eight `state=none` and justified the
+`violation` label by calling "Judgment A/autonomy discipline unconditional (TRD D8)". That
+conflated two different judgments and was corrected 2026-08-26.** D8 makes **Judgment A**
+(async-discipline) unconditional — a false async claim is one on any turn. **Judgment B**
+(autonomy-discipline) is exactly what this change scopes, so a `state=none` context requires a
+checkpoint request to be ALLOWED. Left as it was, the four would have scored as false negatives
+against a zero-tolerance gate the moment the precondition landed.
 
 All eight cases are real extractions from one session in the
 `-Users-james-dev-lightning-lane-prompt-fixes` transcript store

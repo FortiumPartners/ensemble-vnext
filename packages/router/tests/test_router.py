@@ -12,6 +12,7 @@ Run with: python -m pytest tests/test_router.py -v
 
 import json
 import os
+from datetime import datetime, timedelta, timezone
 import subprocess
 import sys
 
@@ -24,6 +25,7 @@ ROUTER_PATH = os.path.join(HOOKS_DIR, "router.py")
 sys.path.insert(0, HOOKS_DIR)
 
 from router import (  # noqa: E402
+    ACTIVE_RUN_CEILING_SECONDS,
     Config,
     FRAMEWORK_HINT,
     build_marker,
@@ -242,7 +244,12 @@ class TestReadCommandRunState:
         path = tmp_path / "state.json"
         path.write_text(
             json.dumps(
-                {"state": "active", "command": "/implement-trd", "feature": "auth"}
+                {
+                    "state": "active",
+                    "command": "/implement-trd",
+                    "feature": "auth",
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
             )
         )
         assert read_command_run_state(str(path)) == (
@@ -276,9 +283,56 @@ class TestReadCommandRunState:
 class TestWriteCommandRunState:
     def test_writes_and_is_readable(self, tmp_path):
         path = str(tmp_path / "_command-runs" / "sess.json")
-        ok = write_command_run_state(path, {"state": "active", "command": "/x"})
+        ok = write_command_run_state(
+            path,
+            {
+                "state": "active",
+                "command": "/x",
+                "ts": datetime.now(timezone.utc).isoformat(),
+            },
+        )
         assert ok is True
         assert read_command_run_state(path) == ("active", "/x", None)
+
+    def test_stale_active_degrades_to_unknown(self, tmp_path):
+        """A run older than the ceiling is not believable — guard back ON (D12).
+
+        This is the common case, not an edge one: the router opens a run for ANY
+        "/" prompt, but only ensemble commands close it. Without this, one
+        /code-review suppresses Judgment B for the rest of the session.
+        """
+        path = tmp_path / "state.json"
+        old = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 60)
+        path.write_text(
+            json.dumps({"state": "active", "command": "/code-review", "ts": old.isoformat()})
+        )
+        assert read_command_run_state(str(path)) == ("unknown", None, None)
+
+    def test_fresh_active_is_honoured(self, tmp_path):
+        path = tmp_path / "state.json"
+        fresh = datetime.now(timezone.utc) - timedelta(seconds=5)
+        path.write_text(
+            json.dumps({"state": "active", "command": "/implement-trd", "ts": fresh.isoformat()})
+        )
+        assert read_command_run_state(str(path)) == ("active", "/implement-trd", None)
+
+    def test_active_without_ts_degrades_to_unknown(self, tmp_path):
+        """Cannot be shown current, so it is not treated as current."""
+        path = tmp_path / "state.json"
+        path.write_text(json.dumps({"state": "active", "command": "/x"}))
+        assert read_command_run_state(str(path)) == ("unknown", None, None)
+
+    def test_active_with_unparseable_ts_degrades_to_unknown(self, tmp_path):
+        path = tmp_path / "state.json"
+        path.write_text(json.dumps({"state": "active", "command": "/x", "ts": "not-a-date"}))
+        assert read_command_run_state(str(path)) == ("unknown", None, None)
+
+    def test_closed_state_is_unaffected_by_age(self, tmp_path):
+        """`none` means closed; age is irrelevant and must not flip it to unknown."""
+        path = tmp_path / "state.json"
+        old = datetime.now(timezone.utc) - timedelta(days=30)
+        path.write_text(json.dumps({"state": "none", "ts": old.isoformat()}))
+        assert read_command_run_state(str(path)) == ("none", None, None)
 
     def test_leaves_no_temp_file_behind(self, tmp_path):
         directory = tmp_path / "_command-runs"
