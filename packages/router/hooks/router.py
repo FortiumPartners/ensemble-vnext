@@ -45,9 +45,10 @@ from dataclasses import dataclass
 FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
 
 * FLOW. Bug, minor enhancement, or refactor - anything where the full PRD/TRD
-  pipeline is overkill for the risk? -> /fix <what>: it investigates, writes a
+  pipeline is overkill for the risk? -> /investigate <what>: it investigates, writes a
   light TRD, audits it, then implements and verifies when it is demonstrably
-  safe. PROPOSE /fix instead of prompting-and-editing - an unplanned edit is the
+  safe, and only with --implement. PROPOSE /investigate instead of prompting-and-editing
+  - an unplanned edit is the
   commonest source of bad code here.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; --verify adds the functional loop) ->

@@ -33,13 +33,20 @@ const VERIFICATION_SECTION = {
 /**
  * @param {Object} input
  * @param {'AUTO'|'REVIEW'|'ESCALATE'} input.tier   from fix-sizing.size()
- * @param {boolean} [input.specOnly]                --spec-only was passed
+ * @param {boolean} [input.implement]               --implement was passed. DEFAULT FALSE:
+ *   /investigate investigates and stops. Chaining into work is an explicit request, not a
+ *   consequence of the tier being clean. The tier answers "may this be done unattended?";
+ *   the flag answers "do you want it done?" Collapsing the two is what made --spec-only
+ *   feel like a workaround — it was intent smuggled in as a negation.
+ * @param {boolean} [input.specOnly]                DEPRECATED alias. `specOnly: true` is
+ *   now the default and means nothing; it is still accepted so existing callers and the
+ *   command's own older prose do not break. Ignored when `implement` is given.
  * @param {'defect'|'change'|'refactor'} [input.kind]
  * @param {string} [input.slug]                     for the chain argument
  * @returns {Object} the run plan
  */
 function plan(input) {
-  const { tier, specOnly = false, kind = 'defect', slug = '<slug>' } = input || {};
+  const { tier, implement = false, kind = 'defect', slug = '<slug>' } = input || {};
   if (!['AUTO', 'REVIEW', 'ESCALATE'].includes(tier)) {
     throw new Error(`fix-plan: unknown tier ${JSON.stringify(tier)}`);
   }
@@ -54,15 +61,16 @@ function plan(input) {
 
   // The one condition that matters, and the one the prose kept re-deriving:
   // does work actually BEGIN? Only then does a state pointer or a chain make sense.
-  const workBegins = tier === 'AUTO' && !specOnly;
+  const workBegins = tier === 'AUTO' && implement;
 
   if (!workBegins) {
     return finish({
       writeTrd: true,
-      reason: specOnly && tier === 'AUTO'
-        // There is no failing axis here — every axis passed and the flag is the
-        // reason. Inventing one would report a downgrade the sizing lib never made.
-        ? 'stopped at --spec-only'
+      reason: tier === 'AUTO'
+        // There is no failing axis here — every axis passed, and stopping is simply
+        // what this command does unless asked otherwise. Inventing a failing axis
+        // would report a downgrade the sizing lib never made.
+        ? 'investigation complete — re-run with --implement to build it'
         : 'tier REVIEW — a human approves before implementing',
       kind, slug,
     });

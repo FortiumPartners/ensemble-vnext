@@ -17,13 +17,13 @@ const path = require('path');
 const { parseTrd } = require('./trd-parser');
 
 const REPO = path.resolve(__dirname, '../../..');
-const FIX_MD = path.join(REPO, 'packages/core/commands/fix.md');
+const FIX_MD = path.join(REPO, 'packages/core/commands/investigate.md');
 
 /** Pull the Step 4 TRD template out of the command as it actually ships. */
 function extractTemplate() {
   const src = fs.readFileSync(FIX_MD, 'utf8');
   const m = src.match(/```markdown\n(# TRD:[\s\S]*?)\n```/);
-  if (!m) throw new Error('no TRD template found in fix.md — the Step 4 markdown fence is gone');
+  if (!m) throw new Error('no TRD template found in investigate.md — the Step 4 markdown fence is gone');
   return m[1];
 }
 

@@ -562,7 +562,7 @@ print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in
 # restating it per command — is the failure the fix-plan rework was built to
 # stop: one rule written in seven places disagrees with itself in six.
 
-ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd fix verify-build implement-trd)
+ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd investigate verify-build implement-trd)
 
 @test "L2c: command-status.md defines the artifact convention (dogfood + template)" {
     for f in "${REPO_ROOT}/.claude/rules/command-status.md" \

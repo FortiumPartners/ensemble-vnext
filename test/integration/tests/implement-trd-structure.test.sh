@@ -832,7 +832,7 @@ PY
 @test "--verify derives a success definition without a PRD, preserving deriver isolation" {
     # Before this, --verify on a PRD-less TRD was a SILENT no-op: Step 3.6 recorded
     # "no PRD resolved" and dispatched nothing, Step 8 rendered a not-run report and
-    # made no Workflow call. That makes /fix (item 12) impossible — nothing would
+    # made no Workflow call. That makes /investigate (item 12) impossible — nothing would
     # ever check the bug stopped happening.
     CONTRACT="${REPO_ROOT}/packages/core/contracts/functional-verification.md"
 
@@ -857,8 +857,8 @@ PY
     refute grep -q 'Every row.s .Cites. column names a PRD line or section' "$CONTRACT"
 }
 
-@test "/fix replaces investigate-issue and fix-issue, and cannot bypass its own gate" {
-    FIX="${REPO_ROOT}/packages/core/commands/fix.md"
+@test "/investigate replaces investigate-issue and fix-issue, and cannot bypass its own gate" {
+    FIX="${REPO_ROOT}/packages/core/commands/investigate.md"
     [ -f "$FIX" ]
 
     # The two it replaces are GONE, not left invokable. A retired command that
@@ -895,7 +895,7 @@ PY
     [ -f "${REPO_ROOT}/packages/core/lib/fix-plan.js" ]
 
     # Both verification sources are named — the defect path AND the conversational
-    # path. Omitting either ships that half of /fix unverified.
+    # path. Omitting either ships that half of /investigate unverified.
     grep -q '## Reproduction' "$FIX"
     grep -q '## Intended Change' "$FIX"
 

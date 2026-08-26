@@ -1,18 +1,25 @@
 ---
-name: fix
-description: Defect, minor enhancement, or refactor where the full PRD/TRD pipeline is overkill — investigate, write a light TRD, audit it, and implement when it is demonstrably safe
-version: 1.0.0
-argument-hint: "[description | source path | issue ref] [--spec-only]"
+name: investigate
+description: Investigate a defect, minor enhancement, or refactor where the full PRD/TRD pipeline is overkill — reproduce, root-cause, write a light TRD and audit it. Stops there unless --implement is passed.
+version: 2.0.0
+argument-hint: "[description | source path | issue ref] [--implement]"
 category: implementation
 ---
 
-> **Usage:** `/fix <what>` — or bare `/fix` to write up something decided in this conversation.
+> **Usage:** `/investigate <what>` — or bare `/investigate` to write up something decided in
+> this conversation.
+>
+> **It investigates and STOPS.** You get a root cause, a light TRD and an audit. Building it is
+> a separate, explicit request: pass `--implement`, or run `/implement-trd` on the TRD yourself.
 >
 > **Arguments:**
-> - `<description>` — a sentence: `/fix the 500 on /api/session when the token expires`
+> - `<description>` — a sentence: `/investigate the 500 on /api/session when the token expires`
 > - `<source>` — a bug report, Jam link, GH issue ref, stack trace, log excerpt. **Prefer this**: a written report already carries steps, environment and actual-vs-expected.
 > - *(bare)* — read this conversation for a decided change
-> - `--spec-only` — stop after the TRD regardless of tier
+> - `--implement` — after the audit, chain into `/implement-trd --verify`. Honoured only at
+>   tier AUTO; REVIEW and ESCALATE still stop, because the tier is a permission and this flag
+>   is only an intent.
+> - `--implement` — deprecated no-op. Stopping is now the default.
 
 ---
 
@@ -60,8 +67,8 @@ decision. Step 3 detects that and sends you to `/create-prd`.
 
 ## Step 1: Establish the subject
 
-**Strip the flags from the argument first.** `--spec-only` is not part of the subject.
-`/fix the login copy is wrong --spec-only` has the subject *"the login copy is wrong"*;
+**Strip the flags from the argument first.** `--implement` is not part of the subject.
+`/investigate the login copy is wrong --implement` has the subject *"the login copy is wrong"*;
 leaving the flag in puts it into the stated subject line and into the TRD's slug.
 
 | Input (after flag-stripping) | Subject from |
@@ -96,10 +103,10 @@ so a conversation containing exactly one *unusable* subject sailed through. The 
 User: the dashboard feels sluggish
 User: I dunno, it just doesn't feel as snappy as it used to. Maybe it's fine.
 User: hmm. anyway
-User: /fix
+User: /investigate
 ```
 
-One candidate, so the count test passed, and `/fix` would have specced a problem the user had
+One candidate, so the count test passed, and `/investigate` would have specced a problem the user had
 just **withdrawn**. Later gates would have caught it — a non-reproducible defect stops at
 REVIEW (Step 2a), and a definition deriving zero criteria caps the tier — but only after a
 full investigation, and the artifact would still be a plausible-looking TRD for a
@@ -117,12 +124,12 @@ Read the subject only. If it is plainly not small work — "redesign the dashboa
 anything naming a new subsystem — stop now:
 
 ```
-═══ COMMAND COMPLETE: /fix ═══
+═══ COMMAND COMPLETE: /investigate ═══
 Not light-path work: <why>. Use /create-prd — or narrow the ask to one behaviour and re-run.
 ```
 
 **Name the narrower version if there is one.** "Add SSO" has no small form; "redesign the
-dashboard" often does — *"if you meant just the export button's placement, that is a `/fix`."*
+dashboard" often does — *"if you meant just the export button's placement, that is a `/investigate`."*
 Refusing is guidance; refusing without naming the smaller door is a dead end.
 
 **This gate may only REJECT, never accept.** Accepting requires the investigation, because
@@ -167,7 +174,7 @@ structure is better**. So the investigation is different in kind:
    the TRD and then stop, which is more work than aborting at this step. A literal reader
    would have produced no artifact at all.)
 
-   Writing tests first is a legitimate separate `/fix` — and as a `change`, where
+   Writing tests first is a legitimate separate `/investigate` — and as a `change`, where
    `addsCoverage` does satisfy the coverage axis — and it is a better one than refactoring
    blind.
 3. **Name what the refactor must NOT change** — the public surface, the call signature, the
@@ -183,7 +190,7 @@ writing it up without re-grounding enshrines whatever was assumed mid-conversati
 
 ### 2f. A blocker sitting IN THE PATH of the fix is part of the fix
 
-**Absorb it. Do not bounce the user to another `/fix` for it.**
+**Absorb it. Do not bounce the user to another `/investigate` for it.**
 
 When the investigation turns up a defect that must be repaired before the requested work is
 possible — a broken path the fix depends on, a dangling reference, a red test that would mask
@@ -192,7 +199,7 @@ whole thing. One invocation, one artifact, one run.
 
 **Why this rule exists.** Measured 2026-08-25: a request for a `/rebase-project` smoke scenario
 turned up three defects in that command's own path. The run escalated and handed back a list of
-follow-up `/fix` invocations — one per blocker. That is precisely the chat-and-edit loop this
+follow-up `/investigate` invocations — one per blocker. That is precisely the chat-and-edit loop this
 command replaces, with extra ceremony: the user asked for one thing and received homework.
 
 **The test is dependency, not tidiness.** Absorb what the requested work cannot proceed
@@ -315,7 +322,7 @@ way.**
 
 | Tier | Then |
 |---|---|
-| **AUTO** | write the TRD, audit it, chain into `/implement-trd` — **unless `--spec-only`, which stops after the audit** |
+| **AUTO** | write the TRD, audit it, chain into `/implement-trd` — **unless `--implement`, which stops after the audit** |
 | **REVIEW** | write the TRD, audit it, stop, report the tier, the reason, and the remedy |
 | **ESCALATE** | stop, name the failing axis AND its remedy, point at `/create-prd` |
 
@@ -325,7 +332,7 @@ that says "no, because X, and here is what changes X" leaves the owner in contro
 every remedy is something they choose to do or not.
 
 A REVIEW that says *"no tests on the touched files"* is a verdict. The same REVIEW adding
-*"land tests for the current behaviour as a separate `/fix`, then re-run — or run
+*"land tests for the current behaviour as a separate `/investigate`, then re-run — or run
 `/implement-trd` yourself"* is a next step. Report the second.
 
 ---
@@ -411,7 +418,7 @@ this change, which is the point: two tasks of one fix must not rediscover its ap
 independently.
 
 **This took three attempts and the first two fixed nothing** — worth knowing, because both
-looked right. "Repeat it in every task's prompt" failed because `/fix` never writes task
+looked right. "Repeat it in every task's prompt" failed because `/investigate` never writes task
 prompts; `/implement-trd` does, and its placeholder list had no Decision element. Repeating it
 as a `**Follow:**` bullet did work, but only if the author hand-copied it into every block —
 and under a field whose own instruction calls it *"an existing pattern in this repository"*,
@@ -465,13 +472,13 @@ should be safe to run twice. `test/smoke/scenarios/hooks-health.sh` shows the pa
 isolated temp `cwd`.
 
 **Write `.trd-state/current.json` only when work is actually starting** — tier AUTO **and**
-no `--spec-only` — `{prd: null, trd: "<path>", branch: "<branch>"}`.
+no `--implement` — `{prd: null, trd: "<path>", branch: "<branch>"}`.
 
 Key it on whether work begins, not on the tier. An earlier version said "only when the tier is
-AUTO", which instructed writing the pointer on an AUTO `--spec-only` run — a run that
+AUTO", which instructed writing the pointer on an AUTO `--implement` run — a run that
 deliberately starts nothing — contradicting its own reason two sentences later.
 
-On REVIEW, ESCALATE, or `--spec-only`, no work is starting, and `current.json` answers "what are we working
+On REVIEW, ESCALATE, or `--implement`, no work is starting, and `current.json` answers "what are we working
 on?" for the SessionStart banner, the dispatch ledger and `notify-complete.sh`. Overwriting a
 live pointer for work that is not beginning loses the real answer and replaces it with a
 false one. Report the TRD path in the banner instead; `/implement-trd` writes the pointer
@@ -511,7 +518,7 @@ fix them. **`advisories`** are observations, such as a declared `kind` that does
 the TRD's verification section; they never set `ok: false`. **Report an advisory in one line
 and continue.** It exists so the reader sees what you noticed, not so you can refuse.
 
-**Do not hand-roll these.** The first live `/fix` run wrote them as an ad-hoc script and got
+**Do not hand-roll these.** The first live `/investigate` run wrote them as an ad-hoc script and got
 `task.serves` wrong — it is an ARRAY, and comparing it as a string reported two false failures
 on a correct TRD. A false failure is worse than a missing check: it invites "fixing" a good
 document to satisfy a broken test.
@@ -559,7 +566,7 @@ node -e '
   const { plan } = require("./.claude/lib/fix-plan");
   console.log(JSON.stringify(plan({
     tier: "AUTO",           // from Step 3.2
-    specOnly: false,        // was --spec-only passed?
+    implement: false,       // was --implement passed? DEFAULT FALSE — stopping is the norm
     kind: "defect",         // defect | change | refactor
     slug: "<slug>"
   }), null, 2));
@@ -575,7 +582,7 @@ Then do exactly what it returns, and nothing else:
 | `chain` + `chainArgs` | `Skill({ skill: "implement-trd", args: chainArgs })` |
 | `handoffLine` | emit before chaining |
 | `banner` / `bannerBody` | emit as the LAST line — **or `null`, meaning emit nothing** |
-| `notify` | run `.claude/hooks/notify-complete.sh "fix" "complete" "<summary>"` |
+| `notify` | run `.claude/hooks/notify-complete.sh "investigate" "complete" "<summary>"` |
 | `verificationSection` | which TRD section carries the success definition, per kind |
 
 **Do not re-derive any of this in prose, and do not second-guess a `null` banner.**
@@ -585,7 +592,7 @@ session, so control returns here when it finishes — **when it does, the run is
 nothing.**
 
 **Why this is a lib call and not a table you read.** These six outputs were prose in five
-different places and disagreed with each other in four of them: `--spec-only` was honoured in
+different places and disagreed with each other in four of them: `--implement` was honoured in
 one branch, the pointer was keyed on the tier rather than on whether work begins, the handoff
 was numbered `PHASE 1/2` (inviting a second banner after `/implement-trd`'s), and the
 completion signal had no guard at all — so a chained run told webhooks "complete" at the
@@ -615,17 +622,17 @@ banner. A failed publish is one line of prose and nothing more; it never blocks 
 
 The banner is the LAST line of the final turn, nothing after it. **Step 6's plan decides
 whether you emit one at all** — `banner: null` means emit nothing. On unrecoverable failure use
-`═══ COMMAND STUCK: /fix ═══` with `Reason:` and `Next:`.
+`═══ COMMAND STUCK: /investigate ═══` with `Reason:` and `Next:`.
 
 ```bash
-.claude/hooks/notify-complete.sh "fix" "complete" "<one-line summary>"
+.claude/hooks/notify-complete.sh "investigate" "complete" "<one-line summary>"
 ```
 
 **Never on a chained AUTO run.** This helper signals completion to webhooks, queues and tmux
 panes, and `command-status.md` Path B requires it fire **exactly once, at the actual
 completion moment, never during dispatch**. On a chained run the work is just *beginning* at
 handoff — `/implement-trd` fires its own. Call this only on the paths that genuinely end here:
-the Step 1.1 early reject, and REVIEW / ESCALATE / `--spec-only`.
+the Step 1.1 early reject, and REVIEW / ESCALATE / `--implement`.
 
 Call it on the Step 1.1 early reject too. That path ends the command as surely as the others,
 and skipping it there makes the completion signal depend on *which* way the command finished.

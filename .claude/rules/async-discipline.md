@@ -106,7 +106,7 @@ enforces.
 
 **As of 2026-08-22 NO command in this framework spawns teammates.** `/harden-trd-team` and
 `/verify-trd-team` went in 4.1.16 (ITR-B012 — their adversarial pass and E2E gate moved into
-the `/implement-trd` loop), and `/fix-issue`, the last one, was replaced by `/fix` when item 12
+the `/implement-trd` loop), and `/fix-issue`, the last one, was replaced by `/fix` (renamed `/investigate` in 2.0.0) when item 12
 landed. `/implement-trd` states explicitly that it uses no `Agent({name, team_name})`.
 
 The guidance above therefore governs any teammate an AGENT spawns, not a command — the
