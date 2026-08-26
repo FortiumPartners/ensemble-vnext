@@ -10,6 +10,91 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.1.24] - 2026-08-26
+
+### Changed
+
+- **BREAKING: `/fix` is now `/investigate`, and it stops by default.** The capability already
+  existed as `--spec-only`; the default was wrong. Owner's actual use is *"I want to understand
+  an issue, I may or may not want to kick off the fix."*
+
+  The tier used to answer two questions at once — *is this safe unattended?* and *do you want it
+  done?* They are now split, and each is honest on its own:
+
+  | | |
+  |---|---|
+  | tier | **permission** — `AUTO` means `--implement` will be honoured |
+  | `--implement` | **intent** — `REVIEW` and `ESCALATE` still refuse it |
+
+  That is why `--spec-only` always felt like a workaround: it was intent smuggled in as a
+  negation. `fix-plan.js` now reads `tier === 'AUTO' && implement`. `--spec-only` is accepted as
+  a deprecated no-op.
+
+  This does **not** re-split what 4.1.21 merged. That commit's argument was one investigation
+  pipeline with a tier that owns safety, and all of it survives — one command, one
+  investigation, one tier, same four axes. Only who decides to proceed moved. The `fix-*.js`
+  libs keep their names deliberately: they are internal, "the light-path libs" is still
+  accurate, and renaming them would have tripled the blast radius for no user-visible gain.
+
+- **`async-discipline.md` no longer benchmarks against a retired metric.** It told readers to
+  verify the response-contract fix by counting against `31/251 (~12%)` — a figure taken under a
+  metric `hook-verdict-rate.js` itself retired on 2026-08-18, its header calling the old framing
+  *"wrong and actively misleading"* because it counted every `hookErrors` entry as a prose leak
+  when most are blocks being delivered normally.
+
+  The file now carries the current measurement (957 evaluations, 100 blocks 10.4%, 3 anomalous
+  allows 0.3%) and states plainly that the two are not comparable. It does **not** claim the fix
+  held — that is unestablished, and the like-for-like is unavailable: the two older transcripts
+  in that project return 0 blocks / 0 allows over 596 evaluations because they predate the
+  prompt-type hooks. What it does surface is the verdict that is live: **at 10.4% the block rate
+  is over the tool's own 8% ceiling.**
+
+- **`/goal` is no longer presented as interchangeable with the other three async primitives.**
+  It is the only one with no bound of its own — measured at 114 re-invocations across 15 chains,
+  longest 17 consecutive, 10 past the platform's 8-block cap, while the discipline hooks in the
+  same session bounded at **2**. Caveated at all four recommendation sites, including
+  `packages/core/templates/constitution.md.template`, which `/init-project` renders into every
+  new project. `constitution.md` logs it as 1.3.1 and states the consequence; the measurement
+  lives in `async-discipline.md`.
+
+### Added
+
+- **Stop-hook blocks are now visually bracketed.** The platform composes a block as
+  `Stop hook feedback: [<the entire configured prompt>]: <reason>`, so every block dumps 7 KB
+  into the transcript with the `]:` separating prompt from verdict invisible in the wall of
+  text. The shape is upstream (#62139); the prompt string is ours, so its first and last lines
+  are now banners — bold yellow open, bold cyan close, ANSI verified to survive the whole chain
+  and render in the TUI.
+
+  The closing banner **carries** the response contract rather than following it. `55f1a5c` fixed
+  judges answering in prose by making `RESPONSE_CONTRACT_BLOCK` the last thing read; a
+  decorative line after it would have put a non-instruction last again and re-opened that bug.
+
+- **Argument guards in `verify-functional.js`, and the caller that dropped one.** `statePath`
+  and `checker` threw `TypeError: Cannot read properties of undefined` — naming a JS internal
+  rather than the missing field — while `reportPath`, `evidenceDir` and `since` passed silently
+  and reached dispatched agents as the literal string `undefined`, so a run could complete and
+  report a result derived from a corrupted prompt.
+
+  The guards alone would not have restored the command. `verify-build.md:112` dispatched as
+  `args: {…}` — a literal placeholder — pointing at "every field §3.3 names" across two
+  documents without naming any; `grep` for the four argument names across all 170 lines returned
+  **zero**. That reconstruction is how `statePath` went missing, and it was non-deterministic.
+  Absorbed into the same change.
+
+- **`docs/modernization/probes/U7-injected-context-marker.md`.** Four questions settled: a flag
+  file is unreadable by the judge (`NO_TOOL_ACCESS`, resolving a live contradiction between the
+  U2 and U5 probes in U5's favour for `prompt`-type hooks); the `UserPromptSubmit` payload
+  carries `session_id`; the `Stop` hook fires reliably under `--print` (5/5 — a missing record is
+  a silent `ok: true`, not a missed evaluation); and **the judge acts on the last injected
+  marker**, with markers accumulating across a session.
+
+- **PRD and TRD for the autonomy-judge command scope — specs only, nothing built.** Judgment B
+  evaluates every `Stop` as though a command were mid-run, because `autonomy.md`'s "applies to
+  every workflow command" scope never reached the prompt. Measured false positives include a bare
+  `pwd` answer, the single word `Idle.`, and two direct answers to the owner's own repeated
+  question. Phase 1's gate has passed; the change is unbuilt.
+
 ## [4.1.23] - 2026-08-24
 
 ### Added
