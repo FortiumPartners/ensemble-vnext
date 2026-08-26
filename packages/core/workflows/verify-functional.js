@@ -60,8 +60,17 @@ const CONTRACT = a.contract || ''
 const NOTES = a.notes || ''
 const STACK_HINTS = a.stackHints || ''
 const EVIDENCE_DIR = a.evidenceDir
+if (!EVIDENCE_DIR) {
+  throw new Error('verify-functional: args.evidenceDir (the evidence directory) is required')
+}
 const CHECKER = a.checker
+if (!CHECKER) {
+  throw new Error('verify-functional: args.checker (the checker CLI path) is required')
+}
 const SINCE = a.since
+if (!SINCE) {
+  throw new Error('verify-functional: args.since (the evidence freshness floor) is required')
+}
 const CAP = a.cap
 if (!Number.isInteger(CAP) || CAP < 1) {
   // Unvalidated, a missing/non-numeric cap makes `iteration <= CAP` false on the very first
@@ -72,7 +81,13 @@ if (!Number.isInteger(CAP) || CAP < 1) {
   throw new Error('verify-functional: args.cap is required and must be a positive integer (the iteration cap, ordinarily 3)')
 }
 const STATE_PATH = a.statePath
+if (!STATE_PATH) {
+  throw new Error('verify-functional: args.statePath (the state file path) is required')
+}
 const REPORT_PATH = a.reportPath
+if (!REPORT_PATH) {
+  throw new Error('verify-functional: args.reportPath (the report file path) is required')
+}
 // Finding A (FV-B005): renderReport()'s header needs feature/prd/definitionPath and nothing
 // in §3.3's original interface supplied them -- every report rendered "undefined" for all
 // three. Resolved by adding them to VerifyFunctionalArgs (this is the one place the judge,

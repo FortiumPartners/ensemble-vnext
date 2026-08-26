@@ -638,6 +638,48 @@ describe('verify-functional: args.cap validation', () => {
   });
 });
 
+describe('verify-functional: required-argument guards', () => {
+  it('throws naming evidenceDir when args.evidenceDir is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.evidenceDir;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.evidenceDir/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming checker when args.checker is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.checker;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.checker/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming since when args.since is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.since;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.since/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming statePath when args.statePath is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.statePath;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.statePath/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming reportPath when args.reportPath is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.reportPath;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.reportPath/);
+    expect(agent.calls).toHaveLength(0);
+  });
+});
+
 // --------------------------------------------------------------------------- project scoping
 
 describe('verify-functional: args.project scoping', () => {

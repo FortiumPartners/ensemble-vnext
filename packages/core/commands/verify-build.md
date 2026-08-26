@@ -70,6 +70,13 @@ a second copy of an argument list is a second copy to drift.
 - `.claude/verification-notes.md`, the stack hints, the contract text, `.claude/rules/verification.md`
 - `.trd-state/<feature>/verification-state.json` — for `--resume`
 - `since` — resolved per §8.3
+- **`prd_path`** — bind it HERE, on both branches, because §4's dispatch passes it and 3a only
+  runs on one branch. Read `.trd-state/<feature>/implement.json`'s
+  `functional_verification.prd_path` when that file and key exist; otherwise `""`. When 3a runs,
+  it overwrites this with the source it resolved. It is a **display string for the report
+  header** — nothing resolves it to a file — so an empty value degrades the header and nothing
+  else. Leaving it unbound is what does damage: it renders as `undefined`, the exact
+  Finding-A shape `verify-functional.js` lines 76-81 record.
 
 ### 3a. Absent definition → derive it, in the FOREGROUND
 
@@ -109,9 +116,28 @@ held here. They did not.
 
 ### 4. Dispatch
 
-One `Workflow({ name: "verify-functional", args: {…} })`. Every field §3.3 of
-`docs/TRD/functional-verification.md` names, including `resume`. `--cap N` overrides the
-iteration cap; default 3.
+All 15 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+command's own resolution (Steps 1–3a), not copied from `/implement-trd`:
+
+```javascript
+Workflow({ name: "verify-functional", args: {
+  criteria,                                                    // §3, from success-definition.md
+  contract,                                                    // packages/core/contracts/functional-verification.md text
+  notes,                                                        // .claude/verification-notes.md text, or ""
+  stackHints,                                                   // stack.md + CLAUDE.md excerpts
+  evidenceDir: ".trd-state/<feature>/evidence",
+  checker: ".claude/lib/functional-verification.js",
+  since,                                                         // resolved per implement-trd.md §8.3 -- max(HEAD commit time, loop start)
+  cap: capArg ?? 3,                                              // "--cap N" overrides; default 3
+  statePath: ".trd-state/<feature>/verification-state.json",
+  reportPath: ".trd-state/<feature>/verification-report.md",
+  resume,                                                        // from verification-state.json when --resume and its outcome is null; else null
+  project: "",                                                   // set only when the TRD targets a codebase other than this repo
+  feature: "<feature>",                                          // TRD basename (Step 1) -- renderReport()'s header
+  prd: prd_path,                                                 // bound in Step 3 (implement.json's functional_verification.prd_path, or ""), overwritten by 3a when it runs
+  definitionPath: ".trd-state/<feature>/success-definition.md",  // present (Step 3), or just-derived (Step 3a)
+} })
+```
 
 ### 5. Report
 

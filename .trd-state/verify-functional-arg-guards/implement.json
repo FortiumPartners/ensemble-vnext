@@ -1,0 +1,69 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verify-functional-arg-guards.md",
+  "trd_hash": "46f2c0408b95054d09dabbed7c7f41d3f83a0c8259fc1cc43114181ddce4423f",
+  "branch": "feature/verify-functional-arg-guards/fix",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-003": {
+      "description": "Replace the args {…} placeholder at verify-build.md:112 with the complete literal 15-field argument object, in both copies",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T03:02:14.169Z",
+      "completed_at": "2026-08-26T03:26:38.839Z",
+      "last_advanced": "2026-08-26T03:03:21.516Z"
+    },
+    "FIX-001": {
+      "description": "Add fail-loud one-liner guards for statePath, reportPath, evidenceDir, checker and since, in both copies of the workflow",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T03:02:14.170Z",
+      "completed_at": "2026-08-26T03:26:38.839Z",
+      "last_advanced": "2026-08-26T03:03:21.521Z"
+    },
+    "FIX-002": {
+      "description": "Add a test case per newly-guarded argument asserting the named-error behaviour",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T03:02:14.170Z",
+      "completed_at": "2026-08-26T03:26:38.839Z",
+      "last_advanced": "2026-08-26T03:03:21.521Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/verify-functional-arg-guards.md ## Reproduction"
+  }
+}
