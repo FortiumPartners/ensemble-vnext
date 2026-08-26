@@ -877,6 +877,13 @@ directly.
 
 ## Could Not Verify
 
+
+
+**Added 2026-08-26, after the `/fix` → `/investigate` rename (commit `3175098`).**
+
+| Claim | Why it is open | How to settle it |
+|-------|----------------|------------------|
+| Judgment B distinguishes **a command that stops without asking anything** from **a command that stops to ask**. The rename made `/investigate` stop by default at tier AUTO — a command deliberately declining to chain into the next one. That is correct behaviour and the opposite of "commands flow without stopping", so a precondition that keys on "a command is running" must not read a clean AUTO-tier stop as a pause. Nothing in the TRD states this, and no corpus case covers it | The distinction is between *stopping* and *stopping to ask*. `/investigate`'s AUTO stop emits a COMMAND COMPLETE banner and hands back no decision; the violation shape hands back a decision. Untested — the corpus has no `command-stopped-cleanly` case | Add a corpus case from a real `/investigate` AUTO-tier run's final message, labelled `clean`, and confirm it survives PRE/POST in `compare-runs.js` |
 **State after the 2026-08-25 audit** (5 of 5 verifiers reported; source of truth
 `docs/PRD/autonomy-judge-command-scope.md`). Everything below is still unverified. Nothing was
 removed from this list by that audit, because every entry needs a live session or a corpus run
