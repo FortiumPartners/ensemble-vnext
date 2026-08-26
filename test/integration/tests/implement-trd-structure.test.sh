@@ -597,20 +597,23 @@ PY
 }
 
 @test "the autonomy JUDGE PROMPT covers non-interrogative deferrals" {
-    # The guard is a model judge, not a regex -- but its prompt carried six
-    # exemplars and every one ended in a question mark. It told the judge to
-    # "judge the reasoning, not the vocabulary" and then anchored it entirely on
-    # interrogatives, so declarative deferrals passed. Measured: the same
-    # investigation was offered as "say the word and I'll settle it" twice, two
-    # turns apart, and this guard allowed both.
-    # autonomy-discipline was merged into the combined Stop prompt (FIX-002,
-    # docs/TRD/judge-prompt-generative-rule.md) -- the text this test asserts on
-    # is unchanged, just relocated into discipline-stop.prompt.md.
+    # The guard is a model judge, not a regex -- but its prompt once carried six exemplars
+    # and every one ended in a question mark. It told the judge to "judge the reasoning, not
+    # the vocabulary" and then anchored it entirely on interrogatives, so declarative
+    # deferrals passed. Measured: the same investigation was offered as "say the word and
+    # I'll settle it" twice, two turns apart, and this guard allowed both.
+    #
+    # Asserts the INTENT, not the prose. The 2026-08-25 shortening cut the prompts by ~80%
+    # after the owner reported the length itself was the product defect ("I'd rather disable
+    # these hooks"). A test pinned to exact sentences makes the prompt unshortenable, which
+    # is the opposite of what is wanted -- so it checks that the declarative form is covered
+    # and that the principle is stated, by whatever wording.
     P="${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.prompt.md"
-    grep -q 'THE VIOLATION IS OFTEN NOT A QUESTION' "$P"
-    grep -q "Say the word and I'll fix the config" "$P"
-    # The principle, not another phrase to match on.
-    grep -qi 'The test is not the grammar' "$P"
+    [ -f "$P" ]
+    # a declarative (non-question) offer appears as an example
+    grep -qi "say the word" "$P"
+    # and the principle that grammar is not the test
+    grep -qiE 'grammar is irrelevant|not the grammar|same move' "$P"
     # Generated from the generator, never hand-edited.
     grep -q 'autonomy-discipline' "${REPO_ROOT}/packages/core/hooks/prompts/build-judge-prompts.js"
 }
