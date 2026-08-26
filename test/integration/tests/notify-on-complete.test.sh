@@ -187,6 +187,121 @@ JSON
 }
 
 # =============================================================================
+# Layer 1b — Command-run state close (AJCS-B004)
+# =============================================================================
+# router.py (AJCS-B003) opens `.trd-state/_command-runs/<session-id>.json`
+# with {"state":"active",...} on a slash-command prompt. This helper must
+# close it with {"state":"none"} on EVERY invocation — complete and stuck
+# alike — and BEFORE the NOTIFY_ON_COMPLETE early-exit, or a run that never
+# configured NOTIFY_ON_COMPLETE would never get its marker closed.
+
+@test "L1b: state file written to state=none even when NOTIFY_ON_COMPLETE is unset" {
+    cd "$TMP_PROJECT"
+    unset NOTIFY_ON_COMPLETE
+    export CLAUDE_SESSION_ID="sess-unset-complete"
+
+    run "$HELPER" "implement-trd" "complete" "done"
+    [ "$status" -eq 0 ]
+
+    local state_file=".trd-state/_command-runs/sess-unset-complete.json"
+    [ -f "$state_file" ]
+    grep -q '"state":"none"' "$state_file"
+}
+
+@test "L1b: state file written to state=none on stuck status" {
+    cd "$TMP_PROJECT"
+    unset NOTIFY_ON_COMPLETE
+    export CLAUDE_SESSION_ID="sess-stuck"
+
+    run "$HELPER" "implement-trd" "stuck" "AUTH-B005 failed 3 retries"
+    [ "$status" -eq 0 ]
+
+    local state_file=".trd-state/_command-runs/sess-stuck.json"
+    [ -f "$state_file" ]
+    grep -q '"state":"none"' "$state_file"
+}
+
+@test "L1b: state file written to state=none even when NOTIFY_ON_COMPLETE IS set (before early-exit path)" {
+    cd "$TMP_PROJECT"
+    export CLAUDE_SESSION_ID="sess-with-notify"
+    export NOTIFY_ON_COMPLETE="true"
+
+    run "$HELPER" "implement-trd" "complete" "done"
+    [ "$status" -eq 0 ]
+
+    local state_file=".trd-state/_command-runs/sess-with-notify.json"
+    [ -f "$state_file" ]
+    grep -q '"state":"none"' "$state_file"
+}
+
+@test "L1b: CLAUDE_SESSION_ID of 'unknown' writes NOTHING rather than unknown.json" {
+    cd "$TMP_PROJECT"
+    unset CLAUDE_SESSION_ID
+    unset NOTIFY_ON_COMPLETE
+
+    run "$HELPER" "x" "complete" "y"
+    [ "$status" -eq 0 ]
+
+    [ ! -d ".trd-state/_command-runs" ] || [ ! -f ".trd-state/_command-runs/unknown.json" ]
+}
+
+@test "L1b: state-file write failure does NOT change exit status" {
+    cd "$TMP_PROJECT"
+    export CLAUDE_SESSION_ID="sess-readonly"
+    export NOTIFY_ON_COMPLETE="true"
+
+    # Make .trd-state unwritable so mkdir -p for _command-runs fails, forcing
+    # the state-close path to fail. The helper must still exit with the
+    # user command's status (0 for `true`), never a nonzero status caused by
+    # the state-write failure itself.
+    mkdir -p .trd-state
+    chmod 555 .trd-state
+
+    run "$HELPER" "x" "complete" "y"
+    [ "$status" -eq 0 ]
+
+    chmod 755 .trd-state
+}
+
+@test "L1b: rejects a malformed CLAUDE_SESSION_ID as a path component (security)" {
+    cd "$TMP_PROJECT"
+    unset NOTIFY_ON_COMPLETE
+    export CLAUDE_SESSION_ID='../../etc/passwd'
+
+    run "$HELPER" "x" "complete" "y"
+    [ "$status" -eq 0 ]
+
+    # No file was written anywhere under .trd-state/_command-runs, and
+    # nothing escaped it via path traversal. The escaped path this session id
+    # would actually produce is
+    # `.trd-state/_command-runs/../../etc/passwd.json` == `$PWD/etc/passwd.json`
+    # — assert on THAT, not on a path the helper could never have written
+    # (an assertion that passes whatever the helper does proves nothing).
+    if [ -d ".trd-state/_command-runs" ]; then
+        [ -z "$(find .trd-state/_command-runs -type f)" ]
+    fi
+    [ ! -e "etc" ]
+    [ ! -e "etc/passwd.json" ]
+    [ ! -e "../etc" ]
+}
+
+@test "L1b: a traversal that lands on an EXISTING directory is still rejected" {
+    cd "$TMP_PROJECT"
+    unset NOTIFY_ON_COMPLETE
+    # `../../etc/passwd` alone is a weak probe: the escaped path's parent
+    # (`$PWD/etc`) does not exist, so `mv` fails and the traversal leaves no
+    # trace whether or not the guard is present. `../pwned` escapes into
+    # `.trd-state/`, which mkdir -p has just created — so an unguarded helper
+    # DOES write a file there, and this assertion can actually fail.
+    export CLAUDE_SESSION_ID='../pwned'
+
+    run "$HELPER" "x" "complete" "y"
+    [ "$status" -eq 0 ]
+
+    [ ! -e ".trd-state/pwned.json" ]
+}
+
+# =============================================================================
 # Layer 2 — Documentation / contract
 # =============================================================================
 

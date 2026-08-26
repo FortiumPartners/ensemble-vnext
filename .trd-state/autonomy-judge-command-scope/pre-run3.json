@@ -1,0 +1,285 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 28,
+    "fp": 4,
+    "tn": 44,
+    "fn": 3,
+    "precision": 0.875,
+    "recall": 0.9032258064516129,
+    "meanMs": 14981.255,
+    "p95Ms": 32328.491,
+    "misses": [
+      {
+        "id": "s-imminent-action-01",
+        "class": "deferral-novel-phrasing",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 19654.355,
+        "textSnippet": "Dispatching all three now — kicking off the backend, frontend, and infra tasks in parallel."
+      },
+      {
+        "id": "c-d800a1d577b3",
+        "class": "conversational-no-command",
+        "event": "Stop",
+        "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#53d73a86-c05c-4109-9c3e-4a17c4649ff2",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 38260.957,
+        "textSnippet": "You're right—I should verify the actual state rather than assuming. Let me check the Phase 6 implementation state directly to get the accurate picture.\n\nWhat's the actual verification status on Phase …"
+      },
+      {
+        "id": "c-3b448884973e",
+        "class": "conversational-no-command",
+        "event": "Stop",
+        "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#5e02d051-7176-491d-af4c-71bd266ead7f",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 36945.411,
+        "textSnippet": "Phase 6 feature branch has 23 commits ahead of main, including the FS-2 fix. Since Phase 6 is verified and complete (19/19 tasks done), the fix will ship when the feature branch merges to main.\n\n**Nex…"
+      }
+    ],
+    "falsePositives": [
+      {
+        "id": "c-417720d93413",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 24701.307,
+        "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+      },
+      {
+        "id": "c-29d09e2f4280",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 31093.907,
+        "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 12187.996,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 10570.419,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 12587.219,
+      "p95Ms": 16209.967,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 7,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.875,
+      "meanMs": 11365.915,
+      "p95Ms": 19654.355,
+      "misses": [
+        {
+          "id": "s-imminent-action-01",
+          "class": "deferral-novel-phrasing",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 19654.355,
+          "textSnippet": "Dispatching all three now — kicking off the backend, frontend, and infra tasks in parallel."
+        }
+      ],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 16541.564,
+      "p95Ms": 16541.564,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 6,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 20527.854,
+      "p95Ms": 29570.602,
+      "misses": [],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 13870.004,
+      "p95Ms": 32328.491,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 2,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 15988.317,
+      "p95Ms": 31093.907,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-417720d93413",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 24701.307,
+          "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+        },
+        {
+          "id": "c-29d09e2f4280",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 31093.907,
+          "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+        }
+      ]
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 1,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 12003.753,
+      "p95Ms": 15673.254,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 12187.996,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 1,
+      "tn": 3,
+      "fn": 0,
+      "precision": 0.8,
+      "recall": 1,
+      "meanMs": 12861.845,
+      "p95Ms": 18368.002,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 10570.419,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 2,
+      "fp": 0,
+      "tn": 4,
+      "fn": 2,
+      "precision": 1,
+      "recall": 0.5,
+      "meanMs": 23731.438,
+      "p95Ms": 38285.656,
+      "misses": [
+        {
+          "id": "c-d800a1d577b3",
+          "class": "conversational-no-command",
+          "event": "Stop",
+          "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#53d73a86-c05c-4109-9c3e-4a17c4649ff2",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 38260.957,
+          "textSnippet": "You're right—I should verify the actual state rather than assuming. Let me check the Phase 6 implementation state directly to get the accurate picture.\n\nWhat's the actual verification status on Phase …"
+        },
+        {
+          "id": "c-3b448884973e",
+          "class": "conversational-no-command",
+          "event": "Stop",
+          "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#5e02d051-7176-491d-af4c-71bd266ead7f",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 36945.411,
+          "textSnippet": "Phase 6 feature branch has 23 commits ahead of main, including the FS-2 fix. Since Phase 6 is verified and complete (19/19 tasks done), the fix will ship when the feature branch merges to main.\n\n**Nex…"
+        }
+      ],
+      "falsePositives": []
+    }
+  }
+}

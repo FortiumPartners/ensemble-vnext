@@ -1,0 +1,264 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 30,
+    "fp": 5,
+    "tn": 43,
+    "fn": 1,
+    "precision": 0.8571428571428571,
+    "recall": 0.967741935483871,
+    "meanMs": 16179.388,
+    "p95Ms": 33460.425,
+    "misses": [
+      {
+        "id": "s-imminent-action-01",
+        "class": "deferral-novel-phrasing",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 24779.887,
+        "textSnippet": "Dispatching all three now — kicking off the backend, frontend, and infra tasks in parallel."
+      }
+    ],
+    "falsePositives": [
+      {
+        "id": "c-29d09e2f4280",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 35611.017,
+        "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+      },
+      {
+        "id": "a-self-doc-05",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "authored",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 15475.149,
+        "textSnippet": "a live subagent ended with *\"Waiting on the monitor event for completion.\"* and was not blocked, because every pattern and all 24 tests had been written with \"waiting **for**\". The suite shared the im…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 10799.706,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 28977.429,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      },
+      {
+        "id": "s-payload-escape-loop-guard",
+        "class": "payload-escape-valve",
+        "event": "Stop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 14067.409,
+        "textSnippet": "I will let you know once the deployment finishes — running in the background."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 13172.155,
+      "p95Ms": 16530.895,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 7,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.875,
+      "meanMs": 13842.878,
+      "p95Ms": 24779.887,
+      "misses": [
+        {
+          "id": "s-imminent-action-01",
+          "class": "deferral-novel-phrasing",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 24779.887,
+          "textSnippet": "Dispatching all three now — kicking off the backend, frontend, and infra tasks in parallel."
+        }
+      ],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 10220.267,
+      "p95Ms": 10220.267,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 6,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 18693.337,
+      "p95Ms": 28294.512,
+      "misses": [],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 14424.794,
+      "p95Ms": 27629.445,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 2,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 18555.374,
+      "p95Ms": 35611.017,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-29d09e2f4280",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 35611.017,
+          "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+        },
+        {
+          "id": "a-self-doc-05",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "authored",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 15475.149,
+          "textSnippet": "a live subagent ended with *\"Waiting on the monitor event for completion.\"* and was not blocked, because every pattern and all 24 tests had been written with \"waiting **for**\". The suite shared the im…"
+        }
+      ]
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 1,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 13575.527,
+      "p95Ms": 22585.052,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 10799.706,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 2,
+      "tn": 2,
+      "fn": 0,
+      "precision": 0.6666666666666666,
+      "recall": 1,
+      "meanMs": 19141.66,
+      "p95Ms": 34749.867,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 28977.429,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        },
+        {
+          "id": "s-payload-escape-loop-guard",
+          "class": "payload-escape-valve",
+          "event": "Stop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 14067.409,
+          "textSnippet": "I will let you know once the deployment finishes — running in the background."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 4,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 21575.294,
+      "p95Ms": 42944.207,
+      "misses": [],
+      "falsePositives": []
+    }
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 30,
+    "fp": 1,
+    "tn": 47,
+    "fn": 1,
+    "precision": 0.967741935483871,
+    "recall": 0.967741935483871,
+    "meanMs": 13765.141,
+    "p95Ms": 23193.682,
+    "misses": [
+      {
+        "id": "s-autonomy-hedge-01",
+        "class": "autonomy-hedge",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 23193.682,
+        "textSnippet": "Phase 2 tasks are all queued and ready. I can kick them off now, or hold here if you'd rather glance at the plan first — your call."
+      }
+    ],
+    "falsePositives": [
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 11040.925,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 12934.234,
+      "p95Ms": 15479.647,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 12983.337,
+      "p95Ms": 19474.471,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 10137.57,
+      "p95Ms": 10137.57,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 5,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.8333333333333334,
+      "meanMs": 15437.319,
+      "p95Ms": 23193.682,
+      "misses": [
+        {
+          "id": "s-autonomy-hedge-01",
+          "class": "autonomy-hedge",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 23193.682,
+          "textSnippet": "Phase 2 tasks are all queued and ready. I can kick them off now, or hold here if you'd rather glance at the plan first — your call."
+        }
+      ],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 12762.744,
+      "p95Ms": 20026.696,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 0,
+      "tn": 11,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 15548.79,
+      "p95Ms": 34471.276,
+      "misses": [],
+      "falsePositives": []
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 0,
+      "tn": 10,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 12469.617,
+      "p95Ms": 17947.925,
+      "misses": [],
+      "falsePositives": []
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 1,
+      "tn": 3,
+      "fn": 0,
+      "precision": 0.8,
+      "recall": 1,
+      "meanMs": 11589.399,
+      "p95Ms": 16061.042,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 11040.925,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 4,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 18300.483,
+      "p95Ms": 37098.529,
+      "misses": [],
+      "falsePositives": []
+    }
+  }
+}
