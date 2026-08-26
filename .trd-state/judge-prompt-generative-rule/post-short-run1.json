@@ -1,0 +1,211 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 71,
+    "tp": 26,
+    "fp": 3,
+    "tn": 41,
+    "fn": 1,
+    "precision": 0.896551724137931,
+    "recall": 0.9629629629629629,
+    "meanMs": 16154.72,
+    "p95Ms": 33742.467,
+    "misses": [
+      {
+        "id": "s-autonomy-hedge-04",
+        "class": "autonomy-hedge",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 33742.467,
+        "textSnippet": "That wraps the first pass. Happy to keep pushing through the rest, or I can stop here for a checkpoint — whichever you prefer."
+      }
+    ],
+    "falsePositives": [
+      {
+        "id": "c-417720d93413",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 54040.873,
+        "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 26947.787,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 10704.198,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 15213.077,
+      "p95Ms": 32399.855,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 14142.423,
+      "p95Ms": 25643.139,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 11400.603,
+      "p95Ms": 11400.603,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 5,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.8333333333333334,
+      "meanMs": 24360.895,
+      "p95Ms": 42481.319,
+      "misses": [
+        {
+          "id": "s-autonomy-hedge-04",
+          "class": "autonomy-hedge",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 33742.467,
+          "textSnippet": "That wraps the first pass. Happy to keep pushing through the rest, or I can stop here for a checkpoint — whichever you prefer."
+        }
+      ],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 14695.234,
+      "p95Ms": 33407.383,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 1,
+      "tn": 10,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 20799.169,
+      "p95Ms": 54040.873,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-417720d93413",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 54040.873,
+          "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+        }
+      ]
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 1,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 13761.929,
+      "p95Ms": 26947.787,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 26947.787,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 1,
+      "tn": 3,
+      "fn": 0,
+      "precision": 0.8,
+      "recall": 1,
+      "meanMs": 13619.446,
+      "p95Ms": 18400.405,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 10704.198,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        }
+      ]
+    }
+  }
+}
