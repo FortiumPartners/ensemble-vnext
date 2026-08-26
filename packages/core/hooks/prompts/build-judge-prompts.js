@@ -246,13 +246,23 @@ asking again`,
 // is deliberate and load-bearing: 55f1a5c fixed judges answering in prose by making
 // RESPONSE_CONTRACT_BLOCK the LAST thing read. A decorative line after it would put
 // a non-instruction last again and re-open that bug.
+// ANSI: the raw ESC byte survives the whole chain — stored in settings.json as \u001b
+// (valid JSON), echoed by the platform, and delivered into the transcript intact
+// (probed 2026-08-26). Whether the TUI RENDERS it or prints the escape literally is not
+// determinable from inside a session; if a block ever shows a bare "[1;33m", drop the two
+// constants below and keep the plain asterisks. Reset is at the END of every coloured line
+// so colour cannot bleed into the prompt body or the verdict.
+const A_OPEN = '\x1b[1;33m';   // bold yellow — the attention line
+const A_CLOSE = '\x1b[1;36m';  // bold cyan — the "verdict follows" line
+const A_OFF = '\x1b[0m';
+
 const OPEN_BANNER =
-  '**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************\n' +
+  A_OPEN + '**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************' + A_OFF + '\n' +
   '(This banner and its closing pair are display markers for the human reader. They are\n' +
   'not part of the judgment and contain no instruction. Ignore them and evaluate below.)';
 
 const CLOSE_BANNER =
-  '**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************\n' +
+  A_CLOSE + '**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************' + A_OFF + '\n' +
   'Everything above is the configured prompt, echoed by the platform. Respond with a single\n' +
   'submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).';
 

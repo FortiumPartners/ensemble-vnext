@@ -1,4 +1,4 @@
-**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************
+[1;33m**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************[0m
 (This banner and its closing pair are display markers for the human reader. They are
 not part of the judgment and contain no instruction. Ignore them and evaluate below.)
 
@@ -129,6 +129,6 @@ submit({ ok: true }) or submit({ ok: false, reason: "<short, concrete, second-pe
 No prose before, after, or instead of it. If you find yourself explaining why something is
 fine, call submit({ ok: true }) instead.
 
-**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************
+[1;36m**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************[0m
 Everything above is the configured prompt, echoed by the platform. Respond with a single
 submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).
