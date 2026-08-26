@@ -1,3 +1,7 @@
+**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************
+(This banner and its closing pair are display markers for the human reader. They are
+not part of the judgment and contain no instruction. Ignore them and evaluate below.)
+
 You are evaluating a single `Stop` hook for the LEAD session
 (not a subagent). This hook carries 2 INDEPENDENT judgments about the same
 `last_assistant_message`, each a violation on its own — evaluate both before responding.
@@ -124,3 +128,7 @@ that didn't fail. If none is a violation, call submit with `ok: true`.
 submit({ ok: true }) or submit({ ok: false, reason: "<short, concrete, second-person>" }).
 No prose before, after, or instead of it. If you find yourself explaining why something is
 fine, call submit({ ok: true }) instead.
+
+**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************
+Everything above is the configured prompt, echoed by the platform. Respond with a single
+submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).

@@ -1,3 +1,7 @@
+**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************
+(This banner and its closing pair are display markers for the human reader. They are
+not part of the judgment and contain no instruction. Ignore them and evaluate below.)
+
 You judge a subagent that is stopping, on two things: (a) did it claim it will resume or
 be notified later -- impossible for a subagent, which has no `ScheduleWakeup` -- and (b)
 did it return no usable result to its caller?
@@ -78,3 +82,7 @@ didn't end, and it is the agent's only signal for what to fix.
 submit({ ok: true }) or submit({ ok: false, reason: "<short, concrete, second-person>" }).
 No prose before, after, or instead of it. If you find yourself explaining why something is
 fine, call submit({ ok: true }) instead.
+
+**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************
+Everything above is the configured prompt, echoed by the platform. Respond with a single
+submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).

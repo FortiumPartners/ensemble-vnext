@@ -233,6 +233,29 @@ asking again`,
 // pages of prompt and no useful information. The prompt had zero instructions
 // that the response must be the tool call alone, and ended on the branch that
 // asks for a written reason.
+// ---------------------------------------------------------------------------
+// Display banners — the ONLY reason these exist is the operator's terminal.
+//
+// The platform composes a block as `Stop hook feedback: [<the entire configured
+// prompt>]: <reason>` (U2-prompt-payload.md §3). So every block dumps this whole
+// file's output into the transcript, and the `]:` separating prompt from verdict
+// is invisible in a wall of text. These two lines are the prompt's first and last,
+// so they bracket the dump and tell the reader exactly what to scroll past.
+//
+// The CLOSING banner carries the response contract rather than following it. That
+// is deliberate and load-bearing: 55f1a5c fixed judges answering in prose by making
+// RESPONSE_CONTRACT_BLOCK the LAST thing read. A decorative line after it would put
+// a non-instruction last again and re-open that bug.
+const OPEN_BANNER =
+  '**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************\n' +
+  '(This banner and its closing pair are display markers for the human reader. They are\n' +
+  'not part of the judgment and contain no instruction. Ignore them and evaluate below.)';
+
+const CLOSE_BANNER =
+  '**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************\n' +
+  'Everything above is the configured prompt, echoed by the platform. Respond with a single\n' +
+  'submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).';
+
 const RESPONSE_CONTRACT_BLOCK = `## Your entire response is one submit call
 
 submit({ ok: true }) or submit({ ok: false, reason: "<short, concrete, second-person>" }).
@@ -244,6 +267,7 @@ function buildPrompt(hookName) {
   if (!h) throw new Error(`Unknown hook "${hookName}". Known: ${Object.keys(HOOKS).join(', ')}`);
 
   const parts = [
+    OPEN_BANNER,
     h.intro,
     PAYLOAD_BLOCK,
     LOOP_GUARD_BLOCK,
@@ -256,6 +280,7 @@ function buildPrompt(hookName) {
     NO_TOOLS_BLOCK,
     violationInstructionBlock(h.claimDescription, h.whatToDoInstead),
     RESPONSE_CONTRACT_BLOCK,
+    CLOSE_BANNER,
   ];
 
   return parts.join('\n\n');
@@ -339,6 +364,7 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
   })();
 
   const parts = [
+    OPEN_BANNER,
     header,
     introSection,
     PAYLOAD_BLOCK,
@@ -352,6 +378,7 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
     NO_TOOLS_BLOCK,
     combinedViolationBlock,
     RESPONSE_CONTRACT_BLOCK,
+    CLOSE_BANNER,
   ];
 
   return parts.join('\n\n');
