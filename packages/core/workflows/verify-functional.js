@@ -68,8 +68,14 @@ if (!CHECKER) {
   throw new Error('verify-functional: args.checker (the checker CLI path) is required')
 }
 const SINCE = a.since
-if (!SINCE) {
-  throw new Error('verify-functional: args.since (the evidence freshness floor) is required')
+if (!Number.isInteger(SINCE) || SINCE < 1) {
+  // Same standard as `cap` ten lines below, and for a sharper reason: SINCE is the one
+  // guarded arg that reaches a shell, interpolated raw into the judge's check-evidence
+  // command. A bare truthiness check passes "1700000000", {} and [1,2] straight through.
+  // The checker CLI does reject non-finite and <= 0 (functional-verification.js), so this
+  // is a strict subset of a rule that already exists -- it just fails here, before an
+  // exerciser agent is spawned, instead of inside a dispatched judge.
+  throw new Error('verify-functional: args.since (the evidence freshness floor, unix seconds) is required and must be a positive integer')
 }
 const CAP = a.cap
 if (!Number.isInteger(CAP) || CAP < 1) {

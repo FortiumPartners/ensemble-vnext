@@ -114,7 +114,8 @@ harder and more often than it does today.
 - Validating the eight remaining arguments (`contract`, `notes`, `stackHints`, `feature`, `prd`,
   `definitionPath`, `resume`, `project`). Each has an `|| ''` / `|| null` default, so none can
   crash or interpolate `undefined`. Note this is **not** the same as being optional: §3.3 declares
-  `feature`, `prd` and `definitionPath` as required, and the comment at lines 76-81 records that
+  `feature`, `prd` and `definitionPath` as required, and the `FEATURE`/`PRD`/`DEFINITION_PATH`
+  comment block records that
   all three once rendered as `undefined` in every report header (Finding A). `|| ''` makes that
   header empty rather than `undefined` — quieter, still wrong. Out of scope here, but they are
   defaulted, not optional.
@@ -165,3 +166,20 @@ harder and more often than it does today.
 - Whether FIX-003's literal block re-introduces the argument-list drift that
   `verify-build.md:66-72` deliberately avoided. The mirror-drift suite covers copy-to-copy
   divergence but nothing checks either copy against §3.3's field list.
+
+- **Corrected during hardening:** the row above understated the coverage. `implement-trd-structure.test.sh`'s
+  test 30 is a directory-wide sweep of `packages/core/commands` ↔ `.claude/commands`, so both
+  `verify-build.md` copies and both `verify-functional.js` copies ARE pinned — mutation-tested
+  by drifting one copy and watching it go red. A hardening lens reported this as uncovered
+  after inspecting only the explicit 13-pair list (test 11); that report was wrong and a change
+  made on it was reverted. What genuinely remains unchecked is narrower: nothing compares
+  either dispatch block to §3.3's field list, and nothing compares `implement-trd.md`'s block
+  to `verify-build.md`'s. They already differ intentionally (`cap: 3` vs `cap: capArg ?? 3`),
+  so there is no mechanism to tell intentional divergence from a dropped field.
+- `contract` and `stackHints` keep their `|| ''` defaults and have no documented empty-value
+  semantics, unlike `notes`/`project`/`prd`. A missing `contract` therefore still degrades
+  silently — the O2 shape, evading O2's wording because the value is `''` rather than
+  `undefined`. Out of this fix's scope; reported, not absorbed.
+- A guard throw leaves no `verification-state.json`, so `/implement-trd --verify --resume`
+  cannot re-enter the loop after one (§8.2's gate needs a non-terminal state file). Recovery is
+  `/verify-build`. Correct, but undocumented in either command.

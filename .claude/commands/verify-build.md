@@ -62,21 +62,33 @@ default, then run on whatever remains. Partial verification with stated gaps bea
 
 ### 3. Read the inputs from disk
 
-Exactly the inputs §8.1–§8.3 assemble. **Read those sections rather than restating them here** —
-a second copy of an argument list is a second copy to drift.
+Exactly the inputs §8.1–§8.3 assemble. Read those sections for how each is derived rather than
+restating the derivations here.
+
+**The argument LIST itself is now restated deliberately, at §4.** That reverses the earlier rule
+and the reversal is the point: pointing at "every field §3.3 names" across two documents without
+naming any of them required reconstructing a 15-field object from prose on every run, and a
+dropped `statePath` is how that failed in the field. Drift is the cost, and it is the cheaper
+one — a drifted list is visible in a diff, whereas a reconstruction that silently omits a field
+is visible only when the workflow crashes. §3.3 of `docs/TRD/functional-verification.md` remains
+the authority on what the fields ARE; §4 is the dispatch, not a competing spec.
 
 - `.trd-state/<feature>/success-definition.md` — **present → use it. Absent → DERIVE it,
   then proceed.** See 3a.
 - `.claude/verification-notes.md`, the stack hints, the contract text, `.claude/rules/verification.md`
 - `.trd-state/<feature>/verification-state.json` — for `--resume`
 - `since` — resolved per §8.3
-- **`prd_path`** — bind it HERE, on both branches, because §4's dispatch passes it and 3a only
-  runs on one branch. Read `.trd-state/<feature>/implement.json`'s
-  `functional_verification.prd_path` when that file and key exist; otherwise `""`. When 3a runs,
-  it overwrites this with the source it resolved. It is a **display string for the report
-  header** — nothing resolves it to a file — so an empty value degrades the header and nothing
-  else. Leaving it unbound is what does damage: it renders as `undefined`, the exact
-  Finding-A shape `verify-functional.js` lines 76-81 record.
+- **`prd_path`** — bind it HERE, because §4's dispatch passes it and 3a runs on only one
+  branch. Read `.trd-state/<feature>/implement.json`'s `functional_verification.prd_path` when
+  that file and key exist and the value is non-null; otherwise `""`. Note the key is written
+  only by an `/implement-trd --verify` run, and this command's primary case is a run WITHOUT
+  `--verify` — so `""` is the ordinary outcome here, not the exceptional one.
+
+  It is a **display string for the report header** — nothing resolves it to a file — so `""`
+  yields a blank `**Source PRD**:` field and nothing else. Leaving it unbound is not the
+  catastrophe an earlier draft of this line claimed: `verify-functional.js` reads it as
+  `a.prd || ''`, so unbound and `""` render identically. The reason to bind it is the positive
+  one — when a source IS known, the header should name it instead of going blank.
 
 ### 3a. Absent definition → derive it, in the FOREGROUND
 
@@ -104,6 +116,23 @@ nothing else to do, so it simply waits, and both of Step 8's objections evaporat
   different command. The objection §8.1 raises is to deriving **inline**, in the orchestrator's
   own context without the contract's mandatory-citation discipline. Passing the contract to the
   contract's own agent is that discipline, not a bypass of it.
+
+**Bind `prd_path` when you resolve the source — 3a is the branch that knows it.** Step 3's
+read yields `""` here by construction (no `--verify` run wrote the key), so if 3a does not set
+it the header goes blank even though a source WAS found — the one case this whole binding
+exists for.
+
+Set it exactly as `/implement-trd` §3.6 does, and note the shape differs by source kind:
+
+| Source kind | `prd_path` |
+|---|---|
+| `prd` | the PRD path |
+| `reproduction` / `intended-change` / `behaviour-preserved` | the **TRD path plus the section name** — e.g. `docs/TRD/foo.md ## Reproduction` |
+
+**Never the section's body text.** It is a one-line display string, interpolated into the
+report header without escaping; a multi-line section body would break the header block. The
+qualification matters because "the source it resolved" reads naturally as the extracted TEXT
+for section kinds — which is what you pass to the derive AGENT, and is not what you pass here.
 
 **`not run: no definition produced` survives, narrowed:** it now means the derive ran and wrote
 nothing — the agent died, or found no criterion satisfying the citation rule and wrote a file
