@@ -61,6 +61,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// Above this share of evaluations the guards cost more than they catch.
+const BLOCK_RATE_CEILING = 8;
+
 const PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 
 function newestTranscript(slug) {
@@ -136,14 +139,27 @@ function main(argv) {
   }
 
   const allowPct = E ? (100 * A) / E : 0;
-  console.log(`\n  TOTAL: ${E} evaluations | ${B} blocks | ${A} anomalous allows = ${allowPct.toFixed(1)}%`);
-  console.log('  A high block count is the guards catching things. Only the ALLOW rate is a defect signal.');
+  const blockPct = E ? (100 * B) / E : 0;
+  console.log(`\n  TOTAL: ${E} evaluations | ${B} blocks (${blockPct.toFixed(1)}%) | ${A} anomalous allows (${allowPct.toFixed(1)}%)`);
+  console.log('  Blocks are the guards working UP TO A POINT. Above ~8% of evaluations they are\n  interrupting correct work more than they are catching defects -- a guard the owner\n  disables protects nothing. Both rates are defect signals; they just fail differently.');
   console.log('  A block shown as "Stop hook error:" is anthropics/claude-code#62139 — an OPEN upstream');
   console.log('  TUI labelling bug, not a fault here. An ALLOW shown that way is ours: it means the');
   console.log('  judge attached a `reason` to an ok:true verdict. See build-judge-prompts.js.');
+  // Two independent verdicts. The block rate had NO ceiling until 2026-08-25: this tool
+  // told every reader that a high block count was the guards working, so no measurement
+  // could ever have reported over-blocking. Measured that day: 72 blocks in 443
+  // evaluations — 16%, one interruption every six turn-ends — reported as nominal.
+  let rc = 0;
+  if (blockPct >= BLOCK_RATE_CEILING) {
+    console.log(`  VERDICT: block rate ${blockPct.toFixed(1)}% exceeds ${BLOCK_RATE_CEILING}% — the guards are`);
+    console.log('           interrupting correct work. Shorten or narrow them; a disabled guard is worth nothing.');
+    rc = 3;
+  } else {
+    console.log(`  VERDICT: block rate ${blockPct.toFixed(1)}% nominal`);
+  }
   if (allowPct >= 5) { console.log('  VERDICT: allow-leak rate is elevated — worth investigating'); return 2; }
   console.log('  VERDICT: allow-leak rate nominal');
-  return 0;
+  return rc;
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
