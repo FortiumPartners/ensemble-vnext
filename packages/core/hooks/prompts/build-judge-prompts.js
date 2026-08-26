@@ -33,11 +33,12 @@
  *
  * OUTPUT
  *
- * `node build-judge-prompts.js` regenerates the three ready-to-embed prompt text files
- * in this directory from the templates below:
- *   async-discipline.prompt.md
- *   subagent-discipline.prompt.md
- *   autonomy-discipline.prompt.md
+ * `node build-judge-prompts.js` regenerates the two ready-to-embed prompt text files in
+ * this directory from the templates below:
+ *   discipline-stop.prompt.md     (async-discipline + autonomy-discipline merged onto
+ *                                   one `Stop` hook -- FIX-002, see
+ *                                   docs/TRD/judge-prompt-generative-rule.md)
+ *   subagent-discipline.prompt.md (unmerged; SubagentStop)
  *
  * These are literal strings meant to be dropped into a `hooks.manifest.json` entry's
  * `"prompt"` field by DISC-B005/B008 (not this task — this task does not touch the
@@ -548,17 +549,144 @@ function buildPrompt(hookName) {
   return parts.join('\n\n');
 }
 
+// ---------------------------------------------------------------------------
+// buildCombinedPrompt — the FIX-002 merge (docs/TRD/judge-prompt-generative-rule.md).
+//
+// async-discipline and autonomy-discipline both fire on `Stop`, both judge the
+// LEAD session's `last_assistant_message`, and both carried a full private copy
+// of every SHARED block (PAYLOAD, LOOP_GUARD, DISCLOSURE, IMMINENT_ACTION,
+// VOCABULARY_WARNING's scaffolding, SELF_DOC, UNCERTAINTY, NO_TOOLS,
+// RESPONSE_CONTRACT) — 33KB+ delivered to the model on every single Stop event
+// for text that is, structurally, one shared skeleton wrapped around two
+// per-hook cores. subagent-discipline already proves the target shape: ONE
+// prompt, TWO independent judgments ((a) structurally-impossible deferral, (b)
+// no usable result), sharing one payload/loop-guard/self-doc/uncertainty
+// scaffold and resolving to one `submit` call whose `reason` names which
+// judgment failed.
+//
+// This function does the same thing GENERICALLY, for any set of Stop-event
+// hooks in HOOKS, by reusing each hook's `intro` / `escapeValve` /
+// `imminentActionExtra` / `violationReframe` / `claimDescription` /
+// `whatToDoInstead` VERBATIM — the substantive judgment clauses do not change
+// a single word; only the connective tissue (which of them is now shared once
+// instead of duplicated, and how the final verdict names which judgment
+// fired) is new.
+function buildCombinedPrompt(hookNames) {
+  const hs = hookNames.map((name) => {
+    const h = HOOKS[name];
+    if (!h) throw new Error(`Unknown hook "${name}". Known: ${Object.keys(HOOKS).join(', ')}`);
+    return h;
+  });
+
+  const events = new Set(hs.map((h) => h.event));
+  if (events.size !== 1) {
+    throw new Error(`buildCombinedPrompt requires all hooks to share one event, got: ${[...events].join(', ')}`);
+  }
+
+  const header = `You are evaluating a single \`${[...events][0]}\` hook for the LEAD session
+(not a subagent). This hook carries ${hs.length} INDEPENDENT judgments about the same
+\`last_assistant_message\`, each a violation on its own — evaluate both before responding.
+Each is described below, then combined into one \`submit\` call.`;
+
+  const introSection = hs
+    .map((h, i) => `## Judgment ${String.fromCharCode(65 + i)} — ${hookNames[i]}\n\n${h.intro}`)
+    .join('\n\n');
+
+  const escapeValveSection = hs.map((h) => h.escapeValve).join('\n\n');
+
+  const combinedReframe = hs
+    .map((h, i) =>
+      i === 0
+        ? h.violationReframe
+        : `Independently of Judgment ${String.fromCharCode(64 + i)} above, also ask: ${h.violationReframe}`
+    )
+    .join('\n\n');
+
+  // Only include the block once — it is generic to any imminent-action claim
+  // at Stop, not specific to one hook. Use whichever hook actually carries a
+  // per-hook `imminentActionExtra` (today: async-discipline only).
+  const imminentExtra = hs.map((h) => h.imminentActionExtra).find(Boolean);
+
+  const combinedViolationBlock = (() => {
+    const perJudgment = hs
+      .map(
+        (h, i) =>
+          `  **Judgment ${String.fromCharCode(65 + i)} (${hookNames[i]}):** ${h.claimDescription}\n  If this is the one that failed, tell it instead: ${h.whatToDoInstead}`
+      )
+      .join('\n\n');
+
+    return `## If any judgment is a violation
+
+Call submit with \`ok: false\` and a \`reason\` written directly to the agent whose turn is
+being blocked (second person), that:
+
+  1. Names WHICH judgment failed (${hookNames.join(' and/or ')}) and quotes the relevant
+     fragment of \`last_assistant_message\` in its own words.
+  2. States plainly why it doesn't hold up:
+
+${perJudgment}
+
+  3. Tells it what to do instead, per the guidance above for whichever judgment(s) failed.
+
+Keep the reason short and concrete — it is echoed back verbatim as the reason the turn
+didn't end, and it is the agent's only signal for what to fix. Don't mention a judgment
+that didn't fail.
+
+If no judgment is a violation, call submit with \`ok: true\`.`;
+  })();
+
+  const parts = [
+    header,
+    introSection,
+    PAYLOAD_BLOCK,
+    LOOP_GUARD_BLOCK,
+    escapeValveSection,
+    DISCLOSURE_BLOCK,
+    IMMINENT_ACTION_BLOCK(imminentExtra),
+    VOCABULARY_WARNING_BLOCK(combinedReframe),
+    SELF_DOC_BLOCK,
+    UNCERTAINTY_BLOCK,
+    NO_TOOLS_BLOCK,
+    combinedViolationBlock,
+    RESPONSE_CONTRACT_BLOCK,
+  ];
+
+  return parts.join('\n\n');
+}
+
+// The Stop-event hooks merged into one prompt/promptFile (FIX-002). Kept as a
+// named constant so both main() and the regeneration test iterate the same
+// list rather than risking drift between "what's merged" and "what's checked".
+const STOP_DISCIPLINE_HOOKS = ['async-discipline', 'autonomy-discipline'];
+const STOP_DISCIPLINE_PROMPT_FILE = 'discipline-stop.prompt.md';
+
 function main() {
-  for (const hookName of Object.keys(HOOKS)) {
+  // Every hook NOT folded into the merged Stop prompt keeps its own single-hook
+  // prompt file (today: subagent-discipline, on SubagentStop). Derived from HOOKS
+  // rather than named literally so adding a hook to HOOKS cannot silently produce
+  // no prompt file at all.
+  for (const hookName of Object.keys(HOOKS).filter((n) => !STOP_DISCIPLINE_HOOKS.includes(n))) {
     const text = buildPrompt(hookName);
     const outPath = path.join(__dirname, `${hookName}.prompt.md`);
     fs.writeFileSync(outPath, text + '\n', 'utf-8');
     console.log(`wrote ${outPath} (${text.length} chars)`);
   }
+
+  // async-discipline + autonomy-discipline merge into one Stop-event prompt.
+  const combinedText = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS);
+  const combinedPath = path.join(__dirname, STOP_DISCIPLINE_PROMPT_FILE);
+  fs.writeFileSync(combinedPath, combinedText + '\n', 'utf-8');
+  console.log(`wrote ${combinedPath} (${combinedText.length} chars)`);
 }
 
 if (require.main === module) {
   main();
 }
 
-module.exports = { buildPrompt, HOOKS };
+module.exports = {
+  buildPrompt,
+  buildCombinedPrompt,
+  HOOKS,
+  STOP_DISCIPLINE_HOOKS,
+  STOP_DISCIPLINE_PROMPT_FILE,
+};

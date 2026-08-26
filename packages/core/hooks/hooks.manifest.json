@@ -65,28 +65,16 @@
       "description": "Records subagent completion to the dispatch ledger; runs after subagent-discipline.js, which appends a compensating 'blocked' row when it blocks a stop (a blocked subagent has not actually stopped)."
     },
     {
-      "file": "async-discipline.js",
+      "file": "discipline-stop.js",
       "event": "Stop",
       "matcher": "",
       "order": 1,
       "timeout": 60,
       "hookType": "prompt",
-      "promptFile": "async-discipline.prompt.md",
+      "promptFile": "discipline-stop.prompt.md",
       "registration": "command",
       "shippable": true,
-      "description": "Model-judged: blocks fire-and-forget async claims made without real async machinery in flight (pairs with `.claude/rules/async-discipline.md`)."
-    },
-    {
-      "file": "autonomy-discipline.js",
-      "event": "Stop",
-      "matcher": "",
-      "order": 2,
-      "timeout": 60,
-      "hookType": "prompt",
-      "promptFile": "autonomy-discipline.prompt.md",
-      "registration": "command",
-      "shippable": true,
-      "description": "Model-judged: blocks hedged mid-loop pause offers that violate autonomous-execution discipline (pairs with `.claude/rules/autonomy.md`)."
+      "description": "Model-judged, two independent judgments in one Stop-hook prompt (FIX-002, docs/TRD/judge-prompt-generative-rule.md): (a) blocks fire-and-forget async claims made without real async machinery in flight (pairs with `.claude/rules/async-discipline.md`); (b) blocks hedged mid-loop pause offers that violate autonomous-execution discipline (pairs with `.claude/rules/autonomy.md`). Replaces the formerly-separate async-discipline.js and autonomy-discipline.js Stop entries, which duplicated ~9.9KB of shared judge scaffolding on every Stop event."
     },
     {
       "file": "notify.sh",

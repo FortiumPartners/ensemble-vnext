@@ -1,0 +1,65 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/judge-prompt-generative-rule.md",
+  "trd_hash": "7b6ae77f5459fcc28a3564b4496b07401b2a441f5fa0b47c1f537cf5614f85d2",
+  "branch": "feature/judge-prompt-generative-rule/merge",
+  "strategy": "refactor",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "FP-side corpus cases",
+      "phase": 1,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null,
+      "last_advanced": "2026-08-25T23:54:08.044Z"
+    },
+    "FIX-002": {
+      "description": "merge the two Stop prompts",
+      "phase": 1,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null,
+      "last_advanced": "2026-08-25T23:54:08.044Z"
+    },
+    "FIX-003": {
+      "description": "paired re-score",
+      "phase": 1,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null,
+      "last_advanced": "2026-08-25T23:54:08.044Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "behaviour-preserved",
+    "prd_path": "docs/TRD/judge-prompt-generative-rule.md :: ## Behaviour Preserved"
+  },
+  "gate_battery": {
+    "resolved": "bash packages/core/scripts/check-test-suites.sh && ./test/smoke/run-smoke.sh hooks-health scaffold-integrity artifact-contracts",
+    "rationale": "npm run smoke is the package.json script Step 4.4 would resolve, but its default set includes implement-one-task, an LLM scenario measured 2026-08-25 timing out at ~840s on exit=143 for reasons unrelated to judge prompts. Using it would fail this phase gate three times and go STUCK, blaming these tasks for a known-broken sibling. Scoped to the deterministic set plus the bats battery, which is what actually witnesses a change to build-judge-prompts.js."
+  }
+}

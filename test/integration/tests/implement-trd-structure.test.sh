@@ -200,8 +200,7 @@ setup() {
         "packages/core/contracts/task-delegation.md"
         "packages/core/hooks/dispatch-ledger.js"
         "packages/core/hooks/lib/dispatch-ledger.js"
-        "packages/core/hooks/prompts/async-discipline.prompt.md"
-        "packages/core/hooks/prompts/autonomy-discipline.prompt.md"
+        "packages/core/hooks/prompts/discipline-stop.prompt.md"
         "packages/core/hooks/prompts/subagent-discipline.prompt.md"
     )
     local claude_files=(
@@ -216,8 +215,7 @@ setup() {
         ".claude/contracts/task-delegation.md"
         ".claude/hooks/dispatch-ledger.js"
         ".claude/hooks/lib/dispatch-ledger.js"
-        ".claude/hooks/prompts/async-discipline.prompt.md"
-        ".claude/hooks/prompts/autonomy-discipline.prompt.md"
+        ".claude/hooks/prompts/discipline-stop.prompt.md"
         ".claude/hooks/prompts/subagent-discipline.prompt.md"
     )
 
@@ -279,16 +277,27 @@ setup() {
 @test "discipline prompt files match what build-judge-prompts.js generates" {
     command -v node >/dev/null || skip "node not available"
     run node -e '
-      const { buildPrompt } = require(process.argv[1]);
+      const { buildPrompt, buildCombinedPrompt, STOP_DISCIPLINE_HOOKS, STOP_DISCIPLINE_PROMPT_FILE } =
+        require(process.argv[1]);
       const fs = require("fs");
       const path = require("path");
       const dir = path.dirname(process.argv[1]);
       const drift = [];
-      for (const name of ["async-discipline", "autonomy-discipline", "subagent-discipline"]) {
-        const generated = buildPrompt(name) + "\n";
-        const onDisk = fs.readFileSync(path.join(dir, name + ".prompt.md"), "utf8");
-        if (generated !== onDisk) drift.push(name);
+
+      // subagent-discipline: single-hook prompt, unmerged (SubagentStop).
+      {
+        const generated = buildPrompt("subagent-discipline") + "\n";
+        const onDisk = fs.readFileSync(path.join(dir, "subagent-discipline.prompt.md"), "utf8");
+        if (generated !== onDisk) drift.push("subagent-discipline");
       }
+
+      // async-discipline + autonomy-discipline: merged onto one Stop prompt (FIX-002).
+      {
+        const generated = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS) + "\n";
+        const onDisk = fs.readFileSync(path.join(dir, STOP_DISCIPLINE_PROMPT_FILE), "utf8");
+        if (generated !== onDisk) drift.push(STOP_DISCIPLINE_PROMPT_FILE);
+      }
+
       if (drift.length) {
         console.error("Hand-edited (regeneration would discard the edit): " + drift.join(", "));
         process.exit(1);
@@ -594,7 +603,10 @@ PY
     # interrogatives, so declarative deferrals passed. Measured: the same
     # investigation was offered as "say the word and I'll settle it" twice, two
     # turns apart, and this guard allowed both.
-    P="${REPO_ROOT}/packages/core/hooks/prompts/autonomy-discipline.prompt.md"
+    # autonomy-discipline was merged into the combined Stop prompt (FIX-002,
+    # docs/TRD/judge-prompt-generative-rule.md) -- the text this test asserts on
+    # is unchanged, just relocated into discipline-stop.prompt.md.
+    P="${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.prompt.md"
     grep -q 'THE VIOLATION IS OFTEN NOT A QUESTION' "$P"
     grep -q "Say the word and I'll fix the config" "$P"
     # The principle, not another phrase to match on.

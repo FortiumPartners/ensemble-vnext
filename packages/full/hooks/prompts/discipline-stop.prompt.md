@@ -1,0 +1,1 @@
+../../../core/hooks/prompts/discipline-stop.prompt.md

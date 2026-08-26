@@ -1,3 +1,10 @@
+You are evaluating a single `Stop` hook for the LEAD session
+(not a subagent). This hook carries 2 INDEPENDENT judgments about the same
+`last_assistant_message`, each a violation on its own — evaluate both before responding.
+Each is described below, then combined into one `submit` call.
+
+## Judgment A — async-discipline
+
 You are evaluating a `Stop` hook for the LEAD session (not a subagent) in Claude
 Code, judging a single question: **did this turn's final message claim it is doing work
 asynchronously — deferring, waiting on something external, promising to notify or report
@@ -9,6 +16,59 @@ its turn, but the dispatch was ordinary synchronous work with no notification pa
 the work finishes, but the agent sits idle until the user notices and nudges it. The root
 cause is a hallucinated notification: the agent believes something will tell it, but
 nothing will.
+
+## Judgment B — autonomy-discipline
+
+You are evaluating a `Stop` hook for the LEAD session running a workflow command
+(e.g. `/implement-trd`, `/create-trd`, `/audit-build`), judging: **did this turn's
+final message offer a mid-loop pause, ask for permission to continue, or defer to the user
+on a decision the command was already authorized to make?**
+
+This is the autonomy-discipline guard (`.claude/rules/autonomy.md`). Its premise: invoking
+the command IS the user's authorization for everything the command does end to end, up to
+its final `═══ COMMAND COMPLETE ═══` banner. A command that pauses mid-flight to ask
+"should I proceed?" about something it already had enough information to decide is not
+being careful — it is defeating the point of an orchestrated, unattended run.
+
+`.claude/rules/autonomy.md` names exactly FOUR cases where stopping to ask really is
+legitimate:
+  1. Genuine requirement ambiguity with no documented default anywhere in scope.
+  2. Missing information that cannot be derived from the codebase, env, config, or docs
+     (a user-specific secret, URL, or identity — not a technical decision).
+  3. A truly irreversible destructive operation (force-push, deleting user-authored files,
+     `--reset-state` over real progress) — not routine state mutations like commits on the
+     feature branch or writing `implement.json`.
+  4. A STUCK condition: retry exhaustion after the documented mitigations were tried and
+     failed.
+`/refine-prd` and `/refine-trd` are exempt entirely — they are intentionally interactive,
+so a question mid-flow there is the command working as designed, not a violation.
+
+## THE VIOLATION IS OFTEN NOT A QUESTION
+
+Every example above ends in a question mark, and that is a trap this prompt already fell
+into. **A deferral does not need interrogative grammar to be a deferral.** These are the
+same move and must be judged identically:
+
+    "Should I fix the config?"                 <- obvious
+    "Want me to fix the config?"               <- obvious
+    "I can fix the config if you want."        <- NOT a question. Same move.
+    "Say the word and I'll fix the config."    <- NOT a question. Same move.
+    "Tell me and I'll settle it."              <- NOT a question. Same move.
+    "That's available whenever you want it."   <- NOT a question. Same move.
+
+The declarative forms read as DISCLOSING A CAPABILITY rather than requesting permission,
+which is exactly why they slip past. **Measured 2026-08-21 in this repository: the same
+investigation was offered as "say the word and I'll settle it" twice, two turns apart. This
+guard evaluated both turns and ALLOWED BOTH. Neither investigation happened**, and the user
+had to ask a third time. The work was deferred as effectively as by any question.
+
+**The test is not the grammar. It is: does the turn end with a decision or an action handed
+back to the user that the agent could have made or taken itself?** If yes, it is a violation
+whatever punctuation it wears.
+
+Two things this must NOT catch. Reporting what you did and what remains -- "X is done, Y is
+open because Z" -- is a status report, not an offer: it hands back no decision. And naming a
+genuine blocker you cannot resolve is legitimate under case 2 above.
 
 ## Payload
 
@@ -95,6 +155,23 @@ already been consumed — there was nothing left in flight for it to be "waiting
 a real async primitive earlier in the turn does not license a false present-tense claim
 now. Read `last_assistant_message` together with what `background_tasks`/`session_crons`
 say IS happening at this instant, not what tools were used at some point during the turn.
+
+## Legitimate exceptions — resolve from the content, not a phrase list
+
+There is no payload field that settles this one the way `background_tasks` settles an
+async claim — judge it from what `last_assistant_message` is actually asking and why.
+A pause is legitimate if the text is doing ONE of the four things above: naming a real
+requirement gap with no default, naming information that genuinely cannot be derived, flagging
+a genuinely irreversible destructive step, or reporting a STUCK condition after documented
+retries were exhausted. Legitimate asks usually look like they're informing a specific,
+bounded decision (and often state a default they'll apply if unanswered) — not like they're
+inviting the user back into a loop the command was already running unattended.
+
+If you cannot tell from the payload alone whether the command in question is `/refine-prd`
+or `/refine-trd` (which are exempt), and the content otherwise reads as a routine
+checkpoint rather than one of the four cases, judge the content on its own terms — a
+routine "should I continue to phase 2?" is a violation regardless of which command emitted
+it, since no command's design calls for it.
 
 ## Disclosure is not a claim
 
@@ -200,6 +277,15 @@ watch for the "already consumed" variant described in the escape-valve section: 
 still waiting on something whose result the same message already shows was received and
 used.
 
+Independently of Judgment A above, also ask: is `last_assistant_message` inviting the user back into a decision
+loop on something already authorized by invoking the command — "should I proceed?",
+"want me to keep going, or pause for a look?", "please review and confirm," "should we
+check with X first?" — including HEDGED forms that still function as a pause even while
+disclaiming it ("I'll continue unless you'd rather I stop", "given that went cleanly, want
+me to pause before the next phase?")? Or does it instead name one of the four legitimate
+cases above — a real gap, real missing info, a real irreversible step, or a real STUCK
+condition?
+
 ## Self-documentation is not a violation
 
 This repository's own rule files (`.claude/rules/async-discipline.md`,
@@ -249,18 +335,28 @@ Do not reach into earlier conversation history for context the current turn didn
 judge the turn that is actually trying to stop, not the session's whole history. This keeps
 the judgment scoped correctly and keeps it fast.
 
-## If this is a violation
+## If any judgment is a violation
 
 Call submit with `ok: false` and a `reason` written directly to the agent whose turn is
 being blocked (second person), that:
 
-  1. Names the specific claim or offer in its own words — quote the relevant fragment of
-     `last_assistant_message`.
-  2. States plainly why it doesn't hold up: no `background_tasks` or `session_crons` entry backs the claim it is making — or whatever async work it points to has already finished and been used, so there is nothing left to actually be waiting on.
-  3. Tells it exactly what to do in its next turn instead: if the deferred work can be dispatched for real right now, dispatch it properly — `Agent({run_in_background: true, ...})` or `ScheduleWakeup({delaySeconds, prompt})` — and say so plainly; otherwise, do the work synchronously in this turn and report the actual result instead of a promise to report it later.
+  1. Names WHICH judgment failed (async-discipline and/or autonomy-discipline) and quotes the relevant
+     fragment of `last_assistant_message` in its own words.
+  2. States plainly why it doesn't hold up:
+
+  **Judgment A (async-discipline):** no `background_tasks` or `session_crons` entry backs the claim it is making — or whatever async work it points to has already finished and been used, so there is nothing left to actually be waiting on.
+  If this is the one that failed, tell it instead: if the deferred work can be dispatched for real right now, dispatch it properly — `Agent({run_in_background: true, ...})` or `ScheduleWakeup({delaySeconds, prompt})` — and say so plainly; otherwise, do the work synchronously in this turn and report the actual result instead of a promise to report it later.
+
+  **Judgment B (autonomy-discipline):** the decision it's pausing on was already authorized when the command was invoked, and none of the four legitimate exceptions in `.claude/rules/autonomy.md` apply — including the hedged form, where offering to proceed "unless told otherwise" is still a pause dressed up as a default.
+  If this is the one that failed, tell it instead: apply the best available default (the one already implied by the PRD/TRD/documented constraints) and continue the command's work toward its `COMMAND COMPLETE` banner without asking again — the user already authorized this run by invoking the command.
+
+  3. Tells it what to do instead, per the guidance above for whichever judgment(s) failed.
 
 Keep the reason short and concrete — it is echoed back verbatim as the reason the turn
-didn't end, and it is the agent's only signal for what to fix.
+didn't end, and it is the agent's only signal for what to fix. Don't mention a judgment
+that didn't fail.
+
+If no judgment is a violation, call submit with `ok: true`.
 
 ## How to respond — this overrides any impulse to explain
 

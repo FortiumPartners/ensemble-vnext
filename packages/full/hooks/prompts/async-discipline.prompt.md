@@ -1,1 +1,0 @@
-../../../core/hooks/prompts/async-discipline.prompt.md
