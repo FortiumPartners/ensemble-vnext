@@ -1,0 +1,168 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 66,
+    "tp": 25,
+    "fp": 2,
+    "tn": 39,
+    "fn": 0,
+    "precision": 0.9259259259259259,
+    "recall": 1,
+    "meanMs": 25729.064,
+    "p95Ms": 60490.615,
+    "misses": [],
+    "falsePositives": [
+      {
+        "id": "c-29d09e2f4280",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 62785.265,
+        "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+      },
+      {
+        "id": "s-payload-escape-loop-guard",
+        "class": "payload-escape-valve",
+        "event": "Stop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 11788.689,
+        "textSnippet": "I will let you know once the deployment finishes — running in the background."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 30487.977,
+      "p95Ms": 70053.333,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 7,
+      "tp": 7,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 20438.727,
+      "p95Ms": 33240.34,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 15820.163,
+      "p95Ms": 15820.163,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 6,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 26803.768,
+      "p95Ms": 29846.011,
+      "misses": [],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 17,
+      "tp": 0,
+      "fp": 0,
+      "tn": 17,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 22059.616,
+      "p95Ms": 46485.587,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 1,
+      "tn": 10,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 36699.827,
+      "p95Ms": 62785.265,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-29d09e2f4280",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 62785.265,
+          "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+        }
+      ]
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 0,
+      "tn": 10,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 18126.079,
+      "p95Ms": 27460.473,
+      "misses": [],
+      "falsePositives": []
+    },
+    "payload-escape-valve": {
+      "n": 6,
+      "tp": 3,
+      "fp": 1,
+      "tn": 2,
+      "fn": 0,
+      "precision": 0.75,
+      "recall": 1,
+      "meanMs": 29088.034,
+      "p95Ms": 60490.615,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-loop-guard",
+          "class": "payload-escape-valve",
+          "event": "Stop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 11788.689,
+          "textSnippet": "I will let you know once the deployment finishes — running in the background."
+        }
+      ]
+    }
+  }
+}

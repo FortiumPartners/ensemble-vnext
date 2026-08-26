@@ -492,17 +492,24 @@ JSON
 # helper-function probes (detectHedgedOffer, isCommandContext, isExemptCommand)
 # — went with it. What remains testable at this layer is the delivered artifact:
 # its position in the Stop chain, and its presence in the hook enumeration.
+#
+# FIX-002 (docs/TRD/judge-prompt-generative-rule.md) merged async-discipline and
+# autonomy-discipline into ONE Stop-hook prompt (discipline-stop.prompt.md,
+# manifest identifier discipline-stop.js) carrying two independent judgments —
+# following the pattern subagent-discipline already used for its own two
+# judgments. The tests below were re-pointed at the merged artifact.
 
-@test "L4: autonomy-discipline prompt file exists and is non-empty" {
-    local prompt="${REPO_ROOT}/packages/core/hooks/prompts/autonomy-discipline.prompt.md"
+@test "L4: discipline-stop prompt file exists and is non-empty" {
+    local prompt="${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.prompt.md"
     [ -f "$prompt" ]
     [ -s "$prompt" ]
 }
 
-@test "L4: both settings.json Stop chains include autonomy-discipline after async-discipline" {
-    # async-discipline.js and autonomy-discipline.js are hookType:"prompt" (DISC-B008) — their
-    # settings.json entries carry inlined prompt TEXT, not a "command" field to pull a filename
-    # out of, so a name is recovered by matching that text against each promptFile's content.
+@test "L4: both settings.json Stop chains are [discipline-stop.js, notify.sh]" {
+    # discipline-stop.js is hookType:"prompt" (DISC-B008, merged FIX-002) — its
+    # settings.json entry carries inlined prompt TEXT, not a "command" field to pull
+    # a filename out of, so a name is recovered by matching that text against each
+    # promptFile's content.
     for settings in "${REPO_ROOT}/.claude/settings.json" "${REPO_ROOT}/packages/full/.claude/settings.json"; do
         python3 -c "
 import json, os, sys
@@ -516,10 +523,11 @@ for h in manifest['hooks']:
     with open(os.path.join(prompts_dir, h['promptFile'])) as fh:
         prompt_text_to_file[fh.read().rstrip(chr(10))] = h['file']
 
-# The Stop chain after --wiggum's removal (4.1.19). This list was deleted along with
-# the flag, leaving `expected` undefined — a NameError that made this test error out
-# rather than compare, which is how 35413ce's settings.json drift went unnoticed.
-expected = ['async-discipline.js', 'autonomy-discipline.js', 'notify.sh']
+# The Stop chain after --wiggum's removal (4.1.19) and the FIX-002 merge. This
+# list was deleted along with --wiggum, leaving `expected` undefined -- a
+# NameError that made this test error out rather than compare, which is how
+# 35413ce's settings.json drift went unnoticed.
+expected = ['discipline-stop.js', 'notify.sh']
 
 s = json.load(open('$settings'))
 names = []
@@ -535,8 +543,8 @@ print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in
     done
 }
 
-@test "L4: init-project.md hook enumeration includes the autonomy-discipline hook" {
-    grep -q "autonomy-discipline" "${REPO_ROOT}/packages/core/commands/init-project.md"
+@test "L4: init-project.md hook enumeration includes the merged discipline-stop hook" {
+    grep -q "discipline-stop" "${REPO_ROOT}/packages/core/commands/init-project.md"
 }
 
 @test "L3: SessionStart no-ops cleanly when CLAUDE_ENV_FILE is not set" {

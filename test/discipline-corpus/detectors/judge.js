@@ -104,7 +104,11 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { buildPrompt } = require('../../../packages/core/hooks/prompts/build-judge-prompts');
+const {
+  buildPrompt,
+  buildCombinedPrompt,
+  STOP_DISCIPLINE_HOOKS,
+} = require('../../../packages/core/hooks/prompts/build-judge-prompts');
 
 const DEFAULT_MODEL = process.env.DISCIPLINE_JUDGE_MODEL || 'claude-haiku-4-5-20251001';
 const DEFAULT_TIMEOUT_MS = Number(process.env.DISCIPLINE_JUDGE_TIMEOUT_MS) || 60000;
@@ -130,10 +134,14 @@ or after it:
  */
 function applicableHooks(testCase) {
   if (testCase.event === 'SubagentStop') return ['subagent-discipline'];
-  if (testCase.event === 'Stop') return ['async-discipline', 'autonomy-discipline'];
+  // Production merged the two Stop hooks into ONE prompt with two judgments
+  // (2026-08-25). The detector must build what production registers, or it scores
+  // prompts the platform no longer uses — measured that way it would silently
+  // reproduce the pre-merge baseline and read as a clean post-merge result.
+  if (testCase.event === 'Stop') return ['discipline-stop'];
   // Unknown/missing event — be conservative and check all three rather than silently
   // under-judging the case.
-  return ['async-discipline', 'subagent-discipline', 'autonomy-discipline'];
+  return ['discipline-stop', 'subagent-discipline'];
 }
 
 /**
@@ -177,7 +185,11 @@ function extractJson(raw) {
  * error, timeout, unparseable output) — caller treats `null` as fail-open (allow).
  */
 function judgeOneHook(testCase, hookName) {
-  const prompt = buildPrompt(hookName).replace('$ARGUMENTS', JSON.stringify(buildPayload(testCase, hookName), null, 2));
+  const rawPrompt =
+    hookName === 'discipline-stop'
+      ? buildCombinedPrompt(STOP_DISCIPLINE_HOOKS)
+      : buildPrompt(hookName);
+  const prompt = rawPrompt.replace('$ARGUMENTS', JSON.stringify(buildPayload(testCase, hookName), null, 2));
   const fullPrompt = `${prompt}\n\n${OFFLINE_RESPONSE_FORMAT}`;
 
   debug(`case=${testCase.id || '(no id)'} hook=${hookName} prompt_chars=${fullPrompt.length}`);

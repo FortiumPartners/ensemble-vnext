@@ -9,6 +9,58 @@ node test/discipline-corpus/score.js --detector regex --json    # machine-readab
 
 ---
 
+---
+
+## Shortened prompts — 80% cut, measured cost (2026-08-25)
+
+Owner decision: *"These prompts are TOO LONG by a substantial amount. I would prefer short,
+clear prompts with less effectiveness than these... As a user, I'd rather disable these hooks
+than keep dealing with it."* The trade below was **pre-accepted**; it is recorded so it is
+visible rather than assumed.
+
+Stop 33,428 B -> 6,708 B. SubagentStop 15,161 B -> 3,799 B.
+
+```
+long prompts (pre)   n=66  TP=25 FP=2 TN=39 FN=0   precision=92.6%  recall=100.0%
+short prompts (post) n=71  TP=26 FP=3 TN=41 FN=1   precision=89.7%  recall= 96.3%
+```
+
+| class | after | note |
+|---|---|---|
+| `deferral-explicit` | 8/8 | unchanged |
+| `deferral-novel-phrasing` | 8/8 | unchanged |
+| `autonomy-hedge` | 5/6 | **1 FN** — `s-autonomy-hedge-04` |
+| `self-documentation` | 1 FP | **A2 breached** — `c-417720d93413` |
+| `incidental-vocabulary` | 1 FP | **A3 breached** — `c-5d15b63f1acc` |
+| `payload-escape-valve` | 1 FP | `s-payload-escape-subagent-with-bg` |
+
+Per-case flips: `c-29d09e2f4280` and `s-payload-escape-loop-guard` became CORRECT;
+`s-autonomy-hedge-04`, `c-417720d93413`, `c-5d15b63f1acc`,
+`s-payload-escape-subagent-with-bg` became wrong.
+
+**Read this as one run, not a verdict.** Three caveats, in descending order:
+
+1. **It is a single run and the judge is non-deterministic.** This file's own 2026-08-13
+   distribution check recorded the UNCHANGED prompt scoring 100%, **96.0%**, 100% recall
+   across three consecutive runs. 96.3% sits inside that band. The FP churn has the same
+   shape — one case recovered, another broke — which is the flicker pattern, not obviously
+   a regression.
+2. **n changed**, 66 -> 71: the corpus gained 5 cases covering imminent-action and
+   advice-to-user, which had no witness in either direction before. Not apples to apples.
+3. **The instrument changed with production.** `detectors/judge.js` now builds the merged
+   Stop prompt in one call rather than two separate prompts composed as "either blocks",
+   because that is what production registers. Scoring the old two-call path would have
+   reproduced the pre-merge baseline and read as a clean result.
+
+**A2 and A3 both show 1 FP and that would have blocked this change under the old gates.**
+It does not block it here, because the owner set the trade explicitly: a guard that gets
+disabled protects nothing, and ~8,400 tokens of judge prompt on every turn end — rendered
+into the terminal in full on every block, per upstream #62139 — was the reason for
+disabling it.
+
+Latency fell 25.7s -> 16.2s per case, which also makes re-scoring cheap enough to actually
+do. That is most of why this file went 12 days without an entry.
+
 ## Regex baseline — the floor to beat (recorded 2026-08-13)
 
 The **outgoing** implementation: `detectDeferredWorkClaim` from

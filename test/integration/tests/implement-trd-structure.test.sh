@@ -200,8 +200,7 @@ setup() {
         "packages/core/contracts/task-delegation.md"
         "packages/core/hooks/dispatch-ledger.js"
         "packages/core/hooks/lib/dispatch-ledger.js"
-        "packages/core/hooks/prompts/async-discipline.prompt.md"
-        "packages/core/hooks/prompts/autonomy-discipline.prompt.md"
+        "packages/core/hooks/prompts/discipline-stop.prompt.md"
         "packages/core/hooks/prompts/subagent-discipline.prompt.md"
     )
     local claude_files=(
@@ -216,8 +215,7 @@ setup() {
         ".claude/contracts/task-delegation.md"
         ".claude/hooks/dispatch-ledger.js"
         ".claude/hooks/lib/dispatch-ledger.js"
-        ".claude/hooks/prompts/async-discipline.prompt.md"
-        ".claude/hooks/prompts/autonomy-discipline.prompt.md"
+        ".claude/hooks/prompts/discipline-stop.prompt.md"
         ".claude/hooks/prompts/subagent-discipline.prompt.md"
     )
 
@@ -279,16 +277,27 @@ setup() {
 @test "discipline prompt files match what build-judge-prompts.js generates" {
     command -v node >/dev/null || skip "node not available"
     run node -e '
-      const { buildPrompt } = require(process.argv[1]);
+      const { buildPrompt, buildCombinedPrompt, STOP_DISCIPLINE_HOOKS, STOP_DISCIPLINE_PROMPT_FILE } =
+        require(process.argv[1]);
       const fs = require("fs");
       const path = require("path");
       const dir = path.dirname(process.argv[1]);
       const drift = [];
-      for (const name of ["async-discipline", "autonomy-discipline", "subagent-discipline"]) {
-        const generated = buildPrompt(name) + "\n";
-        const onDisk = fs.readFileSync(path.join(dir, name + ".prompt.md"), "utf8");
-        if (generated !== onDisk) drift.push(name);
+
+      // subagent-discipline: single-hook prompt, unmerged (SubagentStop).
+      {
+        const generated = buildPrompt("subagent-discipline") + "\n";
+        const onDisk = fs.readFileSync(path.join(dir, "subagent-discipline.prompt.md"), "utf8");
+        if (generated !== onDisk) drift.push("subagent-discipline");
       }
+
+      // async-discipline + autonomy-discipline: merged onto one Stop prompt (FIX-002).
+      {
+        const generated = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS) + "\n";
+        const onDisk = fs.readFileSync(path.join(dir, STOP_DISCIPLINE_PROMPT_FILE), "utf8");
+        if (generated !== onDisk) drift.push(STOP_DISCIPLINE_PROMPT_FILE);
+      }
+
       if (drift.length) {
         console.error("Hand-edited (regeneration would discard the edit): " + drift.join(", "));
         process.exit(1);
@@ -588,17 +597,23 @@ PY
 }
 
 @test "the autonomy JUDGE PROMPT covers non-interrogative deferrals" {
-    # The guard is a model judge, not a regex -- but its prompt carried six
-    # exemplars and every one ended in a question mark. It told the judge to
-    # "judge the reasoning, not the vocabulary" and then anchored it entirely on
-    # interrogatives, so declarative deferrals passed. Measured: the same
-    # investigation was offered as "say the word and I'll settle it" twice, two
-    # turns apart, and this guard allowed both.
-    P="${REPO_ROOT}/packages/core/hooks/prompts/autonomy-discipline.prompt.md"
-    grep -q 'THE VIOLATION IS OFTEN NOT A QUESTION' "$P"
-    grep -q "Say the word and I'll fix the config" "$P"
-    # The principle, not another phrase to match on.
-    grep -qi 'The test is not the grammar' "$P"
+    # The guard is a model judge, not a regex -- but its prompt once carried six exemplars
+    # and every one ended in a question mark. It told the judge to "judge the reasoning, not
+    # the vocabulary" and then anchored it entirely on interrogatives, so declarative
+    # deferrals passed. Measured: the same investigation was offered as "say the word and
+    # I'll settle it" twice, two turns apart, and this guard allowed both.
+    #
+    # Asserts the INTENT, not the prose. The 2026-08-25 shortening cut the prompts by ~80%
+    # after the owner reported the length itself was the product defect ("I'd rather disable
+    # these hooks"). A test pinned to exact sentences makes the prompt unshortenable, which
+    # is the opposite of what is wanted -- so it checks that the declarative form is covered
+    # and that the principle is stated, by whatever wording.
+    P="${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.prompt.md"
+    [ -f "$P" ]
+    # a declarative (non-question) offer appears as an example
+    grep -qi "say the word" "$P"
+    # and the principle that grammar is not the test
+    grep -qiE 'grammar is irrelevant|not the grammar|same move' "$P"
     # Generated from the generator, never hand-edited.
     grep -q 'autonomy-discipline' "${REPO_ROOT}/packages/core/hooks/prompts/build-judge-prompts.js"
 }
