@@ -125,9 +125,26 @@ platform primitive is a different and much larger decision.
   reading it. So "if no workflow command is running, allow" has nothing to test, and the
   implementable form is weaker: judge command-context from the shape of
   `last_assistant_message` itself — a status banner or mid-loop state versus a bare answer or
-  fact — and lean on the prompt's existing *when uncertain, allow* principle. Anyone writing
-  that TRD should start from this constraint rather than the phrasing used in this file's
-  Reproduction.
+  fact — and lean on the prompt's existing *when uncertain, allow* principle.
+
+  **UPDATE, probed 2026-08-26 — there IS a channel, and it is better than text-inference.**
+  Three isolated probes settled what the two existing probe docs disagreed about:
+
+  | Channel | Result |
+  |---|---|
+  | Flag file on disk | **NO** — the judge reported `NO_TOOL_ACCESS` when asked to read one. Confirms `U5-kill-switch-mechanism.md`; `U2-prompt-payload.md`'s "actual tool access" line applies to `agent`-type hooks, not `prompt`-type |
+  | Environment variable | **NO** — already established in U5 |
+  | Custom payload field | **NO** — the field set is fixed |
+  | `UserPromptSubmit` → `additionalContext` | **YES** — verdict `SEES_MARKER`. The judge's context includes injected context from earlier in the session, not just the payload JSON |
+
+  So a command-type `UserPromptSubmit` hook CAN inspect the submitted prompt and inject a
+  marker the Stop judge will see. Caveats for the design: the judge sees the whole
+  conversation, so a marker is **sticky** — inject a current-state line on EVERY prompt
+  (active or inactive) and have the judge read the most recent, rather than injecting only on
+  command start. U2 also records that long transcripts are truncated for the evaluator, which
+  a per-turn injection survives and a once-per-command one may not. Evidence base is ONE clean
+  observation — the Stop hook fired inconsistently under `--print` — so re-run the probe
+  before building on it.
 - Changing what any guard actually does. This change is entirely documentation plus its test.
 - Re-scoring the discipline corpus. Nothing here alters a prompt, so `compare-runs.js` has
   nothing to compare.
