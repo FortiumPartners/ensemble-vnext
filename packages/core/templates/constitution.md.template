@@ -167,6 +167,9 @@ Tasks marked with `[LIVE]` in the TRD override this default and require live ver
    "I'll let you know when done" / "running in the background" / "I'll report back" without
    using `Agent({run_in_background: true})`, `ScheduleWakeup`, `Monitor`, or `/goal` in the
    same turn is a hallucinated notification — the agent will sit idle until prompted.
+   **`/goal` is not interchangeable with the other three: it has no bound of its own** —
+   measured at 114 re-invocations across 15 chains, longest 17 consecutive, while the
+   discipline hooks in the same session bounded at 2. See `async-discipline.md`.
    Enforced by the `async-discipline.js` Stop hook.
 7. **No silent completion** - See `.claude/rules/command-status.md`. Every workflow
    command emits standard `[STATUS: ...] DISPATCHED`, `[STATUS: ...] RESUMED`, and
