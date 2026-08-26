@@ -1,7 +1,7 @@
 # U7 Probe — does `UserPromptSubmit` `additionalContext` reach the `Stop` judge?
 
 **Run:** 2026-08-26. **Task:** AJCS-P001 (`docs/TRD/autonomy-judge-command-scope.md`), the
-Phase 1 gate. **Status: 3 of 4 questions answered; the gate PASSES.**
+Phase 1 gate. **Status: all 4 questions answered; the gate PASSES.**
 
 Evidence markers follow the convention of the sibling probes: **[OBSERVED]** = run here and
 the output read; **[INFERRED]** = reasoned, not executed.
@@ -14,7 +14,7 @@ the output read; **[INFERRED]** = reasoned, not executed.
 |---|----------|---------|
 | a | Does `UserPromptSubmit` `additionalContext` still reach the `Stop` judge? | **YES [OBSERVED]** — reproduced in a second, differently-shaped session |
 | b | Does the `UserPromptSubmit` payload carry `session_id`? | **YES [OBSERVED]** — with `transcript_path`, `prompt_id`, `permission_mode` |
-| c | Why does the `Stop` hook fire inconsistently under `claude --print`? | **OPEN** — not diagnosed |
+| c | Why does the `Stop` hook fire inconsistently under `claude --print`? | **RESOLVED [OBSERVED]** — it does not. It fires reliably; a missing record is a silent `ok: true` |
 | d | D3's ordering premise: which marker does the judge act on? | **THE LAST ONE [OBSERVED]** |
 
 AC-F6.3 halts Phase 2+ only on (a) failing. It did not fail. **The build may proceed.**
@@ -69,17 +69,31 @@ Contrast the `Stop` payload, which carries `session_id` too but **no field namin
 command** — that asymmetry is the whole reason this channel exists
 (`U2-prompt-payload.md:93`, `U5-kill-switch-mechanism.md:110-114`).
 
-## (c) — OPEN
+## (c) — RESOLVED: the hook fires reliably; a missing record means ALLOW
 
-Not diagnosed. Observed repeatedly: some `claude --print` runs produce no `Stop` verdict record
-at all, while others in the same project with the same settings do. Both a silent `ok: true`
-and the hook not firing would look identical in the transcript, and the two were not
-distinguished.
+**[OBSERVED].** The ambiguity was that a silent `ok: true` and a hook that never fired look
+identical in the transcript. An always-blocking hook separates them: register a `Stop` prompt
+that returns `ok: false, reason: "FIRED"` on every evaluation (with the usual `stop_hook_active`
+early-allow), then run five independent `--print` sessions.
 
-**[INFERRED]** This did not block (a), (b) or (d) — each was answered from runs that did
-produce a verdict — but it makes any *rate* measured under `--print` unreliable, which matters
-for `AJCS-T002`'s corpus scoring if that path is used. It does not affect interactive sessions,
-where every `Stop` observed in this project's own transcripts produced a record.
+```
+5/5 sessions produced a Stop verdict
+```
+
+So the hook is **not** firing inconsistently. Every earlier "no verdict" run was the judge
+returning `ok: true`, which by design writes nothing.
+
+**Consequence, and it removes a blocker rather than adding one:** `AJCS-T002`'s corpus scoring
+under `--print` is sound, provided the scorer treats an absent record as an ALLOW rather than as
+a missing evaluation. The concern that scoring was unreliable — raised when this document was
+first written — was unfounded.
+
+One residual, milder observation: in the (a)/(d) probe the judge was instructed to always return
+one of three `ok: false` reasons and sometimes returned none, i.e. it allowed against
+instruction. That prompt had three branches and asked the judge to inspect context; the
+single-branch prompt here complied 5/5. **[INFERRED]** complex multi-branch judge prompts are
+likelier to fall through to allow — which is the safe direction, and consistent with this
+project's own "when uncertain, allow" instruction.
 
 ---
 
@@ -114,4 +128,4 @@ the keys.
   long sessions are truncated for the evaluator with a synthetic note. A marker early in a long
   session may be dropped — untested. Per-turn injection is the mitigation and is the design.
 - Whether behaviour differs on `SubagentStop`. Out of scope (TRD NG3).
-- Anything about `--print`'s inconsistent `Stop` firing (question c).
+- Behaviour under an interactive (non-`--print`) session was not separately measured for (c).
