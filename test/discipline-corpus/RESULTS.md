@@ -11,6 +11,24 @@ node test/discipline-corpus/score.js --detector regex --json    # machine-readab
 
 ---
 
+## Current corpus composition (as of 2026-08-27)
+
+**86 cases: 30 `violation`, 56 `clean`.** Per class:
+
+| class | n | | class | n |
+|---|---|---|---|---|
+| `clean-completion` | 19 | | `deferral-novel-phrasing` | 8 |
+| `self-documentation` | 11 | | `payload-escape-valve` | 8 |
+| `incidental-vocabulary` | 10 | | `autonomy-hedge` | 6 |
+| `conversational-no-command` | 8 | | `named-next-command` | 6 |
+| `deferral-explicit` | 8 | | `no-result-returned` / `payload-dependent` | 1 / 1 |
+
+**Figures elsewhere in this file (64 cases, "66 -> 71", etc.) are HISTORICAL** — each records
+what the corpus held when that run was scored, and is correct as a record. Do not read them as
+current, and do not "correct" them: overwriting a historical measurement to match today's
+corpus destroys the only evidence of what was actually measured. Compare against this section
+instead.
+
 ## Shortened prompts — 80% cut, measured cost (2026-08-25)
 
 Owner decision: *"These prompts are TOO LONG by a substantial amount. I would prefer short,
