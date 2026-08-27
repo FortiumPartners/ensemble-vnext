@@ -620,12 +620,21 @@ JSON
     [ -s "$prompt" ]
 }
 
-@test "L4: both settings.json Stop chains are [discipline-stop.js, notify.sh]" {
+@test "L4: all three settings.json Stop chains are [discipline-stop.js, notify.sh]" {
     # discipline-stop.js is hookType:"prompt" (DISC-B008, merged FIX-002) — its
     # settings.json entry carries inlined prompt TEXT, not a "command" field to pull
     # a filename out of, so a name is recovered by matching that text against each
     # promptFile's content.
-    for settings in "${REPO_ROOT}/.claude/settings.json" "${REPO_ROOT}/packages/full/.claude/settings.json"; do
+    #
+    # Three copies, not two: the template
+    # (packages/core/templates/claude-directory/settings.json) is what new
+    # projects are scaffolded with, and generate-hooks-artifacts.sh regenerates
+    # it alongside the two live copies. 35413ce (see AJCS-B006 grounding) left
+    # both live copies stale after a prompt fix landed only in the template —
+    # the inverse drift is just as possible, and a two-path loop can't see it.
+    for settings in "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json" \
+                    "${REPO_ROOT}/.claude/settings.json" \
+                    "${REPO_ROOT}/packages/full/.claude/settings.json"; do
         python3 -c "
 import json, os, sys
 
@@ -656,6 +665,67 @@ assert names == expected, f'Stop chain order mismatch: {names} != {expected}'
 print('  ', '$settings'.split('/')[-3]+'/.claude/settings.json' if 'packages' in '$settings' else '.claude/settings.json', '→', ' → '.join(names))
 "
     done
+}
+
+@test "L4: discipline-stop prompt embedded in all three settings.json matches the generated file" {
+    # Guards the exact failure this task exists to prevent: generate-hooks-artifacts.sh
+    # READS packages/core/hooks/prompts/discipline-stop.prompt.md and embeds it — it
+    # never WRITES it. Running only the shell generator (skipping
+    # build-judge-prompts.js) ships whatever is already on disk, stale or not, and
+    # --check can't catch that because it rebuilds its comparison FROM the same
+    # on-disk file. The only thing that can catch it is comparing the settings.json
+    # copies against each other AND against the source-of-truth generator's own
+    # template constant — which is what this test does by proxy: it insists all
+    # three settings.json carry the IDENTICAL embedded text as the prompt file on
+    # disk, modulo the trailing newline load_prompt_text() strips (rstrip("\n")).
+    # $ARGUMENTS is embedded verbatim (expanded by the platform, not the generator),
+    # so there is no other "modulo" to tolerate.
+    python3 -c "
+import json
+
+prompt_path = '${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.prompt.md'
+with open(prompt_path) as fh:
+    file_text = fh.read().rstrip(chr(10))
+
+settings_paths = [
+    '${REPO_ROOT}/packages/core/templates/claude-directory/settings.json',
+    '${REPO_ROOT}/.claude/settings.json',
+    '${REPO_ROOT}/packages/full/.claude/settings.json',
+]
+
+embedded = {}
+for sp in settings_paths:
+    s = json.load(open(sp))
+    prompt_text = None
+    for grp in s['hooks']['Stop']:
+        for h in grp['hooks']:
+            if h.get('type') == 'prompt' and 'STOP HOOK FIRED' in h.get('prompt', ''):
+                prompt_text = h['prompt']
+    assert prompt_text is not None, f'{sp}: no discipline-stop prompt entry found in Stop chain'
+    embedded[sp] = prompt_text
+
+# The vendored copy at .claude/hooks/prompts/ is a REAL file, not a symlink (the
+# packages/full one IS a symlink, so it cannot drift). scaffold-project.sh's
+# copy_hook_prompts() delivers it verbatim, but generate-hooks-artifacts.sh does
+# NOT refresh it — so a prompt edit that regenerates settings.json leaves this
+# fourth copy behind, silently, which is what the loop below now catches.
+vendored = '${REPO_ROOT}/.claude/hooks/prompts/discipline-stop.prompt.md'
+with open(vendored) as fh:
+    vendored_text = fh.read()
+assert vendored_text == file_text + chr(10), (
+    vendored + ' differs from ' + prompt_path +
+    ' -- re-run scaffold-project.sh --refresh, or copy it across'
+)
+
+# All three embedded copies must be byte-identical to each other.
+texts = list(embedded.values())
+for sp, t in embedded.items():
+    assert t == texts[0], f'{sp} embedded prompt differs from {settings_paths[0]}'
+
+# And identical to the generated file, modulo the trailing-newline strip.
+assert texts[0] == file_text, 'settings.json embedded prompt does not match packages/core/hooks/prompts/discipline-stop.prompt.md (modulo trailing newline) -- run build-judge-prompts.js then generate-hooks-artifacts.sh, in that order'
+print('  all three settings.json match', prompt_path)
+"
 }
 
 @test "L4: init-project.md hook enumeration includes the merged discipline-stop hook" {

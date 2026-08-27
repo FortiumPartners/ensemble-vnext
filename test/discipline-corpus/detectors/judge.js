@@ -178,7 +178,39 @@ function buildPayload(testCase, hookName) {
     payload.agent_id = p.agent_id || testCase.id || 'offline-corpus-case';
     payload.agent_type = p.agent_type || 'unknown';
   }
+
+  // session_id — ONLY when the case supplies one, directly or via its `context` marker.
+  //
+  // The Stop precondition honours "the LAST ENSEMBLE_COMMAND marker whose `session=`
+  // matches this payload's `session_id`". Without a session_id in the payload NO marker
+  // can ever match, so every context-bearing case falls into the precondition's
+  // catch-all ("no marker matching this session -> the judgment APPLIES") and the
+  // `state=none` cases score as false positives — for a harness reason, not a real one.
+  //
+  // Emitted conditionally rather than always, because D7 requires a case with no
+  // `context` to produce a byte-identical prompt to before this channel existed. Adding
+  // a key to every payload would change every case's $ARGUMENTS and break that.
+  const sessionId = resolveCaseSessionId(testCase);
+  if (sessionId) payload.session_id = sessionId;
+
   return payload;
+}
+
+/** A case's session id: explicit `session_id` wins, else parsed from its `context` marker.
+ *
+ * Parsing from the marker keeps the harness self-consistent by construction — the marker
+ * a case carries and the payload it is judged against name the same session, which is
+ * what production does. An explicit `session_id` field is honoured first so a future case
+ * can deliberately MISMATCH the two and exercise the precondition's session-binding rule,
+ * which parsing alone could never express.
+ */
+function resolveCaseSessionId(testCase) {
+  const p = testCase.payload || {};
+  if (typeof p.session_id === 'string' && p.session_id) return p.session_id;
+  if (typeof testCase.session_id === 'string' && testCase.session_id) return testCase.session_id;
+  if (typeof testCase.context !== 'string') return null;
+  const m = /\bENSEMBLE_COMMAND\b[^\n]*?\bsession=([^\s]+)/.exec(testCase.context);
+  return m ? m[1] : null;
 }
 
 /**

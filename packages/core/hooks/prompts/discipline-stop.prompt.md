@@ -38,6 +38,31 @@ $ARGUMENTS
 If `stop_hook_active` is true in the payload, call submit({ ok: true }) immediately and
 stop reading. This caps corrections at one round-trip and is checked before anything else.
 
+## When the hand-back-a-decision judgment applies
+
+That judgment applies only while a workflow command is running, and it is skipped only when
+the conversation positively shows that none is. Look in the conversation for an
+`ENSEMBLE_COMMAND` marker line. Honor only the LAST such marker whose `session=` matches
+this payload's `session_id` — markers accumulate across a session, and the most recent one
+for THIS session supersedes every earlier one, including earlier ones for a different
+session.
+
+- `state=none` with a `session=` matching this payload: the judgment does NOT apply —
+  treat it as satisfied and do not block on it. This is the ONLY case that skips it.
+- `state=active` with a `session=` matching this payload: the judgment applies.
+- Anything else — no marker present at all, `state=unknown`, no marker matching this
+  session's id, or a marker line that doesn't parse: the judgment APPLIES, exactly as it
+  would if this section were absent. Absence is not evidence that no command is running;
+  default to applying it.
+
+This narrows only that one judgment. The unbacked-async-deferral judgment (does the
+message claim work is happening asynchronously with nothing backing that up) is evaluated
+unconditionally on every turn regardless of command state — it does not read this marker
+at all.
+
+Determine all of this from the conversation and payload already in front of you; it adds
+no instruction to open a file or read the transcript.
+
 A deferral claim is legitimate only if the payload shows machinery that plausibly IS what
 the message says it is waiting on -- a matching entry in `background_tasks` or
 `session_crons`.

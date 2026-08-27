@@ -124,3 +124,38 @@ describe('judge detector — buildFullPrompt context channel', () => {
     });
   });
 });
+
+describe('session_id in the payload (phase-3 review HIGH)', () => {
+  // The Stop precondition honours "the LAST ENSEMBLE_COMMAND marker whose session=
+  // matches this payload's session_id". Before this, buildPayload never emitted one, so
+  // NO marker could match and every context-bearing case fell into the precondition's
+  // catch-all — scoring the state=none cases as false positives for a harness reason.
+  const stopCase = (over = {}) => ({ id: 'c', event: 'Stop', text: 'hi', ...over });
+
+  it('emits session_id parsed from the context marker', () => {
+    const out = judge.buildFullPrompt(
+      stopCase({ context: 'ENSEMBLE_COMMAND state=none session=abc-123' }),
+      'discipline-stop'
+    );
+    expect(out).toMatch(/"session_id":\s*"abc-123"/);
+  });
+
+  it('omits session_id entirely when the case has no context — D7 byte-identity', () => {
+    const out = judge.buildFullPrompt(stopCase(), 'discipline-stop');
+    expect(out).not.toMatch(/"session_id"/);
+  });
+
+  it('prefers an explicit session_id over the marker, so a case can MISMATCH the two', () => {
+    const out = judge.buildFullPrompt(
+      stopCase({ context: 'ENSEMBLE_COMMAND state=none session=from-marker', session_id: 'explicit' }),
+      'discipline-stop'
+    );
+    expect(out).toMatch(/"session_id":\s*"explicit"/);
+    expect(out).toContain('session=from-marker');
+  });
+
+  it('tolerates a context with no session= without throwing', () => {
+    const out = judge.buildFullPrompt(stopCase({ context: 'ENSEMBLE_COMMAND state=none' }), 'discipline-stop');
+    expect(out).not.toMatch(/"session_id"/);
+  });
+});

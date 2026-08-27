@@ -4,7 +4,7 @@
   "trd_hash": "5deff2888838c975c5c21d57611f546e6e7050ac339f36604debaad701aad21b",
   "branch": "feature/autonomy-judge-command-scope/impl",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "AJCS-P001": {
       "description": "[LIVE] Re-run the injected-context probe and record it in a new docs/modernization/probes/U7-injected-context-marker.md.",
@@ -106,26 +106,37 @@
     "AJCS-B005": {
       "description": "Add an optional precondition field to HOOKS entries in packages/core/hooks/prompts/build-judge-prompts.js, emit it in bo",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/hooks/prompts/build-judge-prompts.js",
+        "packages/core/hooks/prompts/build-judge-prompts.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-27T01:20:29.350Z",
+      "completed_at": "2026-08-27T01:44:51.301Z",
+      "last_advanced": "2026-08-27T01:37:08.871Z"
     },
     "AJCS-B006": {
       "description": "In this order: (1) run node packages/core/hooks/prompts/build-judge-prompts.js — the shell script does *not* write the p",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/hooks/prompts/discipline-stop.prompt.md",
+        ".claude/hooks/prompts/discipline-stop.prompt.md",
+        ".claude/settings.json",
+        "packages/core/templates/claude-directory/settings.json",
+        "packages/full/.claude/settings.json"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-27T01:20:29.350Z",
+      "completed_at": "2026-08-27T01:44:51.301Z",
+      "last_advanced": "2026-08-27T01:37:08.872Z"
     },
     "AJCS-T002": {
       "description": "[LIVE] Capture the POST baseline (three runs, same corpus, same command as AJCS-T001) and run compare-runs.js --pre … --",

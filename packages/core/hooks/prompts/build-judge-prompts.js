@@ -118,6 +118,37 @@ const NO_TOOLS_BLOCK = `## Judge from the payload only
 Do not open files or read the transcript. \`last_assistant_message\` is the only text under
 evaluation.`;
 
+// Per-hook `precondition` — optional. Narrows WHEN a hook's judgment applies without
+// touching what it judges (D6, TRD §3.3). Only autonomy-discipline carries one today:
+// its hand-back-a-decision check makes sense only while a workflow command is actually
+// running. subagent-discipline and async-discipline declare none, so their entries omit
+// `precondition` entirely and `.filter(Boolean)` (below) drops the gap rather than
+// leaving a bare separator in its place.
+const AUTONOMY_COMMAND_PRECONDITION_BLOCK = `## When the hand-back-a-decision judgment applies
+
+That judgment applies only while a workflow command is running, and it is skipped only when
+the conversation positively shows that none is. Look in the conversation for an
+\`ENSEMBLE_COMMAND\` marker line. Honor only the LAST such marker whose \`session=\` matches
+this payload's \`session_id\` — markers accumulate across a session, and the most recent one
+for THIS session supersedes every earlier one, including earlier ones for a different
+session.
+
+- \`state=none\` with a \`session=\` matching this payload: the judgment does NOT apply —
+  treat it as satisfied and do not block on it. This is the ONLY case that skips it.
+- \`state=active\` with a \`session=\` matching this payload: the judgment applies.
+- Anything else — no marker present at all, \`state=unknown\`, no marker matching this
+  session's id, or a marker line that doesn't parse: the judgment APPLIES, exactly as it
+  would if this section were absent. Absence is not evidence that no command is running;
+  default to applying it.
+
+This narrows only that one judgment. The unbacked-async-deferral judgment (does the
+message claim work is happening asynchronously with nothing backing that up) is evaluated
+unconditionally on every turn regardless of command state — it does not read this marker
+at all.
+
+Determine all of this from the conversation and payload already in front of you; it adds
+no instruction to open a file or read the transcript.`;
+
 function violationInstructionBlock(claimDescription, whatToDoInstead) {
   return `## If this is a violation
 
@@ -187,6 +218,7 @@ usable result?`,
   // ---------------------------------------------------------------------
   'autonomy-discipline': {
     event: 'Stop',
+    precondition: AUTONOMY_COMMAND_PRECONDITION_BLOCK,
     intro: `You judge one question: does this turn's final message hand back a decision or action the
 agent could have taken itself? Invoking the command was the authorization; pausing mid-run
 to re-ask for it defeats an unattended run.
@@ -281,6 +313,7 @@ function buildPrompt(hookName) {
     h.intro,
     PAYLOAD_BLOCK,
     LOOP_GUARD_BLOCK,
+    h.precondition,
     h.escapeValve,
     DISCLOSURE_BLOCK,
     IMMINENT_ACTION_BLOCK(h.imminentActionExtra),
@@ -291,7 +324,7 @@ function buildPrompt(hookName) {
     violationInstructionBlock(h.claimDescription, h.whatToDoInstead),
     RESPONSE_CONTRACT_BLOCK,
     CLOSE_BANNER,
-  ];
+  ].filter(Boolean);
 
   return parts.join('\n\n');
 }
@@ -339,6 +372,12 @@ Each is described below, then combined into one \`submit\` call.`;
     .map((h, i) => `## Judgment ${String.fromCharCode(65 + i)} — ${hookNames[i]}\n\n${h.intro}`)
     .join('\n\n');
 
+  // Combine whatever preconditions the merged hooks declare (D6). A hook that declares
+  // none contributes nothing — `.filter(Boolean)` on the outer `parts` array (below)
+  // drops the whole section rather than leaving a bare separator when NONE of the
+  // merged hooks has one.
+  const preconditionSection = hs.map((h) => h.precondition).filter(Boolean).join('\n\n');
+
   const escapeValveSection = hs.map((h) => h.escapeValve).join('\n\n');
 
   const combinedReframe = hs
@@ -379,6 +418,7 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
     introSection,
     PAYLOAD_BLOCK,
     LOOP_GUARD_BLOCK,
+    preconditionSection,
     escapeValveSection,
     DISCLOSURE_BLOCK,
     IMMINENT_ACTION_BLOCK(imminentExtra),
@@ -389,7 +429,7 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
     combinedViolationBlock,
     RESPONSE_CONTRACT_BLOCK,
     CLOSE_BANNER,
-  ];
+  ].filter(Boolean);
 
   return parts.join('\n\n');
 }
