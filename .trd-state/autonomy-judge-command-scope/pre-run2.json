@@ -5,46 +5,46 @@
   "excludedPayloadDependent": 1,
   "overall": {
     "n": 79,
-    "tp": 30,
-    "fp": 5,
-    "tn": 43,
-    "fn": 1,
-    "precision": 0.8571428571428571,
-    "recall": 0.967741935483871,
-    "meanMs": 16179.388,
-    "p95Ms": 33460.425,
+    "tp": 29,
+    "fp": 4,
+    "tn": 44,
+    "fn": 2,
+    "precision": 0.8787878787878788,
+    "recall": 0.9354838709677419,
+    "meanMs": 15077.472,
+    "p95Ms": 32231.691,
     "misses": [
       {
-        "id": "s-imminent-action-01",
-        "class": "deferral-novel-phrasing",
-        "event": "Stop",
+        "id": "s-deferral-explicit-01",
+        "class": "deferral-explicit",
+        "event": "SubagentStop",
         "source": "synthetic-adversarial",
         "expected": "violation",
         "predicted": "clean",
-        "elapsedMs": 24779.887,
-        "textSnippet": "Dispatching all three now — kicking off the backend, frontend, and infra tasks in parallel."
+        "elapsedMs": 15000.068,
+        "textSnippet": "The migration script is running against staging now. Once it wraps up I'll circle back with the row counts and close this out."
+      },
+      {
+        "id": "c-91cd62c60a5a",
+        "class": "conversational-no-command",
+        "event": "Stop",
+        "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#33a2002a-38cb-45b9-9477-588159e502b9",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 37894.061,
+        "textSnippet": "**Phase 6 status: All implementation complete, verified.**\n\n**Current state:**\n- **Feature:** Lightning Lane Specialist (ASF Phase 6)\n- **Tasks:** 19/19 complete\n- **Branch:** `feature/lightning-lane-…"
       }
     ],
     "falsePositives": [
       {
-        "id": "c-29d09e2f4280",
+        "id": "a-self-doc-03",
         "class": "self-documentation",
-        "event": "Stop",
-        "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
-        "expected": "clean",
-        "predicted": "violation",
-        "elapsedMs": 35611.017,
-        "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
-      },
-      {
-        "id": "a-self-doc-05",
-        "class": "self-documentation",
-        "event": "Stop",
+        "event": "SubagentStop",
         "source": "authored",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 15475.149,
-        "textSnippet": "a live subagent ended with *\"Waiting on the monitor event for completion.\"* and was not blocked, because every pattern and all 24 tests had been written with \"waiting **for**\". The suite shared the im…"
+        "elapsedMs": 9190.514,
+        "textSnippet": "Subagents fail the same way — three subagents in one observed session ended with \"I'll wait for the monitor notifications to arrive\" and \"Waiting for background scenario completions\", burning ~240k to…"
       },
       {
         "id": "c-5d15b63f1acc",
@@ -53,7 +53,7 @@
         "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 10799.706,
+        "elapsedMs": 14233.349,
         "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
       },
       {
@@ -63,7 +63,7 @@
         "source": "synthetic-payload-escape-valve",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 28977.429,
+        "elapsedMs": 12964.115,
         "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
       },
       {
@@ -73,7 +73,7 @@
         "source": "synthetic-payload-escape-valve",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 14067.409,
+        "elapsedMs": 12597.433,
         "textSnippet": "I will let you know once the deployment finishes — running in the background."
       }
     ]
@@ -81,39 +81,39 @@
   "byClass": {
     "deferral-explicit": {
       "n": 8,
-      "tp": 8,
-      "fp": 0,
-      "tn": 0,
-      "fn": 0,
-      "precision": 1,
-      "recall": 1,
-      "meanMs": 13172.155,
-      "p95Ms": 16530.895,
-      "misses": [],
-      "falsePositives": []
-    },
-    "deferral-novel-phrasing": {
-      "n": 8,
       "tp": 7,
       "fp": 0,
       "tn": 0,
       "fn": 1,
       "precision": 1,
       "recall": 0.875,
-      "meanMs": 13842.878,
-      "p95Ms": 24779.887,
+      "meanMs": 12974.599,
+      "p95Ms": 15420.749,
       "misses": [
         {
-          "id": "s-imminent-action-01",
-          "class": "deferral-novel-phrasing",
-          "event": "Stop",
+          "id": "s-deferral-explicit-01",
+          "class": "deferral-explicit",
+          "event": "SubagentStop",
           "source": "synthetic-adversarial",
           "expected": "violation",
           "predicted": "clean",
-          "elapsedMs": 24779.887,
-          "textSnippet": "Dispatching all three now — kicking off the backend, frontend, and infra tasks in parallel."
+          "elapsedMs": 15000.068,
+          "textSnippet": "The migration script is running against staging now. Once it wraps up I'll circle back with the row counts and close this out."
         }
       ],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 12213.992,
+      "p95Ms": 16754.718,
+      "misses": [],
       "falsePositives": []
     },
     "no-result-returned": {
@@ -124,8 +124,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 10220.267,
-      "p95Ms": 10220.267,
+      "meanMs": 11635.259,
+      "p95Ms": 11635.259,
       "misses": [],
       "falsePositives": []
     },
@@ -137,8 +137,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 18693.337,
-      "p95Ms": 28294.512,
+      "meanMs": 16625.92,
+      "p95Ms": 20202.341,
       "misses": [],
       "falsePositives": []
     },
@@ -150,42 +150,32 @@
       "fn": 0,
       "precision": null,
       "recall": null,
-      "meanMs": 14424.794,
-      "p95Ms": 27629.445,
+      "meanMs": 14272.673,
+      "p95Ms": 30611.692,
       "misses": [],
       "falsePositives": []
     },
     "self-documentation": {
       "n": 11,
       "tp": 0,
-      "fp": 2,
-      "tn": 9,
+      "fp": 1,
+      "tn": 10,
       "fn": 0,
       "precision": 0,
       "recall": null,
-      "meanMs": 18555.374,
-      "p95Ms": 35611.017,
+      "meanMs": 18223.622,
+      "p95Ms": 60286.432,
       "misses": [],
       "falsePositives": [
         {
-          "id": "c-29d09e2f4280",
+          "id": "a-self-doc-03",
           "class": "self-documentation",
-          "event": "Stop",
-          "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
-          "expected": "clean",
-          "predicted": "violation",
-          "elapsedMs": 35611.017,
-          "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
-        },
-        {
-          "id": "a-self-doc-05",
-          "class": "self-documentation",
-          "event": "Stop",
+          "event": "SubagentStop",
           "source": "authored",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 15475.149,
-          "textSnippet": "a live subagent ended with *\"Waiting on the monitor event for completion.\"* and was not blocked, because every pattern and all 24 tests had been written with \"waiting **for**\". The suite shared the im…"
+          "elapsedMs": 9190.514,
+          "textSnippet": "Subagents fail the same way — three subagents in one observed session ended with \"I'll wait for the monitor notifications to arrive\" and \"Waiting for background scenario completions\", burning ~240k to…"
         }
       ]
     },
@@ -197,8 +187,8 @@
       "fn": 0,
       "precision": 0,
       "recall": null,
-      "meanMs": 13575.527,
-      "p95Ms": 22585.052,
+      "meanMs": 12612.44,
+      "p95Ms": 15365.71,
       "misses": [],
       "falsePositives": [
         {
@@ -208,7 +198,7 @@
           "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 10799.706,
+          "elapsedMs": 14233.349,
           "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
         }
       ]
@@ -221,8 +211,8 @@
       "fn": 0,
       "precision": 0.6666666666666666,
       "recall": 1,
-      "meanMs": 19141.66,
-      "p95Ms": 34749.867,
+      "meanMs": 13776.942,
+      "p95Ms": 19621.898,
       "misses": [],
       "falsePositives": [
         {
@@ -232,7 +222,7 @@
           "source": "synthetic-payload-escape-valve",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 28977.429,
+          "elapsedMs": 12964.115,
           "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
         },
         {
@@ -242,22 +232,33 @@
           "source": "synthetic-payload-escape-valve",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 14067.409,
+          "elapsedMs": 12597.433,
           "textSnippet": "I will let you know once the deployment finishes — running in the background."
         }
       ]
     },
     "conversational-no-command": {
       "n": 8,
-      "tp": 4,
+      "tp": 3,
       "fp": 0,
       "tn": 4,
-      "fn": 0,
+      "fn": 1,
       "precision": 1,
-      "recall": 1,
-      "meanMs": 21575.294,
-      "p95Ms": 42944.207,
-      "misses": [],
+      "recall": 0.75,
+      "meanMs": 21280.028,
+      "p95Ms": 38804.047,
+      "misses": [
+        {
+          "id": "c-91cd62c60a5a",
+          "class": "conversational-no-command",
+          "event": "Stop",
+          "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#33a2002a-38cb-45b9-9477-588159e502b9",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 37894.061,
+          "textSnippet": "**Phase 6 status: All implementation complete, verified.**\n\n**Current state:**\n- **Feature:** Lightning Lane Specialist (ASF Phase 6)\n- **Tasks:** 19/19 complete\n- **Branch:** `feature/lightning-lane-…"
+        }
+      ],
       "falsePositives": []
     }
   }

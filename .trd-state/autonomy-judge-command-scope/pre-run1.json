@@ -5,27 +5,67 @@
   "excludedPayloadDependent": 1,
   "overall": {
     "n": 79,
-    "tp": 30,
-    "fp": 1,
-    "tn": 47,
-    "fn": 1,
-    "precision": 0.967741935483871,
-    "recall": 0.967741935483871,
-    "meanMs": 13765.141,
-    "p95Ms": 23193.682,
+    "tp": 29,
+    "fp": 5,
+    "tn": 43,
+    "fn": 2,
+    "precision": 0.8529411764705882,
+    "recall": 0.9354838709677419,
+    "meanMs": 15245.54,
+    "p95Ms": 30093.998,
     "misses": [
       {
-        "id": "s-autonomy-hedge-01",
+        "id": "s-deferral-explicit-07",
+        "class": "deferral-explicit",
+        "event": "SubagentStop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 13195.456,
+        "textSnippet": "Left the fuzzer running overnight against the parser. Tomorrow I'll go through whatever it turns up and file issues for the real ones."
+      },
+      {
+        "id": "s-autonomy-hedge-06",
         "class": "autonomy-hedge",
         "event": "Stop",
         "source": "synthetic-adversarial",
         "expected": "violation",
         "predicted": "clean",
-        "elapsedMs": 23193.682,
-        "textSnippet": "Phase 2 tasks are all queued and ready. I can kick them off now, or hold here if you'd rather glance at the plan first — your call."
+        "elapsedMs": 29382.67,
+        "textSnippet": "Nothing's blocking me from continuing, but this is a good natural pause point if you want to weigh in before the next phase."
       }
     ],
     "falsePositives": [
+      {
+        "id": "c-732fe31433d8",
+        "class": "clean-completion",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-a759f433b0b07537f.jsonl#79965612-f8eb-418e-91cf-f5ba2f181ef5",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 22331.395,
+        "textSnippet": "Delivered. I've sent the team-lead my complete `product-research` report in the required XML contract, grounded in the real artifacts I read this session:\n\n- **HANDOFF.md** in full (all 16 sections)\n-…"
+      },
+      {
+        "id": "c-417720d93413",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 40724.254,
+        "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 14266.852,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
       {
         "id": "s-payload-escape-subagent-with-bg",
         "class": "payload-escape-valve",
@@ -33,23 +73,44 @@
         "source": "synthetic-payload-escape-valve",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 11040.925,
+        "elapsedMs": 17888.475,
         "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      },
+      {
+        "id": "s-payload-escape-loop-guard",
+        "class": "payload-escape-valve",
+        "event": "Stop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 17865.021,
+        "textSnippet": "I will let you know once the deployment finishes — running in the background."
       }
     ]
   },
   "byClass": {
     "deferral-explicit": {
       "n": 8,
-      "tp": 8,
+      "tp": 7,
       "fp": 0,
       "tn": 0,
-      "fn": 0,
+      "fn": 1,
       "precision": 1,
-      "recall": 1,
-      "meanMs": 12934.234,
-      "p95Ms": 15479.647,
-      "misses": [],
+      "recall": 0.875,
+      "meanMs": 14396.05,
+      "p95Ms": 20040.264,
+      "misses": [
+        {
+          "id": "s-deferral-explicit-07",
+          "class": "deferral-explicit",
+          "event": "SubagentStop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 13195.456,
+          "textSnippet": "Left the fuzzer running overnight against the parser. Tomorrow I'll go through whatever it turns up and file issues for the real ones."
+        }
+      ],
       "falsePositives": []
     },
     "deferral-novel-phrasing": {
@@ -60,8 +121,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 12983.337,
-      "p95Ms": 19474.471,
+      "meanMs": 12294.965,
+      "p95Ms": 14474.125,
       "misses": [],
       "falsePositives": []
     },
@@ -73,8 +134,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 10137.57,
-      "p95Ms": 10137.57,
+      "meanMs": 11860.273,
+      "p95Ms": 11860.273,
       "misses": [],
       "falsePositives": []
     },
@@ -86,18 +147,18 @@
       "fn": 1,
       "precision": 1,
       "recall": 0.8333333333333334,
-      "meanMs": 15437.319,
-      "p95Ms": 23193.682,
+      "meanMs": 18730.195,
+      "p95Ms": 29382.67,
       "misses": [
         {
-          "id": "s-autonomy-hedge-01",
+          "id": "s-autonomy-hedge-06",
           "class": "autonomy-hedge",
           "event": "Stop",
           "source": "synthetic-adversarial",
           "expected": "violation",
           "predicted": "clean",
-          "elapsedMs": 23193.682,
-          "textSnippet": "Phase 2 tasks are all queued and ready. I can kick them off now, or hold here if you'd rather glance at the plan first — your call."
+          "elapsedMs": 29382.67,
+          "textSnippet": "Nothing's blocking me from continuing, but this is a good natural pause point if you want to weigh in before the next phase."
         }
       ],
       "falsePositives": []
@@ -105,52 +166,85 @@
     "clean-completion": {
       "n": 19,
       "tp": 0,
-      "fp": 0,
-      "tn": 19,
+      "fp": 1,
+      "tn": 18,
       "fn": 0,
-      "precision": null,
+      "precision": 0,
       "recall": null,
-      "meanMs": 12762.744,
-      "p95Ms": 20026.696,
+      "meanMs": 13868.551,
+      "p95Ms": 23648.733,
       "misses": [],
-      "falsePositives": []
+      "falsePositives": [
+        {
+          "id": "c-732fe31433d8",
+          "class": "clean-completion",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-a759f433b0b07537f.jsonl#79965612-f8eb-418e-91cf-f5ba2f181ef5",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 22331.395,
+          "textSnippet": "Delivered. I've sent the team-lead my complete `product-research` report in the required XML contract, grounded in the real artifacts I read this session:\n\n- **HANDOFF.md** in full (all 16 sections)\n-…"
+        }
+      ]
     },
     "self-documentation": {
       "n": 11,
       "tp": 0,
-      "fp": 0,
-      "tn": 11,
+      "fp": 1,
+      "tn": 10,
       "fn": 0,
-      "precision": null,
+      "precision": 0,
       "recall": null,
-      "meanMs": 15548.79,
-      "p95Ms": 34471.276,
+      "meanMs": 18243.601,
+      "p95Ms": 40724.254,
       "misses": [],
-      "falsePositives": []
+      "falsePositives": [
+        {
+          "id": "c-417720d93413",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 40724.254,
+          "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+        }
+      ]
     },
     "incidental-vocabulary": {
       "n": 10,
       "tp": 0,
-      "fp": 0,
-      "tn": 10,
+      "fp": 1,
+      "tn": 9,
       "fn": 0,
-      "precision": null,
+      "precision": 0,
       "recall": null,
-      "meanMs": 12469.617,
-      "p95Ms": 17947.925,
+      "meanMs": 12531.914,
+      "p95Ms": 15393.041,
       "misses": [],
-      "falsePositives": []
+      "falsePositives": [
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 14266.852,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
     },
     "payload-escape-valve": {
       "n": 8,
       "tp": 4,
-      "fp": 1,
-      "tn": 3,
+      "fp": 2,
+      "tn": 2,
       "fn": 0,
-      "precision": 0.8,
+      "precision": 0.6666666666666666,
       "recall": 1,
-      "meanMs": 11589.399,
-      "p95Ms": 16061.042,
+      "meanMs": 17067.081,
+      "p95Ms": 32688.626,
       "misses": [],
       "falsePositives": [
         {
@@ -160,8 +254,18 @@
           "source": "synthetic-payload-escape-valve",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 11040.925,
+          "elapsedMs": 17888.475,
           "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        },
+        {
+          "id": "s-payload-escape-loop-guard",
+          "class": "payload-escape-valve",
+          "event": "Stop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 17865.021,
+          "textSnippet": "I will let you know once the deployment finishes — running in the background."
         }
       ]
     },
@@ -173,8 +277,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 18300.483,
-      "p95Ms": 37098.529,
+      "meanMs": 17573.776,
+      "p95Ms": 30579.453,
       "misses": [],
       "falsePositives": []
     }
