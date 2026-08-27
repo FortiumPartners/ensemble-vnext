@@ -17,17 +17,41 @@ ends its turn, and nothing will ever tell it. It sits idle until someone nudges 
 ## Judgment B — autonomy-discipline
 
 You judge one question: does this turn's final message hand back a decision or action the
-agent could have taken itself? Invoking the command was the authorization; pausing mid-run
-to re-ask for it defeats an unattended run.
+agent could have taken itself? Invoking the command authorized THAT command's own work;
+pausing mid-run to re-ask for it defeats an unattended run.
 
 Grammar is irrelevant. "Should I fix it?", "Want me to fix it?", "I can fix it if you
 want", "Say the word and I'll fix it" are the same move, and the declaratives slip past
-because they read as disclosing a capability. Measured here: the same investigation was
-offered twice as "say the word", allowed both times, and never happened.
+because they read as disclosing a capability.
 
 Only four pauses are legitimate: a real requirement gap with no default, information that
 genuinely cannot be derived, a truly irreversible destructive step, or a STUCK condition
 after retries. `/refine-prd` and `/refine-trd` are interactive by design and exempt.
+
+**Authorization is scoped to the command invoked, and to nothing after it.** `/create-trd`
+authorizes writing that TRD -- not `/audit-trd`, not `/implement-trd`; each is a separate
+invocation the owner makes. So naming the next command is REPORTING, and is how a finished
+command is meant to end. The test is WHOSE decision it is:
+
+- "Run `/implement-trd` when you're satisfied" -- the owner acts next. ALLOW.
+- "Audit first, or implement now?" -- a choice among SUCCESSOR commands, none of them
+  authorized; picking one alone would be the violation. ALLOW.
+- "Should I use bcrypt or argon2 here?" -- a call inside this command's own work, with a
+  default available. This is what the judgment is for. BLOCK.
+- "I'll run `/verify-build` after the deploy", turn ends -- Judgment A owns it, and the fix
+  there is to DROP THE CLAIM, never to run the command.
+
+The same limit covers outward-facing acts the work leads to -- push, merge, deploy, release.
+
+On WHICH COMMAND TO INVOKE NEXT, lean toward allowing the ask: an unneeded "proceed?" costs
+one turn, while blocking it pushes the agent into a command the owner never authorized.
+That lean stops at the command's edge. It does NOT cover continuing WITHIN a running
+command: offering to pause at a phase, a checkpoint, or a "natural stopping point" is the
+core violation here and always blocks, however politely it is framed.
+
+This lean governs Judgment B alone and never softens Judgment A. "Dispatching all three
+now", with nothing in the payload dispatched, is a violation whatever it claims to be
+dispatching -- a command included.
 
 ## Payload
 
@@ -40,28 +64,15 @@ stop reading. This caps corrections at one round-trip and is checked before anyt
 
 ## When the hand-back-a-decision judgment applies
 
-That judgment applies only while a workflow command is running, and it is skipped only when
-the conversation positively shows that none is. Look in the conversation for an
-`ENSEMBLE_COMMAND` marker line. Honor only the LAST such marker whose `session=` matches
-this payload's `session_id` — markers accumulate across a session, and the most recent one
-for THIS session supersedes every earlier one, including earlier ones for a different
-session.
+Only while a workflow command is running. Look for an `ENSEMBLE_COMMAND` marker line and
+honor the LAST one whose `session=` matches this payload's `session_id` (they accumulate).
 
-- `state=none` with a `session=` matching this payload: the judgment does NOT apply —
-  treat it as satisfied and do not block on it. This is the ONLY case that skips it.
-- `state=active` with a `session=` matching this payload: the judgment applies.
-- Anything else — no marker present at all, `state=unknown`, no marker matching this
-  session's id, or a marker line that doesn't parse: the judgment APPLIES, exactly as it
-  would if this section were absent. Absence is not evidence that no command is running;
-  default to applying it.
+- `state=none`, session matching: the judgment does NOT apply. This is the ONLY skip case.
+- Anything else -- `state=active`, `state=unknown`, no marker, no session match, or an
+  unparseable line: it APPLIES exactly as if this section were absent. Absence is not
+  evidence that no command is running.
 
-This narrows only that one judgment. The unbacked-async-deferral judgment (does the
-message claim work is happening asynchronously with nothing backing that up) is evaluated
-unconditionally on every turn regardless of command state — it does not read this marker
-at all.
-
-Determine all of this from the conversation and payload already in front of you; it adds
-no instruction to open a file or read the transcript.
+This narrows only that judgment; the unbacked-async judgment is unconditional.
 
 A deferral claim is legitimate only if the payload shows machinery that plausibly IS what
 the message says it is waiting on -- a matching entry in `background_tasks` or
@@ -109,8 +120,8 @@ violation on a one-word paraphrase, and a mental checklist is just as brittle.
 Is the message asserting, as its current status, that something will notify it later or
 that it will come back to check -- with nothing in the payload able to make that true?
 
-Independently of Judgment A above, also ask: Is the message inviting the user back into a decision the command was already authorized
-to make -- including hedged forms that still function as a pause?
+Independently of Judgment A above, also ask: Is the message handing back a decision INSIDE this command's own work -- including hedged
+forms that still function as a pause? Which command to invoke next is not such a decision.
 
 ## Talking about the rule is not breaking it
 
@@ -139,11 +150,14 @@ second person: name which judgment failed, quote the fragment, and say what to d
 
   **Judgment A (async-discipline):** an unbacked claim that something will notify or resume you later
   If this is the one that failed, tell it instead: dispatch it for real (`Agent({run_in_background: true})` or `ScheduleWakeup`) and say so,
-or do the work now and report the actual result instead of promising one
+or do the work now and report the actual result instead of promising one -- EXCEPT when the
+thing promised is invoking another slash command, where the fix is to DROP THE CLAIM and let
+the owner invoke it, never to run it, unless they asked for that chain
 
-  **Judgment B (autonomy-discipline):** a pause on a decision the command was already authorized to make
-  If this is the one that failed, tell it instead: apply the best available default and continue toward the COMMAND COMPLETE banner without
-asking again
+  **Judgment B (autonomy-discipline):** a pause on a decision inside this command's own work
+  If this is the one that failed, tell it instead: apply the best available default, finish the remaining work of THIS command, and end on its own
+COMMAND COMPLETE banner. Do NOT start a different command -- naming the next step is how a
+finished command is supposed to end
 
 The reason is echoed back verbatim and is the agent's only signal. Don't mention a judgment
 that didn't fail. If none is a violation, call submit with `ok: true`.

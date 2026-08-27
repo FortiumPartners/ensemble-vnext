@@ -12,14 +12,57 @@ Enforcement, below.
 ## The rule
 
 Commands run as autonomously as possible from one explicit user invocation to one final
-result (the `═══ COMMAND COMPLETE ═══` banner). **The user already authorized the run
-by invoking the command. Do not ask them to authorize it again, in pieces, mid-loop.**
+result (the `═══ COMMAND COMPLETE ═══` banner). **The user already authorized THAT COMMAND
+by invoking it. Do not ask them to authorize it again, in pieces, mid-loop — and do not read
+it as authorizing the next command in the pipeline (see the next section).**
 
 The framework is built for orchestrated execution: the user invokes a command, walks
 away, and returns to a finished artifact / completed loop. Anything that breaks that
 flow — mid-loop "should I proceed?" prompts, "please review and confirm" handshakes,
 deferential "should we check with stakeholders?" deflections — is an anti-pattern and
 contradicts the framework's core design.
+
+## The authorization is scoped to ONE command
+
+**Autonomy runs to that command's own `COMMAND COMPLETE` banner and stops there.** Invoking
+`/create-trd` authorizes writing that TRD. It does not authorize `/audit-trd`, and it does
+not authorize `/implement-trd`. Each is a separate invocation the owner makes, after seeing
+the artifact the previous one produced.
+
+**So naming the next command is REPORTING, not deferring**, and it is the correct way for a
+finished command to end:
+
+> When you're satisfied with the TRD, run `/implement-trd docs/TRD/<slug>.md --verify`.
+
+The line is **whose decision it is**, not whether a command gets named:
+
+| Shape | Verdict |
+|---|---|
+| "Run `/implement-trd` when you're satisfied" — the owner acts, when they choose | fine, and preferred |
+| "Audit first, or implement now?" — a choice between two SUCCESSOR commands, asked once this command's work is **done** | **fine.** Neither is authorized, so picking one alone would be the scope violation. Asking is the only correct move |
+| The same question asked while this command's work is **unfinished** — e.g. `/implement-trd` offering "run `/verify-build`, ship as-is, or move on" when its own verification gate was skipped | the pause this rule forbids. An option that would complete the running command is in scope: **do it, don't offer it** |
+| "Should I use bcrypt or argon2 here?" — a decision inside the running command's own work, with a default available | the pause this rule forbids |
+| "I'll run `/verify-build` as soon as the deploy finishes" — then the turn ends | a false promise; `async-discipline.md` owns it. The fix is to **drop the claim**, not to run the command |
+
+**When the promised thing is a command invocation, the correction is never to run it.**
+Otherwise the guard trades a false promise for an uninvoked command — the same defect
+through a different door. A chain runs when the owner asks for a chain.
+
+Nor does a command's authorization reach an **outward-facing or irreversible** act that
+merely follows from its work — a push, a merge, a deploy, a release. Those need their own
+authorization no matter which command surfaced them.
+
+**Why this is written down.** The unqualified sentence above — "the user already authorized
+the run" — was the whole of what reached the judge, and the judge read it as authorizing
+whatever came next. Measured 2026-08-26: of 306 blocks in eight hours, 91 were a turn that
+named the next command and was pushed into running it. One run of `/create-trd` went on to
+audit the TRD and begin implementing it unasked. The most telling case was blocked for
+saying *"starting it is a decision, not a default"* — the guard punishing exactly the
+restraint this rule wants. Six of those transcripts are now corpus class
+`named-next-command` (five `clean`, one `violation`), so the boundary is scored rather than
+asserted.
+
+Running the whole pipeline unattended stays available — it just has to be **asked for**.
 
 ## What is legitimate to ask (the FOUR cases)
 
@@ -62,7 +105,7 @@ These have all been observed in command drift and are explicitly forbidden:
 | "Given X went cleanly, want me to pause and review before phase Y?" | Self-defeating: you've just acknowledged there's nothing to address. | Just proceed. |
 | "I've drafted the PRD. Please review and confirm." | User reviews when the command finishes, not mid-flight. | Finish the PRD. Emit COMMAND COMPLETE. |
 | "This decision impacts X. Should we check with product first?" | The PRD is product's input. Decide based on it. | Decide based on documented constraints; note rationale. |
-| "Multiple approaches are possible (A/B/C). Which do you prefer?" | Pick the one best fitting documented constraints. | Decide; document rationale; mention alternatives in the artifact if relevant. |
+| "Multiple approaches are possible (A/B/C). Which do you prefer?" | Pick the one best fitting documented constraints. **Unless the options are which COMMAND to invoke next — see "scoped to ONE command" above; that choice is the owner's.** | Decide; document rationale; mention alternatives in the artifact if relevant. |
 | "I noticed inconsistency in the requirements. Should I clarify with stakeholders?" | No stakeholders are in the loop. Resolve based on documented goals. | Resolve consistently with the stated goal; note the resolution. |
 | "Checkpoint reached. Continue?" | The only stop point is COMMAND COMPLETE. | Continue without asking. |
 | "Have you verified this is what you want?" | The user already verified by invoking the command. | Proceed. |

@@ -364,3 +364,25 @@ again.
 **Do not re-quote 13.6% or 100%.** The current floor is 16.0% / 66.7%, and it is frozen at that:
 the detector is a retired historical fixture as of 4.1.11, so this number will not move again
 unless the corpus does.
+
+
+## n>=4 is the floor for judge scoring (recorded 2026-08-27)
+
+A judge-prompt change was scored at n=2 and read as clean. At n=4 the same change showed a
+real regression on `s-imminent-action-01` ("Dispatching all three now" with nothing
+dispatched) -- miss rate 2/4 on HEAD, 3/4 with the change, i.e. a degradation in exactly the
+false-dispatch detection the guard exists for. **The n=2 sample did not merely fail to prove
+things; it concealed a regression.** `compare-runs.js`'s majority rule is ">= half of runs",
+so at n=2 one flaky run is a "majority" and at n=2 a 2/4-vs-3/4 shift is invisible.
+
+Cause, once found: ALLOW-leaning language added to Judgment B bled across into Judgment A's
+strictness. Changes to this prompt have NON-LOCAL effects -- a paragraph added to one
+judgment can move the other. Do not reason about a prompt edit's blast radius by reading it;
+score it at n>=4 across the full corpus.
+
+With Judgment A explicitly fenced from that lean, the same change scored precision
+0.834 -> 0.916, recall 0.958 -> 0.975, four cases recovered, zero regressions, all gates PASS.
+
+**A red gate here was informative, not broken.** An earlier draft of this file claimed two
+gates were "unpassable by the baseline" because HEAD failed them. HEAD did fail them -- and
+the fixed change passes them. The gate was correctly reporting that HEAD is the worse prompt.
