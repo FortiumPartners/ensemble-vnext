@@ -35,6 +35,7 @@ preface) — that's a judged, statistical concern, not a pass/fail smoke check.
 | `trd-run` | Yes | Opt-in (`--with-llm`) | `/create-trd` in a throwaway project: exit 0, banner, `docs/TRD/*.md` created and non-empty. |
 | `debug-path` | Yes | Opt-in (`--with-llm`) | Same shape as `implement-one-task`, but the task's test is pre-written to fail — exercises VERIFY → DEBUG. A `STUCK` banner is a **pass** here (the point is entering the debug path, not fixing an intentionally-unfixable bug). Asserts `app-debugger` appears in the log and `retry_count` incremented. |
 | `verify-functional` | Yes | Opt-in (`--with-llm`) | `/implement-trd` run TWICE against a one-task TRD + matching one-requirement PRD, in two separate throwaway projects: **without** `--verify` no `.trd-state/*/success-definition.md` may appear (AC-6); **with** it, `success-definition.md` exists and every data row carries a non-empty `Cites` value (`domain-derived` reasoning lives in that same column per the contract), `verification-state.json` carries a numeric `iteration` and a `criteria` array in which every entry has a `status`, and `verification-report.md` names every criterion. Both runs must end with a banner. The most expensive scenario in the set (two live runs, ~40 min cap). |
+| `judge-sees-marker` | Yes | Opt-in (`--with-llm`) | Tripwire for the undocumented `UserPromptSubmit` `additionalContext` channel the autonomy-discipline judgment depends on (`docs/modernization/probes/U7-injected-context-marker.md`). A throwaway fixture (not the ensemble scaffold) injects an `ENSEMBLE_COMMAND` marker on prompt submission and an always-blocking `Stop` prompt hook reports whether it saw that marker. One cheap `claude --print` turn, no subagents. PASS when the judge reports `SEES_MARKER`; FAIL (naming the mechanism and pointing at the probe doc) when it fired but reports `NO_MARKER`, and also when the turn itself did not complete; SKIP only when the turn completed cleanly and the `Stop` hook never fired at all. |
 
 `prd-run`, `trd-run`, `debug-path`, and `verify-functional` each cost roughly five to six
 minutes (`verify-functional` roughly double — it runs `/implement-trd` twice) to assert
@@ -101,6 +102,7 @@ test/smoke/
     trd-run.sh                 # LLM, opt-in (--with-llm)
     debug-path.sh               # LLM, opt-in (--with-llm)
     verify-functional.sh         # LLM, opt-in (--with-llm) — two live runs
+    judge-sees-marker.sh         # LLM, opt-in (--with-llm) — one cheap turn, no scaffold
   baseline.json        # captured pass/fail + elapsed + assertion counts (see below)
   README.md            # this file
 ```

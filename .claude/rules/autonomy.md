@@ -161,6 +161,28 @@ Two layers, doing different jobs:
    **not** ban `AskUserQuestion` outright — the four valid cases are legitimate uses of that tool, and the judge is expected to
    distinguish a genuine one of those from a disguised checkpoint request.
 
+3. **Judgment B applies conditionally on command state**, sourced by a channel the judge
+   cannot get any other way. `router.py` injects one line — `ENSEMBLE_COMMAND
+   state=<active|none|unknown> session=<id>`, plus `command=`/`feature=` when
+   `state=active` — into `hookSpecificOutput.additionalContext` on every prompt it emits
+   context for. The `discipline-stop` prompt binds to the LAST such marker whose
+   `session=` matches the `Stop` payload's `session_id` (markers accumulate across a
+   session); it skips Judgment B only on an explicit `state=none` match for that session.
+   `state=active`, `state=unknown`, no marker present, no session match, or a malformed
+   line all mean Judgment B applies exactly as if this precondition were absent — the
+   failure direction is always toward the guard applying, never away from it.
+
+   State comes from a per-session run-state file, `.trd-state/_command-runs/<session>.json`
+   (gitignored): `router.py` writes `active` when the submitted prompt is a slash command;
+   `notify-complete.sh` writes `none` on every `COMMAND COMPLETE` and `COMMAND STUCK` turn.
+   An `active` record older than 30 minutes degrades to `unknown` on read — without that
+   ceiling, a slash prompt this framework doesn't own (`/code-review`, `/simplify`,
+   `/loop`, ...) would open a run nothing ever closes and suppress Judgment B for the rest
+   of the session.
+
+   Judgment A is unconditional and reads none of this — this precondition narrows only
+   Judgment B.
+
 Loop guard, override, and `if`-field caveat are identical to the async-discipline hook's —
 see `.claude/rules/async-discipline.md`'s "How the guard works" and "Override" sections
 rather than duplicating them here: `stop_hook_active` allows unconditionally on the second

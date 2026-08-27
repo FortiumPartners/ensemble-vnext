@@ -4,7 +4,7 @@
   "trd_hash": "5deff2888838c975c5c21d57611f546e6e7050ac339f36604debaad701aad21b",
   "branch": "feature/autonomy-judge-command-scope/impl",
   "strategy": "tdd",
-  "phase_cursor": 3,
+  "phase_cursor": 4,
   "tasks": {
     "AJCS-P001": {
       "description": "[LIVE] Re-run the injected-context probe and record it in a new docs/modernization/probes/U7-injected-context-marker.md.",
@@ -141,50 +141,68 @@
     "AJCS-T002": {
       "description": "[LIVE] Capture the POST baseline (three runs, same corpus, same command as AJCS-T001) and run compare-runs.js --pre … --",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".trd-state/autonomy-judge-command-scope/post-run1.json",
+        "post-run2.json",
+        "post-run3.json",
+        "compare-report.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-27T02:49:05.522Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.313Z"
     },
     "AJCS-T003": {
       "description": "[LIVE] Add test/smoke/scenarios/judge-sees-marker.sh and register it in run-smoke.sh (opt-in LLM array plus its budget e",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/smoke/scenarios/judge-sees-marker.sh",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-27T02:49:05.524Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.314Z"
     },
     "AJCS-T004": {
       "description": "[LIVE] Run hook-verdict-rate.js against a post-change session and record its full output, plus the session's composition",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".trd-state/autonomy-judge-command-scope/verdict-rate-post.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-27T02:49:05.524Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.314Z"
     },
     "AJCS-D001": {
       "description": "Update .claude/rules/autonomy.md and packages/core/templates/claude-directory/rules/autonomy.md to describe the command-",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".claude/rules/autonomy.md",
+        "packages/core/templates/claude-directory/rules/autonomy.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-08-27T02:49:05.524Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.314Z"
     }
   },
   "checkpoints": [
@@ -202,5 +220,10 @@
     "last_checkpoint_timestamp": "2026-08-26T21:32:24.441Z",
     "interrupted": false,
     "interrupt_reason": null
+  },
+  "gate_result": {
+    "phase": 4,
+    "verifyApp": "fail",
+    "reason": "compare-runs A3 zero-tolerance gate fails on c-5d15b63f1acc, a false positive present in ALL THREE pre-runs and ALL THREE post-runs — pre-existing, not caused by this change. hook-verdict-rate 20.9% but only 2 of 43 evaluations postdate the precondition."
   }
 }

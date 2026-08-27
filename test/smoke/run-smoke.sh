@@ -71,6 +71,12 @@ declare -A SCENARIO_TIMEOUT=(
     # cap must exceed the scenario's own TIMEOUT_OFF + TIMEOUT_ON (840 + 1500)
     # plus two scaffolds; raise all three together.
     [verify-functional]=3300
+    # judge-sees-marker: one bare `claude --print` turn, no subagents, no
+    # scaffolding - far cheaper than the other opt-in scenarios. 90s covers
+    # its own internal smoke_timeout (60s) plus fixture setup and read-back;
+    # the runner cap must stay ABOVE that internal 60s, or the scenario is
+    # killed before it can report its own timeout. Raise both together.
+    [judge-sees-marker]=90
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
@@ -117,7 +123,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()
