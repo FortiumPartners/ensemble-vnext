@@ -429,3 +429,45 @@ apparent redundancy may be doing work.** Restating a judgment's question near th
 point plausibly sharpens discrimination even though a human reader would call it repetition.
 Size is a real cost here, but it must be paid for with a score, never with a reading. Any
 future compression: cut ONE block, score at n>=4, keep only what holds.
+
+## The escape-valve heading defect: real, but the fix measures WORSE (2026-08-27)
+
+**The defect is real.** In the merged Stop prompt, `buildMergedPrompt` concatenates both
+hooks' `escapeValve` strings with no headings, immediately after
+`## When the hand-back-a-decision judgment applies`. So Judgment A's UNCONDITIONAL payload
+rules render beneath a heading whose first line reads "Only while a workflow command is
+running." Section boundaries do not match judgment boundaries.
+
+**The fix made things worse.** Giving each escape valve a heading naming its judgment
+(`## Judgment A: is the deferral actually backed?` / `## Judgment B: is this ask
+legitimate?`), +89 bytes, nothing else changed, scored n=4 full corpus:
+
+| | precision | recall |
+|---|---|---|
+| without headings (kept) | **0.916** | 0.975 |
+| with headings | **0.887** | 0.967 |
+
+`c-417720d93413` regressed into an **A2 self-documentation** FP -- a zero-tolerance class.
+VERDICT FAIL; reverted.
+
+**Disposition: leave the structure as it is.** The one-line mitigation already in the
+precondition block -- "This narrows only that judgment; the unbacked-async judgment is
+unconditional" -- is evidently carrying the load, and adding structure on top of it costs
+more than the ambiguity does. Do not "fix" this again without scoring it: it looks like an
+obviously safe formatting change and it is not.
+
+## Three-for-three: reading this prompt does not predict its behaviour (2026-08-27)
+
+In one session, three separate edits were each confidently reasoned and each measured worse:
+
+| edit | argument for it | measured |
+|---|---|---|
+| ALLOW-lean added to Judgment B | encode the owner's flow ruling | degraded Judgment A's false-dispatch detection (2/4 -> 3/4 misses) |
+| compression of redundant blocks | prompt is 11% over baseline | precision 0.916 -> 0.856, A3 FP returned |
+| escape-valve headings | sections should match judgments | precision 0.916 -> 0.887, A2 FP created |
+
+Only the first was salvageable, by explicitly fencing the lean to Judgment B. The other two
+were reverted outright.
+
+**Operational rule: no edit to this prompt ships on a reading. n>=4, full corpus, every
+time -- including edits that only move whitespace, headings, or "obvious" duplication.**
