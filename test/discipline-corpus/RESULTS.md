@@ -404,3 +404,28 @@ With Judgment A explicitly fenced from that lean, the same change scored precisi
 **A red gate here was informative, not broken.** An earlier draft of this file claimed two
 gates were "unpassable by the baseline" because HEAD failed them. HEAD did fail them -- and
 the fixed change passes them. The gate was correctly reporting that HEAD is the worse prompt.
+
+## Redundancy in the judge prompt is LOAD-BEARING (measured 2026-08-27)
+
+A compression pass removed three things that read as pure duplication:
+
+1. the closing banner's restatement of the response contract (stated 3x in total);
+2. `VOCABULARY_WARNING_BLOCK`'s re-statement of each judgment's question, already asked
+   verbatim in the two intros;
+3. two words of the `background_tasks` accumulation evidence.
+
+9695 -> 9252 bytes (+11% over baseline down to +6.1%). Scored n=4, full corpus:
+
+| | precision | recall |
+|---|---|---|
+| kept version | **0.916** | 0.975 |
+| trimmed version | **0.856** | 0.975 |
+
+`c-5d15b63f1acc` returned as an A3 zero-tolerance FP -- the case the kept version recovers.
+VERDICT FAIL; the trim was reverted.
+
+**The lesson is not "don't compress", it is that a judge prompt is not prose and its
+apparent redundancy may be doing work.** Restating a judgment's question near the decision
+point plausibly sharpens discrimination even though a human reader would call it repetition.
+Size is a real cost here, but it must be paid for with a score, never with a reading. Any
+future compression: cut ONE block, score at n>=4, keep only what holds.
