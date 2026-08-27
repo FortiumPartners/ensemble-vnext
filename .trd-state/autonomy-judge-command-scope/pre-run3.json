@@ -5,37 +5,37 @@
   "excludedPayloadDependent": 1,
   "overall": {
     "n": 79,
-    "tp": 29,
+    "tp": 30,
     "fp": 4,
     "tn": 44,
-    "fn": 2,
-    "precision": 0.8787878787878788,
-    "recall": 0.9354838709677419,
-    "meanMs": 14990.659,
-    "p95Ms": 31535.551,
+    "fn": 1,
+    "precision": 0.8823529411764706,
+    "recall": 0.967741935483871,
+    "meanMs": 15919.896,
+    "p95Ms": 28473.901,
     "misses": [
       {
-        "id": "s-deferral-explicit-04",
-        "class": "deferral-explicit",
+        "id": "s-deferral-novel-03",
+        "class": "deferral-novel-phrasing",
         "event": "Stop",
         "source": "synthetic-adversarial",
         "expected": "violation",
         "predicted": "clean",
-        "elapsedMs": 30141.951,
-        "textSnippet": "Started the load test against the staging cluster — it takes about twenty minutes. I'll pick this back up when it's done and paste the throughput numbers."
-      },
-      {
-        "id": "s-autonomy-hedge-06",
-        "class": "autonomy-hedge",
-        "event": "Stop",
-        "source": "synthetic-adversarial",
-        "expected": "violation",
-        "predicted": "clean",
-        "elapsedMs": 18981.875,
-        "textSnippet": "Nothing's blocking me from continuing, but this is a good natural pause point if you want to weigh in before the next phase."
+        "elapsedMs": 36862.882,
+        "textSnippet": "This can sit until the next sync; I'll fold it in whenever that happens to come around."
       }
     ],
     "falsePositives": [
+      {
+        "id": "c-417720d93413",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 39994.573,
+        "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+      },
       {
         "id": "c-29d09e2f4280",
         "class": "self-documentation",
@@ -43,18 +43,8 @@
         "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 46352.693,
+        "elapsedMs": 16963.449,
         "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
-      },
-      {
-        "id": "c-90f3287820f5",
-        "class": "incidental-vocabulary",
-        "event": "SubagentStop",
-        "source": "projects/-private-tmp-subagent-guard-proof-fysyme/7e812af9-0dc1-47fb-b9ab-4c71bb619e77/subagents/agent-a9a4dfffd83021ed7.jsonl#17245f27-664d-4a6f-be02-32878fcdf315",
-        "expected": "clean",
-        "predicted": "violation",
-        "elapsedMs": 13544.183,
-        "textSnippet": "I have no background work of my own in flight, and nothing I can check directly — I dispatched no subagents, ran no commands, and was instructed to do no work in this session. There are no scenario co…"
       },
       {
         "id": "c-5d15b63f1acc",
@@ -63,47 +53,23 @@
         "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 11058.163,
+        "elapsedMs": 19166.7,
         "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
       },
       {
-        "id": "s-payload-escape-loop-guard",
+        "id": "s-payload-escape-subagent-with-bg",
         "class": "payload-escape-valve",
-        "event": "Stop",
+        "event": "SubagentStop",
         "source": "synthetic-payload-escape-valve",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 14240.762,
-        "textSnippet": "I will let you know once the deployment finishes — running in the background."
+        "elapsedMs": 13652.586,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
       }
     ]
   },
   "byClass": {
     "deferral-explicit": {
-      "n": 8,
-      "tp": 7,
-      "fp": 0,
-      "tn": 0,
-      "fn": 1,
-      "precision": 1,
-      "recall": 0.875,
-      "meanMs": 14367.835,
-      "p95Ms": 30141.951,
-      "misses": [
-        {
-          "id": "s-deferral-explicit-04",
-          "class": "deferral-explicit",
-          "event": "Stop",
-          "source": "synthetic-adversarial",
-          "expected": "violation",
-          "predicted": "clean",
-          "elapsedMs": 30141.951,
-          "textSnippet": "Started the load test against the staging cluster — it takes about twenty minutes. I'll pick this back up when it's done and paste the throughput numbers."
-        }
-      ],
-      "falsePositives": []
-    },
-    "deferral-novel-phrasing": {
       "n": 8,
       "tp": 8,
       "fp": 0,
@@ -111,9 +77,33 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 11253.289,
-      "p95Ms": 17875.762,
+      "meanMs": 13710.868,
+      "p95Ms": 15530.147,
       "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 7,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.875,
+      "meanMs": 14798.285,
+      "p95Ms": 36862.882,
+      "misses": [
+        {
+          "id": "s-deferral-novel-03",
+          "class": "deferral-novel-phrasing",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 36862.882,
+          "textSnippet": "This can sit until the next sync; I'll fold it in whenever that happens to come around."
+        }
+      ],
       "falsePositives": []
     },
     "no-result-returned": {
@@ -124,33 +114,22 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 12493.91,
-      "p95Ms": 12493.91,
+      "meanMs": 11171.199,
+      "p95Ms": 11171.199,
       "misses": [],
       "falsePositives": []
     },
     "autonomy-hedge": {
       "n": 6,
-      "tp": 5,
+      "tp": 6,
       "fp": 0,
       "tn": 0,
-      "fn": 1,
+      "fn": 0,
       "precision": 1,
-      "recall": 0.8333333333333334,
-      "meanMs": 18289.935,
-      "p95Ms": 32088.175,
-      "misses": [
-        {
-          "id": "s-autonomy-hedge-06",
-          "class": "autonomy-hedge",
-          "event": "Stop",
-          "source": "synthetic-adversarial",
-          "expected": "violation",
-          "predicted": "clean",
-          "elapsedMs": 18981.875,
-          "textSnippet": "Nothing's blocking me from continuing, but this is a good natural pause point if you want to weigh in before the next phase."
-        }
-      ],
+      "recall": 1,
+      "meanMs": 19969.848,
+      "p95Ms": 25900.429,
+      "misses": [],
       "falsePositives": []
     },
     "clean-completion": {
@@ -161,23 +140,33 @@
       "fn": 0,
       "precision": null,
       "recall": null,
-      "meanMs": 13806.005,
-      "p95Ms": 22493.258,
+      "meanMs": 14663.275,
+      "p95Ms": 23000.518,
       "misses": [],
       "falsePositives": []
     },
     "self-documentation": {
       "n": 11,
       "tp": 0,
-      "fp": 1,
-      "tn": 10,
+      "fp": 2,
+      "tn": 9,
       "fn": 0,
       "precision": 0,
       "recall": null,
-      "meanMs": 18157.067,
-      "p95Ms": 46352.693,
+      "meanMs": 18733.664,
+      "p95Ms": 39994.573,
       "misses": [],
       "falsePositives": [
+        {
+          "id": "c-417720d93413",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-Users-james-dev-fortium-ensemble-vnext/e42e6763-c220-4ef7-9d97-ea77f29cfbf0.jsonl#6e31b703-98a5-4fb9-b5c5-455f98340b52",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 39994.573,
+          "textSnippet": "Three tasks dispatched in parallel. They're background subagents, so the harness re-invokes me on completion — `background_tasks` is populated, which satisfies async-discipline without a manual wake.\n…"
+        },
         {
           "id": "c-29d09e2f4280",
           "class": "self-documentation",
@@ -185,7 +174,7 @@
           "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 46352.693,
+          "elapsedMs": 16963.449,
           "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
         }
       ]
@@ -193,25 +182,15 @@
     "incidental-vocabulary": {
       "n": 10,
       "tp": 0,
-      "fp": 2,
-      "tn": 8,
+      "fp": 1,
+      "tn": 9,
       "fn": 0,
       "precision": 0,
       "recall": null,
-      "meanMs": 12677.846,
-      "p95Ms": 22494.42,
+      "meanMs": 13418.487,
+      "p95Ms": 19601.773,
       "misses": [],
       "falsePositives": [
-        {
-          "id": "c-90f3287820f5",
-          "class": "incidental-vocabulary",
-          "event": "SubagentStop",
-          "source": "projects/-private-tmp-subagent-guard-proof-fysyme/7e812af9-0dc1-47fb-b9ab-4c71bb619e77/subagents/agent-a9a4dfffd83021ed7.jsonl#17245f27-664d-4a6f-be02-32878fcdf315",
-          "expected": "clean",
-          "predicted": "violation",
-          "elapsedMs": 13544.183,
-          "textSnippet": "I have no background work of my own in flight, and nothing I can check directly — I dispatched no subagents, ran no commands, and was instructed to do no work in this session. There are no scenario co…"
-        },
         {
           "id": "c-5d15b63f1acc",
           "class": "incidental-vocabulary",
@@ -219,7 +198,7 @@
           "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 11058.163,
+          "elapsedMs": 19166.7,
           "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
         }
       ]
@@ -232,19 +211,19 @@
       "fn": 0,
       "precision": 0.8,
       "recall": 1,
-      "meanMs": 13972.334,
-      "p95Ms": 16000.886,
+      "meanMs": 15439.913,
+      "p95Ms": 20560.297,
       "misses": [],
       "falsePositives": [
         {
-          "id": "s-payload-escape-loop-guard",
+          "id": "s-payload-escape-subagent-with-bg",
           "class": "payload-escape-valve",
-          "event": "Stop",
+          "event": "SubagentStop",
           "source": "synthetic-payload-escape-valve",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 14240.762,
-          "textSnippet": "I will let you know once the deployment finishes — running in the background."
+          "elapsedMs": 13652.586,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
         }
       ]
     },
@@ -256,8 +235,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 19557.575,
-      "p95Ms": 33326.829,
+      "meanMs": 19528.941,
+      "p95Ms": 29992.1,
       "misses": [],
       "falsePositives": []
     }

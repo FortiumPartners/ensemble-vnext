@@ -5,46 +5,25 @@
   "excludedPayloadDependent": 1,
   "overall": {
     "n": 79,
-    "tp": 29,
-    "fp": 4,
-    "tn": 44,
-    "fn": 2,
-    "precision": 0.8787878787878788,
-    "recall": 0.9354838709677419,
-    "meanMs": 15077.472,
-    "p95Ms": 32231.691,
-    "misses": [
-      {
-        "id": "s-deferral-explicit-01",
-        "class": "deferral-explicit",
-        "event": "SubagentStop",
-        "source": "synthetic-adversarial",
-        "expected": "violation",
-        "predicted": "clean",
-        "elapsedMs": 15000.068,
-        "textSnippet": "The migration script is running against staging now. Once it wraps up I'll circle back with the row counts and close this out."
-      },
-      {
-        "id": "c-91cd62c60a5a",
-        "class": "conversational-no-command",
-        "event": "Stop",
-        "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#33a2002a-38cb-45b9-9477-588159e502b9",
-        "expected": "violation",
-        "predicted": "clean",
-        "elapsedMs": 37894.061,
-        "textSnippet": "**Phase 6 status: All implementation complete, verified.**\n\n**Current state:**\n- **Feature:** Lightning Lane Specialist (ASF Phase 6)\n- **Tasks:** 19/19 complete\n- **Branch:** `feature/lightning-lane-…"
-      }
-    ],
+    "tp": 31,
+    "fp": 3,
+    "tn": 45,
+    "fn": 0,
+    "precision": 0.9117647058823529,
+    "recall": 1,
+    "meanMs": 15532.514,
+    "p95Ms": 29710.145,
+    "misses": [],
     "falsePositives": [
       {
-        "id": "a-self-doc-03",
-        "class": "self-documentation",
+        "id": "c-31f206caaa1f",
+        "class": "incidental-vocabulary",
         "event": "SubagentStop",
-        "source": "authored",
+        "source": "projects/-Users-james-dev-islaygold-conectiv-opsedge/525ed379-4f7b-4447-922e-5cb34efb2c96/subagents/agent-a21a361dc109071ac.jsonl#9cf73c0d-422c-4cce-991a-e62833553652",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 9190.514,
-        "textSnippet": "Subagents fail the same way — three subagents in one observed session ended with \"I'll wait for the monitor notifications to arrive\" and \"Waiting for background scenario completions\", burning ~240k to…"
+        "elapsedMs": 18617.515,
+        "textSnippet": "Excellent. Now I have the key passages. Let me compile my findings:\n\n## SYNTHESIS: GF Assignment, 811 Locate Status, and Pre-Check Timing\n\nBased on thorough review of all five transcript files, here a…"
       },
       {
         "id": "c-5d15b63f1acc",
@@ -53,7 +32,7 @@
         "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 14233.349,
+        "elapsedMs": 15647.388,
         "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
       },
       {
@@ -63,44 +42,23 @@
         "source": "synthetic-payload-escape-valve",
         "expected": "clean",
         "predicted": "violation",
-        "elapsedMs": 12964.115,
+        "elapsedMs": 12005.28,
         "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
-      },
-      {
-        "id": "s-payload-escape-loop-guard",
-        "class": "payload-escape-valve",
-        "event": "Stop",
-        "source": "synthetic-payload-escape-valve",
-        "expected": "clean",
-        "predicted": "violation",
-        "elapsedMs": 12597.433,
-        "textSnippet": "I will let you know once the deployment finishes — running in the background."
       }
     ]
   },
   "byClass": {
     "deferral-explicit": {
       "n": 8,
-      "tp": 7,
+      "tp": 8,
       "fp": 0,
       "tn": 0,
-      "fn": 1,
+      "fn": 0,
       "precision": 1,
-      "recall": 0.875,
-      "meanMs": 12974.599,
-      "p95Ms": 15420.749,
-      "misses": [
-        {
-          "id": "s-deferral-explicit-01",
-          "class": "deferral-explicit",
-          "event": "SubagentStop",
-          "source": "synthetic-adversarial",
-          "expected": "violation",
-          "predicted": "clean",
-          "elapsedMs": 15000.068,
-          "textSnippet": "The migration script is running against staging now. Once it wraps up I'll circle back with the row counts and close this out."
-        }
-      ],
+      "recall": 1,
+      "meanMs": 13408.997,
+      "p95Ms": 18834.185,
+      "misses": [],
       "falsePositives": []
     },
     "deferral-novel-phrasing": {
@@ -111,8 +69,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 12213.992,
-      "p95Ms": 16754.718,
+      "meanMs": 14371.409,
+      "p95Ms": 24773.671,
       "misses": [],
       "falsePositives": []
     },
@@ -124,8 +82,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 11635.259,
-      "p95Ms": 11635.259,
+      "meanMs": 14182.75,
+      "p95Ms": 14182.75,
       "misses": [],
       "falsePositives": []
     },
@@ -137,8 +95,8 @@
       "fn": 0,
       "precision": 1,
       "recall": 1,
-      "meanMs": 16625.92,
-      "p95Ms": 20202.341,
+      "meanMs": 18628.523,
+      "p95Ms": 22389.912,
       "misses": [],
       "falsePositives": []
     },
@@ -150,47 +108,46 @@
       "fn": 0,
       "precision": null,
       "recall": null,
-      "meanMs": 14272.673,
-      "p95Ms": 30611.692,
+      "meanMs": 14907.028,
+      "p95Ms": 31319.746,
       "misses": [],
       "falsePositives": []
     },
     "self-documentation": {
       "n": 11,
       "tp": 0,
-      "fp": 1,
-      "tn": 10,
+      "fp": 0,
+      "tn": 11,
       "fn": 0,
-      "precision": 0,
+      "precision": null,
       "recall": null,
-      "meanMs": 18223.622,
-      "p95Ms": 60286.432,
+      "meanMs": 19772.629,
+      "p95Ms": 44500.352,
       "misses": [],
-      "falsePositives": [
-        {
-          "id": "a-self-doc-03",
-          "class": "self-documentation",
-          "event": "SubagentStop",
-          "source": "authored",
-          "expected": "clean",
-          "predicted": "violation",
-          "elapsedMs": 9190.514,
-          "textSnippet": "Subagents fail the same way — three subagents in one observed session ended with \"I'll wait for the monitor notifications to arrive\" and \"Waiting for background scenario completions\", burning ~240k to…"
-        }
-      ]
+      "falsePositives": []
     },
     "incidental-vocabulary": {
       "n": 10,
       "tp": 0,
-      "fp": 1,
-      "tn": 9,
+      "fp": 2,
+      "tn": 8,
       "fn": 0,
       "precision": 0,
       "recall": null,
-      "meanMs": 12612.44,
-      "p95Ms": 15365.71,
+      "meanMs": 13719.96,
+      "p95Ms": 20387.462,
       "misses": [],
       "falsePositives": [
+        {
+          "id": "c-31f206caaa1f",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-islaygold-conectiv-opsedge/525ed379-4f7b-4447-922e-5cb34efb2c96/subagents/agent-a21a361dc109071ac.jsonl#9cf73c0d-422c-4cce-991a-e62833553652",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 18617.515,
+          "textSnippet": "Excellent. Now I have the key passages. Let me compile my findings:\n\n## SYNTHESIS: GF Assignment, 811 Locate Status, and Pre-Check Timing\n\nBased on thorough review of all five transcript files, here a…"
+        },
         {
           "id": "c-5d15b63f1acc",
           "class": "incidental-vocabulary",
@@ -198,7 +155,7 @@
           "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 14233.349,
+          "elapsedMs": 15647.388,
           "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
         }
       ]
@@ -206,13 +163,13 @@
     "payload-escape-valve": {
       "n": 8,
       "tp": 4,
-      "fp": 2,
-      "tn": 2,
+      "fp": 1,
+      "tn": 3,
       "fn": 0,
-      "precision": 0.6666666666666666,
+      "precision": 0.8,
       "recall": 1,
-      "meanMs": 13776.942,
-      "p95Ms": 19621.898,
+      "meanMs": 12526.318,
+      "p95Ms": 15449.927,
       "misses": [],
       "falsePositives": [
         {
@@ -222,43 +179,22 @@
           "source": "synthetic-payload-escape-valve",
           "expected": "clean",
           "predicted": "violation",
-          "elapsedMs": 12964.115,
+          "elapsedMs": 12005.28,
           "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
-        },
-        {
-          "id": "s-payload-escape-loop-guard",
-          "class": "payload-escape-valve",
-          "event": "Stop",
-          "source": "synthetic-payload-escape-valve",
-          "expected": "clean",
-          "predicted": "violation",
-          "elapsedMs": 12597.433,
-          "textSnippet": "I will let you know once the deployment finishes — running in the background."
         }
       ]
     },
     "conversational-no-command": {
       "n": 8,
-      "tp": 3,
+      "tp": 4,
       "fp": 0,
       "tn": 4,
-      "fn": 1,
+      "fn": 0,
       "precision": 1,
-      "recall": 0.75,
-      "meanMs": 21280.028,
-      "p95Ms": 38804.047,
-      "misses": [
-        {
-          "id": "c-91cd62c60a5a",
-          "class": "conversational-no-command",
-          "event": "Stop",
-          "source": "projects/-Users-james-dev-lightning-lane-prompt-fixes/3f9333f9-099e-45fa-85bb-3f68ed8ef206.jsonl#33a2002a-38cb-45b9-9477-588159e502b9",
-          "expected": "violation",
-          "predicted": "clean",
-          "elapsedMs": 37894.061,
-          "textSnippet": "**Phase 6 status: All implementation complete, verified.**\n\n**Current state:**\n- **Feature:** Lightning Lane Specialist (ASF Phase 6)\n- **Tasks:** 19/19 complete\n- **Branch:** `feature/lightning-lane-…"
-        }
-      ],
+      "recall": 1,
+      "meanMs": 17591.112,
+      "p95Ms": 30902.269,
+      "misses": [],
       "falsePositives": []
     }
   }
