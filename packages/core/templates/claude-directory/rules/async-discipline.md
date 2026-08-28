@@ -356,8 +356,16 @@ cheaper, deterministic layers in front of that failure:
    could: a well-formed result claiming success on work that was not done.
 
 The judge was a fourth layer over a failure three cheaper ones already cover, and the only
-one costing a model call — **~16.6s mean, 32s p95, on every subagent stop**, with 6–8
+one costing a model call. Its in-session cost was measured on 2026-08-28 at **~4.6s mean,
+2.2s median** per stop (attributed with `test/smoke/analyze-session.js`), with 6–8
 subagents per `/implement-trd` run.
+
+**A 16.6s figure was cited for this while the change was being made, and it was wrong.**
+That number came from `test/discipline-corpus/`'s offline harness, which shells out to
+`claude -p` per case and so pays process startup; it measures the HARNESS, not the hook.
+Removing this judge saved ~40s of a 774s run, not the 100–130s the inflated figure
+predicted. The guard's removal still stands on the three-layer argument above — but the
+cost side of it was a quarter of what was claimed.
 
 **What this gives up, honestly.** Subagents the lead dispatches DIRECTLY, outside a workflow,
 carry no schema and get no orchestrator result-checking (`/implement-trd --verify`'s

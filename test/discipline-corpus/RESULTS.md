@@ -503,3 +503,20 @@ catches MORE real violations than either alternative.
 **Trading a TRD safety property for 0.02 precision is the wrong trade**, and it is the
 "weaken the spec until the code passes" move this project forbids elsewhere. Shipped restored,
 with the gate failure documented rather than hidden.
+
+## The corpus harness's meanMs is NOT the hook's in-session latency (2026-08-28)
+
+`score.js --detector judge` reports `meanMs` around 16-26s per case. That is the OFFLINE
+harness: it shells out to `claude -p` per case and pays process startup each time. It
+measures this test rig, not the hook.
+
+The hook's real in-session cost, attributed from a live `implement-one-task` session with
+`test/smoke/analyze-session.js`: **~4.6s mean, 2.2s median** per `Stop`.
+
+The difference is roughly 4x and it mattered. The 16.6s figure was used to argue that the
+`SubagentStop` judge cost 100-130s of a run; removing it actually saved ~40s of 774s. The
+removal was still right on other grounds, but the cost estimate that motivated it was
+inflated fourfold.
+
+**Never quote `meanMs` as a production latency.** Use `analyze-session.js` against a real
+session.
