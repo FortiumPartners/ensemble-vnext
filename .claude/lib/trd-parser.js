@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveAgentType } = require('./agent-routing');
+
 /**
  * trd-parser.js — deterministic markdown -> records for TRD documents.
  *
@@ -814,6 +816,12 @@ function parseTrd(markdown, opts = {}) {
   const sessionAgents = parseSessionAgents(structural, tasks, warnings);
   for (const task of tasks) {
     if (sessionAgents[task.id]) task.agent = sessionAgents[task.id];
+    // Resolve the implementer HERE so the parse output is self-contained: the command
+    // copies a field instead of applying a three-step rule from its own prompt. That rule
+    // (implement-trd.md 3.3) was prose, and the smoke harness caught it being skipped --
+    // the task went to the generic workflow subagent, which inherits the SESSION model and
+    // so ran implementation on Opus rather than the Sonnet implementer. Never unset.
+    task.agentType = resolveAgentType(task);
   }
   const couldNotVerify = parseCouldNotVerify(structural, warnings);
   const openQuestions = parseOpenQuestions(structural, warnings);
