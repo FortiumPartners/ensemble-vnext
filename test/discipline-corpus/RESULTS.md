@@ -11,6 +11,24 @@ node test/discipline-corpus/score.js --detector regex --json    # machine-readab
 
 ---
 
+## Current corpus composition (as of 2026-08-27)
+
+**86 cases: 30 `violation`, 56 `clean`.** Per class:
+
+| class | n | | class | n |
+|---|---|---|---|---|
+| `clean-completion` | 19 | | `deferral-novel-phrasing` | 8 |
+| `self-documentation` | 11 | | `payload-escape-valve` | 8 |
+| `incidental-vocabulary` | 10 | | `autonomy-hedge` | 6 |
+| `conversational-no-command` | 8 | | `named-next-command` | 6 |
+| `deferral-explicit` | 8 | | `no-result-returned` / `payload-dependent` | 1 / 1 |
+
+**Figures elsewhere in this file (64 cases, "66 -> 71", etc.) are HISTORICAL** — each records
+what the corpus held when that run was scored, and is correct as a record. Do not read them as
+current, and do not "correct" them: overwriting a historical measurement to match today's
+corpus destroys the only evidence of what was actually measured. Compare against this section
+instead.
+
 ## Shortened prompts — 80% cut, measured cost (2026-08-25)
 
 Owner decision: *"These prompts are TOO LONG by a substantial amount. I would prefer short,
@@ -364,3 +382,141 @@ again.
 **Do not re-quote 13.6% or 100%.** The current floor is 16.0% / 66.7%, and it is frozen at that:
 the detector is a retired historical fixture as of 4.1.11, so this number will not move again
 unless the corpus does.
+
+
+## n>=4 is the floor for judge scoring (recorded 2026-08-27)
+
+A judge-prompt change was scored at n=2 and read as clean. At n=4 the same change showed a
+real regression on `s-imminent-action-01` ("Dispatching all three now" with nothing
+dispatched) -- miss rate 2/4 on HEAD, 3/4 with the change, i.e. a degradation in exactly the
+false-dispatch detection the guard exists for. **The n=2 sample did not merely fail to prove
+things; it concealed a regression.** `compare-runs.js`'s majority rule is ">= half of runs",
+so at n=2 one flaky run is a "majority" and at n=2 a 2/4-vs-3/4 shift is invisible.
+
+Cause, once found: ALLOW-leaning language added to Judgment B bled across into Judgment A's
+strictness. Changes to this prompt have NON-LOCAL effects -- a paragraph added to one
+judgment can move the other. Do not reason about a prompt edit's blast radius by reading it;
+score it at n>=4 across the full corpus.
+
+With Judgment A explicitly fenced from that lean, the same change scored precision
+0.834 -> 0.916, recall 0.958 -> 0.975, four cases recovered, zero regressions, all gates PASS.
+
+**A red gate here was informative, not broken.** An earlier draft of this file claimed two
+gates were "unpassable by the baseline" because HEAD failed them. HEAD did fail them -- and
+the fixed change passes them. The gate was correctly reporting that HEAD is the worse prompt.
+
+## Redundancy in the judge prompt is LOAD-BEARING (measured 2026-08-27)
+
+A compression pass removed three things that read as pure duplication:
+
+1. the closing banner's restatement of the response contract (stated 3x in total);
+2. `VOCABULARY_WARNING_BLOCK`'s re-statement of each judgment's question, already asked
+   verbatim in the two intros;
+3. two words of the `background_tasks` accumulation evidence.
+
+9695 -> 9252 bytes (+11% over baseline down to +6.1%). Scored n=4, full corpus:
+
+| | precision | recall |
+|---|---|---|
+| kept version | **0.916** | 0.975 |
+| trimmed version | **0.856** | 0.975 |
+
+`c-5d15b63f1acc` returned as an A3 zero-tolerance FP -- the case the kept version recovers.
+VERDICT FAIL; the trim was reverted.
+
+**The lesson is not "don't compress", it is that a judge prompt is not prose and its
+apparent redundancy may be doing work.** Restating a judgment's question near the decision
+point plausibly sharpens discrimination even though a human reader would call it repetition.
+Size is a real cost here, but it must be paid for with a score, never with a reading. Any
+future compression: cut ONE block, score at n>=4, keep only what holds.
+
+## The escape-valve heading defect: real, but the fix measures WORSE (2026-08-27)
+
+**The defect is real.** In the merged Stop prompt, `buildMergedPrompt` concatenates both
+hooks' `escapeValve` strings with no headings, immediately after
+`## When the hand-back-a-decision judgment applies`. So Judgment A's UNCONDITIONAL payload
+rules render beneath a heading whose first line reads "Only while a workflow command is
+running." Section boundaries do not match judgment boundaries.
+
+**The fix made things worse.** Giving each escape valve a heading naming its judgment
+(`## Judgment A: is the deferral actually backed?` / `## Judgment B: is this ask
+legitimate?`), +89 bytes, nothing else changed, scored n=4 full corpus:
+
+| | precision | recall |
+|---|---|---|
+| without headings (kept) | **0.916** | 0.975 |
+| with headings | **0.887** | 0.967 |
+
+`c-417720d93413` regressed into an **A2 self-documentation** FP -- a zero-tolerance class.
+VERDICT FAIL; reverted.
+
+**Disposition: leave the structure as it is.** The one-line mitigation already in the
+precondition block -- "This narrows only that judgment; the unbacked-async judgment is
+unconditional" -- is evidently carrying the load, and adding structure on top of it costs
+more than the ambiguity does. Do not "fix" this again without scoring it: it looks like an
+obviously safe formatting change and it is not.
+
+## Three-for-three: reading this prompt does not predict its behaviour (2026-08-27)
+
+In one session, three separate edits were each confidently reasoned and each measured worse:
+
+| edit | argument for it | measured |
+|---|---|---|
+| ALLOW-lean added to Judgment B | encode the owner's flow ruling | degraded Judgment A's false-dispatch detection (2/4 -> 3/4 misses) |
+| compression of redundant blocks | prompt is 11% over baseline | precision 0.916 -> 0.856, A3 FP returned |
+| escape-valve headings | sections should match judgments | precision 0.916 -> 0.887, A2 FP created |
+
+Only the first was salvageable, by explicitly fencing the lean to Judgment B. The other two
+were reverted outright.
+
+**Operational rule: no edit to this prompt ships on a reading. n>=4, full corpus, every
+time -- including edits that only move whitespace, headings, or "obvious" duplication.**
+
+## Precondition compression violated TRD §3.3; restored (2026-08-28)
+
+The compressed precondition block (673 bytes) scored better -- precision 0.916 vs 0.896 --
+but FAILED 4 tests in `build-judge-prompts.test.js`, which encode TRD §3.3 acceptance
+criteria. It had dropped, among other required statements, **"default to applying it"**: the
+tie-break making Judgment B fail TOWARD applying when the `ENSEMBLE_COMMAND` marker is
+absent, unknown, mismatched or malformed. That is a safety property, not phrasing -- without
+it the guard can silently skip on ambiguity, the exact failure direction the TRD forbids.
+
+Restored to the full 1517-byte block. n=4 full corpus, against HEAD:
+
+| | precision | recall |
+|---|---|---|
+| HEAD | 0.834 | 0.958 |
+| compressed (TRD-violating) | 0.916 | 0.975 |
+| **restored (shipped)** | **0.896** | **0.992** |
+
+`compare-runs` returns FAIL on the restored version, on two gates that are BOTH pre-existing
+at HEAD:
+
+- **A3 `c-5d15b63f1acc`**: FP in **4/4** runs on HEAD and **4/4** restored. The compressed
+  version's 1/4 was incidental, not a designed property -- there is no version of this change
+  that fixes it, and it is not a regression.
+- **precision >= 0.90**: restored misses by 0.004 at n=4, while improving on HEAD by 0.062.
+
+Zero per-case regressions. Recall is the best of the three variants, i.e. the restored block
+catches MORE real violations than either alternative.
+
+**Trading a TRD safety property for 0.02 precision is the wrong trade**, and it is the
+"weaken the spec until the code passes" move this project forbids elsewhere. Shipped restored,
+with the gate failure documented rather than hidden.
+
+## The corpus harness's meanMs is NOT the hook's in-session latency (2026-08-28)
+
+`score.js --detector judge` reports `meanMs` around 16-26s per case. That is the OFFLINE
+harness: it shells out to `claude -p` per case and pays process startup each time. It
+measures this test rig, not the hook.
+
+The hook's real in-session cost, attributed from a live `implement-one-task` session with
+`test/smoke/analyze-session.js`: **~4.6s mean, 2.2s median** per `Stop`.
+
+The difference is roughly 4x and it mattered. The 16.6s figure was used to argue that the
+`SubagentStop` judge cost 100-130s of a run; removing it actually saved ~40s of 774s. The
+removal was still right on other grounds, but the cost estimate that motivated it was
+inflated fourfold.
+
+**Never quote `meanMs` as a production latency.** Use `analyze-session.js` against a real
+session.

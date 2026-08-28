@@ -142,10 +142,22 @@ for (let w = 0; w < WAVES.length; w++) {
       // The Task shape trd-parser.js emits has no implementer-type column -- the command is
       // expected to resolve which implementer a task needs (backend/frontend/mobile/agent)
       // and carry it as `record.agentType`, the same way create-trd.js's author stage passes
-      // agentType: 'technical-architect' (attested: agent() accepts opts.agentType). This is
-      // tolerant of that field's absence rather than failing the whole wave over one missing
-      // field -- an unset agentType lets the platform fall back to its own default.
-      if (rec.agentType) opts.agentType = rec.agentType
+      // agentType: 'technical-architect' (attested: agent() accepts opts.agentType).
+      //
+      // When it does not, DEFAULT rather than letting the platform decide. An unset
+      // agentType does not mean "no agent" -- it means the generic workflow subagent, which
+      // inherits the SESSION model. In an Opus-led session that silently runs ordinary
+      // implementation on Opus at roughly 5x the price of the Sonnet implementer that should
+      // have taken it, and slower. implement-trd.md's routing rule already says "When neither
+      // the TRD nor a keyword decides, use `backend-implementer`. Do NOT leave `agentType`
+      // unset" -- but that was a PROMPT instruction with nothing enforcing it, and the smoke
+      // harness caught it failing: implement-one-task's "an implementer agent invoked"
+      // assertion went red on 2026-08-28 with the task dispatched to the generic subagent.
+      //
+      // Fail toward the cheaper agent, never toward the more expensive one: being wrong about
+      // backend-implementer costs a competent implementer on the wrong specialism, while an
+      // unset type silently escalates the model tier for every unrouted task in the run.
+      opts.agentType = rec.agentType || 'backend-implementer'
       return agent(rec.prompt, opts).then((r) => ({ id, result: r }))
     })
   )

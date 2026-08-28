@@ -1,0 +1,84 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verify-functional-arg-guards.md",
+  "trd_hash": "46f2c0408b95054d09dabbed7c7f41d3f83a0c8259fc1cc43114181ddce4423f",
+  "branch": "feature/verify-functional-arg-guards/fix",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-003": {
+      "description": "Replace the args {…} placeholder at verify-build.md:112 with the complete literal 15-field argument object, in both copies",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T03:02:14.169Z",
+      "completed_at": "2026-08-26T03:26:38.839Z",
+      "last_advanced": "2026-08-26T03:03:21.516Z"
+    },
+    "FIX-001": {
+      "description": "Add fail-loud one-liner guards for statePath, reportPath, evidenceDir, checker and since, in both copies of the workflow",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T03:02:14.170Z",
+      "completed_at": "2026-08-26T03:26:38.839Z",
+      "last_advanced": "2026-08-26T03:03:21.521Z"
+    },
+    "FIX-002": {
+      "description": "Add a test case per newly-guarded argument asserting the named-error behaviour",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T03:02:14.170Z",
+      "completed_at": "2026-08-26T03:26:38.839Z",
+      "last_advanced": "2026-08-26T03:03:21.521Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "67c36bae688a99d51cce654904c47e4d2071bc91",
+      "review": {
+        "findings": 3,
+        "applied": 1,
+        "reported": 2
+      },
+      "timestamp": "2026-08-26T03:27:02.727Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "67c36bae688a99d51cce654904c47e4d2071bc91",
+    "last_checkpoint_timestamp": "2026-08-26T03:27:02.727Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/verify-functional-arg-guards.md ## Reproduction",
+    "loop_dispatched": false,
+    "deviation": "Loop not dispatched. All 8 criteria (FS-1..FS-8) verified by direct execution of the argument prelude with before/after controls from 1c490e9, plus a mutation test per guard. verification_level is unit-only; no criterion needs an environment. Stated as a deviation, not a pass of the loop.",
+    "criteria_met": 8,
+    "criteria_total": 8
+  }
+}

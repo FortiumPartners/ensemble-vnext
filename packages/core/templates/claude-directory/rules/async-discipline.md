@@ -23,6 +23,17 @@ one of these primitives **in the same turn**:
 4. **`/goal <condition>`** — keep the session working turn-after-turn until a machine-
    checkable condition is met (the verify-goal pattern is one example).
 
+   **`/goal` is the one primitive here with no bound of its own — do not reach for it first.**
+   The other three self-limit: a background agent finishes, a wakeup fires once, `Monitor`
+   ends when its process exits. `/goal` re-invokes until its condition reads true, and if the
+   condition is one the session cannot actually reach, it does not stop. Measured 2026-08-26
+   in `-Users-james-dev-lightning-lane-prompt-fixes`: **114 re-injections across 15 chains,
+   the longest 17 consecutive**, 10 chains past the platform's 8-block cap, with 27
+   near-verbatim restatements of one verdict paragraph. For contrast, the discipline hooks in
+   the same session bounded at **2** — the `stop_hook_active` guard working exactly as
+   designed. Prefer `ScheduleWakeup` when a bounded re-entry will do, and reserve `/goal` for
+   conditions that are genuinely machine-checkable AND reachable.
+
 If none of those apply, **do the work synchronously in the current turn and report results
 inline.** Do NOT claim async.
 
@@ -95,7 +106,7 @@ enforces.
 
 **As of 2026-08-22 NO command in this framework spawns teammates.** `/harden-trd-team` and
 `/verify-trd-team` went in 4.1.16 (ITR-B012 — their adversarial pass and E2E gate moved into
-the `/implement-trd` loop), and `/fix-issue`, the last one, was replaced by `/fix` when item 12
+the `/implement-trd` loop), and `/fix-issue`, the last one, was replaced by `/fix` (renamed `/investigate` in 2.0.0) when item 12
 landed. `/implement-trd` states explicitly that it uses no `Agent({name, team_name})`.
 
 The guidance above therefore governs any teammate an AGENT spawns, not a command — the
@@ -139,10 +150,14 @@ another session diagnosing it; there is nothing on this side to fix until upstre
 **The one shape that IS ours** is an *allow* appearing the same way. An allow has nothing to
 report, so it should be silent — it surfaces only when the judge attaches a `reason` to an
 `ok: true` verdict, and the CLI displays whatever reason is present.
-`build-judge-prompts.js`'s response-contract block forbids exactly that. Measured across this
-project's transcripts: 38 blocks to 5 such allows (~1.7% of 296 evaluations). Measure with
-`node packages/core/scripts/hook-verdict-rate.js --project <slug>`; a high BLOCK count is the
-guards working and is not a regression.
+`build-judge-prompts.js`'s response-contract block forbids exactly that. Measure with
+`node packages/core/scripts/hook-verdict-rate.js --project <slug>`. A high BLOCK count is the
+guards working, up to a point — the tool fails the run above 8%, because past there the guards
+interrupt correct work more than they catch defects.
+
+*(A figure of `38 blocks to 5 such allows (~1.7% of 296 evaluations)` stood here. It predates
+the 2026-08-18 metric correction described below and is not comparable to what the tool reports
+now; see "Verify the fix by counting".)*
 
 ## What counts as a violation (judged, not pattern-matched)
 
@@ -231,8 +246,39 @@ prompts: *"Your entire response is a single `submit` tool call. Nothing else."* 
 explicit instruction that if it finds itself composing an explanation for why something is
 fine, it should call `submit({ ok: true })` instead.
 
-**Verify the fix by counting, not by looking.** The rate was 31/251 (~12%); a session with
-comparable hook traffic and near-zero `hookErrors` entries confirms it. To count:
+**Verify the fix by counting, not by looking — but do NOT compare against 31/251.**
+
+That figure and the `38 blocks to 5 allows` one above were taken under a metric the tool has
+since retired. `hook-verdict-rate.js`'s own header records the correction, dated
+**2026-08-18**, after both:
+
+> The earlier version of this file called every entry a "prose leak"... That was wrong and
+> actively misleading: it reported the fix had made things 2.5x worse (11.4% -> 28.6%) when
+> the real cause was simply that the agent got blocked more often in that window.
+
+The current classifier separates blocks from allow-leaks by a structural signal — a block
+reason INSTRUCTS, an allow reason only DESCRIBES — rather than by counting `hookErrors`
+entries. So the two numbers count different things and must not be subtracted.
+
+**Current measurement** (`-Users-james-dev-lightning-lane-prompt-fixes`, 2026-08-26):
+
+```
+957 evaluations | 100 blocks (10.4%) | 3 anomalous allows (0.3%)
+VERDICT: allow-leak rate nominal
+VERDICT: block rate 10.4% exceeds 8% -- the guards are interrupting correct work
+```
+
+**Whether the response-contract fix improved the allow-leak rate is NOT established here**, and
+this file no longer claims it. The like-for-like was attempted and is unavailable: the two older
+transcripts in that project return `0 blocks, 0 allows over 596 evaluations` because they
+predate the prompt-type hooks, and the session behind the historical `251` is named nowhere.
+What IS established is the rate today, and the tool's verdict on it: nominal.
+
+**The live signal is the other verdict.** At 10.4% the block rate is over the 8% ceiling, which
+the tool treats as a defect in its own right — guards that interrupt correct work get disabled,
+and a disabled guard protects nothing.
+
+To count by hand:
 
 ```
 non-empty hookErrors on stop_hook_summary records → iterate the ARRAY (not the record)
@@ -287,7 +333,52 @@ tool-call permission matcher ("Permission rule syntax to filter when this hook r
 `Stop`/`SubagentStop` have no associated tool call for it to match against — any non-empty
 `if` on one of these events silently disables the hook unconditionally.
 
-## The SubagentStop counterpart: `subagent-discipline.js`
+## The SubagentStop counterpart — REMOVED 2026-08-28
+
+**There is no longer a model judge on `SubagentStop`.** The entry was deleted from
+`hooks.manifest.json`; that event now carries only its two command hooks (`status.js`,
+`dispatch-ledger.js`, 5s each). `subagent-discipline.prompt.md` is still generated and still
+scored by the corpus, but nothing registers it.
+
+**Why it went.** It was written to catch a subagent burning tokens and returning nothing —
+the measured case was three subagents ending with "I'll wait for the monitor notifications",
+~240k tokens across 179 tool calls, no result. Since then the item-8 rework put three
+cheaper, deterministic layers in front of that failure:
+
+1. **Schema-forced returns.** Essentially every production dispatch is
+   `agent(prompt, {schema})`, which forces a `StructuredOutput` call. A subagent that ends
+   with a deferral instead of a result does not produce a valid one.
+2. **Orchestrator result checking.** `implement-phase.js` records four distinct bad-result
+   shapes as explicit failures — no record for the id, `agent()` returning null ("agent
+   returned nothing"), a non-success status, and never-dispatched — then logs which task ids
+   failed. Tested at `implement-phase.test.js:146`.
+3. **The phase gate.** `verify-app` then `/code-review` catch the harder case the judge never
+   could: a well-formed result claiming success on work that was not done.
+
+The judge was a fourth layer over a failure three cheaper ones already cover, and the only
+one costing a model call. Its in-session cost was measured on 2026-08-28 at **~4.6s mean,
+2.2s median** per stop (attributed with `test/smoke/analyze-session.js`), with 6–8
+subagents per `/implement-trd` run.
+
+**A 16.6s figure was cited for this while the change was being made, and it was wrong.**
+That number came from `test/discipline-corpus/`'s offline harness, which shells out to
+`claude -p` per case and so pays process startup; it measures the HARNESS, not the hook.
+Removing this judge saved ~40s of a 774s run, not the 100–130s the inflated figure
+predicted. The guard's removal still stands on the three-layer argument above — but the
+cost side of it was a quarter of what was claimed.
+
+**What this gives up, honestly.** Subagents the lead dispatches DIRECTLY, outside a workflow,
+carry no schema and get no orchestrator result-checking (`/implement-trd --verify`'s
+background derive pass is one). Those are now unguarded. They are a minority of dispatches,
+and the lead sees their results, but the cover is not total.
+
+**The lead's `Stop` guard is unaffected** and still runs on every turn.
+
+## Historical: how the SubagentStop guard worked
+
+### Original notes (retained for the payload facts, which are still true)
+
+#### `subagent-discipline.js`
 
 `async-discipline.js` only runs on `Stop`, so it protects the main session and nothing
 else. Subagents fail the same way — three subagents in one observed session ended with

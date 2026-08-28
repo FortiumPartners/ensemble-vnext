@@ -38,7 +38,18 @@ if ! command -v jq &>/dev/null; then
 fi
 
 PROJECT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-impltask.XXXXXX")"
-cleanup() { rm -rf "$PROJECT_DIR"; }
+# Preserve the tree when an assertion fails, so a failure is diagnosable without
+# re-running 13 minutes of model time. On 2026-08-28 this scenario's implementer
+# assertion failed twice and the session log was deleted both times, which is why the
+# failure was misattributed to model routing before the assertion itself turned out to be
+# structurally unable to see workflow dispatch. SMOKE_KEEP=1 forces retention always.
+cleanup() {
+    if [[ "${SMOKE_KEEP:-0}" == "1" ]] || [[ "${ASSERT_FAIL_COUNT:-0}" -gt 0 ]]; then
+        echo "  [kept for diagnosis] $PROJECT_DIR" >&2
+        return 0
+    fi
+    rm -rf "$PROJECT_DIR"
+}
 trap cleanup EXIT INT TERM
 
 if ! smoke_scaffold_project "$PROJECT_DIR"; then

@@ -92,7 +92,7 @@ Next:   set OAUTH_CLIENT_SECRET env var and run /implement-trd --resume
 ## Optional: PHASE banner
 
 For long, multi-phase commands (`/implement-trd`, `/audit-build`,
-`/fix`), emit at each phase boundary:
+`/investigate --implement`), emit at each phase boundary:
 
 ```
 [STATUS: /<command-name>] PHASE <N>/<M> COMPLETE → <one-line summary>
@@ -109,7 +109,7 @@ There are two delivery paths. Use them differently:
 ### Path A — `PushNotification` (preferred, direct, atomic with the banner)
 
 For **multi-turn / long-running commands** (`/implement-trd`,
-`/audit-build`, `/fix`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
+`/audit-build`, `/investigate --implement`), pair the `COMMAND COMPLETE` banner with a direct `PushNotification`
 call in the same final turn. This is precise (fires once, exactly when the command is
 done) and atomic with the banner (no transcript grep, no race with intermediate Stops).
 
@@ -358,7 +358,7 @@ If you find a command that doesn't end with `═══ COMMAND COMPLETE` or
 `═══ COMMAND STUCK`, that's a bug — open an issue or patch the command's final-output
 instructions.
 
-**One legitimate exception: a command that CHAINS into another.** `/fix` on an AUTO tier
+**One legitimate exception: a command that CHAINS into another.** `/investigate --implement` on an AUTO tier
 invokes `/implement-trd` and deliberately emits no banner of its own, because the banner is
 the LAST line of the turn and an implementation run follows it. The run still terminates with
 a banner; it carries the chained command's name. Emitting one before the chain would put a

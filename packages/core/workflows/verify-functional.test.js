@@ -33,6 +33,14 @@ function baseArgs(overrides = {}) {
     reportPath: '.trd-state/example/verification-report.md',
     resume: null,
     project: '',
+    // §3.3 declares 15 fields; these three were absent until 2026-08-26. They are
+    // unguarded (`|| ''`), so omitting them failed nothing -- which is exactly how
+    // Finding A happened: renderReport()'s header rendered `undefined` for all three
+    // and no fixture disagreed. baseArgs() is the only executable statement of this
+    // interface, so it states all 15.
+    feature: 'example',
+    prd: 'docs/PRD/example.md',
+    definitionPath: '.trd-state/example/success-definition.md',
     ...overrides,
   };
 }
@@ -369,7 +377,16 @@ describe('verify-functional: feature/prd/definitionPath reach the report header'
       return null;
     });
 
-    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+    // Omission stated explicitly rather than inherited from baseArgs(): the fixture now
+    // supplies all 15 fields §3.3 declares, so a test about DEFAULTING must say which three
+    // it is dropping. Depending on the fixture being incomplete made this test silently
+    // sensitive to an unrelated fixture edit.
+    const args = baseArgs({ criteria: [criterion('FS-1')] });
+    delete args.feature;
+    delete args.prd;
+    delete args.definitionPath;
+
+    await runWorkflow(SOURCE, { agent, args });
 
     expect(capturedPrompt).toContain('"feature": ""');
     expect(capturedPrompt).toContain('"prd": ""');
@@ -635,6 +652,48 @@ describe('verify-functional: args.cap validation', () => {
     const agent = makeAgentStub(() => null);
     await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 0 }) })).rejects.toThrow(/args\.cap is required/);
     await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ cap: -1 }) })).rejects.toThrow(/args\.cap is required/);
+  });
+});
+
+describe('verify-functional: required-argument guards', () => {
+  it('throws naming evidenceDir when args.evidenceDir is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.evidenceDir;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.evidenceDir/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming checker when args.checker is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.checker;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.checker/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming since when args.since is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.since;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.since/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming statePath when args.statePath is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.statePath;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.statePath/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws naming reportPath when args.reportPath is missing', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs();
+    delete args.reportPath;
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.reportPath/);
+    expect(agent.calls).toHaveLength(0);
   });
 });
 

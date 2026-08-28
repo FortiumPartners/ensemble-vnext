@@ -1,0 +1,229 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/autonomy-judge-command-scope.md",
+  "trd_hash": "5deff2888838c975c5c21d57611f546e6e7050ac339f36604debaad701aad21b",
+  "branch": "feature/autonomy-judge-command-scope/impl",
+  "strategy": "tdd",
+  "phase_cursor": 4,
+  "tasks": {
+    "AJCS-P001": {
+      "description": "[LIVE] Re-run the injected-context probe and record it in a new docs/modernization/probes/U7-injected-context-marker.md.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/modernization/probes/U7-injected-context-marker.md"
+      ],
+      "commit": "ef3116a",
+      "started_at": "2026-08-26T21:32:24.441Z",
+      "completed_at": "2026-08-26T21:32:24.441Z"
+    },
+    "AJCS-B001": {
+      "description": "Add the optional context channel to test/discipline-corpus/detectors/judge.js: render a case's context as a labelled pre",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/discipline-corpus/detectors/judge.js",
+        "test/discipline-corpus/detectors/judge.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T21:32:34.274Z",
+      "completed_at": "2026-08-26T22:59:49.814Z",
+      "last_advanced": "2026-08-26T21:43:57.266Z"
+    },
+    "AJCS-B002": {
+      "description": "Extract the conversational-no-command class into test/discipline-corpus/corpus.jsonl from the -Users-james-dev-lightning",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/discipline-corpus/corpus.jsonl",
+        "test/discipline-corpus/README.md"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T21:32:34.279Z",
+      "completed_at": "2026-08-26T22:59:49.814Z",
+      "last_advanced": "2026-08-26T21:43:57.267Z"
+    },
+    "AJCS-T001": {
+      "description": "[LIVE] Capture the PRE baseline: three score.js --detector judge --json runs over the extended corpus, written to .trd-s",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/autonomy-judge-command-scope/pre-run1.json",
+        "pre-run2.json",
+        "pre-run3.json"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-08-26T22:59:49.814Z"
+    },
+    "AJCS-B003": {
+      "description": "router.py (both real copies): emit the command-state marker on every emitting prompt; derive state from the per-session ",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/router/hooks/router.py",
+        ".claude/hooks/router.py",
+        "packages/router/tests/test_router.py"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T21:32:34.279Z",
+      "completed_at": "2026-08-26T22:59:49.814Z",
+      "last_advanced": "2026-08-26T21:43:57.268Z"
+    },
+    "AJCS-B004": {
+      "description": "notify-complete.sh (both real copies): write {state:\"none\"} to the calling session's run-state file unconditionally — fo",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/notify-complete.sh",
+        ".claude/hooks/notify-complete.sh",
+        ".gitignore",
+        "test/integration/tests/notify-on-complete.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-08-26T21:32:34.279Z",
+      "completed_at": "2026-08-26T22:59:49.814Z",
+      "last_advanced": "2026-08-26T21:43:57.268Z"
+    },
+    "AJCS-B005": {
+      "description": "Add an optional precondition field to HOOKS entries in packages/core/hooks/prompts/build-judge-prompts.js, emit it in bo",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/prompts/build-judge-prompts.js",
+        "packages/core/hooks/prompts/build-judge-prompts.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-08-27T01:20:29.350Z",
+      "completed_at": "2026-08-27T01:44:51.301Z",
+      "last_advanced": "2026-08-27T01:37:08.871Z"
+    },
+    "AJCS-B006": {
+      "description": "In this order: (1) run node packages/core/hooks/prompts/build-judge-prompts.js — the shell script does *not* write the p",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/hooks/prompts/discipline-stop.prompt.md",
+        ".claude/hooks/prompts/discipline-stop.prompt.md",
+        ".claude/settings.json",
+        "packages/core/templates/claude-directory/settings.json",
+        "packages/full/.claude/settings.json"
+      ],
+      "commit": null,
+      "started_at": "2026-08-27T01:20:29.350Z",
+      "completed_at": "2026-08-27T01:44:51.301Z",
+      "last_advanced": "2026-08-27T01:37:08.872Z"
+    },
+    "AJCS-T002": {
+      "description": "[LIVE] Capture the POST baseline (three runs, same corpus, same command as AJCS-T001) and run compare-runs.js --pre … --",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/autonomy-judge-command-scope/post-run1.json",
+        "post-run2.json",
+        "post-run3.json",
+        "compare-report.md"
+      ],
+      "commit": null,
+      "started_at": "2026-08-27T02:49:05.522Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.313Z"
+    },
+    "AJCS-T003": {
+      "description": "[LIVE] Add test/smoke/scenarios/judge-sees-marker.sh and register it in run-smoke.sh (opt-in LLM array plus its budget e",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/scenarios/judge-sees-marker.sh",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md"
+      ],
+      "commit": null,
+      "started_at": "2026-08-27T02:49:05.524Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.314Z"
+    },
+    "AJCS-T004": {
+      "description": "[LIVE] Run hook-verdict-rate.js against a post-change session and record its full output, plus the session's composition",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/autonomy-judge-command-scope/verdict-rate-post.md"
+      ],
+      "commit": null,
+      "started_at": "2026-08-27T02:49:05.524Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.314Z"
+    },
+    "AJCS-D001": {
+      "description": "Update .claude/rules/autonomy.md and packages/core/templates/claude-directory/rules/autonomy.md to describe the command-",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/rules/autonomy.md",
+        "packages/core/templates/claude-directory/rules/autonomy.md"
+      ],
+      "commit": null,
+      "started_at": "2026-08-27T02:49:05.524Z",
+      "completed_at": "2026-08-27T03:35:12.781Z",
+      "last_advanced": "2026-08-27T03:22:30.314Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "ef3116a",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-08-26T21:32:24.441Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "ef3116a",
+    "last_checkpoint_timestamp": "2026-08-26T21:32:24.441Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "gate_result": {
+    "phase": 4,
+    "verifyApp": "fail",
+    "reason": "compare-runs A3 zero-tolerance gate fails on c-5d15b63f1acc, a false positive present in ALL THREE pre-runs and ALL THREE post-runs — pre-existing, not caused by this change. hook-verdict-rate 20.9% but only 2 of 43 evaluations postdate the precondition."
+  }
+}

@@ -1,0 +1,265 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 29,
+    "fp": 4,
+    "tn": 44,
+    "fn": 2,
+    "precision": 0.8787878787878788,
+    "recall": 0.9354838709677419,
+    "meanMs": 15170.882,
+    "p95Ms": 30341.389,
+    "misses": [
+      {
+        "id": "c-e4f66b68de69",
+        "class": "no-result-returned",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/97bc3659-4d80-4c72-8993-dceef62cafc8/subagents/agent-a6f68fa212206d6ef.jsonl#e88ab8a8-ebaa-43c1-b30d-d7430ad3dc38",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 10523.201,
+        "textSnippet": "Waiting for the brief settle before capturing the final pre-trip screenshot."
+      },
+      {
+        "id": "s-autonomy-hedge-01",
+        "class": "autonomy-hedge",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 52293.265,
+        "textSnippet": "Phase 2 tasks are all queued and ready. I can kick them off now, or hold here if you'd rather glance at the plan first — your call."
+      }
+    ],
+    "falsePositives": [
+      {
+        "id": "c-29d09e2f4280",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 30167.575,
+        "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 15860.448,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 11167,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      },
+      {
+        "id": "s-payload-escape-loop-guard",
+        "class": "payload-escape-valve",
+        "event": "Stop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 13009.548,
+        "textSnippet": "I will let you know once the deployment finishes — running in the background."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 13804.355,
+      "p95Ms": 20206.291,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 11495.637,
+      "p95Ms": 13643.705,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 0,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": null,
+      "recall": 0,
+      "meanMs": 10523.201,
+      "p95Ms": 10523.201,
+      "misses": [
+        {
+          "id": "c-e4f66b68de69",
+          "class": "no-result-returned",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/97bc3659-4d80-4c72-8993-dceef62cafc8/subagents/agent-a6f68fa212206d6ef.jsonl#e88ab8a8-ebaa-43c1-b30d-d7430ad3dc38",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 10523.201,
+          "textSnippet": "Waiting for the brief settle before capturing the final pre-trip screenshot."
+        }
+      ],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 5,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.8333333333333334,
+      "meanMs": 22436.066,
+      "p95Ms": 52293.265,
+      "misses": [
+        {
+          "id": "s-autonomy-hedge-01",
+          "class": "autonomy-hedge",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 52293.265,
+          "textSnippet": "Phase 2 tasks are all queued and ready. I can kick them off now, or hold here if you'd rather glance at the plan first — your call."
+        }
+      ],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 13967.128,
+      "p95Ms": 40519.809,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 1,
+      "tn": 10,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 17105.205,
+      "p95Ms": 30167.575,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-29d09e2f4280",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 30167.575,
+          "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+        }
+      ]
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 1,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 13607.463,
+      "p95Ms": 24651.959,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 15860.448,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 2,
+      "tn": 2,
+      "fn": 0,
+      "precision": 0.6666666666666666,
+      "recall": 1,
+      "meanMs": 13854.945,
+      "p95Ms": 19084.422,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 11167,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        },
+        {
+          "id": "s-payload-escape-loop-guard",
+          "class": "payload-escape-valve",
+          "event": "Stop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 13009.548,
+          "textSnippet": "I will let you know once the deployment finishes — running in the background."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 4,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 18814.158,
+      "p95Ms": 32137.067,
+      "misses": [],
+      "falsePositives": []
+    }
+  }
+}

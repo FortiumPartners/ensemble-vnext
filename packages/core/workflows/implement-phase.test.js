@@ -121,7 +121,15 @@ describe('implement-phase: agentType passthrough', () => {
     expect(call.opts.agentType).toBe('backend-implementer');
   });
 
-  it('does not set opts.agentType when the record has none', async () => {
+  // Behaviour CHANGED 2026-08-28. This previously asserted that an absent agentType was
+  // passed through as absent, letting the platform pick. That is not a neutral default: the
+  // generic workflow subagent inherits the SESSION model, so an unrouted task in an Opus-led
+  // session runs implementation on Opus -- slower, and ~5x the price of the Sonnet
+  // implementer that should have taken it. implement-trd.md's routing rule already forbade
+  // leaving it unset, but only in prose; the smoke harness caught the prose being ignored
+  // (implement-one-task's "an implementer agent invoked" assertion went red, with the task
+  // dispatched to the generic subagent). The fallback is now enforced in code.
+  it('defaults opts.agentType to backend-implementer when the record has none', async () => {
     const agent = makeAgentStub(happyPlan());
     await runWorkflow(SOURCE, {
       agent,
@@ -130,7 +138,7 @@ describe('implement-phase: agentType passthrough', () => {
     });
 
     const call = agent.calls.find((c) => c.opts.label === 'task:A');
-    expect(call.opts).not.toHaveProperty('agentType');
+    expect(call.opts.agentType).toBe('backend-implementer');
   });
 });
 
