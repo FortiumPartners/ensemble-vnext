@@ -254,3 +254,44 @@ is actionable.
 `baseline.json` is committed and should be updated **deliberately**, never silently on every run.
 Auto-overwriting is how a regression quietly becomes the new normal. Recapture when you have
 consciously changed what the harness covers, and say so in the commit message.
+
+## Why `implement-one-task` costs ~740s and the 4.1.3 baseline does not compare
+
+Investigated 2026-08-28 with `analyze-session.js` against a preserved session
+(`SMOKE_KEEP=1`). The run decomposes as:
+
+| phase | time | share |
+|---|---|---|
+| preflight — parse TRD, build graph, branch, state, pointer | 123s | 17% |
+| `Workflow(implement-phase)` — implementation + phase gate | 251s | 35% |
+| **§7.1 feature-scale hardening + applying findings** | **353s** | **48%** |
+
+**The 341s baseline was captured 2026-08-13 at 4.1.3. §7.1's hardening wave was added
+2026-08-16 in `5fe2109` (item 8's rework).** It did not exist when the baseline was measured,
+and it is nearly half the run. Comparing today against that baseline conflates "slower" with
+"does more".
+
+**The hardening wave is not waste.** On this trivial fixture — one task, one file — its three
+`code-reviewer` lenses returned **7 findings (4 applied, 3 open)**, one of them a genuine
+release blocker: `.claude/lib/agent-routing.js` missing from scaffolded projects, found
+independently the same day by `scaffold-project.test.sh`. It also is not mostly waiting: 128
+records and 42 Bash calls follow the dispatch, which is the lead investigating and applying
+what came back.
+
+**Two hypotheses were investigated and DISPROVED. Do not re-derive them:**
+
+- *Model routing* — "implementation ran on Opus, not Sonnet". The `an implementer agent
+  invoked` assertion could not pass since item 8 (it greps the lead session for `Agent`/`Task`
+  calls, but dispatch moved inside `Workflow`). The assertion was blind; routing was fine. Now
+  fixed, and it passes naming `backend-implementer`.
+- *Hook latency* — "~16.6s per Stop/SubagentStop". That is `score.js`'s `meanMs`, which pays
+  `claude -p` process startup per case; it measures the offline corpus harness, not the hook.
+  Real in-session cost is **~4.6s mean / 2.2s median**. Removing the `SubagentStop` judge saved
+  ~40s of 774s, not the 100–130s the inflated figure predicted.
+
+**The open proportionality question** (not a defect): §7.1 dispatches three Opus lenses
+unconditionally, and its own rationale is that "interaction risk between phases only exists
+once every phase is assembled". On a SINGLE-phase TRD the cross-phase lens has nothing to
+examine by construction. Scaling that wave to feature size is the one change here that costs
+no coverage — but the other two lenses demonstrably earn their place, so this is a sizing
+decision, not a removal.
