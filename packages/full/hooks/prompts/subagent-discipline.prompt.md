@@ -1,1 +1,0 @@
-../../../core/hooks/prompts/subagent-discipline.prompt.md

@@ -91,7 +91,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 9a | Functional verification of delivered software | 3–5 days | A green suite says nothing about whether a user can do what the PRD promised | **Shipped 4.1.18** — `--verify`, `/verify-build`, live-verified 20/20 |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
-| 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Open** |
+| 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
 ---

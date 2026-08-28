@@ -130,20 +130,22 @@ describe('combined prompt content requirements (TRD §3.3)', () => {
 });
 
 describe('a hook with no precondition emits no separator (D6)', () => {
-  it('subagent-discipline output is byte-identical to the checked-in prompt file', () => {
-    // Regenerated fresh on every run — not a cached string — so a regression in the
-    // `.filter(Boolean)` call (which would insert a spurious `\n\n\n\n` gap where
-    // `undefined` used to sit in the flat `parts` array) is caught here rather than
-    // masked by a stale fixture.
+  // The byte-identity check against a checked-in subagent-discipline.prompt.md was dropped
+  // in 4.2.0: the SubagentStop judge was unregistered, so the manifest no longer declares
+  // that prompt file and the generator no longer emits one. The entry stays in HOOKS purely
+  // so the discipline corpus can still score SubagentStop cases (the corpus detector calls
+  // buildPrompt() in memory and never reads the .md).
+  //
+  // The PROPERTY that check existed for is D6 — a hook declaring no `precondition` must not
+  // leave a spurious separator where `undefined` sat in the flat `parts` array before
+  // `.filter(Boolean)` — and that is asserted directly on the built string, which is
+  // strictly better: it no longer depends on a fixture file staying in sync.
+  it('subagent-discipline (no precondition) emits no spurious separator', () => {
     const built = buildPrompt('subagent-discipline');
-    const onDisk = fs.readFileSync(
-      path.join(__dirname, 'subagent-discipline.prompt.md'),
-      'utf-8'
-    );
-
-    // main() writes `text + '\n'` — the on-disk file carries one trailing newline the
-    // bare return value does not.
-    expect(built + '\n').toBe(onDisk);
+    expect(built).not.toMatch(/\n{3,}/);
+    expect(built).not.toContain('undefined');
+    // Sanity: it is still a real prompt, not an empty string that would pass vacuously.
+    expect(built).toContain('## Judge from the payload only');
   });
 
   it('discipline-stop output is byte-identical to the checked-in prompt file', () => {

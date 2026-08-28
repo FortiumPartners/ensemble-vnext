@@ -467,12 +467,41 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
 const STOP_DISCIPLINE_HOOKS = ['async-discipline', 'autonomy-discipline'];
 const STOP_DISCIPLINE_PROMPT_FILE = 'discipline-stop.prompt.md';
 
+/**
+ * Which single-hook prompt files the MANIFEST actually declares.
+ *
+ * Deriving this from HOOKS alone was wrong once the SubagentStop judge was unregistered
+ * (4.2.0): its entry stays in HOOKS so the corpus can still score it, but nothing registers
+ * the hook, so the generator kept emitting a `.md` that no settings.json referenced and
+ * `packages/full/hooks/prompts/` kept shipping. An artifact on disk that nothing declares is
+ * exactly the dead-lever class this project deletes on sight, and the scaffold test
+ * ("every hook artifact on disk is declared") caught it.
+ */
+function declaredPromptFiles() {
+  const manifestPath = path.join(__dirname, '..', 'hooks.manifest.json');
+  const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  const entries = Array.isArray(raw) ? raw : raw.hooks || [];
+  return new Set(
+    entries.filter((h) => h.hookType === 'prompt' && h.promptFile).map((h) => h.promptFile)
+  );
+}
+
 function main() {
-  // Every hook NOT folded into the merged Stop prompt keeps its own single-hook
-  // prompt file (today: subagent-discipline, on SubagentStop). Derived from HOOKS
-  // rather than named literally so adding a hook to HOOKS cannot silently produce
-  // no prompt file at all.
+  const declared = declaredPromptFiles();
+
+  // A hook keeps its own single-hook prompt file only if it is NOT folded into the merged
+  // Stop prompt AND the manifest declares that file. A stale file left by a hook that was
+  // since unregistered is removed rather than left orphaned.
   for (const hookName of Object.keys(HOOKS).filter((n) => !STOP_DISCIPLINE_HOOKS.includes(n))) {
+    const expected = `${hookName}.prompt.md`;
+    if (!declared.has(expected)) {
+      const stale = path.join(__dirname, expected);
+      if (fs.existsSync(stale)) {
+        fs.unlinkSync(stale);
+        console.log(`removed ${stale} (in HOOKS for scoring, but not declared by the manifest)`);
+      }
+      continue;
+    }
     const text = buildPrompt(hookName);
     const outPath = path.join(__dirname, `${hookName}.prompt.md`);
     fs.writeFileSync(outPath, text + '\n', 'utf-8');

@@ -10,6 +10,88 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.2.0] - 2026-08-28
+
+**The modernization run is released.** Items 1–9 of
+`docs/modernization/2026-08-improvement-plan.md` are all Done or Closed, which is the
+condition this file's own versioning note sets for leaving 4.1.x: *"A single minor/major
+bump marks the point the work is actually released."* Items 10 and 12 also shipped during
+the run; 11 and 13 are partial and honestly so (below).
+
+### Fixed — the autonomy guard was forcing the pipeline forward
+
+**`/create-trd` tells its own model to stop and name `/audit-trd`. The guard blocked it for
+doing so.** The corrective round-trip then pushed the run onward — one owner-reported
+session authored a TRD, audited it, and began implementing, none of it asked for. Measured
+2026-08-26: **91 of 306 blocks in eight hours** were this shape.
+
+Root cause: Judgment B was told "invoking the command was the authorization" with nothing
+saying *which* command. Now scoped — authorization reaches that command's own
+`COMMAND COMPLETE` and no further:
+
+- Naming the next command is **reporting**, and is how a finished command should end.
+- The test is **whose decision it is**. Which command runs next is the owner's, so the ask
+  is allowed. What happens *inside* a running command is not — phase pauses, checkpoints and
+  "natural stopping points" still always block.
+- Judgment A: when the promised thing is a **command invocation**, the fix is to drop the
+  claim, never to run it — otherwise the guard trades a false promise for an uninvoked run.
+- Outward-facing acts a command's work leads to — push, merge, deploy, release — need their
+  own authorization regardless.
+
+Scored n=4 on the full 86-case corpus: **precision 0.834 → 0.896, recall 0.958 → 0.992**,
+zero per-case regressions.
+
+### Changed — `SubagentStop` no longer carries a model judge
+
+**BREAKING.** That event keeps its two command hooks. The guard caught a subagent returning
+nothing; the item-8 rework since put three cheaper deterministic layers in front of that —
+schema-forced returns, `implement-phase.js`'s four bad-result cases, and the
+`verify-app`/`code-review` phase gate.
+
+Given up honestly: subagents the lead dispatches **directly**, outside a workflow, have no
+schema and no orchestrator result-checking, and are now unguarded. The lead's `Stop` guard
+is unaffected.
+
+### Fixed — implementer routing was prose, and prose was skipped
+
+`implement-trd.md` §3.3's three-step resolution (TRD assignment → keyword → default) lived
+entirely in the command prompt. An unset `agentType` is not a neutral default: it means the
+generic workflow subagent, which inherits the **session** model. Now `lib/agent-routing.js`,
+with `trd-parser.js` stamping `task.agentType` during the parse, plus a last-hop fallback in
+`implement-phase.js`. Verified 12/12 tasks routed on a real TRD.
+
+### Fixed — tests and harness
+
+- 29 Jest failures repaired: stale CLI-envelope mocks in `judge.test.js`, three API drifts in
+  `run-eval.test.js` (`binary_checks`, the `null` timeout default, `launchSession`'s
+  signature), and two stale vendored test copies deleted from `.claude/`.
+  **982/982 passing.**
+- `implement-one-task`'s "an implementer agent invoked" assertion **could not pass** since
+  item 8 — it greps the lead session for `Agent`/`Task` calls, but dispatch moved inside
+  `Workflow(implement-phase)`. Fixed, and the scenario now keeps its tree on failure.
+- New `test/smoke/analyze-session.js` attributes a run's wall-clock from its session log.
+
+### Known: a real, unexplained slowdown
+
+`implement-one-task` runs **~740s against a 341s baseline** captured at 4.1.3. Attributed:
+187s is the workflow doing real work, ~340s is lead model generation across many
+orchestration turns, ~123s follows turn-ends. **The cause is not established** and is being
+carried into 4.2.1. Two candidate explanations were investigated and disproved — model
+routing (the assertion was blind, not the routing broken) and hook latency (the 16.6s figure
+was the offline harness, not the hook; real cost is ~4.6s mean).
+
+`baseline.json` is still the 4.1.3 capture and predates item 8's accepted +74% wall clock, so
+it is not a like-for-like comparison. Deliberate recapture is owed.
+
+### Known: items 11 and 13 are partial
+
+- **11 (learning loop)** — the substance largely landed: four of the five facts it named as
+  at-risk are now in always-loaded rules files. The mechanism was never built, and 7 of 8
+  probe docs remain referenced by nothing.
+- **13 (rebase delivery)** — sub-item 1 gained the model-executed scenario and three defect
+  fixes; it has never been run end to end. Sub-items 2–4 (version-skew detection, multi-repo,
+  "which of my projects are stale") are untouched.
+
 ## [4.1.24] - 2026-08-26
 
 ### Changed
