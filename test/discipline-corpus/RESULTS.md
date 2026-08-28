@@ -471,3 +471,35 @@ were reverted outright.
 
 **Operational rule: no edit to this prompt ships on a reading. n>=4, full corpus, every
 time -- including edits that only move whitespace, headings, or "obvious" duplication.**
+
+## Precondition compression violated TRD §3.3; restored (2026-08-28)
+
+The compressed precondition block (673 bytes) scored better -- precision 0.916 vs 0.896 --
+but FAILED 4 tests in `build-judge-prompts.test.js`, which encode TRD §3.3 acceptance
+criteria. It had dropped, among other required statements, **"default to applying it"**: the
+tie-break making Judgment B fail TOWARD applying when the `ENSEMBLE_COMMAND` marker is
+absent, unknown, mismatched or malformed. That is a safety property, not phrasing -- without
+it the guard can silently skip on ambiguity, the exact failure direction the TRD forbids.
+
+Restored to the full 1517-byte block. n=4 full corpus, against HEAD:
+
+| | precision | recall |
+|---|---|---|
+| HEAD | 0.834 | 0.958 |
+| compressed (TRD-violating) | 0.916 | 0.975 |
+| **restored (shipped)** | **0.896** | **0.992** |
+
+`compare-runs` returns FAIL on the restored version, on two gates that are BOTH pre-existing
+at HEAD:
+
+- **A3 `c-5d15b63f1acc`**: FP in **4/4** runs on HEAD and **4/4** restored. The compressed
+  version's 1/4 was incidental, not a designed property -- there is no version of this change
+  that fixes it, and it is not a regression.
+- **precision >= 0.90**: restored misses by 0.004 at n=4, while improving on HEAD by 0.062.
+
+Zero per-case regressions. Recall is the best of the three variants, i.e. the restored block
+catches MORE real violations than either alternative.
+
+**Trading a TRD safety property for 0.02 precision is the wrong trade**, and it is the
+"weaken the spec until the code passes" move this project forbids elsewhere. Shipped restored,
+with the gate failure documented rather than hidden.
