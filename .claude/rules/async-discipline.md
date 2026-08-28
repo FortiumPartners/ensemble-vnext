@@ -333,7 +333,44 @@ tool-call permission matcher ("Permission rule syntax to filter when this hook r
 `Stop`/`SubagentStop` have no associated tool call for it to match against — any non-empty
 `if` on one of these events silently disables the hook unconditionally.
 
-## The SubagentStop counterpart: `subagent-discipline.js`
+## The SubagentStop counterpart — REMOVED 2026-08-28
+
+**There is no longer a model judge on `SubagentStop`.** The entry was deleted from
+`hooks.manifest.json`; that event now carries only its two command hooks (`status.js`,
+`dispatch-ledger.js`, 5s each). `subagent-discipline.prompt.md` is still generated and still
+scored by the corpus, but nothing registers it.
+
+**Why it went.** It was written to catch a subagent burning tokens and returning nothing —
+the measured case was three subagents ending with "I'll wait for the monitor notifications",
+~240k tokens across 179 tool calls, no result. Since then the item-8 rework put three
+cheaper, deterministic layers in front of that failure:
+
+1. **Schema-forced returns.** Essentially every production dispatch is
+   `agent(prompt, {schema})`, which forces a `StructuredOutput` call. A subagent that ends
+   with a deferral instead of a result does not produce a valid one.
+2. **Orchestrator result checking.** `implement-phase.js` records four distinct bad-result
+   shapes as explicit failures — no record for the id, `agent()` returning null ("agent
+   returned nothing"), a non-success status, and never-dispatched — then logs which task ids
+   failed. Tested at `implement-phase.test.js:146`.
+3. **The phase gate.** `verify-app` then `/code-review` catch the harder case the judge never
+   could: a well-formed result claiming success on work that was not done.
+
+The judge was a fourth layer over a failure three cheaper ones already cover, and the only
+one costing a model call — **~16.6s mean, 32s p95, on every subagent stop**, with 6–8
+subagents per `/implement-trd` run.
+
+**What this gives up, honestly.** Subagents the lead dispatches DIRECTLY, outside a workflow,
+carry no schema and get no orchestrator result-checking (`/implement-trd --verify`'s
+background derive pass is one). Those are now unguarded. They are a minority of dispatches,
+and the lead sees their results, but the cover is not total.
+
+**The lead's `Stop` guard is unaffected** and still runs on every turn.
+
+## Historical: how the SubagentStop guard worked
+
+### Original notes (retained for the payload facts, which are still true)
+
+#### `subagent-discipline.js`
 
 `async-discipline.js` only runs on `Stop`, so it protects the main session and nothing
 else. Subagents fail the same way — three subagents in one observed session ended with

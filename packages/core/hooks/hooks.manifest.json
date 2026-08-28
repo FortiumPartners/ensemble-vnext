@@ -43,18 +43,6 @@
       "description": "Active state machine: advances cycle_position in `implement.json` as subagents complete."
     },
     {
-      "file": "subagent-discipline.js",
-      "event": "SubagentStop",
-      "matcher": "",
-      "order": 2,
-      "timeout": 60,
-      "hookType": "prompt",
-      "promptFile": "subagent-discipline.prompt.md",
-      "registration": "command",
-      "shippable": true,
-      "description": "Model-judged: blocks a subagent's fire-and-forget / deferred-work claims (ScheduleWakeup is unavailable to subagents, so such claims are false by construction); the prompt's own stop_hook_active check is the loop guard (pairs with `.claude/rules/async-discipline.md`)."
-    },
-    {
       "file": "dispatch-ledger.js",
       "event": "SubagentStop",
       "matcher": "",
