@@ -14,6 +14,19 @@ describe('judge.js', () => {
   let judge;
   let mockFs;
   let mockSpawnSync;
+
+/**
+ * Wrap a judge payload in the Claude CLI `--output-format json` envelope.
+ *
+ * judge.js invokes `claude -p <prompt> --model <m> --output-format json` and parses
+ * `cliResponse.result` out of the envelope -- it does NOT read the payload off stdout
+ * directly. These mocks previously returned the bare payload, which made every
+ * invokeClaude test fail with "Claude returned empty result" once judge.js moved to the
+ * envelope. The implementation is the correct side; the mocks had drifted.
+ */
+const cliEnvelope = (payload) =>
+  JSON.stringify({ result: JSON.stringify(payload), num_turns: 1, total_cost_usd: 0.01 });
+
   let consoleErrorSpy;
   let consoleLogSpy;
 
@@ -270,7 +283,7 @@ describe('judge.js', () => {
 
   describe('invokeClaude', () => {
     it('should call claude CLI with correct arguments', () => {
-      const mockResponse = JSON.stringify({
+      const mockResponse = cliEnvelope({
         score: 4,
         justification: 'Good code quality',
         strengths: ['Clear naming'],
@@ -294,7 +307,7 @@ describe('judge.js', () => {
     });
 
     it('should use opus model', () => {
-      const mockResponse = JSON.stringify({ score: 3 });
+      const mockResponse = cliEnvelope({ score: 3 });
       mockSpawnSync.mockReturnValue({
         status: 0,
         stdout: mockResponse,
@@ -312,7 +325,7 @@ describe('judge.js', () => {
     });
 
     it('should request JSON output format', () => {
-      const mockResponse = JSON.stringify({ score: 3 });
+      const mockResponse = cliEnvelope({ score: 3 });
       mockSpawnSync.mockReturnValue({
         status: 0,
         stdout: mockResponse,
@@ -330,7 +343,7 @@ describe('judge.js', () => {
     });
 
     it('should parse JSON response', () => {
-      const mockResponse = JSON.stringify({
+      const mockResponse = cliEnvelope({
         score: 4,
         justification: 'Well-structured code',
         dimension_scores: { readability: 4, maintainability: 5 }
@@ -352,7 +365,7 @@ describe('judge.js', () => {
       mockSpawnSync
         .mockReturnValueOnce({ status: 1, stdout: '', stderr: 'API Error', error: null })
         .mockReturnValueOnce({ status: 1, stdout: '', stderr: 'API Error', error: null })
-        .mockReturnValueOnce({ status: 0, stdout: JSON.stringify({ score: 3 }), stderr: '', error: null });
+        .mockReturnValueOnce({ status: 0, stdout: cliEnvelope({ score: 3 }), stderr: '', error: null });
 
       const result = judge.invokeClaude('test prompt', { retries: 3 });
 
@@ -392,7 +405,7 @@ describe('judge.js', () => {
       const maliciousPrompt = 'test $(rm -rf /) `whoami`';
       mockSpawnSync.mockReturnValue({
         status: 0,
-        stdout: JSON.stringify({ score: 3 }),
+        stdout: cliEnvelope({ score: 3 }),
         stderr: '',
         error: null
       });
@@ -412,7 +425,7 @@ describe('judge.js', () => {
       const promptWithQuotes = 'Evaluate code: print("Hello\'s World")';
       mockSpawnSync.mockReturnValue({
         status: 0,
-        stdout: JSON.stringify({ score: 4 }),
+        stdout: cliEnvelope({ score: 4 }),
         stderr: '',
         error: null
       });
@@ -430,7 +443,7 @@ describe('judge.js', () => {
       const complexPrompt = 'Line1\nLine2\tTabbed\r\n$PATH; echo "pwned"';
       mockSpawnSync.mockReturnValue({
         status: 0,
-        stdout: JSON.stringify({ score: 3 }),
+        stdout: cliEnvelope({ score: 3 }),
         stderr: '',
         error: null
       });
@@ -641,7 +654,7 @@ describe('judge.js', () => {
       });
       mockFs.readFileSync.mockReturnValue('content');
 
-      const mockResponse = JSON.stringify({
+      const mockResponse = cliEnvelope({
         score: 4,
         justification: 'Good',
         strengths: [],
@@ -701,7 +714,7 @@ describe('judge.js', () => {
       });
       mockFs.readFileSync.mockReturnValue('content');
 
-      const mockResponse = JSON.stringify({
+      const mockResponse = cliEnvelope({
         score: 4,
         justification: 'Good',
         strengths: [],
@@ -727,7 +740,7 @@ describe('judge.js', () => {
       });
       mockFs.readFileSync.mockReturnValue('content');
 
-      const mockResponse = JSON.stringify({
+      const mockResponse = cliEnvelope({
         score: 4,
         justification: 'Good',
         strengths: ['Clear naming'],
@@ -756,7 +769,7 @@ describe('judge.js', () => {
       });
       mockFs.readFileSync.mockReturnValue('content');
 
-      const mockResponse = JSON.stringify({
+      const mockResponse = cliEnvelope({
         score: 4,
         justification: 'Good',
         strengths: [],
@@ -792,7 +805,7 @@ describe('judge.js', () => {
       });
       mockFs.readFileSync.mockReturnValue('content');
 
-      const mockResponse = JSON.stringify({
+      const mockResponse = cliEnvelope({
         score: 4,
         justification: 'Well-structured code with clear naming conventions.',
         dimension_scores: {
@@ -837,7 +850,7 @@ describe('judge.js', () => {
       });
       mockFs.readFileSync.mockReturnValue('content');
 
-      const mockResponse = JSON.stringify({ score: 4, strengths: [], weaknesses: [] });
+      const mockResponse = cliEnvelope({ score: 4, strengths: [], weaknesses: [] });
       mockSpawnSync.mockReturnValue({
         status: 0,
         stdout: mockResponse,
