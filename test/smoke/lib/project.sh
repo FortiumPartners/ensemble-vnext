@@ -247,8 +247,28 @@ smoke_agent_invoked() {
     ' >/dev/null 2>&1; then
         return 0
     fi
-    # Fallback: raw substring match (covers stream-json shape drift).
-    grep -qF "\"subagent_type\":\"${agent_name}\"" "$session_file" 2>/dev/null
+    # Workflow-dispatched implementers. Since item 8, `/implement-trd` states plainly that it
+    # "never spawns a per-task agent directly" -- dispatch is ONE Workflow(implement-phase)
+    # call per phase, and the agents that workflow spawns internally are NOT tool calls in
+    # the LEAD session. So the Agent/Task check above is structurally unable to see them, and
+    # this assertion failed by construction against the architecture it was meant to test
+    # (found 2026-08-28, after it was misread as a model-routing regression).
+    #
+    # The routing IS still observable: the command passes tasks.records to the Workflow tool,
+    # each record carrying agentType. Matching that both sees workflow dispatch AND tests the
+    # thing worth testing -- that the command populated the field rather than leaving it unset
+    # (an unset agentType means the generic subagent, which inherits the SESSION model).
+    if grep '^{' "$session_file" 2>/dev/null | jq -e --arg a "$agent_name" '
+        select(.type=="assistant") | .message.content[]? |
+        select(.type=="tool_use") |
+        select(.name=="Workflow") |
+        (.input | tostring) | contains("\"agentType\":\"" + $a + "\"") or contains("agentType: '"'"'" + $a + "'"'"'")
+    ' >/dev/null 2>&1; then
+        return 0
+    fi
+    # Fallback: raw substring match (covers stream-json shape drift, both dispatch shapes).
+    grep -qF "\"subagent_type\":\"${agent_name}\"" "$session_file" 2>/dev/null ||
+        grep -qF "\"agentType\":\"${agent_name}\"" "$session_file" 2>/dev/null
 }
 
 # smoke_age_project <target_dir>
