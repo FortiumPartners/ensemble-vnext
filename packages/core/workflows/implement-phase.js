@@ -237,42 +237,31 @@ const simplifyStatus = 'skipped'
 const simplifyReported = false
 const postSimplifyStatus = null
 
-// The review prompt is pre-assembled by the command and already names the phase diff range,
-// not the branch (§3.4) -- this script computes no diff and runs no git command. It also
-// already carries whatever instructs the agent to invoke /code-review high; this script adds
-// nothing to it. Per ITR-P003's attested finding, an agent started from a workflow CAN
-// invoke the /code-review skill, and that skill forks itself to background subagents -- so
-// this foreground agent() call only blocks on the dispatching agent's own turn, not on the
-// review completing, which is what satisfies NFR-4's "costs no orchestrator context" without
-// this script needing a background variant of agent() itself.
-const reviewResult = await agent(GATE.reviewPrompt, {
-  label: 'gate:review',
-  phase: `Phase ${PHASE}`,
-  schema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['findings'],
-    properties: {
-      findings: { type: 'number' },
-      // `applied` / `reported` split the total into what the reviewer FIXED inline and what
-      // it left for a human. A bare count is what made per-phase findings vanish: nothing
-      // gates on it and it lands in a commit message reading like diligence.
-      // additionalProperties:false drops any field this schema does not name, so changing
-      // the prompt to "apply what you find" WITHOUT widening the schema would have changed
-      // nothing observable.
-      applied: { type: 'number' },
-      reported: { type: 'number' },
-      summary: { type: 'array', items: { type: 'string' } },
-    },
-  },
-})
-if (!reviewResult) log('WARNING: gate:review returned nothing -- recording zero findings, which is NOT the same as a clean review')
-const reviewReported = Boolean(reviewResult)
-const reviewFindings = reviewResult ? reviewResult.findings || 0 : 0
-const reviewApplied = reviewResult ? reviewResult.applied || 0 : 0
-const reviewOpen = reviewResult ? reviewResult.reported || 0 : 0
-const reviewSummary = (reviewResult && reviewResult.summary) || []
-log(`gate: review -> ${reviewFindings} finding(s): ${reviewApplied} applied, ${reviewOpen} left open`)
+// REMOVED 2026-08-28 (owner ruling, plan item 14): gate:review.
+//
+// Per-phase code review is gone; review happens ONCE, at the end of the run, where the
+// end-of-run hardening pass already reads the whole branch diff. This is the same move made
+// for gate:code-simplifier on 2026-08-18, for the same reason and with the same result:
+// a stage paid once per phase, forever, for benefit nobody could point at.
+//
+// The evidence that settled it: across every implement.json in the framework repo -- 279
+// tasks, 11 features -- there are ZERO failed tasks and ZERO retries. The phase gate's
+// failure path has never fired, so the usual defence ("it bounds failure to one phase, a
+// phase-1 defect cannot compound into phase 4") describes something with no observed
+// instances. What the review actually did was find-and-fix inline, which the end-of-run pass
+// does over a strictly larger diff.
+//
+// The owner priced the one property that survived -- gates run before each checkpoint commit,
+// so committed work was reviewed work: "Committed work with possible issues is acceptable.
+// PRs are where we consider it complete, tested code."
+//
+// Review is NOT abandoned and does NOT become a manual step: the end-of-run pass is still
+// dispatched by this command, automatically, on every run.
+const reviewReported = false
+const reviewFindings = 0
+const reviewApplied = 0
+const reviewOpen = 0
+const reviewSummary = []
 
 // --------------------------------------------------------------------------- RETURN
 

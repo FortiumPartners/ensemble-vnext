@@ -2106,24 +2106,25 @@ checkpoint commit, so committed work is reviewed work) was the only defence left
 showed the failure path had never fired, and the owner has priced it: commits on a feature
 branch are work-in-progress, not a release surface.
 
-**What changes:**
+**The change is MOVE, not remove. Review stays automatic and in the loop — it just happens
+once, at the end, instead of once per phase.** An earlier draft of this entry proposed cutting
+review entirely and having the owner run `/code-review high --fix` by hand; that was rejected
+outright: *"I DO NOT WANT TO RUN /CODE-REVIEW MANUALLY. I want you to move the review to the
+end of the implementation process. THAT'S IT."*
 
 - **Phase gate: drop the phase-scoped code review. KEEP `verify-app`** — the deterministic
   test battery is verification, not review, and nothing in this ruling touches it.
-- **End of run: drop §7.1's three-lens hardening fan-out and §7.2's full-branch review.** Both
-  re-read the whole branch diff with the weaker reviewer; `/code-review high --fix` does the
-  same job better, and the owner runs it.
-- **The command ends by NAMING `/code-review high --fix`** as the next step — which is exactly
-  what the 4.2.0 command-scope rule says a finished command should do.
+- **End of run: §7.1 and §7.2 STAY, unchanged.** That is where review now happens, dispatched
+  automatically by the command on every run.
+- `reviewPrompt` is no longer assembled by the command and no longer read by
+  `implement-phase.js`.
 
-**What this deliberately gives up, so it is not rediscovered as a surprise:** an unattended run
-now produces reviewed-by-nothing commits. That is acceptable *because the owner is in the loop
-at PR time anyway*, and `--verify`'s functional loop remains available for runs that want an
-outcome check. It is a change in where the quality gate sits, not its removal.
+**What this gives up:** a phase's commits are no longer reviewed at the moment they are made.
+The owner priced that — feature-branch commits are work in progress, the PR is the gate.
 
-**Expected effect:** review agents per run drop from (N phases + 4) to 0. On the measured
-one-task fixture that is ~353s of 727s; on real features it is the largest fixed cost in the
-command.
+**Expected effect:** review agents per run drop from (N phases + 4) to 4 — the end-of-run pass
+only. Saves one Opus review per phase; on a 4-phase feature that is 4 fewer review agents, and
+the saving scales with phase count rather than being a fixed cut.
 
 **14.0 — MEASURED 2026-08-28: the phase gate's failure path has NEVER FIRED.**
 

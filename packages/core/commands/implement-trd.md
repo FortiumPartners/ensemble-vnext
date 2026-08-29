@@ -668,7 +668,7 @@ Workflow({ name: "implement-phase", args: {
     waves: phaseWaves,
     records: phaseTaskIds.map(id => ({ ...taskRecord(id), prompt: assembledPrompt(id), agentType: agentTypeFor(id) }))
   },
-  gate: { verifyPrompt, reviewPrompt },   // Step 4.3
+  gate: { verifyPrompt },                 // Step 4.3 (reviewPrompt removed 2026-08-28)
   project: ""   // set only when the TRD targets a codebase other than this repo
 } })
 ```
@@ -700,25 +700,22 @@ Return status "pass" only when every acceptance criterion above is met.
 </instructions>
 ```
 
-**`reviewPrompt`** — scoped to the **phase diff**, not the branch (AC-F8.3):
+**`reviewPrompt` — REMOVED 2026-08-28 (plan item 14, owner ruling).** The gate no longer
+runs a per-phase code review, so this prompt is no longer assembled and
+`implement-phase.js` no longer reads it. Review happens ONCE, at the end of the run
+(Step 7), over the whole branch diff — automatically, still dispatched by this command.
 
-```xml
-<phase_review_request phase="{N}">
-  <diff_range>{last_checkpoint_commit_or_merge_base}</diff_range>
-</phase_review_request>
-<instructions>
-Invoke the code-review Skill at "high" effort, scoped to the diff range above (the
-working tree against that commit — this phase's changes only, not the full branch).
+Why: across every `implement.json` in the framework repo — **279 tasks, 11 features** —
+there are zero failed tasks and zero retries. The phase gate's failure path has never
+fired, so the argument for it ("bounds failure to one phase; a phase-1 defect cannot
+compound into phase 4") describes something with no observed instances. What the review
+actually did was find-and-fix inline, which the end-of-run pass does over a larger diff.
+The owner priced the one property that survived — gates run before each checkpoint commit,
+so committed work was reviewed work: *"Committed work with possible issues is acceptable.
+PRs are where we consider it complete, tested code."*
 
-APPLY what you find, do not merely count it. Mirror Step 7.1 and audit-trd.js's
-reconcile stage: apply straightforward, clearly-justified fixes inline; report
-anything non-trivial, ambiguous, or outside this phase's scope as a finding rather
-than guessing at a fix.
-
-Return `findings` (total), `applied` (fixed inline), and `reported` (left for the
-human), plus a one-line summary of each reported item.
-</instructions>
-```
+This is the same removal made for `gate:code-simplifier` on 2026-08-18, for the same
+reason: a stage paid once per phase, forever, for benefit nobody could point at.
 
 `{last_checkpoint_commit_or_merge_base}` is `state.checkpoints`'s last entry's `commit` when
 one exists, else `git merge-base main HEAD` (phase 1, nothing checkpointed yet).
