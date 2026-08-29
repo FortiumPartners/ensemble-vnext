@@ -201,7 +201,6 @@ setup() {
         "packages/core/hooks/dispatch-ledger.js"
         "packages/core/hooks/lib/dispatch-ledger.js"
         "packages/core/hooks/prompts/discipline-stop.prompt.md"
-        "packages/core/hooks/prompts/subagent-discipline.prompt.md"
     )
     local claude_files=(
         ".claude/lib/trd-parser.js"
@@ -216,7 +215,6 @@ setup() {
         ".claude/hooks/dispatch-ledger.js"
         ".claude/hooks/lib/dispatch-ledger.js"
         ".claude/hooks/prompts/discipline-stop.prompt.md"
-        ".claude/hooks/prompts/subagent-discipline.prompt.md"
     )
 
     local drift=()
@@ -284,11 +282,14 @@ setup() {
       const dir = path.dirname(process.argv[1]);
       const drift = [];
 
-      // subagent-discipline: single-hook prompt, unmerged (SubagentStop).
-      {
-        const generated = buildPrompt("subagent-discipline") + "\n";
-        const onDisk = fs.readFileSync(path.join(dir, "subagent-discipline.prompt.md"), "utf8");
-        if (generated !== onDisk) drift.push("subagent-discipline");
+      // subagent-discipline: NO LONGER EMITTED (4.2.1). The SubagentStop judge was
+      // unregistered, so the manifest declares no prompt file for it and
+      // build-judge-prompts.js deletes a stale one. Its HOOKS entry survives purely so the
+      // discipline corpus can score SubagentStop cases -- the corpus detector calls
+      // buildPrompt() in memory and never reads a .md. Asserting the file exists here would
+      // re-create exactly the dead-artifact class this project deletes on sight.
+      if (fs.existsSync(path.join(dir, "subagent-discipline.prompt.md"))) {
+        drift.push("subagent-discipline.prompt.md exists but no manifest entry declares it");
       }
 
       // async-discipline + autonomy-discipline: merged onto one Stop prompt (FIX-002).
