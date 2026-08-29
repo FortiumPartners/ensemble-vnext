@@ -41,8 +41,8 @@ PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN
   straight into the phase loop with no wait. Absent the flag, no derive agent is
   dispatched and no .trd-state/<feature>/success-definition.md appears.
 
-  FUNCTIONAL VERIFICATION (Step 8, D1): one dispatch, not a loop. After Step 7's hardening
-  and review, resolve the definition from disk (never wait, never derive inline) and make
+  FUNCTIONAL VERIFICATION (Step 8, D1): one dispatch, not a loop. After Step 7's
+  end-of-run review, resolve the definition from disk (never wait, never derive inline) and make
   a single Workflow(verify-functional, {...}) call; render its outcome into Step 9's
   banner. Absent the flag, this step is skipped entirely.
 
@@ -504,7 +504,7 @@ derive agent is dispatched and no `.trd-state/<feature>/success-definition.md` a
 exists with a **non-terminal** outcome — that is, its top-level `outcome` key is `null` (the
 run stopped mid-loop) — this run re-enters the verification loop and nothing else: **skip
 this step entirely — dispatch no derive agent — and skip the phase loop (Steps 4–6) and the
-end-of-run hardening (Step 7)**, going straight to Step 8, which reads that state file as its
+end-of-run review (Step 7)**, going straight to Step 8, which reads that state file as its
 `resume` argument. A definition already exists from the run that wrote the state file;
 deriving a second one would overwrite it mid-loop. Every other combination is unaffected:
 `--verify` with no state file (or a terminal one) derives and runs the phase loop
@@ -607,8 +607,8 @@ plus the section name (for the report header only — Step 8 renders it, nothing
    Because the key now lives on the in-memory object, every later `save()` — Step 4.1's and
    every checkpoint's — carries it forward instead of dropping it.
 
-**2. Dispatch the derive pass in the background**, same call shape as Step 7.1's
-`Agent(subagent_type=..., prompt="…")` verifier fan-out (the agent type differs; see §7.1):
+**2. Dispatch the derive pass in the background** with
+`Agent(subagent_type=..., prompt="…")`:
 
 ```
 Agent(subagent_type="product-manager", run_in_background: true,
@@ -726,7 +726,7 @@ on it and Step 5.2 writes it into a commit message. Every finding from every per
 was therefore reduced to an integer and discarded — while `review 4 finding(s)` in the git log
 read like diligence.
 
-The asymmetry was backwards. Step 7.1's end-of-run pass already applies what it finds; the
+The asymmetry was backwards. Step 7.2's end-of-run review applies what it finds (`--fix`); the
 per-phase review is the *cheaper* place to fix, because the diff is small, scoped, and the
 work just happened. Fixing at the end of the run means fixing across a branch-wide diff with
 the context cold.
@@ -964,32 +964,34 @@ There is no session-scoped TaskTools mirror in this design — dispatch is per-p
 After the final phase's checkpoint (Step 5) and before Step 8's functional verification
 (when `--verify` is set) and Step 9's completion report:
 
-### 7.1 Feature-scale hardening pass (verifier fan-out)
+### 7.1 Feature-scale hardening pass — REMOVED 2026-08-28
 
-The per-phase adversarial pass already ran inside `implement-phase.js`'s gate (the phase-scoped
-review). This step is the "once more at feature scale" half (D15, AC-F14.1): a lens no
-single phase's review could apply, because interaction risk between phases only exists once
-every phase is assembled.
+This dispatched three `code-reviewer` agents (edge-case, contract-compliance, and
+cross-phase-regression lenses) over the full branch diff, applying findings inline.
 
-Dispatch the following in **one turn** (the Agent tool runs same-turn calls concurrently —
-this is a plain foreground fan-out from this command, not a nested subagent spawn, and not a
-team: no `Agent({name, team_name})` is used, satisfying AC-F14.5):
+**It was redundant with §7.2, which reads the same diff moments later with a better
+reviewer.** Measured head-to-head on one real run (`implement-one-task`, 2026-08-28):
 
-```
-Agent(subagent_type="code-reviewer", prompt="<edge-case lens over the full branch diff>")
-Agent(subagent_type="code-reviewer", prompt="<contract-compliance lens: does every task's grounding <replaces> actually get deleted; do declared <reuse> targets get used>")
-Agent(subagent_type="code-reviewer", prompt="<regression + cross-phase interaction lens: does anything from an earlier phase break under a later phase's changes>")
-```
+| | §7.1 — three `code-reviewer` agents | §7.2 — built-in `code-review` skill |
+|---|---|---|
+| findings | 7 (4 applied, 3 open) | 2, both real, plus 1 out-of-range |
+| caught the `agent-routing.js` scaffold blocker | yes | **yes** |
+| found the tracked `.pyc` that dirties every clone | no | **yes**, with the timestamp-validation mechanism worked out |
+| found `dispatch.jsonl` append-conflicting across branches | no | **yes** |
+| stated what it checked and deliberately did NOT report | no | **yes**, with reasons |
 
-Each prompt scopes to `git diff {branch_base}...HEAD` (full branch diff, computed once via
-`git merge-base main HEAD`). Collect findings; apply straightforward, clearly-justified fixes
-inline (mirroring `audit-trd.js`'s reconcile stage — "apply what survives"); report anything
-non-trivial as a finding rather than guessing at a fix outside this task's scope.
+The one thing §7.1 did that §7.2 did not was **apply** what it found — because §7.2 was
+invoked without `--fix`. That is now fixed: §7.2 passes `high --fix`, which is the owner's own
+long-standing manual workflow (`/code-review high --fix`) and applies findings to the working
+tree after the review.
+
+So the lens fan-out is not lost coverage; it is one weaker pass deleted in favour of one
+better pass that now also applies. Review still happens automatically, in-loop, once per run.
 
 ### 7.2 End-of-run full-branch code review
 
 ```
-Skill({ skill: "code-review", args: "high {branch_base}...HEAD" })
+Skill({ skill: "code-review", args: "high --fix {branch_base}...HEAD" })
 ```
 
 This is the **full branch diff** review (AC-F8.5), distinct from every phase-scoped review
@@ -1253,7 +1255,7 @@ Battery:              {green/red/skipped} ({resolved command}, last phase gate)
 
 HARDENING & REVIEW
 -------------------
-Feature-scale hardening findings: {count} ({applied} applied, {reported} reported)
+End-of-run review: dispatched (`code-review high --fix`, full branch diff)
 End-of-run /code-review high:     dispatched over {branch_base}...HEAD
 
 FUNCTIONAL VERIFICATION
