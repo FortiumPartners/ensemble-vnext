@@ -82,6 +82,7 @@ declare -A SCENARIO_TIMEOUT=(
     # implement-one-task's since it pays for the same implement loop plus the
     # investigation ahead of it.
     [investigate-light-fix]=1600
+    [investigate-decoy-root-cause]=1600
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
@@ -128,7 +129,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker investigate-light-fix)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker investigate-light-fix investigate-decoy-root-cause)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()
