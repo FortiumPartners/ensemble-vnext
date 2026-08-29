@@ -19,7 +19,6 @@ category: implementation
 > - `--implement` — after the audit, chain into `/implement-trd --verify`. Honoured only at
 >   tier AUTO; REVIEW and ESCALATE still stop, because the tier is a permission and this flag
 >   is only an intent.
-> - `--implement` — deprecated no-op. Stopping is now the default.
 
 ---
 
@@ -322,9 +321,15 @@ way.**
 
 | Tier | Then |
 |---|---|
-| **AUTO** | write the TRD, audit it, chain into `/implement-trd` — **unless `--implement`, which stops after the audit** |
+| **AUTO** | write the TRD, audit it — then chain into `/implement-trd --verify` **only with `--implement`**; without the flag, stop after the audit |
 | **REVIEW** | write the TRD, audit it, stop, report the tier, the reason, and the remedy |
-| **ESCALATE** | stop, name the failing axis AND its remedy, point at `/create-prd` |
+| **ESCALATE** | write the investigation, mark it ESCALATE, stop; name the failing axis AND its remedy, point at `/create-prd` |
+
+**`--implement` is the ONLY thing that starts work, and it does so only at AUTO.** This table
+is the single statement of that; the flag is described once, in Arguments, in the same terms.
+Three mutually contradictory descriptions of it shipped until 2026-08-29 — one saying it
+chains, one calling it a "deprecated no-op", and this row saying it *stops* what the first
+said it starts. A user passing `--implement` to get action could hit any of the three.
 
 **Whenever a tier is lowered, report `remedies` alongside `reasons` — always, one per
 reason.** The lib returns them for exactly this: a gate that says only "no" is a cage; one
@@ -472,13 +477,18 @@ should be safe to run twice. `test/smoke/scenarios/hooks-health.sh` shows the pa
 isolated temp `cwd`.
 
 **Write `.trd-state/current.json` only when work is actually starting** — tier AUTO **and**
-no `--implement` — `{prd: null, trd: "<path>", branch: "<branch>"}`.
+`--implement` — `{prd: null, trd: "<path>", branch: "<branch>"}`.
+
+This matches `fix-plan.js`'s `workBegins = tier === 'AUTO' && implement`, which is the
+authority. The prose said "AUTO **and no** `--implement`" until 2026-08-29 — inverted, so it
+instructed writing the pointer on runs that start nothing and skipping it on the one run that
+does.
 
 Key it on whether work begins, not on the tier. An earlier version said "only when the tier is
 AUTO", which instructed writing the pointer on an AUTO `--implement` run — a run that
 deliberately starts nothing — contradicting its own reason two sentences later.
 
-On REVIEW, ESCALATE, or `--implement`, no work is starting, and `current.json` answers "what are we working
+On REVIEW, ESCALATE, or an AUTO run WITHOUT `--implement`, no work is starting, and `current.json` answers "what are we working
 on?" for the SessionStart banner, the dispatch ledger and `notify-complete.sh`. Overwriting a
 live pointer for work that is not beginning loses the real answer and replaces it with a
 false one. Report the TRD path in the banner instead; `/implement-trd` writes the pointer
@@ -577,7 +587,7 @@ Then do exactly what it returns, and nothing else:
 
 | Field | Meaning |
 |---|---|
-| `writeTrd` | false on ESCALATE — a light TRD would be the wrong artifact, not an incomplete one |
+| `writeTrd` | **true on every tier** since 2026-08-29. ESCALATE keeps the investigation (reproduction, root cause, grounding) and marks it, rather than deleting it: that work is precisely what `/create-prd` needs as input, and discarding it means paying for it twice. `escalated: true` drives a banner that names the tier and says NOT to run `/implement-trd` on it |
 | `writePointer` | write `.trd-state/current.json` only when **work actually begins** |
 | `chain` + `chainArgs` | `Skill({ skill: "implement-trd", args: chainArgs })` |
 | `handoffLine` | emit before chaining |

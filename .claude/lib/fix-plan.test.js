@@ -54,10 +54,20 @@ describe('fix-plan: the invariant that prose kept breaking', () => {
     expect(P({ tier: 'AUTO', implement: false }).bannerBody).not.toMatch(/axis/);
   });
 
-  test('ESCALATE writes no TRD — a light TRD would be the wrong artifact', () => {
-    const p = P({ tier: 'ESCALATE' });
-    expect(p.writeTrd).toBe(false);
-    expect(p.bannerBody).toMatch(/create-prd/);
+  test('ESCALATE KEEPS the TRD, marked as investigation rather than plan', () => {
+    // CHANGED 2026-08-29 (owner). It used to return writeTrd:false, so a run that had
+    // reproduced the defect, found the root cause and grounded every touched file ended with
+    // nothing on disk -- measured in lightning-lane-beta-phase2: "I deleted the TRD I'd
+    // written... What it produced: Nothing." That investigation is exactly what /create-prd
+    // needs as input, so discarding it means paying for it twice.
+    const r = plan({ tier: 'ESCALATE', slug: 'demo' });
+    expect(r.writeTrd).toBe(true);
+    expect(r.escalated).toBe(true);
+    // Kept, but must never read as an approved plan.
+    expect(r.chain).toBe(false);
+    expect(r.writePointer).toBe(false);
+    expect(r.bannerBody).toMatch(/Do NOT run \/implement-trd/);
+    expect(r.bannerBody).toMatch(/create-prd/);
   });
 
   test('a chained run always carries --verify', () => {

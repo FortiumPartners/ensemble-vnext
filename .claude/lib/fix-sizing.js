@@ -21,11 +21,30 @@
  * path by which accumulating weak positive signals produces AUTO.
  */
 
-/** Task count above which this is not small work at all. */
-const MAX_TASKS = 3;
+/**
+ * Task count above which this is not small work at all.
+ *
+ * RAISED 3 -> 6 on 2026-08-29 (owner). At 3 the ceiling was firing on ordinary fixes and
+ * producing ESCALATE for work that was plainly light-path. A measured case from
+ * lightning-lane-beta-phase2: a watchdog fix sized 2 tasks / 4 files on its own -- clear AUTO
+ * -- reached 4 tasks / 6 files once the audit's findings were absorbed, and escalated. The
+ * agent's own post-mortem: "the ESCALATE was my construction, not the defect's size."
+ *
+ * The ceiling exists to catch work that is genuinely a feature wearing a fix's clothes, not to
+ * police task decomposition. Six leaves room for a fix plus its test plus a caller update plus
+ * the correction an audit surfaces, which is the shape real fixes actually take.
+ */
+const MAX_TASKS = 6;
 
-/** Touched files above which "small" stops being true regardless of line count. */
-const DEFAULT_MAX_FILES = 5;
+/**
+ * Touched files above which "small" stops being true regardless of line count.
+ *
+ * RAISED 5 -> 10 on 2026-08-29 (owner), same reasoning as MAX_TASKS. Five files is one module
+ * plus its test plus two callers -- routine for a fix that crosses a seam. The risk axes that
+ * actually matter (callers, coverage, reproducibility, neverUnattended) are unchanged and
+ * still gate AUTO on their own.
+ */
+const DEFAULT_MAX_FILES = 10;
 
 /**
  * Callers of a changed symbol above which the blast radius is not contained.

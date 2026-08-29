@@ -72,8 +72,11 @@ describe('fix-sizing: ESCALATE — not light-path work', () => {
   });
 
   test('too many touched files escalates', () => {
-    const r = size({ ...clean(), touches: ['a', 'b', 'c', 'd', 'e', 'f'] });
+    // Ceiling raised 5 -> 10 on 2026-08-29: six files is a routine fix crossing a seam, and
+    // escalating it was the measured over-fire. Eleven still escalates.
+    const r = size({ ...clean(), touches: ['a','b','c','d','e','f','g','h','i','j','k'] });
     expect(r.tier).toBe('ESCALATE');
+    expect(size({ ...clean(), touches: ['a','b','c','d','e','f'] }).tier).not.toBe('ESCALATE');
   });
 });
 
@@ -229,7 +232,7 @@ describe('fix-sizing: every gate says what would change its answer', () => {
   test.each([
     ['taskCount', { taskCount: 99 }],
     ['specCertain', { specCertain: false }],
-    ['touches', { touches: ['a', 'b', 'c', 'd', 'e', 'f'] }],
+    ['touches', { touches: ['a','b','c','d','e','f','g','h','i','j','k'] }],
     ['rootCause', { rootCause: 'inferred' }],
     ['reproducible', { reproducible: false }],
     ['criteriaCount', { criteriaCount: 0 }],

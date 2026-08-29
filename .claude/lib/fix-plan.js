@@ -51,11 +51,25 @@ function plan(input) {
     throw new Error(`fix-plan: unknown tier ${JSON.stringify(tier)}`);
   }
 
-  // ESCALATE stops BEFORE writing anything: it is not light-path work, so a light
-  // TRD would be a wrong artifact rather than an incomplete one.
+  // ESCALATE stops, but it KEEPS the TRD (changed 2026-08-29, owner).
+  //
+  // It used to return writeTrd:false, so a run that had already reproduced the defect, found
+  // the root cause and grounded every touched file ended with NOTHING ON DISK. Measured in
+  // lightning-lane-beta-phase2: "I deleted the TRD I'd written... What it produced: Nothing."
+  // The investigation is the expensive part and it is exactly what /create-prd would need as
+  // input; throwing it away means paying for it twice and losing the reproduction in a
+  // transcript nobody will re-read.
+  //
+  // The original reasoning -- "a light TRD would be a wrong artifact rather than an incomplete
+  // one" -- is answered by marking it rather than deleting it: the banner says the tier and
+  // the failing axis, so nobody mistakes it for an approved plan.
   if (tier === 'ESCALATE') {
     return finish({
-      writeTrd: false, reason: 'not light-path work — use /create-prd', kind, slug,
+      writeTrd: true,
+      escalated: true,
+      reason: 'not light-path work — the investigation is on disk; use /create-prd, which can read it',
+      kind,
+      slug,
     });
   }
 
@@ -97,18 +111,23 @@ function plan(input) {
 }
 
 /** Every path that ENDS the command: banner, notify, no chain, no pointer. */
-function finish({ writeTrd, reason, kind, slug }) {
+function finish({ writeTrd, reason, kind, slug, escalated = false }) {
   return {
     writeTrd,
+    escalated,
     writePointer: false,
     chain: false,
     chainSkill: null,
     chainArgs: null,
     handoffLine: null,
     banner: '═══ COMMAND COMPLETE: /fix ═══',
-    bannerBody: writeTrd
-      ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
-      : `${slug}: ${reason}.`,
+    // An escalated TRD is kept as INVESTIGATION, not as an approved plan -- the banner must
+    // not invite /implement-trd on it, which is the one way keeping it could do harm.
+    bannerBody: escalated
+      ? `${slug}: ${reason}. Investigation at docs/TRD/${slug}.md — reproduction, root cause and grounding, marked ESCALATE. Do NOT run /implement-trd on it.`
+      : writeTrd
+        ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
+        : `${slug}: ${reason}.`,
     // Fires on EVERY terminating path, including the early reject — otherwise the
     // completion signal depends on which way the command happened to finish.
     notify: true,
