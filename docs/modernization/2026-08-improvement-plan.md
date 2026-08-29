@@ -92,6 +92,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 | 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
+| 14 | Reconsider review inside `/implement-trd` — cadence, correction model, and whether it belongs there at all | 2–4 days | ~48% of a run; uses the weaker reviewer; duplicates a separate command the owner already ran by hand | **Open (4.2.1)** — see §14 |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
 ---
@@ -2060,6 +2061,52 @@ both directions — a deleted command still advertised, and a command advertised
 built — so the ordering above is now mechanical rather than a matter of remembering. Verified
 by injecting both failures.
 
+
+
+### 14. Review inside `/implement-trd` — cadence, correction model, and whether it belongs there
+
+**Raised 2026-08-28 while root-causing the ~740s `implement-one-task` run. Three separate
+problems surfaced, and the third is the one that matters.**
+
+**14.1 — The owner's prior process was `implement`, then `/code-review high --fix`.**
+That is build-then-assess/correct, run as a SEPARATE owner-invoked command, using Anthropic's
+built-in reviewer. The framework since absorbed review INTO the implement loop: a phase-scoped
+review at every phase gate, §7.1's three-lens hardening fan-out, and §7.2's full-branch review
+— all using this project's own `code-reviewer` agent, which the owner has described as *"a poor
+substitute for the built in one"* (the same assessment that lifted the nesting ban in
+constitution v1.3.0, after `/code-review` was measured as a 7-agent fan-out).
+
+So the in-loop review may be **both slower and worse** than what it replaced. It costs ~48% of
+a one-task run (353s of 727s, measured) and it cannot invoke `/code-review`, because a command
+cannot invoke another command.
+
+**This also sits oddly with the command-scope rule shipped in 4.2.0**: reviewing is arguably a
+SUCCESSOR decision the owner makes, not work `/implement-trd`'s own authorization reaches.
+
+**14.2 — The phase gate's correction model is the coarse one.** On gate failure the command
+re-dispatches the WHOLE phase, including tasks that already succeeded, because
+`implement-phase.js` has no partial-retry input; three strikes and STUCK
+(`implement-trd.md` §782–787). The framework's own newer loop, `verify-functional.js`, does
+better: Exercise → Judge → **one `app-debugger` fixes the gap in place** → re-judge. Two
+correction models coexist, and the coarse one guards the path that runs by default
+(`--verify` is off, D11).
+
+**14.3 — What is NOT wrong, so nobody re-litigates it:**
+
+- The hardening wave is **once per run**, not per task — it sits outside the phase loop. Its
+  48% share is an artifact of measuring a ONE-task fixture; on real features it amortises.
+- It **earns its keep**: on that trivial fixture it returned 7 findings, 4 applied, including
+  the `.claude/lib/agent-routing.js` delivery blocker that `scaffold-project.test.sh` found
+  independently the same day.
+- The three lenses run **concurrently**, so dropping one saves Opus tokens, **not wall clock**
+  — the phase costs max(lenses), not their sum. An earlier framing of this as a speed fix was
+  wrong.
+- Per-phase gates are not simply redundant with an end-of-run pass: they run BEFORE each
+  checkpoint commit, and they bound failure to one phase rather than discovering a phase-1
+  defect after phase 4 has been built on it.
+
+**Done when:** a decision is recorded on whether review belongs inside the implement loop at
+all, and if it stays, the gate corrects in place rather than re-running the phase.
 
 
 ### 13. Rebase delivery — getting a framework fix out to projects already scaffolded
