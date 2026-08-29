@@ -10,6 +10,57 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.2.1] - 2026-08-29
+
+### Fixed — `/investigate` escalated work it should have implemented
+
+Reviewing a real session in `lightning-lane-beta-phase2` found the command
+consistently escalating, discarding its own investigation, and leaving the owner with
+a lecture instead of a fix. Four defects, all verified in source:
+
+- **`--implement` was documented FOUR contradictory ways in one file.** The tier table
+  said the flag *stops* what the Arguments section said it *starts*; a third line called
+  it a "deprecated no-op"; and the state rule said write `current.json` when "AUTO **and
+  no** `--implement`" — inverted against `fix-plan.js`'s own
+  `workBegins = tier === 'AUTO' && implement`. A run could justify almost any behaviour.
+  Now stated once, agreeing with the lib.
+- **ESCALATE destroyed the investigation.** `writeTrd: false` meant a run that had
+  reproduced the defect, found the root cause and grounded every file ended with nothing
+  on disk. It now keeps the TRD with `escalated: true`, and the banner says not to run
+  `/implement-trd` on it — investigation, not an approved plan.
+- **Ceilings raised**: `MAX_TASKS` 3 → 6, `DEFAULT_MAX_FILES` 5 → 10. The measured case —
+  4 tasks / 6 files — now sizes AUTO; 7 / 11 still escalates. The risk axes that matter
+  (callers, coverage, reproducibility, `neverUnattended`) are untouched.
+- **§2f governed the wrong step.** It covers what the *investigation* finds and never
+  mentioned what the *audit* finds, so the absorb instinct was generalised to audit
+  findings. An audit finding *changes* the fix; it does not add work beside it. The
+  counterfactual is now answered per item in the TRD, and `size()` takes an advisory
+  `absorbed: [{what, blocksFix}]` that names non-blocking scope on a lowered verdict —
+  never raising a tier, since rules may only ever lower.
+
+### Changed — review happens once, at the end of the run
+
+Per-phase code review is gone; the phase gate dispatches `verify-app` only. §7.1's
+three-lens `code-reviewer` fan-out is gone, and §7.2 now passes `high --fix` so the
+**built-in** reviewer applies what it finds instead of only reporting it.
+
+**Measured: `implement-one-task` 677s → 381s (−44%), 10/10 assertions.** Evidence for
+removing the per-phase gate: across every `implement.json` in this repo — **279 tasks,
+11 features — zero failures, zero retries.** Its failure path had never fired. Head to
+head on one run, the built-in reviewer found two real issues §7.1 missed, caught the
+same blocker, and stated what it deliberately did *not* report.
+
+`--fix` is verified working, not assumed: the run's own git log carries
+`fix(SMOKE-001): declare jest devDependency and test script`.
+
+### Fixed — stale test assertions
+
+29 Jest failures repaired earlier in 4.2.0's cycle, plus two integration assertions that
+hard-coded a prompt file the 4.2.0 `SubagentStop` removal had deleted. The generated-file
+check is **inverted** rather than dropped: it now fails if that file reappears.
+
+Jest 984/984, BATS 479/479.
+
 ## [4.2.0] - 2026-08-28
 
 **The modernization run is released.** Items 1–9 of
