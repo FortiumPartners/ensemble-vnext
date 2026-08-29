@@ -1,11 +1,11 @@
 {
   "$comment": "Smoke-harness baseline. Recapture DELIBERATELY \u2014 never auto-overwrite, or a regression silently becomes the new normal. Elapsed times are indicative (machine, network, model); the assertion COUNTS are the meaningful comparison, because a count dropping means a check silently stopped running. Never capture a baseline with CLAUDE_CODE_SUBAGENT_MODEL set: a run on substituted models is not a measurement of the product.",
   "$comment_counts": "COUNT CAVEAT (added 2026-08-28). The $comment above says a dropping assertion count means a check silently stopped running. That holds ONLY for scenarios with a fixed assertion list. hooks-health, scaffold-integrity and artifact-contracts are LOOP-DRIVEN -- hooks-health iterates the hooks it finds in settings.json -- so their counts track how many things EXIST, not how many checks ran. Measured at HEAD vs this 4.1.3 baseline: hooks-health 22->20 and scaffold-integrity 80->76, both fully explained by deliberate retirements (permitter, learning.sh, save-remote-logs.js, wiggum, the -team commands); artifact-contracts rose 43->55 by the same mechanism in reverse. hooks-health.sh has not been edited since this baseline, so the drop is NOT check loss. Before treating a count change as a regression, check whether the scenario is loop-driven and whether a component was retired.",
-  "$comment_provenance": "RECAPTURED 2026-08-28 at 4.2.0, deliberately, with no CLAUDE_CODE_SUBAGENT_MODEL override. The previous baseline was captured 2026-08-13 at 4.1.3 and recorded implement-one-task at 341s. It was NOT comparable to anything after 2026-08-16: item 8's rework (5fe2109) added the section-7.1 feature-scale hardening wave, which is ~48% of the run. Comparing against the old figure conflated 'slower' with 'does more' and cost a full session of investigation -- see test/smoke/README.md for the attribution and for two hypotheses (model routing, hook latency) that were investigated and DISPROVED. Recapture again whenever the command's scope changes materially, and say in this field what changed.",
-  "captured_at": "2026-08-28T20:35:46Z",
+  "$comment_provenance": "RECAPTURED 2026-08-28 at 4.2.0, deliberately, with no CLAUDE_CODE_SUBAGENT_MODEL override. The previous baseline was captured 2026-08-13 at 4.1.3 and recorded implement-one-task at 341s. It was NOT comparable to anything after 2026-08-16: item 8's rework (5fe2109) added the section-7.1 feature-scale hardening wave, which is ~48% of the run. Comparing against the old figure conflated 'slower' with 'does more' and cost a full session of investigation -- see test/smoke/README.md for the attribution and for two hypotheses (model routing, hook latency) that were investigated and DISPROVED. Recapture again whenever the command's scope changes materially, and say in this field what changed. UPDATED again 2026-08-28 after plan item 14 landed (c7c841e, cfdb4e8): the per-phase gate review and 7.1's three-lens fan-out were removed, and 7.2 now passes `high --fix` so the built-in reviewer APPLIES what it finds instead of only reporting it. implement-one-task 677s -> 381s (-44%) with 10/10 assertions still passing. Review per run went from (1 per phase + 3 lenses + 1 report-only pass) to one built-in review that applies.",
+  "captured_at": "2026-08-28T20:28:52Z",
   "ensemble_version": "4.2.0",
   "subagent_model": "as declared per agent (opus/sonnet) \u2014 NO override",
-  "wall_clock_seconds": 687,
+  "wall_clock_seconds": 381,
   "deterministic_only_seconds": 10,
   "execution": "hooks-health serial (fail-fast), then remaining scenarios concurrent",
   "previous_baseline": {
@@ -39,11 +39,12 @@
     },
     "implement-one-task": {
       "status": "PASS",
-      "elapsed_seconds": 677,
+      "elapsed_seconds": 381,
       "assertions_passed": 10,
       "assertions_failed": 0,
       "llm": true,
-      "attribution": "~123s preflight, ~251s implementation + phase gate, ~353s section-7.1 hardening and applying its findings (measured 2026-08-28 with analyze-session.js)"
+      "attribution": "Single review pass (7.2, code-review skill with --fix). Was 677s with the per-phase gate review plus 7.1's three code-reviewer lenses; those were removed 2026-08-28.",
+      "note": "SINGLE-PHASE fixture. The per-phase gate removal scales with phase count, so a multi-phase TRD should save proportionally more -- unmeasured."
     }
   }
 }
