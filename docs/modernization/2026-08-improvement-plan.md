@@ -92,7 +92,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 | 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
-| 14 | Reconsider review inside `/implement-trd` — cadence, correction model, and whether it belongs there at all | 2–4 days | ~48% of a run; uses the weaker reviewer; duplicates a separate command the owner already ran by hand | **Open (4.2.1)** — see §14 |
+| 14 | `/implement-trd`'s gate corrects by re-running the whole phase, not in place | 1–2 days | The coarse correction model guards the DEFAULT path; the framework's own newer loop already does this properly | **Open (4.2.1)** — see §14; note review CANNOT move out, `/code-review` is not model-invocable |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
 ---
@@ -2076,12 +2076,24 @@ review at every phase gate, §7.1's three-lens hardening fan-out, and §7.2's fu
 substitute for the built in one"* (the same assessment that lifted the nesting ban in
 constitution v1.3.0, after `/code-review` was measured as a 7-agent fan-out).
 
-So the in-loop review may be **both slower and worse** than what it replaced. It costs ~48% of
-a one-task run (353s of 727s, measured) and it cannot invoke `/code-review`, because a command
-cannot invoke another command.
+It costs ~48% of a one-task run (353s of 727s, measured).
 
-**This also sits oddly with the command-scope rule shipped in 4.2.0**: reviewing is arguably a
-SUCCESSOR decision the owner makes, not work `/implement-trd`'s own authorization reaches.
+**But moving review back out is NOT the answer, and this was already settled once.**
+`/code-review` is **not model-invocable** — a command cannot invoke another command. So the
+only way to "return to the owner's process" is to require a HUMAN follow-up step after every
+implement run, which breaks unattended execution — the property `autonomy.md` exists to
+protect ("the user invokes a command, walks away, and returns to a finished artifact").
+`--verify` is off by default, so with in-loop review gone an unattended run would commit every
+phase with no quality signal at all.
+
+**So the in-loop review is not duplication by oversight; it is the only option available.**
+The owner can still run `/code-review high --fix` afterwards for the better reviewer — as an
+ADDITION, not a replacement. Anything that makes it a replacement trades away autonomy, and
+that trade should be made deliberately by the owner, not inherited from a cost argument.
+
+Recorded because this path was walked twice: a recommendation to cut in-loop review and end
+the command by naming `/code-review` was drafted 2026-08-28 and withdrawn on exactly this
+ground.
 
 **14.2 — The phase gate's correction model is the coarse one.** On gate failure the command
 re-dispatches the WHOLE phase, including tasks that already succeeded, because
