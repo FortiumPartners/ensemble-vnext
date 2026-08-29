@@ -81,6 +81,11 @@ function lower(a, b) {
  * @param {boolean} input.covered          the touched files ALREADY carry tests
  * @param {boolean} [input.addsCoverage]   this change's own tasks add tests for them
  * @param {string[]} [input.neverUnattended] owner-governed path fragments
+ * @param {{what: string, blocksFix: boolean}[]} [input.absorbed]
+ *        Scope pulled in under section 2f, each with the counterfactual already answered:
+ *        would the requested work succeed with this defect still present? `blocksFix: false`
+ *        means it would, so the item is a finding rather than scope. Advisory -- it never
+ *        raises a tier, it just names inflated inputs on a verdict that was lowered.
  * @param {Object}  [opts]
  * @returns {{tier: string, reasons: string[], axes: Object}}
  */
@@ -100,6 +105,7 @@ function size(input, opts = {}) {
     covered = false,
     addsCoverage = false,
     neverUnattended = [],
+    absorbed = [],
   } = input || {};
 
   const reasons = [];
@@ -193,10 +199,33 @@ function size(input, opts = {}) {
       'add a task that writes the test and pass addsCoverage: true, or accept REVIEW');
   }
 
+  // Absorbed-scope check (added 2026-08-29). ADVISORY ONLY -- it never changes the tier,
+  // because this module's core invariant is that rules may only ever LOWER one, and raising
+  // a tier on the strength of a self-reported field would be trivially game-able.
+  //
+  // What it does is make a self-inflicted ESCALATE visible. Measured in
+  // lightning-lane-beta-phase2: a fix that sized 2 tasks / 4 files on its own absorbed four
+  // audit findings -- only two of which changed THAT fix -- reached 4 / 6 and escalated. The
+  // run then reported its own inflation as the command's verdict. Passing `absorbed` lets the
+  // gate say "your inputs are inflated" instead of the owner discovering it in a post-mortem.
+  const notBlocking = Array.isArray(absorbed)
+    ? absorbed.filter((a) => a && a.blocksFix === false)
+    : [];
+
   const hit = matchNeverUnattended(touches, neverUnattended);
   if (hit.length > 0) {
     drop('REVIEW', `touches an owner-designated never-unattended path: ${hit.join(', ')}`,
       'your own policy in verification.md — run /implement-trd yourself when you are satisfied');
+  }
+
+  // Surfaced only when it MATTERS: a lowered tier carrying scope that does not block the fix.
+  // On an AUTO verdict the same information is noise.
+  if (notBlocking.length > 0 && tier !== 'AUTO') {
+    remedies.push(
+      `${notBlocking.length} absorbed item(s) do not block the fix ` +
+      `(${notBlocking.map((a) => a.what || 'unnamed').join('; ')}) — ` +
+      'report them as findings instead, and re-size the fix alone'
+    );
   }
 
   if (reasons.length === 0) reasons.push('all axes clear');
@@ -211,6 +240,7 @@ function size(input, opts = {}) {
       kind,
       rootCause,
       blastRadius: { files: touches.length, callers },
+      absorbedNotBlocking: notBlocking.length,
       regressionRisk: { covered, addsCoverage, reproducible },
       specCertainty: specCertain,
       criteriaCount,

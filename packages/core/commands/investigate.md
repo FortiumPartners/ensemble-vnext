@@ -206,6 +206,51 @@ without. Do NOT absorb every defect the investigation happens to notice — an u
 found while reading a file is a finding to report, not scope to claim. If the requested work
 would succeed with the defect still present, it is not in the path.
 
+**Answer the counterfactual PER ITEM, in writing.** For each candidate, one line in the TRD's
+`## Decision`:
+
+```
+absorbed:     withDeadline has no timeout — the watchdog cannot work without it  [BLOCKS]
+not absorbed: transport timeout at hyperProvider:447 — separate fix, this one works without it
+not absorbed: test-file mock cleanup — tidiness
+```
+
+The test is a counterfactual and it has a yes/no answer: **would the requested work succeed
+with this defect still present?** Yes → it is a finding to report, not scope to claim. The rule
+stated this already; what it lacked was a per-item answer someone can check. A list like the
+one above makes an inflated scope visible before it reaches `size()`.
+
+### An AUDIT FINDING is a correction, not new scope
+
+**This is where the rule was actually failing, and §2f never mentioned it.** §2f governs what
+the INVESTIGATION turns up (Step 2). Nothing governed what to do with what the AUDIT turns up
+(Step 5) — so the absorb instinct got generalised to audit findings, which is a different
+thing entirely.
+
+An audit finding usually says *the fix you designed is wrong in this way*. That changes the
+fix; it does not add work beside it. Run the same counterfactual: a finding that alters HOW the
+existing tasks are written is a correction, and the task count does not move. A finding that
+names a DIFFERENT defect is a separate fix, however true it is.
+
+Measured 2026-08-29 in `lightning-lane-beta-phase2`: an audit returned four corrections. Two
+changed how the fix was written; one named a different defect that in fact **superseded** the
+fix; one was a test cleanup. All four were absorbed. The work went 2 tasks / 4 files — a clear
+AUTO — to 4 / 6, and ESCALATEd. The run's own post-mortem: *"the ESCALATE was my construction,
+not the defect's size... I fed the sizing function inflated numbers. Then I reported my own
+inflation as the command's verdict."*
+
+### Re-sizing after the audit: size the FIX, not the conversation
+
+The numbers passed to `size()` describe **the fix as it will be implemented** — never the union
+of everything discussed. Before re-sizing, re-read the absorbed list above: every entry must
+carry `[BLOCKS]`.
+
+**If a re-size crosses a ceiling, suspect the inputs before the work.** Ask what the ORIGINAL
+fix sizes at on its own. If that is AUTO and the bundle is not, the bundle is the problem —
+strip it back to what blocks the fix, report the rest as findings, and size again. A ceiling
+crossed by absorbed scope is a self-inflicted ESCALATE, and reporting it as the command's
+verdict tells the owner their small fix was too big when it never was.
+
 **When absorbing changes the shape of the work, say so once, in the TRD's `## Decision`, and
 continue.** It is not a checkpoint.
 
@@ -274,10 +319,23 @@ node -e '
   "specCertain": true, "criteriaCount": 1,
   "touches": ["src/session.ts"], "callers": 3,
   "covered": true, "addsCoverage": false,
-  "neverUnattended": [] }
+  "neverUnattended": [],
+  "absorbed": [{ "what": "withDeadline has no timeout", "blocksFix": true },
+               { "what": "transport timeout at hyperProvider:447", "blocksFix": false }] }
 JSON
 )"
 ```
+
+**`absorbed`** carries every §2f candidate with its counterfactual already answered —
+`blocksFix: false` means the requested work would succeed with that defect still present, so it
+is a finding to report, not scope to claim. Pass the list you wrote in `## Decision`, including
+the ones you did NOT absorb; that is the point.
+
+It is **advisory** — it never raises a tier, because a self-reported field that could raise one
+would be trivially game-able. What it does is name inflated inputs on a verdict that was
+lowered, so a self-inflicted ESCALATE is visible at the gate rather than in a post-mortem. If
+the remedy says *"N absorbed item(s) do not block the fix"*, the numbers are wrong before the
+work is.
 
 `criteriaCount` is how many checkable success criteria Step 4 will write. Zero is legitimate
 (some changes have no statable outcome) — and caps the tier at REVIEW, because nothing would

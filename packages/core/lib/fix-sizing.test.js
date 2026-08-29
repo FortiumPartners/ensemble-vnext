@@ -265,3 +265,45 @@ describe('fix-sizing: every gate says what would change its answer', () => {
     expect(r.remedies).toHaveLength(2);
   });
 });
+
+describe('fix-sizing: absorbed scope is advisory, never a tier change', () => {
+  const inflated = () => ({
+    ...clean(),
+    taskCount: 9,
+    touches: Array.from({ length: 12 }, (_, i) => `f${i}`),
+    absorbed: [
+      { what: 'withDeadline has no timeout', blocksFix: true },
+      { what: 'transport timeout — separate fix', blocksFix: false },
+      { what: 'test mock cleanup', blocksFix: false },
+    ],
+  });
+
+  test('names the non-blocking absorbed items on a lowered tier', () => {
+    // The measured failure: a fix sized 2 tasks / 4 files absorbed four audit findings, only
+    // two of which changed THAT fix, reached 4 / 6 and escalated -- then reported its own
+    // inflation as the command's verdict. This makes that visible at the gate.
+    const r = size(inflated());
+    expect(r.axes.absorbedNotBlocking).toBe(2);
+    expect(r.remedies.some((m) => /do not block the fix/.test(m))).toBe(true);
+    expect(r.remedies.some((m) => /re-size the fix alone/.test(m))).toBe(true);
+  });
+
+  test('stays silent on AUTO — the same note there is noise', () => {
+    const r = size({ ...clean(), taskCount: 2, touches: ['a', 'b'], absorbed: [{ what: 'x', blocksFix: false }] });
+    expect(r.tier).toBe('AUTO');
+    expect(r.remedies).toHaveLength(0);
+  });
+
+  test('NEVER raises a tier — rules may only ever lower', () => {
+    // If absorbed scope could raise a verdict, the field would be trivially game-able.
+    const withAll = size({ ...inflated() });
+    const withNone = size({ ...inflated(), absorbed: [] });
+    expect(withAll.tier).toBe(withNone.tier);
+  });
+
+  test('absent or malformed absorbed changes nothing', () => {
+    const base = { ...clean(), taskCount: 2, touches: ['a'] };
+    expect(size(base).tier).toBe(size({ ...base, absorbed: undefined }).tier);
+    expect(size({ ...base, absorbed: 'nonsense' }).axes.absorbedNotBlocking).toBe(0);
+  });
+});
