@@ -92,7 +92,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 | 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
-| 14 | `/implement-trd`'s gate corrects by re-running the whole phase, not in place | 1–2 days | The coarse correction model guards the DEFAULT path; the framework's own newer loop already does this properly | **Open (4.2.1)** — see §14; note review CANNOT move out, `/code-review` is not model-invocable |
+| 14 | Do per-phase reviews earn their cost? The gate's failure path has never fired | 1–2 days | **279 tasks / 11 features: 0 failures, 0 retries.** The compounding-defect argument for per-phase gating is unevidenced | **Open (4.2.1)** — see §14.0; note review cannot move OUT of the loop, `/code-review` is not model-invocable |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
 ---
@@ -2095,7 +2095,29 @@ Recorded because this path was walked twice: a recommendation to cut in-loop rev
 the command by naming `/code-review` was drafted 2026-08-28 and withdrawn on exactly this
 ground.
 
-**14.2 — The phase gate's correction model is the coarse one.** On gate failure the command
+**14.0 — MEASURED 2026-08-28: the phase gate's failure path has NEVER FIRED.**
+
+Across every `implement.json` in this repository — **279 tasks, 11 features** — there are
+**zero failed tasks and zero retries**. The whole-phase retry, the `retry_count` ladder and
+the STUCK-at-3 condition have never executed once.
+
+That guts the usual defence of per-phase gating. "It bounds failure to one phase, so a phase-1
+defect cannot compound into phase 4" is entirely hypothetical here: there is no instance of it,
+and the argument was made repeatedly on 2026-08-28 without anyone checking. What the gate
+actually does is find-and-fix INLINE (a representative run: "review 2 findings / 2 applied /
+0 open"). It is a per-phase review that always passes, named as a gate.
+
+**So the open question is the owner's, and it is empirical, not architectural:** do N
+per-phase reviews with the weaker reviewer beat ONE good review at the end? The owner's prior
+process — implement, then `/code-review high --fix` — has months of production history behind
+it. The framework's answer has none.
+
+The one property that survives independent of retries: gates run BEFORE each checkpoint
+commit, so committed work is reviewed work. Weigh that honestly — it is "reviewed by the
+weaker reviewer, with findings auto-applied", not a release gate.
+
+**14.2 — The phase gate's correction model is the coarse one — but see 14.0 before spending
+on it.** This path has never executed, so fixing it is dead-code work until 14.0 is settled. On gate failure the command
 re-dispatches the WHOLE phase, including tasks that already succeeded, because
 `implement-phase.js` has no partial-retry input; three strikes and STUCK
 (`implement-trd.md` §782–787). The framework's own newer loop, `verify-functional.js`, does
