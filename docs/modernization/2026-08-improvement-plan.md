@@ -92,7 +92,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 | 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
-| 14 | Do per-phase reviews earn their cost? The gate's failure path has never fired | 1–2 days | **279 tasks / 11 features: 0 failures, 0 retries.** The compounding-defect argument for per-phase gating is unevidenced | **Open (4.2.1)** — see §14.0; note review cannot move OUT of the loop, `/code-review` is not model-invocable |
+| 14 | Take code review out of `/implement-trd`; one good review at the end, PR is the gate | 1–2 days | **279 tasks / 11 features: 0 failures, 0 retries** — per-phase gating protects a failure mode with no observed instances, at ~48% of a one-task run | **DECIDED 2026-08-28 (owner). Ready to implement in 4.2.1** — see §14 |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
 ---
@@ -2094,6 +2094,36 @@ that trade should be made deliberately by the owner, not inherited from a cost a
 Recorded because this path was walked twice: a recommendation to cut in-loop review and end
 the command by naming `/code-review` was drafted 2026-08-28 and withdrawn on exactly this
 ground.
+
+**DECIDED 2026-08-28, owner ruling. Per-phase code review comes out; one good review at the
+end, run by the owner; the PR is the completeness gate.**
+
+> *"Committed work with possible issues is acceptable. PRs are where we consider it complete,
+> tested code."*
+
+That resolves the last objection standing. The commit-ordering property (gates run before each
+checkpoint commit, so committed work is reviewed work) was the only defence left once 14.0
+showed the failure path had never fired, and the owner has priced it: commits on a feature
+branch are work-in-progress, not a release surface.
+
+**What changes:**
+
+- **Phase gate: drop the phase-scoped code review. KEEP `verify-app`** — the deterministic
+  test battery is verification, not review, and nothing in this ruling touches it.
+- **End of run: drop §7.1's three-lens hardening fan-out and §7.2's full-branch review.** Both
+  re-read the whole branch diff with the weaker reviewer; `/code-review high --fix` does the
+  same job better, and the owner runs it.
+- **The command ends by NAMING `/code-review high --fix`** as the next step — which is exactly
+  what the 4.2.0 command-scope rule says a finished command should do.
+
+**What this deliberately gives up, so it is not rediscovered as a surprise:** an unattended run
+now produces reviewed-by-nothing commits. That is acceptable *because the owner is in the loop
+at PR time anyway*, and `--verify`'s functional loop remains available for runs that want an
+outcome check. It is a change in where the quality gate sits, not its removal.
+
+**Expected effect:** review agents per run drop from (N phases + 4) to 0. On the measured
+one-task fixture that is ~353s of 727s; on real features it is the largest fixed cost in the
+command.
 
 **14.0 — MEASURED 2026-08-28: the phase gate's failure path has NEVER FIRED.**
 
