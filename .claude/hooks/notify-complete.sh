@@ -64,6 +64,71 @@ cmd="$1"
 status="$2"
 summary="$3"
 
+# ---------- Command-run state close (AJCS-B004) -------------------------------
+#
+# Write {"state":"none"} to the calling session's run-state file
+# UNCONDITIONALLY — for "complete" and "stuck" alike — and BEFORE the
+# NOTIFY_ON_COMPLETE early-exit below. router.py (AJCS-B003) is the other
+# writer of this file: it records a run OPENING on a slash-command prompt;
+# this is the CLOSING write, recorded on the command's completion turn. If
+# this ran only after the early-exit, a user with no NOTIFY_ON_COMPLETE set
+# would never get their run-state closed, and by D5/D12 an unclosed `active`
+# marker is the one state that wrongly keeps the Stop judge's Judgment B
+# suppressed. Format and location match router.py exactly:
+# `.trd-state/_command-runs/<session-id>.json`, atomic temp-file + rename.
+#
+# Any failure here (missing dir, unwritable fs, bad session id) degrades to
+# "no write happened" — the absent/stale marker then reads as `state=unknown`
+# on the judge side (D5), which is the same fail-safe direction router.py
+# uses. This function must NEVER change the script's exit status: that
+# status is contractually the user's NOTIFY_ON_COMPLETE command's.
+close_command_run_state() {
+    local session_id="${CLAUDE_SESSION_ID:-unknown}"
+
+    # "unknown" is not a real session id — it's the fallback used when
+    # SessionStart never captured one. Writing "unknown.json" would let
+    # unrelated concurrent sessions collide on a single shared file, so
+    # write nothing instead (mirrors D5: an absent marker is safe).
+    if [[ "$session_id" == "unknown" ]]; then
+        debug "close_command_run_state: session id is 'unknown'; skipping write"
+        return 0
+    fi
+
+    # Mirrors router.py's sanitize_session_id() — the session id becomes a
+    # path component, so reject anything that isn't a safe one (OBJ-SEC1)
+    # rather than let it reach the filesystem.
+    if [[ ! "$session_id" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+        debug "close_command_run_state: session id fails safety pattern; skipping write"
+        return 0
+    fi
+
+    local run_dir="${PWD}/.trd-state/_command-runs"
+    local target_path="${run_dir}/${session_id}.json"
+
+    mkdir -p "$run_dir" 2>/dev/null || {
+        debug "close_command_run_state: could not create $run_dir"
+        return 0
+    }
+
+    local tmp_path
+    tmp_path="$(mktemp "${run_dir}/.tmp-XXXXXX" 2>/dev/null)" || {
+        debug "close_command_run_state: mktemp failed in $run_dir"
+        return 0
+    }
+
+    if printf '{"state":"none"}' > "$tmp_path" 2>/dev/null && \
+       mv -f "$tmp_path" "$target_path" 2>/dev/null; then
+        debug "close_command_run_state: wrote state=none to $target_path"
+    else
+        debug "close_command_run_state: write/rename failed for $target_path"
+        rm -f "$tmp_path" 2>/dev/null
+    fi
+
+    return 0
+}
+
+close_command_run_state
+
 # Silent no-op if env var is unset/empty (the common case)
 if [[ -z "${NOTIFY_ON_COMPLETE:-}" ]]; then
     debug "NOTIFY_ON_COMPLETE unset; silent no-op"

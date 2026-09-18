@@ -238,6 +238,8 @@ This is a plugin development project. Standard unit/integration tests are suffic
    "I'll let you know when done" / "running in the background" / "I'll report back" without
    using `Agent({run_in_background: true})`, `ScheduleWakeup`, `Monitor`, or `/goal` in the
    same turn is a hallucinated notification — the agent will sit idle until prompted.
+   **`/goal` is not interchangeable with the other three: it has no bound of its own.**
+   Prefer a bounded primitive where one will do; see `async-discipline.md` for the measurement.
    Enforced by the `async-discipline.js` Stop hook (blocks the violation; one of the
    explicit-exception cases under rule 4).
 7. **No silent completion** - See `.claude/rules/command-status.md`. Every workflow
@@ -270,6 +272,13 @@ Given the non-deterministic nature of LLM-based systems:
 ---
 
 ## Changelog
+
+### Version 1.3.1 (2026-08-26)
+
+- Prohibition 6 amended: `/goal` is no longer presented as interchangeable with the other three
+  async primitives, because unlike them it has no bound of its own. Factual caveat only — no
+  rule's substance changed, and `/goal` remains a sanctioned primitive. The measurement behind
+  it lives in `async-discipline.md`; this document states the consequence, not the evidence.
 
 ### Version 1.1.0 (2026-08-13)
 

@@ -1,0 +1,60 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/discipline-rules-accuracy.md",
+  "trd_hash": "2bdc1eab77c5ae70325f1b0b9b884fe47e1c6b9f4917476c5fcf71b8c6fd48d7",
+  "branch": "feature/discipline-rules-accuracy/fix",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Correct async-discipline.md measurement claims (both copies)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-08-26T03:58:05.820Z",
+      "completed_at": "2026-08-26T03:58:05.821Z"
+    },
+    "FIX-002": {
+      "description": "/goal unbounded caveat at all four sites",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-08-26T03:58:05.821Z",
+      "completed_at": "2026-08-26T03:58:05.821Z"
+    },
+    "FIX-003": {
+      "description": "BATS regression test, mutation-verified",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-08-26T03:58:05.821Z",
+      "completed_at": "2026-08-26T03:58:05.821Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/discipline-rules-accuracy.md ## Reproduction",
+    "loop_dispatched": false,
+    "deviation": "Loop not dispatched. All three objectives verified directly: O1/O2 by grep against the edited files, O3 by mutation-testing the new BATS check (both halves turn it red). verification_level is unit-only and no criterion needs an environment."
+  }
+}

@@ -60,8 +60,23 @@ const CONTRACT = a.contract || ''
 const NOTES = a.notes || ''
 const STACK_HINTS = a.stackHints || ''
 const EVIDENCE_DIR = a.evidenceDir
+if (!EVIDENCE_DIR) {
+  throw new Error('verify-functional: args.evidenceDir (the evidence directory) is required')
+}
 const CHECKER = a.checker
+if (!CHECKER) {
+  throw new Error('verify-functional: args.checker (the checker CLI path) is required')
+}
 const SINCE = a.since
+if (!Number.isInteger(SINCE) || SINCE < 1) {
+  // Same standard as `cap` ten lines below, and for a sharper reason: SINCE is the one
+  // guarded arg that reaches a shell, interpolated raw into the judge's check-evidence
+  // command. A bare truthiness check passes "1700000000", {} and [1,2] straight through.
+  // The checker CLI does reject non-finite and <= 0 (functional-verification.js), so this
+  // is a strict subset of a rule that already exists -- it just fails here, before an
+  // exerciser agent is spawned, instead of inside a dispatched judge.
+  throw new Error('verify-functional: args.since (the evidence freshness floor, unix seconds) is required and must be a positive integer')
+}
 const CAP = a.cap
 if (!Number.isInteger(CAP) || CAP < 1) {
   // Unvalidated, a missing/non-numeric cap makes `iteration <= CAP` false on the very first
@@ -72,7 +87,13 @@ if (!Number.isInteger(CAP) || CAP < 1) {
   throw new Error('verify-functional: args.cap is required and must be a positive integer (the iteration cap, ordinarily 3)')
 }
 const STATE_PATH = a.statePath
+if (!STATE_PATH) {
+  throw new Error('verify-functional: args.statePath (the state file path) is required')
+}
 const REPORT_PATH = a.reportPath
+if (!REPORT_PATH) {
+  throw new Error('verify-functional: args.reportPath (the report file path) is required')
+}
 // Finding A (FV-B005): renderReport()'s header needs feature/prd/definitionPath and nothing
 // in §3.3's original interface supplied them -- every report rendered "undefined" for all
 // three. Resolved by adding them to VerifyFunctionalArgs (this is the one place the judge,

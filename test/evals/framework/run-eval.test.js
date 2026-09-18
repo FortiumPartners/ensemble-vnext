@@ -98,7 +98,7 @@ describe('run-eval.js', () => {
       const args = runEval.parseArgs(['spec.yaml']);
 
       expect(args.parallel).toBe(2); // default
-      expect(args.timeout).toBe(300); // default
+      expect(args.timeout).toBeNull(); // default: resolved later from spec.execution.timeout or DEFAULT_TIMEOUT
       expect(args.quiet).toBe(false);
       expect(args.dryRun).toBe(false);
     });
@@ -114,7 +114,7 @@ variants:
     prompt_suffix: ""
   - id: with_skill
     prompt_suffix: "Use the skill"
-checks:
+binary_checks:
   - name: file_exists
     check: "test -f output.txt"
 metrics:
@@ -160,7 +160,7 @@ name: test-eval
       const validSpec = {
         name: 'test-eval',
         variants: [{ id: 'a' }, { id: 'b' }],
-        checks: [{ name: 'check1' }],
+        binary_checks: [{ name: 'check1' }],
         metrics: [{ name: 'metric1' }]
       };
 
@@ -172,7 +172,7 @@ name: test-eval
     it('should throw error when name is missing', () => {
       const invalidSpec = {
         variants: [{ id: 'a' }],
-        checks: [],
+        binary_checks: [],
         metrics: []
       };
 
@@ -184,7 +184,7 @@ name: test-eval
     it('should throw error when variants is missing', () => {
       const invalidSpec = {
         name: 'test',
-        checks: [],
+        binary_checks: [],
         metrics: []
       };
 
@@ -197,7 +197,7 @@ name: test-eval
       const invalidSpec = {
         name: 'test',
         variants: [],
-        checks: [],
+        binary_checks: [],
         metrics: []
       };
 
@@ -222,7 +222,7 @@ name: test-eval
       const invalidSpec = {
         name: 'test',
         variants: [{ id: 'a' }],
-        checks: []
+        binary_checks: []
       };
 
       expect(() => {
@@ -234,7 +234,7 @@ name: test-eval
       const invalidSpec = {
         name: 'test',
         variants: [{ prompt_suffix: 'no id' }],
-        checks: [],
+        binary_checks: [],
         metrics: []
       };
 
@@ -410,7 +410,7 @@ name: test-eval
       // Mock fs.existsSync to return false for the script
       mockFs.existsSync.mockReturnValue(false);
 
-      const result = await runEval.launchSession({ id: 'test' }, '/output', 300);
+      const result = await runEval.launchSession({ id: 'test' }, 'base prompt', '/output', 300);
 
       expect(result.exit_code).toBe(1);
       expect(result.error).toMatch(/not found|script/i);
@@ -435,7 +435,7 @@ name: test-eval
       };
       mockSpawn.mockReturnValue(mockProc);
 
-      const result = await runEval.launchSession({ id: 'test' }, '/output', 300);
+      const result = await runEval.launchSession({ id: 'test' }, 'base prompt', '/output', 300);
 
       expect(result.exit_code).toBe(1);
       expect(result.error).toMatch(/spawn|ENOENT/i);
@@ -511,7 +511,7 @@ name: test-eval
 variants:
   - id: variant_a
   - id: variant_b
-checks: []
+binary_checks: []
 metrics: []
 `;
       mockFs.existsSync.mockReturnValue(true);
@@ -552,7 +552,7 @@ name: test-eval
 variants:
   - id: variant_a
   - id: variant_b
-checks:
+binary_checks:
   - name: file_check
 metrics:
   - name: quality
@@ -574,7 +574,7 @@ name: test-eval
 variants:
   - id: variant_a
   - id: variant_b
-checks:
+binary_checks:
   - name: file_check
 metrics:
   - name: quality
@@ -618,7 +618,7 @@ metrics:
 name: test-eval
 variants:
   - id: variant_a
-checks:
+binary_checks:
   - name: check1
 metrics:
   - name: metric1
@@ -654,7 +654,7 @@ metrics:
 name: my-eval-test
 variants:
   - id: variant_a
-checks: []
+binary_checks: []
 metrics: []
 `;
       mockFs.existsSync.mockReturnValue(true);
@@ -681,7 +681,7 @@ metrics: []
 name: test-eval
 variants:
   - id: variant_a
-checks: []
+binary_checks: []
 metrics: []
 `;
       mockFs.existsSync.mockReturnValue(true);

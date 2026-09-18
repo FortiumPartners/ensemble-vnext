@@ -33,36 +33,58 @@ const VERIFICATION_SECTION = {
 /**
  * @param {Object} input
  * @param {'AUTO'|'REVIEW'|'ESCALATE'} input.tier   from fix-sizing.size()
- * @param {boolean} [input.specOnly]                --spec-only was passed
+ * @param {boolean} [input.implement]               --implement was passed. DEFAULT FALSE:
+ *   /investigate investigates and stops. Chaining into work is an explicit request, not a
+ *   consequence of the tier being clean. The tier answers "may this be done unattended?";
+ *   the flag answers "do you want it done?" Collapsing the two is what made --spec-only
+ *   feel like a workaround — it was intent smuggled in as a negation.
+ * @param {boolean} [input.specOnly]                DEPRECATED alias. `specOnly: true` is
+ *   now the default and means nothing; it is still accepted so existing callers and the
+ *   command's own older prose do not break. Ignored when `implement` is given.
  * @param {'defect'|'change'|'refactor'} [input.kind]
  * @param {string} [input.slug]                     for the chain argument
  * @returns {Object} the run plan
  */
 function plan(input) {
-  const { tier, specOnly = false, kind = 'defect', slug = '<slug>' } = input || {};
+  const { tier, implement = false, kind = 'defect', slug = '<slug>' } = input || {};
   if (!['AUTO', 'REVIEW', 'ESCALATE'].includes(tier)) {
     throw new Error(`fix-plan: unknown tier ${JSON.stringify(tier)}`);
   }
 
-  // ESCALATE stops BEFORE writing anything: it is not light-path work, so a light
-  // TRD would be a wrong artifact rather than an incomplete one.
+  // ESCALATE stops, but it KEEPS the TRD (changed 2026-08-29, owner).
+  //
+  // It used to return writeTrd:false, so a run that had already reproduced the defect, found
+  // the root cause and grounded every touched file ended with NOTHING ON DISK. Measured in
+  // lightning-lane-beta-phase2: "I deleted the TRD I'd written... What it produced: Nothing."
+  // The investigation is the expensive part and it is exactly what /create-prd would need as
+  // input; throwing it away means paying for it twice and losing the reproduction in a
+  // transcript nobody will re-read.
+  //
+  // The original reasoning -- "a light TRD would be a wrong artifact rather than an incomplete
+  // one" -- is answered by marking it rather than deleting it: the banner says the tier and
+  // the failing axis, so nobody mistakes it for an approved plan.
   if (tier === 'ESCALATE') {
     return finish({
-      writeTrd: false, reason: 'not light-path work — use /create-prd', kind, slug,
+      writeTrd: true,
+      escalated: true,
+      reason: 'not light-path work — the investigation is on disk; use /create-prd, which can read it',
+      kind,
+      slug,
     });
   }
 
   // The one condition that matters, and the one the prose kept re-deriving:
   // does work actually BEGIN? Only then does a state pointer or a chain make sense.
-  const workBegins = tier === 'AUTO' && !specOnly;
+  const workBegins = tier === 'AUTO' && implement;
 
   if (!workBegins) {
     return finish({
       writeTrd: true,
-      reason: specOnly && tier === 'AUTO'
-        // There is no failing axis here — every axis passed and the flag is the
-        // reason. Inventing one would report a downgrade the sizing lib never made.
-        ? 'stopped at --spec-only'
+      reason: tier === 'AUTO'
+        // There is no failing axis here — every axis passed, and stopping is simply
+        // what this command does unless asked otherwise. Inventing a failing axis
+        // would report a downgrade the sizing lib never made.
+        ? 'investigation complete — re-run with --implement to build it'
         : 'tier REVIEW — a human approves before implementing',
       kind, slug,
     });
@@ -89,18 +111,23 @@ function plan(input) {
 }
 
 /** Every path that ENDS the command: banner, notify, no chain, no pointer. */
-function finish({ writeTrd, reason, kind, slug }) {
+function finish({ writeTrd, reason, kind, slug, escalated = false }) {
   return {
     writeTrd,
+    escalated,
     writePointer: false,
     chain: false,
     chainSkill: null,
     chainArgs: null,
     handoffLine: null,
     banner: '═══ COMMAND COMPLETE: /fix ═══',
-    bannerBody: writeTrd
-      ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
-      : `${slug}: ${reason}.`,
+    // An escalated TRD is kept as INVESTIGATION, not as an approved plan -- the banner must
+    // not invite /implement-trd on it, which is the one way keeping it could do harm.
+    bannerBody: escalated
+      ? `${slug}: ${reason}. Investigation at docs/TRD/${slug}.md — reproduction, root cause and grounding, marked ESCALATE. Do NOT run /implement-trd on it.`
+      : writeTrd
+        ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
+        : `${slug}: ${reason}.`,
     // Fires on EVERY terminating path, including the early reject — otherwise the
     // completion signal depends on which way the command happened to finish.
     notify: true,

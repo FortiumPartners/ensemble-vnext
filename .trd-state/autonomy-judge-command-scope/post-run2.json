@@ -1,0 +1,181 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 31,
+    "fp": 2,
+    "tn": 46,
+    "fn": 0,
+    "precision": 0.9393939393939394,
+    "recall": 1,
+    "meanMs": 15645.523,
+    "p95Ms": 27073.594,
+    "misses": [],
+    "falsePositives": [
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 14606.072,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 13452.161,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 14387.766,
+      "p95Ms": 23087.431,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 12667.106,
+      "p95Ms": 19077.654,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 10889.121,
+      "p95Ms": 10889.121,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 6,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 20309.773,
+      "p95Ms": 26206.789,
+      "misses": [],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 13787.046,
+      "p95Ms": 19538.733,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 0,
+      "tn": 11,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 17916.042,
+      "p95Ms": 27467.6,
+      "misses": [],
+      "falsePositives": []
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 1,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 12947.138,
+      "p95Ms": 20368.764,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 14606.072,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 1,
+      "tn": 3,
+      "fn": 0,
+      "precision": 0.8,
+      "recall": 1,
+      "meanMs": 17144.165,
+      "p95Ms": 31844.325,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 13452.161,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 4,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 20144.321,
+      "p95Ms": 28313.152,
+      "misses": [],
+      "falsePositives": []
+    }
+  }
+}

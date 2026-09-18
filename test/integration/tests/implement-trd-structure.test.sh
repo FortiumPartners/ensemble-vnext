@@ -201,7 +201,6 @@ setup() {
         "packages/core/hooks/dispatch-ledger.js"
         "packages/core/hooks/lib/dispatch-ledger.js"
         "packages/core/hooks/prompts/discipline-stop.prompt.md"
-        "packages/core/hooks/prompts/subagent-discipline.prompt.md"
     )
     local claude_files=(
         ".claude/lib/trd-parser.js"
@@ -216,7 +215,6 @@ setup() {
         ".claude/hooks/dispatch-ledger.js"
         ".claude/hooks/lib/dispatch-ledger.js"
         ".claude/hooks/prompts/discipline-stop.prompt.md"
-        ".claude/hooks/prompts/subagent-discipline.prompt.md"
     )
 
     local drift=()
@@ -284,11 +282,14 @@ setup() {
       const dir = path.dirname(process.argv[1]);
       const drift = [];
 
-      // subagent-discipline: single-hook prompt, unmerged (SubagentStop).
-      {
-        const generated = buildPrompt("subagent-discipline") + "\n";
-        const onDisk = fs.readFileSync(path.join(dir, "subagent-discipline.prompt.md"), "utf8");
-        if (generated !== onDisk) drift.push("subagent-discipline");
+      // subagent-discipline: NO LONGER EMITTED (4.2.1). The SubagentStop judge was
+      // unregistered, so the manifest declares no prompt file for it and
+      // build-judge-prompts.js deletes a stale one. Its HOOKS entry survives purely so the
+      // discipline corpus can score SubagentStop cases -- the corpus detector calls
+      // buildPrompt() in memory and never reads a .md. Asserting the file exists here would
+      // re-create exactly the dead-artifact class this project deletes on sight.
+      if (fs.existsSync(path.join(dir, "subagent-discipline.prompt.md"))) {
+        drift.push("subagent-discipline.prompt.md exists but no manifest entry declares it");
       }
 
       // async-discipline + autonomy-discipline: merged onto one Stop prompt (FIX-002).
@@ -618,6 +619,47 @@ PY
     grep -q 'autonomy-discipline' "${REPO_ROOT}/packages/core/hooks/prompts/build-judge-prompts.js"
 }
 
+@test "discipline rules state the CURRENT measurement, and caveat /goal at every site" {
+    # Two documentation defects found 2026-08-26 while investigating the guards' block
+    # rate, both of which had gone unnoticed because nothing asserted either fact:
+    #
+    #  1. async-discipline.md told the reader to verify the response-contract fix by
+    #     counting against "31/251 (~12%)" -- a figure taken under a metric that
+    #     hook-verdict-rate.js itself retired on 2026-08-18, calling the old framing
+    #     "wrong and actively misleading". A reader counting today gets a number that
+    #     is not comparable and no way to know it.
+    #  2. /goal was recommended as the fourth of four co-equal async primitives at four
+    #     separate sites, with no mention that it is the only one with no bound. It was
+    #     measured at 17 consecutive re-invocations while the discipline hooks beside it
+    #     bounded at 2.
+    #
+    # Asserts INTENT, not prose -- same principle as the autonomy-block test above. A
+    # test pinned to exact sentences makes these files unrewritable, which is the
+    # opposite of what is wanted. Note the deliberate absence of a bare-word negative
+    # grep: an earlier draft of this check used `grep -c "still\|not fixed"`, which
+    # returns 8 on innocuous prose ("still recommended", "still in flight") and could
+    # never pass.
+    local A="${REPO_ROOT}/.claude/rules/async-discipline.md"
+    local A_TPL="${REPO_ROOT}/packages/core/templates/claude-directory/rules/async-discipline.md"
+    local C="${REPO_ROOT}/.claude/rules/constitution.md"
+    local C_TPL="${REPO_ROOT}/packages/core/templates/constitution.md.template"
+    for f in "$A" "$A_TPL" "$C" "$C_TPL"; do [ -f "$f" ]; done
+
+    # (1) the metric-redefinition fact is stated, by whatever wording
+    grep -qiE '2026-08-18|metric .*(retired|redefin|correct)|not comparable' "$A"
+    # and the current measurement is present, not just the historical one
+    grep -qE '957|0\.3%' "$A"
+
+    # (2) every site that recommends /goal also says it does not self-limit
+    for f in "$A" "$A_TPL" "$C" "$C_TPL"; do
+        grep -q '/goal' "$f"
+        grep -qiE 'no bound of its own|not interchangeable|does not self-limit' "$f"
+    done
+
+    # the shipped copies carry it too -- a scaffolded project must not be born stale
+    cmp -s "$A" "$A_TPL"
+}
+
 @test "framework-shipped rules are UPDATED on rebase, not frozen on first install" {
     # Found 2026-08-21 from a live rebase in another project: its autonomy.md still
     # documented an autonomous-mode flag deleted five releases earlier. Nothing had
@@ -791,7 +833,7 @@ PY
 @test "--verify derives a success definition without a PRD, preserving deriver isolation" {
     # Before this, --verify on a PRD-less TRD was a SILENT no-op: Step 3.6 recorded
     # "no PRD resolved" and dispatched nothing, Step 8 rendered a not-run report and
-    # made no Workflow call. That makes /fix (item 12) impossible — nothing would
+    # made no Workflow call. That makes /investigate (item 12) impossible — nothing would
     # ever check the bug stopped happening.
     CONTRACT="${REPO_ROOT}/packages/core/contracts/functional-verification.md"
 
@@ -816,8 +858,8 @@ PY
     refute grep -q 'Every row.s .Cites. column names a PRD line or section' "$CONTRACT"
 }
 
-@test "/fix replaces investigate-issue and fix-issue, and cannot bypass its own gate" {
-    FIX="${REPO_ROOT}/packages/core/commands/fix.md"
+@test "/investigate replaces investigate-issue and fix-issue, and cannot bypass its own gate" {
+    FIX="${REPO_ROOT}/packages/core/commands/investigate.md"
     [ -f "$FIX" ]
 
     # The two it replaces are GONE, not left invokable. A retired command that
@@ -854,7 +896,7 @@ PY
     [ -f "${REPO_ROOT}/packages/core/lib/fix-plan.js" ]
 
     # Both verification sources are named — the defect path AND the conversational
-    # path. Omitting either ships that half of /fix unverified.
+    # path. Omitting either ships that half of /investigate unverified.
     grep -q '## Reproduction' "$FIX"
     grep -q '## Intended Change' "$FIX"
 

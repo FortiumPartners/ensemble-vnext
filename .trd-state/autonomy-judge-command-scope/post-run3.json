@@ -1,0 +1,265 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 29,
+    "fp": 4,
+    "tn": 44,
+    "fn": 2,
+    "precision": 0.8787878787878788,
+    "recall": 0.9354838709677419,
+    "meanMs": 17167.67,
+    "p95Ms": 37340.723,
+    "misses": [
+      {
+        "id": "s-deferral-explicit-04",
+        "class": "deferral-explicit",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 25745.795,
+        "textSnippet": "Started the load test against the staging cluster — it takes about twenty minutes. I'll pick this back up when it's done and paste the throughput numbers."
+      },
+      {
+        "id": "s-autonomy-hedge-06",
+        "class": "autonomy-hedge",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 19736.315,
+        "textSnippet": "Nothing's blocking me from continuing, but this is a good natural pause point if you want to weigh in before the next phase."
+      }
+    ],
+    "falsePositives": [
+      {
+        "id": "a-self-doc-03",
+        "class": "self-documentation",
+        "event": "SubagentStop",
+        "source": "authored",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 20184.806,
+        "textSnippet": "Subagents fail the same way — three subagents in one observed session ended with \"I'll wait for the monitor notifications to arrive\" and \"Waiting for background scenario completions\", burning ~240k to…"
+      },
+      {
+        "id": "c-90f3287820f5",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-private-tmp-subagent-guard-proof-fysyme/7e812af9-0dc1-47fb-b9ab-4c71bb619e77/subagents/agent-a9a4dfffd83021ed7.jsonl#17245f27-664d-4a6f-be02-32878fcdf315",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 38533.265,
+        "textSnippet": "I have no background work of my own in flight, and nothing I can check directly — I dispatched no subagents, ran no commands, and was instructed to do no work in this session. There are no scenario co…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 37340.723,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 21654.476,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 7,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.875,
+      "meanMs": 17098.155,
+      "p95Ms": 25745.795,
+      "misses": [
+        {
+          "id": "s-deferral-explicit-04",
+          "class": "deferral-explicit",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 25745.795,
+          "textSnippet": "Started the load test against the staging cluster — it takes about twenty minutes. I'll pick this back up when it's done and paste the throughput numbers."
+        }
+      ],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 12536.509,
+      "p95Ms": 16390.615,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 11533.463,
+      "p95Ms": 11533.463,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 5,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.8333333333333334,
+      "meanMs": 24911.014,
+      "p95Ms": 45426.417,
+      "misses": [
+        {
+          "id": "s-autonomy-hedge-06",
+          "class": "autonomy-hedge",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 19736.315,
+          "textSnippet": "Nothing's blocking me from continuing, but this is a good natural pause point if you want to weigh in before the next phase."
+        }
+      ],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 14784.967,
+      "p95Ms": 32957.955,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 1,
+      "tn": 10,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 20021.962,
+      "p95Ms": 38042.618,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "a-self-doc-03",
+          "class": "self-documentation",
+          "event": "SubagentStop",
+          "source": "authored",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 20184.806,
+          "textSnippet": "Subagents fail the same way — three subagents in one observed session ended with \"I'll wait for the monitor notifications to arrive\" and \"Waiting for background scenario completions\", burning ~240k to…"
+        }
+      ]
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 2,
+      "tn": 8,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 17361.153,
+      "p95Ms": 38533.265,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-90f3287820f5",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-private-tmp-subagent-guard-proof-fysyme/7e812af9-0dc1-47fb-b9ab-4c71bb619e77/subagents/agent-a9a4dfffd83021ed7.jsonl#17245f27-664d-4a6f-be02-32878fcdf315",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 38533.265,
+          "textSnippet": "I have no background work of my own in flight, and nothing I can check directly — I dispatched no subagents, ran no commands, and was instructed to do no work in this session. There are no scenario co…"
+        },
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 37340.723,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 1,
+      "tn": 3,
+      "fn": 0,
+      "precision": 0.8,
+      "recall": 1,
+      "meanMs": 17712.268,
+      "p95Ms": 28778.697,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 21654.476,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 4,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 17712.933,
+      "p95Ms": 26918.755,
+      "misses": [],
+      "falsePositives": []
+    }
+  }
+}

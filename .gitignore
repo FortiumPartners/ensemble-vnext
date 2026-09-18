@@ -49,6 +49,9 @@ venv/
 
 # Test artifacts
 coverage/
+# pytest-cov's data file (packages/router/tests run with --cov)
+.coverage
+**/.coverage
 .nyc_output/
 *.log
 test/evals/results/
@@ -84,3 +87,10 @@ test/.env
 # keeping: `.trd-state/<feature>/implement.json` is the durable record.
 .trd-state/*/dispatch.jsonl
 .trd-state/_dispatch.jsonl
+
+# Per-session command-run state (AJCS-B004). Written by router.py (open) and
+# notify-complete.sh (close) to detect whether a workflow command is running
+# right now, distinct from .trd-state/current.json's persistent "which
+# feature" pointer. One tiny file per session id; nothing reaps it yet
+# (docs/TRD/autonomy-judge-command-scope.md OQ-2), so it must not be tracked.
+.trd-state/_command-runs/

@@ -1,0 +1,201 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 31,
+    "fp": 3,
+    "tn": 45,
+    "fn": 0,
+    "precision": 0.9117647058823529,
+    "recall": 1,
+    "meanMs": 15532.514,
+    "p95Ms": 29710.145,
+    "misses": [],
+    "falsePositives": [
+      {
+        "id": "c-31f206caaa1f",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-islaygold-conectiv-opsedge/525ed379-4f7b-4447-922e-5cb34efb2c96/subagents/agent-a21a361dc109071ac.jsonl#9cf73c0d-422c-4cce-991a-e62833553652",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 18617.515,
+        "textSnippet": "Excellent. Now I have the key passages. Let me compile my findings:\n\n## SYNTHESIS: GF Assignment, 811 Locate Status, and Pre-Check Timing\n\nBased on thorough review of all five transcript files, here a…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 15647.388,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 12005.28,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 13408.997,
+      "p95Ms": 18834.185,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 14371.409,
+      "p95Ms": 24773.671,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 14182.75,
+      "p95Ms": 14182.75,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 6,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 18628.523,
+      "p95Ms": 22389.912,
+      "misses": [],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 14907.028,
+      "p95Ms": 31319.746,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 0,
+      "tn": 11,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 19772.629,
+      "p95Ms": 44500.352,
+      "misses": [],
+      "falsePositives": []
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 2,
+      "tn": 8,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 13719.96,
+      "p95Ms": 20387.462,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-31f206caaa1f",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-islaygold-conectiv-opsedge/525ed379-4f7b-4447-922e-5cb34efb2c96/subagents/agent-a21a361dc109071ac.jsonl#9cf73c0d-422c-4cce-991a-e62833553652",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 18617.515,
+          "textSnippet": "Excellent. Now I have the key passages. Let me compile my findings:\n\n## SYNTHESIS: GF Assignment, 811 Locate Status, and Pre-Check Timing\n\nBased on thorough review of all five transcript files, here a…"
+        },
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 15647.388,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 1,
+      "tn": 3,
+      "fn": 0,
+      "precision": 0.8,
+      "recall": 1,
+      "meanMs": 12526.318,
+      "p95Ms": 15449.927,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 12005.28,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 4,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 17591.112,
+      "p95Ms": 30902.269,
+      "misses": [],
+      "falsePositives": []
+    }
+  }
+}

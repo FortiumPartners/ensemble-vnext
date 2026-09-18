@@ -91,7 +91,8 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 9a | Functional verification of delivered software | 3–5 days | A green suite says nothing about whether a user can do what the PRD promised | **Shipped 4.1.18** — `--verify`, `/verify-build`, live-verified 20/20 |
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
-| 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Open** |
+| 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
+| 14 | Take code review out of `/implement-trd`; one good review at the end, PR is the gate | 1–2 days | **279 tasks / 11 features: 0 failures, 0 retries** — per-phase gating protects a failure mode with no observed instances, at ~48% of a one-task run | **Phase-gate review REMOVED 2026-08-28 (`c7c841e`). §7.1-vs-§7.2 duplication still open** — see §14 |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
 ---
@@ -2060,6 +2061,132 @@ both directions — a deleted command still advertised, and a command advertised
 built — so the ordering above is now mechanical rather than a matter of remembering. Verified
 by injecting both failures.
 
+
+
+### 14. Review inside `/implement-trd` — cadence, correction model, and whether it belongs there
+
+**Raised 2026-08-28 while root-causing the ~740s `implement-one-task` run. Three separate
+problems surfaced, and the third is the one that matters.**
+
+**14.1 — The owner's prior process was `implement`, then `/code-review high --fix`.**
+That is build-then-assess/correct, run as a SEPARATE owner-invoked command, using Anthropic's
+built-in reviewer. The framework since absorbed review INTO the implement loop: a phase-scoped
+review at every phase gate, §7.1's three-lens hardening fan-out, and §7.2's full-branch review
+— all using this project's own `code-reviewer` agent, which the owner has described as *"a poor
+substitute for the built in one"* (the same assessment that lifted the nesting ban in
+constitution v1.3.0, after `/code-review` was measured as a 7-agent fan-out).
+
+It costs ~48% of a one-task run (353s of 727s, measured).
+
+**But moving review back out is NOT the answer.** Requiring a HUMAN follow-up step after every
+implement run breaks unattended execution — the property `autonomy.md` exists to protect ("the
+user invokes a command, walks away, and returns to a finished artifact"). `--verify` is off by
+default, so with in-loop review gone an unattended run would commit every phase with no
+quality signal at all.
+
+**CORRECTED 2026-08-28 — `/code-review` IS reachable, and §7.2 already uses it.** An earlier
+revision of this entry recorded "`/code-review` is not model-invocable" as flat fact and built
+a recommendation on it. The precise position, which reconciles both readings:
+
+- As a **slash command**, no — a command cannot invoke another command.
+- As a **skill**, yes. §7.2 of `implement-trd.md` dispatches
+  `Skill({ skill: "code-review", args: "high {branch_base}...HEAD" })` on every run, attested
+  by probes ITR-P002/ITR-P003, and that skill forks itself to background subagents.
+
+**So the framework already runs the BUILT-IN reviewer, automatically, at the end of every
+run.** The worry that the loop is stuck with the weaker `code-reviewer` agent was wrong.
+
+**Which relocates the real question to §7.1.** Its three `code-reviewer` lenses run over the
+same full branch diff that §7.2 hands to the built-in reviewer, moments apart, using the agent
+the owner rates lower. That is the duplication worth examining — not the phase gate (removed
+2026-08-28), and not §7.2, which is the good reviewer doing the job. Open for 4.2.1.
+
+**So the in-loop review is not duplication by oversight; it is the only option available.**
+The owner can still run `/code-review high --fix` afterwards for the better reviewer — as an
+ADDITION, not a replacement. Anything that makes it a replacement trades away autonomy, and
+that trade should be made deliberately by the owner, not inherited from a cost argument.
+
+Recorded because this path was walked twice: a recommendation to cut in-loop review and end
+the command by naming `/code-review` was drafted 2026-08-28 and withdrawn on exactly this
+ground.
+
+**DECIDED 2026-08-28, owner ruling. Per-phase code review comes out; one good review at the
+end, run by the owner; the PR is the completeness gate.**
+
+> *"Committed work with possible issues is acceptable. PRs are where we consider it complete,
+> tested code."*
+
+That resolves the last objection standing. The commit-ordering property (gates run before each
+checkpoint commit, so committed work is reviewed work) was the only defence left once 14.0
+showed the failure path had never fired, and the owner has priced it: commits on a feature
+branch are work-in-progress, not a release surface.
+
+**The change is MOVE, not remove. Review stays automatic and in the loop — it just happens
+once, at the end, instead of once per phase.** An earlier draft of this entry proposed cutting
+review entirely and having the owner run `/code-review high --fix` by hand; that was rejected
+outright: *"I DO NOT WANT TO RUN /CODE-REVIEW MANUALLY. I want you to move the review to the
+end of the implementation process. THAT'S IT."*
+
+- **Phase gate: drop the phase-scoped code review. KEEP `verify-app`** — the deterministic
+  test battery is verification, not review, and nothing in this ruling touches it.
+- **End of run: §7.1 and §7.2 STAY, unchanged.** That is where review now happens, dispatched
+  automatically by the command on every run.
+- `reviewPrompt` is no longer assembled by the command and no longer read by
+  `implement-phase.js`.
+
+**What this gives up:** a phase's commits are no longer reviewed at the moment they are made.
+The owner priced that — feature-branch commits are work in progress, the PR is the gate.
+
+**Expected effect:** review agents per run drop from (N phases + 4) to 4 — the end-of-run pass
+only. Saves one Opus review per phase; on a 4-phase feature that is 4 fewer review agents, and
+the saving scales with phase count rather than being a fixed cut.
+
+**14.0 — MEASURED 2026-08-28: the phase gate's failure path has NEVER FIRED.**
+
+Across every `implement.json` in this repository — **279 tasks, 11 features** — there are
+**zero failed tasks and zero retries**. The whole-phase retry, the `retry_count` ladder and
+the STUCK-at-3 condition have never executed once.
+
+That guts the usual defence of per-phase gating. "It bounds failure to one phase, so a phase-1
+defect cannot compound into phase 4" is entirely hypothetical here: there is no instance of it,
+and the argument was made repeatedly on 2026-08-28 without anyone checking. What the gate
+actually does is find-and-fix INLINE (a representative run: "review 2 findings / 2 applied /
+0 open"). It is a per-phase review that always passes, named as a gate.
+
+**So the open question is the owner's, and it is empirical, not architectural:** do N
+per-phase reviews with the weaker reviewer beat ONE good review at the end? The owner's prior
+process — implement, then `/code-review high --fix` — has months of production history behind
+it. The framework's answer has none.
+
+The one property that survives independent of retries: gates run BEFORE each checkpoint
+commit, so committed work is reviewed work. Weigh that honestly — it is "reviewed by the
+weaker reviewer, with findings auto-applied", not a release gate.
+
+**14.2 — The phase gate's correction model is the coarse one — but see 14.0 before spending
+on it.** This path has never executed, so fixing it is dead-code work until 14.0 is settled. On gate failure the command
+re-dispatches the WHOLE phase, including tasks that already succeeded, because
+`implement-phase.js` has no partial-retry input; three strikes and STUCK
+(`implement-trd.md` §782–787). The framework's own newer loop, `verify-functional.js`, does
+better: Exercise → Judge → **one `app-debugger` fixes the gap in place** → re-judge. Two
+correction models coexist, and the coarse one guards the path that runs by default
+(`--verify` is off, D11).
+
+**14.3 — What is NOT wrong, so nobody re-litigates it:**
+
+- The hardening wave is **once per run**, not per task — it sits outside the phase loop. Its
+  48% share is an artifact of measuring a ONE-task fixture; on real features it amortises.
+- It **earns its keep**: on that trivial fixture it returned 7 findings, 4 applied, including
+  the `.claude/lib/agent-routing.js` delivery blocker that `scaffold-project.test.sh` found
+  independently the same day.
+- The three lenses run **concurrently**, so dropping one saves Opus tokens, **not wall clock**
+  — the phase costs max(lenses), not their sum. An earlier framing of this as a speed fix was
+  wrong.
+- Per-phase gates are not simply redundant with an end-of-run pass: they run BEFORE each
+  checkpoint commit, and they bound failure to one phase rather than discovering a phase-1
+  defect after phase 4 has been built on it.
+
+**Done when:** a decision is recorded on whether review belongs inside the implement loop at
+all, and if it stays, the gate corrects in place rather than re-running the phase.
 
 
 ### 13. Rebase delivery — getting a framework fix out to projects already scaffolded

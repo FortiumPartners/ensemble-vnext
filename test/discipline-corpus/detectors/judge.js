@@ -74,6 +74,21 @@
  *    two orders of magnitude above the §6.1 A5 budget (p95 ≤ 2000ms) that governs the
  *    REAL in-hook call. Do not read per-case timings from this detector as evidence
  *    for or against A5; DISC-T002 measures that against the real hook, not this one.
+ * 7. Context preamble position. When a corpus case supplies an OPTIONAL `context` field
+ *    (extra situational prose a corpus author wants the judge to see — e.g. what a
+ *    nearby marker or payload field would have said), this harness renders it as a
+ *    labelled block PREPENDED ahead of the hook prompt's own text, sent to
+ *    `claude --print` as one shot. Production's evaluator has no equivalent channel:
+ *    whatever situational context it has comes from real payload fields and (per
+ *    divergence #4) a real transcript file it can read via tool use, not a synthesized
+ *    preamble authored after the fact. Where in the turn that information would
+ *    surface, and how much weight a judge gives text sitting before the hook's own
+ *    instructions versus text arriving through its normal payload/tool-read path, is
+ *    therefore not verified to match. Treat `context` as an offline authoring
+ *    convenience for surfacing a case's intended situation to a human or to this
+ *    harness's judge, not as a faithful stand-in for how the real evaluator would learn
+ *    it. Absent `context` (the common case — see TRD D7), this channel contributes
+ *    nothing and the assembled prompt is byte-identical to before this field existed.
  *
  * Net: treat this detector's scores as evidence about the PROMPT's reasoning quality
  * (does the judgment logic actually work, is it correctly reasoning-based rather than
@@ -163,7 +178,66 @@ function buildPayload(testCase, hookName) {
     payload.agent_id = p.agent_id || testCase.id || 'offline-corpus-case';
     payload.agent_type = p.agent_type || 'unknown';
   }
+
+  // session_id — ONLY when the case supplies one, directly or via its `context` marker.
+  //
+  // The Stop precondition honours "the LAST ENSEMBLE_COMMAND marker whose `session=`
+  // matches this payload's `session_id`". Without a session_id in the payload NO marker
+  // can ever match, so every context-bearing case falls into the precondition's
+  // catch-all ("no marker matching this session -> the judgment APPLIES") and the
+  // `state=none` cases score as false positives — for a harness reason, not a real one.
+  //
+  // Emitted conditionally rather than always, because D7 requires a case with no
+  // `context` to produce a byte-identical prompt to before this channel existed. Adding
+  // a key to every payload would change every case's $ARGUMENTS and break that.
+  const sessionId = resolveCaseSessionId(testCase);
+  if (sessionId) payload.session_id = sessionId;
+
   return payload;
+}
+
+/** A case's session id: explicit `session_id` wins, else parsed from its `context` marker.
+ *
+ * Parsing from the marker keeps the harness self-consistent by construction — the marker
+ * a case carries and the payload it is judged against name the same session, which is
+ * what production does. An explicit `session_id` field is honoured first so a future case
+ * can deliberately MISMATCH the two and exercise the precondition's session-binding rule,
+ * which parsing alone could never express.
+ */
+function resolveCaseSessionId(testCase) {
+  const p = testCase.payload || {};
+  if (typeof p.session_id === 'string' && p.session_id) return p.session_id;
+  if (typeof testCase.session_id === 'string' && testCase.session_id) return testCase.session_id;
+  if (typeof testCase.context !== 'string') return null;
+  const m = /\bENSEMBLE_COMMAND\b[^\n]*?\bsession=([^\s]+)/.exec(testCase.context);
+  return m ? m[1] : null;
+}
+
+/**
+ * Renders a case's optional `context` as a labelled preamble ahead of the generated
+ * hook prompt (see divergence #7 in the module doc). Returns '' when the case has no
+ * `context`, which keeps the assembled prompt byte-identical to a case with no context
+ * field at all (TRD D7).
+ */
+function buildContextPreamble(testCase) {
+  if (!testCase || !testCase.context) return '';
+  return `## Corpus case context (offline harness only — see divergence #7 in judge.js)\n\n${testCase.context}\n\n`;
+}
+
+/**
+ * Assembles the exact text sent to `claude --print` for one (case, hook) pair —
+ * the context preamble (if any), then the hook prompt with the payload substituted
+ * in, then the offline response-format instruction. Exported as the seam a test can
+ * use to assert on the assembled prompt without shelling out to the CLI.
+ */
+function buildFullPrompt(testCase, hookName) {
+  const rawPrompt =
+    hookName === 'discipline-stop'
+      ? buildCombinedPrompt(STOP_DISCIPLINE_HOOKS)
+      : buildPrompt(hookName);
+  const prompt = rawPrompt.replace('$ARGUMENTS', JSON.stringify(buildPayload(testCase, hookName), null, 2));
+  const contextPreamble = buildContextPreamble(testCase);
+  return `${contextPreamble}${prompt}\n\n${OFFLINE_RESPONSE_FORMAT}`;
 }
 
 function extractJson(raw) {
@@ -185,12 +259,7 @@ function extractJson(raw) {
  * error, timeout, unparseable output) — caller treats `null` as fail-open (allow).
  */
 function judgeOneHook(testCase, hookName) {
-  const rawPrompt =
-    hookName === 'discipline-stop'
-      ? buildCombinedPrompt(STOP_DISCIPLINE_HOOKS)
-      : buildPrompt(hookName);
-  const prompt = rawPrompt.replace('$ARGUMENTS', JSON.stringify(buildPayload(testCase, hookName), null, 2));
-  const fullPrompt = `${prompt}\n\n${OFFLINE_RESPONSE_FORMAT}`;
+  const fullPrompt = buildFullPrompt(testCase, hookName);
 
   debug(`case=${testCase.id || '(no id)'} hook=${hookName} prompt_chars=${fullPrompt.length}`);
 
@@ -240,4 +309,9 @@ module.exports = {
     }
     return false;
   },
+  // Test seam (AJCS-B001): exposes prompt assembly without shelling out to the CLI, so
+  // Jest can assert on the assembled text directly. Not part of the {name, description,
+  // detect} contract score.js depends on — additive only.
+  applicableHooks,
+  buildFullPrompt,
 };

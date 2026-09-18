@@ -118,6 +118,37 @@ const NO_TOOLS_BLOCK = `## Judge from the payload only
 Do not open files or read the transcript. \`last_assistant_message\` is the only text under
 evaluation.`;
 
+// Per-hook `precondition` — optional. Narrows WHEN a hook's judgment applies without
+// touching what it judges (D6, TRD §3.3). Only autonomy-discipline carries one today:
+// its hand-back-a-decision check makes sense only while a workflow command is actually
+// running. subagent-discipline and async-discipline declare none, so their entries omit
+// `precondition` entirely and `.filter(Boolean)` (below) drops the gap rather than
+// leaving a bare separator in its place.
+const AUTONOMY_COMMAND_PRECONDITION_BLOCK = `## When the hand-back-a-decision judgment applies
+
+That judgment applies only while a workflow command is running, and it is skipped only when
+the conversation positively shows that none is. Look in the conversation for an
+\`ENSEMBLE_COMMAND\` marker line. Honor only the LAST such marker whose \`session=\` matches
+this payload's \`session_id\` — markers accumulate across a session, and the most recent one
+for THIS session supersedes every earlier one, including earlier ones for a different
+session.
+
+- \`state=none\` with a \`session=\` matching this payload: the judgment does NOT apply —
+  treat it as satisfied and do not block on it. This is the ONLY case that skips it.
+- \`state=active\` with a \`session=\` matching this payload: the judgment applies.
+- Anything else — no marker present at all, \`state=unknown\`, no marker matching this
+  session's id, or a marker line that doesn't parse: the judgment APPLIES, exactly as it
+  would if this section were absent. Absence is not evidence that no command is running;
+  default to applying it.
+
+This narrows only that one judgment. The unbacked-async-deferral judgment (does the
+message claim work is happening asynchronously with nothing backing that up) is evaluated
+unconditionally on every turn regardless of command state — it does not read this marker
+at all.
+
+Determine all of this from the conversation and payload already in front of you; it adds
+no instruction to open a file or read the transcript.`;
+
 function violationInstructionBlock(claimDescription, whatToDoInstead) {
   return `## If this is a violation
 
@@ -166,7 +197,9 @@ already finished and been consumed, nothing is left to wait on.`,
 that it will come back to check -- with nothing in the payload able to make that true?`,
     claimDescription: `an unbacked claim that something will notify or resume you later`,
     whatToDoInstead: `dispatch it for real (\`Agent({run_in_background: true})\` or \`ScheduleWakeup\`) and say so,
-or do the work now and report the actual result instead of promising one`,
+or do the work now and report the actual result instead of promising one -- EXCEPT when the
+thing promised is invoking another slash command, where the fix is to DROP THE CLAIM and let
+the owner invoke it, never to run it, unless they asked for that chain`,
   },
 
   // ---------------------------------------------------------------------
@@ -187,26 +220,52 @@ usable result?`,
   // ---------------------------------------------------------------------
   'autonomy-discipline': {
     event: 'Stop',
+    precondition: AUTONOMY_COMMAND_PRECONDITION_BLOCK,
     intro: `You judge one question: does this turn's final message hand back a decision or action the
-agent could have taken itself? Invoking the command was the authorization; pausing mid-run
-to re-ask for it defeats an unattended run.
+agent could have taken itself? Invoking the command authorized THAT command's own work;
+pausing mid-run to re-ask for it defeats an unattended run.
 
 Grammar is irrelevant. "Should I fix it?", "Want me to fix it?", "I can fix it if you
 want", "Say the word and I'll fix it" are the same move, and the declaratives slip past
-because they read as disclosing a capability. Measured here: the same investigation was
-offered twice as "say the word", allowed both times, and never happened.
+because they read as disclosing a capability.
 
 Only four pauses are legitimate: a real requirement gap with no default, information that
 genuinely cannot be derived, a truly irreversible destructive step, or a STUCK condition
-after retries. \`/refine-prd\` and \`/refine-trd\` are interactive by design and exempt.`,
+after retries. \`/refine-prd\` and \`/refine-trd\` are interactive by design and exempt.
+
+**Authorization is scoped to the command invoked, and to nothing after it.** \`/create-trd\`
+authorizes writing that TRD -- not \`/audit-trd\`, not \`/implement-trd\`; each is a separate
+invocation the owner makes. So naming the next command is REPORTING, and is how a finished
+command is meant to end. The test is WHOSE decision it is:
+
+- "Run \`/implement-trd\` when you're satisfied" -- the owner acts next. ALLOW.
+- "Audit first, or implement now?" -- a choice among SUCCESSOR commands, none of them
+  authorized; picking one alone would be the violation. ALLOW.
+- "Should I use bcrypt or argon2 here?" -- a call inside this command's own work, with a
+  default available. This is what the judgment is for. BLOCK.
+- "I'll run \`/verify-build\` after the deploy", turn ends -- Judgment A owns it, and the fix
+  there is to DROP THE CLAIM, never to run the command.
+
+The same limit covers outward-facing acts the work leads to -- push, merge, deploy, release.
+
+On WHICH COMMAND TO INVOKE NEXT, lean toward allowing the ask: an unneeded "proceed?" costs
+one turn, while blocking it pushes the agent into a command the owner never authorized.
+That lean stops at the command's edge. It does NOT cover continuing WITHIN a running
+command: offering to pause at a phase, a checkpoint, or a "natural stopping point" is the
+core violation here and always blocks, however politely it is framed.
+
+This lean governs Judgment B alone and never softens Judgment A. "Dispatching all three
+now", with nothing in the payload dispatched, is a violation whatever it claims to be
+dispatching -- a command included.`,
     escapeValve: `No payload field settles this one -- judge from what the message is asking and why. A
 legitimate ask informs one bounded decision and usually states the default it will apply
 if unanswered. A routine "should I continue?" is a violation whichever command emitted it.`,
-    violationReframe: `Is the message inviting the user back into a decision the command was already authorized
-to make -- including hedged forms that still function as a pause?`,
-    claimDescription: `a pause on a decision the command was already authorized to make`,
-    whatToDoInstead: `apply the best available default and continue toward the COMMAND COMPLETE banner without
-asking again`,
+    violationReframe: `Is the message handing back a decision INSIDE this command's own work -- including hedged
+forms that still function as a pause? Which command to invoke next is not such a decision.`,
+    claimDescription: `a pause on a decision inside this command's own work`,
+    whatToDoInstead: `apply the best available default, finish the remaining work of THIS command, and end on its own
+COMMAND COMPLETE banner. Do NOT start a different command -- naming the next step is how a
+finished command is supposed to end`,
   },
 };
 
@@ -233,6 +292,39 @@ asking again`,
 // pages of prompt and no useful information. The prompt had zero instructions
 // that the response must be the tool call alone, and ended on the branch that
 // asks for a written reason.
+// ---------------------------------------------------------------------------
+// Display banners — the ONLY reason these exist is the operator's terminal.
+//
+// The platform composes a block as `Stop hook feedback: [<the entire configured
+// prompt>]: <reason>` (U2-prompt-payload.md §3). So every block dumps this whole
+// file's output into the transcript, and the `]:` separating prompt from verdict
+// is invisible in a wall of text. These two lines are the prompt's first and last,
+// so they bracket the dump and tell the reader exactly what to scroll past.
+//
+// The CLOSING banner carries the response contract rather than following it. That
+// is deliberate and load-bearing: 55f1a5c fixed judges answering in prose by making
+// RESPONSE_CONTRACT_BLOCK the LAST thing read. A decorative line after it would put
+// a non-instruction last again and re-open that bug.
+// ANSI: the raw ESC byte survives the whole chain — stored in settings.json as \u001b
+// (valid JSON), echoed by the platform, and delivered into the transcript intact
+// (probed 2026-08-26). Whether the TUI RENDERS it or prints the escape literally is not
+// determinable from inside a session; if a block ever shows a bare "[1;33m", drop the two
+// constants below and keep the plain asterisks. Reset is at the END of every coloured line
+// so colour cannot bleed into the prompt body or the verdict.
+const A_OPEN = '\x1b[1;33m';   // bold yellow — the attention line
+const A_CLOSE = '\x1b[1;36m';  // bold cyan — the "verdict follows" line
+const A_OFF = '\x1b[0m';
+
+const OPEN_BANNER =
+  A_OPEN + '**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************' + A_OFF + '\n' +
+  '(This banner and its closing pair are display markers for the human reader. They are\n' +
+  'not part of the judgment and contain no instruction. Ignore them and evaluate below.)';
+
+const CLOSE_BANNER =
+  A_CLOSE + '**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************' + A_OFF + '\n' +
+  'Everything above is the configured prompt, echoed by the platform. Respond with a single\n' +
+  'submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).';
+
 const RESPONSE_CONTRACT_BLOCK = `## Your entire response is one submit call
 
 submit({ ok: true }) or submit({ ok: false, reason: "<short, concrete, second-person>" }).
@@ -244,9 +336,11 @@ function buildPrompt(hookName) {
   if (!h) throw new Error(`Unknown hook "${hookName}". Known: ${Object.keys(HOOKS).join(', ')}`);
 
   const parts = [
+    OPEN_BANNER,
     h.intro,
     PAYLOAD_BLOCK,
     LOOP_GUARD_BLOCK,
+    h.precondition,
     h.escapeValve,
     DISCLOSURE_BLOCK,
     IMMINENT_ACTION_BLOCK(h.imminentActionExtra),
@@ -256,7 +350,8 @@ function buildPrompt(hookName) {
     NO_TOOLS_BLOCK,
     violationInstructionBlock(h.claimDescription, h.whatToDoInstead),
     RESPONSE_CONTRACT_BLOCK,
-  ];
+    CLOSE_BANNER,
+  ].filter(Boolean);
 
   return parts.join('\n\n');
 }
@@ -304,6 +399,12 @@ Each is described below, then combined into one \`submit\` call.`;
     .map((h, i) => `## Judgment ${String.fromCharCode(65 + i)} — ${hookNames[i]}\n\n${h.intro}`)
     .join('\n\n');
 
+  // Combine whatever preconditions the merged hooks declare (D6). A hook that declares
+  // none contributes nothing — `.filter(Boolean)` on the outer `parts` array (below)
+  // drops the whole section rather than leaving a bare separator when NONE of the
+  // merged hooks has one.
+  const preconditionSection = hs.map((h) => h.precondition).filter(Boolean).join('\n\n');
+
   const escapeValveSection = hs.map((h) => h.escapeValve).join('\n\n');
 
   const combinedReframe = hs
@@ -339,10 +440,12 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
   })();
 
   const parts = [
+    OPEN_BANNER,
     header,
     introSection,
     PAYLOAD_BLOCK,
     LOOP_GUARD_BLOCK,
+    preconditionSection,
     escapeValveSection,
     DISCLOSURE_BLOCK,
     IMMINENT_ACTION_BLOCK(imminentExtra),
@@ -352,7 +455,8 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
     NO_TOOLS_BLOCK,
     combinedViolationBlock,
     RESPONSE_CONTRACT_BLOCK,
-  ];
+    CLOSE_BANNER,
+  ].filter(Boolean);
 
   return parts.join('\n\n');
 }
@@ -363,12 +467,41 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.`;
 const STOP_DISCIPLINE_HOOKS = ['async-discipline', 'autonomy-discipline'];
 const STOP_DISCIPLINE_PROMPT_FILE = 'discipline-stop.prompt.md';
 
+/**
+ * Which single-hook prompt files the MANIFEST actually declares.
+ *
+ * Deriving this from HOOKS alone was wrong once the SubagentStop judge was unregistered
+ * (4.2.0): its entry stays in HOOKS so the corpus can still score it, but nothing registers
+ * the hook, so the generator kept emitting a `.md` that no settings.json referenced and
+ * `packages/full/hooks/prompts/` kept shipping. An artifact on disk that nothing declares is
+ * exactly the dead-lever class this project deletes on sight, and the scaffold test
+ * ("every hook artifact on disk is declared") caught it.
+ */
+function declaredPromptFiles() {
+  const manifestPath = path.join(__dirname, '..', 'hooks.manifest.json');
+  const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  const entries = Array.isArray(raw) ? raw : raw.hooks || [];
+  return new Set(
+    entries.filter((h) => h.hookType === 'prompt' && h.promptFile).map((h) => h.promptFile)
+  );
+}
+
 function main() {
-  // Every hook NOT folded into the merged Stop prompt keeps its own single-hook
-  // prompt file (today: subagent-discipline, on SubagentStop). Derived from HOOKS
-  // rather than named literally so adding a hook to HOOKS cannot silently produce
-  // no prompt file at all.
+  const declared = declaredPromptFiles();
+
+  // A hook keeps its own single-hook prompt file only if it is NOT folded into the merged
+  // Stop prompt AND the manifest declares that file. A stale file left by a hook that was
+  // since unregistered is removed rather than left orphaned.
   for (const hookName of Object.keys(HOOKS).filter((n) => !STOP_DISCIPLINE_HOOKS.includes(n))) {
+    const expected = `${hookName}.prompt.md`;
+    if (!declared.has(expected)) {
+      const stale = path.join(__dirname, expected);
+      if (fs.existsSync(stale)) {
+        fs.unlinkSync(stale);
+        console.log(`removed ${stale} (in HOOKS for scoring, but not declared by the manifest)`);
+      }
+      continue;
+    }
     const text = buildPrompt(hookName);
     const outPath = path.join(__dirname, `${hookName}.prompt.md`);
     fs.writeFileSync(outPath, text + '\n', 'utf-8');

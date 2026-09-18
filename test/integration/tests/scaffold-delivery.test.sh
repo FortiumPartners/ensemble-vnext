@@ -26,6 +26,10 @@ setup_file() {
     TREE="$(mktemp -d)"
     export TREE
     git -C "$TREE" init -q .
+    # A CI runner has no global git identity, so an unconfigured commit fails
+    # and set -e aborts setup_file — taking 10 of this file's 11 tests with it.
+    git -C "$TREE" config user.email "test@example.com"
+    git -C "$TREE" config user.name "Test"
     git -C "$TREE" commit -q --allow-empty -m init
 
     # --plugin-dir is what carries the payload. Without it the script creates
@@ -135,6 +139,8 @@ teardown_file() {
     local off
     off="$(mktemp -d)"
     git -C "$off" init -q .
+    git -C "$off" config user.email "test@example.com"
+    git -C "$off" config user.name "Test"
     git -C "$off" commit -q --allow-empty -m init
     bash "$SCAFFOLD" "$off" --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
 

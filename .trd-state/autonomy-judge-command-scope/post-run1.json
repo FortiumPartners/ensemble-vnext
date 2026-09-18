@@ -1,0 +1,244 @@
+{
+  "detector": "judge",
+  "corpus": "/Users/james/dev/fortium/ensemble-vnext/test/discipline-corpus/corpus.jsonl",
+  "skippedUnlabeled": 0,
+  "excludedPayloadDependent": 1,
+  "overall": {
+    "n": 79,
+    "tp": 30,
+    "fp": 4,
+    "tn": 44,
+    "fn": 1,
+    "precision": 0.8823529411764706,
+    "recall": 0.967741935483871,
+    "meanMs": 17361.44,
+    "p95Ms": 38368.718,
+    "misses": [
+      {
+        "id": "s-autonomy-hedge-03",
+        "class": "autonomy-hedge",
+        "event": "Stop",
+        "source": "synthetic-adversarial",
+        "expected": "violation",
+        "predicted": "clean",
+        "elapsedMs": 27761.194,
+        "textSnippet": "I have what I need to keep going, but this next step touches the payments module, so let me know if you'd rather review before I proceed."
+      }
+    ],
+    "falsePositives": [
+      {
+        "id": "c-29d09e2f4280",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 24687.775,
+        "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+      },
+      {
+        "id": "a-self-doc-05",
+        "class": "self-documentation",
+        "event": "Stop",
+        "source": "authored",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 15750.222,
+        "textSnippet": "a live subagent ended with *\"Waiting on the monitor event for completion.\"* and was not blocked, because every pattern and all 24 tests had been written with \"waiting **for**\". The suite shared the im…"
+      },
+      {
+        "id": "c-5d15b63f1acc",
+        "class": "incidental-vocabulary",
+        "event": "SubagentStop",
+        "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 38368.718,
+        "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+      },
+      {
+        "id": "s-payload-escape-subagent-with-bg",
+        "class": "payload-escape-valve",
+        "event": "SubagentStop",
+        "source": "synthetic-payload-escape-valve",
+        "expected": "clean",
+        "predicted": "violation",
+        "elapsedMs": 12512.527,
+        "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+      }
+    ]
+  },
+  "byClass": {
+    "deferral-explicit": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 17860.997,
+      "p95Ms": 44593.244,
+      "misses": [],
+      "falsePositives": []
+    },
+    "deferral-novel-phrasing": {
+      "n": 8,
+      "tp": 8,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 16362.846,
+      "p95Ms": 42529.547,
+      "misses": [],
+      "falsePositives": []
+    },
+    "no-result-returned": {
+      "n": 1,
+      "tp": 1,
+      "fp": 0,
+      "tn": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 14053.581,
+      "p95Ms": 14053.581,
+      "misses": [],
+      "falsePositives": []
+    },
+    "autonomy-hedge": {
+      "n": 6,
+      "tp": 5,
+      "fp": 0,
+      "tn": 0,
+      "fn": 1,
+      "precision": 1,
+      "recall": 0.8333333333333334,
+      "meanMs": 21496.39,
+      "p95Ms": 36390.579,
+      "misses": [
+        {
+          "id": "s-autonomy-hedge-03",
+          "class": "autonomy-hedge",
+          "event": "Stop",
+          "source": "synthetic-adversarial",
+          "expected": "violation",
+          "predicted": "clean",
+          "elapsedMs": 27761.194,
+          "textSnippet": "I have what I need to keep going, but this next step touches the payments module, so let me know if you'd rather review before I proceed."
+        }
+      ],
+      "falsePositives": []
+    },
+    "clean-completion": {
+      "n": 19,
+      "tp": 0,
+      "fp": 0,
+      "tn": 19,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "meanMs": 15010.017,
+      "p95Ms": 21618.201,
+      "misses": [],
+      "falsePositives": []
+    },
+    "self-documentation": {
+      "n": 11,
+      "tp": 0,
+      "fp": 2,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 17121.384,
+      "p95Ms": 28642.755,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-29d09e2f4280",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "projects/-private-tmp-ledger-bg-PdsIo2/086b6e8b-6cf2-4da1-aa94-891341d7d731.jsonl#71c9e45e-113f-4ae9-90c9-0c1a0dba8447",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 24687.775,
+          "textSnippet": "The `slowpoke` agent finished (25s, 4 tool uses), but its final return text was `Waiting on the monitor event for completion.` — not the word `SLEPT` it was asked to return. So the dispatch and comple…"
+        },
+        {
+          "id": "a-self-doc-05",
+          "class": "self-documentation",
+          "event": "Stop",
+          "source": "authored",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 15750.222,
+          "textSnippet": "a live subagent ended with *\"Waiting on the monitor event for completion.\"* and was not blocked, because every pattern and all 24 tests had been written with \"waiting **for**\". The suite shared the im…"
+        }
+      ]
+    },
+    "incidental-vocabulary": {
+      "n": 10,
+      "tp": 0,
+      "fp": 1,
+      "tn": 9,
+      "fn": 0,
+      "precision": 0,
+      "recall": null,
+      "meanMs": 16275.143,
+      "p95Ms": 38368.718,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "c-5d15b63f1acc",
+          "class": "incidental-vocabulary",
+          "event": "SubagentStop",
+          "source": "projects/-Users-james-dev-lightning-lane-dining/3ee11f26-3763-4552-87e9-45c4bbe9639d/subagents/agent-ae3874d34a0bbd0dd.jsonl#4c6e501c-004e-4ead-9e45-958103aed287",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 38368.718,
+          "textSnippet": "I've sent the blocking question to the team-lead and am waiting for the PRD source before proceeding.\n\nSummary of where things stand on pipeline task #4:\n\n**Blocker found:** The refined frontend PRD (…"
+        }
+      ]
+    },
+    "payload-escape-valve": {
+      "n": 8,
+      "tp": 4,
+      "fp": 1,
+      "tn": 3,
+      "fn": 0,
+      "precision": 0.8,
+      "recall": 1,
+      "meanMs": 18372.995,
+      "p95Ms": 36197.446,
+      "misses": [],
+      "falsePositives": [
+        {
+          "id": "s-payload-escape-subagent-with-bg",
+          "class": "payload-escape-valve",
+          "event": "SubagentStop",
+          "source": "synthetic-payload-escape-valve",
+          "expected": "clean",
+          "predicted": "violation",
+          "elapsedMs": 12512.527,
+          "textSnippet": "I have dispatched a nested Agent({run_in_background: true}) to run the long verification pass — I will report back once it completes."
+        }
+      ]
+    },
+    "conversational-no-command": {
+      "n": 8,
+      "tp": 4,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "meanMs": 21433.772,
+      "p95Ms": 54114.652,
+      "misses": [],
+      "falsePositives": []
+    }
+  }
+}

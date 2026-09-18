@@ -121,7 +121,15 @@ describe('implement-phase: agentType passthrough', () => {
     expect(call.opts.agentType).toBe('backend-implementer');
   });
 
-  it('does not set opts.agentType when the record has none', async () => {
+  // Behaviour CHANGED 2026-08-28. This previously asserted that an absent agentType was
+  // passed through as absent, letting the platform pick. That is not a neutral default: the
+  // generic workflow subagent inherits the SESSION model, so an unrouted task in an Opus-led
+  // session runs implementation on Opus -- slower, and ~5x the price of the Sonnet
+  // implementer that should have taken it. implement-trd.md's routing rule already forbade
+  // leaving it unset, but only in prose; the smoke harness caught the prose being ignored
+  // (implement-one-task's "an implementer agent invoked" assertion went red, with the task
+  // dispatched to the generic subagent). The fallback is now enforced in code.
+  it('defaults opts.agentType to backend-implementer when the record has none', async () => {
     const agent = makeAgentStub(happyPlan());
     await runWorkflow(SOURCE, {
       agent,
@@ -130,7 +138,7 @@ describe('implement-phase: agentType passthrough', () => {
     });
 
     const call = agent.calls.find((c) => c.opts.label === 'task:A');
-    expect(call.opts).not.toHaveProperty('agentType');
+    expect(call.opts.agentType).toBe('backend-implementer');
   });
 });
 
@@ -201,25 +209,26 @@ describe('implement-phase: gate fallbacks (dead gate agents)', () => {
   // but `reviewReported: false` now says the reviewer never answered. Without that flag a
   // dead reviewer's 0 was byte-identical to a clean review and propagated into the
   // checkpoint commit message and PHASE banner as though a review had passed.
-  it('distinguishes a dead review from a clean one via reviewReported', async () => {
+  // REPLACED 2026-08-28 (plan item 14): there is no gate:review stage to die. The
+  // reviewReported flag stays in the return shape and is now permanently false, so a consumer
+  // reading it can still tell "no review happened here" -- which is now always true, by design,
+  // because review moved to the end-of-run pass.
+  it('reports review as not-reported now that the stage is removed', async () => {
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:code-simplifier') return { changed: false };
-      if (opts.label === 'gate:review') return undefined; // dead
       return null;
     });
 
-    const { result, logs } = await runWorkflow(SOURCE, {
+    const { result } = await runWorkflow(SOURCE, {
       agent,
       parallel: makeParallelStub(),
       args: baseArgs(),
     });
 
-    expect(result.gate.review.findings).toBe(0);
     expect(result.gate.reviewReported).toBe(false);
+    expect(result.gate.review.findings).toBe(0);
     expect(result.status).toBe('complete');
-    expect(logs.some((l) => /review returned nothing/i.test(l))).toBe(true);
   });
 });
 
@@ -231,11 +240,14 @@ describe('implement-phase: the simplifier stages are GONE', () => {
   //
   // These tests replace the ones that pinned those stages. They assert ABSENCE, which is the
   // only thing that catches a silent reintroduction.
-  it('dispatches exactly two gate agents: verify-app then review', async () => {
+  it('dispatches exactly ONE gate agent: verify-app', async () => {
+    // Was two (verify-app then review) until 2026-08-28. Per-phase review is gone -- review
+    // happens once, at the end of the run, over the whole branch diff. Evidence: 279 tasks
+    // across 11 features with zero gate failures and zero retries, so the per-phase gate was
+    // paying for a failure path that never fired.
     const agent = makeAgentStub((prompt, opts) => {
       if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
       if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:review') return { findings: 0 };
       return null;
     });
 
@@ -244,7 +256,8 @@ describe('implement-phase: the simplifier stages are GONE', () => {
     });
 
     const gateLabels = agent.calls.map((c) => c.opts.label).filter((l) => l.startsWith('gate:'));
-    expect(gateLabels).toEqual(['gate:verify-app', 'gate:review']);
+    expect(gateLabels).toEqual(['gate:verify-app']);
+    expect(gateLabels).not.toContain('gate:review');
     expect(result.status).toBe('complete');
   });
 
@@ -283,50 +296,9 @@ describe('implement-phase: the simplifier stages are GONE', () => {
   });
 });
 
-describe('implement-phase: review findings are applied, not merely counted', () => {
-  // FIXED 2026-08-16. The gate schema carried only `findings`, and additionalProperties:false
-  // drops anything it does not name — so even a reviewer that fixed things could not say so.
-  // Every per-phase finding was reduced to an integer that nothing gates on and which ends up
-  // in a commit message reading like diligence.
-  it('carries applied / reported / summary through the gate result', async () => {
-    const agent = makeAgentStub((prompt, opts) => {
-      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
-      if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:code-simplifier') return { changed: false };
-      if (opts.label === 'gate:review') {
-        return { findings: 4, applied: 3, reported: 1, summary: ['unbounded loop in parser'] };
-      }
-      return null;
-    });
-
-    const { result } = await runWorkflow(SOURCE, {
-      agent, parallel: makeParallelStub(), args: baseArgs(),
-    });
-
-    expect(result.gate.review).toEqual({
-      findings: 4, applied: 3, reported: 1, summary: ['unbounded loop in parser'],
-    });
-  });
-
-  it('a reviewer that returns only a bare count still works (applied/reported default to 0)', async () => {
-    const agent = makeAgentStub((prompt, opts) => {
-      if (opts.label === 'task:A') return { status: 'success', filesChanged: [] };
-      if (opts.label === 'gate:verify-app') return { status: 'pass' };
-      if (opts.label === 'gate:code-simplifier') return { changed: false };
-      if (opts.label === 'gate:review') return { findings: 2 };
-      return null;
-    });
-
-    const { result } = await runWorkflow(SOURCE, {
-      agent, parallel: makeParallelStub(), args: baseArgs(),
-    });
-
-    expect(result.gate.review.findings).toBe(2);
-    expect(result.gate.review.applied).toBe(0);
-    expect(result.gate.review.reported).toBe(0);
-  });
-});
-
+// REMOVED 2026-08-28 (plan item 14): the "review findings are applied, not merely counted"
+// suite covered gate:review's applied/reported/summary plumbing. That stage no longer exists;
+// the end-of-run hardening pass owns review now, and its findings are reported there.
 describe('implement-phase: empty waves', () => {
   // FIXED 2026-08-16. An empty waves array is a legitimate state, not an error: every task in
   // the phase already succeeded, which is what --resume sees after a crash between this

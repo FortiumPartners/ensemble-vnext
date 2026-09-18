@@ -35,6 +35,7 @@ preface) — that's a judged, statistical concern, not a pass/fail smoke check.
 | `trd-run` | Yes | Opt-in (`--with-llm`) | `/create-trd` in a throwaway project: exit 0, banner, `docs/TRD/*.md` created and non-empty. |
 | `debug-path` | Yes | Opt-in (`--with-llm`) | Same shape as `implement-one-task`, but the task's test is pre-written to fail — exercises VERIFY → DEBUG. A `STUCK` banner is a **pass** here (the point is entering the debug path, not fixing an intentionally-unfixable bug). Asserts `app-debugger` appears in the log and `retry_count` incremented. |
 | `verify-functional` | Yes | Opt-in (`--with-llm`) | `/implement-trd` run TWICE against a one-task TRD + matching one-requirement PRD, in two separate throwaway projects: **without** `--verify` no `.trd-state/*/success-definition.md` may appear (AC-6); **with** it, `success-definition.md` exists and every data row carries a non-empty `Cites` value (`domain-derived` reasoning lives in that same column per the contract), `verification-state.json` carries a numeric `iteration` and a `criteria` array in which every entry has a `status`, and `verification-report.md` names every criterion. Both runs must end with a banner. The most expensive scenario in the set (two live runs, ~40 min cap). |
+| `judge-sees-marker` | Yes | Opt-in (`--with-llm`) | Tripwire for the undocumented `UserPromptSubmit` `additionalContext` channel the autonomy-discipline judgment depends on (`docs/modernization/probes/U7-injected-context-marker.md`). A throwaway fixture (not the ensemble scaffold) injects an `ENSEMBLE_COMMAND` marker on prompt submission and an always-blocking `Stop` prompt hook reports whether it saw that marker. One cheap `claude --print` turn, no subagents. PASS when the judge reports `SEES_MARKER`; FAIL (naming the mechanism and pointing at the probe doc) when it fired but reports `NO_MARKER`, and also when the turn itself did not complete; SKIP only when the turn completed cleanly and the `Stop` hook never fired at all. |
 
 `prd-run`, `trd-run`, `debug-path`, and `verify-functional` each cost roughly five to six
 minutes (`verify-functional` roughly double — it runs `/implement-trd` twice) to assert
@@ -101,6 +102,7 @@ test/smoke/
     trd-run.sh                 # LLM, opt-in (--with-llm)
     debug-path.sh               # LLM, opt-in (--with-llm)
     verify-functional.sh         # LLM, opt-in (--with-llm) — two live runs
+    judge-sees-marker.sh         # LLM, opt-in (--with-llm) — one cheap turn, no scaffold
   baseline.json        # captured pass/fail + elapsed + assertion counts (see below)
   README.md            # this file
 ```
@@ -252,3 +254,44 @@ is actionable.
 `baseline.json` is committed and should be updated **deliberately**, never silently on every run.
 Auto-overwriting is how a regression quietly becomes the new normal. Recapture when you have
 consciously changed what the harness covers, and say so in the commit message.
+
+## Why `implement-one-task` costs ~740s and the 4.1.3 baseline does not compare
+
+Investigated 2026-08-28 with `analyze-session.js` against a preserved session
+(`SMOKE_KEEP=1`). The run decomposes as:
+
+| phase | time | share |
+|---|---|---|
+| preflight — parse TRD, build graph, branch, state, pointer | 123s | 17% |
+| `Workflow(implement-phase)` — implementation + phase gate | 251s | 35% |
+| **§7.1 feature-scale hardening + applying findings** | **353s** | **48%** |
+
+**The 341s baseline was captured 2026-08-13 at 4.1.3. §7.1's hardening wave was added
+2026-08-16 in `5fe2109` (item 8's rework).** It did not exist when the baseline was measured,
+and it is nearly half the run. Comparing today against that baseline conflates "slower" with
+"does more".
+
+**The hardening wave is not waste.** On this trivial fixture — one task, one file — its three
+`code-reviewer` lenses returned **7 findings (4 applied, 3 open)**, one of them a genuine
+release blocker: `.claude/lib/agent-routing.js` missing from scaffolded projects, found
+independently the same day by `scaffold-project.test.sh`. It also is not mostly waiting: 128
+records and 42 Bash calls follow the dispatch, which is the lead investigating and applying
+what came back.
+
+**Two hypotheses were investigated and DISPROVED. Do not re-derive them:**
+
+- *Model routing* — "implementation ran on Opus, not Sonnet". The `an implementer agent
+  invoked` assertion could not pass since item 8 (it greps the lead session for `Agent`/`Task`
+  calls, but dispatch moved inside `Workflow`). The assertion was blind; routing was fine. Now
+  fixed, and it passes naming `backend-implementer`.
+- *Hook latency* — "~16.6s per Stop/SubagentStop". That is `score.js`'s `meanMs`, which pays
+  `claude -p` process startup per case; it measures the offline corpus harness, not the hook.
+  Real in-session cost is **~4.6s mean / 2.2s median**. Removing the `SubagentStop` judge saved
+  ~40s of 774s, not the 100–130s the inflated figure predicted.
+
+**The open proportionality question** (not a defect): §7.1 dispatches three Opus lenses
+unconditionally, and its own rationale is that "interaction risk between phases only exists
+once every phase is assembled". On a SINGLE-phase TRD the cross-phase lens has nothing to
+examine by construction. Scaling that wave to feature size is the one change here that costs
+no coverage — but the other two lenses demonstrably earn their place, so this is a sizing
+decision, not a removal.
