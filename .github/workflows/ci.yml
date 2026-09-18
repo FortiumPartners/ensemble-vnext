@@ -47,8 +47,13 @@ jobs:
       #   test/evals/framework/run-eval.test.js
       # Delete entries from this list as they are fixed.
       - name: Run Jest
+        # --runInBand: the parallel worker pool does not tear down on this
+        # suite, so `npx jest` passed in ~2s and then hung until the runner's
+        # 6-hour limit — the "Jest (hooks)" check sat in_progress forever and
+        # never reported. Serial execution exits cleanly and the whole suite
+        # takes 2s, so there is nothing to win from workers here.
         run: |
-          npx jest \
+          npx jest --runInBand \
             --testPathIgnorePatterns \
               '/node_modules/' \
               '<rootDir>/test/evals/analysis-archive/' \
