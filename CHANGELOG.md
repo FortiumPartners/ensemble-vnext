@@ -10,6 +10,50 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.2.2] - 2026-09-20
+
+### Fixed — a PRD could contradict a decision the owner had just made
+
+A PRD captured a design in direct opposition to one settled in session an hour earlier,
+citing a three-month-old TRD that had no implementation state on disk and whose own scope
+section limited it to a narrower class of object. The author cited a real decision correctly
+and was wrong anyway: nothing told it which input wins.
+
+- **Precedence, stated where the author reads it.** The corpus block said *"inherit
+  decisions… so you do not re-litigate settled ground"* — and "settled ground" silently meant
+  settled in a *document*. Now: the corpus states intent, the code states fact, **the owner in
+  this session states what is true now**. Scoped to the owner, not to any source: a ticket
+  from March does not outrank a TRD revised last week.
+- **A conflict scan before authoring.** A stage whose mandate is the inverse of the author's —
+  it looks for disagreement and nothing else, so noticing is the whole job rather than a
+  distraction from writing. It judges scope honestly (a narrower decision is a true statement
+  about a smaller question, not a contradiction) and checks whether the decision was ever
+  implemented.
+- **A `supersedes` field** that reaches the return, the readout and `/audit-prd` — and a
+  **warning when the scan found conflicts the PRD recorded none of.**
+- **A forked session-fidelity pass** as `/create-prd`'s final step. A fork holds the reasoning,
+  not a summary of it. It runs in `/create-prd`, *not* `/audit-prd`: audit routinely runs
+  months later in a fresh session, where a fork inherits a conversation that never saw the
+  design and would return clean — a fidelity pass that cannot fail is worse than none.
+
+### Changed — P6 overturned
+
+`item-10-prd-path.md` P6 ruled out forks on three premises, all since failed: compaction drops
+**oldest-first**, so in the canonical flow the design discussion is the *newest* thing and the
+last to be touched (measured: design 19:14–21:47, `/create-prd` before 23:21, compaction
+23:53); `CLAUDE_CODE_FORK_SUBAGENT` is no longer a flag; and §2.1 retracted "the transcript is
+the complete record" in August. Superseded in place with the evidence — it was being cited as
+settled architecture three months on, which is the same failure this release fixes.
+
+### Added — tests for `create-prd.js`
+
+The only workflow without any, and the gap had a cost: `supersedes` shipped wired to nothing.
+8 wiring tests, each **proven to fire** by single mutation with a git revert between trials —
+including the real bug (2 failed), the conflict block withheld (1), the gap warning silenced
+(1), the scan never dispatched (2).
+
+**Jest 992/992, BATS clean.**
+
 ## [4.2.1] - 2026-08-29
 
 ### Fixed — `/investigate` escalated work it should have implemented
