@@ -700,6 +700,34 @@ class TestInFlightCarveOut:
         assert "not a new /investigate" in text
         assert "--reconcile" in text
 
+    def test_the_carve_out_is_ACTUALLY_APPENDED_when_a_feature_is_in_flight(self, tmp_path):
+        # The tests above only read the constant's TEXT. An ablation proved they still pass
+        # with the conditional append disabled -- an assertion that cannot fail. This one
+        # runs the router end to end and reads what it emits.
+        state = tmp_path / ".trd-state"
+        state.mkdir()
+        (state / "current.json").write_text(
+            json.dumps({"trd": "docs/TRD/ll-state-authority.md"}), encoding="utf-8"
+        )
+        (tmp_path / ".claude").mkdir()  # make it look scaffolded
+        out = subprocess.run(
+            [sys.executable, ROUTER_PATH],
+            input=json.dumps({"prompt": "why is the total wrong?", "cwd": str(tmp_path)}),
+            capture_output=True, text=True,
+        )
+        assert "IN FLIGHT: ll-state-authority" in out.stdout
+        assert "AMENDMENT" in out.stdout
+
+    def test_the_carve_out_is_ABSENT_when_nothing_is_in_flight(self, tmp_path):
+        # With no feature there is no amendment to make and /investigate is correct.
+        (tmp_path / ".claude").mkdir()
+        out = subprocess.run(
+            [sys.executable, ROUTER_PATH],
+            input=json.dumps({"prompt": "why is the total wrong?", "cwd": str(tmp_path)}),
+            capture_output=True, text=True,
+        )
+        assert "IN FLIGHT" not in out.stdout
+
     def test_carve_out_carries_the_relevance_test(self):
         # Same counterfactual as discovered.blocksFeature and /investigate 2f. Without it
         # the carve-out would absorb every unrelated bug into the running feature.

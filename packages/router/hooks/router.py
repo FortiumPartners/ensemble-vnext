@@ -473,9 +473,14 @@ def main() -> None:
         # The owner: "by the time we've finished it we've lost track of what we were
         # actually working on."
         #
-        # `feature` is already derived above for the marker. Empty means nothing is in
-        # flight, and /investigate is then the correct answer.
-        hint = FRAMEWORK_HINT + (IN_FLIGHT_HINT.format(feature=feature) if feature else "")
+        # Derived from current.json, NOT from the `feature` above. They answer different
+        # questions: the marker's `feature` comes from the command-run state and means "a
+        # command is running on this feature right now", which is empty on an ordinary
+        # conversational turn. This carve-out has to fire on exactly those turns -- the
+        # owner finds the issue while REVIEWING or TESTING, not while a command runs.
+        # Empty means nothing is in flight, and /investigate is then the correct answer.
+        in_flight = derive_feature(cwd)
+        hint = FRAMEWORK_HINT + (IN_FLIGHT_HINT.format(feature=in_flight) if in_flight else "")
         context = marker if skip_reason else f"{marker}\n\n{hint}"
         log_debug(
             config,
