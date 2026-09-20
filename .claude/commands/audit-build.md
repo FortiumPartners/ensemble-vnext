@@ -87,10 +87,45 @@ ID, a file, and either what is missing or what contradicts it — checkable in s
 verifier may invent a requirement or strike one on judgment. Zero findings is a legitimate
 result — do not manufacture findings to look thorough.
 
-**This command reports gaps; it does not close them.** The reconcile stage may correct the
-TRD's `## Could Not Verify` section, but it does not write application code or tests. A
-TRACEABILITY GAP is a finding for the next `/implement-trd` pass, not something this command
-fixes in place.
+**This command does not write application code or tests.** The reconcile stage may correct
+the TRD's `## Could Not Verify` section; it never implements. Writing the code is
+implementation work and belongs to `/implement-trd`, with its gates and its review.
+
+### But it DOES close the loop — chaining is the default (2026-09-20, owner)
+
+Reporting a gap and leaving the owner to carry it into the TRD by hand was measured costing
+several turns of confusion, with "completion" and "most of the work wasn't done" both true and
+neither reconcilable without a human in the middle. Turning a gap into a task is a mechanical
+transform and nothing performed it.
+
+**Split the gaps by whether they need a DECISION:**
+
+| gap | meaning | action |
+|---|---|---|
+| **A task exists in the TRD and was not built** | nothing to decide — the plan already says what to do | write it back to `pending` and chain |
+| **A requirement has no task covering it** | someone must decide HOW — that is design | record it, STOP, report it |
+
+Only the first chains. The second is a TRD change, and a command that invents tasks to close
+its own findings is manufacturing requirements — the failure `/create-prd` and `/create-trd`
+spend most of their length preventing.
+
+For chainable gaps:
+
+```
+Skill({ skill: "implement-trd", args: "<trd-path> --reconcile" })
+```
+
+`--reconcile` is the right flag, not `--resume`: resume SKIPS anything already marked
+success, which is exactly the state a phantom task is in.
+
+**`--report-only` suppresses the chain** when you want the findings without the work.
+
+**Why this does not violate the command-scope rule.** `.claude/rules/autonomy.md` says a
+command's authorization does not reach a successor command. It survives because this is
+`/audit-build`'s **documented contract**, not a decision the command makes at runtime:
+invoking it authorizes the audit and the mechanical repair, the same way invoking
+`/implement-trd` authorizes its gates. What the rule forbids is a command *deciding on its
+own* to continue — which is precisely why design-level gaps stop rather than chain.
 
 ## Rejecting a bad finding is part of the job
 

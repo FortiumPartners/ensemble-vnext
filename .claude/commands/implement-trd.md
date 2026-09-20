@@ -13,10 +13,14 @@ category: implementation
 > - `--phase N` - Execute only phase N
 > - `--session <name>` - Execute only named work session
 > - `--resume` or `--continue` - Resume from last checkpoint (attempts session resume first)
+> - `--reconcile` - **Make the delivered state match the TRD.** Re-attests every task claiming
+>   success against disk, reopens the ones disk contradicts, then runs everything outstanding
+>   — including tasks added to the TRD since the last run. Use after `/audit-build` finds a
+>   gap. NOT a synonym for `--resume`: see below.
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
 > - `--verify` - Opt in to the functional-verification pass (default off, D11): dispatches a background success-definition derive early (Step 3.6) and, at the tail of the run, an outcome-bearing verification loop. Composes with `--resume` (D13): with both set and a non-terminal `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and the whole phase loop and re-enters the verification loop directly; `--resume` alone keeps its existing meaning (resume the implementation checkpoint) and is unaffected when `--verify` is absent.
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --verify`, `/implement-trd --verify --resume`
+> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --verify`
 
 ---
 
@@ -199,6 +203,41 @@ If provided:
 1. Display current progress summary
 2. Require "confirm" to proceed
 3. Delete state file and start fresh
+
+### 2.1a Handle --reconcile
+
+**`--reconcile` is a different verb from `--resume`, and the difference is the whole point.**
+
+`--resume` re-dispatches anything not `status: "success"`. A task *falsely* marked success is
+therefore **skipped**, and the run reports a clean pass over a hole. Measured in
+`lightning-lane-dining` on 2026-09-09: four tasks sat as success with no code behind them —
+`engine/transports.ts` and `engine/acquire.ts` never written — and re-running could not repair
+them. They had to be re-entered as new tasks by hand after `/audit-build` found them.
+
+`--reconcile` disbelieves the claim:
+
+```bash
+node -e '
+  const { load, reconcile, save } = require("./.claude/lib/implement-state");
+  const p = ".trd-state/<feature>/implement.json";
+  const state = load(p);
+  const { reopened, checked } = reconcile(state);
+  save(p, state);
+  console.log(JSON.stringify({ reopened, checked }));
+'
+```
+
+Then proceed as a normal run: Step 3 rebuilds the graph from the TRD — so tasks **added since
+the last run** (an `/audit-build` gap written in, a promoted discovery) enter through the
+normal parse→graph→dispatch path with no special handling — and the phase loop dispatches
+everything outstanding, including whatever `reconcile` just reopened.
+
+**Report what it reopened, in the DISPATCHED banner and the completion report.** A task moving
+from success back to pending is the command admitting it was wrong, and hiding that is how the
+original failure stayed invisible.
+
+`reconcile` is narrow by design: a task is only reopened when **none** of its claimed files
+exists. One missing file among several is a rename or a typo in the report, not a phantom.
 
 ### 2.2 Handle --resume/--continue
 

@@ -92,7 +92,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 | 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
-| 15 | `/implement-trd` can report success for work it never did | 2–3 days | Four tasks sat as `status: "success"` with no code behind them; `--resume` SKIPS them, so the command could not repair its own damage | **Attestation check shipped 2026-09-20 (`4121371`). Three sub-items open** — see §15 |
+| 15 | `/implement-trd` can report success for work it never did | 2–3 days | Four tasks sat as `status: "success"` with no code behind them; `--resume` SKIPS them, so the command could not repair its own damage | **15.1–15.3 shipped 2026-09-20. 15.4 (ran-vs-passed) open** — see §15 |
 | 14 | Take code review out of `/implement-trd`; one good review at the end, PR is the gate | 1–2 days | **279 tasks / 11 features: 0 failures, 0 retries** — per-phase gating protects a failure mode with no observed instances, at ~48% of a one-task run | **Phase-gate review REMOVED 2026-08-28 (`c7c841e`). §7.1-vs-§7.2 duplication still open** — see §14 |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
@@ -2081,7 +2081,7 @@ A task agent self-reports `status` and `filesChanged`, and nothing checked the f
 design, since one missing file among several is ordinary and only zero-of-N is the phantom
 signature.
 
-**15.2 — `--resume` cannot repair this class. OPEN.**
+**15.2 — `--resume` cannot repair this class. CLOSED 2026-09-20.** `--reconcile` re-attests every success claim against disk and reopens what disk contradicts (`reconcile()` in implement-state.js, wired at implement-trd.md §2.1a). A different verb from resume by design.
 This is the second-order damage and it is worse than the first. `--resume` re-dispatches any
 task not `status: "success"` — so a task falsely marked success is **skipped**, and re-running
 the command reports a clean run over a hole. The four tasks were only rebuilt because the
@@ -2091,7 +2091,7 @@ audit turned them into NEW tasks by hand.
 success, and there is no way to tell the command "re-verify what you think you finished".
 A `--reverify` that re-attests completed tasks against disk would close it.
 
-**15.3 — The audit→TRD→implement round trip is manual. OPEN.**
+**15.3 — The audit→TRD→implement round trip is manual. CLOSED 2026-09-20.** `/audit-build` now chains by default, splitting gaps by whether they need a DECISION: a task that exists and was not built is mechanical and chains via `--reconcile`; a requirement with no task covering it is design, and stops. `--report-only` opts out.
 `/audit-build` reports gaps and deliberately does not close them (`audit-build.md:90`: *"a
 TRACEABILITY GAP is a finding for the next `/implement-trd` pass, not something this command
 fixes in place"*). That separation is right — writing the code is implementation work with
