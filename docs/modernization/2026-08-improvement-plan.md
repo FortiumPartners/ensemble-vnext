@@ -92,6 +92,7 @@ context and into a script**. That is item **8**, and it is the only genuinely ne
 | 10 | Audit `/create-prd` + `/create-trd` for manufactured requirements | 2–4 days | Fabricated criteria burn whole tasks; 8 instances in one TRD | **Shipped** — generators, agents, refine modes, grounding |
 | 11 | Learning loop — retain verified findings across sessions | 2–3 days | 7 probe docs from one session, referenced by nothing | |
 | 12 | Rework `/investigate-issue` + `/fix-issue` onto the current model | 2–4 days | The last commands on the pre-item-8 architecture; the bug path cannot reach the verification loop built for exactly this question | **Done (4.1.21)** — `c83c76d` replaced both with `/fix`; `3175098` renamed it `/investigate` and made stopping the default (4.1.24). Neither original command exists in the tree. |
+| 15 | `/implement-trd` can report success for work it never did | 2–3 days | Four tasks sat as `status: "success"` with no code behind them; `--resume` SKIPS them, so the command could not repair its own damage | **Attestation check shipped 2026-09-20 (`4121371`). Three sub-items open** — see §15 |
 | 14 | Take code review out of `/implement-trd`; one good review at the end, PR is the gate | 1–2 days | **279 tasks / 11 features: 0 failures, 0 retries** — per-phase gating protects a failure mode with no observed instances, at ~48% of a one-task run | **Phase-gate review REMOVED 2026-08-28 (`c7c841e`). §7.1-vs-§7.2 duplication still open** — see §14 |
 | 13 | Rebase delivery — get a framework fix out to already-scaffolded projects | 2–3 days | Every bug found in a shipped command is fixed in `packages/core` and reaches nobody until a rebase that was itself broken | **Partly done — 4.1.18/4.1.19/4.1.20** fixed seven delivery bugs of this class; four structural sub-items in §13 remain |
 
@@ -2061,6 +2062,55 @@ both directions — a deleted command still advertised, and a command advertised
 built — so the ordering above is now mechanical rather than a matter of remembering. Verified
 by injecting both failures.
 
+
+
+### 15. `/implement-trd` can report success for work it never did
+
+**Observed in `lightning-lane-dining/2c1e4134`, 2026-09-09.** Four tasks across phases 1–3
+were recorded `status: "success"` in the state file with no code behind them —
+`engine/transports.ts` and `engine/acquire.ts` never written, the applied-mode Redis key
+never added, neither chat client given its INFORM branch. They merged to `main` in PR #1145.
+`/audit-build` found them later; grep confirmed each.
+
+The owner's reaction is the symptom worth keeping: *"I am completely lost here. You seem to
+be simultaneously reporting completion, and that most of the work wasn't done?"*
+
+**15.1 — The attestation gap. SHIPPED 2026-09-20 (`4121371`).**
+A task agent self-reports `status` and `filesChanged`, and nothing checked the files existed.
+`recordResult` now fails a success claim when NONE of the claimed files exist — narrow by
+design, since one missing file among several is ordinary and only zero-of-N is the phantom
+signature.
+
+**15.2 — `--resume` cannot repair this class. OPEN.**
+This is the second-order damage and it is worse than the first. `--resume` re-dispatches any
+task not `status: "success"` — so a task falsely marked success is **skipped**, and re-running
+the command reports a clean run over a hole. The four tasks were only rebuilt because the
+audit turned them into NEW tasks by hand.
+
+15.1 prevents new instances. It does nothing for state files already carrying a false
+success, and there is no way to tell the command "re-verify what you think you finished".
+A `--reverify` that re-attests completed tasks against disk would close it.
+
+**15.3 — The audit→TRD→implement round trip is manual. OPEN.**
+`/audit-build` reports gaps and deliberately does not close them (`audit-build.md:90`: *"a
+TRACEABILITY GAP is a finding for the next `/implement-trd` pass, not something this command
+fixes in place"*). That separation is right — writing the code is implementation work with
+its own gates.
+
+But nothing carries a gap from the audit into the TRD as a task. The owner does it. In the
+observed session that took several turns of confusion before anyone understood that
+"completion" and "most of the work wasn't done" were both true. Turning an audit gap into a
+TRD task is a mechanical transform and nothing performs it.
+
+**15.4 — "Verified ✅" meant "the verification step ran". OPEN.**
+The run reported `verified ✅` when the actual verdict was `unbuilt` — the loop had looked at
+the feature and concluded a large part of it did not exist. A status glyph that reads as
+"working" for "the checker completed" is how a hole ships. Distinguish *ran* from *passed*
+everywhere a run reports on itself.
+
+**Why this sits here rather than being inferred from the code:** every one of these was
+visible only in a session transcript and a commit message until 2026-09-20. The framework's
+own defect log had the same disappearing-findings problem the framework was being fixed for.
 
 
 ### 14. Review inside `/implement-trd` — cadence, correction model, and whether it belongs there
