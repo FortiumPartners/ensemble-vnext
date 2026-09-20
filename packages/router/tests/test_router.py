@@ -28,6 +28,7 @@ from router import (  # noqa: E402
     ACTIVE_RUN_CEILING_SECONDS,
     Config,
     FRAMEWORK_HINT,
+    IN_FLIGHT_HINT,
     build_marker,
     build_output,
     command_run_state_path,
@@ -678,3 +679,35 @@ class TestEndToEndCommandMarker:
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+class TestInFlightCarveOut:
+    """An issue in the path of an IN-FLIGHT TRD is an amendment, not a new /investigate.
+
+    FLOW sends every small defect to /investigate, which reproduces, root-causes, writes a
+    SEPARATE light TRD and audits it. Mid-feature that is wrong twice: it re-designs
+    something already understood, and forks the work into a second TRD. The owner's account:
+    "by the time we've finished it we've lost track of what we were actually working on."
+    """
+
+    def test_carve_out_names_the_in_flight_feature(self):
+        text = IN_FLIGHT_HINT.format(feature="ll-state-authority")
+        assert "IN FLIGHT: ll-state-authority" in text
+
+    def test_carve_out_says_amendment_not_investigate(self):
+        text = IN_FLIGHT_HINT.format(feature="f")
+        assert "AMENDMENT" in text
+        assert "not a new /investigate" in text
+        assert "--reconcile" in text
+
+    def test_carve_out_carries_the_relevance_test(self):
+        # Same counterfactual as discovered.blocksFeature and /investigate 2f. Without it
+        # the carve-out would absorb every unrelated bug into the running feature.
+        text = IN_FLIGHT_HINT.format(feature="f")
+        assert "objectives be satisfied with" in text
+        assert "LATER" in text  # the not-blocking branch has somewhere to go
+
+    def test_base_hint_does_not_mention_in_flight(self):
+        # The carve-out must be APPENDED conditionally, never baked into the base hint --
+        # with nothing in flight there is no amendment to make and /investigate is correct.
+        assert "IN FLIGHT" not in FRAMEWORK_HINT

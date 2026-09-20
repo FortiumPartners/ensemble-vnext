@@ -50,6 +50,18 @@ from datetime import datetime, timezone
 # and a test skill for a pure research question. Native description-based
 # selection routes better than any keyword table. This names the CHOICE to make,
 # not the answer.
+# Appended to FRAMEWORK_HINT only when `.trd-state/current.json` names a feature.
+IN_FLIGHT_HINT = """
+
+* IN FLIGHT: {feature}. An issue found while reviewing, testing or implementing THIS
+  feature, and sitting in ITS path, is an AMENDMENT to this TRD — not a new /investigate.
+  Record it (`discovered.record(..., blocksFeature: true)`) and let
+  `/implement-trd --reconcile` pick it up. /investigate here would reproduce and re-design
+  something already understood, and fork the work into a second TRD.
+  Same counterfactual as everywhere else: would THIS feature's objectives be satisfied with
+  the issue left alone? No -> amendment. Yes -> report it, or a separate /investigate LATER,
+  once this feature is done."""
+
 FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
 
 * FLOW. Bug, minor enhancement, or refactor - anything where the full PRD/TRD
@@ -454,7 +466,17 @@ def main() -> None:
         # for it — the two suppression conditions already handled above are
         # simply re-checked there and cannot change the outcome.
         skip_reason = should_skip(prompt, cwd)
-        context = marker if skip_reason else f"{marker}\n\n{FRAMEWORK_HINT}"
+        # IN-FLIGHT CARVE-OUT. FLOW sends every small defect to /investigate, which
+        # reproduces, root-causes, writes a SEPARATE light TRD and audits it. When a TRD is
+        # already in flight and the issue sits in ITS path, that is wrong twice over: it
+        # re-designs something already understood, and forks the work into a second TRD.
+        # The owner: "by the time we've finished it we've lost track of what we were
+        # actually working on."
+        #
+        # `feature` is already derived above for the marker. Empty means nothing is in
+        # flight, and /investigate is then the correct answer.
+        hint = FRAMEWORK_HINT + (IN_FLIGHT_HINT.format(feature=feature) if feature else "")
+        context = marker if skip_reason else f"{marker}\n\n{hint}"
         log_debug(
             config,
             f"prompt={len(prompt)} chars; state={state}; "
