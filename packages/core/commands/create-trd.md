@@ -46,8 +46,21 @@ When creating the TRD, import and reference these PRD sections:
 |-------------|-----------|
 | **Non-Goals** | Copy to TRD; implementation agents check against these for scope creep |
 | **Risks** | Incorporate into Risk Assessment with technical mitigations |
-| **Acceptance Criteria** | Map to test requirements and verification tasks |
+| **Acceptance Criteria** | **Copy into the TRD, stated in full**, then map each to test requirements and verification tasks |
 | **Goals** | Define success criteria for implementation |
+
+**"Copy", not "map" — and this verb was the defect.** The two rows above used to read
+*"Copy"* for Non-Goals and *"Map to"* for Acceptance Criteria, and a TRD written against them
+did exactly that: §8 Non-Goals reproduced in full, 41 acceptance criteria present only as ID
+references. The owner's verdict was *"the TRD feels written as a response rather than a design
+document that is itself the context for implementation. It cannot stand on its own."*
+
+It was not the author drifting. The template got what it asked for. An implementer opening
+that TRD cannot see what it is accountable to without opening the PRD as well, and an
+implementer that has to reconstruct the requirement from an ID will reconstruct it wrong.
+
+**The TRD carries its own requirements.** State each acceptance criterion in full, under its
+ID, so the document is self-contained. Cite the PRD for provenance, never in place of the text.
 
 ---
 
@@ -692,6 +705,9 @@ Before completing, verify:
 - [ ] All tasks have dependencies documented
 - [ ] Parallelization opportunities identified
 - [ ] Non-goals imported from PRD
+- [ ] **Every PRD acceptance criterion appears in the TRD, stated in full** — not as an ID
+      reference. Provenance is not presence: a TRD can name where a requirement came from
+      while never saying what it is, and the checklist used to pass such a document
 - [ ] Every objective carries provenance, or is labelled `domain-derived` with reasoning
 - [ ] Every number exceeding a `constitution.md` floor states why, inline
 - [ ] Every decision names the objective it serves
@@ -835,7 +851,12 @@ it could not.
 
 ### Verifier return contract — FALLBACK PATH ONLY
 
-> **This section applies only when running WITHOUT the workflow.** Under
+> **PERSISTENCE applies to BOTH paths as of 2026-09-20.** The workflow's grounding stage now
+> writes `.trd-state/<feature>/findings/grounding.json` itself, because scoping this contract
+> to the fallback left the path that actually runs exempt from it — and a run produced 20
+> findings, nine "cannot be built as written", that existed only in one context window.
+>
+> What follows is the RETURN contract, and that part is still fallback-only. Under
 > `.claude/workflows/create-trd.js` it is not merely unnecessary — it is impossible: the
 > script's schema requires a full findings array and rejects a one-line receipt.
 > Findings live in script variables there and never enter the orchestrator's context.

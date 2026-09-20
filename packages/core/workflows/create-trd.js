@@ -427,7 +427,23 @@ opinions, no proposed new requirements, nothing struck on judgment. If a finding
 severity, source that assertion or drop it. Zero findings is legitimate.
 
 BATCH YOUR READS. Prefer one grep over five; prefer reading a file once over returning to
-it. Each tool call re-caches your whole context, so turn count is a real cost.`,
+it. Each tool call re-caches your whole context, so turn count is a real cost.
+
+WRITE YOUR FINDINGS TO DISK before returning, in addition to returning them:
+
+  .trd-state/${FEATURE}/findings/grounding.json     (mkdir -p as needed)
+
+The file holds the same findings array you return -- this is persistence, not a different
+report. Return them inline as well; the schema requires it and the reconcile stage reads the
+return, not the file.
+
+Why both. On 2026-09-20 a run produced 20 grounding findings, nine of them "cannot be built
+as written", and they existed ONLY in the workflow's return value inside one context window.
+Had that session ended, all 20 would have been gone and /audit-trd would have had to
+rediscover them by re-reading the same code. The command already mandates this contract and
+gives the reason -- "findings summarised through an intermediate agent cannot be re-read,
+diffed, or cited" -- but scoped it to the FALLBACK path, leaving the path that actually runs
+exempt from it.`,
   {
     label: 'ground:brownfield',
     phase: 'Ground',
