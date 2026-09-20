@@ -16,6 +16,7 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 
 // ---------------------------------------------------------------------------
 // Cycle order
@@ -203,7 +204,7 @@ function advance(state, taskId) {
  * @param {{status?: string, filesChanged?: string[], error?: string}} result
  * @returns {Object} The updated state
  */
-function recordResult(state, taskId, { status, filesChanged, error } = {}) {
+function recordResult(state, taskId, { status, filesChanged, error } = {}, opts = {}) {
   if (!state || !state.tasks || !state.tasks[taskId]) {
     throw new Error(`recordResult(): unknown task "${taskId}"`);
   }
@@ -212,6 +213,37 @@ function recordResult(state, taskId, { status, filesChanged, error } = {}) {
 
   if (filesChanged !== undefined) {
     task.files_changed = filesChanged;
+  }
+
+  // ATTESTATION CHECK. A task agent SELF-REPORTS its status and the files it changed, and
+  // until 2026-09-20 nothing looked at whether those files exist. Measured consequence in a
+  // live project: four tasks across phases 1-3 sat in the state file as status:"success"
+  // with no code behind them -- `engine/transports.ts` and `engine/acquire.ts` were never
+  // written -- found only later by /audit-build. Worse, `--resume` SKIPS anything already
+  // marked success, so re-running could not repair them; they had to be re-entered by hand.
+  //
+  // Deliberately narrow: a success claim fails only when NONE of the claimed files exists.
+  // One missing file among several is ordinary (a rename, a path typo in the report) and is
+  // recorded rather than fatal. Zero-of-N is the phantom-task signature and nothing else.
+  //
+  // It lives here, not in implement-phase.js, because that script "opens no file and runs no
+  // shell" by design. This module already has fs and is the one choke point every task
+  // result passes through.
+  if (status === 'success' && Array.isArray(filesChanged) && filesChanged.length > 0) {
+    const root = opts.projectRoot || process.cwd();
+    const missing = filesChanged.filter((f) => {
+      try { return !fs.existsSync(path.resolve(root, f)); } catch { return false; }
+    });
+    task.files_missing = missing.length ? missing : undefined;
+    if (missing.length === filesChanged.length) {
+      task.status = 'failed';
+      task.retry_count = (typeof task.retry_count === 'number' ? task.retry_count : 0) + 1;
+      task.current_problem =
+        `reported success but NONE of the ${filesChanged.length} claimed file(s) exist: ` +
+        `${missing.join(', ')}. If this task's work was deletion, record that explicitly ` +
+        `rather than listing removed paths as files changed.`;
+      return state;
+    }
   }
 
   if (status === 'failed') {

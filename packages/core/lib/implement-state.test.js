@@ -329,10 +329,16 @@ describe('end-to-end: load -> advance -> recordResult -> save round trip', () =>
       },
     });
     fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), 'utf-8');
+    // The claimed file must actually exist: recordResult attests a success claim against
+    // disk (added 2026-09-20), and a fixture claiming success for a file that was never
+    // written is exactly the phantom-task shape that check exists to catch. The fixture was
+    // asserting a state that should not be reachable.
+    fs.writeFileSync(path.join(tmpDir, 'x.js'), '// written by the task\n', 'utf-8');
 
     const state = load(filePath);
     advance(state, 'ITR-X001'); // implement -> checks
-    recordResult(state, 'ITR-X001', { status: 'success', filesChanged: ['x.js'] });
+    recordResult(state, 'ITR-X001', { status: 'success', filesChanged: ['x.js'] },
+      { projectRoot: tmpDir });
     // Caller (command) explicitly skips debug on a passing check — see the documented
     // ambiguity in recordResult()'s JSDoc; this module does not do it implicitly.
     state.tasks['ITR-X001'].cycle_position = 'complete';
@@ -343,5 +349,61 @@ describe('end-to-end: load -> advance -> recordResult -> save round trip', () =>
     expect(reloaded.tasks['ITR-X001'].status).toBe('success');
     expect(reloaded.tasks['ITR-X001'].files_changed).toEqual(['x.js']);
     expect(fs.existsSync(filePath + '.tmp')).toBe(false);
+  });
+});
+
+describe('recordResult: a success claim is attested against disk', () => {
+  // A task agent self-reports status and filesChanged. Until 2026-09-20 nothing checked.
+  // Measured consequence in a live project: four tasks sat as status:"success" with no code
+  // behind them (engine/transports.ts, engine/acquire.ts never written), found later by
+  // /audit-build. And --resume SKIPS anything already marked success, so re-running could
+  // not repair them -- they had to be re-entered as new tasks by hand.
+  const mk = () => ({ tasks: { A: { status: 'pending' } } });
+
+  test('FAILS a success claim when none of the claimed files exist', () => {
+    const s = recordResult(mk(), 'A', {
+      status: 'success', filesChanged: ['engine/transports.ts', 'engine/acquire.ts'],
+    });
+    expect(s.tasks.A.status).toBe('failed');
+    expect(s.tasks.A.current_problem).toMatch(/NONE of the 2 claimed file\(s\) exist/);
+    expect(s.tasks.A.retry_count).toBe(1);
+  });
+
+  test('names the deletion case in the error, so a legitimate one is diagnosable', () => {
+    const s = recordResult(mk(), 'A', { status: 'success', filesChanged: ['gone.ts'] });
+    expect(s.tasks.A.current_problem).toMatch(/if this task's work was deletion/i);
+  });
+
+  test('ACCEPTS success when at least one claimed file exists, recording the rest', () => {
+    // One missing file among several is ordinary -- a rename, a path typo in the report.
+    // Only zero-of-N is the phantom signature.
+    const s = recordResult(mk(), 'A', {
+      status: 'success', filesChanged: ['package.json', 'nope.ts'],
+    });
+    expect(s.tasks.A.status).toBe('success');
+    expect(s.tasks.A.files_missing).toEqual(['nope.ts']);
+  });
+
+  test('leaves a clean success untouched', () => {
+    const s = recordResult(mk(), 'A', { status: 'success', filesChanged: ['package.json'] });
+    expect(s.tasks.A.status).toBe('success');
+    expect(s.tasks.A.files_missing).toBeUndefined();
+  });
+
+  test('does not fire when no files were reported at all', () => {
+    const s = recordResult(mk(), 'A', { status: 'success' });
+    expect(s.tasks.A.status).toBe('success');
+  });
+
+  test('does not fire on a failure claim', () => {
+    const s = recordResult(mk(), 'A', { status: 'failed', filesChanged: ['nope.ts'], error: 'boom' });
+    expect(s.tasks.A.status).toBe('failed');
+    expect(s.tasks.A.current_problem).toBe('boom');
+  });
+
+  test('resolves against opts.projectRoot when given', () => {
+    const s = recordResult(mk(), 'A', { status: 'success', filesChanged: ['package.json'] },
+      { projectRoot: process.cwd() });
+    expect(s.tasks.A.status).toBe('success');
   });
 });
