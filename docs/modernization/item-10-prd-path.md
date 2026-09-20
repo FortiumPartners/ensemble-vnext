@@ -41,6 +41,49 @@ verifiable in seconds — and no stage may invent or strike on judgment.
 | P6 | **Source-fidelity reads the transcript file, not a fork.** *(Qualified — see below.)* | A fork inherits *post-compaction* context. Long design conversations are exactly where rejected paths are numerous **and** the session has compacted, so a fork systematically loses the oldest decisions. The transcript JSONL is the complete record. Also drops the `CLAUDE_CODE_FORK_SUBAGENT` feature-flag dependency. |
 | P7 | **The challenger's mandate is provenance, not opinion.** | *"REQ-4 traces to nothing in the source"* is checkable. *"I think REQ-4 is unnecessary"* is manufactured. Only the first is permitted. This makes striking a valid requirement structurally impossible. |
 
+### 2.2 P6 OVERTURNED for session-fidelity — 2026-09-20
+
+**All three of P6's premises have since failed.** A forked session-fidelity pass is now
+dispatched by `/audit-prd` (from the COMMAND, not the workflow — see below).
+
+**1. "A fork inherits post-compaction context, so it systematically loses the oldest
+decisions." Inverted for the expected usage pattern.** Compaction drops OLDEST-first. In the
+canonical flow — fresh session, design discussion, `/create-prd` — the design discussion is
+the NEWEST thing in context and therefore the LAST thing compaction touches. P6 assumed the
+decisions were old; they are the most recent thing there.
+
+Measured against the session that produced this correction
+(`lightning-lane-dining/2c1e4134`): design discussion 19:14–21:47, `/create-prd` before
+23:21, **compaction at 23:53**. A fork at `/create-prd` time would have held the entire
+design discussion, uncompacted. The objection did not apply to the case it existed to
+prevent.
+
+**2. "Also drops the `CLAUDE_CODE_FORK_SUBAGENT` feature-flag dependency."** That dependency
+no longer exists. `subagent_type: "fork"` is a standard agent type. P6 was avoiding a flag
+that is not a flag.
+
+**3. "The transcript JSONL is the complete record."** §2.1 already retracted this on
+2026-08-14 — a single transcript is "both incomplete and a contamination vector". That
+retraction cuts FOR forking, not against: a fork of THIS session contains exactly this
+session and cannot pull in another effort's material, whereas the transcript path requires
+choosing which files to read and is precisely where cross-session contamination enters.
+
+**What still stands**, and it is narrow: a fork inherits context *at fork time*, so it cannot
+see what compaction already dropped. Design early, work on unrelated things for hours, then
+invoke `/create-prd`, and the fork may have lost the design. The mitigation is the usage
+pattern — start design in a fresh session or compact before it — not a mechanism.
+
+**And one constraint P6 never had to consider:** `/audit-prd` runs as a Workflow, and a
+workflow's `agent()` dispatches from the workflow runtime, which never saw the conversation.
+A fork from inside the workflow inherits the wrong context. The fidelity pass is therefore
+dispatched by the MAIN AGENT in `audit-prd.md`, outside the workflow.
+
+**Why this is recorded rather than edited away.** P6 was correctly reasoned when written and
+was being cited three months later as settled architecture to rule out an approach — the
+exact failure this whole item is about, one level up. A decision that is true about a smaller
+question, frozen, and treated as dispositive. Superseding it in place, with the evidence, is
+what P6 itself would have wanted applied to a TRD.
+
 ### 2.1 P6 qualified — a single transcript is not the whole source
 
 **Corrected 2026-08-14**, against `item-10-trd-path.md` §9.6, which was written after this

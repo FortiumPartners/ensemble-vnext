@@ -4,6 +4,7 @@ export const meta = {
   whenToUse: 'Invoked by /create-prd. Indexes the existing design corpus for provenance, then authors one PRD in a fresh product-manager that sees the source VERBATIM. Verification is a separate command: /audit-prd.',
   phases: [
     { title: 'Corpus', detail: 'cheap index of related design docs — provenance, not fact' },
+    { title: 'Conflicts', detail: 'does the source contradict a documented decision? asked BEFORE authoring' },
     { title: 'Author', detail: 'one product-manager, fresh context, sees the source verbatim' },
   ],
 }
@@ -205,6 +206,102 @@ No related design documents were found in the corpus. Treat this as genuinely ne
 
 // --------------------------------------------------------------------------- 1. AUTHOR
 
+// --------------------------------------------------------------------------- 0.75 CONFLICTS
+//
+// Asked as its own question, BEFORE authoring, with a mandate that is the INVERSE of the
+// author's. The author is trying to write a coherent PRD and will resolve a corpus-vs-source
+// conflict as a side effect of that -- quietly, in whichever direction reads better. This
+// stage does nothing but look for the conflict, so noticing it is the whole job rather than
+// a distraction from one.
+//
+// The measured failure: a PRD inherited a three-month-old TRD's decision that contradicted
+// what the owner had settled in session an hour earlier. The author cited the decision
+// correctly and was wrong anyway. Nobody had asked "do these disagree?" as a question.
+//
+// Two independent passes over the same material by the same model correlate almost
+// completely and prove nothing. What makes this pass worth its cost is the DIFFERENT
+// MANDATE, not the second look.
+const conflicts = corpus.documents.length && SOURCE_PACKAGE
+  ? await (async () => {
+      phase('Conflicts')
+      const found = await agent(
+        `Compare a design source against an index of existing design documents and report
+ONLY where they DISAGREE. You are not writing anything and not resolving anything.
+
+${SOURCE_PACKAGE}
+
+INDEXED DECISIONS FROM EXISTING DOCUMENTS:
+${JSON.stringify({ documents: corpus.documents }, null, 1)}
+${SCOPE}
+
+For each disagreement: which document, what it decided, what the source says instead.
+
+A disagreement is a DIFFERENT ANSWER TO THE SAME QUESTION. These are not disagreements:
+  - the source is silent on something a document decided (silence is not contradiction)
+  - a document is more specific about something the source states generally
+  - they use different words for the same choice
+
+Judge the SCOPE of the documented decision honestly. A decision that answers a narrower
+question than the source is asking is not in conflict -- it is a true statement about a
+smaller question, and saying so is more useful than calling it a contradiction. The
+measured case: a TRD scoped explicitly to "Disney-FASTPASS-mapped rows" was cited against a
+PRD about cross-type scheduling. Both were right; they were not answering the same question.
+
+Where you can cheaply check, say whether the documented decision was ever IMPLEMENTED --
+.trd-state/<slug>/implement.json existing at all is the signal. A decision frozen at
+"approved" three months ago with no implementation state is weaker evidence than its
+confident prose suggests, and the index cannot show you that.
+
+Return an empty array if they agree. Empty is the common and correct answer.`,
+        {
+          label: 'conflict-scan',
+          phase: 'Conflicts',
+          agentType: 'product-manager',
+          schema: {
+            type: 'object', additionalProperties: false, required: ['conflicts'],
+            properties: {
+              conflicts: {
+                type: 'array',
+                items: {
+                  type: 'object', additionalProperties: false,
+                  required: ['document', 'decision', 'source_says', 'same_question'],
+                  properties: {
+                    document: { type: 'string' },
+                    decision: { type: 'string' },
+                    source_says: { type: 'string' },
+                    same_question: {
+                      type: 'boolean',
+                      description: 'true = a genuine contradiction; false = the document answers a narrower question',
+                    },
+                    implemented: { type: 'string', description: 'yes | no | unknown' },
+                  },
+                },
+              },
+            },
+          },
+        }
+      )
+      const list = (found && found.conflicts) || []
+      log(`conflict-scan: ${list.length} disagreement(s) with the corpus`)
+      for (const c of list) {
+        log(`  ${c.same_question ? 'CONTRADICTS' : 'narrower'} ${c.document}: ${c.decision} vs ${c.source_says}`)
+      }
+      return list
+    })()
+  : []
+
+const CONFLICT_BLOCK = conflicts.length
+  ? `
+CONFLICTS ALREADY FOUND between the source and the corpus. A separate pass looked for these
+so you would not have to notice them while writing:
+${JSON.stringify(conflicts, null, 1)}
+
+Entries with same_question:true are genuine contradictions and THE SOURCE GOVERNS -- carry
+each one into your supersedes array. Entries with same_question:false are documents
+answering a narrower question; they are not overridden and do not belong in supersedes.
+This list is a starting point, not a ceiling: report anything further you find.`
+  : ''
+
 phase('Author')
 
 const authored = await agent(
@@ -216,6 +313,7 @@ you do not need and would re-cache on every turn.
 
 ${SOURCE_PACKAGE}
 ${CORPUS_BLOCK}
+${CONFLICT_BLOCK}
 ${SCOPE}
 
 Write the PRD to ${PRD} using the Write tool. Do not return its content as text.
@@ -320,11 +418,19 @@ return {
   // it reached neither the readout nor /audit-prd -- reproducing the exact "no downstream
   // stage can find it" failure the change was written to fix.
   supersedes: authored.supersedes || [],
+  // Reported separately from `supersedes`: the scan's view (what disagrees) and the author's
+  // view (what it overrode) should MATCH, and a gap between them is the interesting signal --
+  // a contradiction found before authoring that the PRD then did not carry.
+  conflicts_found: conflicts.length,
   next: NEXT,
   readout:
     `PRD: ${PRD}    SOURCE: ${BASELINE}\n` +
     `  ${authored.requirements.length} requirements` +
     `${corpus.documents.length ? `, inheriting from ${corpus.documents.length} corpus documents` : ''}\n` +
+    `${conflicts.length && !(authored.supersedes || []).length
+        ? `\n  WARNING: the conflict scan found ${conflicts.length} disagreement(s) with the corpus\n` +
+          `  but the PRD recorded no supersession. Check it did not silently side with a document.\n`
+        : ''}` +
     `${(authored.supersedes || []).length
         ? `\n  OVERRIDES ${authored.supersedes.length} documented decision(s):\n` +
           authored.supersedes.map((x) => `    ${x.document}: ${x.decision} -> ${x.source_says} (${x.why})`).join('\n') + '\n'

@@ -99,6 +99,20 @@ this context, so a large finding set costs nothing here.
 from this context and reconciling their findings yourself — the checks above are the
 contract, the workflow is only the execution vehicle.
 
+### Session fidelity is `/create-prd`'s job, not this command's
+
+**Do not add a forked session-fidelity pass here.** It was written into this command on
+2026-09-20 and moved the same day, for a reason that is structural rather than stylistic:
+
+This command is built to audit *"one written months ago by anyone"* — routinely in a fresh
+session, often by someone who was not present for the design. A fork inherits the conversation
+of whoever forks it, so a fork dispatched from HERE inherits a session that never saw the
+design discussion. It would check the PRD against nothing and return clean, which is worse
+than not running: a fidelity pass that cannot fail is a false assurance.
+
+`/create-prd` runs it as its final step, in the session that holds the conversation. What
+reaches this command is the RESULT, recorded in the PRD's verification header.
+
 ## Readout
 
 Every line names the ACTION, not the classification. Use these headings, omitting empty ones:

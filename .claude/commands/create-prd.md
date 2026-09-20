@@ -703,6 +703,13 @@ Keeping this out of the main agent is deliberate: applying N findings means re-r
 draft and editing it repeatedly, which is the other half of this command's context cost.
 The main agent receives the finished readout, prints it, and emits COMMAND COMPLETE.
 
+> **Scope note, 2026-09-20.** What follows is about FINDINGS PERSISTENCE and remains correct.
+> It is not an argument against forking generally: `/audit-prd` now dispatches a forked
+> session-fidelity pass, and P6 — the decision that ruled forks out — was overturned on all
+> three of its premises (`docs/modernization/item-10-prd-path.md` §2.2). The two are
+> different questions: findings must be inspectable ON DISK, which a fork does not provide;
+> a fidelity check must hold the CONVERSATION, which only a fork does.
+
 **Why findings go to disk rather than into a fork.** A fork inherits post-compaction
 context, and this is a *review* stage — the evidence must stay inspectable. Findings on disk
 can be re-read, diffed, and cited by ID after the fact; findings summarised through an
@@ -715,6 +722,67 @@ calls at all — so there is nothing to offload. Forking it would inherit post-c
 context and silently drop the oldest decisions, which is precisely what the brief exists to
 carry (recorded as P6 in `docs/modernization/item-10-prd-path.md`, with its
 concurrent-session qualification in that document's §2.1).
+
+---
+
+## Final step: session fidelity — did the PRD keep what you told it?
+
+**Run this whenever the PRD was sourced from this session** (no verbatim source document).
+Skip it when a source document exists — `/audit-prd`'s `source-fidelity` verifier checks the
+PRD against that file and does it better, because a file is a complete record and a
+conversation is not.
+
+```
+Agent({ subagent_type: "fork", description: "session fidelity",
+        prompt: "<below>" })
+```
+
+**Why it lives HERE and not in `/audit-prd`.** A fork inherits the conversation of whoever
+forks it. This command runs in the session that held the design discussion; `/audit-prd`
+routinely runs months later, in a fresh session, on a PRD someone else wrote. A fork there
+inherits a session that never saw the discussion, checks the PRD against nothing, and returns
+clean — a fidelity pass that cannot fail is worse than none.
+
+**Why the main agent and not the workflow.** The workflow's `agent()` calls dispatch from the
+workflow runtime, which never saw the conversation either. You are the only participant
+holding it.
+
+No `name:` parameter — that makes an agent addressable via `SendMessage` and is the teammate
+pattern, which no command here uses (`implement-trd-structure.test.sh:914` enforces it).
+
+The prompt:
+
+> You are a fork of the session that produced `<PRD path>`. You were present for the design
+> discussion: you remember what was proposed, what was argued down, what the owner settled on,
+> and in what order.
+>
+> Read the PRD. Answer one question: **does it contradict, weaken, or omit anything the owner
+> settled in this conversation?**
+>
+> For each: what the owner settled and roughly where, what the PRD says instead, and whether
+> it is a contradiction, a weakening, or an omission.
+>
+> Three things this is NOT. Not a review of whether the PRD is good. Not a place to restore
+> requirements that were discussed and NOT adopted — a position explored and dropped is not an
+> omission, and re-proposing it is the failure this exists to prevent. And a requirement stated
+> more precisely than the conversation did is an INVENTION, not a fidelity improvement; report
+> it as one.
+>
+> Empty is a correct and common answer.
+
+**What it buys, and its one honest limit.** A fork holds the reasoning, not a summary of it —
+it remembers why a position was abandoned, which the brief records as a table row. The limit:
+a fork inherits context AT FORK TIME, so it cannot see what compaction already dropped. The
+mitigation is the usage pattern — begin design work in a fresh session, or compact before it,
+so the discussion is the newest thing in context rather than the oldest. (P6 in
+`docs/modernization/item-10-prd-path.md` claimed forks systematically lose the oldest
+decisions; §2.2 overturns that on all three premises — compaction drops oldest-FIRST, so the
+design discussion is the last thing it touches.)
+
+**Act on what it returns.** A contradiction or omission means the PRD does not say what you
+decided: fix it now, in this session, while the reasoning is still here. Record in the PRD's
+verification header that a session-fidelity pass ran, so a later reader can tell "checked
+against the conversation" from "checked against a summary of it".
 
 ---
 
