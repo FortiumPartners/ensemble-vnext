@@ -162,23 +162,29 @@ THE CORPUS STATES INTENT. THE CODE STATES FACT. THE OWNER, IN THIS SESSION, STAT
 TRUE NOW. These documents tell you what was decided and why. They do NOT tell you what is
 built -- most stopped being maintained when implementation started. Inherit decisions,
 conventions and REJECTIONS from them so you do not re-litigate settled ground or re-propose
-a rejected alternative.
+a rejected alternative. Do NOT assert that anything described in the index exists; if
+that matters, say so in ## Could Not Verify and let /audit-prd check it against the code.
 
-PRECEDENCE, and this outranks inheritance. "Settled ground" means settled by the OWNER, not
-settled in a document. Where the source above conflicts with a corpus decision, THE SOURCE
-GOVERNS -- however well documented, well argued, or recently written that decision is. A
+PRECEDENCE. "Settled ground" means settled by the OWNER, not settled in a document. Where
+the SESSION BRIEF above -- the owner speaking now -- conflicts with a corpus decision, THE
+OWNER GOVERNS, however well documented, well argued or recently written that decision is. A
 documented decision may be stale, may never have been implemented, or may have answered a
 narrower question than the one you are being asked. You cannot tell which from an index.
 
-Do NOT resolve such a conflict silently in the corpus's favour. Record it in the supersedes
-field of your return, and state it in the PRD. A measured case: a PRD inherited a three-month-old TRD's decision
-that read as settled architecture. That TRD had no implementation state on disk and its own
-scope section limited it to a narrower class of object than the PRD was about -- so it was a
-true statement about a smaller question. The owner had settled the broader question an hour
-earlier in session. The author cited the decision correctly and was wrong anyway, because
-nothing told it which input wins. Do NOT assert that
-anything described here exists; if that matters, say so in ## Could Not Verify and let
-/audit-prd check it against the code.
+This applies to the OWNER, not to every input. A VERBATIM SOURCE DOCUMENT is just another
+document: a ticket written in March does not outrank a TRD revised last week. Weigh those
+two normally -- later wins, narrower scope loses, unimplemented loses -- which is what
+create-prd.md already says ("the refinement usually overrides the ticket. Treat neither as
+automatically winning"). And a brief line with no locator is a finding, not an authority:
+it is a claim about the transcript that nobody has checked.
+
+Do NOT resolve an owner-vs-corpus conflict silently in the corpus's favour. Record it in
+the supersedes field of your return, and state it in the PRD. A measured case: a PRD
+inherited a three-month-old TRD's decision that read as settled architecture. That TRD had
+no implementation state on disk and its own scope section limited it to a narrower class of
+object than the PRD was about -- so it was a true statement about a smaller question. The
+owner had settled the broader question an hour earlier in session. The author cited the
+decision correctly and was wrong anyway, because nothing told it which input wins.
 
 HOW TO INHERIT A CLAIM ABOUT BUILT BEHAVIOUR -- this has a measured failure behind it.
 A PRD inherited "sanitize_error_detail() sanitizes every log write" from a design document
@@ -310,11 +316,19 @@ return {
   source: BASELINE,
   requirements: authored.requirements.length,
   corpus_documents: corpus.documents.length,
+  // Finding 1 of the review on this very change: the field was log()ed and nothing more, so
+  // it reached neither the readout nor /audit-prd -- reproducing the exact "no downstream
+  // stage can find it" failure the change was written to fix.
+  supersedes: authored.supersedes || [],
   next: NEXT,
   readout:
     `PRD: ${PRD}    SOURCE: ${BASELINE}\n` +
     `  ${authored.requirements.length} requirements` +
     `${corpus.documents.length ? `, inheriting from ${corpus.documents.length} corpus documents` : ''}\n` +
+    `${(authored.supersedes || []).length
+        ? `\n  OVERRIDES ${authored.supersedes.length} documented decision(s):\n` +
+          authored.supersedes.map((x) => `    ${x.document}: ${x.decision} -> ${x.source_says} (${x.why})`).join('\n') + '\n'
+        : ''}` +
     `\n  NOT YET VERIFIED. Run  ${NEXT}\n` +
     `  to check source fidelity in both directions, whether any of it is already built,\n` +
     `  and conformance.\n`,
