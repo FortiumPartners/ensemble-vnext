@@ -158,10 +158,25 @@ const CORPUS_BLOCK = corpus.documents.length
 EXISTING DESIGN CORPUS -- PROVENANCE ONLY (index, not fact):
 ${JSON.stringify({ documents: corpus.documents, conventions: corpus.conventions }, null, 1)}
 
-THE CORPUS STATES INTENT. THE CODE STATES FACT. These documents tell you what was decided
-and why. They do NOT tell you what is built -- most stopped being maintained when
-implementation started. Inherit decisions, conventions and REJECTIONS from them so you do
-not re-litigate settled ground or re-propose a rejected alternative. Do NOT assert that
+THE CORPUS STATES INTENT. THE CODE STATES FACT. THE OWNER, IN THIS SESSION, STATES WHAT IS
+TRUE NOW. These documents tell you what was decided and why. They do NOT tell you what is
+built -- most stopped being maintained when implementation started. Inherit decisions,
+conventions and REJECTIONS from them so you do not re-litigate settled ground or re-propose
+a rejected alternative.
+
+PRECEDENCE, and this outranks inheritance. "Settled ground" means settled by the OWNER, not
+settled in a document. Where the source above conflicts with a corpus decision, THE SOURCE
+GOVERNS -- however well documented, well argued, or recently written that decision is. A
+documented decision may be stale, may never have been implemented, or may have answered a
+narrower question than the one you are being asked. You cannot tell which from an index.
+
+Do NOT resolve such a conflict silently in the corpus's favour. Record it in the supersedes
+field of your return, and state it in the PRD. A measured case: a PRD inherited a three-month-old TRD's decision
+that read as settled architecture. That TRD had no implementation state on disk and its own
+scope section limited it to a narrower class of object than the PRD was about -- so it was a
+true statement about a smaller question. The owner had settled the broader question an hour
+earlier in session. The author cited the decision correctly and was wrong anyway, because
+nothing told it which input wins. Do NOT assert that
 anything described here exists; if that matters, say so in ## Could Not Verify and let
 /audit-prd check it against the code.
 
@@ -242,6 +257,26 @@ Return ONLY a JSON object describing what you wrote.`,
         },
         empty_sections: { type: 'array', items: { type: 'string' } },
         beliefs: { type: 'array', items: { type: 'string' } },
+        // Corpus decisions this PRD overrides because the source says otherwise. OPTIONAL and
+        // normally empty -- most PRDs contradict nothing. It exists because the failure is
+        // SILENT: a PRD that quietly sides with a stale document reads as well-grounded, cites
+        // a real decision ID, and looks more rigorous than one that does not. Without a field
+        // the author has nowhere to report a conflict it noticed -- additionalProperties:false
+        // would reject it -- so the only available record was PRD prose, where no downstream
+        // stage can find it.
+        supersedes: {
+          type: 'array',
+          description:
+            'corpus decisions the source overrides. Each: what the document decided, what the source says instead, and why the source governs (stale, unimplemented, narrower scope, simply later).',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['document', 'decision', 'source_says', 'why'],
+            properties: {
+              document: { type: 'string' }, decision: { type: 'string' },
+              source_says: { type: 'string' }, why: { type: 'string' },
+            },
+          },
+        },
       },
     },
   }
@@ -252,6 +287,9 @@ if (authored.prd_path && authored.prd_path !== PRD) {
   log(`WARNING: author wrote ${authored.prd_path}, not ${PRD} — downstream stages target ${PRD}`)
 }
 log(`authored ${authored.requirements.length} requirements`)
+for (const sup of authored.supersedes || []) {
+  log(`SUPERSEDES: ${sup.document} — ${sup.decision} → ${sup.source_says} (${sup.why})`)
+}
 
 // ---------------------------------------------------------------------------
 // create stops here. The verification wave lives in /audit-prd, which runs against ANY PRD
