@@ -43,6 +43,22 @@ const MAX_LINE_BYTES = 2048;
 
 const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
 
+/**
+ * The discoveries that should become TRD tasks, and nothing else.
+ *
+ * Two filters, both deliberately mechanical so the answer is checkable rather than argued:
+ *  - `blocksFeature === true`  -- the objectives are not met while this stands
+ *  - kind is not 'risk'        -- a risk is a thing to watch, not a thing to build
+ *
+ * Everything else is reported and left alone. The orchestrator still decides whether to act;
+ * this only narrows what it is deciding about, so an unrelated bug found while reading a file
+ * cannot quietly become scope.
+ */
+function promotable(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter((r) => r && r.blocksFeature === true && r.kind !== 'risk');
+}
+
 function ledgerPath(stateDir) {
   return path.join(stateDir, 'discovered.jsonl');
 }
@@ -70,6 +86,17 @@ function record(stateDir, entry, nowIso) {
     phase: Number.isInteger(entry.phase) ? entry.phase : null,
     summary: String(entry.summary).slice(0, 400),
   };
+  // RELEVANCE. The counterfactual, answered at record time by whoever found it: would the
+  // TRD's objectives be satisfied with this left alone? A discovery that BLOCKS is work this
+  // feature cannot ship without, and is promotable to a task. One that does not is a genuine
+  // finding to report and nothing more.
+  //
+  // This exists because "layer in whatever we found" is how a fix becomes a feature. The
+  // same rule governs /investigate section 2f ("the test is dependency, not tidiness"), and
+  // the measured failure there was absorbing an audit's corrections as scope until a 2-task
+  // fix sized 4 and escalated. Default FALSE: a discovery is a note unless someone says
+  // otherwise, because the expensive mistake is promoting an unrelated bug into the plan.
+  row.blocksFeature = entry.blocksFeature === true;
   if (entry.file) row.file = String(entry.file).slice(0, 200);
   if (entry.evidence) row.evidence = String(entry.evidence).slice(0, 400);
 
@@ -141,4 +168,5 @@ function render(stateDir, { phase = null } = {}) {
   return lines.join('\n');
 }
 
-module.exports = { record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES };
+module.exports = {
+  promotable, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES };

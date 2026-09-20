@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const {
+const { reconcile,
   CYCLE_ORDER,
   load,
   save,
@@ -405,5 +405,62 @@ describe('recordResult: a success claim is attested against disk', () => {
     const s = recordResult(mk(), 'A', { status: 'success', filesChanged: ['package.json'] },
       { projectRoot: process.cwd() });
     expect(s.tasks.A.status).toBe('success');
+  });
+});
+
+describe('reconcile: disbelieve a success claim that disk contradicts', () => {
+  // --resume re-dispatches anything not "success", so a FALSELY successful task is skipped
+  // and the run reports clean over a hole. That is the lightning-lane-dining failure:
+  // four tasks marked success with no code, unrepairable by re-running.
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'recon-')); });
+
+  const st = () => ({
+    tasks: {
+      real: { status: 'success', files_changed: ['exists.ts'] },
+      phantom: { status: 'success', files_changed: ['engine/transports.ts', 'engine/acquire.ts'] },
+      partial: { status: 'success', files_changed: ['exists.ts', 'gone.ts'] },
+      noclaim: { status: 'success' },
+      pending: { status: 'pending' },
+    },
+  });
+
+  test('reopens a task whose every claimed file is absent', () => {
+    fs.writeFileSync(path.join(dir, 'exists.ts'), 'x', 'utf-8');
+    const state = st();
+    const r = reconcile(state, { projectRoot: dir });
+    expect(r.reopened).toEqual(['phantom']);
+    expect(state.tasks.phantom.status).toBe('pending');
+    expect(state.tasks.phantom.cycle_position).toBe('implement');
+    expect(state.tasks.phantom.completed_at).toBeNull();
+    expect(state.tasks.phantom.current_problem).toMatch(/none of its 2 claimed file/i);
+  });
+
+  test('leaves a genuine success alone', () => {
+    fs.writeFileSync(path.join(dir, 'exists.ts'), 'x', 'utf-8');
+    const state = st();
+    reconcile(state, { projectRoot: dir });
+    expect(state.tasks.real.status).toBe('success');
+  });
+
+  test('leaves a PARTIAL miss alone — a rename is not a phantom', () => {
+    fs.writeFileSync(path.join(dir, 'exists.ts'), 'x', 'utf-8');
+    const state = st();
+    reconcile(state, { projectRoot: dir });
+    expect(state.tasks.partial.status).toBe('success');
+  });
+
+  test('ignores a success that claimed no files, and anything not success', () => {
+    const state = st();
+    const r = reconcile(state, { projectRoot: dir });
+    expect(state.tasks.noclaim.status).toBe('success');
+    expect(state.tasks.pending.status).toBe('pending');
+    expect(r.checked).toBe(3); // real, phantom, partial — not noclaim, not pending
+  });
+
+  test('is safe on an empty or malformed state', () => {
+    expect(reconcile(null).reopened).toEqual([]);
+    expect(reconcile({}).reopened).toEqual([]);
+    expect(reconcile({ tasks: {} }).checked).toBe(0);
   });
 });

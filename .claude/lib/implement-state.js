@@ -307,7 +307,58 @@ function checkpoint(state, phase, { commit, review } = {}) {
   return state;
 }
 
+/**
+ * Re-attest every task claiming success against disk, and un-mark the ones that lied.
+ *
+ * WHY THIS IS NOT `--resume`. `--resume` re-dispatches anything not `status: "success"`, so
+ * a task falsely marked success is SKIPPED and the command reports a clean run over a hole.
+ * That is exactly what happened in `lightning-lane-dining` on 2026-09-09: four tasks sat as
+ * success with no code behind them, and re-running could not repair them -- they had to be
+ * re-entered as new tasks by hand after `/audit-build` found them.
+ *
+ * So `--reconcile` is a different verb from `--resume`, not a synonym. Resume means "continue
+ * where you stopped". Reconcile means "make the delivered state match the TRD" -- which
+ * includes disbelieving a success claim that disk contradicts.
+ *
+ * Narrow in the same way `recordResult`'s attestation is: a task is only un-marked when NONE
+ * of its claimed files exists. One missing file among several is a rename or a typo in the
+ * report, not a phantom.
+ *
+ * @param {Object} state
+ * @param {{projectRoot?: string}} [opts]
+ * @returns {{reopened: string[], checked: number}} ids moved back to pending, and how many
+ *          success claims were examined
+ */
+function reconcile(state, opts = {}) {
+  const root = opts.projectRoot || process.cwd();
+  const reopened = [];
+  let checked = 0;
+  if (!state || !state.tasks) return { reopened, checked };
+
+  for (const [id, task] of Object.entries(state.tasks)) {
+    if (!task || task.status !== 'success') continue;
+    const claimed = Array.isArray(task.files_changed) ? task.files_changed : [];
+    if (claimed.length === 0) continue; // nothing claimed, nothing to disbelieve
+    checked++;
+    const missing = claimed.filter((f) => {
+      try { return !fs.existsSync(path.resolve(root, f)); } catch { return false; }
+    });
+    if (missing.length === claimed.length) {
+      task.status = 'pending';
+      task.cycle_position = 'implement';
+      task.completed_at = null;
+      task.files_missing = missing;
+      task.current_problem =
+        `reconcile: was marked success but none of its ${claimed.length} claimed file(s) ` +
+        `exist (${missing.join(', ')}) — reopened for implementation`;
+      reopened.push(id);
+    }
+  }
+  return { reopened, checked };
+}
+
 module.exports = {
+  reconcile,
   CYCLE_ORDER,
   load,
   save,
