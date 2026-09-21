@@ -10,6 +10,81 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.3.1] - 2026-09-20
+
+Patch: every change is a fix to something shipped broken in 4.3.0, fourteen of them found
+by one `/code-review high` pass over the release.
+
+### Fixed — the amendment channel lost work
+
+`promoteToTrd()` discarded every discovery after the first. Ids restarted at 1 on each
+call, so a second run over a grown ledger collided on `AMEND-001`, hit `continue`, and
+returned `added: []`. The discovery never became a task and never could — `--reconcile`
+re-reads the append-only ledger on EVERY run, so this was the normal path rather than an
+edge case, and the caller only logged counts, so the loss was silent.
+
+Two more defects in the same function: the dedupe predicate conjoined unrelated operands
+(`id.startsWith(prefix) && text.includes(slug)` never compared the two), and rows were
+emitted with a hardcoded six cells — `trd-parser.js` maps columns by header and warns
+`Malformed table row (expected N, got M)`, so those rows were dropped outright on the
+five-column TRDs half this repo uses. It also anchored on the FIRST task table, filing
+every amendment into Phase 1 of a phased TRD. Rewritten header-driven, with five
+regression tests each proven to fail against the old implementation.
+
+`Serves` on a promoted row is now an explicit `amendment — no objective recorded` marker
+rather than a plausible-looking `O1`. Manufacturing that provenance is what this framework
+exists to prevent, and `/audit-trd` surfacing it is the intended outcome.
+
+### Fixed — deletion work could never pass attestation
+
+4.3.0's success attestation judged every task by whether its claimed files EXIST. A task
+whose work was removing files reported those paths as `filesChanged`, failed zero-of-N,
+retried twice and reached STUCK on work that was done correctly — then `reconcile()`
+re-opened it on every subsequent run. The error text told the agent to "record that
+explicitly" while no parameter accepted it.
+
+`recordResult()` now takes `filesDeleted`, attested by ABSENCE, and `reconcile()` leaves
+completed deletion tasks alone.
+
+### Fixed — the attestation verdict was being overwritten
+
+`/implement-trd` §4.4 branched on the status the workflow RETURNED rather than the state
+`recordResult()` wrote. Those disagree exactly when attestation fires: a task flipped to
+`failed` still got `cycle_position = "complete"` written over it, and the phase-failure
+branch — also keyed on the workflow's value — never triggered. A phase reported green with
+a hole in it, which is the failure 4.3.0's check was added to catch, defeated by the step
+consuming it.
+
+### Fixed — the in-flight amendment hint never stopped firing
+
+Nothing in the framework clears `.trd-state/current.json` when a feature ships, so the
+router's IN FLIGHT hint outlived every feature that produced it: an ordinary conversational
+turn months later was still being told an unrelated new bug is "an AMENDMENT to this TRD".
+New `feature_in_flight()` terminates on an archived TRD or an all-success `implement.json`.
+`derive_feature()` is deliberately unchanged — the `ENSEMBLE_COMMAND` marker wants the
+feature either way.
+
+### Fixed — smaller, but shipped wrong
+
+- `/implement-trd`'s readout lost `gh pr create` when the seven-section template became the
+  four-section one, so a run ended without telling the owner how to ship.
+- Readout blocks in `/augment-trd-figma` and `/update-project` were inserted INSIDE fenced
+  blocks, and would have been copied verbatim into a user's TRD and into a `stack.md` change
+  proposal. Three more sat mid-workflow rather than beside the output contract.
+- `/amend`'s documented attestation snippet threw: nothing creates the `AMEND` task in
+  `implement.json` and `recordResult()` raises on an unknown id.
+- `/audit-build`'s `--report-only` was documented as the opt-out from the automatic
+  `/implement-trd` chain and parsed nowhere.
+- `/create-prd` claimed `/audit-prd` runs the session-fidelity pass; that command says the
+  opposite and is right.
+- `create-prd.js`'s gap warning counted conflicts that `CONFLICT_BLOCK` explicitly says must
+  NOT be superseded, firing on PRDs that followed the instruction exactly.
+- `--reconcile` was missing from `/implement-trd`'s `argument-hint`.
+- `create-prd.test.js` was shipped into the `.claude/` runtime mirror without its harness.
+  Test files do not belong in the mirror.
+
+1013 jest, 107 pytest, 479 bats green.
+
 ## [4.3.0] - 2026-09-20
 
 Minor, not patch: `/amend` is a new command.
