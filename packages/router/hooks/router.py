@@ -92,6 +92,12 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   process.md). Assess the request against them, and say so plainly if it conflicts
   rather than quietly proceeding.
 
+* SAY IT PLAINLY. Technical, not cryptic. An id is a lookup key, not a description --
+  write "the clamp-order defect (FIX-001)", never "FIX-001" alone. Gloss an internal
+  term the first time you use it, or use ordinary words instead. If a sentence needs
+  the reader to go and look something up before it parses, rewrite it. Brevity is not
+  the goal; being followable is.
+
 * PROPORTION. This is orientation, not ceremony. Conversational, informational and
   trivial turns need none of it - answer directly and move on.
 

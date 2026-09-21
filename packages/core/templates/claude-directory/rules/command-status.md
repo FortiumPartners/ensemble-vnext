@@ -124,6 +124,28 @@ Concretely:
   What the command DID is only interesting where it changes what the owner should do.
 - **Numbers need their unit and their baseline.** "677s, was 341s" beats "improved latency".
 
+**This rule was written once and then broken by the agent that wrote it**, within the same
+session, repeatedly. That is worth more than another abstract restatement, so here are real
+pairs from that session — left column actually said to the owner, who had to ask what several
+of them meant:
+
+| Written | What it should have said |
+|---|---|
+| "A3 zero-tolerance class FP" | "a false positive in the class that must stay clean" |
+| "precision 0.8752 against PRECISION_FLOOR" | "right 88% of the time when it flags something, against a 90% bar" |
+| "LSA-B016 and LSA-T001 were dispatched" | "two tasks that say in their own text they can't finish today were sent to run anyway" |
+| "n>=4 majority verdict on the corpus" | "run the 86 test examples four times and take the majority, so one unlucky run can't decide it" |
+| "NG7 forbids it" | "the TRD's own non-goals rule it out" |
+
+The pattern in every row: the left side is **correct and unreadable**. It is not too short and
+it is not too technical — it asks the reader to resolve two or three lookups before the
+sentence means anything. **Write the thing, then its id.** The id is for finding it later, not
+for saying what it is.
+
+**This section governs readouts. The same rule applies to ordinary replies**, which is where
+it was actually broken — the router's orientation hint carries a short form of it for that
+reason.
+
 ### What each section carries
 
 **STATE.** What is true on disk now. Files written, tasks done and not done, tests passing or

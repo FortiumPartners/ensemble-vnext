@@ -3191,11 +3191,34 @@ section, with nothing checking it — the same shape as every other unenforced c
 this plan. Any fix needs to reach (a) every command's output, not just the readout, and (b)
 the agent's ordinary conversational turns, which no command contract governs at all.
 
-**Not yet designed.** Candidate directions, none chosen: a short style rule loaded the way
-`async-discipline.md` is; a worked before/after table (far more effective than abstract
-instruction for this kind of thing); or a check on the readout that flags bare identifiers.
-The first two are cheap and the third risks becoming another guard that fires on correct work,
-which this plan is already trying to undo.
+**Partially addressed 2026-09-21; the hard half is open.**
+
+Diagnosis first, because it explains the failure: the existing rule lives in
+`command-status.md`'s READOUT section, and the jargon appears in ordinary conversational
+replies, which no command contract reaches at all. The rule was aimed at the wrong surface.
+
+Two changes shipped:
+
+1. **The router's orientation hint** now carries a five-line `SAY IT PLAINLY` bullet. That
+   hint is injected into every prompt, and it is the ONLY surface that reaches conversational
+   turns. +376 chars on a 2274-char hint, paid on every turn — deliberate, because reach is
+   the whole point.
+2. **`command-status.md` gained worked before/after pairs** taken from the session that
+   logged this issue, in which the agent broke the rule repeatedly while writing about it.
+   Concrete pairs beat abstract instruction for style, and the old text was already concrete
+   in the abstract sense ("name the thing, then its id") and still failed.
+
+**What is NOT solved, and should not be claimed as solved.** This is a style instruction with
+nothing measuring it. Every previous attempt was also a style instruction, and the honest
+prior is that it will decay. A mechanical check — flagging bare `[A-Z]{2,}-[0-9]{3}` and
+known internal terms in user-facing output — is the only thing that would hold, and it was
+deliberately NOT built: a guard firing on correct prose is exactly the defect items 16-20
+exist to undo, and the false-positive rate on a style rule would be far worse than on the
+discipline guards.
+
+**The measurement that would settle it** is the same one that found the problem: sample a
+later session's replies for unglossed identifiers and count them. Until someone does that,
+treat this item as attempted, not fixed.
 
 ## Opportunistic — do these while you're already in the file
 
