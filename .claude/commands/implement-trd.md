@@ -1318,8 +1318,16 @@ ISSUES
   {if none: "none"}
 
 NEXT
-  {the single next command, runnable as written}
+  {the single next command, runnable as written — normally the first of:}
+    /audit-build <trd> --prd <prd>     verify delivery against the TRD and PRD
+    gh pr create --title "<title>"     when the audit is clean
+  {name ONE. The others are the owner's to run when they get there.}
 ```
+
+**The PR is the owner's to open, and NEXT must name it** — a run that ends without telling
+them how to ship leaves the work stranded on a branch. This line was lost when the seven-
+section template was replaced on 2026-09-20 and restored the same day; the old template
+listed it under NEXT STEPS.
 
 **Rules this template enforces, each from a measured failure:**
 
