@@ -447,6 +447,21 @@ exempt from it.`,
   {
     label: 'ground:brownfield',
     phase: 'Ground',
+    /* An UNSET agentType is not "no agent" -- it is the platform's generic workflow
+     * subagent, which inherits the SESSION model. In an Opus-led session this stage
+     * silently ran on Opus at roughly five times the price of a Sonnet implementer, and
+     * nobody chose that. The identical defect was found and fixed for per-task agents on
+     * 2026-08-16, where an 8-task fixture moved from 367 Opus / 330 Sonnet to
+     * 393 Opus / 8 Sonnet once the fallback was restored.
+     *
+     * `backend-implementer` is the documented default for work no keyword matches: broad,
+     * Sonnet-tier, and competent at reading code, which is what grounding is. `effort:
+     * 'high'` below still buys this stage the thinking budget it needs.
+     *
+     * This is a reversible cost/quality call, not a law. The check that would catch it
+     * going wrong is grounding COMPLETENESS on a real run -- every task carrying a block,
+     * `Replaces` lines present -- not the token count. */
+    agentType: 'backend-implementer',
     // High: this is the only GENERATIVE stage after authoring, and its output is piped
     // straight into implementer prompts. Weak grounding is how reimplementation happens --
     // §9.1's second-largest category at ~45 hits.
