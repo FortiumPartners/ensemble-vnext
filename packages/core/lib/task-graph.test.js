@@ -435,3 +435,52 @@ describe('waveProfile / renderWaveProfile', () => {
     expect(renderWaveProfile(buildGraph([], {}))).toEqual([]);
   });
 });
+
+/* Phase merging, added 2026-09-21. buildGraph computes waves across the WHOLE TRD and
+ * /implement-trd then intersects them with ONE phase, dispatching phase by phase — a second
+ * serialization layer on an ordering that is already correct. Measured: 4.4h of agent time
+ * inside 6.42h of wall clock, 0.69x, with five phases awaited in turn. */
+describe('phaseGroups', () => {
+  const { phaseGroups } = require('./task-graph');
+  const t = (id, phase, extra = {}) => ({ ...task(id, extra), phase });
+
+  it('merges adjacent phases with nothing connecting them', () => {
+    const tasks = [t('A-1', 1), t('A-2', 1), t('B-1', 2), t('B-2', 2)];
+    expect(phaseGroups(tasks, buildGraph(tasks, {}))).toEqual([[1, 2]]);
+  });
+
+  it('keeps phases apart when a declared dependency crosses', () => {
+    const tasks = [t('A-1', 1), t('B-1', 2, { dependencies: ['A-1'] })];
+    expect(phaseGroups(tasks, buildGraph(tasks, {}))).toEqual([[1], [2]]);
+  });
+
+  it('keeps phases apart when a SHARED FILE crosses — the edge nobody declares', () => {
+    // This is the case that makes concurrent phase dispatch unsafe: each phase workflow
+    // gets a phase-filtered wave list and cannot see the other's file conflicts.
+    const tasks = [t('A-1', 1), t('B-1', 2)];
+    const grounding = { 'A-1': { touches: ['src/shared.ts'] }, 'B-1': { touches: ['src/shared.ts'] } };
+    expect(phaseGroups(tasks, buildGraph(tasks, grounding))).toEqual([[1], [2]]);
+  });
+
+  it('will not absorb a phase coupled to ANY member of the group', () => {
+    // 1 and 2 are free of each other; 3 depends on 1. 3 must not join, even though it is
+    // unconnected to 2, because the group dispatches as one unit.
+    const tasks = [t('A-1', 1), t('B-1', 2), t('C-1', 3, { dependencies: ['A-1'] })];
+    expect(phaseGroups(tasks, buildGraph(tasks, {}))).toEqual([[1, 2], [3]]);
+  });
+
+  it('degrades to one dispatch per phase when everything is coupled', () => {
+    const tasks = [
+      t('A-1', 1),
+      t('B-1', 2, { dependencies: ['A-1'] }),
+      t('C-1', 3, { dependencies: ['B-1'] }),
+    ];
+    expect(phaseGroups(tasks, buildGraph(tasks, {}))).toEqual([[1], [2], [3]]);
+  });
+
+  it('handles a single-phase TRD and an empty one without special-casing upstream', () => {
+    const tasks = [t('A-1', 1), t('A-2', 1)];
+    expect(phaseGroups(tasks, buildGraph(tasks, {}))).toEqual([[1]]);
+    expect(phaseGroups([], buildGraph([], {}))).toEqual([]);
+  });
+});

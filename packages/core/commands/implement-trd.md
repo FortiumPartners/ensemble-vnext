@@ -51,7 +51,7 @@ PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN
   banner. Absent the flag, this step is skipped entirely.
 
 Phase Loop (per phase N):
-  mark phase N's tasks in_progress (state-write-before-dispatch)
+  mark this phase GROUP's tasks in_progress (state-write-before-dispatch)
   -> Workflow(implement-phase, {trd, phase: N, tasks, gate, project})
        (per task, inside the workflow: IMPLEMENT -> checks -> [self-debug on fail])
        (phase gate, inside the workflow: verify-app -> phase-scoped /code-review high)
@@ -340,13 +340,13 @@ directly.
 ```bash
 node -e '
   const { parseTrd } = require("./.claude/lib/trd-parser");
-  const { buildGraph, renderWaveProfile } = require("./.claude/lib/task-graph");
+  const { buildGraph, renderWaveProfile, phaseGroups } = require("./.claude/lib/task-graph");
   const fs = require("fs");
   const trdPath = process.argv[1];
   const markdown = fs.readFileSync(trdPath, "utf8");
   const parsed = parseTrd(markdown, { path: trdPath });
   const graph = buildGraph(parsed.tasks, parsed.grounding);
-  console.log(JSON.stringify({ ...parsed, ...graph, waveProfile: renderWaveProfile(graph) }, null, 2));
+  console.log(JSON.stringify({ ...parsed, ...graph, waveProfile: renderWaveProfile(graph), phaseGroups: phaseGroups(parsed.tasks, graph) }, null, 2));
 ' "$TRD_PATH"
 ```
 
@@ -715,6 +715,27 @@ Write `implement.json` (`implement-state.save()`) **before** the `Workflow` call
 on each subagent completion it observes — this is a best-effort safety net, not the
 authoritative write; it does not correlate a specific `SubagentStop` to a specific task
 (parallel waves put more than one task `in_progress` at once by design).
+
+### 4.0 Dispatch by PHASE GROUP, not by phase
+
+Step 3.1 returns `phaseGroups` — adjacent phases with **no edge of either kind** between
+them, e.g. `[[1,2],[3],[4,5]]`. **Iterate those groups, not the raw phase numbers.** A group
+of several phases is ONE `Workflow(implement-phase, ...)` call over the union of their tasks,
+with one gate, one checkpoint and one PHASE banner naming the range (`PHASE 1-2/5`).
+
+Why this is safe, and why the obvious alternative is not: `buildGraph` computes waves across
+the WHOLE TRD, so a single dispatch over the union still honours every dependency and every
+file conflict. Running two phase *workflows* concurrently would not — each receives a
+phase-filtered wave list and neither can see the other's file-conflict edges. That is the one
+genuinely unsafe design, and `phaseGroups` exists to get the benefit without it.
+
+Measured cause: a real run spent 4.4h of agent time inside 6.42h of wall clock — 0.69x, below
+serial — with five phases awaited one after another. Across this repo's own TRDs the grouping
+merges 3 of 7 and leaves the genuinely coupled ones untouched.
+
+`phaseGroups` is conservative by construction: a group stops growing at the first declared
+dependency or shared file, so when phases really do chain this degrades to exactly today's
+behaviour.
 
 ### 4.1a Set deferred-by-design tasks aside — report them, never dispatch them
 

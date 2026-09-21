@@ -259,6 +259,58 @@ function renderWaveProfile(graph, opts = {}) {
   return out;
 }
 
+
+/**
+ * Adjacent phases that can run as ONE dispatch, because nothing connects them.
+ *
+ * WHY. `buildGraph` computes waves across the WHOLE TRD, and then `/implement-trd`
+ * intersects those waves with one phase's membership and dispatches phase by phase. Phases
+ * are therefore a SECOND serialization layer on top of an ordering that is already correct.
+ * Measured on a real run: 4.4h of agent time inside 6.42h of wall clock — 0.69x, below
+ * serial — with five phases awaited one after another.
+ *
+ * What this does NOT do is run two phase workflows concurrently. Each would receive a
+ * phase-filtered wave list and neither would see the other's file-conflict edges; that is
+ * the one genuinely unsafe design. Merging phases into a single dispatch keeps one wave
+ * computation over the union, so every edge is still honoured.
+ *
+ * Conservative by construction: a group grows only while NO edge of either kind crosses
+ * into it. Any real coupling — a declared dependency or a shared file — ends the group, and
+ * the result degrades to today's one-phase-at-a-time behaviour.
+ *
+ * @param {object[]} tasks  parsed tasks carrying `.phase`
+ * @param {{edges: object[]}} graph
+ * @returns {number[][]} groups of phase numbers, ascending, e.g. [[1,2],[3],[4,5]]
+ */
+function phaseGroups(tasks, graph) {
+  const phaseOf = new Map();
+  for (const t of tasks || []) if (t && t.id) phaseOf.set(t.id, t.phase);
+
+  const phases = [...new Set([...phaseOf.values()].filter((n) => Number.isFinite(n)))].sort(
+    (a, b) => a - b
+  );
+  if (phases.length <= 1) return phases.map((p) => [p]);
+
+  // Which phase pairs are connected by an edge of either kind.
+  const linked = new Set();
+  for (const e of (graph && graph.edges) || []) {
+    const a = phaseOf.get(e.from);
+    const b = phaseOf.get(e.to);
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) continue;
+    linked.add(`${Math.min(a, b)}:${Math.max(a, b)}`);
+  }
+
+  const groups = [[phases[0]]];
+  for (let i = 1; i < phases.length; i++) {
+    const current = groups[groups.length - 1];
+    // Join only if this phase is unlinked to EVERY phase already in the group.
+    const free = current.every((p) => !linked.has(`${Math.min(p, phases[i])}:${Math.max(p, phases[i])}`));
+    if (free) current.push(phases[i]);
+    else groups.push([phases[i]]);
+  }
+  return groups;
+}
+
 // ---------------------------------------------------------------------------
 // Cycle detection (Tarjan's SCC), restricted to the nodes Kahn's algorithm
 // could not resolve.
@@ -382,5 +434,6 @@ module.exports = {
   buildGraph,
   waveProfile,
   renderWaveProfile,
+  phaseGroups,
   computeFilePartition,
 };
