@@ -117,7 +117,7 @@
 
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 
 const {
   buildPrompt,
@@ -254,39 +254,78 @@ function extractJson(raw) {
 }
 
 /**
- * Runs one hook-prompt against one case via `claude --print`. Returns
- * `{ok: boolean, reason?: string}` on success, or `null` on any failure (subprocess
- * error, timeout, unparseable output) — caller treats `null` as fail-open (allow).
+ * Runs one hook-prompt against one case via `claude --print`. Returns a PROMISE of
+ * `{ok: boolean, reason?: string}`, or of `null` on any failure (subprocess error,
+ * timeout, unparseable output) — caller treats `null` as fail-open (allow).
+ *
+ * ASYNC SINCE 2026-09-21, and the reason is the acceptance gate itself. This used to be
+ * `spawnSync`, one `claude --print` per case, strictly serial. The corpus is 86 cases and
+ * `RESULTS.md:472` requires "n>=4, full corpus, every time" for BOTH the PRE and the POST
+ * side of any prompt change -- ~688 serial subprocess calls to clear one edit. The harness
+ * that gates every guard fix was the slowest thing in the loop it was gating.
+ *
+ * `score.js` already declared `detect()` awaitable, so nothing in the detector contract had
+ * to change; only this function and `detect` below became genuinely asynchronous.
  */
 function judgeOneHook(testCase, hookName) {
   const fullPrompt = buildFullPrompt(testCase, hookName);
+  const id = testCase.id || '(no id)';
 
-  debug(`case=${testCase.id || '(no id)'} hook=${hookName} prompt_chars=${fullPrompt.length}`);
+  debug(`case=${id} hook=${hookName} prompt_chars=${fullPrompt.length}`);
 
-  const result = spawnSync('claude', ['--print', '--model', DEFAULT_MODEL], {
-    input: fullPrompt,
-    encoding: 'utf-8',
-    timeout: DEFAULT_TIMEOUT_MS,
-    cwd: os.tmpdir(), // deliberately NOT the repo root — see divergence #4 in module doc
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    const child = spawn('claude', ['--print', '--model', DEFAULT_MODEL], {
+      cwd: os.tmpdir(), // deliberately NOT the repo root -- see divergence #4 in module doc
+    });
+
+    // SIGKILL rather than the default SIGTERM: spawnSync's `timeout` killed the process
+    // outright, and a judge call that has hung is not going to clean up gracefully.
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      debug(`case=${id} hook=${hookName} timeout after ${DEFAULT_TIMEOUT_MS}ms -- fail open`);
+      finish(null);
+    }, DEFAULT_TIMEOUT_MS);
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf-8');
+    child.stderr.setEncoding('utf-8');
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
+
+    child.on('error', (err) => {
+      debug(`case=${id} hook=${hookName} subprocess error: ${err.message}`);
+      finish(null);
+    });
+
+    child.on('close', (code) => {
+      if (settled) return;
+      if (code !== 0) {
+        debug(`case=${id} hook=${hookName} exit ${code}: ${(stderr || '').slice(0, 200)}`);
+        return finish(null);
+      }
+      debug(`case=${id} hook=${hookName} raw="${(stdout || '').trim().slice(0, 200)}"`);
+      const parsed = extractJson(stdout || '');
+      if (!parsed || typeof parsed.ok !== 'boolean') {
+        debug(`case=${id} hook=${hookName} unparseable response -- fail open`);
+        return finish(null);
+      }
+      finish(parsed);
+    });
+
+    // The child can exit before consuming stdin (bad flag, auth failure); an unhandled
+    // EPIPE here would take the whole scoring run down instead of failing this one case open.
+    child.stdin.on('error', () => {});
+    child.stdin.end(fullPrompt);
   });
-
-  if (result.error) {
-    debug(`case=${testCase.id || '(no id)'} hook=${hookName} subprocess error: ${result.error.message}`);
-    return null;
-  }
-  if (result.status !== 0) {
-    debug(`case=${testCase.id || '(no id)'} hook=${hookName} exit ${result.status}: ${(result.stderr || '').slice(0, 200)}`);
-    return null;
-  }
-
-  const parsed = extractJson(result.stdout || '');
-  debug(`case=${testCase.id || '(no id)'} hook=${hookName} raw="${(result.stdout || '').trim().slice(0, 200)}"`);
-
-  if (!parsed || typeof parsed.ok !== 'boolean') {
-    debug(`case=${testCase.id || '(no id)'} hook=${hookName} unparseable response — fail open`);
-    return null;
-  }
-  return parsed;
 }
 
 module.exports = {
@@ -295,12 +334,15 @@ module.exports = {
     'Offline simulation of the type:"prompt" discipline-hook judgments (DISC-T001) — see divergence notes in judge.js for how faithfully this reproduces production.',
   /**
    * @param {Object} testCase — corpus case; uses `.text`, `.event`, `.payload`, `.id`
-   * @returns {boolean} true if ANY applicable hook-prompt would block (violation)
+   * @returns {Promise<boolean>} true if ANY applicable hook-prompt would block (violation)
    */
-  detect(testCase) {
+  async detect(testCase) {
     const hooks = applicableHooks(testCase);
+    // Hooks for ONE case stay sequential: the first block short-circuits, and a case
+    // applies to at most two hooks. The parallelism that matters is across cases, and
+    // score.js owns it.
     for (const hookName of hooks) {
-      const verdict = judgeOneHook(testCase, hookName);
+      const verdict = await judgeOneHook(testCase, hookName);
       // null (error/timeout/unparseable) fails open — treated as "this hook allows".
       if (verdict && verdict.ok === false) {
         debug(`case=${testCase.id || '(no id)'} BLOCKED by ${hookName}: ${verdict.reason || '(no reason)'}`);

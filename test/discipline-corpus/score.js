@@ -187,16 +187,59 @@ function recallOf(bucket) {
  * @param {{detect: Function}} detector
  * @returns {Promise<{overall: Object, byClass: Object<string, Object>}>}
  */
+/**
+ * Default detector concurrency. The judge detector shells out to `claude --print` once per
+ * case; the regex detector is synchronous and unaffected by this.
+ *
+ * 8 is deliberately conservative. The bound exists at all because the corpus is scored
+ * PRE and POST at n>=4 for every prompt change (`RESULTS.md:472`), which was ~688 serial
+ * subprocess calls before this was parallelized.
+ */
+const DEFAULT_CONCURRENCY = Number(process.env.DISCIPLINE_SCORE_CONCURRENCY) || 8;
+
+/**
+ * Map with a bounded worker pool, preserving INPUT ORDER in the returned array.
+ *
+ * Order is not a nicety here. `score.js` emits `misses[]` and `falsePositives[]` into a JSON
+ * file that `compare-runs.js` diffs case-by-case across runs; if the arrays reordered per
+ * run, a PRE/POST comparison would report churn that never happened. So detection runs
+ * concurrently and the bookkeeping below stays strictly sequential over `cases`.
+ */
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const i = next++;
+        if (i >= items.length) return;
+        results[i] = await fn(items[i], i);
+      }
+    })
+  );
+  return results;
+}
+
 async function scoreCases(cases, detector) {
   const overall = emptyBucket();
   const byClass = {};
 
-  for (const testCase of cases) {
-    const bucket = (byClass[testCase.class] = byClass[testCase.class] || emptyBucket());
-
+  // Detection first, concurrently. `elapsedMs` times only the detect() call itself -- the
+  // clock starts after a worker has claimed the case, so it never includes queue wait.
+  // Under contention individual calls do run slower than they would alone; the figure is a
+  // per-call duration under load, not an isolated benchmark.
+  const verdicts = await mapWithConcurrency(cases, DEFAULT_CONCURRENCY, async (testCase) => {
     const start = process.hrtime.bigint();
     const predictedViolation = Boolean(await detector.detect(testCase));
-    const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+    return { predictedViolation, elapsedMs: Number(process.hrtime.bigint() - start) / 1e6 };
+  });
+
+  // Bookkeeping second, strictly in corpus order -- see mapWithConcurrency's note on why.
+  for (let i = 0; i < cases.length; i++) {
+    const testCase = cases[i];
+    const { predictedViolation, elapsedMs } = verdicts[i];
+    const bucket = (byClass[testCase.class] = byClass[testCase.class] || emptyBucket());
 
     overall.times.push(elapsedMs);
     bucket.times.push(elapsedMs);
