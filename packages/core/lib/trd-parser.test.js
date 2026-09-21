@@ -865,3 +865,44 @@ describe('absent grounding is warned, never silent', () => {
     expect(p.tasks).toHaveLength(1);
   });
 });
+
+describe('parseTrd — deferred by design', () => {
+  const TASKS = [
+    '## Master Task List', '',
+    '| Task ID | Description | Serves | Dependencies | Acceptance Criteria |',
+    '|---|---|---|---|---|',
+    '| F-B001 | build it | O1 | None | works |',
+    '| F-B016 | delete the drained consumer | O1 | F-B001 | gone |', '',
+  ];
+  const parse = (extra = []) => parseTrd([...TASKS, ...extra].join('\n'), { path: 't.md' });
+
+  it('is empty when the section is absent — most TRDs defer nothing', () => {
+    const p = parse();
+    expect(p.deferred).toEqual([]);
+    expect(p.tasks.every((t) => !t.deferred)).toBe(true);
+  });
+
+  it('reads the table and flags the task itself', () => {
+    // Flagging the task avoids every consumer re-deriving it from a parallel array —
+    // which is how `task.live` ended up computed with no reader anywhere.
+    const p = parse([
+      '## Deferred by design', '',
+      '| Task ID | Why it cannot run now |', '|---|---|',
+      '| F-B016 | runs one deploy cycle after F-B001 reaches the environment |', '',
+    ]);
+    expect(p.deferred).toEqual([
+      { id: 'F-B016', why: 'runs one deploy cycle after F-B001 reaches the environment' },
+    ]);
+    expect(p.tasks.find((t) => t.id === 'F-B016').deferred).toBe(true);
+    expect(p.tasks.find((t) => t.id === 'F-B001').deferred).toBeUndefined();
+  });
+
+  it('warns on a malformed row rather than silently dropping it', () => {
+    const p = parse([
+      '## Deferred by design', '',
+      '| Task ID | Why it cannot run now |', '|---|---|',
+      '| F-B016 |', '',
+    ]);
+    expect(p.warnings.join(' ')).toMatch(/Malformed Deferred by design row/);
+  });
+});

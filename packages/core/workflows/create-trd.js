@@ -556,17 +556,114 @@ const GROUND_OPTS = {
     },
 }
 
+/* SIZE THE WORK. Runs BESIDE grounding, not after it: it needs only the authored task list,
+ * so it costs no wall time.
+ *
+ * Why this exists. `/investigate` refuses above MAX_TASKS = 6 (fix-sizing.js:37). The
+ * PRD -> TRD path had no ceiling at all, and nothing anywhere asked whether the thing being
+ * planned was still one change. Measured consequence: an owner's "moderate change touching
+ * a lot of callers" became an 85KB PRD, a 147KB TRD, 17 tasks, 5 phases and TWO DEPLOY
+ * CYCLES, handed to a single unattended run that took 6.42 hours and left `wip` commits.
+ *
+ * It REPORTS and PROPOSES. It never refuses, and it never asks -- create-trd.md's autonomy
+ * block forbids gating on AskUserQuestion, and a gate that refuses is the same overreach as
+ * a guard that compels. The owner reads a split proposal and decides.
+ *
+ * It does not WRITE: grounding is writing the TRD at the same moment, and two writers on
+ * one file is a lost update that raises no error. A conditional writer below persists the
+ * deferred list once grounding has finished. */
+const SIZING = () =>
+  agent(
+    `Judge whether this TRD is ONE change, and whether one unattended run can finish it.
+
+TRD: ${TRD}
+SOURCE: ${PRD}
+${SCOPE}
+
+THE TASKS AS AUTHORED:
+${TASK_ROSTER}
+
+OBJECTIVES: ${authored.objectives.map((o) => o.id || o).join(', ')}
+
+READ THE SOURCE. The question is not "is this big" in the abstract -- it is whether the plan
+has drifted from what was actually asked for. A large ask honestly translated is fine. A
+modest ask that grew a schema migration, a rename sweep and three CI guards around it is the
+failure this catches.
+
+JUDGE, DO NOT COUNT. Task and file counts are a poor proxy: 25 tiny independent fixes and 5
+coupled architectural changes have opposite shapes and similar counts. Ask instead:
+
+  DEPLOY CYCLES -- does any task require a PREVIOUS task to be deployed and running before
+  it can begin? Each such boundary is a separate release, and no single run can cross one.
+
+  ONE RUN? -- could one unattended /implement-trd plausibly finish all of this? Consider
+  coupling, not volume: 30 independent one-line fixes are one run; 6 tasks that each must
+  land, deploy and settle are not.
+
+  STILL ONE CHANGE? -- if you described this to the person who asked for it, in their words,
+  would they recognise it as the thing they asked for, or as that plus a programme of work?
+
+DEFERRED BY DESIGN -- name any task that CANNOT complete in a normal run, by its own text.
+Two real examples, both dispatched anyway and both producing half-finished commits:
+  "Delete the drained consumer, ONE DEPLOY CYCLE AFTER LSA-B013 reaches the environment"
+  "[LIVE] end-to-end verification ... on a real trip day"
+These are not failures; they are scheduled work. Naming them up front turns a deferral that
+would arrive as a nasty discovery into part of the plan.
+
+IF IT IS LARGER THAN ONE RUN, PROPOSE A SPLIT. Contiguous groups of task IDs, each shippable
+on its own, each with a one-line reason and its ordering constraint. A split nobody can act
+on is worse than none: say what ships first and what it unblocks.
+
+Zero deferrals and "one change" is the common, correct answer for most TRDs. Do not
+manufacture concern to look thorough.`,
+    {
+      label: 'size',
+      phase: 'Ground',
+      agentType: 'technical-architect',
+      effort: 'low',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['one_change', 'one_run', 'deploy_cycles', 'reasons', 'deferred', 'proposed_split'],
+        properties: {
+          one_change: { type: 'boolean', description: 'would the requester recognise this as what they asked for' },
+          one_run: { type: 'boolean', description: 'could one unattended run finish it' },
+          deploy_cycles: { type: 'integer', description: 'distinct releases this plan implies; 1 is normal' },
+          reasons: { type: 'array', items: { type: 'string' }, description: 'why, one line each; empty when all clear' },
+          deferred: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false, required: ['id', 'why'],
+              properties: { id: { type: 'string' }, why: { type: 'string' } },
+            },
+          },
+          proposed_split: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false, required: ['tasks', 'ships'],
+              properties: {
+                tasks: { type: 'string', description: 'task id range, e.g. LSA-B001..B003' },
+                ships: { type: 'string', description: 'what this group delivers on its own' },
+                after: { type: 'string', description: 'ordering constraint, if any' },
+              },
+            },
+          },
+        },
+      },
+    }
+  )
+
 /* One agent per chunk, in parallel, each returning its blocks; then ONE writer assembles
  * them. The writer exists because workflow scripts have no filesystem access -- only an
  * agent can write the TRD -- and because letting N agents Write/Edit one file concurrently
- * is a lost update that raises no error. */
-const groundResults = FANNED_OUT
-  ? await parallel(
-      groundChunks.map((mine, i) => () =>
-        agent(groundPrompt(mine), { ...GROUND_OPTS, label: `ground:brownfield:${i + 1}` })
-      )
-    )
-  : [await agent(groundPrompt(groundChunks[0] || []), GROUND_OPTS)]
+ * is a lost update that raises no error. Sizing rides in the same wave. */
+const groundThunks = groundChunks.map((mine, i) => () =>
+  agent(groundPrompt(mine), {
+    ...GROUND_OPTS,
+    label: FANNED_OUT ? `ground:brownfield:${i + 1}` : 'ground:brownfield',
+  })
+)
+const [sizing, ...groundResults] = await parallel([SIZING, ...groundThunks])
 
 const liveGround = groundResults.filter(Boolean)
 if (!liveGround.length) required(null, 'Ground')
@@ -616,6 +713,32 @@ ${liveGround.map((g, i) => `--- agent ${i + 1} ---\n${g.blocks_markdown || '(non
   else log('WARNING: the merge agent returned nothing -- the Task Grounding section may be unwritten')
 }
 
+/* Persist deferred-by-design tasks INTO the TRD, after grounding has finished writing.
+ *
+ * It has to be in the document, not just the readout: /implement-trd parses the TRD, and a
+ * deferral that lives only in a terminal message is one nobody acts on. The section follows
+ * the same shape as `## Open Questions` and `## Could Not Verify`, which trd-parser.js
+ * already reads. Only runs when there is something to write. */
+const deferred = (sizing && sizing.deferred) || []
+if (deferred.length) {
+  const wrote = await agent(
+    `Add a "## Deferred by design" section to ${TRD}, immediately after the Master Task List.
+
+These tasks cannot complete in a normal implementation run, by their own text. Record them
+so the run reports them as PLANNED deferrals instead of discovering them as failures:
+
+| Task ID | Why it cannot run now |
+|---------|----------------------|
+${deferred.map((d) => `| ${d.id} | ${d.why} |`).join('\n')}
+
+Write exactly that table under that heading. Change nothing else in the document.`,
+    { label: 'defer:write', phase: 'Ground', agentType: 'backend-implementer', effort: 'low',
+      schema: { type: 'object', additionalProperties: false, required: ['written'],
+                properties: { written: { type: 'boolean' } } } }
+  )
+  if (!wrote) log('WARNING: the deferred-by-design section may be unwritten -- it is in the readout only')
+}
+
 // `grounded` is assembled from surviving agents above, so required() has already fired if
 // every one of them died. What is worth saying out loud is partial coverage.
 const ungrounded = authored.tasks
@@ -632,6 +755,28 @@ log(`grounded ${grounded.grounded_task_ids.length}/${authored.tasks.length} task
 // Grounding's findings are REPORTED, not applied: the stage that found them is generative
 // (it wrote the grounding blocks), and a generative agent applying its own findings blurs
 // the line this pipeline depends on. /audit-trd is what applies findings.
+
+/* SIZE goes in the readout in the action-named grammar create-trd.md:918-965 specifies --
+ * "every line names the action, not the classification". A verdict the owner does not read
+ * is a verdict that changes nothing, and this one exists precisely because the previous
+ * silence let a 17-task two-deploy-cycle plan reach an unattended run. */
+const sizeLines = (() => {
+  if (!sizing) return '\n  SIZE — not judged (the sizing agent returned nothing)\n'
+  const cycles = sizing.deploy_cycles || 1
+  const ok = sizing.one_change && sizing.one_run && cycles <= 1
+  if (ok) return `\n  SIZE — one change, one run, ${authored.tasks.length} tasks\n`
+  let out = `\n  SPLIT THIS BEFORE IMPLEMENTING — ${authored.tasks.length} tasks, ${cycles} deploy cycle(s)\n`
+  for (const r of sizing.reasons || []) out += `    ${r}\n`
+  for (const g of sizing.proposed_split || []) {
+    out += `    ${g.tasks} — ${g.ships}${g.after ? ` (after ${g.after})` : ''}\n`
+  }
+  return out
+})()
+
+const deferLines = deferred.length
+  ? '\n  DEFERRED BY DESIGN — these cannot run today; /implement-trd will report, not attempt:\n' +
+    deferred.map((d) => `    ${d.id} — ${d.why}`).join('\n') + '\n'
+  : ''
 
 const gf = grounded.findings || []
 const gfLines = gf.length
@@ -654,12 +799,19 @@ return {
   grounded_tasks: grounded.grounded_task_ids.length,
   replaces_found: grounded.replaces_found.length,
   grounding_findings: gf.length,
+  one_change: sizing ? sizing.one_change : null,
+  one_run: sizing ? sizing.one_run : null,
+  deploy_cycles: sizing ? sizing.deploy_cycles : null,
+  deferred: deferred.map((d) => d.id),
+  proposed_split: (sizing && sizing.proposed_split) || [],
   next: NEXT,
   readout:
     `TRD: ${TRD}    SOURCE: ${PRD}${EXTRA ? ' + session transcript' : ''}\n` +
     `  ${authored.tasks.length} tasks, ${(authored.objectives || []).length} objectives\n` +
     `  grounded ${grounded.grounded_task_ids.length} tasks; ` +
     `${grounded.replaces_found.length} things named for deletion\n` +
+    sizeLines +
+    deferLines +
     gfLines +
     `\n  NOT YET VERIFIED. Run  ${NEXT}\n` +
     `  to check provenance, derivation, omission and citations, and to apply what survives.\n`,

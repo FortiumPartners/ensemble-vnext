@@ -258,3 +258,102 @@ describe('create-trd grounding fan-out', () => {
     expect(logs.join('\n')).toMatch(/returned nothing|no grounding block/i);
   });
 });
+
+/* Sizing, added 2026-09-21. The PRD->TRD path had no size judgement at all, and an owner's
+ * "moderate change" reached an unattended run as 17 tasks across two deploy cycles. The
+ * defect class these guard against is the one this repo keeps producing: a field computed,
+ * logged, and wired to nothing. */
+describe('create-trd sizing', () => {
+  const SIZE_CLEAN = {
+    one_change: true, one_run: true, deploy_cycles: 1,
+    reasons: [], deferred: [], proposed_split: [],
+  };
+  const SIZE_TOO_BIG = {
+    one_change: false, one_run: false, deploy_cycles: 2,
+    reasons: ['a rename sweep and three CI guards grew around a caller change'],
+    deferred: [{ id: 'F-B016', why: 'runs one deploy cycle after F-B013 reaches the environment' }],
+    proposed_split: [
+      { tasks: 'F-B001..B003', ships: 'ledger identity — stops the bleeding on its own' },
+      { tasks: 'F-B004..B016', ships: 'the rename sweep', after: 'F-B001..B003' },
+    ],
+  };
+
+  const sizePlan = (size) => (prompt, opts) => {
+    if (opts.label === 'corpus-index') return CORPUS;
+    if (opts.label === 'author:technical-architect') return AUTHORED;
+    if (opts.label === 'size') return size;
+    if (opts.label === 'defer:write') return { written: true };
+    if (String(opts.label).startsWith('ground')) return { ...GROUNDED, blocks_markdown: '### F-B001' };
+    return undefined;
+  };
+
+  async function sized(size) {
+    const agent = makeAgentStub(sizePlan(size));
+    const { result } = await runWorkflow(SOURCE, {
+      agent, parallel: makeParallelStub(), args: baseArgs(),
+    });
+    return { result, agent };
+  }
+
+  it('judges size in the same wave as grounding, costing no extra wall time', async () => {
+    const { agent } = await sized(SIZE_CLEAN);
+    const size = call(agent, 'size');
+    expect(size).toBeDefined();
+    expect(size.opts.phase).toBe('Ground');
+  });
+
+  it('shows the sizing agent the tasks AND the source it must judge drift against', async () => {
+    // Absolute size is not the question — drift from what was actually asked for is.
+    const { agent } = await sized(SIZE_CLEAN);
+    const prompt = call(agent, 'size').prompt;
+    expect(prompt).toContain('docs/PRD/f.md');
+    expect(prompt).toContain('F-B001');
+    expect(prompt).toContain('build the thing');
+  });
+
+  it('says so plainly when the plan is one change', async () => {
+    const { result } = await sized(SIZE_CLEAN);
+    expect(result.readout).toMatch(/SIZE — one change, one run/);
+    expect(result.one_change).toBe(true);
+    expect(result.deploy_cycles).toBe(1);
+  });
+
+  it('puts the split proposal in the readout, not just the return value', async () => {
+    const { result } = await sized(SIZE_TOO_BIG);
+    expect(result.readout).toContain('SPLIT THIS BEFORE IMPLEMENTING');
+    expect(result.readout).toContain('2 deploy cycle(s)');
+    expect(result.readout).toContain('F-B001..B003');
+    expect(result.readout).toContain('ledger identity');
+  });
+
+  it('writes deferred tasks INTO the TRD, because implement-trd parses the document', async () => {
+    const { agent, result } = await sized(SIZE_TOO_BIG);
+    const w = call(agent, 'defer:write');
+    expect(w).toBeDefined();
+    expect(w.prompt).toContain('## Deferred by design');
+    expect(w.prompt).toContain('F-B016');
+    expect(result.deferred).toEqual(['F-B016']);
+    expect(result.readout).toContain('DEFERRED BY DESIGN');
+  });
+
+  it('does not write a deferred section when nothing is deferred', async () => {
+    const { agent, result } = await sized(SIZE_CLEAN);
+    expect(call(agent, 'defer:write')).toBeUndefined();
+    expect(result.readout).not.toContain('DEFERRED BY DESIGN');
+  });
+
+  it('never refuses or asks — it reports and proposes', async () => {
+    // A gate that refuses is the same overreach as a guard that compels, and create-trd.md
+    // forbids gating on AskUserQuestion. An oversized plan still produces a TRD.
+    const { result } = await sized(SIZE_TOO_BIG);
+    expect(result.trd).toBe('docs/TRD/f.md');
+    expect(result.next).toContain('/audit-trd');
+  });
+
+  it('survives the sizing agent dying, rather than losing the TRD', async () => {
+    const { result } = await sized(undefined);
+    expect(result.trd).toBe('docs/TRD/f.md');
+    expect(result.readout).toContain('not judged');
+    expect(result.one_change).toBeNull();
+  });
+});

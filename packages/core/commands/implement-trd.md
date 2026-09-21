@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--reset-state] [--verify]"
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify]"
 version: 4.0.0
 category: implementation
 ---
@@ -705,6 +705,24 @@ Write `implement.json` (`implement-state.save()`) **before** the `Workflow` call
 on each subagent completion it observes — this is a best-effort safety net, not the
 authoritative write; it does not correlate a specific `SubagentStop` to a specific task
 (parallel waves put more than one task `in_progress` at once by design).
+
+### 4.1a Set deferred-by-design tasks aside — report them, never dispatch them
+
+`parseTrd()` returns `deferred[]` and stamps `task.deferred = true` on each one. These are
+tasks the TRD itself says cannot complete in a normal run — *"one deploy cycle after X
+reaches the target environment"*, *`[LIVE]` on a real trip day*.
+
+**Exclude them from the wave partition, and record them as `deferred` in `implement.json`**
+(`recordResult`'s status passthrough accepts it). Name them in the PHASE banner and in the
+final readout under `STATE`, with the reason the TRD gave.
+
+This is planning, not refusing. Measured: `LSA-B016` and `LSA-T001` were dispatched into a
+single 6.42-hour run that could not, by their own wording, finish them. They produced
+`wip(phase 4)` commits and days of cleanup — because **a deferral that was predicted reads
+as a plan, and the same deferral discovered reads as a failure.**
+
+The owner can still force one: `/implement-trd --include-deferred` dispatches them like any
+other task. Do not offer this unprompted — report the deferral and move on.
 
 ### 4.2 Compute this phase's wave partition and dispatch
 

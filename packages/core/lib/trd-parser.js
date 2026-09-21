@@ -680,6 +680,53 @@ function parseCouldNotVerify(lines, warnings) {
 }
 
 // ---------------------------------------------------------------------------
+// Deferred by design
+
+/**
+ * Tasks a TRD states, in its own text, cannot complete in a normal implementation run.
+ *
+ * WHY THIS EXISTS. Two tasks in a real TRD read "delete the drained consumer ONE DEPLOY
+ * CYCLE AFTER LSA-B013 reaches the target environment" and "[LIVE] end-to-end verification
+ * on a real trip day". Both were dispatched into a single 6.42-hour run that could not, by
+ * their own wording, finish them. They produced half-finished `wip` commits and days of
+ * cleanup, because a deferral nobody PREDICTED arrives looking like a failure.
+ *
+ * `/create-trd`'s sizing stage writes this section; `/implement-trd` reads it and reports
+ * those tasks as planned deferrals rather than attempting them. Same shape as
+ * `Could Not Verify` and `Open Questions`, and parsed the same way.
+ *
+ * Absent section => empty array. Most TRDs defer nothing and that is the correct answer.
+ */
+function parseDeferred(lines, warnings) {
+  const section = findSection(lines, 'Deferred by design', { strategy: 'last' });
+  if (!section) return [];
+
+  const results = [];
+  for (const table of findTables(lines, section.start, section.end)) {
+    const roles = {};
+    table.headerCells.forEach((h, i) => {
+      if (roles.id === undefined && headerHasWord(h, 'task')) roles.id = i;
+      else if (roles.why === undefined && /why|reason/i.test(h)) roles.why = i;
+    });
+    if (roles.id === undefined) continue;
+    for (const row of table.dataRows) {
+      if (row.cells.length !== table.headerCells.length) {
+        warnings.push(
+          `Malformed Deferred by design row (expected ${table.headerCells.length} columns, got ${
+            row.cells.length
+          }) at line ${row.line + 1}`
+        );
+        continue;
+      }
+      const id = stripMarkup(row.cells[roles.id]);
+      if (!id) continue;
+      results.push({ id, why: roles.why !== undefined ? stripMarkup(row.cells[roles.why]) : '' });
+    }
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -825,6 +872,12 @@ function parseTrd(markdown, opts = {}) {
   }
   const couldNotVerify = parseCouldNotVerify(structural, warnings);
   const openQuestions = parseOpenQuestions(structural, warnings);
+  const deferred = parseDeferred(structural, warnings);
+  // Stamp the task objects too: task-graph.js and implement-trd both iterate tasks, and
+  // making each one carry its own status avoids every consumer re-deriving it from a
+  // separate array (which is how `task.live` ended up with no reader at all).
+  const deferredIds = new Set(deferred.map((d) => d.id));
+  for (const t of tasks) if (deferredIds.has(t.id)) t.deferred = true;
   const decision = parseDecision(lines, structural);
 
   return {
@@ -834,6 +887,7 @@ function parseTrd(markdown, opts = {}) {
     sessionAgents,
     couldNotVerify,
     openQuestions,
+    deferred,
     decision,
     warnings,
   };
