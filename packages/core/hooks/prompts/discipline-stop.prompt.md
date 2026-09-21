@@ -168,12 +168,41 @@ thing promised is invoking another slash command, where the fix is to DROP THE C
 the owner invoke it, never to run it, unless they asked for that chain
 
   **Judgment B (autonomy-discipline):** a pause on a decision inside this command's own work
-  If this is the one that failed, tell it instead: apply the best available default, finish the remaining work of THIS command, and end on its own
-COMMAND COMPLETE banner. Do NOT start a different command -- naming the next step is how a
-finished command is supposed to end
+  If this is the one that failed, tell it instead: DELETE the sentence that hands the decision back, and end on what you already determined.
+Apply the best available default where this command's own work is genuinely unfinished --
+but a message that names the owner's next command has already finished this command's work,
+so there is nothing left to apply a default to. Do NOT start a different command
 
 The reason is echoed back verbatim and is the agent's only signal. Don't mention a judgment
 that didn't fail. If none is a violation, call submit with `ok: true`.
+
+**End every reason with these two lines, verbatim:**
+
+    Reply with the correction only — do not restate your previous message.
+    If this block is mistaken, reply exactly: "My answer stands — <one sentence why>."
+
+**Your reason must never instruct the agent to merge, push, deploy, release, or invoke a
+slash command.** Those acts are the owner's alone. If the only remedy you can think of is one
+of those, the turn was NOT a violation -- call submit with `ok: true` instead.
+
+That rule is not hypothetical. Measured in one session: this guard told an agent "You are
+authorized to run `/implement-trd --resume` ... apply it", and twice pushed an agent toward
+deploying a tree it had just reported as broken -- while the rules it enforces exempt exactly
+those acts. A remedy that reaches for one of them is evidence the agent was correctly
+deferring, not evidence it paused.
+
+The first line exists because a block usually concerns ONE closing sentence, not the answer.
+Measured across 276 block/retry pairs in one session: 30% of corrective turns re-delivered
+40% or more of the blocked turn's content, averaging 2,020 characters where the actual
+correction was a sentence. The owner reads the same answer twice and has to hunt for what
+changed.
+
+The second line exists because a blocked agent that believes it was right currently has no
+cheap way to say so, so it re-argues at length instead. `stop_hook_active` already forces an
+unconditional allow on the next turn, so that one-line reply is ALREADY terminal — nothing
+told the agent it was permitted. Sanctioning it makes a mistaken block cost one line rather
+than a re-delivered answer, which matters because this guard blocks more often than it
+should.
 
 ## Your entire response is one submit call
 

@@ -3152,7 +3152,67 @@ retractions propagate; and the always-on cost of the mechanism is measured rathe
 
 ---
 
+
+### 21. The agent's prose is unreadable — jargon, not density
+
+**Owner-reported 2026-09-21, and it is a recurrence.** The readout contract already carries a
+"Write for someone who was not in the session" section with the owner's earlier complaint
+quoted in it. It did not work, and the reason is that it governs the READOUT — four sections
+at the end of a command — while the problem is in everything the agent says.
+
+**What it actually looks like** (owner's words): prose "devolves into jargon, in particular
+deep jargon referencing things like TRD slugs from months ago, NFR numbers the user is
+unlikely to know off the top of their head, fancy sounding terminology that's factually
+correct but impossible to follow."
+
+Three distinct failure modes, worth separating because they have different fixes:
+
+1. **Identifiers used as if they were descriptions.** `LSA-B016`, `AC-F1.4`, `NG7`, `D3`,
+   `AJCS-B001`. An id is a lookup key. The reader has to go and find out what it means before
+   the sentence carries any information, and usually does not bother.
+2. **Internal vocabulary with no gloss.** `A2/A3 zero-tolerance classes`, `PRECISION_FLOOR`,
+   `the reconcile stage`, `wave width`, `the corpus`. These are load-bearing inside the
+   framework and opaque outside it.
+3. **Technically correct sentences that are impossible to follow.** Long, clause-heavy,
+   accurate, and unreadable. This is the hardest one, because nothing in it is wrong.
+
+**What it is NOT asking for.** Not "make it non-technical" — the owner is an engineer and the
+subject matter is technical. Not "make it shorter" alone; a short sentence made of unglossed
+ids is worse, not better. The target is prose that is technical, succinct, and **not consumed
+by its own cleverness**.
+
+**Evidence sitting in this repo already.** The session that logged this issue is itself the
+corpus: the agent wrote `A2/A3`, `PRECISION_FLOOR`, `LSA-B016`, `NG7` and `D5` in ordinary
+conversational replies, to an owner who had to ask what several of them meant. Sampling that
+transcript is the cheapest available source of real before/after pairs.
+
+**Why the existing rule failed, mechanically.** It is prose instructing prose, in one command
+section, with nothing checking it — the same shape as every other unenforced convention in
+this plan. Any fix needs to reach (a) every command's output, not just the readout, and (b)
+the agent's ordinary conversational turns, which no command contract governs at all.
+
+**Not yet designed.** Candidate directions, none chosen: a short style rule loaded the way
+`async-discipline.md` is; a worked before/after table (far more effective than abstract
+instruction for this kind of thing); or a check on the readout that flags bare identifiers.
+The first two are cheap and the third risks becoming another guard that fires on correct work,
+which this plan is already trying to undo.
+
 ## Opportunistic — do these while you're already in the file
+
+### Opportunistic: `generate-hooks-artifacts.sh --check` does not check the prompt mirror
+
+Found 2026-09-21 while shipping item 16 (guard remedy). The generator rewrites the three
+`settings.json` copies and the `packages/full/hooks/prompts/` symlinks, and `--check` returns 0
+— but it never writes or verifies `.claude/hooks/prompts/discipline-stop.prompt.md`. That
+mirror went stale silently; two BATS tests caught it afterwards
+(`implement-trd-structure.test.sh` mirror parity, `notify-on-complete.test.sh` L4), each
+telling the reader to copy it across by hand.
+
+Same class as the other defects in this plan: a check that reports success while the thing it
+is supposed to guard has drifted. The generator is the only component that knows the prompt
+changed, so it is the right place to sync the mirror.
+
+
 
 - **`packages/full/commands/router` is a dangling symlink.** It points at `../../router/commands`,
   which does not exist — `packages/router/` holds only `hooks/` and `tests/`, and no

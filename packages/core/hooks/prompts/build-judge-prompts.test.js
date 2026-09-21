@@ -192,3 +192,36 @@ describe('regression guard: what .filter(Boolean) is protecting against', () => 
     expect(joinedWithFilter).toBe('A\n\nB\n\nC');
   });
 });
+
+/* Unit 1b/1c, 2026-09-21 — the block reason must sanction dissent and must never compel.
+ *
+ * These assert the PROMPT's content, not the judge's behaviour; verdict effects are scored
+ * through test/discipline-corpus/compare-runs.js, which is the only thing that can measure
+ * them (RESULTS.md:472 — "no edit to this prompt ships on a reading"). */
+describe('block reasons: sanctioned dissent, and no compelled action', () => {
+  const prompt = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS);
+
+  it('sanctions a one-line "My answer stands" reply', () => {
+    expect(prompt).toContain('My answer stands');
+    expect(prompt).toContain('If this block is mistaken, reply exactly');
+  });
+
+  it('forbids restating the blocked message', () => {
+    expect(prompt).toContain('do not restate your previous message');
+  });
+
+  it('forbids a reason that instructs merge, push, deploy, release or a command', () => {
+    expect(prompt).toMatch(/never instruct the agent to merge, push, deploy, release, or invoke a\s+slash command/);
+  });
+
+  it('turns an action-shaped remedy into an ALLOW rather than a block', () => {
+    // The load-bearing half: if the only remedy is an outward-facing act, the agent was
+    // correctly deferring. Without this the rule reads as advice and gets overridden.
+    expect(prompt).toContain('the turn was NOT a violation');
+  });
+
+  it('remedies the autonomy judgment by deleting the pause, not by doing the work', () => {
+    expect(prompt).toContain('DELETE the sentence that hands the decision back');
+    expect(prompt).not.toContain('apply the best available default, finish the remaining work');
+  });
+});
