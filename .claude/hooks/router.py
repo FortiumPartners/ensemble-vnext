@@ -73,6 +73,9 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   demonstrably safe, and only with --implement. PROPOSE /investigate instead of
   prompting-and-editing - an unplanned edit is the commonest source of bad code
   here.
+  A LIST of small unrelated fixes (a walkthrough's findings, a bug backlog) -> /sweep <list>:
+  triages them, fixes the independent ones in parallel, checks each against disk. No TRD --
+  a TRD earns its cost when the parts depend on each other, not when they arrived together.
   One change to the feature ALREADY in flight -> /amend <what>: grounded, recorded as a
   TRD row before the work, verified against disk. No new TRD. It is the middle weight
   between /investigate (which forks a second TRD) and raw prompting.

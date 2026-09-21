@@ -54,6 +54,7 @@ const GROUNDED = {
 /** Default plan: every stage returns a well-formed result, keyed by opts.label. */
 function plan(overrides = {}) {
   const byLabel = {
+    'triage:shape': { shape: 'one-change', why: 'the parts depend on each other' },
     'corpus-index': CORPUS,
     'author:technical-architect': AUTHORED,
     'ground:brownfield': GROUNDED,
@@ -72,9 +73,9 @@ async function run(overrides = {}, args = baseArgs()) {
 const call = (agent, label) => agent.calls.find((c) => c.opts.label === label);
 
 describe('create-trd wiring', () => {
-  it('runs its three declared phases in order', async () => {
+  it('runs its declared phases in order, triage first', async () => {
     const { phases } = await run();
-    expect(phases).toEqual(['Corpus', 'Author', 'Ground']);
+    expect(phases).toEqual(['Triage', 'Corpus', 'Author', 'Ground']);
   });
 
   it('feeds the corpus index into the author prompt', async () => {
@@ -355,5 +356,54 @@ describe('create-trd sizing', () => {
     expect(result.trd).toBe('docs/TRD/f.md');
     expect(result.readout).toContain('not judged');
     expect(result.one_change).toBeNull();
+  });
+});
+
+/* Pre-authoring triage, added 2026-09-21. Sizing asks "is this still one change" AFTER the
+ * TRD is written — too late for one input shape. An owner pointed this command at ~25
+ * walkthrough findings; it authored for 22.7 minutes and was killed unfinished. */
+describe('create-trd pre-authoring triage', () => {
+  const shapePlan = (shape) => (prompt, opts) => {
+    if (opts.label === 'triage:shape') return shape;
+    if (opts.label === 'corpus-index') return CORPUS;
+    if (opts.label === 'author:technical-architect') return AUTHORED;
+    if (opts.label === 'size') return { one_change: true, one_run: true, deploy_cycles: 1, reasons: [], deferred: [], proposed_split: [] };
+    if (String(opts.label).startsWith('ground')) return { ...GROUNDED, blocks_markdown: '### F-B001' };
+    return undefined;
+  };
+  const withShape = async (shape) => {
+    const agent = makeAgentStub(shapePlan(shape));
+    const { result } = await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    return { result, agent };
+  };
+
+  it('stops BEFORE authoring when the source is a list, not one change', async () => {
+    // The whole point: the expensive stage must not run first and report afterwards.
+    const { result, agent } = await withShape({
+      shape: 'a-list', why: '25 unrelated walkthrough findings', item_count: 25,
+    });
+    expect(agent.calls.map((c) => c.opts.label)).toEqual(['triage:shape']);
+    expect(result.trd).toBeNull();
+    expect(result.readout).toContain('NO TRD WRITTEN');
+    expect(result.next).toContain('/sweep');
+  });
+
+  it('proceeds normally when the parts depend on each other', async () => {
+    const { result, agent } = await withShape({ shape: 'one-change', why: 'coupled design' });
+    expect(agent.calls.some((c) => c.opts.label === 'author:technical-architect')).toBe(true);
+    expect(result.trd).toBe('docs/TRD/f.md');
+  });
+
+  it('authors anyway when triage dies — it must never be a single point of failure', async () => {
+    const { result } = await withShape(undefined);
+    expect(result.trd).toBe('docs/TRD/f.md');
+  });
+
+  it('names unrelated strays without dropping the real design', async () => {
+    const { result } = await withShape({
+      shape: 'one-change', why: 'a real design with noise alongside',
+      strays: ['the footer link is wrong'],
+    });
+    expect(result.trd).toBe('docs/TRD/f.md');
   });
 });

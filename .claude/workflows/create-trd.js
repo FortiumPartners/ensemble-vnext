@@ -3,6 +3,7 @@ export const meta = {
   description: 'Author a TRD from a PRD and ground it in the codebase that already exists',
   whenToUse: 'Invoked by /create-trd. Indexes the design corpus for provenance, authors one TRD in a fresh technical-architect, then grounds every task against real code. Verification is a separate command: /audit-trd.',
   phases: [
+    { title: 'Triage', detail: 'is this one change, or a list that arrived together' },
     { title: 'Corpus', detail: 'cheap index of related design docs — provenance, not fact' },
     { title: 'Author', detail: 'one technical-architect, fresh context, types every line' },
     { title: 'Ground', detail: 'reconcile the plan against the codebase; emit Task Grounding' },
@@ -121,6 +122,88 @@ pay for on every turn. Do not restate the contract back to me; apply it.
 // a script variable. It does NOT read documents end to end, and the author never opens the
 // corpus itself. Same shape as the records-as-index change, for the same reason -- a full
 // corpus read would give back the planning savings measured at -21%.
+/* TRIAGE BEFORE AUTHORING. Cheap, and it runs FIRST for a reason.
+ *
+ * The sizing judgment further down asks "is this still one change" AFTER the TRD is written.
+ * That is the wrong moment for one input shape: a LIST of unrelated issues. An owner pointed
+ * this command at ~25 walkthrough findings; it spent 22.7 minutes authoring a document about
+ * them and was killed before finishing. Sizing would have said "this is 25 independent
+ * fixes" -- 22 minutes too late to be worth anything.
+ *
+ * So the one question that has to be asked before the expensive stage is whether the input is
+ * ONE change at all. Everything else sizing does still belongs after authoring, because it
+ * needs the task list.
+ *
+ * It reports and stops; it does not refuse and it does not reshape the work. The owner gets
+ * told the cheaper door exists and decides. */
+phase('Triage')
+
+const shape = await agent(
+  `Decide ONE thing about this source before an expensive authoring stage runs: is it one
+change, or a list of unrelated things that arrived together?
+
+SOURCE: ${PRD}
+${SCOPE}
+Read it. Then answer:
+
+  ONE CHANGE -- the parts depend on each other. A design that has to hold together. Even a
+                large one: 17 coupled tasks is one change.
+  A LIST     -- N separate problems that share only the document they were written in. A
+                walkthrough's findings. A bug backlog. Fixing any one does not require any
+                other.
+
+The test is COUPLING, not size or count. Thirty independent one-line fixes are a list. Six
+tasks that must land in order are one change.
+
+When it is genuinely mixed -- a real design change with unrelated bugs noted alongside --
+say ONE CHANGE and name the strays in \`strays\`. The design is the work; the strays are
+noise someone wrote down at the same time.
+
+Default to ONE CHANGE when unsure. Being wrong that way costs a longer authoring pass; being
+wrong the other way sends a real design to a quick-fix path that cannot hold it.`,
+  {
+    label: 'triage:shape',
+    phase: 'Triage',
+    agentType: 'technical-architect',
+    effort: 'low',
+    model: 'haiku',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['shape', 'why'],
+      properties: {
+        shape: { type: 'string', enum: ['one-change', 'a-list'] },
+        why: { type: 'string', description: 'one line' },
+        item_count: { type: 'integer', description: 'roughly how many separate items, when it is a list' },
+        strays: { type: 'array', items: { type: 'string' }, description: 'unrelated items noted alongside a real design change' },
+      },
+    },
+  }
+)
+
+if (shape && shape.shape === 'a-list') {
+  log(`triage: this reads as a LIST of ~${shape.item_count || 'several'} separate items, not one change`)
+  return {
+    trd: null,
+    shape: 'a-list',
+    item_count: shape.item_count || null,
+    next: `/sweep ${PRD}`,
+    readout:
+      `NO TRD WRITTEN — this source reads as a list, not one change\n` +
+      `  ${shape.why}\n` +
+      `  ~${shape.item_count || 'several'} separate items\n\n` +
+      `  A TRD is worth its cost when the parts depend on each other. For a list of\n` +
+      `  unrelated fixes it is 20+ minutes of document about work that could already be done.\n\n` +
+      `  Run  /sweep ${PRD}  to fix them in parallel, each grounded and checked.\n` +
+      `  If this IS one design and triage got it wrong, say so and re-run — it defaults to\n` +
+      `  one-change when unsure, so this verdict was not marginal.\n`,
+  }
+}
+
+if (shape && (shape.strays || []).length) {
+  log(`triage: ${shape.strays.length} unrelated item(s) noted alongside the design — these are NOT part of this TRD`)
+}
+
 phase('Corpus')
 
 const corpus = await agent(

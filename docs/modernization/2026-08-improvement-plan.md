@@ -3237,6 +3237,40 @@ subjective judgement they make, not a number this plan can assert. If it decays,
 surface or sharpen the examples — that is the maintenance model for a natural-language
 framework, and it is not a sign the approach failed.
 
+
+### 22. `/sweep` — the shape the framework was missing
+
+**Owner-reported 2026-09-21:** *"It shouldn't be 25 minutes to be writing a 5 fix TRD, cancel
+it, and have a subagent fan out do them all in 13 mins."*
+
+The framework had ONE shape for every input: author a document, ground it, audit it, implement
+it. For a list of small unrelated fixes that shape is pure overhead, and there was no
+alternative — `/investigate` handles one defect and refuses above 6 tasks, `/amend` handles one
+change against a feature already in flight.
+
+**Measured:** ~25 walkthrough findings went into `/create-trd`. It ran 22.7 minutes and was
+killed. Four ad-hoc subagents then fixed the batch in ~13 minutes with no grounding, no record
+and no attestation — which the owner correctly called *"almost certainly at less quality."*
+
+Two changes:
+
+1. **`/sweep`** takes the list, triages it into small-and-independent versus everything else,
+   and fixes the independent ones with one grounded agent each — separate areas in parallel,
+   same area in sequence, because two agents editing one file lose each other's work. Every
+   claimed fix is checked against the disk before it is reported. Deferred items are recorded
+   rather than lost.
+
+2. **`/create-trd` triages before authoring.** The sizing judgment (item 19) asks "is this
+   still one change" AFTER the TRD is written, which is 22 minutes too late for this input
+   shape. A cheap first stage now asks only "one change, or a list?" and, when it is a list,
+   stops without authoring and names `/sweep`. It defaults to one-change when unsure, so a
+   real design is never diverted on a marginal call, and it authors anyway if it dies.
+
+**What this deliberately does NOT do:** turn large work into small work by splitting it. The
+triage stage defers anything that is not both small and independent, and a fixer that has read
+the code can overrule triage's guess and return `too-big`. Getting that wrong permissively —
+a schema change dispatched as a quick win — is the expensive failure.
+
 ## Opportunistic — do these while you're already in the file
 
 ### Opportunistic: `generate-hooks-artifacts.sh --check` does not check the prompt mirror
