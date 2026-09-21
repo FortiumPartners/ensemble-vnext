@@ -13,6 +13,21 @@ argument-hint: "<what to change>"
 
 ---
 
+## It ACTS. There is no flag.
+
+`/amend` makes the change: it grounds, records, implements, verifies. No `--implement`, no
+plan-then-stop mode, no confirmation step.
+
+**This is the opposite default to `/investigate`, deliberately, and the difference is what
+you already know.** `/investigate` stops after writing its TRD because you are asking it to
+find something out — *"I want to understand an issue, I may or may not want to kick off the
+fix."* `/amend` starts from the answer: you are telling it what to change. There is nothing
+to decide afterwards, so pausing to ask would be the hedged-offer anti-pattern with extra
+steps.
+
+If you want the change understood rather than made, that is `/investigate` — which is also
+the right call when the correct behaviour is still a question rather than an instruction.
+
 ## What this is for
 
 **The middle weight.** Between `/implement-trd --reconcile`, which re-attests the whole
