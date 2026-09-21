@@ -3191,34 +3191,51 @@ section, with nothing checking it — the same shape as every other unenforced c
 this plan. Any fix needs to reach (a) every command's output, not just the readout, and (b)
 the agent's ordinary conversational turns, which no command contract governs at all.
 
-**Partially addressed 2026-09-21; the hard half is open.**
+**Addressed 2026-09-21 across four surfaces, and this item is not scored as fixed-or-not.**
 
-Diagnosis first, because it explains the failure: the existing rule lives in
-`command-status.md`'s READOUT section, and the jargon appears in ordinary conversational
-replies, which no command contract reaches at all. The rule was aimed at the wrong surface.
+**The framing matters more than the change, and the first attempt got it wrong.** This was
+written up as "attempted, not fixed" on the grounds that no mechanical check enforces it.
+The owner corrected that, and the correction generalises well beyond prose:
 
-Two changes shipped:
+> *"I don't think this is a binary fix/not fixed. This is probabilistic — CLAUDE.md, other
+> governing docs, commands, router.py injections, etc. just including instructions on how to
+> speak to the user. It may not land every time, but through reinforcement and repetition we
+> can get it BETTER. The point of this is that this is a natural language framework for
+> interacting with humans. The goal is not deterministically perfect, it's to be subjectively
+> BETTER, while retaining the flexibility to allow the owner to explore an infinitely diverse
+> problem space."*
 
-1. **The router's orientation hint** now carries a five-line `SAY IT PLAINLY` bullet. That
-   hint is injected into every prompt, and it is the ONLY surface that reaches conversational
-   turns. +376 chars on a 2274-char hint, paid on every turn — deliberate, because reach is
-   the whole point.
-2. **`command-status.md` gained worked before/after pairs** taken from the session that
-   logged this issue, in which the agent broke the rule repeatedly while writing about it.
-   Concrete pairs beat abstract instruction for style, and the old text was already concrete
-   in the abstract sense ("name the thing, then its id") and still failed.
+Demanding a check before calling prose work real is importing a determinism standard into a
+place it does not belong — the same failure the owner had already named earlier in that
+session ("layers of brittle determinism and rules around it that will ultimately just keep
+requiring more and more rules and never quite hit"). A guard that fires on correct prose
+would also be precisely the defect items 16-20 exist to undo.
 
-**What is NOT solved, and should not be claimed as solved.** This is a style instruction with
-nothing measuring it. Every previous attempt was also a style instruction, and the honest
-prior is that it will decay. A mechanical check — flagging bare `[A-Z]{2,}-[0-9]{3}` and
-known internal terms in user-facing output — is the only thing that would hold, and it was
-deliberately NOT built: a guard firing on correct prose is exactly the defect items 16-20
-exist to undo, and the false-positive rate on a style rule would be far worse than on the
-discipline guards.
+**Why the earlier attempt actually failed** — worth keeping, because it is a real diagnosis
+rather than a framing problem: the rule lived in `command-status.md`'s READOUT section, and
+the jargon appears in ordinary conversational replies, which no command contract reaches. It
+was aimed at one surface, and not the surface where it was being broken.
 
-**The measurement that would settle it** is the same one that found the problem: sample a
-later session's replies for unglossed identifiers and count them. Until someone does that,
-treat this item as attempted, not fixed.
+**Where the guidance now lives.** Reinforcement across surfaces is the mechanism, not a
+fallback for lacking a check:
+
+| Surface | Reach | Form |
+|---|---|---|
+| `router.py` orientation hint | every prompt, including conversation | five-line `SAY IT PLAINLY` bullet |
+| `CLAUDE.md` + its template | every session, and every new project | "How to talk to the owner" section |
+| `.claude/rules/command-status.md` | every command readout | worked before/after pairs |
+| the readout contract's four sections | every command | unchanged, already required plain prose |
+
+The before/after pairs are drawn from the session that logged this issue, in which the agent
+broke the rule repeatedly while writing about it. Every left-hand column is correct and
+unreadable — the failure is two or three lookups before a sentence parses, not length and not
+technicality.
+
+**Expected behaviour: better on average, not perfect.** It will not land every turn. The
+honest measure is whether the owner has to ask what something means less often, which is a
+subjective judgement they make, not a number this plan can assert. If it decays, add another
+surface or sharpen the examples — that is the maintenance model for a natural-language
+framework, and it is not a sign the approach failed.
 
 ## Opportunistic — do these while you're already in the file
 

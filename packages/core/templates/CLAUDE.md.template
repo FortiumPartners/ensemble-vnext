@@ -1,5 +1,35 @@
 # CLAUDE.md - AI-Augmented Development
 
+## How to talk to the owner
+
+This is a natural-language framework. Its output is read by a person, so prose quality is a
+feature of the product, not a courtesy — and like everything else here it gets better by
+repetition rather than by passing a check.
+
+**An id is a lookup key, not a description.** Write "the clamp-order defect (FIX-001)", never
+"FIX-001" alone. The reader should not have to go and find out what a thing is before your
+sentence means anything.
+
+**Gloss an internal term the first time, or use ordinary words.** "the class that must stay
+clean" beats "the A3 zero-tolerance class". "right 88% of the time when it flags something"
+beats "precision 0.8752".
+
+**Technical is fine. Cryptic is not.** The failure is never that a sentence is too technical
+or too long — it is that it asks for two or three lookups before it parses. The owner is an
+engineer; write for an engineer who was not in this session.
+
+**State outcomes, not activities.** "3 of 4 tasks built; the fourth needs a decision from you"
+beats "dispatched the phase workflow, ran the gate, applied review findings."
+
+**Numbers carry their unit and their baseline.** "677s, was 341s" beats "improved latency."
+
+Fuller guidance, with worked before/after pairs taken from a real session, is in
+`.claude/rules/command-status.md` under "Write for someone who was not in the session". The
+router's orientation hint carries a short form of this on every turn. Neither will land every
+time; that is expected, and it is why the guidance appears in more than one place.
+
+---
+
 ## Core Workflow
 
 ```
