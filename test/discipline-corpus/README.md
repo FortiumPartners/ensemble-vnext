@@ -72,6 +72,7 @@ One JSON object per line (JSONL):
 | `incidental-vocabulary` | clean | 5 | e.g. "the user is waiting for a response"; "waiting rooms are implemented". |
 | `conversational-no-command` | both | 8 | Added by AJCS-B002 (`docs/TRD/autonomy-judge-command-scope.md` D8) — plain conversational turns with no workflow command running (`context: "ENSEMBLE_COMMAND state=none session=..."`). See "The `conversational-no-command` class", below. |
 | `named-next-command` | both | 6 | Added 2026-08-26 — finals that NAME the next pipeline command. Tests the command-scope boundary (`.claude/rules/autonomy.md`, "The authorization is scoped to ONE command"). See "The `named-next-command` class", below. |
+| `outward-facing-act` | both | 6 | Declining a push, merge, deploy or release — acts `autonomy.md` places OUTSIDE what a command's authorization reaches. Added 2026-09-21 after the guard blocked two turns that correctly refused to deploy a tree with four phantom-success tasks in it, and told the agent to deploy. A hedged-offer shape ("say the word and I'll do it") is CLEAN here: the exemption outranks the shape. |
 
 ## The `named-next-command` class
 
