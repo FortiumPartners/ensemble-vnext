@@ -1,0 +1,164 @@
+---
+name: amend
+version: 1.0.0
+description: One change, in words, against the feature already in flight — grounded, recorded, verified, without a new TRD
+argument-hint: "<what to change>"
+---
+
+> **Usage:** `/amend <what to change>` — plain language, about the feature you are already on.
+>
+> **Examples:**
+> `/amend the retry backoff should be exponential, not fixed — src/queue.ts`
+> `/amend roundMoney truncates; it should round to nearest cent`
+
+---
+
+## What this is for
+
+**The middle weight.** Between `/implement-trd --reconcile`, which re-attests the whole
+feature and runs the phase loop, and raw "fix this" prompting — which this framework names as
+its commonest source of bad code, because an unplanned edit is grounded in nothing and
+recorded nowhere.
+
+`/amend` is one change, done with the parts of the discipline that matter at this size:
+
+| | `/amend` | `--reconcile` | raw prompting |
+|---|---|---|---|
+| grounded in the code first | yes | yes | no |
+| recorded in the TRD | yes, one row | yes | no |
+| success attested against disk | yes | yes | no |
+| new TRD / PRD / audit wave | no | no | no |
+| phase graph, review fan-out | **no** | yes | no |
+
+**It requires a feature in flight.** With nothing in `.trd-state/current.json` there is no
+document to amend — that is `/investigate`. Say so and stop.
+
+## Step 1: Is this one task?
+
+Read the instruction and the code it names. Then ask one question: **is this a single
+change?**
+
+Signals it is NOT, any one of which is enough:
+- it needs a decision nobody has made (the correct behaviour is a product call)
+- it touches more than ~3 files, or a symbol with many callers
+- it is really several changes described together
+
+**If it is not one task, stop and say which signal fired**, and point at the heavier path:
+`/implement-trd --reconcile` after adding it to the TRD, or `/investigate` if it belongs to a
+different feature entirely. Growing a one-line amendment into a feature is the failure this
+step exists to prevent — the same inflation `/investigate` §2f guards against, where a 2-task
+fix absorbed an audit's findings, sized 4, and escalated.
+
+## Step 2: Ground it
+
+For the files this will touch: what they do now, what this **replaces** and must therefore
+delete, and the local conventions to follow. Mark each claim `[ran]` / `[read]` /
+`[inferred]`.
+
+**This is the step raw prompting skips, and the reason it produces bad code.** An ungrounded
+edit reimplements something that already exists, or deletes a guard whose purpose it never
+read.
+
+## Step 3: Record it BEFORE doing it
+
+Write one row into the TRD's Master Task List, id `AMEND-<nnn>`:
+
+```
+| AMEND-007 | <what changes, in a sentence> — amendment, <date> | amendment | | | <what proves it> |
+```
+
+**Before, not after.** A crash mid-change then leaves a record of what was being attempted,
+and the next `--reconcile` picks it up rather than losing it. The `AMEND-` prefix makes it
+visible that this was not part of the architect's plan.
+
+Also record it as a discovery so the feature's ledger is complete:
+
+```bash
+node -e 'require("./.claude/lib/discovered").record(".trd-state/<feature>",
+  {kind:"gap", foundBy:"/amend", summary:"<one line>", blocksFeature:true})'
+```
+
+## Step 4: Do it
+
+Dispatch ONE implementer with an explicit `agentType` — `backend-implementer`,
+`frontend-implementer`, `mobile-implementer` or `agent-implementer`, chosen by
+`lib/agent-routing.js`'s table.
+
+**Never leave `agentType` unset.** Unset does not mean "no agent" — it means the generic
+subagent, which inherits the session model, so ordinary work runs on Opus at roughly five
+times the price of the Sonnet implementer that should take it. Measured, and it is silent:
+it shows up as a cost line, never an error.
+
+## Step 5: Verify, and attest
+
+Run the project's check battery — the same one the phase gate resolves. Then record the
+result through `implement-state`, which checks the claim against disk:
+
+```bash
+node -e '
+  const { load, recordResult, save } = require("./.claude/lib/implement-state");
+  const p = ".trd-state/<feature>/implement.json";
+  const s = load(p);
+  recordResult(s, "AMEND-007", { status: "success", filesChanged: [ /* real paths */ ] });
+  save(p, s);
+'
+```
+
+A success claim naming files that do not exist is failed automatically. That check exists
+because four tasks once sat in a state file as `success` with no code behind them.
+
+## Readout
+
+**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
+ISSUES, NEXT, one screen, written for someone who was not in the session.
+
+STATE names the files that changed and whether the battery is green. DECISIONS names anything
+chosen that the instruction did not specify. ISSUES names what is still wrong. NEXT is usually
+"nothing — this is done", and says so rather than inventing follow-up work.
+
+Then the banner, as the last line:
+
+```
+═══ COMMAND COMPLETE: /amend ═══
+<what changed, in one sentence>
+```
+
+## Completion signal
+
+| step | what |
+|---|---|
+| `notify` | run `.claude/hooks/notify-complete.sh "amend" "complete" "<summary>"` |
+
+Silent no-op when `$NOTIFY_ON_COMPLETE` is unset — zero cost when not configured.
+
+## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
+
+This command runs **autonomously** from invocation to its final banner. Do NOT pause to ask
+the user to confirm decisions, review artifacts, or verify checkpoints.
+
+`AskUserQuestion` is permitted ONLY for: genuine requirement ambiguity with no default;
+information that cannot be derived; a truly irreversible destructive operation; or a STUCK
+condition after retries.
+
+**In this command that narrows to exactly one:** the correct behaviour is a product call
+nobody has made, which is also the Step 1 signal that this is not one task. Everything else —
+which files, which implementer, how to verify — is decided from evidence and proceeded on.
+
+Forbidden:
+- "Should I proceed?" / "Please review before I continue." → no. Decide and continue.
+- "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
+- **The declarative forms are the same move and are the ones that slip past**: "I can
+  also fix X if you want", "say the word and I'll handle the rest", "that's available
+  whenever". None is a question; each hands the decision back identically.
+
+Naming the next command when this one is DONE is reporting, not deferring — and for `/amend`
+the honest next step is usually nothing at all.
+
+## What this command must not do
+
+- **Grow.** If the work turns out larger mid-flight, record a discovery and STOP. Report it.
+  Do not absorb the extra scope — that is how a fix becomes a feature.
+- **Chain.** It does not call `/implement-trd`, `/audit-build` or anything else. One change,
+  one run.
+- **Invent verification.** If the change has no checkable outcome, say so in ISSUES rather
+  than writing a test that asserts the implementation back to itself.

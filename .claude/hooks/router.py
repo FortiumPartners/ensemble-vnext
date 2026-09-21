@@ -54,10 +54,13 @@ from datetime import datetime, timezone
 IN_FLIGHT_HINT = """
 
 * IN FLIGHT: {feature}. An issue found while reviewing, testing or implementing THIS
-  feature, and sitting in ITS path, is an AMENDMENT to this TRD — not a new /investigate.
-  Record it (`discovered.record(..., blocksFeature: true)`) and let
-  `/implement-trd --reconcile` pick it up. /investigate here would reproduce and re-design
-  something already understood, and fork the work into a second TRD.
+  feature, and sitting in ITS path, is an AMENDMENT to this TRD — not a new /investigate,
+  which would reproduce and re-design something already understood and fork the work into a
+  second TRD. Two weights:
+    ONE change  -> `/amend <what>` — grounded, recorded as a TRD row, verified, no new TRD.
+    SEVERAL, or found by an audit -> record it
+    (`discovered.record(..., blocksFeature: true)`) and let `/implement-trd --reconcile`
+    pick it up.
   Same counterfactual as everywhere else: would THIS feature's objectives be satisfied with
   the issue left alone? No -> amendment. Yes -> report it, or a separate /investigate LATER,
   once this feature is done."""
