@@ -87,32 +87,99 @@ function promoteToTrd(trdPath, rows, opts = {}) {
   let text;
   try { text = fs.readFileSync(trdPath, 'utf-8'); } catch { return { added, skipped: promo.length }; }
 
-  // The Master Task List's separator row is the anchor: find the LAST row of that table.
   const lines = text.split('\n');
-  const headIdx = lines.findIndex((l) => /^\|\s*Task ID\s*\|/i.test(l));
-  if (headIdx === -1) return { added, skipped: promo.length };
+  const prefix = opts.idPrefix || 'AMEND';
+
+  /* Anchor on the LAST task table, not the first.
+   *
+   * A phased TRD has one `| Task ID |` table per phase -- this repo's own
+   * autonomy-judge-command-scope.md has four. Anchoring on the first put every amendment
+   * into Phase 1, so an amendment to phase-3 work was scheduled before the work it
+   * amends, and `--phase 1` runs picked up tasks belonging to a later phase. The last
+   * table is the right default: an amendment is found during or after the work it
+   * follows. */
+  const headIdxs = [];
+  lines.forEach((l, i) => { if (/^\|\s*Task ID\s*\|/i.test(l)) headIdxs.push(i); });
+  if (!headIdxs.length) return { added, skipped: promo.length };
+  const headIdx = headIdxs[headIdxs.length - 1];
+
+  /* Build the row from THAT table's header, never from a hardcoded column count.
+   *
+   * `trd-parser.js` maps columns by header name and warns "Malformed table row (expected
+   * N columns, got M)" on any mismatch, so a row emitted with the canonical 6-column
+   * shape is DROPPED by the parser on the 5-column TRDs half this repo uses. The row has
+   * to match the table it is being appended to. */
+  const headerCells = lines[headIdx].split('|').slice(1, -1).map((c) => c.trim());
+  const roleOf = (words) => headerCells.findIndex((h) => words.some((w) => new RegExp(`\\b${w}\\b`, 'i').test(h)));
+  const col = {
+    id: roleOf(['task id', 'id']),
+    desc: roleOf(['description']),
+    serves: roleOf(['serves']),
+    deps: roleOf(['dependencies', 'depends']),
+    ac: roleOf(['acceptance']),
+  };
+
   let lastRow = headIdx + 1; // the |---| separator
   while (lastRow + 1 < lines.length && /^\|/.test(lines[lastRow + 1])) lastRow++;
 
-  const prefix = opts.idPrefix || 'AMEND';
-  const existing = new Set(
-    lines.filter((l) => /^\|/.test(l)).map((l) => (l.split('|')[1] || '').trim())
-  );
+  const allRowIds = lines
+    .filter((l) => /^\|/.test(l))
+    .map((l) => (l.split('|')[1] || '').trim());
+  const existing = new Set(allRowIds);
+
+  /* Number from the highest existing id, never from 1.
+   *
+   * Restarting at 1 each call was a silent data-loss bug, reproduced 2026-09-20: run 1
+   * promotes discovery A as AMEND-001; run 2 over a ledger holding A and B collides on
+   * AMEND-001, hits `continue`, and returns `added: []`. B never becomes a task and never
+   * can, because every later run repeats the collision -- and `--reconcile` re-reads the
+   * append-only ledger on EVERY run, so this is the normal path, not an edge case. The
+   * caller only logs counts, so the loss is invisible. */
+  const idRe = new RegExp(`^${prefix}-(\\d+)$`);
+  let n = allRowIds.reduce((max, id) => {
+    const m = idRe.exec(id);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+
+  /* Dedupe on the summary itself, held in a set that also grows as this call adds rows.
+   *
+   * The previous predicate conjoined two unrelated operands -- `id.startsWith(prefix) &&
+   * text.includes(slug)` never compared `id` to `slug`, so it was really "does any AMEND
+   * row exist AND does this text appear anywhere in the document", which both re-added
+   * discoveries before the first amendment landed and skipped genuinely new ones whose
+   * first 60 characters happened to occur in unrelated prose. */
+  const seen = new Set();
+  const norm = (sry) => String(sry).trim().replace(/\s+/g, ' ').toLowerCase();
+  for (const l of lines) {
+    if (!/^\|/.test(l)) continue;
+    const cells = l.split('|').slice(1, -1).map((c) => c.trim());
+    if (col.desc >= 0 && cells[col.desc]) seen.add(norm(cells[col.desc].split(' — promoted from')[0]));
+  }
 
   const newRows = [];
-  let n = 0;
   for (const r of promo) {
-    // Same summary twice is the same amendment. An append-only ledger re-read on every
-    // reconcile would otherwise add a duplicate task per run, forever.
-    const slug = String(r.summary).slice(0, 60);
-    if ([...existing].some((id) => id.startsWith(prefix) && text.includes(slug))) { continue; }
-    n += 1;
-    const id = `${prefix}-${String(n).padStart(3, '0')}`;
-    if (existing.has(id)) continue;
     const where = r.file ? ` (\`${r.file}\`)` : '';
-    const desc = `${String(r.summary).replace(/\|/g, '\\|')}${where}` +
-      ` — promoted from a ${r.kind} discovery found by ${r.foundBy}`;
-    newRows.push(`| ${id} | ${desc} | amendment | | | The discovery no longer reproduces |`);
+    const summary = `${String(r.summary).replace(/\|/g, '\\|')}${where}`;
+    if (seen.has(norm(summary))) continue;
+    seen.add(norm(summary));
+
+    do { n += 1; } while (existing.has(`${prefix}-${String(n).padStart(3, '0')}`));
+    const id = `${prefix}-${String(n).padStart(3, '0')}`;
+    existing.add(id);
+
+    const cells = new Array(headerCells.length).fill('');
+    if (col.id >= 0) cells[col.id] = id;
+    if (col.desc >= 0) cells[col.desc] = `${summary} — promoted from a ${r.kind} discovery found by ${r.foundBy}`;
+    /* `Serves` is mandatory and machine-readable, and a promoted discovery genuinely has no
+     * objective to point at -- nothing in the ledger records one. Writing a plausible `O1`
+     * would be manufacturing the provenance this framework exists to prevent, so the
+     * honest value is the marker, and `/audit-trd` surfacing it is the correct outcome:
+     * the owner points it at an objective, or decides it does not belong in this TRD.
+     * `opts.serves` lets a caller that DOES know supply it. */
+    if (col.serves >= 0) cells[col.serves] = opts.serves || 'amendment — no objective recorded';
+    if (col.deps >= 0) cells[col.deps] = 'None';
+    if (col.ac >= 0) cells[col.ac] = 'The discovery no longer reproduces';
+    newRows.push(`| ${cells.join(' | ')} |`);
     added.push(id);
   }
   if (!newRows.length) return { added, skipped: promo.length };
