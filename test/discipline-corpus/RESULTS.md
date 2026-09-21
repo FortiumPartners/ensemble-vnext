@@ -11,6 +11,51 @@ node test/discipline-corpus/score.js --detector regex --json    # machine-readab
 
 ---
 
+## 2026-09-21 — the gate could not pass, and three reversions rest on it
+
+**The baseline fails this tool when compared against itself.** Eight runs of one unchanged
+prompt, scored PRE(1-4) vs PRE(5-8): `VERDICT: FAIL`, reporting a regression on
+`c-58f31a46ee3b`, an `incidental-vocabulary` false positive on `c-5d15b63f1acc`, and a
+precision miss — the identical verdict it gave two real changes under test that day.
+
+**Why.** Of the 11 cases ever judged wrong across those 8 runs, **zero were wrong in all
+8**. Every one varied:
+
+```
+s-payload-escape-subagent-with-bg  7/8      c-90f3287820f5  2/8
+c-5d15b63f1acc                     6/8      c-91cd62c60a5a  2/8
+c-58f31a46ee3b                     5/8      c-d800a1d577b3  2/8
+s-payload-escape-loop-guard        4/8      c-07fbfad86306  1/8
+c-417720d93413                     3/8      a-self-doc-03   1/8
+                                            c-29d09e2f4280  1/8
+```
+
+The old rule — wrong in **more than half** the runs — resolves a coin flip at random, and
+the three cases nearest the half-way line decided every verdict the tool produced.
+
+**Precision was measured against an unreachable floor.** Those same 8 baseline runs:
+`0.833 0.857 0.879 0.882 0.882 0.906 0.906 0.938`. The floor was 0.90; the unchanged prompt
+cleared it **3 times in 8**. A spread of 0.104 on identical input.
+
+**Consequence for the record.** The reversions at `:411-431` (−0.060) and `:433-458` (−0.030)
+are both **inside that spread**. Neither is safe to describe as a measured regression any
+more. The operational rule at `:472` — *"no edit ships on a reading; n>=4, full corpus, every
+time"* — stands, but n>=4 was never sufficient on its own: the missing half was a null test.
+
+**What changed in `compare-runs.js`.** A verdict now rests only on cases the judge decides
+the same way in every run. A regression must be right in EVERY pre run and wrong in EVERY
+post run. The zero-tolerance classes gate on *new* false positives — one already present at
+baseline is a pre-existing defect, not something a change introduced. The absolute precision
+floor is replaced by a relative test: post may not fall below pre by more than pre's own
+standard deviation. Unstable cases are printed, never gated on.
+
+Verified three ways, and all three matter: the null test now PASSES, a synthetic change that
+makes a previously-clean case fail in every run still FAILS on both the regression and A2
+gates, and `compare-runs.test.js` pins all three properties. **Run the null test before
+trusting any future verdict from this tool.**
+
+---
+
 ## Current corpus composition (as of 2026-08-27)
 
 **86 cases: 30 `violation`, 56 `clean`.** Per class:
