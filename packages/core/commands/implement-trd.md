@@ -227,6 +227,24 @@ node -e '
 '
 ```
 
+**First, promote blocking discoveries into the TRD.** This is what makes the in-flight
+carve-out real: an issue found while reviewing or testing THIS feature was recorded as a
+discovery, and this is where it becomes a task.
+
+```bash
+node -e '
+  const d = require("./.claude/lib/discovered");
+  const dir = ".trd-state/<feature>";
+  const { added, skipped } = d.promoteToTrd("<trd-path>", d.readAll(dir));
+  console.log(JSON.stringify({ added, skipped }));
+'
+```
+
+Only `blocksFeature: true` discoveries promote, and `kind: risk` never does — a risk is
+something to watch, not something to build. Everything else stays a reported finding. That
+filter is the whole defence against a feature absorbing every bug anyone noticed while
+working on it.
+
 Then proceed as a normal run: Step 3 rebuilds the graph from the TRD — so tasks **added since
 the last run** (an `/audit-build` gap written in, a promoted discovery) enter through the
 normal parse→graph→dispatch path with no special handling — and the phase loop dispatches

@@ -59,6 +59,69 @@ function promotable(rows) {
   return rows.filter((r) => r && r.blocksFeature === true && r.kind !== 'risk');
 }
 
+/**
+ * Write promotable discoveries into a TRD's Master Task List as real tasks.
+ *
+ * THE MISSING LINK, and it was missing for an hour after the rule that depends on it shipped.
+ * The in-flight carve-out (router.py) tells an agent that an issue in the running feature's
+ * path is "an AMENDMENT to this TRD -- record it and let `/implement-trd --reconcile` pick it
+ * up". But `--reconcile` picks up tasks ALREADY IN THE TRD, and until this function nothing
+ * put them there. `promotable()` had zero consumers. The instruction was a promise the
+ * mechanism did not keep -- the ninth instance in this repo of a rule whose executing path is
+ * exempt from it, and the author had catalogued the other eight an hour earlier.
+ *
+ * Appends rows to the EXISTING table rather than rewriting it: a TRD is the owner's document
+ * and an amendment is an addition, never an edit of what they wrote. Ids are suffixed so a
+ * promoted task is visibly not one the architect planned.
+ *
+ * @param {string} trdPath
+ * @param {Array} rows            discoveries, typically promotable(readAll(stateDir))
+ * @param {{idPrefix?: string, now?: string}} [opts]
+ * @returns {{added: string[], skipped: number}}
+ */
+function promoteToTrd(trdPath, rows, opts = {}) {
+  const added = [];
+  const promo = promotable(rows);
+  if (!promo.length) return { added, skipped: 0 };
+
+  let text;
+  try { text = fs.readFileSync(trdPath, 'utf-8'); } catch { return { added, skipped: promo.length }; }
+
+  // The Master Task List's separator row is the anchor: find the LAST row of that table.
+  const lines = text.split('\n');
+  const headIdx = lines.findIndex((l) => /^\|\s*Task ID\s*\|/i.test(l));
+  if (headIdx === -1) return { added, skipped: promo.length };
+  let lastRow = headIdx + 1; // the |---| separator
+  while (lastRow + 1 < lines.length && /^\|/.test(lines[lastRow + 1])) lastRow++;
+
+  const prefix = opts.idPrefix || 'AMEND';
+  const existing = new Set(
+    lines.filter((l) => /^\|/.test(l)).map((l) => (l.split('|')[1] || '').trim())
+  );
+
+  const newRows = [];
+  let n = 0;
+  for (const r of promo) {
+    // Same summary twice is the same amendment. An append-only ledger re-read on every
+    // reconcile would otherwise add a duplicate task per run, forever.
+    const slug = String(r.summary).slice(0, 60);
+    if ([...existing].some((id) => id.startsWith(prefix) && text.includes(slug))) { continue; }
+    n += 1;
+    const id = `${prefix}-${String(n).padStart(3, '0')}`;
+    if (existing.has(id)) continue;
+    const where = r.file ? ` (\`${r.file}\`)` : '';
+    const desc = `${String(r.summary).replace(/\|/g, '\\|')}${where}` +
+      ` — promoted from a ${r.kind} discovery found by ${r.foundBy}`;
+    newRows.push(`| ${id} | ${desc} | amendment | | | The discovery no longer reproduces |`);
+    added.push(id);
+  }
+  if (!newRows.length) return { added, skipped: promo.length };
+
+  lines.splice(lastRow + 1, 0, ...newRows);
+  try { fs.writeFileSync(trdPath, lines.join('\n'), 'utf-8'); } catch { return { added: [], skipped: promo.length }; }
+  return { added, skipped: promo.length - added.length };
+}
+
 function ledgerPath(stateDir) {
   return path.join(stateDir, 'discovered.jsonl');
 }
@@ -169,4 +232,5 @@ function render(stateDir, { phase = null } = {}) {
 }
 
 module.exports = {
-  promotable, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES };
+  promotable,
+  promoteToTrd, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES };
