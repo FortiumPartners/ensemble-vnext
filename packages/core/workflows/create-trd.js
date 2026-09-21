@@ -354,26 +354,90 @@ const FINDING_ITEMS = {
 }
 
 // --------------------------------------------------------------------------- 2. GROUND
-// Sequential and alone: this stage is GENERATIVE (it writes task context), and the rule
-// that fan-out is for verification only applies to it. Four grounding agents in parallel
-// would produce four opinions about which code to reuse. It runs after decisions exist,
+//
+// PARTITIONED BY TASK since 2026-09-21 (owner-approved). It runs after decisions exist,
 // because grounding a decision that has not been made is meaningless.
+//
+// The previous note here read: "Sequential and alone: this stage is GENERATIVE (it writes
+// task context), and the rule that fan-out is for verification only applies to it. Four
+// grounding agents in parallel would produce four opinions about which code to reuse."
+// That reasoning is kept because it names the real risk -- but it argues against four
+// agents answering the SAME question. Partitioning by task gives each agent a DIFFERENT
+// question, over a disjoint set of task ids.
+//
+// What forced the change: this stage grounds every task in one agent, serially, and
+// /create-trd's median is 1384s over 57 real runs. A 17-task TRD grounds 17 tasks in one
+// context; the owner killed one such run at 22.7 minutes and hand-fixed the issues with
+// four parallel agents in 100 seconds.
+//
+// The residual risk the owner accepted is inconsistency ACROSS subsets -- one agent
+// reusing a helper another agent rewrites. It is DETECTED, not prevented: the merge stage
+// below sees every block at once and reports contradictions as findings, which are already
+// reported-not-applied. Prevention would need a reconcile pass, which costs the wall time
+// this change exists to reclaim.
+//
+// Below the fan-out threshold a single agent still writes the section directly, exactly as
+// before -- a 2-task TRD must not pay for a merge step it does not need.
 
 phase('Ground')
 
-const grounded = await agent(
+/* Every task, with its description and declared order -- given to EVERY grounding agent,
+ * including for tasks it is not grounding.
+ *
+ * Grounding previously received task IDs and nothing else (`authored.tasks.map(t => t.id)`).
+ * That made `trd-authoring.md`'s own decomposition rule -- "TWO TASKS THAT TOUCH THE SAME
+ * FILE WILL SERIALIZE. MERGE THEM, OR SAY WHY NOT." -- unenforceable, because `Touches` is
+ * written HERE while the rule can only be applied by someone who can see the other tasks.
+ * No agent in this workflow could see both halves at once. That is the mechanism behind
+ * narrow waves: file-conflict edges are built from `Touches`, and two tasks sharing a file
+ * can never share a wave. */
+const TASK_ROSTER = authored.tasks
+  .map((t) => {
+    const after = (t.depends_on || []).length ? `  [declared after ${(t.depends_on || []).join(', ')}]` : ''
+    return `  ${t.id} -- ${t.description}${after}`
+  })
+  .join('\n')
+
+const GROUND_CHUNK_SIZE = 4   // tasks per agent
+const GROUND_MAX_AGENTS = 6   // ceiling; parallel() caps at min(16, cores-2) anyway
+
+const groundChunks = (() => {
+  const ids = authored.tasks.map((t) => t.id)
+  if (!ids.length) return []
+  const k = Math.min(GROUND_MAX_AGENTS, Math.max(1, Math.ceil(ids.length / GROUND_CHUNK_SIZE)))
+  const per = Math.ceil(ids.length / k)
+  const out = []
+  for (let i = 0; i < ids.length; i += per) out.push(ids.slice(i, i + per))
+  return out
+})()
+
+const FANNED_OUT = groundChunks.length > 1
+
+const groundPrompt = (mine) =>
   `You are grounding an already-authored TRD against the code that actually exists.
 
 TRD: ${TRD}
-Tasks needing grounding: ${authored.tasks.map((t) => t.id).join(', ')}
+
+EVERY TASK IN THIS TRD:
+${TASK_ROSTER}
+
+GROUND EXACTLY THESE, AND NO OTHERS: ${mine.join(', ')}
+${FANNED_OUT ? `Other agents are grounding the rest, in parallel. The full roster is above so
+you can apply the serialization rule below -- do NOT write blocks for tasks outside your set.` : ''}
+
+SAY WHEN YOUR TASK COLLIDES WITH ANOTHER. \`trd-authoring.md\` states: "TWO TASKS THAT TOUCH
+THE SAME FILE WILL SERIALIZE. MERGE THEM, OR SAY WHY NOT." Two tasks naming one file can
+never run in the same wave -- the implement loop pays a full pass for each extra wave, and a
+real 17-task TRD averaged 1.7 tasks per wave because of this. You can see every task above.
+If a file in your \`Touches\` is plainly also touched by another task, name that task in
+\`Careful\`. You are not merging anything; you are making the collision visible to the audit.
 ${SCOPE}
 READ THE CODE${PROJECT ? ` IN ${PROJECT}` : ''}. Grep for the functions, modules and patterns
 this plan touches. This stage is worthless if written from assumption.
 ${CORPUS_RULE}
 
-Reconcile on four axes and emit a "## Task Grounding" section into the TRD (Write/Edit), one
-block per task ID, exactly as specified in .claude/contracts/trd-authoring.md, "Section 10:
-Task Grounding" (read that section only -- do NOT read .claude/commands/create-trd.md, which
+Reconcile on four axes and produce one block per task ID in YOUR SET, exactly as specified
+in .claude/contracts/trd-authoring.md, "Section 10: Task Grounding" (read that section only -- do NOT read .claude/commands/create-trd.md, which
 carries orchestration detail you do not need and would re-cache on every turn):
 
   Touches   (mandatory) files this task will modify
@@ -381,6 +445,14 @@ carries orchestration detail you do not need and would re-cache on every turn):
   Replaces  what this makes UNREACHABLE -- name it and instruct its deletion
   Follow    an existing pattern in this repo it should match
   Careful   contracts, callers, constraints
+
+${FANNED_OUT
+  ? `RETURN your blocks as markdown in \`blocks_markdown\` -- do NOT write them into the TRD.
+Other agents are writing their own blocks concurrently and two writers on one file is a lost
+update that raises no error. A merge stage assembles every agent's blocks into the single
+"## Task Grounding" section.`
+  : `Emit them as a "## Task Grounding" section into the TRD (Write/Edit). Also return the
+same markdown in \`blocks_markdown\`.`}
 
 MARK HOW YOU KNOW. Every factual claim in a grounding block carries one of:
   [read]     -- you opened the file and saw it
@@ -443,8 +515,9 @@ Had that session ended, all 20 would have been gone and /audit-trd would have ha
 rediscover them by re-reading the same code. The command already mandates this contract and
 gives the reason -- "findings summarised through an intermediate agent cannot be re-read,
 diffed, or cited" -- but scoped it to the FALLBACK path, leaving the path that actually runs
-exempt from it.`,
-  {
+exempt from it.`
+
+const GROUND_OPTS = {
     label: 'ground:brownfield',
     phase: 'Ground',
     /* An UNSET agentType is not "no agent" -- it is the platform's generic workflow
@@ -469,19 +542,87 @@ exempt from it.`,
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['grounded_task_ids', 'replaces_found', 'findings'],
+      required: ['grounded_task_ids', 'replaces_found', 'findings', 'blocks_markdown'],
       properties: {
+        blocks_markdown: {
+          type: 'string',
+          description: 'the grounding blocks for this agent\'s tasks, as markdown',
+        },
         grounded_task_ids: { type: 'array', items: { type: 'string' } },
         replaces_found: { type: 'array', items: { type: 'string' } },
         greenfield_task_ids: { type: 'array', items: { type: 'string' } },
         findings: FINDING_ITEMS,
       },
     },
-  }
-)
+}
 
-required(grounded, 'Ground')
-log(`grounded ${grounded.grounded_task_ids.length} tasks; ${grounded.replaces_found.length} named for deletion; ${(grounded.findings || []).length} design findings`)
+/* One agent per chunk, in parallel, each returning its blocks; then ONE writer assembles
+ * them. The writer exists because workflow scripts have no filesystem access -- only an
+ * agent can write the TRD -- and because letting N agents Write/Edit one file concurrently
+ * is a lost update that raises no error. */
+const groundResults = FANNED_OUT
+  ? await parallel(
+      groundChunks.map((mine, i) => () =>
+        agent(groundPrompt(mine), { ...GROUND_OPTS, label: `ground:brownfield:${i + 1}` })
+      )
+    )
+  : [await agent(groundPrompt(groundChunks[0] || []), GROUND_OPTS)]
+
+const liveGround = groundResults.filter(Boolean)
+if (!liveGround.length) required(null, 'Ground')
+if (liveGround.length < groundResults.length) {
+  log(`WARNING: ${groundResults.length - liveGround.length} of ${groundResults.length} grounding agents returned nothing -- those tasks are UNGROUNDED`)
+}
+
+const grounded = {
+  grounded_task_ids: liveGround.flatMap((g) => g.grounded_task_ids || []),
+  replaces_found: liveGround.flatMap((g) => g.replaces_found || []),
+  greenfield_task_ids: liveGround.flatMap((g) => g.greenfield_task_ids || []),
+  findings: liveGround.flatMap((g) => g.findings || []),
+}
+
+if (FANNED_OUT) {
+  log(`grounding fanned out over ${groundChunks.length} agents; merging blocks`)
+  const merged = await agent(
+    `Assemble one "## Task Grounding" section in ${TRD} from blocks produced by
+${liveGround.length} grounding agents working on disjoint task sets.
+
+Write the section with Write/Edit, blocks in task-ID order, exactly the format each agent
+already used. Do not rewrite, summarise or re-judge any block -- you have not read the code
+and they have. Copy them.
+
+THEN DO THE ONE THING ONLY YOU CAN DO. You are the first reader to see every block at once,
+so report CONTRADICTIONS BETWEEN blocks as findings:
+  - one block reuses a helper another block names in \`Replaces\`
+  - two blocks claim to create the same new module
+  - two blocks name the same file in \`Touches\` without either naming the other in \`Careful\`
+    (they will serialize -- the plan pays a wave for it)
+Report them; fix nothing. Zero contradictions is a legitimate and common result.
+
+BLOCKS:
+${liveGround.map((g, i) => `--- agent ${i + 1} ---\n${g.blocks_markdown || '(none returned)'}`).join('\n\n')}`,
+    {
+      label: 'ground:merge',
+      phase: 'Ground',
+      agentType: 'backend-implementer',
+      effort: 'low',   // copies text and compares blocks; reads no source
+      schema: {
+        type: 'object', additionalProperties: false, required: ['findings'],
+        properties: { findings: FINDING_ITEMS },
+      },
+    }
+  )
+  if (merged) grounded.findings = grounded.findings.concat(merged.findings || [])
+  else log('WARNING: the merge agent returned nothing -- the Task Grounding section may be unwritten')
+}
+
+// `grounded` is assembled from surviving agents above, so required() has already fired if
+// every one of them died. What is worth saying out loud is partial coverage.
+const ungrounded = authored.tasks
+  .map((t) => t.id)
+  .filter((id) => !grounded.grounded_task_ids.includes(id))
+if (ungrounded.length) log(`WARNING: ${ungrounded.length} task(s) came back with no grounding block: ${ungrounded.join(', ')}`)
+log(`grounded ${grounded.grounded_task_ids.length}/${authored.tasks.length} tasks; ${grounded.replaces_found.length} named for deletion; ${(grounded.findings || []).length} design findings`)
 
 // ---------------------------------------------------------------------------
 // create stops here. The verification wave lives in /audit-trd, which runs against ANY

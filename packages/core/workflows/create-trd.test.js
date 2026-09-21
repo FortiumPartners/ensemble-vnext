@@ -159,3 +159,102 @@ describe('create-trd wiring', () => {
     ).rejects.toThrow();
   });
 });
+
+/* Fan-out, added 2026-09-21. The Ground stage grounded every task in one serial agent;
+ * /create-trd's median is 1384s over 57 real runs and a 17-task TRD was abandoned at 22.7
+ * minutes. These pin the three properties the change has to have. */
+describe('create-trd grounding fan-out', () => {
+  const manyTasks = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `F-B${String(i + 1).padStart(3, '0')}`,
+      description: `task ${i + 1}`,
+      serves: ['O1'],
+      depends_on: [],
+    }));
+
+  /** Records every ground:* dispatch and returns a well-formed chunk result. */
+  function groundingPlan(tasks) {
+    return (prompt, opts) => {
+      if (opts.label === 'corpus-index') return CORPUS;
+      if (opts.label === 'author:technical-architect') return { ...AUTHORED, tasks };
+      if (opts.label === 'ground:merge') return { findings: [] };
+      if (String(opts.label).startsWith('ground:brownfield')) {
+        // Ground exactly the ids this agent was told to ground.
+        const mine = tasks.map((t) => t.id).filter((id) => {
+          const m = /GROUND EXACTLY THESE, AND NO OTHERS: ([^\n]+)/.exec(prompt);
+          return m && m[1].split(',').map((x) => x.trim()).includes(id);
+        });
+        return {
+          blocks_markdown: mine.map((id) => `### ${id}\n- Touches: src/${id}.ts`).join('\n'),
+          grounded_task_ids: mine,
+          replaces_found: [],
+          findings: [],
+        };
+      }
+      return undefined;
+    };
+  }
+
+  async function runWith(n) {
+    const tasks = manyTasks(n);
+    const agent = makeAgentStub(groundingPlan(tasks));
+    const parallel = makeParallelStub();
+    const { result, logs } = await runWorkflow(SOURCE, { agent, parallel, args: baseArgs() });
+    const grounders = agent.calls.filter((c) => String(c.opts.label).startsWith('ground:brownfield'));
+    const merges = agent.calls.filter((c) => c.opts.label === 'ground:merge');
+    return { result, logs, agent, parallel, grounders, merges, tasks };
+  }
+
+  it('stays a single writing agent below the fan-out threshold', async () => {
+    // A 3-task TRD must not pay for a merge step it does not need.
+    const { grounders, merges } = await runWith(3);
+    expect(grounders).toHaveLength(1);
+    expect(merges).toHaveLength(0);
+  });
+
+  it('splits a large TRD across several agents and merges once', async () => {
+    const { grounders, merges, parallel } = await runWith(17);
+    expect(grounders.length).toBeGreaterThan(1);
+    expect(grounders.length).toBeLessThanOrEqual(6);
+    expect(merges).toHaveLength(1);
+    expect(parallel.waves.length).toBe(1); // one wave, all grounders in it
+  });
+
+  it('gives every task to exactly one agent, and none to two', async () => {
+    // Overlap would mean two agents writing blocks for one task; a gap means a task ships
+    // ungrounded, which is how reimplementation happens.
+    const { grounders, tasks } = await runWith(17);
+    const assigned = grounders.flatMap((c) => {
+      const m = /GROUND EXACTLY THESE, AND NO OTHERS: ([^\n]+)/.exec(c.prompt);
+      return m ? m[1].split(',').map((x) => x.trim()) : [];
+    });
+    expect(assigned.slice().sort()).toEqual(tasks.map((t) => t.id).sort());
+    expect(new Set(assigned).size).toBe(assigned.length);
+  });
+
+  it('shows every agent the WHOLE task roster, not just its own slice', async () => {
+    // Without this, trd-authoring.md's "two tasks touching one file will serialize" rule is
+    // unenforceable: Touches is written here, and the rule needs sight of the other tasks.
+    const { grounders, tasks } = await runWith(17);
+    for (const c of grounders) {
+      for (const t of tasks) expect(c.prompt).toContain(t.id);
+    }
+  });
+
+  it('caps the number of grounding agents', async () => {
+    const { grounders } = await runWith(60);
+    expect(grounders.length).toBeLessThanOrEqual(6);
+  });
+
+  it('reports partial coverage instead of claiming every task was grounded', async () => {
+    const tasks = manyTasks(17);
+    const base = groundingPlan(tasks);
+    let killed = false;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (String(opts.label).startsWith('ground:brownfield') && !killed) { killed = true; return undefined; }
+      return base(prompt, opts);
+    });
+    const { logs } = await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    expect(logs.join('\n')).toMatch(/returned nothing|no grounding block/i);
+  });
+});
