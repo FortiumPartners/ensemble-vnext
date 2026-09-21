@@ -33,6 +33,7 @@ from router import (  # noqa: E402
     build_output,
     command_run_state_path,
     derive_feature,
+    feature_in_flight,
     is_empty_prompt,
     is_scaffolded,
     is_slash_command,
@@ -739,3 +740,49 @@ class TestInFlightCarveOut:
         # The carve-out must be APPENDED conditionally, never baked into the base hint --
         # with nothing in flight there is no amendment to make and /investigate is correct.
         assert "IN FLIGHT" not in FRAMEWORK_HINT
+
+
+class TestFeatureInFlightTerminator:
+    """Finding 13, /code-review 2026-09-20: the in-flight hint never stopped firing.
+
+    Nothing in the framework clears current.json when a feature ships, so every
+    conversational turn kept being told an unrelated bug was an amendment to a
+    long-archived TRD.
+    """
+
+    def _tree(self, tmp_path, trd, tasks=None):
+        (tmp_path / ".trd-state").mkdir()
+        (tmp_path / ".trd-state" / "current.json").write_text(
+            json.dumps({"trd": trd})
+        )
+        if tasks is not None:
+            d = tmp_path / ".trd-state" / "feat"
+            d.mkdir()
+            (d / "implement.json").write_text(json.dumps({"tasks": tasks}))
+        return str(tmp_path)
+
+    def test_unfinished_work_is_in_flight(self, tmp_path):
+        cwd = self._tree(tmp_path, "docs/TRD/feat.md",
+                         {"A": {"status": "success"}, "B": {"status": "pending"}})
+        assert feature_in_flight(cwd) == "feat"
+
+    def test_all_tasks_success_terminates_the_hint(self, tmp_path):
+        cwd = self._tree(tmp_path, "docs/TRD/feat.md",
+                         {"A": {"status": "success"}, "B": {"status": "success"}})
+        assert feature_in_flight(cwd) == ""
+
+    def test_archived_trd_terminates_the_hint(self, tmp_path):
+        cwd = self._tree(tmp_path, "docs/TRD/completed/feat.md", None)
+        assert feature_in_flight(cwd) == ""
+
+    def test_no_implement_json_is_still_in_flight(self, tmp_path):
+        # PRD/TRD authoring stage — an amendment to the document being written is right.
+        cwd = self._tree(tmp_path, "docs/TRD/feat.md", None)
+        assert feature_in_flight(cwd) == "feat"
+
+    def test_derive_feature_is_unchanged_by_this(self, tmp_path):
+        # The ENSEMBLE_COMMAND marker still reports the feature after completion.
+        cwd = self._tree(tmp_path, "docs/TRD/feat.md",
+                         {"A": {"status": "success"}})
+        assert derive_feature(cwd) == "feat"
+        assert feature_in_flight(cwd) == ""

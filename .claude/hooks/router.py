@@ -362,6 +362,47 @@ def derive_feature(cwd: str) -> str:
         return ""
 
 
+def feature_in_flight(cwd: str) -> str:
+    """Return the feature name ONLY while its work is genuinely unfinished, else "".
+
+    `derive_feature()` answers "what does current.json point at", which is the right
+    question for the ENSEMBLE_COMMAND marker. It is the WRONG question for the in-flight
+    amendment hint, because nothing in the framework clears `current.json` when a feature
+    ships -- only /create-prd, /create-trd and /init-project ever write it. So the hint
+    outlived every feature that produced it, and months later an ordinary conversational
+    turn was still being told that an unrelated new bug is "an AMENDMENT to this TRD",
+    steering it toward /amend against an archived document.
+
+    Two terminators, both read from disk rather than remembered:
+      - the TRD has been archived to docs/TRD/completed/
+      - every task in .trd-state/<feature>/implement.json is `success`
+
+    A feature with NO implement.json is still in flight: that is the PRD/TRD authoring
+    stage, where an amendment to the document being written is exactly right.
+    """
+    feature = derive_feature(cwd)
+    if not feature:
+        return ""
+    try:
+        root = os.path.abspath(cwd) if cwd else os.getcwd()
+        with open(os.path.join(root, ".trd-state", "current.json"), "r", encoding="utf-8") as f:
+            trd = (json.load(f) or {}).get("trd", "")
+        if "TRD/completed/" in str(trd).replace("\\", "/"):
+            return ""
+        impl = os.path.join(root, ".trd-state", feature, "implement.json")
+        if not os.path.exists(impl):
+            return feature
+        with open(impl, "r", encoding="utf-8") as f:
+            tasks = (json.load(f) or {}).get("tasks", {}) or {}
+        if tasks and all(
+            isinstance(t, dict) and t.get("status") == "success" for t in tasks.values()
+        ):
+            return ""
+    except Exception:
+        return feature  # unreadable state is not evidence the work is done
+    return feature
+
+
 # A marker value must be a single whitespace-free, `=`-free token, or it stops
 # being one `key=value` field and becomes several. `command` is already safe by
 # construction (it is `prompt.split()[0]`), but `feature` is the basename of a
@@ -482,7 +523,7 @@ def main() -> None:
         # conversational turn. This carve-out has to fire on exactly those turns -- the
         # owner finds the issue while REVIEWING or TESTING, not while a command runs.
         # Empty means nothing is in flight, and /investigate is then the correct answer.
-        in_flight = derive_feature(cwd)
+        in_flight = feature_in_flight(cwd)
         hint = FRAMEWORK_HINT + (IN_FLIGHT_HINT.format(feature=in_flight) if in_flight else "")
         context = marker if skip_reason else f"{marker}\n\n{hint}"
         log_debug(

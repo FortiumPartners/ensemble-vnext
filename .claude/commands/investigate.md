@@ -627,13 +627,6 @@ Apply clearly-correct findings; report the rest in `## Could Not Verify`.
 
 ---
 
-## Readout
-
-**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
-ISSUES, NEXT, in that order, one screen, written for someone who was not in the session. Any
-section may be "none". No section for what was dispatched or which stages ran: that is in the
-transcript and does not change what the owner does next.
-
 ## Step 6: Implement, or stop — the lib decides, you execute
 
 ```bash
@@ -684,6 +677,14 @@ behalf that the gate did not apply. A human invocation is on the record as a hum
 The gate constrains what a machine does unattended; it was never meant to constrain you.
 
 ---
+
+## Readout
+
+**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
+ISSUES, NEXT, in that order, one screen, written for someone who was not in the session. Any
+section may be "none". No section for what was dispatched or which stages ran: that is in the
+transcript and does not change what the owner does next.
+
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 

@@ -2,7 +2,7 @@
 name: audit-build
 description: Verify delivered code against its TRD and PRD, with traceability as the headline check
 version: 1.0.0
-argument-hint: "[path-to-trd] [--prd <path>] [--project <dir>]"
+argument-hint: "[path-to-trd] [--prd <path>] [--project <dir>] [--report-only]"
 ---
 
 Verify the code that was actually delivered against what the TRD specified and what the PRD
@@ -16,6 +16,11 @@ $ARGUMENTS
 
 If no path is given, use `current.trd` from `.trd-state/current.json`. If `--prd` is omitted,
 use `current.prd` from the same file.
+
+**Parse `--report-only`.** Present → produce the findings and stop at the readout; absent →
+the automatic `/implement-trd --reconcile` chain below applies. The flag was documented at
+§"`--report-only` suppresses the chain" before any step parsed it, so a user who typed it got
+a full implementation run anyway.
 
 ---
 

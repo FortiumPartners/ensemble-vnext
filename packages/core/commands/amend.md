@@ -111,16 +111,38 @@ result through `implement-state`, which checks the claim against disk:
 
 ```bash
 node -e '
-  const { load, recordResult, save } = require("./.claude/lib/implement-state");
+  const { load, save, recordResult } = require("./.claude/lib/implement-state");
+  const fs = require("fs");
   const p = ".trd-state/<feature>/implement.json";
-  const s = load(p);
-  recordResult(s, "AMEND-007", { status: "success", filesChanged: [ /* real paths */ ] });
+
+  // /amend writes the row into the TRD, not into implement.json — nothing else creates the
+  // task entry, and recordResult() THROWS on an unknown id. /amend also runs on features
+  // where /implement-trd never ran at all, so load() can throw ENOENT. Both are ordinary
+  // here, not errors: seed what is missing before attesting.
+  const s = fs.existsSync(p)
+    ? load(p)
+    : { version: 1, trd_file: "<trd>", phase_cursor: 1, tasks: {} };
+  if (!s.tasks["AMEND-007"]) {
+    s.tasks["AMEND-007"] = { status: "pending", cycle_position: "implement", retry_count: 0 };
+  }
+
+  recordResult(s, "AMEND-007", {
+    status: "success",
+    filesChanged: [ /* real paths — files that now exist */ ],
+    filesDeleted: [ /* real paths — files this amendment REMOVED */ ],
+  });
   save(p, s);
+  console.log(s.tasks["AMEND-007"].status, s.tasks["AMEND-007"].current_problem || "");
 '
 ```
 
-A success claim naming files that do not exist is failed automatically. That check exists
-because four tasks once sat in a state file as `success` with no code behind them.
+**Read the status back and believe it, not your own report.** A success claim naming files
+that do not exist is failed automatically — that check exists because four tasks once sat in
+a state file as `success` with no code behind them. If it comes back `failed`, the amendment
+is not done; fix it and re-attest.
+
+**Work that REMOVED files goes in `filesDeleted`, never `filesChanged`.** Deletions are
+attested by absence; listing removed paths as changed fails the check on correct work.
 
 ## Readout
 

@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reset-state] [--verify]"
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--reset-state] [--verify]"
 version: 4.0.0
 category: implementation
 ---
@@ -790,14 +790,37 @@ the context cold.
 
 ### 4.4 Interpret the phase result
 
-`Workflow` returns `{ phase, tasks: [{id, status, filesChanged, error?}], gate: {verifyApp,
-simplify, review: {findings}}, status: "complete"|"failed" }`.
+`Workflow` returns `{ phase, tasks: [{id, status, filesChanged, filesDeleted?, error?}], gate:
+{verifyApp, simplify, review: {findings}}, status: "complete"|"failed" }`.
 
 For every task in the result: `implement-state.recordResult(state, id, {status, filesChanged,
-error})`. On `status: "success"`, set `task.cycle_position = "complete"` explicitly — per
+filesDeleted, error})`.
+
+**Then branch on the state `recordResult` wrote, NEVER on the status the workflow returned.**
+They disagree exactly when it matters: the attestation check inside `recordResult` flips a
+task to `failed` when none of its claimed files exist, and the workflow's own `status` still
+says `"success"` because the agent said so. Reading the workflow's value here wrote
+`cycle_position = "complete"` over a task the state file had just marked failed, while the
+phase-failure branch below — also keyed on the workflow's `status` — never fired. The result
+was a phase reported green with a hole in it: precisely the failure the attestation check was
+added to catch, defeated by the code that consumes it.
+
+```
+after recordResult:
+  state.tasks[id].status === "success"  -> set task.cycle_position = "complete"
+  state.tasks[id].status === "failed"   -> treat the PHASE as failed; the retry branch
+                                            below applies, and the banner names the task
+                                            and its `current_problem`
+```
+
+Setting `cycle_position` explicitly on success is still this command's job — per
 `implement-state.js`'s own documented ambiguity, `recordResult()` deliberately does not
-perform the `checks -> complete` skip on a passing result; this command, as the documented
-state-write owner, makes that write.
+perform the `checks -> complete` skip on a passing result, and this command is the
+documented state-write owner.
+
+**`filesDeleted` is not optional when a task's work was removal.** Deleted paths are attested
+by ABSENCE; passing them as `filesChanged` fails the zero-of-N check, retries twice more, and
+reaches STUCK on work that was done correctly.
 
 **Run the deterministic phase-gate battery** (D8: the command runs the FULL battery here;
 the per-task battery in Step 3.5 was targeted).

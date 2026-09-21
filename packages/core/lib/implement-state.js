@@ -204,7 +204,7 @@ function advance(state, taskId) {
  * @param {{status?: string, filesChanged?: string[], error?: string}} result
  * @returns {Object} The updated state
  */
-function recordResult(state, taskId, { status, filesChanged, error } = {}, opts = {}) {
+function recordResult(state, taskId, { status, filesChanged, filesDeleted, error } = {}, opts = {}) {
   if (!state || !state.tasks || !state.tasks[taskId]) {
     throw new Error(`recordResult(): unknown task "${taskId}"`);
   }
@@ -213,6 +213,9 @@ function recordResult(state, taskId, { status, filesChanged, error } = {}, opts 
 
   if (filesChanged !== undefined) {
     task.files_changed = filesChanged;
+  }
+  if (filesDeleted !== undefined) {
+    task.files_deleted = filesDeleted;
   }
 
   // ATTESTATION CHECK. A task agent SELF-REPORTS its status and the files it changed, and
@@ -229,20 +232,45 @@ function recordResult(state, taskId, { status, filesChanged, error } = {}, opts 
   // It lives here, not in implement-phase.js, because that script "opens no file and runs no
   // shell" by design. This module already has fs and is the one choke point every task
   // result passes through.
-  if (status === 'success' && Array.isArray(filesChanged) && filesChanged.length > 0) {
+  //
+  // DELETION IS ATTESTED BY ABSENCE, not by presence. A task whose work is REMOVING files
+  // has nothing to point at, and until 2026-09-20 there was no field for it: the error text
+  // below told the agent to "record that explicitly" while no parameter accepted it. So a
+  // deletion task reported its removed paths as filesChanged, failed zero-of-N, retried,
+  // failed again, and reached STUCK at three -- and `reconcile()` then re-opened it on every
+  // run, forever. `filesDeleted` closes that: those paths must NOT exist, and a task
+  // claiming only deletions is never judged by the presence rule.
+  if (status === 'success') {
     const root = opts.projectRoot || process.cwd();
-    const missing = filesChanged.filter((f) => {
+    const gone = (f) => {
       try { return !fs.existsSync(path.resolve(root, f)); } catch { return false; }
-    });
-    task.files_missing = missing.length ? missing : undefined;
-    if (missing.length === filesChanged.length) {
-      task.status = 'failed';
-      task.retry_count = (typeof task.retry_count === 'number' ? task.retry_count : 0) + 1;
-      task.current_problem =
-        `reported success but NONE of the ${filesChanged.length} claimed file(s) exist: ` +
-        `${missing.join(', ')}. If this task's work was deletion, record that explicitly ` +
-        `rather than listing removed paths as files changed.`;
-      return state;
+    };
+
+    if (Array.isArray(filesDeleted) && filesDeleted.length > 0) {
+      const stillThere = filesDeleted.filter((f) => !gone(f));
+      task.files_not_deleted = stillThere.length ? stillThere : undefined;
+      if (stillThere.length === filesDeleted.length) {
+        task.status = 'failed';
+        task.retry_count = (typeof task.retry_count === 'number' ? task.retry_count : 0) + 1;
+        task.current_problem =
+          `reported success but NONE of the ${filesDeleted.length} file(s) it claims to have ` +
+          `deleted are gone: ${stillThere.join(', ')}.`;
+        return state;
+      }
+    }
+
+    if (Array.isArray(filesChanged) && filesChanged.length > 0) {
+      const missing = filesChanged.filter(gone);
+      task.files_missing = missing.length ? missing : undefined;
+      if (missing.length === filesChanged.length) {
+        task.status = 'failed';
+        task.retry_count = (typeof task.retry_count === 'number' ? task.retry_count : 0) + 1;
+        task.current_problem =
+          `reported success but NONE of the ${filesChanged.length} claimed file(s) exist: ` +
+          `${missing.join(', ')}. If this task's work was deletion, pass those paths as ` +
+          `filesDeleted instead — they are attested by absence.`;
+        return state;
+      }
     }
   }
 
@@ -339,6 +367,10 @@ function reconcile(state, opts = {}) {
     if (!task || task.status !== 'success') continue;
     const claimed = Array.isArray(task.files_changed) ? task.files_changed : [];
     if (claimed.length === 0) continue; // nothing claimed, nothing to disbelieve
+    // A deletion task's paths are SUPPOSED to be gone. Judging them by the presence rule
+    // re-opened completed deletion work on every --reconcile run, forever.
+    const deleted = new Set(Array.isArray(task.files_deleted) ? task.files_deleted : []);
+    if (claimed.every((f) => deleted.has(f))) continue;
     checked++;
     const missing = claimed.filter((f) => {
       try { return !fs.existsSync(path.resolve(root, f)); } catch { return false; }

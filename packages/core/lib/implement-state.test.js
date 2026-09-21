@@ -464,3 +464,39 @@ describe('reconcile: disbelieve a success claim that disk contradicts', () => {
     expect(reconcile({ tasks: {} }).checked).toBe(0);
   });
 });
+
+/* Deletion attestation — finding 6, /code-review 2026-09-20.
+ * Before this, a deletion-only task could never pass: it reported removed paths as
+ * filesChanged, failed zero-of-N, and reconcile() re-opened it on every run. */
+describe('deletion is attested by absence', () => {
+  const mkState = () => ({ tasks: { 'T-1': { status: 'pending', retry_count: 0 } } });
+
+  it('a task that really deleted its files succeeds', () => {
+    const s = recordResult(mkState(), 'T-1',
+      { status: 'success', filesDeleted: ['gone/never-existed.js'] }, { projectRoot: os.tmpdir() });
+    expect(s.tasks['T-1'].status).toBe('success');
+    expect(s.tasks['T-1'].files_deleted).toEqual(['gone/never-existed.js']);
+  });
+
+  it('a task claiming a deletion that did not happen fails', () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'del-'));
+    fs.writeFileSync(path.join(d, 'still-here.js'), 'x');
+    const s = recordResult(mkState(), 'T-1',
+      { status: 'success', filesDeleted: ['still-here.js'] }, { projectRoot: d });
+    expect(s.tasks['T-1'].status).toBe('failed');
+    expect(s.tasks['T-1'].current_problem).toMatch(/claims to have deleted are gone/);
+  });
+
+  it('reconcile does not re-open a completed deletion task', () => {
+    const state = { tasks: { 'T-1': {
+      status: 'success', files_changed: ['removed.js'], files_deleted: ['removed.js'],
+    } } };
+    expect(reconcile(state, { projectRoot: os.tmpdir() }).reopened).toEqual([]);
+    expect(state.tasks['T-1'].status).toBe('success');
+  });
+
+  it('but still re-opens a genuine phantom task', () => {
+    const state = { tasks: { 'T-1': { status: 'success', files_changed: ['never-written.js'] } } };
+    expect(reconcile(state, { projectRoot: os.tmpdir() }).reopened).toEqual(['T-1']);
+  });
+});

@@ -704,11 +704,13 @@ draft and editing it repeatedly, which is the other half of this command's conte
 The main agent receives the finished readout, prints it, and emits COMMAND COMPLETE.
 
 > **Scope note, 2026-09-20.** What follows is about FINDINGS PERSISTENCE and remains correct.
-> It is not an argument against forking generally: `/audit-prd` now dispatches a forked
-> session-fidelity pass, and P6 — the decision that ruled forks out — was overturned on all
+> It is not an argument against forking generally: THIS command runs a forked session-fidelity
+> pass as its final step, and P6 — the decision that ruled forks out — was overturned on all
 > three of its premises (`docs/modernization/item-10-prd-path.md` §2.2). The two are
 > different questions: findings must be inspectable ON DISK, which a fork does not provide;
-> a fidelity check must hold the CONVERSATION, which only a fork does.
+> a fidelity check must hold the CONVERSATION, which only a fork does. The pass lives here and
+> NOT in `/audit-prd`, which routinely runs in a fresh session that never saw the design —
+> see that command's "Session fidelity is `/create-prd`'s job".
 
 **Why findings go to disk rather than into a fork.** A fork inherits post-compaction
 context, and this is a *review* stage — the evidence must stay inspectable. Findings on disk

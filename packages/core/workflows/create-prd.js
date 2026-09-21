@@ -290,6 +290,13 @@ Return an empty array if they agree. Empty is the common and correct answer.`,
     })()
   : []
 
+/* Only SAME-QUESTION conflicts can be superseded. `CONFLICT_BLOCK` tells the author that
+ * `same_question: false` entries — a corpus document answering a NARROWER or adjacent
+ * question — "are not overridden and do not belong in supersedes". Counting every conflict
+ * alike made the readout's warning fire on runs whose scan returned only those, accusing a
+ * PRD of silently siding with a document when it had followed the instruction exactly. */
+const sameQuestion = conflicts.filter((c) => c && c.same_question === true);
+
 const CONFLICT_BLOCK = conflicts.length
   ? `
 CONFLICTS ALREADY FOUND between the source and the corpus. A separate pass looked for these
@@ -422,14 +429,16 @@ return {
   // view (what it overrode) should MATCH, and a gap between them is the interesting signal --
   // a contradiction found before authoring that the PRD then did not carry.
   conflicts_found: conflicts.length,
+  conflicts_same_question: sameQuestion.length,
   next: NEXT,
   readout:
     `PRD: ${PRD}    SOURCE: ${BASELINE}\n` +
     `  ${authored.requirements.length} requirements` +
     `${corpus.documents.length ? `, inheriting from ${corpus.documents.length} corpus documents` : ''}\n` +
-    `${conflicts.length && !(authored.supersedes || []).length
-        ? `\n  WARNING: the conflict scan found ${conflicts.length} disagreement(s) with the corpus\n` +
-          `  but the PRD recorded no supersession. Check it did not silently side with a document.\n`
+    `${sameQuestion.length && !(authored.supersedes || []).length
+        ? `\n  WARNING: the conflict scan found ${sameQuestion.length} disagreement(s) on the SAME\n` +
+          `  question as the corpus, but the PRD recorded no supersession. Check it did not\n` +
+          `  silently side with a document.\n`
         : ''}` +
     `${(authored.supersedes || []).length
         ? `\n  OVERRIDES ${authored.supersedes.length} documented decision(s):\n` +

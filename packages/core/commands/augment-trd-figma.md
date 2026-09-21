@@ -173,13 +173,6 @@ This data will be used to populate:
 Add a new section to the TRD (after Section 6: Quality Requirements):
 
 ```markdown
-## Readout
-
-**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
-ISSUES, NEXT, in that order, one screen, written for someone who was not in the session. Any
-section may be "none". No section for what was dispatched or which stages ran: that is in the
-transcript and does not change what the owner does next.
-
 ## Section 7: Visual Design Context
 
 ### 7.1 Figma Reference
@@ -297,6 +290,14 @@ The command produces:
 
 
 ---
+
+## Readout
+
+**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
+ISSUES, NEXT, in that order, one screen, written for someone who was not in the session. Any
+section may be "none". No section for what was dispatched or which stages ran: that is in the
+transcript and does not change what the owner does next.
+
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
