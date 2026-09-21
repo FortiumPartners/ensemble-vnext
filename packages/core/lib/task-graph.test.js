@@ -380,3 +380,58 @@ describe('buildGraph — against docs/TRD/implement-trd-rework.md', () => {
     expect(graph2.criticalPath).toEqual(graph.criticalPath);
   });
 });
+
+/* Wave profiling, added 2026-09-21. Wave width is decided at authoring time and was
+ * invisible until a run was already under way: a real 17-task TRD averaged 1.70 wide and
+ * ran at 0.69x parallelism — below serial — and nobody knew until the session log was
+ * measured afterwards. */
+describe('waveProfile / renderWaveProfile', () => {
+  const { waveProfile, renderWaveProfile } = require('./task-graph');
+
+  it('summarises a wide graph as wide', () => {
+    const tasks = [task('A-1'), task('A-2'), task('A-3')];
+    const p = waveProfile(buildGraph(tasks, {}));
+    expect(p.waveCount).toBe(1);
+    expect(p.avgWidth).toBe(3);
+    expect(p.singleTaskWaves).toBe(0);
+  });
+
+  it('counts the single-task waves that make a plan serial', () => {
+    const tasks = [
+      task('A-1'),
+      task('A-2', { dependencies: ['A-1'] }),
+      task('A-3', { dependencies: ['A-2'] }),
+    ];
+    const p = waveProfile(buildGraph(tasks, {}));
+    expect(p.profile).toBe('1,1,1');
+    expect(p.avgWidth).toBe(1);
+    expect(p.singleTaskWaves).toBe(3);
+  });
+
+  it('names the FILES doing the serializing, not just the width', () => {
+    // The actionable half. Declared dependencies are rarely the cause — a shared file is,
+    // because every pair touching it becomes an edge in lexical id order.
+    const tasks = [task('A-1'), task('A-2'), task('A-3')];
+    const grounding = {
+      'A-1': { touches: ['src/core.ts'] },
+      'A-2': { touches: ['src/core.ts'] },
+      'A-3': { touches: ['src/core.ts'] },
+    };
+    const graph = buildGraph(tasks, grounding);
+    const p = waveProfile(graph);
+    expect(p.avgWidth).toBe(1); // three tasks, one file, three waves
+    expect(p.chains[0]).toEqual({ file: 'src/core.ts', tasks: 3 });
+    expect(renderWaveProfile(graph).join('\n')).toContain('src/core.ts — touched by 3 tasks');
+  });
+
+  it('stays quiet about files when the plan is already parallel', () => {
+    const tasks = [task('A-1'), task('A-2'), task('A-3')];
+    const grounding = { 'A-1': { touches: ['a.ts'] }, 'A-2': { touches: ['b.ts'] } };
+    expect(renderWaveProfile(buildGraph(tasks, grounding)).join('\n'))
+      .not.toContain('serialize');
+  });
+
+  it('renders nothing for an empty graph rather than a misleading zero', () => {
+    expect(renderWaveProfile(buildGraph([], {}))).toEqual([]);
+  });
+});

@@ -340,19 +340,29 @@ directly.
 ```bash
 node -e '
   const { parseTrd } = require("./.claude/lib/trd-parser");
-  const { buildGraph } = require("./.claude/lib/task-graph");
+  const { buildGraph, renderWaveProfile } = require("./.claude/lib/task-graph");
   const fs = require("fs");
   const trdPath = process.argv[1];
   const markdown = fs.readFileSync(trdPath, "utf8");
   const parsed = parseTrd(markdown, { path: trdPath });
   const graph = buildGraph(parsed.tasks, parsed.grounding);
-  console.log(JSON.stringify({ ...parsed, ...graph }, null, 2));
+  console.log(JSON.stringify({ ...parsed, ...graph, waveProfile: renderWaveProfile(graph) }, null, 2));
 ' "$TRD_PATH"
 ```
 
 Read the result as one object carrying: `tasks[]`, `phases{}`, `grounding{}`,
 `couldNotVerify[]`, `openQuestions[]`, `warnings[]` (from `trd-parser.js`), and `nodes[]`,
 `edges[]`, `waves[][]`, `criticalPath[]`, `cycles[][]`, `partition{}` (from `task-graph.js`).
+
+**Report `waveProfile` in the first DISPATCHED banner, verbatim.** It is one line — how many
+tasks, how many waves, the average width — plus, when the plan is close to serial, the files
+doing the serializing.
+
+This is not decoration. Wave width decides how long the run takes and it is fixed at
+AUTHORING time: a real 17-task TRD decomposed into 10 waves averaging 1.70 wide, six of them
+a single task, and ran at 0.69x parallelism — below serial. Nobody saw that until the session
+log was measured afterwards. A narrow profile printed BEFORE the run is the owner's chance to
+send it back to `/refine-trd` instead of paying six hours to discover it.
 
 **Error Handling:**
 - `tasks.length === 0` (parser's own warning: "zero tasks were parsed") — STUCK. Report the

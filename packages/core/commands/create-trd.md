@@ -915,6 +915,30 @@ oldest decisions.
 
 ---
 
+## Wave profile — run this before the readout
+
+The workflow cannot compute it (workflow scripts have no filesystem access and cannot
+`require`), so the main agent does, once, after the workflow returns:
+
+```bash
+node -e '
+  const { parseTrd } = require("./.claude/lib/trd-parser");
+  const { buildGraph, renderWaveProfile } = require("./.claude/lib/task-graph");
+  const fs = require("fs");
+  const p = parseTrd(fs.readFileSync(process.argv[1], "utf8"), { path: process.argv[1] });
+  renderWaveProfile(buildGraph(p.tasks, p.grounding)).forEach((l) => console.log(l));
+' "<trd-path>"
+```
+
+Put its output in the readout under `STATE`. One line, plus the serializing files when the
+plan is close to serial.
+
+**Why it belongs here rather than at implementation time.** Width is decided by how tasks
+were cut and which files each one touches — both settled in this command. By the time
+`/implement-trd` runs, the only remaining option is to pay for it. A real 17-task TRD came
+out at 1.70 tasks per wave and ran below serial speed; printing that here is the owner's
+chance to send it back to `/refine-trd` for a nine-minute fix instead of a six-hour run.
+
 ## Readout
 
 

@@ -196,6 +196,69 @@ function buildGraph(tasks, grounding) {
   return { nodes, edges, waves, criticalPath, cycles, partition };
 }
 
+
+/**
+ * A one-glance report of how parallel this plan actually is, and what is holding it back.
+ *
+ * WHY. Wave width is set at AUTHORING time and was invisible until an implementation run
+ * was already under way. A real 17-task TRD decomposed into 10 waves averaging 1.70 tasks —
+ * six of them a single task — and ran at 0.69x parallelism, below serial. Nothing reported
+ * that until someone measured the session log afterwards.
+ *
+ * The cause is rarely declared dependencies. `buildGraph` turns every pair of tasks sharing
+ * a touched file into an edge in lexical id order, so N tasks naming one file become a
+ * chain of N waves, indistinguishable at levelisation time from a real dependency. So the
+ * useful output is not just the width — it is WHICH FILES are doing the serializing, which
+ * is the thing an author can act on.
+ *
+ * @param {{waves: string[][], edges: object[], partition: object}} graph
+ * @returns {{taskCount, waveCount, avgWidth, maxWidth, singleTaskWaves, profile, chains}}
+ */
+function waveProfile(graph) {
+  const waves = (graph && graph.waves) || [];
+  const widths = waves.map((w) => w.length);
+  const taskCount = widths.reduce((a, b) => a + b, 0);
+
+  // Files serializing the most tasks. `partition` is file -> owning task ids; a file owned
+  // by one task constrains nothing.
+  const chains = Object.entries((graph && graph.partition) || {})
+    .filter(([, owners]) => owners.length > 1)
+    .map(([file, owners]) => ({ file, tasks: owners.length }))
+    .sort((a, b) => b.tasks - a.tasks || a.file.localeCompare(b.file));
+
+  return {
+    taskCount,
+    waveCount: waves.length,
+    avgWidth: waves.length ? taskCount / waves.length : 0,
+    maxWidth: widths.length ? Math.max(...widths) : 0,
+    singleTaskWaves: widths.filter((w) => w === 1).length,
+    profile: widths.join(','),
+    chains,
+  };
+}
+
+/**
+ * The same thing as one human-readable line plus, when there is something to act on, the
+ * files responsible. Returned as an array of lines so callers can indent it themselves.
+ */
+function renderWaveProfile(graph, opts = {}) {
+  const p = waveProfile(graph);
+  if (!p.taskCount) return [];
+  const out = [
+    `waves: ${p.profile} — ${p.taskCount} tasks in ${p.waveCount} wave(s), ` +
+      `avg ${p.avgWidth.toFixed(2)} wide, ${p.singleTaskWaves} single-task`,
+  ];
+  // Below ~2 wide the plan is close to serial and the implement loop pays a full pass per
+  // wave. Naming the files is the only actionable part.
+  if (p.avgWidth < (opts.narrowBelow || 2) && p.chains.length) {
+    out.push('  these files serialize the most tasks:');
+    for (const c of p.chains.slice(0, opts.topFiles || 3)) {
+      out.push(`    ${c.file} — touched by ${c.tasks} tasks`);
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Cycle detection (Tarjan's SCC), restricted to the nodes Kahn's algorithm
 // could not resolve.
@@ -317,5 +380,7 @@ function computeCriticalPath(waves, edges) {
 
 module.exports = {
   buildGraph,
+  waveProfile,
+  renderWaveProfile,
   computeFilePartition,
 };
