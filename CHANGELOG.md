@@ -83,6 +83,31 @@ feature either way.
 - `create-prd.test.js` was shipped into the `.claude/` runtime mirror without its harness.
   Test files do not belong in the mirror.
 
+### Fixed — the guidance surfaces had drifted behind the commands
+
+The router hint, `process.md`, its template, `/init-project`'s completion summary and
+`CLAUDE.md` all described a framework two releases old. The template one is the load-bearing
+case: `process.md` is not shipped, it is GENERATED per project from
+`packages/core/templates/process.md.template`, so every new project was being seeded with the
+stale version — fixing this repo's copy alone would have fixed nothing downstream.
+
+- The router's FLOW hint, injected into every turn, never mentioned `/amend`, `/audit-prd`,
+  `/audit-trd` or `--reconcile`. `/amend` shipped in 4.3.0 and is the command a session is
+  most likely to need mid-feature; it was reachable only through the in-flight hint, which
+  fires only when a feature is already in flight.
+- `process.md` documented 7 of 17 commands and a staged loop
+  (`IMPLEMENT → VERIFY → SIMPLIFY → VERIFY → REVIEW`) whose simplify stage was removed
+  2026-08-18 and whose per-phase review was removed 2026-08-28. Both now describe what the
+  loop actually does, including that there is no separate per-task DEBUG dispatch.
+- `/implement-trd`'s option table omitted `--reconcile`, `--verify` and `--reset-state`.
+- Both documents said "12 streamlined subagents" against 13 present, with
+  `agent-implementer` missing from the table.
+- `/init-project`'s completion summary listed 8 of 17 commands.
+- `CLAUDE.md` listed the retired `packages/permitter/` as live in its structure tree and
+  described the project as "in Phase 4B" with unit tests pending, against 1599 passing tests.
+  Its status section now points at the modernization plan as the live backlog and names the
+  three known-open items rather than restating a finished phase plan.
+
 1013 jest, 107 pytest, 479 bats green.
 
 ## [4.3.0] - 2026-09-20

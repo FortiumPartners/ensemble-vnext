@@ -8,13 +8,38 @@ Workflow expectations and process documentation for AI-augmented development.
 
 ```
 /init-project          --> Initialize project structure (once per project)
+
+FULL PIPELINE (new feature)
 /create-prd            --> Product Requirements Document
-/refine-prd            --> (optional) Iterate on PRD with feedback
+/audit-prd             --> Verify the PRD against its source
+/refine-prd            --> (optional) Iterate on the PRD with feedback
 /create-trd            --> Technical Requirements Document
-/refine-trd            --> (optional) Iterate on TRD with feedback
-/implement-trd         --> Execute implementation tasks
+/audit-trd             --> Verify the TRD against the PRD
+/refine-trd            --> (optional) Iterate on the TRD with feedback
+/implement-trd         --> Execute implementation (review + hardening run INSIDE it)
+/audit-build           --> Verify delivered code against TRD and PRD
+
+SHORTER PATHS
+/investigate <what>    --> Defect / small change / refactor: investigate, write a light
+                           TRD, audit it. Implements only with --implement.
+/amend <what>          --> ONE change to the feature already in flight. Grounded,
+                           recorded as a TRD row before the work, verified. No new TRD.
+/verify-build          --> Re-run functional verification alone
 /fold-prompt           --> Optimize context for continued work
+
+MAINTENANCE
+/update-project        --> Capture learnings into CLAUDE.md; propose governance changes
+/cleanup-project       --> Prune CLAUDE.md and project artifacts
+/rebase-project        --> Refresh the vendored runtime from the plugin
+/augment-trd-figma     --> Add Figma design context to a TRD
 ```
+
+**Choosing between `/investigate`, `/amend` and the full pipeline.** The question is not
+size, it is WHOSE plan the work belongs to. Work on the feature currently in flight, sitting
+in its path, is an amendment to ITS TRD — `/investigate` would reproduce and re-design
+something already understood and fork the work into a second TRD, which is how a session
+loses track of what it was doing. Work unrelated to the feature in flight is
+`/investigate`. Work whose correct behaviour is still a product decision is `/create-prd`.
 
 ---
 
@@ -110,11 +135,29 @@ or
 | `--session <name>` | Execute only named work session |
 | `--resume` | Resume from last checkpoint |
 | `--continue` | Alias for `--resume` |
+| `--reconcile` | Re-attest delivered work against the TRD; re-open anything only claimed done |
+| `--verify` | Add the functional-verification loop (derives a success definition, exercises it) |
+| `--reset-state` | Clear state and start fresh (requires confirmation) |
 
 **Staged Execution Loop**:
 ```
-IMPLEMENT --> VERIFY --> [DEBUG if fail] --> SIMPLIFY --> VERIFY --> REVIEW --> UPDATE --> COMPLETE
+per task, inside the phase workflow:
+  IMPLEMENT --> targeted checks --> [self-debug on fail]
+
+per phase:
+  phase gate (verify-app + the project's deterministic battery) --> checkpoint + commit
+
+once, at the end of the run:
+  hardening + /code-review over the whole branch diff --> [--verify: functional loop]
 ```
+
+**This loop is smaller than it was, deliberately.** The per-phase `code-simplifier` stage
+was removed 2026-08-18 and the per-phase code review 2026-08-28, both for the same measured
+reason: across 279 tasks and 11 features there were zero failed tasks and zero retries, so
+the phase gate's failure path had never fired. Review now happens ONCE, over the whole
+branch diff, where the owner's own prior practice put it. There is no separate per-task
+DEBUG dispatch either — the implementer runs its own checks and self-corrects within its
+task.
 
 **Process**:
 1. Parses TRD for tasks and phases
@@ -234,16 +277,17 @@ Before completing any implementation task:
 
 ## Subagent Delegation
 
-Commands delegate to these 12 streamlined subagents:
+Commands delegate to these 13 streamlined subagents:
 
 | Category | Agent | When Used |
 |----------|-------|-----------|
-| Artifact | `product-manager` | /create-prd, /refine-prd |
-| Artifact | `technical-architect` | /create-trd, /refine-trd |
+| Artifact | `product-manager` | /create-prd, /refine-prd, /audit-prd |
+| Artifact | `technical-architect` | /create-trd, /refine-trd, /audit-trd |
 | Planning | `spec-planner` | Execution planning |
 | Implement | `frontend-implementer` | UI/component tasks |
 | Implement | `backend-implementer` | API/service tasks |
 | Implement | `mobile-implementer` | Mobile app tasks |
+| Implement | `agent-implementer` | AI/agent behaviour: prompts, RAG, agent loops, evals |
 | Quality | `verify-app` | Test execution |
 | Quality | `code-simplifier` | Post-verify refactoring |
 | Quality | `code-reviewer` | Security/quality review |

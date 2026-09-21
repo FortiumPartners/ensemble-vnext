@@ -874,14 +874,26 @@ Next Steps:
   5. Implement with /implement-trd
 
 Commands Available:
-  /create-prd     - Generate PRD from story/idea
-  /refine-prd     - Iterate on existing PRD
-  /create-trd     - Generate TRD from PRD
-  /refine-trd     - Iterate on existing TRD
-  /implement-trd  - Execute staged implementation
-  /update-project - Capture learnings, update governance
+  FULL PIPELINE
+  /create-prd      - Generate PRD from story/idea
+  /audit-prd       - Verify the PRD against its source
+  /refine-prd      - Iterate on an existing PRD
+  /create-trd      - Generate TRD from PRD
+  /audit-trd       - Verify the TRD against the PRD
+  /refine-trd      - Iterate on an existing TRD
+  /implement-trd   - Execute staged implementation (review + hardening run inside it)
+  /audit-build     - Verify delivered code against TRD and PRD
+
+  SHORTER PATHS
+  /investigate     - Defect / small change / refactor: investigate, light TRD, audit
+  /amend           - ONE change to the feature already in flight, without a new TRD
+  /verify-build    - Re-run functional verification alone
+  /fold-prompt     - Optimize context for continued work
+
+  MAINTENANCE
+  /update-project  - Capture learnings, update governance
   /cleanup-project - Prune CLAUDE.md and artifacts
-  /fold-prompt    - Optimize context for continued work
+  /rebase-project  - Refresh the vendored runtime from the plugin
 ```
 
 </completion-report>

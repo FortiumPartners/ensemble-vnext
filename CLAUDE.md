@@ -25,10 +25,23 @@ Ensemble vNext is a workflow framework for Claude Code that encodes power-user p
 ## Development Workflow
 
 ```
+FULL PIPELINE
 /create-prd    --> docs/PRD/<feature>.md
+/audit-prd     --> verify the PRD against its source
 /create-trd    --> docs/TRD/<feature>.md
-/implement-trd --> Implementation with .trd-state/ tracking
+/audit-trd     --> verify the TRD against the PRD
+/implement-trd --> implementation + .trd-state/ tracking (review and hardening run INSIDE it)
+/audit-build   --> verify delivered code against TRD and PRD
+
+SHORTER PATHS
+/investigate <what>  --> defect / small change / refactor: light TRD, audited. --implement to build.
+/amend <what>        --> ONE change to the feature in flight. No new TRD.
+/implement-trd --reconcile --> re-attest delivered work; re-open anything only claimed done
 ```
+
+**`/investigate` vs `/amend` is about whose plan the work belongs to, not size.** Work on the
+feature in flight, sitting in its path, is an amendment to ITS TRD; `/investigate` would fork
+a second TRD for something already understood, which is how a session loses its thread.
 
 ---
 
@@ -57,7 +70,7 @@ the agent/skill/command templates have long since been adapted and diverged.
 
 ---
 
-## 12 Streamlined Subagents
+## 13 Streamlined Subagents
 
 | Agent | Based On | Purpose |
 |-------|----------|---------|
@@ -73,6 +86,7 @@ the agent/skill/command templates have long since been adapted and diverged.
 | app-debugger | deep-debugger | Debug failures |
 | devops-engineer | infrastructure-developer | Infrastructure |
 | cicd-specialist | deployment-orchestrator | CI/CD pipelines |
+| agent-implementer | (new) | AI/agent behaviour: prompts, RAG, agent loops, evals |
 
 ---
 
@@ -399,7 +413,6 @@ docs/
   templates/     # Document templates
 
 packages/
-  permitter/     # Permission hook + tests (Jest)
   router/        # Routing hook + tests (pytest)
   core/
     hooks/       # Hook implementations + tests (Jest, BATS)
@@ -479,14 +492,16 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Project in Phase 4B implementation. Testing TRD v1.4.0 includes Phase 5 (Hook Integration Testing).
+Released at **4.3.1** (2026-09-20). 17 commands, 13 subagents. Test battery: 1013 Jest,
+107 pytest, 479 BATS.
 
-**Completed:**
-- Phase 2: Integration Infrastructure
-- Phase 3: Observability (verify-telemetry.sh, verify-skill.sh)
-- Phase 4A: Structure Verification (vendoring.test.sh, commands.test.sh)
-- Phase 4B: Eval Framework (run-eval.js, judge.js, aggregate.js, 9 eval specs)
+The modernization run in `docs/modernization/2026-08-improvement-plan.md` is the live
+backlog — read it rather than this section for what is open. Items 1–13 are delivered;
+14 (review cadence) and 15 (phantom success) landed in 4.2.x–4.3.x.
 
-**Pending:**
-- Phase 1: Unit Tests (Jest, BATS for hooks)
-- Phase 5: Hook Integration Testing (TRD-TEST-093-100)
+**Known open, as of 4.3.1:**
+- `[LIVE]` verification tasks are planned without reading `.claude/rules/verification.md`,
+  and the `[LIVE]` flag the parser computes has no consumer in `implement-phase.js` — so a
+  live check that cannot run here passes silently and its findings surface at the tail.
+- Item 15.4: a readout glyph can read "verified" where the verdict was `unbuilt`.
+- `create-trd.js` has no test harness (`create-prd.js` and `implement-phase.js` do).

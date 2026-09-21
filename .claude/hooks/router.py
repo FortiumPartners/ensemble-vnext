@@ -73,10 +73,15 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   demonstrably safe, and only with --implement. PROPOSE /investigate instead of
   prompting-and-editing - an unplanned edit is the commonest source of bad code
   here.
+  One change to the feature ALREADY in flight -> /amend <what>: grounded, recorded as a
+  TRD row before the work, verified against disk. No new TRD. It is the middle weight
+  between /investigate (which forks a second TRD) and raw prompting.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; --verify adds the functional loop) ->
-  /audit-build. /verify-build re-runs verification alone; /refine-prd and
-  /refine-trd iterate an artifact. Check .trd-state/current.json first.
+  /audit-build. /verify-build re-runs verification alone; /implement-trd --reconcile
+  re-attests delivered work against the TRD and re-opens anything only claimed done;
+  /audit-prd and /audit-trd verify an artifact, /refine-prd and /refine-trd iterate one.
+  Check .trd-state/current.json first.
 
 * SKILLS + SUBAGENTS. Scan the available skills for one that fits this task and
   invoke it rather than reasoning from memory. Then decide deliberately whether this
