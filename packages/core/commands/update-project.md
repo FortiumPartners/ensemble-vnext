@@ -271,6 +271,13 @@ Default: "No, skip constitution changes"
 1. **Format the proposal clearly:**
 
 ````
+## Readout
+
+**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
+ISSUES, NEXT, in that order, one screen, written for someone who was not in the session. Any
+section may be "none". No section for what was dispatched or which stages ran: that is in the
+transcript and does not change what the owner does next.
+
 ## Proposed Stack Changes
 
 The following changes are proposed for `.claude/rules/stack.md`:

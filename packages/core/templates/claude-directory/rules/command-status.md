@@ -89,6 +89,71 @@ Next:   set OAUTH_CLIENT_SECRET env var and run /implement-trd --resume
 - For commands that span many turns and ScheduleWakeup cycles, the banner fires only on
   the turn that completes the entire command (not on every intermediate wake).
 
+## The readout: four sections, always, in this order
+
+**Every command that finishes work emits a readout immediately before its
+`COMMAND COMPLETE` banner.** Same four sections, same order, same names, every command.
+A reader should not have to learn a new format per command.
+
+```
+STATE      what exists now, and what does not
+DECISIONS  what was chosen, and what it rules out
+ISSUES     what is wrong or unresolved, and who has to act
+NEXT       the exact command or action, ready to run
+```
+
+**Any section may be empty. Saying "none" is correct and takes one line.** Padding a section
+to look thorough is the failure this format exists to prevent.
+
+### Write for someone who was not in the session
+
+This is the part that keeps being got wrong. The owner's account:
+
+> *"I find I need to read and much of what I read is jargon based on deep technical details
+> of the corpus and the current feature; very hard to follow."*
+
+Concretely:
+
+- **Name the thing, then its id** — "the clamp-order defect (FIX-001)", never "FIX-001" alone.
+  An id is a lookup key, not a description.
+- **No internal vocabulary without its meaning.** "the reconcile stage", "tier AUTO", "the
+  corpus index", "grounding" — these are load-bearing inside the framework and opaque outside
+  it. Either say what happened in ordinary words, or gloss the term once.
+- **State outcomes, not activities.** "3 of 4 tasks built; the fourth needs a decision from
+  you" — not "dispatched the phase workflow, ran the gate, applied review findings".
+  What the command DID is only interesting where it changes what the owner should do.
+- **Numbers need their unit and their baseline.** "677s, was 341s" beats "improved latency".
+
+### What each section carries
+
+**STATE.** What is true on disk now. Files written, tasks done and not done, tests passing or
+failing. If something claims to be done, say what proves it. If part of the work did not
+happen, this is where it is named — never buried in ISSUES, and never omitted because the
+command "completed".
+
+**DECISIONS.** Choices made during the run that the owner did not make, and would want to
+know. A default applied where the spec was silent. An approach taken over an alternative. A
+documented decision overridden. One line each, with the reason. **If none: "none".**
+
+**ISSUES.** What is wrong, unresolved, or needs the owner. Each one says who acts. A finding
+nobody must act on belongs in the artifact, not here.
+
+**NEXT.** The literal next command, runnable as written, or "nothing — this is done". Not a
+menu of options, not a description of what could be done. One line.
+
+### Length
+
+**One screen.** If it does not fit, the longest section is doing something the artifact should
+do instead: a readout points at a document, it does not reproduce one.
+
+### This governs the command's own final message too
+
+A command's closing prose is part of the readout, not a preamble to it. Narrating the run —
+what was dispatched, what each stage returned, how a finding was reasoned about — is the
+failure mode, however accurate it is. That detail belongs in the transcript, the artifact, or
+a commit message. The readout answers one question: **what does the owner need to know, and
+what do they do next?**
+
 ## Optional: PHASE banner
 
 For long, multi-phase commands (`/implement-trd`, `/audit-build`,

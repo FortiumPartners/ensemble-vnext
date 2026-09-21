@@ -1287,80 +1287,53 @@ before.
 
 ## Step 9: Completion
 
-When all phases complete:
+**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
+ISSUES, NEXT, in that order, one screen, written for someone who was not in the session.
+
+This template replaced a seven-section one (PROGRESS / QUALITY METRICS / HARDENING & REVIEW /
+FUNCTIONAL VERIFICATION / COMMITS / DISCOVERED / NEXT STEPS) on 2026-09-20. That template
+reported ACTIVITY — *"End-of-run review: dispatched"*, *"Battery: green (resolved command,
+last phase gate)"* — which says what the command did and nothing about what the owner should
+do. The owner's account: *"much of what I read is jargon based on deep technical details of
+the corpus and the current feature; very hard to follow."*
 
 ```
-===============================================================================
-                    TRD IMPLEMENTATION COMPLETE
-===============================================================================
+STATE
+  {N} of {M} tasks built on branch {branch}. {failed_count} not built.
+  {for each task not built: "  {id}: {what it was for} — {why it is not done}"}
+  Tests: {green/red} ({suite}, {X}% unit / {Y}% integration).
+  {if --verify: "The delivered software {does | does not} do what the PRD asked: {plain sentence}."}
+  {if --verify not set: "Nobody checked whether the software does what the PRD asked (--verify not set)."}
 
-TRD: {trd_filename}
-Branch: {branch_name}
-Strategy: {strategy}
+DECISIONS
+  {choices the run made that the owner did not — a default applied where the TRD was silent,
+   an approach taken over an alternative, a documented decision overridden. One line each,
+   with the reason. If a task was reopened by --reconcile because its files did not exist,
+   that goes HERE and says so plainly.}
+  {if none: "none"}
 
-PROGRESS
---------
-Total tasks: {N}
-Completed: {completed_count}
-Failed: {failed_count}
+ISSUES
+  {what is wrong or needs you, each saying who acts}
+  {blocking discoveries this run found and did not do — promoted or not, and which}
+  {if none: "none"}
 
-QUALITY METRICS
----------------
-Unit Coverage:        {X}% (target: 80%)  {PASS/FAIL}
-Integration Coverage: {Y}% (target: 70%)  {PASS/FAIL}
-Battery:              {green/red/skipped} ({resolved command}, last phase gate)
-
-HARDENING & REVIEW
--------------------
-End-of-run review: dispatched (`code-review high --fix`, full branch diff)
-End-of-run /code-review high:     dispatched over {branch_base}...HEAD
-
-FUNCTIONAL VERIFICATION
-------------------------
-Outcome: {not run (--verify not set) | not run: no success definition derivable | not run: no definition produced | satisfied | unbuilt | stalled | stuck}
-Met: {count}  Not met: {count}  Not verifiable: {count}  Unbuilt: {count}
-Report: {report_path or "n/a"}
-
-COMMITS
--------
-{list of commit SHAs with messages}
-
-DISCOVERED (work this run found but did not do)
------------------------------------------------
-{render(".trd-state/<feature>") across ALL phases, or the line "none recorded"}
-
-NEXT STEPS
-----------
-1. Verify delivery against the TRD and PRD: /audit-build {trd_path} --prd {prd_path}
-2. Review changes: git diff main...{branch_name}
-3. Create PR: gh pr create --title "{TRD title}"
-4. After merge: mv docs/TRD/{filename} docs/TRD/completed/
-
-===============================================================================
+NEXT
+  {the single next command, runnable as written}
 ```
 
-**Why `/audit-build` leads that list.** D16/ITR-B010 moved the acceptance-criteria check OUT
-of the per-task loop and INTO `/audit-build` — the relocation happened, but until 2026-08-16
-the handoff did not: this command never invoked it and never named it, so nobody checked a
-single task's acceptance criteria unless the user independently remembered a command the
-completion banner never mentioned.
+**Rules this template enforces, each from a measured failure:**
 
-It is a recommendation to the user rather than an automatic invocation because it is a
-separate, individually-priced verification wave (7 agents on this project's own TRD), and
-`.claude/rules/autonomy.md` governs what this command does unattended — not what it spends
-on a second command's behalf. Naming it is the fix; auto-running it is a different decision.
-
-**Filling the FUNCTIONAL VERIFICATION block.** When `--verify` was never passed,
-this block is not omitted — it reads `Outcome: not run (--verify not set)` with
-every count at 0 and `Report: n/a`, so its absence is never mistaken for a pass
-(functional-verification TRD §3.7). When the flag was set, Step 8 resolved one of five
-states: the two `not run` short-circuits (§8.1 — no success definition derivable, no definition produced),
-or one of the workflow's four terminal outcomes (§8.4 — `satisfied`, `unbuilt`, `stalled`,
-`stuck`). The met/not-met/not-verifiable/unbuilt counts come from tallying the `criteria`
-array the workflow returned (or are all 0 for the two `not run` cases, since no criteria were
-ever evaluated); `Report` is `Step 8`'s `reportPath` in every case — the two `not run` reports
-are written by the same `render-report` CLI call, so the path is populated even when the loop
-itself never ran.
+- **A task that did not get built is named in STATE, never omitted.** A run once reported
+  completion while four tasks had no code behind them; the owner's reaction was *"you seem to
+  be simultaneously reporting completion, and that most of the work wasn't done?"*
+- **"Verified" means the software was checked and works.** It must never mean "the
+  verification step ran". The same run printed `verified ✅` when the verdict was `unbuilt` —
+  the loop had looked at the feature and concluded most of it did not exist. Say the outcome
+  in a sentence a person can act on, not a glyph.
+- **No section for what was dispatched.** Which agents ran, which gates fired, what each stage
+  returned — none of that changes what the owner does next. It is in the transcript.
+- **Commit SHAs are not a section.** `git log` shows them. Name a commit only when the owner
+  needs that specific one.
 
 ### 9.0a Artifact link (see `.claude/rules/command-status.md`)
 
@@ -1376,15 +1349,15 @@ Store the returned URL back into `.trd-state/<feature>/artifacts.json` under
 `verification-report`, so a later `/verify-build` updates the same link rather than minting a
 second one that competes with it.
 
-**Emit the link inside the report block, above the banner.** Publishing failure is one line
-of prose — never a STUCK, never a retry, never a missing banner. The report on disk is the
+**Emit the link inside the readout, above the banner.** Publishing failure is one line of
+prose — never a STUCK, never a retry, never a missing banner. The report on disk is the
 deliverable.
 
 ### 9.1 The banner closes the turn — nothing after it
 
 **Emit `═══ COMMAND COMPLETE: /implement-trd ═══` plus its one-line summary as the LAST
-lines of the turn, immediately after the report block above.** The report's `====` rule is
-not the end of the output; the banner is.
+lines of the turn, immediately after the readout above.**
+The readout is not the end of the output; the banner is.
 
 **Nothing may follow it** — not a caveat, not a finding, not a recommendation, not an
 explanation of something the run noticed. Anything worth saying goes ABOVE the report block

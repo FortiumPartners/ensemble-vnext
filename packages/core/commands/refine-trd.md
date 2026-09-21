@@ -162,6 +162,12 @@ cross-artifact citation.
 
 ## Readout
 
+
+**Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
+ISSUES, NEXT, in that order, one screen, written for someone who was not in the session.
+Any section may be "none". The command-specific content below fills those sections; it does
+not replace them.
+
 **Every line names the action, not the classification.**
 
 ```
