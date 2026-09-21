@@ -10,6 +10,77 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.3.0] - 2026-09-20
+
+Minor, not patch: `/amend` is a new command.
+
+### Added — `/amend <what to change>`
+
+**The middle weight.** Between `/implement-trd --reconcile`, which re-attests a whole feature
+and runs the phase loop, and raw "fix this" prompting — which this framework names as its
+commonest source of bad code, because an unplanned edit is grounded in nothing and recorded
+nowhere. Sixteen commands existed and none was *"do this one thing, properly, against the
+feature I'm already on."*
+
+It grounds in the code, writes one `AMEND-nnn` row into the TRD **before** the work (so a
+crash leaves a record), implements with an explicit `agentType`, verifies, and attests the
+result against disk. No new TRD, no audit wave, no phase graph, no review fan-out.
+
+**It acts** — no flag, no plan-then-stop. That is the opposite default to `/investigate`,
+which stops because you are asking it to find something out; `/amend` starts from the answer.
+Stated at the top of the command, because undocumented opposite defaults on adjacent commands
+is what made `--implement` get written four contradictory ways.
+
+### Fixed — `/implement-trd` could report success for work it never did
+
+Four tasks once sat in a state file as `status: "success"` with no code behind them, merged to
+`main`, and were found later by `/audit-build`. Worse, `--resume` **skips** anything already
+successful, so the command could not repair its own damage.
+
+- **`recordResult` now attests a success claim against disk** — fails when *none* of the
+  claimed files exists. Narrow by design: one missing file among several is a rename, not a
+  phantom.
+- **`--reconcile`**, a different verb from `--resume`: it re-attests every success claim,
+  reopens what disk contradicts, promotes blocking discoveries into the TRD, then runs
+  everything outstanding.
+- **`/audit-build` closes its own loop.** Gaps split by whether they need a *decision*: a task
+  that exists and wasn't built is mechanical and chains; a requirement with no task is design,
+  and stops. `--report-only` opts out.
+- **Discoveries carry relevance.** `blocksFeature` answers the same counterfactual used
+  everywhere else — would the objectives be satisfied with this left alone? Defaults false, so
+  an unrelated bug cannot quietly become scope.
+
+### Fixed — a TRD that couldn't stand on its own
+
+The template said *"Copy"* for non-goals and *"Map to"* for acceptance criteria, and a TRD did
+exactly that: §8 in full, 41 criteria as bare ID references. Now copied in full, with a
+checklist that asks **presence**, not just provenance — a TRD could name where a requirement
+came from while never saying what it is, and pass.
+
+Grounding findings now reach disk on the workflow path. The contract existed and scoped itself
+"FALLBACK PATH ONLY", exempting the path that runs — 20 findings, nine *"cannot be built as
+written"*, once lived in a single context window.
+
+### Changed — one readout format, every command
+
+**STATE · DECISIONS · ISSUES · NEXT.** Defined once, pointed at from all 17 commands. Nine had
+a completion banner and no readout spec at all. `implement-trd`'s seven-section template
+reported *activity* — "End-of-run review: dispatched", "Battery: green (resolved command, last
+phase gate)" — none of which changes what the owner does next.
+
+Two rules it enforces, both from measured failures: a task that wasn't built is named in
+STATE, never omitted; and "verified" means the software was checked and works, never "the
+verification step ran".
+
+### Changed — an in-flight issue is an amendment, not an investigation
+
+When `.trd-state/current.json` names a feature, the orientation says so and offers both
+weights. `/investigate` mid-feature re-designs something already understood and forks the work
+into a second TRD — *"by the time we've finished it we've lost track of what we were actually
+working on."*
+
+**Jest 1004/1004, BATS clean, pytest 102/102.**
+
 ## [4.2.2] - 2026-09-20
 
 ### Fixed — a PRD could contradict a decision the owner had just made
