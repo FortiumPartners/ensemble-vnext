@@ -522,10 +522,18 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.4.0** (2026-09-21). 18 commands, 13 subagents. Test battery: 1102 Jest,
+Released at **4.5.0** (2026-09-22). 18 commands, 13 subagents. Test battery: 1119 Jest,
 107 pytest, 648 BATS.
 
-4.4.0 is the release aimed at **time**: `/sweep` (a list of small fixes, no TRD), scope-drift
+4.5.0 makes `/create-trd`'s readout advise on **depth** rather than width: it names whichever
+cause actually makes a plan serial — declared dependencies or shared files — and prints the
+chain that sets the depth, which `buildGraph` has always computed and never shown. Grounding
+now challenges dependencies it cannot justify; sizing names tasks that will run long. Both
+advisory. Both `Stop`-hook guards were also recalibrated after measuring 10 blocks in 33
+evaluations with none of them correct — **that change is unmeasured; if the block rate does not
+fall, revert it.**
+
+4.4.0 was the release aimed at **time**: `/sweep` (a list of small fixes, no TRD), scope-drift
 and sizing checks at three points in the pipeline, parallel grounding in `/create-trd`,
 phase-group dispatch in `/implement-trd`, and `run-profile.js` — which reads timestamps the
 dispatch ledger has always written and reports where a run's wall clock actually went.

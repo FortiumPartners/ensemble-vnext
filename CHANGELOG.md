@@ -10,6 +10,127 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.5.0] - 2026-09-22
+
+Minor: `/create-trd` gains advisory judgments it did not have, the narrow-plan diagnostic
+stops naming the wrong cause, and both `Stop`-hook guards stop firing on correct work.
+
+### Added — the readout now advises on DEPTH, not on width
+
+When a plan comes out close to serial, `/create-trd`'s readout used to add "these files
+serialize the most tasks" and name the shared files. On the plan that prompted this work that
+was wrong by **13 to 1**: thirteen of its fourteen ordering constraints were declared
+dependencies and one was a shared file. Acting on the advice would have changed nothing.
+
+It now names whichever cause actually applies, and prints the chain that sets the plan's
+depth:
+
+```
+waves: 1,2,3,1,1,2,2 — 12 tasks in 7 wave(s), avg 1.71 wide, 3 single-task
+  narrow — driven by declared dependencies (13 of 14 ordering constraints)
+  critical path: AJCS-P001 -> B001 -> B002 -> T001 -> B005 -> B006 -> D001
+```
+
+`buildGraph` has computed that chain since it was written and printed it nowhere. On a plan
+genuinely dominated by shared files the list still appears — verified in both directions, not
+just the one this change cares about.
+
+Two judgments join stages that already run, so neither adds an agent or any wall time:
+grounding now challenges declared dependencies it cannot justify against the code, and sizing
+names tasks that will run long and proposes splits. Both advisory — nothing refuses to write a
+TRD and nothing rewrites your `Dependencies` column. The dependency challenge travels as a new
+member of the existing findings enum, so it reaches `grounding.json` and `/audit-trd` through
+the machinery findings already use; `/audit-trd` gained the matching enum members and the
+instruction to reuse them.
+
+**Why depth and not width.** Average wave width is tasks divided by waves, so it only moves
+when a removed edge lies on the longest chain. Measured on a real TRD: removing all thirteen
+declared dependencies takes it from 1.7143 to 6.0000; removing only the critical-path ones
+gives 2.4000; removing only **off-path** ones leaves it at 1.7143, unchanged. An earlier design
+in this release proposed reporting a projected width — it would have said "no improvement" for
+every off-path dependency it correctly identified as narrative order. Both numbers are now
+pinned as tests.
+
+### Fixed — a declared dependency and a shared file were counted the same
+
+`buildGraph` emits one file-conflict edge **per shared file** and emits one even when the pair
+already declares a dependency, while dependency edges are deduped per pair. Counting raw edge
+records therefore blamed shared files for ordering a declared dependency already forced. Two
+tasks sharing two files plus a declared dependency printed `driven by shared files (2 of 3
+edges)`. It now counts distinct blocker-to-blocked pairs. The same correction revised a figure
+this release quoted repeatedly: `implement-trd-rework.md` is 27 dependencies against **8** file
+conflicts, not 12 — the raw count double-counted multi-file pairs.
+
+Also fixed: a graph whose every edge sits inside a cycle printed a one-task "critical path"
+beside a header claiming one wave for a three-task plan.
+
+### Changed — the discipline guards, and this part is NOT measured
+
+Both `Stop`-hook guards were firing on correct work. Measured with the project's own tool over
+one session: **10 blocks across 33 evaluations — 30.3%, against an 8% ceiling — and none of
+them correct.** One claim was blocked four times running.
+
+Two causes, both in the prompt rather than the rules:
+
+- The block that decides whether a deferral claim is legitimate stated the rule once and then
+  spent three paragraphs on reasons to doubt the payload, never saying what to do when the
+  evidence matches. So the judge kept demanding a `ScheduleWakeup` alongside a real background
+  dispatch — which nothing asks for — and when one was added, blocked the sentence reporting
+  it. It now says plainly: when the named workflow or agent is present, allow and stop.
+- `## There is no "about to"` sat unscoped between both judgments and supplied a rationale that
+  turned any forward-looking sentence into a violation under either label. Both false blocks
+  from the autonomy judgment borrowed it — one against advice naming the owner's next command,
+  which that section already exempted. It now states it feeds the async judgment only, and
+  gains the exemption that was missing: a step the command takes later in its own sequence is
+  reporting the plan, not deferring a decision.
+
+**Neither change was scored against the corpus, deliberately, and that departs from this
+project's own rule.** The corpus holds 88 cases and none of either shape — which is why two
+prior rounds of guard work missed this, and why the gate would have reported no change either
+side of the fix. **The check is the next session's block rate, measured the same way. If it
+does not fall, revert both commits rather than adding more prose to a prompt that already
+states the correct rule twice.**
+
+### Fixed — smaller
+
+- `/audit-build`'s traceability check reopened a task whose test asserted nothing: the only test
+  using the new enum value handed the stub agent a canned object, and the stub returns a planned
+  result without ever checking it against the declared schema. Deleting the enum member left all
+  34 tests passing. The replacement reads the enums off the source the workflow loads, and was
+  proved by deleting each member and watching a test fail.
+- `/audit-prd` and `/audit-trd` no longer queue the verifiers that interpolate nothing from
+  their index behind it; `/audit-trd` reuses the buildability findings `/create-trd` writes to
+  disk for it rather than re-deriving them; `/audit-build`'s two unpinned stages are pinned.
+  Honest about the payoff: by the arithmetic of a parallel group the unblocking buys close to
+  zero mean wall clock, because the index-bound verifiers are the heavy ones on every audit
+  measured. What it buys is variance.
+
+### Retracted
+
+An earlier commit in this release claimed the BATS battery leaks a test fixture into ten
+committed files and that the leak compounds per run. **It does not reproduce.** Two consecutive
+full battery runs with nothing else active left the tree clean. The original claim rested on one
+observation in a window where several agents were writing those files, and the two later
+"reverts" never checked whether there was anything to revert. Commit bodies `a3739ee` and
+`a4777bc` carry the overstatement; this entry is the correction.
+
+### Known — not addressed
+
+- Three of the six functional criteria for the authoring change were never exercised; they need
+  a live `/create-trd` run to produce the output they describe.
+- A tie in the dominant-kind count goes to declared dependencies and could suppress a real
+  shared-files list. Reported by review, **not reproduced** — an attempt at the reported fixture
+  gave 2 against 3 rather than a tie.
+- Five tests pin exact figures to a live TRD that has already been amended once. Loosening them
+  would delete the measurement; archiving the TRD or snapshotting it as a fixture are both real
+  options with different costs.
+- Governance duplication: the approval list appears in both `constitution.md` and `CLAUDE.md`
+  and **has drifted** — the constitution permits file modification during an implementation run
+  and `CLAUDE.md` omits it. Both still require approval for a baseline checkout deleted on
+  2026-08-12. The constitution's changelog is out of version order.
+
+1119 jest, 107 pytest, 648 bats. 18 commands, 13 subagents.
+
 ## [4.4.0] - 2026-09-21
 
 Minor: the release that attacks **time**, after the owner's measurement that a simple
