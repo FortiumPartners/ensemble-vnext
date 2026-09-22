@@ -10,6 +10,179 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.4.0] - 2026-09-21
+
+Minor: the release that attacks **time**, after the owner's measurement that a simple
+change cost 56 minutes before any code existed and 6.4 hours to implement. One new command
+(`/sweep`), one new stage that can send a run somewhere cheaper, and the first tooling in
+this framework that can say where a run's time actually went.
+
+### Added — `/sweep`, for a list of small fixes that never needed a document
+
+The framework had one shape for every input: author a document, ground it, audit it,
+implement it. For a list of unrelated fixes that is pure overhead, and there was no
+alternative — `/investigate` handles one defect and refuses above six tasks, `/amend`
+handles one change against the feature in flight.
+
+Measured: ~25 walkthrough findings went into `/create-trd`, ran 22.7 minutes, and were
+killed. Four ad-hoc subagents then fixed the batch in ~13 minutes with no grounding, no
+record and no attestation — faster and worse, which is why the ad-hoc path is not the
+answer.
+
+`/sweep` is that speed with the discipline put back. Triage sorts small-and-independent
+from everything else; one grounded agent per issue; separate areas run in parallel and two
+issues in one area run in sequence, because two agents editing one file silently lose each
+other's work. Every claimed fix is checked against disk, and deferrals are recorded rather
+than forgotten. A fixer that has read the code can overrule triage's text-only guess and
+hand an issue back as too big — a half-finished large change is the worst outcome
+available.
+
+### Added — the pipeline now notices when the work got bigger than the request
+
+Three checks, at the three points where scope grows:
+
+- **`/create-prd` checks scope drift against the verbatim request.** An owner's "moderate
+  change touching a lot of callers" was already an 85KB PRD with 37 requirements before a
+  TRD existed. The check names what the PRD added that the request never contained. It
+  costs about a minute, deliberately, to catch an expansion that otherwise surfaces six
+  hours later as code.
+- **`/create-trd` triages before authoring.** One change, or a list? A list stops without
+  authoring and names `/sweep`. It defaults to one-change when unsure and authors anyway if
+  the stage fails, so a real design is never diverted on a marginal call.
+- **`/create-trd` judges scale after authoring**, beside grounding so it costs no wall
+  time. It asks how many deploy cycles the plan implies, whether one run could finish it,
+  and whether the person who asked would recognise it. It reports and proposes a split; it
+  never refuses and never asks.
+
+**Deferred tasks are now predicted rather than discovered.** Tasks that by their own text
+cannot finish in a normal run ("one deploy cycle after X reaches the environment", `[LIVE]`
+on a real trip day) are named up front, written into the TRD as a parsed section, and
+skipped by `/implement-trd` with a report instead of a dispatch. Two such tasks were
+dispatched into that 6.4-hour run and produced work-in-progress commits and days of
+cleanup. A deferral that was predicted reads as a plan; the same deferral discovered reads
+as a failure. `--include-deferred` forces them.
+
+### Added — `run-profile.js`, so timing claims stop being arguments from structure
+
+Every timing claim made during this work was structural, and three were wrong. A workflow
+cannot time itself (the runtime blocks `Date.now()`) and the completion notice carries one
+total — but `dispatch-ledger.js` has been writing start/stop timestamps for every subagent
+this framework has ever launched, including ones inside a workflow. Nothing read it for
+timing.
+
+It reports wall clock against agent time (their ratio is parallelism), time spent outside
+any agent, the split by agent type, and the longest single agent. Runs are detected by gaps
+in activity, not by session: one ledger holds a single session spanning 64 hours with
+36-hour gaps, which scored 0.01x — arithmetic about calendar time, not about a run.
+
+The first thing it settled: on a 6.4-hour run, the framework's own bookkeeping — git, state
+files, discovery rendering — costs **0.4 minutes in total**. The entire non-agent cost was
+the target project's test suite.
+
+### Changed — parallelism, where it was being thrown away
+
+- **`/create-trd` grounds tasks in parallel.** The stage grounded every task in one serial
+  agent, and it dominates a 1,384-second median across 57 real runs. Now `ceil(N/4)` agents
+  capped at 6, each on a disjoint set; one writer assembles them. Below the threshold a
+  single agent still writes directly. The residual risk — inconsistency across subsets — is
+  detected rather than prevented: the merge agent is the first reader to see every block at
+  once and reports contradictions as findings.
+- **Grounding can finally see the other tasks.** It previously received task ids and
+  nothing else, which made the authoring rule "two tasks that touch the same file will
+  serialize — merge them, or say why not" unenforceable by the only agent positioned to
+  apply it. That is the mechanism behind narrow waves: a real 17-task TRD averaged 1.70
+  tasks per wave.
+- **`/implement-trd` dispatches by phase GROUP.** Waves are computed across the whole TRD
+  and were then intersected with one phase — a second serialization layer on an ordering
+  that was already correct. Adjacent phases with no dependency and no shared file between
+  them now merge into one dispatch, one gate, one checkpoint. Conservative by construction:
+  a group stops growing at the first declared dependency or shared file, which across this
+  repo's TRDs merges 3 of 7 and leaves coupled ones exactly as they are.
+- **Wave width is now reported before you pay for it** — in `/create-trd`'s readout, where
+  the decomposition can still change for the cost of a `/refine-trd`, and in
+  `/implement-trd`'s first DISPATCHED banner. When a plan is close to serial it names the
+  files doing the serializing, which is the actionable half: declared dependencies are
+  rarely the cause, and N tasks naming one file become a chain of N waves.
+
+### Changed — the guards stop compelling and stop causing double answers
+
+- **A block reason may not instruct an action.** A reason must never tell the agent to
+  merge, push, deploy, release or invoke a slash command, and if that is the only available
+  remedy then the turn was not a violation and is allowed. Measured: this guard told an
+  agent it was "authorized to run `/implement-trd --resume`", and twice pushed toward
+  deploying a tree the agent had just reported broken — acts the rules it enforces
+  explicitly exempt.
+- **Dissent is sanctioned, and costs one line.** Every reason now ends by telling the agent
+  to reply with the correction only, and that a mistaken block may be answered with "My
+  answer stands — <one sentence why>." `stop_hook_active` already forced an unconditional
+  allow on the next turn, so that reply was always terminal; nothing had told the agent it
+  was permitted, so it re-argued instead. Measured across 276 block/retry pairs in one
+  session: 30% of corrective turns re-delivered 40% or more of the blocked turn, averaging
+  2,020 characters where one sentence would have done. That is the "why do you answer me
+  twice" the owner reported.
+
+### Fixed — the corpus gate failed everything, including nothing
+
+The baseline compared against itself returned FAIL, naming the same regression it named for
+two real changes the same day. Of 11 cases ever judged wrong across 8 runs of one unchanged
+prompt, **zero** were wrong in all 8 — the "wrong in more than half the runs" rule was
+resolving coin flips at random, and the three nearest the halfway line decided every verdict
+the tool ever produced. The 0.90 precision floor was separately unreachable: the unchanged
+prompt cleared it 3 times in 8.
+
+A verdict now rests only on cases the judge decides identically every run; a regression must
+be wrong in every post run and right in every pre run; the absolute floor became a relative
+test against the baseline's own spread. Verified three ways — the null test passes, a
+synthetic always-wrong regression still fails, and five tests pin the properties.
+Consequence recorded honestly in `RESULTS.md`: two prompt reversions at -0.060 and -0.030
+are inside the baseline's own spread and can no longer be called measured regressions.
+
+### Fixed — agents running on a model nobody chose
+
+`create-trd`'s Ground stage, and the reconcile stage of **both** `/audit-prd` and
+`/audit-trd`, set no agent type. An unset type is the generic workflow subagent on the
+session model — Opus in an Opus-led session, at roughly five times a Sonnet agent, chosen by
+nobody. `audit-trd` set an agent type zero times out of seven. Both reconcile stages stay
+expensive on purpose — judging a finding against a design document is the one judgment in
+those workflows worth it — but it is now a decision with a reason beside it.
+
+Two pure wastes removed from `/audit-prd`: the most expensive verifier was dispatched even
+with no source, solely to report that no source was supplied (known at argument-parse time),
+and the index stage had a mandatory instruction to capture Open Questions into a field
+nothing reads.
+
+### Changed — the corpus harness is no longer the slowest thing it gates
+
+`detectors/judge.js` shelled out one `claude --print` per case, strictly serial: 86 cases,
+and the results protocol requires four full runs of both sides for any prompt change — about
+688 serial subprocess calls to clear one edit. Now promise-returning over `spawn()` with a
+bounded worker pool (`DISCIPLINE_SCORE_CONCURRENCY`, default 8), verified byte-identical to
+the serial version. Full corpus ~31 min to ~4 min; the before/after gate ~4 h to ~32 min.
+
+### Changed — plain prose, reinforced rather than enforced
+
+The existing rule lived in the readout section of `command-status.md` while the jargon
+appears in ordinary conversational replies, which no command contract reaches. The router's
+orientation hint — the only surface that reaches every turn — now carries a short
+SAY IT PLAINLY rule, and `CLAUDE.md` and its template gain a "How to talk to the owner"
+section with worked before/after pairs taken from the session that logged the complaint.
+
+No mechanical check was built, on the owner's instruction: this is probabilistic, improved
+by reinforcement and repetition, and a guard firing on correct prose is the same overreach
+this release spent its guard work undoing. The honest measure is whether the owner has to
+ask what something means less often.
+
+### Known — not addressed in this release
+
+- `/audit-prd` (9.1 min) and `/audit-trd` (14.5 min) keep their stage structure. Both
+  sequence verifiers behind an index that several of them interpolate nothing from.
+- `/create-trd`'s grounding stage writes buildability findings to disk specifically so the
+  audit need not rediscover them. `/audit-trd` never reads that file.
+- No end-to-end timing run has been taken against the 1,384-second `/create-trd` baseline
+  since these changes. Every speed claim above is structural or measured on past data.
+
+1102 jest, 107 pytest, 648 bats green. 18 commands, 13 subagents.
+
 ## [4.3.1] - 2026-09-20
 
 Patch: every change is a fix to something shipped broken in 4.3.0, fourteen of them found

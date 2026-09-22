@@ -522,16 +522,28 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.3.1** (2026-09-20). 17 commands, 13 subagents. Test battery: 1013 Jest,
-107 pytest, 479 BATS.
+Released at **4.4.0** (2026-09-21). 18 commands, 13 subagents. Test battery: 1102 Jest,
+107 pytest, 648 BATS.
+
+4.4.0 is the release aimed at **time**: `/sweep` (a list of small fixes, no TRD), scope-drift
+and sizing checks at three points in the pipeline, parallel grounding in `/create-trd`,
+phase-group dispatch in `/implement-trd`, and `run-profile.js` — which reads timestamps the
+dispatch ledger has always written and reports where a run's wall clock actually went.
 
 The modernization run in `docs/modernization/2026-08-improvement-plan.md` is the live
 backlog — read it rather than this section for what is open. Items 1–13 are delivered;
 14 (review cadence) and 15 (phantom success) landed in 4.2.x–4.3.x.
 
-**Known open, as of 4.3.1:**
-- `[LIVE]` verification tasks are planned without reading `.claude/rules/verification.md`,
-  and the `[LIVE]` flag the parser computes has no consumer in `implement-phase.js` — so a
-  live check that cannot run here passes silently and its findings surface at the tail.
+**Known open, as of 4.4.0:**
+- `[LIVE]` verification tasks are still planned without reading `.claude/rules/verification.md`.
+  4.4.0 narrows this rather than closing it: tasks that say in their own text they cannot
+  finish here are now predicted and skipped with a report (`parseDeferred`), but the `[LIVE]`
+  flag itself still has no consumer in `implement-phase.js`.
 - Item 15.4: a readout glyph can read "verified" where the verdict was `unbuilt`.
-- `create-trd.js` has no test harness (`create-prd.js` and `implement-phase.js` do).
+- **The two audit stages are the next real speed reduction** — `/audit-prd` at 9.1 min and
+  `/audit-trd` at 14.5 min, both untouched, both already using the fan-out pattern. Two
+  specific findings sit ready: `/audit-trd` never reads the buildability findings
+  `/create-trd` writes to disk for it, and both audits sequence verifiers behind an index
+  several of them do not use.
+- **Nothing has been timed since 4.4.0's changes.** The 1,384-second `/create-trd` median
+  (57 runs) is the baseline; no run has been taken against it.
