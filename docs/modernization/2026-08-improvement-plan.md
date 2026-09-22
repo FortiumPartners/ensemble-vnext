@@ -3360,6 +3360,111 @@ changed, so it is the right place to sync the mirror.
 
 ---
 
+## Item 21 — one entry point that picks the weight (owner-agreed 2026-09-22)
+
+**The gap.** Between `/investigate` (hard ceiling: 6 tasks, 10 files) and the 56-minute
+`/create-prd → /audit-prd → /create-trd → /audit-trd` pipeline there is nothing. Work with
+settled intent and ten tasks has no home. This item's own design is an instance of the gap:
+12–18 tasks, no product decision in it, and `/investigate` would refuse it on task count.
+
+**Why the ceiling is the wrong instrument.** `fix-sizing.js` opens by stating that "the thing
+that keeps that safe is not the size of the diff — it is whether the change can be VERIFIED",
+then makes task count its first ESCALATE rule. Both numbers are calibrated to "the shape real
+fixes actually take" and were already raised once (3→6, 5→10) for firing on work that was
+plainly fine. They are honest numbers for a defect command and the wrong ruler for design work.
+
+**Two corrections the owner made, both of which invalidate earlier reasoning here.**
+
+1. **`REVIEW` is a fiction.** Owner, verbatim: *"Never once have I actually read a 'REVIEW'
+   TRD."* Every TRD this framework has ever built was built by a machine running unattended;
+   every decision the owner makes is a review of agent output. So the tiers cannot mean
+   permission — permission is always granted. The real levers are how many review layers run,
+   how much reasoning, which models, and how much of the final output the owner reads. **The
+   tier must select a PIPELINE SHAPE, not a permission.**
+
+2. **An open decision is not a feature.** *"Should we use a slider or a text input box"* is
+   open and nowhere near PRD-worthy. So `specCertain: false → ESCALATE` conflates "there is an
+   open question" with "nobody has decided what we are building". Open questions already have a
+   working channel: `## Open Questions` with `ownerOnly`, surfaced in `/implement-trd`'s dispatch
+   banner and carried into each task prompt as `<open_question>`.
+
+**The test for what actually needs a PRD:** would the PRD contain anything the TRD would not —
+personas, user value, trade-offs about *what* to build? If it would restate the TRD's intent, it
+is ceremony.
+
+### The model: two axes and one exit
+
+**kind** — `defect | change | refactor`. Already exists in `fix-sizing.js` and already changes
+what is scored: a refactor is not asked for a root cause it cannot have, and its coverage rule
+is stricter because tests written during a refactor describe the new structure and cannot
+witness that the old behaviour survived.
+
+**weight** — `trivial | small | medium`. Decides which stages run.
+
+**feature is not a member of either list — it is the exit.** A PRD with real content in it means
+`/create-prd`, and this command is done.
+
+| | trivial | small | medium |
+|---|---|---|---|
+| **defect** | light TRD → implement | + adversarial pass | + ground + audit |
+| **change** | light TRD → implement | + adversarial pass | + ground + audit (+ `/refine-trd` when open questions exist) |
+| **refactor** | light TRD → implement | + adversarial pass | + ground + audit, verified before **and** after |
+
+Nine cells, none needing its own name. An earlier six-label proposal (defect / trivial change /
+small change / medium refactor / medium change / feature) was rejected because it gave `change`
+three sizes, `refactor` one, and `defect` and `feature` none — leaving a large defect and a
+trivial refactor real but unnamed.
+
+**`kind` changes the stage list, not only the scoring.** A medium refactor's proof is "the named
+tests pass before and after and the public surface has not moved"; a medium change's is "the
+stated outcome holds". Same weight, different verification.
+
+### How to build it — the constraint that decides the architecture
+
+**No workflow script can `require` anything.** A workflow gets `agent`, `parallel`, `pipeline`,
+`phase`, `log`, `args` and nothing else (verified: zero `require(` calls across
+`packages/core/workflows/*.js`). So "extract the stages into a library both workflows share" is
+not buildable, and a second workflow duplicating `create-trd.js`'s and `audit-trd.js`'s stages
+is the duplication this repo keeps getting hurt by.
+
+**Use the pattern `implement-phase.js` already proves:** it "opens no file and runs no shell --
+every input arrives in args". The COMMAND reads a contract, fills placeholders, and hands
+assembled prompts to a dumb dispatcher. `create-trd.js` is already half-way there — its
+grounding prompt says "exactly as specified in `.claude/contracts/trd-authoring.md`, Section 10"
+rather than inlining the spec.
+
+End state: stage prompts in contracts, `/plan` composes, one generic staged-dispatch workflow
+executes. `/create-trd` becomes the same thing with the weight pinned to full.
+
+### Sequence — and do NOT start with the refactor
+
+1. **`/plan` chains the existing commands**, with the weight decision added. Nearly free. The
+   banner problem is already solved: `command-status.md`'s chaining exception is one banner per
+   RUN, and `/investigate --implement` already does this. Accept that chaining re-reads three
+   large prose files; this step is deliberately temporary.
+2. **Extract each stage prompt to a contract when it is next edited.** Not a big bang. Retires
+   step 1's cost.
+
+Chaining first proves the WEIGHTS are right before anyone pays for the refactor. If the weight
+model is wrong, that costs a command file rather than a rewrite of two workflows.
+
+### Three decisions still owner-only
+
+- Does `/refine-trd` at medium-with-open-questions **run, or only get recommended**? Given that
+  a REVIEW TRD is never read, a recommendation is probably a no-op — and if the answer is "run
+  it", that is the one place a human genuinely re-enters the loop.
+- Does `ESCALATE` survive at all once "would the PRD have content" replaces the size and
+  certainty tests?
+- Do `/create-trd` and `/create-prd` keep separate identities, or collapse into `/plan` with a
+  weight?
+
+**Naming.** `/investigate` describes only its first phase and is already wrong for a command
+handling defects, changes and refactors. `/plan` fits. Renaming is the expensive part — 18
+command files, the router hint, three governance docs, the templates, and every consuming
+project's vendored copy — so do it once, deliberately, not as a side effect.
+
+---
+
 ## Deliberately not doing
 
 - **Repairing the statistical eval framework.** Answers a question you rarely ask, at high cost. Item 4 covers
