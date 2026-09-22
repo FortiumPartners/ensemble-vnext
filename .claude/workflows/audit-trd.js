@@ -44,6 +44,11 @@ const SOURCE = a.source || ''
 const PROJECT = a.project || ''
 if (!TRD) throw new Error('audit-trd: args.trd (the artifact to audit) is required')
 
+// Feature slug, derived the same way /create-trd's own convention names it
+// (docs/TRD/<feature>.md) -- used only to locate the grounding findings file below.
+const FEATURE = (TRD.match(/([^/]+)\.[^./]+$/) || [])[1] || 'feature'
+const GROUNDING_FINDINGS_PATH = `.trd-state/${FEATURE}/findings/grounding.json`
+
 // Case 3 measured the cost of not having this: 6 of 9 findings were wrong because a verifier
 // resolved .claude/rules against the authoring repo instead of the project under design, and
 // five of those were reported at HIGH confidence.
@@ -76,9 +81,97 @@ const BATCH = `
 BATCH YOUR READS. Every tool call re-caches your whole context, so turn count costs as much
 as context size. Prefer one grep over five. Do not re-open a file you have read.`
 
+// Shared by every verifier, and known before the Index stage runs -- none of it depends on
+// what the Index recovers. Hoisted here so the verifiers that never read the index (below)
+// can be dispatched alongside it instead of waiting for it.
+const FINDING_ITEMS = {
+  type: 'array',
+  items: {
+    type: 'object', additionalProperties: false,
+    required: ['check', 'why', 'confidence'],
+    properties: {
+      check: { type: 'string', enum: ['provenance','severity','omission','buildability','consistency','derivation','citation','conformance','stale-doc'] },
+      why: { type: 'string' },
+      confidence: { type: 'string', enum: ['high','medium','low'] },
+      id: { type: 'string', description: "the artifact's own ID; omit for omission findings" },
+      line: { type: 'string', description: 'the text as written; omit for omission findings' },
+      source_ref: { type: 'string' },
+      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation'] },
+    },
+  },
+}
+const FINDING_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['findings'], properties: { findings: FINDING_ITEMS },
+}
+
+// The index is an INDEX -- what exists and where. It is NOT the artifact. An earlier version
+// let verifiers audit the index directly: findings quoted a JSON field the markdown document
+// does not contain and cited an ID with zero hits repo-wide. Findings fell 16 -> 2 and both
+// were wrong.
+const GROUNDING_RULE = `
+GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
+roughly where. The artifact is ${TRD}, and it is Markdown.
+  - Use the index to target reads. Do not read the document linearly.
+  - Before reporting ANY finding, grep ${TRD} for the exact text you will quote and confirm
+    it is there. Quote the document's words, not the index's field names.
+  - If index and document disagree, THAT is the finding. Report both versions.
+  - A finding citing an ID or field absent from ${TRD} is a fabrication. This has happened.`
+
+const VERIFIER_MODEL = 'sonnet'
+
+function dispatchVerifier(v) {
+  return agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
+    label: `verify:${v.key}`,
+    agentType: v.agentType || 'backend-implementer',
+    phase: 'Verify',
+    effort: v.effort,
+    model: v.model || VERIFIER_MODEL,
+    schema: FINDING_SCHEMA,
+  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
+}
+
+// These two read only the artifact itself, the corpus/source paths and this project's own
+// rules files -- grep confirms neither prompt interpolates OBJ/DEC/TSK below. Waiting on the
+// Index stage before dispatching them was pure serialization, so they start now, alongside it.
+const INDEX_FREE_VERIFIERS = [
+  {
+    key: 'omission-audit', effort: 'high',
+    prompt: `Traverse SOURCE -> ARTIFACT. ${SOURCE
+      ? `Read ${SOURCE} fully; its objectives are your checklist.`
+      : `No source was supplied. Report that as your single finding and stop -- an omission pass without a source cannot run, and guessing what the source said would manufacture findings.`}
+
+The artifact's objectives are indexed above. For each objective the SOURCE states, assert it
+either appears in the artifact or is explicitly listed under Non-Goals (grep the artifact for
+"Non-Goal" only -- do not read it through).
+
+A per-line audit cannot see a line that is not there. Dropping a requirement is commoner than
+inventing one, and silent narrowing -- reproducing seven of eight metrics and dropping the
+eighth without comment -- has no other check that can catch it.`,
+  },
+  {
+    key: 'deterministic', effort: 'low', model: 'haiku',
+    prompt: `Two mechanical checks over ${TRD}. Do NOT read it linearly -- both are lookups.
+
+  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
+  referenced ID in its live target file. Report every one that does not resolve, naming the ID
+  and the file searched.
+
+  CONFORMANCE: read ${PROJECT || 'this repository'}'s .claude/rules/stack.md and
+  .claude/rules/constitution.md -- both short -- then grep the artifact for what they
+  constrain: technologies outside the declared stack, coverage figures below a stated floor,
+  prohibited patterns, contradicted architectural invariants.
+
+Both are pass/fail per item. A miss is a miss; do not interpret.`,
+  },
+]
+
 // --------------------------------------------------------------------------- 1. INDEX
 
 phase('Index')
+
+// Started here, not after the Index resolves below -- see INDEX_FREE_VERIFIERS above.
+const indexFreeWavesPromise = parallel(INDEX_FREE_VERIFIERS.map((v) => () => dispatchVerifier(v)))
 
 const index = await agent(
   `Index ${TRD} so the verifiers can target their reads instead of scanning a whole document.
@@ -167,45 +260,13 @@ log(`indexed ${index.objectives.length} objectives, ${index.decisions.length} de
 
 phase('Verify')
 
-const FINDING_ITEMS = {
-  type: 'array',
-  items: {
-    type: 'object', additionalProperties: false,
-    required: ['check', 'why', 'confidence'],
-    properties: {
-      check: { type: 'string', enum: ['provenance','severity','omission','buildability','consistency','derivation','citation','conformance','stale-doc'] },
-      why: { type: 'string' },
-      confidence: { type: 'string', enum: ['high','medium','low'] },
-      id: { type: 'string', description: "the artifact's own ID; omit for omission findings" },
-      line: { type: 'string', description: 'the text as written; omit for omission findings' },
-      source_ref: { type: 'string' },
-      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation'] },
-    },
-  },
-}
-const FINDING_SCHEMA = {
-  type: 'object', additionalProperties: false,
-  required: ['findings'], properties: { findings: FINDING_ITEMS },
-}
-
 const OBJ = JSON.stringify(index.objectives, null, 1)
 const DEC = JSON.stringify(index.decisions, null, 1)
 const TSK = JSON.stringify(index.tasks, null, 1)
 
-// The index is an INDEX -- what exists and where. It is NOT the artifact. An earlier version
-// let verifiers audit the index directly: findings quoted a JSON field the markdown document
-// does not contain and cited an ID with zero hits repo-wide. Findings fell 16 -> 2 and both
-// were wrong.
-const GROUNDING_RULE = `
-GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
-roughly where. The artifact is ${TRD}, and it is Markdown.
-  - Use the index to target reads. Do not read the document linearly.
-  - Before reporting ANY finding, grep ${TRD} for the exact text you will quote and confirm
-    it is there. Quote the document's words, not the index's field names.
-  - If index and document disagree, THAT is the finding. Report both versions.
-  - A finding citing an ID or field absent from ${TRD} is a fabrication. This has happened.`
-
-const VERIFIERS = [
+// These three need OBJ/DEC/TSK above, so unlike INDEX_FREE_VERIFIERS they cannot be
+// dispatched before the Index resolves.
+const INDEX_BOUND_VERIFIERS = [
   {
     key: 'objective-audit', effort: 'high',
     prompt: `Audit these objectives for PROVENANCE and SEVERITY.
@@ -252,26 +313,23 @@ ${DEC}
     because it is how one normally ships, then built and deployed dark.`,
   },
   {
-    key: 'omission-audit', effort: 'high',
-    prompt: `Traverse SOURCE -> ARTIFACT. ${SOURCE
-      ? `Read ${SOURCE} fully; its objectives are your checklist.`
-      : `No source was supplied. Report that as your single finding and stop -- an omission pass without a source cannot run, and guessing what the source said would manufacture findings.`}
-
-The artifact's objectives are indexed above. For each objective the SOURCE states, assert it
-either appears in the artifact or is explicitly listed under Non-Goals (grep the artifact for
-"Non-Goal" only -- do not read it through).
-
-A per-line audit cannot see a line that is not there. Dropping a requirement is commoner than
-inventing one, and silent narrowing -- reproducing seven of eight metrics and dropping the
-eighth without comment -- has no other check that can catch it.`,
-  },
-  {
     key: 'design-audit', effort: 'high',
     prompt: `Judge the DECISIONS in ${TRD} for BUILDABILITY and CONSISTENCY. This one requires
 reading real code, so read it.
 
 DECISIONS (index):
 ${DEC}
+
+CHECK FOR EXISTING GROUNDING FINDINGS FIRST. If ${TRD} was authored by /create-trd, its
+Ground stage already read this same code once and wrote what it found to
+${GROUNDING_FINDINGS_PATH}. Check whether that file exists before deriving buildability
+from scratch: re-reading the same mechanism a second time is exactly the duplicated cost
+this file exists to avoid. If it exists, read it and reuse any \`buildability\` findings it
+already contains directly -- do not re-derive them. Spend your read budget instead on
+decisions the grounding pass did not cover (it grounds TASKS, not every DECISION, so
+coverage is a subset) and on consistency/stale-doc, which it never checks. If the file does
+not exist -- a TRD not authored by this pipeline, or a Ground stage that found nothing --
+derive buildability findings from scratch as below.
 
   buildability: can each decision be built AS SPECIFIED, given how the mechanism it governs
                 actually works? Check the mechanism. Do not assume it works the way the
@@ -284,37 +342,13 @@ ${DEC}
                 only occurrences anywhere were two design documents describing it as something
                 to be built -- zero hits in src/ or tests/.`,
   },
-  {
-    key: 'deterministic', effort: 'low', model: 'haiku',
-    prompt: `Two mechanical checks over ${TRD}. Do NOT read it linearly -- both are lookups.
-
-  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
-  referenced ID in its live target file. Report every one that does not resolve, naming the ID
-  and the file searched.
-
-  CONFORMANCE: read ${PROJECT || 'this repository'}'s .claude/rules/stack.md and
-  .claude/rules/constitution.md -- both short -- then grep the artifact for what they
-  constrain: technologies outside the declared stack, coverage figures below a stated floor,
-  prohibited patterns, contradicted architectural invariants.
-
-Both are pass/fail per item. A miss is a miss; do not interpret.`,
-  },
 ]
 
-const VERIFIER_MODEL = 'sonnet'
+const boundWaves = await parallel(INDEX_BOUND_VERIFIERS.map((v) => () => dispatchVerifier(v)))
+const freeWaves = await indexFreeWavesPromise
 
-const waves = await parallel(
-  VERIFIERS.map((v) => () =>
-    agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
-      label: `verify:${v.key}`,
-      agentType: v.agentType || 'backend-implementer',
-      phase: 'Verify',
-      effort: v.effort,
-      model: v.model || VERIFIER_MODEL,
-      schema: FINDING_SCHEMA,
-    }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
-  )
-)
+const VERIFIERS = [...INDEX_BOUND_VERIFIERS, ...INDEX_FREE_VERIFIERS]
+const waves = [...boundWaves, ...freeWaves]
 
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))

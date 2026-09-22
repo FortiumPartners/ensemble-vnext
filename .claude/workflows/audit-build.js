@@ -83,9 +83,107 @@ const BATCH = `
 BATCH YOUR READS. Every tool call re-caches your whole context, so turn count costs as much
 as context size. Prefer one grep over five. Do not re-open a file you have read.`
 
+// Shared by every verifier, and known before the Index stage runs -- none of it depends on
+// what the Index recovers. Hoisted here so the verifiers that never read the index (below)
+// can be dispatched alongside it instead of waiting for it.
+const FINDING_ITEMS = {
+  type: 'array',
+  items: {
+    type: 'object', additionalProperties: false,
+    required: ['check', 'why', 'confidence'],
+    properties: {
+      check: { type: 'string', enum: ['traceability', 'verification', 'validation', 'test-quality', 'consistency', 'citation'] },
+      why: { type: 'string' },
+      confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+      id: { type: 'string', description: "the requirement or task ID this finding is about; omit if none applies" },
+      evidence: { type: 'string', description: 'the file:line or grep result that supports this finding' },
+      action: { type: 'string', enum: ['gap', 'untested', 'mismatch', 'fix-citation', 'confirm-wanted'] },
+    },
+  },
+}
+const FINDING_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['findings'], properties: { findings: FINDING_ITEMS },
+}
+
+const GROUNDING_RULE = `
+GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what was promised
+and roughly where. It is NOT the code and NOT the tests. Before reporting ANY finding, open the
+actual file(s) in ${PROJECT || 'this repository'} and confirm what you are about to report is
+really there or really absent. A finding citing an ID or field absent from the index's source
+document is a fabrication.`
+
+const VERIFIER_MODEL = 'sonnet'
+
+function dispatchVerifier(v) {
+  return agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
+    label: `verify:${v.key}`,
+    phase: 'Verify',
+    effort: v.effort,
+    model: v.model || VERIFIER_MODEL,
+    schema: FINDING_SCHEMA,
+  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
+}
+
+// These three read only the delivered code, the TRD/PRD paths and this project's own rules
+// files -- grep confirms none of their prompts interpolate REQ or TSK below. Waiting on the
+// Index stage before dispatching them was pure serialization, so they start now, alongside it.
+const INDEX_FREE_VERIFIERS = [
+  {
+    key: 'validation-audit', effort: 'high',
+    prompt: `Validate the delivered system against the PRD's REQUIREMENTS -- does what was
+built satisfy what the PRD asked for, independent of how the TRD phrased the task?
+
+${PRD
+  ? `Read ${PRD} fully; its requirements are your checklist. Cross-check each against the
+delivered code and the TRD's own requirement index above -- a requirement can survive
+faithfully into the TRD and still not be built, or the TRD can satisfy its own restated
+version of a requirement while quietly dropping what the PRD actually asked for.`
+  : `No PRD was supplied. Report that as your single finding and stop -- a validation pass
+without a source cannot run, and guessing what the PRD asked for would manufacture findings.`}`,
+  },
+  {
+    key: 'test-quality-audit', effort: 'medium',
+    prompt: `Sample the tests that the traceability check will rely on and judge whether they
+are REAL proof or theater.
+
+Grep the delivered project's test directories for tests touching the requirements/tasks
+indexed above. For a representative sample (do not read every test file -- pick the ones tied
+to the requirements that matter most, and any with round numbers or generic names that suggest
+they were written to satisfy a coverage gate rather than to prove behavior):
+  - Does the test assert a specific outcome, or just that a call did not throw?
+  - Is the assertion tautological (mocking the exact thing being tested, asserting the mock
+    was called rather than what it returned)?
+  - Does the test cover the requirement's stated edge cases, or only the happy path?
+
+This check exists because "has a test" is gameable -- a test file can exist and prove nothing.
+Report tests that would pass the traceability check's literal bar (a test file references the
+requirement) while actually proving little.`,
+  },
+  {
+    key: 'deterministic', effort: 'low', model: 'haiku',
+    prompt: `Two mechanical checks against the delivered tree. Do NOT read linearly -- both are
+lookups.
+
+  CITATIONS: grep for citation-shaped strings in the TRD (IDs, section refs, file:line), then
+  grep each referenced ID or path in its live target in ${PROJECT || 'this repository'}. Report
+  every one that does not resolve, naming the ID and the file searched.
+
+  CONFORMANCE: read ${PROJECT || 'this repository'}'s .claude/rules/stack.md and
+  .claude/rules/constitution.md -- both short -- then grep the delivered code for what they
+  constrain: technologies outside the declared stack, prohibited patterns, contradicted
+  architectural invariants.
+
+Both are pass/fail per item. A miss is a miss; do not interpret.`,
+  },
+]
+
 // --------------------------------------------------------------------------- 1. INDEX
 
 phase('Index')
+
+// Started here, not after the Index resolves below -- see INDEX_FREE_VERIFIERS above.
+const indexFreeWavesPromise = parallel(INDEX_FREE_VERIFIERS.map((v) => () => dispatchVerifier(v)))
 
 const index = await agent(
   `Index ${TRD}${PRD ? ` and ${PRD}` : ''} so the verifiers can target their reads instead of
@@ -163,37 +261,12 @@ if (EMPTY_TASKS) log('WARNING: the Index found ZERO tasks — verification again
 
 phase('Verify')
 
-const FINDING_ITEMS = {
-  type: 'array',
-  items: {
-    type: 'object', additionalProperties: false,
-    required: ['check', 'why', 'confidence'],
-    properties: {
-      check: { type: 'string', enum: ['traceability', 'verification', 'validation', 'test-quality', 'consistency', 'citation'] },
-      why: { type: 'string' },
-      confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
-      id: { type: 'string', description: "the requirement or task ID this finding is about; omit if none applies" },
-      evidence: { type: 'string', description: 'the file:line or grep result that supports this finding' },
-      action: { type: 'string', enum: ['gap', 'untested', 'mismatch', 'fix-citation', 'confirm-wanted'] },
-    },
-  },
-}
-const FINDING_SCHEMA = {
-  type: 'object', additionalProperties: false,
-  required: ['findings'], properties: { findings: FINDING_ITEMS },
-}
-
 const REQ = JSON.stringify(index.requirements, null, 1)
 const TSK = JSON.stringify(index.tasks, null, 1)
 
-const GROUNDING_RULE = `
-GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what was promised
-and roughly where. It is NOT the code and NOT the tests. Before reporting ANY finding, open the
-actual file(s) in ${PROJECT || 'this repository'} and confirm what you are about to report is
-really there or really absent. A finding citing an ID or field absent from the index's source
-document is a fabrication.`
-
-const VERIFIERS = [
+// These two need REQ/TSK above, so unlike INDEX_FREE_VERIFIERS they cannot be dispatched
+// before the Index resolves.
+const INDEX_BOUND_VERIFIERS = [
   {
     key: 'traceability-audit', effort: 'high',
     // This is the headline verifier -- the whole reason audit-build exists separately from
@@ -239,68 +312,13 @@ list is empty) and confirm the described work is actually present, matches the t
 description, and was not silently narrowed or left half-done. A task marked complete
 elsewhere (implement.json, a commit message) is a claim, not evidence -- check the code.`,
   },
-  {
-    key: 'validation-audit', effort: 'high',
-    prompt: `Validate the delivered system against the PRD's REQUIREMENTS -- does what was
-built satisfy what the PRD asked for, independent of how the TRD phrased the task?
-
-${PRD
-  ? `Read ${PRD} fully; its requirements are your checklist. Cross-check each against the
-delivered code and the TRD's own requirement index above -- a requirement can survive
-faithfully into the TRD and still not be built, or the TRD can satisfy its own restated
-version of a requirement while quietly dropping what the PRD actually asked for.`
-  : `No PRD was supplied. Report that as your single finding and stop -- a validation pass
-without a source cannot run, and guessing what the PRD asked for would manufacture findings.`}`,
-  },
-  {
-    key: 'test-quality-audit', effort: 'medium',
-    prompt: `Sample the tests that the traceability check will rely on and judge whether they
-are REAL proof or theater.
-
-Grep the delivered project's test directories for tests touching the requirements/tasks
-indexed above. For a representative sample (do not read every test file -- pick the ones tied
-to the requirements that matter most, and any with round numbers or generic names that suggest
-they were written to satisfy a coverage gate rather than to prove behavior):
-  - Does the test assert a specific outcome, or just that a call did not throw?
-  - Is the assertion tautological (mocking the exact thing being tested, asserting the mock
-    was called rather than what it returned)?
-  - Does the test cover the requirement's stated edge cases, or only the happy path?
-
-This check exists because "has a test" is gameable -- a test file can exist and prove nothing.
-Report tests that would pass the traceability check's literal bar (a test file references the
-requirement) while actually proving little.`,
-  },
-  {
-    key: 'deterministic', effort: 'low', model: 'haiku',
-    prompt: `Two mechanical checks against the delivered tree. Do NOT read linearly -- both are
-lookups.
-
-  CITATIONS: grep for citation-shaped strings in the TRD (IDs, section refs, file:line), then
-  grep each referenced ID or path in its live target in ${PROJECT || 'this repository'}. Report
-  every one that does not resolve, naming the ID and the file searched.
-
-  CONFORMANCE: read ${PROJECT || 'this repository'}'s .claude/rules/stack.md and
-  .claude/rules/constitution.md -- both short -- then grep the delivered code for what they
-  constrain: technologies outside the declared stack, prohibited patterns, contradicted
-  architectural invariants.
-
-Both are pass/fail per item. A miss is a miss; do not interpret.`,
-  },
 ]
 
-const VERIFIER_MODEL = 'sonnet'
+const boundWaves = await parallel(INDEX_BOUND_VERIFIERS.map((v) => () => dispatchVerifier(v)))
+const freeWaves = await indexFreeWavesPromise
 
-const waves = await parallel(
-  VERIFIERS.map((v) => () =>
-    agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
-      label: `verify:${v.key}`,
-      phase: 'Verify',
-      effort: v.effort,
-      model: v.model || VERIFIER_MODEL,
-      schema: FINDING_SCHEMA,
-    }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
-  )
-)
+const VERIFIERS = [...INDEX_BOUND_VERIFIERS, ...INDEX_FREE_VERIFIERS]
+const waves = [...boundWaves, ...freeWaves]
 
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
@@ -388,6 +406,9 @@ ${TRD} -- do not otherwise edit the document, and do not invent findings.
 ${COVERAGE}${CNV}`,
     {
       label: 'reconcile:could-not-verify',
+      // Rewrites one section and counts rows. No judgement about findings — there are none
+      // on this branch. Sonnet, chosen rather than inherited.
+      agentType: 'backend-implementer',
       phase: 'Reconcile',
       effort: 'low',
       schema: {
@@ -465,6 +486,18 @@ omitting empty ones:
 One screen. If there are 40 clean requirements, print the COUNT as one line, not forty.`,
   {
     label: 'reconcile',
+    /* DELIBERATELY the expensive agent, and that is now a decision rather than an accident.
+     *
+     * This file set agentType NOWHERE. An unset agentType is not "no agent": it is the
+     * generic workflow subagent on the SESSION model — Opus in an Opus-led session,
+     * unchosen, at roughly 5x a Sonnet agent. Every verifier above pins a model; this
+     * reconcile stage and the clean-path one above it were the only unpinned dispatches,
+     * and this one sits serially at the end of the critical path doing O(findings) work.
+     *
+     * Weighing findings against the delivered code and the PRD -- accepting or rejecting
+     * each -- is the one judgement in this workflow worth an expensive model, so
+     * technical-architect (opus) stays. The point is that it is chosen. */
+    agentType: 'technical-architect',
     phase: 'Reconcile',
     effort: 'high',
     schema: {

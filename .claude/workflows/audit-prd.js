@@ -64,9 +64,80 @@ const BATCH = `
 BATCH YOUR READS. Every tool call re-caches your whole context, so turn count costs as much
 as context size. Prefer one grep over five. Do not re-open a file you have read.`
 
+// Shared by every verifier, and known before the Index stage runs -- none of it depends on
+// what the Index recovers. Hoisted here so the verifier that never reads the index (below)
+// can be dispatched alongside it instead of waiting for it.
+const FINDING_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['findings'],
+  properties: {
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['check', 'why', 'confidence'],
+        properties: {
+          check: { type: 'string', enum: ['provenance','severity','omission','grounding','conformance','stale-doc','citation'] },
+          why: { type: 'string' },
+          confidence: { type: 'string', enum: ['high','medium','low'] },
+          id: { type: 'string' },
+          line: { type: 'string' },
+          source_ref: { type: 'string' },
+          action: { type: 'string', enum: ['delete','lower-to-floor','add-back','already-exists','pick-one','confirm-wanted','fix-citation'] },
+        },
+      },
+    },
+  },
+}
+
+const GROUNDING_RULE = `
+GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
+roughly where. The artifact is ${PRD}, and it is Markdown.
+  - Use the index to target reads. Do not read the document linearly.
+  - Before reporting ANY finding, grep ${PRD} for the exact text you will quote and confirm
+    it is there. Quote the document's words, not the index's field names.
+  - If index and document disagree, THAT is the finding. Report both versions.
+  - A finding citing an ID or field absent from ${PRD} is a fabrication. This has happened.`
+
+const VERIFIER_MODEL = 'sonnet'
+
+function dispatchVerifier(v) {
+  return agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
+    label: `verify:${v.key}`,
+    agentType: v.agentType || 'backend-implementer',
+    phase: 'Verify',
+    effort: v.effort,
+    model: v.model || VERIFIER_MODEL,
+    schema: FINDING_SCHEMA,
+  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
+}
+
+// This one reads only the artifact itself and this project's own rules files -- grep confirms
+// its prompt interpolates neither REQ nor DEC below. Waiting on the Index stage before
+// dispatching it was pure serialization, so it starts now, alongside it.
+const INDEX_FREE_VERIFIERS = [
+  {
+    key: 'conformance', effort: 'low', model: 'haiku',
+    prompt: `Two mechanical checks over ${PRD}. Both are lookups -- do NOT read it linearly.
+
+  CONFORMANCE: read ${PROJECT || 'this repository'}'s .claude/rules/stack.md and
+  .claude/rules/constitution.md -- both short -- then grep ${PRD} for what they constrain:
+  technologies outside the declared stack, figures below a stated floor, prohibited patterns,
+  contradicted invariants.
+
+  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
+  referenced ID in its live target file. Report every one that does not resolve, naming the
+  ID and the file searched.
+
+Both are pass/fail per item. A miss is a miss; do not interpret.`,
+  },
+]
+
 // --------------------------------------------------------------------------- 1. INDEX
 
 phase('Index')
+
+// Started here, not after the Index resolves below -- see INDEX_FREE_VERIFIERS above.
+const indexFreeWavesPromise = parallel(INDEX_FREE_VERIFIERS.map((v) => () => dispatchVerifier(v)))
 
 const index = await agent(
   `Index ${PRD} so the verifiers can target their reads. You are producing a MAP, not a
@@ -132,41 +203,12 @@ log(`indexed ${index.requirements.length} requirements, ${index.decisions.length
 
 phase('Verify')
 
-const FINDING_SCHEMA = {
-  type: 'object', additionalProperties: false, required: ['findings'],
-  properties: {
-    findings: {
-      type: 'array',
-      items: {
-        type: 'object', additionalProperties: false,
-        required: ['check', 'why', 'confidence'],
-        properties: {
-          check: { type: 'string', enum: ['provenance','severity','omission','grounding','conformance','stale-doc','citation'] },
-          why: { type: 'string' },
-          confidence: { type: 'string', enum: ['high','medium','low'] },
-          id: { type: 'string' },
-          line: { type: 'string' },
-          source_ref: { type: 'string' },
-          action: { type: 'string', enum: ['delete','lower-to-floor','add-back','already-exists','pick-one','confirm-wanted','fix-citation'] },
-        },
-      },
-    },
-  },
-}
-
 const REQ = JSON.stringify(index.requirements, null, 1)
 const DEC = JSON.stringify(index.decisions, null, 1)
 
-const GROUNDING_RULE = `
-GROUNDING RULE -- NON-NEGOTIABLE. The records above are an INDEX telling you what exists and
-roughly where. The artifact is ${PRD}, and it is Markdown.
-  - Use the index to target reads. Do not read the document linearly.
-  - Before reporting ANY finding, grep ${PRD} for the exact text you will quote and confirm
-    it is there. Quote the document's words, not the index's field names.
-  - If index and document disagree, THAT is the finding. Report both versions.
-  - A finding citing an ID or field absent from ${PRD} is a fabrication. This has happened.`
-
-const VERIFIERS = [
+// These two need REQ/DEC above, so unlike INDEX_FREE_VERIFIERS they cannot be dispatched
+// before the Index resolves.
+const INDEX_BOUND_VERIFIERS = [
   {
     key: 'source-fidelity', effort: 'high',
     prompt: `Check ${PRD} against its source in BOTH directions. ${SOURCE
@@ -208,24 +250,7 @@ capability is already built -- fully, partly, or in a form that would be replace
                   path whose only occurrences anywhere were two design documents describing
                   it as something to be built -- zero hits in src/ or tests/.`,
   },
-  {
-    key: 'conformance', effort: 'low', model: 'haiku',
-    prompt: `Two mechanical checks over ${PRD}. Both are lookups -- do NOT read it linearly.
-
-  CONFORMANCE: read ${PROJECT || 'this repository'}'s .claude/rules/stack.md and
-  .claude/rules/constitution.md -- both short -- then grep ${PRD} for what they constrain:
-  technologies outside the declared stack, figures below a stated floor, prohibited patterns,
-  contradicted invariants.
-
-  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
-  referenced ID in its live target file. Report every one that does not resolve, naming the
-  ID and the file searched.
-
-Both are pass/fail per item. A miss is a miss; do not interpret.`,
-  },
 ]
-
-const VERIFIER_MODEL = 'sonnet'
 
 /* Do not spend a sonnet/high agent restating something the script already knows.
  *
@@ -233,34 +258,29 @@ const VERIFIER_MODEL = 'sonnet'
  * and stop." when SOURCE is empty — dispatching the most expensive verifier in the file to
  * produce a fact available at argument-parse time, which the COVERAGE block below then
  * states independently anyway. */
-const RUNNABLE = VERIFIERS.filter((v) => v.key !== 'source-fidelity' || SOURCE)
-if (RUNNABLE.length < VERIFIERS.length) {
+const RUNNABLE = INDEX_BOUND_VERIFIERS.filter((v) => v.key !== 'source-fidelity' || SOURCE)
+if (RUNNABLE.length < INDEX_BOUND_VERIFIERS.length) {
   log('no source supplied — skipping source-fidelity; reported in coverage instead')
 }
 
-const waves = await parallel(
-  RUNNABLE.map((v) => () =>
-    agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
-      label: `verify:${v.key}`,
-      agentType: v.agentType || 'backend-implementer',
-      phase: 'Verify',
-      effort: v.effort,
-      model: v.model || VERIFIER_MODEL,
-      schema: FINDING_SCHEMA,
-    }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
-  )
-)
+const boundWaves = await parallel(RUNNABLE.map((v) => () => dispatchVerifier(v)))
+const freeWaves = await indexFreeWavesPromise
+
+const VERIFIERS = [...INDEX_BOUND_VERIFIERS, ...INDEX_FREE_VERIFIERS]
+const waves = [...boundWaves, ...freeWaves]
 
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
-// Against RUNNABLE, not VERIFIERS: a verifier deliberately skipped for want of a source is
-// not a verifier that died, and reporting it as "no report from" would be a false alarm about
-// coverage — the exact honesty this block exists to protect.
-const deadKeys = RUNNABLE.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
-const skippedKeys = VERIFIERS.filter((v) => !RUNNABLE.includes(v)).map((v) => v.key)
+// Against RUNNABLE (plus the always-runnable INDEX_FREE_VERIFIERS), not VERIFIERS: a verifier
+// deliberately skipped for want of a source is not a verifier that died, and reporting it as
+// "no report from" would be a false alarm about coverage — the exact honesty this block exists
+// to protect.
+const RAN = [...RUNNABLE, ...INDEX_FREE_VERIFIERS]
+const deadKeys = RAN.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
+const skippedKeys = INDEX_BOUND_VERIFIERS.filter((v) => !RUNNABLE.includes(v)).map((v) => v.key)
 const dead = deadKeys.length
 if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
-log(`${findings.length} findings from ${alive.length}/${RUNNABLE.length} verifiers${skippedKeys.length ? ` (${skippedKeys.join(', ')} skipped — no source)` : ''}`)
+log(`${findings.length} findings from ${alive.length}/${RAN.length} verifiers${skippedKeys.length ? ` (${skippedKeys.join(', ')} skipped — no source)` : ''}`)
 
 // --------------------------------------------------------------------------- 3. RECONCILE
 
@@ -318,7 +338,7 @@ see what has been verified and what has not, without running anything.`
 const COVERAGE = `
 
 COVERAGE OF THIS AUDIT -- state it, do not infer it from the findings:
-  verifiers reporting: ${alive.length}/${RUNNABLE.length}${dead ? `   NO REPORT FROM: ${deadKeys.join(', ')}` : ''}${skippedKeys.length ? `   SKIPPED (no source): ${skippedKeys.join(', ')}` : ''}
+  verifiers reporting: ${alive.length}/${RAN.length}${dead ? `   NO REPORT FROM: ${deadKeys.join(', ')}` : ''}${skippedKeys.length ? `   SKIPPED (no source): ${skippedKeys.join(', ')}` : ''}
   source supplied: ${SOURCE || 'NO -- every check needing a baseline was skipped or degraded'}
 ${dead
   ? `Whatever those verifier(s) cover is UNVERIFIED by this run. Add a Could Not Verify row
@@ -352,7 +372,7 @@ ${COVERAGE}${CNV}`,
   return {
     prd: PRD, findings: 0, applied: 0, rejected: 0,
     still_unverified: ((clean && clean.could_not_verify_remaining) || []).length,
-    verifiers_reporting: `${alive.length}/${RUNNABLE.length}`,
+    verifiers_reporting: `${alive.length}/${RAN.length}`,
     verifiers_skipped: skippedKeys,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${PRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
