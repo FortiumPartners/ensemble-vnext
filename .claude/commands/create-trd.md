@@ -982,12 +982,27 @@ TRD: docs/TRD/<feature>.md    SOURCE: docs/PRD/<feature>.md + stack.md + constit
   FIX THE CITATION — referenced ID does not resolve (1)
     cites PRD AC-F3.2; no such ID exists in docs/PRD/<feature>.md
 
+  DROP THE DEPENDENCY — grounding could not justify this edge as a real one (1)
+    B7 depends_on B3     B3 writes no file B7 reads and defines nothing B7 uses — narrative
+                         order, not a dependency
+
+  SPLIT THIS TASK — one ID, several tasks (1)
+    T-9    implements the migration, the API, and the CI guard — three changes under one ID
+
   NO ACTION — sourced, listed for completeness (6)
     ...
 ```
 
 Ordered by how expensive the failure is to find later. If a TRD produces 40 sourced
 objectives, the *count* is the finding — print it as one line, not forty.
+
+**Cross-reference DROP THE DEPENDENCY against the critical path printed by the wave profile,
+above.** Grounding can flag an edge as unjustified without knowing what it costs to keep —
+that is the wave profile's job, not grounding's. An edge sitting off the critical path costs
+nothing to keep even if it is narrative rather than real: removing it will not change
+`avg width` or `waveCount`, only the graph's honesty. An edge sitting ON the printed chain is
+the one worth acting on before `/implement-trd` pays for it wave after wave. Say which case
+it is in the readout line rather than leaving the reader to check.
 
 ---
 

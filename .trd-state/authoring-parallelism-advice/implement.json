@@ -1,0 +1,93 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/authoring-parallelism-advice.md",
+  "trd_hash": "4109cd904a0a9234bbfe76f4c00476196cd79492da0e7abae32d023b17f49565",
+  "branch": "feature/authoring-parallelism-advice/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "In packages/core/workflows/create-trd.js: add dependency to the check enum in FINDING_ITEMS and drop-dependency to its action enum; add a DEPENDENCY NECESSITY axis to the Ground stage's second job instructing that a declared dependency is real only if the blocked task consumes something the blocker creates, reported as a finding naming the pair; add a LONG TASKS judgment plus a long_tasks array to the sizing schema; render long_tasks in the returned readout and expose it on the return object. Copy to .claude/workflows/create-trd.js.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/create-trd.js",
+        ".claude/workflows/create-trd.js",
+        "packages/core/workflows/create-trd.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-22T04:32:46.324Z",
+      "completed_at": "2026-09-22T04:55:21.380Z",
+      "implementer_type": "agent-implementer",
+      "last_advanced": "2026-09-22T04:34:46.263Z"
+    },
+    "FIX-002": {
+      "description": "In packages/core/lib/task-graph.js: have waveProfile report how many edges are declared dependencies versus file conflicts; have renderWaveProfile name the dominant kind, print criticalPath as a chain, and print the serializing-files list ONLY when file edges are what causes the narrowness. Replace the docstring claim at :206-208 that declared dependencies are rarely the cause with the measured finding. Copy to .claude/lib/task-graph.js.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/task-graph.js",
+        "packages/core/lib/task-graph.test.js",
+        ".claude/lib/task-graph.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-22T04:32:46.325Z",
+      "completed_at": "2026-09-22T04:55:21.380Z",
+      "implementer_type": "backend-implementer",
+      "last_advanced": "2026-09-22T04:34:46.264Z"
+    },
+    "FIX-003": {
+      "description": "In packages/core/commands/create-trd.md: document the two new readout blocks in the action-named grammar the readout section requires, and say to cross-reference the challenged dependencies against the printed critical path — an off-path one costs nothing to keep. In packages/core/commands/implement-trd.md: correct the description at :357 of what the profile prints. Copy both to their .claude/ mirrors.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-22T04:32:46.325Z",
+      "completed_at": "2026-09-22T04:55:21.380Z",
+      "implementer_type": "agent-implementer",
+      "last_advanced": "2026-09-22T04:34:46.264Z"
+    },
+    "FIX-004": {
+      "description": "Tests, each shown RED first. In packages/core/workflows/create-trd.test.js: the two new enum members, the dependency finding reaching gfLines, and long_tasks in its three readout states. In packages/core/lib/task-graph.test.js: the edge-kind split, the suppression rule in both directions, the critical-path line, and the two width invariants from FIX-002 using the committed TRDs. Correct the comment at :409-410 repeating the refuted claim.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/task-graph.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-22T04:32:46.325Z",
+      "completed_at": "2026-09-22T04:55:21.380Z",
+      "implementer_type": "backend-implementer",
+      "last_advanced": "2026-09-22T04:34:46.264Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/authoring-parallelism-advice.md (## Intended Change)"
+  }
+}

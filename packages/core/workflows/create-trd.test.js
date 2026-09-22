@@ -134,6 +134,23 @@ describe('create-trd wiring', () => {
     expect(result.readout).toMatch(/F-B002 cites a file that does not exist|NOTED BY GROUNDING/);
   });
 
+  it('renders a dependency finding through the existing gfLines block, naming both tasks', async () => {
+    // FIX-001: the dependency challenge travels through the EXISTING findings array as a
+    // new `check` enum member, not a new top-level field — so it needs no new render block.
+    const { result } = await run({
+      'ground:brownfield': {
+        ...GROUNDED,
+        findings: [
+          { check: 'dependency', why: 'F-B002 declares depends_on F-B001 but consumes nothing F-B001 creates', id: 'F-B002', confidence: 'medium', action: 'drop-dependency' },
+        ],
+      },
+    });
+    expect(result.grounding_findings).toBe(1);
+    expect(result.readout).toContain('[dependency]');
+    expect(result.readout).toContain('F-B002');
+    expect(result.readout).toContain('consumes nothing F-B001 creates');
+  });
+
   it('hands off to /audit-trd, never verifying its own output', async () => {
     const { result } = await run();
     expect(result.next).toContain('/audit-trd');
@@ -356,6 +373,29 @@ describe('create-trd sizing', () => {
     expect(result.trd).toBe('docs/TRD/f.md');
     expect(result.readout).toContain('not judged');
     expect(result.one_change).toBeNull();
+  });
+
+  it('renders a LONG TASKS line and exposes long_tasks on the return when the agent finds one', async () => {
+    const { result } = await sized({
+      ...SIZE_CLEAN,
+      long_tasks: [{ id: 'F-B002', why: 'chains "wire it up" with an unrelated migration and a CI guard' }],
+    });
+    expect(result.long_tasks).toEqual([{ id: 'F-B002', why: 'chains "wire it up" with an unrelated migration and a CI guard' }]);
+    expect(result.readout).toContain('LONG TASKS');
+    expect(result.readout).toContain('F-B002');
+    expect(result.readout).toContain('chains "wire it up"');
+  });
+
+  it('renders no LONG TASKS heading when the agent finds none', async () => {
+    const { result } = await sized(SIZE_CLEAN);
+    expect(result.long_tasks).toEqual([]);
+    expect(result.readout).not.toContain('LONG TASKS');
+  });
+
+  it('exposes an empty long_tasks array, not undefined, when the sizing agent returns nothing', async () => {
+    const { result } = await sized(undefined);
+    expect(result.long_tasks).toEqual([]);
+    expect(result.readout).not.toContain('LONG TASKS');
   });
 });
 

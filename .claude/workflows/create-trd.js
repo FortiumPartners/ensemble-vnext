@@ -425,13 +425,13 @@ const FINDING_ITEMS = {
     additionalProperties: false,
     required: ['check', 'why', 'confidence'],
     properties: {
-      check: { type: 'string', enum: ['provenance','severity','omission','buildability','consistency','derivation','grounding','citation','conformance'] },
+      check: { type: 'string', enum: ['provenance','severity','omission','buildability','consistency','derivation','grounding','citation','conformance','dependency'] },
       why: { type: 'string', description: 'the source, contradiction, or mechanism failure' },
       confidence: { type: 'string', enum: ['high','medium','low'] },
       id: { type: 'string', description: "the TRD's own ID; omit for omission findings" },
       line: { type: 'string', description: 'the text as written; omit for omission findings' },
       source_ref: { type: 'string', description: 'for omission findings: where in the SOURCE it is stated' },
-      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation'] },
+      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation','drop-dependency'] },
     },
   },
 }
@@ -577,6 +577,12 @@ to judge these. Report them as findings; do not fix them yourself.
   GROUNDING COMPLETENESS -- does every task carry a block, and does anything the plan
   replaces go unnamed and orphaned?
 
+  DEPENDENCY NECESSITY -- for every declared "depends_on" edge, is it REAL? A dependency is
+  real only if the blocked task consumes something the blocker creates -- a file it writes,
+  a schema it defines, an export it adds. An edge that only reflects narrative order ("do
+  this first because it reads better") is not a dependency; it forces a wave nobody needs.
+  Report each one you cannot justify this way as a finding naming BOTH task IDs in the pair.
+
 FINDABLE ONLY: every finding names a file, a line, a contradiction or a mechanism. No
 opinions, no proposed new requirements, nothing struck on judgment. If a finding asserts
 severity, source that assertion or drop it. Zero findings is legitimate.
@@ -697,6 +703,12 @@ IF IT IS LARGER THAN ONE RUN, PROPOSE A SPLIT. Contiguous groups of task IDs, ea
 on its own, each with a one-line reason and its ordering constraint. A split nobody can act
 on is worse than none: say what ships first and what it unblocks.
 
+LONG TASKS -- reading its text alone, is any single task actually several tasks wearing one
+ID? Look for a description that chains unrelated verbs ("implement X, then migrate Y, then
+add CI guard Z"), or that would touch files no single reasonable change touches together.
+Name each one by ID and say what it should split into. This is NOT a timing estimate --
+never predict minutes or hours; judge the text, not a clock.
+
 Zero deferrals and "one change" is the common, correct answer for most TRDs. Do not
 manufacture concern to look thorough.`,
     {
@@ -728,6 +740,16 @@ manufacture concern to look thorough.`,
                 tasks: { type: 'string', description: 'task id range, e.g. LSA-B001..B003' },
                 ships: { type: 'string', description: 'what this group delivers on its own' },
                 after: { type: 'string', description: 'ordering constraint, if any' },
+              },
+            },
+          },
+          long_tasks: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false, required: ['id', 'why'],
+              properties: {
+                id: { type: 'string', description: 'the task ID that is really several tasks' },
+                why: { type: 'string', description: 'what it should split into' },
               },
             },
           },
@@ -861,6 +883,12 @@ const deferLines = deferred.length
     deferred.map((d) => `    ${d.id} — ${d.why}`).join('\n') + '\n'
   : ''
 
+const longTasks = (sizing && sizing.long_tasks) || []
+const longTaskLines = longTasks.length
+  ? '\n  LONG TASKS — each of these is really several tasks under one ID:\n' +
+    longTasks.map((l) => `    ${l.id} — ${l.why}`).join('\n') + '\n'
+  : ''
+
 const gf = grounded.findings || []
 const gfLines = gf.length
   ? '\n  NOTED BY GROUNDING — not applied. Run /audit-trd to verify and apply:\n' +
@@ -887,6 +915,7 @@ return {
   deploy_cycles: sizing ? sizing.deploy_cycles : null,
   deferred: deferred.map((d) => d.id),
   proposed_split: (sizing && sizing.proposed_split) || [],
+  long_tasks: longTasks,
   next: NEXT,
   readout:
     `TRD: ${TRD}    SOURCE: ${PRD}${EXTRA ? ' + session transcript' : ''}\n` +
@@ -895,6 +924,7 @@ return {
     `${grounded.replaces_found.length} things named for deletion\n` +
     sizeLines +
     deferLines +
+    longTaskLines +
     gfLines +
     `\n  NOT YET VERIFIED. Run  ${NEXT}\n` +
     `  to check provenance, derivation, omission and citations, and to apply what survives.\n`,

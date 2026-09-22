@@ -355,8 +355,11 @@ Read the result as one object carrying: `tasks[]`, `phases{}`, `grounding{}`,
 `edges[]`, `waves[][]`, `criticalPath[]`, `cycles[][]`, `partition{}` (from `task-graph.js`).
 
 **Report `waveProfile` in the first DISPATCHED banner, verbatim.** It is one line — how many
-tasks, how many waves, the average width — plus, when the plan is close to serial, the files
-doing the serializing.
+tasks, how many waves, the average width, how many waves are single-task — plus, when the
+plan is close to serial (avg width below 2), which edge kind actually dominates it (declared
+dependencies or shared files, with the count of each against the total), the critical path as
+a task-ID chain, and — only when shared files are the dominant kind — the files doing the
+serializing.
 
 This is not decoration. Wave width decides how long the run takes and it is fixed at
 AUTHORING time: a real 17-task TRD decomposed into 10 waves averaging 1.70 wide, six of them
