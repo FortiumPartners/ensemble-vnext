@@ -89,6 +89,7 @@ Both may be absent -- older artifacts will not have them.
 BATCH YOUR READS. Grep for the tables and headings; do not read the document linearly.`,
   {
     label: 'index',
+    agentType: 'backend-implementer',
     phase: 'Index',
     effort: 'low',
     model: 'haiku',
@@ -119,7 +120,6 @@ BATCH YOUR READS. Grep for the tables and headings; do not read the document lin
           },
         },
         could_not_verify: { type: 'array', items: { type: 'string' } },
-        open_questions: { type: 'array', items: { type: 'string' } },
       },
     },
   }
@@ -227,10 +227,22 @@ Both are pass/fail per item. A miss is a miss; do not interpret.`,
 
 const VERIFIER_MODEL = 'sonnet'
 
+/* Do not spend a sonnet/high agent restating something the script already knows.
+ *
+ * `source-fidelity` opens with "NO SOURCE WAS SUPPLIED. Report that as your single finding
+ * and stop." when SOURCE is empty — dispatching the most expensive verifier in the file to
+ * produce a fact available at argument-parse time, which the COVERAGE block below then
+ * states independently anyway. */
+const RUNNABLE = VERIFIERS.filter((v) => v.key !== 'source-fidelity' || SOURCE)
+if (RUNNABLE.length < VERIFIERS.length) {
+  log('no source supplied — skipping source-fidelity; reported in coverage instead')
+}
+
 const waves = await parallel(
-  VERIFIERS.map((v) => () =>
+  RUNNABLE.map((v) => () =>
     agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
       label: `verify:${v.key}`,
+      agentType: v.agentType || 'backend-implementer',
       phase: 'Verify',
       effort: v.effort,
       model: v.model || VERIFIER_MODEL,
@@ -241,10 +253,14 @@ const waves = await parallel(
 
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
-const deadKeys = VERIFIERS.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
+// Against RUNNABLE, not VERIFIERS: a verifier deliberately skipped for want of a source is
+// not a verifier that died, and reporting it as "no report from" would be a false alarm about
+// coverage — the exact honesty this block exists to protect.
+const deadKeys = RUNNABLE.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
+const skippedKeys = VERIFIERS.filter((v) => !RUNNABLE.includes(v)).map((v) => v.key)
 const dead = deadKeys.length
 if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
-log(`${findings.length} findings from ${alive.length}/${VERIFIERS.length} verifiers`)
+log(`${findings.length} findings from ${alive.length}/${RUNNABLE.length} verifiers${skippedKeys.length ? ` (${skippedKeys.join(', ')} skipped — no source)` : ''}`)
 
 // --------------------------------------------------------------------------- 3. RECONCILE
 
@@ -302,7 +318,7 @@ see what has been verified and what has not, without running anything.`
 const COVERAGE = `
 
 COVERAGE OF THIS AUDIT -- state it, do not infer it from the findings:
-  verifiers reporting: ${alive.length}/${VERIFIERS.length}${dead ? `   NO REPORT FROM: ${deadKeys.join(', ')}` : ''}
+  verifiers reporting: ${alive.length}/${RUNNABLE.length}${dead ? `   NO REPORT FROM: ${deadKeys.join(', ')}` : ''}${skippedKeys.length ? `   SKIPPED (no source): ${skippedKeys.join(', ')}` : ''}
   source supplied: ${SOURCE || 'NO -- every check needing a baseline was skipped or degraded'}
 ${dead
   ? `Whatever those verifier(s) cover is UNVERIFIED by this run. Add a Could Not Verify row
@@ -322,6 +338,7 @@ section -- do not otherwise edit the document, and do not invent findings.
 ${COVERAGE}${CNV}`,
     {
       label: 'reconcile:could-not-verify',
+      agentType: 'backend-implementer',
       phase: 'Reconcile',
       effort: 'low',
       schema: {
@@ -335,7 +352,8 @@ ${COVERAGE}${CNV}`,
   return {
     prd: PRD, findings: 0, applied: 0, rejected: 0,
     still_unverified: ((clean && clean.could_not_verify_remaining) || []).length,
-    verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
+    verifiers_reporting: `${alive.length}/${RUNNABLE.length}`,
+    verifiers_skipped: skippedKeys,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${PRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
       `  NO ACTION — every requirement traces to the source, nothing is already built,\n` +
@@ -394,6 +412,12 @@ omitting empty ones:
 One screen. If there are 40 sourced requirements, print the COUNT as one line, not forty.`,
   {
     label: 'reconcile',
+    /* Chosen, not inherited. Every other agent in this file pins a model; the two reconcile
+     * agents were the only unpinned dispatches, so they ran on the SESSION model — Opus in
+     * an Opus-led session — while sitting serially at the end of the critical path. Applying
+     * or rejecting a finding against a PRD is judgement worth an expensive model; running on
+     * one by accident is not. */
+    agentType: 'product-manager',
     phase: 'Reconcile',
     effort: 'high',
     schema: {

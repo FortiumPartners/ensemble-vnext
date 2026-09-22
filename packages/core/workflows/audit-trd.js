@@ -111,6 +111,7 @@ Both may be absent -- older artifacts will not have them.
 BATCH YOUR READS. Grep for the tables and headings; do not read the document linearly.`,
   {
     label: 'index',
+    agentType: 'backend-implementer',
     phase: 'Index',
     effort: 'low',
     model: 'haiku',
@@ -306,6 +307,7 @@ const waves = await parallel(
   VERIFIERS.map((v) => () =>
     agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
       label: `verify:${v.key}`,
+      agentType: v.agentType || 'backend-implementer',
       phase: 'Verify',
       effort: v.effort,
       model: v.model || VERIFIER_MODEL,
@@ -398,6 +400,9 @@ section -- do not otherwise edit the document, and do not invent findings.
 ${COVERAGE}${CNV}`,
     {
       label: 'reconcile:could-not-verify',
+      // Rewrites one section and counts rows. No judgement about findings — there are none
+      // on this branch. Sonnet, chosen rather than inherited.
+      agentType: 'backend-implementer',
       phase: 'Reconcile',
       effort: 'low',
       schema: {
@@ -471,6 +476,18 @@ these?" Use exactly these headings, omitting empty ones:
 One screen. If there are 40 sourced objectives, print the COUNT as one line, not forty.`,
   {
     label: 'reconcile',
+    /* DELIBERATELY the expensive agent, and that is now a decision rather than an accident.
+     *
+     * This file set agentType NOWHERE (create-trd sets it on 7 of 7). An unset agentType is
+     * not "no agent": it is the generic workflow subagent on the SESSION model — Opus in an
+     * Opus-led session, unchosen, at roughly 5x a Sonnet agent. Every other agent here pins
+     * a model; these two reconcile agents were the only unpinned dispatches, and they sit
+     * serially at the end of the critical path doing O(findings) work.
+     *
+     * Applying or rejecting a finding against a design document is the one judgement in this
+     * workflow worth an expensive model, so technical-architect (opus) stays. The point is
+     * that it is chosen. */
+    agentType: 'technical-architect',
     phase: 'Reconcile',
     effort: 'high',
     schema: {
