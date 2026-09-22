@@ -881,13 +881,13 @@ as current.
 Each finding is an object with at minimum:
 
 ```json
-{ "check":      "provenance|severity|omission|buildability|consistency|derivation|grounding|citation|conformance",
+{ "check":      "provenance|severity|omission|buildability|consistency|derivation|grounding|citation|conformance|dependency",
   "why":        "the source, contradiction, or mechanism failure — REQUIRED",
   "confidence": "high|medium|low — REQUIRED",
   "id":         "the TRD's own ID; OMIT for omission findings, which have none",
   "line":       "the text as written; OMIT for omission findings",
   "source_ref": "for omission findings: where in the SOURCE the missing objective is stated",
-  "action":     "delete|lower-to-floor|add-back|unbuildable|pick-one|confirm-wanted|check-reasoning|fix-citation" }
+  "action":     "delete|lower-to-floor|add-back|unbuildable|pick-one|confirm-wanted|check-reasoning|fix-citation|drop-dependency" }
 ```
 
 ### Reconcile — 1 subagent
@@ -930,8 +930,9 @@ node -e '
 ' "<trd-path>"
 ```
 
-Put its output in the readout under `STATE`. One line, plus the serializing files when the
-plan is close to serial.
+Put its output in the readout under `STATE`. One line, plus — when the plan is close to
+serial (average width under 2) — which edge kind dominates it, the critical path as a task-ID
+chain, and the serializing files only when shared files are that dominant kind.
 
 **Why it belongs here rather than at implementation time.** Width is decided by how tasks
 were cut and which files each one touches — both settled in this command. By the time
@@ -982,12 +983,27 @@ TRD: docs/TRD/<feature>.md    SOURCE: docs/PRD/<feature>.md + stack.md + constit
   FIX THE CITATION — referenced ID does not resolve (1)
     cites PRD AC-F3.2; no such ID exists in docs/PRD/<feature>.md
 
+  DROP THE DEPENDENCY — grounding could not justify this edge as a real one (1)
+    B7 depends_on B3     B3 writes no file B7 reads and defines nothing B7 uses — narrative
+                         order, not a dependency
+
+  LONG TASKS — each of these is really several tasks under one ID (1)
+    T-9    implements the migration, the API, and the CI guard — three changes under one ID
+
   NO ACTION — sourced, listed for completeness (6)
     ...
 ```
 
 Ordered by how expensive the failure is to find later. If a TRD produces 40 sourced
 objectives, the *count* is the finding — print it as one line, not forty.
+
+**Cross-reference DROP THE DEPENDENCY against the critical path printed by the wave profile,
+above.** Grounding can flag an edge as unjustified without knowing what it costs to keep —
+that is the wave profile's job, not grounding's. An edge sitting off the critical path costs
+nothing to keep even if it is narrative rather than real: removing it will not change
+`avg width` or `waveCount`, only the graph's honesty. An edge sitting ON the printed chain is
+the one worth acting on before `/implement-trd` pays for it wave after wave. Say which case
+it is in the readout line rather than leaving the reader to check.
 
 ---
 

@@ -408,9 +408,10 @@ describe('waveProfile / renderWaveProfile', () => {
     expect(p.singleTaskWaves).toBe(3);
   });
 
-  it('names the FILES doing the serializing, not just the width', () => {
-    // The actionable half. Declared dependencies are rarely the cause — a shared file is,
-    // because every pair touching it becomes an edge in lexical id order.
+  it('names the FILES doing the serializing when file conflicts are the dominant edge kind', () => {
+    // The actionable half, when file conflicts really are the dominant cause: every pair
+    // touching one file becomes an edge in lexical id order, with no declared dependency
+    // in this fixture at all (0 dependency edges vs 3 file-conflict edges).
     const tasks = [task('A-1'), task('A-2'), task('A-3')];
     const grounding = {
       'A-1': { touches: ['src/core.ts'] },
@@ -421,7 +422,15 @@ describe('waveProfile / renderWaveProfile', () => {
     const p = waveProfile(graph);
     expect(p.avgWidth).toBe(1); // three tasks, one file, three waves
     expect(p.chains[0]).toEqual({ file: 'src/core.ts', tasks: 3 });
-    expect(renderWaveProfile(graph).join('\n')).toContain('src/core.ts — touched by 3 tasks');
+    expect(p.dependencyEdges).toBe(0);
+    expect(p.fileConflictEdges).toBe(3);
+    expect(p.dominantKind).toBe('file-conflict');
+    const rendered = renderWaveProfile(graph).join('\n');
+    expect(rendered).toContain('src/core.ts — touched by 3 tasks');
+    // Suppression cuts both ways: this is the mirror of the dependency-dominant case below
+    // (which withholds the files list) — here it is the "declared dependencies" label that
+    // must be withheld, because file conflicts are what actually dominates this graph.
+    expect(rendered).not.toContain('declared dependencies');
   });
 
   it('stays quiet about files when the plan is already parallel', () => {
@@ -433,6 +442,151 @@ describe('waveProfile / renderWaveProfile', () => {
 
   it('renders nothing for an empty graph rather than a misleading zero', () => {
     expect(renderWaveProfile(buildGraph([], {}))).toEqual([]);
+  });
+
+  it('names declared dependencies as the dominant kind and prints the critical path as a chain, when dependency edges dominate', () => {
+    const tasks = [
+      task('A-1'),
+      task('A-2', { dependencies: ['A-1'] }),
+      task('A-3', { dependencies: ['A-2'] }),
+    ];
+    const graph = buildGraph(tasks, {});
+    const p = waveProfile(graph);
+    expect(p.dependencyEdges).toBe(2);
+    expect(p.fileConflictEdges).toBe(0);
+    expect(p.dominantKind).toBe('dependency');
+    const lines = renderWaveProfile(graph);
+    expect(lines.join('\n')).toContain('declared dependencies');
+    expect(lines.join('\n')).toContain('critical path: A-1 -> A-2 -> A-3');
+  });
+
+  it('does NOT print the serializing-files list when declared dependencies (not file conflicts) dominate', () => {
+    const tasks = [
+      task('A-1'),
+      task('A-2', { dependencies: ['A-1'] }),
+      task('A-3', { dependencies: ['A-2'] }),
+    ];
+    // Also give A-1/A-2 a shared file, so `chains` is non-empty — the assertion that
+    // matters is that the file list is still withheld because dependencies, not file
+    // conflicts, are the dominant kind (2 dependency edges vs 1 file-conflict edge).
+    const grounding = { 'A-1': { touches: ['shared.ts'] }, 'A-2': { touches: ['shared.ts'] } };
+    const graph = buildGraph(tasks, grounding);
+    const p = waveProfile(graph);
+    expect(p.dominantKind).toBe('dependency');
+    expect(p.chains.length).toBeGreaterThan(0); // there IS a file conflict recorded...
+    const rendered = renderWaveProfile(graph).join('\n');
+    expect(rendered).not.toContain('these files serialize'); // ...but it's not what's printed
+  });
+
+  it('counts ordering constraints, not edge records, so shared files cannot be blamed for a pair a declared dependency already serializes', () => {
+    // buildGraph emits one file-conflict edge PER SHARED FILE, and emits one even when the
+    // pair already declares a dependency. Counting raw edges made this graph read as
+    // "driven by shared files (2 of 3 edges)" and told the author to un-share a.ts and
+    // b.ts -- which changes nothing, because A-2 depends_on A-1 regardless.
+    const tasks = [task('A-1'), task('A-2', { dependencies: ['A-1'] })];
+    const grounding = {
+      'A-1': { touches: ['a.ts', 'b.ts'] },
+      'A-2': { touches: ['a.ts', 'b.ts'] },
+    };
+    const graph = buildGraph(tasks, grounding);
+    expect(graph.edges.length).toBe(3); // 1 dependency + 2 file-conflict records...
+    const p = waveProfile(graph);
+    expect(p.dependencyEdges).toBe(1); // ...but only ONE constraint, and it is the dep
+    expect(p.fileConflictEdges).toBe(0);
+    expect(p.dominantKind).toBe('dependency');
+    const rendered = renderWaveProfile(graph).join('\n');
+    expect(rendered).toContain('declared dependencies (1 of 1 ordering constraints)');
+    expect(rendered).not.toContain('these files serialize');
+  });
+
+  it('prints no critical-path line when the path is a single task, rather than asserting a chain that does not exist', () => {
+    // A-1 declares depends_on A-2 while both touch x.ts, and the file-conflict edge is
+    // oriented the other way (lexically smaller id blocks) -- so the pair is a cycle and
+    // neither task ever reaches a wave. Only the unconstrained A-3 does, which made
+    // computeCriticalPath return the one-element ["A-3"] and the renderer print
+    // `critical path: A-3` -- a chain of one, describing nothing.
+    const tasks = [task('A-1', { dependencies: ['A-2'] }), task('A-2'), task('A-3')];
+    const grounding = { 'A-1': { touches: ['x.ts'] }, 'A-2': { touches: ['x.ts'] } };
+    const graph = buildGraph(tasks, grounding);
+    expect(graph.cycles).toEqual([['A-1', 'A-2']]);
+    expect(graph.criticalPath).toEqual(['A-3']);
+    const rendered = renderWaveProfile(graph).join('\n');
+    expect(rendered).toContain('narrow —');
+    expect(rendered).not.toContain('critical path:');
+  });
+});
+
+/* Real-TRD measurement, FIX-002: on docs/TRD/autonomy-judge-command-scope.md the graph
+ * carries 13 declared-dependency edges against 1 file-conflict edge. Declared dependencies
+ * dominate, so the rendered output must attribute the narrowness to them, print the
+ * critical path as a chain, and must NOT print the serializing-files list -- that list is
+ * reserved for graphs where file conflicts are what dominates (see the fixture at line 424
+ * above, and packages/core/lib/task-graph.test.js's own 3-file-conflict-edge fixture). */
+describe('waveProfile / renderWaveProfile — against docs/TRD/autonomy-judge-command-scope.md', () => {
+  const { waveProfile, renderWaveProfile } = require('./task-graph');
+  const md = readRepoDoc('docs/TRD/autonomy-judge-command-scope.md');
+  const parsed = parseTrd(md, { path: 'docs/TRD/autonomy-judge-command-scope.md' });
+  const graph = buildGraph(parsed.tasks, parsed.grounding);
+
+  it('carries 13 declared-dependency edges against 1 file-conflict edge', () => {
+    expect(graph.edges.filter((e) => e.kind === 'dependency').length).toBe(13);
+    expect(graph.edges.filter((e) => e.kind === 'file-conflict').length).toBe(1);
+  });
+
+  it('attributes narrowness to declared dependencies, not file conflicts', () => {
+    const p = waveProfile(graph);
+    expect(p.dominantKind).toBe('dependency');
+    expect(renderWaveProfile(graph).join('\n')).toContain('declared dependencies');
+  });
+
+  it('prints the critical path as a chain', () => {
+    expect(renderWaveProfile(graph).join('\n')).toContain(
+      `critical path: ${graph.criticalPath.join(' -> ')}`
+    );
+  });
+
+  it('does NOT print the serializing-files list', () => {
+    expect(renderWaveProfile(graph).join('\n')).not.toContain('these files serialize');
+  });
+
+  it('average width rises when a critical-path dependency edge is removed, and is unchanged when only off-path edges are removed', () => {
+    // The load-bearing invariant behind this task's <decision>: average wave width only
+    // moves when a removed edge lies on the longest chain, so a projected-width helper is
+    // unnecessary -- printing the real critical path already answers "why is this narrow".
+    // Measured [ran]: baseline 7 waves avg 1.7143; all 13 dependency edges removed -> 2
+    // waves avg 6.0000; critical-path edges removed -> 5 waves avg 2.4000; off-path edges
+    // removed only -> 7 waves avg 1.7143, unchanged.
+    const baseline = waveProfile(graph);
+    expect(baseline.waveCount).toBe(7);
+    expect(baseline.avgWidth).toBeCloseTo(1.7143, 4);
+
+    const cp = graph.criticalPath;
+    const onPathPairs = new Set();
+    for (let i = 0; i < cp.length - 1; i++) onPathPairs.add(`${cp[i]}->${cp[i + 1]}`);
+
+    function rebuildFiltering(keepEdge) {
+      const tasks2 = parsed.tasks.map((t) => ({
+        ...t,
+        dependencies: (t.dependencies || []).filter((d) => keepEdge(d, t.id)),
+      }));
+      return buildGraph(tasks2, parsed.grounding);
+    }
+
+    const allDepsRemoved = waveProfile(rebuildFiltering(() => false));
+    expect(allDepsRemoved.waveCount).toBe(2);
+    expect(allDepsRemoved.avgWidth).toBeCloseTo(6.0, 4);
+
+    const criticalPathRemoved = waveProfile(
+      rebuildFiltering((d, id) => !onPathPairs.has(`${d}->${id}`))
+    );
+    expect(criticalPathRemoved.waveCount).toBe(5);
+    expect(criticalPathRemoved.avgWidth).toBeCloseTo(2.4, 4);
+
+    const offPathRemovedOnly = waveProfile(
+      rebuildFiltering((d, id) => onPathPairs.has(`${d}->${id}`))
+    );
+    expect(offPathRemovedOnly.waveCount).toBe(7);
+    expect(offPathRemovedOnly.avgWidth).toBeCloseTo(1.7143, 4);
   });
 });
 

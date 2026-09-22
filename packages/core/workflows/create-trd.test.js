@@ -134,6 +134,48 @@ describe('create-trd wiring', () => {
     expect(result.readout).toMatch(/F-B002 cites a file that does not exist|NOTED BY GROUNDING/);
   });
 
+  // FIX-004: the `check` and `action` enums are read straight off the SOURCE text loaded by
+  // readScript() above — the same file the workflow actually runs — so a member removed from
+  // create-trd.js fails these directly, not by way of a stub that never looks at the schema.
+  // (This is what the earlier version of this suite lacked: makeAgentStub's canned returns
+  // never touch opts.schema — see test-harness.js:51-65 — so nothing before this asserted the
+  // enum membership itself.)
+  it("declares 'dependency' in the findings check enum", () => {
+    const match = SOURCE.match(/check:\s*\{\s*type:\s*'string',\s*enum:\s*\[([^\]]+)\]\s*\}/);
+    expect(match).not.toBeNull();
+    const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
+    expect(members).toContain('dependency');
+  });
+
+  it("declares 'drop-dependency' in the findings action enum", () => {
+    const match = SOURCE.match(/action:\s*\{\s*type:\s*'string',\s*enum:\s*\[([^\]]+)\]\s*\}/);
+    expect(match).not.toBeNull();
+    const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
+    expect(members).toContain('drop-dependency');
+  });
+
+  it('renders TWO dependency findings through the existing gfLines block, naming both task pairs', async () => {
+    // FIX-001's acceptance criterion: "A grounding return whose `findings` include two
+    // `check: "dependency"` entries renders them through the existing `gfLines` block naming
+    // both task pairs." One entry proved the block fires at all; this proves it doesn't
+    // collapse or drop a second one naming a DIFFERENT pair.
+    const { result } = await run({
+      'ground:brownfield': {
+        ...GROUNDED,
+        findings: [
+          { check: 'dependency', why: 'F-B002 declares depends_on F-B001 but consumes nothing F-B001 creates', id: 'F-B002', confidence: 'medium', action: 'drop-dependency' },
+          { check: 'dependency', why: 'F-B003 declares depends_on F-B002 but consumes nothing F-B002 creates', id: 'F-B003', confidence: 'medium', action: 'drop-dependency' },
+        ],
+      },
+    });
+    expect(result.grounding_findings).toBe(2);
+    expect(result.readout).toContain('[dependency]');
+    expect(result.readout).toContain('F-B002');
+    expect(result.readout).toContain('consumes nothing F-B001 creates');
+    expect(result.readout).toContain('F-B003');
+    expect(result.readout).toContain('consumes nothing F-B002 creates');
+  });
+
   it('hands off to /audit-trd, never verifying its own output', async () => {
     const { result } = await run();
     expect(result.next).toContain('/audit-trd');
@@ -356,6 +398,29 @@ describe('create-trd sizing', () => {
     expect(result.trd).toBe('docs/TRD/f.md');
     expect(result.readout).toContain('not judged');
     expect(result.one_change).toBeNull();
+  });
+
+  it('renders a LONG TASKS line and exposes long_tasks on the return when the agent finds one', async () => {
+    const { result } = await sized({
+      ...SIZE_CLEAN,
+      long_tasks: [{ id: 'F-B002', why: 'chains "wire it up" with an unrelated migration and a CI guard' }],
+    });
+    expect(result.long_tasks).toEqual([{ id: 'F-B002', why: 'chains "wire it up" with an unrelated migration and a CI guard' }]);
+    expect(result.readout).toContain('LONG TASKS');
+    expect(result.readout).toContain('F-B002');
+    expect(result.readout).toContain('chains "wire it up"');
+  });
+
+  it('renders no LONG TASKS heading when the agent finds none', async () => {
+    const { result } = await sized(SIZE_CLEAN);
+    expect(result.long_tasks).toEqual([]);
+    expect(result.readout).not.toContain('LONG TASKS');
+  });
+
+  it('exposes an empty long_tasks array, not undefined, when the sizing agent returns nothing', async () => {
+    const { result } = await sized(undefined);
+    expect(result.long_tasks).toEqual([]);
+    expect(result.readout).not.toContain('LONG TASKS');
   });
 });
 

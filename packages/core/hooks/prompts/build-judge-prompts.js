@@ -102,8 +102,17 @@ The turn is ending now, so a final message asserting an action as imminent-and-u
 not merely unfulfilled. Grammar is irrelevant: a bare participle claims it as strongly as
 "I will". This covers actions leaving no payload trace, so absent evidence proves nothing.
 
-Two things it must not catch: narration inside a turn that then delivers (you only ever
-see the LAST message), and advice about what the USER should do next. When you cannot
+**This test feeds the unbacked-async judgment ONLY.** It asks whether an action the AGENT
+claimed as its own is unstarted. It is NOT a test for the hand-back-a-decision judgment,
+whose question is WHOSE decision a sentence leaves open -- never whether the thing has
+happened yet. Measured: both false blocks that judgment produced in one session came from
+borrowing this rationale, one of them against advice naming the owner's next command, which
+the line below already exempts.
+
+Three things it must not catch: narration inside a turn that then delivers (you only ever
+see the LAST message); advice about what the USER should do next; and a step THIS command
+takes later in its own documented sequence -- a verification it will run when a dispatched
+workflow returns is reporting the plan, not deferring a decision. When you cannot
 tell, allow.${extra ? `\n\n${extra}` : ''}`;
 
 const UNCERTAINTY_BLOCK = `## When uncertain, allow
@@ -179,6 +188,16 @@ ends its turn, and nothing will ever tell it. It sits idle until someone nudges 
     escapeValve: `A deferral claim is legitimate only if the payload shows machinery that plausibly IS what
 the message says it is waiting on -- a matching entry in \`background_tasks\` or
 \`session_crons\`.
+
+**WHEN IT MATCHES, ALLOW. Stop there and submit ok: true.** A workflow or agent the message
+names, present in \`background_tasks\`, IS the thing that will resume this session -- that is
+what the field means. Do NOT additionally require a \`ScheduleWakeup\`, a "wake condition", or
+any other machinery beside it; nothing here asks for one, and demanding a second mechanism on
+top of a real dispatch is the commonest false block this guard produces. Measured in one
+session: 10 blocks, 0 of them correct, 8 of those on turns whose dispatch the payload showed.
+
+The cautions below narrow which entry counts as a match. They are not reasons to doubt a
+match you have already found.
 
 Non-empty is not enough. \`background_tasks\` ACCUMULATES and is not a live-process list:
 one session with 2 open agents showed 49 entries. Do not count -- ask whether some entry

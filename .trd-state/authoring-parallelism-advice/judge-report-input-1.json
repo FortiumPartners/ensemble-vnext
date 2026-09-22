@@ -1,0 +1,69 @@
+{
+  "feature": "authoring-parallelism-advice",
+  "prd": "docs/TRD/authoring-parallelism-advice.md (## Intended Change)",
+  "definitionPath": ".trd-state/authoring-parallelism-advice/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met or not verifiable here",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "On a plan whose average wave width is under 2, the readout states which edge kind dominates the graph — declared dependencies vs file conflicts — rather than assuming one.",
+      "cites": "§Intended Change, After: \"The same readout names which edge kind dominates\"",
+      "status": "met",
+      "artifact": ".trd-state/authoring-parallelism-advice/evidence/FS1-FS3-autonomy-judge-command-scope.txt",
+      "reason": "The captured readout over docs/TRD/autonomy-judge-command-scope.md (12 tasks, 7 waves, avg 1.71 wide, so under the width-2 trigger) prints \"narrow — driven by declared dependencies (13 of 14 ordering constraints)\". It names the dominant edge kind and carries the count that justifies the naming, rather than assuming a kind.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "The readout no longer presents shared files as the explanation for a low average width when file conflicts are not what set the depth; the shared-files list appears only when file conflicts do dominate.",
+      "cites": "§Intended Change, Before: \"the diagnostic points away from the cause\"",
+      "status": "met",
+      "artifact": ".trd-state/authoring-parallelism-advice/evidence/FS2-synthetic-file-dominated.txt",
+      "reason": "The contrast holds in both directions. On the dependency-dominated real plan (13 of 14 constraints declared) the output ends at the critical path with no shared-files section at all. On a file-dominated graph (6 of 6 constraints from file conflicts) the same code prints \"these files serialize the most tasks: shared/a.js — touched by 4 tasks\". So the shared-files diagnostic was made conditional on file conflicts actually dominating, not removed.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "The readout prints the chain that sets the depth — the longest dependency path through the plan.",
+      "cites": "§Intended Change, Before: \"is computed on every run and printed nowhere\"; After: \"prints that chain\"",
+      "status": "met",
+      "artifact": ".trd-state/authoring-parallelism-advice/evidence/FS1-FS3-autonomy-judge-command-scope.txt",
+      "reason": "The readout prints \"critical path: AJCS-P001 -> AJCS-B001 -> AJCS-B002 -> AJCS-T001 -> AJCS-B005 -> AJCS-B006 -> AJCS-D001\" — the seven-task chain the TRD states as this plan's exact value, matching id for id and in order. Its length (7) also equals the wave count (7), which is what a depth-setting path must satisfy.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "The readout lists the declared dependencies grounding could not justify, and for each one says whether it lies on the depth-setting chain.",
+      "cites": "§Intended Change, After: \"lists the declared dependencies grounding could not justify with which of them lie on the chain\"",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "This half of the readout is fed by grounding's per-dependency justification verdicts, which exist only inside a live /create-trd pipeline run (roughly 20 minutes, and it needs a source PRD to run against). Nothing in this environment can produce that input, so the criterion is unverifiable here rather than failing — no evidence shows the behaviour broken.",
+      "attempts": 1,
+      "blocker": "needs a full /create-trd run whose grounding stage returns at least one unjustified declared dependency"
+    },
+    {
+      "id": "FS-5",
+      "statement": "The readout lists the tasks sizing expects to run long, and for each one a proposed split.",
+      "cites": "§Intended Change, After: \"lists the tasks sizing expects to run long with a proposed split\"",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Same shape as FS-4: the long-task estimates and their proposed splits come from the sizing stage of a live /create-trd run and have no offline source. Not exercisable in this pass; nothing shows it broken.",
+      "attempts": 1,
+      "blocker": "needs a full /create-trd run whose sizing stage returns at least one long task"
+    },
+    {
+      "id": "FS-6",
+      "statement": "The two judgments are advisory: the TRD is still written, the run does not rewrite the plan it just advised on, and it asks the owner no question.",
+      "cites": "§Intended Change, After: \"All advisory: the TRD is still written, nothing is rewritten, no question is asked\"",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Proving this needs a whole /create-trd run to observe: a TRD file that exists afterwards, byte-identical before and after the advice is emitted, and no AskUserQuestion anywhere in the run. All three observations are properties of the live run, not of anything runnable here.",
+      "attempts": 1,
+      "blocker": "needs a full /create-trd run to diff the TRD before and after advice emission and to confirm no AskUserQuestion was invoked"
+    }
+  ]
+}
