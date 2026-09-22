@@ -107,8 +107,12 @@ states the correct rule twice.**
 
 ### Retracted
 
-An earlier commit in this release claimed the BATS battery leaks a test fixture into ten
-committed files and that the leak compounds per run. **It does not reproduce.** Two consecutive
+An earlier commit in this release claimed that running the shell-test suite leaves its own fake
+data behind in ten committed files — one of those tests temporarily registers a dummy hook in
+`hooks.manifest.json` and runs the real generator over it, so a cleanup that failed would bake
+that dummy into three `settings.json` copies and the hook tables in `init-project.md` and
+`rebase-project.md`. The commit further claimed it accumulated on every run. **It does not
+reproduce.** Two consecutive
 full battery runs with nothing else active left the tree clean. The original claim rested on one
 observation in a window where several agents were writing those files, and the two later
 "reverts" never checked whether there was anything to revert. Commit bodies `a3739ee` and
