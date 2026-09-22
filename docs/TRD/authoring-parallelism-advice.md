@@ -140,19 +140,50 @@ description.
 
 ## Could Not Verify
 
-- **Whether either judgment produces advice worth acting on.** Both are prompt additions
-  evaluated by a model. The mechanism is checkable — the finding is returned, persisted and
-  rendered; the line appears — but the quality of the judgment is not, and no test here
-  asserts it.
-- **What any of this is worth in wall clock.** No `/implement-trd` run has per-task timing, so
-  "removing narrative dependencies shortens runs" rests on edge counts and one skewed duration
-  sample, not a before-and-after. The critical-path chain this prints is deterministic
-  arithmetic on the graph, not a prediction of minutes.
-- **Whether the six off-chain dependency edges on `autonomy-judge-command-scope.md` are in
-  fact removable.** They read as story order, and by the arithmetic above removing them would
-  not widen a single wave — which is itself the argument for reporting the chain rather than
-  the count. Nobody has checked them against the code; that is the judgment FIX-001 delegates
-  to grounding.
-- **That the advice reaches the point where the cost is paid.** `/implement-trd`'s banner is
-  the last moment this is free to act on. This change corrects what that banner's
-  documentation claims but adds nothing to what the command does with the information.
+Rewritten by `/audit-build` on 2026-09-21. Five verifiers of five reported; Jest 1114 passing
+(promised >1102), pytest 107, BATS 648 — all as FIX-004 required. Gaps this audit found are
+in its readout, not here. What remains below is what the audit deliberately did not or could
+not check.
+
+**Not checked — no product requirements document exists.** The header records `Source PRD:
+None`, `.trd-state/current.json` carries `"prd": null`, and `docs/PRD/` holds nothing for
+this feature. So the audit's validation pass — does the delivered code do what the product
+asked for — never ran. Everything below and in the readout is checked against this TRD's own
+tasks and objectives only. If the change was wanted for a reason this TRD states wrongly,
+nothing here would catch it.
+
+**Not checked — whether either advisory judgment produces advice worth acting on.** Both are
+prompt additions evaluated by a model. The audit confirmed the mechanism: the `dependency`
+finding reaches the readout through `gfLines`, and `long_tasks` renders in all three states
+(one entry, none, agent returned nothing). The quality of the judgment is not testable from a
+committed tree and no test asserts it.
+
+**Not checked — that a dependency finding is actually written to disk.** FIX-001's acceptance
+criterion asks for the finding to appear in `.trd-state/<feature>/findings/grounding.json`,
+"verified by reading the file, not the return". That write is an instruction to the grounding
+agent in prompt text (`create-trd.js:595`), not code the suite can exercise, so confirming it
+needs a live `/create-trd` run. This audit ran none.
+
+**Not checked — that FIX-004's tests were seen failing before they passed.** The task required
+each new test demonstrated RED against the pre-change implementation. That is a fact about the
+order work happened in, not about the tree, and it cannot be recovered from the committed
+result. The audit substituted the one check it could make — deliberately breaking the
+implementation and observing whether the suite noticed — which is how the enum gap in the
+readout was found.
+
+**Not checked — what any of this is worth in wall clock.** No `/implement-trd` run has per-task
+timing, so "removing narrative dependencies shortens runs" still rests on edge counts and one
+skewed duration sample, not a before-and-after. The critical-path chain now printed is
+deterministic arithmetic on the graph, not a prediction of minutes.
+
+**Not checked — whether the six off-chain dependency edges on
+`docs/TRD/autonomy-judge-command-scope.md` are in fact removable.** They read as story order,
+and the committed tests confirm the arithmetic: removing them leaves average width at 1.7143
+unchanged. Whether they are genuinely unnecessary is a judgment about that TRD's code, which
+FIX-001 delegates to grounding at authoring time. Nobody has made it.
+
+**Partly resolved — whether the advice reaches the point where the cost is paid.**
+`implement-trd.md:357` now describes `renderWaveProfile`'s output correctly and its `.claude/`
+mirror is byte-identical, both confirmed. What stands unchanged is the substance: this TRD's
+own non-goals forbid touching `/implement-trd`'s dispatch behaviour, so the command still
+prints the profile and does nothing further with it.

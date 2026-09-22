@@ -64,16 +64,16 @@
     "FIX-004": {
       "description": "Tests, each shown RED first. In packages/core/workflows/create-trd.test.js: the two new enum members, the dependency finding reaching gfLines, and long_tasks in its three readout states. In packages/core/lib/task-graph.test.js: the edge-kind split, the suppression rule in both directions, the critical-path line, and the two width invariants from FIX-002 using the committed TRDs. Correct the comment at :409-410 repeating the refuted claim.",
       "phase": 1,
-      "status": "success",
-      "cycle_position": "complete",
-      "current_problem": null,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": "The enum-member assertion FIX-004 promised does not exist. The only test using check:\"dependency\" hands the stub agent a canned object; test-harness.js makeAgentStub returns it unvalidated, so deleting dependency from the enum at create-trd.js:428 leaves all 34 tests passing — verified by doing it. Also uses one dependency entry where the task asked for two.",
       "retry_count": 0,
       "files_changed": [
         "packages/core/lib/task-graph.test.js"
       ],
       "commit": null,
       "started_at": "2026-09-22T04:32:46.325Z",
-      "completed_at": "2026-09-22T04:55:21.380Z",
+      "completed_at": null,
       "implementer_type": "backend-implementer",
       "last_advanced": "2026-09-22T04:34:46.264Z"
     }
