@@ -498,6 +498,22 @@ describe('waveProfile / renderWaveProfile', () => {
     expect(rendered).toContain('declared dependencies (1 of 1 ordering constraints)');
     expect(rendered).not.toContain('these files serialize');
   });
+
+  it('prints no critical-path line when the path is a single task, rather than asserting a chain that does not exist', () => {
+    // A-1 declares depends_on A-2 while both touch x.ts, and the file-conflict edge is
+    // oriented the other way (lexically smaller id blocks) -- so the pair is a cycle and
+    // neither task ever reaches a wave. Only the unconstrained A-3 does, which made
+    // computeCriticalPath return the one-element ["A-3"] and the renderer print
+    // `critical path: A-3` -- a chain of one, describing nothing.
+    const tasks = [task('A-1', { dependencies: ['A-2'] }), task('A-2'), task('A-3')];
+    const grounding = { 'A-1': { touches: ['x.ts'] }, 'A-2': { touches: ['x.ts'] } };
+    const graph = buildGraph(tasks, grounding);
+    expect(graph.cycles).toEqual([['A-1', 'A-2']]);
+    expect(graph.criticalPath).toEqual(['A-3']);
+    const rendered = renderWaveProfile(graph).join('\n');
+    expect(rendered).toContain('narrow —');
+    expect(rendered).not.toContain('critical path:');
+  });
 });
 
 /* Real-TRD measurement, FIX-002: on docs/TRD/autonomy-judge-command-scope.md the graph

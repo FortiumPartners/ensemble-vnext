@@ -292,8 +292,12 @@ function renderWaveProfile(graph, opts = {}) {
       `  narrow — driven by ${dominantLabel} ` +
         `(${dominantCount} of ${totalEdges} ordering constraints)`
     );
+    // A one-element path is not a chain and says nothing. It happens when every edge sits
+    // inside a cycle: those tasks never reach a wave, so `order` (and therefore the path)
+    // holds only the unconstrained remainder, and printing `critical path: A-3` asserts a
+    // chain where there is none.
     const criticalPath = (graph && graph.criticalPath) || [];
-    if (criticalPath.length) {
+    if (criticalPath.length > 1) {
       out.push(`  critical path: ${criticalPath.join(' -> ')}`);
     }
     if (p.dominantKind === 'file-conflict' && p.chains.length) {
