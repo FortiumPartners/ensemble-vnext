@@ -411,6 +411,86 @@ for (const sup of authored.supersedes || []) {
 // source-fidelity verifier has no baseline and reports that as its single finding: the
 // check this readout promises is exactly the one that would not run. Without --project, its
 // verifiers resolve every path against the wrong repository.
+/* DID THE PRD DRIFT FROM WHAT WAS ASKED FOR?
+ *
+ * This is the half that was missing, and it is the half that matters. `/create-trd` judges
+ * size AFTER a TRD exists, which is downstream of where scope actually expands. Measured: an
+ * owner's "moderate change touching a lot of callers" arrived at implementation as 17 tasks
+ * across two deploy cycles and a 6.42-hour run — and the growth had already happened in an
+ * 85KB PRD with 37 requirements, before any TRD was written.
+ *
+ * It runs LAST and alone, because it needs the authored PRD and nothing can overlap it. That
+ * costs this command time it did not spend before. The trade is deliberate: roughly a minute
+ * to catch a scope expansion that otherwise surfaces six hours later, in code.
+ *
+ * It compares against SOURCE_PACKAGE -- the owner's words, verbatim, which this workflow
+ * already holds. The question is never "is this big"; a large ask honestly translated is
+ * fine. The question is whether the document grew things the ask did not contain. */
+// No `SOURCE_PACKAGE ?` guard: this workflow already refuses to start unless one of
+// args.source / args.brief is present, so there is always a request to compare against.
+// A conditional here would read as a real branch while being unreachable.
+const drift = await agent(
+      `Compare an authored PRD against the request it came from, and report DRIFT only.
+
+PRD: ${PRD}
+${SCOPE}
+THE REQUEST, VERBATIM:
+${SOURCE_PACKAGE}
+
+Read both. Then answer one question: does the PRD ask for things the request did not?
+
+Report as drift:
+  - a capability the request never mentions, however sensible it looks
+  - infrastructure the request did not ask for -- a migration, a rename sweep, CI enforcement,
+    a classification document -- added to make the real ask safer or tidier
+  - a requirement whose only source is the PRD's own reasoning
+
+NOT drift, and do not report it:
+  - detail the request implies but did not spell out; that is the job
+  - a constraint the codebase imposes
+  - anything the request states in other words
+
+THEN SAY WHETHER THE REQUESTER WOULD RECOGNISE THIS. If you read them the PRD's summary in
+their own vocabulary, is it the thing they asked for, or that thing plus a programme of work?
+
+Zero drift is the common and correct answer. A PRD that faithfully expands a large request is
+not drifting. Do not manufacture findings to look thorough -- a false drift report sends
+someone to delete requirements that were legitimately derived.`,
+      {
+        label: 'drift',
+        phase: 'Author',
+        agentType: 'product-manager',
+        effort: 'low',
+        schema: {
+          type: 'object', additionalProperties: false,
+          required: ['recognisable', 'drift'],
+          properties: {
+            recognisable: { type: 'boolean', description: 'would the requester recognise this as what they asked for' },
+            drift: {
+              type: 'array',
+              items: {
+                type: 'object', additionalProperties: false, required: ['requirement', 'why'],
+                properties: {
+                  requirement: { type: 'string', description: 'the added thing, in plain words' },
+                  why: { type: 'string', description: 'what in the request it does not trace to' },
+                },
+              },
+            },
+          },
+        },
+  }
+)
+
+const driftLines = (() => {
+  if (!drift) return ''
+  const items = drift.drift || []
+  if (drift.recognisable && !items.length) return '\n  SCOPE — matches the request\n'
+  let out = `\n  SCOPE GREW BEYOND THE REQUEST${drift.recognisable ? '' : ' — the requester would not recognise this'}\n`
+  for (const d of items) out += `    ${d.requirement} — ${d.why}\n`
+  out += `    Cut these, or say why they are needed, before /create-trd turns them into tasks.\n`
+  return out
+})()
+
 const NEXT = `/audit-prd ${PRD}` +
   (BASELINE ? ` --source ${BASELINE}` : '') +
   (PROJECT ? ` --project ${PROJECT}` : '')
@@ -429,12 +509,15 @@ return {
   // view (what it overrode) should MATCH, and a gap between them is the interesting signal --
   // a contradiction found before authoring that the PRD then did not carry.
   conflicts_found: conflicts.length,
+  scope_recognisable: drift ? drift.recognisable : null,
+  scope_drift: drift ? (drift.drift || []).map((d) => d.requirement) : [],
   conflicts_same_question: sameQuestion.length,
   next: NEXT,
   readout:
     `PRD: ${PRD}    SOURCE: ${BASELINE}\n` +
     `  ${authored.requirements.length} requirements` +
     `${corpus.documents.length ? `, inheriting from ${corpus.documents.length} corpus documents` : ''}\n` +
+    driftLines +
     `${sameQuestion.length && !(authored.supersedes || []).length
         ? `\n  WARNING: the conflict scan found ${sameQuestion.length} disagreement(s) on the SAME\n` +
           `  question as the corpus, but the PRD recorded no supersession. Check it did not\n` +

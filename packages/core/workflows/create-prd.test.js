@@ -117,3 +117,66 @@ describe('create-prd: the scan/PRD gap is the interesting signal', () => {
     expect(result.readout).not.toContain('WARNING');
   });
 });
+
+/* Scope drift, added 2026-09-21. The sizing judgment in /create-trd runs after a TRD exists,
+ * which is downstream of where scope actually grows: an owner's "moderate change" was already
+ * an 85KB PRD with 37 requirements before any TRD was written, and reached implementation as
+ * 17 tasks across two deploy cycles. */
+describe('create-prd scope drift', () => {
+  const driftPlan = (drift) => (prompt, opts) => {
+    if (opts.label === 'corpus-index') return { documents: [], conventions: [] };
+    if (opts.label === 'author:product-manager') return { prd_path: 'docs/PRD/f.md', requirements: ['R1'] };
+    if (opts.label === 'drift') return drift;
+    return undefined;
+  };
+  const withDrift = async (drift, args) => {
+    const agent = makeAgentStub(driftPlan(drift));
+    const { result } = await runWorkflow(SOURCE, {
+      agent, args: args || baseArgs({ source: 'make the rate box bigger' }),
+    });
+    return { result, agent };
+  };
+
+  it('compares the PRD against the request VERBATIM', async () => {
+    const { agent } = await withDrift({ recognisable: true, drift: [] });
+    const call = agent.calls.find((c) => c.opts.label === 'drift');
+    expect(call.prompt).toContain('make the rate box bigger');
+  });
+
+  it('says so plainly when the PRD matches the request', async () => {
+    const { result } = await withDrift({ recognisable: true, drift: [] });
+    expect(result.readout).toContain('SCOPE — matches the request');
+    expect(result.scope_recognisable).toBe(true);
+  });
+
+  it('names what grew, and says to cut it BEFORE it becomes tasks', async () => {
+    const { result } = await withDrift({
+      recognisable: false,
+      drift: [{ requirement: 'a database migration with a backfill', why: 'the request only asked for a wider input' }],
+    });
+    expect(result.readout).toContain('SCOPE GREW BEYOND THE REQUEST');
+    expect(result.readout).toContain('a database migration with a backfill');
+    expect(result.readout).toContain('before /create-trd turns them into tasks');
+    expect(result.scope_drift).toHaveLength(1);
+  });
+
+  it('treats a session brief as the request too, not only a source document', async () => {
+    // SOURCE_PACKAGE is source + brief. A brief IS what was asked for, so drift is still
+    // checkable against it — there is no "no request" case while either exists.
+    const { agent } = await withDrift({ recognisable: true, drift: [] }, baseArgs({ source: '' }));
+    expect(agent.calls.find((c) => c.opts.label === 'drift')).toBeDefined();
+  });
+
+  it('never has a "no request" case — the workflow refuses before it gets here', async () => {
+    // Why the drift check needs no conditional: without source or brief this never runs.
+    await expect(
+      withDrift(undefined, { prd: 'docs/PRD/f.md', feature: 'f', source: '', brief: '' })
+    ).rejects.toThrow(/one of args.source \/ args.brief is required/);
+  });
+
+  it('still produces the PRD when the drift agent dies', async () => {
+    const { result } = await withDrift(undefined);
+    expect(result.prd).toBe('docs/PRD/f.md');
+    expect(result.scope_recognisable).toBeNull();
+  });
+});
