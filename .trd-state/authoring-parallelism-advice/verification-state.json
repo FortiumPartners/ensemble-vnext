@@ -1,0 +1,39 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "artifact": ".trd-state/authoring-parallelism-advice/evidence/FS1-FS3-autonomy-judge-command-scope.txt"
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "artifact": ".trd-state/authoring-parallelism-advice/evidence/FS2-synthetic-file-dominated.txt"
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "artifact": ".trd-state/authoring-parallelism-advice/evidence/FS1-FS3-autonomy-judge-command-scope.txt"
+    },
+    {
+      "id": "FS-4",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-5",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-6",
+      "status": "not_verifiable",
+      "artifact": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}
