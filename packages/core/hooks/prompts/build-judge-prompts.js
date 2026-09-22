@@ -180,6 +180,16 @@ ends its turn, and nothing will ever tell it. It sits idle until someone nudges 
 the message says it is waiting on -- a matching entry in \`background_tasks\` or
 \`session_crons\`.
 
+**WHEN IT MATCHES, ALLOW. Stop there and submit ok: true.** A workflow or agent the message
+names, present in \`background_tasks\`, IS the thing that will resume this session -- that is
+what the field means. Do NOT additionally require a \`ScheduleWakeup\`, a "wake condition", or
+any other machinery beside it; nothing here asks for one, and demanding a second mechanism on
+top of a real dispatch is the commonest false block this guard produces. Measured in one
+session: 10 blocks, 0 of them correct, 8 of those on turns whose dispatch the payload showed.
+
+The cautions below narrow which entry counts as a match. They are not reasons to doubt a
+match you have already found.
+
 Non-empty is not enough. \`background_tasks\` ACCUMULATES and is not a live-process list:
 one session with 2 open agents showed 49 entries. Do not count -- ask whether some entry
 corresponds to the thing named. A message naming a specific agent, task or workflow the

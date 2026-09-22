@@ -90,13 +90,13 @@ const FINDING_ITEMS = {
     type: 'object', additionalProperties: false,
     required: ['check', 'why', 'confidence'],
     properties: {
-      check: { type: 'string', enum: ['provenance','severity','omission','buildability','consistency','derivation','citation','conformance','stale-doc'] },
+      check: { type: 'string', enum: ['provenance','severity','omission','buildability','consistency','derivation','citation','conformance','stale-doc','dependency'] },
       why: { type: 'string' },
       confidence: { type: 'string', enum: ['high','medium','low'] },
       id: { type: 'string', description: "the artifact's own ID; omit for omission findings" },
       line: { type: 'string', description: 'the text as written; omit for omission findings' },
       source_ref: { type: 'string' },
-      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation'] },
+      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation','drop-dependency'] },
     },
   },
 }
@@ -325,9 +325,11 @@ Ground stage already read this same code once and wrote what it found to
 ${GROUNDING_FINDINGS_PATH}. Check whether that file exists before deriving buildability
 from scratch: re-reading the same mechanism a second time is exactly the duplicated cost
 this file exists to avoid. If it exists, read it and reuse any \`buildability\` findings it
-already contains directly -- do not re-derive them. Spend your read budget instead on
-decisions the grounding pass did not cover (it grounds TASKS, not every DECISION, so
-coverage is a subset) and on consistency/stale-doc, which it never checks. If the file does
+already contains directly -- do not re-derive them. \`dependency\` findings reuse the same
+way: apply \`drop-dependency\` to any edge the grounding pass already found unjustified rather
+than re-checking it. Spend your read budget instead on decisions the grounding pass did not
+cover (it grounds TASKS, not every DECISION, so coverage is a subset) and on
+consistency/stale-doc, which it never checks. If the file does
 not exist -- a TRD not authored by this pipeline, or a Ground stage that found nothing --
 derive buildability findings from scratch as below.
 

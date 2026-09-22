@@ -116,4 +116,23 @@ describe('audit-trd wiring', () => {
     await expect(runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: { source: 'x' } }))
       .rejects.toThrow();
   });
+
+  // create-trd.js's grounding stage can write a `dependency` / `drop-dependency` finding to
+  // .trd-state/<feature>/findings/grounding.json, and its own readout tells the user to "Run
+  // /audit-trd to verify and apply" it. Read off the SOURCE text the workflow actually loads
+  // (not a stub, which never looks at opts.schema — see create-trd.test.js's FIX-004 note),
+  // so a member removed from either enum fails here directly.
+  it("declares 'dependency' in the findings check enum, so a grounding finding of that kind validates", () => {
+    const match = SOURCE.match(/check:\s*\{\s*type:\s*'string',\s*enum:\s*\[([^\]]+)\]\s*\}/);
+    expect(match).not.toBeNull();
+    const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
+    expect(members).toContain('dependency');
+  });
+
+  it("declares 'drop-dependency' in the findings action enum, so a dependency finding can carry it", () => {
+    const match = SOURCE.match(/action:\s*\{\s*type:\s*'string',\s*enum:\s*\[([^\]]+)\]\s*\}/);
+    expect(match).not.toBeNull();
+    const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
+    expect(members).toContain('drop-dependency');
+  });
 });
