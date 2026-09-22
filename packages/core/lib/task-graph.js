@@ -206,12 +206,15 @@ function buildGraph(tasks, grounding) {
  * that until someone measured the session log afterwards.
  *
  * Measured, not assumed: on `docs/TRD/autonomy-judge-command-scope.md` the graph carries 13
- * declared-dependency edges against 1 file-conflict edge; on
- * `docs/TRD/completed/implement-trd-rework.md`, 27 against 12. Declared dependencies are the
- * dominant edge kind on both — the opposite of what this docstring used to claim ("the cause
+ * declared-dependency constraints against 1 file-conflict constraint; on
+ * `docs/TRD/completed/implement-trd-rework.md`, 27 against 8. Declared dependencies are the
+ * dominant kind on both — the opposite of what this docstring used to claim ("the cause
  * is rarely declared dependencies"). So the useful output does not assume which kind is at
  * fault; it counts both and reports whichever one actually dominates THIS graph, and only
  * names the serializing files when file conflicts are the dominant kind.
+ *
+ * `dependencyEdges` / `fileConflictEdges` count distinct blocker->blocked PAIRS, not raw
+ * `edges` entries — see the comment on the counting loop for why the raw counts mislead.
  *
  * @param {{waves: string[][], edges: object[], partition: object, criticalPath: string[]}} graph
  * @returns {{taskCount, waveCount, avgWidth, maxWidth, singleTaskWaves, profile, chains,
@@ -230,8 +233,24 @@ function waveProfile(graph) {
     .map(([file, owners]) => ({ file, tasks: owners.length }))
     .sort((a, b) => b.tasks - a.tasks || a.file.localeCompare(b.file));
 
-  const dependencyEdges = edges.filter((e) => e.kind === 'dependency').length;
-  const fileConflictEdges = edges.filter((e) => e.kind === 'file-conflict').length;
+  // Count ORDERING CONSTRAINTS, not edge records. `buildGraph` emits one file-conflict edge
+  // per (pair, file) and emits one even for a pair that already carries a declared
+  // dependency, so raw `edges` counts overstate file conflicts. Two tasks sharing three
+  // files, one declaring depends_on the other, are 1 dependency edge against 3 file edges —
+  // yet un-sharing all three files changes nothing, because the declared dependency still
+  // serializes the pair. Attributing that to "shared files" is exactly the misattribution
+  // this report exists to remove, so: dedupe per blocker->blocked pair, and credit a pair
+  // carrying both kinds to 'dependency' — the edge that survives removing the shared file.
+  const dependencyPairs = new Set();
+  const fileConflictPairs = new Set();
+  for (const e of edges) {
+    const pair = `${e.from}\u0000${e.to}`;
+    if (e.kind === 'dependency') dependencyPairs.add(pair);
+    else if (e.kind === 'file-conflict') fileConflictPairs.add(pair);
+  }
+  for (const pair of dependencyPairs) fileConflictPairs.delete(pair);
+  const dependencyEdges = dependencyPairs.size;
+  const fileConflictEdges = fileConflictPairs.size;
   // Ties (including 0-0) favor 'dependency': it is the more common real-world dominant kind
   // (see the measurements above), and there is nothing to report either way when both are 0.
   const dominantKind = fileConflictEdges > dependencyEdges ? 'file-conflict' : 'dependency';
@@ -269,7 +288,10 @@ function renderWaveProfile(graph, opts = {}) {
   if (p.avgWidth < (opts.narrowBelow || 2) && totalEdges > 0) {
     const dominantCount = p.dominantKind === 'file-conflict' ? p.fileConflictEdges : p.dependencyEdges;
     const dominantLabel = p.dominantKind === 'file-conflict' ? 'shared files' : 'declared dependencies';
-    out.push(`  narrow — driven by ${dominantLabel} (${dominantCount} of ${totalEdges} edges)`);
+    out.push(
+      `  narrow — driven by ${dominantLabel} ` +
+        `(${dominantCount} of ${totalEdges} ordering constraints)`
+    );
     const criticalPath = (graph && graph.criticalPath) || [];
     if (criticalPath.length) {
       out.push(`  critical path: ${criticalPath.join(' -> ')}`);

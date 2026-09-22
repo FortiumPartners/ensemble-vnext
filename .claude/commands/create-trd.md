@@ -881,13 +881,13 @@ as current.
 Each finding is an object with at minimum:
 
 ```json
-{ "check":      "provenance|severity|omission|buildability|consistency|derivation|grounding|citation|conformance",
+{ "check":      "provenance|severity|omission|buildability|consistency|derivation|grounding|citation|conformance|dependency",
   "why":        "the source, contradiction, or mechanism failure — REQUIRED",
   "confidence": "high|medium|low — REQUIRED",
   "id":         "the TRD's own ID; OMIT for omission findings, which have none",
   "line":       "the text as written; OMIT for omission findings",
   "source_ref": "for omission findings: where in the SOURCE the missing objective is stated",
-  "action":     "delete|lower-to-floor|add-back|unbuildable|pick-one|confirm-wanted|check-reasoning|fix-citation" }
+  "action":     "delete|lower-to-floor|add-back|unbuildable|pick-one|confirm-wanted|check-reasoning|fix-citation|drop-dependency" }
 ```
 
 ### Reconcile — 1 subagent
@@ -930,8 +930,9 @@ node -e '
 ' "<trd-path>"
 ```
 
-Put its output in the readout under `STATE`. One line, plus the serializing files when the
-plan is close to serial.
+Put its output in the readout under `STATE`. One line, plus — when the plan is close to
+serial (average width under 2) — which edge kind dominates it, the critical path as a task-ID
+chain, and the serializing files only when shared files are that dominant kind.
 
 **Why it belongs here rather than at implementation time.** Width is decided by how tasks
 were cut and which files each one touches — both settled in this command. By the time
@@ -986,7 +987,7 @@ TRD: docs/TRD/<feature>.md    SOURCE: docs/PRD/<feature>.md + stack.md + constit
     B7 depends_on B3     B3 writes no file B7 reads and defines nothing B7 uses — narrative
                          order, not a dependency
 
-  SPLIT THIS TASK — one ID, several tasks (1)
+  LONG TASKS — each of these is really several tasks under one ID (1)
     T-9    implements the migration, the API, and the CI guard — three changes under one ID
 
   NO ACTION — sourced, listed for completeness (6)

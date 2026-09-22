@@ -477,6 +477,27 @@ describe('waveProfile / renderWaveProfile', () => {
     const rendered = renderWaveProfile(graph).join('\n');
     expect(rendered).not.toContain('these files serialize'); // ...but it's not what's printed
   });
+
+  it('counts ordering constraints, not edge records, so shared files cannot be blamed for a pair a declared dependency already serializes', () => {
+    // buildGraph emits one file-conflict edge PER SHARED FILE, and emits one even when the
+    // pair already declares a dependency. Counting raw edges made this graph read as
+    // "driven by shared files (2 of 3 edges)" and told the author to un-share a.ts and
+    // b.ts -- which changes nothing, because A-2 depends_on A-1 regardless.
+    const tasks = [task('A-1'), task('A-2', { dependencies: ['A-1'] })];
+    const grounding = {
+      'A-1': { touches: ['a.ts', 'b.ts'] },
+      'A-2': { touches: ['a.ts', 'b.ts'] },
+    };
+    const graph = buildGraph(tasks, grounding);
+    expect(graph.edges.length).toBe(3); // 1 dependency + 2 file-conflict records...
+    const p = waveProfile(graph);
+    expect(p.dependencyEdges).toBe(1); // ...but only ONE constraint, and it is the dep
+    expect(p.fileConflictEdges).toBe(0);
+    expect(p.dominantKind).toBe('dependency');
+    const rendered = renderWaveProfile(graph).join('\n');
+    expect(rendered).toContain('declared dependencies (1 of 1 ordering constraints)');
+    expect(rendered).not.toContain('these files serialize');
+  });
 });
 
 /* Real-TRD measurement, FIX-002: on docs/TRD/autonomy-judge-command-scope.md the graph

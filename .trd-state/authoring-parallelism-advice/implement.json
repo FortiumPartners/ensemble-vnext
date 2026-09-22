@@ -4,7 +4,7 @@
   "trd_hash": "4109cd904a0a9234bbfe76f4c00476196cd79492da0e7abae32d023b17f49565",
   "branch": "feature/authoring-parallelism-advice/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "In packages/core/workflows/create-trd.js: add dependency to the check enum in FINDING_ITEMS and drop-dependency to its action enum; add a DEPENDENCY NECESSITY axis to the Ground stage's second job instructing that a declared dependency is real only if the blocked task consumes something the blocker creates, reported as a finding naming the pair; add a LONG TASKS judgment plus a long_tasks array to the sizing schema; render long_tasks in the returned readout and expose it on the return object. Copy to .claude/workflows/create-trd.js.",
@@ -78,10 +78,19 @@
       "last_advanced": "2026-09-22T04:34:46.264Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "52900f1b9a9e5cec9a9b7cf98d1f1574f39dcfd2",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-22T05:00:01.765Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "52900f1b9a9e5cec9a9b7cf98d1f1574f39dcfd2",
+    "last_checkpoint_timestamp": "2026-09-22T05:00:01.765Z",
     "interrupted": false,
     "interrupt_reason": null
   },
