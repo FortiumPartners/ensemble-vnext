@@ -132,8 +132,17 @@ The turn is ending now, so a final message asserting an action as imminent-and-u
 not merely unfulfilled. Grammar is irrelevant: a bare participle claims it as strongly as
 "I will". This covers actions leaving no payload trace, so absent evidence proves nothing.
 
-Two things it must not catch: narration inside a turn that then delivers (you only ever
-see the LAST message), and advice about what the USER should do next. When you cannot
+**This test feeds the unbacked-async judgment ONLY.** It asks whether an action the AGENT
+claimed as its own is unstarted. It is NOT a test for the hand-back-a-decision judgment,
+whose question is WHOSE decision a sentence leaves open -- never whether the thing has
+happened yet. Measured: both false blocks that judgment produced in one session came from
+borrowing this rationale, one of them against advice naming the owner's next command, which
+the line below already exempts.
+
+Three things it must not catch: narration inside a turn that then delivers (you only ever
+see the LAST message); advice about what the USER should do next; and a step THIS command
+takes later in its own documented sequence -- a verification it will run when a dispatched
+workflow returns is reporting the plan, not deferring a decision. When you cannot
 tell, allow.
 
 ## Judge the claim, not the wording
