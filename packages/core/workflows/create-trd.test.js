@@ -134,21 +134,46 @@ describe('create-trd wiring', () => {
     expect(result.readout).toMatch(/F-B002 cites a file that does not exist|NOTED BY GROUNDING/);
   });
 
-  it('renders a dependency finding through the existing gfLines block, naming both tasks', async () => {
-    // FIX-001: the dependency challenge travels through the EXISTING findings array as a
-    // new `check` enum member, not a new top-level field — so it needs no new render block.
+  // FIX-004: the `check` and `action` enums are read straight off the SOURCE text loaded by
+  // readScript() above — the same file the workflow actually runs — so a member removed from
+  // create-trd.js fails these directly, not by way of a stub that never looks at the schema.
+  // (This is what the earlier version of this suite lacked: makeAgentStub's canned returns
+  // never touch opts.schema — see test-harness.js:51-65 — so nothing before this asserted the
+  // enum membership itself.)
+  it("declares 'dependency' in the findings check enum", () => {
+    const match = SOURCE.match(/check:\s*\{\s*type:\s*'string',\s*enum:\s*\[([^\]]+)\]\s*\}/);
+    expect(match).not.toBeNull();
+    const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
+    expect(members).toContain('dependency');
+  });
+
+  it("declares 'drop-dependency' in the findings action enum", () => {
+    const match = SOURCE.match(/action:\s*\{\s*type:\s*'string',\s*enum:\s*\[([^\]]+)\]\s*\}/);
+    expect(match).not.toBeNull();
+    const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
+    expect(members).toContain('drop-dependency');
+  });
+
+  it('renders TWO dependency findings through the existing gfLines block, naming both task pairs', async () => {
+    // FIX-001's acceptance criterion: "A grounding return whose `findings` include two
+    // `check: "dependency"` entries renders them through the existing `gfLines` block naming
+    // both task pairs." One entry proved the block fires at all; this proves it doesn't
+    // collapse or drop a second one naming a DIFFERENT pair.
     const { result } = await run({
       'ground:brownfield': {
         ...GROUNDED,
         findings: [
           { check: 'dependency', why: 'F-B002 declares depends_on F-B001 but consumes nothing F-B001 creates', id: 'F-B002', confidence: 'medium', action: 'drop-dependency' },
+          { check: 'dependency', why: 'F-B003 declares depends_on F-B002 but consumes nothing F-B002 creates', id: 'F-B003', confidence: 'medium', action: 'drop-dependency' },
         ],
       },
     });
-    expect(result.grounding_findings).toBe(1);
+    expect(result.grounding_findings).toBe(2);
     expect(result.readout).toContain('[dependency]');
     expect(result.readout).toContain('F-B002');
     expect(result.readout).toContain('consumes nothing F-B001 creates');
+    expect(result.readout).toContain('F-B003');
+    expect(result.readout).toContain('consumes nothing F-B002 creates');
   });
 
   it('hands off to /audit-trd, never verifying its own output', async () => {
