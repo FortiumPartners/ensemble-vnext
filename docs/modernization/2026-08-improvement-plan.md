@@ -3516,6 +3516,80 @@ remaining pressure can produce. Measuring them together makes neither attributab
 
 ---
 
+## Item 23 — the autonomy judgment asks the wrong question (owner-specified 2026-09-23)
+
+**Absorbs item 22.** That item proposed bolting a scope counterweight onto `autonomy.md` and
+the router hint. This reframing makes the counterweight intrinsic, which is better: one
+two-sided question instead of one rule pushing and another rule pulling.
+
+### The question today, and why it is the defect
+
+> *"Does this turn's final message hand back a decision or action the agent COULD HAVE TAKEN
+> ITSELF?"*
+
+Owner: *"It isn't something the agent COULD HAVE done itself — there are many things the agent
+COULD do itself."* There is no upper bound on what an agent could do, so the test licenses
+expansion. That is the same defect item 22 measured from the field: asked to check dining
+health, an agent investigated an anomaly, dispatched a reviewer, wrote a TRD and published it,
+because all of that was something it *could* do.
+
+### The replacement, owner's words
+
+> Is there a clear, reasonably unambiguous next step to take — either due to the result of the
+> turn, or the ensemble framework, or other processes defined in the governance documents —
+> which the agent's current knowledge, understanding of requirements, and permission context
+> allows it to take? In which case proceed.
+
+Four conjuncts, every one a BOUND rather than a licence:
+
+1. **clear and reasonably unambiguous** — not merely possible
+2. **arising from the turn's result, the framework, or governance** — this is the scope
+   counterweight. "Check X" produces a result; nothing in the framework says "then write a TRD
+   about it", so the dining case fails here alone
+3. **within current knowledge and understanding of requirements**
+4. **within permission context** — this replaces the enumerated merge/push/deploy/release list
+   with a principle, retiring a list that has needed patching twice
+
+**It is two-sided**: proceed when determined, stop when not. The present judgment only punishes
+pausing, which is exactly why every pressure in the framework runs one direction.
+
+**One refinement to add when building it.** "Clear, reasonably unambiguous" carries most of the
+weight and an agent under pressure reads its own inference as clear. Give it teeth: the step
+must be NAMEABLE BEFORE it is taken and traceable to the result, the framework or governance —
+never to the agent's own assessment that it would be useful. **Useful is not determined.**
+
+### The second judgment the owner asked for — right, and not buildable as a judge question
+
+> Is there a next step the user has clearly pre-authorized or pre-directed? (e.g. "fix this and
+> get it deployed", "review this bug and come up with a fix")
+
+**The judge sees `last_assistant_message` and nothing else** — stated in the prompt at
+"Judge from the payload only", and it cannot read the conversation. So it cannot see a directive
+given three turns ago. Asking it to infer prior authorization from one message is asking it to
+MANUFACTURE authorization, which is a worse failure than the one being fixed: the guard would
+start allowing anything a turn asserted it had been told to do.
+
+**Buildable through the channel that already exists.** `router.py` sees the submitted prompt and
+already injects `ENSEMBLE_COMMAND state=...` into `additionalContext` for exactly this purpose —
+its header comment says the channel exists so the autonomy judgment can read it, and the prompt
+already binds to the last marker matching the session. A pre-authorization marker travels the
+same way: recorded by `router.py` when the owner gives a multi-step directive, read by the guard
+when it fires. Same mechanism, already proven, and it keeps the authorization a FACT the router
+observed rather than an inference the judge made.
+
+### Why this supersedes patching
+
+Three prompt edits shipped 2026-09-21/22 (`3723c32`, `6665507`, `1e72b51`, `d484c7a`). They
+worked — 10 blocks before, 2 after, same session, same tool — but each new block was a NEW
+shape: demanding machinery beyond `background_tasks`; the "about to" test bleeding across
+judgments; a stated decision NOT to act read as a deferral. Falling counts with a new shape each
+time is the signature of an under-specified question, not of a nearly-calibrated one. The
+commitment recorded in `d484c7a` was that three more distinct shapes means rewriting rather than
+extending. This is the rewrite, and it arrived by the owner reading the question rather than by
+the count.
+
+---
+
 ## Deliberately not doing
 
 - **Repairing the statistical eval framework.** Answers a question you rarely ask, at high cost. Item 4 covers
