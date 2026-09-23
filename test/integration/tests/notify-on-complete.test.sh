@@ -787,6 +787,18 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd plan verify-build imp
     done
 }
 
+@test "settings.json caps consecutive Stop-hook blocks at 1 in all three copies" {
+    for f in "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json" \
+             "${REPO_ROOT}/packages/full/.claude/settings.json" \
+             "${REPO_ROOT}/.claude/settings.json"; do
+        run node -e '
+          const d = require(process.argv[1]);
+          process.exit(d.env?.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP === "1" ? 0 : 1);
+        ' "$f"
+        [ "$status" -eq 0 ]
+    done
+}
+
 @test "L2c: publishArtifacts ships ON by default (owner decision, 2026-08-24)" {
     # A document nobody can click into is a document nobody reads, and the link
     # is most of the reason to produce one. Publishing does send the document to

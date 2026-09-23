@@ -1121,7 +1121,8 @@ PY
 # initial scaffold and on every successful --refresh.
 #
 # Merges into the "ensemble" key. Permissions, env, and hook registrations are
-# user-owned and are never touched here — and neither are the other ensemble
+# user-owned and are never touched here — with one exception, backfilled only
+# when absent: env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP (see below). Neither are the other ensemble
 # sub-keys (skills_dir, rules_dir, state_dir, docs_dir, prd_dir, trd_dir shipped
 # by the settings template; rebased_at / previous_version written by
 # /rebase-project). Only version + refreshed_at are (re)written.
@@ -1174,6 +1175,17 @@ ensemble.setdefault("agents_dir", ".claude/agents")
 # OFF must not have it turned back on by a refresh.
 ensemble.setdefault("publishArtifacts", True)
 data["ensemble"] = ensemble
+
+# The one env key this touches, and only when absent. The Stop-hook judge was
+# measured ignoring its own "allow once stop_hook_active" instruction (2 of 3
+# offline, five consecutive live blocks against a correct ask), so the bound on
+# consecutive blocks has to be the platform's, not the prompt's. 1 = one
+# corrective turn. setdefault: an owner's own value is theirs and survives.
+env = data.get("env")
+if not isinstance(env, dict):
+    env = collections.OrderedDict()
+env.setdefault("CLAUDE_CODE_STOP_HOOK_BLOCK_CAP", "1")
+data["env"] = env
 
 directory = os.path.dirname(path) or "."
 # Preserve the original mode: mkstemp creates 0600, and os.replace would carry

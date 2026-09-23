@@ -166,6 +166,58 @@ teardown_file() {
     [ "$rc" -eq 0 ]
 }
 
+@test "a fresh scaffold caps consecutive Stop-hook blocks at 1" {
+    # The judge ignores its own stop_hook_active allow (measured 2026-09-23:
+    # 2 of 3 offline, five consecutive live blocks), so the bound is the
+    # platform's. Verified live: cap 1 = 2 blocks, the second ends the turn.
+    run node -e '
+      const d = require(process.argv[1] + "/.claude/settings.json");
+      process.exit(d.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP === "1" ? 0 : 1);
+    ' "$TREE"
+    [ "$status" -eq 0 ]
+}
+
+@test "refresh backfills the block cap when absent and keeps an owner's own value" {
+    local t
+    t="$(mktemp -d)"
+    git -C "$t" init -q .
+    git -C "$t" config user.email "test@example.com"
+    git -C "$t" config user.name "Test"
+    git -C "$t" commit -q --allow-empty -m init
+    bash "$SCAFFOLD" "$t" --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    # A project scaffolded before the key existed.
+    node -e '
+      const fs = require("fs"), p = process.argv[1] + "/.claude/settings.json";
+      const d = JSON.parse(fs.readFileSync(p, "utf8"));
+      delete d.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP;
+      fs.writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+    ' "$t"
+    bash "$SCAFFOLD" "$t" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+    run node -e '
+      const d = require(process.argv[1] + "/.claude/settings.json");
+      process.exit(d.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP === "1" ? 0 : 1);
+    ' "$t"
+    local backfilled="$status"
+
+    # An owner who chose a different cap keeps it.
+    node -e '
+      const fs = require("fs"), p = process.argv[1] + "/.claude/settings.json";
+      const d = JSON.parse(fs.readFileSync(p, "utf8"));
+      d.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP = "3";
+      fs.writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+    ' "$t"
+    bash "$SCAFFOLD" "$t" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+    run node -e '
+      const d = require(process.argv[1] + "/.claude/settings.json");
+      process.exit(d.env.CLAUDE_CODE_STOP_HOOK_BLOCK_CAP === "3" ? 0 : 1);
+    ' "$t"
+    local kept="$status"
+    rm -rf "$t"
+    [ "$backfilled" -eq 0 ]
+    [ "$kept" -eq 0 ]
+}
+
 @test "packages/full carries no dangling symlinks" {
     # packages/full is built almost entirely out of symlinks into packages/core,
     # and the delivery tests above only see what SURVIVES a copy. A link whose
