@@ -157,6 +157,7 @@
     "prd_dir": "docs/PRD",
     "trd_dir": "docs/TRD",
     "publishArtifacts": true,
-    "version": "4.1.15"
+    "version": "4.5.1",
+    "refreshed_at": "2026-09-23T18:32:30Z"
   }
 }
