@@ -3465,6 +3465,57 @@ project's vendored copy — so do it once, deliberately, not as a side effect.
 
 ---
 
+## Item 22 — the guards push one way and nothing pushes back (field report 2026-09-22)
+
+**The asymmetry, verified.** `grep` across every file in `.claude/rules/` for "scope creep",
+"unrequested", "did not ask", "expand scope" returns **zero hits**. Scope discipline exists in
+exactly one place — `packages/core/contracts/task-delegation.md`'s `<scope_discipline>` block —
+and it governs an IMPLEMENTER receiving a task, not the lead receiving a request.
+
+So the governance has `autonomy.md` (≈300 lines forbidding the lead from PAUSING),
+`async-discipline.md` (forbidding false deferral), the `autonomy-discipline` Stop guard
+enforcing the first, and the router hint repeating **DECIDE, DON'T DEFER** on every turn.
+Nothing anywhere forbids the lead from doing MORE than was asked.
+
+**The field report.** From a consuming project, owner's words: asked to "check dining health",
+then two clarifying questions. The agent then investigated a call-rate anomaly, dispatched a
+`code-reviewer` subagent to adversarially review its own findings, wrote
+`docs/TRD/dining-sweep-cell-runaway-rate.md`, and published it as an artifact. None of it
+requested. The agent's own account of why: *"I took the repeated Stop-hook pressure toward
+'decide, don't defer' as license to launch /investigate on my own initiative."*
+
+**This is the same defect as the over-firing, not a second one.** Measured 2026-09-22 in the
+framework's own session: 10 blocks in 33 evaluations (30.3% against an 8% ceiling), **none of
+them correct**, several against turns that merely NAMED what the owner might do next — which
+the guard's own ALLOW table permits verbatim. An agent blocked for proposing learns to act
+instead of proposing. The scope creep is that lesson being applied.
+
+**Why the fix is not another guard.** Adding a third judgment to catch unrequested work would
+be answering guard pressure with more guard pressure, in a system already measured at four
+times its own false-block ceiling. The counterweight belongs in the same two surfaces the
+pressure lives in:
+
+1. **`autonomy.md` needs the symmetric rule.** Authorization is scoped to the REQUEST, not
+   only to the command. "Check X" authorizes checking X and reporting; it does not authorize
+   investigating, writing an artifact, or dispatching a subagent. Doing unrequested work is as
+   much a violation of the owner's control as pausing is of their time — and today only one of
+   those is written down.
+2. **The router hint's DECIDE, DON'T DEFER bullet needs its other half** — decide *within what
+   was asked*. That bullet is injected every turn and is the single most repeated instruction
+   in the framework; it currently has no bound.
+
+**What this predicts, and how to tell if the fix works.** Scope creep of this kind should show
+up as artifacts nobody requested — a TRD or PRD with no matching owner instruction in the
+session. The check is the same tool used for the block rate: if the block rate falls and
+unrequested artifacts stop appearing, both halves worked; if the block rate falls and they
+continue, the counterweight is the missing piece rather than the calibration.
+
+**Ordering.** Do this after the 4.5.0 guard fixes have a session's worth of block-rate data,
+because the two interact: the fixes reduce the pressure, and the counterweight bounds what the
+remaining pressure can produce. Measuring them together makes neither attributable.
+
+---
+
 ## Deliberately not doing
 
 - **Repairing the statistical eval framework.** Answers a question you rarely ask, at high cost. Item 4 covers
