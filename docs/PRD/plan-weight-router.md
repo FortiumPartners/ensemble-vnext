@@ -1,6 +1,6 @@
 # PRD: One entry point that picks the weight (plan-weight-router)
 
-**Version**: 1.1.0
+**Version**: 1.1.1
 **Status**: Draft
 **Created**: 2026-09-22
 **Last Updated**: 2026-09-22
@@ -19,7 +19,8 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-22 | Initial PRD from improvement-plan item 21 plus the 2026-09-22 session brief | @product-manager |
-| 1.1.0 | 2026-09-22 | All six open questions answered by the owner interactively. Four overturned this PRD's recorded assumptions: a new `/plan` command rather than extending `/investigate` (D3), `trivial` and `small` genuinely carry no audit (D4), the rename is in scope for this release (D7), and `ESCALATE` routes to `/create-prd` (D6). Added NG11, NG12, AC-F2.5, AC-F6.3, AC-F7.3–F7.5. No requirement removed; the two-axis model unchanged. | @product-manager, owner decisions |
+| 1.1.0 | 2026-09-22 | All six open questions answered by the owner interactively. Three went against this PRD's recorded assumptions: a new `/plan` command rather than extending `/investigate` (D3), `trivial` and `small` genuinely carry no audit (D4), and the rename is in scope for this release (D7). A fourth, `ESCALATE` routing to `/create-prd` (D6), was answered outside the options offered. Added NG11, NG12, AC-F2.5, AC-F6.3, AC-F7.3–F7.5. No requirement removed; the two-axis model unchanged. | @product-manager, owner decisions |
+| 1.1.1 | 2026-09-22 | `/audit-prd` pass. Corrected the owner-decision count in section 9: three decisions (D3, D4, D7) went against a recorded assumption, not four — D6 was answered outside the options offered. Rewrote Could Not Verify to state what this audit did and did not check. Seventeen citation findings were rejected: none of the ids they name (DS1–DS3, D9-Refactor, R1.1–R8.1) exists in this document, and this document carries no self-citations of its own line numbers. | @product-manager |
 
 ---
 
@@ -466,9 +467,11 @@ Recorded here rather than resolved silently. In all three rows the source (item 
 
 ### Owner decisions taken 2026-09-22 in `/refine-prd`
 
-All six open questions were answered by the owner directly, interactively. Four went AGAINST
-the assumption this PRD had recorded, which is why they are listed separately rather than
-folded into the table above.
+All six open questions were answered by the owner directly, interactively. **Three went against
+an assumption this PRD had recorded** — D3, D4 and D7, each marked as such in its own row. A
+fourth, D6, was answered outside the three options this PRD offered, so it changed the design
+without contradicting a recorded assumption. That is why these five are listed separately
+rather than folded into the table above.
 
 | ID | Question | Decision | What it changes, and what I had assumed |
 |----|----------|----------|------------------------------------------|
@@ -501,14 +504,25 @@ the decisions and what each overturned are recorded as D3–D7 in section 9.
 One thing is deliberately left as a stated belief rather than a settled fact: the reading of
 "route it to `/create-prd`" as *invoke* rather than *name in the readout*. See D6.
 
-
 ## Could Not Verify
 
-| Claim | How I'd check it |
-|-------|------------------|
-| The full `/create-prd → /audit-prd → /create-trd → /audit-trd` pipeline takes 56 minutes | Source-stated in item 21. Time an actual run end to end, or find the session the figure came from. |
-| `/sweep` exists because of a 22.7-minute failure in which a list was investigated before being recognised as a list | Session-brief-stated. Locate the session or the `/sweep` design note that records the measurement. |
-| `/create-trd`'s `transcript` argument has **never** been used | I verified there is no *caller* in the current tree (`grep -rn "transcript:" .claude/commands/ packages/core/commands/` returns only `create-trd.md:731`, its own invocation block). Historical use in past sessions is not checkable from the tree; `grep -rln transcript .trd-state/` and the session transcripts would settle it. |
-| All six PRD-less TRDs on disk came through `/investigate`'s light path | Session-brief-stated; I did not count them. `grep -L "PRD" docs/TRD/*.md` cross-referenced against each TRD's header source line would settle it. |
-| Item 21's own design is 12–18 tasks | Source-stated estimate, not a task list anyone has written. It is settled by writing the TRD and counting. |
-| `weight` and the nine-cell stage lists are not implemented anywhere today | I confirmed no `/plan` command exists (`.claude/commands/` holds 18 `.md` files, none named `plan`) and that `fix-sizing.js` has no `weight` axis (its two `weight` hits, lines 5 and 68, are ordinary prose). I did not grep the plugin layer (`packages/full/`) for a partial implementation. |
+**State after the 2026-09-22 audit** (source of truth: `docs/modernization/2026-08-improvement-plan.md`;
+all three verifiers reported). That audit checked two things: whether every requirement id and
+cross-reference in this document resolves, and whether the document's internal counts agree with
+its own tables. It found one real defect — the claim that four owner decisions overturned a
+recorded assumption, where the table marks three — and that is now fixed, so it is a change, not
+an entry here. It re-measured **none** of the six claims below, which is why all six survive
+unchanged: each needs a timing run, a session search, or a filesystem count that a
+citation-and-consistency audit does not perform.
+
+| Claim | Why it is still unverified | How I'd check it |
+|-------|----------------------------|------------------|
+| The full `/create-prd → /audit-prd → /create-trd → /audit-trd` pipeline takes 56 minutes | Source-stated in item 21. Out of scope for this audit: settling it needs a timed run, not a document read. | Time an actual run end to end, or find the session the figure came from. |
+| `/sweep` exists because of a 22.7-minute failure in which a list was investigated before being recognised as a list | Session-brief-stated. Out of scope: the evidence is in a past session, not in this tree. | Locate the session or the `/sweep` design note that records the measurement. |
+| `/create-trd`'s `transcript` argument has **never** been used | Partly settled: there is no *caller* in the current tree (`grep -rn "transcript:" .claude/commands/ packages/core/commands/` returns only `create-trd.md:731`, its own invocation block). The word "never" is a claim about history, which the tree cannot answer. | `grep -rln transcript .trd-state/` plus a search of the session transcripts. |
+| All six PRD-less TRDs on disk came through `/investigate`'s light path | Session-brief-stated; still not counted. Out of scope: needs a filesystem cross-reference this audit did not run. | `grep -L "PRD" docs/TRD/*.md` cross-referenced against each TRD's header source line. |
+| Item 21's own design is 12–18 tasks | Source-stated estimate, not a task list anyone has written. Unverifiable until the work is planned — this is the figure AC-F4.3 rests on. | Write the TRD and count its tasks. |
+| `weight` and the nine-cell stage lists are not implemented anywhere today | Partly settled: no `/plan` command exists (`.claude/commands/` holds 18 `.md` files, none named `plan`) and `fix-sizing.js` has no `weight` axis (its two `weight` hits, lines 5 and 68, are ordinary prose). The plugin layer was not searched. | `grep -rn "weight" packages/full/ packages/core/` for a partial implementation. |
+
+**Nothing in this document was found false and left standing.** The one falsified claim was
+corrected in place; no requirement was removed by this audit.
