@@ -648,11 +648,13 @@ const GROUND_OPTS = {
 /* SIZE THE WORK. Runs BESIDE grounding, not after it: it needs only the authored task list,
  * so it costs no wall time.
  *
- * Why this exists. `/investigate` refuses above MAX_TASKS = 6 (fix-sizing.js:37). The
- * PRD -> TRD path had no ceiling at all, and nothing anywhere asked whether the thing being
- * planned was still one change. Measured consequence: an owner's "moderate change touching
- * a lot of callers" became an 85KB PRD, a 147KB TRD, 17 tasks, 5 phases and TWO DEPLOY
- * CYCLES, handed to a single unattended run that took 6.42 hours and left `wip` commits.
+ * Why this exists. `/plan` decides its weight from the content of the work, not a task
+ * count -- fix-sizing.js's fixed task-count ceiling is gone, so there is no cap on how
+ * many tasks a TRD may carry. The PRD -> TRD path had no ceiling at all either, and
+ * nothing anywhere asked whether the thing being planned was still one change. Measured
+ * consequence: an owner's "moderate change touching a lot of callers" became an 85KB PRD,
+ * a 147KB TRD, 17 tasks, 5 phases and TWO DEPLOY CYCLES, handed to a single unattended run
+ * that took 6.42 hours and left `wip` commits.
  *
  * It REPORTS and PROPOSES. It never refuses, and it never asks -- create-trd.md's autonomy
  * block forbids gating on AskUserQuestion, and a gate that refuses is the same overreach as

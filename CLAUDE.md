@@ -64,13 +64,15 @@ FULL PIPELINE
 /audit-build   --> verify delivered code against TRD and PRD
 
 SHORTER PATHS
-/investigate <what>  --> defect / small change / refactor: light TRD, audited. --implement to build.
+/plan <what>         --> defect / small change / refactor: sizes the work and writes a TRD
+                         sized to match — light at trivial/small (no audit), phased and
+                         audited at medium. --implement to build.
 /amend <what>        --> ONE change to the feature in flight. No new TRD.
 /implement-trd --reconcile --> re-attest delivered work; re-open anything only claimed done
 ```
 
-**`/investigate` vs `/amend` is about whose plan the work belongs to, not size.** Work on the
-feature in flight, sitting in its path, is an amendment to ITS TRD; `/investigate` would fork
+**`/plan` vs `/amend` is about whose plan the work belongs to, not size.** Work on the
+feature in flight, sitting in its path, is an amendment to ITS TRD; `/plan` would fork
 a second TRD for something already understood, which is how a session loses its thread.
 
 ---

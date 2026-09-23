@@ -111,86 +111,121 @@
     "PLAN-B005": {
       "description": "Rename /investigate to /plan in packages/router/hooks/router.py's FRAMEWORK_HINT (lines 71, 73, 81) and IN_FLIGHT_HINT (lines 57, 65), and in the two explanatory comments (lines 527, 539). Update packages/router/tests/test_router.py's 7 assertions. Vendor to .claude/hooks/router.py",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/router/hooks/router.py",
+        "packages/router/tests/test_router.py",
+        ".claude/hooks/router.py"
+      ],
       "commit": null,
       "started_at": "2026-09-23T18:44:58.671Z",
-      "completed_at": null
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.017Z"
     },
     "PLAN-D001": {
       "description": "Rename across the command, rule, template and lib-comment surfaces: packages/core/commands/{amend,sweep,init-project}.md, packages/full/commands/plugin-only/init-project.md, .claude/rules/{process,command-status,async-discipline}.md and their three copies under packages/core/templates/, packages/core/templates/process.md.template, and the /investigate references in packages/core/lib/{discovered,fix-plan}.js and packages/core/workflows/{create-trd,sweep}.js comments. Mirror each into .claude/",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/amend.md",
+        "packages/core/commands/sweep.md",
+        "packages/core/commands/init-project.md",
+        ".claude/rules/process.md",
+        ".claude/rules/command-status.md",
+        ".claude/rules/async-discipline.md",
+        "packages/core/lib/discovered.js",
+        "packages/core/workflows/create-trd.js",
+        "packages/core/workflows/sweep.js"
+      ],
       "commit": null,
       "started_at": "2026-09-23T18:44:58.671Z",
-      "completed_at": null
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
     },
     "PLAN-D002": {
       "description": "Rename in the reader-facing docs: CLAUDE.md (3 hits, including the workflow map's /investigate vs /amend paragraph). docs/guides/{ARCHITECTURE,CONCEPTS,INSTALL,PROCESS}.md are NOT targets — corrected by audit, finding F3: their hits are /investigate-issue and /fix-issue, a different, already-dead command pair, and CONCEPTS.md's only hit is the verb \"investigates\". None names /investigate. See this task's grounding",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "CLAUDE.md"
+      ],
       "commit": null,
       "started_at": "2026-09-23T18:44:58.671Z",
-      "completed_at": null
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
     },
     "PLAN-T001": {
       "description": "Add test/integration/tests/plan-command.test.sh: a negative grep assertion that no live surface names /investigate, with the exclusion set written down (CHANGELOG.md, docs/PRD/, docs/TRD/, docs/modernization/, test/evals/analysis-archive/, ensemble-vnext-test-fixtures/, .trd-state/, .claude.backup.*), plus assertions that /plan is registered in both trees",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/integration/tests/plan-command.test.sh"
+      ],
       "commit": null,
       "started_at": "2026-09-23T18:44:58.671Z",
-      "completed_at": null
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
     },
     "PLAN-T003": {
       "description": "Repoint packages/core/lib/fix-template.test.js from investigate.md to plan.md, update its placeholder .replace() filler to the new template, and add assertions that the filled template's ## Open Questions parses into openQuestions with ownerOnly: true and that ## Behaviour Preserved carries a public-surface line",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/fix-template.test.js"
+      ],
       "commit": null,
       "started_at": "2026-09-23T18:44:58.671Z",
-      "completed_at": null
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
     },
     "PLAN-T004": {
       "description": "Repoint the existing BATS assertions: implement-trd-structure.test.sh (6 hits — the $FIX path, the fix-sizing and lib/fix-plan greps, the banner: null invariant) and notify-on-complete.test.sh (5 hits). Add an assertion that a /plan-written ## Open Questions row reaches a task prompt as <open_question>",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/integration/tests/implement-trd-structure.test.sh",
+        "test/integration/tests/notify-on-complete.test.sh"
+      ],
       "commit": null,
       "started_at": "2026-09-23T18:44:58.671Z",
-      "completed_at": null
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
     },
     "PLAN-T002": {
       "description": "[LIVE] Rename test/smoke/scenarios/investigate-{light-fix,decoy-root-cause}.sh to plan-*, update test/smoke/run-smoke.sh's ALL_SCENARIOS / LLM_OPT_IN_SCENARIOS rosters and test/smoke/baseline.json, and add test/smoke/scenarios/plan-medium-weight.sh: a real /plan run on a 12–18-task subject that asserts medium, a phased TRD, that audit-trd ran, and exactly one COMMAND COMPLETE banner",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/smoke/scenarios/plan-light-fix.sh",
+        "test/smoke/scenarios/plan-decoy-root-cause.sh",
+        "test/smoke/scenarios/plan-medium-weight.sh",
+        "test/smoke/run-smoke.sh"
+      ],
       "commit": null,
       "started_at": "2026-09-23T18:44:58.671Z",
-      "completed_at": null
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
     }
   },
   "checkpoints": [
@@ -206,18 +241,28 @@
     },
     {
       "phase": 2,
-      "commit": "PENDING",
+      "commit": "739ab51e019ee3195978f8895dc592f2709f3d4f",
       "review": {
         "findings": 0,
         "applied": 0,
         "reported": 0
       },
       "timestamp": "2026-09-23T18:44:58.671Z"
+    },
+    {
+      "phase": 3,
+      "commit": "PENDING",
+      "review": {
+        "findings": 0,
+        "applied": 0,
+        "reported": 0
+      },
+      "timestamp": "2026-09-23T19:17:18.584Z"
     }
   ],
   "recovery": {
     "last_healthy_checkpoint": "PENDING",
-    "last_checkpoint_timestamp": "2026-09-23T18:44:58.671Z",
+    "last_checkpoint_timestamp": "2026-09-23T19:17:18.584Z",
     "interrupted": false,
     "interrupt_reason": null
   }

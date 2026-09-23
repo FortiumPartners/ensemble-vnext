@@ -683,10 +683,11 @@ if __name__ == "__main__":
 
 
 class TestInFlightCarveOut:
-    """An issue in the path of an IN-FLIGHT TRD is an amendment, not a new /investigate.
+    """An issue in the path of an IN-FLIGHT TRD is an amendment, not a new /plan.
 
-    FLOW sends every small defect to /investigate, which reproduces, root-causes, writes a
-    SEPARATE light TRD and audits it. Mid-feature that is wrong twice: it re-designs
+    FLOW sends every small defect to /plan, which reproduces, root-causes, and writes a
+    SEPARATE light TRD (or a phased, audited one, once the scope earns it). Mid-feature
+    that is wrong twice: it re-designs
     something already understood, and forks the work into a second TRD. The owner's account:
     "by the time we've finished it we've lost track of what we were actually working on."
     """
@@ -695,10 +696,10 @@ class TestInFlightCarveOut:
         text = IN_FLIGHT_HINT.format(feature="ll-state-authority")
         assert "IN FLIGHT: ll-state-authority" in text
 
-    def test_carve_out_says_amendment_not_investigate(self):
+    def test_carve_out_says_amendment_not_plan(self):
         text = IN_FLIGHT_HINT.format(feature="f")
         assert "AMENDMENT" in text
-        assert "not a new /investigate" in text
+        assert "not a new /plan" in text
         assert "--reconcile" in text
 
     def test_the_carve_out_is_ACTUALLY_APPENDED_when_a_feature_is_in_flight(self, tmp_path):
@@ -720,7 +721,7 @@ class TestInFlightCarveOut:
         assert "AMENDMENT" in out.stdout
 
     def test_the_carve_out_is_ABSENT_when_nothing_is_in_flight(self, tmp_path):
-        # With no feature there is no amendment to make and /investigate is correct.
+        # With no feature there is no amendment to make and /plan is correct.
         (tmp_path / ".claude").mkdir()
         out = subprocess.run(
             [sys.executable, ROUTER_PATH],
@@ -730,7 +731,7 @@ class TestInFlightCarveOut:
         assert "IN FLIGHT" not in out.stdout
 
     def test_carve_out_carries_the_relevance_test(self):
-        # Same counterfactual as discovered.blocksFeature and /investigate 2f. Without it
+        # Same counterfactual as discovered.blocksFeature and /plan 2f. Without it
         # the carve-out would absorb every unrelated bug into the running feature.
         text = IN_FLIGHT_HINT.format(feature="f")
         assert "objectives be satisfied with" in text
@@ -738,7 +739,7 @@ class TestInFlightCarveOut:
 
     def test_base_hint_does_not_mention_in_flight(self):
         # The carve-out must be APPENDED conditionally, never baked into the base hint --
-        # with nothing in flight there is no amendment to make and /investigate is correct.
+        # with nothing in flight there is no amendment to make and /plan is correct.
         assert "IN FLIGHT" not in FRAMEWORK_HINT
 
 

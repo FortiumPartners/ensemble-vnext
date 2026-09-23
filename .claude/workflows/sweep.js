@@ -133,7 +133,7 @@ if (!TO_FIX.length) {
     readout:
       `SWEEP: nothing to fix — ${DEFERRED.length} issue(s) all deferred\n` +
       DEFERRED.map((d) => `    ${d.summary} — ${d.why}`).join('\n') +
-      `\n\n  These are not quick wins. Use /create-prd for the design ones, /investigate for a single defect.\n`,
+      `\n\n  These are not quick wins. Use /create-prd for the design ones, /plan for a single defect.\n`,
   }
 }
 

@@ -18,14 +18,14 @@ argument-hint: "<what to change>"
 `/amend` makes the change: it grounds, records, implements, verifies. No `--implement`, no
 plan-then-stop mode, no confirmation step.
 
-**This is the opposite default to `/investigate`, deliberately, and the difference is what
-you already know.** `/investigate` stops after writing its TRD because you are asking it to
+**This is the opposite default to `/plan`, deliberately, and the difference is what
+you already know.** `/plan` stops after writing its TRD because you are asking it to
 find something out — *"I want to understand an issue, I may or may not want to kick off the
 fix."* `/amend` starts from the answer: you are telling it what to change. There is nothing
 to decide afterwards, so pausing to ask would be the hedged-offer anti-pattern with extra
 steps.
 
-If you want the change understood rather than made, that is `/investigate` — which is also
+If you want the change understood rather than made, that is `/plan` — which is also
 the right call when the correct behaviour is still a question rather than an instruction.
 
 ## What this is for
@@ -46,7 +46,7 @@ recorded nowhere.
 | phase graph, review fan-out | **no** | yes | no |
 
 **It requires a feature in flight.** With nothing in `.trd-state/current.json` there is no
-document to amend — that is `/investigate`. Say so and stop.
+document to amend — that is `/plan`. Say so and stop.
 
 ## Step 1: Is this one task?
 
@@ -59,9 +59,9 @@ Signals it is NOT, any one of which is enough:
 - it is really several changes described together
 
 **If it is not one task, stop and say which signal fired**, and point at the heavier path:
-`/implement-trd --reconcile` after adding it to the TRD, or `/investigate` if it belongs to a
+`/implement-trd --reconcile` after adding it to the TRD, or `/plan` if it belongs to a
 different feature entirely. Growing a one-line amendment into a feature is the failure this
-step exists to prevent — the same inflation `/investigate` §2f guards against, where a 2-task
+step exists to prevent — the same inflation `/plan` §2f guards against, where a 2-task
 fix absorbed an audit's findings, sized 4, and escalated.
 
 ## Step 2: Ground it

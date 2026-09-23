@@ -28,7 +28,7 @@ answer."* **This command is that speed with the discipline put back.**
 
 | Situation | Use instead |
 |---|---|
-| One defect worth reproducing and root-causing | `/investigate` |
+| One defect worth reproducing and root-causing | `/plan` |
 | One change to the feature you are already building | `/amend` |
 | Work that holds together as a single design | `/create-prd` → `/create-trd` |
 | A list where most items need decisions | `/create-prd` — triage will defer them anyway |

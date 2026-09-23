@@ -2,7 +2,7 @@
 /**
  * plan-weight.js — the two axes, once `/plan` has decided the work is not `feature`.
  *
- * WHY THIS IS A MODULE AND NOT PROSE: `/plan` replaces `/investigate`'s single tier with
+ * WHY THIS IS A MODULE AND NOT PROSE: `/plan` replaces the retired single tier ladder with
  * two independent axes — `kind` (what kind of change) and `weight` (how much verification
  * it earns). Nine cells fall out of crossing them, and this module is the ONLY place that
  * mapping exists. `fix-sizing.js`'s header records what happens when a decision like this

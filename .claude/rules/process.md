@@ -20,8 +20,9 @@ FULL PIPELINE (new feature)
 /audit-build           --> Verify delivered code against TRD and PRD
 
 SHORTER PATHS
-/investigate <what>    --> Defect / small change / refactor: investigate, write a light
-                           TRD, audit it. Implements only with --implement.
+/plan <what>           --> Defect / small change / refactor: sizes the work and writes
+                           a TRD to match — light at trivial/small (no audit), phased
+                           and audited at medium. Implements only with --implement.
 /amend <what>          --> ONE change to the feature already in flight. Grounded,
                            recorded as a TRD row before the work, verified. No new TRD.
 /verify-build          --> Re-run functional verification alone
@@ -34,12 +35,12 @@ MAINTENANCE
 /augment-trd-figma     --> Add Figma design context to a TRD
 ```
 
-**Choosing between `/investigate`, `/amend` and the full pipeline.** The question is not
+**Choosing between `/plan`, `/amend` and the full pipeline.** The question is not
 size, it is WHOSE plan the work belongs to. Work on the feature currently in flight, sitting
-in its path, is an amendment to ITS TRD — `/investigate` would reproduce and re-design
+in its path, is an amendment to ITS TRD — `/plan` would reproduce and re-design
 something already understood and fork the work into a second TRD, which is how a session
 loses track of what it was doing. Work unrelated to the feature in flight is
-`/investigate`. Work whose correct behaviour is still a product decision is `/create-prd`.
+`/plan`. Work whose correct behaviour is still a product decision is `/create-prd`.
 
 ---
 
