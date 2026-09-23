@@ -105,6 +105,51 @@ when there's no command.
 
 ---
 
+## Measured 2026-09-23: the block cap, and the test set against itself
+
+**The block cap works when set in `.claude/settings.json`.** Throwaway repo, command hook
+that always blocks, `claude -p`: 9 blocks with the default (cap 8, plus one), 2 blocks with
+`"env": {"CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "1"}`. The second block ends the turn without a
+reply, so a cap of 1 means one corrective turn, enforced by the platform.
+
+**The fixture-shape theory did not hold.** The 15 cases scored, three runs each on the
+offline harness, are in `test/discipline-corpus/fixtures/stop-judge-2026-09-23.jsonl`:
+
+| Case | Expected | Wrong |
+|---|---|---|
+| 5 existing `Stop` escape-valve cases, bare `{"id"}` tasks | as labelled | 0/3 each |
+| same cases with live-shape tasks (`type`, `status: "running"`) | clean | 0/3 |
+| `s-payload-escape-loop-guard` (`stop_hook_active: true`) | clean | **2/3** |
+| my two closing "Next I'll…" turns, this session | violation | **3/3, 2/3** |
+| the customer-data ask | clean | 0/3 |
+| the "My answer stands" reply after a block (`stop_hook_active: true`) | clean | 0/3 |
+
+(Excluded: `s-payload-escape-subagent-with-bg` and its live-shape copy, which fail 3/3 and
+2/3. They are `SubagentStop` cases scored against `subagent-discipline`, a prompt nothing
+registers since 2026-08-28, so they measure nothing live.)
+
+What that says:
+
+1. **The judge ignores the loop guard.** The prompt's first instruction is "if
+   `stop_hook_active` is true, allow immediately", and the harness blocked that case 2 out of
+   3 times. That is the same failure as the five-block customer-data loop, reproduced
+   offline. It is why step 0 matters: this cannot be left to the judge.
+2. **The judge misses the "about to" shape it is told to catch.** It allowed both of this
+   session's closing turns in production, and 5 of 6 times offline. A likely contributor
+   is that this project's own orientation hint tells every turn to "End with clear,
+   actionable next steps", and "Next I'll X" is the natural way to comply.
+3. **The harness passes cases that production fails.** The customer-data ask was allowed 3/3
+   offline and blocked five times live. The live-shape dispatches also pass offline. The
+   production judge's block reasons argue from conversation content ("you have determined
+   the mechanism is safe, verified the data snapshot") that is not in
+   `last_assistant_message`. So the live evaluator reads context the harness never gives
+   it, and the harness's own header already calls the missing platform system prompt "the
+   single largest source of behavioral drift". **Offline scores cannot be taken as a
+   prediction of production for the context-driven false blocks**, and a clean post-edit
+   number has to come from live sessions.
+
+---
+
 ## The numbers, and why there are two
 
 | Measure | Value |
