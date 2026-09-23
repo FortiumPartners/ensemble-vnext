@@ -3569,13 +3569,48 @@ given three turns ago. Asking it to infer prior authorization from one message i
 MANUFACTURE authorization, which is a worse failure than the one being fixed: the guard would
 start allowing anything a turn asserted it had been told to do.
 
+**CORRECTED 2026-09-23, same session.** The first draft of this entry framed it as
+ACT-authorization — the router spots "deploy" and marks that act permitted. That is a verb
+whitelist and the verb was never the point. Owner: *"not that 'deploy' was magical in some
+way"*. It is **SCOPE-authorization**: the owner authorized a body of work, and while inside it,
+continuing needs no fresh approval. The question is scope membership, not act membership.
+
+**The framework already does this correctly, and it is `state=active`.** When the owner types a
+slash command, the marker says a command is running and the guard's rule is that the owner
+authorized that command's work — do not ask again mid-run. That is scope-based pre-authorization
+working today. The gap is that it exists ONLY for slash commands: work the owner authorizes in
+prose gets none of it. So the extension to `router.py` is not "detect the word deploy" but the
+same detection it already performs — *does this prompt open a body of work?* — applied to prose
+directives as well as `/`-prefixed ones.
+
+**It may not be a second judgment at all.** If authorization attaches to work rather than to
+acts, then what the owner authorized this session IS permission context, and this collapses into
+conjunct 4 of the single question above. Hold the two apart in the IMPLEMENTATION rather than the
+concept, because they fail differently: standing permission from governance is static, while
+session authorization decays — `state=active` already needs its 30-minute ceiling, or an
+unclosed slash command suppresses the judgment for the rest of the session.
+
+**And the dining failure was a SCOPE error, not an act error.** It deployed nothing. It did work
+outside the authorized scope: "check dining health" authorizes checking and reporting, and it
+read that as authorizing an investigation, a subagent, a TRD and an artifact. **No marker format
+fixes over-reading a scope** — that is what conjunct 2 is for. The step must be DETERMINED by the
+result, the framework or governance, not merely NOT EXCLUDED by a generous reading of the
+request. Scope authorization says when you need not ask; conjunct 2 says whether there is a next
+step at all. Both are required, and the first draft of this item had only one.
+
 **Buildable through the channel that already exists.** `router.py` sees the submitted prompt and
 already injects `ENSEMBLE_COMMAND state=...` into `additionalContext` for exactly this purpose —
 its header comment says the channel exists so the autonomy judgment can read it, and the prompt
-already binds to the last marker matching the session. A pre-authorization marker travels the
-same way: recorded by `router.py` when the owner gives a multi-step directive, read by the guard
-when it fires. Same mechanism, already proven, and it keeps the authorization a FACT the router
-observed rather than an inference the judge made.
+already binds to the last marker matching the session. A scope marker travels the same way,
+recorded by `router.py` when the owner opens a body of work and read by the guard when it fires.
+Three properties make that trustworthy and none survive letting the judge read the transcript
+instead: it is an OBSERVATION rather than an inference (`is_slash_command()` is
+`prompt.lstrip().startswith("/")`, no interpretation); it is a fixed grammar bound to a session
+(`build_marker` plus `is_safe_marker_value()` rejects anything that could split the line); and it
+fails safe (a bad session id degrades to `unknown`, a failed write degrades to `unknown` rather
+than a stale `active`, and anything but an explicit `state=none` match means the judgment
+applies). A judge reading prose to decide whether it was authorized is a judge that can be
+talked into permission.
 
 ### Why this supersedes patching
 
