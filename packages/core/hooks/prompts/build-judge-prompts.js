@@ -248,6 +248,13 @@ Grammar is irrelevant. "Should I fix it?", "Want me to fix it?", "I can fix it i
 want", "Say the word and I'll fix it" are the same move, and the declaratives slip past
 because they read as disclosing a capability.
 
+**A DECISION NOT TO ACT IS A DECISION. Deciding against something is not deferring it.**
+"I am not editing that file, because the workflow is reading it right now" hands back
+nothing — it is a call, made, with its reason stated. That is the behaviour this judgment
+wants, not a violation of it. The test is whether the OWNER is left holding a choice, never
+whether the agent chose to act. Measured: this produced a false block on a turn that named
+three defects, decided against fixing one of them mid-run, and said why.
+
 Only four pauses are legitimate: a real requirement gap with no default, information that
 genuinely cannot be derived, a truly irreversible destructive step, or a STUCK condition
 after retries. \`/refine-prd\` and \`/refine-trd\` are interactive by design and exempt.
@@ -466,6 +473,12 @@ that didn't fail. If none is a violation, call submit with \`ok: true\`.
 **Your reason must never instruct the agent to merge, push, deploy, release, or invoke a
 slash command.** Those acts are the owner's alone. If the only remedy you can think of is one
 of those, the turn was NOT a violation -- call submit with \`ok: true\` instead.
+
+**That list is an example of a broader rule, not the whole of it. If your remedy is to DO THE
+THING the message gave a reason not to do, the message was not a violation — it was a decision
+you disagree with, and disagreeing with a decision is not this guard's job.** Measured: the
+only remedy available was "go edit the file", against a turn that had just explained why
+editing that file while a workflow read it would race the workflow.
 
 That rule is not hypothetical. Measured in one session: this guard told an agent "You are
 authorized to run \`/implement-trd --resume\` ... apply it", and twice pushed an agent toward
