@@ -16,7 +16,7 @@ FULL PIPELINE (new feature)
 /create-trd            --> Technical Requirements Document
 /audit-trd             --> Verify the TRD against the PRD
 /refine-trd            --> (optional) Iterate on the TRD with feedback
-/implement-trd         --> Execute implementation (review + hardening run INSIDE it)
+/implement-trd         --> Execute implementation (review runs INSIDE it)
 /audit-build           --> Verify delivered code against TRD and PRD
 
 SHORTER PATHS
@@ -25,6 +25,8 @@ SHORTER PATHS
                            and audited at medium. Implements only with --implement.
 /amend <what>          --> ONE change to the feature already in flight. Grounded,
                            recorded as a TRD row before the work, verified. No new TRD.
+/sweep <issues>        --> A list of small, unrelated issues from a walkthrough — each
+                           fixed in parallel, grounded and attested. No TRD.
 /verify-build          --> Re-run functional verification alone
 /fold-prompt           --> Optimize context for continued work
 
@@ -149,7 +151,7 @@ per phase:
   phase gate (verify-app + the project's deterministic battery) --> checkpoint + commit
 
 once, at the end of the run:
-  hardening + /code-review over the whole branch diff --> [--verify: functional loop]
+  /code-review over the whole branch diff --> [--verify: functional loop]
 ```
 
 **This loop is smaller than it was, deliberately.** The per-phase `code-simplifier` stage
@@ -161,15 +163,15 @@ DEBUG dispatch either — the implementer runs its own checks and self-corrects 
 task.
 
 **Process**:
-1. Parses TRD for tasks and phases
-2. For each task:
-   - Delegates to appropriate implementer (frontend/backend/mobile)
-   - Runs `verify-app` for testing
-   - On failure: `app-debugger` investigates (max 3 retries)
-   - `code-simplifier` for post-verification refactoring
-   - `code-reviewer` for security/quality review
-3. Updates `.trd-state/<feature>/implement.json`
-4. Commits at checkpoints
+1. Parses TRD for tasks and phases; builds the task graph
+2. For each phase, dispatched as a single phase workflow:
+   - Per task: delegates to the appropriate implementer (frontend/backend/mobile/agent),
+     which runs its own targeted checks and self-corrects — no separate per-task debug
+     or review agent
+   - Phase gate: `verify-app` plus the project's deterministic battery
+3. Checkpoint + commit after each phase gate
+4. Once, after the final phase: `/code-review` over the whole branch diff
+5. Updates `.trd-state/<feature>/implement.json`
 
 ### /update-project
 

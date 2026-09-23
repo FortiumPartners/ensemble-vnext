@@ -510,7 +510,7 @@ setup() {
 
 @test "every file mirrored into .claude/ matches its packages/ source" {
     run python3 - "$REPO_ROOT" <<'PY'
-import os, sys, filecmp
+import os, re, sys, filecmp
 root = sys.argv[1]
 PAIRS = [('packages/core/hooks', '.claude/hooks'),
          ('packages/core/hooks/lib', '.claude/hooks/lib'),
@@ -522,6 +522,23 @@ PAIRS = [('packages/core/hooks', '.claude/hooks'),
 # Tests and their harness are deliberately NOT shipped into a project -- a tree
 # with no runner wired up does not need them (copy_workflows/copy_libs skip them).
 SKIP = lambda f: f.endswith('.test.js') or f == 'test-harness.js'
+# The agents pair carries one legitimate, deterministic exception: scaffold-project.sh
+# --refresh injects a per-project "Project Skills" block the plugin source cannot
+# contain -- it names the CONSUMING project's stack, which packages/full/agents/*.md
+# has no way to know. Strip exactly that generated region (frontmatter `skills:` list
+# + the marked body block) before comparing, so real drift elsewhere in these files
+# still fails the test.
+GENERATED_PAIRS = {('packages/full/agents', '.claude/agents')}
+def strip_generated(text):
+    text = re.sub(r'\n\n<!-- ENSEMBLE:SKILLS:BEGIN.*?ENSEMBLE:SKILLS:END -->', '', text, flags=re.S)
+    text = re.sub(r'\nskills:\n(?:  - .*\n)+', '\n', text)
+    return text
+def same(fa, fb, pair):
+    if pair not in GENERATED_PAIRS:
+        return filecmp.cmp(fa, fb, shallow=False)
+    with open(fa, encoding='utf-8') as h: ta = h.read()
+    with open(fb, encoding='utf-8') as h: tb = h.read()
+    return ta == strip_generated(tb)
 drift = []
 for a, b in PAIRS:
     da, db = os.path.join(root, a), os.path.join(root, b)
@@ -531,7 +548,7 @@ for a, b in PAIRS:
         fa, fb = os.path.join(da, f), os.path.join(db, f)
         if not os.path.isfile(fa) or not os.path.isfile(fb) or SKIP(f):
             continue
-        if not filecmp.cmp(fa, fb, shallow=False):
+        if not same(fa, fb, (a, b)):
             drift.append(f"{a}/{f} != {b}/{f}")
 if drift:
     print("MIRROR DRIFT:")

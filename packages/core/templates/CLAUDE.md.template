@@ -34,13 +34,42 @@ time; that is expected, and it is why the guidance appears in more than one plac
 
 ```
 /init-project          --> Initialize project structure (once per project)
+
+FULL PIPELINE (new feature)
 /create-prd            --> Product Requirements Document
-/refine-prd            --> (optional) Iterate on PRD with feedback
+/audit-prd             --> Verify the PRD against its source
+/refine-prd            --> (optional) Iterate on the PRD with feedback
 /create-trd            --> Technical Requirements Document
-/refine-trd            --> (optional) Iterate on TRD with feedback
-/implement-trd         --> Execute implementation tasks
+/audit-trd             --> Verify the TRD against the PRD
+/refine-trd            --> (optional) Iterate on the TRD with feedback
+/implement-trd         --> Execute implementation (review runs INSIDE it)
+/audit-build           --> Verify delivered code against TRD and PRD
+
+SHORTER PATHS
+/plan <what>           --> Defect / small change / refactor: sizes the work and writes
+                           a TRD to match. Implements only with --implement.
+/sweep <list>          --> A LIST of small, independent fixes that arrived together —
+                           grounded and attested in parallel, no TRD.
+/amend <what>          --> ONE change to the feature already in flight. Grounded,
+                           recorded as a TRD row before the work, verified. No new TRD.
+/verify-build          --> Re-run functional verification alone
 /fold-prompt           --> Optimize context for continued work
+
+MAINTENANCE
+/update-project        --> Capture learnings into CLAUDE.md; propose governance changes
+/cleanup-project       --> Prune CLAUDE.md and project artifacts
+/rebase-project        --> Refresh the vendored runtime from the plugin
+/augment-trd-figma     --> Add Figma design context to a TRD
 ```
+
+**Choosing between `/plan`, `/sweep`, `/amend` and the full pipeline is about WHOSE PLAN the
+work belongs to, not about size.** Work on the feature already in flight, sitting in its own
+path, is an amendment to ITS TRD — `/plan` would reproduce and re-design something already
+understood and fork it into a second TRD, which is how a session loses track of what it was
+doing. A batch of small, unrelated fixes that arrived together is `/sweep` — each one grounded
+and attested on its own, without inventing a shared TRD they don't share. Work unrelated to
+anything in flight, that needs its own plan, is `/plan`. Work whose correct behavior is still a
+product decision starts at `/create-prd`.
 
 Always check for existing PRD/TRD before creating new ones.
 
