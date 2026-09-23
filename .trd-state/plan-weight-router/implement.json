@@ -1,0 +1,196 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/plan-weight-router.md",
+  "trd_hash": "d72160630a8534e809e6ba4b4028d2f31eca80e4d442669725321b5c1435830d",
+  "branch": "feature/plan-weight-router/build",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "PLAN-B001": {
+      "description": "Write packages/core/lib/plan-weight.js and plan-weight.test.js per §3.1: the two axes, stages(), verification(), route()",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/plan-weight.js",
+        "packages/core/lib/plan-weight.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:01:19.503Z",
+      "completed_at": "2026-09-23T18:15:59.194Z",
+      "last_advanced": "2026-09-23T18:06:19.448Z"
+    },
+    "PLAN-B002": {
+      "description": "Repoint packages/core/lib/fix-plan.js per §3.2: tier → weight + route, add neverUnattendedHit, add the route: 'prd' branch, and correct the two /fix strings to /plan",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/fix-plan.js",
+        "packages/core/lib/fix-plan.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:01:19.503Z",
+      "completed_at": "2026-09-23T18:15:59.195Z",
+      "last_advanced": "2026-09-23T18:06:19.448Z"
+    },
+    "PLAN-B003": {
+      "description": "Reduce packages/core/lib/fix-sizing.js to matchNeverUnattended() alone: delete size(), TIERS, lower(), MAX_TASKS, DEFAULT_MAX_FILES, DEFAULT_MAX_CALLERS and the absorbed-scope advisory, and delete the tests that pin them",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/fix-sizing.js",
+        "packages/core/lib/fix-sizing.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:01:19.503Z",
+      "completed_at": "2026-09-23T18:15:59.195Z",
+      "last_advanced": "2026-09-23T18:06:19.448Z"
+    },
+    "PLAN-P001": {
+      "description": "Create packages/core/commands/plan.md carrying the investigation machinery inherited from investigate.md (Steps 1, 2a–2f, 2e grounding), the content-based exit test (§3.5), the plan-weight.js and fix-plan.js calls, the light-TRD template with ## Open Questions and the refactor surface block (§3.3), the adversarial pass, the readout, the banners, the autonomy block and the notify call. Delete packages/core/commands/investigate.md",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T18:16:26.948Z",
+      "completed_at": null
+    },
+    "PLAN-B004": {
+      "description": "Add the medium path to plan.md: write the investigation record (§3.4), Workflow({name: \"create-trd\", args: {prd: record, trd, feature, project}}), the adversarial pass over the phased TRD, Workflow({name: \"audit-trd\", args: {trd, source: record}}), the kind-specific verification sections, and the /refine-trd recommendation line. Also add the route: 'prd' branch, which performs whatever chain fix-plan.js's plan() returns for that route (F5) — unblocked 2026-09-23 (F6): the branch invokes Workflow({name: \"create-prd\", args: {source: record, brief: '', prd, feature, project}}) and /plan emits the run's banner",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T18:16:26.948Z",
+      "completed_at": null
+    },
+    "PLAN-P002": {
+      "description": "Vendor the change into the dogfood .claude/ tree: run scaffold-project.sh --refresh (not a hand copy) to add plan.md and refresh the three libs, then explicitly rm .claude/commands/investigate.md. The refresh cannot do that second step — copy_commands() iterates only files present in the source tree (scaffold-project.sh:424) and the --refresh contract states it \"never deletes one the plugin no longer carries … Adding or removing components stays /rebase-project's job\" (scaffold-project.sh:1259-1264), so a refresh alone leaves the deleted command behind and the file count at 19. Added by audit, finding F2. Confirm scaffold-delivery.test.sh and vendoring.test.sh still pass",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T18:16:26.948Z",
+      "completed_at": null
+    },
+    "PLAN-B005": {
+      "description": "Rename /investigate to /plan in packages/router/hooks/router.py's FRAMEWORK_HINT (lines 71, 73, 81) and IN_FLIGHT_HINT (lines 57, 65), and in the two explanatory comments (lines 527, 539). Update packages/router/tests/test_router.py's 7 assertions. Vendor to .claude/hooks/router.py",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "PLAN-D001": {
+      "description": "Rename across the command, rule, template and lib-comment surfaces: packages/core/commands/{amend,sweep,init-project}.md, packages/full/commands/plugin-only/init-project.md, .claude/rules/{process,command-status,async-discipline}.md and their three copies under packages/core/templates/, packages/core/templates/process.md.template, and the /investigate references in packages/core/lib/{discovered,fix-plan}.js and packages/core/workflows/{create-trd,sweep}.js comments. Mirror each into .claude/",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "PLAN-D002": {
+      "description": "Rename in the reader-facing docs: CLAUDE.md (3 hits, including the workflow map's /investigate vs /amend paragraph). docs/guides/{ARCHITECTURE,CONCEPTS,INSTALL,PROCESS}.md are NOT targets — corrected by audit, finding F3: their hits are /investigate-issue and /fix-issue, a different, already-dead command pair, and CONCEPTS.md's only hit is the verb \"investigates\". None names /investigate. See this task's grounding",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "PLAN-T001": {
+      "description": "Add test/integration/tests/plan-command.test.sh: a negative grep assertion that no live surface names /investigate, with the exclusion set written down (CHANGELOG.md, docs/PRD/, docs/TRD/, docs/modernization/, test/evals/analysis-archive/, ensemble-vnext-test-fixtures/, .trd-state/, .claude.backup.*), plus assertions that /plan is registered in both trees",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "PLAN-T003": {
+      "description": "Repoint packages/core/lib/fix-template.test.js from investigate.md to plan.md, update its placeholder .replace() filler to the new template, and add assertions that the filled template's ## Open Questions parses into openQuestions with ownerOnly: true and that ## Behaviour Preserved carries a public-surface line",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "PLAN-T004": {
+      "description": "Repoint the existing BATS assertions: implement-trd-structure.test.sh (6 hits — the $FIX path, the fix-sizing and lib/fix-plan greps, the banner: null invariant) and notify-on-complete.test.sh (5 hits). Add an assertion that a /plan-written ## Open Questions row reaches a task prompt as <open_question>",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "PLAN-T002": {
+      "description": "[LIVE] Rename test/smoke/scenarios/investigate-{light-fix,decoy-root-cause}.sh to plan-*, update test/smoke/run-smoke.sh's ALL_SCENARIOS / LLM_OPT_IN_SCENARIOS rosters and test/smoke/baseline.json, and add test/smoke/scenarios/plan-medium-weight.sh: a real /plan run on a 12–18-task subject that asserts medium, a phased TRD, that audit-trd ran, and exactly one COMMAND COMPLETE banner",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": null,
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "PENDING",
+      "review": {
+        "findings": 0,
+        "applied": 0,
+        "reported": 0
+      },
+      "timestamp": "2026-09-23T18:16:26.947Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "PENDING",
+    "last_checkpoint_timestamp": "2026-09-23T18:16:26.947Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}
