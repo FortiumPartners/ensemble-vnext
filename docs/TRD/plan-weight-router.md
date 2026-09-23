@@ -1,6 +1,6 @@
 # TRD: One entry point that picks the weight (plan-weight-router)
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Status**: Draft
 **Created**: 2026-09-23
 **Last Updated**: 2026-09-23
@@ -15,6 +15,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-23 | Initial TRD from PRD v1.1.1. Carries all 27 acceptance criteria and all six goals. Two figures the PRD states were re-measured and one of them is wrong: the rename surface is 4 canonical command files plus ~20 other live surfaces, not "18 command files" (OQ-T4). F8's two criteria are carried as objectives with no task, deferred by their own stated dependency. | @technical-architect |
+| 1.1.0 | 2026-09-23 | Interactive `/refine-trd`. All eight open questions closed: six answered by the owner, two struck as already settled. Five of six confirmed this TRD's assumptions; OQ-T3 went against it — a `refactor` at `trivial`/`small` gets no behaviour-preservation check, added as AC-F3.5 and accepted as risk TR4. Challenge pass dropped `PLAN-B002`'s unjustified dependency on `PLAN-B001` (D13: on the critical path, 7 waves → 6) and rejected the `PLAN-D001`/`PLAN-B002` lost-update finding (D14: a file-conflict edge already serializes them). No objective removed; no requirement added without a source. | @technical-architect, owner decisions |
 
 ---
 
@@ -128,6 +129,7 @@ where the PRD states one, so `Serves` columns below resolve directly into the so
 | AC-F3.2 | A medium `refactor` checks that the public surface has not moved | PRD AC-F3.2 |
 | AC-F3.3 | A medium `change` is verified against the stated outcome and is **not** asked for a before-run | PRD AC-F3.3 |
 | AC-F3.4 | A `refactor` is never asked for a root cause | PRD AC-F3.4 |
+| AC-F3.5 | A `refactor` at `trivial` or `small` is **not** asked for a before-run, an after-run, or a public-surface check. `## Behaviour Preserved` is required only at `medium` | Owner decision 2026-09-23 (OQ-T3) |
 | AC-F4.1 | The routing decision to `/create-prd` is stated in terms of PRD content, not task or file count | PRD AC-F4.1 |
 | AC-F4.2 | Neither `MAX_TASKS` nor the touched-file ceiling participates in the decision of whether a PRD is needed | PRD AC-F4.2 |
 | AC-F4.3 | Work of 12–18 tasks carrying no product decision routes to `medium` | PRD AC-F4.3 |
@@ -517,7 +519,7 @@ Agent mapping: `B` → @backend-implementer, `P`/`D` on prompt and prose files �
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|---------------------|
 | PLAN-B001 | Write `packages/core/lib/plan-weight.js` and `plan-weight.test.js` per §3.1: the two axes, `stages()`, `verification()`, `route()` | AC-F1.1, AC-F1.2, AC-F1.3, AC-F2.1, AC-F2.2, AC-F2.3, AC-F2.5, AC-F3.1, AC-F3.2, AC-F3.3, AC-F3.4, AC-F4.2, AC-F5.2, AC-F6.1, AC-F6.3, D2 | `jest` | None | Tests written before the module (constitution test-first). `set(trivial) ⊂ set(small) ⊂ set(medium)` asserted as a set relation. `'audit'` absent from every list but `medium`'s. `kind: 'feature'` and `weight: 'feature'` each throw a message naming `route()`. A test asserts the `route()` input object has exactly one key and that the module `require`s nothing from `fix-sizing` (AC-F4.2 structurally). A test asserts no exported map enumerates nine cells: every exported object's keys are a subset of `KINDS ∪ WEIGHTS` (AC-F1.3). `verification()` truth table pinned for all nine cells × the open-question flag. `VERIFICATION_SECTION` is imported from `fix-plan.js`, not redefined |
-| PLAN-B002 | Repoint `packages/core/lib/fix-plan.js` per §3.2: `tier` → `weight` + `route`, add `neverUnattendedHit`, add the `route: 'prd'` branch, and correct the two `/fix` strings to `/plan` | AC-F5.1, AC-F5.2, AC-F7.2, AC-F7.5, O-NU, D10 | `jest` | PLAN-B001 (the `Weight` / `Route` value sets only, not its implementation) | A test asserts `workBegins` is identical across all three weights for otherwise identical input (AC-F5.1/F5.2). A test asserts `route: 'prd'` returns `banner: null`, `notify: false`, `chainSkill: 'create-prd'`. A test asserts a non-empty `neverUnattendedHit` suppresses the chain and the reason names the matched paths. The existing 15 tests for the banner/notify/pointer invariant still pass, with `tier` inputs replaced. No test and no branch mentions `REVIEW`, `AUTO` or `ESCALATE`. Both `/fix` strings are gone |
+| PLAN-B002 | Repoint `packages/core/lib/fix-plan.js` per §3.2: `tier` → `weight` + `route`, add `neverUnattendedHit`, add the `route: 'prd'` branch, and correct the two `/fix` strings to `/plan` | AC-F5.1, AC-F5.2, AC-F7.2, AC-F7.5, O-NU, D10 | `jest` | None (dropped 2026-09-23 — see D13) | A test asserts `workBegins` is identical across all three weights for otherwise identical input (AC-F5.1/F5.2). A test asserts `route: 'prd'` returns `banner: null`, `notify: false`, `chainSkill: 'create-prd'`. A test asserts a non-empty `neverUnattendedHit` suppresses the chain and the reason names the matched paths. The existing 15 tests for the banner/notify/pointer invariant still pass, with `tier` inputs replaced. No test and no branch mentions `REVIEW`, `AUTO` or `ESCALATE`. Both `/fix` strings are gone |
 | PLAN-B003 | Reduce `packages/core/lib/fix-sizing.js` to `matchNeverUnattended()` alone: delete `size()`, `TIERS`, `lower()`, `MAX_TASKS`, `DEFAULT_MAX_FILES`, `DEFAULT_MAX_CALLERS` and the absorbed-scope advisory, and delete the tests that pin them | AC-F4.2, AC-F5.1, O-NU, D3 | `jest` | None | `grep -rn "MAX_TASKS\|DEFAULT_MAX_FILES" packages/ .claude/` returns nothing outside `docs/`. `matchNeverUnattended` stays exported and keeps its substring-match tests. The module header is rewritten: it currently opens *"decide whether a `/fix` may run unattended"*, which is the retired premise. No other module in the tree `require`s the deleted exports |
 
 ### 4.3 Phase 2: The command
@@ -917,6 +919,7 @@ deliberately temporary and F8 retires. Nobody has measured what it costs here. S
 
 | ID | Risk | Likelihood | Impact | Mitigation |
 |----|------|------------|--------|------------|
+| TR4 | A `refactor` at `trivial` now carries no audit (R3) **and** no before-run, after-run or public-surface check (AC-F3.5). The claim "behaviour is unchanged" has nothing behind it at that weight. Accepted by the owner 2026-09-23 (OQ-T3), not mitigated away | Medium | High | Cannot ship silently: `plan-weight.js` asserts in a test that `behaviourPreservedRequired` is false for `refactor` at `trivial` and `small`, and PLAN-P001's command text states the reduction. The watch signal is narrower than R3's and worth naming separately: a refactor landing on `main` that changes observable behaviour. If one does, the cheapest correction is to require `## Behaviour Preserved` at `small` before reinstating it at `trivial` |
 | TR1 | The rename is a distributed edit across two mirrored trees plus three template copies, and at least one pair must stay byte-identical (`notify-on-complete.test.sh` runs `diff -q` on the rules files). A half-applied sweep passes a single-tree grep and ships one tree renamed | High | Medium | PLAN-P002 vendors through `scaffold-project.sh --refresh` rather than by hand. PLAN-T001 scans `packages/` and `.claude/` **separately**, so a one-tree sweep fails rather than passing |
 | TR2 | `fix-template.test.js` extracts the light-TRD template by regex and fills it with hard-coded literal `.replace()` calls. PLAN-P001 rewrites that template, so a reworded placeholder leaves the filler substituting nothing and the parse assertions passing vacuously — the test reports green on an unparseable template | High | High | PLAN-T003 updates the filler in the same release and adds the assertion that the fill actually happened: no `<` remains in the filled text. This is the failure the template test was written for in the first place — grounding is the command's highest-value output, and losing it silently is the worst available outcome |
 | TR3 | Deleting `size()` removes the only consumer of `matchNeverUnattended`, and this repo's `verification.md` lists no never-unattended paths — so the regression is invisible here and surfaces only in a consuming project that filled the section | Medium | High | O-NU is an explicit objective. PLAN-B003 keeps the function and its tests; PLAN-B002 wires it into `plan()` as a chain suppressor with its own unit test. The gap is closed in code, not in prose |
@@ -965,10 +968,38 @@ these categories.
 
 ---
 
+## Refinement decisions (2026-09-23, interactive `/refine-trd`)
+
+| ID | Decision | Effect |
+|----|----------|--------|
+| D13 | **`PLAN-B002`'s dependency on `PLAN-B001` is dropped.** *(The Dependencies cell reads only "None": `trd-parser.js` extracts task ids from that cell by pattern, so a note naming the dropped id keeps the edge alive — verified, the first attempt at this edit did exactly that and the graph was unchanged.)* Grounding found no code behind it and the evidence is checkable: `fix-plan.js:50` hardcodes `['AUTO','REVIEW','ESCALATE']` rather than importing, `fix-sizing.js` does not export `TIERS` at all, and `fix-plan.test.js` loops the enum literally — these two modules have never shared one. `plan()`'s interface takes `weight`/`route` as plain strings | `PLAN-B002` was **on the critical path**. Measured with the fixed graph: 7 waves → 6, average width 1.857 → 2.167, and the chain loses a hop. This is the case the readout rule names — an unjustified edge on the critical path is the one worth acting on |
+| D14 | **The `PLAN-D001` / `PLAN-B002` lost-update finding is REJECTED.** Grounding reported that both rewrite `fix-plan.js` with no edge between them. True of *declared* edges only: the graph carries `PLAN-B002 → PLAN-D001`, kind `file-conflict`, on `packages/core/lib/fix-plan.js`. They are already serialized | No change. Grounding looked for a declared edge and missed the inferred one — which is exactly what the union graph is for |
+
+**Noted, not acted on:** `PLAN-D001`'s `Touches` list carries quoted prose (`"/investigate — Defect / small change…"`), glob patterns (`.claude/commands/{amend,sweep,init-project}.md`, `.claude/rules/*.md`) and bare directories (`.claude/`, `.claude/rules/`) alongside real paths. Cosmetic rather than functional: verified that the graph holds exactly two file-conflict edges, both on real shared paths (`plan.md` and `fix-plan.js`), so none of the junk entries produces a spurious edge. Worth tidying whenever that block is next edited.
+
+---
+
 ## Open Questions
 
-Decisions this TRD had to make that the PRD did not settle. Each states what was assumed, so
-the document is usable if none is ever answered.
+**All eight are closed.** Six were answered by the owner interactively on 2026-09-23; two were
+struck as questions the document had already settled. Five of the six confirmed what this TRD
+assumed — only OQ-T3 went against it.
+
+| ID | Question | Answer | Recorded as |
+|----|----------|--------|-------------|
+| OQ-T1 | Does `/plan` chain `/implement-trd`, or does `--implement` survive? | `--implement` survives, now honoured at every weight | as assumed (D7) |
+| OQ-T2 | Is passing the investigation record as `args.prd` within NG1's intent? | Yes — the record is a requirements document, not a transcript | as assumed (D6) |
+| OQ-T3 | What witnesses behaviour preservation for a `refactor` at `trivial`/`small`? | **Nothing — only `medium` gets it.** Against this TRD's assumption | AC-F3.5, TR4 |
+| OQ-T4 | The PRD's "18 command files" rename surface | **Struck.** The document already settled it: 4 files actually name `/investigate`, ~20 other surfaces do, and the work is a discovered sweep with a negative grep (D11). The PRD's figure is a cost estimate, not a work list | — |
+| OQ-T5 | Does `/plan` accept `--weight` or `--kind` overrides? | No `--weight`; `kind` stays a declaration the command notes and proceeds on | as assumed (TNG3) |
+| OQ-T6 | At `route: 'prd'`, pass the record or invoke bare? | Pass the record | as assumed |
+| OQ-T7 | Does the `ESCALATE` label survive? | Retired. No tier word survives in code, prose or output | as assumed (TNG2 keeps old PRDs intact) |
+| OQ-T8 | Is there a cost ceiling on the medium path? | **Struck.** Inventing an unsourced threshold is what the authoring contract forbids; the cost is recorded as accepted and F8 is the remedy | — |
+
+The original questions, with what each assumed and what breaks if that was wrong, are preserved
+below for anyone auditing the reasoning rather than the outcome.
+
+### Original questions, as raised
 
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
 |----|----------|----------------|----------------|--------------|
