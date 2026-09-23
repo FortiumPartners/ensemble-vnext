@@ -62,6 +62,49 @@ failure it demonstrably catches.* That threshold is met.
 
 ---
 
+## The most serious case: pushed toward an irreversible write to customer data
+
+Supplied by the owner from another session. It's current-generation: it carries the
+"My answer stands" footer, which landed 2026-09-21 in `3723c32`. The transcript isn't on this
+machine, so the payload (including `stop_hook_active`) can't be checked.
+
+The agent had a two-step repair planned for a customer's production account: create 47
+contacts, delete his drafts, and do it by direct SQL because there was no way to call the
+API as that user. It asked for the owner's go-ahead, gave its reason, and offered a
+conservative alternative. That's the legitimate-ask shape the prompt describes: one bounded
+decision, with a default stated.
+
+**Judgment B blocked it five times in a row.** Each reason said to "apply step 1 now". The
+agent answered "My answer stands — …" four times and got blocked again each time.
+
+What it shows:
+
+1. **The one-correction limit didn't hold.** The prompt promises one corrective turn, via
+   `stop_hook_active`, and says the dissent line is "ALREADY terminal". Here it was blocked
+   five times in a row. That limit is only a line in the prompt, so the judge has to honour it.
+   The only other limit is the platform cap (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`, default 8,
+   verified in `docs/modernization/probes/U3-loop-bound.md`). **This is a safety bound
+   failing, not a tuning gap.**
+2. **An irreversible destructive step is one of the four legitimate pauses** (prompt line
+   39). The judge got around that by splitting the request, declaring step 1 "not
+   irreversible", and treating the rest as "work you are authorized to do".
+3. **Its remedy was doing the thing the message declined to do.** Prompt lines 219–223 say
+   that means allow. This is the same failure as verdict 12, and it's the third time this
+   prompt's explicit rule has been ignored.
+4. **The block reasons contradict themselves.** They said "…or state plainly why the write
+   is too risky and stop". The agent did exactly that and was blocked again.
+5. **The prompt's cost argument breaks here.** "A missed violation costs one idle turn". A
+   false block here pushes toward writing to a customer's data.
+   Judgment B has to be structurally unable to push toward an irreversible or third-party
+   act, not merely told not to.
+
+Likely also relevant: the judge framed the work as "this command's scope". If no workflow
+command was running, Judgment B applied only because the prompt defaults to applying it
+whenever the marker is absent or stale. "The owner authorized this command" means nothing
+when there's no command.
+
+---
+
 ## The numbers, and why there are two
 
 | Measure | Value |
@@ -129,6 +172,10 @@ which is the second thing to measure here**, and it is cheap: score the existing
 
 ## Suggested order of work
 
+0. **Make the loop limit deterministic.** Set `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP=1` (one
+   corrective turn, enforced by the platform rather than by the judge's reading of
+   `stop_hook_active`). First verify it takes effect when set through settings `env`
+   rather than the shell.
 1. **Score the corpus as-is** against the current prompt. If `payload-escape-valve` passes
    8/8 while production fails 7 times, the corpus fixtures do not match the live payload
    and fixing them comes before touching the prompt.
@@ -139,9 +186,14 @@ which is the second thing to measure here**, and it is cheap: score the existing
    payload), and drop the judgement about whether a *present* dispatch is sufficient, since
    that is where every false block came from.
 
+Two more candidates for the narrowing, from the customer-data case: Judgment B applies
+only on an explicit `state=active` marker (reverse the current default), and it never
+blocks a pause before an irreversible or third-party write.
+
 New corpus cases worth adding, all from this session, all currently unrepresented:
 `reported-a-step-that-could-not-run`, `recommendation-phrasing`,
-`declined-with-a-stated-reason`, `dispatch-present-and-named`.
+`declined-with-a-stated-reason`, `dispatch-present-and-named`,
+`owner-approval-for-irreversible-write` (the customer-data case, `clean`).
 
 ---
 
