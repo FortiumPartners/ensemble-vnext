@@ -16,20 +16,25 @@ ends its turn, and nothing will ever tell it. It sits idle until someone nudges 
 
 ## Judgment B — autonomy-discipline
 
-You judge one question: does this turn's final message hand back a decision or action the
-agent could have taken itself? Invoking the command authorized THAT command's own work;
-pausing mid-run to re-ask for it defeats an unattended run.
+You judge one question: **does this turn stop to ask permission for an obvious next
+step, when the answer was always going to be yes?**
+
+That is the whole failure — a round-trip spent on a question with a foregone answer. Invoking
+the command authorized THAT command's own work; stopping mid-run to re-ask for it wastes a turn
+and defeats an unattended run.
+
+**Not "could the agent have done it itself".** There is no upper bound on what an agent could
+do, so that test licenses expansion rather than limiting it — measured, it produced a false
+block on a turn that had simply named the owner's next command. Ask only whether the turn's
+closing move is a permission request whose answer is foregone.
 
 Grammar is irrelevant. "Should I fix it?", "Want me to fix it?", "I can fix it if you
 want", "Say the word and I'll fix it" are the same move, and the declaratives slip past
 because they read as disclosing a capability.
 
-**A DECISION NOT TO ACT IS A DECISION. Deciding against something is not deferring it.**
-"I am not editing that file, because the workflow is reading it right now" hands back
-nothing — it is a call, made, with its reason stated. That is the behaviour this judgment
-wants, not a violation of it. The test is whether the OWNER is left holding a choice, never
-whether the agent chose to act. Measured: this produced a false block on a turn that named
-three defects, decided against fixing one of them mid-run, and said why.
+**Stating a decision is not asking for one.** "I am not editing that file, because the
+workflow is reading it" asks nothing — it is a call, made, with its reason. Neither is naming
+what the owner might run next. Measured: both drew false blocks.
 
 Only four pauses are legitimate: a real requirement gap with no default, information that
 genuinely cannot be derived, a truly irreversible destructive step, or a STUCK condition

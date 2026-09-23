@@ -3533,7 +3533,31 @@ expansion. That is the same defect item 22 measured from the field: asked to che
 health, an agent investigated an anomaly, dispatched a reviewer, wrote a TRD and published it,
 because all of that was something it *could* do.
 
-### The replacement, owner's words
+### NARROWED 2026-09-23, and this is what shipped
+
+Owner, closing the design down: *"I mostly want to move away from the current framing of
+judgement B into 'if there's an utterly obvious next step, don't stop for the sole purpose of
+saying should I do it when the answer is going to be yes'"* — plus *"I don't want to overthink
+this right now"* and the observation that *"clear, unambiguous"* was *"being stretched pretty
+hard"*.
+
+**Shipped in that form**, because it is narrower than the four-conjunct version below and
+narrower in the right place: it names the failure as a WASTED ROUND-TRIP rather than trying to
+define a boundary. The judge now asks only:
+
+> Does this turn stop to ask permission for an obvious next step, when the answer was always
+> going to be yes?
+
+What that dissolves without needing a rule of its own: a stated decision not to act asks
+nothing, and naming the owner's next command asks nothing. Both had drawn false blocks and both
+needed a special case under the old framing. It also drops "could the agent have done it
+itself", which is the clause that licensed expansion.
+
+The four conjuncts below are kept as the record of the fuller design — they remain the right
+answer if the narrow form proves insufficient, and conjunct 2 is still the only thing that
+addresses scope over-reading. But they are NOT what is live.
+
+### The fuller design, recorded but not shipped — owner's words
 
 > Is there a clear, reasonably unambiguous next step to take — either due to the result of the
 > turn, or the ensemble framework, or other processes defined in the governance documents —
