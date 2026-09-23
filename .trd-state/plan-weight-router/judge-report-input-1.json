@@ -1,0 +1,329 @@
+{
+  "feature": "plan-weight-router",
+  "prd": "docs/PRD/plan-weight-router.md",
+  "definitionPath": ".trd-state/plan-weight-router/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "26 of 32 criteria met from read-derived evidence; the remaining 6 all require a live /plan session transcript, which no environment listed in verification.md can host, so they are not verifiable here. No gaps.",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "The `kind` axis accepts exactly `defect`, `change` and `refactor`; a fourth value is rejected rather than silently coerced",
+      "cites": "AC-F1.1 (§4.1 F1, line 192)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt",
+      "reason": "All three values accepted by stages(); \"bogus\" rejected with an explicit \"unknown kind\" error naming the three legal values.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "The `weight` axis accepts exactly `trivial`, `small` and `medium`; a fourth value is rejected",
+      "cites": "AC-F1.1 (§4.1 F1, line 192)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt",
+      "reason": "All three accepted; \"bogus\" rejected with an explicit \"unknown weight\" error naming the three legal values.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "`feature` is not accepted as a value of `kind` or of `weight` — it is a routing outcome, not an axis member",
+      "cites": "AC-F1.2; §1.2 line 69",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt",
+      "reason": "kind=feature and weight=feature both rejected with a message that says feature is a routing outcome and points at route(); the same transcript shows route({prdWouldHaveContent:true}) returning \"prd\", the feature exit.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "None of the nine `kind` x `weight` cells carries an individual name in code, in the command's prose, or in a run's output",
+      "cites": "AC-F1.3; NG10 (line 172)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-4-no-cell-names.txt",
+      "reason": "Grep for per-cell identifier shapes across plan.md and the three libraries returns zero hits. The only AUTO/REVIEW/ESCALATE hits are four doc-comment lines describing the retired tier ladder, not live labels.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "At `trivial`, the stage list is exactly: write a light TRD, then implement",
+      "cites": "AC-F2.1; §1.2 grid line 75",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt",
+      "reason": "stages() at trivial returns [investigate, author-trd, implement] for all three kinds, trdFormat=light.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "At `small`, the stage list is everything `trivial` runs plus an adversarial pass",
+      "cites": "AC-F2.2; §1.2 grid line 76",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt",
+      "reason": "Printed subset check: trivial is a subset of small, and small minus trivial is exactly [adversarial].",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "At `medium`, the stage list is everything `small` runs plus grounding and an audit",
+      "cites": "AC-F2.3; §1.2 grid line 77",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt",
+      "reason": "Printed subset check: small is a subset of medium, and medium minus small is exactly [ground, audit].",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "`trivial` and `small` run NO audit stage — a deliberate reduction against `/investigate`'s unconditional audit, not an oversight",
+      "cites": "AC-F2.5; NG11 (line 170); D4 (§9, line 479)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt",
+      "reason": "The audit stage is absent from every trivial and small cell and present in every medium cell. The live half of the asked-for evidence (a run transcript showing no audit dispatched) was not captured, but the stage list is what the dispatcher reads, so the read-derived criterion is satisfied by it.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "No stage of any weight stops to ask the owner to authorise continuing",
+      "cites": "AC-F2.4; G2 (line 151)",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Needs a transcript of a full live /plan session at each weight. verification.md lists no environment able to host one (its only local row names an npm run dev script this repo does not have), so under §1 of that rule this is not authorized here rather than failed.",
+      "attempts": 1,
+      "blocker": "No environment listed in .claude/rules/verification.md can host a live /plan session; §1 of that rule makes an unlisted environment unauthorized rather than failed."
+    },
+    {
+      "id": "FS-10",
+      "statement": "No `weight` produces an outcome whose action is \"stop and wait for a human decision\"",
+      "cites": "AC-F5.1; S1 (§8, line 439)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt",
+      "reason": "route()'s ROUTES export enumerates exactly two outcomes, \"plan\" and \"prd\". Neither is a wait-for-human verdict; the retired REVIEW tier survives only in doc comments.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "The only differences between the three weights are stage count and review depth — never permission",
+      "cites": "AC-F5.2; §1.2 lines 79-81",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-11-permission-parity.txt",
+      "reason": "plan() at all three weights with otherwise identical inputs returns identical chain, writePointer, chainSkill and notify values — and stops identically at all three weights when the owner's never-unattended policy is hit. The cross-weight deltas are confined to the stage list and the verification flags.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "A `medium` `refactor` runs its named tests before AND after the change, and both runs are recorded",
+      "cites": "AC-F3.1; G5 (line 154); §1.2 line 82",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt",
+      "reason": "verification(refactor, medium) is the only cell in the nine-cell grid with beforeRun and afterRun both true. No live run's artifact was captured showing the two runs actually executed; the delivered specification is what the read-derived criterion checks.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-13",
+      "statement": "A `medium` `refactor` checks that the public surface has not moved",
+      "cites": "AC-F3.2; §1.2 line 82",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt",
+      "reason": "surfaceCheck is true at refactor/medium and false at all eight other cells.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-14",
+      "statement": "A `medium` `change` is verified against the stated outcome and is NOT asked for a before-run",
+      "cites": "AC-F3.3; G5 (line 154); §1.2 line 83",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt",
+      "reason": "change/medium returns beforeRun=false and beforeRunForbidden=true; beforeRunForbidden holds for kind=change at every weight, so the prohibition is structural rather than incidental.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-15",
+      "statement": "A `refactor` is never asked for a root cause",
+      "cites": "AC-F3.4",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt",
+      "reason": "rootCauseRequired is false for kind=refactor at all three weights in the printed grid.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-16",
+      "statement": "A `defect` at `medium` is asked for a demonstrated root cause",
+      "cites": "§4.1 F3 description, line 229-230; §1.4 diagram line 120",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt",
+      "reason": "rootCauseRequired is true for kind=defect at every weight, and medium/defect's stage list includes the investigate stage. No live artifact recording an actual demonstrated root cause was captured.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-17",
+      "statement": "The decision to route to `/create-prd` is stated in terms of what the PRD would contain — personas, user value, trade-offs about what to build — not in terms of task or file count",
+      "cites": "AC-F4.1; G3 (line 152); §1.2 line 86-88",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-17-18-content-vs-count.txt",
+      "reason": "plan.md:282 frames the exit test as whether the PRD would contain personas, user value or trade-offs, and line 285 instructs recording the answer as a sentence, not a score, explicitly excluding task and file counts. route()'s doc comment says the same.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-18",
+      "statement": "Neither `MAX_TASKS` nor the touched-file ceiling participates in the decision of whether a PRD is needed",
+      "cites": "AC-F4.2; S2 (§8, line 440)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-17-18-content-vs-count.txt",
+      "reason": "route()'s printed source takes one destructured field, prdWouldHaveContent. There is no parameter position a count could occupy, and grep for MAX_TASKS / DEFAULT_MAX_FILES across both routing libraries returns zero hits.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-19",
+      "statement": "Work of 12-18 tasks carrying no product decision routes to `medium` and does not reach `/create-prd`",
+      "cites": "AC-F4.3; G1 (line 150); §1.1 line 40-42",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Needs a live /plan run's readout and transcript. Same unauthorized-environment reason as FS-9.",
+      "attempts": 1,
+      "blocker": "No environment listed in .claude/rules/verification.md can host a live /plan session; §1 of that rule makes an unlisted environment unauthorized rather than failed."
+    },
+    {
+      "id": "FS-20",
+      "statement": "The presence of an open question does not by itself route work to `/create-prd`",
+      "cites": "AC-F6.1; G4 (line 153); §1.1 line 56-59",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Needs a live run's readout. Same unauthorized-environment reason as FS-9. Structurally supported by route()'s signature having no openQuestionCount parameter (FS-18's evidence), but that is a different claim from an observed run.",
+      "attempts": 1,
+      "blocker": "No environment listed in .claude/rules/verification.md can host a live /plan session; §1 of that rule makes an unlisted environment unauthorized rather than failed."
+    },
+    {
+      "id": "FS-21",
+      "statement": "Open questions written by this path are parsed by `trd-parser.js`'s `openQuestions` with `ownerOnly`, and reach task prompts as `<open_question>`",
+      "cites": "AC-F6.2 (naming trd-parser.js:613-614 and .claude/commands/implement-trd.md)",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Needs a TRD that /plan itself authored, which needs a live run. A synthetic fixture would re-test trd-parser.js's own covered behaviour rather than /plan's output shape reaching it. Same unauthorized-environment reason as FS-9.",
+      "attempts": 1,
+      "blocker": "No environment listed in .claude/rules/verification.md can host a live /plan session; §1 of that rule makes an unlisted environment unauthorized rather than failed."
+    },
+    {
+      "id": "FS-22",
+      "statement": "At `medium` with open questions, `/refine-trd` is named in the readout and NOT invoked, and no stage waits for it",
+      "cites": "AC-F6.3; D5 (§9, line 480)",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Needs a live medium-weight readout and transcript. Same unauthorized-environment reason as FS-9. Partially supported by the refineTrdRecommended flag being true only at change/medium with an open question.",
+      "attempts": 1,
+      "blocker": "No environment listed in .claude/rules/verification.md can host a live /plan session; §1 of that rule makes an unlisted environment unauthorized rather than failed."
+    },
+    {
+      "id": "FS-23",
+      "statement": "The delivered step one adds no new workflow script under `packages/core/workflows/`",
+      "cites": "AC-F7.1; G6 (line 155); NG9 (line 169)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt",
+      "reason": "git diff --stat against base commit f5890c8 shows two existing files modified and none added; the current 8-file listing matches the base commit's listing exactly.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-24",
+      "statement": "A run emits exactly one `COMMAND COMPLETE` banner — one per run, not one per chained command",
+      "cites": "AC-F7.2 (citing .claude/rules/command-status.md's chaining exception)",
+      "status": "not_verifiable",
+      "artifact": null,
+      "reason": "Needs a transcript of a full chained live run to count banners. Same unauthorized-environment reason as FS-9. fix-plan.js sets banner=null on both chaining paths and a banner only on the two non-chaining paths, which is consistent, but a code read cannot count what a run emitted.",
+      "attempts": 1,
+      "blocker": "No environment listed in .claude/rules/verification.md can host a live /plan session; §1 of that rule makes an unlisted environment unauthorized rather than failed."
+    },
+    {
+      "id": "FS-25",
+      "statement": "`/plan` exists as its own command file, and `/investigate` no longer appears as a separate entry point",
+      "cites": "AC-F7.3; D3 (§9, line 478)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt",
+      "reason": "The 18-file listing of .claude/commands/ contains plan.md; investigate.md does not exist in either command tree.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-26",
+      "statement": "Every surface naming `/investigate` is updated in the same release — the 18 command files, the router hint in `router.py`, `CLAUDE.md`, `process.md`, the templates under `packages/core/templates/`, and the vendored `.claude/` copies",
+      "cites": "AC-F7.4; D7 (§9, line 482); §4.1 F7 line 318-321",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-26-investigate-surfaces.md",
+      "reason": "Each named surface checked individually and returns zero hits: the command files, all three router.py copies, CLAUDE.md, process.md, packages/core/templates/. The 10 remaining repo-wide hits are this feature's own PRD/TRD/changelog narrative about the rename, or three pre-existing references to /investigate-issue, a different command retired before this feature.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-27",
+      "statement": "At feature weight, `/plan` INVOKES `/create-prd` rather than printing a pointer to it, then stops",
+      "cites": "AC-F7.5; D6 (§9, line 481; recorded there as \"Belief, not fact\" on the reading of \"route\")",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-27-28-32-command-text-reads.md",
+      "reason": "plan.md's route:prd branch carries an actual Workflow({name:\"create-prd\"}) dispatch, with prose explaining that create-prd.md's disable-model-invocation:true rules out a bare Skill() call. That is an invocation instruction, not a readout line. No run transcript was captured to confirm the call fires in practice.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-28",
+      "statement": "`/create-trd` and `/create-prd` keep separate identities in this release — neither is collapsed into `/plan`",
+      "cites": "NG12 (line 171); OQ-3 (line 499)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-27-28-32-command-text-reads.md",
+      "reason": "Both command files still exist; plan.md invokes each through its own Workflow call (lines 366 and 701) rather than reimplementing either.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-29",
+      "statement": "No stage prompt has been extracted to a contract except as part of an edit that stage was already receiving",
+      "cites": "AC-F8.1",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt",
+      "reason": "git diff against base commit f5890c8 touches zero files under packages/core/contracts/. There is no extraction in this release at all, so none can be extraction-only. Satisfied vacuously.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-30",
+      "statement": "No stage logic is shared between workflow scripts by `require` — the pattern is a contract plus a dumb dispatcher receiving assembled prompts in `args`",
+      "cites": "AC-F8.2 (naming implement-phase.js as the pattern)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt",
+      "reason": "grep for require( across all 8 non-test scripts under packages/core/workflows/ returns zero hits.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-31",
+      "statement": "The 6-task / 10-file ceiling is not raised — `MAX_TASKS` remains 6 and the touched-file ceiling remains 10",
+      "cites": "NG3 (line 163); §9 rejected-alternatives row (line 459)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-31-ceiling-judgment.md",
+      "reason": "JUDGED AGAINST THE SOURCE, NOT THE PARAPHRASE. Both constants were deleted outright rather than kept at 6 and 10, so the criterion's parenthetical restatement is literally false. The cited source (NG3 and the §9 rejected-alternatives row) forbids only RAISING the ceiling, and deletion raises nothing — there is no ceiling left to be higher than 6/10. The TRD's D9 records retiring the whole tier mechanism as the deliberate design. Calling this a gap would send a debug pass to re-add MAX_TASKS=6 and undo that design, so: met against the source, with the criterion's wording needing correction to say \"not raised\" without asserting the constants survive.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-32",
+      "statement": "No `transcript` input is exposed as the middle path: `/create-trd` gains no `--transcript` flag and its existing `transcript` argument acquires no caller",
+      "cites": "NG1 (line 161); NG2 (line 162)",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-27-28-32-command-text-reads.md",
+      "reason": "create-trd.md's argument-hint is unchanged at [path-to-prd]. Of 24 transcript hits across the command directories, every one is either create-trd.md's own pre-existing invocation block or unrelated prose using the word to mean a session log. /plan passes the investigation record as the prd argument, not as transcript.",
+      "attempts": 1,
+      "blocker": null
+    }
+  ]
+}
