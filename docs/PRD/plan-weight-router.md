@@ -1,6 +1,6 @@
 # PRD: One entry point that picks the weight (plan-weight-router)
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Status**: Draft
 **Created**: 2026-09-22
 **Last Updated**: 2026-09-22
@@ -19,6 +19,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-22 | Initial PRD from improvement-plan item 21 plus the 2026-09-22 session brief | @product-manager |
+| 1.1.0 | 2026-09-22 | All six open questions answered by the owner interactively. Four overturned this PRD's recorded assumptions: a new `/plan` command rather than extending `/investigate` (D3), `trivial` and `small` genuinely carry no audit (D4), the rename is in scope for this release (D7), and `ESCALATE` routes to `/create-prd` (D6). Added NG11, NG12, AC-F2.5, AC-F6.3, AC-F7.3–F7.5. No requirement removed; the two-axis model unchanged. | @product-manager, owner decisions |
 
 ---
 
@@ -165,6 +166,8 @@ invocation.
 | NG7 | `MINOR` as a tier distinct from trivial | `kind` already changes what is scored; a trivial-vs-small distinction decides nothing new. |
 | NG8 | `/sweep` as a weight or tier of this command | Sweep is answered from the *shape* of the input before any investigation. Making it a tier means investigating a list before discovering it is a list — the 22.7-minute failure that created `/sweep` (figure from the session brief; not re-measured here). |
 | NG9 | Refactoring the two workflows into shared callable stages **as step one** | It is the end state, not the first step. No workflow script can `require` anything, so stages cannot be shared between workflows; the route is contracts plus a dumb dispatcher, reached after chaining proves the weights. |
+| NG11 | Preserving `/investigate`'s unconditional audit at `trivial` and `small` | **Owner decision 2026-09-22 (OQ-4):** the grid rows mean what they say. The lightest two weights carry no audit. This is a deliberate reduction against today's behaviour, chosen for speed on small work; see D4. |
+| NG12 | Collapsing `/create-trd` and `/create-prd` into the new command | **Owner decision 2026-09-22 (OQ-3):** they keep separate identities for this release. The end state in F8 remains compatible with collapsing later. |
 | NG10 | Naming any of the nine cells | Nine cells, none needing its own name — that was the whole objection to NG5 and NG6. |
 
 ---
@@ -210,8 +213,12 @@ implement; `small` adds an adversarial pass; `medium` adds grounding and an audi
 - [ ] AC-F2.4: No stage of any weight stops to ask the owner to authorise continuing
   (`.claude/rules/autonomy.md`).
 
-**Dependencies**: F1. See OQ-4 — whether the audit that `/investigate` runs unconditionally
-today survives at `trivial` and `small` is not settled.
+- [ ] AC-F2.5: `trivial` and `small` run NO audit. This is a deliberate reduction from what
+  `/investigate` does today, not an oversight — see D4.
+
+**Dependencies**: F1. **Settled by the owner 2026-09-22 (OQ-4): the rows mean what they say.**
+`trivial` and `small` genuinely carry no audit, which is a capability reduction against
+`/investigate`'s current unconditional audit. Recorded as D4 and NG5 rather than left implicit.
 
 #### F3: Kind changes the verification, not only the scoring
 
@@ -292,15 +299,25 @@ Questions` section with an owner-only marker, carried into implementation.
   `openQuestions` (with `ownerOnly`, `trd-parser.js:613-614`) and reach task prompts as
   `<open_question>` (consumed in `.claude/commands/implement-trd.md`).
 
-**Dependencies**: F4. See OQ-1 — whether `/refine-trd` *runs* at medium-with-open-questions or
-is only recommended is owner-only and unsettled.
+- [ ] AC-F6.3: At `medium` with open questions, `/refine-trd` is **named in the readout and
+  not invoked**. No stage of this command stops to wait for it.
+
+**Dependencies**: F4. **Settled by the owner 2026-09-22 (OQ-1): recommended only.** The run
+stays unattended end to end; the owner invokes `/refine-trd` if they want it. The known risk
+that a recommendation is never acted on is accepted — see D5.
 
 #### F7: Build by chaining existing commands first
 
 **Priority**: P0
-**Description**: Step one is a command that chains the existing commands, with the weight
-decision added. It writes no new workflow script. Accept that chaining re-reads three large
-prose files; this step is deliberately temporary.
+**Description**: Step one is a **new `/plan` command** that chains the existing commands, with
+the weight decision added. It writes no new workflow script. Accept that chaining re-reads three
+large prose files; this step is deliberately temporary.
+
+**Settled by the owner 2026-09-22 (OQ-5, OQ-6): a new command, and the rename is in scope for
+this release.** `/investigate` is replaced rather than extended. That is a larger first release
+than the source assumed — 18 command files, the router hint, three governance docs, the
+templates and every consuming project's vendored copy — and the owner chose it deliberately
+over shipping under a name the source already calls wrong.
 
 **User Stories**:
 - As the owner, I want the weight model proved before anyone pays for a refactor, so that a
@@ -311,6 +328,13 @@ prose files; this step is deliberately temporary.
 - [ ] AC-F7.2: The run emits one `COMMAND COMPLETE` banner per run, not one per chained
   command (`.claude/rules/command-status.md`'s chaining exception; `/investigate --implement`
   already does this).
+- [ ] AC-F7.3: `/plan` exists as its own command file; `/investigate` no longer appears as a
+  separate entry point.
+- [ ] AC-F7.4: Every surface naming `/investigate` is updated in the same release — the 18
+  command files, the router hint in `router.py`, `CLAUDE.md`, `process.md`, the templates under
+  `packages/core/templates/`, and the vendored `.claude/` copies.
+- [ ] AC-F7.5: At feature weight, `/plan` **invokes `/create-prd`** rather than printing a
+  pointer to it, then stops. See D6 for the reading taken.
 
 **Dependencies**: None.
 
@@ -388,7 +412,7 @@ Empty — Section 5 is empty.
 |----|------|------------|--------|---------------------|
 | R1 | The weight model is wrong — three weights turn out not to be the right cut, or the increments are — and the discovery comes after the refactor is paid for | Medium | High | Chaining first (F7). A wrong weight model then costs one command file, not a rewrite of two workflows. Do not start F8 until the weights have held up in real use. |
 | R2 | Removing the size ceiling from the PRD decision lets genuinely feature-shaped work through the medium path, where the light TRD format cannot carry it | Medium | Medium | The content test (F4) replaces the size test rather than deleting it: routing to `/create-prd` still happens, on "would the PRD have content". Whether the ceiling remains for any *other* purpose is deliberately untouched by this PRD. |
-| R3 | Read as written, the grid runs the audit only at `medium`, so the lightest work loses the audit `/investigate` performs unconditionally today (tier table, `.claude/commands/investigate.md:380-384`) | Medium | Medium | Do not implement a stage removal on an inference. OQ-4 asks the owner to confirm whether the grid's increments assume an audit baseline or exclude it. |
+| R3 | `trivial` and `small` carry no audit, so the lightest work loses the audit `/investigate` performs unconditionally today (tier table, `.claude/commands/investigate.md:380-384`). **Accepted by the owner 2026-09-22 (D4), not mitigated away.** | Realised by choice | Medium | Cannot ship silently: recorded as NG11 and asserted by AC-F2.5. The exposure is that a small change with a subtle design fault now reaches implementation unaudited where today it would not. Watch for it in `/audit-build` findings on `trivial`- and `small`-weight work; if defects start surfacing there that an audit would have caught, that is the signal to revisit. |
 
 ### Contingency Plans
 
@@ -396,8 +420,11 @@ Empty — Section 5 is empty.
 chaining command and re-run; no workflow script exists yet to unpick. If the whole axis proves
 wrong, F7 is one file to delete.
 
-**R3 Contingency**: if the owner's answer is that the audit is baseline, the grid's rows are
-increments over a baseline that includes it, and no stage is removed from `trivial` or `small`.
+**R3 Contingency**: the owner chose the reduction deliberately (D4), so there is no contingency
+to hold in reserve — the audit is not coming back by default. If `/audit-build` starts finding
+defects on `trivial`- and `small`-weight work that an audit would have caught, the cheapest
+correction is to move the adversarial pass down from `small` to `trivial` before reinstating a
+full audit at either weight.
 
 ---
 
@@ -437,20 +464,43 @@ Recorded here rather than resolved silently. In all three rows the source (item 
 | Refactor the two workflows into shared callable stages as step one | Rejected as step one; adopted as the end state | No workflow script can `require` anything (verified: zero `require(` calls in the eight non-test scripts under `packages/core/workflows/`; the eleven hits in that directory are all in `*.test.js` and `test-harness.js`, which run under Node). So stages cannot be shared; the route is contracts plus a dumb dispatcher. | After F7 ships and the weights hold up in real use — that is F8. |
 | Name the nine cells | Rejected | Nine cells, none needing its own name; naming them is what broke the five- and six-label proposals. | Never. |
 
+### Owner decisions taken 2026-09-22 in `/refine-prd`
+
+All six open questions were answered by the owner directly, interactively. Four went AGAINST
+the assumption this PRD had recorded, which is why they are listed separately rather than
+folded into the table above.
+
+| ID | Question | Decision | What it changes, and what I had assumed |
+|----|----------|----------|------------------------------------------|
+| D3 | Is the entry point a new command, or `/investigate` gaining the axes? (OQ-6) | **A new `/plan` command.** | Against the recorded assumption. The deliverable is a new command file, not an edit; `/investigate` is replaced rather than extended. |
+| D4 | Does `trivial` genuinely drop the audit `/investigate` runs today? (OQ-4) | **Yes — the rows mean what they say.** | Against the recorded assumption of "increments over a baseline". `trivial` and `small` carry no audit. A deliberate capability reduction, recorded as NG11 and as a new acceptance criterion AC-F2.5 so it cannot ship as an accident. |
+| D5 | Does `/refine-trd` run at medium-with-open-questions, or is it recommended? (OQ-1) | **Recommended only.** | The run stays unattended end to end. The owner accepted the stated risk that, by his own account of never reading a `REVIEW` TRD, a recommendation may be a stage that never executes. |
+| D6 | Does `ESCALATE` survive? (OQ-2) | **It routes to `/create-prd`.** | The owner's own wording, not one of the three options offered (rename / keep / remove). Read as: at feature weight the command **invokes** `/create-prd` rather than printing a pointer, then stops. **Belief, not fact** on the reading: "route" is directional, and the owner has consistently rejected being the thing that moves work forward — but he did not say "invoke". The alternative reading is that it names the command in the readout. Settled by one sentence in `/refine-trd`, or by the first run. |
+| D7 | Is the rename in scope for this release? (OQ-5) | **Yes.** | Against the recorded assumption. Adds the 18 command files, the router hint, three governance docs, the templates and every consuming project's vendored copy to the first release. Chosen over shipping under a name the source itself calls wrong. |
+
+**The scope of the first release is materially larger than this PRD assumed at v1.0.0.** Three
+of the four assumptions it recorded for bounding scope — extend rather than replace, rename
+later, audit preserved everywhere — were overturned. Nothing about the two-axis model changed.
+
 ---
 
 ## Open Questions
 
-| ID | Question | What I assumed | Why it matters | If I'm wrong |
-|----|----------|----------------|----------------|--------------|
-| OQ-1 | **Owner-only.** Does `/refine-trd` at medium-with-open-questions **run**, or only get **recommended**? Given that a `REVIEW` TRD is never read, a recommendation is probably a no-op — and if the answer is "run it", that is the one place a human genuinely re-enters the loop. | Nothing. F6 states the open-questions channel and does not decide this; the grid cell keeps the source's parenthetical "(+ `/refine-trd` when open questions exist)" unresolved. | It is the only candidate re-entry point for a human in an otherwise unattended path, and it contradicts G2 if implemented as a stop. | Either a stage is missing from the medium-change cell, or one was built that stalls the run. |
-| OQ-2 | **Owner-only.** Does `ESCALATE` survive at all, once "would the PRD have content" replaces the size and certainty tests? | The verdict's *content test* is superseded (S2); the *label* is left alone. Nothing in this PRD removes or keeps the name. | `ESCALATE` is a live verdict in `fix-sizing.js` and in `/investigate`'s tier table; a task that renames or removes it is much larger than one that changes what triggers it. | A rename lands unasked, or a verdict nobody wants survives. |
-| OQ-3 | **Owner-only.** Do `/create-trd` and `/create-prd` keep separate identities, or collapse into one entry point with a weight? | They keep separate identities for this release. F8's end state notes `/create-trd` becomes the same mechanism with the weight pinned to full, which is compatible with either answer. | Collapsing them is a much larger change than F7 and would pull `/audit-prd` and `/audit-trd` with it. | The first release builds a command that a later decision immediately absorbs. |
-| OQ-4 | Does the grid's `trivial` row genuinely drop the audit that `/investigate` runs unconditionally today, or do the rows state increments over a baseline that includes it? | Increments over a baseline — so no audit is removed from `trivial` or `small`. R3 records the risk of the other reading. | Read as written, the lightest work loses the audit it gets today, which is a capability regression dressed as a stage list. | Either the lightest path loses its audit silently, or `medium` gains a stage it already had. |
-| OQ-5 | Is renaming `/investigate` to `/plan` in scope for the first release? The name describes only the command's first phase and is already wrong for a command handling defects, changes and refactors. | **No.** Assumed out of scope for the first release, and not listed as a non-goal because the source leaves it unsettled. Renaming touches 18 command files, the router hint, three governance docs, the templates and every consuming project's vendored copy (the 18 count is confirmed: `.claude/commands/` holds 18 `.md` files). | The rename is the expensive part and the source says to do it once, deliberately, not as a side effect. Deciding it late is fine; doing it accidentally is not. | Either the first release ships under a name the source already calls wrong, or a rename lands as a side effect of a feature. |
-| OQ-6 | Is the entry point a **new** command, or `/investigate` gaining the two axes? No `/plan` command exists today. | `/investigate` gains the axes, since F7 is "chain the existing commands with the weight decision added" and `/investigate --implement` already chains. | It decides whether the deliverable is a new command file or an edit to a 736-line one, and it interacts with OQ-5. | The wrong artifact is built, or two overlapping entry points exist at once. |
+**All six are answered.** Resolved interactively by the owner on 2026-09-22 via `/refine-prd`;
+the decisions and what each overturned are recorded as D3–D7 in section 9.
 
----
+| ID | Question | Answer | Recorded as |
+|----|----------|--------|-------------|
+| OQ-1 | Does `/refine-trd` run at medium-with-open-questions, or is it only recommended? | Recommended only | D5, AC-F6.3 |
+| OQ-2 | Does `ESCALATE` survive? | It routes to `/create-prd` | D6, AC-F7.5 |
+| OQ-3 | Do `/create-trd` and `/create-prd` collapse into the new command? | No — separate for this release | NG12 |
+| OQ-4 | Does `trivial` genuinely drop the audit? | Yes, the rows mean what they say | D4, NG11, AC-F2.5 |
+| OQ-5 | Is the rename in scope for the first release? | Yes | D7, AC-F7.4 |
+| OQ-6 | New command, or `/investigate` gaining the axes? | A new `/plan` command | D3, AC-F7.3 |
+
+One thing is deliberately left as a stated belief rather than a settled fact: the reading of
+"route it to `/create-prd`" as *invoke* rather than *name in the readout*. See D6.
+
 
 ## Could Not Verify
 
