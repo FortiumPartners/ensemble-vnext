@@ -1075,23 +1075,30 @@ below for anyone auditing the reasoning rather than the outcome.
 
 ## Could Not Verify
 
-**Rewritten by `/audit-trd`, 2026-09-23.** Five of five verifiers reported; the source checked
-against was `docs/PRD/plan-weight-router.md`. Claims this audit confirmed are removed from the
-table below; claims it found false became findings (see Audit Findings); claims it did not check
-are kept, with the reason.
+**Rewritten by `/audit-build`, 2026-09-23.** Five of five verifiers reported. The source of
+truth checked against was `docs/PRD/plan-weight-router.md`; 44 requirements and 13 tasks were
+indexed. Claims this audit ran and confirmed are removed from the table below; claims it found
+false became findings in the audit readout rather than entries here; claims it did not check are
+kept, with the reason it was out of scope.
 
-Confirmed and removed: the 13-task count (counted directly from §4.2–§4.4 — 3 + 3 + 7 = 13,
-inside AC-F4.3's 12–18 band). Checked and found FALSE, so findings rather than entries: the
-`ownerOnly` parse (F4) and `--refresh`'s deletion behaviour (F2).
+**Confirmed this pass, and so removed** — each was executed, not read:
+
+- `lint-command-structure.js` passes on `plan.md` as PLAN-P001 delivered it:
+  `node packages/core/scripts/lint-command-structure.js packages/core/commands/plan.md`
+  → `structure ok: 1 file(s)`.
+- `scaffold-delivery.test.sh` and `vendoring.test.sh` both pass after PLAN-P002's refresh
+  **including** the explicit `rm` added by audit finding F2 — 61 assertions, 0 failures.
+- The smoke harness captures the full session, so PLAN-T002's "exactly one `COMMAND COMPLETE`"
+  assertion is expressible against it: `smoke_claude` (`test/smoke/lib/project.sh:115`) runs
+  `claude --print --verbose --output-format stream-json` into a per-scenario session file, and
+  `plan-medium-weight.sh:146` asserts on that file's tail rather than on a summary.
 
 | Claim | Why it is still unverified | How to check it |
 |-------|---------------------------|-----------------|
-| **Whether the platform's `Skill()` tool actually refuses a command carrying `disable-model-invocation: true`** | This audit read the flag's documented meaning (`docs/PRD/ensemble-vnext.md:1919`, `CHANGELOG.md:2756`) and confirmed the flag sits on `create-prd.md:6`, but never observed a refusal. It is the crux of finding F6, and an empirical answer closes F6 with no governance change | Call `Skill({skill: "create-prd", args: "…"})` from a model turn and read what comes back |
-| `Workflow({name: "audit-trd"})` accepts a light or phased TRD with `args.source` pointing at a non-PRD requirements document | Settled by reading only — `audit-trd.js` requires `args.trd` and defaults `args.source` to `''`. Not run; running a workflow end to end is outside a document audit | Invoke it against a `/plan`-written TRD with an investigation record as `source` and read the Index stage's enumeration target |
-| `Workflow({name: "create-trd"})` produces a usable phased TRD when `args.prd` is an investigation record rather than a PRD | Read, not run. This is D6's load-bearing assumption and the medium path has no other source channel | Run it once on a real investigation record; read the authored TRD's phase count and its `Serves` columns |
-| PLAN-T002's medium scenario can assert "exactly one `COMMAND COMPLETE`" from the smoke harness's captured output | Not checked this pass — `test/smoke/run-smoke.sh` was not opened; this audit's reads went to the libs and scripts the findings turned on | Read `run-smoke.sh` and one existing scenario to confirm the harness captures full session output rather than a summary |
-| `scaffold-delivery.test.sh` and `vendoring.test.sh` still pass after PLAN-P002's refresh **plus the new explicit `rm`** | The `rm` is new as of finding F2, so no suite has ever run against this shape. PLAN-P002's grounding already notes neither suite was opened | Run both after P002 lands |
-| O-NU's consumer is live in any consuming project | Checked HERE, and the answer is worse than the previous entry implied: `.claude/rules/verification.md` has **no** never-unattended section at all (`grep -c "never-unattended" .claude/rules/verification.md` → `0`), and `investigate.md:322` passes a hardcoded `"neverUnattended": []`. The control is already inert in this repository, so O-NU's value rests entirely on projects that filled the section | Grep a consuming project's `verification.md` for a filled list, and trace whether anything reads it |
-| `lint-command-structure.js` will pass on `plan.md` as PLAN-P001 writes it | Cannot be checked before the file exists | `node packages/core/scripts/lint-command-structure.js packages/core/commands/plan.md`, as PLAN-P001's acceptance requires |
-| The 56-minute figure for the full `/create-prd → /audit-prd → /create-trd → /audit-trd` pipeline | Inherited unverified from the PRD, which inherited it from item 21. Settling it needs a timed run, not a document read. Nothing in this TRD rests on it | Time an actual run end to end |
+| **Whether the three `[LIVE]` smoke scenarios (`plan-light-fix`, `plan-decoy-root-cause`, `plan-medium-weight`) have ever been executed against a real `claude` session** | Added by this audit. Two reasons it cannot be settled from the tree: the harness writes each scenario's log into a `mktemp -d` results directory (`run-smoke.sh:239`) that is discarded on exit, so a completed run leaves **nothing** behind — the absence of an artifact is not evidence of the absence of a run; and `[LIVE]` still has no consumer in `implement-phase.js` (0 matches), so the implement loop could not have run them on the task's behalf. All three sit in `LLM_OPT_IN_SCENARIOS`, excluded from a default harness run. The scenario files themselves are well-formed and encode the stated assertions | `test/smoke/run-smoke.sh --with-llm plan-medium-weight plan-light-fix plan-decoy-root-cause`, and read the three assertion counts against `baseline.json` |
+| **Whether the platform's `Skill()` tool actually refuses a command carrying `disable-model-invocation: true`** | Out of scope for a build audit: settling it needs a live platform tool call from a model turn, not a code read or a test run. The flag's documented meaning was read (`docs/PRD/ensemble-vnext.md:1919`, `CHANGELOG.md:2756`) and the flag confirmed on `create-prd.md:6`, but no refusal has been observed. It is the crux of `/audit-trd` finding F6, and an empirical answer closes F6 with no governance change | Call `Skill({skill: "create-prd", args: "…"})` from a model turn and read what comes back |
+| `Workflow({name: "audit-trd"})` accepts a light or phased TRD with `args.source` pointing at a non-PRD requirements document | Settled by reading only — `audit-trd.js` requires `args.trd` and defaults `args.source` to `''`. Running a workflow end to end is outside a build audit, which checks delivered files and the deterministic battery | Invoke it against a `/plan`-written TRD with an investigation record as `source` and read the Index stage's enumeration target |
+| `Workflow({name: "create-trd"})` produces a usable phased TRD when `args.prd` is an investigation record rather than a PRD | Read, not run, for the same reason as the row above. This is D6's load-bearing assumption and the medium path has no other source channel. Note that `plan-medium-weight.sh` exercises exactly this end to end — so the row above, once run, settles this one too | Run it once on a real investigation record; read the authored TRD's phase count and its `Serves` columns |
+| O-NU's consumer is live in any consuming project | Checked HERE, and the answer is that the control is inert in this repository: `.claude/rules/verification.md` has **no** never-unattended section at all (`grep -c "never-unattended"` → `0`), and the hardcoded empty list moved with the command rename — it is now `packages/core/commands/plan.md:818` (`"neverUnattendedHit": []`), the old `investigate.md:322` citation having been deleted with that file by PLAN-B005. O-NU's value therefore rests entirely on projects that filled the section, and no consuming project exists in this tree to check | Grep a consuming project's `verification.md` for a filled list, and trace whether anything reads it |
+| The 56-minute figure for the full `/create-prd → /audit-prd → /create-trd → /audit-trd` pipeline | Inherited unverified from the PRD, which inherited it from improvement-plan item 21. Settling it needs a timed run, not a document read or a test run. Nothing in this TRD rests on it | Time an actual run end to end |
 | `/sweep` exists because of a 22.7-minute failure in which a list was investigated before being recognised as a list | Inherited unverified from the PRD. It is the basis of NG8, which this TRD carries unchanged | Locate the session or the `/sweep` design note |
