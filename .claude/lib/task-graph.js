@@ -143,12 +143,44 @@ function buildGraph(tasks, grounding) {
   //    affect waves/cycles/criticalPath, all of which are computed from `blockedBy`), but
   //    it keeps `edges` output byte-identical across runs, which is worth the same D3
   //    determinism this whole module exists to provide.
+  //
+  //    A DECLARED DEPENDENCY OVERRIDES THE LEXICAL ORIENTATION. When a pair carries both
+  //    kinds of edge, the lexical rule can point AGAINST the declared one and the union
+  //    graph cycles — which drops the pair and everything downstream of it out of `waves`
+  //    entirely. Measured 2026-09-23 on docs/TRD/plan-weight-router.md: PLAN-P001 ->
+  //    PLAN-B004 was declared, both touch packages/core/commands/plan.md, and 'PLAN-B004' <
+  //    'PLAN-P001' lexically, so the conflict edge pointed backwards. `cycles` reported the
+  //    pair and `waves` held 6 of 13 tasks.
+  //
+  //    This is not an exotic shape. The ID convention makes P infrastructure and B backend,
+  //    so a P-task depending on a B-task is routine, and P sorts after B.
+  //
+  //    Re-orienting rather than dropping the edge is deliberate: the union of both sources is
+  //    this module's design, and the conflict edge is the honest record that the pair shares a
+  //    file. Only its DIRECTION was ever arbitrary. Determinism is preserved because the
+  //    declared direction is as fixed as the alphabet.
+  //
+  //    Why this shipped: the only cycle test in this suite is a genuine mutual dependency
+  //    (A depends on B, B depends on A), which should cycle. The conflicting-direction case
+  //    was never covered -- test_task_graph's own comment at the neighbouring case promised
+  //    "the interesting case is tested separately below (conflicting-direction)" and no such
+  //    test existed.
+  const declaredPairs = new Set(
+    edges.filter((e) => e.kind === 'dependency').map((e) => `${e.from}\u0000${e.to}`)
+  );
   for (const file of Object.keys(partition).sort()) {
     const owners = partition[file]; // already sorted by computeFilePartition
     for (let i = 0; i < owners.length; i++) {
       for (let j = i + 1; j < owners.length; j++) {
-        const from = owners[i];
-        const to = owners[j];
+        let from = owners[i];
+        let to = owners[j];
+        // FLIP to match a declared edge running the other way. The conflict edge is still
+        // emitted -- it is the honest record that these two share a file, and the union of
+        // both edge sources is this module's whole design -- but it is oriented by the
+        // declaration rather than by the alphabet.
+        if (declaredPairs.has(`${to}\u0000${from}`)) {
+          const swap = from; from = to; to = swap;
+        }
         edges.push({ from, to, kind: 'file-conflict', file });
         blockedBy.get(to).add(from);
       }

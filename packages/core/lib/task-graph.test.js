@@ -500,12 +500,22 @@ describe('waveProfile / renderWaveProfile', () => {
   });
 
   it('prints no critical-path line when the path is a single task, rather than asserting a chain that does not exist', () => {
-    // A-1 declares depends_on A-2 while both touch x.ts, and the file-conflict edge is
-    // oriented the other way (lexically smaller id blocks) -- so the pair is a cycle and
+    // A-1 and A-2 declare each other -- a genuine author error -- so the pair is a cycle and
     // neither task ever reaches a wave. Only the unconstrained A-3 does, which made
     // computeCriticalPath return the one-element ["A-3"] and the renderer print
     // `critical path: A-3` -- a chain of one, describing nothing.
-    const tasks = [task('A-1', { dependencies: ['A-2'] }), task('A-2'), task('A-3')];
+    //
+    // REWRITTEN 2026-09-23. This fixture used to build the cycle from a declared dependency
+    // pointing against a lexically-oriented file-conflict edge, and its comment described
+    // that contradiction as the expected mechanism. It was a DEFECT, fixed in buildGraph the
+    // same day: a declared dependency now re-orients the conflict edge, so that shape no
+    // longer cycles. The subject of this test is the one-task critical path, not the cause,
+    // so it uses a real mutual dependency instead.
+    const tasks = [
+      task('A-1', { dependencies: ['A-2'] }),
+      task('A-2', { dependencies: ['A-1'] }),
+      task('A-3'),
+    ];
     const grounding = { 'A-1': { touches: ['x.ts'] }, 'A-2': { touches: ['x.ts'] } };
     const graph = buildGraph(tasks, grounding);
     expect(graph.cycles).toEqual([['A-1', 'A-2']]);
@@ -636,5 +646,55 @@ describe('phaseGroups', () => {
     const tasks = [t('A-1', 1), t('A-2', 1)];
     expect(phaseGroups(tasks, buildGraph(tasks, {}))).toEqual([[1]]);
     expect(phaseGroups([], buildGraph([], {}))).toEqual([]);
+  });
+});
+
+describe('a declared dependency overrides the lexical file-conflict orientation', () => {
+  const { buildGraph } = require('./task-graph');
+
+  // Regression for the 2026-09-23 cycle. When a pair carries BOTH a declared dependency and
+  // a shared file, the lexical rule (smaller id blocks) can point AGAINST the declared edge.
+  // The union graph then cycles, which drops the pair and everything downstream of it out of
+  // `waves` -- measured at 6 of 13 tasks on docs/TRD/plan-weight-router.md.
+  const pair = [
+    { id: 'PLAN-B004', phase: 2, dependencies: ['PLAN-P001'] },
+    { id: 'PLAN-P001', phase: 2, dependencies: [] },
+  ];
+  // 'PLAN-B004' < 'PLAN-P001', so the lexical rule alone would make B004 the blocker --
+  // the opposite of what the TRD declared.
+  const grounding = {
+    'PLAN-B004': { touches: ['packages/core/commands/plan.md'] },
+    'PLAN-P001': { touches: ['packages/core/commands/plan.md'] },
+  };
+
+  it('produces no cycle, and every task reaches a wave', () => {
+    const g = buildGraph(pair, grounding);
+    expect(g.cycles).toEqual([]);
+    expect(g.waves.flat().sort()).toEqual(['PLAN-B004', 'PLAN-P001']);
+  });
+
+  it('honours the declared direction, not the alphabet', () => {
+    const g = buildGraph(pair, grounding);
+    expect(g.waves).toEqual([['PLAN-P001'], ['PLAN-B004']]);
+  });
+
+  it('still emits the file-conflict edge, oriented by the declaration not the alphabet', () => {
+    const g = buildGraph(pair, grounding);
+    const between = g.edges.filter(
+      (e) => [e.from, e.to].every((x) => ['PLAN-B004', 'PLAN-P001'].includes(x))
+    );
+    expect(between.map((e) => e.kind).sort()).toEqual(['dependency', 'file-conflict']);
+    // both point the declared way; neither points B004 -> P001
+    expect(between.every((e) => e.from === 'PLAN-P001' && e.to === 'PLAN-B004')).toBe(true);
+  });
+
+  it('still serializes a shared file when NO dependency was declared', () => {
+    const undeclared = [
+      { id: 'PLAN-B004', phase: 2, dependencies: [] },
+      { id: 'PLAN-P001', phase: 2, dependencies: [] },
+    ];
+    const g = buildGraph(undeclared, grounding);
+    expect(g.waves).toEqual([['PLAN-B004'], ['PLAN-P001']]);
+    expect(g.edges.some((e) => e.kind === 'file-conflict')).toBe(true);
   });
 });

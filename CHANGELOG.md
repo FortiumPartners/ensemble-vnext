@@ -10,6 +10,59 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.5.1] - 2026-09-23
+
+Hotfix. Two defects that together let a 13-task TRD build as 6 tasks and report success.
+Found by running `/create-trd` on this framework's own next feature.
+
+### Fixed — a declared dependency could contradict an automatic one, and the plan lost tasks
+
+`buildGraph` unions two edge sources: dependencies an author declares, and file conflicts it
+infers from two tasks touching one file. The inferred edges were oriented by **lexical task
+ID** — smaller id blocks — so when an author declared the opposite order, the two contradicted
+and the graph cycled. A cycle drops its members **and everything downstream of them** out of
+the wave computation.
+
+Measured on `docs/TRD/plan-weight-router.md`: `PLAN-P001 → PLAN-B004` declared, both touching
+`packages/core/commands/plan.md`, and `PLAN-B004` sorts first. Result: **6 of 13 tasks in the
+plan.**
+
+Not an exotic shape. The ID convention makes `P` infrastructure and `B` backend, so a P-task
+depending on a B-task is routine — and `P` always sorts after `B`. Any such pair sharing a file
+cycled.
+
+A declared dependency now re-orients the conflict edge rather than fighting it. The edge is
+still emitted — the union of both sources is the module's design, and the edge is the honest
+record that the pair shares a file. Only its direction was ever arbitrary, and determinism
+holds because the declared direction is as fixed as the alphabet.
+
+**Why it shipped:** the suite's only cycle test was a genuine mutual dependency, which should
+cycle. The conflicting-direction case was never covered — and a neighbouring test's comment
+promised *"the interesting case is tested separately below (conflicting-direction)"* while no
+such test existed. Worse, a fixture added earlier the same day **built its cycle out of this
+contradiction and described it in a comment as the expected mechanism.** That fixture now uses
+a real mutual dependency, and the case has four tests of its own.
+
+### Fixed — a short wave list was silent
+
+`implement-phase.js` received a pre-computed wave list and validated only that it was an array.
+It never saw `cycles`. The cycle check existed solely as prose in `implement-trd.md`, which the
+orchestrating model might or might not perform, and no test asserted it.
+
+The four bad-result shapes the workflow already caught — no record for the id, agent returned
+nothing, non-success status, never-dispatched — all concern tasks it **was given**. Seven tasks
+it was never given produced nothing to report, so every task it received could succeed and the
+phase would return `complete`. That is the phantom-success failure `--reconcile` exists to catch
+after the fact, arriving through a door nothing watched.
+
+It now refuses to dispatch when any record appears in no wave, naming the dropped ids. The check
+is deliberately **broader than the cycle**: it fails on a short wave list whatever caused it.
+The legitimate empty-resume path — every task already succeeded, so both lists are empty — is
+unaffected and tested.
+
+1126 jest (was 1119; +7 covering both fixes, including all four directions of the conflict
+case), 107 pytest, 648 bats.
+
 ## [4.5.0] - 2026-09-22
 
 Minor: `/create-trd` gains advisory judgments it did not have, the narrow-plan diagnostic

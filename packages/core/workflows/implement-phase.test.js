@@ -329,3 +329,49 @@ describe('implement-phase: empty waves', () => {
     ).rejects.toThrow(/must be an array of waves/i);
   });
 });
+
+describe('every record must appear in a wave', () => {
+  // Regression for the 2026-09-23 silent drop. A 13-task TRD reached this workflow with a
+  // 6-task wave list because a graph cycle dropped 7 tasks. Nothing caught it: the four
+  // bad-result shapes all concern tasks the workflow WAS given, so tasks it was never given
+  // produced nothing to report, and the phase would have returned `complete`.
+  it('throws when a record appears in no wave, naming the dropped ids', async () => {
+    await expect(
+      runWorkflow(SOURCE, {
+        agent: makeAgentStub(happyPlan()),
+        parallel: makeParallelStub(),
+        args: baseArgs({
+          tasks: {
+            waves: [['A']],
+            records: [{ id: 'A', prompt: 'p' }, { id: 'B', prompt: 'p' }, { id: 'C', prompt: 'p' }],
+          },
+        }),
+      })
+    ).rejects.toThrow(/have a record but appear in no wave.*B, C/s);
+  });
+
+  it('does not fire when the wave partition covers every record', async () => {
+    await expect(
+      runWorkflow(SOURCE, {
+        agent: makeAgentStub(happyPlan()),
+        parallel: makeParallelStub(),
+        args: baseArgs({
+          tasks: {
+            waves: [['A', 'B'], ['C']],
+            records: [{ id: 'A', prompt: 'p' }, { id: 'B', prompt: 'p' }, { id: 'C', prompt: 'p' }],
+          },
+        }),
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it('leaves the legitimate empty-resume path alone', async () => {
+    const { result } = await runWorkflow(SOURCE, {
+      agent: makeAgentStub(happyPlan()),
+      parallel: makeParallelStub(),
+      args: baseArgs({ tasks: { waves: [], records: [] } }),
+    });
+    expect(result.skipped).toBe(true);
+    expect(result.status).toBe('complete');
+  });
+});

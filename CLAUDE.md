@@ -522,8 +522,13 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.5.0** (2026-09-22). 18 commands, 13 subagents. Test battery: 1119 Jest,
+Released at **4.5.1** (2026-09-23). 18 commands, 13 subagents. Test battery: 1126 Jest,
 107 pytest, 648 BATS.
+
+4.5.1 is a hotfix: a declared dependency could contradict an inferred file-conflict edge and
+cycle the task graph, dropping the pair and everything downstream out of the plan — a 13-task
+TRD became 6 tasks — and nothing checked that the wave list covered the TRD, so the short plan
+reported success. Both fixed; the coverage check is broader than the cycle.
 
 4.5.0 makes `/create-trd`'s readout advise on **depth** rather than width: it names whichever
 cause actually makes a plan serial — declared dependencies or shared files — and prints the

@@ -75,6 +75,35 @@ if (PHASE === undefined || PHASE === null) throw new Error('implement-phase: arg
 if (!Array.isArray(WAVES)) {
   throw new Error('implement-phase: args.tasks.waves is required and must be an array of waves')
 }
+
+// EVERY RECORD MUST APPEAR IN A WAVE. `records` is the phase's non-success tasks and `waves`
+// is those same ids partitioned, so the two sets are equal by construction -- and a record
+// missing from every wave is a task that will never be dispatched, never reported, and
+// invisible in the result.
+//
+// Measured 2026-09-23: a 13-task TRD reached this workflow with a 6-task wave list, because
+// a dependency cycle in task-graph.js dropped 7 tasks and everything downstream of them out
+// of the levelisation. Nothing here caught it. The four bad-result shapes below all concern
+// tasks this workflow WAS given, so 7 tasks it was never given produced nothing to report:
+// every task it received could succeed and the phase would return `complete`. That is the
+// phantom-success failure `--reconcile` exists to catch after the fact, arriving through a
+// door nothing watched.
+//
+// The cycle itself is fixed in task-graph.js. This check is deliberately BROADER than that
+// cause: it fails on any short wave list, whatever produced it.
+{
+  const waveIds = new Set(WAVES.flat())
+  const dropped = RECORDS.map((r) => r && r.id).filter((id) => id && !waveIds.has(id))
+  if (dropped.length) {
+    throw new Error(
+      `implement-phase: ${dropped.length} task(s) have a record but appear in no wave and would ` +
+      `never be dispatched: ${dropped.join(', ')}. ` +
+      `records=${RECORDS.length} waves=${waveIds.size}. ` +
+      `The wave partition does not cover this phase's task set -- check task-graph.js's ` +
+      `\`cycles\` before dispatching; a cycle drops its members and everything downstream.`
+    )
+  }
+}
 // An EMPTY waves array is a legitimate state, not an error: every task in this phase is
 // already `success`, which is what a --resume sees after a crash between this workflow
 // returning and the command writing its Step 5 checkpoint. Throwing there turned an
