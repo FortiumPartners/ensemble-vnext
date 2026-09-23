@@ -3,6 +3,9 @@ name: audit-trd
 description: Verify an existing TRD against its source, the design corpus and the code
 version: 1.0.0
 argument-hint: "[path-to-trd] [--source <path>] [--project <dir>]"
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
+disable-model-invocation: true
 ---
 
 Run the verification wave over a TRD and apply what survives checking.

@@ -3,6 +3,8 @@ name: create-trd
 description: Take an existing PRD and create Technical Requirements Document with architecture, task breakdown, and execution plan
 version: 2.0.0
 argument-hint: "[path-to-prd]"
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
 ---
 

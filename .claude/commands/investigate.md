@@ -4,6 +4,9 @@ description: Investigate a defect, minor enhancement, or refactor where the full
 version: 2.0.0
 argument-hint: "[description | source path | issue ref] [--implement]"
 category: implementation
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
+disable-model-invocation: true
 ---
 
 > **Usage:** `/investigate <what>` — or bare `/investigate` to write up something decided in

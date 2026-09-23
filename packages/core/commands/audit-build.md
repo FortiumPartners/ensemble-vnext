@@ -3,6 +3,9 @@ name: audit-build
 description: Verify delivered code against its TRD and PRD, with traceability as the headline check
 version: 1.0.0
 argument-hint: "[path-to-trd] [--prd <path>] [--project <dir>] [--report-only]"
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
+disable-model-invocation: true
 ---
 
 Verify the code that was actually delivered against what the TRD specified and what the PRD

@@ -3,6 +3,8 @@ name: refine-trd
 description: Refine and enhance existing TRD with stakeholder feedback and additional detail
 version: 1.0.0
 argument-hint: "[path-to-trd] <feedback>"
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
 ---
 

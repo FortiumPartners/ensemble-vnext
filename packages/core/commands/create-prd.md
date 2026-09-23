@@ -3,6 +3,8 @@ name: create-prd
 description: Create comprehensive Product Requirements Document from product description
 version: 2.0.0
 argument-hint: "[product-description-or-issue-ref]"
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
 ---
 

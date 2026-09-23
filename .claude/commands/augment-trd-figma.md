@@ -4,6 +4,8 @@ description: >
   Augment an existing TRD with Figma design data. Extracts screenshots, component
   specifications, design tokens, and fixture data from Figma and adds a Visual Design
   Context section to the TRD. Pre-fetches all assets needed for subagent pixel-perfect work.
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
 ---
 

@@ -4,6 +4,8 @@ description: Upgrade vendored runtime to the latest plugin version — non-inter
 version: 2.0.0
 category: generator
 argument-hint: "[--dry-run] [--preserve-all] [--force]"
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
 ---
 

@@ -4,6 +4,8 @@ description: Initialize project with vendored ensemble runtime for AI-augmented 
 version: 1.0.0
 category: scaffolding
 argument-hint: "[--persona <name>]"
+# Expensive, and its description matches how a user would phrase the task —
+# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
 ---
 
