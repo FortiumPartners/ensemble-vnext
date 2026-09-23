@@ -226,6 +226,54 @@
       "started_at": "2026-09-23T18:44:58.671Z",
       "completed_at": "2026-09-23T19:17:18.584Z",
       "last_advanced": "2026-09-23T18:56:12.018Z"
+    },
+    "AMEND-001": {
+      "description": "Two orphaned test files are committed in .claude/lib/ that copy_libs() deliberately never refreshes, so they drift permanently. fix-plan.test.js now tests the retired tier API against the refreshed weight/route module: 14 Jest failures. (.claude/lib/fix-plan.test.js) — promoted from a bug discovery found by implement-trd phase-2 gate review",
+      "phase": 3,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.373Z",
+      "completed_at": null
+    },
+    "AMEND-002": {
+      "description": "The mirror-drift test compares packages/full/agents against .claude/agents, but scaffold-project.sh --refresh injects a generated per-project skills: frontmatter block into every .claude/agents/*.md. That pair can never match after any refresh, so the test fails for anyone who runs the refresh this feature requires. (test/integration/tests/implement-trd-structure.test.sh:511) — promoted from a bug discovery found by implement-trd phase-2 gate review",
+      "phase": 3,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.374Z",
+      "completed_at": null
+    },
+    "AMEND-003": {
+      "description": "The CLAUDE.md template init-project installs into EVERY scaffolded project teaches a workflow missing 11 of the 18 commands — including all three shorter paths (/plan, /sweep, /amend) and all four verification commands (/audit-prd, /audit-trd, /audit-build, /verify-build). (packages/core/templates/CLAUDE.md.template) — promoted from a gap discovery found by consistency review after /audit-build",
+      "phase": 3,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.374Z",
+      "completed_at": null
+    },
+    "AMEND-004": {
+      "description": "Make .claude/rules/process.md and packages/core/templates/process.md.template describe the loop that actually runs and list all 18 commands. Three defects, one file pair: the template still lists code-simplifier and a phase-scoped /code-review as active phase-gate stages plus a feature-scale hardening pass (all three removed 2026-08-18 and 2026-08-28); process.md's numbered Process list contradicts its own prose at :155 by keeping both as per-task steps; and neither lists /sweep, so both workflow maps enumerate 17 of 18 commands. Absorbed AMEND-005 and AMEND-006 — same two files, so one agent, not three racing.",
+      "phase": 3,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.374Z",
+      "completed_at": null
     }
   },
   "checkpoints": [
