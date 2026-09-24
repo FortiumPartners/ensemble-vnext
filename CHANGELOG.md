@@ -24,15 +24,19 @@ asked approval for.
 - **Consecutive blocks capped at 1**, enforced by the platform
   (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP=1` in settings `env`, backfilled on `--refresh` only when
   absent). Verified live: an always-block hook fires twice instead of nine times.
-- **Prompt rewritten**: `discipline-stop.source.md`, ~3 KB, hand-authored, replacing a
-  14.9 KB prompt assembled from blocks. It blocks only two things: a claim to be waiting,
-  or an announced action of the agent's own, with nothing running that could make it true;
-  and a foregone-permission pause inside a running command. A wait backed by a `Monitor`, a
+- **Prompt rewritten**: `discipline-stop.source.md`, ~4 KB, hand-authored, replacing a
+  14.9 KB prompt assembled from blocks. It blocks only two things. The first is a promise
+  nothing will keep: "I'm doing X" or "next: X" that no tool call in the turn started, or a
+  wait that nothing will wake the session for. Halting a running command partway with the
+  agent's own next step counts. The second is a foregone-permission pause inside a running
+  command. A wait backed by a `Monitor`, a
   background shell job or a forked run counts as backed even though the payload never lists
   them. Naming the owner's next step, and any ask before an irreversible, outward-facing or
   third-party act, is never a violation.
 - **Model: `claude-sonnet-5`**. On the same prompt the default small model was clearly worse,
   and live latency was the same (1.6 s median, short sessions).
+- **Measured** on 153 labelled real stops, 3 runs each: 0 of 432 correct-turn judgements
+  blocked, 26 of 27 violation runs caught (9 of 9 by majority), no re-block after a block.
 - **Breaking, for the autonomy judgment:** it now applies only on an explicit `state=active`
   marker. It used to apply whenever the marker was missing or unclear. `autonomy.md`
   states the cost: after the marker's 30-minute ceiling, a long command runs with the check

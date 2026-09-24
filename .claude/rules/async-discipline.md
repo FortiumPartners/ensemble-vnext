@@ -144,7 +144,7 @@ unavailability.
 ### The prompt and the model, as of 2026-09-24
 
 The judge prompt is **hand-authored**: `packages/core/hooks/prompts/discipline-stop.source.md`,
-about 3 KB. `build-judge-prompts.js` only wraps it in the display banners. It replaced a
+about 4 KB. `build-judge-prompts.js` only wraps it in the display banners. It replaced a
 14.9 KB prompt assembled from blocks, which had grown one correction at a time until the judge
 stopped following it. The hook runs on **`claude-sonnet-5`** (manifest `model` field). Before,
 it ran on the platform's default small model.
@@ -152,10 +152,11 @@ it ran on the platform's default small model.
 Measured on 153 labelled real stops, 3 runs each (`FINDINGS.md`; tools in
 `test/discipline-corpus/replay/`): the old prompt on the small model wrongly blocked about 9% of
 correct turns in replay and about 95% of its live blocks were wrong. The new prompt on Sonnet
-blocks under 2% and never re-blocks a `stop_hook_active` turn. Live latency on Sonnet matched
-the small model (1.6 s median, short sessions). It catches about half of real violations,
-roughly what the old prompt caught, so the gain is almost entirely in not interrupting correct
-work.
+wrongly blocked 0 of 432 correct-turn judgements, caught 26 of 27 violation runs (9 of 9
+violations by majority), and never re-blocked a `stop_hook_active` turn. Live latency on
+Sonnet matched the small model (1.6 s median, short sessions). The nine violations were also
+what it was tuned against; on 100 unseen stops it added no blocks beyond the three an earlier
+version made, all of which read as real.
 
 **To change it:** edit the source file, run `build-judge-prompts.js` then
 `generate-hooks-artifacts.sh`, and re-score with `test/discipline-corpus/replay/score.py` and

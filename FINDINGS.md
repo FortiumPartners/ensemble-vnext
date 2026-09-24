@@ -274,6 +274,36 @@ wrong.**
 
 ---
 
+## Optimisation to owner targets, 2026-09-24: v6 ships
+
+Owner's parameters: wrongly blocked at most 3.5%, re-blocks at most 1, target 24/27 violation
+runs and 8/9 by majority. Sonnet, 153 labelled stops, 3 runs each:
+
+| | v3 | v4 | v5 | **v6 (shipped)** |
+|---|---|---|---|---|
+| Correct-turn judgements blocked | 5/432 | 11/432 | 3/432 | **0/432** |
+| Violation runs caught | 17/27 | 21/27 | 23/27 | **26/27** |
+| Violations caught by majority | 5/9 | 7/9 | 8/9 | **9/9** |
+| Re-blocked after a block | 0/39 | 0/39 | 0/39 | **0/39** |
+| 100 unseen stops blocked | 3 | 3 | — | **3** (the same 3) |
+| Source size | 3.0 KB | 3.7 KB | 4.1 KB | **4.0 KB** |
+
+**What moved the numbers.** v4's false blocks were all "I'll do X after Y". Its misses were
+all "I'm doing X" or "next: X" with nothing started. v5 split promises into two kinds with
+different tests. **Now:** kept only if a tool call this turn started it, and an older running
+task doesn't count. **After an event:** kept if something will wake the session for that
+event, or the owner causes it. v6 added one rule: halting a running command partway, with
+the agent's own next step named, is a "now" promise, and pointing at a resume command doesn't
+hand that step to the owner. A diagnostic run showed that was exactly why v5 allowed the
+last miss.
+
+**Caution.** The nine violations were both the target and the tuning set. The guard against
+overfitting is the other two measures. The 144 correct turns went from 11 wrong blocks (v4) to
+0, and on 100 stops never used in design v6 made no block that v3 didn't. The real test is a
+live session measured with `hook-verdict-rate.js`.
+
+---
+
 ## The numbers, and why there are two
 
 | Measure | Value |

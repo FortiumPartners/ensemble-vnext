@@ -541,7 +541,7 @@ const STOP_DISCIPLINE_PROMPT_FILE = 'discipline-stop.prompt.md';
 // judge stopped following it: replayed against 153 labelled real stops, the live judge
 // blocked roughly 1 stop in 5 and ~95% of those blocks were correct turns, and it ignored
 // its own stop_hook_active allow (FINDINGS.md, test/discipline-corpus/replay/). The
-// replacement is ~3 KB, states each rule once, and is scored as a whole prompt, so it
+// replacement is ~4 KB, states each rule once, and is scored as a whole prompt, so it
 // lives as one reviewable file rather than as blocks spliced by code.
 //
 // buildCombinedPrompt() is RETAINED, unshipped, for the same reason regex.js is: so the

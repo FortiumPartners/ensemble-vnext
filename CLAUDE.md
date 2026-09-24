@@ -167,7 +167,7 @@ of the regexes lives at `test/discipline-corpus/detectors/regex.js` purely so th
 baseline stays reproducible; it is a test fixture, not runtime code.
 
 **As of 2026-09-24 the two `Stop` judgments share one hand-authored prompt**,
-`packages/core/hooks/prompts/discipline-stop.source.md` (~3 KB, replacing a 14.9 KB prompt
+`packages/core/hooks/prompts/discipline-stop.source.md` (~4 KB, replacing a 14.9 KB prompt
 assembled from blocks), and run on `claude-sonnet-5` rather than the default small model.
 Consecutive blocks are capped at 1 by `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` in settings `env`.
 The judge's own loop guard was measured being ignored. Evidence: `FINDINGS.md`.

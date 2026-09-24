@@ -223,11 +223,11 @@ describe('block reasons: sanctioned dissent, and no compelled action', () => {
   });
 
   it('drops a promised slash command rather than running it', () => {
-    expect(prompt).toMatch(/If the promised thing is a slash\s+command, drop the claim instead; the owner runs it/);
+    expect(prompt).toMatch(/if the promise is a slash\s+command, drop the claim, the owner runs it/);
   });
 
   it('remedies the autonomy judgment by deleting the pause, not by doing the work', () => {
-    expect(prompt).toContain('delete the question and end on the decision');
+    expect(prompt).toContain('delete the question, end on the decision');
   });
 });
 
@@ -240,7 +240,7 @@ describe('the shipped Stop prompt (hand-authored, 2026-09-24)', () => {
 
   it('applies the autonomy judgment only on an explicit state=active marker for this session', () => {
     expect(prompt).toContain('ENSEMBLE_COMMAND');
-    expect(prompt).toMatch(/matches this payload's `session_id` says `state=active`\. Otherwise skip case B/);
+    expect(prompt).toMatch(/matches this payload's\s+`session_id` says `state=active`\. Otherwise skip case B/);
   });
 
   it('treats a matching running task as sufficient and never asks for a second mechanism', () => {
@@ -251,11 +251,25 @@ describe('the shipped Stop prompt (hand-authored, 2026-09-24)', () => {
   it('counts waits backed outside the payload: Monitor, background shell, forked runs', () => {
     expect(prompt).toContain('`Monitor`');
     expect(prompt).toContain('`run_in_background`');
-    expect(prompt).toMatch(/do not appear in the payload/);
+    expect(prompt).toMatch(/never appear in the payload/);
+  });
+
+  it('judges an unconditioned "now" promise by whether this turn started it', () => {
+    expect(prompt).toMatch(/Kept only if a tool call in this turn started it/);
+    expect(prompt).toMatch(/A task already\s+running before this turn cannot be what the message says it is starting now/);
+  });
+
+  it('treats halting a running command with an own next step as a promise, except STUCK', () => {
+    expect(prompt).toMatch(/Stopping a running command partway is a "now" promise/);
+    expect(prompt).toMatch(/Exception: a STUCK\s+report/);
+  });
+
+  it('keeps a wait on an event the owner causes', () => {
+    expect(prompt).toMatch(/an event the owner causes \(their reply,\s+approval, merge or deploy approval\)/);
   });
 
   it('exempts saying what the owner could run next', () => {
-    expect(prompt).toMatch(/saying what the\s+OWNER could run next/);
+    expect(prompt).toMatch(/saying what the\s+OWNER could\s+run next/);
   });
 
   it('carries $ARGUMENTS exactly once, in its own Payload section', () => {
@@ -269,7 +283,7 @@ describe('the shipped Stop prompt (hand-authored, 2026-09-24)', () => {
   });
 
   it('allows without a reason, so an allow cannot surface as an error', () => {
-    expect(prompt).toMatch(/To allow: submit\(\{ ok: true \}\), with no reason/);
+    expect(prompt).toMatch(/Allow: submit\(\{ ok: true \}\), with no reason/);
   });
 
   it('stays short: the regrowth guard', () => {
