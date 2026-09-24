@@ -156,6 +156,24 @@ Story / Idea
 Quit + Restart  -------->  Fresh context for next iteration
 ```
 
+### Shorter Paths
+
+Not every change needs the full PRD -> TRD -> implement pipeline. Three commands exist for
+narrower situations, distinguished by **whose plan the work belongs to**, not by size:
+
+- **`/plan <what>`** -- a defect, small change, or refactor. Investigates first, then writes
+  whatever the work earns: a light TRD for something contained, or a fully phased and audited
+  TRD when the scope turns out to span several tasks. Implements only when you pass `--implement`.
+- **`/amend <what>`** -- ONE change to a feature already in flight. Grounded against the
+  codebase, recorded as a row in that feature's own TRD before the work starts, and verified
+  against disk afterward. No new TRD.
+- **`/sweep <list>`** -- a list of small, unrelated fixes that arrived together. Triaged and
+  fixed in parallel, each one checked against disk. No TRD.
+
+Work sitting inside the feature currently in flight is an amendment to *its* TRD -- `/plan`
+would fork a second TRD for something already understood, which is how a session loses track
+of what it's doing.
+
 ### Phase 1: Requirements (PRD)
 
 `/create-prd` takes a feature description and produces a comprehensive Product Requirements Document. You can feed requirements directly from your lifecycle management system:
@@ -242,6 +260,22 @@ claude           # Restart with fresh context
 - Updated file structure references
 
 Restarting Claude Code ensures each session starts with fresh context and consolidated knowledge. This prevents context degradation (see [Context Is a Budget](#context-is-a-budget) above) and ensures each pass operates at peak quality.
+
+### Other Commands
+
+Rounding out the roster -- setup, governance, and one-off verification, none of them part of
+the per-feature loop above:
+
+| Command | Purpose |
+|---------|---------|
+| `/audit-prd` | Verifies an existing PRD against its source material |
+| `/audit-trd` | Verifies an existing TRD against the PRD it was built from |
+| `/augment-trd-figma` | Adds Figma design context to a TRD |
+| `/init-project` | One-time project setup: vendors the runtime, detects the stack |
+| `/rebase-project` | Refreshes the vendored runtime from the plugin |
+| `/update-project` | Captures session learnings into CLAUDE.md; proposes governance changes |
+| `/cleanup-project` | Prunes CLAUDE.md and project artifacts |
+| `/verify-build` | Re-runs the functional-verification loop on its own |
 
 ---
 
@@ -389,13 +423,15 @@ above for why, and where their jobs live now — inside `/implement-trd`'s own p
 feature-scale hardening pass).
 
 Agent teams (`Agent({subagent_type, name, prompt})`, forming automatically on first spawn,
-no setup/teardown step) are still used where a command's own work genuinely fans out into
-independent pieces within a single session:
+no setup/teardown step) remain available as a primitive, but as of 2026-08-22 **no command in
+this framework spawns teammates directly** -- every command's own fan-out (the phase gate's
+verifier wave, `/plan`'s grounding pass, and so on) runs through ordinary subagents, not
+teammates:
 
 | Command | Team use |
 |---------|----------|
-| `/fix-issue` | Spawns one teammate per task (or group of related tasks) when an issue TRD has 2+ tasks; runs single-agent for 1 task |
+| *(none)* | No command currently spawns teammates. The mechanism stays available to an individual agent that genuinely needs it -- see `.claude/rules/async-discipline.md`. |
 
 Teammate `SendMessage` auto-delivery reliably re-invokes the orchestrating session as new
-turns; commands pair each spawn with a recommended (not mandatory) `ScheduleWakeup`
-safety-net (see `.claude/rules/async-discipline.md`).
+turns; an agent that does spawn a teammate pairs it with a recommended (not mandatory)
+`ScheduleWakeup` safety-net (see `.claude/rules/async-discipline.md`).

@@ -144,15 +144,18 @@ your-project/
 |   |   |-- init-project.md
 |   |   |-- rebase-project.md
 |   |   |-- create-prd.md
-|   |   |-- create-trd.md
+|   |   |-- audit-prd.md
 |   |   |-- refine-prd.md
+|   |   |-- create-trd.md
+|   |   |-- audit-trd.md
 |   |   |-- refine-trd.md
+|   |   |-- augment-trd-figma.md
 |   |   |-- implement-trd.md
 |   |   |-- audit-build.md
-|   |   |-- audit-prd.md
-|   |   |-- audit-trd.md
-|   |   |-- investigate-issue.md
-|   |   |-- fix-issue.md
+|   |   |-- plan.md
+|   |   |-- amend.md
+|   |   |-- sweep.md
+|   |   |-- verify-build.md
 |   |   |-- fold-prompt.md
 |   |   |-- update-project.md
 |   |   +-- cleanup-project.md
@@ -160,8 +163,7 @@ your-project/
 |   |   |-- router.py                # Prompt routing (UserPromptSubmit)
 |   |   |-- formatter.sh             # Auto-formatting (PostToolUse)
 |   |   |-- status.js                # Implementation tracking (SubagentStop)
-|   |   |-- async-discipline.js      # Blocks hallucinated async claims (Stop)
-|   |   |-- autonomy-discipline.js   # Blocks hedged-pause offers (Stop)
+|   |   |-- prompts/                 # Model-judged Stop-hook prompt text (async + autonomy discipline)
 |   |   |-- notify.sh                # Per-Stop notifications (Stop)
 |   |   |-- notify-complete.sh       # COMMAND-COMPLETE notification helper (model-invoked)
 |   |   |-- session-context.js       # Session identity capture (SessionStart)
@@ -276,6 +278,7 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 | Command | Input | Output |
 |---------|-------|--------|
 | `/create-prd` | Story description or issue reference | `docs/PRD/<feature>.md` |
+| `/audit-prd` | Existing PRD | Verifies the PRD against its source, the design corpus and the code; rewrites its Could Not Verify section |
 | `/refine-prd` | Existing PRD + feedback | Updated PRD |
 
 #### Development Workflow
@@ -283,16 +286,22 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 | Command | Input | Output |
 |---------|-------|--------|
 | `/create-trd` | Approved PRD | `docs/TRD/<feature>.md` |
+| `/audit-trd` | Existing TRD | Verifies the TRD against the PRD, the design corpus and the code; rewrites its Could Not Verify section |
 | `/refine-trd` | Existing TRD + feedback | Updated TRD |
+| `/augment-trd-figma` | Existing TRD + Figma file | TRD updated with Figma design context |
 | `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking; per-phase gate includes adversarial hardening and, for `[LIVE]` tasks, live verification; a feature-scale hardening pass runs after the last phase |
 | `/audit-build` | Implemented TRD + PRD | Verification (matches TRD), validation (matches PRD), traceability (implementation AND test per requirement) report |
 
-#### Issue Triage & Fixes
+#### Shorter Paths
+
+Whose plan the work belongs to, not its size, decides which of these three to use.
 
 | Command | Input | Output |
 |---------|-------|--------|
-| `/investigate-issue` | Issue report | Reproduction + classification → lightweight issue TRD or a spec for `/create-prd` |
-| `/fix-issue` | Triaged issue TRD | Implement + verify + review in a single compressed pass |
+| `/plan` | Description of a defect, small change, or refactor | Investigates, then writes whatever the work earns: a light TRD for something contained, or a phased and audited TRD when the scope spans several tasks. Implements only with `--implement`. |
+| `/amend` | ONE change to the feature already in flight | Grounded, recorded as a TRD row before the work, then verified against disk. No new TRD. |
+| `/sweep` | A list of small, unrelated fixes that arrived together | Each triaged and fixed in parallel, checked against disk. No TRD. |
+| `/verify-build` | An already-implemented feature | Re-runs the functional-verification loop alone, against the PRD's success definition |
 
 ### /implement-trd Options
 
@@ -351,6 +360,7 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 | **UserPromptSubmit** | Every user message | `router.py` | Analyzes the prompt and recommends appropriate agents and skills. Appends routing context to the prompt. |
 | **PostToolUse** | After Edit/Write/MultiEdit | `formatter.sh` | Auto-formats the changed file using the project's formatter (Prettier, Black, etc.). |
 | **SubagentStop** | When a sub-agent completes | `status.js` | Advances cycle position in `implement.json`. Tracks which stage (implement, verify, simplify, review) just completed. |
+| **Stop** | When a session (or workflow turn) ends | model-judged prompt hook → `notify.sh` | The prompt hook evaluates the turn's final message for two things at once — an unbacked async claim (async-discipline) and a hedged mid-loop pause (autonomy-discipline) — and blocks with a corrective reason if either fires; `notify.sh` then runs last and executes `NOTIFY_ON_STOP` on every Stop, unconditionally. |
 | **PreCompact** | Before context compaction | `precompact.js` | Handles pre-compaction bookkeeping so important state survives lossy summarization. |
 | *(model-invoked)* | Commands call it directly on their COMMAND COMPLETE turn | `notify-complete.sh` | Not tied to a lifecycle event — a workflow command invokes it explicitly to fire `NOTIFY_ON_COMPLETE` exactly once. See [command-status.md Path B](../../.claude/rules/command-status.md). |
 
@@ -363,20 +373,13 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 - Returns routing suggestions as context appended to the prompt
 - Does not block -- only advises
 
-**Async-discipline (`async-discipline.js`):**
-- First hook in the Stop chain — a defensive guard, not advisory
-- Scans the last assistant turn for fire-and-forget claims ("I'll let you know", "running in the background") that have no backing async machinery (`Agent({run_in_background})`, `ScheduleWakeup`, `Monitor`, `/goal`)
-- Blocks the Stop with a corrective reason so the agent either dispatches properly or completes the work synchronously
-- See `.claude/rules/async-discipline.md`
-
-**Autonomy-discipline (`autonomy-discipline.js`):**
-- Second hook in the Stop chain — backstop for the autonomy contract
-- Detects hedged-pause offers ("I'll continue unless...", "Want me to keep going, or pause?") in workflow-command context (only when a `[STATUS: /...]` or `═══ COMMAND` banner is present)
-- `/refine-prd` and `/refine-trd` are exempt (intentionally interactive)
-- See `.claude/rules/autonomy.md`
-
-- Third hook in the Stop chain — autonomous-loop and session-end processing
-- Manages session lifecycle for team and multi-pass workflows
+**Discipline guard (async-discipline + autonomy-discipline):**
+- First hook in the Stop chain — a defensive guard, not advisory, and not a `.js` file: it is `hookType: "prompt"`, evaluated directly by the platform's own model judge rather than by code of ours. The manifest still carries `async-discipline.js` / `autonomy-discipline.js` as entry *identifiers*, but nothing resolves them to disk — both were deleted.
+- One prompt hook carries two independent judgments over the same final message:
+  - **async-discipline** — scans for fire-and-forget claims ("I'll let you know", "running in the background") that have no backing async machinery (`Agent({run_in_background})`, `ScheduleWakeup`, `Monitor`, `/goal`). See `.claude/rules/async-discipline.md`.
+  - **autonomy-discipline** — detects hedged-pause offers ("I'll continue unless...", "Want me to keep going, or pause?") in workflow-command context. `/refine-prd` and `/refine-trd` are exempt in interactive mode. See `.claude/rules/autonomy.md`.
+- Blocks the Stop with a corrective reason so the agent either dispatches properly, completes the work synchronously, or drops the hedge and proceeds
+- There is no third Stop-chain hook doing session-end processing — there is no `SessionEnd` hook anywhere in the framework (the earlier `learning.sh` and `wiggum.js` were both retired; see the constitution's Architecture Invariants)
 
 **Status (`status.js`):**
 - Active hook (not passive) -- advances cycle position
@@ -546,8 +549,8 @@ Three additional rule files govern how commands and agents behave during autonom
 
 | Rule | Enforces | Backing hook |
 |------|----------|--------------|
-| `async-discipline.md` | Never claim async work ("I'll report back") without real async machinery in flight | `async-discipline.js` |
-| `autonomy.md` | Workflow commands run autonomously from one invocation to one result; no mid-loop "should I proceed?" prompts (four narrow exceptions) | `autonomy-discipline.js` |
+| `async-discipline.md` | Never claim async work ("I'll report back") without real async machinery in flight | model-judged Stop hook (identifier `async-discipline.js`; no such file exists) |
+| `autonomy.md` | Workflow commands run autonomously from one invocation to one result; no mid-loop "should I proceed?" prompts (four narrow exceptions) | model-judged Stop hook (identifier `autonomy-discipline.js`; no such file exists) |
 | `command-status.md` | Every workflow command emits `DISPATCHED` / `RESUMED` / `═══ COMMAND COMPLETE ═══` status banners | (documented contract) |
 
 ### Process Documentation (`.claude/rules/process.md`)

@@ -13,11 +13,12 @@ Every feature follows the same lifecycle:
        |
        v
 /create-prd          -->  What are we building and why?
+/audit-prd           -->  (optional) Verify the PRD against its source
 /refine-prd          -->  (optional) Iterate with stakeholder feedback
        |
        v
 /create-trd          -->  How are we building it?
-/review-trd          -->  (optional) Independent LLM review
+/audit-trd           -->  (optional) Verify the TRD against the PRD
 /refine-trd          -->  (optional) Iterate with technical feedback
        |
        v
@@ -36,7 +37,9 @@ Human debug          -->  Developer finishes remaining ~5-15%, guided by /audit-
 /fold-prompt         -->  Final learning capture
 ```
 
-Each step is detailed below.
+Each step is detailed below. Outside this full-feature lifecycle, three shorter paths
+(`/plan`, `/amend`, `/sweep`) and a handful of maintenance commands cover everything else --
+see "Shorter Paths" and "Maintenance Commands" after Step 10.
 
 ---
 
@@ -169,7 +172,19 @@ AI review catches structural issues. Human review catches intent misunderstandin
 
 ---
 
-## Step 3: Refine the PRD (`/refine-prd`, optional)
+## Step 3: Audit the PRD (`/audit-prd`, optional)
+
+Verify the PRD against its source material, the existing design corpus, and the code -- rather than just trusting the drafting pass.
+
+```
+/audit-prd
+```
+
+The path is auto-resolved from `.trd-state/current.json`, or specify one explicitly. This runs the same verification wave `/create-prd` uses internally, but as a standalone re-check -- useful when a PRD was written some time ago, or by someone else, and you want it re-attested against what is actually true today. Findings that survive checking are applied directly to the PRD, and its "Could Not Verify" section is rewritten to reflect what remains open.
+
+---
+
+## Step 4: Refine the PRD (`/refine-prd`, optional)
 
 Iterate on the PRD with stakeholder feedback.
 
@@ -183,7 +198,7 @@ The path to the PRD is auto-resolved from `.trd-state/current.json`. You can als
 
 ---
 
-## Step 4: Create a TRD (`/create-trd`)
+## Step 5: Create a TRD (`/create-trd`)
 
 Transform the approved PRD into a technical plan.
 
@@ -230,38 +245,33 @@ where manufactured requirements were already worst.
 
 ---
 
-## Step 5: Review the TRD (`/review-trd`, optional)
+## Step 6: Audit the TRD (`/audit-trd`, optional)
 
-Send the TRD to an independent LLM for a second opinion.
+Verify the TRD against the PRD, the design corpus, and the code.
 
 ```
-/review-trd
+/audit-trd
 ```
 
-This uses an external review tool (Codex CLI or similar) to analyze the TRD against the PRD, the codebase, and general engineering best practices. The review is independent of the Claude session that created the TRD, providing a fresh perspective.
-
-The review output identifies:
-- Gaps between PRD requirements and TRD coverage
-- Architectural concerns or anti-patterns
-- Missing edge cases or error handling
-- Task dependency issues
-- Quality or security gaps
+Same shape as `/audit-prd`: it re-runs the verification wave standalone, applies what
+survives checking, and rewrites the "Could Not Verify" section. Worth running whenever a
+TRD sat for a while before implementation started, or was authored outside this pipeline.
 
 ---
 
-## Step 6: Refine the TRD (`/refine-trd`, optional)
+## Step 7: Refine the TRD (`/refine-trd`, optional)
 
-Iterate on the TRD with technical feedback. If you ran `/review-trd`, feed its findings in here:
+Iterate on the TRD with technical feedback. Feed `/audit-trd`'s findings in here if you ran it:
 
 ```
-/refine-trd <paste review findings or provide your own feedback>
+/refine-trd <paste audit findings or provide your own feedback>
 ```
 
 This is the last chance to course-correct the plan before implementation. The TRD is the flight plan -- everything downstream follows from it.
 
 ---
 
-## Step 7: Implement (`/implement-trd`)
+## Step 8: Implement (`/implement-trd`)
 
 This is where the air traffic controller model comes to life. You launch one implementation
 session with `--dangerously-skip-permissions` and let the agents work autonomously through
@@ -350,7 +360,7 @@ exit
 
 ---
 
-## Step 8: Human Debug
+## Step 9: Human Debug
 
 After `/implement-trd` and `/audit-build`, the code is substantially complete -- typically
 85-95% of the way there. The remaining work is the kind of nuanced problem-solving that
@@ -366,7 +376,7 @@ This is where you switch from air traffic controller back to pilot -- hands on t
 
 ---
 
-## Step 9: Final Fold (`/fold-prompt`)
+## Step 10: Final Fold (`/fold-prompt`)
 
 After completing the feature, capture everything into CLAUDE.md:
 
@@ -381,6 +391,59 @@ This analyzes the session's work and updates CLAUDE.md with:
 - Updated file structure references
 
 These learnings persist across sessions and improve future runs of the framework on this project.
+
+---
+
+## Shorter Paths
+
+Not every change is a new feature. Three commands cover work that doesn't earn a full
+PRD -> TRD -> implement cycle. The choice between them is about **whose plan the work
+belongs to**, not how big it is:
+
+### `/plan <what>` -- a defect, a small change, or a refactor
+
+```
+/plan <description of what's wrong or what should change>
+```
+
+`/plan` investigates first, then writes whatever the work turns out to need: a light TRD
+for something contained, or a fully phased and audited TRD if the investigation shows the
+work actually spans several tasks. It does not implement on its own -- add `--implement` to
+have it build what it planned.
+
+### `/amend <what>` -- one change to the feature already in flight
+
+```
+/amend <what to change, in plain language>
+```
+
+Use this when you're partway through implementing a TRD and need to adjust something in
+its own path -- a bug in code this run just wrote, a requirement that turned out wrong. It's
+grounded, recorded as a row on the existing TRD before the work happens, and verified
+against disk afterward. It does not create a new TRD; the change belongs to the one already
+running.
+
+### `/sweep <list>` -- a batch of small, unrelated fixes
+
+```
+/sweep <path to a findings file, or the issues inline>
+```
+
+For when you (or a walkthrough) produced a list of small, independent problems that arrived
+together but aren't one change -- a typo here, a missing validation there, a UI nit
+somewhere else. Each item is triaged and fixed in parallel, grounded and checked against
+disk. No TRD.
+
+---
+
+## Maintenance Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/verify-build [trd-path]` | Re-run the functional-verification loop alone against already-delivered code -- does it do what the PRD says, checked with real evidence rather than assumed from passing tests. |
+| `/augment-trd-figma` | Enrich an existing TRD with a Figma design context section (screenshots, component specs, design tokens) so implementation agents have what they need for pixel-perfect visual work. |
+| `/update-project` | Capture session learnings into CLAUDE.md and propose Constitution/stack.md governance changes. |
+| `/cleanup-project [--dry-run] [--auto]` | Review and prune CLAUDE.md and accumulated project artifacts, with backups. |
 
 ---
 
@@ -413,19 +476,21 @@ Backups are created before any destructive operation. Use `--dry-run` to preview
 |------|---------|-------|--------|
 | Setup | `/init-project` | Project description | Vendored runtime in `.claude/` |
 | Requirements | `/create-prd` | Feature description, issue refs, API specs | `docs/PRD/<feature>.md` |
+| Audit requirements | `/audit-prd` | PRD (auto-resolved) | PRD re-attested against source/code |
 | Refine requirements | `/refine-prd` | Feedback | Updated PRD |
 | Architecture | `/create-trd` | Approved PRD (auto-resolved) | `docs/TRD/<feature>.md` |
-| Independent review | `/review-trd` | TRD (auto-resolved) | Review findings |
-| Refine architecture | `/refine-trd` | Review findings or feedback | Updated TRD |
+| Audit architecture | `/audit-trd` | TRD (auto-resolved) | TRD re-attested against PRD/code |
+| Refine architecture | `/refine-trd` | Audit findings or feedback | Updated TRD |
 | Build (phase loop) | `/implement-trd` | Approved TRD | Working, hardened, live-verified code + tests |
 | Post-build audit | `/audit-build` | Implemented code, TRD, PRD | Verification/validation/traceability report |
 | Human finish | Manual debugging | Audit report | Production-ready code |
 | Capture learnings | `/fold-prompt` | Session context | Updated CLAUDE.md |
 | Upgrade runtime | `/rebase-project` | New plugin version | Updated vendored runtime |
 
-**Issue triage (outside the main feature loop):**
+**Shorter paths (outside the main feature loop -- see "Shorter Paths" above):**
 
 | Step | Command | Input | Output |
 |------|---------|-------|--------|
-| Triage | `/investigate-issue` | Issue report | Reproduction + classification → issue TRD or PRD spec |
-| Fix | `/fix-issue` | Triaged issue TRD | Implement + verify + review in one compressed pass |
+| Defect / small change / refactor | `/plan <what>` | Description, issue ref, or source path | Light or phased TRD sized to the work; `--implement` to build it |
+| One change to work in flight | `/amend <what>` | Description of the change | The running TRD amended, verified against disk |
+| Batch of small unrelated fixes | `/sweep <list>` | Findings file or inline issue list | Each fix applied in parallel, checked against disk |

@@ -184,15 +184,22 @@ After initialization, verify the key components and run your first feature.
 
 ```
 # In Claude Code, type / to see available commands
-# You should see:
-/create-prd             /create-trd
-/refine-prd              /refine-trd
-/audit-prd               /audit-trd
-/implement-trd           /audit-build
-/investigate-issue       /fix-issue
-/fold-prompt             /update-project
-/cleanup-project
+# You should see all 18:
+/create-prd              /create-trd
+/refine-prd               /refine-trd
+/audit-prd                /audit-trd
+/implement-trd            /audit-build
+/plan                     /amend
+/sweep                    /augment-trd-figma
+/verify-build             /fold-prompt
+/update-project           /cleanup-project
+/init-project             /rebase-project
 ```
+
+`/plan`, `/amend`, and `/sweep` are the shorter paths -- a defect, small change, or refactor;
+one change to a feature already in flight; or a list of small unrelated fixes -- each grounded
+and verified without spinning up a full PRD/TRD pair. See
+[Concepts: Shorter Paths](./CONCEPTS.md#shorter-paths) for how they differ.
 
 ### Running Implementation
 
