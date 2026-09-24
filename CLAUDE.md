@@ -528,8 +528,18 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.6.0** (2026-09-23). 18 commands, 13 subagents. Test battery: 1107 Jest,
-107 pytest, 655 BATS.
+Released at **4.7.0** (2026-09-24). 18 commands, 13 subagents. Test battery: 1120 Jest,
+107 pytest, 658 BATS.
+
+4.7.0 rebuilds the `Stop`-hook judge from measurement. Across 3,158 real stops it blocked
+about 1 in 5, and about 95% of sampled blocks were correct turns. It now runs a hand-authored
+~4 KB prompt (`discipline-stop.source.md`) on `claude-sonnet-5`, and consecutive blocks are
+capped at 1 by the platform. On 153 labelled real stops it wrongly blocked 0 of 432
+correct-turn judgements and caught 9 of 9 violations. **Breaking:** the autonomy check
+applies only on an explicit `state=active` marker, which makes the marker's 30-minute
+ceiling a real gap for long commands; that is the next fix. **Verify after refresh** with
+`hook-verdict-rate.js` on a live session. The replay tools in `test/discipline-corpus/replay/`
+are how any future edit gets scored.
 
 4.6.0 renames `/investigate` to `/plan` — deleted, not aliased — and sizes work on two axes
 instead of one tier ladder: a `kind` (defect | change | refactor) and a `weight` (trivial |

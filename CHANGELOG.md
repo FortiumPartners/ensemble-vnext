@@ -10,7 +10,10 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
-## [Unreleased]
+## [4.7.0] - 2026-09-24
+
+The Stop-hook judge rebuilt against measured data: it stops interrupting correct work and
+catches what it is for.
 
 ### Changed — the Stop-hook judge: a rewritten prompt, on Sonnet, capped at one block
 
