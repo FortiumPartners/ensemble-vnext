@@ -1043,9 +1043,14 @@ for fname in os.listdir(core_hooks_dir):
 # hook was, and an undeclared one is silently never shipped. Only *.md counts —
 # build-judge-prompts.js lives here too, and it GENERATES prompts rather than
 # being one, so it has no manifest entry and must not be demanded to have one.
+# *.source.md is the same kind of thing: the hand-authored INPUT the generator wraps
+# into a promptFile (discipline-stop.source.md -> discipline-stop.prompt.md, 2026-09-24).
+# It is never shipped; the generated promptFile is.
 prompts_dir = os.path.join(core_hooks_dir, 'prompts')
 if os.path.isdir(prompts_dir):
     for fname in os.listdir(prompts_dir):
+        if fname.endswith('.source.md'):
+            continue
         if fname.endswith('.md') and os.path.isfile(os.path.join(prompts_dir, fname)):
             on_disk.add('packages/core/hooks/prompts/' + fname)
 

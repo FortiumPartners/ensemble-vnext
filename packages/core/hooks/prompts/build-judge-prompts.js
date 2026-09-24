@@ -33,11 +33,12 @@
  *
  * OUTPUT
  *
- * `node build-judge-prompts.js` regenerates the two ready-to-embed prompt text files in
- * this directory from the templates below:
- *   discipline-stop.prompt.md     (async-discipline + autonomy-discipline merged onto
- *                                   one `Stop` hook -- FIX-002, see
- *                                   docs/TRD/judge-prompt-generative-rule.md)
+ * `node build-judge-prompts.js` regenerates the ready-to-embed prompt text in this
+ * directory:
+ *   discipline-stop.prompt.md     the shipped `Stop` prompt: discipline-stop.source.md
+ *                                   (hand-authored, 2026-09-24) wrapped in the display
+ *                                   banners. See buildStopDisciplinePrompt() below for why
+ *                                   it is no longer assembled from the blocks in this file.
  *   subagent-discipline.prompt.md (unmerged; SubagentStop)
  *
  * These are literal strings meant to be dropped into a `hooks.manifest.json` entry's
@@ -533,6 +534,28 @@ should.`;
 const STOP_DISCIPLINE_HOOKS = ['async-discipline', 'autonomy-discipline'];
 const STOP_DISCIPLINE_PROMPT_FILE = 'discipline-stop.prompt.md';
 
+// ---------------------------------------------------------------------------
+// The SHIPPED Stop prompt, 2026-09-24: hand-authored, not assembled.
+//
+// buildCombinedPrompt() above grew to ~15 KB one measured correction at a time, and the
+// judge stopped following it: replayed against 153 labelled real stops, the live judge
+// blocked roughly 1 stop in 5 and ~95% of those blocks were correct turns, and it ignored
+// its own stop_hook_active allow (FINDINGS.md, test/discipline-corpus/replay/). The
+// replacement is ~4 KB, states each rule once, and is scored as a whole prompt, so it
+// lives as one reviewable file rather than as blocks spliced by code.
+//
+// buildCombinedPrompt() is RETAINED, unshipped, for the same reason regex.js is: so the
+// baseline the replacement was measured against stays reproducible.
+// ---------------------------------------------------------------------------
+const STOP_DISCIPLINE_SOURCE_FILE = 'discipline-stop.source.md';
+
+function buildStopDisciplinePrompt() {
+  const source = fs
+    .readFileSync(path.join(__dirname, STOP_DISCIPLINE_SOURCE_FILE), 'utf-8')
+    .replace(/\s+$/, '');
+  return [OPEN_BANNER, source, CLOSE_BANNER].join('\n\n');
+}
+
 /**
  * Which single-hook prompt files the MANIFEST actually declares.
  *
@@ -574,8 +597,8 @@ function main() {
     console.log(`wrote ${outPath} (${text.length} chars)`);
   }
 
-  // async-discipline + autonomy-discipline merge into one Stop-event prompt.
-  const combinedText = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS);
+  // The Stop-event prompt: hand-authored source, wrapped in the display banners.
+  const combinedText = buildStopDisciplinePrompt();
   const combinedPath = path.join(__dirname, STOP_DISCIPLINE_PROMPT_FILE);
   fs.writeFileSync(combinedPath, combinedText + '\n', 'utf-8');
   console.log(`wrote ${combinedPath} (${combinedText.length} chars)`);
@@ -588,6 +611,8 @@ if (require.main === module) {
 module.exports = {
   buildPrompt,
   buildCombinedPrompt,
+  buildStopDisciplinePrompt,
+  STOP_DISCIPLINE_SOURCE_FILE,
   HOOKS,
   STOP_DISCIPLINE_HOOKS,
   STOP_DISCIPLINE_PROMPT_FILE,

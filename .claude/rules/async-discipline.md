@@ -130,11 +130,38 @@ claim + nothing active            → BLOCK stop with a reason explaining the fo
 
 `stop_hook_active` is the loop guard: `false` the first time a turn reaches this hook, `true`
 on any re-entry that followed a block from THIS hook. The judge is instructed to allow
-unconditionally on `stop_hook_active: true`, which guarantees at most one corrective
-round-trip. The platform's own `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) is a hard
-backstop underneath that, not the mechanism this rule relies on. A judge call that errors or
+unconditionally on `stop_hook_active: true` — **but that is only an instruction, and it is
+not reliably followed**: measured 2026-09-23, the judge blocked a `stop_hook_active: true`
+case 2 of 3 times offline, and one live session took five consecutive blocks against a
+correct ask. So the bound this rule relies on is the platform's:
+`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` ships as `"1"` in `.claude/settings.json` `env` (platform
+default 8), which ends the turn on the second consecutive block — one corrective turn,
+whatever the judge decides. `--refresh` backfills it only when absent, so an owner's own
+value stands. A judge call that errors or
 times out resolves to **allow** — the hook never wedges a session on evaluator
 unavailability.
+
+### The prompt and the model, as of 2026-09-24
+
+The judge prompt is **hand-authored**: `packages/core/hooks/prompts/discipline-stop.source.md`,
+about 4 KB. `build-judge-prompts.js` only wraps it in the display banners. It replaced a
+14.9 KB prompt assembled from blocks, which had grown one correction at a time until the judge
+stopped following it. The hook runs on **`claude-sonnet-5`** (manifest `model` field). Before,
+it ran on the platform's default small model.
+
+Measured on 153 labelled real stops, 3 runs each (`FINDINGS.md`; tools in
+`test/discipline-corpus/replay/`): the old prompt on the small model wrongly blocked about 9% of
+correct turns in replay and about 95% of its live blocks were wrong. The new prompt on Sonnet
+wrongly blocked 0 of 432 correct-turn judgements, caught 26 of 27 violation runs (9 of 9
+violations by majority), and never re-blocked a `stop_hook_active` turn. Live latency on
+Sonnet matched the small model (1.6 s median, short sessions). The nine violations were also
+what it was tuned against; on 100 unseen stops it added no blocks beyond the three an earlier
+version made, all of which read as real.
+
+**To change it:** edit the source file, run `build-judge-prompts.js` then
+`generate-hooks-artifacts.sh`, and re-score with `test/discipline-corpus/replay/score.py` and
+`report.py` before shipping. Do not append a correction per incident: the regrowth guard in
+`build-judge-prompts.test.js` fails the build past 6,000 characters on purpose.
 
 ### A block is displayed as `Stop hook error:` — that is upstream, not us
 
@@ -424,7 +451,7 @@ subagent's own claim (see above), so a subagent still blocked after its one corr
 has nothing left to try except stating the blocker plainly and stopping — which the judge is
 instructed to allow.
 
-The platform's own `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (default 8) is a hard backstop
+The platform's `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (shipped as 1; platform default 8) is a hard backstop
 underneath that, not something the guard relies on.
 
 Before 4.1.11 the command-type `subagent-discipline.js` bounded the loop differently, with a

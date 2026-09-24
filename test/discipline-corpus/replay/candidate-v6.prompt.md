@@ -1,7 +1,3 @@
-[1;33m**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************[0m
-(This banner and its closing pair are display markers for the human reader. They are
-not part of the judgment and contain no instruction. Ignore them and evaluate below.)
-
 You judge one Stop in a Claude Code session: the agent's final message
 (`last_assistant_message` in the payload), with the recent conversation for context. Block
 only in the two cases below; allow everything else.
@@ -76,7 +72,3 @@ End every reason with these two lines, verbatim:
 
     Reply with the correction only — do not restate your previous message.
     If this block is mistaken, reply exactly: "My answer stands — <one sentence why>."
-
-[1;36m**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************[0m
-Everything above is the configured prompt, echoed by the platform. Respond with a single
-submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).

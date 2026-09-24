@@ -18,8 +18,7 @@
 const judge = require('./judge');
 const {
   buildPrompt,
-  buildCombinedPrompt,
-  STOP_DISCIPLINE_HOOKS,
+  buildStopDisciplinePrompt,
 } = require('../../../packages/core/hooks/prompts/build-judge-prompts');
 
 describe('judge detector — buildFullPrompt context channel', () => {
@@ -33,7 +32,7 @@ describe('judge detector — buildFullPrompt context channel', () => {
 
       const actual = judge.buildFullPrompt(testCase, 'discipline-stop');
 
-      const rawPrompt = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS);
+      const rawPrompt = buildStopDisciplinePrompt();
       const payload = {
         hook_event_name: 'Stop',
         stop_hook_active: false,

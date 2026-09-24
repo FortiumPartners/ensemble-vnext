@@ -166,9 +166,15 @@ entries keep the `.js` names as **identifiers**; nothing resolves them to disk. 
 of the regexes lives at `test/discipline-corpus/detectors/regex.js` purely so the scoring
 baseline stays reproducible; it is a test fixture, not runtime code.
 
-To change a discipline guard: edit its prompt in `packages/core/hooks/prompts/`, re-run
-`generate-hooks-artifacts.sh`, refresh. See the two rules files above for the full mechanism
-(loop guard, escape valves) — not duplicated here.
+**As of 2026-09-24 the two `Stop` judgments share one hand-authored prompt**,
+`packages/core/hooks/prompts/discipline-stop.source.md` (~4 KB, replacing a 14.9 KB prompt
+assembled from blocks), and run on `claude-sonnet-5` rather than the default small model.
+Consecutive blocks are capped at 1 by `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` in settings `env`.
+The judge's own loop guard was measured being ignored. Evidence: `FINDINGS.md`.
+
+To change the guard: edit the source file, run `build-judge-prompts.js` then
+`generate-hooks-artifacts.sh`, re-score with `test/discipline-corpus/replay/`, refresh.
+See the two rules files above for the full mechanism — not duplicated here.
 
 ### Notify Hook (Stop)
 
@@ -236,22 +242,20 @@ claude --remote "Process data"
 
 **Integration with Other Hooks:**
 
-The notify hook is the last entry in the `Stop` hook array, after the two discipline
-guards (`learning.sh` and `wiggum.js`, both referenced here in older docs, were retired in
+The notify hook is the last entry in the `Stop` hook array, after the discipline
+guard (`learning.sh` and `wiggum.js`, both referenced here in older docs, were retired in
 4.1.0 and 4.1.18 respectively — see `.claude/rules/constitution.md`'s Architecture
 Invariants):
 
 ```json
 "Stop": [
-  { "type": "prompt", "prompt": "...", "timeout": 5 },   // async-discipline.js
-  { "type": "prompt", "prompt": "...", "timeout": 5 },   // autonomy-discipline.js
+  { "type": "prompt", "prompt": "...", "timeout": 60, "model": "claude-sonnet-5" },  // discipline-stop.js
   { "type": "command", "command": ".claude/hooks/notify.sh", "timeout": 60 }
 ]
 ```
 
-All three fire on every session stop, independently — see the Discipline Hooks section
-above for what the first two actually evaluate. The notify hook sends any configured
-notification last.
+Both fire on every session stop, independently — see the Discipline Hooks section above for
+what the first evaluates. The notify hook sends any configured notification last.
 
 ---
 
@@ -524,8 +528,18 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.6.0** (2026-09-23). 18 commands, 13 subagents. Test battery: 1107 Jest,
-107 pytest, 655 BATS.
+Released at **4.7.0** (2026-09-24). 18 commands, 13 subagents. Test battery: 1120 Jest,
+107 pytest, 658 BATS.
+
+4.7.0 rebuilds the `Stop`-hook judge from measurement. Across 3,158 real stops it blocked
+about 1 in 5, and about 95% of sampled blocks were correct turns. It now runs a hand-authored
+~4 KB prompt (`discipline-stop.source.md`) on `claude-sonnet-5`, and consecutive blocks are
+capped at 1 by the platform. On 153 labelled real stops it wrongly blocked 0 of 432
+correct-turn judgements and caught 9 of 9 violations. **Breaking:** the autonomy check
+applies only on an explicit `state=active` marker, which makes the marker's 30-minute
+ceiling a real gap for long commands; that is the next fix. **Verify after refresh** with
+`hook-verdict-rate.js` on a live session. The replay tools in `test/discipline-corpus/replay/`
+are how any future edit gets scored.
 
 4.6.0 renames `/investigate` to `/plan` — deleted, not aliased — and sizes work on two axes
 instead of one tier ladder: a `kind` (defect | change | refactor) and a `weight` (trivial |

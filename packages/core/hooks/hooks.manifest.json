@@ -60,6 +60,7 @@
       "timeout": 60,
       "hookType": "prompt",
       "promptFile": "discipline-stop.prompt.md",
+      "model": "claude-sonnet-5",
       "registration": "command",
       "shippable": true,
       "description": "Model-judged, two independent judgments in one Stop-hook prompt (FIX-002, docs/TRD/judge-prompt-generative-rule.md): (a) blocks fire-and-forget async claims made without real async machinery in flight (pairs with `.claude/rules/async-discipline.md`); (b) blocks hedged mid-loop pause offers that violate autonomous-execution discipline (pairs with `.claude/rules/autonomy.md`). Replaces the formerly-separate async-discipline.js and autonomy-discipline.js Stop entries, which duplicated ~9.9KB of shared judge scaffolding on every Stop event."
