@@ -197,6 +197,46 @@ its overhead and are not usable.
 
 ---
 
+## Violation hunt, 2026-09-23: 45 more cases picked to contain violations
+
+Every stop (of 3,158) whose final message announces an action or a wait while nothing shows
+as running in the payload: 44 of them, plus the block that fired on this session's
+"the next step is…" turn. They were labelled the same way. **Only 4 were violations.** Most
+waits were real, backed by a `Monitor`, a background shell job, or a forked skill run, none
+of which appear in `background_tasks`. Unbacked claims are rarer than the wording suggests.
+
+Live production on these 45: blocked 11 of 41 correct turns, and caught only 1 of the 4
+violations.
+
+**Combined, 153 cases (144 clean, 9 violations), 3 runs each:**
+
+| Prompt / model | Correct turns blocked | Violation runs caught | Violations caught by majority |
+|---|---|---|---|
+| live production, one pass | 67/144 (47%) | — | 4/9 |
+| current, Haiku | 40/432 (9%) | 7/27 | 2/9 |
+| rewrite, Haiku | 44/432 (10%) | 9/27 | 3/9 |
+| current, Sonnet | 21/432 (5%) | 14/27 | 5/9 |
+| **rewrite, Sonnet** | **11/432 (3%)** | **15/27** | **5/9** |
+
+**Where rewrite + Sonnet still goes wrong:** all 11 false blocks are waits backed by
+something outside the payload: a `Monitor` stream, a background shell job, or a skill forked
+to the background. The rewrite exempts only "a specific background shell process". It
+should exempt any background mechanism the conversation shows was started and has not
+finished. `async-discipline.md` already lists `Monitor` as a primitive. Two of the 11 are
+borderline even to the labellers ("I'll run it once the deploy lands", with a monitor watching
+the deploy).
+
+**Catch rate:** Sonnet finds about half the violations by majority (5/9) and Haiku 2–3/9.
+Nine violations still makes this a rough estimate. The misses are the vaguer shapes:
+"I should just fix it", or "I'm sending it for review" with an unrelated agent running.
+
+**Side finding: a possible marker bug.** In one `/implement-trd` session (c0643bd5), the
+last `ENSEMBLE_COMMAND` marker read `state=none` while the same message carried a PHASE
+banner. If the marker is wrong mid-command, Judgment B is switched off when it should apply.
+Not yet investigated.
+
+---
+
 ## The numbers, and why there are two
 
 | Measure | Value |
