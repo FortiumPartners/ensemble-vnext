@@ -1,10 +1,11 @@
 'use strict';
 /**
- * fix-plan.js — what `/fix` DOES, once the tier is known.
+ * fix-plan.js — what `/plan` DOES, once the weight and route are known.
  *
- * WHY THIS EXISTS. Across three test rounds, ~16 of ~16 defects found in /fix were
- * in its prose, and none in its libs. The largest single cluster was one decision
- * — "tier + flags -> what happens next" — expressed inconsistently in FIVE places:
+ * WHY THIS EXISTS. Across three test rounds, ~16 of ~16 defects found in the predecessor
+ * command (`/fix`) were in its prose, and none in its libs. The largest single cluster was
+ * one decision — "tier + flags -> what happens next" — expressed inconsistently in FIVE
+ * places:
  *
  *   Step 3.2's verdict table said AUTO chains, unconditionally (--spec-only ignored)
  *   Step 4 keyed the state-pointer write on the TIER, when its own stated reason
@@ -18,7 +19,15 @@
  * Every one of those is the same table, written five times. Prose cannot hold a
  * five-way consistency invariant; a function can, and a test can pin it.
  *
- * The judgment half of /fix — investigating, root-causing, grounding, deciding
+ * REPOINTED (plan-weight-router, PLAN-B002): the tier ladder (AUTO/REVIEW/ESCALATE) is
+ * gone. `/plan` decides on two independent axes instead — `weight` (trivial/small/medium,
+ * from plan-weight.js) and `route` ('plan'/'prd', also from plan-weight.js) — plus the
+ * owner-governed `neverUnattendedHit` list from fix-sizing.js's matchNeverUnattended(). The
+ * weight answers "how much machinery does this need"; it does NOT gate whether work may
+ * begin unattended — that is `implement` (did the owner ask?) and `neverUnattendedHit`
+ * (did the owner rule this path out?) alone. See TRD §3.2 for the full interface.
+ *
+ * The judgment half of `/plan` — investigating, root-causing, grounding, deciding
  * whether a criterion is checkable — stays prose, because it is judgment. This is
  * only the mechanical half.
  */
@@ -32,60 +41,85 @@ const VERIFICATION_SECTION = {
 
 /**
  * @param {Object} input
- * @param {'AUTO'|'REVIEW'|'ESCALATE'} input.tier   from fix-sizing.size()
- * @param {boolean} [input.implement]               --implement was passed. DEFAULT FALSE:
- *   /investigate investigates and stops. Chaining into work is an explicit request, not a
- *   consequence of the tier being clean. The tier answers "may this be done unattended?";
- *   the flag answers "do you want it done?" Collapsing the two is what made --spec-only
- *   feel like a workaround — it was intent smuggled in as a negation.
- * @param {boolean} [input.specOnly]                DEPRECATED alias. `specOnly: true` is
- *   now the default and means nothing; it is still accepted so existing callers and the
- *   command's own older prose do not break. Ignored when `implement` is given.
+ * @param {'trivial'|'small'|'medium'} input.weight   from plan-weight.js's stages()
+ * @param {'plan'|'prd'} input.route                  from plan-weight.js's route()
+ * @param {boolean} [input.implement]                 --implement was passed. DEFAULT FALSE:
+ *   /plan investigates and stops. Chaining into work is an explicit request, not a
+ *   consequence of the weight being small. The weight answers "how much machinery does this
+ *   need?"; the flag answers "do you want it done?" The weight is deliberately NOT part of
+ *   workBegins — a unit test asserts workBegins is identical across all three weights for
+ *   otherwise identical other inputs (AC-F5.1/AC-F5.2).
  * @param {'defect'|'change'|'refactor'} [input.kind]
- * @param {string} [input.slug]                     for the chain argument
+ * @param {string} [input.slug]                       for the chain argument
+ * @param {string[]} [input.neverUnattendedHit]        path fragments matched by
+ *   fix-sizing.js's matchNeverUnattended() against this run's touches. Non-empty means the
+ *   owner has ruled this path out for unattended work (O-NU) — this is a policy rule, not a
+ *   weight outcome, so it suppresses the chain regardless of weight or route.
  * @returns {Object} the run plan
  */
 function plan(input) {
-  const { tier, implement = false, kind = 'defect', slug = '<slug>' } = input || {};
-  if (!['AUTO', 'REVIEW', 'ESCALATE'].includes(tier)) {
-    throw new Error(`fix-plan: unknown tier ${JSON.stringify(tier)}`);
+  const {
+    weight,
+    route,
+    implement = false,
+    kind = 'defect',
+    slug = '<slug>',
+    neverUnattendedHit = [],
+  } = input || {};
+
+  if (!['trivial', 'small', 'medium'].includes(weight)) {
+    throw new Error(`fix-plan: unknown weight ${JSON.stringify(weight)}`);
+  }
+  if (!['plan', 'prd'].includes(route)) {
+    throw new Error(`fix-plan: unknown route ${JSON.stringify(route)}`);
   }
 
-  // ESCALATE stops, but it KEEPS the TRD (changed 2026-08-29, owner).
-  //
-  // It used to return writeTrd:false, so a run that had already reproduced the defect, found
-  // the root cause and grounded every touched file ended with NOTHING ON DISK. Measured in
-  // lightning-lane-beta-phase2: "I deleted the TRD I'd written... What it produced: Nothing."
-  // The investigation is the expensive part and it is exactly what /create-prd would need as
-  // input; throwing it away means paying for it twice and losing the reproduction in a
-  // transcript nobody will re-read.
-  //
-  // The original reasoning -- "a light TRD would be a wrong artifact rather than an incomplete
-  // one" -- is answered by marking it rather than deleting it: the banner says the tier and
-  // the failing axis, so nobody mistakes it for an approved plan.
-  if (tier === 'ESCALATE') {
+  // route: 'prd' exits the /plan feature entirely — the investigation found enough content
+  // for a PRD, and /create-prd takes it from here (D8, AC-F7.5). This is not a stop-and-wait
+  // path like the old ESCALATE: it chains immediately, same as the workBegins branch below,
+  // and for the same reason — command-status.md: nothing may follow COMMAND COMPLETE, and
+  // /create-prd emits the run's terminator, not /plan.
+  if (route === 'prd') {
+    return {
+      writeTrd: false,
+      writePointer: false,
+      chain: true,
+      chainSkill: 'create-prd',
+      chainArgs: `docs/plan/${slug}.investigation.md`,
+      handoffLine: `[STATUS: /plan] HANDOFF → investigation record complete, route prd, chaining to /create-prd`,
+      banner: null,
+      bannerBody: null,
+      notify: false,
+      verificationSection: VERIFICATION_SECTION[kind] || VERIFICATION_SECTION.defect,
+    };
+  }
+
+  // The owner's own policy overrides everything else: a path they have named as
+  // never-unattended stops work regardless of weight, kind or how confidently --implement
+  // was passed. The reason must name the matched paths so the run is legible, not just
+  // refused (O-NU).
+  if (neverUnattendedHit.length > 0) {
     return finish({
       writeTrd: true,
-      escalated: true,
-      reason: 'not light-path work — the investigation is on disk; use /create-prd, which can read it',
+      reason: `owner policy — ${neverUnattendedHit.join(', ')} ${neverUnattendedHit.length === 1 ? 'is' : 'are'} marked never-unattended in verification.md; run /implement-trd yourself when you are satisfied`,
       kind,
       slug,
     });
   }
 
-  // The one condition that matters, and the one the prose kept re-deriving:
-  // does work actually BEGIN? Only then does a state pointer or a chain make sense.
-  const workBegins = tier === 'AUTO' && implement;
+  // The one condition that matters, and the one the prose kept re-deriving: does work
+  // actually BEGIN? Only then does a state pointer or a chain make sense. The weight is
+  // deliberately NOT in this expression (AC-F5.1) — a unit test pins that workBegins is
+  // identical across all three weights for otherwise identical input (AC-F5.2).
+  const workBegins = implement === true && neverUnattendedHit.length === 0;
 
   if (!workBegins) {
     return finish({
       writeTrd: true,
-      reason: tier === 'AUTO'
-        // There is no failing axis here — every axis passed, and stopping is simply
-        // what this command does unless asked otherwise. Inventing a failing axis
-        // would report a downgrade the sizing lib never made.
-        ? 'investigation complete — re-run with --implement to build it'
-        : 'tier REVIEW — a human approves before implementing',
+      // There is no failing axis here — nothing about the weight or route blocked this;
+      // stopping is simply what this command does unless asked otherwise. Inventing a
+      // failing axis would report a downgrade nothing computed.
+      reason: 'investigation complete — re-run with --implement to build it',
       kind, slug,
     });
   }
@@ -98,7 +132,7 @@ function plan(input) {
     // --verify is not optional: re-running the recorded criterion IS the acceptance
     // check. Without it the run asserts "done" on a suite that also passed before.
     chainArgs: `docs/TRD/${slug}.md --verify`,
-    handoffLine: `[STATUS: /fix] HANDOFF → TRD authored, tier AUTO, chaining to /implement-trd`,
+    handoffLine: `[STATUS: /plan] HANDOFF → TRD authored, chaining to /implement-trd`,
     // NO banner and NO notify on a chained run. command-status.md: nothing may
     // follow COMMAND COMPLETE, and /implement-trd emits the run's terminator.
     // notify-complete.sh must fire exactly once at real completion, never at
@@ -111,23 +145,18 @@ function plan(input) {
 }
 
 /** Every path that ENDS the command: banner, notify, no chain, no pointer. */
-function finish({ writeTrd, reason, kind, slug, escalated = false }) {
+function finish({ writeTrd, reason, kind, slug }) {
   return {
     writeTrd,
-    escalated,
     writePointer: false,
     chain: false,
     chainSkill: null,
     chainArgs: null,
     handoffLine: null,
-    banner: '═══ COMMAND COMPLETE: /fix ═══',
-    // An escalated TRD is kept as INVESTIGATION, not as an approved plan -- the banner must
-    // not invite /implement-trd on it, which is the one way keeping it could do harm.
-    bannerBody: escalated
-      ? `${slug}: ${reason}. Investigation at docs/TRD/${slug}.md — reproduction, root cause and grounding, marked ESCALATE. Do NOT run /implement-trd on it.`
-      : writeTrd
-        ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
-        : `${slug}: ${reason}.`,
+    banner: '═══ COMMAND COMPLETE: /plan ═══',
+    bannerBody: writeTrd
+      ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
+      : `${slug}: ${reason}.`,
     // Fires on EVERY terminating path, including the early reject — otherwise the
     // completion signal depends on which way the command happened to finish.
     notify: true,

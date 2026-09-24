@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # =============================================================================
-# investigate-decoy-root-cause — the reported cause is WRONG
+# plan-decoy-root-cause — the reported cause is WRONG
 # =============================================================================
 #
 # WHY THIS EXISTS
 #
-# investigate-light-fix proves /investigate does not escalate a defect that is
-# impossible to escalate honestly: 16 lines, one file, and a `// BUG:` comment
-# naming the cause. It is a floor, not a test of judgement.
+# plan-light-fix proves /plan does not escalate (route to a PRD) a defect that
+# is impossible to escalate honestly: 16 lines, one file, and a `// BUG:`
+# comment naming the cause. It is a floor, not a test of judgement. (Both
+# scenarios were written against /investigate, /plan's predecessor command
+# — see plan-weight-router.md phase 2 for the rename.)
 #
 # This one tests the owner's SECOND complaint, which that fixture does not touch:
 # "it does its investigation, discovers a true root cause (different than
@@ -43,7 +45,7 @@ source "${SMOKE_DIR}/lib/project.sh"
 command -v claude &>/dev/null || smoke_skip "claude CLI not found in PATH"
 command -v jq     &>/dev/null || smoke_skip "jq not installed"
 
-PROJECT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-decoy.XXXXXX")"
+PROJECT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-plan-decoy.XXXXXX")"
 cleanup() {
     if [[ "${SMOKE_KEEP:-0}" == "1" ]] || [[ "${ASSERT_FAIL_COUNT:-0}" -gt 0 ]]; then
         echo "  [kept for diagnosis] $PROJECT_DIR" >&2
@@ -120,7 +122,7 @@ JS
 
 cat > "${PROJECT_DIR}/package.json" <<'JSON'
 {
-  "name": "smoke-decoy",
+  "name": "smoke-plan-decoy",
   "version": "1.0.0",
   "private": true,
   "scripts": { "test": "jest" },
@@ -134,7 +136,7 @@ git -C "$PROJECT_DIR" commit -q -m "smoke: cart with a rounding defect and a dis
 # here is the only correct way: the fixture commit CREATED discount.js, so any diff range
 # that includes it reports the decoy as touched no matter what the run did. The first
 # version of this scenario got that wrong twice over -- a hard-coded sha copy-pasted from
-# investigate-light-fix, plus an unbounded `git log --name-only` -- and reported a false
+# plan-light-fix.sh, plus an unbounded `git log --name-only` -- and reported a false
 # failure against a run that had behaved perfectly.
 FIXTURE_SHA="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
 assert_pass_raw "fixture planted (3 collaborating files, no comment names the bug)"
@@ -147,7 +149,7 @@ assert_pass_raw "fixture test fails before the fix (defect reproduces)"
 
 SESSION_FILE="${PROJECT_DIR}/.session.jsonl"
 # The report names the WRONG file and the WRONG cause, the way a real one does.
-PROMPT="/investigate --implement the cart total comes out a cent light on discounted orders — looks like the discount in src/discount.js is being applied twice"
+PROMPT="/plan the cart total comes out a cent light on discounted orders — looks like the discount in src/discount.js is being applied twice --implement"
 
 smoke_claude "$PROMPT" 1500 "$PROJECT_DIR" "$SESSION_FILE"
 RC=$?
@@ -159,8 +161,10 @@ printf '%s\n' "$FINAL_TEXT" > "$BANNER_FILE"
 assert_tail_matches "$BANNER_FILE" 12 '(═══ COMMAND COMPLETE|═══ COMMAND STUCK)' \
     "output ends with a COMMAND COMPLETE/STUCK banner"
 
-if grep -qi 'ESCALATE' "$BANNER_FILE"; then
-    assert_fail_raw "did NOT escalate (a one-file rounding fix, found by reading three small files)"
+# See plan-light-fix.sh for why this checks for PRD-authored text rather than
+# a literal "ESCALATE" string -- /plan's escalation path is routing to /create-prd.
+if grep -qi 'PRD authored' "$BANNER_FILE"; then
+    assert_fail_raw "did NOT escalate (a one-file rounding fix, found by reading three small files, routed to a PRD)"
 else
     assert_pass_raw "did not escalate"
 fi

@@ -1,0 +1,169 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt"
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt"
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt"
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-4-no-cell-names.txt"
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt"
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt"
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt"
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-5-6-7-8-stage-lists.txt"
+    },
+    {
+      "id": "FS-9",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-1-2-3-axis-transcript.txt"
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-11-permission-parity.txt"
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt"
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt"
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt"
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt"
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-12-16-verification-grid.txt"
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-17-18-content-vs-count.txt"
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-17-18-content-vs-count.txt"
+    },
+    {
+      "id": "FS-19",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-20",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-21",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-22",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt"
+    },
+    {
+      "id": "FS-24",
+      "status": "not_verifiable",
+      "artifact": null
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt"
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-26-investigate-surfaces.md"
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-27-28-32-command-text-reads.md"
+    },
+    {
+      "id": "FS-28",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-27-28-32-command-text-reads.md"
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt"
+    },
+    {
+      "id": "FS-30",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt"
+    },
+    {
+      "id": "FS-31",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-31-ceiling-judgment.md"
+    },
+    {
+      "id": "FS-32",
+      "status": "met",
+      "artifact": ".trd-state/plan-weight-router/evidence/FS-27-28-32-command-text-reads.md"
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}

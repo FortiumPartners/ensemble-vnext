@@ -1,7 +1,9 @@
 ---
 name: Test Framework Detector
-description: Automatically detect test frameworks (Jest, pytest, RSpec, xUnit) in projects by analyzing configuration files and dependencies
+description: Detect which test framework a project uses (Jest, pytest, RSpec, ExUnit, xUnit) from manifests and config.
+when_to_use: Run this FIRST when you need to run or generate tests but don't yet know the project's test runner. It only identifies the runner — once known, hand off to the matching runner skill (jest/pytest/rspec/exunit/xunit). To detect the app framework instead use framework-detector; to detect infra tooling use tooling-detector; to detect the cloud provider use cloud-provider-detector.
 version: 1.0.0
+allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # Test Framework Detector

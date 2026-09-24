@@ -383,7 +383,11 @@ smoke_assert_aged() {
     for p in harden-trd-team verify-trd-team implement-trd-team; do
         [[ -f "${d}/.claude/commands/${p}.md" ]] || { echo "aging failed: ${p}.md not planted" >&2; bad=1; }
     done
-    if find "${d}/.claude/hooks" -type f \( -name '*.sh' -o -name '*.js' \) -perm -u+x 2>/dev/null | grep -q .; then
+    # No pipe: under `set -o pipefail`, `find | grep -q .` exits 141 (SIGPIPE) precisely
+    # WHEN THERE IS A MATCH -- grep -q closes the pipe on the first hit and find dies
+    # writing to it. That made a real "hooks are still executable" failure invisible,
+    # which is the worse direction to fail in. `-print -quit` bounds find itself.
+    if [[ -n "$(find "${d}/.claude/hooks" -type f \( -name '*.sh' -o -name '*.js' \) -perm -u+x -print -quit 2>/dev/null)" ]]; then
         echo "aging failed: some hooks are still executable" >&2; bad=1
     fi
     grep -q -- '--wiggum' "${d}/.claude/rules/autonomy.md" 2>/dev/null \

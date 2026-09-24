@@ -222,7 +222,7 @@ function record(stateDir, entry, nowIso) {
   // finding to report and nothing more.
   //
   // This exists because "layer in whatever we found" is how a fix becomes a feature. The
-  // same rule governs /investigate section 2f ("the test is dependency, not tidiness"), and
+  // same rule governs /plan section 2f ("the test is dependency, not tidiness"), and
   // the measured failure there was absorbing an audit's corrections as scope until a 2-task
   // fix sized 4 and escalated. Default FALSE: a discovery is a note unless someone says
   // otherwise, because the expensive mistake is promoting an unrelated bug into the plan.

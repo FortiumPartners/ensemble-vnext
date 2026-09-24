@@ -77,12 +77,19 @@ declare -A SCENARIO_TIMEOUT=(
     # the runner cap must stay ABOVE that internal 60s, or the scenario is
     # killed before it can report its own timeout. Raise both together.
     [judge-sees-marker]=90
-    # investigate-light-fix: one /investigate --implement run on a planted defect,
-    # which chains into /implement-trd --verify at AUTO. Budget matches
-    # implement-one-task's since it pays for the same implement loop plus the
-    # investigation ahead of it.
-    [investigate-light-fix]=1600
-    [investigate-decoy-root-cause]=1600
+    # plan-light-fix: one /plan --implement run on a planted defect, which
+    # chains into /implement-trd --verify (--implement starts work at every
+    # weight). Budget matches implement-one-task's since it pays for the same
+    # implement loop plus the investigation ahead of it. (Formerly
+    # investigate-light-fix / investigate-decoy-root-cause, against
+    # /investigate; renamed when /plan replaced it — plan-weight-router.md
+    # phase 2.)
+    [plan-light-fix]=1600
+    [plan-decoy-root-cause]=1600
+    # plan-medium-weight: a real /plan run on a subject that sizes itself
+    # medium, so it pays for investigation, full create-trd authoring AND
+    # grounding, AND an audit-trd pass -- no --implement, so no implement loop.
+    [plan-medium-weight]=1600
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
@@ -129,7 +136,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker investigate-light-fix investigate-decoy-root-cause)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()

@@ -887,7 +887,7 @@ Commands Available:
   /audit-build     - Verify delivered code against TRD and PRD
 
   SHORTER PATHS
-  /investigate     - Defect / small change / refactor: investigate, light TRD, audit
+  /plan            - Defect / small change / refactor: sizes the work, writes a TRD to match
   /amend           - ONE change to the feature already in flight, without a new TRD
   /verify-build    - Re-run functional verification alone
   /fold-prompt     - Optimize context for continued work

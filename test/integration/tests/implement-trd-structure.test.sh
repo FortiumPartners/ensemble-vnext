@@ -510,7 +510,7 @@ setup() {
 
 @test "every file mirrored into .claude/ matches its packages/ source" {
     run python3 - "$REPO_ROOT" <<'PY'
-import os, sys, filecmp
+import os, re, sys, filecmp
 root = sys.argv[1]
 PAIRS = [('packages/core/hooks', '.claude/hooks'),
          ('packages/core/hooks/lib', '.claude/hooks/lib'),
@@ -522,6 +522,23 @@ PAIRS = [('packages/core/hooks', '.claude/hooks'),
 # Tests and their harness are deliberately NOT shipped into a project -- a tree
 # with no runner wired up does not need them (copy_workflows/copy_libs skip them).
 SKIP = lambda f: f.endswith('.test.js') or f == 'test-harness.js'
+# The agents pair carries one legitimate, deterministic exception: scaffold-project.sh
+# --refresh injects a per-project "Project Skills" block the plugin source cannot
+# contain -- it names the CONSUMING project's stack, which packages/full/agents/*.md
+# has no way to know. Strip exactly that generated region (frontmatter `skills:` list
+# + the marked body block) before comparing, so real drift elsewhere in these files
+# still fails the test.
+GENERATED_PAIRS = {('packages/full/agents', '.claude/agents')}
+def strip_generated(text):
+    text = re.sub(r'\n\n<!-- ENSEMBLE:SKILLS:BEGIN.*?ENSEMBLE:SKILLS:END -->', '', text, flags=re.S)
+    text = re.sub(r'\nskills:\n(?:  - .*\n)+', '\n', text)
+    return text
+def same(fa, fb, pair):
+    if pair not in GENERATED_PAIRS:
+        return filecmp.cmp(fa, fb, shallow=False)
+    with open(fa, encoding='utf-8') as h: ta = h.read()
+    with open(fb, encoding='utf-8') as h: tb = h.read()
+    return ta == strip_generated(tb)
 drift = []
 for a, b in PAIRS:
     da, db = os.path.join(root, a), os.path.join(root, b)
@@ -531,7 +548,7 @@ for a, b in PAIRS:
         fa, fb = os.path.join(da, f), os.path.join(db, f)
         if not os.path.isfile(fa) or not os.path.isfile(fb) or SKIP(f):
             continue
-        if not filecmp.cmp(fa, fb, shallow=False):
+        if not same(fa, fb, (a, b)):
             drift.append(f"{a}/{f} != {b}/{f}")
 if drift:
     print("MIRROR DRIFT:")
@@ -858,8 +875,8 @@ PY
     refute grep -q 'Every row.s .Cites. column names a PRD line or section' "$CONTRACT"
 }
 
-@test "/investigate replaces investigate-issue and fix-issue, and cannot bypass its own gate" {
-    FIX="${REPO_ROOT}/packages/core/commands/investigate.md"
+@test "/plan replaces investigate-issue and fix-issue, and cannot bypass its own gate" {
+    FIX="${REPO_ROOT}/packages/core/commands/plan.md"
     [ -f "$FIX" ]
 
     # The two it replaces are GONE, not left invokable. A retired command that
@@ -871,21 +888,22 @@ PY
     [ ! -f "${REPO_ROOT}/.claude/commands/fix-issue.md" ]
     [ ! -f "${REPO_ROOT}/.claude/commands/investigate-issue.md" ]
 
-    # Sizing is delegated to the lib, never re-derived in prose.
-    grep -q 'fix-sizing' "$FIX"
-    grep -q 'lib owns this decision' "$FIX"
+    # Sizing is delegated to the lib, never re-derived in prose. After D3/PLAN-B003
+    # fix-sizing.js keeps only matchNeverUnattended() — its size()/tier ladder is
+    # retired — so what /plan calls for weight and route is plan-weight.js, not
+    # fix-sizing. Asserting a `fix-sizing` grep here would pin a call that should
+    # NOT exist (this task's own acceptance criterion).
+    grep -q 'plan-weight' "$FIX"
+    grep -q 'the lib decides' "$FIX"
 
     # The escape hatch that would defeat the gate must not exist. Check the
-    # ARGUMENT SURFACE, not the word — the command legitimately mentions
-    # --force-auto in the sentence explaining why there isn't one.
+    # ARGUMENT SURFACE, not the word.
     refute grep -q 'argument-hint:.*force-auto' "$FIX"
     # The gate constrains what a MACHINE does unattended, never the owner: the
     # capability is theirs either way via /implement-trd. What the missing flag
     # prevents is the COMMAND deciding on their behalf that the gate did not apply.
-    grep -q 'no `--force-auto` flag' "$FIX"
+    grep -q 'no `--force` flag' "$FIX"
     grep -q 'never meant to constrain you' "$FIX"
-    # And every lowered tier must hand back a remedy, not just a verdict.
-    grep -q 'remedies' "$FIX"
 
     # AUTO chains with --verify. That invariant moved into fix-plan.js (which
     # always appends --verify and has a test for it) when five inconsistent prose
@@ -896,7 +914,7 @@ PY
     [ -f "${REPO_ROOT}/packages/core/lib/fix-plan.js" ]
 
     # Both verification sources are named — the defect path AND the conversational
-    # path. Omitting either ships that half of /investigate unverified.
+    # path. Omitting either ships that half of /plan unverified.
     grep -q '## Reproduction' "$FIX"
     grep -q '## Intended Change' "$FIX"
 
@@ -905,6 +923,36 @@ PY
     # must explain the null rather than leave a reader to override it on instinct.
     grep -q 'banner: null' "$FIX"
     grep -q 'the run is over. Emit' "$FIX"
+}
+
+@test "/plan surfaces an owner-only Open Question to the task prompt as <open_question>" {
+    # Traces the full chain named in PLAN-T004's own grounding: the template's
+    # `## Open Questions` table (literal cell text `owner-only`, not `yes` — audit
+    # finding F4) -> trd-parser.js's parseOpenQuestions (ownerOnly flag) ->
+    # implement-trd.md Step 3.2 (gather owner-only, unresolved questions per task)
+    # -> Step 3.5 (emit <open_question> into that task's prompt only).
+    PLAN_MD="${REPO_ROOT}/packages/core/commands/plan.md"
+    PARSER="${REPO_ROOT}/packages/core/lib/trd-parser.js"
+    IMPL_MD="${REPO_ROOT}/packages/core/commands/implement-trd.md"
+
+    # Hop 1: the light-TRD template's Open Questions table carries the literal
+    # "owner-only" cell value the parser's regex actually matches.
+    grep -q '## Open Questions' "$PLAN_MD"
+    grep -q '| ID | Question | What I assumed | Owner-only |' "$PLAN_MD"
+    grep -q 'literal string `owner-only`, not `yes`' "$PLAN_MD"
+
+    # Hop 2: trd-parser.js computes ownerOnly from that row text, never from a
+    # column header, and folds it into openQuestions[].
+    grep -q "OWNER_ONLY_RE = /owner-only|owner ruling/i" "$PARSER"
+    grep -q 'ownerOnly = OWNER_ONLY_RE.test(rawRowText)' "$PARSER"
+    grep -q 'openQuestions' "$PARSER"
+
+    # Hop 3: implement-trd.md gathers owner-only, unresolved questions per task
+    # (Step 3.2) and emits exactly one <open_question> element per covered task
+    # (Step 3.5) — informational, not a licence to stop and ask.
+    grep -q 'openQuestions\[\].*ownerOnly === true' "$IMPL_MD"
+    grep -q '<open_question>' "$IMPL_MD"
+    grep -q 'emit \*\*only\*\* for the owner-only, unresolved question' "$IMPL_MD"
 }
 
 @test "no command spawns teammates any more" {

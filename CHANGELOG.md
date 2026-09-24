@@ -10,6 +10,80 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.6.0] - 2026-09-23
+
+`/investigate` becomes `/plan`, and work is sized on two axes instead of one tier ladder.
+
+### BREAKING — `/investigate` is deleted, not aliased
+
+Type `/investigate` and it is gone. Use `/plan`. The rename is deliberate: `/investigate`
+described only the command's first phase, and was already the wrong name for something
+handling defects, changes and refactors alike.
+
+### Changed — two axes, nine cells, none of them named
+
+Work now carries a `kind` (`defect` | `change` | `refactor`) and a `weight` (`trivial` |
+`small` | `medium`), with `feature` as an exit to `/create-prd` rather than a member of either
+list. `kind` changes the **stage list**, not just the scoring: a medium refactor's proof is
+"the named tests pass before and after and the public surface has not moved"; a medium
+change's is "the stated outcome holds"; a refactor is never asked for a root cause.
+
+The weights are strict supersets — `small` is `trivial` plus an adversarial pass, `medium` is
+`small` plus grounding and an audit. Nine cells fall out of crossing the axes and **none gets
+its own name**, which was the whole objection to the tier lists this replaces.
+
+**Weights select a pipeline shape, never a permission.** `--implement` is still the only thing
+that starts work, and it is now honoured at every weight. The owner's verdict on the tier it
+replaces: *"Never once have I actually read a REVIEW TRD."* Every TRD this framework has built
+was built by a machine running unattended, so a tier that meant "a human approves first" bought
+a stall rather than safety.
+
+### Removed — both size ceilings, and the tier ladder behind them
+
+`fix-sizing.js` is reduced to `matchNeverUnattended()` alone. `size()`, `TIERS`, `lower()`,
+`MAX_TASKS` (6) and `DEFAULT_MAX_FILES` (10) are deleted rather than raised. The ceilings were
+calibrated to the shape real fixes take and were the wrong ruler for design work — and the
+module's own header always said size is not what matters, that whether a change can be
+VERIFIED is. It now matches its own header.
+
+`trivial` and `small` carry **no audit**, a deliberate reduction against `/investigate`'s
+unconditional one, chosen for speed on small work.
+
+### Verified
+
+Three live smoke runs, not a code read. A planted clamp-order defect fixed in the source. A
+decoy defect across three collaborating files where `/plan` changed the real cause and left the
+plant untouched. A 14-handler subject that sized **itself** to medium — there is no `--weight`
+override — wrote a two-phase TRD, ran the audit, and emitted exactly one `COMMAND COMPLETE`.
+
+Functional verification derived its success definition from the PRD alone, with the TRD
+withheld so the criteria could not be written to match what was built: **29 of 32 met, 0 not
+met**. The three open all concern the open-question channel, which no scenario plants yet.
+
+Battery: 1107 Jest, 655 BATS, 106/107 pytest (the one reads ambient project state).
+
+### Also fixed
+
+- The `CLAUDE.md` template `/init-project` installs into every project listed 7 of the 18
+  commands. It now lists all 18 — no scaffolded project was learning that the shorter paths
+  existed.
+- `process.md` and its template described a loop retired in August: a per-phase
+  `code-simplifier`, a phase-scoped review, and a feature-scale hardening pass. `process.md`
+  had been contradicting its own prose. Both now describe the loop that runs, and both list
+  `/sweep`.
+- Two test files committed under `.claude/lib/` could never be refreshed, because the scaffold
+  skips `*.test.js` by design. Deleted — the drift trap, not just its symptom.
+- The mirror-parity test demanded byte-identity between plugin agents and vendored agents,
+  which a scaffold refresh makes impossible by injecting a per-project skills block. It now
+  strips exactly that generated region and still catches real drift elsewhere.
+- Two smoke assertions gave false verdicts through `pipefail` plus `grep -q`: `grep -q` closes
+  the pipe on its first match, the producer dies of SIGPIPE, and a **successful** match reads
+  as a failure. One reported a correct fix as broken; the other made a real "hooks are still
+  executable" failure invisible.
+- The mechanical TRD audit — `parseTrd` plus `fix-audit.audit()`, which `/investigate` ran on
+  every run — was dropped in the rename and is restored. Without it an unbolded `- Touches:`
+  parses to empty grounding with only a warning, and at `trivial` nothing else looks.
+
 ## [4.5.1] - 2026-09-23
 
 Hotfix. Two defects that together let a 13-task TRD build as 6 tasks and report success.

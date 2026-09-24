@@ -1,0 +1,342 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/plan-weight-router.md",
+  "trd_hash": "d72160630a8534e809e6ba4b4028d2f31eca80e4d442669725321b5c1435830d",
+  "branch": "feature/plan-weight-router/build",
+  "strategy": "tdd",
+  "phase_cursor": 3,
+  "tasks": {
+    "PLAN-B001": {
+      "description": "Write packages/core/lib/plan-weight.js and plan-weight.test.js per §3.1: the two axes, stages(), verification(), route()",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/plan-weight.js",
+        "packages/core/lib/plan-weight.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:01:19.503Z",
+      "completed_at": "2026-09-23T18:15:59.194Z",
+      "last_advanced": "2026-09-23T18:06:19.448Z"
+    },
+    "PLAN-B002": {
+      "description": "Repoint packages/core/lib/fix-plan.js per §3.2: tier → weight + route, add neverUnattendedHit, add the route: 'prd' branch, and correct the two /fix strings to /plan",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/fix-plan.js",
+        "packages/core/lib/fix-plan.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:01:19.503Z",
+      "completed_at": "2026-09-23T18:15:59.195Z",
+      "last_advanced": "2026-09-23T18:06:19.448Z"
+    },
+    "PLAN-B003": {
+      "description": "Reduce packages/core/lib/fix-sizing.js to matchNeverUnattended() alone: delete size(), TIERS, lower(), MAX_TASKS, DEFAULT_MAX_FILES, DEFAULT_MAX_CALLERS and the absorbed-scope advisory, and delete the tests that pin them",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/fix-sizing.js",
+        "packages/core/lib/fix-sizing.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:01:19.503Z",
+      "completed_at": "2026-09-23T18:15:59.195Z",
+      "last_advanced": "2026-09-23T18:06:19.448Z"
+    },
+    "PLAN-P001": {
+      "description": "Create packages/core/commands/plan.md carrying the investigation machinery inherited from investigate.md (Steps 1, 2a–2f, 2e grounding), the content-based exit test (§3.5), the plan-weight.js and fix-plan.js calls, the light-TRD template with ## Open Questions and the refactor surface block (§3.3), the adversarial pass, the readout, the banners, the autonomy block and the notify call. Delete packages/core/commands/investigate.md",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:16:26.948Z",
+      "completed_at": "2026-09-23T18:44:58.667Z",
+      "last_advanced": "2026-09-23T18:35:24.902Z",
+      "files_deleted": [
+        "packages/core/commands/investigate.md"
+      ]
+    },
+    "PLAN-B004": {
+      "description": "Add the medium path to plan.md: write the investigation record (§3.4), Workflow({name: \"create-trd\", args: {prd: record, trd, feature, project}}), the adversarial pass over the phased TRD, Workflow({name: \"audit-trd\", args: {trd, source: record}}), the kind-specific verification sections, and the /refine-trd recommendation line. Also add the route: 'prd' branch, which performs whatever chain fix-plan.js's plan() returns for that route (F5) — unblocked 2026-09-23 (F6): the branch invokes Workflow({name: \"create-prd\", args: {source: record, brief: '', prd, feature, project}}) and /plan emits the run's banner",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:16:26.948Z",
+      "completed_at": "2026-09-23T18:44:58.667Z",
+      "last_advanced": "2026-09-23T18:35:24.902Z"
+    },
+    "PLAN-P002": {
+      "description": "Vendor the change into the dogfood .claude/ tree: run scaffold-project.sh --refresh (not a hand copy) to add plan.md and refresh the three libs, then explicitly rm .claude/commands/investigate.md. The refresh cannot do that second step — copy_commands() iterates only files present in the source tree (scaffold-project.sh:424) and the --refresh contract states it \"never deletes one the plugin no longer carries … Adding or removing components stays /rebase-project's job\" (scaffold-project.sh:1259-1264), so a refresh alone leaves the deleted command behind and the file count at 19. Added by audit, finding F2. Confirm scaffold-delivery.test.sh and vendoring.test.sh still pass",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/commands/plan.md",
+        ".claude/lib/plan-weight.js",
+        ".claude/lib/fix-plan.js",
+        ".claude/lib/fix-sizing.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:16:26.948Z",
+      "completed_at": "2026-09-23T18:44:58.667Z",
+      "last_advanced": "2026-09-23T18:35:24.902Z",
+      "files_deleted": [
+        ".claude/commands/investigate.md"
+      ]
+    },
+    "PLAN-B005": {
+      "description": "Rename /investigate to /plan in packages/router/hooks/router.py's FRAMEWORK_HINT (lines 71, 73, 81) and IN_FLIGHT_HINT (lines 57, 65), and in the two explanatory comments (lines 527, 539). Update packages/router/tests/test_router.py's 7 assertions. Vendor to .claude/hooks/router.py",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/router/hooks/router.py",
+        "packages/router/tests/test_router.py",
+        ".claude/hooks/router.py"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:44:58.671Z",
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.017Z"
+    },
+    "PLAN-D001": {
+      "description": "Rename across the command, rule, template and lib-comment surfaces: packages/core/commands/{amend,sweep,init-project}.md, packages/full/commands/plugin-only/init-project.md, .claude/rules/{process,command-status,async-discipline}.md and their three copies under packages/core/templates/, packages/core/templates/process.md.template, and the /investigate references in packages/core/lib/{discovered,fix-plan}.js and packages/core/workflows/{create-trd,sweep}.js comments. Mirror each into .claude/",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/amend.md",
+        "packages/core/commands/sweep.md",
+        "packages/core/commands/init-project.md",
+        ".claude/rules/process.md",
+        ".claude/rules/command-status.md",
+        ".claude/rules/async-discipline.md",
+        "packages/core/lib/discovered.js",
+        "packages/core/workflows/create-trd.js",
+        "packages/core/workflows/sweep.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:44:58.671Z",
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
+    },
+    "PLAN-D002": {
+      "description": "Rename in the reader-facing docs: CLAUDE.md (3 hits, including the workflow map's /investigate vs /amend paragraph). docs/guides/{ARCHITECTURE,CONCEPTS,INSTALL,PROCESS}.md are NOT targets — corrected by audit, finding F3: their hits are /investigate-issue and /fix-issue, a different, already-dead command pair, and CONCEPTS.md's only hit is the verb \"investigates\". None names /investigate. See this task's grounding",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "CLAUDE.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:44:58.671Z",
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
+    },
+    "PLAN-T001": {
+      "description": "Add test/integration/tests/plan-command.test.sh: a negative grep assertion that no live surface names /investigate, with the exclusion set written down (CHANGELOG.md, docs/PRD/, docs/TRD/, docs/modernization/, test/evals/analysis-archive/, ensemble-vnext-test-fixtures/, .trd-state/, .claude.backup.*), plus assertions that /plan is registered in both trees",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/plan-command.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:44:58.671Z",
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
+    },
+    "PLAN-T003": {
+      "description": "Repoint packages/core/lib/fix-template.test.js from investigate.md to plan.md, update its placeholder .replace() filler to the new template, and add assertions that the filled template's ## Open Questions parses into openQuestions with ownerOnly: true and that ## Behaviour Preserved carries a public-surface line",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/fix-template.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:44:58.671Z",
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
+    },
+    "PLAN-T004": {
+      "description": "Repoint the existing BATS assertions: implement-trd-structure.test.sh (6 hits — the $FIX path, the fix-sizing and lib/fix-plan greps, the banner: null invariant) and notify-on-complete.test.sh (5 hits). Add an assertion that a /plan-written ## Open Questions row reaches a task prompt as <open_question>",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/implement-trd-structure.test.sh",
+        "test/integration/tests/notify-on-complete.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:44:58.671Z",
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
+    },
+    "PLAN-T002": {
+      "description": "[LIVE] Rename test/smoke/scenarios/investigate-{light-fix,decoy-root-cause}.sh to plan-*, update test/smoke/run-smoke.sh's ALL_SCENARIOS / LLM_OPT_IN_SCENARIOS rosters and test/smoke/baseline.json, and add test/smoke/scenarios/plan-medium-weight.sh: a real /plan run on a 12–18-task subject that asserts medium, a phased TRD, that audit-trd ran, and exactly one COMMAND COMPLETE banner",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/scenarios/plan-light-fix.sh",
+        "test/smoke/scenarios/plan-decoy-root-cause.sh",
+        "test/smoke/scenarios/plan-medium-weight.sh",
+        "test/smoke/run-smoke.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T18:44:58.671Z",
+      "completed_at": "2026-09-23T19:17:18.584Z",
+      "last_advanced": "2026-09-23T18:56:12.018Z"
+    },
+    "AMEND-001": {
+      "description": "Two orphaned test files are committed in .claude/lib/ that copy_libs() deliberately never refreshes, so they drift permanently. fix-plan.test.js now tests the retired tier API against the refreshed weight/route module: 14 Jest failures. (.claude/lib/fix-plan.test.js) — promoted from a bug discovery found by implement-trd phase-2 gate review",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.373Z",
+      "completed_at": "2026-09-23T23:10:47.466Z",
+      "last_advanced": "2026-09-23T22:57:57.073Z",
+      "files_deleted": [
+        ".claude/lib/fix-plan.test.js",
+        ".claude/lib/fix-audit.test.js"
+      ]
+    },
+    "AMEND-002": {
+      "description": "The mirror-drift test compares packages/full/agents against .claude/agents, but scaffold-project.sh --refresh injects a generated per-project skills: frontmatter block into every .claude/agents/*.md. That pair can never match after any refresh, so the test fails for anyone who runs the refresh this feature requires. (test/integration/tests/implement-trd-structure.test.sh:511) — promoted from a bug discovery found by implement-trd phase-2 gate review",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/implement-trd-structure.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.374Z",
+      "completed_at": "2026-09-23T23:10:47.467Z",
+      "last_advanced": "2026-09-23T22:57:57.074Z"
+    },
+    "AMEND-003": {
+      "description": "The CLAUDE.md template init-project installs into EVERY scaffolded project teaches a workflow missing 11 of the 18 commands — including all three shorter paths (/plan, /sweep, /amend) and all four verification commands (/audit-prd, /audit-trd, /audit-build, /verify-build). (packages/core/templates/CLAUDE.md.template) — promoted from a gap discovery found by consistency review after /audit-build",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/CLAUDE.md.template"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.374Z",
+      "completed_at": "2026-09-23T23:10:47.467Z",
+      "last_advanced": "2026-09-23T22:57:57.074Z"
+    },
+    "AMEND-004": {
+      "description": "Make .claude/rules/process.md and packages/core/templates/process.md.template describe the loop that actually runs and list all 18 commands. Three defects, one file pair: the template still lists code-simplifier and a phase-scoped /code-review as active phase-gate stages plus a feature-scale hardening pass (all three removed 2026-08-18 and 2026-08-28); process.md's numbered Process list contradicts its own prose at :155 by keeping both as per-task steps; and neither lists /sweep, so both workflow maps enumerate 17 of 18 commands. Absorbed AMEND-005 and AMEND-006 — same two files, so one agent, not three racing.",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/rules/process.md",
+        "packages/core/templates/process.md.template"
+      ],
+      "commit": null,
+      "started_at": "2026-09-23T22:53:18.374Z",
+      "completed_at": "2026-09-23T23:10:47.467Z",
+      "last_advanced": "2026-09-23T22:57:57.074Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "87179c4241f46345d4d333a335f8eb553deb20ea",
+      "review": {
+        "findings": 0,
+        "applied": 0,
+        "reported": 0
+      },
+      "timestamp": "2026-09-23T18:16:26.947Z"
+    },
+    {
+      "phase": 2,
+      "commit": "739ab51e019ee3195978f8895dc592f2709f3d4f",
+      "review": {
+        "findings": 0,
+        "applied": 0,
+        "reported": 0
+      },
+      "timestamp": "2026-09-23T18:44:58.671Z"
+    },
+    {
+      "phase": 3,
+      "commit": "d53017fcb57fdf7e100d80fb6b61125811c2029d",
+      "review": {
+        "findings": 0,
+        "applied": 0,
+        "reported": 0
+      },
+      "timestamp": "2026-09-23T19:17:18.584Z"
+    },
+    {
+      "phase": 3,
+      "commit": "709e4b5137e3556e63593cc344d3faacad05584d",
+      "review": {
+        "findings": 0,
+        "applied": 0,
+        "reported": 0
+      },
+      "timestamp": "2026-09-23T23:10:47.467Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "709e4b5137e3556e63593cc344d3faacad05584d",
+    "last_checkpoint_timestamp": "2026-09-23T23:10:47.632Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

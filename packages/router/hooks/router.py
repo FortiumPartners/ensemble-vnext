@@ -54,7 +54,7 @@ from datetime import datetime, timezone
 IN_FLIGHT_HINT = """
 
 * IN FLIGHT: {feature}. An issue found while reviewing, testing or implementing THIS
-  feature, and sitting in ITS path, is an AMENDMENT to this TRD — not a new /investigate,
+  feature, and sitting in ITS path, is an AMENDMENT to this TRD — not a new /plan,
   which would reproduce and re-design something already understood and fork the work into a
   second TRD. Two weights:
     ONE change  -> `/amend <what>` — grounded, recorded as a TRD row, verified, no new TRD.
@@ -62,23 +62,24 @@ IN_FLIGHT_HINT = """
     (`discovered.record(..., blocksFeature: true)`) and let `/implement-trd --reconcile`
     pick it up.
   Same counterfactual as everywhere else: would THIS feature's objectives be satisfied with
-  the issue left alone? No -> amendment. Yes -> report it, or a separate /investigate LATER,
+  the issue left alone? No -> amendment. Yes -> report it, or a separate /plan LATER,
   once this feature is done."""
 
 FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
 
 * FLOW. Bug, minor enhancement, or refactor - anything where the full PRD/TRD
-  pipeline is overkill for the risk? -> /investigate <what>: it investigates,
-  writes a light TRD, audits it, then implements and verifies when it is
-  demonstrably safe, and only with --implement. PROPOSE /investigate instead of
-  prompting-and-editing - an unplanned edit is the commonest source of bad code
-  here.
+  pipeline is overkill for the risk? -> /plan <what>: it looks into the problem, then
+  writes whatever the work earns - a light TRD for a contained fix, or a fully
+  authored, grounded and audited TRD when the scope turns out to span several tasks -
+  then implements and verifies when it is demonstrably safe, and only with
+  --implement. PROPOSE /plan instead of prompting-and-editing - an unplanned edit is
+  the commonest source of bad code here.
   A LIST of small unrelated fixes (a walkthrough's findings, a bug backlog) -> /sweep <list>:
   triages them, fixes the independent ones in parallel, checks each against disk. No TRD --
   a TRD earns its cost when the parts depend on each other, not when they arrived together.
   One change to the feature ALREADY in flight -> /amend <what>: grounded, recorded as a
   TRD row before the work, verified against disk. No new TRD. It is the middle weight
-  between /investigate (which forks a second TRD) and raw prompting.
+  between /plan (which forks a second TRD) and raw prompting.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; --verify adds the functional loop) ->
   /audit-build. /verify-build re-runs verification alone; /implement-trd --reconcile
@@ -524,8 +525,9 @@ def main() -> None:
         # for it — the two suppression conditions already handled above are
         # simply re-checked there and cannot change the outcome.
         skip_reason = should_skip(prompt, cwd)
-        # IN-FLIGHT CARVE-OUT. FLOW sends every small defect to /investigate, which
-        # reproduces, root-causes, writes a SEPARATE light TRD and audits it. When a TRD is
+        # IN-FLIGHT CARVE-OUT. FLOW sends every small defect to /plan, which
+        # reproduces, root-causes, writes a SEPARATE light TRD (or a phased, audited one
+        # when the scope earns it). When a TRD is
         # already in flight and the issue sits in ITS path, that is wrong twice over: it
         # re-designs something already understood, and forks the work into a second TRD.
         # The owner: "by the time we've finished it we've lost track of what we were
@@ -536,7 +538,7 @@ def main() -> None:
         # command is running on this feature right now", which is empty on an ordinary
         # conversational turn. This carve-out has to fire on exactly those turns -- the
         # owner finds the issue while REVIEWING or TESTING, not while a command runs.
-        # Empty means nothing is in flight, and /investigate is then the correct answer.
+        # Empty means nothing is in flight, and /plan is then the correct answer.
         in_flight = feature_in_flight(cwd)
         hint = FRAMEWORK_HINT + (IN_FLIGHT_HINT.format(feature=in_flight) if in_flight else "")
         context = marker if skip_reason else f"{marker}\n\n{hint}"
