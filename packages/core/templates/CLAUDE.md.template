@@ -119,4 +119,6 @@ claude --teleport session_018oKtL6CSbVA9gNttj41T13
 
 ## Learnings
 
-*Learnings will be captured here by the SessionEnd hook.*
+*Run `/update-project` to capture learnings here. Nothing writes this section
+automatically — there is no `SessionEnd` hook in this framework (see the Architecture
+Invariants in `.claude/rules/constitution.md` for why `learning.sh` was retired).*
