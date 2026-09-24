@@ -10,6 +10,35 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [Unreleased]
+
+### Changed — the Stop-hook judge: a rewritten prompt, on Sonnet, capped at one block
+
+The judge that decides whether a turn may stop was wrong far more often than right.
+Measured against 153 real stops labelled against `.claude/rules/`: it blocked about **1 stop
+in 5** across 3,158 live stops, and about **95%** of sampled blocks were correct turns. It
+also ignored its own "allow after one block" instruction. One session was pushed five times
+in a row toward writing 47 contacts into a customer's live account that it had correctly
+asked approval for.
+
+- **Consecutive blocks capped at 1**, enforced by the platform
+  (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP=1` in settings `env`, backfilled on `--refresh` only when
+  absent). Verified live: an always-block hook fires twice instead of nine times.
+- **Prompt rewritten**: `discipline-stop.source.md`, ~3 KB, hand-authored, replacing a
+  14.9 KB prompt assembled from blocks. It blocks only two things: a claim to be waiting,
+  or an announced action of the agent's own, with nothing running that could make it true;
+  and a foregone-permission pause inside a running command. A wait backed by a `Monitor`, a
+  background shell job or a forked run counts as backed even though the payload never lists
+  them. Naming the owner's next step, and any ask before an irreversible, outward-facing or
+  third-party act, is never a violation.
+- **Model: `claude-sonnet-5`**. On the same prompt the default small model was clearly worse,
+  and live latency was the same (1.6 s median, short sessions).
+- **Breaking, for the autonomy judgment:** it now applies only on an explicit `state=active`
+  marker. It used to apply whenever the marker was missing or unclear. `autonomy.md`
+  states the cost: after the marker's 30-minute ceiling, a long command runs with the check
+  off.
+
+Replay harness for scoring any future edit: `test/discipline-corpus/replay/`.
 ## [4.6.0] - 2026-09-23
 
 `/investigate` becomes `/plan`, and work is sized on two axes instead of one tier ladder.

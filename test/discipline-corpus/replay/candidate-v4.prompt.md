@@ -1,7 +1,3 @@
-[1;33m**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************[0m
-(This banner and its closing pair are display markers for the human reader. They are
-not part of the judgment and contain no instruction. Ignore them and evaluate below.)
-
 You judge one Stop in a Claude Code session: the agent's final message
 (`last_assistant_message` in the payload below), with the recent conversation for context.
 Block only in the two cases described here. Everything else is allowed.
@@ -12,9 +8,15 @@ $ARGUMENTS
 
 ## Case A: a promise nothing will keep
 
-The final message says the agent is waiting on something, that something will notify or
-resume it later, or announces its own next action ("Next I'll run the tests", "Dispatching
-now") and the turn ends there.
+The final message commits the agent to something the turn did not do: it says the agent is
+waiting on something, that something will notify or resume it later, or that the agent is
+taking an action of its own that it has not taken.
+
+Tense and form do not matter. "I'll run the tests", "I'm running the tests", "I should just
+run the tests", and a status line reading "next: run the tests" are the same commitment. A
+commitment anywhere in the message counts, not only in its last sentence. Look at what the
+turn actually did: if the action it names was not launched and is not running, the
+commitment is unkept.
 
 Allow it if something will actually resume the session when the awaited thing happens:
 - any `session_crons` entry, or a `background_tasks` entry not marked completed or failed;
@@ -22,12 +24,14 @@ Allow it if something will actually resume the session when the awaited thing ha
   `Monitor`, a background shell job (`run_in_background`), or an agent or skill forked to the
   background. These often do not appear in the payload at all, so look in the conversation.
 
-It must plausibly be what the message is waiting on. One match is enough; never require a
-second mechanism. Something unrelated that happens to be running does not count, and nor
-does a watcher the message itself says will not wake the session.
+It must plausibly be what the message is waiting on: check what the conversation shows each
+running task was launched to do. One match is enough; never require a second mechanism. A
+task launched earlier for something else does not back a new claim, and nor does a watcher
+the message itself says will not wake the session.
 
 Not case A: reporting what was done, what failed or what could not run; saying what the
-OWNER could run next; quoting or discussing this rule.
+OWNER could run next; a plan or next step put to the owner to approve; an action that waits
+on the owner's reply, approval or decision; quoting or discussing this rule.
 
 ## Case B: a pause the owner already answered
 
@@ -64,7 +68,3 @@ End every reason with these two lines, verbatim:
 
     Reply with the correction only — do not restate your previous message.
     If this block is mistaken, reply exactly: "My answer stands — <one sentence why>."
-
-[1;36m**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************[0m
-Everything above is the configured prompt, echoed by the platform. Respond with a single
-submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).

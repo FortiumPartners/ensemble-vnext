@@ -121,8 +121,7 @@ const { spawn } = require('child_process');
 
 const {
   buildPrompt,
-  buildCombinedPrompt,
-  STOP_DISCIPLINE_HOOKS,
+  buildStopDisciplinePrompt,
 } = require('../../../packages/core/hooks/prompts/build-judge-prompts');
 
 const DEFAULT_MODEL = process.env.DISCIPLINE_JUDGE_MODEL || 'claude-haiku-4-5-20251001';
@@ -231,9 +230,11 @@ function buildContextPreamble(testCase) {
  * use to assert on the assembled prompt without shelling out to the CLI.
  */
 function buildFullPrompt(testCase, hookName) {
+  // discipline-stop scores the SHIPPED prompt (hand-authored since 2026-09-24), so a
+  // corpus score measures what projects actually run.
   const rawPrompt =
     hookName === 'discipline-stop'
-      ? buildCombinedPrompt(STOP_DISCIPLINE_HOOKS)
+      ? buildStopDisciplinePrompt()
       : buildPrompt(hookName);
   const prompt = rawPrompt.replace('$ARGUMENTS', JSON.stringify(buildPayload(testCase, hookName), null, 2));
   const contextPreamble = buildContextPreamble(testCase);

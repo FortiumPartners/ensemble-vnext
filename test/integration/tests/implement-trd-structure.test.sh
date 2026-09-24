@@ -275,7 +275,7 @@ setup() {
 @test "discipline prompt files match what build-judge-prompts.js generates" {
     command -v node >/dev/null || skip "node not available"
     run node -e '
-      const { buildPrompt, buildCombinedPrompt, STOP_DISCIPLINE_HOOKS, STOP_DISCIPLINE_PROMPT_FILE } =
+      const { buildStopDisciplinePrompt, STOP_DISCIPLINE_PROMPT_FILE } =
         require(process.argv[1]);
       const fs = require("fs");
       const path = require("path");
@@ -292,9 +292,9 @@ setup() {
         drift.push("subagent-discipline.prompt.md exists but no manifest entry declares it");
       }
 
-      // async-discipline + autonomy-discipline: merged onto one Stop prompt (FIX-002).
+      // The Stop prompt: discipline-stop.source.md wrapped in the display banners.
       {
-        const generated = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS) + "\n";
+        const generated = buildStopDisciplinePrompt() + "\n";
         const onDisk = fs.readFileSync(path.join(dir, STOP_DISCIPLINE_PROMPT_FILE), "utf8");
         if (generated !== onDisk) drift.push(STOP_DISCIPLINE_PROMPT_FILE);
       }
@@ -629,11 +629,10 @@ PY
     P="${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.prompt.md"
     [ -f "$P" ]
     # a declarative (non-question) offer appears as an example
-    grep -qi "say the word" "$P"
-    # and the principle that grammar is not the test
-    grep -qiE 'grammar is irrelevant|not the grammar|same move' "$P"
-    # Generated from the generator, never hand-edited.
-    grep -q 'autonomy-discipline' "${REPO_ROOT}/packages/core/hooks/prompts/build-judge-prompts.js"
+    # (flattened first: prose wraps, and a phrase split across a line break is still there)
+    tr '\n' ' ' < "$P" | grep -qi "say the word"
+    # Generated from its hand-authored source, never hand-edited itself (2026-09-24).
+    [ -f "${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.source.md" ]
 }
 
 @test "discipline rules state the CURRENT measurement, and caveat /goal at every site" {

@@ -25,6 +25,7 @@ const {
   buildCombinedPrompt,
   HOOKS,
   STOP_DISCIPLINE_HOOKS,
+  buildStopDisciplinePrompt,
 } = require('./build-judge-prompts');
 
 describe('precondition placement', () => {
@@ -156,7 +157,7 @@ describe('a hook with no precondition emits no separator (D6)', () => {
     // prompt while every consistency check passes, because settings.json is compared
     // against the same stale file it was generated from. Comparing the file against a
     // FRESH build is the only thing that sees it.
-    const built = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS);
+    const built = buildStopDisciplinePrompt();
     const onDisk = fs.readFileSync(
       path.join(__dirname, 'discipline-stop.prompt.md'),
       'utf-8'
@@ -199,7 +200,7 @@ describe('regression guard: what .filter(Boolean) is protecting against', () => 
  * through test/discipline-corpus/compare-runs.js, which is the only thing that can measure
  * them (RESULTS.md:472 — "no edit to this prompt ships on a reading"). */
 describe('block reasons: sanctioned dissent, and no compelled action', () => {
-  const prompt = buildCombinedPrompt(STOP_DISCIPLINE_HOOKS);
+  const prompt = buildStopDisciplinePrompt();
 
   it('sanctions a one-line "My answer stands" reply', () => {
     expect(prompt).toContain('My answer stands');
@@ -210,18 +211,70 @@ describe('block reasons: sanctioned dissent, and no compelled action', () => {
     expect(prompt).toContain('do not restate your previous message');
   });
 
-  it('forbids a reason that instructs merge, push, deploy, release or a command', () => {
-    expect(prompt).toMatch(/never instruct the agent to merge, push, deploy, release, or invoke a\s+slash command/);
+  it('turns a remedy that does the declined or approval-gated thing into an ALLOW', () => {
+    // The customer-data case: five blocks pushing an agent to write to a customer's live
+    // account it had asked approval for. The remedy test is what stops that.
+    expect(prompt).toMatch(/If your remedy would be to do something the message declined to do or asked\s+approval for,\s+allow/);
   });
 
-  it('turns an action-shaped remedy into an ALLOW rather than a block', () => {
-    // The load-bearing half: if the only remedy is an outward-facing act, the agent was
-    // correctly deferring. Without this the rule reads as advice and gets overridden.
-    expect(prompt).toContain('the turn was NOT a violation');
+  it('never makes a pause before an irreversible, outward-facing or third-party act a violation', () => {
+    expect(prompt).toMatch(/irreversible, destructive, outward-facing \(push, merge, deploy, release\)/);
+    expect(prompt).toMatch(/touching production or someone else's data/);
+  });
+
+  it('drops a promised slash command rather than running it', () => {
+    expect(prompt).toMatch(/If the promised thing is a slash\s+command, drop the claim instead; the owner runs it/);
   });
 
   it('remedies the autonomy judgment by deleting the pause, not by doing the work', () => {
-    expect(prompt).toContain('DELETE the sentence that hands the decision back');
-    expect(prompt).not.toContain('apply the best available default, finish the remaining work');
+    expect(prompt).toContain('delete the question and end on the decision');
+  });
+});
+
+describe('the shipped Stop prompt (hand-authored, 2026-09-24)', () => {
+  const prompt = buildStopDisciplinePrompt();
+
+  it('checks the loop guard: stop_hook_active true allows', () => {
+    expect(prompt).toMatch(/If `stop_hook_active` is true, allow/);
+  });
+
+  it('applies the autonomy judgment only on an explicit state=active marker for this session', () => {
+    expect(prompt).toContain('ENSEMBLE_COMMAND');
+    expect(prompt).toMatch(/matches this payload's `session_id` says `state=active`\. Otherwise skip case B/);
+  });
+
+  it('treats a matching running task as sufficient and never asks for a second mechanism', () => {
+
+    expect(prompt).toMatch(/One match is enough; never require a\s+second mechanism/);
+  });
+
+  it('counts waits backed outside the payload: Monitor, background shell, forked runs', () => {
+    expect(prompt).toContain('`Monitor`');
+    expect(prompt).toContain('`run_in_background`');
+    expect(prompt).toMatch(/do not appear in the payload/);
+  });
+
+  it('exempts saying what the owner could run next', () => {
+    expect(prompt).toMatch(/saying what the\s+OWNER could run next/);
+  });
+
+  it('carries $ARGUMENTS exactly once, in its own Payload section', () => {
+    expect(prompt.split('$ARGUMENTS').length - 1).toBe(1);
+    expect(prompt).toMatch(/## Payload\n\n\$ARGUMENTS/);
+  });
+
+  it('is wrapped in both display banners', () => {
+    expect(prompt).toContain('STOP HOOK FIRED');
+    expect(prompt).toContain('END STOP HOOK PROMPT');
+  });
+
+  it('allows without a reason, so an allow cannot surface as an error', () => {
+    expect(prompt).toMatch(/To allow: submit\(\{ ok: true \}\), with no reason/);
+  });
+
+  it('stays short: the regrowth guard', () => {
+    // The prompt this replaced reached 14.9 KB one correction at a time and stopped being
+    // followed. A correction that needs this ceiling raised is a signal to rewrite, not append.
+    expect(prompt.length).toBeLessThan(6000);
   });
 });

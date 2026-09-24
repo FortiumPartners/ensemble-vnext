@@ -245,6 +245,35 @@ Not yet investigated.
 
 ---
 
+## Final pass, 2026-09-24: v4 tried, v3 shipped
+
+**v4** (`test/discipline-corpus/replay/candidate-v4.prompt.md`) went after the misses with
+principles, not quoted cases: a commitment counts in any tense or form, a running task counts
+only if the conversation shows it is the thing named, and anything that waits on the owner is
+exempt. **The bar was written down before scoring:** more than 5/9 violations caught by
+majority, no more than 6/432 correct-turn judgements blocked, 0 loop-guard failures, and no
+mostly-false new blocks on unseen stops.
+
+| Sonnet, 153 labelled stops, 3 runs | v3 | v4 |
+|---|---|---|
+| Correct-turn judgements blocked | 5/432 | 11/432 (**misses the bar**) |
+| Violations caught, majority | 5/9 | 7/9 |
+| Loop-guard failures | 0/39 | 0/39 |
+
+**v4 misses the false-block bar, so v3 ships.** v4 is kept as the record of the trade: two
+more violations caught for about twice the false blocks.
+
+**Unseen stops.** 100 random stops from 2026-09-10 onward, never labelled or used in design,
+excluding this session, one run each. v3 and v4 agreed on every stop where both calls
+returned (98). Both blocked the same 3 and allowed the other 95. All three blocks read as
+real, unkept "about to" commitments that production had allowed: "Updating the document now…",
+"I'll write it that way in the update.", and "I want to check … before picking a direction".
+That reading is mine and was not independently labelled. **If it holds, v3 on Sonnet blocks
+about 3 in 100 real stops and every one is correct, against about 20 in 100 today, nearly all
+wrong.**
+
+---
+
 ## The numbers, and why there are two
 
 | Measure | Value |
