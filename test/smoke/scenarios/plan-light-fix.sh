@@ -121,6 +121,9 @@ JSON
 
 git -C "$PROJECT_DIR" add -A
 git -C "$PROJECT_DIR" commit -q -m "smoke: pricing with a clamp-order defect" --no-verify
+# Record the fixture commit so the source-was-fixed assertion can compare against it.
+# Grepping all of history instead would pass on the fixture commit alone, which proves nothing.
+FIXTURE_SHA="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
 assert_pass_raw "fixture defect planted (src/pricing.js, failing test)"
 
 # Sanity: the defect must actually reproduce, or the scenario proves nothing.
@@ -180,8 +183,15 @@ fi
 
 # The fix must be in the source, not in the test: a run that edits the failing
 # assertion to match the buggy output "passes" while fixing nothing.
-if git -C "$PROJECT_DIR" diff HEAD~1..HEAD --name-only 2>/dev/null | grep -q 'src/pricing.js' ||
-   git -C "$PROJECT_DIR" log --oneline --name-only 2>/dev/null | grep -q 'src/pricing.js'; then
+# NO PIPE HERE, DELIBERATELY. This file runs under `set -o pipefail`, and
+# `git log ... | grep -q` exits 141 (SIGPIPE): grep -q closes the pipe on its first
+# match, git dies writing to it, and pipefail propagates that as failure. So a
+# SUCCESSFUL match read as a failure. Measured 2026-09-23: the fix was correctly
+# applied to src/pricing.js and this assertion still reported FAIL. Compare the
+# fixture commit against HEAD directly instead -- bounded output, no pipeline, and
+# it proves the change came AFTER the fixture rather than merely existing in history.
+SRC_CHANGED_SINCE_FIXTURE="$(git -C "$PROJECT_DIR" diff "$FIXTURE_SHA"..HEAD --name-only -- src/pricing.js 2>/dev/null)"
+if [[ -n "$SRC_CHANGED_SINCE_FIXTURE" ]]; then
     assert_pass_raw "the fix touched src/pricing.js (not just the test)"
 else
     assert_fail_raw "the fix touched src/pricing.js (not just the test)"
