@@ -342,11 +342,19 @@ fails with no source, and a run that dies mid-call must not have lost the invest
 
 #### Ask the lib, then dispatch what it names
 
+**The slug and the kind go through a heredoc, never into the command string** (O-INJECT) — the
+slug is derived from the free-text subject, so interpolating it into a single-quoted `node -e`
+lets one apostrophe in a bug report close the quote and hand the rest to the shell. Same
+pattern as Step 7:
+
 ```bash
 node -e '
   const { plan } = require("./.claude/lib/fix-plan");
-  console.log(JSON.stringify(plan({ weight: "trivial", route: "prd", kind: "<kind>", slug: "<slug>" }), null, 2));
-'
+  console.log(JSON.stringify(plan(JSON.parse(process.argv[1])), null, 2));
+' "$(cat <<'"'"'JSON'"'"'
+{ "weight": "trivial", "route": "prd", "kind": "<kind>", "slug": "<slug>" }
+JSON
+)"
 ```
 
 `weight` is a required parameter of `plan()` but plays no part in this branch's output — pass
@@ -533,11 +541,19 @@ text against `/owner-only|owner ruling/i`, over the row, not the header. A cell 
 never matches that pattern and parses to `ownerOnly: false` — the question then never reaches
 a task prompt as `<open_question>`, silently. Carry the cell exactly as shown above.
 
-**For `kind: refactor` at `trivial` or `small`, `## Behaviour Preserved` is the reproduction
-section — the before-run only.** There is no after-run and no public-surface check at this
-weight; both are `medium`-only (AC-F3.5). Record the test command and confirm it passed, now,
-before anything is touched. If there is nothing to record here, that absence is itself the
-signal a heavier weight was warranted — see Step 4.
+**For `kind: refactor` at `trivial` or `small`, nothing in `## Behaviour Preserved` is
+REQUIRED — and `plan-weight.js` is the authority on that, not this paragraph.**
+`verification({ kind: "refactor", weight: "trivial" | "small" })` returns `beforeRun`,
+`afterRun` and `surfaceCheck` all `false`: the owner decided against a before-run at these
+weights (AC-F3.5, OQ-T3) and accepted the consequence as a named risk — a light refactor
+asserts "behaviour is unchanged" with nothing behind the claim.
+
+An earlier version of this paragraph said the before-run was mandatory here, which is the
+answer OQ-T3 rejected. Do not read the template above as re-imposing it: the section is shown
+because it is where `--verify` derives a refactor's success definition from, so **recording a
+before-run when you can is strictly better than not** — it just is not a gate at this weight.
+If there is nothing you could record, that absence is itself the signal a heavier weight was
+warranted — see Step 4.
 
 #### Every task prompt must carry the DECISION, not just the task
 
@@ -615,6 +631,51 @@ banner, the dispatch ledger and `notify-complete.sh`. Overwriting a live pointer
 is not beginning loses the real answer and replaces it with a false one. Report the TRD path
 in the banner instead; `/implement-trd` writes the pointer itself (its Step 1.3a) when a human
 later runs it.
+
+#### 5a.1 Mechanical checks on the light TRD — call the lib, always
+
+**Run these on every light TRD, at `trivial` as well as `small`.** They are not the `audit`
+stage `stages()` grants only to `medium` — that is `Workflow(audit-trd)`, a judgment pass. These
+are the deterministic ones: does the document you just wrote actually parse the way
+`/implement-trd` will read it?
+
+```bash
+node -e '
+  const { parseTrd } = require("./.claude/lib/trd-parser");
+  const { audit } = require("./.claude/lib/fix-audit");
+  const fs = require("fs");
+  const opts = JSON.parse(process.argv[2]);
+  const md = fs.readFileSync(process.argv[1], "utf8");
+  const parsed = parseTrd(md, { path: process.argv[1] });
+  console.log(JSON.stringify(audit(parsed, { ...opts, markdown: md }), null, 2));
+' "docs/TRD/<slug>.md" "$(cat <<'"'"'JSON'"'"'
+{ "objectiveIds": ["O1"], "kind": "defect",
+  "expectedNew": ["path/this/TRD/creates.ts"] }
+JSON
+)"
+```
+
+It checks: grounding present with a `Touches` field, cited paths exist (or are declared new via
+`expectedNew`), each task's `Serves` resolves to a stated objective, and the parser reports no
+fatal warning.
+
+**This is the one check that catches the failure §5a calls the worst available one.** An
+unbolded `- Touches:` parses to EMPTY grounding with only a warning, and at `trivial` there is
+no adversarial pass and no audit behind it — so nothing else looks. `expectedNew` matters: omit
+a file the TRD creates and the run reports a false "cited path does not exist" against a
+correct document.
+
+**`findings` are malformations — fix them and re-run. `advisories` are observations** (a
+declared `kind` that does not match the verification section, for instance); they never set
+`ok: false`. Report an advisory in one line and continue.
+
+**Do not hand-roll these.** The first live run of this command's predecessor wrote them as an
+ad-hoc script and compared `task.serves` as a string when the parser returns an ARRAY — two
+false failures on a correct TRD, which is worse than a missing check because it invites
+"fixing" a good document to satisfy a broken test.
+
+The one thing the lib cannot judge is whether an objective's *source* is real. Confirm by eye
+that each traces to the reproduction, the recorded decision, or you.
 
 ### 5b. Phased TRD (`medium`)
 
@@ -738,10 +799,12 @@ Workflow({ name: "audit-trd", args: {
 } })
 ```
 
-Pass the **same** `<slug>` as `feature` to both workflow calls above. `audit-trd.js` derives
-its own feature slug from the TRD path (`TRD.match(/([^/]+)\.[^./]+$/)`, `audit-trd.js:39`) to
-locate `.trd-state/<feature>/findings/grounding.json` — a mismatched slug silently splits that
-state across two directories. The workflow applies what survives checking and rewrites the
+Use the **same** `<slug>` in both calls above. `audit-trd` takes no `feature` argument — only
+`trd`, `source` and `project` (`audit-trd.js:41-44`); it derives its own feature slug from the
+TRD path (`TRD.match(/([^/]+)\.[^./]+$/)`, `audit-trd.js:39`) to locate
+`.trd-state/<feature>/findings/grounding.json`. So the slug create-trd was given as `feature`
+and the basename of the TRD path must agree, or that state silently splits across two
+directories. The workflow applies what survives checking and rewrites the
 TRD's `## Could Not Verify` section in place.
 
 #### `/refine-trd` — named, never invoked
@@ -777,7 +840,7 @@ the fix is *right*.
 
 ```
 Agent(subagent_type="code-reviewer", prompt="<the TRD> +
-  Judge FOUR things and nothing else:
+  Judge FIVE things and nothing else:
    1. Root cause or symptom — does this address the mechanism, or the place the error surfaced?
    2. Regression — for each caller the grounding identified, does the change hold?
    3. Is there a simpler correct fix? A clever small diff is a smell.

@@ -173,11 +173,17 @@ fi
 # (project.sh, ~lines 230-270), extended for a Workflow whose .input carries
 # a `name`, not an `agentType` — that is how /plan's Step 5b dispatches
 # create-trd and audit-trd (plan.md: `Workflow({ name: "audit-trd", ... })`).
-if grep '^{' "$SESSION_FILE" 2>/dev/null | jq -e '
-    select(.type=="assistant") | .message.content[]? |
-    select(.type=="tool_use") |
-    select(.name=="Workflow") |
-    (.input | tostring) | contains("\"name\":\"audit-trd\"") or contains("name: '"'"'audit-trd'"'"'")
+# `jq -e` reflects only the LAST value it emitted, so a per-record filter would report
+# "audit-trd did not run" whenever ANY Workflow call follows the audit one (a create-trd
+# retry, a later dispatch). Slurp the whole stream and ask `any` once — one boolean out,
+# one exit status in.
+if grep '^{' "$SESSION_FILE" 2>/dev/null | jq -es '
+    any(
+      .[] | select(.type=="assistant") | .message.content[]? |
+      select(.type=="tool_use") | select(.name=="Workflow") |
+      (.input | tostring) | contains("\"name\":\"audit-trd\"") or contains("name: '"'"'audit-trd'"'"'");
+      .
+    )
 ' >/dev/null 2>&1; then
     assert_pass_raw "audit-trd ran (Workflow({name:\"audit-trd\"}) call found in the session log)"
 else
