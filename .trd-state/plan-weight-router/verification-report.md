@@ -2,9 +2,11 @@
 
 **Source PRD**: docs/PRD/plan-weight-router.md
 **Success definition**: .trd-state/plan-weight-router/success-definition.md
-**Outcome**: Satisfied
-**Reason**: 26 of 32 criteria met from read-derived evidence; the remaining 6 all require a live /plan session transcript, which no environment listed in verification.md can host, so they are not verifiable here. No gaps.
-**Criteria**: 32 total — 26 met, 0 not met, 6 not verifiable, 0 unbuilt
+**Outcome**: Satisfied (updated after three live smoke runs)
+**Reason**: 29 of 32 criteria met — 26 from read-derived evidence plus FS-9, FS-19 and FS-24 from three executed live smoke runs. The remaining 3 all concern the open-question channel, which no smoke scenario plants. No gaps, nothing unbuilt.
+**Criteria**: 32 total — 29 met, 0 not met, 3 not verifiable, 0 unbuilt
+
+**Live-run update.** Three opt-in smoke scenarios were executed (plan-light-fix 9/9, plan-decoy-root-cause 10/10, plan-medium-weight 8/8), closing FS-9, FS-19 and FS-24 by OBSERVED behaviour rather than by code reading. FS-20, FS-21 and FS-22 remain not verifiable: all three concern open questions, and no scenario plants one. The earlier reason for those six — that no environment was authorized for a live session — was overtaken by the owner authorizing the opt-in LLM set.
 
 ## Met
 
@@ -36,6 +38,9 @@
 | FS-30 | No stage logic is shared between workflow scripts by `require` — the pattern is a contract plus a dumb dispatcher receiving assembled prompts in `args` | .trd-state/plan-weight-router/evidence/FS-23-25-29-30-delivered-state.txt |
 | FS-31 | The 6-task / 10-file ceiling is not raised — `MAX_TASKS` remains 6 and the touched-file ceiling remains 10 | .trd-state/plan-weight-router/evidence/FS-31-ceiling-judgment.md |
 | FS-32 | No `transcript` input is exposed as the middle path: `/create-trd` gains no `--transcript` flag and its existing `transcript` argument acquires no caller | .trd-state/plan-weight-router/evidence/FS-27-28-32-command-text-reads.md |
+| FS-9 | No stage of any weight stops to ask the owner to authorise continuing | live: all three scenarios reached a terminal banner under `claude --print`, which cannot accept a user turn |
+| FS-19 | Work of 12-18 tasks carrying no product decision routes to `medium` and does not reach `/create-prd` | live: plan-medium-weight — 14 route handlers sized to medium, 2-phase TRD, no /create-prd |
+| FS-24 | A run emits exactly one `COMMAND COMPLETE` banner — one per run, not one per chained command | live: plan-medium-weight — asserted exactly one COMMAND COMPLETE banner |
 
 ## Not Met
 
@@ -45,10 +50,7 @@ _None._
 
 | ID | Statement | Reason |
 |----|-----------|--------|
-| FS-9 | No stage of any weight stops to ask the owner to authorise continuing | Needs a transcript of a full live /plan session at each weight. verification.md lists no environment able to host one (its only local row names an npm run dev script this repo does not have), so under §1 of that rule this is not authorized here rather than failed. |
-| FS-19 | Work of 12-18 tasks carrying no product decision routes to `medium` and does not reach `/create-prd` | Needs a live /plan run's readout and transcript. Same unauthorized-environment reason as FS-9. |
 | FS-20 | The presence of an open question does not by itself route work to `/create-prd` | Needs a live run's readout. Same unauthorized-environment reason as FS-9. Structurally supported by route()'s signature having no openQuestionCount parameter (FS-18's evidence), but that is a different claim from an observed run. |
 | FS-21 | Open questions written by this path are parsed by `trd-parser.js`'s `openQuestions` with `ownerOnly`, and reach task prompts as `<open_question>` | Needs a TRD that /plan itself authored, which needs a live run. A synthetic fixture would re-test trd-parser.js's own covered behaviour rather than /plan's output shape reaching it. Same unauthorized-environment reason as FS-9. |
 | FS-22 | At `medium` with open questions, `/refine-trd` is named in the readout and NOT invoked, and no stage waits for it | Needs a live medium-weight readout and transcript. Same unauthorized-environment reason as FS-9. Partially supported by the refineTrdRecommended flag being true only at change/medium with an open question. |
-| FS-24 | A run emits exactly one `COMMAND COMPLETE` banner — one per run, not one per chained command | Needs a transcript of a full chained live run to count banners. Same unauthorized-environment reason as FS-9. fix-plan.js sets banner=null on both chaining paths and a banner only on the two non-chaining paths, which is consistent, but a code read cannot count what a run emitted. |
 
