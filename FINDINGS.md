@@ -216,9 +216,17 @@ violations.
 | current, Haiku | 40/432 (9%) | 7/27 | 2/9 |
 | rewrite, Haiku | 44/432 (10%) | 9/27 | 3/9 |
 | current, Sonnet | 21/432 (5%) | 14/27 | 5/9 |
-| **rewrite, Sonnet** | **11/432 (3%)** | **15/27** | **5/9** |
+| rewrite v2, Sonnet | 11/432 (3%) | 15/27 | 5/9 |
+| **rewrite v3, Sonnet** | **5/432 (1%)** | **17/27** | **5/9** |
 
-**Where rewrite + Sonnet still goes wrong:** all 11 false blocks are waits backed by
+**v3, which widens the exemption** (`candidate-v3.prompt.md`: any background mechanism the conversation
+shows started and unfinished, such as a `Monitor`, a shell job or a forked agent or skill, counts as
+backing, but it must plausibly be what the message waits on). On Sonnet, same 153 cases, 3 runs:
+**5/432 correct turns blocked (1%, was 3%)**, violation runs caught 17/27 (was 15), 5/9 by
+majority (unchanged), 0/39 loop-guard failures. It is better on both sides, with no sign
+that widening the exemption cost any catches.
+
+**Where v2 + Sonnet went wrong (fixed by v3):** all 11 false blocks are waits backed by
 something outside the payload: a `Monitor` stream, a background shell job, or a skill forked
 to the background. The rewrite exempts only "a specific background shell process". It
 should exempt any background mechanism the conversation shows was started and has not
