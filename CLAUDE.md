@@ -524,13 +524,23 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.5.1** (2026-09-23). 18 commands, 13 subagents. Test battery: 1126 Jest,
-107 pytest, 648 BATS.
+Released at **4.6.0** (2026-09-23). 18 commands, 13 subagents. Test battery: 1107 Jest,
+107 pytest, 655 BATS.
 
-4.5.1 is a hotfix: a declared dependency could contradict an inferred file-conflict edge and
-cycle the task graph, dropping the pair and everything downstream out of the plan — a 13-task
-TRD became 6 tasks — and nothing checked that the wave list covered the TRD, so the short plan
-reported success. Both fixed; the coverage check is broader than the cycle.
+4.6.0 renames `/investigate` to `/plan` — deleted, not aliased — and sizes work on two axes
+instead of one tier ladder: a `kind` (defect | change | refactor) and a `weight` (trivial |
+small | medium), with `feature` as the exit to `/create-prd`. `kind` changes the stage list,
+not just the scoring. The weights are strict supersets, and none of the nine cells gets its own
+name. Both size ceilings are deleted rather than raised, and `fix-sizing.js` is down to
+`matchNeverUnattended()` — the owner's policy list is the only brake left, which is the point.
+
+**Weights select a pipeline shape, never a permission.** `--implement` remains the only thing
+that starts work and is honoured at every weight.
+
+Verified by three live runs rather than a code read, including a decoy defect where `/plan`
+found the real cause and left the plant untouched. Functional verification derived its criteria
+from the PRD with the TRD withheld: 29 of 32 met, 0 not met, 3 open on the open-question
+channel.
 
 4.5.0 makes `/create-trd`'s readout advise on **depth** rather than width: it names whichever
 cause actually makes a plan serial — declared dependencies or shared files — and prints the
