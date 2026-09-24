@@ -150,6 +150,53 @@ What that says:
 
 ---
 
+## Replay evaluation, 2026-09-23: the rewrite, on two models
+
+**Method.** `test/discipline-corpus/replay/extract.py` turns every real Stop since 2026-08-26
+into a case: the final message, a payload rebuilt from the transcript (launches, completion
+notices, wakeups, loop-guard state), and the recent conversation. That is what the live judge
+sees; the old harness gave it the final message only. 3,136 stops came out, 613 of them live
+blocks. From those, 108 were picked (59 live blocks, 49 allows, half of them risky-looking)
+and labelled blind against the owner's rule files by 11 independent agents. The owner
+overrode two labels (this session's two "Next I'll…" closings are violations). The dataset
+stays out of git because it quotes client-project conversations. It lives in the session
+scratchpad as `gold.jsonl`.
+
+**What the labels say about production.** Of the 59 turns the live judge blocked, **56 were
+correct turns**. It was right 3 times, and it let through 2 of the 5 real violations. All 5
+violations are Judgment A, and 4 are "announce an action, then stop". Not one Judgment B block
+in the sample was a real violation.
+
+**Scores:** 3 runs each; 309 judgements on correct turns, 15 on violations.
+
+| Prompt / model | Correct turns blocked | Blocked after a block (loop guard) | Violation runs caught |
+|---|---|---|---|
+| live production, current prompt | 56/103 (54%), one pass | — | 3/5 once |
+| current, Haiku 4.5 | 26 (8%) | 1/39 | 6/15 |
+| rewrite, Haiku 4.5 | 32 (10%) | 5/39 | 8/15 |
+| current, Sonnet 5 | 9 (3%) | 0/39 | 6/15 |
+| **rewrite, Sonnet 5** | **0 (0%)** | **0/39** | **7/15** |
+
+**Latency, measured live** (real sessions, platform `durationMs`, rewrite prompt, short
+conversations): Haiku median 1.6 s (max 2.3), Sonnet median 1.6 s (max 2.4). No meaningful
+difference at this length. Production Haiku with long conversations is 2.6 s median; Sonnet
+at that length is not yet measured. The harness's own timings (Haiku 26 s) are dominated by
+its overhead and are not usable.
+
+**What it shows:**
+1. **The model matters more than the prompt.** The rewrite helps on Sonnet and slightly
+   hurts on Haiku. Sonnet + rewrite is the only cell with zero false blocks and zero loop-guard
+   failures.
+2. **Catching "announce, then stop" is still weak everywhere**: 7 of 15 at best. Five
+   violations is also too few to rank the cells on this; only the false-block side is well
+   measured.
+3. **The replay is still not production.** The current prompt on Haiku blocks 8% of correct
+   turns here against 54% live. Something the live judge sees is still missing: more
+   conversation, a different "small fast model", or how the platform inlines the transcript.
+   Comparisons between cells are fair. The absolute rates are not production rates.
+
+---
+
 ## The numbers, and why there are two
 
 | Measure | Value |
