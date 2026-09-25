@@ -371,31 +371,46 @@ function outputResult(status) {
   process.exit(0);
 }
 
-// Read hook data from stdin
-let inputData = '';
+// Read hook data from stdin -- ONLY when run as a hook, never when required as a module.
+//
+// The `require.main === module` guard is load-bearing, and its absence caused a FALSE GREEN.
+// `outputResult()` ends in `process.exit(0)`. Registered unconditionally, these listeners
+// stayed live inside any process that merely `require`d this file -- which `status.test.js`
+// does. Running that suite ALONE is harmless: the tests finish before stdin reaches 'end'.
+// Running it in the same `jest --runInBand` process as other suites is not. Measured
+// 2026-09-25: a combined run died after 15 of 33 files with NO `Test Suites:` summary and
+// EXIT CODE 0 -- the stdin 'end' handler fired mid-run, called main() on empty input, and
+// exited the whole Jest process reporting success while eighteen suites never ran.
+//
+// That is strictly worse than a red build, and it is why this suite sat on CI's
+// "known-failing" exclusion list for months: it was never failing. It was killing the run.
+// `dispatch-ledger.js:182` already uses this guard; status.js simply never got it.
+if (require.main === module) {
+  let inputData = '';
 
-process.stdin.setEncoding('utf8');
+  process.stdin.setEncoding('utf8');
 
-process.stdin.on('data', (chunk) => {
-  inputData += chunk;
-});
+  process.stdin.on('data', (chunk) => {
+    inputData += chunk;
+  });
 
-process.stdin.on('end', async () => {
-  try {
-    const hookData = inputData.trim() ? JSON.parse(inputData) : {};
-    await main(hookData);
-  } catch (error) {
-    debugLog(`Fatal error: ${error.message}`);
-    // Non-blocking: always succeed
+  process.stdin.on('end', async () => {
+    try {
+      const hookData = inputData.trim() ? JSON.parse(inputData) : {};
+      await main(hookData);
+    } catch (error) {
+      debugLog(`Fatal error: ${error.message}`);
+      // Non-blocking: always succeed
+      outputResult('error');
+    }
+  });
+
+  // Handle case where stdin is empty or closed immediately
+  process.stdin.on('error', (error) => {
+    debugLog(`stdin error: ${error.message}`);
     outputResult('error');
-  }
-});
-
-// Handle case where stdin is empty or closed immediately
-process.stdin.on('error', (error) => {
-  debugLog(`stdin error: ${error.message}`);
-  outputResult('error');
-});
+  });
+}
 
 // Export for testing
 module.exports = {
