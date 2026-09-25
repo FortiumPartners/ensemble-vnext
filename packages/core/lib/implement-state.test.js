@@ -463,6 +463,32 @@ describe('reconcile: disbelieve a success claim that disk contradicts', () => {
     expect(reconcile({}).reopened).toEqual([]);
     expect(reconcile({ tasks: {} }).checked).toBe(0);
   });
+
+  test('reopens a crashed run stuck at in_progress/cycle_position=complete', () => {
+    const state = {
+      tasks: {
+        crashed: { status: 'in_progress', cycle_position: 'complete', retry_count: 0 },
+      },
+    };
+    const r = reconcile(state, { projectRoot: dir });
+    expect(r.reopened).toEqual(['crashed']);
+    expect(state.tasks.crashed.status).toBe('pending');
+    expect(state.tasks.crashed.cycle_position).toBe('implement');
+    expect(state.tasks.crashed.completed_at).toBeNull();
+    expect(state.tasks.crashed.current_problem).toMatch(/cycle reached "complete"/i);
+  });
+
+  test('does not touch a task still legitimately in progress', () => {
+    const state = {
+      tasks: {
+        running: { status: 'in_progress', cycle_position: 'checks', retry_count: 0 },
+      },
+    };
+    const r = reconcile(state, { projectRoot: dir });
+    expect(r.reopened).toEqual([]);
+    expect(state.tasks.running.status).toBe('in_progress');
+    expect(state.tasks.running.cycle_position).toBe('checks');
+  });
 });
 
 /* Deletion attestation — finding 6, /code-review 2026-09-20.

@@ -352,17 +352,42 @@ function checkpoint(state, phase, { commit, review } = {}) {
  * of its claimed files exists. One missing file among several is a rename or a typo in the
  * report, not a phantom.
  *
+ * ALSO REPAIRS THE OTHER CRASH SHAPE: `status: "in_progress"` with `cycle_position:
+ * "complete"`. `cycle_position` reaches `"complete"` only via CYCLE_ORDER's terminal step
+ * (`advance()`, driven by the `SubagentStop` hook) or the command's own Step-4.4 write, and
+ * the command only performs that write AFTER `recordResult` has already set `status` to
+ * `"success"` or `"failed"`. So a row showing both at once means the run was killed between
+ * the hook finishing the task's cycle and the command recording its outcome -- `status` is
+ * stuck at `"in_progress"` forever, because nothing else ever revisits it. `--resume`'s own
+ * "not success" dispatch check would eventually re-run it, but a bare `--reconcile` (this
+ * function's documented job is "make the delivered state match the TRD") silently passed
+ * over it, since it only ever looked at `status === "success"` rows. Three tasks sat this
+ * way since 2026-08-25 with no code path that ever touched them again.
+ *
  * @param {Object} state
  * @param {{projectRoot?: string}} [opts]
  * @returns {{reopened: string[], checked: number}} ids moved back to pending, and how many
  *          success claims were examined
  */
 function reconcile(state, opts = {}) {
-  const root = opts.projectRoot || process.cwd();
   const reopened = [];
   let checked = 0;
   if (!state || !state.tasks) return { reopened, checked };
 
+  for (const [id, task] of Object.entries(state.tasks)) {
+    if (task && task.status === 'in_progress' && task.cycle_position === 'complete') {
+      task.status = 'pending';
+      task.cycle_position = 'implement';
+      task.completed_at = null;
+      task.current_problem =
+        'reconcile: cycle reached "complete" but status was never recorded ' +
+        '(run was interrupted) — reopened for implementation';
+      reopened.push(id);
+      continue;
+    }
+  }
+
+  const root = opts.projectRoot || process.cwd();
   for (const [id, task] of Object.entries(state.tasks)) {
     if (!task || task.status !== 'success') continue;
     const claimed = Array.isArray(task.files_changed) ? task.files_changed : [];
