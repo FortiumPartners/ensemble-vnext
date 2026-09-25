@@ -47,7 +47,11 @@ const PROJECT = a.project || ''
 const SCOPE = PROJECT
   ? `\nSCOPE: work only inside ${PROJECT}. Paths outside it are out of bounds.\n`
   : ''
-const MAX_PARALLEL_REGIONS = 6
+/* The platform's own concurrent-subagent pool, which counts the whole agent tree
+ * (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`; see constitution.md's "Concurrency counts the whole
+ * tree"). This used to be 6, which was an unsourced number roughly a third of the real ceiling.
+ * Regions past this run in a second batch after the first finishes -- they are never dropped. */
+const MAX_PARALLEL_REGIONS = 20
 
 if (!SOURCE) throw new Error('sweep: args.source is required — the issue list, verbatim')
 
@@ -149,10 +153,19 @@ for (const item of TO_FIX) {
   if (!byRegion.has(key)) byRegion.set(key, [])
   byRegion.get(key).push(item)
 }
-const regions = [...byRegion.entries()].slice(0, MAX_PARALLEL_REGIONS)
-const overflow = [...byRegion.entries()].slice(MAX_PARALLEL_REGIONS)
-if (overflow.length) {
-  log(`WARNING: ${overflow.length} region(s) beyond the parallel cap will run after the first ${MAX_PARALLEL_REGIONS}`)
+/* Batch the regions rather than truncating them. The previous version sliced at the cap, put
+ * the remainder in a variable, logged that it "will run after the first N" -- and then never
+ * referenced that variable again. Measured 2026-09-25 (run wf_2d45cee7-f89): 7 issues triaged,
+ * 7 regions, 6 dispatched, the 7th silently dropped, and the run reported 0 failed / 0
+ * deferred. A sweep that quietly shortens its own list is the phantom-success failure this
+ * framework exists to catch, in the command whose job is catching it. */
+const allRegions = [...byRegion.entries()]
+const regionBatches = []
+for (let i = 0; i < allRegions.length; i += MAX_PARALLEL_REGIONS) {
+  regionBatches.push(allRegions.slice(i, i + MAX_PARALLEL_REGIONS))
+}
+if (regionBatches.length > 1) {
+  log(`${allRegions.length} regions exceed the ${MAX_PARALLEL_REGIONS}-way parallel cap — running in ${regionBatches.length} batches`)
 }
 
 const fixPrompt = (item) =>
@@ -193,8 +206,7 @@ const fixSchema = {
   },
 }
 
-const regionResults = await parallel(
-  regions.map(([region, items]) => async () => {
+const runRegion = ([region, items]) => async () => {
     const out = []
     for (const item of items) {
       const r = await agent(fixPrompt(item), {
@@ -207,10 +219,27 @@ const regionResults = await parallel(
       out.push(r ? { ...r, region } : { id: item.id, status: 'failed', summary: item.summary, detail: 'the agent returned nothing', region })
     }
     return out
-  })
-)
+  }
+
+const regionResults = []
+for (const batch of regionBatches) {
+  regionResults.push(...(await parallel(batch.map(runRegion))))
+}
 
 const results = regionResults.filter(Boolean).flat()
+
+/* Nothing may leave this workflow unaccounted for. Every triaged issue appears in exactly one
+ * bucket or this throws -- the alternative is the dropped-issue defect above returning by a
+ * different route. */
+const accountedFor = new Set(results.map((r) => r.id))
+const unaccounted = TO_FIX.filter((i) => !accountedFor.has(i.id))
+if (unaccounted.length) {
+  throw new Error(
+    `sweep: ${unaccounted.length} triaged issue(s) never produced a result: ` +
+      unaccounted.map((i) => i.id).join(', ') +
+      ' — this is a dispatch bug, not an issue outcome; do not report the run as complete'
+  )
+}
 const fixed = results.filter((r) => r.status === 'fixed')
 const already = results.filter((r) => r.status === 'already-fixed')
 const tooBig = results.filter((r) => r.status === 'too-big')
@@ -226,9 +255,9 @@ return {
   too_big: tooBig.map((r) => ({ id: r.id, summary: r.summary, detail: r.detail || '' })),
   failed: failed.map((r) => ({ id: r.id, summary: r.summary, detail: r.detail || '' })),
   deferred: DEFERRED,
-  regions: regions.length,
+  regions: allRegions.length,
   readout:
-    `SWEEP: ${fixed.length} fixed across ${regions.length} region(s) in parallel\n` +
+    `SWEEP: ${fixed.length} fixed across ${allRegions.length} region(s) in parallel\n` +
     (fixed.length ? `\n  FIXED\n${fixed.map(line).join('\n')}\n` : '') +
     (already.length ? `\n  ALREADY FIXED — no change needed\n${already.map(line).join('\n')}\n` : '') +
     (tooBig.length ? `\n  NOT A QUICK WIN — needs its own design pass\n${tooBig.map((r) => `    ${r.id} — ${r.detail}`).join('\n')}\n` : '') +

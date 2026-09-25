@@ -136,6 +136,34 @@ describe('sweep', () => {
     expect(result.readout).toContain('NOT COMMITTED');
   });
 
+  it('dispatches every region even past the parallel cap', async () => {
+    // The defect this pins, measured 2026-09-25 in run wf_2d45cee7-f89: the script sliced the
+    // region list at its cap, put the remainder in a variable, logged that it "will run after
+    // the first N" -- and never referenced that variable again. 7 issues went in, 6 fixers ran,
+    // and the run reported 0 failed / 0 deferred. The 11 tests in this file all passed while
+    // that was live, because none of them used more regions than the cap.
+    const many = Array.from({ length: 23 }, (_, i) => ({
+      id: `I${i}`, summary: `issue ${i}`, region: `area/${i}`,
+    }));
+    const { result, parallel } = await sweep({ triage: { fix: many, deferred: [] } });
+    expect(result.fixed).toHaveLength(23);
+    expect(result.regions).toBe(23);
+    // 23 regions at a cap of 20 is two waves, and neither may exceed the cap.
+    expect(parallel.waves.map((w) => w.size)).toEqual([20, 3]);
+  });
+
+  it('throws rather than reporting a run where a triaged issue produced no result', async () => {
+    // Belt on the above: if a future dispatch change loses an issue again, the run must fail
+    // loudly instead of returning a tally that looks complete.
+    const agent = makeAgentStub(plan({ triage: { fix: ISSUES, deferred: [] } }));
+    // A parallel stub that drops the last thunk -- simulating exactly the old truncation bug.
+    const lossy = async (thunks) => Promise.all(thunks.slice(0, -1).map((t) => t()));
+    lossy.waves = [];
+    await expect(
+      runWorkflow(SOURCE, { agent, parallel: lossy, args: { source: 'a list' } })
+    ).rejects.toThrow(/never produced a result/);
+  });
+
   it('refuses to run without an issue list', async () => {
     const agent = makeAgentStub(plan({ triage: { fix: [], deferred: [] } }));
     await expect(runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: {} }))
