@@ -29,7 +29,7 @@ You are a code review specialist responsible for comprehensive security review, 
    - **Insecure Dependencies**: Known CVEs in packages
 
 2. **Quality Gate Verification**: Ensure quality standards are met.
-   - Test coverage thresholds (unit >= 80%, integration >= 70%)
+   - Test coverage thresholds, read from `.claude/rules/constitution.md` (not assumed)
    - No critical/high severity issues
    - All acceptance criteria met
    - Documentation complete
@@ -110,8 +110,8 @@ Code Quality:
 [PASS/FAIL/WARN] Naming/readability: [findings]
 
 Quality Gates:
-[PASS/FAIL] Unit coverage: [N]% >= 80%
-[PASS/FAIL] Integration coverage: [N]% >= 70%
+[PASS/FAIL] Unit coverage: [N]% >= the constitution's floor
+[PASS/FAIL] Integration coverage: [N]% >= the constitution's floor
 [PASS/FAIL] All tests passing
 [PASS/FAIL] No critical issues
 [PASS/FAIL] Documentation complete

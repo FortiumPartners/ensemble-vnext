@@ -103,11 +103,22 @@ there is no diagram quota. Never invent a number to make a table look complete.
 **Read the code before you plan against it.** Grep for the functions, modules and patterns
 your plan touches. Reconcile on four axes, and emit a per-task grounding block:
 
+- **Owner** — *what already owns this capability, and where should this change land?* Ask
+  this before asking what to reuse. "Nothing owns it yet" is a real answer, but it is a
+  conclusion to reach after looking, not the assumption to start from. Naming the owner is
+  what lets an implementer extend rather than build beside — and where you name none, the
+  implementer's default is to create, because it has nothing else to go on.
 - **Consistent** — does the plan contradict how the thing already works?
 - **Reuse** — what already exists that this must not reimplement? This is the most
   frequently repeated instruction in this project's history.
 - **Replaces** — *what does this make unreachable?* Name it and instruct its deletion.
   This is the question nobody asks, and dead code that still exists still looks live.
+- **Creating is a decision worth stating.** When a task genuinely needs a new module,
+  model or service rather than an extension, say in the grounding why the nearest existing
+  owner cannot absorb it cleanly. One sentence. It stops a reviewer re-litigating the call,
+  and it catches the case where the honest answer turns out to be "it could have."
+  A retired premise is the clearest reason to create: where the existing owner's own reason
+  for being no longer holds, replacement lowers total complexity and extension raises it.
 - **Per task** — the grounding block is passed into the implementer's prompt, so it starts
   with what you already established instead of rediscovering it.
 

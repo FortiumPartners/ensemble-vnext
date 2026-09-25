@@ -396,7 +396,7 @@ every iteration after it.
 Approve implementation when:
 
 - [ ] All acceptance criteria verified as met
-- [ ] Tests pass (unit >= 80%, integration >= 70% coverage)
+- [ ] Tests pass, at the coverage floors in `.claude/rules/constitution.md`
 - [ ] No scope violations (non-goals respected)
 - [ ] Edge cases from requirements handled
 - [ ] Error handling matches specifications
