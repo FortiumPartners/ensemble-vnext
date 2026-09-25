@@ -90,9 +90,20 @@ workflow does, and workflow-started agents have no `Agent` tool at all (§1.3 of
 
 ### 1.1 Load Constitution
 
-Read `.claude/rules/constitution.md`. Extract quality gates:
-- Unit coverage target (default: 80%)
-- Integration coverage target (default: 70%)
+Read `.claude/rules/constitution.md`. Extract quality gates from its `## Quality Gates`
+section: the unit and integration coverage floors.
+
+**There is no default. If you cannot read a floor from the constitution, say so and carry
+on with coverage unenforced** — report it in the phase gate's output as
+`coverage floor unreadable — not enforced`, and never substitute a number.
+
+A default here is worse than no gate. This text used to read *"default: 80%"* / *"default:
+70%"* while the shipped constitution states 60% / 50%, so the one path that fires when the
+parse fails silently imposed a gate 20 points stricter than the project's own standard —
+invented strictness, in a document whose own authoring rules forbid exactly that
+(`trd-authoring.md`: source the severity, not just the requirement). The floors are the
+project's considered answer; if they cannot be read, that is a fact to report, not a gap
+to fill.
 
 ### 1.2 TRD Selection (branch-derived, D13)
 

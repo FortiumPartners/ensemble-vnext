@@ -393,7 +393,13 @@ function render(stateDir, { phase = null } = {}) {
   const byKind = {};
   for (const r of rows) (byKind[r.kind] = byKind[r.kind] || []).push(r);
 
-  const lines = [`DISCOVERED — ${rows.length} item(s) this run found but did NOT do:`];
+  // NOT "this run" — the ledger is append-only across every invocation of this feature's
+  // implement loop, so a completion-time call with no `phase` filter renders everything ever
+  // recorded, including items from weeks-old runs. The header used to claim "this run found",
+  // which reads as a fresh count and was wrong by construction: there is no per-run or
+  // resolved/unresolved distinction here to filter on (a promoted discovery is never marked
+  // back in this ledger), so all recorded items still show until someone acts on them.
+  const lines = [`DISCOVERED — ${rows.length} item(s) recorded for this feature, not yet acted on:`];
   for (const kind of KINDS) {
     for (const r of byKind[kind] || []) {
       const where = r.file ? ` (${r.file})` : '';
