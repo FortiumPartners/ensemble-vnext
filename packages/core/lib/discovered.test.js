@@ -4,6 +4,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { record, readAll, render, ledgerPath, promoteToTrd, MAX_LINE_BYTES } = require('./discovered');
+const { parseTrd } = require('./trd-parser');
+const { buildGraph } = require('./task-graph');
 
 let dir;
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'disc-')); });
@@ -165,5 +167,66 @@ describe('promoteToTrd', () => {
   it('does not emit two rows for the same summary within one call', () => {
     const f = mk(SIX);
     expect(promoteToTrd(f, [disc('dupe'), disc('dupe')]).added).toEqual(['AMEND-001']);
+  });
+
+  /* The actual defect this file was asked to close: a promoted task with no grounding block
+   * is invisible to `buildGraph`'s file-conflict inference, so two promoted tasks that touch
+   * the same file can land in the same wave and lose each other's edits. These three prove
+   * the round trip -- promote, re-parse with the real parser, re-build the real graph -- end
+   * to end, rather than asserting on `discovered.js`'s own output in isolation. */
+  describe('grounding emission', () => {
+    it('round-trips a Touches field through the real parser when the record names a file', () => {
+      const f = mk(SIX);
+      const r = promoteToTrd(f, [disc('a defect', 'packages/core/lib/thing.js')]);
+      expect(r.added).toEqual(['AMEND-001']);
+
+      const parsed = parseTrd(fs.readFileSync(f, 'utf-8'));
+      expect(parsed.grounding['AMEND-001']).toBeDefined();
+      expect(parsed.grounding['AMEND-001'].touches).toContain('packages/core/lib/thing.js');
+    });
+
+    it('gives two promoted tasks naming the same file a file-conflict edge, not the same wave', () => {
+      const f = mk(SIX);
+      const shared = 'packages/core/lib/shared.js';
+      const r = promoteToTrd(f, [
+        disc('first defect', shared),
+        disc('second defect', shared),
+      ]);
+      expect(r.added).toEqual(['AMEND-001', 'AMEND-002']);
+
+      const parsed = parseTrd(fs.readFileSync(f, 'utf-8'));
+      expect(parsed.grounding['AMEND-001'].touches).toContain(shared);
+      expect(parsed.grounding['AMEND-002'].touches).toContain(shared);
+
+      const graph = buildGraph(parsed.tasks, parsed.grounding);
+      const conflict = graph.edges.find(
+        (e) => e.kind === 'file-conflict' &&
+          ((e.from === 'AMEND-001' && e.to === 'AMEND-002') ||
+           (e.from === 'AMEND-002' && e.to === 'AMEND-001'))
+      );
+      expect(conflict).toBeDefined();
+
+      const waveOf = (id) => graph.waves.findIndex((w) => w.includes(id));
+      expect(waveOf('AMEND-001')).not.toBe(waveOf('AMEND-002'));
+    });
+
+    it('writes a grounding block with no fabricated path when the record has no file, and the parser flags the absence', () => {
+      const f = mk(SIX);
+      const r = promoteToTrd(f, [disc('a defect with no known file')]); // no file arg
+      expect(r.added).toEqual(['AMEND-001']);
+
+      const text = fs.readFileSync(f, 'utf-8');
+      expect(text).toContain('### AMEND-001');
+      const blockStart = text.indexOf('### AMEND-001');
+      const nextHeading = text.indexOf('\n### ', blockStart + 1);
+      const block = text.slice(blockStart, nextHeading === -1 ? undefined : nextHeading);
+      expect(block).not.toContain('**Touches:**');
+
+      const parsed = parseTrd(text);
+      expect(parsed.grounding['AMEND-001'].touches).toEqual([]);
+      expect(parsed.warnings.some(
+        (w) => w.includes('AMEND-001') && w.includes('missing the mandatory Touches field')
+      )).toBe(true);
+    });
   });
 });

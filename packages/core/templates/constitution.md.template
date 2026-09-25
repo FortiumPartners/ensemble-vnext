@@ -31,7 +31,10 @@ Project absolutes and architecture invariants for {{PROJECT_DESCRIPTION}}.
 - Most testing must be manual due to non-deterministic nature
 - Test mechanism: `claude --prompt "..." --session-id xxx --dangerously-skip-permissions`
 - Review session logs to verify agents, skills, and hooks used
-- Unit testing applies only to hooks and utility scripts
+- Unit testing applies to hooks and utility scripts, with one exception: a Stop-hook
+  discipline guard is judged by the model itself rather than by code, and is verified
+  against a labeled corpus of examples with an acceptance threshold, not a single
+  pass/fail test — see `.claude/rules/async-discipline.md`
 
 ---
 
@@ -67,7 +70,7 @@ Story/Idea --> PRD --> TRD (with Execution Plan) --> Implementation
 |-------|----------|------------------|-------|
 | Slow | `constitution.md` | Rare, requires confirmation | User |
 | Slow | `stack.md` | Occasional, requires confirmation | User |
-| Fast | `CLAUDE.md` | Frequent, automatic | SessionEnd hook |
+| Fast | `CLAUDE.md` | Frequent, on request | `/update-project`, `/cleanup-project` |
 
 ---
 
@@ -95,7 +98,7 @@ See `stack.md` for complete technology stack definition.
 
 ---
 
-## 12 Streamlined Subagents
+## 13 Streamlined Subagents
 
 | Category | Agent | Responsibility |
 |----------|-------|----------------|
@@ -105,8 +108,9 @@ See `stack.md` for complete technology stack definition.
 | Implement | `frontend-implementer` | UI, components, client logic |
 | Implement | `backend-implementer` | APIs, services, data layer |
 | Implement | `mobile-implementer` | Mobile apps (when applicable) |
+| Implement | `agent-implementer` | AI/agent behaviour: prompts, RAG, agent loops, evals |
 | Quality | `verify-app` | Test execution and verification |
-| Quality | `code-simplifier` | Post-verification refactoring |
+| Quality | `code-simplifier` | Refactoring after verification — dispatched when there is something to clean up, not a fixed stage every phase runs |
 | Quality | `code-reviewer` | Security and quality review |
 | Quality | `app-debugger` | Debug verification failures and bugs |
 | DevOps | `devops-engineer` | Infrastructure and deployment |
@@ -162,7 +166,9 @@ Tasks marked with `[LIVE]` in the TRD override this default and require live ver
 2. **No executable code in skills/agents** - Prompts only
 3. **No implicit knowledge** - Workflows must be explicit in commands
 4. **No blocking hooks** - Hooks never block unless explicitly required
-5. **No auto-commit in SessionEnd** - Stage only, let user/system handle commits
+5. **No auto-commit in SessionEnd** - Stage only, let user/system handle commits. There is
+   no `SessionEnd` hook in this framework, so nothing writes to git without the user or a
+   command asking — this rule is what keeps that true if one is ever added
 6. **No false async claims** - See `.claude/rules/async-discipline.md`. An agent claiming
    "I'll let you know when done" / "running in the background" / "I'll report back" without
    using `Agent({run_in_background: true})`, `ScheduleWakeup`, `Monitor`, or `/goal` in the

@@ -38,29 +38,45 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci || npm install
-      # Scoped to suites that pass today so this gate is meaningful rather than
-      # permanently red. `npm test` locally still runs everything and shows the
-      # real state. Known-failing suites, all predating this workflow:
-      #   packages/core/hooks/status.test.js
-      #   test/evals/framework/judge.test.js
-      #   test/evals/framework/run-eval.test.js
-      # Delete entries from this list as they are fixed.
+      # `npm ci` failing is a signal (lockfile drifted from package.json, or a
+      # dependency vanished from the registry) — `|| npm install` used to
+      # swallow that signal and install possibly-different versions than the
+      # lockfile pins, so a broken lockfile would pass CI silently. `npm ci`
+      # was verified clean against this lockfile on 2026-09-25; no fallback.
+      - run: npm ci
+      # No suite is currently excluded from CI as "known-failing". The three
+      # that were (status.test.js, judge.test.js, run-eval.test.js) all
+      # actually passed — 67, 60 and 42 tests respectively — verified
+      # 2026-09-25 both locally and under `env -i` (no inherited env, no
+      # fixtures tree, no network). 169 tests were invisible to CI for no
+      # reason. If a suite genuinely needs to be skipped outright as
+      # known-failing in the future, exclude it below AND mark it with a
+      # "KNOWN-FAILING" comment naming its path so
+      # check-jest-known-failing.sh can catch it going stale the same way
+      # this one did — see that script for the exact marker format and the
+      # mechanism.
       - name: Run Jest
-        # --runInBand: the parallel worker pool does not tear down on this
-        # suite, so `npx jest` passed in ~2s and then hung until the runner's
-        # 6-hour limit — the "Jest (hooks)" check sat in_progress forever and
-        # never reported. Serial execution exits cleanly and the whole suite
-        # takes 2s, so there is nothing to win from workers here.
+        # --runInBand: the parallel worker pool does not tear down on one of
+        # these suites, so `npx jest` passed in ~2s and then hung until the
+        # runner's 6-hour limit — the "Jest (hooks)" check sat in_progress
+        # forever and never reported. Serial execution exits cleanly and the
+        # whole suite takes ~1s, so there is nothing to win from workers here.
+        #
+        # status.test.js needed its own isolated step until 2026-09-25: the hook
+        # it tests registered real process.stdin listeners at module load with no
+        # `require.main === module` guard, and its 'end' handler could fire
+        # mid-run and call the hook's real process.exit(0) — killing Jest after
+        # 15 of 33 files with exit code 0 and no summary. The guard is now in
+        # status.js, so the suite runs with everything else and a combined run
+        # completes. Do not re-split this step without re-measuring.
         run: |
           npx jest --runInBand \
             --testPathIgnorePatterns \
               '/node_modules/' \
               '<rootDir>/test/evals/analysis-archive/' \
-              '<rootDir>/test/evals/results/' \
-              '<rootDir>/packages/core/hooks/status.test.js' \
-              '<rootDir>/test/evals/framework/judge.test.js' \
-              '<rootDir>/test/evals/framework/run-eval.test.js'
+              '<rootDir>/test/evals/results/'
+      - name: Check no stale "known-failing" Jest exclusions
+        run: ./packages/core/scripts/check-jest-known-failing.sh
 
   bats:
     name: BATS (shell)

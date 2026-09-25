@@ -157,6 +157,11 @@ function promoteToTrd(trdPath, rows, opts = {}) {
   }
 
   const newRows = [];
+  // Parallel to `newRows`/`added`: what each promoted task's grounding block should say.
+  // Built here, alongside the row, so a row and its grounding can never drift apart --
+  // one that ADD-ed a row and skipped the block (or vice versa) is exactly the defect this
+  // function exists to close.
+  const groundingEntries = [];
   for (const r of promo) {
     const where = r.file ? ` (\`${r.file}\`)` : '';
     const summary = `${String(r.summary).replace(/\|/g, '\\|')}${where}`;
@@ -181,12 +186,114 @@ function promoteToTrd(trdPath, rows, opts = {}) {
     if (col.ac >= 0) cells[col.ac] = 'The discovery no longer reproduces';
     newRows.push(`| ${cells.join(' | ')} |`);
     added.push(id);
+    groundingEntries.push({ id, file: r.file });
   }
   if (!newRows.length) return { added, skipped: promo.length };
 
   lines.splice(lastRow + 1, 0, ...newRows);
+  // Grounding is inserted AFTER the row splice, and re-locates its section from scratch on
+  // the now-mutated `lines` — never reuses `headIdx`/`lastRow`, which point at the task
+  // table and are meaningless once used as an index into the Task Grounding section.
+  insertGroundingBlocks(lines, groundingEntries);
   try { fs.writeFileSync(trdPath, lines.join('\n'), 'utf-8'); } catch { return { added: [], skipped: promo.length }; }
   return { added, skipped: promo.length - added.length };
+}
+
+// ---------------------------------------------------------------------------
+// Grounding emission for promoted tasks
+// ---------------------------------------------------------------------------
+
+/** Same heading regex trd-parser.js uses (`^(#{1,6})\s+(.*?)\s*$`), duplicated rather than
+ *  imported: this module has no other dependency on trd-parser.js and pulling one in just
+ *  for a one-line regex would make a promote-time write depend on a parse-time module. */
+const HEADING_RE = /^(#{1,6})\s+(.*?)\s*$/;
+
+/**
+ * Find the LAST heading whose text contains `phrase` (case-insensitive), and the line span
+ * it owns — mirrors trd-parser.js's `findSection(..., {strategy: 'last'})`, which is what
+ * `Task Grounding` is matched with there too (see its comment: prefer the last match over an
+ * accidental earlier collision). Returns null when no such heading exists.
+ */
+function findLastSectionByPhrase(lines, phrase) {
+  let found = null;
+  for (let i = 0; i < lines.length; i++) {
+    const m = HEADING_RE.exec(lines[i]);
+    if (!m) continue;
+    const lvl = m[1].length;
+    const text = m[2].trim();
+    if (!text.toLowerCase().includes(phrase.toLowerCase())) continue;
+    let end = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      const jm = HEADING_RE.exec(lines[j]);
+      if (jm && jm[1].length <= lvl) { end = j; break; }
+    }
+    found = { headingIndex: i, level: lvl, start: i + 1, end };
+  }
+  return found;
+}
+
+/**
+ * Render one `### <id>` grounding block for a promoted task, in the exact bolded shape
+ * `trd-parser.js`'s `BULLET_FIELD_RE` requires (`- **Touches:** ...`) — an unbolded
+ * `- Touches:` parses as nothing and ships a grounding-less task with only a warning, which
+ * is the defect this whole function exists to close.
+ *
+ * When `file` is known, that is the entire protection `buildGraph` needs: a `Touches` entry
+ * lets `computeFilePartition` see the overlap and serialize two promoted tasks that land on
+ * the same file. When it is NOT known, emitting a fabricated path would be worse than
+ * emitting nothing — `task-graph.js`'s partition is keyed on literal path equality, so an
+ * invented placeholder would either silently conflict-edge unrelated tasks (if two records
+ * happened to share the same placeholder text) or just be dead weight. Instead the block is
+ * still written — so the task is not invisible to `/audit-trd` or a human reading the TRD —
+ * but with no `Touches` field at all, which trips trd-parser.js's own
+ * "missing the mandatory Touches field" warning. That warning IS the visible absence this
+ * function is asked to produce, not a decorative fallback string that would only be scraped
+ * into `touches` as a bogus non-path entry.
+ *
+ * @param {string} id
+ * @param {string} [file]
+ * @returns {string[]} lines to splice in, including the heading and trailing blank line
+ */
+function groundingBlockLines(id, file) {
+  const out = [`### ${id}`, ''];
+  if (file) {
+    out.push(`- **Touches:** \`${file}\``);
+  } else {
+    out.push(
+      '- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is ' +
+      'written here — the file-conflict guard in `task-graph.js` cannot protect this task ' +
+      'from a concurrent one until an owner fills in `Touches` by hand. Until then this task ' +
+      'has no inferred conflict edges and may be scheduled alongside anything.'
+    );
+  }
+  out.push('');
+  return out;
+}
+
+/**
+ * Insert grounding blocks for newly-promoted tasks into the TRD's `Task Grounding` section,
+ * creating that section at the end of the document if none exists yet.
+ *
+ * @param {string[]} lines                  the TRD, already split on '\n' (mutated in place)
+ * @param {Array<{id: string, file?: string}>} entries
+ */
+function insertGroundingBlocks(lines, entries) {
+  if (!entries.length) return;
+  const blockLines = [];
+  for (const { id, file } of entries) blockLines.push(...groundingBlockLines(id, file));
+
+  const section = findLastSectionByPhrase(lines, 'Task Grounding');
+  if (section) {
+    let at = section.end;
+    if (at > 0 && lines[at - 1].trim() !== '') {
+      lines.splice(at, 0, '');
+      at += 1;
+    }
+    lines.splice(at, 0, ...blockLines);
+  } else {
+    if (lines.length && lines[lines.length - 1].trim() !== '') lines.push('');
+    lines.push('## Task Grounding', '', ...blockLines);
+  }
 }
 
 function ledgerPath(stateDir) {
