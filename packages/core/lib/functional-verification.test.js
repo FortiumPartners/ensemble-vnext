@@ -427,6 +427,36 @@ describe('renderReport', () => {
     expect(report).toContain(baseInput.reason);
   });
 
+  test('a satisfied outcome with not_verifiable criteria states the unverified count on the Outcome line', () => {
+    // decideNext's "satisfied" means "no gaps" -- a not_verifiable criterion does not block it
+    // (§3.4). Left unqualified, "Satisfied" alone reads as full coverage even when some
+    // criteria were never exercised. Regression for the issue where a run reported satisfied
+    // with several criteria still not_verifiable and nothing on the headline said so.
+    const satisfiedWithGaps = {
+      ...baseInput,
+      outcome: 'satisfied',
+      criteria: [
+        baseInput.criteria[0], // met
+        baseInput.criteria[2], // not_verifiable
+      ],
+    };
+    const report = renderReport(satisfiedWithGaps);
+    const outcomeLine = report.split('\n').find((l) => l.startsWith('**Outcome**'));
+    expect(outcomeLine).toContain('Satisfied');
+    expect(outcomeLine).toContain('1 of 2 not verifiable');
+  });
+
+  test('a satisfied outcome with no not_verifiable criteria leaves the Outcome line unqualified', () => {
+    const cleanSatisfied = {
+      ...baseInput,
+      outcome: 'satisfied',
+      criteria: [baseInput.criteria[0]], // met only
+    };
+    const report = renderReport(cleanSatisfied);
+    const outcomeLine = report.split('\n').find((l) => l.startsWith('**Outcome**'));
+    expect(outcomeLine).toBe('**Outcome**: Satisfied');
+  });
+
   test('an empty Met section renders _None._ rather than a headerless table', () => {
     const noneMet = {
       ...baseInput,

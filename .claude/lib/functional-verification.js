@@ -262,7 +262,16 @@ function renderReport(input) {
   lines.push('');
   lines.push(`**Source PRD**: ${prd}`);
   lines.push(`**Success definition**: ${definitionPath}`);
-  lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}`);
+  // `satisfied` means "no gaps" (decideNext), not "everything was exercised" -- a not_met
+  // criterion blocks satisfied, but a not_verifiable one does not (§3.4). Left unqualified,
+  // the headline reads as a clean pass even when a chunk of the criteria were never checked.
+  // Surface that count on the outcome line itself, not just in the `Criteria` tally three
+  // lines down, since a banner quoting this line alone must not imply full coverage.
+  const outcomeSuffix =
+    outcome === 'satisfied' && notVerifiable.length > 0
+      ? ` (${notVerifiable.length} of ${criteria.length} not verifiable)`
+      : '';
+  lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}${outcomeSuffix}`);
   lines.push(`**Reason**: ${reason}`);
   lines.push(
     `**Criteria**: ${criteria.length} total — ${met.length} met, ${notMet.length} not met, ${notVerifiable.length} not verifiable, ${unbuilt.length} unbuilt` +
