@@ -79,6 +79,19 @@ skills-format checks with the reason "No agent files exist yet", pointing at a d
 concealed — the skip outlived its reason and nobody re-read it. Also corrected "all 12 required
 agents" to 13.
 
+### Fixed — the status.js stdin guard never reached the vendored copy
+
+`2a14474` added the `require.main === module` guard that stops this hook's `process.exit(0)`
+firing inside a Jest run and killing it mid-suite with a success code. It landed in
+`packages/core/hooks/` and was never mirrored to `.claude/hooks/`, so the fix was not live in
+the checkout that executes it.
+
+Two mirror-parity tests had been reporting the drift correctly the whole time. They went unread
+because the BATS run was piped through `tail -6`: the pipe masked bats' non-zero exit, and the
+truncated output had no `not ok` line left to grep. A red build was reported green twice during
+this release. Same shape as everything else here — an instrument reporting success over
+something it never checked.
+
 ### Fixed — six dispatch ledgers tracked despite being gitignored
 
 The ignore patterns were added with a comment naming the damage ("conflicts on every
