@@ -439,13 +439,29 @@ PY
 # Guard 3: in-flight work.
 #
 # True when any .trd-state/*/implement.json contains a task with status
-# "in_progress". Echoes "<task_id> (<feature>)" for the notice message.
+# "in_progress" that is not stale. Echoes "<task_id> (<feature>)" for the
+# notice message.
+#
+# Staleness ceiling: an "in_progress" task older than
+# ACTIVE_RUN_CEILING_SECONDS (1800s / 30min, below) no longer defers a
+# refresh. Without a bound, a task left "in_progress" by a crashed or
+# abandoned session (this repo's own .trd-state carries several, some days
+# old) would defer every future refresh forever, because nothing else ever
+# clears that status. This mirrors router.py's ACTIVE_RUN_CEILING_SECONDS —
+# same 30-minute window, same "unparseable/missing timestamp counts as NOT
+# stale" direction, but the opposite failure lean: router.py fails toward
+# its guard being ON (blocks) when a timestamp can't be trusted, whereas
+# this guard fails toward deferring the refresh (also "safe", since a wrong
+# defer only delays a refresh — it never overwrites in-flight work). A task
+# is timestamped by started_at (falling back to last_advanced, which
+# status.js updates on every SubagentStop, per docs/TRD/runtime-refresh.md
+# and packages/core/hooks/status.js).
 # Arguments:
 #   $1 - project root
 # Outputs:
 #   "<task_id> (<feature>)" on stdout when found.
 # Returns:
-#   0 if in-flight work found, 1 otherwise.
+#   0 if in-flight, non-stale work found, 1 otherwise.
 #######################################
 find_in_flight_task() {
     local root="$1"
@@ -461,6 +477,28 @@ find_in_flight_task() {
         local task_id
         task_id="$(python3 - "$f" <<'PY' 2>/dev/null
 import json, sys
+from datetime import datetime, timezone
+
+# Matches packages/router/hooks/router.py's ACTIVE_RUN_CEILING_SECONDS.
+ACTIVE_RUN_CEILING_SECONDS = 1800
+
+def is_stale(ts):
+    """True only when ts parses AND is older than the ceiling.
+
+    Missing/unparseable timestamps are NOT stale here — see the guard-3
+    docstring above for why this guard's failure direction is "keep
+    deferring", the opposite of router.py's "unknown" degrade.
+    """
+    if not isinstance(ts, str) or not ts:
+        return False
+    try:
+        recorded = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return False
+    if recorded.tzinfo is None:
+        recorded = recorded.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - recorded).total_seconds()
+    return age > ACTIVE_RUN_CEILING_SECONDS
 
 try:
     with open(sys.argv[1]) as fh:
@@ -473,9 +511,13 @@ if not isinstance(tasks, dict):
     sys.exit(1)
 
 for task_id, task in tasks.items():
-    if isinstance(task, dict) and task.get("status") == "in_progress":
-        print(task_id)
-        sys.exit(0)
+    if not isinstance(task, dict) or task.get("status") != "in_progress":
+        continue
+    ts = task.get("started_at") or task.get("last_advanced")
+    if is_stale(ts):
+        continue
+    print(task_id)
+    sys.exit(0)
 
 sys.exit(1)
 PY

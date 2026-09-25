@@ -1944,6 +1944,24 @@ print('\n'.join(names))
     [ "$sha_before" = "$sha_after" ]
 }
 
+@test "RUNTIME-T003: a locally modified verification.md survives refresh byte-identical" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    printf '%s\n' "# My locally authored verification environments" > "$TEST_DIR/.claude/rules/verification.md"
+    local sha_before
+    sha_before="$(shasum "$TEST_DIR/.claude/rules/verification.md" | awk '{print $1}')"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    local sha_after
+    sha_after="$(shasum "$TEST_DIR/.claude/rules/verification.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
 @test "RUNTIME-T003: a framework rule (autonomy.md) IS refreshed" {
     local plugin_dir; plugin_dir="$(_get_plugin_dir)"
 

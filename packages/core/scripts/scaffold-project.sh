@@ -1235,13 +1235,17 @@ refresh_rules() {
     fi
 
     # Defence in depth. The structural derivation above (refreshable == exists in
-    # the framework rules template dir) is correct today, but its safety rests on
-    # an invariant nothing enforces: that nobody ever adds one of these three
-    # filenames to that template directory. Shipping a default constitution.md
-    # template is an entirely plausible feature request, and it would silently
-    # overwrite every project's authored governance on SessionStart. Make the
-    # invariant refuse to break rather than break quietly.
-    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md")
+    # the framework rules template dir) is correct for the rules that are purely
+    # framework prose, but its safety rests on an invariant nothing enforces:
+    # that nobody ever adds an owner-governed filename to that template
+    # directory. verification.md already breaks the "authored files never
+    # appear there" assumption on purpose — it ships a template shape the owner
+    # fills in (environments, credentials, tooling) and its own header says
+    # "Owner-governed, like stack.md. An agent READS this and never writes it."
+    # Without this entry, an unattended --refresh (SessionStart hook) would
+    # silently overwrite that owner-filled copy with the blank template. Make
+    # the invariant refuse to break rather than break quietly.
+    local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md")
 
     local count=0
     local rule_file rule_basename authored skip

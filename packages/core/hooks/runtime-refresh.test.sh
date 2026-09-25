@@ -374,6 +374,68 @@ JSON
     [ "$before" = "$after" ]
 }
 
+@test "T005 guard3: stale in-flight task (started_at > 30min old) no longer defers — refresh proceeds" {
+    _write_installed_plugins "$PLUGIN_DIR" "2.0.0"
+    _write_target_settings "1.0.0"
+    _install_stub_scaffold success
+
+    local stale_ts
+    stale_ts="$(python3 -c "
+from datetime import datetime, timedelta, timezone
+print((datetime.now(timezone.utc) - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ'))
+")"
+
+    mkdir -p "$TARGET_DIR/.trd-state/some-feature"
+    cat > "$TARGET_DIR/.trd-state/some-feature/implement.json" <<JSON
+{
+  "tasks": {
+    "AUTH-B003": { "status": "in_progress", "started_at": "${stale_ts}" }
+  }
+}
+JSON
+
+    run _run_hook
+    [ "$status" -eq 0 ]
+
+    # The stale task must not appear in a deferral notice — the refresh
+    # should have run instead.
+    [ -f "${TEST_DIR}/stub_scaffold_invoked" ]
+
+    local ctx
+    ctx="$(_extract_context "$output")"
+    [[ "$ctx" != *"deferred"* ]]
+}
+
+@test "T005 guard3: fresh in-flight task (started_at < 30min old) still defers" {
+    _write_installed_plugins "$PLUGIN_DIR" "2.0.0"
+    _write_target_settings "1.0.0"
+    _install_stub_scaffold success
+
+    local fresh_ts
+    fresh_ts="$(python3 -c "
+from datetime import datetime, timedelta, timezone
+print((datetime.now(timezone.utc) - timedelta(minutes=5)).strftime('%Y-%m-%dT%H:%M:%SZ'))
+")"
+
+    mkdir -p "$TARGET_DIR/.trd-state/some-feature"
+    cat > "$TARGET_DIR/.trd-state/some-feature/implement.json" <<JSON
+{
+  "tasks": {
+    "AUTH-B003": { "status": "in_progress", "started_at": "${fresh_ts}" }
+  }
+}
+JSON
+
+    run _run_hook
+    [ "$status" -eq 0 ]
+
+    local ctx
+    ctx="$(_extract_context "$output")"
+    [[ "$ctx" == *"AUTH-B003"* ]]
+    [[ "$ctx" == *"deferred"* ]]
+    [ ! -f "${TEST_DIR}/stub_scaffold_invoked" ]
+}
+
 # --- Guard 4: monotonic version (equal and older) ---
 
 @test "T005 guard4: plugin version equal to vendored — no writes" {
