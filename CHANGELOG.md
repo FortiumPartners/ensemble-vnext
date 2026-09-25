@@ -10,6 +10,91 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.7.1] - 2026-09-25
+
+Seven things that reported success over work that had not happened. No new capability — every
+change here makes an existing mechanism tell the truth.
+
+### Fixed — a verification report said "Satisfied" over criteria it never exercised
+
+The loop marks a criterion `not_verifiable` when it cannot reach what the criterion describes.
+Those correctly do not block the exit, but the report's **Outcome** line printed a bare
+"Satisfied" with the unexercised count three lines below it. Live in this repo: the
+plan-weight-router run reads `satisfied` with **6 of its 32** criteria never exercised. The
+Outcome line now carries the count. The gate is unchanged — this was disclosure, not gating.
+
+### Fixed — `/sweep` silently dropped work past an invented cap
+
+Found by running it on a seven-item list and counting what came back: six. `MAX_PARALLEL_REGIONS`
+was **6** — no comment, no source, the only cap of its kind in any workflow, and about a third of
+the platform's real 20-slot pool. Worse than arbitrary, it was lossy: the script sliced the
+region list, stored the remainder in a variable, logged that those regions "will run after the
+first 6", and never referenced that variable again. Run `wf_2d45cee7-f89` reported
+**6 fixed / 0 failed / 0 deferred** over a list it had shortened.
+
+Now 20, with the source named; overflow runs in a second batch; and a new accounting check
+throws if any triaged issue produces no result. Both new tests confirmed failing against the
+parent commit. The file's existing 11 tests passed throughout the defect's life because none
+used more regions than the cap.
+
+### Fixed — the refresh overwrote the one file only the owner can write
+
+`verification.md` was absent from `scaffold-project.sh`'s owner-authored guard list, so every
+refresh copied the blank template over the project's copy. That file tells the functional
+verifier which environments exist, its own first line says an agent never writes it, and
+`runtime-refresh.sh` invokes the refresh unattended at SessionStart. Filling it in correctly
+guaranteed losing it.
+
+### Fixed — the in-flight guard deferred every refresh in this repo for a month
+
+It declined to refresh while any task read `in_progress`, with no age bound, and nothing clears
+that status after a crash. Three rows abandoned on 2026-08-25 had blocked every refresh since.
+Now bounded at 1800s, matching `router.py`'s `ACTIVE_RUN_CEILING_SECONDS`. A missing or
+unparseable timestamp still defers: a wrong defer delays an upgrade, a wrong refresh rewrites
+command text under a running loop.
+
+### Fixed — a crashed run left tasks no command could repair
+
+`--reconcile` only examined rows marked `success`, so it never saw the shape a killed session
+leaves: `in_progress` with `cycle_position: complete`, which arises because a hook advances the
+cycle on every subagent stop while only the command writes the status. `--reconcile` skipped
+them, `--resume` would rebuild them. Those rows now reopen; a task still legitimately running
+is untouched.
+
+### Fixed — two documents that stated something the project does not believe
+
+`/implement-trd`'s preflight defaulted coverage to **80%/70%** against the constitution's
+**60%/50%**, so the one path that fires when reading the floors fails imposed invented
+strictness. There is no default now — an unreadable floor is reported as unenforced. Last
+place carrying a hardcoded coverage number after `df186cc`.
+
+`discovered.js`'s `render()` printed every record ever written under a header saying "this
+run": 56 records here, 40 unresolved, oldest 2026-08-23, presented as current findings.
+
+### Fixed — five agent-frontmatter tests disabled on a false premise
+
+`agent-validation.test.js` skipped its frontmatter, required-fields, name-match and
+skills-format checks with the reason "No agent files exist yet", pointing at a directory holding
+13 agent files. Every agent shipped since went out unvalidated. They pass, so nothing was
+concealed — the skip outlived its reason and nobody re-read it. Also corrected "all 12 required
+agents" to 13.
+
+### Fixed — six dispatch ledgers tracked despite being gitignored
+
+The ignore patterns were added with a comment naming the damage ("conflicts on every
+cherry-pick or rebase that crosses it — three times while splitting one branch");
+`git rm --cached` never followed. Removed from the index; files remain on disk.
+
+### Known open
+
+- `/audit-build` still writes no durable report — the only traceability check in the pipeline,
+  surviving as transcript only.
+- Nothing closes a feature: `docs/TRD/completed/` holds 1 TRD against 17 active. This is the
+  structural cause behind the stale `in_progress` rows and the unbounded discovery ledger,
+  and the age bound above treats the symptom.
+- `buildTrdGraph` in `trd-graph.js` computes cross-TRD file conflicts and has no caller outside
+  its own test.
+
 ## [4.7.0] - 2026-09-24
 
 The Stop-hook judge rebuilt against measured data: it stops interrupting correct work and

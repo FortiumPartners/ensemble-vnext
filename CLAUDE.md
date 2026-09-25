@@ -528,8 +528,32 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.7.0** (2026-09-24). 18 commands, 13 subagents. Test battery: 1120 Jest,
-107 pytest, 658 BATS.
+Released at **4.7.1** (2026-09-25). 18 commands, 13 subagents. Test battery: 1129 Jest,
+107 pytest, 661 BATS.
+
+4.7.1 is a patch with one theme: seven places that reported success over work that had not
+happened. No new capability.
+
+The two worth knowing about as behaviour changes. **A verification report no longer says a bare
+"Satisfied" when criteria went unexercised** — the Outcome line now carries the count, and this
+repo's own latest run reads `satisfied` with 6 of 32 never checked. **`/sweep` no longer drops
+work past its parallel cap**: the cap was an unsourced 6 against the platform's real 20, and
+regions past it were sliced off after a log line promising they would run later. Found by
+counting seven issues in and six out; the run reported 0 failed. The cap is 20 with its source
+named, overflow runs in a second batch, and an accounting check now throws if any triaged issue
+produces no result at all.
+
+Also: `scaffold-project.sh --refresh` no longer overwrites an owner-filled `verification.md`;
+the in-flight guard that had deferred every refresh in this checkout for a month is bounded at
+30 minutes, matching `router.py`; `--reconcile` now repairs the `in_progress`/`complete` state a
+killed run leaves; `/implement-trd`'s invented 80%/70% coverage default is gone (an unreadable
+floor is reported as unenforced, not replaced); the discovery ledger stops calling a month of
+records "this run"; five agent-frontmatter tests disabled on the false premise that no agent
+files exist are enabled; and six dispatch ledgers are untracked.
+
+**Still open after this patch:** `/audit-build` writes no durable report, and nothing closes a
+feature — `docs/TRD/completed/` holds 1 against 17 active, which is the structural cause behind
+both the stale `in_progress` rows and the unbounded ledger. The age bound treats that symptom.
 
 4.7.0 rebuilds the `Stop`-hook judge from measurement. Across 3,158 real stops it blocked
 about 1 in 5, and about 95% of sampled blocks were correct turns. It now runs a hand-authored
