@@ -154,8 +154,13 @@ reason, new coverage gaps are added.
 ## Execution: the workflow is the orchestrator
 
 ```
-Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>" } })
+Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false> } })
 ```
+
+`report_only` is not decoration. The workflow drafts the readout, and every "chains to
+`/implement-trd --reconcile`" line in it is a claim about what happens next. Omit the flag on a
+`--report-only` run and the printed readout announces a handoff that was suppressed — the
+false-completion signal the destination wording exists to remove.
 
 The workflow returns a readout. Print it. Findings live in script variables and never enter
 this context, so a large finding set costs nothing here.
@@ -188,15 +193,18 @@ AUDIT-BUILD: <trd path>    PRD: <path>
   MISMATCH — built, but does something other than what was required. The task that produced
     it exists in the TRD, so this always chains to /implement-trd --reconcile.
   UNTESTED-IN-PRACTICE — a test exists but does not prove the requirement
-  FIX THE CITATION — referenced ID or path does not resolve. Corrected here, in this run's
-    own rewrite of the TRD's Could Not Verify section — not chained, not reported elsewhere.
+  FIXED THE CITATION — a referenced ID or path did not resolve AND the fix was inside this
+    run's own rewrite of the TRD's Could Not Verify section. A citation that does not resolve
+    anywhere else in the TRD is reported, not fixed: this step edits no other section.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
 ```
 
 `--report-only` (parsed above, before any of this) suppresses every `/implement-trd
 --reconcile` handoff named in the block above — the findings still print under these
-headings, nothing chains.
+headings, nothing chains. **Say so on the line**: a gap whose chain was suppressed reads
+"work for `/implement-trd --reconcile`, not handed off on this run", never "chains to". That
+is why `report_only` is passed to the workflow, which drafts the readout.
 
 One screen. If there are 40 clean requirements, print the count as one line, not forty.
 

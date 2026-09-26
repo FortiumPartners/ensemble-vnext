@@ -126,7 +126,8 @@ AUDIT: <path>    SOURCE: <path>
   CONFIRM THESE ARE WANTED — no objective named
   FIXED THE CITATION — referenced ID did not resolve
   CORRECTED A STALE CLAIM — asserted something the code contradicts
-  CAVEAT — <n> claims went unchecked; see the TRD's ## Could Not Verify
+  CAVEAT — what this run did NOT check: <n> claims left unchecked (see the TRD's
+    ## Could Not Verify), plus any verifier that failed to report. Name both if both apply.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — sourced, listed for completeness
 ```

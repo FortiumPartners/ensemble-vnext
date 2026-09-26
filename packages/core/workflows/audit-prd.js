@@ -428,7 +428,10 @@ empty ones:
   CONFIRM THESE ARE WANTED — no source names them
   FIXED THE CITATION — referenced ID did not resolve
   CORRECTED A STALE CLAIM — the PRD asserted something the code contradicts
-  CAVEAT — <n> claims went unchecked; see the PRD's ## Could Not Verify
+  CAVEAT — what this run did NOT check: <n> claims left unchecked (see the PRD's
+    ## Could Not Verify), and any verifier that failed to report. Name both when both
+    apply -- a coverage gap and a deferred claim are different facts and this is the only
+    heading either one gets.
   NO ACTION — sourced, listed for completeness
 
 One screen. If there are 40 sourced requirements, print the COUNT as one line, not forty.`,
