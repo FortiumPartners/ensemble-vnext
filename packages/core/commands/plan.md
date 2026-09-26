@@ -1,12 +1,24 @@
 ---
 name: plan
-description: Investigate a defect, change, or refactor and route it to the pipeline its weight earns — a light TRD, a phased TRD, or a PRD when the intent isn't settled. Stops there unless --implement is passed.
-version: 1.0.0
+description: Pipeline entry point for work below the PRD threshold. Investigates, decides how much verification the work earns, and writes a TRD sized to match — light, phased, or a handoff to /create-prd when the intent is not settled. Implements only with --implement.
+version: 1.1.0
 argument-hint: "[description | source path | issue ref] [--implement]"
 category: implementation
-# Expensive, and its description matches how a user would phrase the task —
-# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
-disable-model-invocation: true
+# MODEL-INVOCABLE as of 2026-09-26, owner-requested. It carried
+# `disable-model-invocation: true` for one stated reason -- not authorization, which the
+# comment itself assigned to autonomy.md, but accidental selection: the description read like
+# how a user phrases a task ("Investigate a defect, change, or refactor..."), so a message such
+# as "investigate why the export is broken" could match it and start an expensive run nobody
+# asked for. The risk was real and the remedy is now in the description rather than in a flag:
+# it opens on the MECHANISM ("Pipeline entry point...") rather than echoing a request, so it no
+# longer competes with the user's own phrasing.
+#
+# Two things make removing the flag safe rather than merely convenient. Scope authorization is
+# still autonomy.md's -- this command stops at its own banner and `--implement` remains the only
+# thing that starts work, at every weight. And the router hint that names /plan on every turn
+# tells the model to PROPOSE it, which is a recommendation to the owner, not a licence to run it;
+# a deliberate Skill() call by an agent that has read the subject is a different act from a
+# description match, and it is the one the owner asked to enable.
 ---
 
 > **Usage:** `/plan <what>` — or bare `/plan` to write up something decided in this
