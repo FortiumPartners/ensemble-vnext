@@ -16,17 +16,22 @@
     "test:evals": "jest --testPathIgnorePatterns '/node_modules/' --testPathPattern 'test/evals'",
     "check:versions": "./packages/core/scripts/check-version-sync.sh",
     "smoke": "./test/smoke/run-smoke.sh",
-    "smoke:full": "./test/smoke/run-smoke.sh --with-llm"
+    "smoke:full": "./test/smoke/run-smoke.sh --with-llm",
+    "test:tooling": "jest --testPathIgnorePatterns '/node_modules/' --testPathPattern 'test/(evals|discipline-corpus|integration/hooks)'"
   },
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
       "<rootDir>/.claude/worktrees/",
-      "<rootDir>/test/evals/"
+      "<rootDir>/test/evals/",
+      "<rootDir>/test/discipline-corpus/",
+      "<rootDir>/test/integration/hooks/"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/.claude/worktrees/",
-      "<rootDir>/test/evals/"
+      "<rootDir>/test/evals/",
+      "<rootDir>/test/discipline-corpus/",
+      "<rootDir>/test/integration/hooks/"
     ]
   },
   "repository": {
