@@ -123,6 +123,78 @@ State the limit plainly: **tier 1 cannot check image evidence**, which is why as
 Bound slices by reading the owner's declarations and the runner's own config. Judge and Debug
 stay single agents.
 
+## Also in scope, from the wider investigation
+
+These are independent of the convergence work and were established separately. They were
+dropped from an earlier draft of this brief by over-correction; they are not lower value.
+
+**`/sweep`, add to the list above:**
+
+7. **Move the environment preflight from `implement-trd.md` §8.4a to §3.6.** It currently sits
+   inside Step 8 — after the whole phase loop and the end-of-run review — so the single batched
+   owner question lands hours into a run. §3.6 already does early `--verify` work. Mirror in
+   `verify-build.md` §2, which delegates to it. Pure relocation. [ran]
+8. **Pass `verification.md` to the loop.** It is not among the 15 arguments
+   `verify-functional.js` receives, so it affects only the orchestrator's own preflight
+   reasoning, which nothing records and no code checks. Every environment-aware behaviour below
+   depends on this. [ran]
+9. **Record the `not_verifiable` REASON in the state file, and make it re-checkable.** The field
+   is empty in all 55 such entries; the explanation exists only as prose in the rendered report.
+   Structured, it gives a post-deploy re-check list: 43 of 96 blockers needed a deploy, so those
+   criteria are not permanently unverifiable — they are pending. Nothing brings them back today.
+   [ran]
+10. **A "wired?" check at the phase gate** — does every newly exported symbol have a non-test
+    caller? Deterministic grep, no agent, independent of everything else here. It would have
+    caught both "built but never wired" production failures quoted above. Generalises to every
+    repo; needs no environment and no declarations.
+
+**`/plan`, fold in with the convergence work:**
+
+- **A data-permission column in `verification.md`.** The table has "may DEPLOY?" and "may
+  RESTART?" and cannot express "read-only". `lightning-lane` authorises production for read-only
+  verification in prose, where nothing can read it; `gcats` records that a probe row on its
+  shared project can never be removed. That is the hazard that manufactured this run's one false
+  defect. [ran]
+- **Fast refresh versus full deploy, per environment.** A cheap path during iteration, the real
+  one at the end. §2 of `verification.md` already has one refresh command per environment; this
+  is a second. **The end-of-run full run must be a gate that fails loudly, not a convention.**
+- **A `preview` row as the template's taught default**, ahead of `dev`/`staging`/`production`.
+  A disposable per-branch target needs no deploy approval and no shared-state risk, which
+  removes most of the asking rather than answering it. For `lightning-lane` this is the only
+  thing that unblocks the 43 deploy-gated criteria — its `dev` and `production` both deploy by
+  the owner's hand.
+
+**Later, as its own piece of work:**
+
+- **A dependency-discovery skill.** Reads the code *and* past verification reports, and triages
+  **what can be mocked versus what genuinely cannot** — a Disney mock already exists; a deploy
+  cannot be mocked. It **proposes a diff** to `verification.md` rather than writing it: that file
+  is owner-governed, and the framework already honours this correctly (a prep agent drafted it
+  and headed it a draft for approval while its sibling was forbidden to touch it). Its input is
+  item 4's output — the list of resources a blank file cannot name.
+
+## Rejected — do not re-propose without new evidence
+
+- **`--harden`, a second implementation pass over completed tasks.** First-pass source survives
+  at **96.4%** median across 37,300 lines and 14 feature commits, while 16–81 later commits touch
+  those files. The existing end-of-run review already finds the readable cross-task holes and
+  stays disciplined by working on code ≤3 days old (~85% of lines it removes). A revisit brief
+  makes neighbours' code in scope by definition, and neighbours' code is the 96%. It also cannot
+  see the dominant hole, which is an absence.
+- **Lanes keyed on runtime.** Wrong unit. Key on declared mutation, and read the runner's own
+  config where it has one.
+- **An outer N-pass implement/review/verify loop.** Superseded by convergence inside the existing
+  loop. Two capped loops give 9 attempts and two termination stories.
+- **Retrying `not_verifiable` in the same session.** 43 of 96 need a deploy that will not happen
+  mid-run. They belong on the post-deploy list.
+- **Requiring an artifact to name the criteria it serves, or capping criteria per artifact.**
+  Refuted in both directions: one artifact named twelve criteria and failed five of the seven
+  citing it; another named none and proved five of six. Addressability, not cardinality.
+- **Framework rules keyed on environment NAME.** No coded policy about `production` or `staging`
+  exists and none should. The table is the entire policy.
+- **Rate limiting as its own concept, read/write inference, environment probing.** Capacity *k*,
+  two declared lanes, and declared-not-discovered respectively.
+
 ## Open, owner's call
 
 1. **The coverage floor** below which a run exits `insufficient-coverage`. Any number is a
