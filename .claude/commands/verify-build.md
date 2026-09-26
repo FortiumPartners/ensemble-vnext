@@ -55,7 +55,7 @@ the TRD basename. No branch derivation — you are verifying what is on disk now
 
 ### 2. Preflight the environment
 
-**Identical to `/implement-trd` §8.4a — read that section and follow it.** Read
+**Identical to `/implement-trd` §3.6a — read that section and follow it.** Read
 `.claude/rules/verification.md` and resolve each criterion as exercisable / `not_verifiable` /
 needs-one-thing-from-the-owner, batch that last bucket into ONE question with a stated
 default, then run on whatever remains. Partial verification with stated gaps beats none.

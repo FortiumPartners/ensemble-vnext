@@ -561,7 +561,8 @@ task":
           foundBy: "{task_id}",
           phase: {phase},
           summary: "one line, what it is",
-          file: "path/to/file.js", // optional
+          file: "path/to/file.js", // optional -- the primary path, if one file dominates
+          files: ["path/a.js", "path/b.js"], // optional -- when the discovery implicates more than one
           evidence: "how you know"  // optional
         })'
 
@@ -711,6 +712,56 @@ the phase loop in the same turn. Nothing here blocks on the derive agent, and no
 reads its output — that happens at Step 8, hundreds of tool calls later, which reads
 whatever `success-definition.md` contains (or reports `not run: no definition produced` if
 the agent never wrote one).
+
+---
+
+### 3.6a Preflight the environment BEFORE spending iterations
+
+**Moved here from the tail of the run (formerly §8.4a) — the whole point is to catch an
+unusable environment before the phase loop spends hours implementing against it, not after.**
+
+**First, check whether `.claude/rules/verification.md` was ever filled in at all:**
+
+```bash
+node .claude/lib/functional-verification.js check-verification-unfilled \
+  .claude/rules/verification.md packages/core/templates/claude-directory/rules/verification.md
+```
+
+If this prints `{"unfilled": true}` — the project's copy is still byte-for-byte (modulo
+whitespace) the shipped template — say so plainly in the readout rather than letting every
+criterion quietly resolve to `not_verifiable` as if the environments had been declared and
+simply didn't cover this one. Then continue: an unfilled file is not a reason to skip the
+loop, it is a reason to name the gap.
+
+Read `.claude/rules/verification.md` and resolve, per criterion, whether it can be exercised
+at all — **before** the `Workflow` call at §8.3, not four criteria into iteration 1.
+
+For each criterion, one of:
+
+- **exercisable** — the environment it needs is listed, reachable, and (if the loop will need
+  to correct) has a refresh command in §2.
+- **not verifiable here** — no environment listed covers it, the tooling is not installed, or
+  §5 already names it as unverifiable. Mark it now. It goes into the report as
+  `not_verifiable` with the reason, and it is never handed to the debugger.
+- **needs one thing from the owner** — a credential that has expired, an approval to deploy to
+  a shared environment, a service that must be started by hand.
+
+**That third bucket is the ONLY legitimate `AskUserQuestion` on this path, and it is asked
+ONCE, here, as a single batched question** naming every criterion affected and the default
+you will apply if unanswered (mark them `not_verifiable` and continue). This is
+`autonomy.md` case 2 — information that genuinely cannot be derived — and asking it up front
+is the difference between one question before the run and a discovery mid-loop that strands
+half the criteria.
+
+**Then run the loop on whatever remains.** A partial verification with the gaps stated is
+worth far more than no verification: the criteria you CAN check still get checked, and the
+ones you cannot are named rather than silently absent.
+
+Observed 2026-08-20 (fanfare): a run reached iteration 1, discovered an expired Salesforce
+token blocking four criteria, and reported those four as `not_met` — recording them as code
+failures when the code was never exercised. Both halves were avoidable here: the expiry was
+discoverable before the loop started, and `not_verifiable` is the status that distinguishes
+"we could not look" from "we looked and it is broken".
 
 ---
 
@@ -1230,8 +1281,8 @@ Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/
 `CLAUDE.md` (repo root) and `.claude/rules/verification.md` (or `""` when it does not exist) as
 `stackHints`, and `packages/core/contracts/functional-verification.md` as `contract`. Without it,
 the Exercise/Judge/Debug agents inside the loop never see the owner's environment declarations —
-only this command's own preflight (§8.4a) reads the file, and that pass ends before the `Workflow`
-call.
+only this command's own preflight (§3.6a) reads the file, run well before the `Workflow`
+call at §8.3.
 
 **Resolve `since` as the LATER of HEAD's commit time and this run's loop start time**
 (functional-verification TRD §3.2):
@@ -1301,40 +1352,6 @@ met/not-met/not-verifiable/unbuilt counts are a tally of that array's `status` v
 dropping it here leaves those four counts with nothing to come from. Nothing beyond those
 three — no re-reading the rendered report, no re-deriving the verdict; the report and the
 state file are already the durable record.
-
----
-
-### 8.4a Preflight the environment BEFORE spending iterations
-
-Read `.claude/rules/verification.md` and resolve, per criterion, whether it can be exercised
-at all — **before** the `Workflow` call, not four criteria into iteration 1.
-
-For each criterion, one of:
-
-- **exercisable** — the environment it needs is listed, reachable, and (if the loop will need
-  to correct) has a refresh command in §2.
-- **not verifiable here** — no environment listed covers it, the tooling is not installed, or
-  §5 already names it as unverifiable. Mark it now. It goes into the report as
-  `not_verifiable` with the reason, and it is never handed to the debugger.
-- **needs one thing from the owner** — a credential that has expired, an approval to deploy to
-  a shared environment, a service that must be started by hand.
-
-**That third bucket is the ONLY legitimate `AskUserQuestion` on this path, and it is asked
-ONCE, here, as a single batched question** naming every criterion affected and the default
-you will apply if unanswered (mark them `not_verifiable` and continue). This is
-`autonomy.md` case 2 — information that genuinely cannot be derived — and asking it up front
-is the difference between one question before the run and a discovery mid-loop that strands
-half the criteria.
-
-**Then run the loop on whatever remains.** A partial verification with the gaps stated is
-worth far more than no verification: the criteria you CAN check still get checked, and the
-ones you cannot are named rather than silently absent.
-
-Observed 2026-08-20 (fanfare): a run reached iteration 1, discovered an expired Salesforce
-token blocking four criteria, and reported those four as `not_met` — recording them as code
-failures when the code was never exercised. Both halves were avoidable here: the expiry was
-discoverable before the loop started, and `not_verifiable` is the status that distinguishes
-"we could not look" from "we looked and it is broken".
 
 ---
 

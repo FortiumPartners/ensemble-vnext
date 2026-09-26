@@ -9,6 +9,7 @@ const {
   checkEvidence,
   decideNext,
   renderReport,
+  isVerificationUnfilled,
   DEFAULT_CAP,
 } = require('./functional-verification');
 
@@ -689,6 +690,98 @@ describe('CLI', () => {
 
     const stdout = execFileSync('node', [MODULE_PATH, 'render-report', '--file', inputFile]).toString();
     expect(stdout).toContain('# Functional Verification Report: demo');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isVerificationUnfilled — preflight for /implement-trd §3.6a and /verify-build §2
+// ---------------------------------------------------------------------------
+
+describe('isVerificationUnfilled', () => {
+  test('identical content is unfilled', () => {
+    const content = '# Verification environments\n\n| Name | URL |\n';
+    expect(isVerificationUnfilled(content, content)).toBe(true);
+  });
+
+  test('differs only by trailing whitespace/newline is still unfilled', () => {
+    const template = '# Verification environments\n\nsome text\n';
+    const project = '# Verification environments\n\nsome text\n\n\n';
+    expect(isVerificationUnfilled(project, template)).toBe(true);
+  });
+
+  test('differs only by CRLF vs LF is still unfilled', () => {
+    const template = '# Verification environments\n\nsome text\n';
+    const project = '# Verification environments\r\n\r\nsome text\r\n';
+    expect(isVerificationUnfilled(project, template)).toBe(true);
+  });
+
+  test('a filled-in project file is not flagged', () => {
+    const template = '# Verification environments\n\n| Name | URL |\n|---|---|\n';
+    const project =
+      '# Verification environments\n\n| Name | URL |\n|---|---|\n| local | http://localhost:3000 |\n';
+    expect(isVerificationUnfilled(project, template)).toBe(false);
+  });
+
+  describe('CLI', () => {
+    let tmpDir;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verification-unfilled-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('reports unfilled: true when the project file matches the template', () => {
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(templatePath, '# Verification environments\n');
+      fs.writeFileSync(projectPath, '# Verification environments\n');
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({ unfilled: true });
+    });
+
+    test('reports unfilled: false when the project file has been edited', () => {
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(templatePath, '# Verification environments\n');
+      fs.writeFileSync(projectPath, '# Verification environments\n\n| local | http://x |\n');
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({ unfilled: false });
+    });
+
+    test('reports a missing project file distinctly, not as either verdict', () => {
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'does-not-exist.md');
+      fs.writeFileSync(templatePath, '# Verification environments\n');
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({ unfilled: null, reason: 'missing', path: projectPath });
+    });
+
+    test('missing arguments print usage and exit non-zero', () => {
+      expect(() => {
+        execFileSync('node', [MODULE_PATH, 'check-verification-unfilled'], { stdio: 'pipe' });
+      }).toThrow();
+    });
   });
 });
 

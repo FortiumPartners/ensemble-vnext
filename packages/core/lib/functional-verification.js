@@ -361,10 +361,37 @@ function renderReport(input) {
   return lines.join('\n');
 }
 
+// ---------------------------------------------------------------------------
+// isVerificationUnfilled — preflight for `/implement-trd` §8.4a and `/verify-build` §2
+// ---------------------------------------------------------------------------
+
+/**
+ * Detects whether the project's `.claude/rules/verification.md` is still the shipped
+ * template, unmodified — i.e. nobody has filled it in with real environments, credentials
+ * and gaps. Both preflight steps read this file to decide, per criterion, whether it can be
+ * exercised; an unfilled file resolves every criterion to "not verifiable here" exactly as a
+ * genuinely-filled-but-empty-environments file would, so without this check the loop reports
+ * a clean-looking `not_verifiable` tally with no hint that the emptiness is the owner's, not
+ * the loop's.
+ *
+ * Compares content with surrounding whitespace and line-ending differences normalised away,
+ * so re-saving the file in an editor that changes CRLF/LF or trims a trailing blank line does
+ * not itself count as "filled in".
+ *
+ * @param {string} projectContent - contents of the project's own verification.md
+ * @param {string} templateContent - contents of the shipped template
+ * @returns {boolean} true when the project copy still matches the template
+ */
+function isVerificationUnfilled(projectContent, templateContent) {
+  const normalize = (s) => String(s).replace(/\r\n?/g, '\n').trim();
+  return normalize(projectContent) === normalize(templateContent);
+}
+
 module.exports = {
   checkEvidence,
   decideNext,
   renderReport,
+  isVerificationUnfilled,
   DEFAULT_CAP,
 };
 
@@ -401,7 +428,8 @@ if (require.main === module) {
       'Usage (JSON payload arg accepts inline JSON, `--file <path>`, or `-` for stdin):\n' +
         "  node functional-verification.js check-evidence '<claims-json>'|--file <path>|- <sinceSec>\n" +
         "  node functional-verification.js decide-next '<input-json>'|--file <path>|-\n" +
-        "  node functional-verification.js render-report '<input-json>'|--file <path>|-"
+        "  node functional-verification.js render-report '<input-json>'|--file <path>|-\n" +
+        '  node functional-verification.js check-verification-unfilled <projectPath> <templatePath>'
     );
     process.exit(1);
   };
@@ -456,6 +484,21 @@ if (require.main === module) {
       usage();
     } else {
       console.log(renderReport(JSON.parse(inputJson)));
+    }
+  } else if (subcommand === 'check-verification-unfilled') {
+    const [projectPath, templatePath] = rest;
+    if (!projectPath || !templatePath) {
+      usage();
+    } else if (!fs.existsSync(projectPath)) {
+      // Missing entirely is a distinct case from "present but unfilled" -- report it rather
+      // than silently treating "no file" as either verdict.
+      console.log(JSON.stringify({ unfilled: null, reason: 'missing', path: projectPath }));
+    } else {
+      const projectContent = fs.readFileSync(projectPath, 'utf8');
+      const templateContent = fs.readFileSync(templatePath, 'utf8');
+      console.log(
+        JSON.stringify({ unfilled: isVerificationUnfilled(projectContent, templateContent) })
+      );
     }
   } else {
     usage();

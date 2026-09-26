@@ -265,5 +265,39 @@ describe('promoteToTrd', () => {
         (w) => w.includes('AMEND-001') && w.includes('missing the mandatory Touches field')
       )).toBe(true);
     });
+
+    it('names every file a multi-file record implicates, not just the primary one', () => {
+      const f = mk(SIX);
+      const r = promoteToTrd(f, [{
+        summary: 'a 12-file amendment landed with one path recorded',
+        file: 'packages/core/lib/a.js',
+        files: ['packages/core/lib/a.js', 'packages/core/lib/b.js', 'packages/core/lib/c.js'],
+        kind: 'bug', foundBy: 'code-review', blocksFeature: true,
+      }]);
+      expect(r.added).toEqual(['AMEND-001']);
+
+      const parsed = parseTrd(fs.readFileSync(f, 'utf-8'));
+      const touches = parsed.grounding['AMEND-001'].touches;
+      expect(touches).toEqual(expect.arrayContaining([
+        'packages/core/lib/a.js', 'packages/core/lib/b.js', 'packages/core/lib/c.js',
+      ]));
+      expect(touches.length).toBe(3); // deduped, not just the primary `file`
+    });
+  });
+
+  it('anchors the acceptance criterion to the specific summary and evidence, not a generic sentence', () => {
+    const f = mk(SIX);
+    promoteToTrd(f, [{
+      summary: 'the clamp order is reversed',
+      evidence: 'unit test clamp_test.js:42 fails on descending input',
+      kind: 'bug', foundBy: 'code-review', blocksFeature: true,
+    }]);
+    const row = fs.readFileSync(f, 'utf-8').split('\n').find((l) => l.startsWith('| AMEND-001'));
+    const cells = row.split('|').slice(1, -1).map((c) => c.trim());
+    // Header order for SIX: Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria
+    const ac = cells[5];
+    expect(ac).toContain('the clamp order is reversed');
+    expect(ac).toContain('clamp_test.js:42');
+    expect(ac).not.toBe('The discovery no longer reproduces');
   });
 });
