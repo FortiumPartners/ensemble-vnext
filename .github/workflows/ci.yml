@@ -80,7 +80,18 @@ jobs:
         # parse-hook-events.test.js and score.test.js both logged as PASS, two
         # suites that were already excluded locally. package.json's jest config is
         # the single source of truth; this step must not shadow it.
-        run: npx jest --runInBand
+        # --verbose + the printed order are instrumentation, not preference. The job
+        # hangs MID-RUN on CI: run 36208255023 logged 14 of 28 suites, no `Tests:`
+        # summary, and 14 suites never started. Every one of those 14 passes and
+        # exits cleanly when run alone locally, and the whole suite finishes in 4.5s
+        # here with stdin closed and CI=true -- so the blocking suite cannot be
+        # identified from this side. Printing the resolution order names the 15th,
+        # and --verbose names the test inside it. Remove both once it is found.
+        run: |
+          echo "--- suite order ---"
+          npx jest --listTests
+          echo "--- run ---"
+          npx jest --runInBand --verbose
       - name: Check no stale "known-failing" Jest exclusions
         run: ./packages/core/scripts/check-jest-known-failing.sh
 
