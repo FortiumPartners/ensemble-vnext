@@ -93,11 +93,22 @@ Prefer fixes that read something already produced over fixes that produce someth
 
 ## Change set
 
-**The ten mechanical fixes have been carved out to `docs/plan/verification-sweep.md`** and are
-summarised below for completeness only. Point `/sweep` at that file, not at this one: a sweep
-fixer given this brief would try to triage the convergence design, and the design is a `/plan`.
+**Sized against reality on 2026-09-26, after a sweep run.** Ten items were carved out as
+mechanical; four were. What actually happened:
 
-### `/sweep` — independent, small (full statements in `verification-sweep.md`)
+- **Landed and verified:** `tier1` and `reason` added to the judge's state-write key list
+  (items 1 and 9); `not_verifiable` no longer promotes to a TRD task, with a test (item 6);
+  `verification.md` now reaches the loop via `stackHints` at both dispatch sites (item 8).
+- **Item 3 was not a defect.** The claim that nothing ends the loop on no progress misread the
+  comment at `verify-functional.js:229`: it says `gapsClosed` is not the loop input *because*
+  `previousGaps` is reconstructed from `criteria` — which IS the stall mechanism.
+  `decideNext()` at `functional-verification.js:180` already exits `stalled` on the first
+  zero-gap iteration. The fixer read the code and correctly changed nothing. **Item 3 is
+  withdrawn.**
+- **Items 4 and 7 remain mechanical** and are the whole of `docs/plan/verification-sweep.md`.
+- **Items 2, 5 and 10 moved into this `/plan`** — see "Folded in from the sweep", below.
+
+### `/sweep` — what remains (full statements in `verification-sweep.md`)
 
 1. **Persist `tier1` alongside `status`.** It is already computed and returned, then dropped. It
    is what separates *never reached* from *reached and failed* — Run 1's `tier1: fail` column ran
@@ -199,6 +210,29 @@ dropped from an earlier draft of this brief by over-correction; they are not low
   is owner-governed, and the framework already honours this correctly (a prep agent drafted it
   and headed it a draft for approval while its sibling was forbidden to touch it). Its input is
   item 4's output — the list of resources a blank file cannot name.
+
+## Folded in from the sweep — not mechanical after all
+
+Three items were listed as independent small fixes and are not. Each carries either a decision
+or a new surface, which is what makes them design work rather than sweep work.
+
+- **An `insufficient-coverage` outcome, distinct from `stuck`** (was sweep item 2). `stuck`
+  currently means both "this loop broke" and "this loop worked and verified almost nothing",
+  and only the first is a bug report. But this adds a value to a state machine whose consumers
+  include `--resume` terminality (`outcome` is the marker that decides whether a later run
+  re-enters the loop) and two commands' banner rendering. An enum value consumers do not
+  handle can break resume silently. **And the numeric floor is an open owner decision** — it
+  is one of the two open questions below.
+- **`promoteToTrd`'s generated row** (was sweep item 5): a placeholder `Serves` naming no
+  objective, a `Touches` carrying one file where the work spans several, and an acceptance
+  criterion that passes whatever happens. The decision inside it: what `Serves` should hold
+  when no objective exists. "Or the row is not written" was hand-waving — suppressing the row
+  changes what `--reconcile` picks up.
+- **A "wired?" check at the phase gate** (was sweep item 10): does every newly exported symbol
+  have a non-test caller? It would have caught both "built but never wired" production
+  failures, needs no environment and generalises to every repo — but it has to define "newly
+  exported" against a base commit, parse exports across JavaScript, Python and shell, and
+  decide whether it blocks or reports. That is a small feature, not a grep.
 
 ## Rejected — do not re-propose without new evidence
 
