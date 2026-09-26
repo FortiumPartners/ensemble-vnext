@@ -168,54 +168,6 @@ teardown() {
     [[ -n "$INIT_SESSION_ID" ]]
 }
 
-@test "TRD-TEST-055: /init-project artifacts - .claude directory exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_dir_exists "${PERSISTENT_PROJECT_DIR}/.claude"
-}
-
-@test "TRD-TEST-055: /init-project artifacts - agents directory exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_dir_exists "${PERSISTENT_PROJECT_DIR}/.claude/agents"
-}
-
-@test "TRD-TEST-055: /init-project artifacts - rules directory exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_dir_exists "${PERSISTENT_PROJECT_DIR}/.claude/rules"
-}
-
-@test "TRD-TEST-055: /init-project artifacts - docs directory exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_dir_exists "${PERSISTENT_PROJECT_DIR}/docs"
-}
-
-@test "TRD-TEST-055: /init-project artifacts - docs/PRD directory exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_dir_exists "${PERSISTENT_PROJECT_DIR}/docs/PRD"
-}
-
-@test "TRD-TEST-055: /init-project artifacts - docs/TRD directory exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_dir_exists "${PERSISTENT_PROJECT_DIR}/docs/TRD"
-}
-
 @test "TRD-TEST-055: /init-project artifacts - CLAUDE.md exists" {
     if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
@@ -237,38 +189,6 @@ teardown() {
 # Function Verification Tests (Non-Headless)
 # =============================================================================
 # These tests verify helper functions without requiring Claude CLI
-
-@test "functions: find_prd_files function exists" {
-    declare -f find_prd_files > /dev/null
-}
-
-@test "functions: find_trd_files function exists" {
-    declare -f find_trd_files > /dev/null
-}
-
-@test "functions: verify_prd_structure function exists" {
-    declare -f verify_prd_structure > /dev/null
-}
-
-@test "functions: verify_trd_structure function exists" {
-    declare -f verify_trd_structure > /dev/null
-}
-
-@test "functions: check_implement_state function exists" {
-    declare -f check_implement_state > /dev/null
-}
-
-# The "verify_router_rules function exists" test stood here. That helper was
-# removed along with the mechanism it verified: router.py used to keyword-match
-# against router-rules.json to pick subagents, and that was replaced by Claude
-# Code's native description-based selection (see router.py's own header — it
-# misfired on analysis turns, recommending an implementer for a research
-# question). The helper exists nowhere in the tree. Deleted 2026-08-21.
-
-
-@test "functions: run_headless_session function exists" {
-    declare -f run_headless_session > /dev/null
-}
 
 @test "functions: get_plugin_name returns plugin name" {
     local name

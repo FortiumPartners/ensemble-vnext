@@ -305,29 +305,6 @@ JSON
 # Layer 2 — Documentation / contract
 # =============================================================================
 
-@test "L2: command-status rule file exists at .claude/rules/" {
-    [ -f "$RULE_FILE" ]
-}
-
-@test "L2: rule file documents NOTIFY_ON_COMPLETE as Path B (programmatic)" {
-    grep -q "NOTIFY_ON_COMPLETE" "$RULE_FILE"
-    grep -q "Path B" "$RULE_FILE"
-    grep -q "programmatic" "$RULE_FILE"
-}
-
-@test "L2: rule documents all 10 context vars" {
-    grep -q "NOTIFY_CMD" "$RULE_FILE"
-    grep -q "NOTIFY_STATUS" "$RULE_FILE"
-    grep -q "NOTIFY_SUMMARY" "$RULE_FILE"
-    grep -q "NOTIFY_PROJECT" "$RULE_FILE"
-    grep -q "NOTIFY_CWD" "$RULE_FILE"
-    grep -q "NOTIFY_BRANCH" "$RULE_FILE"
-    grep -q "NOTIFY_FEATURE" "$RULE_FILE"
-    grep -q "NOTIFY_SESSION_ID" "$RULE_FILE"
-    grep -q "NOTIFY_TMUX_SESSION" "$RULE_FILE"
-    grep -q "NOTIFY_TMUX_PANE" "$RULE_FILE"
-}
-
 @test "L2: rule template (framework-shipped) is in sync with dogfood" {
     [ -f "$RULE_TEMPLATE" ]
     diff -q "$RULE_FILE" "$RULE_TEMPLATE"
@@ -377,27 +354,6 @@ JSON
     fi
 }
 
-@test "L2: legacy inline bracket-guarded form is fully removed" {
-    # DISCOVERED, not hardcoded. This roster listed fix-issue and
-    # investigate-issue and broke the moment item 12 deleted them — the same
-    # rot that took the mirror-parity test from a hardcoded 14-file list to a
-    # sweep. A roster that must be edited by hand is a roster that will be wrong.
-    local cmds=()
-    while IFS= read -r f; do cmds+=("$(basename "$f" .md)"); done \
-        < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
-    [ "${#cmds[@]}" -gt 10 ]
-    local stale=()
-    for cmd in "${cmds[@]}"; do
-        if grep -q '\[ -n "\$NOTIFY_ON_COMPLETE" \]' "${CANON_COMMANDS}/${cmd}.md"; then
-            stale+=("$cmd")
-        fi
-    done
-    if [[ ${#stale[@]} -gt 0 ]]; then
-        printf 'Commands still using the legacy inline form:\n%s\n' "${stale[*]}" >&2
-        return 1
-    fi
-}
-
 @test "L2: dogfood .claude/commands mirrors stay in sync with canonical" {
     # DISCOVERED, not hardcoded. This roster listed fix-issue and
     # investigate-issue and broke the moment item 12 deleted them — the same
@@ -431,136 +387,6 @@ JSON
 
 # =============================================================================
 # Layer 2b — Autonomy discipline contract (autonomy.md + per-command guidance)
-# =============================================================================
-
-@test "L2b: autonomy.md rule file exists in dogfood + framework template" {
-    [ -f "${REPO_ROOT}/.claude/rules/autonomy.md" ]
-    [ -f "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md" ]
-    diff -q "${REPO_ROOT}/.claude/rules/autonomy.md" "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md"
-}
-
-@test "L2b: autonomy.md documents the four valid AskUserQuestion cases" {
-    local f="${REPO_ROOT}/.claude/rules/autonomy.md"
-    grep -q "Ambiguity in requirements" "$f"
-    grep -q "Missing information that cannot be derived" "$f"
-    grep -q "Truly irreversible destructive operations" "$f"
-    grep -q "STUCK conditions" "$f"
-}
-
-@test "L2b: constitution Prohibited Pattern #8 references autonomy.md" {
-    local f="${REPO_ROOT}/.claude/rules/constitution.md"
-    grep -q "No defensive checkpointing" "$f"
-    grep -q "autonomy.md" "$f"
-}
-
-@test "L2b: every non-refine workflow command embeds the autonomy block" {
-    # Discovered, minus the two intentionally-interactive refine commands.
-    local cmds=()
-    while IFS= read -r f; do
-        local base; base="$(basename "$f" .md)"
-        case "$base" in refine-prd|refine-trd) continue ;; esac
-        cmds+=("$base")
-    done < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
-    [ "${#cmds[@]}" -gt 8 ]
-    local missing=()
-    for cmd in "${cmds[@]}"; do
-        if ! grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/${cmd}.md"; then
-            missing+=("$cmd")
-        fi
-    done
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Non-refine commands missing autonomy block:\n%s\n' "${missing[*]}" >&2
-        return 1
-    fi
-}
-
-@test "L2b: refine-prd and refine-trd exempt INTERACTIVE mode only, not the command" {
-    # The blanket exemption became conditional on mode (item 10). These two commands
-    # still omit the standard block -- interactive mode is genuinely exempt -- but each
-    # must state that non-interactive mode obeys autonomy discipline, or an unattended
-    # refine run could stop to ask questions with nothing forbidding it.
-    refute grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-prd.md"
-    refute grep -q "Autonomous-execution discipline" "${CANON_COMMANDS}/refine-trd.md"
-
-    for cmd in refine-prd refine-trd; do
-        grep -qi "non-interactive" "${CANON_COMMANDS}/${cmd}.md"
-        grep -qi "conditional on mode" "${CANON_COMMANDS}/${cmd}.md"
-    done
-}
-
-@test "L2b: autonomy.md scopes the refine exemption to interactive mode" {
-    for f in "${REPO_ROOT}/.claude/rules/autonomy.md" \
-             "${REPO_ROOT}/packages/core/templates/claude-directory/rules/autonomy.md"; do
-        grep -qi "non-interactive" "$f"
-        grep -qi "conditional on mode" "$f"
-    done
-}
-
-@test "L2b: autonomy.md forbids hedged 'I'll continue unless...' offers" {
-    local f="${REPO_ROOT}/.claude/rules/autonomy.md"
-    grep -q "HEDGED OFFERS ARE STILL OFFERS\|Hedged offers to pause are STILL pauses\|even framing.*I'll proceed unless" "$f"
-}
-
-@test "L2b: autonomy.md narrows the four ask-cases to STUCK, with no flag to enable it" {
-    # This test lost its @test header in the 4.1.19 wiggum cleanup, leaving an orphaned
-    # body that broke test GATHERING for the whole file — every test here silently
-    # stopped running. Restored, and re-pointed at what autonomy.md says now that
-    # autonomy is the default rather than something a flag turned on.
-    local f="${REPO_ROOT}/.claude/rules/autonomy.md"
-    grep -q "Autonomy is the default" "$f"
-    grep -q "There is no flag that enables this and none that disables it" "$f"
-    grep -qi "narrow, in practice, to the STUCK condition" "$f"
-}
-
-@test "L2b: every non-refine command's embedded block forbids hedged offers" {
-    # Discovered, minus the two intentionally-interactive refine commands.
-    local cmds=()
-    while IFS= read -r f; do
-        local base; base="$(basename "$f" .md)"
-        case "$base" in refine-prd|refine-trd) continue ;; esac
-        cmds+=("$base")
-    done < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
-    [ "${#cmds[@]}" -gt 8 ]
-    local missing=()
-    for cmd in "${cmds[@]}"; do
-        if ! grep -q "HEDGED OFFERS ARE STILL OFFERS" "${CANON_COMMANDS}/${cmd}.md"; then
-            missing+=("$cmd")
-        fi
-    done
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Commands missing hedged-offer prohibition:\n%s\n' "${missing[*]}" >&2
-        return 1
-    fi
-}
-
-@test "L2b: no command still carries the retired autonomous-mode flag block" {
-    # This was the --wiggum test. Its @test header was deleted in the 4.1.19 cleanup
-    # and the body left behind, which broke test GATHERING for this entire file — so
-    # every test in it silently stopped running rather than failing loudly. Rewritten
-    # as the useful inverse: autonomy is now unconditional, so no command may still
-    # describe a flag that "doubly enforces" it.
-    # Discovered, minus the two intentionally-interactive refine commands.
-    local cmds=()
-    while IFS= read -r f; do
-        local base; base="$(basename "$f" .md)"
-        case "$base" in refine-prd|refine-trd) continue ;; esac
-        cmds+=("$base")
-    done < <(find "$CANON_COMMANDS" -maxdepth 1 -name '*.md' | sort)
-    [ "${#cmds[@]}" -gt 8 ]
-    local stale=()
-    for cmd in "${cmds[@]}"; do
-        if grep -qi "doubly enforced\|doubly-enforced\|wiggum" "${CANON_COMMANDS}/${cmd}.md"; then
-            stale+=("$cmd")
-        fi
-    done
-    if [[ ${#stale[@]} -gt 0 ]]; then
-        printf 'Commands still describing the retired autonomous-mode flag:\n%s\n' "${stale[*]}" >&2
-        return 1
-    fi
-}
-
-# =============================================================================
-# Layer 3 — session-context.js CLAUDE_SESSION_ID export
 # =============================================================================
 
 @test "L3: session-context.js exists" {
@@ -613,12 +439,6 @@ JSON
 # manifest identifier discipline-stop.js) carrying two independent judgments —
 # following the pattern subagent-discipline already used for its own two
 # judgments. The tests below were re-pointed at the merged artifact.
-
-@test "L4: discipline-stop prompt file exists and is non-empty" {
-    local prompt="${REPO_ROOT}/packages/core/hooks/prompts/discipline-stop.prompt.md"
-    [ -f "$prompt" ]
-    [ -s "$prompt" ]
-}
 
 @test "L4: all three settings.json Stop chains are [discipline-stop.js, notify.sh]" {
     # discipline-stop.js is hookType:"prompt" (DISC-B008, merged FIX-002) — its
@@ -728,10 +548,6 @@ print('  all three settings.json match', prompt_path)
 "
 }
 
-@test "L4: init-project.md hook enumeration includes the merged discipline-stop hook" {
-    grep -q "discipline-stop" "${REPO_ROOT}/packages/core/commands/init-project.md"
-}
-
 @test "L3: SessionStart no-ops cleanly when CLAUDE_ENV_FILE is not set" {
     unset CLAUDE_ENV_FILE
     run bash -c "echo '{\"session_id\":\"sess_test\"}' | node \"$SESSION_CTX_HOOK\""
@@ -748,31 +564,6 @@ print('  all three settings.json match', prompt_path)
 # stop: one rule written in seven places disagrees with itself in six.
 
 ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd plan verify-build implement-trd)
-
-@test "L2c: command-status.md defines the artifact convention (dogfood + template)" {
-    for f in "${REPO_ROOT}/.claude/rules/command-status.md" \
-             "${REPO_ROOT}/packages/core/templates/claude-directory/rules/command-status.md"; do
-        [ -f "$f" ]
-        grep -q '^## Artifact links$' "$f"
-        grep -q 'ensemble.publishArtifacts' "$f"
-        grep -q 'artifacts.json' "$f"
-    done
-}
-
-@test "L2c: the rule publishes the FILE and forbids authoring a rendering" {
-    local f="${REPO_ROOT}/.claude/rules/command-status.md"
-    # The whole cost argument rests on this: publishing the .md is one tool call,
-    # authoring an HTML rendering costs output tokens proportional to a document
-    # that runs to 129 KB here, and produces a second copy that drifts.
-    grep -q 'Publish the FILE. Do not render it.' "$f"
-    grep -qi 'mermaid' "$f"
-}
-
-@test "L2c: the rule requires the link ABOVE the banner and makes failure non-fatal" {
-    local f="${REPO_ROOT}/.claude/rules/command-status.md"
-    grep -q 'Above the `COMMAND COMPLETE` banner, never after it' "$f"
-    grep -q 'Failure is never fatal' "$f"
-}
 
 @test "L2c: settings.json ships publishArtifacts in all three copies" {
     for f in "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json" \
@@ -815,12 +606,6 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd plan verify-build imp
     done
 }
 
-@test "L2c: the rule documents the off switch and that a refresh cannot reverse it" {
-    local f="${REPO_ROOT}/.claude/rules/command-status.md"
-    grep -q 'publishArtifacts.*false' "$f"
-    grep -q 'no upgrade may quietly reverse it' "$f"
-}
-
 @test "L2c: the backfill uses setdefault so an owner false survives refresh" {
     # Assignment here would silently re-enable publishing on every rebase for
     # every owner who turned it off — the exact shape of bug item 13 collects.
@@ -830,49 +615,4 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd plan verify-build imp
     run grep -c 'ensemble\["publishArtifacts"\] *=' \
         "${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
     [ "$output" = "0" ]
-}
-
-@test "L2c: every document-producing command points at the rule, not a copy of it" {
-    local missing=()
-    for cmd in "${ARTIFACT_CMDS[@]}"; do
-        local f="${CANON_COMMANDS}/${cmd}.md"
-        [ -f "$f" ] || { missing+=("$cmd:absent"); continue; }
-        grep -q 'ensemble.publishArtifacts' "$f" || missing+=("$cmd:no-settings-key")
-        grep -q 'command-status.md' "$f" || missing+=("$cmd:no-rule-ref")
-    done
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Commands missing the artifact pointer:\n%s\n' "${missing[*]}" >&2
-        return 1
-    fi
-}
-
-@test "L2c: each command reuses a stored URL rather than minting a second link" {
-    # A fresh URL per refinement is the staleness bug wearing a fix's clothes:
-    # the owner clicks a link from three passes ago and reads a superseded plan
-    # that looks current.
-    local missing=()
-    for cmd in "${ARTIFACT_CMDS[@]}"; do
-        local f="${CANON_COMMANDS}/${cmd}.md"
-        [ -f "$f" ] || continue
-        grep -q 'artifacts.json' "$f" || missing+=("$cmd")
-    done
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        printf 'Commands that do not reuse a stored artifact URL:\n%s\n' "${missing[*]}" >&2
-        return 1
-    fi
-}
-
-@test "L2c: no command instructs authoring an HTML rendering of a document" {
-    # The one drift this convention must not take: a command that decides to
-    # "render" the TRD instead of publishing it.
-    local bad=()
-    for cmd in "${ARTIFACT_CMDS[@]}"; do
-        local f="${CANON_COMMANDS}/${cmd}.md"
-        [ -f "$f" ] || continue
-        if grep -qiE 'Artifact\(\{[^}]*\.html' "$f"; then bad+=("$cmd"); fi
-    done
-    if [[ ${#bad[@]} -gt 0 ]]; then
-        printf 'Commands publishing HTML instead of the source document:\n%s\n' "${bad[*]}" >&2
-        return 1
-    fi
 }

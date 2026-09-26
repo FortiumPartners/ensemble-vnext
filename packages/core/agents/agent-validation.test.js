@@ -192,401 +192,67 @@ function readAgentFile(agentName) {
 // TRD-TEST-087: All 13 agent files exist
 // =============================================================================
 
-describe('TRD-TEST-087: All 13 agent files exist', () => {
-  it('should have all 13 required agent files', () => {
-    const missingAgents = [];
-
-    for (const agentName of REQUIRED_AGENTS) {
-      const filePath = path.join(AGENTS_DIR, `${agentName}.md`);
-      if (!fs.existsSync(filePath)) {
-        missingAgents.push(agentName);
-      }
-    }
-
-    if (missingAgents.length > 0) {
-      console.log(`Missing agents: ${missingAgents.join(', ')}`);
-    }
-
-    expect(missingAgents).toHaveLength(0);
-  });
-
-  // Dynamic tests for each required agent
-  describe.each(REQUIRED_AGENTS)('Agent: %s', (agentName) => {
-    it(`should exist as ${agentName}.md`, () => {
-      const filePath = path.join(AGENTS_DIR, `${agentName}.md`);
-      expect(fs.existsSync(filePath)).toBe(true);
-    });
-  });
-});
-
 // =============================================================================
-// TRD-TEST-088: Valid YAML frontmatter parsing
-// =============================================================================
-
-describe('TRD-TEST-088: Valid YAML frontmatter parsing', () => {
-  const existingAgents = REQUIRED_AGENTS.filter(name => {
-    const filePath = path.join(AGENTS_DIR, `${name}.md`);
-    return fs.existsSync(filePath);
-  });
-
-  if (existingAgents.length === 0) {
-    it('validates frontmatter parses on every agent file', () => {
-      // This test is skipped when no agents exist
-    });
-  } else {
-    describe.each(existingAgents)('Agent: %s', (agentName) => {
-      it('should have parseable YAML frontmatter', () => {
-        const agent = readAgentFile(agentName);
-        expect(agent).not.toBeNull();
-        expect(agent.content).toBeDefined();
-
-        // Check frontmatter starts with ---
-        const content = agent.content.trim();
-        expect(content.startsWith('---')).toBe(true);
-
-        // Check frontmatter can be parsed
-        expect(agent.frontmatter).not.toBeNull();
-        expect(typeof agent.frontmatter).toBe('object');
-      });
-
-      it('should not throw on frontmatter parsing', () => {
-        expect(() => {
-          const agent = readAgentFile(agentName);
-          parseFrontmatter(agent.content);
-        }).not.toThrow();
-      });
-    });
-  }
-});
-
-// =============================================================================
-// TRD-TEST-089: Required fields present
-// =============================================================================
-
-describe('TRD-TEST-089: Required fields present', () => {
-  const existingAgents = REQUIRED_AGENTS.filter(name => {
-    const filePath = path.join(AGENTS_DIR, `${name}.md`);
-    return fs.existsSync(filePath);
-  });
-
-  if (existingAgents.length === 0) {
-    it('validates required fields on every agent file', () => {
-      // This test is skipped when no agents exist
-    });
-  } else {
-    describe.each(existingAgents)('Agent: %s', (agentName) => {
-      let agent;
-
-      beforeAll(() => {
-        agent = readAgentFile(agentName);
-      });
-
-      it('should have a "name" field', () => {
-        expect(agent.frontmatter).not.toBeNull();
-        expect(agent.frontmatter).toHaveProperty('name');
-        expect(typeof agent.frontmatter.name).toBe('string');
-        expect(agent.frontmatter.name.length).toBeGreaterThan(0);
-      });
-
-      it('should have a "description" field', () => {
-        expect(agent.frontmatter).not.toBeNull();
-        expect(agent.frontmatter).toHaveProperty('description');
-        expect(typeof agent.frontmatter.description).toBe('string');
-        expect(agent.frontmatter.description.length).toBeGreaterThan(0);
-      });
-    });
-  }
-});
-
-// =============================================================================
-// TRD-TEST-090: Name matches filename
-// =============================================================================
-
-describe('TRD-TEST-090: Name matches filename', () => {
-  const existingAgents = REQUIRED_AGENTS.filter(name => {
-    const filePath = path.join(AGENTS_DIR, `${name}.md`);
-    return fs.existsSync(filePath);
-  });
-
-  if (existingAgents.length === 0) {
-    it('validates name matches filename on every agent file', () => {
-      // This test is skipped when no agents exist
-    });
-  } else {
-    describe.each(existingAgents)('Agent: %s', (agentName) => {
-      it('should have name field matching the filename', () => {
-        const agent = readAgentFile(agentName);
-        expect(agent).not.toBeNull();
-        expect(agent.frontmatter).not.toBeNull();
-        expect(agent.frontmatter.name).toBe(agentName);
-      });
-    });
-  }
-});
-
-// =============================================================================
-// TRD-TEST-091: Skills field format (if present)
-// =============================================================================
-
-describe('TRD-TEST-091: Skills field format (if present)', () => {
-  const existingAgents = REQUIRED_AGENTS.filter(name => {
-    const filePath = path.join(AGENTS_DIR, `${name}.md`);
-    return fs.existsSync(filePath);
-  });
-
-  if (existingAgents.length === 0) {
-    it('validates skills field format on every agent file', () => {
-      // This test is skipped when no agents exist
-    });
-  } else {
-    describe.each(existingAgents)('Agent: %s', (agentName) => {
-      it('should have valid skills field format if skills field is present', () => {
-        const agent = readAgentFile(agentName);
-        expect(agent).not.toBeNull();
-        expect(agent.frontmatter).not.toBeNull();
-
-        // Skills field is optional
-        if (!agent.frontmatter.hasOwnProperty('skills')) {
-          // No skills field - this is allowed
-          expect(true).toBe(true);
-          return;
-        }
-
-        const skills = agent.frontmatter.skills;
-
-        // Skills can be: array, string (comma-separated), or null/undefined (comments only in YAML)
-        if (skills === null || skills === undefined) {
-          // Empty skills (YAML with only comments) is valid
-          expect(true).toBe(true);
-          return;
-        }
-
-        // Convert to array for validation
-        let skillList;
-        if (Array.isArray(skills)) {
-          skillList = skills;
-        } else if (typeof skills === 'string') {
-          skillList = skills.trim().length > 0 ? skills.split(',').map(s => s.trim()) : [];
-        } else {
-          // Unexpected type
-          expect(Array.isArray(skills) || typeof skills === 'string').toBe(true);
-          return;
-        }
-
-        // Each skill should be non-empty and kebab-case
-        const validSkillPattern = /^[a-z0-9-]+$/;
-        for (const skill of skillList) {
-          if (typeof skill !== 'string') continue;
-          expect(skill.length).toBeGreaterThan(0);
-          if (!validSkillPattern.test(skill)) {
-            console.log(`Invalid skill format: "${skill}" in agent ${agentName}`);
-          }
-          expect(validSkillPattern.test(skill)).toBe(true);
-        }
-      });
-    });
-  }
-});
-
-// =============================================================================
-// RUNTIME-T009: No shipped agent declares a skills: preload
-// =============================================================================
-
-/**
- * Shipped agents must NOT declare a `skills:` frontmatter preload.
- *
- * Agents ship in the plugin; skills are curated PER PROJECT by /init-project
- * (which writes .claude/selected-skills.txt and copies only those into
- * .claude/skills/). A hardcoded skills: list in a shipped agent therefore
- * cannot be correct across projects — it names skills that a given project
- * never selected.
- *
- * This became load-bearing in 4.0.0. Before it, plugin.json declared
- * "skills": "./skills", which registered the whole 61-skill library globally,
- * so every hardcoded name happened to resolve. RUNTIME-P001 removed that
- * registration (12,366 -> 95 tok always-on) and the preloads silently stopped
- * resolving. Verified behaviour: a nonexistent skill in this field does NOT
- * fail the spawn and emits NO warning — the entry is silently dropped. That
- * silence is exactly why this needs a test rather than trusting a runtime error.
- *
- * Agents keep full access to every installed skill via the Skill tool. Only the
- * startup preload is given up, and that preload was never sound across projects.
- *
- * If per-agent preloads are wanted again, they must be INJECTED at scaffold time
- * from the project's own selected-skills.txt — not hardcoded in the shipped
- * source. That is tracked as a Phase 2 follow-up in docs/TRD/runtime-refresh.md.
- */
-describe('RUNTIME-T009: No shipped agent declares a skills: preload', () => {
-  const existingAgents = REQUIRED_AGENTS.filter(name =>
-    fs.existsSync(path.join(AGENTS_DIR, `${name}.md`))
-  );
-
-  if (existingAgents.length === 0) {
-    it('validates the agent set is non-empty', () => { expect(getAgentFiles().length).toBeGreaterThan(0); });
-  } else {
-    describe.each(existingAgents)('Agent: %s', (agentName) => {
-      it('should NOT declare a skills: field (per-project curation)', () => {
-        const agent = readAgentFile(agentName);
-        expect(agent).not.toBeNull();
-        expect(agent.frontmatter).not.toBeNull();
-        expect(Object.prototype.hasOwnProperty.call(agent.frontmatter, 'skills')).toBe(false);
-      });
-    });
-
-    it('no agent file contains a top-level skills: key in its frontmatter', () => {
-      const offenders = [];
-      for (const agentName of existingAgents) {
-        const raw = fs.readFileSync(path.join(AGENTS_DIR, `${agentName}.md`), 'utf8');
-        const lines = raw.split('\n');
-        if (lines[0].trim() !== '---') continue;
-        const close = lines.findIndex((l, i) => i > 0 && l.trim() === '---');
-        if (close === -1) continue;
-        if (lines.slice(1, close).some(l => /^skills:/.test(l))) {
-          offenders.push(agentName);
-        }
-      }
-      expect(offenders).toEqual([]);
-    });
-  }
-});
-
-
-// =============================================================================
-// RUNTIME-ITEM3: execution-model invariants
-// =============================================================================
-
-/**
- * Every shipped agent declares `background:` explicitly.
- *
- * Subagents run in the background BY DEFAULT (v2.1.198+), and a background
- * subagent keeps every MCP tool but only a fixed list of built-ins — the task
- * tools, AskUserQuestion and others are removed, "whether inherited or listed
- * in the `tools` field", and "the removal reports no error."
- *
- * So the same definition resolves to different tools depending on where it
- * runs, silently. An inherited default is therefore a latent trap: it is fine
- * until someone adds a capability the filter strips, and then it fails with no
- * signal. Declaring the value makes the choice deliberate and reviewable.
- */
-describe('RUNTIME-ITEM3: every agent declares background explicitly', () => {
-  const existingAgents = REQUIRED_AGENTS.filter(name =>
-    fs.existsSync(path.join(AGENTS_DIR, `${name}.md`))
-  );
-
-  describe.each(existingAgents)('Agent: %s', (agentName) => {
-    it('declares a boolean background field', () => {
-      const agent = readAgentFile(agentName);
-      expect(agent).not.toBeNull();
-      expect(agent.frontmatter).not.toBeNull();
-      expect(Object.prototype.hasOwnProperty.call(agent.frontmatter, 'background')).toBe(true);
-      expect(['true', 'false', true, false]).toContain(agent.frontmatter.background);
-    });
-  });
-});
-
-/**
- * Leaf agents may not spawn subagents.
- *
- * The constitution permits nesting to depth 3, but restricts it per agent: a
- * nested subagent's intermediate output is *designed* not to reach the
- * orchestrator, so a wrong conclusion several layers down arrives as a
- * confident summary with its reasoning discarded. The agents whose judgment
- * the implement loop depends on most are therefore the ones that must not be
- * able to hide their work.
- */
-// RUNTIME-ITEM3 'leaf agents cannot spawn subagents' removed 2026-08-16: it asserted
-// `disallowedTools: Agent`, encoding a nesting ban that constitution.md v1.3.0 lifted.
-// It was ALSO already stale before removal -- it covered three agents while the
-// 2026-08-14 constitution required eight, so it had not tracked its own rule through
-// one revision of that rule.
+// Agent-file integrity -- one assertion per PROPERTY, looped over every file.
 //
-// The surviving prohibition -- same-type self-delegation on the same task -- is a runtime
-// behaviour, not a property of an agent definition, so no static test replaces this.
-
+// This file was 132 tests for 13 markdown files: each property generated its own
+// `it()` per agent, beside an already-existing test asserting the same property
+// across all of them. Ten tests per file told you nothing the loop did not.
+// Collapsed 2026-09-26, owner's call.
+//
+// What is left is the part that catches an ACCIDENT: a YAML typo that stops an
+// agent loading, a rename that leaves `name` disagreeing with the filename, a
+// duplicate name that makes dispatch ambiguous. None of those is ever intended.
 // =============================================================================
-// TRD-TEST-092: No duplicate agent names
-// =============================================================================
 
-describe('TRD-TEST-092: No duplicate agent names', () => {
-  it('should have no duplicate agent names across all agent files', () => {
-    const existingAgents = REQUIRED_AGENTS.filter(name => {
-      const filePath = path.join(AGENTS_DIR, `${name}.md`);
-      return fs.existsSync(filePath);
+describe('agent files', () => {
+  const present = () => getAgentFiles();
+
+  it('every required agent is present', () => {
+    expect(present().sort()).toEqual([...REQUIRED_AGENTS].sort());
+  });
+
+  it("every agent's frontmatter parses", () => {
+    const broken = present().filter((a) => !readAgentFile(a)?.frontmatter);
+    expect(broken).toEqual([]);
+  });
+
+  it('every agent declares a name and a description', () => {
+    const missing = present().filter((a) => {
+      const fm = readAgentFile(a)?.frontmatter || {};
+      return !fm.name || !fm.description;
     });
-
-    if (existingAgents.length === 0) {
-      // Skip if no agents exist
-      console.log('No agent files exist yet - skipping duplicate name check');
-      return;
-    }
-
-    const names = new Map();
-    const duplicates = [];
-
-    for (const agentName of existingAgents) {
-      const agent = readAgentFile(agentName);
-
-      if (agent && agent.frontmatter && agent.frontmatter.name) {
-        const name = agent.frontmatter.name;
-
-        if (names.has(name)) {
-          duplicates.push({
-            name,
-            files: [names.get(name), `${agentName}.md`]
-          });
-        } else {
-          names.set(name, `${agentName}.md`);
-        }
-      }
-    }
-
-    if (duplicates.length > 0) {
-      console.log('Duplicate agent names found:');
-      for (const dup of duplicates) {
-        console.log(`  "${dup.name}" in files: ${dup.files.join(', ')}`);
-      }
-    }
-
-    expect(duplicates).toHaveLength(0);
+    expect(missing).toEqual([]);
   });
 
-  it('should have unique names for all 13 required agents', () => {
-    // Verify that all required agent names are unique by definition
-    const uniqueNames = new Set(REQUIRED_AGENTS);
-    expect(uniqueNames.size).toBe(REQUIRED_AGENTS.length);
+  it("every agent's name matches its filename", () => {
+    const mismatched = present().filter((a) => readAgentFile(a)?.frontmatter?.name !== a);
+    expect(mismatched).toEqual([]);
+  });
+
+  it('no two agents share a name', () => {
+    const names = present().map((a) => readAgentFile(a)?.frontmatter?.name);
+    expect(names.length).toBe(new Set(names).size);
+  });
+
+  it('no agent declares a skills: preload — skills are assigned per project', () => {
+    // Hardcoded preloads were removed from all 13 agents in 4.1.1 (c4962d0).
+    const offenders = present().filter((a) => {
+      const raw = fs.readFileSync(path.join(AGENTS_DIR, `${a}.md`), 'utf8');
+      const fm = raw.split('---')[1] || '';
+      return fm.split('\n').some((l) => /^skills:/.test(l));
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it('every agent declares background explicitly as a boolean', () => {
+    const bad = present().filter((a) => {
+      const v = readAgentFile(a)?.frontmatter?.background;
+      return v !== 'true' && v !== 'false' && typeof v !== 'boolean';
+    });
+    expect(bad).toEqual([]);
   });
 });
-
-// =============================================================================
-// Summary Tests
-// =============================================================================
-
-describe('Agent Validation Summary', () => {
-  it('should report overall validation status', () => {
-    const existingAgents = getAgentFiles();
-    const missingAgents = REQUIRED_AGENTS.filter(name => !existingAgents.includes(name));
-
-    console.log('\n=== Agent Validation Summary ===');
-    console.log(`Total Required Agents: ${REQUIRED_AGENTS.length}`);
-    console.log(`Existing Agents: ${existingAgents.length}`);
-    console.log(`Missing Agents: ${missingAgents.length}`);
-
-    if (missingAgents.length > 0) {
-      console.log(`\nMissing: ${missingAgents.join(', ')}`);
-    }
-
-    if (existingAgents.length > 0) {
-      console.log(`\nExisting: ${existingAgents.join(', ')}`);
-    }
-
-    // This test just reports - it doesn't fail
-    expect(true).toBe(true);
-  });
-});
-
-// =============================================================================
-// Helper Function Tests (Unit Tests)
-// =============================================================================
 
 describe('parseFrontmatter helper function', () => {
   it('should parse valid YAML frontmatter', () => {

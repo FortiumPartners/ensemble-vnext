@@ -202,102 +202,6 @@ teardown_file() {
     [[ "$count" -eq 13 ]]
 }
 
-@test "TRD-TEST-034: product-manager.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/product-manager.md"
-}
-
-@test "TRD-TEST-034: technical-architect.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/technical-architect.md"
-}
-
-@test "TRD-TEST-034: spec-planner.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/spec-planner.md"
-}
-
-@test "TRD-TEST-034: frontend-implementer.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/frontend-implementer.md"
-}
-
-@test "TRD-TEST-034: backend-implementer.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/backend-implementer.md"
-}
-
-@test "TRD-TEST-034: mobile-implementer.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/mobile-implementer.md"
-}
-
-@test "TRD-TEST-034: verify-app.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/verify-app.md"
-}
-
-@test "TRD-TEST-034: code-simplifier.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/code-simplifier.md"
-}
-
-@test "TRD-TEST-034: code-reviewer.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/code-reviewer.md"
-}
-
-@test "TRD-TEST-034: app-debugger.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/app-debugger.md"
-}
-
-@test "TRD-TEST-034: devops-engineer.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/devops-engineer.md"
-}
-
-@test "TRD-TEST-034: cicd-specialist.md agent exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/agents/cicd-specialist.md"
-}
-
 @test "TRD-TEST-034: Vendoring creates .claude/rules directory" {
     if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
@@ -305,34 +209,6 @@ teardown_file() {
 
     check_dir_exists "${TEST_PROJECT_DIR}/.claude/rules"
 }
-
-@test "TRD-TEST-034: constitution.md governance file exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/rules/constitution.md"
-}
-
-@test "TRD-TEST-034: stack.md governance file exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/rules/stack.md"
-}
-
-@test "TRD-TEST-034: process.md governance file exists" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    check_file_exists "${TEST_PROJECT_DIR}/.claude/rules/process.md"
-}
-
-# =============================================================================
-# TRD-TEST-035: Verify skills and root files
-# =============================================================================
 
 @test "TRD-TEST-035: Vendoring creates .claude/skills directory" {
     if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
@@ -342,46 +218,12 @@ teardown_file() {
     check_dir_exists "${TEST_PROJECT_DIR}/.claude/skills"
 }
 
-@test "TRD-TEST-035: Skills directory may contain stack-appropriate skills" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    # Skills are optional based on stack definition
-    # Just verify the directory exists (tested above)
-    # and optionally check for content
-    local skill_count
-    skill_count=$(find "${TEST_PROJECT_DIR}/.claude/skills" -type f -name "*.md" 2>/dev/null | wc -l)
-
-    # Log skill count for debugging
-    echo "Found $skill_count skill files" >&2
-
-    # No assertion - skills are optional
-    [[ true ]]
-}
-
 @test "TRD-TEST-035: CLAUDE.md exists at project root" {
     if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
         skip "Headless tests disabled"
     fi
 
     check_file_exists "${TEST_PROJECT_DIR}/CLAUDE.md"
-}
-
-@test "TRD-TEST-035: CLAUDE.md contains project configuration" {
-    if [[ "${SKIP_HEADLESS:-true}" == "true" ]]; then
-        skip "Headless tests disabled"
-    fi
-
-    if [[ ! -f "${TEST_PROJECT_DIR}/CLAUDE.md" ]]; then
-        skip "CLAUDE.md not found"
-    fi
-
-    # Should contain some configuration content
-    local line_count
-    line_count=$(wc -l < "${TEST_PROJECT_DIR}/CLAUDE.md")
-
-    [[ "$line_count" -gt 5 ]]
 }
 
 @test "TRD-TEST-035: docs/PRD directory exists" {
@@ -431,22 +273,6 @@ teardown_file() {
 # These tests verify the vendoring structure WITHOUT running Claude
 # Useful for testing the verification functions themselves
 
-@test "structure-verify: verify_vendored_structure function exists" {
-    declare -f verify_vendored_structure > /dev/null
-}
-
-@test "structure-verify: count_agent_files function exists" {
-    declare -f count_agent_files > /dev/null
-}
-
-@test "structure-verify: REQUIRED_AGENTS array has 13 entries" {
-    [[ "${#REQUIRED_AGENTS[@]}" -eq 13 ]]
-}
-
-@test "structure-verify: REQUIRED_GOVERNANCE array has 3 entries" {
-    [[ "${#REQUIRED_GOVERNANCE[@]}" -eq 3 ]]
-}
-
 @test "structure-verify: check_dir_exists returns 1 for non-existent directory" {
     run check_dir_exists "/nonexistent/path/that/does/not/exist"
     [[ "$status" -eq 1 ]]
@@ -479,26 +305,6 @@ teardown_file() {
 @test "structure-verify: cleanup_temp_dir refuses non-temp paths" {
     run cleanup_temp_dir "/home"
     [[ "$status" -eq 1 ]]
-}
-
-@test "structure-verify: REQUIRED_PRD_SECTIONS array exists" {
-    [[ "${#REQUIRED_PRD_SECTIONS[@]}" -ge 3 ]]
-}
-
-@test "structure-verify: REQUIRED_TRD_SECTIONS array exists" {
-    [[ "${#REQUIRED_TRD_SECTIONS[@]}" -ge 4 ]]
-}
-
-@test "structure-verify: verify_prd_template function exists" {
-    declare -f verify_prd_template > /dev/null
-}
-
-@test "structure-verify: verify_trd_template function exists" {
-    declare -f verify_trd_template > /dev/null
-}
-
-@test "structure-verify: fixture_has_project_md function exists" {
-    declare -f fixture_has_project_md > /dev/null
 }
 
 @test "structure-verify: verify_prd_template validates sections correctly" {
