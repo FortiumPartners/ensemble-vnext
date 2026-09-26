@@ -105,14 +105,13 @@ mechanical; four were. What actually happened:
   `decideNext()` at `functional-verification.js:180` already exits `stalled` on the first
   zero-gap iteration. The fixer read the code and correctly changed nothing. **Item 3 is
   withdrawn.**
-- **Items 2, 4, 5, 7 and 10 all moved into this `/plan`** — see "Folded in from the sweep",
-  below. **Nothing is left for a sweep, and none should be run.** Items 4 and 7 were the last
-  two held out as mechanical, and writing them up showed they are not independent: item 4's
-  check needs a call site, and item 7 is the relocation that decides where that site is. Both
-  edit the same preflight section of the same two command files — the section this plan's
-  environment work already rewrites.
+- **Items 4, 5, 7 and 10 are a sweep** — `docs/plan/verification-sweep.md`. Each delivers
+  value whether or not this plan runs, which is the test; two of them share a file with this
+  plan's edits, which is a sequencing concern, not a reason to merge them into a design.
+  **Run the sweep first.**
+- **Items 2 and 11 belong to this plan** — see below.
 
-### `/sweep` — nothing remains
+### `/sweep` — items 4, 5, 7 and 10, in `verification-sweep.md`
 
 1. **Persist `tier1` alongside `status`.** It is already computed and returned, then dropped. It
    is what separates *never reached* from *reached and failed* — Run 1's `tier1: fail` column ran
@@ -215,40 +214,16 @@ dropped from an earlier draft of this brief by over-correction; they are not low
   and headed it a draft for approval while its sibling was forbidden to touch it). Its input is
   item 4's output — the list of resources a blank file cannot name.
 
-## Folded in from the sweep — not mechanical after all
-
-Three items were listed as independent small fixes and are not. Each carries either a decision
-or a new surface, which is what makes them design work rather than sweep work.
+## Folded in from the sweep — one item, because it is not standalone
 
 - **An `insufficient-coverage` outcome, distinct from `stuck`** (was sweep item 2). `stuck`
   currently means both "this loop broke" and "this loop worked and verified almost nothing",
-  and only the first is a bug report. But this adds a value to a state machine whose consumers
-  include `--resume` terminality (`outcome` is the marker that decides whether a later run
-  re-enters the loop) and two commands' banner rendering. An enum value consumers do not
-  handle can break resume silently. **And the numeric floor is an open owner decision** — it
-  is one of the two open questions below.
-- **`promoteToTrd`'s generated row** (was sweep item 5): a placeholder `Serves` naming no
-  objective, a `Touches` carrying one file where the work spans several, and an acceptance
-  criterion that passes whatever happens. The decision inside it: what `Serves` should hold
-  when no objective exists. "Or the row is not written" was hand-waving — suppressing the row
-  changes what `--reconcile` picks up.
-- **Detect an unfilled `verification.md` by byte-comparing it to the shipped template**
-  (was sweep item 4). A project whose `.claude/rules/verification.md` is identical to
-  `packages/core/templates/claude-directory/rules/verification.md` has declared no
-  environments, no refresh commands and no credentials, so it cannot support functional
-  verification — knowable in milliseconds, currently discovered after a full loop has run.
-  True of 2 of the 4 reference repos. Folded in because the check needs a call site and the
-  next item decides where that is.
-- **Move the environment preflight from `implement-trd.md` §8.4a to §3.6** (was sweep item 7),
-  mirrored in `verify-build.md` §2. §8.4a runs after the whole phase loop and the end-of-run
-  review, so the single batched owner question lands hours into an unattended run. Pure
-  relocation — but it lands in the same section as the three environment changes above, so
-  doing it separately means editing that section twice. `[ran]`
-- **A "wired?" check at the phase gate** (was sweep item 10): does every newly exported symbol
-  have a non-test caller? It would have caught both "built but never wired" production
-  failures, needs no environment and generalises to every repo — but it has to define "newly
-  exported" against a base commit, parse exports across JavaScript, Python and shell, and
-  decide whether it blocks or reports. That is a small feature, not a grep.
+  and only the first is a bug report. It is here rather than in the sweep for two reasons that
+  are about value, not size: the numeric floor is an open owner decision (below), and **this
+  plan changes what coverage means** — tier 1 moves from "an artifact exists" to "a locator
+  resolves per (criterion, artifact) pair", so naming a coverage outcome before that lands
+  would name the wrong thing. It also adds a value to a state machine whose consumers include
+  `--resume` terminality and two commands' banner rendering.
 
 ## Rejected — do not re-propose without new evidence
 
