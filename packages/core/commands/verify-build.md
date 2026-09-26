@@ -153,7 +153,7 @@ Workflow({ name: "verify-functional", args: {
   criteria,                                                    // §3, from success-definition.md
   contract,                                                    // packages/core/contracts/functional-verification.md text
   notes,                                                        // .claude/verification-notes.md text, or ""
-  stackHints,                                                   // stack.md + CLAUDE.md excerpts
+  stackHints,                                                   // stack.md + CLAUDE.md + verification.md excerpts (see /implement-trd §8.3)
   evidenceDir: ".trd-state/<feature>/evidence",
   checker: ".claude/lib/functional-verification.js",
   since,                                                         // resolved per implement-trd.md §8.3 -- max(HEAD commit time, loop start)

@@ -43,12 +43,23 @@ const MAX_LINE_BYTES = 2048;
 
 const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
 
+// A verification-outcome record (a functional-verification criterion, recorded through this
+// same channel) carries a `status` alongside the usual fields. Only these ever promote --
+// `met` and `not_verifiable` are deliberately absent below.
+const VERIFICATION_STATUSES = ['met', 'not_met', 'not_verifiable', 'unbuilt', 'stalled'];
+const PROMOTABLE_STATUSES = ['not_met', 'stalled', 'unbuilt'];
+
 /**
  * The discoveries that should become TRD tasks, and nothing else.
  *
- * Two filters, both deliberately mechanical so the answer is checkable rather than argued:
+ * Three filters, all deliberately mechanical so the answer is checkable rather than argued:
  *  - `blocksFeature === true`  -- the objectives are not met while this stands
  *  - kind is not 'risk'        -- a risk is a thing to watch, not a thing to build
+ *  - a `status` of `not_verifiable` never promotes -- that criterion FAILED TO RUN, it did
+ *    not fail. The blocker is environmental (no environment listed covers it, tooling isn't
+ *    installed), and promoting it mints a task meaning "go deploy this," which no implementer
+ *    can action. `not_met`, `stalled` and `unbuilt` all name something to BUILD, so they still
+ *    promote; a record with no `status` at all (an ordinary bug/gap discovery) is unaffected.
  *
  * Everything else is reported and left alone. The orchestrator still decides whether to act;
  * this only narrows what it is deciding about, so an unrelated bug found while reading a file
@@ -56,7 +67,11 @@ const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
  */
 function promotable(rows) {
   if (!Array.isArray(rows)) return [];
-  return rows.filter((r) => r && r.blocksFeature === true && r.kind !== 'risk');
+  return rows.filter((r) => {
+    if (!r || r.blocksFeature !== true || r.kind === 'risk') return false;
+    if (r.status && !PROMOTABLE_STATUSES.includes(r.status)) return false;
+    return true;
+  });
 }
 
 /**
@@ -336,6 +351,7 @@ function record(stateDir, entry, nowIso) {
   row.blocksFeature = entry.blocksFeature === true;
   if (entry.file) row.file = String(entry.file).slice(0, 200);
   if (entry.evidence) row.evidence = String(entry.evidence).slice(0, 400);
+  if (VERIFICATION_STATUSES.includes(entry.status)) row.status = entry.status;
 
   let line = JSON.stringify(row);
   if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
@@ -413,4 +429,5 @@ function render(stateDir, { phase = null } = {}) {
 
 module.exports = {
   promotable,
-  promoteToTrd, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES };
+  promoteToTrd, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES,
+  VERIFICATION_STATUSES, PROMOTABLE_STATUSES };

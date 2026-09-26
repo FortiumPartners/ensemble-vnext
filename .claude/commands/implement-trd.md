@@ -1226,9 +1226,12 @@ terminal one), `resume` is `null`.
 
 ### 8.3 Assemble the remaining args and dispatch
 
-Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/rules/stack.md`
-and `CLAUDE.md` (repo root) as `stackHints`, and `packages/core/contracts/functional-verification.md`
-as `contract`.
+Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/rules/stack.md`,
+`CLAUDE.md` (repo root) and `.claude/rules/verification.md` (or `""` when it does not exist) as
+`stackHints`, and `packages/core/contracts/functional-verification.md` as `contract`. Without it,
+the Exercise/Judge/Debug agents inside the loop never see the owner's environment declarations —
+only this command's own preflight (§8.4a) reads the file, and that pass ends before the `Workflow`
+call.
 
 **Resolve `since` as the LATER of HEAD's commit time and this run's loop start time**
 (functional-verification TRD §3.2):
@@ -1264,7 +1267,7 @@ Workflow({ name: "verify-functional", args: {
   criteria,                                                    // §8.1
   contract,                                                    // packages/core/contracts/functional-verification.md text
   notes,                                                        // .claude/verification-notes.md text, or ""
-  stackHints,                                                   // stack.md + CLAUDE.md excerpts
+  stackHints,                                                   // stack.md + CLAUDE.md + verification.md excerpts
   evidenceDir: ".trd-state/<feature>/evidence",
   checker: ".claude/lib/functional-verification.js",
   since,                                                         // max(HEAD commit time, loop start) -- see above, TRD §3.2

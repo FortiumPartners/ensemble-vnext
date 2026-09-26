@@ -215,7 +215,11 @@ function buildJudgePrompt({ iteration, claims, previousGaps, forcedUnbuilt, exer
     `(implement-trd Step 8.2), and a key it does not recognise is read as absent, which ` +
     `silently restarts the loop at iteration 1 with no memory of this run:\n` +
     `  {"iteration": ${iteration}, "criteria": [ <one entry per criterion: "id", "status", ` +
-    `"artifact"> ], "gapsClosed": [ <the gaps-closed history with this iteration appended> ], ` +
+    `"tier1", "artifact", "reason" -- "reason" MUST be populated (non-null, non-empty) for ` +
+    `every criterion whose status is not "met"; it is the only structured record of why a ` +
+    `not_verifiable/not_met/unbuilt verdict was reached, and it is what tells a later run which ` +
+    `blockers are worth re-checking> ], "gapsClosed": [ <the gaps-closed history with this iteration ` +
+    `appended> ], ` +
     `"outcome": <null when decide-next returned "remediate"; otherwise the outcome string ` +
     `this run exits with: "satisfied", "unbuilt", "stalled" or "stuck">}` +
     `\n\n` +

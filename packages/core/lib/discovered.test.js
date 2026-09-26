@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { record, readAll, render, ledgerPath, promoteToTrd, MAX_LINE_BYTES } = require('./discovered');
+const { record, readAll, render, ledgerPath, promoteToTrd, promotable, MAX_LINE_BYTES } = require('./discovered');
 const { parseTrd } = require('./trd-parser');
 const { buildGraph } = require('./task-graph');
 
@@ -57,6 +57,43 @@ describe('record', () => {
 
   test('never throws on an unwritable path', () => {
     expect(record('/proc/nonexistent-xyz', { summary: 's' })).toBe(false);
+  });
+
+  test('a recognized verification status is kept on the row', () => {
+    record(dir, { summary: 's', status: 'not_met' });
+    expect(readAll(dir)[0].status).toBe('not_met');
+  });
+
+  test('an unrecognized status is dropped rather than stored verbatim', () => {
+    record(dir, { summary: 's', status: 'made-up' });
+    expect(readAll(dir)[0].status).toBeUndefined();
+  });
+
+  test('no status field at all when none is given — ordinary bug/gap records are unaffected', () => {
+    record(dir, { summary: 's' });
+    expect(readAll(dir)[0]).not.toHaveProperty('status');
+  });
+});
+
+/* Issue 6 (docs/plan/verification-sweep.md): a `not_verifiable` verification record must
+ * never promote to a TRD task -- that criterion failed to RUN, it did not fail. `not_met`,
+ * `stalled` and `unbuilt` all name something to build, so they still promote. */
+describe('promotable — verification status exclusion', () => {
+  const verifRow = (status) => ({
+    summary: `criterion ${status}`, kind: 'gap', foundBy: 'FV-B001', blocksFeature: true, status,
+  });
+
+  it('excludes not_verifiable even though blocksFeature is true', () => {
+    expect(promotable([verifRow('not_verifiable')])).toEqual([]);
+  });
+
+  it.each(['not_met', 'stalled', 'unbuilt'])('still promotes %s', (status) => {
+    expect(promotable([verifRow(status)])).toHaveLength(1);
+  });
+
+  it('an ordinary discovery with no status field is unaffected', () => {
+    const row = { summary: 'plain bug', kind: 'bug', blocksFeature: true };
+    expect(promotable([row])).toEqual([row]);
   });
 });
 
