@@ -105,6 +105,7 @@ dropping the grouping removes the collision with its four sections that made it 
 | FIX-001 | Rename `/audit-trd`'s readout headings to past tense where the audit applies them, split `CANNOT BE BUILT AS WRITTEN` into applied and handed-back forms, add the `CAVEAT` unchecked-claims line, and qualify the "names the ACTION" sentence to mean the action the command took — in the workflow script AND the command prompt | O1, O3 | None | In `packages/core/workflows/audit-trd.js` AND `packages/core/commands/audit-trd.md`: `grep -c "DELETE — nothing in the source"` is 0 and `DELETED` is present; `REDESIGNED` and `CANNOT BE BUILT — needs a design decision` both present; `CAVEAT` present in the findings-path heading list; `PICK ONE` still present and still imperative. All four files (both copies of each) byte-identical to their mirror |
 | FIX-002 | Apply the same renames to `/audit-prd`, keeping `ALREADY BUILT` imperative, in workflow script and command prompt | O1, O3 | FIX-001 | In `packages/core/workflows/audit-prd.js` AND `packages/core/commands/audit-prd.md`: `ADD BACK` absent, `ADDED BACK` present; `ALREADY BUILT` present and unchanged; `CAVEAT` present; mirrors byte-identical |
 | FIX-003 | State each `/audit-build` heading's destination — corrected here, handed to `/implement-trd --reconcile`, or stopped for a design decision — in workflow script and command prompt | O2 | FIX-001 | In `packages/core/workflows/audit-build.js` AND `packages/core/commands/audit-build.md`: the block names `/implement-trd --reconcile` as the destination for tasks in the TRD that were not built, and states that a requirement no task covers is reported rather than closed; `--report-only` noted as suppressing the handoff; mirrors byte-identical |
+| AMEND-001 | Add a VERDICT line as the FIRST line of all three audit readout blocks, below the `AUDIT:`/`SOURCE:` header and above the heading list: one of `safe to proceed`, `proceed with these caveats: <named>`, or `do not proceed until <named>`. Resolves OQ-1 — owner approved 2026-09-26 | O1 | None | In all six files (`packages/core/{workflows/audit-trd.js,workflows/audit-prd.js,workflows/audit-build.js,commands/audit-trd.md,commands/audit-prd.md,commands/audit-build.md}`) and their `.claude/` mirrors: a VERDICT line is present, it appears BEFORE the first heading in the block, all three forms are offered, and each mirror is byte-identical to its source. `grep -c VERDICT` returns non-zero in all twelve |
 
 ## Task Grounding
 
@@ -130,6 +131,15 @@ dropping the grouping removes the collision with its four sections that made it 
 - **Follow:** mirror both copies, as FIX-001 [ran]
 - **Careful:** this command fixes almost nothing its headings name — `audit-build.md:98` says it "does not write application code or tests". So four of its seven headings are never "corrected here". Do not force them into that destination. [read]
 - **Careful:** `--report-only` suppresses the chain. When passed, the readout must not claim work was handed off. [read]
+
+### AMEND-001
+
+- **Touches:** `packages/core/workflows/audit-trd.js`, `packages/core/workflows/audit-prd.js`, `packages/core/workflows/audit-build.js`, `packages/core/commands/audit-trd.md`, `packages/core/commands/audit-prd.md`, `packages/core/commands/audit-build.md`, `.claude/workflows/audit-trd.js`, `.claude/workflows/audit-prd.js`, `.claude/workflows/audit-build.js`, `.claude/commands/audit-trd.md`, `.claude/commands/audit-prd.md`, `.claude/commands/audit-build.md`
+- **Reuse:** the readout block each of the six files already carries — the `AUDIT: <path>    SOURCE: <path>` header line, then the heading list. The VERDICT line goes between them. `/audit-build`'s header reads `AUDIT-BUILD: <trd path>    PRD: <path>` instead; keep each file's own header wording. [read]
+- **Replaces:** nothing. This is additive — the first thing in this change that is. [inferred]
+- **Follow:** edit each `packages/core/` file and its vendored `.claude/` copy in the same change; `runtime-integrity.test.sh` asserts parity by directory comparison and fails if one side moves alone. [ran]
+- **Careful:** the verdict must be a VERDICT, not a restatement of the counts. `safe to proceed` and `proceed with these caveats` are different answers and the caveats must be NAMED inline, not merely counted — an unnamed caveat is the opacity this whole change exists to remove. [inferred]
+- **Careful:** `/audit-build` has three destinations rather than two outcomes, so its verdict speaks to whether the DELIVERED CODE matches, not to whether a document is safe to act on. Do not copy the other two's wording verbatim there. [read]
 
 ## Could Not Verify
 
