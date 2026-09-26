@@ -444,6 +444,11 @@ ${COVERAGE}${CNV}`,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0 || NOTHING_INDEXED,
     readout: `AUDIT-BUILD: ${TRD}\nPRD: ${PRD || '(none supplied)'}\n\n` +
+      `VERDICT: ${NOTHING_INDEXED
+        ? `do not proceed until ${TRD}'s requirement and task tables parse -- this run recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks, so traceability and verification checked nothing`
+        : dead > 0
+          ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+          : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
       (NOTHING_INDEXED
         ? `  INCONCLUSIVE — the Index recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks,\n` +
           `  so traceability and verification ran against an empty list. Zero findings here means\n` +
@@ -496,6 +501,20 @@ resolved a path against the wrong repository — do not apply it as a gap, and s
 readout naming the file that refutes it. Rejecting a bad finding is as valuable as reporting a
 good one.
 ${COVERAGE}${CNV}
+
+FIRST LINE OF THE READOUT, before any heading below: a VERDICT line about the DELIVERED CODE,
+one of exactly these three forms, with every caveat or blocker NAMED inline -- never merely
+counted. This command writes no application code or tests, so the verdict says whether the
+delivered code is safe to act on, not that anything here was fixed:
+
+  VERDICT: safe to proceed — every requirement is implemented and tested
+  VERDICT: proceed with these caveats: <caveat 1>; <caveat 2>
+  VERDICT: do not proceed until <blocker>
+
+Choose "do not proceed until" when a MISSING IMPLEMENTATION or MISMATCH finding leaves the
+delivered code not doing what was required. Choose "proceed with these caveats" when
+TRACEABILITY GAPS, UNTESTED-IN-PRACTICE, or an unresolved Could Not Verify row remain.
+Otherwise "safe to proceed".
 
 EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION -- and, for a gap, WHERE IT GOES
 NEXT. This command applies almost none of these findings itself; naming the destination is

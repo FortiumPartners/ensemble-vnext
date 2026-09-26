@@ -455,6 +455,9 @@ ${COVERAGE}${CNV}`,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${TRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
+      `VERDICT: ${dead > 0
+        ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+        : 'safe to proceed'}\n\n` +
       `  NO ACTION — every objective traces to a source, every decision names one, every\n` +
       `  citation resolves.\n` +
       (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
@@ -494,6 +497,19 @@ readout naming the file that refutes it. Rejecting a bad finding is as valuable 
 good one: in one run 6 of 9 findings were wrong because a verifier read the wrong repo's
 constitution, five of them at high confidence.
 ${COVERAGE}${CNV}
+
+FIRST LINE OF THE READOUT, before any heading below: a VERDICT line, one of exactly these
+three forms, with every caveat or blocker NAMED inline -- never merely counted, since an
+unnamed caveat is the opacity this line exists to remove:
+
+  VERDICT: safe to proceed
+  VERDICT: proceed with these caveats: <caveat 1>; <caveat 2>
+  VERDICT: do not proceed until <blocker>
+
+Choose "do not proceed until" when a REDESIGNED, CANNOT BE BUILT, or PICK ONE finding leaves
+the TRD unsafe to implement from as it stands. Choose "proceed with these caveats" when
+anything remains under CAVEAT, CONFIRM THESE ARE WANTED, or an unresolved Could Not Verify
+row. Otherwise "safe to proceed".
 
 EVERY READOUT LINE NAMES THE ACTION -- THE ACTION THIS AUDIT TOOK, not a classification of the
 finding and not something left for the reader to do. Readouts here have been rejected

@@ -177,6 +177,17 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Any section may be "none". The command-specific content below fills those sections; it does
 not replace them.
 
+A VERDICT line comes first, immediately after the `AUDIT-BUILD:`/`PRD:` header and before any
+heading below — about the DELIVERED CODE, not about fixing anything (this command writes no
+application code or tests). One of exactly three forms, with every caveat or blocker named
+inline, never merely counted:
+
+```
+VERDICT: safe to proceed — every requirement is implemented and tested
+VERDICT: proceed with these caveats: <named>
+VERDICT: do not proceed until <named>
+```
+
 Every line names the ACTION, not the classification — and, for a gap, WHERE IT GOES NEXT.
 This command applies almost none of these findings itself (see "But it DOES close the loop",
 above); naming the destination is how the reader knows what still has to happen. Use these
@@ -184,6 +195,8 @@ headings, omitting empty ones:
 
 ```
 AUDIT-BUILD: <trd path>    PRD: <path>
+
+VERDICT: <one of the three forms above>
 
   TRACEABILITY GAPS — implemented, no test proving it. A covering task exists in the TRD:
     chains to /implement-trd --reconcile. No task covers the requirement: recorded and

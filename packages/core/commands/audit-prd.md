@@ -123,11 +123,23 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Any section may be "none". The command-specific content below fills those sections; it does
 not replace them.
 
+A VERDICT line comes first, immediately after the `AUDIT:`/`SOURCE:` header and before any
+heading below — one of exactly three forms, with every caveat or blocker named inline, never
+merely counted (an unnamed caveat tells the reader nothing):
+
+```
+VERDICT: safe to proceed
+VERDICT: proceed with these caveats: <named>
+VERDICT: do not proceed until <named>
+```
+
 Every line names the ACTION this audit took, not a classification of the finding and not
 something left for the reader to do. Use these headings, omitting empty ones:
 
 ```
 AUDIT: <path>    SOURCE: <path>
+
+VERDICT: <one of the three forms above>
 
   DELETED — nothing in the source asked for these
   LOWERED TO THE CONSTITUTION FLOOR — no reason was given for exceeding it
