@@ -93,7 +93,11 @@ Prefer fixes that read something already produced over fixes that produce someth
 
 ## Change set
 
-### `/sweep` — independent, small
+**The ten mechanical fixes have been carved out to `docs/plan/verification-sweep.md`** and are
+summarised below for completeness only. Point `/sweep` at that file, not at this one: a sweep
+fixer given this brief would try to triage the convergence design, and the design is a `/plan`.
+
+### `/sweep` — independent, small (full statements in `verification-sweep.md`)
 
 1. **Persist `tier1` alongside `status`.** It is already computed and returned, then dropped. It
    is what separates *never reached* from *reached and failed* — Run 1's `tier1: fail` column ran
