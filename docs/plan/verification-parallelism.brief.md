@@ -127,6 +127,25 @@ State the limit plainly: **tier 1 cannot check image evidence**, which is why as
 Bound slices by reading the owner's declarations and the runner's own config. Judge and Debug
 stay single agents.
 
+11. **`--verify` becomes the default; `--no-verify` opts out.** It ran on **40 of 145**
+    features precisely because it is opt-in, so this is the single change that puts
+    verification in front of most work. It lands AFTER items 1–10 — before convergence,
+    the default would make 11-of-62 the standard experience rather than the exception.
+
+    **No size condition. The axis was investigated and rejected.** `/plan` already forces
+    `--verify` unconditionally at every weight (`fix-plan.js:132` — "re-running the recorded
+    criterion IS the acceptance"), so the whole 40-of-145 gap is the `/create-prd →
+    /create-trd` path. That path records no weight at all: `**Weight**` appears in 2 of 19
+    TRDs, both written by `/plan`, and neither `implement-trd.md` nor `trd-parser.js` reads
+    it. Reaching `/create-trd` IS the size verdict. So a size rule would have to skip
+    verification on the largest features — the exact ones a 62-criterion run exists for.
+
+    **The brake is the cap, not a skip.** What prices the loop is criterion count, known at
+    the derive pass (§3.6) before any loop cost is paid, and `--cap N` already bounds it: 62
+    criteria at cap 3 is at most 3 passes. **Wall clock is still unpriced** — Run 1 cost 101
+    minutes and the dispatch ledgers hold the data to estimate it across features; pull it
+    before or alongside this flip, not after.
+
 ## Also in scope, from the wider investigation
 
 These are independent of the convergence work and were established separately. They were
@@ -205,13 +224,7 @@ dropped from an earlier draft of this brief by over-correction; they are not low
    policy choice; 18% was clearly below it.
 2. **Whether an agent may create simulators or containers**, which the prep agent did via
    `xcrun simctl create`. Resource allocation on a shared machine is yours.
-3. **Whether `--verify` becomes the default** — `--no-verify` to opt out. It ran on **40 of
-   145** features precisely because it is opt-in, so the flip is the single change that would
-   put verification in front of most work. Two reasons it is a decision and not an item in the
-   list above: before convergence lands, the default would make 11-of-62 the standard
-   experience rather than the exception; and **nobody has priced the added wall clock** — Run 1
-   cost 101 minutes, and the dispatch ledgers hold the data to estimate it across features but
-   nobody has pulled it.
+3. *(decided 2026-09-26 — moved into the change set as item 11.)*
 
 ## Sources
 
