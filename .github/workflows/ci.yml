@@ -87,11 +87,19 @@ jobs:
         # here with stdin closed and CI=true -- so the blocking suite cannot be
         # identified from this side. Printing the resolution order names the 15th,
         # and --verbose names the test inside it. Remove both once it is found.
+        # Temporary diagnostic. Run 36208931636 established that the job hangs on the
+        # 15th suite in resolution order, packages/core/lib/discovered.test.js, which
+        # emitted no verbose output at all -- it never completed a single test. It
+        # passes in under a second here and exits cleanly when run alone. This step
+        # runs it first, with --detectOpenHandles to name whatever is holding it, and
+        # --forceExit so the rest of the suite still gets to report. Both steps come
+        # out once the cause is known.
         run: |
-          echo "--- suite order ---"
-          npx jest --listTests
-          echo "--- run ---"
-          npx jest --runInBand --verbose
+          echo "--- suspect suite, isolated ---"
+          timeout 120 npx jest --runInBand --verbose --detectOpenHandles \
+            packages/core/lib/discovered.test.js || echo "SUSPECT EXIT: $?"
+          echo "--- full run ---"
+          npx jest --runInBand
       - name: Check no stale "known-failing" Jest exclusions
         run: ./packages/core/scripts/check-jest-known-failing.sh
 
