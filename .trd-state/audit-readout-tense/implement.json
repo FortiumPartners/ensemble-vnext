@@ -1,0 +1,76 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/audit-readout-tense.md",
+  "trd_hash": "6a9c11938fb402295aa5a06085fb5500d5f3a1bbc5a3987eae5128d0778b8247",
+  "branch": "feature/audit-readout-tense/build",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Rename /audit-trd's readout headings to past tense where the audit applies them, split CANNOT BE BUILT AS WRITTEN into applied and handed-back forms, add the CAVEAT unchecked-claims line, and qualify the \"names the ACTION\" sentence to mean the action the command took — in the workflow script AND the command prompt",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-trd.js",
+        ".claude/workflows/audit-trd.js",
+        "packages/core/commands/audit-trd.md",
+        ".claude/commands/audit-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-26T05:39:56.097Z",
+      "completed_at": "2026-09-26T05:47:24.297Z",
+      "last_advanced": "2026-09-26T05:42:11.304Z"
+    },
+    "FIX-002": {
+      "description": "Apply the same renames to /audit-prd, keeping ALREADY BUILT imperative, in workflow script and command prompt",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-prd.md",
+        "packages/core/workflows/audit-prd.js",
+        ".claude/commands/audit-prd.md",
+        ".claude/workflows/audit-prd.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-26T05:39:56.097Z",
+      "completed_at": "2026-09-26T05:47:24.298Z",
+      "last_advanced": "2026-09-26T05:42:11.305Z"
+    },
+    "FIX-003": {
+      "description": "State each /audit-build heading's destination — corrected here, handed to /implement-trd --reconcile, or stopped for a design decision — in workflow script and command prompt",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-build.js",
+        ".claude/workflows/audit-build.js",
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-26T05:39:56.097Z",
+      "completed_at": "2026-09-26T05:47:24.298Z",
+      "last_advanced": "2026-09-26T05:42:11.305Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/audit-readout-tense.md ## Intended Change"
+  }
+}

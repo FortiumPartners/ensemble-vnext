@@ -172,19 +172,31 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Any section may be "none". The command-specific content below fills those sections; it does
 not replace them.
 
-Every line names the ACTION, not the classification. Use these headings, omitting empty ones:
+Every line names the ACTION, not the classification — and, for a gap, WHERE IT GOES NEXT.
+This command applies almost none of these findings itself (see "But it DOES close the loop",
+above); naming the destination is how the reader knows what still has to happen. Use these
+headings, omitting empty ones:
 
 ```
 AUDIT-BUILD: <trd path>    PRD: <path>
 
-  TRACEABILITY GAPS — implemented, no test proving it
-  MISSING IMPLEMENTATION — required, never built
-  MISMATCH — built, but does something other than what was required
+  TRACEABILITY GAPS — implemented, no test proving it. A covering task exists in the TRD:
+    chains to /implement-trd --reconcile. No task covers the requirement: recorded and
+    reported here, not closed.
+  MISSING IMPLEMENTATION — required, never built. Same split: a covering task exists ->
+    chains to /implement-trd --reconcile; no covering task -> reported, not closed.
+  MISMATCH — built, but does something other than what was required. The task that produced
+    it exists in the TRD, so this always chains to /implement-trd --reconcile.
   UNTESTED-IN-PRACTICE — a test exists but does not prove the requirement
-  FIX THE CITATION — referenced ID or path does not resolve
+  FIX THE CITATION — referenced ID or path does not resolve. Corrected here, in this run's
+    own rewrite of the TRD's Could Not Verify section — not chained, not reported elsewhere.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
 ```
+
+`--report-only` (parsed above, before any of this) suppresses every `/implement-trd
+--reconcile` handoff named in the block above — the findings still print under these
+headings, nothing chains.
 
 One screen. If there are 40 clean requirements, print the count as one line, not forty.
 

@@ -495,18 +495,21 @@ good one: in one run 6 of 9 findings were wrong because a verifier read the wron
 constitution, five of them at high confidence.
 ${COVERAGE}${CNV}
 
-EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Readouts here have been rejected
+EVERY READOUT LINE NAMES THE ACTION -- THE ACTION THIS AUDIT TOOK, not a classification of the
+finding and not something left for the reader to do. Readouts here have been rejected
 repeatedly for being unreadable — "I DO NOT UNDERSTAND what action you expect me to take on
 these?" Use exactly these headings, omitting empty ones:
 
-  DELETE — nothing in the source asks for these
-  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher
-  ADD BACK — in the source, missing from this artifact
-  CANNOT BE BUILT AS WRITTEN
+  DELETED — nothing in the source asked for these
+  LOWERED TO THE CONSTITUTION FLOOR — no reason was given for exceeding it
+  ADDED BACK — in the source, missing from this artifact
+  REDESIGNED — could not be built as written
+  CANNOT BE BUILT — needs a design decision
   PICK ONE — these contradict
   CONFIRM THESE ARE WANTED — invented machinery, no objective named
-  FIX THE CITATION — referenced ID does not resolve
-  THE DOC IS STALE — the artifact asserts something the code contradicts
+  FIXED THE CITATION — referenced ID did not resolve
+  CORRECTED A STALE CLAIM — the artifact asserted something the code contradicts
+  CAVEAT — <n> claims went unchecked; see the TRD's ## Could Not Verify
   NO ACTION — sourced, listed for completeness
 
 One screen. If there are 40 sourced objectives, print the COUNT as one line, not forty.`,

@@ -416,17 +416,19 @@ good one: in one measured run 6 of 9 findings were wrong because a verifier read
 repository's constitution, five of them at high confidence.
 ${COVERAGE}${CNV}
 
-EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Use exactly these headings,
-omitting empty ones:
+EVERY READOUT LINE NAMES THE ACTION -- THE ACTION THIS AUDIT TOOK, not a classification of the
+finding and not something left for the reader to do. Use exactly these headings, omitting
+empty ones:
 
-  DELETE — nothing in the source asks for these
-  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher
-  ADD BACK — in the source, missing from this PRD
+  DELETED — nothing in the source asked for these
+  LOWERED TO THE CONSTITUTION FLOOR — no reason was given for exceeding it
+  ADDED BACK — in the source, missing from this PRD
   ALREADY BUILT — name the file; decide whether the requirement survives
   PICK ONE — these contradict
   CONFIRM THESE ARE WANTED — no source names them
-  FIX THE CITATION — referenced ID does not resolve
-  THE DOC IS STALE — the PRD asserts something the code contradicts
+  FIXED THE CITATION — referenced ID did not resolve
+  CORRECTED A STALE CLAIM — the PRD asserted something the code contradicts
+  CAVEAT — <n> claims went unchecked; see the PRD's ## Could Not Verify
   NO ACTION — sourced, listed for completeness
 
 One screen. If there are 40 sourced requirements, print the COUNT as one line, not forty.`,

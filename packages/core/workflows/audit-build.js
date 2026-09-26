@@ -436,6 +436,12 @@ ${COVERAGE}${CNV}`,
   }
 }
 
+// This workflow never sees --report-only -- it is parsed by the /audit-build command
+// (packages/core/commands/audit-build.md), which decides AFTER this workflow returns
+// whether to invoke `Skill({skill: "implement-trd", args: "<trd> --reconcile"})` for the
+// chainable gaps the heading block below tells the reconcile agent to name. Passed,
+// that command suppresses the handoff; this workflow's own findings and readout text are
+// unaffected either way.
 const readout = await agent(
   `Weigh these audit-build findings against the delivered code${PRD ? ` and ${PRD}` : ''}, then
 draft the readout. Where a finding warrants a fix that is small and mechanical (a missing test
@@ -472,14 +478,23 @@ readout naming the file that refutes it. Rejecting a bad finding is as valuable 
 good one.
 ${COVERAGE}${CNV}
 
-EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Use exactly these headings,
-omitting empty ones:
+EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION -- and, for a gap, WHERE IT GOES
+NEXT. This command applies almost none of these findings itself; naming the destination is
+how the reader knows what still has to happen. Use exactly these headings, omitting empty
+ones:
 
-  TRACEABILITY GAPS — implemented, no test proving it (the headline check)
-  MISSING IMPLEMENTATION — required, never built
-  MISMATCH — built, but does something other than what was required
+  TRACEABILITY GAPS — implemented, no test proving it (the headline check). A task in ${TRD}
+    already covers it: note that it chains to /implement-trd --reconcile. No task covers the
+    requirement: note that it is recorded and reported here, not closed -- deciding how to
+    cover it is a design decision this command does not make.
+  MISSING IMPLEMENTATION — required, never built. Same split as TRACEABILITY GAPS: a covering
+    task exists -> chains to /implement-trd --reconcile; no covering task -> reported, not
+    closed.
+  MISMATCH — built, but does something other than what was required. The task that produced
+    it exists in the TRD, so this always chains to /implement-trd --reconcile.
   UNTESTED-IN-PRACTICE — a test exists but does not prove the requirement (test-quality-audit)
-  FIX THE CITATION — referenced ID or path does not resolve
+  FIX THE CITATION — referenced ID or path does not resolve. Corrected here, in this run's own
+    rewrite of the TRD's Could Not Verify section -- not chained, not reported elsewhere.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
 

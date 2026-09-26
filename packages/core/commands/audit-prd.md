@@ -123,19 +123,21 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Any section may be "none". The command-specific content below fills those sections; it does
 not replace them.
 
-Every line names the ACTION, not the classification. Use these headings, omitting empty ones:
+Every line names the ACTION this audit took, not a classification of the finding and not
+something left for the reader to do. Use these headings, omitting empty ones:
 
 ```
 AUDIT: <path>    SOURCE: <path>
 
-  DELETE — nothing in the source asks for these
-  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher
-  ADD BACK — in the source, missing from this document
+  DELETED — nothing in the source asked for these
+  LOWERED TO THE CONSTITUTION FLOOR — no reason was given for exceeding it
+  ADDED BACK — in the source, missing from this document
   ALREADY BUILT — name the file; decide whether the requirement survives
   PICK ONE — these contradict
   CONFIRM THESE ARE WANTED — no objective named
-  FIX THE CITATION — referenced ID does not resolve
-  THE DOC IS STALE — asserts something the code contradicts
+  FIXED THE CITATION — referenced ID did not resolve
+  CORRECTED A STALE CLAIM — asserted something the code contradicts
+  CAVEAT — <n> claims went unchecked; see the PRD's ## Could Not Verify
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — sourced, listed for completeness
 ```
