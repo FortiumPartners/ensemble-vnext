@@ -1,286 +1,140 @@
-# Brief: verification that runs wide, produces work, and says what it did not check
+# Brief: a verification loop that converges
 
-**Written** 2026-09-26, from a long owner session. **Status:** input to one `/sweep` and one
-`/plan`. Not a TRD. Nothing here is a requirement until one of those authors it.
-
-**Why this exists:** the investigation is done and it changed direction three times. A fresh
-`/plan` that re-derives it will probably land somewhere worse, because two of the three
-rejected designs look obviously right until you measure them. Read §5 before proposing
-anything.
+**Written** 2026-09-26. **Status:** input to one `/sweep` and one `/plan`. Not a TRD.
 
 ---
 
-## 1. The problem, in one paragraph
+## The problem
 
-`/implement-trd --verify` runs a bounded loop that exercises a delivered feature against
-criteria derived from the source. It is opt-in, it walks every criterion with a single agent,
-and when it cannot reach something it says so in prose nothing can query. The result is a loop
-that almost never fails and routinely checks a fraction of what it was given, while reporting
-`satisfied`.
+**The loop proved 11 of 62 criteria and stopped. It restarts instead of converging.**
 
-## 2. What was measured
+Three rounds, all 62 criteria each round, repairs interleaved with evidence-gathering, nothing
+carried forward. Each round re-litigates everything from whatever it happened to capture that
+time. A structure like that cannot improve on itself — and 11 of 62 is what it produced in 101
+minutes. [ran]
 
-All figures from `~/dev/lightning-lane` unless stated. Method noted where it matters.
+**The same criteria, re-run as four sized slices with repairs held back, closed 21 more in 28
+minutes.** No regressions. That is the whole case. [ran]
 
-**Coverage of the mechanism**
-- **41 of 145** feature state directories have a verification report. `--verify` is opt-in
-  (`default off`, D11), so roughly three in four features were never exercised. [ran]
-- **23** `verification-state.json` files carry criteria. Of those runs: **21 `satisfied`,
-  1 `stuck`, 1 `unbuilt`**. [ran]
+**Landing at 57 of 62 with five named gaps is a good outcome.** Landing at 11 and calling it
+`stuck` is not. The target is convergence, not perfection.
 
-**What the runs actually concluded** — re-measured 2026-09-26 after a live run landed mid-brief;
-the earlier figures in this session's conversation (168 criteria) are superseded:
-- **230 criteria** across those 23 runs: **111 met (48.3%), 63 not_met (27.4%),
-  55 not_verifiable (23.9%), 1 unbuilt.** Nearly a quarter of all criteria were never checked,
-  and 21 of 23 runs still reported `satisfied`. [ran]
-- **The `not_met` count is the alarming one, and it is a mislabelling.** It jumped from 12 to 63
-  when the 62-criterion run landed — the run that proved 11 in three rounds. Its 51 unproven
-  criteria were recorded as **`not_met`**, meaning "the code fails this", when the truth is "the
-  exerciser never reached this". 12 + 51 = 63 exactly. So a criterion starved by the serial walk
-  is reported as a defect in the delivered code.
-- That is the same failure §8.4a of `implement-trd.md` already records from 2026-08-20
-  (*"reported those four as `not_met` — recording them as code failures when the code was never
-  exercised"*), recurring after the text warning against it was written. A status for
-  *not reached this run* is missing, and it is distinct from both `not_met` and
-  `not_verifiable`: the environment was fine and the code may be fine; the loop simply ran out
-  of walk. [ran]
-- The `reason` field is **empty in all 55** `not_verifiable` entries in the state files. The
-  explanation exists only as prose in the rendered markdown report. [ran]
+## What converges
 
-**Why criteria could not be checked** — 96 reasons parsed from the rendered reports:
-- **43** need a **deploy** (the fix is not in the running environment; "prod runs main")
-- **37** need a **live third-party system** (Disney's APIs)
-- **3** need a running instance or a browser
-- **12** other/uncategorised
-  [ran, regex classification — directional, not exact]
+Five mechanics. **The framework already has every input for all five and consumes none of
+them.**
 
-**The serial-walk cost, from a live run in that repo's session log**
-- One feature: **62 criteria, 11 proven in 3 rounds.** One Exercise agent per round walked all
-  62. Rounds 1 and 2 each proved 4 because the Debug stage spent them on fixes and rebuilds;
-  one fix changed the layout and invalidated screenshots already collected. ~20 of the 62
-  needed no simulator at all and were stranded behind ~45 that did. A single cited evidence
-  file — console noise with no test names — sank **25** criteria. [read, session log
-  `-Users-james-dev-lightning-lane/e4914591…jsonl`, 16:10–16:16]
-- That session then hand-built the fan-out the framework does not provide: dispatched a prep
-  agent for "build, 3 simulators, test data" and a second agent to fix `verification.md`
-  mid-run. **The owner's most important project is manually reconstructing this.** [ran]
+1. **Slice the OPEN set, sized to what one agent can walk.** ~8 criteria with a stated scenario
+   — which entry point, which dates, what to tap — not 62 and explore. The criterion count sits
+   in `success-definition.md` before dispatch; nothing reads it.
+2. **Evidence-only passes. Repairs batched between them.** Run 1 interleaved them: rounds 1 and
+   2 each proved 4 because the budget went on fixes and rebuilds, and a rebuild between capture
+   and judgement is what made 2 proven criteria revert. Run 2 ran at `cap: 1` — nothing rebuilt,
+   nothing reverted.
+3. **Carry forward what is proven.** The state file already holds `{id, status, artifact}` per
+   criterion, and `previousGaps` is written every iteration. Neither is read as a starting
+   position. The freshness check that makes carry-forward safe already exists and already fires.
+4. **Terminate on no-progress, not on a round count.** Three is arbitrary. `gapsClosed` is
+   already computed — `[0, 1, 9]` for Run 1. A loop that stops when the open set stops shrinking
+   runs to 57; a loop that stops at round 3 quits at 11.
+5. **Report the ratio and name the open set.** The loop knew it had proven 18% and exited
+   `stuck` — a word meaning "I tried and the target resisted" for a run whose truth was "I never
+   reached most of the target." Iteration 2 also held its count at 4 while swapping which 4,
+   so anyone watching totals saw a plateau over a set turning over underneath.
 
-**First-pass quality, which is what killed the second-pass idea**
-- **Median 96.4% survival** of first-pass source lines at HEAD, minimum 76.9%, across **14
-  feature commits and 37,300 lines** — while 16–81 later commits touched those same files.
-  [method: lines added per squash-merge commit, then `git blame HEAD` attribution]
-- The existing end-of-run `/code-review` rewrites **1–8%** of what the first pass wrote, and
-  **~85% of the lines it removes are ≤3 days old** (median age 0 days). It almost never
-  reaches outside code the run just wrote.
-- ~**15 of 25** review-written discovery-ledger entries are cross-task integration holes — the
-  class a second pass was meant to find. It already finds them.
+## Two things that make a pass land
 
-**Post-completion repair cost**
-- 9 completed features, 201 tasks. Stacked filters: 1,694 post-completion commits on the
-  feature's own files → 366 within 7 days → 188 non-`feat` → **60 same-feature first-week
-  repairs → 37 (62%) in the class a full-context pass could plausibly have caught.** About
-  4 per feature. [one agent's classification of 60 commits; conservative by instruction]
-- Variance is the finding: **5 of 9 features would have paid for a second pass, 4 would not**,
-  and the split is not size — a 91-task UI feature and a 25-task router feature sit at
-  opposite ends.
-- The dominant shape has a name in that repo: **"built but never wired."** A task builds a
-  component, no later task connects it, every test passes because it works in isolation. Two
-  verbatim cases: *"the entire reactive-turn block was silently skipped: decisions were written
-  to the ledger and bookings committed, but the user never got a message or push"*;
-  *"terminateSearchConfig … was implemented + unit-tested but NEVER called anywhere in the
-  worker."* Both were found by **running** the system (*"Sixth bug found via live
-  verification"*), not by reading it.
+**Assert while you capture.** Across 30 Maestro flows: **73 `tapOn`, 39 `takeScreenshot`, 6
+`assertVisible`.** They drove the app and photographed it instead of asserting against it. An
+assertion emits text a deterministic check can read; a PNG does not. The one all-text slice had
+the best hit rate and produced the only blockers that named a mechanism rather than a gap.
 
-**The carry-forward link**
-- `promoteToTrd` in `discovered.js` turns a recorded discovery into a TRD task row. Its only
-  invocation anywhere is a prose `node -e` block in `implement-trd.md` — **no code calls it.**
-  Across 6 ledgers and 53 records, **zero** set `blocksFeature: true`, the flag that makes a
-  record promotable. Its own header calls it *"THE MISSING LINK."* [ran]
-- It fired for the first time on 2026-09-26, by hand, and its output needed three corrections:
-  a placeholder `Serves`, a `Touches` naming one file for a twelve-file change, and the
-  acceptance criterion *"The discovery no longer reproduces"* — which passes whatever happens.
-  All three parsed cleanly, so nothing warned. [ran]
-- Nothing reads the ledger's `resolved` / `retracted` fields, and `record()` cannot write them —
-  15 records carry hand-edited annotations that `render()` ignores, so a record marked "fixed,
-  verified" still prints as open at every phase boundary. [ran]
-- The decisive failure, verbatim from `lightning-lane` commit `934b100ad`: **"F10 shipped
-  SERVER-ONLY and the feature was not delivered. … Root cause was orchestration, not
-  implementation: B010 was told not to touch client files that wave and to record the client
-  half as a discovery. It did. The discovery was never routed to a task and phase 5 closed with
-  both green."** All five phase reviews recorded `findings: 0`. [ran — commit read directly]
+`assertVisible` needs no new format — the flow file is already the manifest — and generalises
+free to Playwright's `expect().toBeVisible()`, whose reporter already serialises it. A few
+criteria are genuinely pictorial (colours, spacing, scroll behaviour); mark those **judge-only
+at authoring time** rather than letting one read as a code failure for three rounds.
 
-**`verification.md` reachability**
-- `.claude/rules/verification.md` is **not among the 15 arguments** the verification workflow
-  receives. Its only effect is on the orchestrator's own preflight reasoning, which nothing
-  records and no code checks. [ran]
-- The environment preflight (§8.4a of `implement-trd.md`, line ~1304) sits **inside Step 8** —
-  after the whole phase loop and the end-of-run review. Its heading says "BEFORE spending
-  iterations" and means the loop's; the owner experiences it as a question asked hours in.
-  §3.6 already does early `--verify` work and is where it belongs. [ran]
-- In this repo the file is the **untouched shipped template**, naming an `npm run dev` script
-  that does not exist. In `tbd-backend` and `opsedge` likewise untouched. `gcats` and
-  `lightning-lane` are filled in. So **2 of 4 reference repos run on a blank file**, and the
-  design must be useful with one. [ran]
+**Bound slices by what the owner declared, and defer where a runner already schedules itself.**
+Capacity has three owners:
+- **The owner** declares the budget and the hazards — how many stacks may exist, what may be
+  written to, what cannot be undone. `verification.md`'s job, rightly owner-governed.
+- **The test runner** owns its own parallelism where it has one. Playwright already sets worker
+  counts, declares per-project serial execution and reuses a shared server. `pytest-xdist` is
+  installed in `tbd-backend` and switched off. **Pass a slice and defer — never re-schedule.**
+- **The framework** sizes only the residue: device-bound or state-mutating exercise.
 
-## 3. Reference-repo shapes, so this is not designed around one project
+Do not build a capacity model. Build a capacity **reader**.
 
-| Repo | Runtime a criterion needs | Notes |
-|---|---|---|
-| `lightning-lane` | iOS simulator + Maestro, mock Disney API, Railway dev, prod on merge | device-bound UI evidence; the only multi-device case |
-| `tbd-backend` | docker-compose stack, Supabase | **no test script at all** (`echo "Error: no test specified" && exit 1`) |
-| `gcats` | one pnpm web+api dev stack on fixed ports | no docker, no e2e |
-| `opsedge` | `next dev` + Prisma/Supabase, vitest + **Playwright** | Playwright manages its own browser workers |
+## The recurring failure
 
-**Three of the four are single-runtime.** For them the current single-Exercise design is already
-optimal and the fan-out below is a no-op. Only `lightning-lane` changes. That is the guard
-against fitting this to one project.
+Thirteen instances of one thing: **the information was present and the consumer did not read
+it.** `tier1` computed per criterion and dropped on write. `previousGaps` written every
+iteration and never used. `verification.md` not among the loop's 15 arguments. `gcats` recording
+that a probe row on its shared Supabase project *can never be removed* — the exact hazard that
+manufactured this run's one false defect. `maestro hierarchy` queried for tap coordinates and
+discarded while a PNG of the same screen was kept. A slice reporting a scratch-file collision in
+its return value.
 
-## 4. The core insight
+Prefer fixes that read something already produced over fixes that produce something new.
 
-D2 in `docs/TRD/functional-verification.md` fixed one iteration as three sequential agents —
-Exercise, Judge, Debug — with this rationale, verbatim:
+## What the loop got right — do not redesign this
 
-> A human verifies a build by starting it once and walking the list. **N parallel exercisers
-> means N startups of the same application competing for the same port**, each paying the boot
-> cost, to parallelise a walk that one boot already affords.
+- **8 real defects, 7 of which needed the running system.** An async race seeding a form before
+  its data arrived, so the CTA was disabled on first open. Three restaurants sitting directly
+  under a park, so `container_name` *was* the park name and the land line rendered the park. A
+  diff reader would not have found these.
+- **Debug red-proofed its own fix:** *"5 of the 6 new tests fail against the HEAD version."*
+- **The governance boundary held under parallel agents with no enforcement.** The prep agent
+  drafted `verification.md` and headed it a draft for the owner's approval; its sibling was
+  explicitly forbidden to touch it.
+- **The run's own agents discovered and wrote down everything needed to verify that repo** —
+  ports, a container patch, a 401ing harness endpoint, a Maestro tap-by-point requirement that
+  cost two iterations. Nothing reads any of it as a backlog.
 
-**Boot once is right. Walk once does not follow.** A running server serves many concurrent
-readers. D2's rejected alternative was *"2N agents and N application startups"* — it assumed
-fan-out implies re-booting, so it never considered one boot with N walkers. The analogy to a
-human doing it is the load-bearing step, and it is not a constraint.
+## Change set
 
-**The real exclusivity is narrower than "the runtime."** It is what a criterion does to shared
-mutable state:
+### `/sweep` — independent, small
 
-- **reads** (an HTTP GET, a file, a unit test) — unbounded; sixty-two wide is fine
-- **mutates shared state** (seeds the same test persona, writes the same row) — conflicting
-- **drives a device** (two Maestro sessions on one screen) — genuinely exclusive
-- **rate-limited third party** — throughput, not exclusivity; capacity *k* is close enough
+1. **Persist `tier1` alongside `status`.** It is already computed and returned, then dropped. It
+   is what separates *never reached* from *reached and failed* — Run 1's `tier1: fail` column ran
+   25 → 23 → 1 while real coverage went 4 → 4 → 11.
+2. **Exit `insufficient-coverage`, not `stuck`, below a coverage floor**, and put the ratio where
+   it cannot be missed. Report membership, not just counts.
+3. **Terminate on no-progress** using the `gapsClosed` the loop already computes.
+4. **Detect an unfilled `verification.md` by byte-comparing it to the shipped template**, before
+   dispatching anything. A repo whose copy is identical cannot support functional verification —
+   true of 2 of the 4 reference repos, and knowable in milliseconds.
+5. **Fix `promoteToTrd`'s output** — placeholder `Serves`, single-file `Touches`, and an
+   acceptance criterion that passes whatever happens.
+6. **Promote `stalled` and `unbuilt` to TRD tasks.**
 
-**The owner's four resource categories collapse into two declared fields** — capacity, and a
-command to get another instance. "We need to wait" is not a category; it is what a full lane
-does.
+### `/plan` — one coherent change
 
-**The mechanism already exists.** `task-graph.js`'s `buildGraph(tasks, grounding)` serialises
-units that share declared state and parallelises the rest — used by every implement run,
-already tested. Criteria map onto it directly: `{id:'FS-1'}` plus
-`{'FS-1':{touches:['sim-a','persona-x']}}`. **No change to `task-graph.js`.** This answers D2's
-third objection — that a task graph would be *"a whole mechanism whose only job was to contain
-a concurrency the design did not need"* — because the mechanism is already paid for.
+**Make the loop converge.** Carry-forward, evidence-only passes with repairs batched between,
+open-set slicing sized to one walk, and tier 1 resolving a **locator per (criterion, artifact)
+pair** rather than checking that a file exists.
 
-**Default stance:** fan out as wide as the work allows; **serialisation is what must be
-justified by a declared conflict**, not the reverse.
+That last one closes a real hole: the cheap existence check rewarded attaching an artifact, so
+one jest log got cited for 25 criteria and the gate went blind. A locator cannot be satisfied by
+attaching a file. Naming is neither necessary nor sufficient — one artifact named twelve
+criteria and failed five of the seven citing it, while another named none and proved five of six.
+State the limit plainly: **tier 1 cannot check image evidence**, which is why assertions matter.
 
-## 5. Rejected — do not re-propose without new evidence
+Bound slices by reading the owner's declarations and the runner's own config. Judge and Debug
+stay single agents.
 
-- **`--harden` / a second implementation pass over completed tasks.** Rejected on the 96.4%
-  survival data and on the existing review already finding the readable cross-task holes while
-  staying inside ≤3-day-old code. A revisit brief ("is your slice wrong in light of its
-  neighbours?") makes neighbours' code in scope by definition, and neighbours' code is the 96%.
-  It also cannot see the dominant hole, which is an absence.
-- **Lanes keyed on runtime.** Wrong unit — it imports D2's error one level up. Key on declared
-  mutation instead.
-- **An outer N-pass implement/review/verify loop (owner's original item 3).** Shrunk by
-  agreement to: promote `stalled` and `unbuilt` to TRD tasks and see whether a second full pass
-  is ever wanted. The loop already caps at 3 internally with a stall rule; an outer 3 gives 9
-  and two termination stories.
-- **Retrying `not_verifiable` criteria within the same session.** 43 of 96 need a deploy that
-  will not happen mid-run. The retry belongs after a deploy, as a pending list `/verify-build`
-  consumes.
-- **Flipping `--verify` on by default *before* the fan-out exists.** At 12 criteria the serial
-  loop is fine; at 62 it produces a long run proving a sixth and reporting `satisfied`. Order
-  matters: fan-out first.
-- **Rate limiting as its own concept, read/write inference, and environment probing.** Capacity
-  *k* covers the first; the owner declares two lanes for the second; the third is declared, not
-  discovered — though a "how to get another" command lets the loop scale up when authorized.
-- **Framework rules keyed on environment NAME.** There is no coded policy about `production` or
-  `staging` anywhere, and there must not be. `lightning-lane` authorises prod for **read-only
-  verification** (owner, 2026-09-25) under a stated alpha exception. The table is the entire
-  policy.
+## Open, owner's call
 
-## 6. The change set
+1. **The coverage floor** below which a run exits `insufficient-coverage`. Any number is a
+   policy choice; 18% was clearly below it.
+2. **Whether an agent may create simulators or containers**, which the prep agent did via
+   `xcrun simctl create`. Resource allocation on a shared machine is yours.
+3. **Whether `--verify` becomes the default** once convergence lands. Before it lands, the
+   default would make 11-of-62 the standard experience.
 
-### 6a. For `/sweep` — independent, small, separately verifiable
+## Sources
 
-1. **Record the `not_verifiable` reason in `verification-state.json`.** Empty in all 55
-   entries today; the explanation lives only in the rendered report, so nothing can query why a
-   third of criteria went unchecked. ~25 logical lines.
-2. **Move the environment preflight from `implement-trd.md` §8.4a to §3.6**, so the one batched
-   owner question is asked in the first minutes rather than after the phase loop. Mirror the
-   change in `verify-build.md` §2, which delegates to it. Pure relocation and reframing; no new
-   machinery. ~75 logical lines.
-3. **Promote `stalled` and `unbuilt` to TRD tasks.** Both are terminal today and both are
-   exactly "something the loop says was never built" — which is a task. Uses `promoteToTrd`.
-   ~20 logical lines.
-4. **Fix `promoteToTrd`'s output** — it emits a placeholder `Serves`, a single-file `Touches`,
-   and an acceptance criterion that cannot fail. Prerequisite for 3 and for anything else that
-   carries findings forward. ~30 logical lines.
-5. **Add a status for "not reached this run"**, distinct from `not_met` and `not_verifiable`.
-   51 criteria starved by a serial walk are currently reported as code failures. The status set
-   lives in `functional-verification.js`; `decideNext`'s exit rules must treat the new one as
-   neither a gap to debug nor a silent pass. ~40 logical lines — the largest of the sweep items
-   and the one most worth doing first.
-6. **Require machine-readable evidence for test-run claims** (`--verbose --json` or equivalent,
-   per project). One unreadable log sank 25 criteria in a single run. ~15 lines, contract text.
-
-### 6b. For `/plan` — one coherent change
-
-**Fan out Exercise on a conflict graph.**
-
-- The success definition gains two columns: what each criterion **needs** (a resource token) and
-  what it **mutates**. Written by the deriver, which already states the need in prose in its
-  evidence column.
-- `verification.md` gains, per resource: **capacity** (how many concurrent) and **how to get
-  another** (a command, or blank meaning fixed). Plus a column for what the loop may do there —
-  deploy, restart, write — since the table is the whole policy and currently cannot express
-  read-only.
-- `verify-functional.js`: replace the single `await agent(buildExercisePrompt…)` at ~line 503
-  with a wave loop over `parallel()`, waves from `buildGraph`. One boot per distinct runtime,
-  shared by all readers. Per-lane evidence subdirectories.
-- **Judge and Debug stay single agents.** D7 — nothing certifies its own evidence — depends on
-  one judge seeing all evidence together, and one debugger cannot collide with itself. Only
-  Exercise changes.
-- **Blank-file default:** one implicit lane, working tree, unlimited. Every file-only criterion
-  runs wide; everything else is `not_verifiable` **naming the missing resource**. Strictly better
-  than today's silent unverifiability, and that list is the input to 6c.
-- Keep the fan-out **inside the workflow** via `parallel()`. D2's other rejection — direct
-  `Agent` fan-out from the command, because per-criterion transcripts land in orchestrator
-  context — stays rejected, and this is not it.
-
-**Rough size:** ~800 lines touched across 8 files, of which ~250 is new logic and about half the
-total is mirror duplication (every runtime file exists twice: `packages/core/<x>` and the
-vendored `.claude/<x>`; `packages/full` is a symlink, so no third copy). Expect `small`.
-
-### 6c. Later, not now
-
-- **A dependency-discovery skill.** Reads the code *and* past verification reports, and triages
-  **what can be mocked versus what genuinely cannot** — a Disney mock already exists; a deploy
-  cannot be mocked. It should propose a diff to `verification.md`, not write it: that file says
-  *"Owner-governed… An agent READS this and never writes it,"* and which environment is safe to
-  touch is policy, not an observation.
-- **A "wired?" check at the phase gate** — does every newly exported symbol have a non-test
-  caller? Deterministic grep, no agent, and it would have caught both quoted production
-  failures. Independent of everything above.
-- **Flip `--verify` to on by default** once the fan-out lands.
-- **Preview-environment-per-branch** as the template's taught default, which removes most
-  deploy-approval questions rather than asking them.
-
-## 7. Open, owner's call
-
-1. **Does the loop discover capacity or only read what is declared?** Argued: declared — the
-   framework reads policy, never probes. Against: that session booted three simulators by hand,
-   which is exactly the discovery case. This changes the design.
-2. **`dev` deploy authorization.** `local` and `production` answer themselves in every repo
-   examined. Whether the loop may deploy to a shared `dev` unattended is policy. For
-   `lightning-lane` the answer is already no — deploys go through `test` branch CI and a merge
-   to `main`, both by hand — so that repo stays deploy-blocked until a preview environment
-   exists.
-3. **Whether a "fast refresh" / "full deploy" split is worth two commands per environment.** If
-   taken, the end-of-run full run must be a gate that fails loudly, not a convention. Three
-   times in the authoring session a piped exit code reported green over a real failure.
-
-## 8. Evidence markers
-
-`[ran]` — executed and read the output. `[read]` — opened and verified. Classification counts
-in §2 marked as such are one agent's judgement over a bounded commit set, conservative by
-instruction, and are directional rather than exact.
+`~/dev/lightning-lane` `.trd-state/`, its session log for 2026-09-26T15:00–18:00Z, and
+`~/dev/fortium/tbd/tbd-backend`, `~/dev/islaygold/conectiv/gcats`,
+`~/dev/islaygold/conectiv/opsedge` for generalisability. Counts are `[ran]` unless marked.
+Classification of commits and reasons is one agent's judgement over a bounded set — directional.
