@@ -1,0 +1,70 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-1.txt"
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-2.txt"
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-3.txt"
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-4.txt"
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-5.txt"
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-6.txt"
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-7.txt"
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-8.txt"
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-9.txt"
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-10.txt"
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-11.txt"
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-12.txt"
+    }
+  ],
+  "gapsClosed": [
+    11,
+    1
+  ],
+  "outcome": "satisfied"
+}

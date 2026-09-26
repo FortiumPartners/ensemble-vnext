@@ -34,6 +34,30 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   that reason; a future run with a PRD in hand and time budgeted for a full pipeline pass
   could produce this evidence.
 
+## Exercising the audit-{trd,prd,build} readout headings (2026-09-25 run, `audit-readout-tense`)
+
+- [read] All 12 criteria in this success definition are static-text checks over the readout
+  heading definitions in six files: `packages/core/{workflows,commands}/audit-{trd,prd,build}.
+  {js,md}`. No server/browser/database/credential is involved — grep and `git diff
+  main...HEAD` over those six files is sufficient evidence for every criterion here; no live
+  `/audit-*` run was needed or attempted.
+- [ran] Confirmed `.claude/{workflows,commands}/audit-{trd,prd,build}.{js,md}` are
+  byte-identical to their `packages/core/` counterparts (`diff -q`, zero output, all six
+  pairs) — so checking `packages/core` alone is sufficient; the task's own warning about a
+  fallback-only check does not apply here because both layers were in fact updated in lockstep
+  in this diff.
+- [ran] `git diff main...HEAD -- <the six files>` is the single most useful command for this
+  whole criterion set — it shows every heading-text change side by side and made FS-1 through
+  FS-6, FS-10 essentially self-evident without needing per-criterion greps.
+- [ran] One inconsistency found and recorded in FS-4.txt/FS-12.txt evidence, NOT resolved to a
+  verdict (that's the judge's job): `audit-build.js`/`audit-build.md`'s `FIX THE CITATION`
+  heading was left in imperative form, even though its own description text says the audit
+  corrects the citation directly (the same mechanical action FS-4 requires past tense
+  `FIXED THE CITATION` for in the audit-trd/audit-prd layers), and it is not one of the four
+  audit-build headings the task text names as deliberately-imperative exceptions
+  (TRACEABILITY GAPS / MISSING IMPLEMENTATION / MISMATCH / UNTESTED-IN-PRACTICE). Worth a
+  second look by the judge stage.
+
 ## Exercising plan-weight.js / fix-plan.js / fix-sizing.js (2026-09-23 run)
 
 - [ran] `plan-weight.js`'s `KINDS`/`WEIGHTS`/`ROUTES` exports, `stages()`, `verification()` and
@@ -57,3 +81,52 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   script that does not exist in this repo), so these were left `not_verifiable` again this
   run, same reasoning as the prior entry. This applies to: FS-9, FS-19, FS-20, FS-21 (needs a
   TRD `/plan` actually wrote, not a synthetic fixture), FS-22, FS-24.
+
+## Evidence staleness in the tense-rule run (FS-12, 2026-09-25)
+
+- [ran] FS-12 arrived at Debug with the citation heading already past tense in all four files
+  (`packages/core/workflows/audit-build.js:509`, `packages/core/commands/audit-build.md:196`,
+  and both `.claude/` mirrors). The evidence artifact
+  `.trd-state/audit-readout-tense/evidence/FS-12.txt` was written 22:52; all four files were
+  last modified 22:54. The verdict was correct against the tree the Exercise pass read and
+  stale by two minutes against the tree Debug was handed.
+- [learned] On a project whose Exercise step is a grep, evidence can go stale between Judge and
+  Debug when more than one fix lands in the same iteration. Cheapest guard, and what closed
+  this one: re-grep the cited file:line before editing, and read `git diff` on it — the pre-edit
+  wording showed up as the `-` side of the working-tree diff, which is what identified the gap
+  as already closed rather than absent.
+- [ran] `FIX THE CITATION` still exists in `create-trd.{md,js}` (line ~985 / ~632) and in the
+  stale `.claude/worktrees/agent-*` copies. Those are a different command and untracked scratch
+  trees respectively. A repo-wide grep for the imperative spelling will hit them and read as a
+  failure; scope the grep to the six audit-layer files
+  (`packages/core/{workflows/audit-*.js,commands/audit-*.md}`) plus their `.claude/` mirrors.
+- [ran] Mirror parity for these six files is a plain `diff -q packages/core/<f> .claude/<f>` —
+  no need to invoke the BATS `runtime-integrity.test.sh` suite to check one change. `node --check`
+  on the three workflow scripts confirms the template literals still parse after a heading edit.
+- [ran] No test in `test/` asserts any readout heading string, so a heading rename breaks no
+  deterministic check — the only thing that can catch a half-applied rename is the two-layer
+  grep plus the mirror diff.
+
+## Iteration 2 re-check (same run, `audit-readout-tense`, 2026-09-25)
+
+- [ran] The FS-4/FS-12 gap the prior iteration flagged for the judge was fixed by Debug:
+  `FIX THE CITATION` in `audit-build.{js,md}` (both layers) is now `FIXED THE CITATION`, and
+  the fix also narrowed the claim to the in-run-rewrite case only, adding "reported, not
+  fixed" for a citation elsewhere in the TRD — a correctness improvement riding along with
+  the tense rename. Re-grepped all six files fresh after the debug edit
+  (`packages/core/workflows/audit-build.js` mtime 22:56:41, after the FS-4 evidence's
+  original 22:51:56 capture) — this is the exact staleness pattern the iteration-1 note
+  already named for FS-12; the fix here was to re-grep rather than trust the stale
+  evidence file. Confirmed zero remaining hits for the literal imperative string
+  `"FIX THE CITATION"` across the six audit-{trd,prd,build} files
+  (`packages/core/{workflows,commands}` — `.claude/` mirrors byte-identical, `diff -q`
+  all six). Updated `FS-4.txt` and `FS-12.txt` evidence files to the current (fixed) state
+  rather than leaving the iteration-1 "one inconsistency found" note standing as if
+  unresolved.
+- [ran] Confirmed `node --check` still passes on all three workflow `.js` files post-edit —
+  the heading-string edit didn't break template-literal syntax.
+- [inferred] General pattern worth carrying forward: when a criterion set spans an
+  iteration boundary (Exercise -> Judge -> Debug -> Exercise again), always re-grep the
+  cited file:line before reusing a prior iteration's evidence file verbatim, even when the
+  file "looks done" — mtimes are the cheap tell (evidence mtime vs. source mtime), same
+  method the iteration-1 note already established for the FS-12/Debug handoff.
