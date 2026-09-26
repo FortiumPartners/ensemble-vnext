@@ -21,9 +21,15 @@ cd "$REPO_ROOT" || exit 1
 QUIET=false
 [[ "${1:-}" == "--quiet" ]] && QUIET=true
 
+# test/evals/ is excluded: those suites exercise the A/B experiment tooling, not the
+# framework. They are run on demand with `npm run test:evals` when an eval is actually
+# being run. One of them (run-eval.test.js, the Jest side) leaked a child process that
+# held a CI job open for 52 minutes after every test had passed -- an hour of runner
+# time spent on the machinery that tests the product rather than the product.
 mapfile -t FILES < <(find test packages -name '*.test.sh' \
     -not -path '*/node_modules/*' -not -path '*/worktrees/*' \
     -not -path '*/analysis-archive/*' -not -path '*/ensemble-vnext-test-fixtures/*' \
+    -not -path 'test/evals/*' \
     2>/dev/null | sort)
 
 broken=(); empty=(); aborted=(); failing=(); total_ok=0

@@ -13,7 +13,7 @@
   },
   "scripts": {
     "test": "jest",
-    "test:evals": "jest --testPathPattern=test/evals",
+    "test:evals": "jest --testPathIgnorePatterns '/node_modules/' --testPathPattern 'test/evals'",
     "check:versions": "./packages/core/scripts/check-version-sync.sh",
     "smoke": "./test/smoke/run-smoke.sh",
     "smoke:full": "./test/smoke/run-smoke.sh --with-llm"
@@ -22,13 +22,11 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "<rootDir>/.claude/worktrees/",
-      "<rootDir>/test/evals/analysis-archive/",
-      "<rootDir>/test/evals/results/"
+      "<rootDir>/test/evals/"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/.claude/worktrees/",
-      "<rootDir>/test/evals/analysis-archive/",
-      "<rootDir>/test/evals/results/"
+      "<rootDir>/test/evals/"
     ]
   },
   "repository": {
