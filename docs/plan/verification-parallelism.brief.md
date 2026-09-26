@@ -106,7 +106,11 @@ Prefer fixes that read something already produced over fixes that produce someth
    true of 2 of the 4 reference repos, and knowable in milliseconds.
 5. **Fix `promoteToTrd`'s output** — placeholder `Serves`, single-file `Touches`, and an
    acceptance criterion that passes whatever happens.
-6. **Promote `stalled` and `unbuilt` to TRD tasks.**
+6. **Promote `stalled` and `unbuilt` to TRD tasks — and `not_met`, but never
+   `not_verifiable`.** A `not_met` criterion has something to build. A `not_verifiable` one
+   does not: the blocker is environmental, and promoting it would mint tasks meaning "go deploy
+   this". On current data that is 55 phantom tasks. This exclusion is a prerequisite for item 5,
+   not a refinement of it.
 
 ### `/plan` — one coherent change
 
@@ -201,8 +205,13 @@ dropped from an earlier draft of this brief by over-correction; they are not low
    policy choice; 18% was clearly below it.
 2. **Whether an agent may create simulators or containers**, which the prep agent did via
    `xcrun simctl create`. Resource allocation on a shared machine is yours.
-3. **Whether `--verify` becomes the default** once convergence lands. Before it lands, the
-   default would make 11-of-62 the standard experience.
+3. **Whether `--verify` becomes the default** — `--no-verify` to opt out. It ran on **40 of
+   145** features precisely because it is opt-in, so the flip is the single change that would
+   put verification in front of most work. Two reasons it is a decision and not an item in the
+   list above: before convergence lands, the default would make 11-of-62 the standard
+   experience rather than the exception; and **nobody has priced the added wall clock** — Run 1
+   cost 101 minutes, and the dispatch ledgers hold the data to estimate it across features but
+   nobody has pulled it.
 
 ## Sources
 
