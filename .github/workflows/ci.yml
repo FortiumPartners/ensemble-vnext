@@ -72,12 +72,15 @@ jobs:
         # 15 of 33 files with exit code 0 and no summary. The guard is now in
         # status.js, so the suite runs with everything else and a combined run
         # completes. Do not re-split this step without re-measuring.
-        run: |
-          npx jest --runInBand \
-            --testPathIgnorePatterns \
-              '/node_modules/' \
-              '<rootDir>/test/evals/analysis-archive/' \
-              '<rootDir>/test/evals/results/'
+        #
+        # NO --testPathIgnorePatterns HERE. That flag REPLACES the config value
+        # rather than adding to it, so an inline list silently overrode
+        # package.json's — which is why excluding test/evals/ there had no effect
+        # on CI at all. Run 36207422111 hit the 10-minute timeout with
+        # parse-hook-events.test.js and score.test.js both logged as PASS, two
+        # suites that were already excluded locally. package.json's jest config is
+        # the single source of truth; this step must not shadow it.
+        run: npx jest --runInBand
       - name: Check no stale "known-failing" Jest exclusions
         run: ./packages/core/scripts/check-jest-known-failing.sh
 
