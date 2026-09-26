@@ -105,10 +105,14 @@ mechanical; four were. What actually happened:
   `decideNext()` at `functional-verification.js:180` already exits `stalled` on the first
   zero-gap iteration. The fixer read the code and correctly changed nothing. **Item 3 is
   withdrawn.**
-- **Items 4 and 7 remain mechanical** and are the whole of `docs/plan/verification-sweep.md`.
-- **Items 2, 5 and 10 moved into this `/plan`** — see "Folded in from the sweep", below.
+- **Items 2, 4, 5, 7 and 10 all moved into this `/plan`** — see "Folded in from the sweep",
+  below. **Nothing is left for a sweep, and none should be run.** Items 4 and 7 were the last
+  two held out as mechanical, and writing them up showed they are not independent: item 4's
+  check needs a call site, and item 7 is the relocation that decides where that site is. Both
+  edit the same preflight section of the same two command files — the section this plan's
+  environment work already rewrites.
 
-### `/sweep` — what remains (full statements in `verification-sweep.md`)
+### `/sweep` — nothing remains
 
 1. **Persist `tier1` alongside `status`.** It is already computed and returned, then dropped. It
    is what separates *never reached* from *reached and failed* — Run 1's `tier1: fail` column ran
@@ -228,6 +232,18 @@ or a new surface, which is what makes them design work rather than sweep work.
   criterion that passes whatever happens. The decision inside it: what `Serves` should hold
   when no objective exists. "Or the row is not written" was hand-waving — suppressing the row
   changes what `--reconcile` picks up.
+- **Detect an unfilled `verification.md` by byte-comparing it to the shipped template**
+  (was sweep item 4). A project whose `.claude/rules/verification.md` is identical to
+  `packages/core/templates/claude-directory/rules/verification.md` has declared no
+  environments, no refresh commands and no credentials, so it cannot support functional
+  verification — knowable in milliseconds, currently discovered after a full loop has run.
+  True of 2 of the 4 reference repos. Folded in because the check needs a call site and the
+  next item decides where that is.
+- **Move the environment preflight from `implement-trd.md` §8.4a to §3.6** (was sweep item 7),
+  mirrored in `verify-build.md` §2. §8.4a runs after the whole phase loop and the end-of-run
+  review, so the single batched owner question lands hours into an unattended run. Pure
+  relocation — but it lands in the same section as the three environment changes above, so
+  doing it separately means editing that section twice. `[ran]`
 - **A "wired?" check at the phase gate** (was sweep item 10): does every newly exported symbol
   have a non-test caller? It would have caught both "built but never wired" production
   failures, needs no environment and generalises to every repo — but it has to define "newly
