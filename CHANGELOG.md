@@ -10,6 +10,63 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.7.2] - 2026-09-26
+
+Test-suite and CI release. ~530 tests removed, CI restored from a 52-minute hang to 90
+seconds green. One shipped file changed, which is why this carries a version at all.
+
+### Changed — the tests that could only report intent as regression are gone
+
+Jest 1129 -> 769, BATS 661 -> 489. The standard applied: **a test earns its place if it
+catches something done by accident.** A prompt is edited deliberately, so a test asserting a
+sentence exists in one reports a decision as a regression — it made improving prose cost a
+test edit and caught nothing.
+
+- 34 of 47 in `implement-trd-structure.test.sh`; the 13 survivors are renamed
+  `runtime-integrity.test.sh`, since "structure" described the prose it no longer checks.
+- 23 of 59 in `notify-on-complete.test.sh` (the autonomy-block and artifact-convention text).
+  Its L1 tests stay: real shell behaviour, exit-code propagation, session-id sanitisation.
+- `agent-validation.test.js` 132 -> 17. Ten tests per markdown file, generated
+  per-field-per-agent, beside a loop already asserting the same property across all of them.
+- 26 of 50 in `vendoring.test.sh` and 12 of 21 in `commands.test.sh` — thirteen separate
+  "agent X exists" tests beside one counting all thirteen, and fifteen asserting the TEST
+  HARNESS's own functions are defined.
+- ~210 tests of test tooling (`test/evals/`, `test/discipline-corpus/`,
+  `parse-hook-events`) left the default run. `npm run test:evals` and
+  `npm run test:tooling` run them when their result means something.
+
+What survives catches what nobody intends: two copies of a file drifting apart, a generated
+artifact going stale against its generator, a rebase eating a user's own skill, the router
+naming a command absent from disk, YAML malformed enough to stop an agent loading. Mirror
+parity earned its keep the same day — it caught `status.js` fixed in `packages/core` and never
+mirrored to `.claude/`.
+
+Untouched: the deterministic libraries and shell scripts. Every defect 4.7.1 fixed lived there.
+
+### Fixed — CI hung for 52 minutes and reported nothing
+
+- **The Jest step's inline `--testPathIgnorePatterns` REPLACED the config value** instead of
+  extending it, so every exclusion added to `package.json` was silently ignored on the runner
+  for three runs. CI now uses `jest.config.ci.js`, which extends the shared block. This was
+  the root cause of two wrong diagnoses.
+- **`timeout-minutes: 10` on every job.** There was no bound anywhere, so GitHub's 6-hour
+  default applied and the log is only served once a job ends — a hang produced no diagnostic
+  at all. This is what made the rest findable.
+
+### Known open
+
+`packages/core/lib/discovered.test.js` **hangs on the GitHub runner only**, producing zero
+bytes — not even Jest's banner when run alone under `--detectOpenHandles` (exit 124). It
+passes in 21 tests / 0.3s locally under both Node 22 and the Node 24 the runner forces.
+Eliminated: Node version, stdin closed, `CI=true`, open handles, regex backtracking,
+module-level side effects. **Cause unidentified**; excluded from CI via `jest.config.ci.js`,
+which carries the full evidence. A job that hangs reports nothing, which is strictly worse
+than one reporting 27 of 28 suites — that trade is the justification, and the module stays
+covered by the local battery.
+
+Also still open from 4.7.1: `/audit-build` writes no durable report, and nothing closes a
+feature (`docs/TRD/completed/` holds 1 against 17 active).
+
 ## [4.7.1] - 2026-09-25
 
 Seven things that reported success over work that had not happened. No new capability — every

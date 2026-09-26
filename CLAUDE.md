@@ -528,8 +528,24 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.7.1** (2026-09-25). 18 commands, 13 subagents. Test battery: 1129 Jest,
-107 pytest, 661 BATS.
+Released at **4.7.2** (2026-09-26). 18 commands, 13 subagents. Test battery: 769 Jest,
+107 pytest, 489 BATS.
+
+4.7.2 cut ~530 tests on one standard: a test earns its place if it catches something done by
+ACCIDENT. Prose assertions against prompts went, because an edited prompt is a decision, not a
+regression. So did enumerated duplicates, fifteen tests asserting the test harness's own
+functions exist, and ~210 tests of test tooling (`npm run test:evals`, `npm run test:tooling`
+run those on demand). What survives catches file-copy drift, stale generated artifacts, a
+rebase eating a user's skill, and malformed agent YAML.
+
+**CI:** the Jest step's inline `--testPathIgnorePatterns` was REPLACING the config value, not
+extending it — every exclusion in `package.json` was ignored on the runner. Now
+`jest.config.ci.js` extends it. Every job has `timeout-minutes: 10`; there was no bound
+before, so a hang cost 52 minutes and yielded no log.
+
+**Known open:** `packages/core/lib/discovered.test.js` hangs on the GitHub runner only,
+emitting zero bytes, cause unidentified after eliminating Node version, stdin, open handles and
+regex backtracking. Excluded from CI via `jest.config.ci.js`, which holds the evidence.
 
 4.7.1 is a patch with one theme: seven places that reported success over work that had not
 happened. No new capability.
