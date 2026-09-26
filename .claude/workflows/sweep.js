@@ -216,7 +216,14 @@ const runRegion = ([region, items]) => async () => {
         effort: 'medium',
         schema: fixSchema,
       })
-      out.push(r ? { ...r, region } : { id: item.id, status: 'failed', summary: item.summary, detail: 'the agent returned nothing', region })
+      /* `id: item.id` comes AFTER the spread on purpose. The agent's schema requires an `id`
+       * and agents write it freely -- one run returned "ISSUE-1-verification-md-preflight" for
+       * issue "1" -- so letting the agent's value through means the accounting check below
+       * compares triage's ids against invented ones, finds no match, and throws
+       * "never produced a result" over work that completed and landed. Measured 2026-09-26:
+       * 3 of 3 issues fixed on disk, run reported `failed`, readout discarded. The dispatch
+       * knows which issue it sent; that is the only id worth trusting. */
+      out.push(r ? { ...r, id: item.id, region } : { id: item.id, status: 'failed', summary: item.summary, detail: 'the agent returned nothing', region })
     }
     return out
   }
