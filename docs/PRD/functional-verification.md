@@ -1,11 +1,21 @@
 # PRD: Functional Verification of Delivered Software
 
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Status**: Draft
-**Last Updated**: 2026-08-18 — FR-3, FR-4 and AC-7 amended to match owner decisions taken during TRD review; see the inline *Amended* notes
+**Last Updated**: 2026-09-27 — the opt-in default (the fourth Non-Goal, AC-6, R3) amended: the loop now runs by default, per `docs/TRD/verification-convergence.md` O6; see the inline *Amended* notes
 **Created**: 2026-08-17
 **Author**: extracted from `docs/modernization/2026-08-improvement-plan.md` item 9a
 **Source**: improvement-plan item 9a, and the owner decisions recorded there 2026-08-16/17
+
+---
+
+## Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.2.0 | 2026-09-27 | **The opt-in default is superseded.** The loop runs by default and `--no-verify` opts out. That was an owner decision recorded as `docs/TRD/verification-convergence.md` O6 (2026-09-26) and delivered in `005c389`. The fourth Non-Goal ("Running by default"), AC-6 and R3 are amended inline, in the same form v1.1.0 used for FR-3, FR-4 and AC-7: the new text, then a dated note saying what it replaced and why. **What did not change**: the cost of a verification cycle is still unmeasured. O6 withdrew the clause that would have priced it before the flip, so the default changed without a price. §7's cost question is still open. **Not revised in this version**: §7's "this is why AC-6 exists", and the Could Not Verify row's reason, "no implementation exists to measure", which has been false since the loop shipped (the cost is unmeasured because nobody has run the measurement, not because there is nothing to run). This changelog table is new in this version; the two rows below are reconstructed from the header note and git history (`2bc0464`, `0d4c343`) |
+| 1.1.0 | 2026-08-18 | FR-3, FR-4 and AC-7 amended to match owner decisions taken during TRD review: one judge per iteration rather than per artifact, and one `app-debugger` per iteration rather than a TRD remediation phase (`2bc0464`) |
+| 1.0.0 | 2026-08-17 | Extracted from `docs/modernization/2026-08-improvement-plan.md` item 9a (`0d4c343`) |
 
 ---
 
@@ -45,7 +55,15 @@ loop, where it survives as a single conditional line in the phase-gate prompt
   responsibility (`CLAUDE.md`, `stack.md`, project memory, its existing suites). This ships
   hints, not capability.
 - **Verifying acceptance criteria.** Already covered three ways.
-- **Running by default.** Cost is unmeasured; see AC-6.
+- **Running by default — no longer a non-goal.** The loop runs by default, and `--no-verify`
+  opts out.
+
+  *Amended 2026-09-27.* This originally read *"Running by default. Cost is unmeasured; see
+  AC-6."* It is superseded by `docs/TRD/verification-convergence.md` O6, an owner decision of
+  2026-09-26. The premise it rested on is still true: **the cost is still unmeasured.** No run
+  has priced a verification cycle, and O6 withdrew the clause that would have priced it before
+  the flip. The default changed as an owner decision made without a price, not because a
+  measurement showed the cost was acceptable.
 
 ## 4. Functional Requirements
 
@@ -144,7 +162,7 @@ that never ran — which is precisely the failure that produced the 4.1.16 defec
 | AC-3 | A PRD yielding no citable criteria produces an empty definition and the loop does not run |
 | AC-4 | Each criterion resolves to `met` / `not met` / `not verifiable here`, with an evidence artifact or a stated reason |
 | AC-5 | The loop exits on all three conditions: satisfied, zero-progress, and the 3-iteration cap |
-| AC-6 | The loop is opt-in behind a flag and does not run by default |
+| AC-6 | The loop runs by default; with `--no-verify` nothing in this feature executes: no success definition is derived and the loop does not run (amended 2026-09-27: originally *"opt-in behind a flag and does not run by default"*, superseded by `docs/TRD/verification-convergence.md` O6; the cost that motivated opt-in is still unmeasured) |
 | AC-7 | Remediation is one `app-debugger` agent per iteration, fixing code directly; a criterion reported UNBUILT exits rather than being remediated (amended 2026-08-18) |
 | AC-8 | The verifier's notes persist across iterations and record derivation markers |
 | AC-9 | The report names every criterion, including unverifiable ones |
@@ -155,7 +173,7 @@ that never ran — which is precisely the failure that produced the 4.1.16 defec
 |---|---|---|
 | R1 | The success definition manufactures criteria the PRD does not support | Mandatory PRD-line citation; uncitable dropped, not invented (FR-1) |
 | R2 | Remediation for one criterion breaks another | Dispatch as a phase, inheriting file-conflict serialization (FR-4) |
-| R3 | Cost per cycle makes it unaffordable | Opt-in by default (AC-6); measure on a real run before changing that |
+| R3 | Cost per cycle makes it unaffordable | ~~Opt-in by default (AC-6); measure on a real run before changing that~~ *Amended 2026-09-27:* no longer mitigated by opt-in. The default changed to on (`docs/TRD/verification-convergence.md` O6) **before** any run measured the cost, so the "measure first" half of this mitigation was not met, and the cost is still unmeasured. What remains is `--no-verify` per run and the 3-iteration cap (FR-4), which bound the cost without pricing it |
 | R4 | Notes accumulate wrong beliefs with no reviewer | Derivation markers, and correct-on-failure rather than work-around (FR-5) |
 | R5 | The verifier reports green for checks that never ran | `not verifiable here` as a distinct status (FR-6) |
 
