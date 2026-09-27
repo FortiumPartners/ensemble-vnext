@@ -10,6 +10,65 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.10.0] - 2026-09-27
+
+A stalled verification run now has a way forward: a diagnosis, a short chat, then an
+unattended fix loop. And `verification.md` gets a skill that writes it. Plans:
+`docs/TRD/verification-fix-loop.md` (1.0.2, 11 of 11 tasks built, 38 of 38 criteria met) and
+`docs/TRD/verification-md-setup.md` (6 of 6 built, 19 of 19 met). PR #7.
+
+### Added
+
+- **Diagnosis by cause.** Every criterion that is not met stores a `cause` from a fixed set
+  (evidence missing, stale or unlocatable, judged failed, environment unreachable, capability
+  absent, never exercised, not built). A run ending stalled, stuck, unbuilt or
+  insufficient-coverage prints the counts per cause and names the next step.
+- **`/verify-plan-recovery`** — a skill for a short chat with the owner that writes
+  `.trd-state/<feature>/verification-plan.md`: blockers, slices, rulings, criteria accepted as
+  not verifiable, extra checks, and a stop rule (`max-rounds`, `stop-when-closed-below`).
+- **`/verify-build --fix [plan]`** — runs that plan unattended: builds blockers and failing
+  criteria through `/implement-trd --reconcile --chained` (a new mode: no banner, no notify, no
+  verification of its own), re-verifies only what is open, republishes check pages and reads
+  comments between rounds, and stops on the plan's stop rule. Without a plan: one round. One
+  banner per run. Never edits `verification.md`. This reverses verification-convergence NG2 on
+  the owner's two conditions: explicit `--fix` only, and one stop rule.
+- **`/verification-setup`** — interviews the owner with defaults detected from the repo and
+  writes `.claude/rules/verification.md`. Running it is the approval; it prints what changed.
+  Credentials are recorded by location, never value. It recommends a coverage floor from the
+  project's own past runs (the lowest satisfied run's proven share, rounded down to 5%), or none
+  when there is no history.
+- **The coverage floor reaches the loop.** `verification.md` §5a declares it; `/implement-trd`
+  §8.1a and `/verify-build` 3c read it and pass `coverageFloor`; the readout states the floor in
+  force or "none declared".
+- **Old-shape detection.** A filled `verification.md` written to an older template has its
+  missing sections named, and every "unfilled or out of date" message (and `/init-project`)
+  points at `/verification-setup`.
+
+### Changed
+
+- **One framework-skill list.** `packages/skills/framework-skills.txt` names every skill Ensemble
+  ships, each `check` or `support`. Scaffold, refresh, rebase and the docs read it; only `check`
+  rows can be chosen as verification checks. Adding a skill is one line.
+- **`verification.md` is owner-governed** in the constitution, beside `stack.md` (1.4.0,
+  owner-approved). Its template header now says so.
+- Stale verification wording corrected: `--resume` re-enters an interrupted loop, not a stalled
+  one; lanes are derived at §8.1a; `--verify` is no longer required when chaining.
+
+### Fixed
+
+- Audit verdicts (`/audit-prd`, `/audit-trd`, `/audit-build`) can no longer read "safe to
+  proceed" when no source was supplied.
+- The discovery ledger no longer drops an oversized record silently.
+- The design-check smoke scenario requires COMMAND COMPLETE and one status per frame
+  (CodeRabbit, PR #6).
+- A router test no longer fails whenever a feature is in flight.
+
+### Known open
+
+- Live smoke tests for `--fix` and `/verification-setup` are deferred: both need a live session.
+- The coverage floor applies only if the verification judge copies it into its decision; the
+  workflow does not re-check coverage itself.
+
 ## [4.9.0] - 2026-09-27
 
 Screen-by-screen design review becomes part of verification. Plan:

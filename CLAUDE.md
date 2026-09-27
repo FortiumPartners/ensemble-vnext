@@ -528,8 +528,18 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.9.0** (2026-09-27). 18 commands, 13 subagents. Test battery: 1054 Jest,
-107 pytest, 496 BATS.
+Released at **4.10.0** (2026-09-27). 18 commands, 13 subagents. Test battery: 1191 Jest,
+107 pytest, 576 BATS.
+
+4.10.0 gives a stalled verification run a way forward. The report counts failures by cause;
+`/verify-plan-recovery` turns a short chat with the owner into
+`.trd-state/<feature>/verification-plan.md`; `/verify-build --fix` runs that plan unattended to
+its stop rule, building through `/implement-trd --reconcile --chained`. `/verification-setup`
+writes `verification.md` (running it is the approval) and recommends a coverage floor from past
+runs, which now reaches the loop. Every framework-shipped skill is named once, in
+`packages/skills/framework-skills.txt`, marked `check` or `support`. Plans:
+`docs/TRD/verification-fix-loop.md`, `docs/TRD/verification-md-setup.md`. **Known open:** the
+live smoke tests for both are deferred, and the floor applies only if the judge copies it.
 
 4.9.0 makes screen-by-screen design review part of verification. Every check-role skill listed in
 `packages/skills/framework-skills.txt` ships to every project; every TRD
