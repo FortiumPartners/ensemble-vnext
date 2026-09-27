@@ -229,8 +229,9 @@ ratio when the outcome is `insufficient-coverage`. A failed final full-environme
 in ISSUES with who acts (VCON-B009); it does not retract the criteria proven before it.
 
 **State the coverage floor whenever this run reached step 4 (D19):** "Coverage floor: {N}%
-(from verification.md)" when 3c's `coverageFloor` is non-null, else "Coverage floor: none
-declared".
+(from verification.md)" when 3c's `coverageFloor` is non-null; "Coverage floor: not applied —
+the line in verification.md does not parse" when `read-coverage-floor` returned `invalid`
+(with the ISSUES line 3c requires); else "Coverage floor: none declared".
 
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.

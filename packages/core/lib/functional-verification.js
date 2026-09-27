@@ -373,39 +373,27 @@ function readCoverageFloor(content) {
   if (typeof content !== 'string') {
     throw new TypeError('readCoverageFloor: content must be a string');
   }
-  const lines = content.replace(/\r\n?/g, '\n').split('\n');
-
-  let headingIndex = -1;
-  let headingLevel = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const heading = lines[i].match(/^(#{1,6})\s+(.*)$/);
-    if (heading && heading[2].toLowerCase().includes('coverage floor')) {
-      headingIndex = i;
-      headingLevel = heading[1].length;
-      break;
-    }
-  }
-  if (headingIndex === -1) {
+  // Same fence-aware pair readStopRule uses, so a "## Coverage floor" quoted inside a code
+  // block elsewhere in the file cannot be mistaken for the section itself.
+  const lines = maskFencedLines(content.replace(/\r\n?/g, '\n').split('\n'));
+  const section = findSection(lines, 'coverage floor');
+  if (!section) {
     return { floor: null, status: 'absent', raw: null };
   }
 
-  let sectionEnd = lines.length;
-  for (let i = headingIndex + 1; i < lines.length; i++) {
-    const heading = lines[i].match(/^(#{1,6})\s+/);
-    if (heading && heading[1].length <= headingLevel) {
-      sectionEnd = i;
-      break;
-    }
-  }
-
+  // Tolerate the Markdown an owner reaches for when hand-editing -- `**Coverage floor**: 60%`,
+  // `Coverage floor: `60%``, a list marker -- exactly as readStopRule does. Without this, a bold
+  // key read as `absent` (no line found), which nothing reports: the owner's floor would be
+  // silently dropped rather than flagged `invalid`.
   const floorLine = lines
-    .slice(headingIndex + 1, sectionEnd)
+    .slice(section.start, section.end)
+    .map((line) => line.trim().replace(/^[-*+]\s+/, '').replace(/[*`]/g, '').trim())
     .find((line) => /coverage floor\s*:/i.test(line));
   if (!floorLine) {
     return { floor: null, status: 'absent', raw: null };
   }
 
-  const raw = floorLine.replace(/^.*coverage floor\s*:\s*/i, '').trim();
+  const raw = floorLine.replace(/^.*?coverage floor\s*:\s*/i, '').trim();
 
   if (/^none$/i.test(raw)) {
     return { floor: null, status: 'none', raw };
@@ -1119,20 +1107,25 @@ function missingVerificationSections(content) {
   if (typeof content !== 'string') {
     throw new TypeError('missingVerificationSections: content must be a string');
   }
-  const lines = content.replace(/\r\n?/g, '\n').split('\n');
+  const lines = maskFencedLines(content.replace(/\r\n?/g, '\n').split('\n'));
 
   const hasHeadingContaining = (needle) =>
     lines.some((line) => /^#{1,6}\s/.test(line) && line.toLowerCase().includes(needle));
-  const hasLineContainingAll = (needles) =>
+  // Table rows only, as the doc comment above promises: the current template's own prose
+  // names both columns ("Permitted values for **Loop may WRITE data?**", "a **fast refresh**
+  // ... and a **full deploy**"), so an any-line match would call a file whose table lacks the
+  // column complete merely because that prose survived.
+  const hasTableRowContainingAll = (needles) =>
     lines.some((line) => {
+      if (!line.trimStart().startsWith('|')) return false;
       const lower = line.toLowerCase();
       return needles.every((needle) => lower.includes(needle));
     });
 
   const missing = [];
   if (!hasHeadingContaining('resource capacity')) missing.push('resource-capacity');
-  if (!hasLineContainingAll(['loop may write data?'])) missing.push('write-permission-column');
-  if (!hasLineContainingAll(['fast refresh', 'full deploy'])) missing.push('refresh-split');
+  if (!hasTableRowContainingAll(['loop may write data?'])) missing.push('write-permission-column');
+  if (!hasTableRowContainingAll(['fast refresh', 'full deploy'])) missing.push('refresh-split');
   if (!hasHeadingContaining('coverage floor')) missing.push('coverage-floor');
   return missing;
 }
@@ -1284,8 +1277,21 @@ if (require.main === module) {
     } else {
       const projectContent = fs.readFileSync(projectPath, 'utf8');
       const missingSections = missingVerificationSections(projectContent);
-      if (templatePath && fs.existsSync(templatePath)) {
-        const templateContent = fs.readFileSync(templatePath, 'utf8');
+      // In a scaffolded project this module lives at `.claude/lib/`, and the one current copy
+      // of the template there is the verification-setup skill's own `template.md` (a symlink
+      // in the plugin, dereferenced by `cp -RL` at install and replaced on every --refresh).
+      // Without this fallback the CURRENT unfilled template -- the commonest case in a fresh
+      // project -- matches no prior-template digest and reports `template-missing` instead of
+      // "never filled in".
+      const skillTemplatePath = path.join(__dirname, '..', 'skills', 'verification-setup', 'template.md');
+      const resolvedTemplatePath =
+        templatePath && fs.existsSync(templatePath)
+          ? templatePath
+          : fs.existsSync(skillTemplatePath)
+            ? skillTemplatePath
+            : null;
+      if (resolvedTemplatePath) {
+        const templateContent = fs.readFileSync(resolvedTemplatePath, 'utf8');
         const result = isVerificationUnfilled(projectContent, templateContent);
         console.log(JSON.stringify({ ...result, missingSections }));
       } else {
@@ -1320,6 +1326,12 @@ if (require.main === module) {
     const [trdStateDir] = rest;
     if (!trdStateDir) {
       usage();
+    } else if (!fs.existsSync(trdStateDir)) {
+      // Distinct from "a directory with no satisfied runs": a wrong path (or a wrong cwd)
+      // must not read as "this project has no history", which recommends no floor at all.
+      console.log(
+        JSON.stringify({ ...recommendCoverageFloor([]), skipped: [], reason: 'missing', path: trdStateDir })
+      );
     } else {
       let entries = [];
       try {

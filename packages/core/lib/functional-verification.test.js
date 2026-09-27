@@ -1426,6 +1426,32 @@ describe('isVerificationUnfilled', () => {
       });
     });
 
+    test('in a scaffolded layout, falls back to the verification-setup skill\'s template and recognises the CURRENT unfilled copy', () => {
+      // Mirror a scaffolded project: the module under .claude/lib, the skill's template.md
+      // (dereferenced) under .claude/skills/verification-setup, and no packages/ tree at all.
+      const libDir = path.join(tmpDir, '.claude', 'lib');
+      const skillDir = path.join(tmpDir, '.claude', 'skills', 'verification-setup');
+      fs.mkdirSync(libDir, { recursive: true });
+      fs.mkdirSync(skillDir, { recursive: true });
+      for (const f of fs.readdirSync(__dirname)) {
+        if (f.endsWith('.js') && !f.endsWith('.test.js')) {
+          fs.copyFileSync(path.join(__dirname, f), path.join(libDir, f));
+        }
+      }
+      const currentTemplate = path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md');
+      fs.copyFileSync(currentTemplate, path.join(skillDir, 'template.md'));
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.copyFileSync(currentTemplate, projectPath);
+
+      const stdout = execFileSync('node', [
+        path.join(libDir, 'functional-verification.js'),
+        'check-verification-unfilled',
+        projectPath,
+        path.join(tmpDir, 'packages', 'core', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'current', missingSections: [] });
+    });
+
     test('returns template-missing with missingSections when the template path is absent and no digest matches', () => {
       const projectPath = path.join(tmpDir, 'project.md');
       fs.writeFileSync(
@@ -1489,6 +1515,17 @@ describe('missingVerificationSections', () => {
       'utf8'
     );
     expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor']);
+  });
+
+  test('prose naming a column does not stand in for the table column itself', () => {
+    const content = [
+      '## 1a. Resource capacity',
+      'Permitted values for **Loop may WRITE data?**: `read-only`.',
+      'a **fast refresh** the loop runs, and a **full deploy** it runs once.',
+      '## 5a. Coverage floor',
+      'Coverage floor: none',
+    ].join('\n');
+    expect(missingVerificationSections(content)).toEqual(['write-permission-column', 'refresh-split']);
   });
 
   test('throws on a non-string content, matching decideNext\'s validate-don\'t-default stance', () => {
@@ -1571,6 +1608,25 @@ describe('readCoverageFloor', () => {
       status: 'invalid',
       raw: '0.6',
     });
+  });
+
+  test('a bold or code-span key/value is still read, not silently dropped as absent', () => {
+    expect(readCoverageFloor(withFloor('**Coverage floor**: 60%'))).toEqual({
+      floor: 0.6,
+      status: 'declared',
+      raw: '60%',
+    });
+    expect(readCoverageFloor(withFloor('- Coverage floor: `75%`'))).toEqual({
+      floor: 0.75,
+      status: 'declared',
+      raw: '75%',
+    });
+  });
+
+  test('a "## Coverage floor" quoted inside a fenced block is not the section', () => {
+    const content =
+      '```\n## Coverage floor\nCoverage floor: 90%\n```\n\n## 5a. Coverage floor\n\nCoverage floor: 40%\n';
+    expect(readCoverageFloor(content)).toEqual({ floor: 0.4, status: 'declared', raw: '40%' });
   });
 
   test('throws on a non-string content', () => {

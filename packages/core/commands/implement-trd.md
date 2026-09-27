@@ -1786,7 +1786,10 @@ STATE
   {if --no-verify was set: "Nobody checked whether the software does what the PRD asked
     (--no-verify set)."}
   {if verification ran: "Coverage floor: {N}% (from verification.md)" when §8.1a's
-   `coverageFloor` is non-null, else "Coverage floor: none declared" (D19).}
+   `coverageFloor` is non-null; "Coverage floor: not applied — the line in verification.md
+   does not parse" when `read-coverage-floor` returned `status: 'invalid'`; else
+   "Coverage floor: none declared" (D19). Never "none declared" for an invalid line — the
+   owner did declare one.}
   {for each selected check, from `criteria` and `pages`: one line naming the check in plain
    words and its verdict counts, with its page link when rendered — e.g. "Screens against
    their designs: 32 compared — 28 match, 2 minor, 2 deviate and are still open — <link>".}
@@ -1814,6 +1817,9 @@ ISSUES
   {for each entry in `pages` with `rendered: false`: "{skill}'s page did not render at
     iteration {iteration} — {reason}."}
   {for each check input that did not resolve at §8.1b: name the check and the input.}
+  {if §8.1a's `read-coverage-floor` returned `status: 'invalid'`: "verification.md's coverage
+    floor reads `{raw}`, which is not a percentage or `none`, so no floor was applied — fix it
+    with `/verification-setup`." (D9)}
   {blocking discoveries this run found and did not do — promoted or not, and which}
   {if none: "none"}
 

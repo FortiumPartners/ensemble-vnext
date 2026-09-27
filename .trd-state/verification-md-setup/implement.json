@@ -4,7 +4,7 @@
   "trd_hash": "95497147cfd6cbdd5c7009b9f2bdbcd35187fc3e54fec4af5c93929fb2fe3b4a",
   "branch": "feature/verification-md-setup/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "VSET-B001": {
       "description": "functional-verification.js (§3.1) and the template (§3.2) as one task. The template's digest, fixture and section detection are verified against each other, so splitting them serializes on the same te",
@@ -109,11 +109,21 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "d90a932",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-27T23:13:46.301Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "f8109df",
+    "last_healthy_checkpoint": "d90a932",
     "interrupted": false,
-    "interrupt_reason": null
+    "interrupt_reason": null,
+    "last_checkpoint_timestamp": "2026-09-27T23:13:46.301Z"
   },
   "functional_verification": {
     "prd_resolved": true,

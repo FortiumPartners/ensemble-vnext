@@ -90,7 +90,10 @@ lowest satisfied run proved very little of its own criteria, the skill says so p
 that run's own figures, and leaves the decision to the owner rather than filing the number
 past them. With no past run that ended `satisfied`, the recommendation is "no floor
 recommended yet — none of this project's runs has ended satisfied; a floor can be added
-after the first ones do." Any answer is accepted at this topic, including `none`.
+after the first ones do." Any answer is accepted at this topic, including `none`, but it is
+written as `Coverage floor: <N>%` or `Coverage floor: none` — the only two forms
+`read-coverage-floor` parses. An answer of `0.6` or `60` is written as `60%`, and the
+recommendation (a fraction in the CLI's output) is offered as a percentage too.
 
 ## Writing
 
