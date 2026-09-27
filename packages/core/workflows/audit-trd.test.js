@@ -135,4 +135,81 @@ describe('audit-trd wiring', () => {
     const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
     expect(members).toContain('drop-dependency');
   });
+
+  it("declares 'advisory' in the findings action enum, so a verification-artifacts item can carry it", () => {
+    const match = SOURCE.match(/action:\s*\{\s*type:\s*'string',\s*enum:\s*\[([^\]]+)\]\s*\}/);
+    expect(match).not.toBeNull();
+    const members = match[1].split(',').map((m) => m.trim().replace(/^'|'$/g, ''));
+    expect(members).toContain('advisory');
+  });
+
+  describe('verification artifacts (VART-B002)', () => {
+    it('names the skill lookup, the per-span input lookup and the missing-section advisory in the deterministic prompt', async () => {
+      const { agent } = await audit();
+      const deterministic = byLabel(agent, 'verify:deterministic');
+      expect(deterministic.prompt).toMatch(/verification artifacts/i);
+      // the skill lookup: ls each skill named in a row or an Omitted: line under either skills root
+      expect(deterministic.prompt).toMatch(/packages\/skills\//);
+      expect(deterministic.prompt).toMatch(/\.claude\/skills\//);
+      expect(deterministic.prompt).toMatch(/Omitted:/);
+      // the per-span input lookup
+      expect(deterministic.prompt).toMatch(/backtick/i);
+      // the missing-section advisory
+      expect(deterministic.prompt).toMatch(/advisory/i);
+      expect(deterministic.prompt).toMatch(/no such heading|section missing|no.*## Verification Artifacts/i);
+    });
+
+    it('names the three triggers, the add-back finding and the absent-section advisory in the omission-audit prompt', async () => {
+      const { agent } = await audit();
+      const omission = byLabel(agent, 'verify:omission-audit');
+      expect(omission.prompt).toMatch(/verification checks/i);
+      expect(omission.prompt).toMatch(/design frames/i);
+      expect(omission.prompt).toMatch(/interaction diagram|journeys/i);
+      expect(omission.prompt).toMatch(/api or store data|store data/i);
+      expect(omission.prompt).toMatch(/add-back/);
+      expect(omission.prompt).toMatch(/advisory/i);
+    });
+
+    it('takes the zero-findings branch when the only item is an advisory, and keeps it out of the reconcile:could-not-verify prompt but in the readout', async () => {
+      const { agent, result } = await audit({
+        'verify:deterministic': {
+          findings: [{ check: 'omission', action: 'advisory', why: 'section missing — name the checks that apply, or state why none do' }],
+        },
+      });
+      expect(byLabel(agent, 'reconcile')).toBeUndefined();
+      const cleanPrompt = byLabel(agent, 'reconcile:could-not-verify').prompt;
+      expect(cleanPrompt).not.toContain('section missing');
+      expect(result.readout).toContain('section missing');
+      expect(result.advisories).toBe(1);
+    });
+
+    it('keeps an advisory out of the reconcile prompt while a real finding still reaches it, and findings counts only the real one', async () => {
+      const { agent, result } = await audit({
+        'verify:deterministic': {
+          findings: [
+            { check: 'omission', action: 'advisory', why: 'section missing — name the checks that apply, or state why none do' },
+            { check: 'citation', action: 'fix-citation', why: 'verify-design-comparison names no SKILL.md' },
+          ],
+        },
+        reconcile: { applied: 1, rejected: 0, could_not_verify_remaining: 0, readout: 'AUDIT: 1 applied' },
+      });
+      const reconcilePrompt = byLabel(agent, 'reconcile').prompt;
+      expect(reconcilePrompt).toContain('verify-design-comparison names no SKILL.md');
+      expect(reconcilePrompt).not.toContain('section missing');
+      expect(result.findings).toBe(1);
+      expect(result.advisories).toBe(1);
+    });
+
+    it('carries a stubbed omission-audit add-back finding naming verify-design-comparison into the reconcile prompt', async () => {
+      const { agent } = await audit({
+        'verify:omission-audit': {
+          findings: [{ check: 'omission', action: 'add-back', why: 'SOURCE shows design frames; verify-design-comparison is neither selected nor omitted with a reason' }],
+        },
+        reconcile: { applied: 1, rejected: 0, could_not_verify_remaining: 0, readout: 'AUDIT: 1 applied' },
+      });
+      const reconcilePrompt = byLabel(agent, 'reconcile').prompt;
+      expect(reconcilePrompt).toContain('verify-design-comparison');
+      expect(reconcilePrompt).toContain('add-back');
+    });
+  });
 });

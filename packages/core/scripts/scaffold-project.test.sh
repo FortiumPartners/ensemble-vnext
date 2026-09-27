@@ -724,10 +724,12 @@ EOF
     [ -d "$TEST_DIR/.claude/skills/developing-with-python" ]
     [ -d "$TEST_DIR/.claude/skills/jest" ]
 
-    # Count - should only have 2
+    # Count - should only have the 2 selected skills plus the 3 framework
+    # skills that ship unconditionally (copy_framework_skills(), VART-P004) --
+    # not, e.g., a duplicate from a blank/comment line in the selection file.
     local count
     count=$(ls -1d "$TEST_DIR/.claude/skills/"*/ 2>/dev/null | wc -l)
-    [ "$count" -eq 2 ]
+    [ "$count" -eq 5 ]
 }
 
 @test "Skill copy: Warns on non-existent skill" {
@@ -747,6 +749,173 @@ EOF
 
     # Should warn about missing skill
     [[ "$output" == *"not found"* ]] || [[ "$output" == *"Skill not found"* ]]
+}
+
+# =============================================================================
+# VART-P004: Framework verification skills (copy_framework_skills())
+#
+# docs/TRD/verification-artifacts.md D2/D10: verify-design-comparison,
+# verify-flow-as-built and verify-data-fidelity ship to every project regardless
+# of --copy-skills / selected-skills.txt. No existing fixture builds a synthetic
+# skills-lib/, so these tests build one under TEST_DIR: a minimal plugin dir
+# holding only skills-lib/, with the three framework skills plus one unlisted
+# skill the tests assert never gets copied.
+# =============================================================================
+
+# Build a throwaway plugin dir at "$TEST_DIR/fixture-plugin" containing a
+# skills-lib/ with the three framework skills (each a real, minimal SKILL.md)
+# plus one skill NOT in FRAMEWORK_SKILLS, so tests can assert it is left out.
+# Every other copy_*() function warns and no-ops on a directory it can't find
+# (see copy_agents/copy_commands/copy_hooks above), so a plugin dir with only
+# skills-lib/ is enough to drive scaffold-project.sh end to end.
+_make_fixture_plugin_dir() {
+    local plugin_dir="$TEST_DIR/fixture-plugin"
+    mkdir -p "$TEST_DIR/project"
+    local skill
+    for skill in verify-design-comparison verify-flow-as-built verify-data-fidelity unlisted-skill; do
+        mkdir -p "$plugin_dir/skills-lib/$skill"
+        cat > "$plugin_dir/skills-lib/$skill/SKILL.md" <<EOF
+---
+name: $skill
+description: fixture skill for VART-P004 tests
+---
+
+# $skill
+
+Fixture content (v1).
+EOF
+    done
+    echo "$plugin_dir"
+}
+
+@test "Framework skills: scaffold installs the three, not the unlisted one" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    [ -d "$TEST_DIR/project/.claude/skills/verify-design-comparison" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-flow-as-built" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-data-fidelity" ]
+    [ ! -d "$TEST_DIR/project/.claude/skills/unlisted-skill" ]
+}
+
+@test "Framework skills: --refresh adds them when .claude/skills/ lacks them" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    # Scaffold once, then remove the framework skills to simulate a project
+    # scaffolded before this feature existed -- present skills/ dir, missing
+    # framework skills.
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+    rm -rf "$TEST_DIR/project/.claude/skills/verify-design-comparison" \
+           "$TEST_DIR/project/.claude/skills/verify-flow-as-built" \
+           "$TEST_DIR/project/.claude/skills/verify-data-fidelity"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    [ -d "$TEST_DIR/project/.claude/skills/verify-design-comparison" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-flow-as-built" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-data-fidelity" ]
+    [[ "$output" == *"Added framework skill: verify-design-comparison"* ]]
+    [[ "$output" == *"Added framework skill: verify-flow-as-built"* ]]
+    [[ "$output" == *"Added framework skill: verify-data-fidelity"* ]]
+}
+
+@test "Framework skills: --refresh replaces a stale copy" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    # Stale the installed copy in place.
+    echo "stale content" >> "$TEST_DIR/project/.claude/skills/verify-design-comparison/SKILL.md"
+
+    # Change the fixture source so refresh has something new to bring in.
+    cat > "$plugin_dir/skills-lib/verify-design-comparison/SKILL.md" <<EOF
+---
+name: verify-design-comparison
+description: fixture skill for VART-P004 tests
+---
+
+# verify-design-comparison
+
+Fixture content (v2).
+EOF
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    grep -q "v2" "$TEST_DIR/project/.claude/skills/verify-design-comparison/SKILL.md"
+    ! grep -q "stale content" "$TEST_DIR/project/.claude/skills/verify-design-comparison/SKILL.md"
+}
+
+@test "Framework skills: --refresh with no .claude/skills/ creates nothing" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    mkdir -p "$TEST_DIR/project/.claude"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    [ ! -d "$TEST_DIR/project/.claude/skills" ]
+}
+
+@test "Framework skills: refresh never deletes an installed framework skill" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    # A skill the current plugin no longer ships must survive a refresh.
+    rm -rf "$plugin_dir/skills-lib/verify-flow-as-built"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    [ -d "$TEST_DIR/project/.claude/skills/verify-flow-as-built" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-design-comparison" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-data-fidelity" ]
+}
+
+@test "Framework skills: a listed name missing from the source warns, not fails" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+    rm -rf "$plugin_dir/skills-lib/verify-data-fidelity"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    [[ "$output" == *"Framework skill not found in plugin: verify-data-fidelity"* ]]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-design-comparison" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-flow-as-built" ]
+    [ ! -d "$TEST_DIR/project/.claude/skills/verify-data-fidelity" ]
+}
+
+@test "Framework skills: REFRESH_SUMMARY keeps its format and counts each skill once" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+    rm -rf "$TEST_DIR/project/.claude/skills/verify-design-comparison"
+
+    run "$SCAFFOLD_SCRIPT" --refresh --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    # The summary line's shape is unchanged (same fields, same order). Its
+    # skills= figure is copy_skills()'s refresh count (the two framework
+    # skills still present, which it refreshes as ordinary present skills)
+    # PLUS copy_framework_skills()'s own added-count (the one it just added)
+    # -- three total, one add per skill, never a skill counted by both.
+    [[ "$output" == *"REFRESH_SUMMARY commands="* ]]
+    [[ "$output" == *"skills=3"* ]]
 }
 
 # =============================================================================

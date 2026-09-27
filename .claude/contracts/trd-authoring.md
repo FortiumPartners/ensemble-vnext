@@ -600,6 +600,51 @@ MUST reject requests that fall into these categories.
 | NG2 | [From PRD] | [From PRD] |
 ```
 
+### Section 9a: Verification Artifacts
+
+**REQUIRED in every TRD written from now on.** Placed directly after `## 8. Non-Goals` and
+before `## 9. Task Grounding` — a section between the two, not a renumbering of either.
+
+Ensemble ships three verification-check skills. Each is a `SKILL.md` under `.claude/skills/`
+(fall back to `packages/skills/` in this framework's own checkout) whose own **When it
+applies** section states its trigger:
+
+| Skill | Applies when... |
+|-------|------------------|
+| `verify-design-comparison` | the PRD's UI is specified by reference design frames |
+| `verify-flow-as-built` | the PRD names an interaction diagram, or screen-to-screen journeys |
+| `verify-data-fidelity` | a screen renders data from an API or a store |
+
+**Including an applicable check is the default, not something you choose.** Read each
+skill's **When it applies** section against this TRD's own inputs. Include every check whose
+trigger those inputs meet, naming each input by repository path (a URL, such as a Figma
+link, is also allowed). Leave an applicable check out only by writing why — any stated reason
+is enough. `/audit-trd` treats an applicable check with neither a row nor a stated reason as
+a real finding, not an advisory.
+
+The section is one of these two forms:
+
+```markdown
+## Verification Artifacts
+
+| Skill | Inputs | Why it applies |
+|-------|--------|----------------|
+| verify-design-comparison | design frames: `docs/design/create-alert/screens/png/`; routes: `docs/design/create-alert/routes.md` | the PRD's UI is specified by a design handoff |
+
+Omitted: verify-data-fidelity — the alert list renders only data this change does not touch.
+```
+
+```markdown
+## Verification Artifacts
+
+None apply — this change has no UI design, no interaction diagram and renders no data.
+```
+
+A table row names one included check; an `Omitted: <skill> — <reason>` line names one
+applicable check left out, with its reason; a single `None apply — <reason>` line covers
+every check with one stated reason and is only valid when it does. A backticked Inputs span
+is a repository path (checked for existence) or a URL (advisory only, never checked).
+
 ### Section 10: Task Grounding
 
 > **Not written by the authoring stage.** A dedicated grounding pass emits this section

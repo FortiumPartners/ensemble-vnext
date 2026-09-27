@@ -53,9 +53,9 @@ current is worse than no doc.
 |---|---|
 | `objective-audit` | **Provenance** — does each objective trace to a named source, a measurement, or an explicit instruction? **Severity** — is the strictness sourced, not just the requirement's existence? A figure above a constitution floor must say why. |
 | `derivation-audit` | Does every task and every piece of delivery machinery name the objective it serves? Unserved machinery — flags, rollout phases, guard infrastructure — is the largest category of wasted implementation work. |
-| `omission-audit` | Traverses SOURCE → TRD. A per-line audit cannot see a line that is not there, and dropping a requirement is commoner than inventing one. |
+| `omission-audit` | Traverses SOURCE → TRD. A per-line audit cannot see a line that is not there, and dropping a requirement is commoner than inventing one. **Verification checks** — when the source references design frames, an interaction diagram or journeys, or screens rendering API or store data, and the `## Verification Artifacts` section neither selects the matching check nor states a reason, reports it as a finding to add back (or, with no section at all, as an advisory). |
 | `design-audit` | **Buildability** — can each decision be built as specified, given how the mechanism actually works? Historically the check nobody performs: one specified mechanism was designed around, built against and deferred around before anyone asked whether it could exist. It could not. Plus consistency and stale-doc. |
-| `deterministic` | Citations resolve; nothing violates `stack.md` or `constitution.md`. |
+| `deterministic` | Citations resolve; nothing violates `stack.md` or `constitution.md`. **Verification artifacts** — the `## Verification Artifacts` section names a real skill for every row and `Omitted:` line, every backtick-delimited path exists, and a missing section is flagged (as an advisory, not a finding). |
 
 ## What it may NOT do
 

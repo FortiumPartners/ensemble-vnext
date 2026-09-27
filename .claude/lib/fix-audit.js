@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { maskFencedLines, normalizeLineEndings, findSection, findTables } = require('./trd-parser');
 
 /** Which section each declared kind MUST carry as its verification source. */
 const KIND_SECTION = {
@@ -22,6 +23,99 @@ const KIND_SECTION = {
   change: '## Intended Change',
   refactor: '## Behaviour Preserved',
 };
+
+/** Where a named skill's SKILL.md may live — the vendored runtime, or (in this framework's
+ * own checkout) the plugin library it is compiled from. Mirrors §3.2's authoring fallback. */
+const SKILL_DIRS = ['.claude/skills', 'packages/skills'];
+
+function skillExists(root, skillName) {
+  return SKILL_DIRS.some((dir) => fs.existsSync(path.resolve(root, dir, skillName, 'SKILL.md')));
+}
+
+/** A backtick-delimited span is a URL when it starts with a scheme + `://`; a repo path otherwise. */
+function isUrl(span) {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(span);
+}
+
+/** §3.4: "Every span is its own input." Extracts every backtick-delimited span in a cell,
+ * independently of any other span or the surrounding prose. */
+function extractBacktickSpans(cell) {
+  const spans = [];
+  const re = /`([^`]+)`/g;
+  let m;
+  while ((m = re.exec(cell))) spans.push(m[1]);
+  return spans;
+}
+
+/**
+ * The `## Verification Artifacts` section check (TRD §3.2–§3.4). Composes trd-parser.js's
+ * existing exports rather than adding a parser function of its own (D4, D5).
+ */
+function checkVerificationArtifacts(markdown, { root, expectedNew, add, advise }) {
+  const lines = maskFencedLines(normalizeLineEndings(markdown).split('\n'));
+  const section = findSection(lines, 'Verification Artifacts', { strategy: 'last' });
+  if (!section) {
+    add('verification-artifacts', '-', 'section missing — name the checks that apply, or state why none do');
+    return;
+  }
+
+  const sectionLines = lines.slice(section.start, section.end);
+  const tables = findTables(lines, section.start, section.end);
+  const omittedRaw = [];
+  let noneApply = false;
+  for (const raw of sectionLines) {
+    const line = raw.trim();
+    const omittedMatch = /^Omitted:\s*(.*)$/.exec(line);
+    if (omittedMatch) omittedRaw.push(omittedMatch[1]);
+    if (/^None apply\s*—/.test(line)) noneApply = true;
+  }
+
+  const hasRows = tables.some((t) => t.dataRows.length > 0);
+  if (!hasRows && omittedRaw.length === 0 && !noneApply) {
+    add('verification-artifacts', '-', 'section has no rows, no Omitted lines and no None apply line');
+    return;
+  }
+
+  for (const table of tables) {
+    const skillIdx = table.headerCells.findIndex((h) => /skill/i.test(h));
+    const inputsIdx = table.headerCells.findIndex((h) => /input/i.test(h));
+    if (skillIdx === -1) continue;
+    for (const row of table.dataRows) {
+      const skill = (row.cells[skillIdx] || '').replace(/`/g, '').trim();
+      if (skill && !skillExists(root, skill)) {
+        add('verification-artifacts', '-', `Skill cell names no SKILL.md: ${skill}`);
+      }
+      if (inputsIdx !== -1) {
+        checkInputsCell(row.cells[inputsIdx] || '', skill, { root, expectedNew, add, advise });
+      }
+    }
+  }
+
+  for (const raw of omittedRaw) {
+    const m = /^(\S+)(?:\s*—\s*(.*))?$/.exec(raw.trim());
+    const skill = m ? m[1].replace(/`/g, '') : '';
+    const reason = (m && m[2] ? m[2] : '').trim();
+    if (skill && !skillExists(root, skill)) {
+      add('verification-artifacts', '-', `Omitted line names no SKILL.md: ${skill}`);
+    }
+    if (!reason) {
+      add('verification-artifacts', '-', 'Omitted line gives no reason');
+    }
+  }
+}
+
+function checkInputsCell(cell, skill, { root, expectedNew, add, advise }) {
+  for (const span of extractBacktickSpans(cell)) {
+    if (isUrl(span)) {
+      advise('verification-artifacts', '-', `not checked (URL): ${span}`);
+      continue;
+    }
+    if (expectedNew.includes(span)) continue;
+    if (!fs.existsSync(path.resolve(root, span))) {
+      add('verification-artifacts', '-', `${skill}: cited path does not exist: ${span}`);
+    }
+  }
+}
 
 /**
  * @param {Object} parsed   output of trd-parser's parseTrd()
@@ -117,6 +211,10 @@ function audit(parsed, opts = {}) {
           ? ` but the TRD carries the ${present.join('/')} section — worth a look, and fine if deliberate`
           : ` but the TRD has no "${expected}" section, so --verify has nothing to derive from`));
     }
+  }
+
+  if (markdown) {
+    checkVerificationArtifacts(markdown, { root, expectedNew, add, advise });
   }
 
   const fatal = (parsed.warnings || []).filter(isFatalWarning);

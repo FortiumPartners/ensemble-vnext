@@ -84,7 +84,9 @@ the authority on what the fields ARE; §4 is the dispatch, not a competing spec.
 - `.claude/verification-notes.md`, the stack hints, the contract text, `.claude/rules/verification.md`
 - `.trd-state/<feature>/verification-state.json` — for `--resume`
 - `since` — resolved per §8.3
-- `exerciseLanes`, `refreshCommand`, `fullRunCommand` — resolved at step 3b, below (identical to
+- `checks`, `checkComments`, `pagesDir` — resolved at step 3b, below (identical to
+  `/implement-trd` §8.1b), once `criteria` exists
+- `exerciseLanes`, `refreshCommand`, `fullRunCommand` — resolved at step 3c, below (identical to
   `/implement-trd` §8.1a), once `criteria` exists
 - **`prd_path`** — bind it HERE, because §4's dispatch passes it and 3a runs on only one
   branch. Read `.trd-state/<feature>/implement.json`'s `functional_verification.prd_path` when
@@ -152,10 +154,17 @@ followed by `/verify-build`, which stopped at `no definition produced` and decli
 citing Step 8's reasoning. The reasoning was inherited without checking whether its premises
 held here. They did not.
 
-### 3b. Resolve criteria to environments and lanes
+### 3b. Append the check criteria
+
+**Identical to `/implement-trd` §8.1b — read that section and follow it.** `criteria` now
+exists (step 3 or 3a); select the checks the TRD's `## Verification Artifacts` section names
+(or the same defaults §8.1b applies when it is absent or silent), append their rows, and
+resolve `checks`, `checkComments` and `pagesDir` exactly as §8.1b documents.
+
+### 3c. Resolve criteria to environments and lanes
 
 **Identical to `/implement-trd` §8.1a — read that section and follow it.** `criteria` now
-exists (step 3 or 3a), and step 2's per-environment results are on disk
+includes the check rows appended at step 3b, and step 2's per-environment results are on disk
 (`.trd-state/<feature>/implement.json`'s `functional_verification.environments`) — bucket each
 criterion exercisable / not-verifiable against those results (no new `AskUserQuestion`; the
 one question already ran at step 2), then derive `exerciseLanes`, `refreshCommand` and
@@ -163,8 +172,8 @@ one question already ran at step 2), then derive `exerciseLanes`, `refreshComman
 
 ### 4. Dispatch
 
-All 18 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
-command's own resolution (Steps 1–3b), not copied from `/implement-trd`:
+All 21 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -183,9 +192,12 @@ Workflow({ name: "verify-functional", args: {
   feature: "<feature>",                                          // TRD basename (Step 1) -- renderReport()'s header
   prd: prd_path,                                                 // bound in Step 3 (implement.json's functional_verification.prd_path, or ""), overwritten by 3a when it runs
   definitionPath: ".trd-state/<feature>/success-definition.md",  // present (Step 3), or just-derived (Step 3a)
-  exerciseLanes,                                                 // resolved per implement-trd.md §8.1a (step 3b here) -- verification.md §1a; omitted defaults to one lane of concurrency 1
-  refreshCommand,                                                // resolved per implement-trd.md §8.1a (step 3b here) -- verification.md §2's fast refresh, or "" when none is declared
-  fullRunCommand,                                                // resolved per implement-trd.md §8.1a (step 3b here) -- verification.md §2's full deploy, or "" when none is declared
+  exerciseLanes,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §1a; omitted defaults to one lane of concurrency 1
+  refreshCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's fast refresh, or "" when none is declared
+  fullRunCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's full deploy, or "" when none is declared
+  checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
+  checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
+  pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set
 } })
 ```
 
@@ -223,8 +235,16 @@ any of the five outcome strings means it finished and `--resume` starts a fresh 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the verification report with
 `Artifact({ file_path: ".trd-state/<feature>/verification-report.md", favicon: "✅" })` — the markdown FILE, never a
 rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
-`verification-report`) when one is present, and storing it when one is not. Emit the link ABOVE the
-banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
+`verification-report`) when one is present, and storing it when one is not.
+
+**Then, under the same switch, publish each selected check's page** (identical to
+`/implement-trd` §9.0a — read that section and follow it): one call per skill with a `files`
+map for its images, reusing the stored URL under the skill's own name in `artifacts.json` when
+present and storing it when not. A page over 255 files goes up in several calls to the same
+URL (TR4). With publishing off, name each page's local path instead.
+
+Emit the link ABOVE the banner. A failed publish — the report's or any check page's — is one
+line of prose and nothing more; it never blocks the banner.
 
 **The banner is the LAST line of the turn. Nothing after it — not a caveat, not a finding, not
 a recommendation.** Anything worth saying goes above it.

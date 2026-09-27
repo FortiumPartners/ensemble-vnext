@@ -19,6 +19,13 @@ function criterion(id, overrides = {}) {
   return { id, statement: `statement for ${id}`, cites: 'FR-1', evidence: 'some artifact', derivation: '[read]', ...overrides };
 }
 
+// A check-derived criterion (D15): derivation "check:<skill>", judge-only tier 1 (design rows
+// are pictorial; flow/data rows use "locator" instead, per §3.1 -- tests that need that
+// distinction override tier1 explicitly).
+function checkCriterion(id, skill, overrides = {}) {
+  return criterion(id, { derivation: `check:${skill}`, tier1: 'judge-only -- pictorial comparison', ...overrides });
+}
+
 function baseArgs(overrides = {}) {
   return {
     criteria: [criterion('FS-1'), criterion('FS-2')],
@@ -1779,6 +1786,329 @@ describe('verify-functional: exerciseLanes validation', () => {
         }),
       })
     ).rejects.toThrow(/appears in more than one lane/);
+  });
+});
+
+// --------------------------------------------------------------------------- checks/checkComments/pagesDir (VART-B004, §3.6)
+
+describe('verify-functional: checks/checkComments/pagesDir validation', () => {
+  it('throws before any agent when a check criterion has no matching checks[<skill>] text', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs({
+      criteria: [checkCriterion('DC-1', 'verify-design-comparison')],
+      checks: {},
+      pagesDir: '.trd-state/example/verification-artifacts',
+    });
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.checks has no text for skill/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws when args.checks is not a plain object', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ checks: ['nope'] }) })).rejects.toThrow(/args\.checks must be a plain object/);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ checks: 'nope' }) })).rejects.toThrow(/args\.checks must be a plain object/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws when args.checkComments is not an array', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ checkComments: {} }) })).rejects.toThrow(/args\.checkComments must be an array/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws when a check criterion exists and args.pagesDir is empty', async () => {
+    const agent = makeAgentStub(() => null);
+    const args = baseArgs({
+      criteria: [checkCriterion('DC-1', 'verify-design-comparison')],
+      checks: { 'verify-design-comparison': 'SKILL TEXT' },
+      pagesDir: '',
+    });
+    await expect(runWorkflow(SOURCE, { agent, args })).rejects.toThrow(/args\.pagesDir is required/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('does not require pagesDir when no criterion is check-derived', async () => {
+    const agent = makeAgentStub((prompt, opts) => (opts.label === 'judge' ? satisfiedJudge({ criteria: [], gaps: [] }) : null));
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [], pagesDir: '' }) })).resolves.toBeDefined();
+  });
+});
+
+// --------------------------------------------------------------------------- Exercise: check-skill injection (D11, §3.6)
+
+describe('verify-functional: check-skill prompt injection -- Exercise', () => {
+  it('a slice holding a check row carries that skill\'s text and "Capture"; a slice without one carries no skill text', async () => {
+    const exercisePrompts = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        exercisePrompts.push(prompt);
+        const ids = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]).map((c) => c.id);
+        return exercisePlanClaims(ids.map((id) => ({ criterion: id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') {
+        return satisfiedJudge({
+          criteria: [
+            { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+            { id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+          ],
+        });
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [criterion('FS-1'), checkCriterion('DC-1', 'verify-design-comparison')],
+        checks: { 'verify-design-comparison': 'THE SKILL TEXT MARKER' },
+        pagesDir: '.trd-state/example/verification-artifacts',
+        exerciseLanes: [
+          { resource: 'a', concurrency: 1, createCommand: '', criteria: ['FS-1'] },
+          { resource: 'b', concurrency: 1, createCommand: '', criteria: ['DC-1'] },
+        ],
+      }),
+    });
+
+    expect(exercisePrompts).toHaveLength(2);
+    const withCheck = exercisePrompts.find((p) => p.includes('THE SKILL TEXT MARKER'));
+    const withoutCheck = exercisePrompts.find((p) => p !== withCheck);
+    expect(withCheck).toBeDefined();
+    expect(withoutCheck).toBeDefined();
+    expect(withCheck).toMatch(/CHECK `verify-design-comparison`/);
+    expect(withCheck).toMatch(/Capture/);
+    expect(withoutCheck).not.toContain('THE SKILL TEXT MARKER');
+    expect(withoutCheck).not.toMatch(/CHECK `/);
+  });
+});
+
+// --------------------------------------------------------------------------- Judge: STEP 2a (D11, D18, §3.6)
+
+describe('verify-functional: check-skill prompt injection -- Judge STEP 2a', () => {
+  it('carries STEP 2a, the skill text and verdicts.json only when the open set holds check rows', async () => {
+    const judgePrompts = [];
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'DC-1', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompts.push(prompt);
+        judgeCalls += 1;
+        if (judgeCalls === 1) {
+          // Settle DC-1 (the only check row) on iteration 1, so iteration 2's open set holds
+          // FS-1 only -- STEP 2a must disappear on that second prompt.
+          return remediateJudge({
+            criteria: [
+              { id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] },
+              { id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', files: [] },
+            ],
+            gaps: ['FS-1'],
+            debugGaps: [{ id: 'FS-1', statement: 'statement for FS-1', reason: 'no artifact', artifact: null, files: [] }],
+          });
+        }
+        return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [criterion('FS-1'), checkCriterion('DC-1', 'verify-design-comparison')],
+        checks: { 'verify-design-comparison': 'THE RUBRIC MARKER' },
+        pagesDir: '.trd-state/example/verification-artifacts',
+      }),
+    });
+
+    expect(judgePrompts).toHaveLength(2);
+    expect(judgePrompts[0]).toMatch(/STEP 2a/);
+    expect(judgePrompts[0]).toContain('THE RUBRIC MARKER');
+    expect(judgePrompts[0]).toContain('.trd-state/example/verification-artifacts/verify-design-comparison/verdicts.json');
+    expect(judgePrompts[1]).not.toMatch(/STEP 2a/);
+    expect(judgePrompts[1]).not.toContain('THE RUBRIC MARKER');
+  });
+});
+
+// --------------------------------------------------------------------------- Debug: gap enrichment (D11, §3.6)
+
+describe('verify-functional: Debug gap enrichment', () => {
+  it('a Debug gap for a check row carries its cites', async () => {
+    let debugPrompt = null;
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'DC-1', artifact: null, reason: 'deviates' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            criteria: [{ id: 'DC-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'deviates', files: [] }],
+            gaps: ['DC-1'],
+            debugGaps: [{ id: 'DC-1', statement: 'DC-1 statement', reason: 'deviates', artifact: null, files: [] }],
+          });
+        }
+        return satisfiedJudge({ criteria: [{ id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
+      }
+      if (opts.label === 'debug') {
+        debugPrompt = prompt;
+        return { results: [{ criterion: 'DC-1', result: 'fixed it' }] };
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [checkCriterion('DC-1', 'verify-design-comparison', { cites: 'design/frame-3.png' })],
+        checks: { 'verify-design-comparison': 'SKILL TEXT' },
+        pagesDir: '.trd-state/example/verification-artifacts',
+      }),
+    });
+
+    expect(debugPrompt).toContain('"cites":"design/frame-3.png"');
+    expect(debugPrompt).toMatch(/begins with "check:"/);
+  });
+});
+
+// --------------------------------------------------------------------------- Render stage (D8, §3.6)
+
+describe('verify-functional: Render stage', () => {
+  function twoSkillArgs(overrides = {}) {
+    return baseArgs({
+      criteria: [checkCriterion('DC-1', 'verify-design-comparison'), checkCriterion('FL-1', 'verify-flow-as-built')],
+      checks: {
+        'verify-design-comparison': 'DESIGN SKILL TEXT',
+        'verify-flow-as-built': 'FLOW SKILL TEXT',
+      },
+      pagesDir: '.trd-state/example/verification-artifacts',
+      ...overrides,
+    });
+  }
+
+  it('a remediate iteration dispatches Debug and one render agent per skill in one parallel() call', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        return exercisePlanClaims([
+          { criterion: 'DC-1', artifact: null, reason: 'deviates' },
+          { criterion: 'FL-1', artifact: null, reason: 'deviates' },
+        ]);
+      }
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            criteria: [
+              { id: 'DC-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'deviates', files: [] },
+              { id: 'FL-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'deviates', files: [] },
+            ],
+            gaps: ['DC-1', 'FL-1'],
+            debugGaps: [
+              { id: 'DC-1', statement: 'DC-1', reason: 'deviates', artifact: null, files: [] },
+              { id: 'FL-1', statement: 'FL-1', reason: 'deviates', artifact: null, files: [] },
+            ],
+          });
+        }
+        return satisfiedJudge({
+          criteria: [
+            { id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+            { id: 'FL-1', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] },
+          ],
+        });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'DC-1', result: 'fixed' }, { criterion: 'FL-1', result: 'fixed' }] };
+      if (opts.label === 'render') return { rendered: true, page: 'x/index.html', cards: 1, reason: '' };
+      return null;
+    });
+
+    const parallel = makeParallelStub();
+    const { result } = await runWorkflow(SOURCE, { agent, parallel, args: twoSkillArgs() });
+
+    // The remediate wave combines Debug with one render agent per skill in ONE parallel() call.
+    const remediateWave = parallel.waves.find((w) => w.size === 3);
+    expect(remediateWave).toBeDefined();
+    expect(agent.calls.filter((c) => c.opts.label === 'render')).toHaveLength(4); // 2 skills x (1 remediate + 1 exit)
+    expect(agent.calls.filter((c) => c.opts.label === 'debug')).toHaveLength(1);
+    expect(result.pages).toHaveLength(2);
+    expect(result.pages.map((p) => p.skill).sort()).toEqual(['verify-design-comparison', 'verify-flow-as-built']);
+    expect(result.pages.every((p) => p.rendered)).toBe(true);
+  });
+
+  it('an exit iteration dispatches the renders before returning', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'DC-1', artifact: 'a' }, { criterion: 'FL-1', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        return satisfiedJudge({
+          criteria: [
+            { id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+            { id: 'FL-1', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] },
+          ],
+        });
+      }
+      if (opts.label === 'render') return { rendered: true, page: 'p.html', cards: 2, reason: '' };
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: twoSkillArgs() });
+
+    expect(agent.calls.filter((c) => c.opts.label === 'render')).toHaveLength(2);
+    expect(agent.calls.some((c) => c.opts.label === 'debug')).toBe(false);
+    expect(result.pages).toHaveLength(2);
+    expect(result.outcome).toBe('satisfied');
+  });
+
+  it('a dead render agent yields rendered: false and the loop continues', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'DC-1', artifact: 'a' }, { criterion: 'FL-1', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        return satisfiedJudge({
+          criteria: [
+            { id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+            { id: 'FL-1', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] },
+          ],
+        });
+      }
+      if (opts.label === 'render') return undefined; // -> null
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: twoSkillArgs() });
+
+    expect(result.outcome).toBe('satisfied');
+    expect(result.pages).toHaveLength(2);
+    expect(result.pages.every((p) => p.rendered === false)).toBe(true);
+    expect(result.pages.every((p) => p.reason === 'render agent returned nothing')).toBe(true);
+  });
+
+  it('with no check rows, no render agent is dispatched and pages is empty', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return satisfiedJudge();
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    expect(agent.calls.some((c) => c.opts.label === 'render')).toBe(false);
+    expect(result.pages).toEqual([]);
+  });
+});
+
+// --------------------------------------------------------------------------- pages on every early-return path (§3.6)
+
+describe('verify-functional: pages is present on the no-Judge-turn early returns', () => {
+  it('the empty-criteria path returns pages: []', async () => {
+    const agent = makeAgentStub((prompt, opts) => (opts.label === 'judge' ? satisfiedJudge({ criteria: [], gaps: [] }) : null));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [] }) });
+    expect(result.pages).toEqual([]);
+  });
+
+  it('the resume-at-cap path returns pages: []', async () => {
+    const agent = makeAgentStub(() => satisfiedJudge());
+    const resume = {
+      iteration: 3,
+      criteria: [{ id: 'FS-1', status: 'met', artifact: 'a', reason: null }],
+      gapsClosed: [],
+    };
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume, cap: 3 }) });
+    expect(result.pages).toEqual([]);
   });
 });
 

@@ -1,4 +1,7 @@
 'use strict';
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { audit, isFatalWarning } = require('./fix-audit');
 
 const task = (id, serves) => ({ id, serves, description: 'x' });
@@ -93,8 +96,9 @@ describe('fix-audit: guidance, not enforcement', () => {
     grounding: { T1: ground(['package.json']) },
     warnings: [],
   });
-  const REFACTOR_MD = '## Behaviour Preserved\nthe suite passes today';
-  const CHANGE_MD = '## Intended Change\nthe button moves to the header';
+  const VERIFICATION_ARTIFACTS_NONE = '\n\n## Verification Artifacts\n\nNone apply — no UI, no flow, no data view touched.\n';
+  const REFACTOR_MD = '## Behaviour Preserved\nthe suite passes today' + VERIFICATION_ARTIFACTS_NONE;
+  const CHANGE_MD = '## Intended Change\nthe button moves to the header' + VERIFICATION_ARTIFACTS_NONE;
 
   test('a kind/section mismatch is an ADVISORY and does not fail the audit', () => {
     const r = audit(parsed(), { objectiveIds: ['O1'], kind: 'change', markdown: REFACTOR_MD });
@@ -129,5 +133,161 @@ describe('fix-audit: guidance, not enforcement', () => {
 
   test('advisories is always present, so a caller can read it unconditionally', () => {
     expect(audit(parsed(), { objectiveIds: ['O1'] }).advisories).toEqual([]);
+  });
+});
+
+describe('fix-audit: the Verification Artifacts section (TRD §3.4)', () => {
+  // A well-formed light TRD, reused as the base for each markdown fixture below.
+  const parsed = () => ({
+    tasks: [task('T1', ['O1'])],
+    grounding: { T1: ground(['package.json']) },
+    warnings: [],
+  });
+  const opts = (markdown, extra = {}) => ({ objectiveIds: ['O1'], markdown, ...extra });
+  const vaFindings = (r) => r.findings.filter((f) => f.check === 'verification-artifacts');
+  const vaAdvisories = (r) => r.advisories.filter((a) => a.check === 'verification-artifacts');
+
+  let root;
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'fix-audit-va-'));
+    // Two real skills, so a legitimate row/Omitted line resolves cleanly.
+    for (const name of ['verify-design-comparison', 'verify-data-fidelity']) {
+      fs.mkdirSync(path.join(root, '.claude', 'skills', name), { recursive: true });
+      fs.writeFileSync(path.join(root, '.claude', 'skills', name, 'SKILL.md'), '# stub\n');
+    }
+    // The two repo paths §3.2's worked example cites, one present.
+    fs.mkdirSync(path.join(root, 'docs', 'design', 'create-alert', 'screens', 'png'), { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('markdown with no ## Verification Artifacts heading is a finding, ok: false', () => {
+    const md = '## Non-Goals\nnone\n';
+    const r = audit(parsed(), opts(md, { root }));
+    expect(r.ok).toBe(false);
+    expect(vaFindings(r).some((f) => /section missing/.test(f.detail))).toBe(true);
+  });
+
+  test('a None apply — line is not a finding', () => {
+    const md = '## Verification Artifacts\n\nNone apply — no UI, no flow, no data view.\n';
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r)).toEqual([]);
+  });
+
+  test('a section holding only an Omitted: line WITH a reason is not a finding', () => {
+    const md = '## Verification Artifacts\n\nOmitted: verify-data-fidelity — this change touches no data view.\n';
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r)).toEqual([]);
+  });
+
+  test('a section with none of the three forms (no rows, no Omitted, no None apply) is a finding', () => {
+    const md = '## Verification Artifacts\n\nsee the design doc for details.\n';
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /no rows, no Omitted lines and no None apply/.test(f.detail))).toBe(true);
+  });
+
+  test('an Omitted: line with no reason after the dash is a finding', () => {
+    const md = '## Verification Artifacts\n\nOmitted: verify-data-fidelity\n';
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /gives no reason/.test(f.detail))).toBe(true);
+  });
+
+  test('a Skill cell naming no SKILL.md is a finding', () => {
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| verify-nonexistent | `package.json` | made up |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /Skill cell names no SKILL\.md: verify-nonexistent/.test(f.detail))).toBe(true);
+  });
+
+  test('an Omitted: line naming no SKILL.md is a finding', () => {
+    const md = '## Verification Artifacts\n\nOmitted: verify-nonexistent — not applicable.\n';
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /Omitted line names no SKILL\.md: verify-nonexistent/.test(f.detail))).toBe(true);
+  });
+
+  test("§3.2's worked example cell (two backticked paths, both present) is not a finding", () => {
+    fs.writeFileSync(path.join(root, 'docs', 'design', 'create-alert', 'routes.md'), 'routes\n');
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| verify-design-comparison | design frames: `docs/design/create-alert/screens/png/`; routes: `docs/design/create-alert/routes.md` | the PRD\'s UI is specified by a design handoff |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r)).toEqual([]);
+  });
+
+  test('the same example cell with ONE path missing yields exactly one finding, naming that path', () => {
+    // routes.md is never written this time — only screens/png/ exists.
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| verify-design-comparison | design frames: `docs/design/create-alert/screens/png/`; routes: `docs/design/create-alert/routes.md` | the PRD\'s UI is specified by a design handoff |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r)).toHaveLength(1);
+    expect(vaFindings(r)[0].detail).toMatch(/docs\/design\/create-alert\/routes\.md/);
+  });
+
+  test('a path listed in expectedNew is not a finding', () => {
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| verify-design-comparison | `docs/design/not-yet-written.md` | the PRD\'s UI is specified by a design handoff |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root, expectedNew: ['docs/design/not-yet-written.md'] }));
+    expect(vaFindings(r)).toEqual([]);
+  });
+
+  test('a backticked URL yields an advisory only, never a finding', () => {
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| verify-design-comparison | figma: `https://figma.com/file/abc123` | the PRD points at a Figma handoff |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r)).toEqual([]);
+    expect(vaAdvisories(r).some((a) => /not checked \(URL\)/.test(a.detail))).toBe(true);
+  });
+
+  test('a ## Verification Artifacts heading inside a code fence is not read as the section', () => {
+    const md = [
+      '## Non-Goals',
+      'none',
+      '',
+      '```markdown',
+      '## Verification Artifacts',
+      '',
+      'None apply — example only, inside the template fence.',
+      '```',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /section missing/.test(f.detail))).toBe(true);
+  });
+
+  test('audit() without markdown returns exactly what it returns today — no verification-artifacts check runs', () => {
+    const r = audit(parsed(), { objectiveIds: ['O1'] });
+    expect(r.ok).toBe(true);
+    expect(vaFindings(r)).toEqual([]);
+    expect(vaAdvisories(r)).toEqual([]);
   });
 });

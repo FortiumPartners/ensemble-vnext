@@ -516,6 +516,19 @@ objective until it disappears.
 ## Non-Goals
 <what this fix must not grow into>
 
+## Verification Artifacts
+<!-- keep ONE form below and delete the other. An applicable check is included by default;
+     leave one out only with a stated reason. Skill list and triggers: trd-authoring.md
+     Section 9a. -->
+
+| Skill | Inputs | Why it applies |
+|-------|--------|----------------|
+| <skill> | `<path>` | <why it applies> |
+
+Omitted: <skill> — <reason>
+
+None apply — <reason>
+
 ## Open Questions
 
 | ID | Question | What I assumed | Owner-only |
@@ -668,8 +681,9 @@ JSON
 ```
 
 It checks: grounding present with a `Touches` field, cited paths exist (or are declared new via
-`expectedNew`), each task's `Serves` resolves to a stated objective, and the parser reports no
-fatal warning.
+`expectedNew`), each task's `Serves` resolves to a stated objective, the `## Verification
+Artifacts` section's shape, named skills and cited inputs (contract Section 9a), and the
+parser reports no fatal warning.
 
 **This is the one check that catches the failure §5a calls the worst available one.** An
 unbolded `- Touches:` parses to EMPTY grounding with only a warning, and at `trivial` there is

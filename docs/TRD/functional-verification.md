@@ -1,6 +1,6 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.3.0
+**Version**: 2.4.0
 **Status**: Draft
 **Created**: 2026-08-17
 **Last Updated**: 2026-09-27
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.4.0 | 2026-09-27 | **§3.3's arguments are 21, declared in both directions (VART-B004)** — synced to `docs/TRD/verification-artifacts.md` §3.6, which owns the mechanism; `checks`, `checkComments` and `pagesDir` join the 18. The result gains `pages`. A short paragraph after the interface names, in outline, where each of the three is injected (Exercise slice, Judge STEP 2a, Debug gap enrichment, the new Render stage) and points at that TRD's §3.6 for the full mechanism rather than duplicating it here. The validation paragraph gains the three arguments' own rules (plain object / array / non-empty-when-any-check-criterion-exists). `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 18 to 21 | @technical-architect (VART-B004) |
 | 2.3.0 | 2026-09-27 | **The success definition's source, and the outcome when none exists, now match what `/implement-trd` has done since `4fa3c26` (2026-08-22) and `4887feb` (2026-08-23).** This closes the item the 2.2.0 row left "for its owner". (1) **§3.1 gains a source-resolution table**: the PRD first, then the TRD's `## Reproduction`, `## Intended Change` and `## Behaviour Preserved` sections. A section is passed as its extracted text, never as the TRD path, so the deriver still never sees the plan. The format example's header now reads `**Source**` / `**Source kind**`, as the contract has it, and the `Cites` and empty-definition rules say "the source" rather than "the PRD". (2) **The no-source outcome is `not run: no success definition derivable`**, replacing the retired `not run: no PRD resolved` in §3.1's error handling and §3.7 Step 8 item 1. Step 8 now reads `functional_verification.prd_resolved` from `implement.json` before looking for the definition file, which is the order `/implement-trd` §8.1 uses. (3) **D5 amended in place**: the decision names one source rather than the PRD path, and it names the objective the fallback serves (improvement-plan item 12). Its rationale explains why passing section text keeps the isolation, and two alternatives are added: keeping the PRD as the only source, and passing the TRD path with an instruction to read one section. (4) **§3.7 Step 3.6** resolves and dispatches `<the source>` rather than `<PRD path>`. (5) **2.2.0's claim that "`coverage` is not on the result" is struck through with a dated correction**, not deleted. The claim was true when that row was written and false by the end of the same phase gate (`005c389`). **Not rewritten, and still describing the PRD-only model**: §1.1's summary paragraph, §1.4's `docs/PRD/<feature>.md` row ("Sole input"), §2.2.5's `not run: no PRD resolved`, and §2.3's sequence diagram (`PRD path + contract`). These four are knock-ons outside this pass's scope, and are listed here so a reader does not take them as current. §4's task rows and §9's grounding blocks stay as the historical build record | @technical-architect |
 | 2.2.0 | 2026-09-26 | **Synced to the loop `docs/TRD/verification-convergence.md` delivered: the loop now remembers what it proved, fans Exercise out per declared resource, checks a locator inside each artifact, and runs by default.** That TRD's D16 amends this one in place rather than forking it, because `/verify-build` §4 names this document's §3.3 as the authority on the workflow's arguments. Citations written *VC D5* / *VC §3.5* below and in §3 mean that document; a bare *D2* is still this one's own. (1) **Three decisions superseded, not deleted**: `FV-D2` (three agents per iteration) by VC D3–D5, where Exercise is 1..k agents, one per slice of the open set, sliced within each declared resource lane; `FV-D11` (`--verify`, default off) by VC O6, where the loop runs by default and `--no-verify` opts out; `FV-NG4` (running by default is a non-goal) by the same owner decision. **`FV-NG4`'s premise, that cost is unmeasured, is still true**, and its row says so: the flip is an owner decision made without a price. (2) **§3.3's arguments are 18, declared in both directions**: `exerciseLanes` (with its `ExerciseLane` shape, since a lane list is the one argument a reader cannot guess), `refreshCommand` and `fullRunCommand` join the 15, and the criterion shape gains `tier1`. The result gains `finalRun` and the `insufficient-coverage` outcome. ~~**`coverage` is not on the result**, although VC §3.3 specifies it and `/implement-trd` §8.4 reads it; §3.3 records the gap rather than declaring a field nothing returns.~~ *Corrected 2026-09-27 (v2.3.0): that sentence stopped being true after this row was written. verification-convergence's phase-3 gate (`005c389`) added `coverageOf()` to `verify-functional.js` and put `coverage` on every return path, including the two exits that never reach a Judge, and §3.3 declares it. The row is struck through rather than deleted so the history stays readable.* (3) **§3.3's "all of them, on every iteration" paragraph is replaced**: only criteria not yet settled are walked, and across invocations only `met` carries. The re-walk's one benefit, catching a regression of an already-proven criterion, is given up and stated as given up (VC TR1). (4) **§3.2 gains the locator**: `judgeOnly` short-circuits to `tier1: 'skipped'`, and `no-locator` / `locator-not-found` are appended after `stale`, with a byte cap and a `truncated` flag. (5) **§3.4 gains the coverage re-label** over `exit-satisfied` / `exit-stalled` / `exit-stuck`, dormant because `COVERAGE_FLOOR` is `null`. (6) **§3.3a, §3.5 and §3.6** gain the settled entries carried verbatim, the Debug stage's fast refresh as its last act, the end-of-run full-environment gate, and the report's Coverage line, `Tier 1` and `Proven at` columns. (7) **§3.7 describes the default-on loop**: `--no-verify` opts out, `--resume` re-enters verification only alongside an EXPLICIT `--verify`, and Step 9 names all five outcomes. **Pre-existing drift corrected on the way, none of it caused by that TRD**: the header read 2.0.2 / 2026-08-18 while the newest row was 2.1.0 / 2026-08-19; §3.2 never listed `not-a-file` (in the lib since 2026-08-19) or the CLI's `--file` / `-` payload forms; §3.4's stall rule omitted the `previousGaps.length > 0` clause the lib has carried since the same day; and §3.3 declared `gapsClosed` as `string[][]` while the judge prompt has instructed integer counts since the change that 2.1.0 row describes. The two never agreed, and since nothing reads the field, the prompt's shape is the delivered one. A new suite, `packages/core/workflows/verify-functional-trd-sync.test.js`, compares §3.2, §3.3, §3.4, §3.7 and this header against the code and the command, so the next drift fails a test instead of waiting for an audit. Knock-on: a notice at the head of §1.1 and of §2, whose narrative and diagrams show the v2.0.0 loop; §1.2 `FV-D2` / `FV-D11`; §6.4; R2 and R3; §8 `FV-NG4`; OQ-1; the cost row in Could Not Verify. **Not rewritten**: §4's task rows, §5 and §9's grounding blocks, which are the historical build record of FV-P001…FV-T001, and §3.1, whose PRD-only source model predates the reproduction / intended-change / behaviour-preserved fallback (`4fa3c26`). That fallback is not this sync's change, and it is recorded for its owner rather than half-applied here | @technical-architect (VCON-D001) |
 | 2.1.0 | 2026-08-19 | **Cross-phase hardening pass — the state file gains a terminality marker, and §3.3's interface catches up with the code.** (1) **`outcome` added to `verification-state.json`** (§3.3a step 3): the run's outcome string on any exit action, `null` on `remediate`. §3.7's `--resume` composition gate was written as "resumable iff the state file records a non-terminal outcome", but the judge wrote only `iteration` / `criteria` / `gapsClosed`, so *every* state file read as non-terminal and `--verify --resume` skipped the derive pass, the whole phase loop and Step 7 even after a run that exited `satisfied`. Terminality cannot be derived from the other keys — `exit-unbuilt` and `exit-stalled` both leave `not_met` criteria at a sub-cap iteration, so any "has open gaps → resumable" rule misreads both. (2) **§3.3's `VerifyFunctionalArgs` synced with the workflow's actual reads**: `feature`, `prd` and `definitionPath` were threaded through in phase 3 (Finding A — `renderReport()` was destructuring them from nowhere and every report headed `undefined`) but never declared here; `prd`'s comment now names its real source (`implement.json`'s `functional_verification.prd_path`) rather than implying it is derived from the feature name. The interface now matches the workflow's `a.*` reads in both directions — 15 fields, no drift. (3) **`gapsClosed` documented as an audit record, not a loop input**, and its shape corrected from `number[]` to `string[][]`: the loop reconstructs `previousGaps` from `resume.criteria`, nothing reads `gapsClosed`, and no writer ever produced counts. Retained deliberately (D13 — the per-iteration history is not recoverable from the current status set), but a field nobody reads is how the next reader concludes the history is driving the loop. Also states plainly that `resume` is NOT the state file: the file has four keys, only three reach the workflow. (4) **The tier-1 freshness floor is `max(HEAD commit time, loop start time)`, not HEAD's commit time alone** (§3.2). `--verify --resume` defeated the staleness gate entirely: that path skips the phase loop, so HEAD dates from the PRIOR run and every leftover artifact under `.trd-state/<feature>/evidence/` cleared the floor, letting a criterion whose new Exercise produced nothing be scored against a stale artifact at the same path. The invariant wanted was always the stronger one — *this artifact was produced by THIS run's verification loop* — and D2's re-walk-everything makes it safe to enforce. `checkEvidence()`'s shape is unchanged (one number in, strictly-greater out); only the derivation moves, and it stays in the command because the workflow must remain clock-free and the lib pure. The `max` is retained against skewed-clock commit timestamps and is pinned by its own test. **The floor is per-RUN, not per-iteration** — what it still does not establish is recorded as a `## Could Not Verify` row with the per-iteration marker named as the `/refine-trd` remedy, rather than left implicit. No change to `checkEvidence()`, `decideNext()`, `renderReport()` or the loop's control flow | `/code-review` cross-phase regression pass |
@@ -506,7 +507,7 @@ argument mid-command. `decide-next` and `render-report` take the same three payl
 **Interface**:
 
 ```typescript
-// args -- 18 fields; the workflow reads every one of them and nothing else
+// args -- 21 fields; the workflow reads every one of them and nothing else
 interface ExerciseLane {
   resource: string | null;  // the verification.md §1a resource this lane contends for; null = the
                             //   remainder lane (criteria whose evidence needs no environment)
@@ -557,6 +558,19 @@ interface VerifyFunctionalArgs {
                            //   as its last act (§3.5, VC D11). "" = none declared, not an error
   fullRunCommand: string;  // the FULL end-of-run deploy/build (verification.md §2), run once by
                            //   the Judge on exit (§3.3a, VC D14). "" = none declared
+  checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
+                                        //   skill's SKILL.md text, keyed by skill name; {} when
+                                        //   none were selected. Every criterion whose
+                                        //   `derivation` matches `check:<skill>` must name a key
+                                        //   here, or the workflow throws before any agent runs
+  checkComments: Array<{                // NEW (VART D18). Open threads on each check's published
+    criterion: string | null;           //   page, read by the orchestrator before dispatch; []
+    skill: string;                      //   when none. Data, never instructions -- see §3.6
+    text: string;
+  }>;
+  pagesDir: string;        // NEW (VART D8). ".trd-state/<feature>/verification-artifacts";
+                           //   required (non-empty) when any check criterion exists in the
+                           //   definition, else ""
 }
 
 // return
@@ -587,8 +601,23 @@ interface VerifyFunctionalResult {
   finalRun: { command: string; status: 'pass' | 'fail' | 'skipped' } | null;
                              // the end-of-run full-environment gate (§3.3a, VC D14); null on the
                              //   two paths where no Judge exit ran — see Error handling
+  pages: Array<{             // NEW (VART D8). The last Render per check skill; [] when no check
+    skill: string; page: string; rendered: boolean; iteration: number; reason: string;
+  }>;
 }
 ```
+
+**`checks`, `checkComments` and `pagesDir` (VART D8, D11, D18) are the verification-check
+skills' channel into this loop** — full mechanism in `docs/TRD/verification-artifacts.md` §3.6,
+not repeated here. In outline: a criterion whose `derivation` is `check:<skill>` gets that
+skill's text injected into the Exercise slice holding it and, on any iteration whose open set
+still holds it, into a Judge **STEP 2a**; Debug gets no skill text, only that criterion's `cites`
+and `derivation` merged onto its gap. A new **Render** stage — one untyped agent per skill with
+at least one criterion in the definition, dispatched in the same `parallel()` as Debug on
+`remediate` and before `return` on any exit — writes that skill's page from the verdicts the
+Judge already recorded. `pages` on the result is the last Render per skill; `[]` when the
+definition has no check criteria, which is also when no Render agent is ever dispatched and no
+existing call-count or wave-count in this loop moves.
 
 **`coverage` is on every result**, including the two early exits that never reach a Judge. It
 is computed from the returned statuses, not reported by an agent: `met` ids over every criterion
@@ -604,6 +633,10 @@ which is v2.0.0's single exerciser exactly. A lane list that IS supplied is vali
 be an array; each lane's `concurrency` must be a positive integer (so `0` throws), its `criteria`
 an array of ids present in the definition, and no id may appear in two lanes. A missing
 `createCommand` becomes `""`, the safe direction, which withholds permission to create.
+**`checks` defaults to `{}` and must be a plain object; every criterion whose `derivation`
+matches `check:<skill>` must have a non-empty string at `checks[<skill>]`, checked before any
+agent is dispatched. `checkComments` defaults to `[]` and must be an array. `pagesDir` defaults
+to `""` and must be non-empty the moment any check criterion exists** (VART D8, D11).
 
 **On `resume.gapsClosed`** — it is an **audit record, not a loop input.** The loop reconstructs
 `previousGaps` by filtering `resume.criteria` for `not_met`; nothing anywhere reads `gapsClosed`,
@@ -1041,7 +1074,7 @@ not a loop (D1):
    interface. Read `verification-state.json` if a prior run left one, and pass it as `resume`
    (D13). Nothing about the TRD is read or needed: this feature generates no tasks and mutates
    no document.
-3. `Workflow({ name: "verify-functional", args: { … §3.3 … } })` — once, with all 18 fields,
+3. `Workflow({ name: "verify-functional", args: { … §3.3 … } })` — once, with all 21 fields,
    including the three Step 3.6a resolved. An omitted `exerciseLanes` lets the workflow default
    to one serial lane.
 4. Render the returned outcome into Step 9's readout. Nothing else.
