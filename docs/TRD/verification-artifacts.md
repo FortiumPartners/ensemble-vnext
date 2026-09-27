@@ -1,6 +1,6 @@
 # TRD: Verification-Artifact Skills
 
-**Version**: 2.0.3
+**Version**: 2.0.4
 **Status**: Draft
 **Created**: 2026-09-27
 **Last Updated**: 2026-09-27
@@ -20,6 +20,7 @@
 | 2.0.1 | 2026-09-27 | **D20 (numbered D18 in error until 2.0.2): a missing screen fails its own check row, not the run.** Under the contract's `unbuilt` rule one absent frame of 32 ended the whole loop and hid every other frame's gaps for that run — the opposite of a screen-by-screen review that drives fixes. Check rows now resolve an absent screen, journey target or data view as `not_met` with reason `not built`; derived criteria keep the contract rule. TR11 closed | @claude |
 | 2.0.2 | 2026-09-27 | Audit findings applied. The missing-screen decision is renumbered **D20**: 2.0.1 had given it D18, which already named the owner-comments decision, so every `D18` citation was ambiguous. `D18` now means only owner comments; the missing-screen citations (§3.1 flow and data rubrics, §3.7, TR11) and the Serves columns of VART-P001–P003 and VART-B005 cite D20. D16 still mapped a missing screen to `unbuilt`, contradicting D20; it now maps it to `not_met` with reason `not built`, and VART-B005's contract assertion states the exception. O1 carries the *Amended* note §1.2 promises; O10 cites the brief passage that grounds "comments become the fix batch" | @technical-architect |
 | 2.0.3 | 2026-09-27 | **Owner ruling: check pages publish once per run (FS-28 closed, the 2.0.0 trade-off stands).** The page is re-rendered on disk every pass; its link is republished when the run returns. A mid-run comment could not steer the current run under either cadence, because comments are read before a run starts. The between-rounds review the model session relied on comes from the separate `/verify-build --fix` plan: each fix batch is its own run, so the page republishes and comments are read between every batch | @claude |
+| 2.0.4 | 2026-09-27 | **Owner ruling: FS-21 closed, instruction stands.** `/plan`'s mechanical check does not detect an applicable check omitted without a reason on the light TRDs it writes; that stays an authoring instruction (D5). A text-matching check would have to guess whether work involves screens and would false-alarm ("screen reader", "design decision"). The miss is covered downstream: the verification step selects a check the section is silent on (FS-31, proven in the live smoke run B), and `/audit-build` would flag it after delivery. Live smoke scenario VART-T001: 45/45 | @claude |
 
 ---
 
