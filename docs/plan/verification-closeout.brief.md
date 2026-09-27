@@ -165,6 +165,30 @@ tooling. From the session, the three that materially helped the owner judge the 
    rendered row against the response behind it. The session's live-API row check did this across
    ~50 rows and 4 parks.
 
+**They ship as a set of verification-artifact skills** (owner, 2026-09-27), each with a description
+saying when it applies and which inputs it needs. The set can grow; these three are the start.
+
+**Which artifacts a feature needs is decided in the TRD** (owner, 2026-09-27). Choosing how the build
+will be proven is a design decision, so it belongs with the plan, not at verification time: the
+success definition is derived from the PRD alone (deliberately blind to the TRD) and decides what must
+be true, not what evidence to produce; and `verification-plan.md` is written only at a stall's bridge,
+too late for the design comparison, which has to exist before the first fix batch. The PRD only needs
+to carry the inputs — design handoff, interaction diagram, data sources — which it already does when
+they exist.
+
+- **`/create-trd`** (and `/plan` for the TRDs it writes) gains a required `## Verification Artifacts`
+  section: review the shipped artifact skills, choose the ones that apply, and name each one's inputs
+  (e.g. "design frames: `docs/design/<x>/screens/png/`"), or state explicitly that none apply.
+- **`/audit-trd`** checks the section exists and that every named input resolves.
+- **The verification step** — `/implement-trd` §8 and `/verify-build` — reads the section and invokes
+  each skill: the design comparison before the first fix batch, republished to the same URL as fixes
+  land.
+- **The bridge** may add an artifact to `verification-plan.md` when a stall shows one is missing (as
+  the owner's wiring question did).
+- **Fallback for TRDs without the section:** the verification step makes the selection itself from
+  the PRD's inputs, so a design comparison is produced whenever designs exist, whatever the TRD says.
+- The success definition's isolation is untouched: artifacts are evidence to produce, not criteria.
+
 ## 5. `/verify-build` and the way back into implementation
 
 `/verify-build` gets all of 4.8.0 (it passes the 18 args, follows §3.6a and §8.1a). **Stale:**
