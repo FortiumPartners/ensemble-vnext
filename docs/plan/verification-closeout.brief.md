@@ -144,6 +144,34 @@ credential *locations* (never values), recurring not-verifiable causes, facts in
 **Owner only:** may write / deploy / restart per environment; standing authorisations; §1a counts;
 whether a gap is permanent. Nine questions in that order, each with an evidence-based default; then it writes the file.
 
+**The coverage floor is one of the questions (owner, 2026-09-27).** It was left unset on purpose
+(verification-convergence OQ-1), and a live `/verify-build` run then finished "satisfied" with 0 of 4
+criteria proven. The owner's direction: ask it when `verification.md` is built with this skill, and
+**recommend an intelligent floor** rather than a fixed number. The floor is the share of ALL criteria
+(`proven / total`, OQ-5) below which a run is labelled `insufficient-coverage` instead of
+`satisfied` / `stalled` / `stuck`.
+
+How the skill recommends it, from evidence, showing its working:
+- **What this project has actually reached.** Read past `.trd-state/*/verification-state.json` and
+  their outcomes. The runs the owner accepted show what a good run achieves here (lightning-lane's
+  model run ended at 56 of 62, 90%); the runs that read "satisfied" on almost nothing show the case
+  the floor exists to catch (11 of 62, 18%; 0 of 4).
+- **What the declared environments can reach.** From the file being written — `§5` gaps, environments
+  marked `must not be touched`, credentials not available — estimate the share of a typical feature's
+  criteria that is structurally not verifiable here. A floor above that ceiling would fail every run.
+- **Propose a number between the two, with the reason in one sentence**, e.g. "past accepted runs
+  proved 85–90%; about 15% of criteria here need production, which you have not authorised — I
+  recommend 60%: it passes every run you accepted and fails the 18% one." With no history, propose a
+  conservative starting value and say that it should be revisited after the first few runs.
+- **The owner decides; any number is accepted, including "none".** It is written on a clear yes, like
+  every other answer (§3's approval model).
+
+**Plumbing this needs, found by grounding:** `decideNext` already accepts `coverageFloor`
+(`functional-verification.js:257`), but nothing supplies it — the workflow's arguments and both
+commands' dispatch blocks carry no floor, so it is always the unset default. So: a `verification.md`
+line for the floor; `/implement-trd` §8.1a (and `/verify-build`) read it; a `coverageFloor` workflow
+argument passed into the Judge's decide-next payload; the readout states the floor it applied.
+
 **Invoke:** standalone; named (not run) in `/implement-trd` §3.6a's readout when the file is
 unfilled or old-shaped; after `/init-project`; after a run with several not-verifiable criteria
 citing the file. **Companion change:** the preflight should also flag a *filled* file missing §1a /
