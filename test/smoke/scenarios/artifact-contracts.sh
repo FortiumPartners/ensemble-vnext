@@ -128,7 +128,11 @@ agent_without_generated_skills() {
 import re, sys
 text = open(sys.argv[1]).read()
 text = re.sub(r"\n*<!-- ENSEMBLE:SKILLS:BEGIN.*?<!-- ENSEMBLE:SKILLS:END -->\n?", "\n", text, flags=re.S)
-text = re.sub(r"(?m)^skills:\n(?:[ \t]+-[ \t][^\n]*\n)*", "", text)
+# Only the FRONTMATTER `skills:` list is generated; one in the body is real content.
+m = re.match(r"(---\n.*?\n---\n)", text, flags=re.S)
+if m:
+    fm = re.sub(r"(?m)^skills:\n(?:[ \t]+-[ \t][^\n]*\n)*", "", m.group(1))
+    text = fm + text[m.end():]
 sys.stdout.write(text.rstrip("\n") + "\n")
 PY
 }
