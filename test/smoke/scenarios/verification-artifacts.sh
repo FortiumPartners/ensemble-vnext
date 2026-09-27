@@ -78,21 +78,37 @@ FRAME2_STEM="02-detail"
 DC_ID1="DC-${FRAME1_STEM}"
 DC_ID2="DC-${FRAME2_STEM}"
 
-# smoke_write_vart_png <path>
-# Writes a minimal, valid 1x1 PNG. Content is irrelevant here -- only the
-# frame's PRESENCE and file stem matter to the check skill's ID derivation
-# (`DC-<frame stem>`) -- so a tiny stock pixel keeps the fixture cheap.
+# smoke_write_vart_png <path> <variant>
+# Writes a real 640x400 design frame: white page, a dark heading bar, two grey text
+# lines and a blue link block, laid out like the fixture app's pages (variant 2 moves the
+# link). It must be a genuine layout: a first live run used 1x1 placeholders, and the
+# skill correctly refused to compare against them -- marking both frames "uncaptured"
+# and omitting the Overlay panel -- so the overlay assertions had nothing to find. Pure
+# stdlib (zlib + struct); no image library needed.
 smoke_write_vart_png() {
-    local path="$1"
+    local path="$1" variant="${2:-1}"
     mkdir -p "$(dirname "$path")"
-    python3 - "$path" <<'PY'
-import sys, base64
-# 1x1 transparent PNG, well-formed (valid IHDR/IDAT/IEND chain).
-data = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-)
-with open(sys.argv[1], "wb") as f:
-    f.write(data)
+    python3 - "$path" "$variant" <<'PY'
+import sys, zlib, struct
+path, variant = sys.argv[1], sys.argv[2]
+W, H = 640, 400
+px = [[(255, 255, 255)] * W for _ in range(H)]
+def rect(x0, y0, x1, y1, c):
+    for y in range(y0, y1):
+        row = px[y]
+        for x in range(x0, x1):
+            row[x] = c
+rect(24, 24, 260, 56, (30, 30, 30))            # heading
+rect(24, 80, 520, 92, (170, 170, 170))         # text line 1
+rect(24, 104, 440, 116, (170, 170, 170))       # text line 2
+ly = 140 if variant == "1" else 180            # link block moves on frame 2
+rect(24, ly, 180, ly + 16, (26, 95, 214))      # link
+raw = b"".join(b"\x00" + bytes(v for p in row for v in p) for row in px)
+def chunk(t, d):
+    return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0)) \
+      + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
+open(path, "wb").write(png)
 PY
 }
 
@@ -105,8 +121,8 @@ smoke_write_vart_fixture_assets() {
     local design_dir="${project_dir}/docs/design/${DESIGN_SLUG}/screens/png"
     local app_dir="${project_dir}/fixture-app"
 
-    smoke_write_vart_png "${design_dir}/${FRAME1_STEM}.png"
-    smoke_write_vart_png "${design_dir}/${FRAME2_STEM}.png"
+    smoke_write_vart_png "${design_dir}/${FRAME1_STEM}.png" 1
+    smoke_write_vart_png "${design_dir}/${FRAME2_STEM}.png" 2
 
     mkdir -p "$(dirname "${project_dir}/docs/design/${DESIGN_SLUG}/routes.md")"
     cat > "${project_dir}/docs/design/${DESIGN_SLUG}/routes.md" <<EOF
@@ -498,10 +514,14 @@ if [[ -f "$FULL_TEXT_B" ]]; then
     ' "$FULL_TEXT_B")"
 fi
 if [[ -n "$DECISIONS_BLOCK" ]]; then
-    if printf '%s' "$DECISIONS_BLOCK" | grep -qi 'verify-design-comparison'; then
-        assert_pass_raw "Run B's readout names verify-design-comparison in its DECISIONS section"
+    # The readout rule asks for plain words, so the check may be named as "the
+    # design-comparison check" rather than by its skill id -- a first live run did
+    # exactly that ("so I selected the design-comparison check") and a literal
+    # skill-id match failed a correct readout.
+    if printf '%s' "$DECISIONS_BLOCK" | grep -qiE 'design[- ]comparison'; then
+        assert_pass_raw "Run B's readout names the design comparison in its DECISIONS section"
     else
-        assert_fail_raw "Run B's readout has a DECISIONS section but it never names verify-design-comparison"
+        assert_fail_raw "Run B's readout has a DECISIONS section but it never names the design comparison"
     fi
 else
     assert_fail_raw "Run B's readout has no DECISIONS section to check for the fallback-selection line"
