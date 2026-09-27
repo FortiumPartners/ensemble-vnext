@@ -235,3 +235,9 @@ record each `not_met` / `unbuilt` criterion as a `blocksFeature` gap in the disc
 `/implement-trd <trd> --reconcile`, which promotes blocking gaps to TRD tasks, builds them and
 re-verifies. `not_verifiable` and `insufficient-coverage` are not promoted. What is new is the
 repeat-until-the-plan's-stop-rule loop around it, and reading `verification-plan.md`.
+
+**Check pages between batches (owner, 2026-09-27).** Check pages publish once per verification run
+(verification-artifacts FS-28, ruled). Because each `--fix` fix batch is its own run, the page is
+republished and the owner's comments are read between every batch — the rhythm of the model session,
+where comments on the page became the next fix batch. `--fix` must preserve that: republish after each
+run, read comments before the next.
