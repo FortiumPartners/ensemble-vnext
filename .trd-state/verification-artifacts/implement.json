@@ -4,7 +4,7 @@
   "trd_hash": "5dd4d784de3df449e1ae6d5293b9b7a3009ede8802d810f0b6ed681425f3cee4",
   "branch": "feature/verification-artifacts/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "VART-P001": {
       "description": "Write packages/skills/verify-design-comparison/SKILL.md per §3.1: common frontmatter; the seven sections, each headed exactly as named; the design-comparison Criteria, Capture (state not data, newest-",
@@ -213,10 +213,19 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "e91741d",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-27T17:28:23.093Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "fda2baa",
-    "last_checkpoint_timestamp": "2026-09-27T16:59:29.076Z",
+    "last_healthy_checkpoint": "e91741d",
+    "last_checkpoint_timestamp": "2026-09-27T17:28:23.093Z",
     "interrupted": false,
     "interrupt_reason": null
   },
