@@ -139,7 +139,8 @@ or
 | `--resume` | Resume from last checkpoint |
 | `--continue` | Alias for `--resume` |
 | `--reconcile` | Re-attest delivered work against the TRD; re-open anything only claimed done |
-| `--verify` | Add the functional-verification loop (derives a success definition, exercises it) |
+| `--verify` | Functional verification now runs **by default**; this flag is accepted explicitly and matters only paired with `--resume`, where it re-enters a stalled verification loop directly instead of re-running the whole phase loop |
+| `--no-verify` | Opt out of the functional-verification loop entirely |
 | `--reset-state` | Clear state and start fresh (requires confirmation) |
 
 **Staged Execution Loop**:
@@ -151,7 +152,7 @@ per phase:
   phase gate (verify-app + the project's deterministic battery) --> checkpoint + commit
 
 once, at the end of the run:
-  /code-review over the whole branch diff --> [--verify: functional loop]
+  /code-review over the whole branch diff --> functional loop (default on; skip with --no-verify)
 ```
 
 **This loop is smaller than it was, deliberately.** The per-phase `code-simplifier` stage

@@ -4,7 +4,7 @@
   "trd_hash": "045cb2f32026cf0a9c316c61b3f7f9f9c32759df78d0312bc318d8062c8963ac",
   "branch": "feature/verification-convergence/build",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "VCON-B001": {
       "description": "The locator rule, end to end — check, supply and exemption in one change. (a) Extend checkEvidence with the locator check, the no-locator / locator-not-found failures, LOCATOR_SCAN_BYTES with a trunca",
@@ -115,50 +115,76 @@
     "VCON-B007": {
       "description": "packages/core/contracts/functional-verification.md + mirror + functional-verification.test.js (the contract's own suite): add the locator rule and its stated image limit, the Tier 1 column and judge-o",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/contracts/functional-verification.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:55:07.824Z",
+      "completed_at": "2026-09-27T02:42:41.668Z",
+      "last_advanced": "2026-09-27T02:13:41.669Z"
     },
     "VCON-B008": {
       "description": "The declarations: add the new §1a resource table, the data-permission column, the preview row and the fast-refresh/full-deploy split to packages/core/templates/claude-directory/rules/verification.md (",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/templates/claude-directory/rules/verification.md",
+        ".claude/rules/verification.md",
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        "packages/core/lib/__fixtures__/verification.pre-1.5.0.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:55:07.824Z",
+      "completed_at": "2026-09-27T02:42:41.664Z",
+      "last_advanced": "2026-09-27T02:13:41.670Z"
     },
     "VCON-B009": {
       "description": "Both command surfaces, in one change: packages/core/commands/implement-trd.md and verify-build.md, each with its mirror. §3.6a (and verify-build.md §2, which points at it) resolves exerciseLanes from ",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/templates/process.md.template",
+        ".claude/rules/process.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:55:07.824Z",
+      "completed_at": "2026-09-27T02:42:41.669Z",
+      "last_advanced": "2026-09-27T02:13:41.670Z"
     },
     "VCON-D001": {
       "description": "docs/TRD/functional-verification.md, the whole file, after the flip: sync §3.2 (checkEvidence), §3.3 (VerifyFunctionalArgs — now 18 fields, including exerciseLanes — and the result shape), §3.3a and §",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/TRD/functional-verification.md",
+        "packages/core/workflows/verify-functional-trd-sync.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:55:07.824Z",
+      "completed_at": "2026-09-27T02:42:41.669Z",
+      "last_advanced": "2026-09-27T02:13:41.670Z"
     },
     "VCON-T001": {
       "description": "[LIVE]: extend and run test/smoke/scenarios/verify-functional.sh. Add a two-criterion fixture where one criterion's locator is present in a shared artifact and the other's is not, and assert the repor",
@@ -181,11 +207,19 @@
         "findings": 0
       },
       "timestamp": "2026-09-27T01:24:05.917Z"
+    },
+    {
+      "phase": 2,
+      "commit": "0701956",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-27T01:55:07.823Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "cd495da",
-    "last_checkpoint_timestamp": "2026-09-27T01:24:05.917Z",
+    "last_healthy_checkpoint": "0701956",
+    "last_checkpoint_timestamp": "2026-09-27T01:55:07.823Z",
     "interrupted": false,
     "interrupt_reason": null
   }

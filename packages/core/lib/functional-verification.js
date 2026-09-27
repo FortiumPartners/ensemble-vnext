@@ -23,6 +23,7 @@
  */
 
 const fs = require('fs');
+const crypto = require('crypto');
 
 // ---------------------------------------------------------------------------
 // checkEvidence — tier 1 of FR-3 (§3.2)
@@ -538,7 +539,30 @@ function renderReport(input) {
 // ---------------------------------------------------------------------------
 
 /**
- * Detects whether the project's `.claude/rules/verification.md` is still the shipped
+ * One entry per PRIOR shipped `verification.md` template — i.e. every version that existed
+ * before the live template this module ships alongside (D13, VCON-B008). Keyed by a short
+ * label `/implement-trd` §3.6a can quote in its preflight message (e.g. "your
+ * verification.md predates the resource / read-only / fast-refresh sections"); valued by the
+ * sha256 hex digest of that prior template's content run through the SAME `normalize()`
+ * helper `isVerificationUnfilled` already uses for its live-template comparison, so a digest
+ * means exactly what the current equality means.
+ *
+ * **Digests only — never the prior template's prose.** A project holding an old, unfilled
+ * copy of `verification.md` must keep being recognised as unfilled after the live template
+ * changes; embedding roughly 4 KB of retired template text in this module to make that check
+ * would be the wrong half of the fix. A 64-character hash answers the same yes/no question.
+ *
+ * `pre-resource-table` is the template as it shipped before §1a (the resource table), the
+ * `Loop may WRITE data?` column and §2's fast-refresh/full-deploy split existed — i.e. every
+ * `verification.md` in the field before this change (`packages/core/lib/__fixtures__/
+ * verification.pre-1.5.0.md` keeps a byte-for-byte copy for the test that proves this digest).
+ */
+const KNOWN_UNFILLED_DIGESTS = {
+  'pre-resource-table': 'f783eac9043329f3730b819758625efaa95ec7dd982e90565cb0e66b24451690',
+};
+
+/**
+ * Detects whether the project's `.claude/rules/verification.md` is still a shipped
  * template, unmodified — i.e. nobody has filled it in with real environments, credentials
  * and gaps. Both preflight steps read this file to decide, per criterion, whether it can be
  * exercised; an unfilled file resolves every criterion to "not verifiable here" exactly as a
@@ -548,15 +572,34 @@ function renderReport(input) {
  *
  * Compares content with surrounding whitespace and line-ending differences normalised away,
  * so re-saving the file in an editor that changes CRLF/LF or trims a trailing blank line does
- * not itself count as "filled in".
+ * not itself count as "filled in". Checked against the CURRENT template first (the primary,
+ * unchanged check); when that fails, checked against every digest in
+ * `KNOWN_UNFILLED_DIGESTS` (D13), so a project whose copy still matches an OLDER template is
+ * still reported unfilled rather than silently reading as filled once the template moves on.
  *
  * @param {string} projectContent - contents of the project's own verification.md
- * @param {string} templateContent - contents of the shipped template
- * @returns {boolean} true when the project copy still matches the template
+ * @param {string} templateContent - contents of the shipped (current) template
+ * @returns {{unfilled: boolean, matchedTemplate: string|null}} `matchedTemplate` is
+ *   `'current'` when the project copy matches the live template, the `KNOWN_UNFILLED_DIGESTS`
+ *   label of whichever prior template it matches instead, or `null` when the copy has been
+ *   filled in and matches nothing known.
  */
 function isVerificationUnfilled(projectContent, templateContent) {
   const normalize = (s) => String(s).replace(/\r\n?/g, '\n').trim();
-  return normalize(projectContent) === normalize(templateContent);
+  const normalizedProject = normalize(projectContent);
+
+  if (normalizedProject === normalize(templateContent)) {
+    return { unfilled: true, matchedTemplate: 'current' };
+  }
+
+  const projectDigest = crypto.createHash('sha256').update(normalizedProject).digest('hex');
+  for (const [label, digest] of Object.entries(KNOWN_UNFILLED_DIGESTS)) {
+    if (projectDigest === digest) {
+      return { unfilled: true, matchedTemplate: label };
+    }
+  }
+
+  return { unfilled: false, matchedTemplate: null };
 }
 
 module.exports = {
@@ -670,9 +713,7 @@ if (require.main === module) {
     } else {
       const projectContent = fs.readFileSync(projectPath, 'utf8');
       const templateContent = fs.readFileSync(templatePath, 'utf8');
-      console.log(
-        JSON.stringify({ unfilled: isVerificationUnfilled(projectContent, templateContent) })
-      );
+      console.log(JSON.stringify(isVerificationUnfilled(projectContent, templateContent)));
     }
   } else {
     usage();

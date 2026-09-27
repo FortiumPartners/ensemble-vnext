@@ -18,31 +18,33 @@ If no TRD path is given, resolve from `.trd-state/current.json`'s `trd`.
 
 ---
 
-## Why this exists separately from `/implement-trd --verify`
+## Why this exists separately from `/implement-trd`'s verification pass
 
 The loop is the same loop — one `Workflow(verify-functional, …)` call, identical arguments,
-identical outcomes. This command is `/implement-trd`'s Step 8 with nothing else attached, and
-it exists because **the three commonest reasons to want the loop have nothing to do with
-running an implementation**:
+identical outcomes. This command is `/implement-trd`'s Step 8 with nothing else attached.
+Functional verification now runs **by default** inside `/implement-trd` (VCON O6), so this
+command's reason for existing is no longer "the flag was never passed" — it is that **the
+three commonest reasons to want the loop have nothing to do with running an implementation**:
 
-- The implementation ran **without** `--verify` and you want the check now.
+- The implementation ran with **`--no-verify`** (opted out of the now-default pass) and you
+  want the check now.
 - The loop **crashed, stalled, or was interrupted**, and re-running `/implement-trd` to reach
   it would re-enter the phase loop over already-complete tasks.
 - You **fixed something by hand** — a credential, a config, the environment — and want to
   re-verify without touching implementation at all.
 
-Running `/implement-trd --verify --resume` covers the second case, but only because Step 3.6's
-composition gate skips the phase loop; that is a subtle path to rely on for the ordinary act
-of "verify what is already built."
+Running `/implement-trd --verify --resume` (the EXPLICIT flag, not the now-default behaviour)
+covers the second case, but only because §3.6 step 0's composition gate skips the phase loop;
+that is a subtle path to rely on for the ordinary act of "verify what is already built."
 
 **This command never implements.** It dispatches no implementer, runs no phase, writes no task
 state, and makes no commit beyond the loop's own artifacts.
 
 **It DOES derive the success definition when one is absent** — see step 3. That is the whole
-point of the command: the case it exists for is a run that used no `--verify`, or one whose
+point of the command: the case it exists for is a run that used `--no-verify`, or one whose
 loop crashed out, and in both the definition was never produced. A `/verify-build` that
-refuses to derive can only ever run second, after an `--verify` run that already did the work,
-which is precisely when you would not need it.
+refuses to derive can only ever run second, after a verification pass that already did the
+work, which is precisely when you would not need it.
 
 ---
 
@@ -59,6 +61,11 @@ the TRD basename. No branch derivation — you are verifying what is on disk now
 `.claude/rules/verification.md` and resolve each criterion as exercisable / `not_verifiable` /
 needs-one-thing-from-the-owner, batch that last bucket into ONE question with a stated
 default, then run on whatever remains. Partial verification with stated gaps beats none.
+
+**That section now also derives `exerciseLanes`, `refreshCommand` and `fullRunCommand` from
+`verification.md` §1a and §2, records per criterion which environment and which lane it
+resolved to, and reports a prior-template digest match in one line (VCON-B009) — follow all of
+that here too, not only the three-way bucket.**
 
 ### 3. Read the inputs from disk
 
@@ -78,11 +85,14 @@ the authority on what the fields ARE; §4 is the dispatch, not a competing spec.
 - `.claude/verification-notes.md`, the stack hints, the contract text, `.claude/rules/verification.md`
 - `.trd-state/<feature>/verification-state.json` — for `--resume`
 - `since` — resolved per §8.3
+- `exerciseLanes`, `refreshCommand`, `fullRunCommand` — resolved at step 2 (identical to
+  `/implement-trd` §3.6a)
 - **`prd_path`** — bind it HERE, because §4's dispatch passes it and 3a runs on only one
   branch. Read `.trd-state/<feature>/implement.json`'s `functional_verification.prd_path` when
   that file and key exist and the value is non-null; otherwise `""`. Note the key is written
-  only by an `/implement-trd --verify` run, and this command's primary case is a run WITHOUT
-  `--verify` — so `""` is the ordinary outcome here, not the exceptional one.
+  only by an `/implement-trd` run whose verification pass actually ran (i.e. not
+  `--no-verify`), and this command's primary case is a run made with `--no-verify` — so `""`
+  is the ordinary outcome here, not the exceptional one.
 
   It is a **display string for the report header** — nothing resolves it to a file — so `""`
   yields a blank `**Source PRD**:` field and nothing else. Leaving it unbound is not the
@@ -118,9 +128,9 @@ nothing else to do, so it simply waits, and both of Step 8's objections evaporat
   contract's own agent is that discipline, not a bypass of it.
 
 **Bind `prd_path` when you resolve the source — 3a is the branch that knows it.** Step 3's
-read yields `""` here by construction (no `--verify` run wrote the key), so if 3a does not set
-it the header goes blank even though a source WAS found — the one case this whole binding
-exists for.
+read yields `""` here by construction (no run's verification pass wrote the key — `--no-verify`
+was set, or the run predates this command's invocation), so if 3a does not set it the header
+goes blank even though a source WAS found — the one case this whole binding exists for.
 
 Set it exactly as `/implement-trd` §3.6 does, and note the shape differs by source kind:
 
@@ -138,14 +148,14 @@ for section kinds — which is what you pass to the derive AGENT, and is not wha
 nothing — the agent died, or found no criterion satisfying the citation rule and wrote a file
 you should read. It no longer means "nobody ever asked".
 
-**Reported from the field, 2026-08-23.** A run of `/implement-trd` without `--verify` was
+**Reported from the field, 2026-08-23.** A run of `/implement-trd` with `--no-verify` was
 followed by `/verify-build`, which stopped at `no definition produced` and declined to derive,
 citing Step 8's reasoning. The reasoning was inherited without checking whether its premises
 held here. They did not.
 
 ### 4. Dispatch
 
-All 15 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 18 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3a), not copied from `/implement-trd`:
 
 ```javascript
@@ -165,13 +175,18 @@ Workflow({ name: "verify-functional", args: {
   feature: "<feature>",                                          // TRD basename (Step 1) -- renderReport()'s header
   prd: prd_path,                                                 // bound in Step 3 (implement.json's functional_verification.prd_path, or ""), overwritten by 3a when it runs
   definitionPath: ".trd-state/<feature>/success-definition.md",  // present (Step 3), or just-derived (Step 3a)
+  exerciseLanes,                                                 // resolved per implement-trd.md §3.6a -- verification.md §1a; omitted defaults to one lane of concurrency 1
+  refreshCommand,                                                // resolved per implement-trd.md §3.6a -- verification.md §2's fast refresh, or "" when none is declared
+  fullRunCommand,                                                // resolved per implement-trd.md §3.6a -- verification.md §2's full deploy, or "" when none is declared
 } })
 ```
 
 ### 5. Report
 
-Render the outcome — `satisfied` / `unbuilt` / `stalled` / `stuck`, or either `not run` case —
-with the per-criterion counts and the report path.
+Render the outcome — `satisfied` / `unbuilt` / `stalled` / `stuck` / `insufficient-coverage`,
+or either `not run` case — with the per-criterion counts, the report path, and the coverage
+ratio when the outcome is `insufficient-coverage`. A failed final full-environment run appears
+in ISSUES with who acts (VCON-B009); it does not retract the criteria proven before it.
 
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.
@@ -189,7 +204,7 @@ transcript and does not change what the owner does next.
 
 Re-enters at the next iteration from `verification-state.json`, seeding `previousGaps`. The
 state file's `outcome` key decides: `null` means the run stopped mid-loop and is resumable;
-any of the four outcome strings means it finished and `--resume` starts a fresh run instead.
+any of the five outcome strings means it finished and `--resume` starts a fresh run instead.
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify]"
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify]"
 version: 4.0.0
 category: implementation
 ---
@@ -18,9 +18,21 @@ category: implementation
 >   — including tasks added to the TRD since the last run. Use after `/audit-build` finds a
 >   gap. NOT a synonym for `--resume`: see below.
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
-> - `--verify` - Opt in to the functional-verification pass (default off, D11): dispatches a background success-definition derive early (Step 3.6) and, at the tail of the run, an outcome-bearing verification loop. Composes with `--resume` (D13): with both set and a non-terminal `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and the whole phase loop and re-enters the verification loop directly; `--resume` alone keeps its existing meaning (resume the implementation checkpoint) and is unaffected when `--verify` is absent.
+> - `--verify` - The functional-verification pass runs **by default** (VCON O6; supersedes the
+>   old opt-in default, D11): dispatches a background success-definition derive early (Step
+>   3.6) and, at the tail of the run, an outcome-bearing verification loop (Step 8). Passing
+>   this flag explicitly is redundant on its own, but it means something paired with
+>   `--resume`: with BOTH set EXPLICITLY and a non-terminal
+>   `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and
+>   the whole phase loop and re-enters the verification loop directly (§3.6 step 0). `--resume`
+>   **without** an explicit `--verify` never takes that branch, even though verification now
+>   runs by default elsewhere in the command — it keeps its existing meaning (resume the
+>   implementation checkpoint) and runs the phase loop as usual.
+> - `--no-verify` - Opt out of the functional-verification pass entirely: no derive agent is
+>   dispatched, no `.trd-state/<feature>/success-definition.md` appears, and Step 8 is
+>   skipped — Step 9's banner reads `not run (--no-verify set)`.
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --verify`
+> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --no-verify`, `/implement-trd --resume --verify`
 
 ---
 
@@ -30,7 +42,10 @@ category: implementation
 $ARGUMENTS
 ```
 
-Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`, `--verify`.
+Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`,
+`--verify`, `--no-verify`. Verification runs by default; `--no-verify` opts out; `--verify` is
+still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6 step 0 checks
+for.
 
 ---
 
@@ -39,16 +54,21 @@ Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--re
 ```
 PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN HARDENING & REVIEW -> FUNCTIONAL VERIFICATION -> COMPLETE
 
-  --verify (Step 3.6, D5): right after the graph is built, before the phase
+  Functional verification RUNS BY DEFAULT (VCON O6, supersedes D11's opt-in default).
+  `--no-verify` opts out of both stages below. `--verify` is still accepted explicitly
+  and is redundant on its own -- the one place it still changes behaviour is paired
+  with `--resume` (composition note below, §3.6 step 0).
+
+  DERIVE (Step 3.6, D5): right after the graph is built, before the phase
   loop, dispatch the success-definition derive pass in the background —
   Agent({subagent_type: "product-manager", run_in_background: true, ...}) — and continue
-  straight into the phase loop with no wait. Absent the flag, no derive agent is
-  dispatched and no .trd-state/<feature>/success-definition.md appears.
+  straight into the phase loop with no wait. Only when `--no-verify` is set is no
+  derive agent dispatched and no .trd-state/<feature>/success-definition.md produced.
 
   FUNCTIONAL VERIFICATION (Step 8, D1): one dispatch, not a loop. After Step 7's
   end-of-run review, resolve the definition from disk (never wait, never derive inline) and make
   a single Workflow(verify-functional, {...}) call; render its outcome into Step 9's
-  banner. Absent the flag, this step is skipped entirely.
+  banner. Only when `--no-verify` is set is this step skipped entirely.
 
 Phase Loop (per phase N):
   mark this phase GROUP's tasks in_progress (state-write-before-dispatch)
@@ -59,13 +79,16 @@ Phase Loop (per phase N):
   -> on failure: retry the WHOLE phase (whole-phase retry, capped) or STUCK
   -> checkpoint + commit + PHASE banner -> next phase (no pause)
 
---verify --resume composition (§3.7, D13): `--resume` alone keeps its existing
-meaning (resume the implementation checkpoint) regardless of `--verify`. When
-BOTH are set and `.trd-state/<feature>/verification-state.json` exists with a non-terminal
-outcome, the run skips the derive pass and the whole phase loop and re-enters the
-verification loop directly at the iteration after the last completed one. `--verify`
-with no prior state file starts derivation and the phase loop as usual — the two flags
-compose rather than overloading each other.
+`--resume` composition with an EXPLICIT `--verify` (§3.7, D13): `--resume` alone -- without
+an explicit `--verify` on the same command line -- keeps its existing meaning (resume the
+implementation checkpoint) and runs the phase loop as usual; the default-on verification pass
+still follows it at Step 8 unless `--no-verify` was also given. Only when `--verify` is passed
+EXPLICITLY alongside `--resume`/`--continue`, AND `.trd-state/<feature>/verification-state.json`
+exists with a non-terminal outcome, does the run skip the derive pass and the whole phase loop
+and re-enter the verification loop directly at the iteration after the last completed one
+(§3.6 step 0). This is the one gate the default flip does not touch: a bare
+`/implement-trd --resume` must never take this branch merely because verification now runs by
+default.
 ```
 
 The per-task cycle — `IMPLEMENT -> checks -> [DEBUG on fail]` — happens **inside**
@@ -576,28 +599,37 @@ task":
 
 The assembled string is `rec.prompt` in `implement-phase.js`'s `args.tasks.records[]`.
 
-### 3.6 `--verify`: dispatch the background success-definition derive pass
+### 3.6 Dispatch the background success-definition derive pass (skipped only by `--no-verify`)
 
-**Only when `--verify` is set.** Absent the flag, skip this step entirely — no
-derive agent is dispatched and no `.trd-state/<feature>/success-definition.md` appears
-(functional-verification TRD AC-6).
+**Runs by default (VCON O6, supersedes D11's opt-in default). Skipped only when `--no-verify`
+is set** — skip this step entirely, dispatch no derive agent, and produce no
+`.trd-state/<feature>/success-definition.md` (functional-verification TRD AC-6, default
+superseded).
 
-**0. The `--resume` composition gate (§3.7, D13).** When `--verify` AND
-`--resume`/`--continue` are both set and `.trd-state/<feature>/verification-state.json`
-exists with a **non-terminal** outcome — that is, its top-level `outcome` key is `null` (the
-run stopped mid-loop) — this run re-enters the verification loop and nothing else: **skip
-this step entirely — dispatch no derive agent — and skip the phase loop (Steps 4–6) and the
-end-of-run review (Step 7)**, going straight to Step 8, which reads that state file as its
-`resume` argument. A definition already exists from the run that wrote the state file;
-deriving a second one would overwrite it mid-loop. Every other combination is unaffected:
-`--verify` with no state file (or a terminal one) derives and runs the phase loop
-as usual, and `--resume` without `--verify` keeps its existing meaning.
+**0. The `--resume` composition gate (§3.7, D13) — requires an EXPLICIT `--verify` flag; the
+new default does NOT satisfy it.** This is the one gate the default flip must not touch: a
+bare `/implement-trd --resume` — the commonest recovery command there is — must still run the
+whole phase loop, not silently re-enter verification only because a stale non-terminal state
+file happens to be on disk. The gate fires ONLY when `--verify` is passed EXPLICITLY on the
+command line AND `--resume`/`--continue` is also set AND
+`.trd-state/<feature>/verification-state.json` exists with a **non-terminal** outcome — that
+is, its top-level `outcome` key is `null` (the run stopped mid-loop). When it fires, this run
+re-enters the verification loop and nothing else: **skip this step entirely — dispatch no
+derive agent — and skip the phase loop (Steps 4–6) and the end-of-run review (Step 7)**, going
+straight to Step 8, which reads that state file as its `resume` argument. A definition already
+exists from the run that wrote the state file; deriving a second one would overwrite it
+mid-loop. Every other combination is unaffected: an explicit `--verify` with no state file (or
+a terminal one) derives and runs the phase loop as usual; `--resume` without an explicit
+`--verify` keeps its existing meaning (resume the implementation checkpoint) and runs the phase
+loop as usual — the default-on verification pass still follows it at Step 8 unless
+`--no-verify` was also given.
 
 **Read `outcome` and nothing else to decide this.** A non-null `outcome` (`satisfied`,
-`unbuilt`, `stalled`, `stuck`) means the loop finished and MUST NOT be re-entered; a `null`
-one means it stopped mid-loop and should be. A state file with no `outcome` key at all is a
-file written by a Judge that did not follow its instructions — treat it as terminal (do not
-resume) and say so in the banner, because the alternative reading resumes forever.
+`unbuilt`, `stalled`, `stuck`, `insufficient-coverage`) means the loop finished and MUST NOT be
+re-entered; a `null` one means it stopped mid-loop and should be. A state file with no
+`outcome` key at all is a file written by a Judge that did not follow its instructions — treat
+it as terminal (do not resume) and say so in the banner, because the alternative reading
+resumes forever.
 
 Do NOT try to infer terminality from `criteria` instead: `unbuilt` and `stalled` runs both
 finish with `not_met` criteria still on the books at an iteration below the cap, so any
@@ -752,6 +784,83 @@ you will apply if unanswered (mark them `not_verifiable` and continue). This is
 `autonomy.md` case 2 — information that genuinely cannot be derived — and asking it up front
 is the difference between one question before the run and a discovery mid-loop that strands
 half the criteria.
+
+**Record, per criterion, which environment it resolved to.** This is half of a lane (the
+other half is §1a's counts, below) and it is what makes a wrong mapping readable in the
+readout instead of inferable from a failure (TR7) — a number in the readout with no way to
+check it is worth less than none (§3.6a's existing habit, extended here). A criterion in the
+"not verifiable here" bucket resolves to no environment; every "exercisable" criterion
+resolves to exactly one.
+
+**Then derive `exerciseLanes`, `refreshCommand` and `fullRunCommand` — this is where lane
+resolution belongs and nowhere else (D5, D15): the workflow has no filesystem, and a second
+reader of `verification.md` would be a second opinion about the budget.**
+
+1. **Read `.claude/rules/verification.md`'s §1a** (`Resource` / `How many may exist at once` /
+   `Which environments need it` / `How the loop creates and destroys one`). For each declared
+   resource:
+   - count `N > 1` → a **pool** lane, `concurrency: N`, `createCommand` copied verbatim from
+     the row's last column (`""` when the cell is blank — a blank cell withholds permission
+     to create an instance, whatever the count says).
+   - count `1` → a **queue** lane, `concurrency: 1`, `createCommand: ""` (the loop never
+     creates a queue resource — D5 rule i).
+   - count `0` → **no lane at all.** Every criterion needing this resource is `not_verifiable`
+     at this preflight (O7) and is never handed to the debugger (D5 rule v). This is a rule
+     the derivation APPLIES, not prose a reader is trusted to honour: such a resource
+     contributes no lane, no `refreshCommand` and no `fullRunCommand` (§3.7).
+   - **an environment named in §1 with no row in §1a counts as one resource of its own, with
+     an implied count of `1` — a queue.** Silence is a queue, never a pool (D5 rule ii). Do
+     NOT read the `Loop may WRITE data?` / `Loop may DEPLOY to it?` / `Loop may RESTART it?`
+     columns for this — **capacity comes from §1a's counts and from nothing else**; those
+     three cells now serve permissions only.
+   - a §1 environment declared `must not be touched` is the same prohibition seen from the
+     other side (§3.7): where a criterion's environment is `must not be touched` in §1 OR its
+     resource is declared `0` in §1a, treat it as the count-`0` case above regardless of which
+     column said so. Where the two disagree, the stricter reading wins.
+2. **Group exercisable criteria into lanes.** A criterion joins the lane of the resource its
+   environment needs; two singular (count-1) resources some criterion needs TOGETHER form one
+   lane, transitively (D5 rule iii). A criterion needing NO environment at all — its evidence
+   is a file already on disk — joins the unconstrained **remainder lane**, `resource: null`.
+3. **The remainder lane's `concurrency` is its own criterion count, never `1` and never an
+   invented throttle** (D5 rule iv) — it has no §1a row to read a count from, and
+   "unconstrained" has to mean a number that cannot bind §3.5's `Math.min` rather than the `1`
+   rule (ii) would give a silent-but-declared environment. **Omit the remainder lane entirely
+   when no criterion falls into it** — never emit a lane at `concurrency: 0` (§3.3 rejects
+   that), and never give the remainder lane the `1` that a silent-but-declared environment
+   gets.
+4. **`refreshCommand` and `fullRunCommand` are two single strings for the whole run, not one
+   per lane** (D15) — read from §2's Fast-refresh / Full-deploy columns for the environment
+   actually being exercised. When every exercisable criterion resolves to one environment, its
+   row is the answer. When criteria span more than one environment, prefer whichever of the
+   environments actually in use is marked "prefer this" in §1 (the `preview` row, taught as
+   the default target — TRD change 5), else the first such environment listed in §1 — never a
+   rule keyed on an environment's NAME otherwise (NG6). Record which environment's row was
+   used. A `must not be touched` environment contributes neither string, whatever this
+   tie-break would otherwise land on (§3.7).
+5. **Record the resolved lane list, the refresh/full-run commands, and which environment each
+   criterion landed on** — the same habit this preflight already has for the three-way bucket:
+   state what was READ and what was concluded, per criterion.
+
+**Report a prior-template digest match as its own line, separate from the unfilled message
+above.** The `check-verification-unfilled` call already run at the top of this step returns
+`matchedTemplate` alongside `unfilled` (D13) — read both:
+
+- `matchedTemplate: "current"` — the file has never been filled in at all; the unfilled
+  message above already covers it.
+- `matchedTemplate` any OTHER label (e.g. `"pre-resource-table"`) — the file HAS been filled
+  in, but it predates this change: no §1a, no data-permission column, no fast-refresh/
+  full-deploy split. Say the consequence in one line: *"your `verification.md` predates the
+  resource / read-only / fast-refresh sections — every lane resolves to concurrency 1 and no
+  refresh or full run is declared."* This is D13's only delivery path to a project that
+  already exists: `scaffold-project.sh --refresh` will not rewrite an owner's filled-in file
+  (correctly — it is owner-governed), so this line is the only way that owner learns the new
+  sections exist.
+- `matchedTemplate: null` (with `unfilled: false`) — an ordinary filled-in, current-shape file.
+  Nothing to report.
+
+**When no environment resolves any lane at all** — no criteria are exercisable, or the file is
+still unfilled — pass no `exerciseLanes` to §8.3 and let the workflow's own default apply: one
+lane of concurrency 1 over every criterion, exactly today (§3.3).
 
 **Then run the loop on whatever remains.** A partial verification with the gaps stated is
 worth far more than no verification: the criteria you CAN check still get checked, and the
@@ -1112,7 +1221,8 @@ the durable companion to `implement.json` — state records *what* happened, the
 }
 ```
 
-**On `functional_verification` (present only when `--verify` was set, FV-B005):**
+**On `functional_verification` (present whenever verification runs — i.e. absent
+`--no-verify` — FV-B005):**
 written by Step 3.6 at PRD-resolution time, not by the loop itself — `verification-state.json`
 and `verification-report.md` (both written by the workflow's Judge agent, §3.3a) are the
 loop's own durable record; this field exists only to carry the **one** fact that predates the
@@ -1123,7 +1233,7 @@ memory (the same reasoning `.claude/rules/async-discipline.md`'s dispatch ledger
 written to disk on its own, so that Step 4.1's `implement-state.save()` — which writes the
 whole object — carries it forward rather than clobbering it. Step 8 reads `prd_resolved`
 first and, only when it is `true` (or, defensively, the field is missing altogether, which
-under `--verify` can only mean the state write was lost), falls through to
+under the default verification pass can only mean the state write was lost), falls through to
 checking whether `success-definition.md` exists on disk. This keeps the
 three outcomes §3.1 requires distinct: `prd_resolved: false` → `not run: no success definition derivable`;
 `prd_resolved: true` and the definition file absent → `not run: no definition produced`
@@ -1157,7 +1267,7 @@ There is no session-scoped TaskTools mirror in this design — dispatch is per-p
 ## Step 7: End-of-Run Hardening and Review
 
 After the final phase's checkpoint (Step 5) and before Step 8's functional verification
-(when `--verify` is set) and Step 9's completion report:
+(unless `--no-verify` was set) and Step 9's completion report:
 
 ### 7.1 Feature-scale hardening pass — REMOVED 2026-08-28
 
@@ -1198,10 +1308,11 @@ which is a factual statement about a completed dispatch, not a deferred-notifica
 
 ---
 
-## Step 8: Functional Verification (`--verify` only)
+## Step 8: Functional Verification (skipped only by `--no-verify`)
 
-**Only when `--verify` is set.** Absent the flag, skip this step entirely — Step 9's
-banner reads `not run (--verify not set)` (functional-verification TRD §3.7, AC-6).
+**Runs by default (VCON O6, supersedes D11's opt-in default). Skipped only when `--no-verify`
+is set** — skip this step entirely; Step 9's banner reads `not run (--no-verify set)`
+(functional-verification TRD §3.7, AC-6, default superseded).
 
 This step is **one dispatch, not a loop** (D1, G2, FR-2). It contains exactly one `Workflow(`
 call. Everything that iterates, judges, or decides what to do next belongs to
@@ -1303,9 +1414,10 @@ exists, HEAD dates from the **prior** run, and that run's leftover artifacts und
 the tier-1 freshness gate having proved nothing about this run — so a criterion whose new
 Exercise produces nothing could be scored against a stale artifact at the same path. Raising
 the floor to the loop start enforces the invariant actually wanted (*this artifact was
-produced by THIS run's verification loop*) and rejects nothing legitimate, because D2 has
-every iteration re-walk every criterion — all evidence on a resumed run is freshly produced
-anyway.
+produced by THIS run's verification loop*) and rejects nothing legitimate: only OPEN criteria
+are walked, so every artifact checked against the floor was produced by this invocation. A
+`met` criterion carried forward from the prior run keeps its artifact and `provenAt` and is
+never re-checked against the floor (verification-convergence TRD §3.4).
 
 Keep the `max`, do not simplify it to `date +%s`: a commit authored on a machine with a
 skewed clock can carry a timestamp ahead of local now, and the floor must never fall below
@@ -1333,6 +1445,9 @@ Workflow({ name: "verify-functional", args: {
   feature: "<feature>",                                          // Finding A: renderReport()'s header
   prd: prd_path,                                                 // Finding A — from implement.json's functional_verification (§8.1 step 1)
   definitionPath: ".trd-state/<feature>/success-definition.md",  // Finding A
+  exerciseLanes,                                                 // §3.6a -- resolved from verification.md §1a; omitted lets the workflow default to one lane of concurrency 1
+  refreshCommand,                                                // §3.6a -- the per-iteration refresh from verification.md §2, or "" when none is declared
+  fullRunCommand,                                                // §3.6a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
 } })
 ```
 
@@ -1349,12 +1464,19 @@ the two `not run` short-circuits in §8.1, which never reach the workflow at all
 ### 8.4 Render the outcome
 
 The `Workflow` call returns `{ outcome, reason, iterations, reportPath, criteria, gaps,
-unbuilt, exercised, debugAttempts, notesUpdated }` (§3.3). Carry `outcome` and `reportPath`
-into Step 9's FUNCTIONAL VERIFICATION block, along with `criteria` — the banner's
-met/not-met/not-verifiable/unbuilt counts are a tally of that array's `status` values, so
-dropping it here leaves those four counts with nothing to come from. Nothing beyond those
-three — no re-reading the rendered report, no re-deriving the verdict; the report and the
-state file are already the durable record.
+unbuilt, exercised, debugAttempts, notesUpdated, coverage, finalRun }` (§3.3). Carry `outcome`
+and `reportPath` into Step 9's FUNCTIONAL VERIFICATION block, along with `criteria` — the
+banner's met/not-met/not-verifiable/unbuilt counts are a tally of that array's `status`
+values, so dropping it here leaves those four counts with nothing to come from.
+
+**Carry `coverage` (`{ proven, total, uncovered }`) and `finalRun` (`{ command, status }` or
+`null`) into the same block too** (VCON-B009): `coverage` is what makes `insufficient-coverage`
+readable as a ratio a person can act on rather than a bare outcome name, and a `finalRun` whose
+`status` is `'fail'` is what ISSUES names, with who acts — re-run the declared full deploy by
+hand, or investigate why it failed; the criteria it proved before the failure are still real
+evidence, not retracted by it (D14). Nothing beyond those five — no re-reading the rendered
+report, no re-deriving the verdict; the report and the state file are already the durable
+record.
 
 ---
 
@@ -1412,8 +1534,12 @@ STATE
   {N} of {M} tasks built on branch {branch}. {failed_count} not built.
   {for each task not built: "  {id}: {what it was for} — {why it is not done}"}
   Tests: {green/red} ({suite}, {X}% unit / {Y}% integration).
-  {if --verify: "The delivered software {does | does not} do what the PRD asked: {plain sentence}."}
-  {if --verify not set: "Nobody checked whether the software does what the PRD asked (--verify not set)."}
+  {if verification ran (--no-verify not set): "The delivered software {does | does not} do
+    what the PRD asked: {plain sentence}." For `insufficient-coverage`, say the ratio and
+    what it means, not the outcome name — e.g. "Only 11 of 62 criteria were proven; the rest
+    were never exercised, so this is not enough checking to call it verified either way."}
+  {if --no-verify was set: "Nobody checked whether the software does what the PRD asked
+    (--no-verify set)."}
 
 DECISIONS
   {choices the run made that the owner did not — a default applied where the TRD was silent,
@@ -1424,6 +1550,9 @@ DECISIONS
 
 ISSUES
   {what is wrong or needs you, each saying who acts}
+  {if finalRun.status === 'fail': "The declared full-environment run ({finalRun.command})
+    failed — {who acts}. The criteria proven before it are still real evidence; this does not
+    retract them."}
   {blocking discoveries this run found and did not do — promoted or not, and which}
   {if none: "none"}
 
@@ -1455,8 +1584,8 @@ listed it under NEXT STEPS.
 
 ### 9.0a Artifact link (see `.claude/rules/command-status.md`)
 
-Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, and **if this run
-used `--verify`**, publish the verification report:
+Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, and **unless this run
+used `--no-verify`** (i.e. Step 8 actually ran), publish the verification report:
 
 ```
 Artifact({ file_path: ".trd-state/<feature>/verification-report.md", favicon: "✅",

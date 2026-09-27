@@ -18,14 +18,57 @@ observations. An agent inferring them from a codebase is guessing at your rules.
 
 One row per environment the verifier may encounter. **An environment that is not listed is
 not authorized** (S-2), and criteria needing it resolve to `not verifiable here` rather than
-to a guessed endpoint.
+to a guessed endpoint. The `preview` row is listed first because a disposable per-branch
+environment is the one to prefer whenever the project has one.
 
-| Name | URL / how to reach it | What it is for | Loop may DEPLOY to it? | Loop may RESTART it? |
-|------|----------------------|----------------|------------------------|----------------------|
-| local | `http://localhost:3000` (`npm run dev`) | day-to-day functional verification | n/a — it runs from the working tree | yes, freely |
-| dev | | shared integration checks | | |
-| staging | | pre-release only | **no** | **no** |
-| production | | — | **never** | **never** |
+| Name | URL / how to reach it | What it is for | Loop may WRITE data? | Loop may DEPLOY to it? | Loop may RESTART it? |
+|------|----------------------|----------------|-----------------------|------------------------|----------------------|
+| preview | | per-branch, disposable — **prefer this** | may write | n/a — deploys automatically per branch | yes, freely |
+| local | `http://localhost:3000` (`npm run dev`) | day-to-day functional verification | may write | n/a — it runs from the working tree | yes, freely |
+| dev | | shared integration checks | may write | | |
+| staging | | pre-release only | read-only | **no** | **no** |
+| production | | — | **must not be touched** | **never** | **never** |
+
+Permitted values for **Loop may WRITE data?**: `read-only`, `may write`, `must not be
+touched`. *read-only* authorises exercise that mutates nothing — no records created, no rows
+written; *may write* authorises exercise that does; *must not be touched* forbids the loop
+from reaching that environment at all, including for reads.
+
+**This column is a permission, not a capacity — how many of a thing may exist is §1a's
+question, not this one.** A `must not be touched` environment and a count of `0` for the
+resource behind it are the same prohibition seen from two sides; where a file states both and
+they disagree, the stricter reading wins.
+
+## 1a. Resource capacity — how many may exist at once
+
+One row per resource the verification loop must not over-subscribe, stated as **how many may
+exist at once**. A resource is not one-to-one with an environment: a rate-limited
+third-party account can be shared by several environments, and one environment can hold a
+simulator pool and a singular database at the same time — which is why this is a table of
+resources, not another column on §1.
+
+| Resource | How many may exist at once | Which environments need it | How the loop creates and destroys one |
+|----------|-----------------------------|------------------------------|------------------------------------------|
+| e.g. iOS simulator | 4 | local | `xcrun simctl create … / xcrun simctl delete …` |
+| e.g. dev server on :3000 | 1 | local | — (never created; it is already up) |
+| e.g. shared Supabase project | 1 | dev | — |
+| production database | 0 | production | — |
+
+The count is the only thing the framework reads here — never probed, never modelled, never
+inferred from any other cell in this file. The rules, not suggestions:
+
+- **`N`** — a **pool**. The loop may create and tear down up to N of them, using the command
+  in the last column. At most one per exercise slice touches it, so at most N slices touch it
+  at once.
+- **`1`** — a **queue**. One holder at a time. The loop never creates one.
+- **`0`** — **must not be touched.** Criteria needing it resolve `not verifiable here` and are
+  exercised by nothing.
+- **An environment with no row in this table counts as one resource of its own, with a count
+  of `1`.** Silence is a queue, never a pool — an owner who describes an environment here and
+  forgets its capacity gets today's serial behaviour, not four agents racing one dev server.
+- **A blank create/destroy cell means the loop may not create one, whatever the count says.**
+  A count of 4 with no command means "four already exist"; a count of 4 with a command means
+  "make up to four".
 
 ## 2. Bringing the environment to the new code
 
@@ -34,16 +77,25 @@ source, the next Exercise pass measures whatever is RUNNING. If nothing refreshe
 measures the old build, the gap cannot close, and the loop exits `stalled` — blaming the
 debugger for a fix that in fact worked.
 
-State the command for each environment the loop is allowed to refresh:
+State two commands per environment: a **fast refresh** the loop runs after every Debug pass,
+and a **full deploy** it runs once, at the end of the run, as a gate that fails loudly — not
+a convention to trust. A failed full deploy is reported on the run's Outcome line and in the
+command's issues; it does not retract criteria already proven against the running system,
+because those were proven, and the rebuild is what failed.
 
-| Environment | Refresh command | Roughly how long |
-|-------------|-----------------|------------------|
-| local | e.g. hot reload — nothing to run | — |
-| dev | e.g. `railway up`, `vercel deploy`, `docker compose up -d --build` | |
+| Environment | Fast refresh (per iteration) | Full deploy (end of run) | Roughly how long |
+|-------------|-------------------------------|-----------------------------|---------------------|
+| preview | | | |
+| local | e.g. hot reload — nothing to run | | — |
+| dev | e.g. `railway up`, `vercel deploy`, `docker compose up -d --build` | | |
 
-**If an environment cannot be refreshed by the loop, say so here.** That is a legitimate
-answer, and it is far better than silence: the loop then knows to verify once and report,
-rather than iterating against a frozen target.
+**Where no full deploy is declared, leave the cell blank rather than guessing one.** A blank
+cell and a command that ran and failed are two different facts, and the report says which:
+nothing declared reads as "no full-environment run declared," never as a pass.
+
+**If an environment cannot be refreshed by the loop at all, say so here.** That is a
+legitimate answer, and it is far better than silence: the loop then knows to verify once and
+report, rather than iterating against a frozen target.
 
 ## 3. Test identities and credentials
 

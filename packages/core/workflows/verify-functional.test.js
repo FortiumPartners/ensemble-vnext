@@ -1278,6 +1278,37 @@ describe('verify-functional: met/total reach the decide-next payload', () => {
   });
 });
 
+// --------------------------------------------------------------------------- result coverage (§3.3)
+
+describe('verify-functional: result carries coverage over the whole definition (§3.3)', () => {
+  it('reports proven/total/uncovered from the final criteria, so /implement-trd §8.4 has a coverage line to render', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        return satisfiedJudge({
+          criteria: [
+            { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] },
+            { id: 'FS-2', status: 'not_verifiable', tier1: 'skipped', artifact: null, reason: 'no environment', files: [] },
+          ],
+        });
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    expect(result.coverage).toEqual({ proven: 1, total: 2, uncovered: ['FS-2'] });
+  });
+
+  it('reports 0 of 0 with nothing uncovered when the definition is empty', async () => {
+    const agent = makeAgentStub((prompt, opts) => (opts.label === 'judge' ? satisfiedJudge({ criteria: [] }) : null));
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [] }) });
+
+    expect(result.coverage).toEqual({ proven: 0, total: 0, uncovered: [] });
+  });
+});
+
 // --------------------------------------------------------------------------- end-of-run full-environment gate (D14, VCON-B005)
 
 describe('verify-functional: end-of-run full-environment gate (D14)', () => {

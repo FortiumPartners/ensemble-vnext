@@ -1088,28 +1088,98 @@ describe('CLI', () => {
 // ---------------------------------------------------------------------------
 
 describe('isVerificationUnfilled', () => {
-  test('identical content is unfilled', () => {
+  test('identical content is unfilled, and matches the current template', () => {
     const content = '# Verification environments\n\n| Name | URL |\n';
-    expect(isVerificationUnfilled(content, content)).toBe(true);
+    expect(isVerificationUnfilled(content, content)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'current',
+    });
   });
 
   test('differs only by trailing whitespace/newline is still unfilled', () => {
     const template = '# Verification environments\n\nsome text\n';
     const project = '# Verification environments\n\nsome text\n\n\n';
-    expect(isVerificationUnfilled(project, template)).toBe(true);
+    expect(isVerificationUnfilled(project, template)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'current',
+    });
   });
 
   test('differs only by CRLF vs LF is still unfilled', () => {
     const template = '# Verification environments\n\nsome text\n';
     const project = '# Verification environments\r\n\r\nsome text\r\n';
-    expect(isVerificationUnfilled(project, template)).toBe(true);
+    expect(isVerificationUnfilled(project, template)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'current',
+    });
   });
 
   test('a filled-in project file is not flagged', () => {
     const template = '# Verification environments\n\n| Name | URL |\n|---|---|\n';
     const project =
       '# Verification environments\n\n| Name | URL |\n|---|---|\n| local | http://localhost:3000 |\n';
-    expect(isVerificationUnfilled(project, template)).toBe(false);
+    expect(isVerificationUnfilled(project, template)).toEqual({
+      unfilled: false,
+      matchedTemplate: null,
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // KNOWN_UNFILLED_DIGESTS (D13, VCON-B008) — a project whose verification.md still matches
+  // a PRIOR shipped template must still be reported unfilled, and the response must say
+  // WHICH one matched, once the live template moves on past it.
+  // -------------------------------------------------------------------------
+
+  test('a project file matching the pre-resource-table template is still reported unfilled, naming that template', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+
+    // The project's copy is byte-identical to the OLD template, not the current one -- the
+    // exact shape every project scaffolded before this change is in.
+    expect(isVerificationUnfilled(priorTemplate, currentTemplate)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'pre-resource-table',
+    });
+  });
+
+  test('a project file matching the pre-resource-table template, re-saved with CRLF, is still recognised', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+    const crlfProject = priorTemplate.replace(/\n/g, '\r\n');
+
+    expect(isVerificationUnfilled(crlfProject, currentTemplate)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'pre-resource-table',
+    });
+  });
+
+  test('a project file that has since been filled in does not match the prior-template digest either', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+    const filledIn = `${priorTemplate}\n| local | http://localhost:4000 |\n`;
+
+    expect(isVerificationUnfilled(filledIn, currentTemplate)).toEqual({
+      unfilled: false,
+      matchedTemplate: null,
+    });
   });
 
   describe('CLI', () => {
@@ -1135,7 +1205,7 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: true });
+      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'current' });
     });
 
     test('reports unfilled: false when the project file has been edited', () => {
@@ -1150,7 +1220,30 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: false });
+      expect(JSON.parse(stdout)).toEqual({ unfilled: false, matchedTemplate: null });
+    });
+
+    test('reports a project file matching the pre-resource-table template as unfilled, naming it', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+        'utf8'
+      );
+      const currentTemplate = fs.readFileSync(
+        path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+        'utf8'
+      );
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(templatePath, currentTemplate);
+      fs.writeFileSync(projectPath, priorTemplate);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'pre-resource-table' });
     });
 
     test('reports a missing project file distinctly, not as either verdict', () => {

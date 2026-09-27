@@ -3,9 +3,9 @@ export const meta = {
   description:
     'Run the bounded functional-verification loop: Exercise, Judge, and (when needed) Debug, once per iteration, until the criteria are satisfied, found unbuilt, stalled, found insufficiently covered, or the iteration cap is reached.',
   whenToUse:
-    'Invoked once (not looped) when --verify is set. This script owns the whole bounded loop (D1) -- the caller dispatches it a single time. Every input arrives in args: the success-definition criteria, the contract text, project notes/stack hints, evidence paths, the checker CLI path, the evidence freshness floor, the iteration cap, state/report paths, and an optional resume snapshot from a prior run\'s state file (D13).',
+    'Invoked once (not looped) by /implement-trd (unless --no-verify is set) and by /verify-build. This script owns the whole bounded loop (D1) -- the caller dispatches it a single time. Every input arrives in args: the success-definition criteria, the contract text, project notes/stack hints, evidence paths, the checker CLI path, the evidence freshness floor, the iteration cap, state/report paths, and an optional resume snapshot from a prior run\'s state file (D13).',
   phases: [
-    { title: 'Exercise', detail: 'one verify-app agent walks every criterion against the running system (D2)' },
+    { title: 'Exercise', detail: 'verify-app agents walk the OPEN criteria, one per slice, fanned out per resource lane (capture only -- no edits, rebuilds or restarts)' },
     { title: 'Judge', detail: 'one untyped agent runs the checker CLI first, reads content only for tier-1 passes, decides next, and writes state/report (D4, D7, §3.3a)' },
     { title: 'Debug', detail: 'one app-debugger agent, dispatched only on remediate, fixes gaps in place (D8)' },
   ],
@@ -15,15 +15,14 @@ export const meta = {
 // This script owns the entire bounded functional-verification loop (D1). It has no
 // filesystem, no shell and no require -- everything that touches disk (the checker CLI, state
 // persistence, report rendering) is done by the Judge agent it dispatches, which has Read/
-// Write/Bash (§3.3a "Why an agent and not the script"). Each iteration is exactly three
-// sequential agent() calls (D2): Exercise, Judge, and (only when the Judge asks for it) Debug.
+// Write/Bash (§3.3a "Why an agent and not the script"). Each iteration runs three stages in
+// order: Exercise, Judge, and (only when the Judge asks for it) Debug.
 //
-// There is no fan-out helper call anywhere in this file, and no reference to a task graph,
-// concurrency batches, per-criterion touched-file bookkeeping, or the requirements document
-// this feature was specified in. An earlier version of this loop used all four; none of that
-// machinery is reconstructed here (D2, D7, D8): the per-criterion fan-out for Exercise/Judge
-// is gone, the separate persistence stage is folded into the Judge, and multi-agent
-// wave-partitioned remediation is replaced by one Debug agent per iteration.
+// Exercise is the one stage that fans out. The script holds a settled/open partition across
+// iterations (verification-convergence §3.4), walks only the OPEN criteria, and slices them
+// into resource lanes (`exerciseLanes`, §3.5) dispatched through `parallel()`. Judge and Debug
+// stay single agents: the separate persistence stage is folded into the Judge, and remediation
+// is one Debug agent per iteration, not a wave-partitioned fan-out (FV-D7, FV-D8).
 // ---------------------------------------------------------------------------
 
 // Copied verbatim from implement-phase.js, which copied it from audit-trd.js.
@@ -604,20 +603,31 @@ function computeFinalRun(judgeResult) {
 // covers the WHOLE definition -- the Judge's own structured return (`judgeResult.criteria`) is
 // this iteration's open-set judgements only (see buildJudgePrompt's Return spec), and every
 // already-settled criterion lives in this map instead, never duplicated back through the agent.
+// Coverage is over the WHOLE definition (OQ-5: the denominator is every criterion), so a
+// criterion no status was returned for counts as uncovered rather than disappearing. Every
+// result this workflow returns carries it (§3.3), including the two no-Judge exits below.
+function coverageOf(criteria) {
+  const metIds = new Set((criteria || []).filter((c) => c.status === 'met').map((c) => c.id))
+  const uncovered = CRITERIA.map((c) => c.id).filter((id) => !metIds.has(id))
+  return { proven: N - uncovered.length, total: N, uncovered }
+}
+
 function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel, settled) {
   const settledCriteria = Array.from(settled, ([id, v]) => ({ id, ...v }))
   const openReturned = (judgeResult.criteria || []).filter((c) => !settled.has(c.id))
+  const criteria = [...settledCriteria, ...openReturned]
   return {
     outcome: OUTCOME_BY_ACTION[judgeResult.action] || 'stuck',
     reason: judgeResult.reason || '',
     iterations,
     reportPath: REPORT_PATH,
-    criteria: [...settledCriteria, ...openReturned],
+    criteria,
     gaps: judgeResult.gaps || [],
     unbuilt: judgeResult.unbuilt || [],
     exercised: exercisedLabel,
     debugAttempts,
     notesUpdated: Boolean(judgeResult.notesUpdated),
+    coverage: coverageOf(criteria), // §3.3 -- read by /implement-trd §8.4
     finalRun: computeFinalRun(judgeResult), // NEW (D14)
   }
 }
@@ -701,6 +711,7 @@ if (iteration > CAP) {
     exercised: `0/${N}`,
     debugAttempts: [],
     notesUpdated: false,
+    coverage: coverageOf(RESUME_CRITERIA),
     finalRun: null, // NEW (D14) -- one of the two "not-run" cases: no Judge turn happened this invocation to run the gate at all
   }
 }
@@ -941,5 +952,6 @@ return {
   exercised: exercisedLabel,
   debugAttempts,
   notesUpdated: false,
+  coverage: coverageOf(Array.from(settled, ([id, v]) => ({ id, ...v }))),
   finalRun: null, // NEW (D14) -- the other "not-run" case: the loop fell through with no exit action, so no gate ran
 }
