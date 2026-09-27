@@ -121,10 +121,22 @@ as part of its prep, inside the successful run: `a07892767` at 16:34Z on 2026-09
 the plan the owner agreed at 16:19Z ("draft verification.md, fix the harness login, give the in-trip
 persona a future day"). It updated the file again as rulings arrived — at 05:20Z on 2026-09-27, right
 after the owner approved read-only access to live data. So the builder **writes the file** from repo
-evidence and the owner's answers, **and keeps it current as rulings land** in later bridges and runs.
-It starts from the current file rather than the template, and says in plain terms what it changed.
-The template's header *"An agent READS this and never writes it"* changes to say the setup skill and
-the bridge write it.
+evidence and the owner's answers, **and keeps it current as rulings land** in later bridges.
+
+**Approval model (owner, 2026-09-27): governed like `stack.md`.** The file describes resources and
+deployments, so it belongs with the governance set — but, like `CLAUDE.md` and `stack.md`, it evolves.
+The skill gathers evidence, asks its questions, states in plain terms what it will change, and
+**writes it on a clear yes** — the owner never applies a diff by hand, and nothing changes without that
+yes. It starts from the current file, not the template. **An autonomous run never edits it**: a
+`/verify-build --fix` run that needs a change (a port, live-data access) records the need, and the
+change is approved at the next bridge — exactly as the model session did (live-data access written at
+05:20Z, immediately after the owner's "Both approved"). The template header changes from *"An agent
+READS this and never writes it"* to say it changes only with the owner's approval, through the setup
+skill or the bridge.
+
+**Proposed for the owner's decision, not for the plan to do on its own:** add `verification.md` to
+`constitution.md`'s Governance Split table as a slow-layer, owner-approved artifact beside
+`constitution.md` and `stack.md`. That is a constitution change, which requires the owner's approval.
 
 **Derivable from the repo:** environment names/ports (scripts, docker-compose, `.env*.example`,
 vercel/railway), refresh and build commands, measured durations from past runs, installed tooling,
