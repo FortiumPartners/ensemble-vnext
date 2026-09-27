@@ -70,6 +70,7 @@ Story/Idea --> PRD --> TRD (with Execution Plan) --> Implementation
 |-------|----------|------------------|-------|
 | Slow | `constitution.md` | Rare, requires confirmation | User |
 | Slow | `stack.md` | Occasional, requires confirmation | User |
+| Slow | `verification.md` | Occasional, requires confirmation — running the `verification.md` setup skill is that confirmation; an autonomous run never edits it | User |
 | Fast | `CLAUDE.md` | Frequent, on request | `/update-project`, `/cleanup-project` |
 
 ---

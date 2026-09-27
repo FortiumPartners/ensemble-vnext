@@ -129,6 +129,7 @@ Story/Idea --> PRD --> TRD (with Execution Plan) --> Implementation
 |-------|----------|------------------|-------|
 | Slow | `constitution.md` | Rare, requires confirmation | User |
 | Slow | `stack.md` | Occasional, requires confirmation | User |
+| Slow | `verification.md` | Occasional, requires confirmation — running the `verification.md` setup skill is that confirmation; an autonomous run never edits it | User |
 | Fast | `CLAUDE.md` | Frequent, on request | `/update-project`, `/cleanup-project` |
 
 `CLAUDE.md` is updated by explicitly invoking `/update-project` (capture learnings) or
@@ -272,6 +273,13 @@ Given the non-deterministic nature of LLM-based systems:
 ---
 
 ## Changelog
+
+### Version 1.4.0 (2026-09-27)
+
+- `verification.md` joins the slow, owner-governed layer beside `stack.md`. It describes
+  environments and deployments, so it changes only with the owner's confirmation. Running the
+  `verification.md` setup skill counts as that confirmation; an autonomous run never edits it.
+  User-approved.
 
 ### Version 1.3.1 (2026-08-26)
 
