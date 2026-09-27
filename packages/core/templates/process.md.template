@@ -222,7 +222,9 @@ Story/Idea
 Completion (tests pass, review approved)
     |
     v
-docs/TRD/completed/<feature>.md (archived)
+docs/PRD/<feature>.md and docs/TRD/<feature>.md stay where they are and are kept
+as-built. Nothing is archived in the tree: content the code no longer supports is corrected
+or cut, and a doc with nothing valid left is deleted (git keeps the history).
 ```
 
 ---

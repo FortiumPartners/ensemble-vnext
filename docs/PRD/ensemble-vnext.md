@@ -818,7 +818,7 @@ Putting orchestration logic in the command (rather than SubagentStop hooks or a 
 
 *Future Expansion* (planned):
 - Clean up completed `.trd-state/` entries
-- Archive old PRDs/TRDs to `docs/completed/` (or `docs/cancelled/`)
+- Keep PRDs/TRDs as-built: correct or cut content the code no longer supports; delete a doc with nothing valid left (no in-tree archive folders — see `docs/PRD/docs-as-built.md`)
 - Identify and remove unused vendored skills
 - Detect and report stale branches
 - Clean up test scripts and documentation created during debugging/implementation that are not part of the solution or verification suite
@@ -1413,10 +1413,8 @@ project-root/
 ├── docs/
 │   ├── PRD/                       # Product Requirements Documents
 │   │   └── <feature-name>.md
-│   ├── TRD/                       # Technical Requirements Documents
-│   │   └── <feature-name>.md
-│   ├── completed/                 # Archived completed PRDs/TRDs
-│   └── cancelled/                 # Archived cancelled PRDs/TRDs
+│   └── TRD/                       # Technical Requirements Documents
+│       └── <feature-name>.md
 │
 └── .trd-state/                    # Implementation status (tracked in git)
     └── <feature-name>/

@@ -1422,8 +1422,7 @@ scaffold_project() {
     # Create docs structure
     echo "--- docs/ Directory Structure ---"
     create_dir "docs/PRD"
-    create_dir "docs/TRD/completed"
-    create_dir "docs/TRD/cancelled"
+    create_dir "docs/TRD"
     create_dir "docs/standards"
     echo ""
 
@@ -1526,8 +1525,6 @@ scaffold_project() {
     echo "  .claude/lib/"
     echo "  docs/PRD/"
     echo "  docs/TRD/"
-    echo "  docs/TRD/completed/"
-    echo "  docs/TRD/cancelled/"
     echo "  docs/standards/"
     echo "  .trd-state/"
     echo ""
