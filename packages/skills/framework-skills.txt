@@ -1,0 +1,5 @@
+# name                      role     (check = selectable as a verification check; support = shipped only)
+verify-design-comparison    check
+verify-flow-as-built        check
+verify-data-fidelity        check
+verify-plan-recovery        support

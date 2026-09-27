@@ -44,10 +44,17 @@ See individual skill directories for documentation.
 
 ## Framework skills
 
-Three skills ship to every project regardless of stack selection or `--copy-skills`:
-`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`. They back
-the functional-verification loop's optional design/flow/data checks
-(docs/TRD/verification-artifacts.md). `scaffold-project.sh`'s `copy_framework_skills()`
-(driven by its `FRAMEWORK_SKILLS` array) installs them on scaffold and adds any that
-are missing on `--refresh`; `/rebase-project` treats them as always-installed rather
-than stack-derived.
+Every skill named in `framework-skills.txt` (this directory) ships to every project
+regardless of stack selection or `--copy-skills`. That file is the one list (D14,
+docs/TRD/verification-fix-loop.md §3.8): one skill per line as `<name> <role>`, with
+`#` comments allowed. `role` is `check` (selectable as an optional functional-verification
+check — design/flow/data comparisons, docs/TRD/verification-artifacts.md) or `support`
+(shipped, but not offered as a check — e.g. `verify-plan-recovery`, the bridge skill that
+turns a stalled verification run into a fix plan).
+
+`scaffold-project.sh`'s `copy_framework_skills()` reads this file at runtime (there is no
+hardcoded skill name anywhere else) to build its `FRAMEWORK_SKILLS` array, installs every
+listed skill on scaffold, adds any missing one on `--refresh`, and ships the list file
+itself to `.claude/skills/framework-skills.txt`. Adding a skill means adding a line here —
+no other file changes. `/rebase-project` treats every listed skill as always-installed
+rather than stack-derived.

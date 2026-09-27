@@ -159,13 +159,13 @@ describe('audit-trd wiring', () => {
       expect(deterministic.prompt).toMatch(/no such heading|section missing|no.*## Verification Artifacts/i);
     });
 
-    it('names the three triggers, the add-back finding and the absent-section advisory in the omission-audit prompt', async () => {
+    it('points at framework-skills.txt\'s check rows, the add-back finding and the absent-section advisory in the omission-audit prompt', async () => {
       const { agent } = await audit();
       const omission = byLabel(agent, 'verify:omission-audit');
       expect(omission.prompt).toMatch(/verification checks/i);
-      expect(omission.prompt).toMatch(/design frames/i);
-      expect(omission.prompt).toMatch(/interaction diagram|journeys/i);
-      expect(omission.prompt).toMatch(/api or store data|store data/i);
+      expect(omission.prompt).toMatch(/framework-skills\.txt/);
+      expect(omission.prompt).toMatch(/"check" rows|check-role/i);
+      expect(omission.prompt).toMatch(/when it applies/i);
       expect(omission.prompt).toMatch(/add-back/);
       expect(omission.prompt).toMatch(/advisory/i);
     });

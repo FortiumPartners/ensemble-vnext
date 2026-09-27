@@ -9,7 +9,11 @@ const {
   checkEvidence,
   decideNext,
   renderReport,
+  readStopRule,
+  decideFixRound,
+  renderFixSummary,
   isVerificationUnfilled,
+  CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
@@ -1417,6 +1421,353 @@ describe('shipped verification.md template content', () => {
 
   test('splits a fast per-iteration refresh from an end-of-run full deploy', () => {
     expect(template).toMatch(/\| Fast refresh \(per iteration\) \| Full deploy \(end of run\) \|/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VFIX-B001: CAUSES, the Diagnosis/Next lines, readStopRule, decideFixRound,
+// renderFixSummary (docs/TRD/verification-fix-loop.md §3.1, §3.5, D10)
+// ---------------------------------------------------------------------------
+
+describe('CAUSES', () => {
+  test('is the fixed §3.1 vocabulary, exported for JUDGE_CRITERION_SCHEMA to match exactly', () => {
+    expect(CAUSES).toEqual([
+      'evidence-missing',
+      'evidence-stale',
+      'locator-not-found',
+      'never-exercised',
+      'judged-failed',
+      'not-built',
+      'environment-unreachable',
+      'capability-absent',
+    ]);
+  });
+});
+
+describe('renderReport: Diagnosis and Next lines', () => {
+  const criterionWithCause = (id, status, cause) => ({
+    id,
+    statement: `statement for ${id}`,
+    cites: 'FR-1',
+    status,
+    artifact: null,
+    reason: 'because',
+    attempts: [],
+    blocker: null,
+    cause,
+  });
+
+  const baseFor = (outcome, criteria) => ({
+    feature: 'demo',
+    prd: 'docs/PRD/demo.md',
+    definitionPath: '.trd-state/demo/success-definition.md',
+    outcome,
+    reason: 'iteration closed no gaps',
+    criteria,
+  });
+
+  test('appears under Coverage for stalled, stuck, unbuilt and insufficient-coverage', () => {
+    for (const outcome of ['stalled', 'stuck', 'unbuilt', 'insufficient-coverage']) {
+      const report = renderReport(
+        baseFor(outcome, [criterionWithCause('FS-1', 'not_met', 'evidence-missing')])
+      );
+      expect(report).toMatch(/\*\*Diagnosis\*\*: /);
+      expect(report).toContain(
+        '**Next**: agree a recovery plan with `/verify-plan-recovery`, then run `/verify-build --fix`'
+      );
+      // Diagnosis must render after Coverage, not before.
+      expect(report.indexOf('**Coverage**')).toBeLessThan(report.indexOf('**Diagnosis**'));
+    }
+  });
+
+  test('does not appear for satisfied or not-run', () => {
+    for (const outcome of ['satisfied', 'not-run']) {
+      const report = renderReport(baseFor(outcome, [criterionWithCause('FS-1', 'met', null)]));
+      expect(report).not.toContain('**Diagnosis**');
+      expect(report).not.toContain('/verify-plan-recovery');
+    }
+  });
+
+  test('counts by cause in descending order', () => {
+    const report = renderReport(
+      baseFor('stalled', [
+        criterionWithCause('FS-1', 'not_met', 'evidence-missing'),
+        criterionWithCause('FS-2', 'not_met', 'evidence-missing'),
+        criterionWithCause('FS-3', 'not_verifiable', 'environment-unreachable'),
+        criterionWithCause('FS-4', 'not_met', 'environment-unreachable'),
+        criterionWithCause('FS-5', 'not_met', 'environment-unreachable'),
+        criterionWithCause('FS-6', 'not_met', 'environment-unreachable'),
+        criterionWithCause('FS-7', 'met', null),
+      ])
+    );
+    const diagnosisLine = report.split('\n').find((l) => l.startsWith('**Diagnosis**'));
+    expect(diagnosisLine).toBe(
+      '**Diagnosis**: 6 open — 4 environment not reachable, 2 evidence missing'
+    );
+  });
+
+  test('renders causes in words, not slugs', () => {
+    const report = renderReport(
+      baseFor('unbuilt', [criterionWithCause('FS-1', 'unbuilt', 'not-built')])
+    );
+    expect(report).toContain('not built');
+    expect(report).not.toContain('not-built');
+  });
+
+  test('counts a cause-less row as unrecorded', () => {
+    const report = renderReport(
+      baseFor('stuck', [criterionWithCause('FS-1', 'not_met', undefined)])
+    );
+    const diagnosisLine = report.split('\n').find((l) => l.startsWith('**Diagnosis**'));
+    expect(diagnosisLine).toBe('**Diagnosis**: 1 open — 1 unrecorded');
+  });
+
+  test('never counts a met criterion into Diagnosis', () => {
+    const report = renderReport(
+      baseFor('stalled', [
+        criterionWithCause('FS-1', 'met', null),
+        criterionWithCause('FS-2', 'not_met', 'judged-failed'),
+      ])
+    );
+    const diagnosisLine = report.split('\n').find((l) => l.startsWith('**Diagnosis**'));
+    expect(diagnosisLine).toBe('**Diagnosis**: 1 open — 1 judged failed');
+  });
+});
+
+describe('readStopRule', () => {
+  const plan = (stopRuleBody) => `# Verification plan: demo
+
+**Written**: 2026-09-27T00:00:00Z by verify-plan-recovery
+**From run**: stalled at 2/6, report \`.trd-state/demo/verification-report.md\`
+
+## Blockers
+| ID | Blocker | Files | After | Unblocks |
+|----|---------|-------|-------|----------|
+| B1 | fix the thing | \`src/x.js\` | — | SC-3 |
+
+## Stop rule
+${stopRuleBody}
+`;
+
+  test('reads max-rounds and stop-when-closed-below', () => {
+    const result = readStopRule(plan('max-rounds: 5\nstop-when-closed-below: 2\nalways: stop when nothing is left to build'));
+    expect(result).toEqual({ maxRounds: 5, closedBelow: 2, errors: [] });
+  });
+
+  test('stop-when-closed-below: none reads as null, with no error', () => {
+    const result = readStopRule(plan('max-rounds: 3\nstop-when-closed-below: none\nalways: stop when nothing is left to build'));
+    expect(result.closedBelow).toBeNull();
+    expect(result.errors).toEqual([]);
+  });
+
+  test('a missing max-rounds is an error', () => {
+    const result = readStopRule(plan('stop-when-closed-below: none\nalways: stop when nothing is left to build'));
+    expect(result.maxRounds).toBeNull();
+    expect(result.errors.some((e) => /max-rounds/.test(e))).toBe(true);
+  });
+
+  test('a non-positive max-rounds is an error', () => {
+    for (const bad of ['0', '-1', 'not-a-number']) {
+      const result = readStopRule(plan(`max-rounds: ${bad}\nstop-when-closed-below: none\nalways: stop when nothing is left to build`));
+      expect(result.maxRounds).toBeNull();
+      expect(result.errors.some((e) => /max-rounds/.test(e))).toBe(true);
+    }
+  });
+
+  test('no "## Stop rule" section at all is an error, not a thrown exception', () => {
+    const result = readStopRule('# Verification plan: demo\n\n## Blockers\nnone\n');
+    expect(result.maxRounds).toBeNull();
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  test('reads the LAST "## Stop rule" section, and ignores one inside a fenced block', () => {
+    const text = `# Verification plan: demo
+
+Some prose mentioning \`## Stop rule\` inline, followed by a fenced example:
+
+\`\`\`markdown
+## Stop rule
+max-rounds: 999
+\`\`\`
+
+## Stop rule
+max-rounds: 4
+stop-when-closed-below: none
+always: stop when nothing is left to build
+`;
+    const result = readStopRule(text);
+    expect(result.maxRounds).toBe(4);
+    expect(result.errors).toEqual([]);
+  });
+});
+
+describe('decideFixRound', () => {
+  const base = { round: 1, maxRounds: 5, closedBelow: null, closedThisRound: 2, buildableOpen: 3 };
+
+  test('continues when buildable work remains, under the round cap, and above the closed-below floor', () => {
+    expect(decideFixRound(base)).toMatchObject({ action: 'continue' });
+  });
+
+  test('stops when nothing buildable is left, even mid-cap', () => {
+    const result = decideFixRound({ ...base, buildableOpen: 0 });
+    expect(result).toMatchObject({ action: 'stop', reason: 'nothing left to build' });
+  });
+
+  test('stops when the round has reached max-rounds', () => {
+    const result = decideFixRound({ ...base, round: 5, maxRounds: 5 });
+    expect(result.action).toBe('stop');
+    expect(result.reason).toMatch(/max-rounds/);
+  });
+
+  test('stops when fewer criteria closed this round than stop-when-closed-below', () => {
+    const result = decideFixRound({ ...base, closedBelow: 3, closedThisRound: 1 });
+    expect(result.action).toBe('stop');
+    expect(result.reason).toMatch(/closed-below|closed 1/);
+  });
+
+  test('the closed-below floor never fires when closedBelow is null (no such rule)', () => {
+    const result = decideFixRound({ ...base, closedBelow: null, closedThisRound: 0 });
+    expect(result.action).toBe('continue');
+  });
+
+  test('evaluation order: nothing-buildable wins even when the round is also past max-rounds', () => {
+    const result = decideFixRound({ ...base, buildableOpen: 0, round: 5, maxRounds: 5 });
+    expect(result.reason).toBe('nothing left to build');
+  });
+
+  test('throws on a missing field, as decideNext does', () => {
+    const { buildableOpen, ...withoutBuildableOpen } = base;
+    expect(() => decideFixRound(withoutBuildableOpen)).toThrow(/buildableOpen/);
+
+    const { round, ...withoutRound } = base;
+    expect(() => decideFixRound(withoutRound)).toThrow(/round/);
+
+    const { maxRounds, ...withoutMaxRounds } = base;
+    expect(() => decideFixRound(withoutMaxRounds)).toThrow(/maxRounds/);
+
+    const { closedThisRound, ...withoutClosedThisRound } = base;
+    expect(() => decideFixRound(withoutClosedThisRound)).toThrow(/closedThisRound/);
+
+    const { closedBelow, ...withoutClosedBelow } = base;
+    expect(() => decideFixRound(withoutClosedBelow)).toThrow(/closedBelow/);
+  });
+
+  test('an explicit closedBelow: null is accepted, distinct from a missing key', () => {
+    expect(() => decideFixRound({ ...base, closedBelow: null })).not.toThrow();
+  });
+});
+
+describe('renderFixSummary', () => {
+  test('renders one row per round: tasks promoted, criteria closed, still open', () => {
+    const md = renderFixSummary({
+      rounds: [
+        { round: 1, tasksPromoted: 2, criteriaClosed: 3, criteriaOpen: 5 },
+        { round: 2, tasksPromoted: 1, criteriaClosed: 1, criteriaOpen: 4 },
+      ],
+      criteria: [],
+    });
+    expect(md).toContain('## Fix run');
+    expect(md).toMatch(/\| Round \| Tasks promoted \| Criteria closed \| Still open \|/);
+    expect(md).toContain('| 1 | 2 | 3 | 5 |');
+    expect(md).toContain('| 2 | 1 | 1 | 4 |');
+  });
+
+  test('lists every non-met criterion with status, cause and stop reason', () => {
+    const md = renderFixSummary({
+      rounds: [{ round: 1, tasksPromoted: 1, criteriaClosed: 1, criteriaOpen: 2 }],
+      criteria: [
+        {
+          id: 'FS-2',
+          statement: 'a repeated submit does not create two orders',
+          status: 'not_met',
+          cause: 'evidence-missing',
+          stopReason: 'not buildable by cause',
+        },
+        {
+          id: 'FS-3',
+          statement: 'mobile push notifications are delivered within 5s',
+          status: 'not_verifiable',
+          cause: 'environment-unreachable',
+          stopReason: 'not verifiable here',
+        },
+      ],
+    });
+    expect(md).toContain('FS-2');
+    expect(md).toContain('not_met');
+    expect(md).toContain('evidence missing');
+    expect(md).toContain('not buildable by cause');
+    expect(md).toContain('FS-3');
+    expect(md).toContain('environment not reachable');
+    expect(md).toContain('not verifiable here');
+  });
+
+  test('a cause-less criterion renders unrecorded, never guessed', () => {
+    const md = renderFixSummary({
+      rounds: [],
+      criteria: [
+        {
+          id: 'FS-9',
+          statement: 'x',
+          status: 'not_met',
+          cause: null,
+          stopReason: 'stop rule reached',
+        },
+      ],
+    });
+    expect(md).toContain('unrecorded');
+  });
+
+  test('empty rounds and criteria render without a broken table', () => {
+    const md = renderFixSummary({ rounds: [], criteria: [] });
+    expect(md).toContain('## Fix run');
+    expect(md).toContain('_No rounds ran._');
+    expect(md).toContain('_None still open._');
+  });
+
+  test('throws when rounds or criteria are missing', () => {
+    expect(() => renderFixSummary({ criteria: [] })).toThrow(/rounds/);
+    expect(() => renderFixSummary({ rounds: [] })).toThrow(/criteria/);
+  });
+});
+
+describe('CLI: decide-fix-round and render-fix-summary', () => {
+  test('decide-fix-round subcommand: JSON in, JSON object out', () => {
+    const input = JSON.stringify({
+      round: 1,
+      maxRounds: 5,
+      closedBelow: null,
+      closedThisRound: 2,
+      buildableOpen: 3,
+    });
+    const stdout = execFileSync('node', [MODULE_PATH, 'decide-fix-round', input]).toString();
+    const parsed = JSON.parse(stdout);
+    expect(parsed.action).toBe('continue');
+  });
+
+  test('render-fix-summary subcommand: JSON in, markdown out (not JSON)', () => {
+    const input = JSON.stringify({
+      rounds: [{ round: 1, tasksPromoted: 1, criteriaClosed: 1, criteriaOpen: 0 }],
+      criteria: [],
+    });
+    const stdout = execFileSync('node', [MODULE_PATH, 'render-fix-summary', input]).toString();
+    expect(stdout).toContain('## Fix run');
+    expect(() => JSON.parse(stdout)).toThrow();
+  });
+});
+
+describe('the existing functional-verification.test.js cases still pass', () => {
+  test('sanity: decideNext and renderReport basics are untouched by the VFIX-B001 changes', () => {
+    expect(
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [] })
+    ).toMatchObject({ action: 'exit-satisfied' });
+    expect(renderReport({
+      feature: 'demo',
+      prd: 'docs/PRD/demo.md',
+      definitionPath: '.trd-state/demo/success-definition.md',
+      outcome: 'satisfied',
+      reason: 'all criteria met',
+      criteria: [],
+    })).toContain('# Functional Verification Report: demo');
   });
 });
 

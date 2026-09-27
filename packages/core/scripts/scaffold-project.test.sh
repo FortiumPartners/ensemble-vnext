@@ -724,12 +724,13 @@ EOF
     [ -d "$TEST_DIR/.claude/skills/developing-with-python" ]
     [ -d "$TEST_DIR/.claude/skills/jest" ]
 
-    # Count - should only have the 2 selected skills plus the 3 framework
-    # skills that ship unconditionally (copy_framework_skills(), VART-P004) --
-    # not, e.g., a duplicate from a blank/comment line in the selection file.
+    # Count - should only have the 2 selected skills plus the 4 framework
+    # skills that ship unconditionally (copy_framework_skills(), reading the
+    # real packages/skills/framework-skills.txt, D14) -- not, e.g., a
+    # duplicate from a blank/comment line in the selection file.
     local count
     count=$(ls -1d "$TEST_DIR/.claude/skills/"*/ 2>/dev/null | wc -l)
-    [ "$count" -eq 5 ]
+    [ "$count" -eq 6 ]
 }
 
 @test "Skill copy: Warns on non-existent skill" {
@@ -752,19 +753,23 @@ EOF
 }
 
 # =============================================================================
-# VART-P004: Framework verification skills (copy_framework_skills())
+# VFIX-P001 (D14, TRD §3.8): the one list, packages/skills/framework-skills.txt
 #
-# docs/TRD/verification-artifacts.md D2/D10: verify-design-comparison,
-# verify-flow-as-built and verify-data-fidelity ship to every project regardless
-# of --copy-skills / selected-skills.txt. No existing fixture builds a synthetic
-# skills-lib/, so these tests build one under TEST_DIR: a minimal plugin dir
-# holding only skills-lib/, with the three framework skills plus one unlisted
-# skill the tests assert never gets copied.
+# verify-design-comparison, verify-flow-as-built, verify-data-fidelity and
+# verify-plan-recovery ship to every project regardless of --copy-skills /
+# selected-skills.txt. What ships is no longer hand-copied here or in
+# scaffold-project.sh -- both read framework-skills.txt. No existing fixture
+# builds a synthetic skills-lib/, so these tests build one under TEST_DIR: a
+# minimal plugin dir holding only skills-lib/, with a fixture framework-skills.txt
+# naming the three "check" skills plus one unlisted skill the tests assert never
+# gets copied.
 # =============================================================================
 
 # Build a throwaway plugin dir at "$TEST_DIR/fixture-plugin" containing a
-# skills-lib/ with the three framework skills (each a real, minimal SKILL.md)
-# plus one skill NOT in FRAMEWORK_SKILLS, so tests can assert it is left out.
+# skills-lib/ with the three framework skills (each a real, minimal SKILL.md),
+# a fixture framework-skills.txt naming those three (with '#' comments and a
+# blank line, exercising the same tolerance selected-skills.txt gets), plus one
+# skill NOT in the list, so tests can assert it is left out.
 # Every other copy_*() function warns and no-ops on a directory it can't find
 # (see copy_agents/copy_commands/copy_hooks above), so a plugin dir with only
 # skills-lib/ is enough to drive scaffold-project.sh end to end.
@@ -777,7 +782,7 @@ _make_fixture_plugin_dir() {
         cat > "$plugin_dir/skills-lib/$skill/SKILL.md" <<EOF
 ---
 name: $skill
-description: fixture skill for VART-P004 tests
+description: fixture skill for VFIX-P001 tests
 ---
 
 # $skill
@@ -785,6 +790,13 @@ description: fixture skill for VART-P004 tests
 Fixture content (v1).
 EOF
     done
+    cat > "$plugin_dir/skills-lib/framework-skills.txt" <<'EOF'
+# name                      role
+verify-design-comparison    check
+
+verify-flow-as-built        check
+verify-data-fidelity        check
+EOF
     echo "$plugin_dir"
 }
 
@@ -916,6 +928,47 @@ EOF
     # -- three total, one add per skill, never a skill counted by both.
     [[ "$output" == *"REFRESH_SUMMARY commands="* ]]
     [[ "$output" == *"skills=3"* ]]
+}
+
+@test "Framework skills: the list file itself ships to .claude/skills/" {
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    [ -f "$TEST_DIR/project/.claude/skills/framework-skills.txt" ]
+    diff -q "$plugin_dir/skills-lib/framework-skills.txt" \
+        "$TEST_DIR/project/.claude/skills/framework-skills.txt"
+}
+
+@test "Framework skills: adding a fifth line ships a fifth skill with no other edit" {
+    # VFIX-P001's own acceptance criterion: the fixture adds one new skill
+    # directory and one new line to framework-skills.txt -- nothing else --
+    # and it must be installed on an ordinary scaffold with no code change.
+    local plugin_dir
+    plugin_dir="$(_make_fixture_plugin_dir)"
+
+    mkdir -p "$plugin_dir/skills-lib/fixture-fifth-skill"
+    cat > "$plugin_dir/skills-lib/fixture-fifth-skill/SKILL.md" <<'EOF'
+---
+name: fixture-fifth-skill
+description: fixture fifth skill for VFIX-P001's acceptance criterion
+---
+
+# fixture-fifth-skill
+
+Fixture content.
+EOF
+    printf 'fixture-fifth-skill        support\n' >> "$plugin_dir/skills-lib/framework-skills.txt"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR/project"
+    [ "$status" -eq 0 ]
+
+    [ -d "$TEST_DIR/project/.claude/skills/fixture-fifth-skill" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-design-comparison" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-flow-as-built" ]
+    [ -d "$TEST_DIR/project/.claude/skills/verify-data-fidelity" ]
 }
 
 # =============================================================================

@@ -176,6 +176,20 @@ running where it is needed most.
 
 Both modes still emit the COMMAND COMPLETE banner when the refinement is final.
 
+## The `verify-plan-recovery` skill — interactive by purpose, beside `/refine-*`
+
+`packages/skills/verify-plan-recovery/SKILL.md` sits beside `/refine-prd` and `/refine-trd`
+for the same reason they are exempt: a chat with the owner is the whole job, not a lapse from
+autonomy. It differs from the two commands above in one way worth stating plainly — it is a
+**skill**, not a command with an interactive/non-interactive mode switch. It is invoked
+directly by the owner, or pointed at by `/verify-build`'s readout after a stall, never run
+unattended inside a pipeline, so there is no "invocation by another command" case for it to
+fall into the way `/refine-trd --non-interactive` can. Its own SKILL.md's Conversation section
+— proposing each plan section with a default, then asking for the owner's ruling — is the
+exempt exchange, on the same footing as the refine commands' interactive mode: legitimate
+because the plan it writes IS the owner's ruling, not a checkpoint asked of someone who
+already authorized the work.
+
 ## Why this exists
 
 Without this discipline, commands drift toward defensive checkpointing — asking the user

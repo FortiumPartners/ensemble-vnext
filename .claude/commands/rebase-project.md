@@ -363,13 +363,13 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    | **Unchanged** | Matches the stack, in both, identical | No action |
    | **Stale** | Vendored, **exists in the plugin's skill library**, no longer matches the stack | Remove |
    | **Custom** | Vendored, **does not exist in the plugin's skill library at all** | Report, **preserve** |
-   | **Framework** | One of the three always-installed skills (D2 in `docs/TRD/verification-artifacts.md`): `verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity` | Install if missing; replace if its content differs from the plugin's (same byte-diff as Update) |
+   | **Framework** | Every skill listed in `framework-skills.txt` (D14 in `docs/TRD/verification-fix-loop.md` §3.8), whatever its role — always installed | Install if missing; replace if its content differs from the plugin's (same byte-diff as Update) |
 
    **Framework skills are excluded from the Stale rule by name, not by stack match.** The
-   three names above never appear in the stack-match table and so never match `stack.md` —
-   under the plain Stale rule they would be removed on every single rebase. They are
-   installed unconditionally and are never classified Stale, whether or not `stack.md`
-   mentions them.
+   skills listed in `framework-skills.txt` never appear in the stack-match table and so
+   never match `stack.md` — under the plain Stale rule they would be removed on every
+   single rebase. They are installed unconditionally and are never classified Stale,
+   whether or not `stack.md` mentions them.
 
    **The Custom row is load-bearing and was missing until 2026-08-21.** The stack-match
    table above only knows skills the plugin ships. A project-authored skill —
@@ -398,10 +398,9 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    ```
 
    The **"to update"** bucket is computed by, for each skill matching the stack and present
-   in both plugin and vendored: byte-diffing the folder contents. Any difference → update.
-   **The three Framework skills join this bucket by the same byte-diff**, even though they
-   match no stack row — otherwise a plugin fix to one of them would never reach a project
-   that already has it.
+   in both plugin and vendored: byte-diffing the folder contents. **Every Framework skill
+   joins this bucket by the same byte-diff**, even though it matches no stack row —
+   otherwise a plugin fix to one of them would never reach a project that already has it.
 
 #### 2.3 Command Diff
 
@@ -687,11 +686,10 @@ user-created agents. Recovery is git — no backup step; see "Recovery is git" a
 the plugin's version. Recovery is git — no backup step; see "Recovery is git" above.
 
 1. **Remove STALE skills** — plugin-shipped, no longer matching `stack.md`:
-   - **Check the Framework guard:** if `<skill-name>` is one of the three always-installed
-     skills (D2 in `docs/TRD/verification-artifacts.md`): `verify-design-comparison`,
-     `verify-flow-as-built`, `verify-data-fidelity` — **never remove it.** These are
-     installed regardless of stack match and are not a Stale candidate. Skip it in this
-     step entirely.
+   - **Check the Framework guard:** if `<skill-name>` appears in `framework-skills.txt`
+     (D14 in `docs/TRD/verification-fix-loop.md` §3.8), whatever its role —
+     **never remove it.** These are installed regardless of stack match and are not a
+     Stale candidate. Skip it in this step entirely.
    - **Check the Custom guard FIRST:** if `@packages/skills/<skill-name>/` does not exist,
      this is a user-authored skill. **Do not delete it. Do not back it up and delete it.
      Leave it exactly where it is** and report it under "Custom skills (preserved)".
@@ -703,9 +701,8 @@ the plugin's version. Recovery is git — no backup step; see "Recovery is git" 
    - Copy entire folder from `@packages/skills/<skill-name>/` to `.claude/skills/<skill-name>/`
      including SKILL.md, REFERENCE.md, templates/, examples/, paths-globbed files
    - Report: "Added skill: [name]"
-   - Also, regardless of stack match: for each of the three always-installed skills
-     (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`) missing
-     from `.claude/skills/`, copy it the same way.
+   - Also, regardless of stack match: for each skill listed in `framework-skills.txt`
+     missing from `.claude/skills/`, copy it the same way.
    - Report: "Added framework skill: [name]"
 
 3. **Update retained skills whose content differs** (the bucket from §2.2 step 3):

@@ -32,6 +32,37 @@ function skillExists(root, skillName) {
   return SKILL_DIRS.some((dir) => fs.existsSync(path.resolve(root, dir, skillName, 'SKILL.md')));
 }
 
+/** Reads `framework-skills.txt` (D14) via the same two-directory fallback as `skillExists()`.
+ * Returns a `{name: role}` map, or `null` when the file is absent -- absence is legitimate,
+ * never guessed, matching skillExists()'s own convention. Format: `<name> <role>` per line,
+ * `#` comments and blank lines allowed. */
+function frameworkSkillRoles(root) {
+  for (const dir of SKILL_DIRS) {
+    const p = path.resolve(root, dir, 'framework-skills.txt');
+    if (!fs.existsSync(p)) continue;
+    const roles = {};
+    for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const m = /^(\S+)\s+(\S+)/.exec(trimmed);
+      if (m) roles[m[1]] = m[2];
+    }
+    return roles;
+  }
+  return null;
+}
+
+/** A skill named in a `## Verification Artifacts` row or `Omitted:` line must be a
+ * SELECTABLE check (D14) -- a `support` role is shipped for use elsewhere (e.g. the
+ * verify-plan-recovery bridge skill) and is never a valid choice here. */
+function checkSkillRole(roles, skill, add) {
+  if (!roles) return; // framework-skills.txt absent -- degrade gracefully, no guess
+  const role = roles[skill];
+  if (role && role !== 'check') {
+    add('verification-artifacts', '-', `${skill}: role is "${role}", not a selectable check`);
+  }
+}
+
 /** A backtick-delimited span is a URL when it starts with a scheme + `://`; a repo path otherwise. */
 function isUrl(span) {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(span);
@@ -82,6 +113,8 @@ function checkVerificationArtifacts(markdown, { root, expectedNew, add, advise }
     return;
   }
 
+  const roles = frameworkSkillRoles(root);
+
   for (const table of tables) {
     const skillIdx = table.headerCells.findIndex((h) => /skill/i.test(h));
     const inputsIdx = table.headerCells.findIndex((h) => /input/i.test(h));
@@ -91,6 +124,7 @@ function checkVerificationArtifacts(markdown, { root, expectedNew, add, advise }
       if (skill && !skillExists(root, skill)) {
         add('verification-artifacts', '-', `Skill cell names no SKILL.md: ${skill}`);
       }
+      if (skill) checkSkillRole(roles, skill, add);
       if (inputsIdx !== -1) {
         checkInputsCell(row.cells[inputsIdx] || '', skill, { root, expectedNew, add, advise });
       }
@@ -104,6 +138,7 @@ function checkVerificationArtifacts(markdown, { root, expectedNew, add, advise }
     if (skill && !skillExists(root, skill)) {
       add('verification-artifacts', '-', `Omitted line names no SKILL.md: ${skill}`);
     }
+    if (skill) checkSkillRole(roles, skill, add);
     if (!reason) {
       add('verification-artifacts', '-', 'Omitted line gives no reason');
     }

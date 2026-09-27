@@ -1,0 +1,201 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verification-fix-loop.md",
+  "trd_hash": "e7b63f89e376089a3b647200fd27f8d5f19059043ce1278bdf9ffc16a18d1729",
+  "branch": "feature/verification-fix-loop/build",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "VFIX-B001": {
+      "description": "functional-verification.js: export CAUSES (§3.1); the Diagnosis and Next lines in renderReport; readStopRule, decideFixRound (§3.5) and renderFixSummary (D10), with CLI subcommands decide-fix-round an",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.716Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-B002": {
+      "description": "verify-functional.js and the contract packages/core/contracts/functional-verification.md (+ .claude/ mirrors): add cause to JUDGE_CRITERION_SCHEMA, the Judge's STEP 1/4/5 instructions (state file and ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-B003": {
+      "description": "discovered.js: ref and after on record(); latest-per-ref in promotable(); observation-keyed dedupe, follow-up rows, per-row Serves and after → Dependencies in promoteToTrd() (§3.2). New cases in a new",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/discovered.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-B006": {
+      "description": "The bridge skill packages/skills/verify-plan-recovery/SKILL.md (§3.7) with a __tests__/skill-md.test.js like the check skills'; add it beside /refine-* as interactive by purpose in .claude/rules/auton",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verify-plan-recovery/SKILL.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-P001": {
+      "description": "The one list: create packages/skills/framework-skills.txt (§3.8). scaffold-project.sh builds FRAMEWORK_SKILLS from it (all roles) and ships the file to .claude/skills/. Update scaffold-project.test.sh",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/framework-skills.txt"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-P002": {
+      "description": "Delivery prose reads the list: the three rebase-project.md copies (packages/core/commands/, .claude/commands/, packages/full/commands/plugin-only/) treat every listed skill as always-installed, and CL",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/rebase-project.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-B007": {
+      "description": "Check selection reads check rows only: trd-authoring.md (+ mirror) replaces its three-skill table with \"read the check rows of framework-skills.txt, then each skill's When it applies\"; audit-trd.js (+",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/fix-audit.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-B004": {
+      "description": "packages/core/commands/implement-trd.md (+ mirror), one task because every change is in one file: --chained (§3.3); §8.1b selects from the list's check rows; Step 9's readout carries the Diagnosis cou",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-B005": {
+      "description": "packages/core/commands/verify-build.md (+ mirror): --fix [plan-path] per §3.6, with the carve-outs; the Diagnosis and NEXT in the ordinary readout (O1); step 3b reads the list's check rows; the stale ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-D001": {
+      "description": "Documentation that has no code beside it: amend NG2 in docs/TRD/verification-convergence.md (D15) and correct its VCON-B009 text, TR7, §7.3 and §3.6a-lane grounding lines; amend docs/TRD/verification-",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/TRD/verification-convergence.md",
+        "packages/core/lib/fix-plan.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-D002": {
+      "description": "docs/TRD/functional-verification.md: §3.3 per-criterion record gains cause; §3.6 describes the Diagnosis block; §3.7's lane and resume sentences corrected (§3.9). Changelog row.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/TRD/functional-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T21:44:12.717Z",
+      "completed_at": "2026-09-27T22:20:25.399Z",
+      "last_advanced": "2026-09-27T21:45:34.051Z"
+    },
+    "VFIX-T001": {
+      "description": "[LIVE] Add opt-in smoke scenario test/smoke/scenarios/verify-fix.sh, registered in LLM_OPT_IN_SCENARIOS, following verify-functional.sh's throwaway-project pattern. Fixture: a PRD with two criteria, o",
+      "phase": 2,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "047e4b6",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/verification-fix-loop.investigation.md",
+    "environments": {},
+    "environments_note": "verification.md is the unfilled current template; no environment declared — criteria resolve to on-disk evidence"
+  }
+}

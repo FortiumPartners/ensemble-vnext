@@ -444,13 +444,28 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `  node ${CHECKER} check-evidence --file ${claimsFile} ${SINCE}\n\n` +
     `STEP 2: only for the criteria whose tier-1 verdict just came back "pass", read the ` +
     `evidence artifact's content and decide, per criterion, one of "met" / "not_met" / ` +
-    `"not_verifiable" / "unbuilt", with a reason and implicated files for anything not met. A ` +
-    `criterion whose tier-1 verdict is "fail" is "not_met" unless its stated reason shows it is ` +
-    `genuinely "not_verifiable" here -- never invent content you have not read. A criterion ` +
-    `whose tier-1 verdict is "skipped" is judge-only (D7): read its artifact's content and rule ` +
-    `on it directly, or rule on its stated reason when it claims no artifact -- there is no ` +
-    `tier-1 gate in front of it, and its absence from the "pass" list is not evidence against ` +
-    `it.\n\n` +
+    `"not_verifiable" / "unbuilt", with a reason, a cause (see below), and implicated files for ` +
+    `anything not met. A criterion whose tier-1 verdict is "fail" is "not_met" unless its ` +
+    `stated reason shows it is genuinely "not_verifiable" here -- never invent content you have ` +
+    `not read. A criterion whose tier-1 verdict is "skipped" is judge-only (D7): read its ` +
+    `artifact's content and rule on it directly, or rule on its stated reason when it claims no ` +
+    `artifact -- there is no tier-1 gate in front of it, and its absence from the "pass" list is ` +
+    `not evidence against it.\n\n` +
+    `For every criterion whose status is not "met", also assign a "cause" from this fixed set ` +
+    `(§3.1) -- "met" itself always carries cause: null:\n` +
+    `  "evidence-missing" -- tier 1 failed with missing/empty/not-a-file/no-artifact, and ` +
+    `nothing seen shows the build misbehaving\n` +
+    `  "evidence-stale" -- tier 1 failed with stale\n` +
+    `  "locator-not-found" -- tier 1 failed with no-locator or locator-not-found\n` +
+    `  "never-exercised" -- no claim reached you for this criterion this iteration\n` +
+    `  "judged-failed" -- the build was reached and did the wrong thing, INCLUDING crashing or ` +
+    `erroring during capture; also a check row you ruled "deviates"\n` +
+    `  "not-built" -- status is "unbuilt", or a check row is "not_met" with reason "not built"\n` +
+    `  "environment-unreachable" -- "not_verifiable" because the needed environment is ` +
+    `undeclared, unusable or "must not be touched"\n` +
+    `  "capability-absent" -- "not_verifiable" because tooling or a capability the criterion ` +
+    `needs is absent\n` +
+    `Pick exactly one; never invent a cause outside this set.\n\n` +
     step2a +
     `STEP 3: decide the loop's next action. "met" is every criterion currently at status "met": ` +
     `the ${settledMetIds.length} settled met id(s) carried below (${JSON.stringify(settledMetIds)}), ` +
@@ -474,14 +489,17 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `silently restarts the loop at iteration 1 with no memory of this run:\n` +
     `  {"iteration": ${iteration}, "criteria": [ <one entry per criterion IN THE WHOLE ` +
     `DEFINITION -- both the already-settled ones (copy them EXACTLY as given below, including ` +
-    `their "provenAt"; do not re-derive, re-date or otherwise change them) and the ones you ` +
-    `judged this iteration: "id", "status", "tier1", "artifact", "reason", "provenAt" -- ` +
-    `"provenAt" is the iteration number a "met"/"not_verifiable"/"unbuilt" verdict was proven ` +
-    `at (this iteration's number, ${iteration}, for one you just judged; carried unchanged for ` +
-    `a settled one) and is absent/null for a "not_met" criterion, which stays open. "reason" ` +
-    `MUST be populated (non-null, non-empty) for every criterion whose status is not "met"; it ` +
-    `is the only structured record of why a not_verifiable/not_met/unbuilt verdict was reached, ` +
-    `and it is what tells a later run which blockers are worth re-checking> ], "gapsClosed": [ ` +
+    `their "provenAt" and "cause"; do not re-derive, re-date or otherwise change them) and the ` +
+    `ones you judged this iteration: "id", "status", "tier1", "artifact", "reason", "cause", ` +
+    `"provenAt" -- "provenAt" is the iteration number a "met"/"not_verifiable"/"unbuilt" verdict ` +
+    `was proven at (this iteration's number, ${iteration}, for one you just judged; carried ` +
+    `unchanged for a settled one) and is absent/null for a "not_met" criterion, which stays ` +
+    `open. "reason" MUST be populated (non-null, non-empty) for every criterion whose status is ` +
+    `not "met"; it is the only structured record of why a not_verifiable/not_met/unbuilt ` +
+    `verdict was reached, and it is what tells a later run which blockers are worth ` +
+    `re-checking. "cause" MUST likewise be populated, from the fixed set named in STEP 2, for ` +
+    `every criterion whose status is not "met"; a "met" criterion carries cause: null> ], ` +
+    `"gapsClosed": [ ` +
     `<the gaps-closed history with this iteration appended> ], ` +
     `"outcome": <null when decide-next returned "remediate"; otherwise the outcome string ` +
     `this run exits with: "satisfied", "unbuilt", "stalled", "stuck" or "insufficient-coverage">}` +
@@ -506,8 +524,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `"outcome", "reason", "criteria" and "finalEnvironmentRun" (the object you just produced, ` +
     `verbatim) -- "criteria" is one entry per criterion IN THE WHOLE DEFINITION, same ` +
     `completeness rule as STEP 4's state file (the already-settled ones carried verbatim with ` +
-    `their "provenAt", plus the ones you judged this iteration): id, statement, cites, status, ` +
-    `artifact, reason, provenAt, attempts, blocker), then run:\n` +
+    `their "provenAt" and "cause", plus the ones you judged this iteration): id, statement, ` +
+    `cites, status, artifact, reason, cause, provenAt, attempts, blocker), then run:\n` +
     `  node ${CHECKER} render-report --file ${reportInputFile}\n` +
     `and write the output to ${REPORT_PATH}.\n\n` +
     `STEP 6: on "remediate", do not render a report and do not touch anything besides the state ` +
@@ -525,7 +543,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `write the notes file yourself, so do not re-derive this.\n\n` +
     `Return { "action": "exit-satisfied"|"exit-unbuilt"|"exit-stalled"|"exit-stuck"|` +
     `"exit-insufficient-coverage"|"remediate", ` +
-    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","files" }, ` +
+    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files" }, ` +
     `... one entry per criterion you judged THIS iteration -- the open set above, not the ` +
     `already-settled ones ], "gaps": [<not_met ids>], "unbuilt": ` +
     `[<unbuilt ids>], "closed": [<ids decide-next reported closed>], "notesUpdated": <boolean>, ` +
@@ -649,6 +667,27 @@ const JUDGE_CRITERION_SCHEMA = {
     tier1: { type: 'string', enum: ['pass', 'fail', 'skipped'] },
     artifact: { type: ['string', 'null'] },
     reason: { type: ['string', 'null'] },
+    // NEW (D3, §3.1; VFIX-B002). This literal list MUST equal `CAUSES` exported by
+    // packages/core/lib/functional-verification.js -- this script has no `require` (source
+    // constraint, see verify-functional.test.js's "opens no file, runs no shell, uses no
+    // require"), so the vocabulary is duplicated here rather than imported, and a source-level
+    // test diffs the two lists to keep them from drifting apart. `null` for a "met" criterion,
+    // or for a non-"met" one no cause was recorded for yet (counted as "unrecorded" downstream,
+    // never guessed).
+    cause: {
+      type: ['string', 'null'],
+      enum: [
+        'evidence-missing',
+        'evidence-stale',
+        'locator-not-found',
+        'never-exercised',
+        'judged-failed',
+        'not-built',
+        'environment-unreachable',
+        'capability-absent',
+        null,
+      ],
+    },
     files: { type: 'array', items: { type: 'string' } },
   },
 }
@@ -922,6 +961,7 @@ if (RESUME_CRITERIA) {
         tier1: c.tier1 ?? null,
         artifact: c.artifact ?? null,
         reason: c.reason ?? null,
+        cause: c.cause ?? null,
         provenAt: c.provenAt ?? null,
       })
     }
@@ -1142,6 +1182,7 @@ for (; iteration <= CAP; iteration++) {
         tier1: c.tier1 ?? null,
         artifact: c.artifact ?? null,
         reason: c.reason ?? null,
+        cause: c.cause ?? null,
         provenAt: iteration,
       })
     }

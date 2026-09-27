@@ -319,6 +319,48 @@ something that is actually just broken wastes the one exit that is supposed to m
 
 ---
 
+## The cause vocabulary (D3, §3.1)
+
+A status says WHICH of the four buckets a criterion landed in. It does not say WHY — and
+"why" is what a later `--fix` round, or a human reading the report, needs to decide whether a
+gap is worth building against or is just the capture step misbehaving. So alongside its
+status, the judge assigns every criterion that is not `met` exactly one **cause**, from this
+fixed set (never invented, never a free-text substitute):
+
+| Cause | Assigned when | Buildable |
+|---|---|---|
+| `evidence-missing` | Tier 1 failed with `missing`, `empty`, `not-a-file` or `no-artifact`, and nothing seen shows the build misbehaving | No |
+| `evidence-stale` | Tier 1 failed with `stale` | No |
+| `locator-not-found` | Tier 1 failed with `no-locator` or `locator-not-found` | No |
+| `never-exercised` | No claim reached the judge for this criterion | No |
+| `judged-failed` | The build was reached and did the wrong thing, **including crashing or erroring during capture**; also a check row the judge ruled `deviates` | Yes |
+| `not-built` | Status is `unbuilt`, or a check row is `not_met` with reason `not built` | Yes |
+| `environment-unreachable` | `not_verifiable` because the needed environment is undeclared, unusable, or "must not be touched" (`verification.md` §1) | No — never promoted |
+| `capability-absent` | `not_verifiable` because tooling or a capability the criterion needs is absent (`verification.md` §4/§5) | No — never promoted |
+
+`met` criteria always carry `cause: null`. A report input carrying no `cause` for a non-`met`
+criterion (an older input, from before this vocabulary existed) is counted as `unrecorded`,
+never guessed at.
+
+**A crash or error seen during capture is `judged-failed`, not `evidence-missing`.** The two
+can look alike from the outside — both end with no usable artifact — but they answer
+different questions. `evidence-missing` means the capture step itself did not produce
+something to read: a screenshot never got taken, a log was never written. `judged-failed`
+means the system was reached and *something happened* — a crash, a stack trace, a wrong
+response — which is exactly the kind of evidence a defect leaves behind. Filing a crash as
+`evidence-missing` would hide a real bug behind a label that says "try the mechanics again
+next round"; the debugger would never see it. Only assign a mechanics cause
+(`evidence-missing`, `evidence-stale`, `locator-not-found`, `never-exercised`) when nothing
+observed suggests the build did anything wrong — the capture apparatus is what fell short,
+not the system under test.
+
+**Buildable is a property of the cause, not a judgment call made per criterion.** `judged-failed`
+and `not-built` are the two causes a later `--fix` round may turn into a task; the other six
+are re-verified next round (or, for the two `not_verifiable` causes, never promoted at all) —
+see D4 for why a mechanics failure never mints a task no implementer could act on.
+
+---
+
 ## The debugger's brief
 
 **Given:** every `not_met` gap — its criterion id, functional statement, the judge's stated

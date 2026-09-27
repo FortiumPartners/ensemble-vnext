@@ -139,7 +139,7 @@ or
 | `--resume` | Resume from last checkpoint |
 | `--continue` | Alias for `--resume` |
 | `--reconcile` | Re-attest delivered work against the TRD; re-open anything only claimed done |
-| `--verify` | Functional verification now runs **by default**; this flag is accepted explicitly and matters only paired with `--resume`, where it re-enters a stalled verification loop directly instead of re-running the whole phase loop |
+| `--verify` | Functional verification now runs **by default**; this flag is accepted explicitly and matters only paired with `--resume`, and only when the prior run's state file has `outcome: null` — it then re-enters that interrupted verification loop directly instead of re-running the whole phase loop |
 | `--no-verify` | Opt out of the functional-verification loop entirely |
 | `--reset-state` | Clear state and start fresh (requires confirmation) |
 

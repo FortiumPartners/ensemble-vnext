@@ -149,15 +149,15 @@ A per-line audit cannot see a line that is not there. Dropping a requirement is 
 inventing one, and silent narrowing -- reproducing seven of eight metrics and dropping the
 eighth without comment -- has no other check that can catch it.
 
-VERIFICATION CHECKS. The framework has three checks matching three things SOURCE may
-reference: design frames (screens, mockups, a design handoff) -> verify-design-comparison; an
-interaction diagram or screen-to-screen journeys -> verify-flow-as-built; screens rendering
-API or store data -> verify-data-fidelity. Find the last "## Verification Artifacts" heading
-outside a code fence in the artifact.
+VERIFICATION CHECKS. Read framework-skills.txt (.claude/skills/framework-skills.txt, falling
+back to packages/skills/framework-skills.txt) for its "check" rows -- a "support" role is
+shipped for use elsewhere and is never a candidate here. For each check-role skill, read its
+own SKILL.md "When it applies" section for its trigger, and see whether SOURCE meets it. Find
+the last "## Verification Artifacts" heading outside a code fence in the artifact.
   - If the section EXISTS: for each trigger SOURCE meets, confirm the section either selects
     that check (a table row naming it) or gives a reason it is left out (an
-    "Omitted: <skill> — <reason>" line, or a "None apply — <reason>" line covering all
-    three). Where neither applies, report a finding: check 'omission', action 'add-back',
+    "Omitted: <skill> — <reason>" line, or a "None apply — <reason>" line covering every
+    check). Where neither applies, report a finding: check 'omission', action 'add-back',
     naming the check and the inputs SOURCE gives for it (the frame paths, the diagram or
     journeys, the data source and screen).
   - If the section is ABSENT: report the same items, but with action 'advisory' instead of

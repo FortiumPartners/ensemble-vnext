@@ -36,15 +36,12 @@ FORCE=false
 REFRESH=false
 PROJECT_DIR=""
 
-# The framework-owned verification-artifact skills (docs/TRD/verification-artifacts.md
-# D2). These ship to EVERY project regardless of stack selection or --copy-skills --
-# see copy_framework_skills() below. Adding a fourth means editing this list plus
-# rebase-project.md's Framework row and trd-authoring.md's section (D2).
-FRAMEWORK_SKILLS=(
-    "verify-design-comparison"
-    "verify-flow-as-built"
-    "verify-data-fidelity"
-)
+# The framework-owned skills ship to EVERY project regardless of stack selection
+# or --copy-skills. Which skills, and their roles, live in ONE list --
+# packages/skills/framework-skills.txt (D14, docs/TRD/verification-fix-loop.md
+# §3.8) -- read at runtime by load_framework_skills() below into this array.
+# Adding a skill means editing that list file alone; no other file changes.
+FRAMEWORK_SKILLS=()
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -840,13 +837,41 @@ copy_hooks() {
     ensure_hooks_executable "$dest" "$hook_names"
 }
 
-# Copy the framework-owned verification skills (FRAMEWORK_SKILLS, D2) into every
+# Read framework-skills.txt (D14, docs/TRD/verification-fix-loop.md §3.8): one
+# skill per line as "<name> <role>", '#' comments and blank lines allowed -- the
+# same tolerance copy_skills() already gives selected-skills.txt, below. Sets
+# the global FRAMEWORK_SKILLS to every listed name, any role: this script ships
+# every listed skill regardless of role. Only a check-selection reader
+# (trd-authoring.md, audit-trd.js, /implement-trd, /verify-build) distinguishes
+# "check" from "support". $1 is the already-resolved skills source directory
+# (skills-lib/, falling back to skills/) -- the list file sits beside the
+# skill directories there, not inside one.
+load_framework_skills() {
+    local src="$1"
+    local list_file="$src/framework-skills.txt"
+    FRAMEWORK_SKILLS=()
+
+    if [[ ! -f "$list_file" ]]; then
+        warn "Framework skill list not found: $list_file"
+        return 0
+    fi
+
+    local line name
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        read -r name _ <<< "$line"
+        [[ -n "$name" ]] && FRAMEWORK_SKILLS+=("$name")
+    done < "$list_file"
+}
+
+# Copy the framework-owned skills named in framework-skills.txt into every
 # project, independent of --copy-skills and selected-skills.txt -- those gate the
-# stack-selected library, not this fixed set (D10).
+# stack-selected library, not this fixed set (D10, D14).
 #
 # On scaffold, copies each named skill that isn't already there (regardless of
-# --copy-skills). On --refresh, never creates .claude/skills/ (refresh_skips_absent),
-# but adds any of the three that are missing from it. This must run AFTER
+# --copy-skills), then ships framework-skills.txt itself. On --refresh, never
+# creates .claude/skills/ (refresh_skips_absent), but adds any listed skill
+# missing from it and refreshes the list file in place. This must run AFTER
 # copy_skills() in refresh_project(): copy_skills()'s refresh loop already re-copies
 # every skill directory already present under dest -- including a framework skill a
 # prior run installed -- so this function only needs to add what's still missing,
@@ -872,7 +897,13 @@ copy_framework_skills() {
         return 0
     fi
 
+    load_framework_skills "$src"
+
     mkdir -p "$dest"
+
+    if [[ -f "$src/framework-skills.txt" ]]; then
+        cp "$src/framework-skills.txt" "$dest/framework-skills.txt"
+    fi
 
     local count=0
     local skill
@@ -938,9 +969,9 @@ copy_skills() {
         # present under dest ARE the "already selected" set — adding or
         # removing selections stays /rebase-project's job. One exception:
         # copy_framework_skills(), which runs after this function returns,
-        # adds any of the three FRAMEWORK_SKILLS still missing from dest even
-        # though they weren't already selected — those ship to every project
-        # regardless (D2/D10). It never replaces one already present under
+        # adds any skill named in framework-skills.txt still missing from dest
+        # even though it wasn't already selected — those ship to every project
+        # regardless (D10, D14). It never replaces one already present under
         # --refresh (that's the loop just below); --force only
         # replaces an already-present framework skill outside --refresh.
         REFRESH_SKILLS_COUNT=0

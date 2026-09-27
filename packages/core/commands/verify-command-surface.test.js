@@ -470,6 +470,148 @@ describe('fix-plan.js is untouched (VCON-B009 grounding: leave this call site al
 // process docs learn the flip too (both copies, same lines).
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// VFIX-B004: `--chained` mode (verification-fix-loop TRD §3.3, D2).
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md documents --chained for callers only', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('frontmatter argument-hint carries --chained', () => {
+    const frontmatter = src().split('---')[1];
+    expect(frontmatter).toMatch(/--chained/);
+  });
+
+  test('the Arguments section says --chained is for callers only, never typed by hand', () => {
+    const args = src().split('## User Input')[0];
+    expect(args).toMatch(/--chained/);
+    expect(flat(args)).toMatch(/[Ff]or callers only/);
+    expect(flat(args)).toMatch(/never typed by hand/);
+  });
+
+  test('the Parse line mentions --chained', () => {
+    const paragraph = src().split('Parse: TRD path')[1].split(/\n\n/)[0];
+    expect(paragraph).toMatch(/--chained/);
+  });
+
+  test('§3.7 states every skip under --chained: derive pass, §3.6a preflight, Step 8, publish, banner, notify', () => {
+    const text = src();
+    const i37 = text.indexOf("### 3.7 `--chained` mode");
+    const i4 = text.indexOf('## Step 4: Main Execution Loop');
+    expect(i37).toBeGreaterThan(-1);
+    expect(i4).toBeGreaterThan(i37);
+    const section = flat(text.slice(i37, i4));
+    expect(section).toMatch(/does not dispatch the derive pass/);
+    expect(section).toMatch(/§3\.6a's environment preflight is skipped/);
+    expect(section).toMatch(/no `AskUserQuestion`/);
+    expect(section).toMatch(/Step 8 is skipped entirely/);
+    expect(section).toMatch(/§9\.0a publishes nothing/);
+    expect(section).toMatch(/No banner, no `notify-complete\.sh`, no `PushNotification`/);
+  });
+
+  test('§3.7 states the RETURN line shape for a normal chained return', () => {
+    const text = src();
+    const section = text
+      .split("### 3.7 `--chained` mode")[1]
+      .split('## Step 4: Main Execution Loop')[0];
+    expect(section).toMatch(
+      /\[STATUS: \/implement-trd\] RETURN → chained by \/verify-build --fix: <n> of <m> tasks built/
+    );
+  });
+
+  test('§3.7 states the STUCK RETURN line and that the caller owns the run\'s banner', () => {
+    const text = src();
+    const section = flat(
+      text.split("### 3.7 `--chained` mode")[1].split('## Step 4: Main Execution Loop')[0]
+    );
+    expect(section).toMatch(/RETURN → STUCK: <reason>/);
+    expect(section).toMatch(/no banner/);
+  });
+
+  test('Step 10.1 says the STUCK box is never shown under --chained', () => {
+    const text = src();
+    const step10 = flat(text.split('## Step 10: Pause Conditions')[1].split('## Error Handling')[0]);
+    expect(step10).toMatch(/[Uu]nder `--chained`.*never shown/);
+    expect(step10).toMatch(/RETURN → STUCK/);
+  });
+
+  test('the RETURN line is documented as a sibling of DISPATCHED\\/RESUMED\\/PHASE', () => {
+    const text = src();
+    const section = flat(
+      text.split("### 3.7 `--chained` mode")[1].split('## Step 4: Main Execution Loop')[0]
+    );
+    expect(section).toMatch(/sibling of the DISPATCHED\/RESUMED\/PHASE lines/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VFIX-B004: §8.1b selects from framework-skills.txt's `check` rows, not three named skills.
+// ---------------------------------------------------------------------------
+
+describe('§8.1b selects checks from the one list, not three named skills', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('§8.1b step 2 reads framework-skills.txt\'s check rows', () => {
+    const text = src();
+    const section = text
+      .split('### 8.1b Append the check criteria')[1]
+      .split('### 8.2 The `--resume` composition')[0];
+    expect(section).toMatch(/framework-skills\.txt/);
+    expect(section).toMatch(/`check`-role rows|check.*rows of/i);
+  });
+
+  test('§8.1b no longer names the three skills literally as the selection source', () => {
+    const text = src();
+    const section = text
+      .split('### 8.1b Append the check criteria')[1]
+      .split('### 8.2 The `--resume` composition')[0];
+    expect(section).not.toMatch(/For each of the three skills named in `trd-authoring\.md`/);
+  });
+
+  test('§8.1b still resolves each named skill\'s SKILL.md with the packages/skills fallback', () => {
+    const text = src();
+    const section = text
+      .split('### 8.1b Append the check criteria')[1]
+      .split('### 8.2 The `--resume` composition')[0];
+    expect(section).toMatch(/SKILL\.md/);
+    expect(section).toMatch(/packages\/skills\//);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VFIX-B004: Step 9's readout carries the Diagnosis counts and names the bridge.
+// ---------------------------------------------------------------------------
+
+describe('Step 9 readout carries the Diagnosis counts and names the bridge (O1)', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('STATE gains a Diagnosis line gated on the four non-satisfied outcomes', () => {
+    const text = src();
+    const step9 = flat(text.split('## Step 9: Completion')[1].split('### 9.0a')[0]);
+    expect(step9).toMatch(/stalled\/stuck\/unbuilt\/insufficient-coverage/);
+    expect(step9).toMatch(/\*\*Diagnosis\*\*/);
+    expect(step9).toMatch(/descending by count/);
+  });
+
+  test('NEXT names the bridge then /verify-build --fix, in renderReport\'s exact wording', () => {
+    const text = src();
+    const step9 = flat(text.split('## Step 9: Completion')[1].split('### 9.0a')[0]);
+    expect(step9).toMatch(
+      /agree a recovery plan with `\/verify-plan-recovery`, then run `\/verify-build --fix`/
+    );
+  });
+});
+
+describe('the --verify flag text says what --resume re-enters (O8)', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('the Arguments section says --resume re-enters only an interrupted (outcome: null) loop', () => {
+    const args = src().split('## User Input')[0];
+    expect(flat(args)).toMatch(/non-terminal.*outcome: null.*verification-state\.json/);
+    expect(flat(args)).toMatch(/interrupted.*verification loop/);
+  });
+});
+
 describe('process docs describe the new default', () => {
   test('packages/core/templates/process.md.template documents --no-verify', () => {
     expect(read(CORE_PROCESS_TEMPLATE)).toMatch(/`--no-verify`/);
@@ -482,5 +624,152 @@ describe('process docs describe the new default', () => {
   test('the Staged Execution Loop diagram no longer gates the functional loop as [--verify: ...]', () => {
     expect(read(CORE_PROCESS_TEMPLATE)).not.toMatch(/\[--verify: functional loop\]/);
     expect(read(CLAUDE_PROCESS)).not.toMatch(/\[--verify: functional loop\]/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VFIX-B005: verify-build.md's `--fix [plan-path]` outer loop (verification-fix-loop
+// TRD §3.6), the Diagnosis/NEXT lines in the ordinary (no --fix) readout (O1), and the
+// stale-wording corrections (O8).
+// ---------------------------------------------------------------------------
+
+describe('verify-build.md argument-hint and mutual exclusion', () => {
+  test('argument-hint gains --fix [plan-path]', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(
+      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--fix \[plan-path\]\]"/
+    );
+  });
+
+  test('--fix and --resume are refused together', () => {
+    const section = flat(read(CORE_VERIFY_BUILD).split("## `--fix [plan-path]` and `--resume`")[1]);
+    expect(section).toMatch(/refused together/);
+    expect(section).toMatch(/stop before step 1/);
+  });
+});
+
+describe('verify-build.md O8 stale-wording corrections', () => {
+  const src = () => read(CORE_VERIFY_BUILD);
+
+  test('the "crashed, stalled, or was interrupted" framing is gone', () => {
+    expect(flat(src())).not.toMatch(/crashed, stalled, or was interrupted/);
+  });
+
+  test('a stalled run is pointed at --fix instead, and the case is stated as outcome: null', () => {
+    const section = flat(src().split('## Why this exists separately')[1].split('## Steps')[0]);
+    expect(section).toMatch(/crashed or was interrupted/);
+    expect(section).toMatch(/outcome: null/);
+    expect(section).toMatch(/stalled.*already finished.*--fix/is);
+  });
+
+  test('"never implements" is replaced with the chains-/implement-trd carve-out', () => {
+    const section = flat(src().split('## Why this exists separately')[1].split('## Steps')[0]);
+    expect(section).not.toMatch(/This command never implements\./);
+    expect(section).toMatch(/never dispatches an implementer itself/);
+    expect(section).toMatch(/under `--fix`.*chains `\/implement-trd`/is);
+  });
+
+  test('the --resume section states only met carries forward and the cap is a total budget', () => {
+    const section = flat(src().split('### `--resume`')[1].split('### `--fix')[0]);
+    expect(section).toMatch(/only the file's `met` entries carry forward/i);
+    expect(section).toMatch(/not_verifiable.*unbuilt.*do not/is);
+    expect(section).toMatch(/total budget across every resume/);
+  });
+});
+
+describe('verify-build.md ordinary readout carries the Diagnosis and NEXT (O1)', () => {
+  const src = () => read(CORE_VERIFY_BUILD);
+
+  test('STATE gains a Diagnosis line gated on the four non-satisfied outcomes', () => {
+    const section = flat(src().split('## Readout')[1].split("## `--fix")[0]);
+    expect(section).toMatch(/stalled.*stuck.*unbuilt.*insufficient-coverage/);
+    expect(section).toMatch(/Diagnosis line/);
+    expect(section).toMatch(/descending by count/);
+  });
+
+  test('NEXT names the bridge then /verify-build --fix, in renderReport\'s exact wording', () => {
+    const section = flat(src().split('## Readout')[1].split("## `--fix")[0]);
+    expect(section).toMatch(
+      /agree a recovery plan with `\/verify-plan-recovery`, then run `\/verify-build --fix`/
+    );
+  });
+});
+
+describe('verify-build.md step 3b unions the plan\'s Extra checks under --fix (D11)', () => {
+  test('step 3b restricts the union to check-role skills', () => {
+    const section = flat(
+      read(CORE_VERIFY_BUILD).split('### 3b. Append the check criteria')[1].split('### 3c.')[0]
+    );
+    expect(section).toMatch(/Extra checks.*table into this selection/);
+    expect(section).toMatch(/`check`-role skill/);
+    expect(section).toMatch(/verify-plan-recovery.*reported in ISSUES/is);
+  });
+});
+
+describe('verify-build.md `--fix` states every step of §3.6 in order', () => {
+  const fixSection = () =>
+    flat(read(CORE_VERIFY_BUILD).split("### `--fix [plan-path]`")[1].split('## Output discipline')[0]);
+
+  test('step 0: plan rulings into notes, extra checks union, readStopRule, fix state init', () => {
+    const s = fixSection();
+    expect(s).toMatch(/Owner rulings \(verification-plan\.md\)/);
+    expect(s).toMatch(/readStopRule\(planText\)/);
+    expect(s).toMatch(/functional_verification\.fix = \{ plan, stopRule, rounds: \[\], stopped:\s*false \}/);
+  });
+
+  test('round 0: blockers recorded as discoveries, chained build, synthesised verify, no-plan single round', () => {
+    const s = fixSection();
+    expect(s).toMatch(/Round 0/);
+    expect(s).toMatch(/kind: 'gap', ref: 'plan:<id>'/);
+    expect(s).toMatch(/--reconcile --chained/);
+    expect(s).toMatch(/Without a plan and with no terminal state file/);
+    expect(s).toMatch(/a single round, exactly like today's plain run/);
+  });
+
+  test('round k >= 1: D4 buildable-cause filter and accepted-not-verifiable exclusion', () => {
+    const s = fixSection();
+    expect(s).toMatch(/judged-failed.*not-built/is);
+    expect(s).toMatch(/Accepted as not verifiable.*ruling in the plan/is);
+    expect(s).toMatch(/active slice/);
+  });
+
+  test('D13: a verification.md need is recorded as a non-blocking discovery, never edited', () => {
+    const s = fixSection();
+    expect(s).toMatch(/kind: 'gap', blocksFeature: false, file: '\.claude\/rules\/verification\.md'/);
+    expect(s).toMatch(/never edits that file itself/);
+  });
+
+  test('D8: the synthesised resume carries only met entries at iteration 0', () => {
+    const s = fixSection();
+    expect(s).toMatch(/resume` synthesised instead of read/);
+    expect(s).toMatch(/iteration: 0, criteria: <the latest state file's entries with status\s*'met'>, gapsClosed: \[\]/);
+  });
+
+  test('the per-round publish and comment read reuse the existing mechanisms', () => {
+    const s = fixSection();
+    expect(s).toMatch(/Publish the report and each\s*selected check's page/);
+    expect(s).toMatch(/read comments on\s*each published check page/);
+    expect(s).toMatch(/not a second one/);
+  });
+
+  test('the PHASE line and decide-fix-round CLI are named exactly', () => {
+    const s = fixSection();
+    expect(s).toMatch(/\[STATUS: \/verify-build\] PHASE\s*<k>\/<maxRounds> COMPLETE/);
+    expect(s).toMatch(/decide-fix-round --file <payload>/);
+  });
+
+  test('exactly one banner for the whole run, never one per round', () => {
+    const s = fixSection();
+    expect(s).toMatch(/Exactly \*\*one\*\* `═══\s*COMMAND COMPLETE: \/verify-build ═══` banner for the whole run — never one per round/);
+  });
+
+  test('a STUCK chained return ends the whole run with no further round', () => {
+    const s = fixSection();
+    expect(s).toMatch(/RETURN → STUCK.*end the whole run now/is);
+  });
+});
+
+describe('verify-build.md mirror stays byte-identical after --fix additions', () => {
+  test('.claude/commands/verify-build.md matches packages/core exactly', () => {
+    expect(read(CLAUDE_VERIFY_BUILD)).toBe(read(CORE_VERIFY_BUILD));
   });
 });
