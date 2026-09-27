@@ -82,6 +82,10 @@ second full interview.
 
 ## Coverage floor
 
+The question itself tells the owner what the floor is before asking for a value, in these words or close to them:
+"The coverage floor is the share of the success definition's criteria that must be proven (met) before a verification run may report satisfied; a run that proves less than this reports insufficient-coverage instead, even with no open gaps."
+It is asked in the same `AskUserQuestion` call that carries the table and recommendation below, so the owner sees the definition, the working and the recommended value together.
+
 Shown as one small table, one row per past run this project has: feature, proven/total
 criteria, and the proven share. Then the recommendation itself, with the reasoning that
 produced it in one line — which run was lowest, and what its share rounded down to the

@@ -130,6 +130,8 @@
     "source_kind": "prd",
     "prd_path": "docs/plan/verification-md-setup.investigation.md",
     "environments": {},
-    "environments_note": "verification.md is the unfilled current template"
+    "environments_note": "verification.md is the unfilled current template",
+    "outcome": "satisfied",
+    "criteria": "19/19 met"
   }
 }

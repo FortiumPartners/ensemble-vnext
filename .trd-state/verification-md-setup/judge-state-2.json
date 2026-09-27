@@ -1,0 +1,211 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-1.txt",
+      "reason": "SKILL.md exists with name: verification-setup, and no verification-setup command exists. The __tests__ test file follows the repo's test-harness convention, which four other shipped skills also use. The skill does not run it, so the skill itself is prompts only.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "A skill named `verification-setup` exists at `packages/skills/verification-setup/SKILL.md`. It is prompts only, with no executable code in its directory. It is a skill, not a command: `packages/core/commands/` has no `verification-setup` command",
+      "cites": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-2.txt",
+      "reason": "The live detector reports the unfilled current template. SKILL.md asks one topic per AskUserQuestion call and offers the detected value first. This is a prompt-read derivation.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "Invoked in a project whose `verification.md` is still the unfilled template, the skill reads the current file or the template, runs the existing detectors, asks one topic at a time, offers the value it detected from the repo as the default in each question, and writes `.claude/rules/verification.md`",
+      "cites": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-3.txt",
+      "reason": "The re-run rule asks only about missing sections, changed detections or recorded needs, so a missing coverage-floor section gets asked.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "Re-run on a filled `verification.md`, the skill asks only about what is missing or out of date, including a coverage floor when the file declares none",
+      "cites": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-4.txt",
+      "reason": "SKILL.md says running the skill is the approval, the file is written with no preview and no second confirmation, and it ends with the four-section readout listing what changed section by section. The skill is owner-invoked only, so this is read from its prompt.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-5.txt",
+      "reason": "The Never section forbids writing credential values. When an answer looks like a value, the skill asks for its location instead.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "The skill records credentials as LOCATIONS only, never values. When the owner's answer includes a credential value, the file records where that credential lives and does not contain the value",
+      "cites": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-6.txt",
+      "reason": "Commands only point the owner at /verification-setup, and none invokes it. A judge-side grep of lib and workflows found no code that writes .claude/rules/verification.md.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "No autonomous run writes `verification.md`. No command or workflow chains into or invokes the skill. Commands may point the owner at it (FS-14, FS-15), but none runs it, and no command or workflow code writes to `.claude/rules/verification.md`",
+      "cites": null
+    },
+    {
+      "id": "FS-7",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-7.txt",
+      "reason": "The recommendation and its one-line reason (lowest satisfied run, rounded down to 5%) are there, as is none when no run is satisfied. But SKILL.md never tells the owner what the floor means: nowhere does the coverage-floor topic describe it as the share of success-definition criteria that must be proven before a run may report satisfied. That definition exists only in the template §5a text, which the skill is not told to show when asking.",
+      "cause": "judged-failed",
+      "provenAt": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-8.txt",
+      "reason": "The live recommendation is 0.3. It is a multiple of 5% and at or below every satisfied run's proven share.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "Where past runs exist, the recommended floor comes from `.trd-state/*/verification-state.json`, using the same rule `coverageOf()` uses to count proven criteria. It is a multiple of 5%, and it is at or below the proven share of every past run that ended `satisfied`, so those runs would still pass",
+      "cites": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-9.txt",
+      "reason": "With no past runs, the live output recommends null. SKILL.md wording says a floor can be added after the first runs.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "Where no past runs exist, the skill recommends no floor and says a floor can be added after the first runs",
+      "cites": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-10.txt",
+      "reason": "§5a sits between §5 and §6 in the template.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "The `verification.md` template has a Coverage floor section between §5 (\"What CANNOT be verified here\") and §6 (\"Multi-repo\")",
+      "cites": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-11.txt",
+      "reason": "The header says the owner governs the file and that it is written via /verification-setup.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "The template's header no longer says an agent never writes the file. It says the owner governs the file and that the skill is how it is written",
+      "cites": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-12.txt",
+      "reason": "Live CLI reports the previous template (resource-table-v2 fixture) as unfilled:true, matchedTemplate resource-table-v2, and an untouched copy of the current template as unfilled:true, matchedTemplate current. The fixture exists and the named jest tests pass.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-13.txt",
+      "reason": "The oldest template shape reports all three named sections as missing, plus coverage-floor, which that shape also lacks. The current shape reports none missing. Detection is structural.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "For a filled `verification.md` written to an older template shape, detection names each of the three sections it lacks: resource capacity §1a, the `Loop may WRITE data?` column, and the fast/full refresh split. For a filled file in the current shape, it names none. Detection works on structure, so it applies to filled files, which never match a stored digest",
+      "cites": null
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-14-FS-15.txt",
+      "reason": "implement-trd §3.6a names the missing sections and points to the skill. verify-build §2 follows §3.6a.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "When a filled `verification.md` has the older template shape, both the `/implement-trd` §3.6a readout and the `/verify-build` §2 readout name the missing sections and point the owner at the skill",
+      "cites": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-14-FS-15.txt",
+      "reason": "All three places name the skill.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "Each of the 3 places that tells the owner `verification.md` is unfilled or out of date names the skill as the fix: the `/implement-trd` §3.6a readout, `/verify-build` §2, and `/init-project`, which offers the skill after it writes `stack.md`",
+      "cites": null
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-16.txt",
+      "reason": "implement-trd §8.1a step 6 reads the floor with read-coverage-floor and passes coverageFloor in the dispatch; verify-build step 3c does the same. verify-functional.js embeds coverageFloor in the decide-next payload. A live decide-next call with 1/10 proven against an 80% floor returned exit-insufficient-coverage.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-17.txt",
+      "reason": "The readout states the floor, or 'none declared' when there is none. This run's own decide-next call took a null floor with no relabel.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "The verification readout states the floor in force, or \"none declared\" when the file declares none. With no floor declared, the argument stays optional and the loop behaves as before, with no relabel",
+      "cites": null
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-18-FS-19.txt",
+      "reason": "The skill is listed with role support, and a live scaffold produced SKILL.md.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "The skill ships to every project through the one framework-skill list, with role `support`. After scaffolding, a project has `.claude/skills/verification-setup/SKILL.md` and can run it as `/verification-setup`",
+      "cites": null
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-19.txt",
+      "reason": "Role support is flagged as not a selectable check, and the test passes.",
+      "cause": null,
+      "provenAt": 1,
+      "statement": "The skill can never be chosen as a verification check. Whatever lists the selectable check skills does not include `verification-setup`",
+      "cites": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    3
+  ],
+  "outcome": null
+}

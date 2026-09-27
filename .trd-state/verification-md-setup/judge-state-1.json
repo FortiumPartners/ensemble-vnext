@@ -1,0 +1,180 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-1.txt",
+      "reason": "SKILL.md exists with name: verification-setup; no verification-setup command in packages/core/commands. The directory also holds __tests__/skill-md.test.js and a template.md symlink; the test is the repo test-harness convention shared by four other shipped skills, not code the skill runs, so the skill itself is prompts only.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-2.txt",
+      "reason": "Live check-verification-unfilled reports the unfilled current template; SKILL.md Topics section asks one AskUserQuestion per topic in file order, offering the detected value (with its source) first. Prompt-read derivation; no live interview transcript (skill is owner-invoked only).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-3.txt",
+      "reason": "SKILL.md re-run rule: a topic is re-asked only when its section is missing, detection differs, or a recorded need names it; a missing coverage-floor section therefore gets asked.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-4.txt",
+      "reason": "Tier-1 locator not found: the claimed locator \"running it IS the owner's approval\" is wrapped across a line break in the artifact. The artifact content does describe no-confirmation writing, but also does not show the one-screen summary of changes. Re-capture with a locator that appears verbatim and include the closing-summary text.",
+      "cause": "locator-not-found",
+      "provenAt": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-5.txt",
+      "reason": "SKILL.md Never section forbids writing a credential value (only vault item, env key name or file path) and says to ask for the location instead when an answer looks like a value.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-6.txt",
+      "reason": "Every command mention of /verification-setup only points the owner at it; no command or workflow invokes it. A judge-side grep of packages/core/lib and packages/core/workflows found no write to .claude/rules/verification.md; lib only reads the skill template path.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-7.txt",
+      "reason": "Tier-1 locator not found: the claimed locator carries a two-space indent before \"produced\" that the artifact does not have. Re-capture with a locator that appears verbatim.",
+      "cause": "locator-not-found",
+      "provenAt": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-8.txt",
+      "reason": "Live recommend-coverage-floor over two satisfied fixture runs (0.8 and 0.3 proven) recommends 0.3: a multiple of 5% and at or below every satisfied run's proven share.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-9.txt",
+      "reason": "Live output with no past runs gives recommended: null; SKILL.md says no floor is recommended yet and one can be added after the first satisfied runs.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-10.txt",
+      "reason": "Template headings show §5a Coverage floor (line 137) between §5 (128) and §6 Multi-repo (146).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-11.txt",
+      "reason": "Template header says the file is owner-governed, changes only when the owner runs /verification-setup, and no autonomous run edits it.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-12.txt",
+      "reason": "The artifact shows only that functional-verification.test.js passed (42 passed, 123 skipped by filter); it names neither the previous-template fixture nor the test that recognises its digest, nor which tests ran. Re-capture with verbose/-t output naming the previous-template and current-template unfilled tests and the fixture path.",
+      "cause": "evidence-missing",
+      "provenAt": null
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-13.txt",
+      "reason": "Live missingVerificationSections: the oldest shape (pre-1.5.0) names resource-capacity, write-permission-column and refresh-split (plus coverage-floor, which that shape genuinely also lacks and which this change added to the checks); the current shape names none. Detection is structural, so it applies to filled files.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-14-FS-15.txt",
+      "reason": "implement-trd §3.6a renders missingSections as labels for a filled older-shape file and says to run /verification-setup; verify-build §2 follows §3.6a verbatim including the section naming. Prompt-read derivation.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-14-FS-15.txt",
+      "reason": "All three places name the skill: implement-trd §3.6a, verify-build §2, and init-project (governance-files section and Next Steps item 3 after stack.md).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-16.txt",
+      "reason": "Both dispatch sites read the floor with read-coverage-floor and pass coverageFloor to verify-functional (implement-trd §8.1a line 1687, verify-build step 3c dispatch). The artifact does not show the second part: a run whose proven share falls below the floor exiting insufficient-coverage (e.g. decide-next with coverageFloor above the met share).",
+      "cause": "evidence-missing",
+      "provenAt": null
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-17.txt",
+      "reason": "Readout text states \"Coverage floor: {N}%\", \"not applied\" for an invalid line, else \"Coverage floor: none declared\". This run's own decide-next payload carries coverageFloor: null and decided normally, with no relabel.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-18-FS-19.txt",
+      "reason": "framework-skills.txt lists verification-setup with role support; a live scaffold produced .claude/skills/verification-setup/SKILL.md.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-md-setup/evidence/FS-19.txt",
+      "reason": "verification-setup has role support; fix-audit.js flags any non-check role as \"not a selectable check\", and its test passes.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}
