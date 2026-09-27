@@ -14,7 +14,8 @@
 #     least one shape actually in use across current TRDs.
 #   - packages/core/commands/*.md and .claude/commands/*.md are byte-identical
 #     for every command present in both.
-#   - packages/full/agents/*.md and .claude/agents/*.md are byte-identical.
+#   - packages/full/agents/*.md and .claude/agents/*.md are identical apart from the
+#     per-project skill preloads scaffold-project.sh generates into the vendored copy.
 #   - packages/full/commands/plugin-only/*.md are REAL FILES byte-identical to
 #     packages/core/commands/ (symlinked plugin commands silently do not load),
 #     and the installed plugin actually exposes them.
@@ -115,8 +116,22 @@ done
 assert_true "at least one command pair compared" -- test "$CMD_COMPARED" -gt 0
 
 # -----------------------------------------------------------------------------
-# packages/full/agents/*.md <-> .claude/agents/*.md byte-identical.
+# packages/full/agents/*.md <-> .claude/agents/*.md identical, apart from what
+# scaffold-project.sh's inject_agent_skills() GENERATES into the vendored copy:
+# the frontmatter `skills:` list and the ENSEMBLE:SKILLS body block. Those are
+# per-project by design (4.1.1 moved skill assignment out of the agent files), so a
+# byte comparison fails on every scaffolded tree -- this repo's included -- while
+# telling you nothing. Everything else must still match byte for byte.
 # -----------------------------------------------------------------------------
+agent_without_generated_skills() {
+    python3 - "$1" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+text = re.sub(r"\n*<!-- ENSEMBLE:SKILLS:BEGIN.*?<!-- ENSEMBLE:SKILLS:END -->\n?", "\n", text, flags=re.S)
+text = re.sub(r"(?m)^skills:\n(?:[ \t]+-[ \t][^\n]*\n)*", "", text)
+sys.stdout.write(text.rstrip("\n") + "\n")
+PY
+}
 FULL_AGENTS_DIR="${REPO_ROOT}/packages/full/agents"
 VENDORED_AGENTS_DIR="${REPO_ROOT}/.claude/agents"
 AGENT_COMPARED=0
@@ -126,10 +141,10 @@ for f in "$FULL_AGENTS_DIR"/*.md; do
     other="${VENDORED_AGENTS_DIR}/${name}"
     [[ -f "$other" ]] || continue
     AGENT_COMPARED=$((AGENT_COMPARED + 1))
-    if cmp -s "$f" "$other"; then
-        assert_pass_raw "agents/$name: packages/full and vendored copies byte-identical"
+    if cmp -s <(agent_without_generated_skills "$f") <(agent_without_generated_skills "$other"); then
+        assert_pass_raw "agents/$name: packages/full and vendored copies match (generated skill preloads aside)"
     else
-        assert_fail_raw "agents/$name: packages/full and vendored copies byte-identical"
+        assert_fail_raw "agents/$name: packages/full and vendored copies match (generated skill preloads aside)"
     fi
 done
 assert_true "at least one agent pair compared" -- test "$AGENT_COMPARED" -gt 0
