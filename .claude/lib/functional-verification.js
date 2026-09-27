@@ -7,9 +7,12 @@
  * exposing all three as subcommands. See `docs/TRD/functional-verification.md` §3.2, §3.4
  * and §3.6 for the binding interface specs, and its `### FV-B001` grounding block in §9.
  *
- * This module is pure apart from `fs.statSync` in `checkEvidence()`. It uses no clock and no
- * git — `sinceSec` and `cap` are parameters, not internally computed, so every function here
- * is testable without a repository or a wall clock.
+ * This module is pure apart from `fs.statSync` and, now that `checkEvidence()` matches a
+ * locator (VCON-B001), reading the artifact's own content — both gated by a byte cap
+ * (`LOCATOR_SCAN_BYTES`), so no read is unbounded. It still uses no clock and no git —
+ * `sinceSec` and `cap` are parameters, not internally computed — which is what the purity
+ * claim is load-bearing for: every function here is testable without a repository or a wall
+ * clock.
  *
  * Workflow scripts (`packages/core/workflows/*.js`) have no `require` — they are prompt-DSL
  * source text wrapped by `test-harness.js`, not a real Node module (D3). The CLI below is
@@ -25,11 +28,21 @@ const fs = require('fs');
 // checkEvidence — tier 1 of FR-3 (§3.2)
 // ---------------------------------------------------------------------------
 
+// The most an artifact's content is scanned for a locator match (D6). Keeps `checkEvidence`
+// usable against a large artifact (e.g. a video) without a new failure mode for its size --
+// the scan just stops here and the result says so via `truncated: true`.
+const LOCATOR_SCAN_BYTES = 2_000_000;
+
 /**
  * Deterministic, cheap tier-1 evidence check. Not settable by an agent: it only looks at
- * what is actually on disk.
+ * what is actually on disk, and — for a locator — what is actually inside it (D6).
  *
- * @param {Array<{criterion: string, artifact: string|null, reason?: string}>} claims
+ * @param {Array<{criterion: string, artifact: string|null, locator?: string|null,
+ *   reason?: string, judgeOnly?: boolean}>} claims - `locator` is a literal string the
+ *   EXERCISER claims to have seen inside `artifact` (supplied via `EXERCISE_SCHEMA`,
+ *   VCON-B001). `judgeOnly` is stamped by `reconcileClaims` from the criterion's own
+ *   definition, never by the agent (D7), and short-circuits this claim to `tier1: 'skipped'`
+ *   before anything else is checked.
  * @param {number} sinceSec - The freshness floor, in seconds:
  *   `max(HEAD commit time, this run's verification-loop start time)`, derived by the command
  *   (`/implement-trd` Step 8.3, TRD §3.2) and passed in whole. An artifact whose mtime is not
@@ -50,13 +63,28 @@ const fs = require('fs');
  *   can never establish that an artifact postdates an uncommitted debug fix. Stated in the
  *   TRD's `## Could Not Verify`; the remedy (a per-iteration floor from a Judge-written marker
  *   file) changes this parameter's meaning and so is `/refine-trd` work.
- * @returns {Array<{criterion: string, tier1: 'pass'|'fail', artifact: string|null,
- *   bytes: number|null, mtimeSec: number|null,
- *   failure?: 'missing'|'empty'|'stale'|'no-artifact'|'not-a-file'}>}
+ * @returns {Array<{criterion: string, tier1: 'pass'|'fail'|'skipped', artifact: string|null,
+ *   bytes: number|null, mtimeSec: number|null, locator?: string|null, truncated?: boolean,
+ *   failure?: 'missing'|'empty'|'stale'|'no-artifact'|'not-a-file'|'no-locator'|
+ *     'locator-not-found'}>}
  */
 function checkEvidence(claims, sinceSec) {
   return claims.map((claim) => {
-    const { criterion, artifact } = claim;
+    const { criterion, artifact, locator, judgeOnly } = claim;
+
+    // A judge-only criterion never gets a tier-1 verdict at all (D7) -- the Judge reads its
+    // content or its stated reason directly and rules. Checked first, before any stat, so a
+    // judge-only claim carrying no artifact (or a nonexistent one) never surfaces a failure
+    // that would mean nothing for a tier this criterion was never meant to pass through.
+    if (judgeOnly) {
+      return {
+        criterion,
+        tier1: 'skipped',
+        artifact: artifact ?? null,
+        bytes: null,
+        mtimeSec: null,
+      };
+    }
 
     if (!artifact) {
       // No artifact was claimed at all. Tier 1 fails, but this is not itself a verdict —
@@ -107,7 +135,57 @@ function checkEvidence(claims, sinceSec) {
       return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'stale' };
     }
 
-    return { criterion, tier1: 'pass', artifact, bytes, mtimeSec };
+    // Tier 1's final gate (D6, VCON-B001): a literal locator string the exerciser claims to
+    // have actually SEEN inside the artifact. Appended last, after every cheaper condition,
+    // so it only ever runs against a file that already cleared no-artifact/missing/
+    // not-a-file/empty/stale.
+    if (!locator) {
+      // A claim-shape failure, not a verdict (§3.1): the Judge may still read `claim.reason`.
+      // Making this pass instead would reinstate the hole the locator closes -- an artifact
+      // with nothing proving it says anything about the criterion still "passing" tier 1.
+      return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'no-locator' };
+    }
+
+    let content;
+    let truncated = false;
+    try {
+      if (bytes > LOCATOR_SCAN_BYTES) {
+        truncated = true;
+        const buf = Buffer.alloc(LOCATOR_SCAN_BYTES);
+        const fd = fs.openSync(artifact, 'r');
+        try {
+          fs.readSync(fd, buf, 0, LOCATOR_SCAN_BYTES, 0);
+        } finally {
+          fs.closeSync(fd);
+        }
+        content = buf.toString('utf8');
+      } else {
+        content = fs.readFileSync(artifact, 'utf8');
+      }
+    } catch {
+      // Unreadable after a successful stat -- permissions, a race. Same as a failed stat; the
+      // distinction is not useful to a judge and inventing a new failure for it is not (§3.1).
+      return { criterion, tier1: 'fail', artifact, bytes: null, mtimeSec: null, failure: 'missing' };
+    }
+
+    // Literal substring match (D6), not a regex -- a regex an agent supplies can be made to
+    // match anything (`.*`), which reinstates the hole this check closes. A non-UTF-8
+    // artifact decodes lossily and the search runs on the result, so a binary artifact fails
+    // here, which is the correct answer for a criterion that should have been judge-only.
+    if (!content.includes(locator)) {
+      return {
+        criterion,
+        tier1: 'fail',
+        artifact,
+        bytes,
+        mtimeSec,
+        locator,
+        truncated,
+        failure: 'locator-not-found',
+      };
+    }
+
+    return { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator };
   });
 }
 
@@ -117,19 +195,36 @@ function checkEvidence(claims, sinceSec) {
 
 const DEFAULT_CAP = 3;
 
+// The coverage floor `decideNext` re-labels against (D9, OQ-1). Explicitly unset: the owner
+// has not picked a number, and picking one here would be inventing policy rather than reading
+// it (NG10). `decideNext` reads `input.coverageFloor ?? COVERAGE_FLOOR`, so a caller that never
+// supplies `coverageFloor` gets this constant, and with it `null` the re-label in step 4 below
+// never fires — the whole branch ships built and unit-tested against an explicit floor, but
+// dormant in production until the owner sets one (D8).
+const COVERAGE_FLOOR = null;
+
+// Base actions eligible for the coverage re-label (D8, step 4). `exit-unbuilt` is excluded
+// because "most of this was never built" is the truer statement and must win; `remediate` is
+// excluded because a coverage rule that stopped a converging run would undo O1. Both exclusions
+// are structural (an allow-list), not a consequence of where this check sits in the chain.
+const COVERAGE_RELABELABLE_ACTIONS = new Set(['exit-satisfied', 'exit-stalled', 'exit-stuck']);
+
 /**
  * @param {{
  *   iteration: number,
  *   gaps: string[],
  *   unbuilt: string[],
  *   previousGaps: string[]|null,
+ *   met: string[],              // NEW (D8) — settled-met membership; the reason can name the ratio
+ *   total?: number,             // NEW (D8) — the definition's whole criterion count
+ *   coverageFloor?: number|null,// NEW (D9) — defaults to COVERAGE_FLOOR (null, unset)
  *   cap?: number,
  * }} input
- * @returns {{action: 'exit-satisfied'|'exit-unbuilt'|'exit-stalled'|'exit-stuck'|'remediate',
- *   reason: string, closed: string[]}}
+ * @returns {{action: 'exit-satisfied'|'exit-unbuilt'|'exit-stalled'|'exit-stuck'|
+ *   'exit-insufficient-coverage'|'remediate', reason: string, closed: string[]}}
  */
 function decideNext(input) {
-  const { iteration, gaps, unbuilt, previousGaps } = input;
+  const { iteration, gaps, unbuilt, previousGaps, met, total } = input;
 
   // Validate rather than default. Found twice independently by the phase review and the
   // end-of-run review on the 2026-08-19 live smoke run, where an omitted key died with a bare
@@ -146,7 +241,14 @@ function decideNext(input) {
   if (!Array.isArray(unbuilt)) {
     throw new TypeError('decideNext: input.unbuilt is required and must be an array (an absent value would silently read as "nothing unbuilt" and remediate never-built criteria — D14)');
   }
+  // Same style, and the same reasoning (D8, §3.2): defaulting `met` to [] would read as
+  // "nothing proven", which could re-label a genuinely healthy exit down to
+  // `exit-insufficient-coverage` on a caller bug rather than on real evidence.
+  if (!Array.isArray(met)) {
+    throw new TypeError('decideNext: input.met is required and must be an array (an absent value would read as "nothing proven" and could re-label a healthy exit — D8)');
+  }
   const cap = input.cap ?? DEFAULT_CAP;
+  const coverageFloor = input.coverageFloor ?? COVERAGE_FLOOR;
 
   // `closed` is previousGaps \ gaps — computed unconditionally so it is always accurate on
   // the returned object, regardless of which branch below fires.
@@ -154,50 +256,76 @@ function decideNext(input) {
 
   // Evaluation order is the specification (D14): unbuilt wins even over a clean gap set,
   // because a report that iterates on the fixable half while withholding "this was never
-  // built" is the more misleading of the two outputs.
+  // built" is the more misleading of the two outputs. This chain captures a BASE action —
+  // the coverage re-label (step 4, below) is applied to it afterward, never inserted as a
+  // sixth early-return branch ahead of these four.
+  let result;
   if (unbuilt.length > 0) {
-    return {
+    result = {
       action: 'exit-unbuilt',
       reason: `${unbuilt.length} criterion/criteria absent (unbuilt), not misbehaving — loop stops rather than debugging missing code`,
       closed,
     };
-  }
-
-  if (gaps.length === 0) {
-    return {
+  } else if (gaps.length === 0) {
+    result = {
       action: 'exit-satisfied',
       reason: 'no gaps remain — every criterion is met or not verifiable here',
       closed,
     };
-  }
-
-  // `previousGaps.length > 0` is load-bearing, not defensive. An empty previousGaps is
-  // reachable -- verify-functional.js seeds it by filtering a resume snapshot for `not_met`,
-  // so a snapshot from a run that exited satisfied or unbuilt yields [] rather than null --
-  // and with no gap to close, "closed no gaps" is vacuously true. Without this clause a
-  // resumed run exits `stalled` ("remediation is not converging") on its first iteration,
-  // before the Debug stage has been dispatched even once.
-  if (previousGaps != null && previousGaps.length > 0 && closed.length === 0) {
-    return {
+  } else if (
+    // `previousGaps.length > 0` is load-bearing, not defensive. An empty previousGaps is
+    // reachable -- verify-functional.js seeds it by filtering a resume snapshot for `not_met`,
+    // so a snapshot from a run that exited satisfied or unbuilt yields [] rather than null --
+    // and with no gap to close, "closed no gaps" is vacuously true. Without this clause a
+    // resumed run exits `stalled` ("remediation is not converging") on its first iteration,
+    // before the Debug stage has been dispatched even once.
+    previousGaps != null && previousGaps.length > 0 && closed.length === 0
+  ) {
+    result = {
       action: 'exit-stalled',
       reason: 'iteration closed no gaps — remediation is not converging',
       closed,
     };
-  }
-
-  if (iteration >= cap) {
-    return {
+  } else if (iteration >= cap) {
+    result = {
       action: 'exit-stuck',
       reason: `iteration cap (${cap}) reached with ${gaps.length} gap(s) still open`,
       closed,
     };
+  } else {
+    result = {
+      action: 'remediate',
+      reason: `${gaps.length} gap(s) open — dispatching debug stage`,
+      closed,
+    };
   }
 
-  return {
-    action: 'remediate',
-    reason: `${gaps.length} gap(s) open — dispatching debug stage`,
-    closed,
-  };
+  // Step 4 (D8): the coverage re-label. Only base actions in COVERAGE_RELABELABLE_ACTIONS are
+  // eligible, `coverageFloor` must be explicitly set (non-null), and `total` must be a positive
+  // number — a missing or zero `total` skips the re-label rather than dividing by it, which is
+  // the safe direction (never re-label on a denominator nobody supplied). `total` is optional at
+  // the type level for that same reason: unlike `met`, its absence cannot fabricate a false
+  // "nothing proven" reading -- it just leaves the ratio uncomputed and the re-label dormant.
+  if (
+    COVERAGE_RELABELABLE_ACTIONS.has(result.action) &&
+    coverageFloor != null &&
+    typeof total === 'number' &&
+    total > 0 &&
+    met.length / total < coverageFloor
+  ) {
+    const ratio = met.length / total;
+    const uncoveredCount = total - met.length;
+    result = {
+      action: 'exit-insufficient-coverage',
+      reason:
+        `proven ratio ${met.length}/${total} (${(ratio * 100).toFixed(1)}%) is below the ` +
+        `coverage floor ${coverageFloor} — ${uncoveredCount} criterion/criteria uncovered; ` +
+        `base cause: ${result.reason}`,
+      closed,
+    };
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +337,7 @@ const OUTCOME_LABEL = {
   unbuilt: 'Unbuilt',
   stalled: 'Stalled',
   stuck: 'Stuck',
+  'insufficient-coverage': 'Insufficient Coverage',
   'not-run': 'Not Run',
 };
 
@@ -226,7 +355,7 @@ function escapeCell(text) {
 /**
  * @param {{
  *   feature: string, prd: string, definitionPath: string,
- *   outcome: 'satisfied'|'unbuilt'|'stalled'|'stuck'|'not-run',
+ *   outcome: 'satisfied'|'unbuilt'|'stalled'|'stuck'|'insufficient-coverage'|'not-run',
  *   reason: string,
  *   criteria: Array<{
  *     id: string, statement: string, cites: string,
@@ -234,12 +363,18 @@ function escapeCell(text) {
  *     artifact: string|null, reason: string|null,
  *     attempts: Array<{iteration: number, result: string}>,
  *     blocker: string|null,
+ *     tier1?: string,       // NEW (D8, §3.6) — the state file's tier1 verdict; rendered on
+ *                           //     the Not Met table so "never reached" reads apart from
+ *                           //     "reached and failed". Absent on older report inputs.
+ *     provenAt?: number,    // NEW (D8, §3.6) — the iteration a `met` verdict was proven at,
+ *                           //     rendered on the Met table. Absent on older report inputs.
  *   }>,
+ *   finalEnvironmentRun?: {command: string, status: 'pass'|'fail'|'skipped'} | null,  // NEW (D14)
  * }} input
  * @returns {string} markdown
  */
 function renderReport(input) {
-  const { feature, prd, definitionPath, outcome, reason, criteria } = input;
+  const { feature, prd, definitionPath, outcome, reason, criteria, finalEnvironmentRun } = input;
 
   const met = criteria.filter((c) => c.status === 'met');
   const notMet = criteria.filter((c) => c.status === 'not_met');
@@ -271,11 +406,38 @@ function renderReport(input) {
     outcome === 'satisfied' && notVerifiable.length > 0
       ? ` (${notVerifiable.length} of ${criteria.length} not verifiable)`
       : '';
-  lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}${outcomeSuffix}`);
+  // The full-environment gate's own suffix (D14, §3.6), appended to whatever the coverage
+  // suffix above already produced. Three renderings, not two: a `fail` carries the failure
+  // even when the outcome is `satisfied` — that combination is the one the suffix exists for,
+  // since the criteria really were proven and only the rebuild failed; a `skipped` run with no
+  // command declared says so explicitly, so "nobody declared one" is never read as "one
+  // passed"; a `pass` adds nothing, because a clean line is already the existing meaning of a
+  // clean result.
+  let finalRunSuffix = '';
+  if (finalEnvironmentRun && finalEnvironmentRun.status === 'fail') {
+    finalRunSuffix = ' (final full-environment run FAILED)';
+  } else if (
+    finalEnvironmentRun &&
+    finalEnvironmentRun.status === 'skipped' &&
+    !finalEnvironmentRun.command
+  ) {
+    finalRunSuffix = ' (no full-environment run declared)';
+  }
+  lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}${outcomeSuffix}${finalRunSuffix}`);
   lines.push(`**Reason**: ${reason}`);
   lines.push(
     `**Criteria**: ${criteria.length} total — ${met.length} met, ${notMet.length} not met, ${notVerifiable.length} not verifiable, ${unbuilt.length} unbuilt` +
       (unrecognised.length > 0 ? `, ${unrecognised.length} unrecognised status` : '')
+  );
+  // The coverage line (D8, §3.6): counts alone let an iteration hold at "4 met" while swapping
+  // WHICH 4 — this names the ratio and the membership of the uncovered set (every criterion not
+  // `met`, regardless of which of the other statuses it carries) so that drift is visible.
+  const uncoveredIds = criteria.filter((c) => c.status !== 'met').map((c) => c.id);
+  lines.push(
+    `**Coverage**: ${met.length} of ${criteria.length} proven` +
+      (uncoveredIds.length > 0
+        ? ` — uncovered: ${uncoveredIds.map(escapeCell).join(', ')}`
+        : ' — uncovered: none')
   );
   lines.push('');
 
@@ -319,10 +481,17 @@ function renderReport(input) {
   if (met.length === 0) {
     lines.push('_None._');
   } else {
-    lines.push('| ID | Statement | Artifact |');
-    lines.push('|----|-----------|----------|');
+    // `Proven at` (D8, §3.6), from `provenAt` -- under carry-forward a `met` verdict may be
+    // several iterations old, and this is the column that says which one. Blank, not "0", when
+    // absent -- an older report input carries no `provenAt` at all, and 0 would misread as
+    // "proven at iteration 0."
+    lines.push('| ID | Statement | Artifact | Proven at |');
+    lines.push('|----|-----------|----------|-----------|');
     for (const c of met) {
-      lines.push(`| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)} |`);
+      const provenAt = c.provenAt === undefined || c.provenAt === null ? '' : c.provenAt;
+      lines.push(
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)} | ${escapeCell(provenAt)} |`
+      );
     }
   }
   lines.push('');
@@ -332,14 +501,17 @@ function renderReport(input) {
   if (notMet.length === 0) {
     lines.push('_None._');
   } else {
-    lines.push('| ID | Statement | Reason | Blocker | Attempts |');
-    lines.push('|----|-----------|--------|---------|----------|');
+    // `Tier 1` (D8, §3.6), sourced from the state file's persisted `tier1` verdict -- it is
+    // what separates a criterion that was never reached from one that was reached and failed.
+    // Blank, not a fabricated value, when the report input carries no `tier1` at all.
+    lines.push('| ID | Statement | Tier 1 | Reason | Blocker | Attempts |');
+    lines.push('|----|-----------|--------|--------|---------|----------|');
     for (const c of notMet) {
       const attempts = (c.attempts || [])
         .map((a) => `iter ${a.iteration}: ${a.result}`)
         .join('; ');
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.reason)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.tier1 ?? '')} | ${escapeCell(c.reason)} | ${escapeCell(c.blocker)} | ${escapeCell(attempts)} |`
       );
     }
   }
@@ -393,6 +565,8 @@ module.exports = {
   renderReport,
   isVerificationUnfilled,
   DEFAULT_CAP,
+  COVERAGE_FLOOR,
+  LOCATOR_SCAN_BYTES,
 };
 
 // ---------------------------------------------------------------------------

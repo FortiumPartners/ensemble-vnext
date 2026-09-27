@@ -11,6 +11,8 @@ const {
   renderReport,
   isVerificationUnfilled,
   DEFAULT_CAP,
+  COVERAGE_FLOOR,
+  LOCATOR_SCAN_BYTES,
 } = require('./functional-verification');
 
 const MODULE_PATH = path.join(__dirname, 'functional-verification.js');
@@ -91,13 +93,19 @@ describe('checkEvidence', () => {
     fs.utimesSync(artifact, new Date(artifactSec * 1000), new Date(artifactSec * 1000));
 
     // The old floor: HEAD's commit time alone. The stale artifact sailed through.
-    const [underHeadOnly] = checkEvidence([{ criterion: 'FS-1', artifact }], headSec);
+    const [underHeadOnly] = checkEvidence(
+      [{ criterion: 'FS-1', artifact, locator: 'evidence' }],
+      headSec
+    );
     expect(underHeadOnly.tier1).toBe('pass');
 
     // The floor as specified: max(HEAD commit time, loop start time).
     const sinceSec = Math.max(headSec, loopStartSec);
     expect(sinceSec).toBe(loopStartSec);
-    const [underMaxFloor] = checkEvidence([{ criterion: 'FS-1', artifact }], sinceSec);
+    const [underMaxFloor] = checkEvidence(
+      [{ criterion: 'FS-1', artifact, locator: 'evidence' }],
+      sinceSec
+    );
     expect(underMaxFloor.tier1).toBe('fail');
     expect(underMaxFloor.failure).toBe('stale');
   });
@@ -131,21 +139,28 @@ describe('checkEvidence', () => {
     const artifactSec = loopStartSec + 30; // iteration 1 wrote it; iteration 3 is judging now
     fs.utimesSync(artifact, new Date(artifactSec * 1000), new Date(artifactSec * 1000));
 
-    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact }], loopStartSec);
+    const [verdict] = checkEvidence(
+      [{ criterion: 'FS-1', artifact, locator: 'iteration 1' }],
+      loopStartSec
+    );
     expect(verdict.tier1).toBe('pass');
   });
 
-  test('pass — exists, non-empty, strictly newer than sinceSec', () => {
+  test('pass — exists, non-empty, strictly newer than sinceSec, locator found', () => {
     const artifact = path.join(tmpDir, 'fresh.txt');
     fs.writeFileSync(artifact, 'evidence');
     const stat = fs.statSync(artifact);
     const mtimeSec = Math.floor(stat.mtimeMs / 1000);
-    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact }], mtimeSec - 3600);
+    const [verdict] = checkEvidence(
+      [{ criterion: 'FS-1', artifact, locator: 'evidence' }],
+      mtimeSec - 3600
+    );
     expect(verdict).toMatchObject({
       criterion: 'FS-1',
       tier1: 'pass',
       artifact,
       bytes: 8,
+      locator: 'evidence',
     });
     expect(verdict.failure).toBeUndefined();
   });
@@ -159,7 +174,10 @@ describe('checkEvidence', () => {
     fs.mkdirSync(dir);
     fs.writeFileSync(path.join(dir, 'inner.txt'), 'x');
     const mtimeSec = Math.floor(fs.statSync(dir).mtimeMs / 1000);
-    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact: dir }], mtimeSec - 3600);
+    const [verdict] = checkEvidence(
+      [{ criterion: 'FS-1', artifact: dir, locator: 'x' }],
+      mtimeSec - 3600
+    );
     expect(verdict.tier1).toBe('fail');
     expect(verdict.failure).toBe('not-a-file');
   });
@@ -170,7 +188,10 @@ describe('checkEvidence', () => {
     const link = path.join(tmpDir, 'link.txt');
     fs.symlinkSync(target, link);
     const mtimeSec = Math.floor(fs.statSync(link).mtimeMs / 1000);
-    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact: link }], mtimeSec - 3600);
+    const [verdict] = checkEvidence(
+      [{ criterion: 'FS-1', artifact: link, locator: 'evidence' }],
+      mtimeSec - 3600
+    );
     expect(verdict.tier1).toBe('pass');
   });
 
@@ -182,7 +203,7 @@ describe('checkEvidence', () => {
 
     const claims = [
       { criterion: 'FS-1', artifact: null },
-      { criterion: 'FS-2', artifact: passArtifact },
+      { criterion: 'FS-2', artifact: passArtifact, locator: 'x' },
       { criterion: 'FS-3', artifact: path.join(tmpDir, 'missing.txt') },
     ];
     const verdicts = checkEvidence(claims, mtimeSec - 10);
@@ -190,6 +211,88 @@ describe('checkEvidence', () => {
     expect(verdicts[0].failure).toBe('no-artifact');
     expect(verdicts[1].tier1).toBe('pass');
     expect(verdicts[2].failure).toBe('missing');
+  });
+
+  // ---------------------------------------------------------------------------
+  // the locator check (D6, VCON-B001) — appended last, after the five existing failure modes
+  // ---------------------------------------------------------------------------
+
+  test('no-locator — artifact clears every existing check but no locator was supplied', () => {
+    const artifact = path.join(tmpDir, 'no-locator.txt');
+    fs.writeFileSync(artifact, 'some content');
+    const mtimeSec = Math.floor(fs.statSync(artifact).mtimeMs / 1000);
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact }], mtimeSec - 3600);
+    expect(verdict.tier1).toBe('fail');
+    expect(verdict.failure).toBe('no-locator');
+  });
+
+  test('locator-not-found — artifact exists and is fresh, but does not contain the locator', () => {
+    const artifact = path.join(tmpDir, 'wrong-content.txt');
+    fs.writeFileSync(artifact, 'some content');
+    const mtimeSec = Math.floor(fs.statSync(artifact).mtimeMs / 1000);
+    const [verdict] = checkEvidence(
+      [{ criterion: 'FS-1', artifact, locator: 'not present here' }],
+      mtimeSec - 3600
+    );
+    expect(verdict.tier1).toBe('fail');
+    expect(verdict.failure).toBe('locator-not-found');
+    expect(verdict.truncated).toBeFalsy();
+  });
+
+  test('locator-not-found carries truncated: true when the scan hits LOCATOR_SCAN_BYTES', () => {
+    const artifact = path.join(tmpDir, 'huge.txt');
+    // One byte past the cap, and the locator is placed in the very last byte -- past where
+    // the scan stops -- so this proves both that the cap is honoured and that missing it
+    // there (not merely being large) is what produces the failure.
+    const body = Buffer.alloc(LOCATOR_SCAN_BYTES + 1, 'a');
+    body.write('ZZZ', LOCATOR_SCAN_BYTES - 2);
+    fs.writeFileSync(artifact, body);
+    const mtimeSec = Math.floor(fs.statSync(artifact).mtimeMs / 1000);
+    const [verdict] = checkEvidence(
+      [{ criterion: 'FS-1', artifact, locator: 'ZZZ' }],
+      mtimeSec - 3600
+    );
+    expect(verdict.tier1).toBe('fail');
+    expect(verdict.failure).toBe('locator-not-found');
+    expect(verdict.truncated).toBe(true);
+  });
+
+  test('one artifact, two criteria, two different locators — one passes, one fails not-found', () => {
+    const artifact = path.join(tmpDir, 'shared.txt');
+    fs.writeFileSync(artifact, 'the quick brown fox');
+    const mtimeSec = Math.floor(fs.statSync(artifact).mtimeMs / 1000);
+    const claims = [
+      { criterion: 'FS-1', artifact, locator: 'quick brown' },
+      { criterion: 'FS-2', artifact, locator: 'slow red' },
+    ];
+    const [passVerdict, failVerdict] = checkEvidence(claims, mtimeSec - 3600);
+    expect(passVerdict.tier1).toBe('pass');
+    expect(failVerdict.tier1).toBe('fail');
+    expect(failVerdict.failure).toBe('locator-not-found');
+  });
+
+  test('judgeOnly short-circuits to tier1: "skipped" with no failure, before any stat', () => {
+    const [verdict] = checkEvidence(
+      [{ criterion: 'FS-1', artifact: path.join(tmpDir, 'does-not-exist.txt'), judgeOnly: true }],
+      0
+    );
+    expect(verdict.tier1).toBe('skipped');
+    expect(verdict.failure).toBeUndefined();
+  });
+
+  test('judgeOnly with no artifact at all still skips rather than failing no-artifact', () => {
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact: null, judgeOnly: true }], 0);
+    expect(verdict).toEqual({
+      criterion: 'FS-1',
+      tier1: 'skipped',
+      artifact: null,
+      bytes: null,
+      mtimeSec: null,
+    });
+  });
+
+  test('LOCATOR_SCAN_BYTES is 2,000,000', () => {
+    expect(LOCATOR_SCAN_BYTES).toBe(2_000_000);
   });
 });
 
@@ -204,6 +307,7 @@ describe('decideNext', () => {
       gaps: ['FS-2'],
       unbuilt: ['FS-1'],
       previousGaps: null,
+      met: [],
     });
     expect(result.action).toBe('exit-unbuilt');
   });
@@ -216,6 +320,7 @@ describe('decideNext', () => {
       gaps: [],
       unbuilt: ['FS-1'],
       previousGaps: null,
+      met: [],
     });
     expect(result.action).toBe('exit-unbuilt');
   });
@@ -226,6 +331,7 @@ describe('decideNext', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      met: ['FS-1'],
     });
     expect(result.action).toBe('exit-satisfied');
   });
@@ -236,6 +342,7 @@ describe('decideNext', () => {
       gaps: ['FS-1', 'FS-2'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      met: [],
     });
     expect(result.action).toBe('exit-stalled');
     expect(result.closed).toEqual([]);
@@ -249,6 +356,7 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: null,
+      met: [],
     });
     expect(result.action).toBe('remediate');
     expect(result.closed).toEqual([]);
@@ -260,7 +368,14 @@ describe('decideNext', () => {
     // exited satisfied or unbuilt) yields [] rather than null. Treating that as a stall
     // reports "remediation is not converging" on an iteration where no remediation ran, and
     // exits before the Debug stage is ever dispatched.
-    const result = decideNext({ iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: [], cap: 3 });
+    const result = decideNext({
+      iteration: 2,
+      gaps: ['FS-1'],
+      unbuilt: [],
+      previousGaps: [],
+      met: [],
+      cap: 3,
+    });
     expect(result.action).toBe('remediate');
   });
 
@@ -270,6 +385,7 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      met: [],
       cap: 3,
     });
     // closed = ['FS-2'] so it does not fall into stalled; it reaches the cap instead.
@@ -283,6 +399,7 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      met: [],
       cap: 3,
     });
     expect(result.closed).toEqual(['FS-2']);
@@ -296,6 +413,7 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: null,
+      met: [],
       cap: 1,
     });
     expect(result.action).toBe('exit-stuck');
@@ -308,6 +426,7 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      met: [],
     });
     expect(remediateResult.action).toBe('remediate');
 
@@ -316,22 +435,175 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      met: [],
     });
     expect(stuckResult.action).toBe('exit-stuck');
   });
 
   test('every result includes a non-empty reason string', () => {
     for (const input of [
-      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null },
-      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null },
-      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'] },
-      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [] },
-      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null },
+      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [] },
+      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [] },
+      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [] },
+      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [] },
+      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [] },
     ]) {
       const result = decideNext(input);
       expect(typeof result.reason).toBe('string');
       expect(result.reason.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decideNext — the coverage re-label (D8, D9, VCON-B002)
+// ---------------------------------------------------------------------------
+
+describe('decideNext: the coverage re-label', () => {
+  test('an explicit floor re-labels exit-satisfied when the proven ratio is below it (OQ-7)', () => {
+    // A zero-gap iteration that would otherwise be exit-satisfied -- the case OQ-7 asked about
+    // by name: a run resolving mostly not_verifiable has no gaps and no unbuilt, so it reaches
+    // the satisfied branch at near-zero coverage.
+    const result = decideNext({
+      iteration: 1,
+      gaps: [],
+      unbuilt: [],
+      previousGaps: null,
+      met: ['FS-1'],
+      total: 10,
+      coverageFloor: 0.5,
+    });
+    expect(result.action).toBe('exit-insufficient-coverage');
+    expect(result.reason).toMatch(/1\/10/);
+    expect(result.reason).toMatch(/0\.5/);
+  });
+
+  test('an explicit floor re-labels exit-stalled', () => {
+    const result = decideNext({
+      iteration: 2,
+      gaps: ['FS-1', 'FS-2'],
+      unbuilt: [],
+      previousGaps: ['FS-1', 'FS-2'],
+      met: ['FS-3'],
+      total: 10,
+      coverageFloor: 0.9,
+    });
+    expect(result.action).toBe('exit-insufficient-coverage');
+  });
+
+  test('an explicit floor re-labels exit-stuck', () => {
+    const result = decideNext({
+      iteration: 3,
+      gaps: ['FS-1'],
+      unbuilt: [],
+      previousGaps: ['FS-1', 'FS-2'],
+      met: ['FS-3'],
+      total: 10,
+      coverageFloor: 0.9,
+      cap: 3,
+    });
+    expect(result.action).toBe('exit-insufficient-coverage');
+  });
+
+  test('a remediate action is never re-labelled, at any floor', () => {
+    const result = decideNext({
+      iteration: 1,
+      gaps: ['FS-1'],
+      unbuilt: [],
+      previousGaps: null,
+      met: [],
+      total: 10,
+      coverageFloor: 1, // the highest possible floor -- if anything could force a re-label, this would
+    });
+    expect(result.action).toBe('remediate');
+  });
+
+  test('exit-unbuilt is never re-labelled, at any floor', () => {
+    const result = decideNext({
+      iteration: 1,
+      gaps: [],
+      unbuilt: ['FS-1'],
+      previousGaps: null,
+      met: [],
+      total: 10,
+      coverageFloor: 1,
+    });
+    expect(result.action).toBe('exit-unbuilt');
+  });
+
+  test('with coverageFloor null (COVERAGE_FLOOR, the shipped default) exit-satisfied is unaffected even at near-zero coverage', () => {
+    const result = decideNext({
+      iteration: 1,
+      gaps: [],
+      unbuilt: [],
+      previousGaps: null,
+      met: ['FS-1'],
+      total: 62, // the PRD's own 18% (11 of 62) shape, exaggerated further to 1/62
+      // coverageFloor omitted -- defaults to COVERAGE_FLOOR (null)
+    });
+    expect(result.action).toBe('exit-satisfied');
+  });
+
+  test('coverageFloor: null passed explicitly behaves the same as omitting it', () => {
+    const result = decideNext({
+      iteration: 1,
+      gaps: [],
+      unbuilt: [],
+      previousGaps: null,
+      met: [],
+      total: 10,
+      coverageFloor: null,
+    });
+    expect(result.action).toBe('exit-satisfied');
+  });
+
+  test('a met ratio at or above the floor is not re-labelled', () => {
+    const result = decideNext({
+      iteration: 1,
+      gaps: [],
+      unbuilt: [],
+      previousGaps: null,
+      met: ['FS-1', 'FS-2', 'FS-3', 'FS-4', 'FS-5'],
+      total: 10,
+      coverageFloor: 0.5, // 5/10 === 0.5, not strictly below it
+    });
+    expect(result.action).toBe('exit-satisfied');
+  });
+
+  test('a missing (undefined) total skips the re-label rather than dividing by it', () => {
+    const result = decideNext({
+      iteration: 1,
+      gaps: [],
+      unbuilt: [],
+      previousGaps: null,
+      met: [],
+      coverageFloor: 0.5,
+      // total omitted
+    });
+    expect(result.action).toBe('exit-satisfied');
+  });
+
+  test('a zero total skips the re-label', () => {
+    const result = decideNext({
+      iteration: 1,
+      gaps: [],
+      unbuilt: [],
+      previousGaps: null,
+      met: [],
+      total: 0,
+      coverageFloor: 0.5,
+    });
+    expect(result.action).toBe('exit-satisfied');
+  });
+
+  test('COVERAGE_FLOOR is exported as an explicitly-unset (null) named constant', () => {
+    expect(COVERAGE_FLOOR).toBeNull();
+  });
+
+  test('a missing met throws rather than defaulting', () => {
+    expect(() =>
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, total: 10 })
+    ).toThrow(/input\.met is required/);
   });
 });
 
@@ -499,6 +771,119 @@ describe('renderReport', () => {
     expect(report).toContain('_None._');
     expect(report).toContain('FS-1');
   });
+
+  // -------------------------------------------------------------------------
+  // The coverage line, the Tier 1 / Proven at columns, the insufficient-coverage
+  // label and the optional finalEnvironmentRun (D8, D9, D14, VCON-B002)
+  // -------------------------------------------------------------------------
+
+  test('the Coverage line names the proven ratio and the uncovered membership', () => {
+    const report = renderReport(baseInput);
+    const coverageLine = report.split('\n').find((l) => l.startsWith('**Coverage**'));
+    // baseInput: FS-1 met, FS-2/FS-3/FS-4 not met/not_verifiable/unbuilt -- 1 of 4 proven.
+    expect(coverageLine).toContain('1 of 4 proven');
+    expect(coverageLine).toContain('FS-2');
+    expect(coverageLine).toContain('FS-3');
+    expect(coverageLine).toContain('FS-4');
+    expect(coverageLine).not.toContain('FS-1');
+  });
+
+  test('the Coverage line says "none" when every criterion is proven', () => {
+    const allMet = { ...baseInput, criteria: [baseInput.criteria[0]] };
+    const report = renderReport(allMet);
+    const coverageLine = report.split('\n').find((l) => l.startsWith('**Coverage**'));
+    expect(coverageLine).toContain('1 of 1 proven');
+    expect(coverageLine).toContain('uncovered: none');
+  });
+
+  test('OUTCOME_LABEL renders insufficient-coverage as a readable label', () => {
+    const report = renderReport({ ...baseInput, outcome: 'insufficient-coverage' });
+    const outcomeLine = report.split('\n').find((l) => l.startsWith('**Outcome**'));
+    expect(outcomeLine).toContain('Insufficient Coverage');
+  });
+
+  test('the Not Met table gains a Tier 1 column sourced from the criterion', () => {
+    const withTier1 = {
+      ...baseInput,
+      criteria: [
+        baseInput.criteria[0],
+        { ...baseInput.criteria[1], tier1: 'fail' },
+      ],
+    };
+    const report = renderReport(withTier1);
+    expect(report).toContain('| Tier 1 |');
+    const notMetSection = report.split('## Not Met')[1].split('## Not Verifiable')[0];
+    expect(notMetSection).toContain('fail');
+  });
+
+  test('a Not Met criterion missing tier1 renders a blank cell, not a fabricated value', () => {
+    const report = renderReport(baseInput); // baseInput's FS-2 (not_met) carries no tier1
+    const notMetRow = report.split('\n').find((l) => l.startsWith('| FS-2 '));
+    // Tier 1 is the 3rd column: | ID | Statement | Tier 1 | Reason | Blocker | Attempts |
+    expect(notMetRow.split('|')[3].trim()).toBe('');
+  });
+
+  test('the Met table gains a Proven at column sourced from the criterion', () => {
+    const withProvenAt = {
+      ...baseInput,
+      criteria: [{ ...baseInput.criteria[0], provenAt: 2 }],
+    };
+    const report = renderReport(withProvenAt);
+    expect(report).toContain('| Proven at |');
+    const metSection = report.split('## Met')[1].split('## Not Met')[0];
+    expect(metSection).toContain('| 2 |');
+  });
+
+  test('a Met criterion missing provenAt renders a blank cell, not "0"', () => {
+    const report = renderReport(baseInput); // baseInput's FS-1 (met) carries no provenAt
+    const metRow = report.split('\n').find((l) => l.startsWith('| FS-1 '));
+    // Proven at is the 4th column: | ID | Statement | Artifact | Proven at |
+    expect(metRow.split('|')[4].trim()).toBe('');
+  });
+
+  test('finalEnvironmentRun.status "fail" carries the failure on the Outcome line even when satisfied', () => {
+    const report = renderReport({
+      ...baseInput,
+      outcome: 'satisfied',
+      criteria: [baseInput.criteria[0]],
+      finalEnvironmentRun: { command: 'npm run deploy:check', status: 'fail' },
+    });
+    const outcomeLine = report.split('\n').find((l) => l.startsWith('**Outcome**'));
+    expect(outcomeLine).toContain('Satisfied');
+    expect(outcomeLine).toMatch(/final full-environment run FAILED/i);
+  });
+
+  test('finalEnvironmentRun {command: "", status: "skipped"} says no full-environment run was declared', () => {
+    const report = renderReport({
+      ...baseInput,
+      outcome: 'satisfied',
+      criteria: [baseInput.criteria[0]],
+      finalEnvironmentRun: { command: '', status: 'skipped' },
+    });
+    const outcomeLine = report.split('\n').find((l) => l.startsWith('**Outcome**'));
+    expect(outcomeLine).toMatch(/no full-environment run declared/i);
+  });
+
+  test('finalEnvironmentRun.status "pass" adds nothing to the Outcome line', () => {
+    const report = renderReport({
+      ...baseInput,
+      outcome: 'satisfied',
+      criteria: [baseInput.criteria[0]],
+      finalEnvironmentRun: { command: 'npm run deploy:check', status: 'pass' },
+    });
+    const outcomeLine = report.split('\n').find((l) => l.startsWith('**Outcome**'));
+    expect(outcomeLine).toBe('**Outcome**: Satisfied');
+  });
+
+  test('an absent finalEnvironmentRun leaves the Outcome line exactly as before', () => {
+    const report = renderReport({
+      ...baseInput,
+      outcome: 'satisfied',
+      criteria: [baseInput.criteria[0]],
+    });
+    const outcomeLine = report.split('\n').find((l) => l.startsWith('**Outcome**'));
+    expect(outcomeLine).toBe('**Outcome**: Satisfied');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -521,7 +906,7 @@ describe('CLI', () => {
     fs.writeFileSync(artifact, 'proof');
     const stat = fs.statSync(artifact);
     const mtimeSec = Math.floor(stat.mtimeMs / 1000);
-    const claims = JSON.stringify([{ criterion: 'FS-1', artifact }]);
+    const claims = JSON.stringify([{ criterion: 'FS-1', artifact, locator: 'proof' }]);
 
     const stdout = execFileSync('node', [
       MODULE_PATH,
@@ -541,6 +926,7 @@ describe('CLI', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      met: [],
     });
 
     const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', input]).toString();
@@ -632,7 +1018,9 @@ describe('CLI', () => {
     const claimsFile = path.join(tmpDir, 'claims.json');
     fs.writeFileSync(
       claimsFile,
-      JSON.stringify([{ criterion: 'FS-1', artifact, reason: "couldn't start the server" }])
+      JSON.stringify([
+        { criterion: 'FS-1', artifact, locator: 'proof', reason: "couldn't start the server" },
+      ])
     );
 
     const stdout = execFileSync('node', [
@@ -652,7 +1040,9 @@ describe('CLI', () => {
     fs.writeFileSync(artifact, 'proof');
     const stat = fs.statSync(artifact);
     const mtimeSec = Math.floor(stat.mtimeMs / 1000);
-    const claims = JSON.stringify([{ criterion: 'FS-1', artifact, reason: "couldn't start it" }]);
+    const claims = JSON.stringify([
+      { criterion: 'FS-1', artifact, locator: 'proof', reason: "couldn't start it" },
+    ]);
 
     const stdout = execFileSync('node', [MODULE_PATH, 'check-evidence', '-', String(mtimeSec - 10)], {
       input: claims,
@@ -666,7 +1056,7 @@ describe('CLI', () => {
     const inputFile = path.join(tmpDir, 'decide.json');
     fs.writeFileSync(
       inputFile,
-      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null })
+      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [] })
     );
 
     const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', '--file', inputFile]).toString();

@@ -1,0 +1,163 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verification-convergence.md",
+  "trd_hash": "045cb2f32026cf0a9c316c61b3f7f9f9c32759df78d0312bc318d8062c8963ac",
+  "branch": "feature/verification-convergence/build",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "VCON-B001": {
+      "description": "The locator rule, end to end — check, supply and exemption in one change. (a) Extend checkEvidence with the locator check, the no-locator / locator-not-found failures, LOCATOR_SCAN_BYTES with a trunca",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T01:01:10.131Z",
+      "completed_at": "2026-09-27T01:23:59.394Z",
+      "last_advanced": "2026-09-27T01:18:15.425Z"
+    },
+    "VCON-B002": {
+      "description": "The exit vocabulary in the lib: decideNext gains met / total / coverageFloor and the exit-insufficient-coverage re-label over exit-satisfied, exit-stalled and exit-stuck; COVERAGE_FLOOR = null is expo",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T01:01:10.131Z",
+      "completed_at": "2026-09-27T01:23:59.395Z",
+      "last_advanced": "2026-09-27T01:18:15.426Z"
+    },
+    "VCON-B003": {
+      "description": "The capture/repair boundary: add the capture-only prohibition to the Exercise prompt — it may bring a system up when nothing is running, and may not edit source, rebuild, restart or re-deploy; anythin",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-B004": {
+      "description": "The loop's memory and its coverage exit vocabulary, as ONE unit: hold the settled/open partition in the script (§3.4), seed it from resume (met only — D2), make reconcileClaims open-set-relative, stam",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-B005": {
+      "description": "The end-of-run full-environment gate (D14): on any exit action except unbuilt / not-run the Judge runs the declared full command once, its result enters the rendered report and buildFinalResult's retu",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-B006": {
+      "description": "Lane-based slicing: read the new exerciseLanes arg (§3.3, defaulting to one lane of concurrency 1 over every criterion, createCommand: \"\"), intersect each lane with the open set, slice within the lane",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-B007": {
+      "description": "packages/core/contracts/functional-verification.md + mirror + functional-verification.test.js (the contract's own suite): add the locator rule and its stated image limit, the Tier 1 column and judge-o",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-B008": {
+      "description": "The declarations: add the new §1a resource table, the data-permission column, the preview row and the fast-refresh/full-deploy split to packages/core/templates/claude-directory/rules/verification.md (",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-B009": {
+      "description": "Both command surfaces, in one change: packages/core/commands/implement-trd.md and verify-build.md, each with its mirror. §3.6a (and verify-build.md §2, which points at it) resolves exerciseLanes from ",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-D001": {
+      "description": "docs/TRD/functional-verification.md, the whole file, after the flip: sync §3.2 (checkEvidence), §3.3 (VerifyFunctionalArgs — now 18 fields, including exerciseLanes — and the result shape), §3.3a and §",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VCON-T001": {
+      "description": "[LIVE]: extend and run test/smoke/scenarios/verify-functional.sh. Add a two-criterion fixture where one criterion's locator is present in a shared artifact and the other's is not, and assert the repor",
+      "phase": 3,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "e03c4f8",
+    "last_checkpoint_timestamp": "2026-09-27T01:01:10.131Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

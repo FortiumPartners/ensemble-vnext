@@ -1258,7 +1258,10 @@ resolving inputs from disk and rendering what the workflow returns.
 
    Present → parse its table into `criteria` (§3.1's format; column → field: `ID` → `id`,
    `Functional statement` → `statement`, `Cites` → `cites`, `Evidence that would prove it` →
-   `evidence`, `Derivation` → `derivation`). **Zero rows is legitimate** (AC-3) — proceed to
+   `evidence`, `Derivation` → `derivation`, `Tier 1` → `tier1`, valued `locator` or
+   `judge-only` — an absent column, or an absent cell, reads as `locator` (verification-convergence
+   TRD §3.8), so a definition written before this change parses unchanged). **Zero rows is
+   legitimate** (AC-3) — proceed to
    §8.3 with `criteria: []` rather than treating it as either `not run` outcome; the workflow's
    own empty-criteria branch (§3.3, Error Handling) runs one Judge call and returns
    `outcome: 'satisfied'` with a real, rendered report — that is the correct handling for a PRD

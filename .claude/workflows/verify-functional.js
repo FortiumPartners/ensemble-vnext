@@ -161,9 +161,12 @@ function buildExercisePrompt(iteration) {
     `this run taught you something worth recording -- a stale hint, a corrected port or ` +
     `command, a substituted evidence artifact -- add or correct a marked line ([ran]/[read]/` +
     `[inferred], per the contract) before you return. Report whether you touched that file.\n\n` +
-    `Return { "claims": [ { "criterion": "<id>", "artifact": "<path>" | null, "reason": ` +
-    `"<string, present when artifact is null>" }, ... ], "notesUpdated": <true when you added ` +
-    `or corrected a line in .claude/verification-notes.md this run, false otherwise> }.`
+    `Return { "claims": [ { "criterion": "<id>", "artifact": "<path>" | null, "locator": ` +
+    `"<string>" | null, "reason": "<string, present when artifact is null>" }, ... ], ` +
+    `"notesUpdated": <true when you added or corrected a line in .claude/verification-notes.md ` +
+    `this run, false otherwise> }. "locator" is a literal string you have actually SEEN inside ` +
+    `the artifact (not a description of what it ought to contain) -- give none for a ` +
+    `judge-only criterion, and expect it to be discarded and re-derived for one either way.`
   )
 }
 
@@ -294,6 +297,7 @@ const EXERCISE_SCHEMA = {
         properties: {
           criterion: { type: 'string' },
           artifact: { type: ['string', 'null'] },
+          locator: { type: ['string', 'null'] },
           reason: { type: 'string' },
         },
       },
