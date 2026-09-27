@@ -5,7 +5,14 @@
 // the --verify default flip. This suite asserts on the PROSE those two files carry, because
 // the derivation itself is executed by a model reading these files, not by code (D5, D15;
 // see docs/TRD/verification-convergence.md's "Could Not Verify": "Lane resolution is done by
-// a model reading two tables (§3.6a)").
+// a model reading two tables (§8.1a)").
+//
+// Split (post-review, VCON-B009 ordering fix): §3.6a runs BEFORE any success-definition
+// criteria exist (the derive agent it depends on is dispatched in the background at §3.6 and
+// is not read until Step 8), so it resolves ENVIRONMENTS only. The per-criterion three-way
+// bucket and the lane/refresh/full-run derivation that reads §1a/§2 both need `criteria` to
+// exist, so they moved to §8.1a — the first point after §8.1 where criteria are actually
+// resolved, and one both the fresh-run path and the `--resume` path (§8.2) reach.
 //
 // These are documentation-level assertions, same standing as
 // test/integration/tests/runtime-integrity.test.sh's — they prove the command TELLS the
@@ -44,10 +51,11 @@ describe('packages/core <-> .claude mirror parity', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The lane / refresh / full-run derivation (§3.6a)
+// The lane / refresh / full-run derivation (§8.1a) -- moved out of §3.6a because no
+// criterion exists at §3.6a's point in the run.
 // ---------------------------------------------------------------------------
 
-describe('implement-trd.md §3.6a derives exerciseLanes/refreshCommand/fullRunCommand', () => {
+describe('implement-trd.md §8.1a derives exerciseLanes/refreshCommand/fullRunCommand', () => {
   const src = () => read(CORE_IMPLEMENT);
 
   test('reads §1a for capacity and nothing else', () => {
@@ -84,17 +92,66 @@ describe('implement-trd.md §3.6a derives exerciseLanes/refreshCommand/fullRunCo
   });
 });
 
-describe('verify-build.md §2 points at the same derivation rather than duplicating it', () => {
+describe('verify-build.md points at §3.6a for environments and §8.1a for lanes, not one pointer for both', () => {
   const src = () => read(CORE_VERIFY_BUILD);
 
-  test('still points at §3.6a as identical', () => {
+  test('step 2 (environment preflight) still points at §3.6a as identical', () => {
     expect(src()).toMatch(/Identical to `\/implement-trd` §3\.6a/);
   });
 
-  test('names that the pointer now also covers lanes\\/refresh\\/full-run and the digest line', () => {
+  test('step 2 no longer claims to also derive lanes/refresh/full-run', () => {
+    const step2 = src().split('### 2. Preflight the environment')[1].split('### 3.')[0];
+    expect(step2).not.toMatch(/exerciseLanes|refreshCommand|fullRunCommand/);
+  });
+
+  test('a later step points at §8.1a and names lanes/refresh/full-run and the digest line', () => {
+    expect(src()).toMatch(/Identical to `\/implement-trd` §8\.1a/);
     expect(src()).toMatch(/exerciseLanes/);
     expect(src()).toMatch(/refreshCommand/);
     expect(src()).toMatch(/fullRunCommand/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ordering: §8.1a sits after criteria are resolved (§8.1) and before dispatch (§8.3);
+// §3.6a no longer does per-criterion work; §8.2 (the --resume path) runs §8.1a too.
+// ---------------------------------------------------------------------------
+
+describe('§8.1a is positioned correctly and §3.6a is environment-only', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('§8.1a appears after §8.1 and before §8.3', () => {
+    const text = src();
+    const i81 = text.indexOf('### 8.1 Resolve the definition');
+    const i81a = text.indexOf('### 8.1a Resolve criteria to environments and lanes');
+    const i83 = text.indexOf('### 8.3 Assemble the remaining args and dispatch');
+    expect(i81).toBeGreaterThan(-1);
+    expect(i81a).toBeGreaterThan(-1);
+    expect(i83).toBeGreaterThan(-1);
+    expect(i81a).toBeGreaterThan(i81);
+    expect(i83).toBeGreaterThan(i81a);
+  });
+
+  test('§8.2 (the --resume composition) names §8.1a', () => {
+    const text = src();
+    const section82 = text
+      .split('### 8.2 The `--resume` composition')[1]
+      .split('### 8.1a Resolve criteria to environments and lanes')[0];
+    expect(section82).toMatch(/§8\.1a/);
+  });
+
+  test('§3.6a contains no per-criterion three-way bucket and no lane derivation', () => {
+    const text = src();
+    const section36a = text
+      .split('### 3.6a Preflight the environment')[1]
+      .split('## Step 4:')[0];
+    // §3.6a legitimately NAMES the three field names once, pointing readers at §8.1a for the
+    // derivation -- what it must not contain is the derivation itself: the remainder lane,
+    // the pool/queue rule, or an assignment of any of the three.
+    expect(section36a).not.toMatch(/remainder lane/i);
+    expect(section36a).not.toMatch(/pool.*lane.*concurrency|queue.*lane.*concurrency/is);
+    expect(section36a).not.toMatch(/no lane at all/i);
+    expect(section36a).not.toMatch(/createCommand: ""/);
   });
 });
 

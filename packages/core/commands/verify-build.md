@@ -57,15 +57,14 @@ the TRD basename. No branch derivation — you are verifying what is on disk now
 
 ### 2. Preflight the environment
 
-**Identical to `/implement-trd` §3.6a — read that section and follow it.** Read
-`.claude/rules/verification.md` and resolve each criterion as exercisable / `not_verifiable` /
-needs-one-thing-from-the-owner, batch that last bucket into ONE question with a stated
-default, then run on whatever remains. Partial verification with stated gaps beats none.
-
-**That section now also derives `exerciseLanes`, `refreshCommand` and `fullRunCommand` from
-`verification.md` §1a and §2, records per criterion which environment and which lane it
-resolved to, and reports a prior-template digest match in one line (VCON-B009) — follow all of
-that here too, not only the three-way bucket.**
+**Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist
+yet at this point (that only changes at step 3/3a, below), so this step resolves
+ENVIRONMENTS only: read `.claude/rules/verification.md`'s §1 and resolve each DECLARED
+ENVIRONMENT as usable / unusable / needs-one-thing-from-the-owner, batch that last bucket into
+ONE question — naming the environments, not criteria — with a stated default, then persist the
+per-environment result exactly as §3.6a documents (`state.functional_verification.environments`,
+set in memory then saved). Report a prior-template digest match in one line too (VCON-B009).
+Partial verification with stated gaps beats none.
 
 ### 3. Read the inputs from disk
 
@@ -85,8 +84,8 @@ the authority on what the fields ARE; §4 is the dispatch, not a competing spec.
 - `.claude/verification-notes.md`, the stack hints, the contract text, `.claude/rules/verification.md`
 - `.trd-state/<feature>/verification-state.json` — for `--resume`
 - `since` — resolved per §8.3
-- `exerciseLanes`, `refreshCommand`, `fullRunCommand` — resolved at step 2 (identical to
-  `/implement-trd` §3.6a)
+- `exerciseLanes`, `refreshCommand`, `fullRunCommand` — resolved at step 3b, below (identical to
+  `/implement-trd` §8.1a), once `criteria` exists
 - **`prd_path`** — bind it HERE, because §4's dispatch passes it and 3a runs on only one
   branch. Read `.trd-state/<feature>/implement.json`'s `functional_verification.prd_path` when
   that file and key exist and the value is non-null; otherwise `""`. Note the key is written
@@ -153,10 +152,19 @@ followed by `/verify-build`, which stopped at `no definition produced` and decli
 citing Step 8's reasoning. The reasoning was inherited without checking whether its premises
 held here. They did not.
 
+### 3b. Resolve criteria to environments and lanes
+
+**Identical to `/implement-trd` §8.1a — read that section and follow it.** `criteria` now
+exists (step 3 or 3a), and step 2's per-environment results are on disk
+(`.trd-state/<feature>/implement.json`'s `functional_verification.environments`) — bucket each
+criterion exercisable / not-verifiable against those results (no new `AskUserQuestion`; the
+one question already ran at step 2), then derive `exerciseLanes`, `refreshCommand` and
+`fullRunCommand` from `verification.md` §1a/§2 exactly as §8.1a documents.
+
 ### 4. Dispatch
 
 All 18 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
-command's own resolution (Steps 1–3a), not copied from `/implement-trd`:
+command's own resolution (Steps 1–3b), not copied from `/implement-trd`:
 
 ```javascript
 Workflow({ name: "verify-functional", args: {
@@ -175,9 +183,9 @@ Workflow({ name: "verify-functional", args: {
   feature: "<feature>",                                          // TRD basename (Step 1) -- renderReport()'s header
   prd: prd_path,                                                 // bound in Step 3 (implement.json's functional_verification.prd_path, or ""), overwritten by 3a when it runs
   definitionPath: ".trd-state/<feature>/success-definition.md",  // present (Step 3), or just-derived (Step 3a)
-  exerciseLanes,                                                 // resolved per implement-trd.md §3.6a -- verification.md §1a; omitted defaults to one lane of concurrency 1
-  refreshCommand,                                                // resolved per implement-trd.md §3.6a -- verification.md §2's fast refresh, or "" when none is declared
-  fullRunCommand,                                                // resolved per implement-trd.md §3.6a -- verification.md §2's full deploy, or "" when none is declared
+  exerciseLanes,                                                 // resolved per implement-trd.md §8.1a (step 3b here) -- verification.md §1a; omitted defaults to one lane of concurrency 1
+  refreshCommand,                                                // resolved per implement-trd.md §8.1a (step 3b here) -- verification.md §2's fast refresh, or "" when none is declared
+  fullRunCommand,                                                // resolved per implement-trd.md §8.1a (step 3b here) -- verification.md §2's full deploy, or "" when none is declared
 } })
 ```
 

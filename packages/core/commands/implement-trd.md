@@ -615,14 +615,16 @@ command line AND `--resume`/`--continue` is also set AND
 `.trd-state/<feature>/verification-state.json` exists with a **non-terminal** outcome — that
 is, its top-level `outcome` key is `null` (the run stopped mid-loop). When it fires, this run
 re-enters the verification loop and nothing else: **skip this step entirely — dispatch no
-derive agent — and skip the phase loop (Steps 4–6) and the end-of-run review (Step 7)**, going
-straight to Step 8, which reads that state file as its `resume` argument. A definition already
-exists from the run that wrote the state file; deriving a second one would overwrite it
-mid-loop. Every other combination is unaffected: an explicit `--verify` with no state file (or
-a terminal one) derives and runs the phase loop as usual; `--resume` without an explicit
-`--verify` keeps its existing meaning (resume the implementation checkpoint) and runs the phase
-loop as usual — the default-on verification pass still follows it at Step 8 unless
-`--no-verify` was also given.
+derive agent — and skip §3.6a's environment preflight, the phase loop (Steps 4–6) and the
+end-of-run review (Step 7)**, going straight to Step 8, which reads that state file as its
+`resume` argument. A definition already exists from the run that wrote the state file;
+deriving a second one would overwrite it mid-loop. §3.6a never having run on this path is not
+a gap left unaddressed: §8.2 checks for its recorded environment results and, finding none,
+runs §3.6a's checks itself before §8.1a resolves criteria to lanes. Every other combination is
+unaffected: an explicit `--verify` with no state file (or a terminal one) derives and runs the
+phase loop as usual; `--resume` without an explicit `--verify` keeps its existing meaning
+(resume the implementation checkpoint) and runs the phase loop as usual — the default-on
+verification pass still follows it at Step 8 unless `--no-verify` was also given.
 
 **Read `outcome` and nothing else to decide this.** A non-null `outcome` (`satisfied`,
 `unbuilt`, `stalled`, `stuck`, `insufficient-coverage`) means the loop finished and MUST NOT be
@@ -752,6 +754,15 @@ the agent never wrote one).
 **Moved here from the tail of the run (formerly §8.4a) — the whole point is to catch an
 unusable environment before the phase loop spends hours implementing against it, not after.**
 
+**This step resolves ENVIRONMENTS only — nothing per criterion.** No success definition
+exists yet at this point in the run: the derive agent dispatched at §3.6 is running in the
+background, and its output is not read until Step 8.1a, hundreds of tool calls later. Any
+check that needs a criterion id — which bucket a criterion falls into, which lane it joins,
+`refreshCommand`/`fullRunCommand` for the run — belongs at §8.1a, not here (moved there; see
+that section). What this step CAN do now, and should, is find out whether the environments
+`.claude/rules/verification.md` declares are actually usable, so a dead environment is caught
+before the phase loop spends hours implementing against it rather than discovered mid-loop.
+
 **First, check whether `.claude/rules/verification.md` was ever filled in at all:**
 
 ```bash
@@ -761,85 +772,49 @@ node .claude/lib/functional-verification.js check-verification-unfilled \
 
 If this prints `"unfilled": true` — the project's copy is still byte-for-byte (modulo
 whitespace) the current shipped template or a prior one (`matchedTemplate` names which) — say so plainly in the readout rather than letting every
-criterion quietly resolve to `not_verifiable` as if the environments had been declared and
-simply didn't cover this one. Then continue: an unfilled file is not a reason to skip the
-loop, it is a reason to name the gap.
+environment quietly resolve to unusable as if it had been declared and simply didn't cover
+this project. Then continue: an unfilled file is not a reason to skip the loop, it is a
+reason to name the gap.
 
-Read `.claude/rules/verification.md` and resolve, per criterion, whether it can be exercised
-at all — **before** the `Workflow` call at §8.3, not four criteria into iteration 1.
+Read `.claude/rules/verification.md`'s §1 and, **for each environment it declares**, resolve
+whether it can be reached at all — before the `Workflow` call at §8.3, not four criteria into
+iteration 1. For each declared environment, one of:
 
-For each criterion, one of:
-
-- **exercisable** — the environment it needs is listed, reachable, and (if the loop will need
-  to correct) has a refresh command in §2.
-- **not verifiable here** — no environment listed covers it, the tooling is not installed, or
-  §5 already names it as unverifiable. Mark it now. It goes into the report as
-  `not_verifiable` with the reason, and it is never handed to the debugger.
+- **usable** — it is reachable, and any tooling/credentials §3/§4 name for it are present.
+- **unusable** — §1 marks it `must not be touched`, the tooling it needs is not installed, or
+  §5 already names it as unverifiable outright. Record the reason; any criterion that turns
+  out to need this environment resolves `not_verifiable` at §8.1a, and is never handed to the
+  debugger.
 - **needs one thing from the owner** — a credential that has expired, an approval to deploy to
   a shared environment, a service that must be started by hand.
 
 **That third bucket is the ONLY legitimate `AskUserQuestion` on this path, and it is asked
-ONCE, here, as a single batched question** naming every criterion affected and the default
-you will apply if unanswered (mark them `not_verifiable` and continue). This is
-`autonomy.md` case 2 — information that genuinely cannot be derived — and asking it up front
-is the difference between one question before the run and a discovery mid-loop that strands
-half the criteria.
+ONCE, here, as a single batched question** naming every ENVIRONMENT affected (not every
+criterion — none exist yet to name) and the default you will apply if unanswered (mark that
+environment `needs-owner-declined` and treat any criterion needing it as `not_verifiable`).
+This is `autonomy.md` case 2 — information that genuinely cannot be derived — and asking it up
+front, once, is the difference between one question before the run and a discovery mid-loop
+that strands however many criteria turn out to need that environment.
 
-**Record, per criterion, which environment it resolved to.** This is half of a lane (the
-other half is §1a's counts, below) and it is what makes a wrong mapping readable in the
-readout instead of inferable from a failure (TR7) — a number in the readout with no way to
-check it is worth less than none (§3.6a's existing habit, extended here). A criterion in the
-"not verifiable here" bucket resolves to no environment; every "exercisable" criterion
-resolves to exactly one.
+**Persist the per-environment result — this is what §8.1a reads back, hundreds of tool calls
+later, to resolve criteria without re-deriving reachability or asking the question twice.**
+Set it on the in-memory state object first, then persist with `implement-state.save()` —
+follow EXACTLY the pattern §3.6 (step 6, above) already documents for `functional_verification`:
+never a bare `writeFileSync`, never a read-modify-write of the file on disk.
 
-**Then derive `exerciseLanes`, `refreshCommand` and `fullRunCommand` — this is where lane
-resolution belongs and nowhere else (D5, D15): the workflow has no filesystem, and a second
-reader of `verification.md` would be a second opinion about the budget.**
+```javascript
+state.functional_verification = {
+  ...state.functional_verification,   // keep source_kind / prd_path / prd_resolved from §3.6
+  environments: {
+    // one entry per environment declared in verification.md §1
+    "<environment name>": { status: "usable" | "unusable" | "needs-owner-declined", reason: "<one line>" },
+  },
+};
+```
 
-1. **Read `.claude/rules/verification.md`'s §1a** (`Resource` / `How many may exist at once` /
-   `Which environments need it` / `How the loop creates and destroys one`). For each declared
-   resource:
-   - count `N > 1` → a **pool** lane, `concurrency: N`, `createCommand` copied verbatim from
-     the row's last column (`""` when the cell is blank — a blank cell withholds permission
-     to create an instance, whatever the count says).
-   - count `1` → a **queue** lane, `concurrency: 1`, `createCommand: ""` (the loop never
-     creates a queue resource — D5 rule i).
-   - count `0` → **no lane at all.** Every criterion needing this resource is `not_verifiable`
-     at this preflight (O7) and is never handed to the debugger (D5 rule v). This is a rule
-     the derivation APPLIES, not prose a reader is trusted to honour: such a resource
-     contributes no lane, no `refreshCommand` and no `fullRunCommand` (§3.7).
-   - **an environment named in §1 with no row in §1a counts as one resource of its own, with
-     an implied count of `1` — a queue.** Silence is a queue, never a pool (D5 rule ii). Do
-     NOT read the `Loop may WRITE data?` / `Loop may DEPLOY to it?` / `Loop may RESTART it?`
-     columns for this — **capacity comes from §1a's counts and from nothing else**; those
-     three cells now serve permissions only.
-   - a §1 environment declared `must not be touched` is the same prohibition seen from the
-     other side (§3.7): where a criterion's environment is `must not be touched` in §1 OR its
-     resource is declared `0` in §1a, treat it as the count-`0` case above regardless of which
-     column said so. Where the two disagree, the stricter reading wins.
-2. **Group exercisable criteria into lanes.** A criterion joins the lane of the resource its
-   environment needs; two singular (count-1) resources some criterion needs TOGETHER form one
-   lane, transitively (D5 rule iii). A criterion needing NO environment at all — its evidence
-   is a file already on disk — joins the unconstrained **remainder lane**, `resource: null`.
-3. **The remainder lane's `concurrency` is its own criterion count, never `1` and never an
-   invented throttle** (D5 rule iv) — it has no §1a row to read a count from, and
-   "unconstrained" has to mean a number that cannot bind §3.5's `Math.min` rather than the `1`
-   rule (ii) would give a silent-but-declared environment. **Omit the remainder lane entirely
-   when no criterion falls into it** — never emit a lane at `concurrency: 0` (§3.3 rejects
-   that), and never give the remainder lane the `1` that a silent-but-declared environment
-   gets.
-4. **`refreshCommand` and `fullRunCommand` are two single strings for the whole run, not one
-   per lane** (D15) — read from §2's Fast-refresh / Full-deploy columns for the environment
-   actually being exercised. When every exercisable criterion resolves to one environment, its
-   row is the answer. When criteria span more than one environment, prefer whichever of the
-   environments actually in use is marked "prefer this" in §1 (the `preview` row, taught as
-   the default target — TRD change 5), else the first such environment listed in §1 — never a
-   rule keyed on an environment's NAME otherwise (NG6). Record which environment's row was
-   used. A `must not be touched` environment contributes neither string, whatever this
-   tie-break would otherwise land on (§3.7).
-5. **Record the resolved lane list, the refresh/full-run commands, and which environment each
-   criterion landed on** — the same habit this preflight already has for the three-way bucket:
-   state what was READ and what was concluded, per criterion.
+`needs-owner-declined` is distinct from `unusable`: it means the owner did not answer the
+batched question and the stated default applied, which §8.1a's report says plainly rather
+than folding into an ordinary "unusable" reason.
 
 **Report a prior-template digest match as its own line, separate from the unfilled message
 above.** The `check-verification-unfilled` call already run at the top of this step returns
@@ -860,13 +835,9 @@ above.** The `check-verification-unfilled` call already run at the top of this s
 - `matchedTemplate: null` (with `unfilled: false`) — an ordinary filled-in, current-shape file.
   Nothing to report.
 
-**When no environment resolves any lane at all** — no criteria are exercisable, or the file is
-still unfilled — pass no `exerciseLanes` to §8.3 and let the workflow's own default apply: one
-lane of concurrency 1 over every criterion, exactly today (§3.3).
-
-**Then run the loop on whatever remains.** A partial verification with the gaps stated is
-worth far more than no verification: the criteria you CAN check still get checked, and the
-ones you cannot are named rather than silently absent.
+**Then continue straight into the phase loop.** This step never blocks on the derive agent
+and never produces `exerciseLanes`/`refreshCommand`/`fullRunCommand` itself — those are
+derived once criteria actually exist, at §8.1a, from the environment results recorded here.
 
 Observed 2026-08-20 (fanfare): a run reached iteration 1, discovered an expired Salesforce
 token blocking four criteria, and reported those four as `not_met` — recording them as code
@@ -1218,18 +1189,24 @@ the durable companion to `implement.json` — state records *what* happened, the
   },
   "functional_verification": {
     "prd_resolved": true,
-    "prd_path": "docs/PRD/<feature>.md or null"
+    "prd_path": "docs/PRD/<feature>.md or null",
+    "environments": {
+      "<environment name from verification.md §1>": {
+        "status": "usable | unusable | needs-owner-declined",
+        "reason": "<one line>"
+      }
+    }
   }
 }
 ```
 
 **On `functional_verification` (present whenever verification runs — i.e. absent
 `--no-verify` — FV-B005):**
-written by Step 3.6 at PRD-resolution time, not by the loop itself — `verification-state.json`
-and `verification-report.md` (both written by the workflow's Judge agent, §3.3a) are the
-loop's own durable record; this field exists only to carry the **one** fact that predates the
-loop and would otherwise be lost to it. Step 3.6 runs hundreds of tool calls before Step 8,
-across a possible compaction, so `not run: no success definition derivable` cannot survive as in-context
+`prd_resolved`/`source_kind`/`prd_path` are written by Step 3.6 at PRD-resolution time, not by
+the loop itself — `verification-state.json` and `verification-report.md` (both written by the
+workflow's Judge agent, §3.3a) are the loop's own durable record; this field exists only to
+carry facts that predate the loop and would otherwise be lost to it. Step 3.6 runs hundreds of
+tool calls before Step 8, across a possible compaction, so `not run: no success definition derivable` cannot survive as in-context
 memory (the same reasoning `.claude/rules/async-discipline.md`'s dispatch ledger exists for
 — see its "Orchestration pattern" section). It is set on the in-memory `state` object, not
 written to disk on its own, so that Step 4.1's `implement-state.save()` — which writes the
@@ -1241,6 +1218,12 @@ three outcomes §3.1 requires distinct: `prd_resolved: false` → `not run: no s
 `prd_resolved: true` and the definition file absent → `not run: no definition produced`
 (the derive agent died); `prd_resolved: true` and the file present with zero rows → AC-3's
 legitimate empty definition, which Step 8 does NOT report as either `not run` case.
+
+`environments` is written by §3.6a, added to the same object the same way — set in memory,
+then persisted, never a bare `writeFileSync` — and read back at §8.1a (and, on the
+`--verify --resume` path, by §8.2 first, to decide whether §3.6a needs to run at all). Its
+keys are the environment names declared in `.claude/rules/verification.md`'s §1; a name
+absent from this map is a name §3.6a did not see declared.
 
 **On `cycle_position`:** reduced to `implement-state.js`'s exported `CYCLE_ORDER` —
 `implement | checks | debug | complete`. The v3.2.0 five-position enum
@@ -1391,13 +1374,111 @@ branch, then read `.trd-state/<feature>/verification-state.json` and pass its co
 not passed to the workflow, which derives its own. On a fresh run (no prior state file, or a
 terminal one), `resume` is `null`.
 
+**After resolving `criteria` here, this path runs §8.1a exactly like a fresh run does** — it
+is not exempt from lane resolution merely because it skipped the phase loop. Read
+`.trd-state/<feature>/implement.json`'s `functional_verification.environments` (§3.6a) first;
+a resumed run that also skipped Step 3.6a (this composition can only be reached via §3.6
+step 0, which fires before §3.6a ever runs) will find that key absent. In that case, run
+§3.6a's environment checks now, once, before proceeding into §8.1a — there is no other point
+left in this path where they can run, and criteria still need lanes and a refresh command to
+resume correctly.
+
+### 8.1a Resolve criteria to environments and lanes
+
+**This is where lane resolution belongs and nowhere else (D5, D15): the workflow has no
+filesystem, and a second reader of `verification.md` would be a second opinion about the
+budget.** It runs here, not at §3.6a, because it is the first point in the run where criteria
+actually exist — §3.6a's own preflight ran before the derive agent had produced any
+(`criteria` is empty at that point by construction; anything keyed to a criterion id had
+nothing to key against). Both the fresh-run path (from §8.1) and the `--resume` path (§8.2,
+which runs this section too) reach here with `criteria` resolved and with
+`state.functional_verification.environments` on disk from §3.6a (§8.2 backfills it if absent).
+
+Read `.claude/rules/verification.md` and resolve, per criterion, whether it can be exercised
+at all, using the per-environment results §3.6a already recorded — this step does not
+re-derive reachability, it looks it up. For each criterion, one of:
+
+- **exercisable** — the environment it needs resolved `usable` at §3.6a, and (if the loop will
+  need to correct) has a refresh command in §2.
+- **not verifiable here** — the environment it needs resolved `unusable` or
+  `needs-owner-declined` at §3.6a, no environment listed covers it, or §5 already names it as
+  unverifiable. Mark it now. It goes into the report as `not_verifiable` with the reason, and
+  it is never handed to the debugger.
+
+**There is no `AskUserQuestion` here.** The one legitimate question on this path was already
+asked, once, at §3.6a, before any criterion existed to name — a criterion whose environment
+came back `needs-owner-declined` resolves `not_verifiable` with that reason, silently, exactly
+as the default stated at §3.6a promised.
+
+**Record, per criterion, which environment it resolved to.** This is half of a lane (the
+other half is §1a's counts, below) and it is what makes a wrong mapping readable in the
+readout instead of inferable from a failure (TR7) — a number in the readout with no way to
+check it is worth less than none. A criterion in the "not verifiable here" bucket resolves to
+no environment; every "exercisable" criterion resolves to exactly one.
+
+**Then derive `exerciseLanes`, `refreshCommand` and `fullRunCommand`:**
+
+1. **Read `.claude/rules/verification.md`'s §1a** (`Resource` / `How many may exist at once` /
+   `Which environments need it` / `How the loop creates and destroys one`). For each declared
+   resource:
+   - count `N > 1` → a **pool** lane, `concurrency: N`, `createCommand` copied verbatim from
+     the row's last column (`""` when the cell is blank — a blank cell withholds permission
+     to create an instance, whatever the count says).
+   - count `1` → a **queue** lane, `concurrency: 1`, `createCommand: ""` (the loop never
+     creates a queue resource — D5 rule i).
+   - count `0` → **no lane at all.** Every criterion needing this resource is `not_verifiable`
+     at this step (O7) and is never handed to the debugger (D5 rule v). This is a rule the
+     derivation APPLIES, not prose a reader is trusted to honour: such a resource contributes
+     no lane, no `refreshCommand` and no `fullRunCommand` (§3.7).
+   - **an environment named in §1 with no row in §1a counts as one resource of its own, with
+     an implied count of `1` — a queue.** Silence is a queue, never a pool (D5 rule ii). Do
+     NOT read the `Loop may WRITE data?` / `Loop may DEPLOY to it?` / `Loop may RESTART it?`
+     columns for this — **capacity comes from §1a's counts and from nothing else**; those
+     three cells now serve permissions only.
+   - a §1 environment declared `must not be touched` is the same prohibition seen from the
+     other side (§3.7): where a criterion's environment is `must not be touched` in §1 OR its
+     resource is declared `0` in §1a, treat it as the count-`0` case above regardless of which
+     column said so. Where the two disagree, the stricter reading wins.
+2. **Group exercisable criteria into lanes.** A criterion joins the lane of the resource its
+   environment needs; two singular (count-1) resources some criterion needs TOGETHER form one
+   lane, transitively (D5 rule iii). A criterion needing NO environment at all — its evidence
+   is a file already on disk — joins the unconstrained **remainder lane**, `resource: null`.
+3. **The remainder lane's `concurrency` is its own criterion count, never `1` and never an
+   invented throttle** (D5 rule iv) — it has no §1a row to read a count from, and
+   "unconstrained" has to mean a number that cannot bind §3.5's `Math.min` rather than the `1`
+   rule (ii) would give a silent-but-declared environment. **Omit the remainder lane entirely
+   when no criterion falls into it** — never emit a lane at `concurrency: 0` (§3.3 rejects
+   that), and never give the remainder lane the `1` that a silent-but-declared environment
+   gets.
+4. **`refreshCommand` and `fullRunCommand` are two single strings for the whole run, not one
+   per lane** (D15) — read from §2's Fast-refresh / Full-deploy columns for the environment
+   actually being exercised. When every exercisable criterion resolves to one environment, its
+   row is the answer. When criteria span more than one environment, prefer whichever of the
+   environments actually in use is marked "prefer this" in §1 (the `preview` row, taught as
+   the default target — TRD change 5), else the first such environment listed in §1 — never a
+   rule keyed on an environment's NAME otherwise (NG6). Record which environment's row was
+   used. A `must not be touched` environment contributes neither string, whatever this
+   tie-break would otherwise land on (§3.7).
+5. **Record the resolved lane list, the refresh/full-run commands, and which environment each
+   criterion landed on** — the same habit this step already has for the three-way bucket:
+   state what was READ and what was concluded, per criterion.
+
+**When no environment resolves any lane at all** — no criteria are exercisable, or the file is
+still unfilled — pass no `exerciseLanes` to §8.3 and let the workflow's own default apply: one
+lane of concurrency 1 over every criterion, exactly today (§3.3).
+
+**Then run the loop on whatever remains.** A partial verification with the gaps stated is
+worth far more than no verification: the criteria you CAN check still get checked, and the
+ones you cannot are named rather than silently absent.
+
 ### 8.3 Assemble the remaining args and dispatch
 
 Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/rules/stack.md`,
 `CLAUDE.md` (repo root) and `.claude/rules/verification.md` (or `""` when it does not exist) as
 `stackHints`, and `packages/core/contracts/functional-verification.md` as `contract`. Without it,
 the Exercise/Judge/Debug agents inside the loop never see the owner's environment declarations —
-only this command's own preflight (§3.6a) reads the file, run well before the `Workflow`
+only this command's own preflight (§3.6a for environment reachability, §8.1a for the
+per-criterion bucket and lane derivation) reads the file, both run well before the `Workflow`
 call at §8.3.
 
 **Resolve `since` as the LATER of HEAD's commit time and this run's loop start time**
@@ -1447,9 +1528,9 @@ Workflow({ name: "verify-functional", args: {
   feature: "<feature>",                                          // Finding A: renderReport()'s header
   prd: prd_path,                                                 // Finding A — from implement.json's functional_verification (§8.1 step 1)
   definitionPath: ".trd-state/<feature>/success-definition.md",  // Finding A
-  exerciseLanes,                                                 // §3.6a -- resolved from verification.md §1a; omitted lets the workflow default to one lane of concurrency 1
-  refreshCommand,                                                // §3.6a -- the per-iteration refresh from verification.md §2, or "" when none is declared
-  fullRunCommand,                                                // §3.6a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
+  exerciseLanes,                                                 // §8.1a -- resolved from verification.md §1a; omitted lets the workflow default to one lane of concurrency 1
+  refreshCommand,                                                // §8.1a -- the per-iteration refresh from verification.md §2, or "" when none is declared
+  fullRunCommand,                                                // §8.1a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
 } })
 ```
 
