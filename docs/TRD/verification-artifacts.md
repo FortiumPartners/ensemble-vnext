@@ -1046,13 +1046,13 @@ is prompts, loop plumbing, two audit checks and a shell delivery step.
 
 ## Could Not Verify
 
-*Audit of 2026-09-27 (5 of 5 verifiers reported, source `docs/plan/verification-artifacts.investigation.md`): its four findings concerned citations only (O1, O10, and the duplicate D18). It exercised none of the claims below, so all six stand unverified; each needs a live run or a file read outside a document audit.*
+*Build audit of 2026-09-27 (`/audit-build`, 5 of 5 verifiers reported, source `docs/plan/verification-artifacts.investigation.md`, 16 requirements and 12 tasks checked against the delivered code and tests). It read files and ran the unit suites; it made no live model run and published nothing. One earlier row is now settled and removed: `scaffold-delivery.test.sh` only checks that `fix-audit.js` is delivered and loads (lines 85-90), so a new `audit()` finding cannot break it. The gaps this audit found are in its readout, not here. The rows below stand because each needs a live run this audit does not make.*
 
 | Claim | How I'd check it |
 |-------|------------------|
+| The three check skills, followed by a live agent, produce the criteria rows, captures and page they describe. The audit read each `SKILL.md`; text in a prompt is not behaviour. | Run VART-T001's smoke scenario (Run A and Run B) once it is written. |
 | The Artifact tool, called from the orchestrator in a consuming project, accepts an HTML `file_path` with an image `files` map (the exemplar was published with `root` + `files`). | Publish a two-image fixture page from a scaffolded project. |
 | A static HTML fixture served locally can be captured headlessly in the smoke environment (VART-T001 needs a browser or Playwright). | Check the smoke runner's host for Playwright / a headless browser before writing the fixture. |
-| `test/integration/tests/scaffold-delivery.test.sh` references `fix-audit` only as a delivered file, so a new `audit()` finding does not break it (grep found the reference; the test was not read). | Read the test's `fix-audit` assertions. |
 | Whether agents dispatched by a workflow script hold the Artifact and ArtifactComments tools. D8 and D18 assume they do not; if they do, the page could be published, and comments read, every iteration. | Dispatch a one-agent workflow that calls `ArtifactComments({ action: "watch" })` (a harmless listing) and report whether the tool exists. |
 | An ArtifactComments thread carries an anchor tying it to a page element. The tool's description names none, so D18 maps comments to criteria by the card ID the comment names. | Leave a comment on a card of a published fixture page and read it back. |
 | One Judge agent can open 32 stitched images and rule them within one turn and one context (TR7). The exemplar's verdicts were written in a main session, not a workflow agent. | Run the loop on a real 32-frame design and read the Judge's return and duration. |
