@@ -45,7 +45,7 @@ convention exists to prevent — do not write one.
 path, no TRD excerpt, no task list. It does not know what was built; it knows only what was
 asked for.
 
-**Three source kinds are valid.** The loop needs a statement of what success looks like; a PRD
+**Four source kinds are valid.** The loop needs a statement of what success looks like; a PRD
 is one way to supply that, not the only one. Whichever applies, the agent receives **that
 source alone**:
 
@@ -56,7 +56,7 @@ source alone**:
 | **Intended change** | the extracted `## Intended Change` text | a small change decided in conversation |
 | **Behaviour preserved** | the extracted `## Behaviour Preserved` text | a refactor: the tests that passed before, and the surface that must not move |
 
-**The isolation rule is the same for all three, and it is why the last two are passed as
+**The isolation rule is the same for all four, and it is why the last three are passed as
 EXTRACTED TEXT rather than as a TRD path.** A deriver that can see the task list writes
 criteria the plan satisfies by construction, and verification becomes circular — it confirms
 the plan was followed rather than that the outcome was reached. A reproduction and a recorded
@@ -68,8 +68,8 @@ to contain them also contains the plan, and must never be handed over.
 ```markdown
 # Functional Success Definition: <feature>
 
-**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change -->
-**Source kind**: prd | reproduction | intended-change
+**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change | §Behaviour Preserved -->
+**Source kind**: prd | reproduction | intended-change | behaviour-preserved
 **Derived**: <ISO8601>
 **Criteria**: <n>
 

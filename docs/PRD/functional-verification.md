@@ -181,8 +181,11 @@ that never ran — which is precisely the failure that produced the 4.1.16 defec
 
 - **Cost per verification cycle.** Unknown whether a full re-verify per iteration is affordable,
   or whether it should re-check failed criteria plus a regression subset. Answerable only by
-  running it; this is why AC-6 exists.
+  running it. AC-6 once kept the loop opt-in for this reason; the default has since flipped
+  (1.2.0) with the cost still unmeasured.
 
 ## Could Not Verify
 
-- The wall-clock and token cost of a verification cycle — no implementation exists to measure.
+- The wall-clock and token cost of a verification cycle — the loop now exists and runs by default,
+  but nobody has measured it. `packages/core/scripts/run-profile.js` over `.trd-state/**/dispatch.jsonl`
+  is where that measurement would come from.

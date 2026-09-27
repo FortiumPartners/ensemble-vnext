@@ -47,7 +47,7 @@ user can do what the **PRD** says they can do, answered with artifacts rather th
 assertions, and iterated on until it is satisfied or provably stalled.
 
 It is built from parts that already exist. A background `product-manager` agent dispatched
-before the phase loop derives a functional success definition from the PRD alone. At the tail
+before the phase loop derives a functional success definition from its source alone (the PRD, or the TRD's Reproduction / Intended Change / Behaviour Preserved section text — §3.1). At the tail
 of the run — after Step 7's hardening and full-branch review — `/implement-trd` makes **one**
 call, `Workflow(verify-functional, …)`, and that workflow owns the whole bounded loop.
 
@@ -143,7 +143,7 @@ No new runtime dependency is introduced.
 | System | Type | Direction | Notes |
 |--------|------|-----------|-------|
 | `packages/core/lib/implement-state.js` | Node module | In | `save()` is filepath-generic; reused by the judge agent for `verification-state.json`'s atomic write |
-| `docs/PRD/<feature>.md` | Markdown artifact | In | Sole input to the success-definition pass (D5) |
+| `docs/PRD/<feature>.md`, or one extracted TRD section | Markdown artifact | In | Sole input to the success-definition pass — whichever source resolves first (D5, §3.1) |
 | `.claude/rules/stack.md`, `CLAUDE.md`, project memory | Markdown | In | How to exercise this project (D12); what is safe to exercise (S-2) |
 | `git` | CLI | In | HEAD commit time is one of the two inputs to the tier-1 freshness floor (§3.2); the other is the loop start time |
 | `packages/core/scripts/scaffold-project.sh` | Shell | Out | Delivers the new contract, lib and workflow by directory glob — **no change required**; `copy_libs`/`copy_workflows`/`copy_contracts` add missing files on `--refresh` as of the 2026-08-16 fix |
@@ -255,7 +255,7 @@ pass early (Step 3.6); at Step 8 read the definition, the notes, the stack hints
 `verification-state.json` from disk, resolve HEAD's commit time, make **one**
 `Workflow(verify-functional, …)` call, and render the outcome into Step 9's banner. It does not
 iterate, does not judge, and does not dispatch remediation — those live in the workflow (D1).
-The two pre-loop outcomes it still owns alone are `not run: no PRD resolved` and
+The two pre-loop outcomes it still owns alone are `not run: no success definition derivable` and
 `not run: no definition produced`, because both are conditions it detects before there is
 anything to hand the workflow.
 **Dependencies**: `verify-functional.js`, plus the lib CLI for the two `not run` reports.
@@ -271,7 +271,7 @@ sequenceDiagram
     participant J as judge (untyped)
     participant B as debugger (app-debugger)
 
-    C->>D: PRD path + contract (never the TRD)
+    C->>D: source (PRD path, or extracted section text) + contract (never the TRD path or task list)
     Note over C,D: runs during the phase loop — no wall clock
     D->>D: write success-definition.md
     Note over C: ... phases run, Step 7.1 hardening, Step 7.2 review dispatched ...

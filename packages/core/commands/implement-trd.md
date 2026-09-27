@@ -675,9 +675,9 @@ a loop that already gave its final answer.
 
 **Record which source won.** Write `functional_verification` with `source_kind`
 (`prd` | `reproduction` | `intended-change` | `behaviour-preserved` | `none`) alongside the existing keys. `prd_path`
-keeps its meaning when `source_kind` is `prd`; for the two section kinds it holds the TRD path
+keeps its meaning when `source_kind` is `prd`; for the three section kinds it holds the TRD path
 plus the section name (for the report header only — Step 8 renders it, nothing resolves it).
-`prd_resolved` stays for compatibility and means "a source resolved", true for all three.
+`prd_resolved` stays for compatibility and means "a source resolved", true for all four.
 
    **Persist it — this is the only place the fact exists.** Step 8 runs hundreds of tool
    calls later, possibly after a compaction; in-context memory does not survive that (the
@@ -731,7 +731,7 @@ Agent(subagent_type="product-manager", run_in_background: true,
 ```
 
 `<the source>` is whatever step 1 resolved: the **PRD path** for `source_kind: prd`, or the
-**extracted section text** for `reproduction` / `intended-change`.
+**extracted section text** for `reproduction` / `intended-change` / `behaviour-preserved`.
 
 The prompt carries the source and the output path and **nothing else** — no TRD path, no
 TRD excerpt, no task list (functional-verification TRD FR-1, AC-1, D5). `product-manager` is
