@@ -1880,6 +1880,107 @@ describe('verify-functional: check-skill prompt injection -- Exercise', () => {
   });
 });
 
+// --------------------------------------------------------------------------- checkComments routing (D18, §3.6, VART-B004)
+//
+// D18: `checkComments: [{ criterion | null, skill, text }]`. A comment naming a specific
+// criterion is scoped to that criterion in Exercise (the slice holding it); a comment naming
+// no criterion (`criterion: null`) is a skill-wide remark the Judge alone must see, per D18
+// ("the Judge must address every comment on it") and the Exercise injection comment above
+// ("scoped to the criteria that slice actually holds").
+
+describe('verify-functional: checkComments reach the Exercise and Judge prompts', () => {
+  it('routes a criterion-scoped comment to its own Exercise slice and to the Judge; a skill-wide (criterion: null) comment reaches only the Judge', async () => {
+    const exercisePrompts = [];
+    const judgePrompts = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        exercisePrompts.push(prompt);
+        const ids = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]).map((c) => c.id);
+        return exercisePlanClaims(ids.map((id) => ({ criterion: id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') {
+        judgePrompts.push(prompt);
+        return satisfiedJudge({
+          criteria: [
+            { id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+            { id: 'DC-2', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+          ],
+        });
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [checkCriterion('DC-1', 'verify-design-comparison'), checkCriterion('DC-2', 'verify-design-comparison')],
+        checks: { 'verify-design-comparison': 'THE SKILL TEXT' },
+        pagesDir: '.trd-state/example/verification-artifacts',
+        // one lane per criterion, so each ends up in its own Exercise slice
+        exerciseLanes: [
+          { resource: 'a', concurrency: 1, createCommand: '', criteria: ['DC-1'] },
+          { resource: 'b', concurrency: 1, createCommand: '', criteria: ['DC-2'] },
+        ],
+        checkComments: [
+          { criterion: 'DC-1', skill: 'verify-design-comparison', text: 'OWNER SAYS DC-1 IS WRONG' },
+          { criterion: null, skill: 'verify-design-comparison', text: 'OWNER GENERAL REMARK' },
+        ],
+      }),
+    });
+
+    expect(exercisePrompts).toHaveLength(2);
+    const dc1Prompt = exercisePrompts.find((p) => p.includes('"criterion": "DC-1"') || /"id":\s*"DC-1"/.test(p));
+    const dc2Prompt = exercisePrompts.find((p) => p !== dc1Prompt);
+    expect(dc1Prompt).toBeDefined();
+    expect(dc2Prompt).toBeDefined();
+
+    // The criterion-scoped comment lands only in the slice that actually holds DC-1.
+    expect(dc1Prompt).toContain('OWNER SAYS DC-1 IS WRONG');
+    expect(dc2Prompt).not.toContain('OWNER SAYS DC-1 IS WRONG');
+
+    // The skill-wide (criterion: null) comment reaches neither Exercise slice -- Exercise
+    // injection is scoped to the criteria a slice actually holds, and `null` never matches a
+    // slice's own id list.
+    expect(dc1Prompt).not.toContain('OWNER GENERAL REMARK');
+    expect(dc2Prompt).not.toContain('OWNER GENERAL REMARK');
+
+    // The Judge sees both comments for the skill, unscoped by criterion id -- D18's "must
+    // address every comment on it" is skill-wide, not id-scoped.
+    expect(judgePrompts).toHaveLength(1);
+    expect(judgePrompts[0]).toContain('OWNER SAYS DC-1 IS WRONG');
+    expect(judgePrompts[0]).toContain('OWNER GENERAL REMARK');
+  });
+
+  it('a comment for a different skill never appears in a slice or Judge prompt for the skill under test', async () => {
+    const exercisePrompts = [];
+    const judgePrompts = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        exercisePrompts.push(prompt);
+        return exercisePlanClaims([{ criterion: 'DC-1', artifact: 'a' }]);
+      }
+      if (opts.label === 'judge') {
+        judgePrompts.push(prompt);
+        return satisfiedJudge({ criteria: [{ id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [checkCriterion('DC-1', 'verify-design-comparison')],
+        checks: { 'verify-design-comparison': 'THE SKILL TEXT' },
+        pagesDir: '.trd-state/example/verification-artifacts',
+        checkComments: [{ criterion: null, skill: 'a-different-skill', text: 'SHOULD NEVER APPEAR' }],
+      }),
+    });
+
+    expect(exercisePrompts[0]).not.toContain('SHOULD NEVER APPEAR');
+    expect(judgePrompts[0]).not.toContain('SHOULD NEVER APPEAR');
+  });
+});
+
 // --------------------------------------------------------------------------- Judge: STEP 2a (D11, D18, §3.6)
 
 describe('verify-functional: check-skill prompt injection -- Judge STEP 2a', () => {

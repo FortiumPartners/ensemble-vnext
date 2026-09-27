@@ -936,7 +936,13 @@ copy_skills() {
         # Refresh: never create .claude/skills/, and never add a skill
         # directory that wasn't already selected. The directories already
         # present under dest ARE the "already selected" set — adding or
-        # removing selections stays /rebase-project's job.
+        # removing selections stays /rebase-project's job. One exception:
+        # copy_framework_skills(), which runs after this function returns,
+        # adds any of the three FRAMEWORK_SKILLS still missing from dest even
+        # though they weren't already selected — those ship to every project
+        # regardless (D2/D10). It never replaces one already present under
+        # --refresh (that's this loop's job, just above); --force only
+        # replaces an already-present framework skill outside --refresh.
         REFRESH_SKILLS_COUNT=0
         if [[ ! -d "$dest" ]]; then
             info "No existing skills directory — skipping skill refresh"

@@ -90,6 +90,16 @@ declare -A SCENARIO_TIMEOUT=(
     # medium, so it pays for investigation, full create-trd authoring AND
     # grounding, AND an audit-trd pass -- no --implement, so no implement loop.
     [plan-medium-weight]=1600
+    # verification-artifacts: TWO sequential /verify-build runs (Run A: TRD
+    # names verify-design-comparison; Run B: no section, PRD fallback), each
+    # its own throwaway project. Neither implements anything, so there is no
+    # phase loop to pay for, but each still pays for the foreground derive
+    # (Step 3a waits for it, unlike Step 8's background derive) plus the
+    # verification loop with a Render agent added on top of Exercise/Judge
+    # for the one selected check. TIMEOUT_RUN in the scenario itself is
+    # 1800s per run; this cap covers both runs plus two scaffolds. Raise all
+    # three together (VART-T001).
+    [verification-artifacts]=3900
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
@@ -136,7 +146,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()
