@@ -118,14 +118,22 @@ and the unfilled check cannot see that, so the owner is never told §1a exists.
 
 **Hazard seen:** on 2026-09-26 an agent overwrote the owner-filled file (`4bb457c75` →
 `a07892767`) claiming it was "the empty template", dropping the production read-only authorisation
-and three credential locations and introducing a factual error. A builder must **diff against the
-current file, never claim it is empty, and never write without the owner's decision**.
+and three credential locations and introducing a factual error. The failure was writing **without asking** and
+from a false premise — not writing. So the builder **asks, then writes the file directly**
+(owner, 2026-09-27: a skill that only proposes a diff for the human to apply is one users despise).
+Safeguards live in the asking: start from the current file, never the template; keep every existing
+entry unless an answered question changes it; turn any existing owner decision the evidence
+contradicts into a question ("your file authorises production read-only — keep that?"), never a
+silent change; after writing, report in plain terms what changed. The file is in git, so an
+unwanted change is one revert. The template's header line *"An agent READS this and never writes
+it"* changes to *"No agent writes this on its own; the setup skill writes it from the owner's
+answers."*
 
 **Derivable from the repo:** environment names/ports (scripts, docker-compose, `.env*.example`,
 vercel/railway), refresh and build commands, measured durations from past runs, installed tooling,
 credential *locations* (never values), recurring not-verifiable causes, facts in other files.
 **Owner only:** may write / deploy / restart per environment; standing authorisations; §1a counts;
-whether a gap is permanent. Nine questions in that order, each with an evidence-based default.
+whether a gap is permanent. Nine questions in that order, each with an evidence-based default; then it writes the file.
 
 **Invoke:** standalone; named (not run) in `/implement-trd` §3.6a's readout when the file is
 unfilled or old-shaped; after `/init-project`; after a run with several not-verifiable criteria
