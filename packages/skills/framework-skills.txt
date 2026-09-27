@@ -3,3 +3,4 @@ verify-design-comparison    check
 verify-flow-as-built        check
 verify-data-fidelity        check
 verify-plan-recovery        support
+verification-setup          support

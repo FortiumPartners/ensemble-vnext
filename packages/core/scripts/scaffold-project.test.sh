@@ -724,13 +724,16 @@ EOF
     [ -d "$TEST_DIR/.claude/skills/developing-with-python" ]
     [ -d "$TEST_DIR/.claude/skills/jest" ]
 
-    # Count - should only have the 2 selected skills plus the 4 framework
-    # skills that ship unconditionally (copy_framework_skills(), reading the
-    # real packages/skills/framework-skills.txt, D14) -- not, e.g., a
-    # duplicate from a blank/comment line in the selection file.
-    local count
+    # Count - should only have the 2 selected skills plus every framework
+    # skill that ships unconditionally (copy_framework_skills(), reading the
+    # real framework-skills.txt, D14) -- not, e.g., a duplicate from a
+    # blank/comment line in the selection file. The framework count is read
+    # from the list itself, so adding a skill to it does not break this test.
+    local count framework
+    framework=$(grep -cvE '^[[:space:]]*(#|$)' "$plugin_dir/skills-lib/framework-skills.txt" 2>/dev/null \
+        || grep -cvE '^[[:space:]]*(#|$)' "$BATS_TEST_DIRNAME/../../skills/framework-skills.txt")
     count=$(ls -1d "$TEST_DIR/.claude/skills/"*/ 2>/dev/null | wc -l)
-    [ "$count" -eq 6 ]
+    [ "$count" -eq $((2 + framework)) ]
 }
 
 @test "Skill copy: Warns on non-existent skill" {

@@ -824,24 +824,35 @@ state.functional_verification = {
 batched question and the stated default applied, which §8.1a's report says plainly rather
 than folding into an ordinary "unusable" reason.
 
-**Report a prior-template digest match as its own line, separate from the unfilled message
-above.** The `check-verification-unfilled` call already run at the top of this step returns
-`matchedTemplate` alongside `unfilled` (D13) — read both:
+**Report what the file's shape actually is, derived from `missingSections` (D10) — not a
+fixed sentence.** The `check-verification-unfilled` call already run at the top of this step
+returns `matchedTemplate` and `missingSections` together (D10, D11) — read both, and report
+one of:
 
-- `matchedTemplate: "current"` — the file has never been filled in at all; the unfilled
-  message above already covers it.
-- `matchedTemplate` any OTHER label (e.g. `"pre-resource-table"`) — the file was NEVER filled
-  in, and it is an unfilled copy of an OLDER template: no §1a, no data-permission column, no
-  fast-refresh/full-deploy split. (A digest can only recognise an unmodified template — an
-  owner-filled file of the old shape reports `matchedTemplate: null` like any other filled
-  file, so this line never reaches that owner.) Say the consequence in one line: *"your
-  `verification.md` is an unfilled copy of a template that predates the resource /
-  read-only / fast-refresh sections — every lane resolves to concurrency 1 and no refresh or
-  full run is declared."* `scaffold-project.sh --refresh` will not rewrite this file
-  (correctly — it is owner-governed), so this line is how an owner who never filled it in
-  learns the new sections exist.
-- `matchedTemplate: null` (with `unfilled: false`) — an ordinary filled-in, current-shape file.
-  Nothing to report.
+- `unfilled: true`, `matchedTemplate: "current"` — the file has never been filled in at all.
+  Say: *"`verification.md` has never been filled in. Run `/verification-setup`."*
+- `unfilled: true`, `matchedTemplate` any OTHER label (e.g. `"pre-resource-table"`) — an
+  unfilled copy of an OLDER template. Say: *"`verification.md` is an unfilled copy of an
+  older template. It lacks <labels>. Run `/verification-setup`."*, where `<labels>` is
+  `missingSections`' ids rendered through `VERIFICATION_SECTION_LABELS` and joined with ", ".
+- `unfilled: false` (the file IS filled in) with `missingSections` non-empty — a FILLED file
+  written to an older template shape. Say: *"`verification.md` was written to an older
+  template shape. It lacks <labels>. Run `/verification-setup`; it asks only about what
+  is missing."* This keeps the one-line consequence for whichever of these are actually
+  missing: without §1a resource capacity, every lane resolves to concurrency 1; without §2's
+  fast refresh / full deploy split, no refresh or full run is declared; without §5a coverage
+  floor, no coverage floor is applied.
+- `reason: 'template-missing'` (D11 — the shipped template path does not exist, e.g. in a
+  scaffolded project) — say the unfilled check could not run: the shipped template was not
+  found, then add the same `<labels>` line above when `missingSections` is non-empty.
+- `matchedTemplate: null` with `unfilled: false` and `missingSections` empty — an ordinary
+  filled-in, current-shape file. Nothing to report.
+
+`scaffold-project.sh --refresh` will not rewrite this file (correctly — it is
+owner-governed), so these lines are how an owner learns the current sections exist at all —
+including an owner who filled the file in against an OLD shape, which a digest alone could
+never tell them (a digest only recognises an unmodified template; `missingSections` is
+derived from the file's actual headings and tables, filled or not).
 
 **Then continue straight into the phase loop.** This step never blocks on the derive agent
 and never produces `exerciseLanes`/`refreshCommand`/`fullRunCommand` itself — those are
@@ -1593,6 +1604,17 @@ no environment; every "exercisable" criterion resolves to exactly one.
 5. **Record the resolved lane list, the refresh/full-run commands, and which environment each
    criterion landed on** — the same habit this step already has for the three-way bucket:
    state what was READ and what was concluded, per criterion.
+6. **Read the owner's coverage floor (D7, D9):**
+
+   ```bash
+   node .claude/lib/functional-verification.js read-coverage-floor .claude/rules/verification.md
+   ```
+
+   Set `coverageFloor` from the result's `floor` (a fraction in `[0, 1]`, or `null` when none
+   is declared). On `status: 'invalid'` — the `Coverage floor:` line under §5a does not parse
+   — `coverageFloor` stays `null` (no floor is applied), and Step 9's ISSUES names the raw
+   text and says to fix it with `/verification-setup`. This never makes the run STUCK: an
+   unreadable floor is a gap to report, not a reason to stop verifying (D9).
 
 **When no environment resolves any lane at all** — no criteria are exercisable, or the file is
 still unfilled — pass no `exerciseLanes` to §8.3 and let the workflow's own default apply: one
@@ -1662,6 +1684,7 @@ Workflow({ name: "verify-functional", args: {
   exerciseLanes,                                                 // §8.1a -- resolved from verification.md §1a; omitted lets the workflow default to one lane of concurrency 1
   refreshCommand,                                                // §8.1a -- the per-iteration refresh from verification.md §2, or "" when none is declared
   fullRunCommand,                                                // §8.1a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
+  coverageFloor,                                                 // §8.1a -- verification.md §5a as a fraction, or null when none is declared
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
@@ -1762,6 +1785,8 @@ STATE
     were never exercised, so this is not enough checking to call it verified either way."}
   {if --no-verify was set: "Nobody checked whether the software does what the PRD asked
     (--no-verify set)."}
+  {if verification ran: "Coverage floor: {N}% (from verification.md)" when §8.1a's
+   `coverageFloor` is non-null, else "Coverage floor: none declared" (D19).}
   {for each selected check, from `criteria` and `pages`: one line naming the check in plain
    words and its verdict counts, with its page link when rendered — e.g. "Screens against
    their designs: 32 compared — 28 match, 2 minor, 2 deviate and are still open — <link>".}

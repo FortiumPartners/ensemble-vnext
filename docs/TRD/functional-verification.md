@@ -1,6 +1,6 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.5.0
+**Version**: 2.6.0
 **Status**: Draft
 **Created**: 2026-08-17
 **Last Updated**: 2026-09-27
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.6.0 | 2026-09-27 | **Synced to `docs/TRD/verification-md-setup.md` (D8, VSET-B002).** §3.3's `VerifyFunctionalArgs` gains an optional `coverageFloor?: number \| null` field, placed directly after `fullRunCommand` — the owner's coverage floor from `verification.md` §5a, as a fraction. `null` (the default, whether omitted or explicit) leaves `decideNext`'s coverage re-label dormant, exactly as before this row. Validated null-or-finite-fraction-in-`[0, 1]` before any agent is dispatched, same standard as `since`/`cap` — a percentage (`60`), a negative fraction, a numeric string (`"0.6"`) or `NaN` all throw. The Judge's STEP 3 decide-next payload gains `"coverageFloor":${JSON.stringify(FLOOR)}` right after `"cap"` and before `"met"`. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 21 to 22 | @technical-architect (VSET-B002) |
 | 2.5.0 | 2026-09-27 | **Synced to `docs/TRD/verification-fix-loop.md` (VFIX-D002).** §3.3's `resume.criteria` and `VerifyFunctionalResult.criteria` shapes gain `cause` (D3, §3.1 of that TRD; VFIX-B002), carried through a resume verbatim and never re-derived. §3.6's `renderReport()` interface gains the same field on its report-input criteria, and its Behavior section gains the `**Diagnosis**`/`**Next**` lines (VFIX-B001) — counts by cause, descending, `unrecorded` for an absent value, rendered only under the four outcomes that can stall. §3.7 corrected in two places that had drifted from the delivered command: the "Step 3.6a" paragraph claimed lane derivation happens there, when the delivered `/implement-trd` puts it at §8.1a instead (no criterion list exists yet at §3.6a's point in the run) — split into a corrected §3.6a paragraph (environments only) and a new §8.1a paragraph (lanes, `refreshCommand`, `fullRunCommand`); and Step 8 item 2's "read `verification-state.json` if a prior run left one, and pass it as `resume`" is corrected to the explicit-flag, `outcome: null` gate the same section's opening paragraph already states, so a stale non-terminal file no longer reads as license to resume an ordinary run | @technical-architect (VFIX-D002) |
 | 2.4.0 | 2026-09-27 | **§3.3's arguments are 21, declared in both directions (VART-B004)** — synced to `docs/TRD/verification-artifacts.md` §3.6, which owns the mechanism; `checks`, `checkComments` and `pagesDir` join the 18. The result gains `pages`. A short paragraph after the interface names, in outline, where each of the three is injected (Exercise slice, Judge STEP 2a, Debug gap enrichment, the new Render stage) and points at that TRD's §3.6 for the full mechanism rather than duplicating it here. The validation paragraph gains the three arguments' own rules (plain object / array / non-empty-when-any-check-criterion-exists). `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 18 to 21 | @technical-architect (VART-B004) |
 | 2.3.0 | 2026-09-27 | **The success definition's source, and the outcome when none exists, now match what `/implement-trd` has done since `4fa3c26` (2026-08-22) and `4887feb` (2026-08-23).** This closes the item the 2.2.0 row left "for its owner". (1) **§3.1 gains a source-resolution table**: the PRD first, then the TRD's `## Reproduction`, `## Intended Change` and `## Behaviour Preserved` sections. A section is passed as its extracted text, never as the TRD path, so the deriver still never sees the plan. The format example's header now reads `**Source**` / `**Source kind**`, as the contract has it, and the `Cites` and empty-definition rules say "the source" rather than "the PRD". (2) **The no-source outcome is `not run: no success definition derivable`**, replacing the retired `not run: no PRD resolved` in §3.1's error handling and §3.7 Step 8 item 1. Step 8 now reads `functional_verification.prd_resolved` from `implement.json` before looking for the definition file, which is the order `/implement-trd` §8.1 uses. (3) **D5 amended in place**: the decision names one source rather than the PRD path, and it names the objective the fallback serves (improvement-plan item 12). Its rationale explains why passing section text keeps the isolation, and two alternatives are added: keeping the PRD as the only source, and passing the TRD path with an instruction to read one section. (4) **§3.7 Step 3.6** resolves and dispatches `<the source>` rather than `<PRD path>`. (5) **2.2.0's claim that "`coverage` is not on the result" is struck through with a dated correction**, not deleted. The claim was true when that row was written and false by the end of the same phase gate (`005c389`). **Not rewritten, and still describing the PRD-only model**: §1.1's summary paragraph, §1.4's `docs/PRD/<feature>.md` row ("Sole input"), §2.2.5's `not run: no PRD resolved`, and §2.3's sequence diagram (`PRD path + contract`). These four are knock-ons outside this pass's scope, and are listed here so a reader does not take them as current. §4's task rows and §9's grounding blocks stay as the historical build record | @technical-architect |
@@ -569,6 +570,10 @@ interface VerifyFunctionalArgs {
                            //   as its last act (§3.5, VC D11). "" = none declared, not an error
   fullRunCommand: string;  // the FULL end-of-run deploy/build (verification.md §2), run once by
                            //   the Judge on exit (§3.3a, VC D14). "" = none declared
+  coverageFloor?: number | null;  // NEW (verification-md-setup D8). The owner's coverage floor
+                           //   from verification.md §5a, as a fraction in [0, 1]; null (the
+                           //   default) leaves decideNext's re-label dormant. Validated before
+                           //   any agent is dispatched, or the workflow throws
   checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
                                         //   skill's SKILL.md text, keyed by skill name; {} when
                                         //   none were selected. Every criterion whose
@@ -652,6 +657,9 @@ an array of ids present in the definition, and no id may appear in two lanes. A 
 matches `check:<skill>` must have a non-empty string at `checks[<skill>]`, checked before any
 agent is dispatched. `checkComments` defaults to `[]` and must be an array. `pagesDir` defaults
 to `""` and must be non-empty the moment any check criterion exists** (VART D8, D11).
+**`coverageFloor` defaults to `null` and must otherwise be a finite number in `[0, 1]` — a
+fraction, not a percentage — checked before any agent is dispatched, same standard as `since`
+and `cap`** (verification-md-setup D8).
 
 **On `resume.gapsClosed`** — it is an **audit record, not a loop input.** The loop reconstructs
 `previousGaps` by filtering `resume.criteria` for `not_met`; nothing anywhere reads `gapsClosed`,

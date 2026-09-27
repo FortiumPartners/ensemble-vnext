@@ -86,9 +86,63 @@ describe('implement-trd.md §8.1a derives exerciseLanes/refreshCommand/fullRunCo
     expect(src()).toMatch(/per criterion.*(which environment|environment.*lane)/is);
   });
 
-  test('reports a prior-template digest match and its one-line consequence', () => {
-    expect(src()).toMatch(/matchedTemplate/);
-    expect(flat(src())).toMatch(/predates the resource \/ read-only \/ fast-refresh sections/i);
+  test('reports the file shape from missingSections, not a fixed sentence (VSET-B003, D10)', () => {
+    const text = src();
+    expect(text).toMatch(/matchedTemplate/);
+    expect(text).toMatch(/missingSections/);
+    expect(flat(text)).toMatch(/never been filled in\. Run `\/verification-setup`/i);
+    expect(flat(text)).toMatch(/unfilled copy of an older template/i);
+    expect(flat(text)).toMatch(/written to an older template shape/i);
+    expect(flat(text)).toMatch(/asks only about what\s*is missing/i);
+    expect(flat(text)).toMatch(/template-missing/i);
+    // The old fixed sentence this task retires (VSET-B003 Replaces) must be gone.
+    expect(text).not.toMatch(/predates the resource \/ read-only \/ fast-refresh sections/i);
+    expect(text).not.toMatch(/never reaches that owner/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coverage floor (VSET-B003, D7/D9/D19): §8.1a reads it, §8.3 forwards it, Step 9 and
+// /verify-build §5 state it in the readout.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md §8.1a reads the coverage floor and reports an invalid one', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('§8.1a runs read-coverage-floor against verification.md', () => {
+    const text = src();
+    const section81a = text
+      .split('### 8.1a Resolve criteria to environments and lanes')[1]
+      .split('### 8.3 Assemble the remaining args and dispatch')[0];
+    expect(section81a).toMatch(/read-coverage-floor/);
+    expect(section81a).toMatch(/coverageFloor/);
+  });
+
+  test('an invalid floor line does not STUCK the run and is named in ISSUES', () => {
+    const text = src();
+    const section81a = text
+      .split('### 8.1a Resolve criteria to environments and lanes')[1]
+      .split('### 8.3 Assemble the remaining args and dispatch')[0];
+    expect(section81a).toMatch(/status: 'invalid'/);
+    expect(flat(section81a)).toMatch(/ISSUES names the raw text/i);
+    expect(flat(section81a)).toMatch(/\/verification-setup/);
+    expect(flat(section81a)).toMatch(/never make[s]? the run STUCK|never.*STUCK/i);
+  });
+});
+
+describe('the coverage floor is stated in the readout (D19)', () => {
+  test('implement-trd.md Step 9 STATE carries the floor line, in both forms', () => {
+    const text = read(CORE_IMPLEMENT);
+    const step9 = text.split('## Step 9: Completion')[1];
+    expect(step9).toMatch(/Coverage floor: \{N\}% \(from verification\.md\)/);
+    expect(step9).toMatch(/Coverage floor: none declared/);
+  });
+
+  test('verify-build.md §5 carries the floor line, in both forms', () => {
+    const text = read(CORE_VERIFY_BUILD);
+    const step5 = text.split('### 5. Report')[1].split('## Readout')[0];
+    expect(flat(step5)).toMatch(/Coverage floor: \{N\}% \(from verification\.md\)/);
+    expect(flat(step5)).toMatch(/Coverage floor: none declared/);
   });
 });
 
@@ -156,7 +210,7 @@ describe('§8.1a is positioned correctly and §3.6a is environment-only', () => 
 });
 
 // ---------------------------------------------------------------------------
-// Both dispatch blocks: 18 fields, same order, same new three appended.
+// Both dispatch blocks: 22 fields, same order, coverageFloor directly after fullRunCommand.
 // ---------------------------------------------------------------------------
 
 function extractDispatchFields(source) {
@@ -171,22 +225,33 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 21 fields in the same order', () => {
-  test('implement-trd.md §8.3 lists 21 fields ending in checks/checkComments/pagesDir', () => {
+describe('both dispatch blocks carry the same 22 fields in the same order (VSET-B002/B003, D8)', () => {
+  test('implement-trd.md §8.3 lists 22 fields ending in checks/checkComments/pagesDir', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(21);
+    expect(fields).toHaveLength(22);
     expect(fields.slice(-3)).toEqual(['checks', 'checkComments', 'pagesDir']);
   });
 
-  test('verify-build.md §4 lists the identical 21 fields in the identical order', () => {
+  test('coverageFloor sits directly after fullRunCommand, before checks', () => {
+    const fields = extractDispatchFields(read(CORE_IMPLEMENT));
+    const iFullRun = fields.indexOf('fullRunCommand');
+    const iFloor = fields.indexOf('coverageFloor');
+    const iChecks = fields.indexOf('checks');
+    expect(iFullRun).toBeGreaterThan(-1);
+    expect(iFloor).toBe(iFullRun + 1);
+    expect(iChecks).toBe(iFloor + 1);
+  });
+
+  test('verify-build.md §4 lists the identical 22 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 21 fields, not 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 21 fields/);
+  test('verify-build.md §4 intro says 22 fields, not 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 22 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 21 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 18 fields/);
   });
 });
@@ -305,6 +370,11 @@ describe('verify-build.md 3b points at §8.1b, 3c at §8.1a', () => {
     expect(src()).not.toMatch(/### 3b\. Resolve criteria to environments and lanes/);
     const section = src().split('### 3c.')[1].split('### 4.')[0];
     expect(section).toMatch(/Identical to `\/implement-trd` §8\.1a/);
+  });
+
+  test('3c names coverageFloor among what it derives (VSET-B003, D8)', () => {
+    const section = src().split('### 3c.')[1].split('### 4.')[0];
+    expect(section).toMatch(/coverageFloor/);
   });
 
   test('step 3\'s input list resolves lanes at 3c, not 3b', () => {

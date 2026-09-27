@@ -1353,10 +1353,12 @@ refresh_rules() {
     # directory. verification.md already breaks the "authored files never
     # appear there" assumption on purpose — it ships a template shape the owner
     # fills in (environments, credentials, tooling) and its own header says
-    # "Owner-governed, like stack.md. An agent READS this and never writes it."
-    # Without this entry, an unattended --refresh (SessionStart hook) would
-    # silently overwrite that owner-filled copy with the blank template. Make
-    # the invariant refuse to break rather than break quietly.
+    # "Owner-governed, like stack.md. It changes only when the owner runs
+    # /verification-setup, which asks, then writes; running it is the
+    # approval. No autonomous run edits this file." Without this entry, an
+    # unattended --refresh (SessionStart hook) would silently overwrite that
+    # owner-filled copy with the blank template. Make the invariant refuse to
+    # break rather than break quietly.
     local AUTHORED_RULES=("constitution.md" "stack.md" "process.md" "verification.md")
 
     local count=0

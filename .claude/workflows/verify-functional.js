@@ -72,6 +72,14 @@ const REFRESH_COMMAND = a.refreshCommand || ''
 // verification-convergence.md's "Could Not Verify"). An empty command is never treated as a
 // passing run -- the report says "no full-environment run declared", never that one passed.
 const FULL_RUN_COMMAND = a.fullRunCommand || ''
+// NEW (verification-md-setup D8). The owner's coverage floor from verification.md §5a, as a
+// fraction; null (the default) leaves decideNext's re-label dormant, exactly as today. Same
+// "validate rather than silently default" idiom as SINCE/CAP below -- a bad value here would
+// otherwise reach the Judge's decide-next payload silently and mis-label coverage.
+const FLOOR = a.coverageFloor === undefined ? null : a.coverageFloor
+if (FLOOR !== null && !(typeof FLOOR === 'number' && Number.isFinite(FLOOR) && FLOOR >= 0 && FLOOR <= 1)) {
+  throw new Error('verify-functional: args.coverageFloor must be null or a number in [0, 1] (a fraction, not a percentage)')
+}
 const EVIDENCE_DIR = a.evidenceDir
 if (!EVIDENCE_DIR) {
   throw new Error('verify-functional: args.evidenceDir (the evidence directory) is required')
@@ -472,7 +480,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `unchanged, plus any id you judge "met" in STEP 2 this iteration. "total" is the whole ` +
     `definition's count, ${N}, not just this iteration's open-set size. Write ` +
     `{"iteration":${iteration},"gaps":<not_met ids>,"unbuilt":<unbuilt ids>,` +
-    `"previousGaps":${prevGapsJson},"cap":${CAP},"met":<the met ids, as described above>,` +
+    `"previousGaps":${prevGapsJson},"cap":${CAP},"coverageFloor":${JSON.stringify(FLOOR)},` +
+    `"met":<the met ids, as described above>,` +
     `"total":${N}} to ${decideFile}, then run:\n` +
     `  node ${CHECKER} decide-next --file ${decideFile}\n\n` +
     `STEP 4: persist the run's state to ${STATE_PATH}, BEFORE anything else is dispatched. ` +

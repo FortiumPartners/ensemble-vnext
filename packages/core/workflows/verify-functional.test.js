@@ -1305,6 +1305,92 @@ describe('verify-functional: met/total reach the decide-next payload', () => {
   });
 });
 
+// --------------------------------------------------------------------------- coverageFloor (D8, §3.3)
+
+describe('verify-functional: args.coverageFloor reaches the decide-next payload', () => {
+  it('carries a declared fraction into the STEP 3 payload as "coverageFloor":<value>', async () => {
+    let judgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: 0.6 }) });
+
+    expect(judgePrompt).toMatch(/"coverageFloor":0\.6/);
+  });
+
+  it('defaults to "coverageFloor":null when omitted, leaving decideNext\'s re-label dormant', async () => {
+    let judgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs() }); // no coverageFloor
+
+    expect(judgePrompt).toMatch(/"coverageFloor":null/);
+  });
+
+  it('treats an explicit null the same as omitted', async () => {
+    let judgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: null }) });
+
+    expect(judgePrompt).toMatch(/"coverageFloor":null/);
+  });
+});
+
+describe('verify-functional: args.coverageFloor validation', () => {
+  it('throws before any agent is dispatched on a percentage (>1), not a fraction', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: 60 }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws on a negative fraction', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: -0.1 }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws on a string, even one that parses as a number', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: '0.6' }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws on NaN', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: NaN }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
+  });
+});
+
 // --------------------------------------------------------------------------- result coverage (§3.3)
 
 describe('verify-functional: result carries coverage over the whole definition (§3.3)', () => {

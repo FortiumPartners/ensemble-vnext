@@ -66,8 +66,9 @@ ENVIRONMENTS only: read `.claude/rules/verification.md`'s §1 and resolve each D
 ENVIRONMENT as usable / unusable / needs-one-thing-from-the-owner, batch that last bucket into
 ONE question — naming the environments, not criteria — with a stated default, then persist the
 per-environment result exactly as §3.6a documents (`state.functional_verification.environments`,
-set in memory then saved). Report a prior-template digest match in one line too (VCON-B009).
-Partial verification with stated gaps beats none.
+set in memory then saved). Report the file's shape too, exactly as §3.6a's `missingSections`-
+derived reporting does — naming `/verification-setup` and whichever sections are missing
+(D10, D11) — not a fixed sentence. Partial verification with stated gaps beats none.
 
 **Under `--fix`, that one question is NOT asked** (O3: a `--fix` run asks the owner nothing,
 start to finish). Every environment in the needs-one-thing bucket takes the question's stated
@@ -183,12 +184,14 @@ out of the selection and reported in ISSUES (D11).
 includes the check rows appended at step 3b, and step 2's per-environment results are on disk
 (`.trd-state/<feature>/implement.json`'s `functional_verification.environments`) — bucket each
 criterion exercisable / not-verifiable against those results (no new `AskUserQuestion`; the
-one question already ran at step 2), then derive `exerciseLanes`, `refreshCommand` and
-`fullRunCommand` from `verification.md` §1a/§2 exactly as §8.1a documents.
+one question already ran at step 2), then derive `exerciseLanes`, `refreshCommand`,
+`fullRunCommand` and `coverageFloor` from `verification.md` §1a/§2/§5a exactly as §8.1a
+documents — `coverageFloor` via `read-coverage-floor`, `null` on an `invalid` line, named in
+ISSUES with the same D9 wording.
 
 ### 4. Dispatch
 
-All 21 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 22 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 ```javascript
@@ -211,6 +214,7 @@ Workflow({ name: "verify-functional", args: {
   exerciseLanes,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §1a; omitted defaults to one lane of concurrency 1
   refreshCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's fast refresh, or "" when none is declared
   fullRunCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's full deploy, or "" when none is declared
+  coverageFloor,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §5a as a fraction, or null when none is declared
   checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
   checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
   pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set
@@ -223,6 +227,10 @@ Render the outcome — `satisfied` / `unbuilt` / `stalled` / `stuck` / `insuffic
 or either `not run` case — with the per-criterion counts, the report path, and the coverage
 ratio when the outcome is `insufficient-coverage`. A failed final full-environment run appears
 in ISSUES with who acts (VCON-B009); it does not retract the criteria proven before it.
+
+**State the coverage floor whenever this run reached step 4 (D19):** "Coverage floor: {N}%
+(from verification.md)" when 3c's `coverageFloor` is non-null, else "Coverage floor: none
+declared".
 
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.

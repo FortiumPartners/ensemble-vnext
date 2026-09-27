@@ -190,6 +190,20 @@ exempt exchange, on the same footing as the refine commands' interactive mode: l
 because the plan it writes IS the owner's ruling, not a checkpoint asked of someone who
 already authorized the work.
 
+## The `verification-setup` skill — interactive by purpose, beside `/refine-*`
+
+`packages/skills/verification-setup/SKILL.md` is the same shape of exemption, for the same
+reason: it interviews the owner, one topic at a time, to write `.claude/rules/verification.md`
+— infrastructure policy nobody but the owner can answer (may staging be written to? how many
+simulators exist?). Its questions fall outside `AskUserQuestion`'s four permitted cases, so
+without this entry the rule text above would forbid the skill's whole method. Like
+`verify-plan-recovery`, it is a skill the owner invokes directly, never chained from a command
+and never run unattended inside a pipeline — `disable-model-invocation: true` on its own
+frontmatter keeps a model from reaching it through the `Skill` tool at all. The interview it
+runs — one `AskUserQuestion` call per topic, offering the detected value first — is the exempt
+exchange: legitimate because writing the file IS the owner's approval (no separate
+confirmation follows), not a checkpoint asked of someone who already authorized the work.
+
 ## Why this exists
 
 Without this discipline, commands drift toward defensive checkpointing — asking the user

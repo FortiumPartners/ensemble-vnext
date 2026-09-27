@@ -35,6 +35,7 @@ MAINTENANCE
 /cleanup-project       --> Prune CLAUDE.md and project artifacts
 /rebase-project        --> Refresh the vendored runtime from the plugin
 /augment-trd-figma     --> Add Figma design context to a TRD
+/verification-setup    --> Interview to fill or update verification.md, incl. the coverage floor
 ```
 
 **Choosing between `/plan`, `/amend` and the full pipeline.** The question is not

@@ -29,6 +29,7 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const { maskFencedLines, findSection } = require('./trd-parser');
 
@@ -222,6 +223,13 @@ const COVERAGE_FLOOR = null;
 // are structural (an allow-list), not a consequence of where this check sits in the chain.
 const COVERAGE_RELABELABLE_ACTIONS = new Set(['exit-satisfied', 'exit-stalled', 'exit-stuck']);
 
+// Renders a 0-1 fraction as the percentage the owner reads (D19). `toFixed(2)` then a numeric
+// round-trip drops trailing zeroes -- 0.6 -> "60%", 0.125 -> "12.5%" -- rather than a fixed
+// decimal count that would print "60.00%" for the common whole-percent case.
+function formatCoveragePercent(fraction) {
+  return `${Number((fraction * 100).toFixed(2))}%`;
+}
+
 /**
  * @param {{
  *   iteration: number,
@@ -332,13 +340,145 @@ function decideNext(input) {
       action: 'exit-insufficient-coverage',
       reason:
         `proven ratio ${met.length}/${total} (${(ratio * 100).toFixed(1)}%) is below the ` +
-        `coverage floor ${coverageFloor} — ${uncoveredCount} criterion/criteria uncovered; ` +
-        `base cause: ${result.reason}`,
+        // D19: the owner reads percentages (verification.md §5a is written as one), and the
+        // readout that quotes this reason prints percentages elsewhere too -- a bare fraction
+        // here would be the one place a ratio surfaced unitless.
+        `coverage floor ${formatCoveragePercent(coverageFloor)} — ${uncoveredCount} ` +
+        `criterion/criteria uncovered; base cause: ${result.reason}`,
       closed,
     };
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// readCoverageFloor / recommendCoverageFloor — the owner's coverage floor (D6, D7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses the `Coverage floor:` line inside the heading containing "coverage floor" (D7),
+ * case-insensitively on both the heading text and the line's own prefix. The line is read
+ * from within that heading's own section (up to the next heading of the same or a shallower
+ * level), so a stray mention of "coverage floor" elsewhere in the file cannot be mistaken for
+ * the declaration.
+ *
+ * @param {string} content - the full contents of a `verification.md`.
+ * @returns {{ floor: number|null, status: 'declared'|'none'|'absent'|'invalid', raw: string|null }}
+ *   `floor` is a fraction in [0, 1] ("60%" -> 0.6) -- percent in the file, fraction on the wire.
+ *   `none` (any case) -> `{ floor: null, status: 'none' }`. No such heading, or no such line
+ *   under it, -> `status: 'absent'`. Anything else (out of range, unparseable) -> `'invalid'`.
+ */
+function readCoverageFloor(content) {
+  if (typeof content !== 'string') {
+    throw new TypeError('readCoverageFloor: content must be a string');
+  }
+  const lines = content.replace(/\r\n?/g, '\n').split('\n');
+
+  let headingIndex = -1;
+  let headingLevel = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const heading = lines[i].match(/^(#{1,6})\s+(.*)$/);
+    if (heading && heading[2].toLowerCase().includes('coverage floor')) {
+      headingIndex = i;
+      headingLevel = heading[1].length;
+      break;
+    }
+  }
+  if (headingIndex === -1) {
+    return { floor: null, status: 'absent', raw: null };
+  }
+
+  let sectionEnd = lines.length;
+  for (let i = headingIndex + 1; i < lines.length; i++) {
+    const heading = lines[i].match(/^(#{1,6})\s+/);
+    if (heading && heading[1].length <= headingLevel) {
+      sectionEnd = i;
+      break;
+    }
+  }
+
+  const floorLine = lines
+    .slice(headingIndex + 1, sectionEnd)
+    .find((line) => /coverage floor\s*:/i.test(line));
+  if (!floorLine) {
+    return { floor: null, status: 'absent', raw: null };
+  }
+
+  const raw = floorLine.replace(/^.*coverage floor\s*:\s*/i, '').trim();
+
+  if (/^none$/i.test(raw)) {
+    return { floor: null, status: 'none', raw };
+  }
+
+  const percentMatch = raw.match(/^(\d+(?:\.\d+)?)\s*%$/);
+  if (percentMatch) {
+    const value = parseFloat(percentMatch[1]);
+    if (value >= 0 && value <= 100) {
+      return { floor: value / 100, status: 'declared', raw };
+    }
+  }
+
+  return { floor: null, status: 'invalid', raw };
+}
+
+// Rounding is floor-to-5% (D6): the recommendation must never sit ABOVE any past satisfied
+// run's proven share, or that run would fail to re-pass its own history. The epsilon guards
+// against a share such as 0.35 rounding down to 0.30 through floating-point error
+// (0.35 * 20 can evaluate to 6.999999999999999 rather than 7).
+function floorToFivePercent(share) {
+  return Math.floor(share * 20 + 1e-9) / 20;
+}
+
+/**
+ * Recommends a coverage floor from this project's own past verification runs (D6): the lowest
+ * proven share among runs that ended `satisfied`, rounded down to a multiple of 5% so every
+ * past satisfied run still clears it.
+ *
+ * @param {Array<{ feature: string, outcome: string|null, criteria: Array<{status: string}> }>} runs
+ * @returns {{
+ *   runs: Array<{ feature, outcome, proven, total, share }>,
+ *   eligible: number,
+ *   recommended: number|null,
+ *   lowest: { feature, proven, total, share } | null,
+ * }}
+ */
+function recommendCoverageFloor(runs) {
+  if (!Array.isArray(runs)) {
+    throw new TypeError('recommendCoverageFloor: runs must be an array');
+  }
+
+  const computed = runs.map((run) => {
+    const criteria = Array.isArray(run && run.criteria) ? run.criteria : [];
+    const total = criteria.length;
+    const proven = criteria.filter((c) => c && c.status === 'met').length;
+    return {
+      feature: run && run.feature,
+      outcome: run && run.outcome,
+      proven,
+      total,
+      share: total > 0 ? proven / total : null,
+    };
+  });
+
+  // Eligible: ended `satisfied` AND has at least one criterion (D6) -- `total: 0` is excluded
+  // rather than treated as a vacuous 100%, which would recommend a floor no run actually earned.
+  const eligible = computed.filter((r) => r.outcome === 'satisfied' && r.total > 0);
+
+  let lowest = null;
+  for (const r of eligible) {
+    if (lowest === null || r.share < lowest.share) lowest = r;
+  }
+
+  return {
+    runs: computed,
+    eligible: eligible.length,
+    recommended: lowest === null ? null : floorToFivePercent(lowest.share),
+    lowest:
+      lowest === null
+        ? null
+        : { feature: lowest.feature, proven: lowest.proven, total: lowest.total, share: lowest.share },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -891,6 +1031,11 @@ const KNOWN_UNFILLED_DIGESTS = {
   // The first resource-table template (verification-convergence 1.5.0), before §1a said how
   // parallel checks pick distinct existing instances. Shipped live from 005c389 onward.
   'resource-table-v1': '67900ffeed4a7dad60e1557afcdba4ac7e5e04d2db38ee5bc9cfcb7bb60bf10d',
+  // The second resource-table template (verification-md-setup D14), frozen the moment before
+  // this change adds §5a (the coverage floor) and reworks the header (D13). Every project
+  // scaffolded between the two changes holds exactly this copy
+  // (`packages/core/lib/__fixtures__/verification.resource-table-v2.md`).
+  'resource-table-v2': 'd1495d8d3240e6f413a96fc2a6b394978ebc8efe3425124dbe33226a1a51df97',
 };
 
 /**
@@ -916,22 +1061,80 @@ const KNOWN_UNFILLED_DIGESTS = {
  *   label of whichever prior template it matches instead, or `null` when the copy has been
  *   filled in and matches nothing known.
  */
-function isVerificationUnfilled(projectContent, templateContent) {
-  const normalize = (s) => String(s).replace(/\r\n?/g, '\n').trim();
-  const normalizedProject = normalize(projectContent);
+// Shared with the CLI's template-missing fallback (D11), which needs the same digest match
+// without a template to compare against first.
+function normalizeVerificationContent(s) {
+  return String(s).replace(/\r\n?/g, '\n').trim();
+}
 
-  if (normalizedProject === normalize(templateContent)) {
+// @returns {string|null} the `KNOWN_UNFILLED_DIGESTS` label matching this (already-normalized)
+// content, or `null` when it matches no known prior template.
+function matchKnownUnfilledDigest(normalizedContent) {
+  const digest = crypto.createHash('sha256').update(normalizedContent).digest('hex');
+  for (const [label, knownDigest] of Object.entries(KNOWN_UNFILLED_DIGESTS)) {
+    if (digest === knownDigest) return label;
+  }
+  return null;
+}
+
+function isVerificationUnfilled(projectContent, templateContent) {
+  const normalizedProject = normalizeVerificationContent(projectContent);
+
+  if (normalizedProject === normalizeVerificationContent(templateContent)) {
     return { unfilled: true, matchedTemplate: 'current' };
   }
 
-  const projectDigest = crypto.createHash('sha256').update(normalizedProject).digest('hex');
-  for (const [label, digest] of Object.entries(KNOWN_UNFILLED_DIGESTS)) {
-    if (projectDigest === digest) {
-      return { unfilled: true, matchedTemplate: label };
-    }
+  const matched = matchKnownUnfilledDigest(normalizedProject);
+  if (matched) {
+    return { unfilled: true, matchedTemplate: matched };
   }
 
   return { unfilled: false, matchedTemplate: null };
+}
+
+// ---------------------------------------------------------------------------
+// missingVerificationSections — old-shape detection (D10)
+// ---------------------------------------------------------------------------
+
+// Current-shape sections a verification.md may lack, in file order (D10). Keyed by id;
+// valued by the readout wording `/implement-trd` §3.6a and `/verify-build` §2 quote.
+const VERIFICATION_SECTION_LABELS = {
+  'resource-capacity': '§1a resource capacity (how many of each resource may exist at once)',
+  'write-permission-column': "§1's `Loop may WRITE data?` column",
+  'refresh-split': "§2's fast refresh / full deploy split",
+  'coverage-floor': '§5a coverage floor',
+};
+
+/**
+ * Names, in file order, the current-shape sections a `verification.md` lacks (D10). Matching
+ * is case-insensitive and structural — it looks at heading lines and table-header lines rather
+ * than the whole document, so renumbering a heading (e.g. `## 1a.` -> `## 2.`) does not count
+ * as missing, and a table cell that happens to mention "coverage floor" in prose does not
+ * count as the section either.
+ *
+ * @param {string} content
+ * @returns {string[]} ids from `VERIFICATION_SECTION_LABELS` the content lacks, in file order.
+ */
+function missingVerificationSections(content) {
+  if (typeof content !== 'string') {
+    throw new TypeError('missingVerificationSections: content must be a string');
+  }
+  const lines = content.replace(/\r\n?/g, '\n').split('\n');
+
+  const hasHeadingContaining = (needle) =>
+    lines.some((line) => /^#{1,6}\s/.test(line) && line.toLowerCase().includes(needle));
+  const hasLineContainingAll = (needles) =>
+    lines.some((line) => {
+      const lower = line.toLowerCase();
+      return needles.every((needle) => lower.includes(needle));
+    });
+
+  const missing = [];
+  if (!hasHeadingContaining('resource capacity')) missing.push('resource-capacity');
+  if (!hasLineContainingAll(['loop may write data?'])) missing.push('write-permission-column');
+  if (!hasLineContainingAll(['fast refresh', 'full deploy'])) missing.push('refresh-split');
+  if (!hasHeadingContaining('coverage floor')) missing.push('coverage-floor');
+  return missing;
 }
 
 module.exports = {
@@ -942,6 +1145,10 @@ module.exports = {
   decideFixRound,
   renderFixSummary,
   isVerificationUnfilled,
+  missingVerificationSections,
+  readCoverageFloor,
+  recommendCoverageFloor,
+  VERIFICATION_SECTION_LABELS,
   CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
@@ -990,7 +1197,9 @@ if (require.main === module) {
         "  node functional-verification.js render-report '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
-        '  node functional-verification.js check-verification-unfilled <projectPath> <templatePath>'
+        '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
+        '  node functional-verification.js read-coverage-floor <projectPath>\n' +
+        '  node functional-verification.js recommend-coverage-floor <trdStateDir>'
     );
     process.exit(1);
   };
@@ -1061,17 +1270,81 @@ if (require.main === module) {
       console.log(renderFixSummary(JSON.parse(inputJson)));
     }
   } else if (subcommand === 'check-verification-unfilled') {
+    // templatePath is optional (D11): a scaffolded project has no
+    // `packages/core/templates/...` tree to pass, and §3.6a's call site would otherwise throw
+    // on `readFileSync` there. Missing it degrades the check rather than crashing it.
     const [projectPath, templatePath] = rest;
-    if (!projectPath || !templatePath) {
+    if (!projectPath) {
       usage();
     } else if (!fs.existsSync(projectPath)) {
       // Missing entirely is a distinct case from "present but unfilled" -- report it rather
-      // than silently treating "no file" as either verdict.
+      // than silently treating "no file" as either verdict. Unchanged shape (D11): there is no
+      // project content to derive `missingSections` from.
       console.log(JSON.stringify({ unfilled: null, reason: 'missing', path: projectPath }));
     } else {
       const projectContent = fs.readFileSync(projectPath, 'utf8');
-      const templateContent = fs.readFileSync(templatePath, 'utf8');
-      console.log(JSON.stringify(isVerificationUnfilled(projectContent, templateContent)));
+      const missingSections = missingVerificationSections(projectContent);
+      if (templatePath && fs.existsSync(templatePath)) {
+        const templateContent = fs.readFileSync(templatePath, 'utf8');
+        const result = isVerificationUnfilled(projectContent, templateContent);
+        console.log(JSON.stringify({ ...result, missingSections }));
+      } else {
+        // No current template to compare against -- still check the prior-template digests
+        // (D11), so a project holding an old, unfilled copy is still caught.
+        const matched = matchKnownUnfilledDigest(normalizeVerificationContent(projectContent));
+        if (matched) {
+          console.log(JSON.stringify({ unfilled: true, matchedTemplate: matched, missingSections }));
+        } else {
+          console.log(
+            JSON.stringify({
+              unfilled: null,
+              reason: 'template-missing',
+              matchedTemplate: null,
+              missingSections,
+            })
+          );
+        }
+      }
+    }
+  } else if (subcommand === 'read-coverage-floor') {
+    const [projectPath] = rest;
+    if (!projectPath) {
+      usage();
+    } else if (!fs.existsSync(projectPath)) {
+      console.log(JSON.stringify({ floor: null, status: 'absent', raw: null, reason: 'missing' }));
+    } else {
+      const content = fs.readFileSync(projectPath, 'utf8');
+      console.log(JSON.stringify(readCoverageFloor(content)));
+    }
+  } else if (subcommand === 'recommend-coverage-floor') {
+    const [trdStateDir] = rest;
+    if (!trdStateDir) {
+      usage();
+    } else {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(trdStateDir, { withFileTypes: true });
+      } catch (e) {
+        entries = [];
+      }
+      const runs = [];
+      const skipped = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const statePath = path.join(trdStateDir, entry.name, 'verification-state.json');
+        if (!fs.existsSync(statePath)) continue;
+        try {
+          const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+          runs.push({
+            feature: entry.name,
+            outcome: parsed.outcome ?? null,
+            criteria: Array.isArray(parsed.criteria) ? parsed.criteria : [],
+          });
+        } catch (e) {
+          skipped.push(statePath);
+        }
+      }
+      console.log(JSON.stringify({ ...recommendCoverageFloor(runs), skipped }));
     }
   } else {
     usage();

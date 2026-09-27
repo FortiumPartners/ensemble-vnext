@@ -13,6 +13,9 @@ const {
   decideFixRound,
   renderFixSummary,
   isVerificationUnfilled,
+  missingVerificationSections,
+  readCoverageFloor,
+  recommendCoverageFloor,
   CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
@@ -488,7 +491,9 @@ describe('decideNext: the coverage re-label', () => {
     });
     expect(result.action).toBe('exit-insufficient-coverage');
     expect(result.reason).toMatch(/1\/10/);
-    expect(result.reason).toMatch(/0\.5/);
+    // D19: the floor renders as a percentage ("50%"), not the bare fraction ("0.5") it used to.
+    expect(result.reason).toMatch(/50%/);
+    expect(result.reason).toContain('%');
   });
 
   test('an explicit floor re-labels exit-stalled', () => {
@@ -1224,6 +1229,16 @@ describe('isVerificationUnfilled', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
+    // Neither the minimal template/project fixtures nor the pre-1.5.0 fixture carry any of
+    // the four current-shape sections (D10), so every test in this block that uses them
+    // expects the full list back, in file order.
+    const ALL_MISSING_SECTIONS = [
+      'resource-capacity',
+      'write-permission-column',
+      'refresh-split',
+      'coverage-floor',
+    ];
+
     test('reports unfilled: true when the project file matches the template', () => {
       const templatePath = path.join(tmpDir, 'template.md');
       const projectPath = path.join(tmpDir, 'project.md');
@@ -1236,7 +1251,11 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'current' });
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'current',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
     });
 
     test('reports unfilled: false when the project file has been edited', () => {
@@ -1251,7 +1270,11 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: false, matchedTemplate: null });
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: false,
+        matchedTemplate: null,
+        missingSections: ALL_MISSING_SECTIONS,
+      });
     });
 
     test('reports a project file matching the pre-resource-table template as unfilled, naming it', () => {
@@ -1274,7 +1297,65 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'pre-resource-table' });
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'pre-resource-table',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('reports a filled pre-1.5.0-shape file as unfilled: false, still naming all four missing sections', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+        'utf8'
+      );
+      const currentTemplate = fs.readFileSync(
+        path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+        'utf8'
+      );
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(templatePath, currentTemplate);
+      fs.writeFileSync(projectPath, `${priorTemplate}\n| local | http://localhost:4000 |\n`);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: false,
+        matchedTemplate: null,
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('reports only the missing coverage-floor section for the resource-table-v2 template', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.resource-table-v2.md'),
+        'utf8'
+      );
+      const currentTemplate = fs.readFileSync(
+        path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+        'utf8'
+      );
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(templatePath, currentTemplate);
+      fs.writeFileSync(projectPath, priorTemplate);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'resource-table-v2',
+        missingSections: ['coverage-floor'],
+      });
     });
 
     test('reports a missing project file distinctly, not as either verdict', () => {
@@ -1288,12 +1369,352 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
+      // Unchanged shape (D11) -- there is no project content to derive missingSections from.
       expect(JSON.parse(stdout)).toEqual({ unfilled: null, reason: 'missing', path: projectPath });
     });
 
     test('missing arguments print usage and exit non-zero', () => {
       expect(() => {
         execFileSync('node', [MODULE_PATH, 'check-verification-unfilled'], { stdio: 'pipe' });
+      }).toThrow();
+    });
+
+    // -------------------------------------------------------------------------
+    // D11 -- templatePath is optional. A scaffolded project has no
+    // packages/core/templates/... tree to pass, so the CLI must degrade rather than throw.
+    // -------------------------------------------------------------------------
+
+    test('a prior-digest match is still reported unfilled when templatePath is omitted', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+        'utf8'
+      );
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(projectPath, priorTemplate);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'pre-resource-table',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('a prior-digest match is still reported unfilled when templatePath does not exist', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+        'utf8'
+      );
+      const projectPath = path.join(tmpDir, 'project.md');
+      const missingTemplatePath = path.join(tmpDir, 'does-not-exist-template.md');
+      fs.writeFileSync(projectPath, priorTemplate);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        missingTemplatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'pre-resource-table',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('returns template-missing with missingSections when the template path is absent and no digest matches', () => {
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(
+        projectPath,
+        '# Verification environments\n\n| local | http://localhost:3000 |\n'
+      );
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: null,
+        reason: 'template-missing',
+        matchedTemplate: null,
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missingVerificationSections — old-shape detection (D10, VSET-B001)
+// ---------------------------------------------------------------------------
+
+describe('missingVerificationSections', () => {
+  const currentTemplate = fs.readFileSync(
+    path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+    'utf8'
+  );
+
+  test('the current template lacks nothing', () => {
+    expect(missingVerificationSections(currentTemplate)).toEqual([]);
+  });
+
+  test('the pre-1.5.0 template lacks all four, in file order', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+      'utf8'
+    );
+    expect(missingVerificationSections(priorTemplate)).toEqual([
+      'resource-capacity',
+      'write-permission-column',
+      'refresh-split',
+      'coverage-floor',
+    ]);
+  });
+
+  test('the first resource-table template lacks only the coverage floor', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.resource-table-v1.md'),
+      'utf8'
+    );
+    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor']);
+  });
+
+  test('the second resource-table template lacks only the coverage floor', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.resource-table-v2.md'),
+      'utf8'
+    );
+    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor']);
+  });
+
+  test('throws on a non-string content, matching decideNext\'s validate-don\'t-default stance', () => {
+    expect(() => missingVerificationSections(undefined)).toThrow(TypeError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readCoverageFloor — parses verification.md §5a (D7, VSET-B001)
+// ---------------------------------------------------------------------------
+
+describe('readCoverageFloor', () => {
+  const withFloor = (line) => `## 5a. Coverage floor\n\n${line}\n\n## 6. Multi-repo\n`;
+
+  test('a whole percent', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 60%'))).toEqual({
+      floor: 0.6,
+      status: 'declared',
+      raw: '60%',
+    });
+  });
+
+  test('"none"', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: none'))).toEqual({
+      floor: null,
+      status: 'none',
+      raw: 'none',
+    });
+  });
+
+  test('"NONE" (case-insensitive)', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: NONE'))).toEqual({
+      floor: null,
+      status: 'none',
+      raw: 'NONE',
+    });
+  });
+
+  test('a decimal percent', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 12.5%'))).toEqual({
+      floor: 0.125,
+      status: 'declared',
+      raw: '12.5%',
+    });
+  });
+
+  test('no "coverage floor" heading at all', () => {
+    expect(readCoverageFloor('# Verification environments\n\nsome text\n')).toEqual({
+      floor: null,
+      status: 'absent',
+      raw: null,
+    });
+  });
+
+  test('the heading exists but has no "Coverage floor:" line under it', () => {
+    expect(
+      readCoverageFloor('## 5a. Coverage floor\n\nsome prose with no declaration\n\n## 6. Multi-repo\n')
+    ).toEqual({ floor: null, status: 'absent', raw: null });
+  });
+
+  test('out of range (150%) is invalid', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 150%'))).toEqual({
+      floor: null,
+      status: 'invalid',
+      raw: '150%',
+    });
+  });
+
+  test('unparseable text is invalid', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: abc'))).toEqual({
+      floor: null,
+      status: 'invalid',
+      raw: 'abc',
+    });
+  });
+
+  test('a bare fraction (no %) is invalid -- percent in the file, fraction on the wire (D7)', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 0.6'))).toEqual({
+      floor: null,
+      status: 'invalid',
+      raw: '0.6',
+    });
+  });
+
+  test('throws on a non-string content', () => {
+    expect(() => readCoverageFloor(null)).toThrow(TypeError);
+  });
+
+  describe('CLI: read-coverage-floor', () => {
+    let tmpDir;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'read-coverage-floor-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('reads a declared floor from a file', () => {
+      const projectPath = path.join(tmpDir, 'verification.md');
+      fs.writeFileSync(projectPath, withFloor('Coverage floor: 60%'));
+
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-coverage-floor', projectPath]).toString();
+      expect(JSON.parse(stdout)).toEqual({ floor: 0.6, status: 'declared', raw: '60%' });
+    });
+
+    test('reports a missing file distinctly', () => {
+      const projectPath = path.join(tmpDir, 'does-not-exist.md');
+
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-coverage-floor', projectPath]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        floor: null,
+        status: 'absent',
+        raw: null,
+        reason: 'missing',
+      });
+    });
+
+    test('missing arguments print usage and exit non-zero', () => {
+      expect(() => {
+        execFileSync('node', [MODULE_PATH, 'read-coverage-floor'], { stdio: 'pipe' });
+      }).toThrow();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// recommendCoverageFloor — the floor recommendation (D6, VSET-B001)
+// ---------------------------------------------------------------------------
+
+describe('recommendCoverageFloor', () => {
+  test('no runs at all -> null', () => {
+    expect(recommendCoverageFloor([])).toMatchObject({ eligible: 0, recommended: null, lowest: null });
+  });
+
+  test('only non-satisfied runs -> null', () => {
+    const runs = [
+      { feature: 'a', outcome: 'stalled', criteria: [{ status: 'met' }, { status: 'not_met' }] },
+      { feature: 'b', outcome: 'stuck', criteria: [{ status: 'met' }] },
+    ];
+    expect(recommendCoverageFloor(runs)).toMatchObject({
+      eligible: 0,
+      recommended: null,
+      lowest: null,
+    });
+  });
+
+  test('the lowest of three satisfied runs (12/12, 3/6, 26/32) rounds down to 0.5', () => {
+    const criteriaOf = (met, total) => [
+      ...Array.from({ length: met }, () => ({ status: 'met' })),
+      ...Array.from({ length: total - met }, () => ({ status: 'not_met' })),
+    ];
+    const runs = [
+      { feature: 'full', outcome: 'satisfied', criteria: criteriaOf(12, 12) },
+      { feature: 'half', outcome: 'satisfied', criteria: criteriaOf(3, 6) },
+      { feature: 'most', outcome: 'satisfied', criteria: criteriaOf(26, 32) },
+    ];
+    const result = recommendCoverageFloor(runs);
+    expect(result.eligible).toBe(3);
+    expect(result.recommended).toBe(0.5);
+    expect(result.lowest).toMatchObject({ feature: 'half', proven: 3, total: 6, share: 0.5 });
+  });
+
+  test('a share of 0.35 rounds down to 0.35, not 0.3 -- the epsilon guards the float error', () => {
+    const criteria = [
+      ...Array.from({ length: 7 }, () => ({ status: 'met' })),
+      ...Array.from({ length: 13 }, () => ({ status: 'not_met' })),
+    ];
+    const runs = [{ feature: 'twenty', outcome: 'satisfied', criteria }];
+    expect(recommendCoverageFloor(runs).recommended).toBe(0.35);
+  });
+
+  test('a satisfied run with total: 0 is excluded from eligibility', () => {
+    const runs = [{ feature: 'empty', outcome: 'satisfied', criteria: [] }];
+    const result = recommendCoverageFloor(runs);
+    expect(result.eligible).toBe(0);
+    expect(result.recommended).toBeNull();
+    expect(result.runs).toEqual([
+      { feature: 'empty', outcome: 'satisfied', proven: 0, total: 0, share: null },
+    ]);
+  });
+
+  test('throws when runs is not an array', () => {
+    expect(() => recommendCoverageFloor(null)).toThrow(TypeError);
+  });
+
+  describe('CLI: recommend-coverage-floor', () => {
+    let tmpDir;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'recommend-coverage-floor-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('reads every */verification-state.json under the directory, skipping ones that fail to parse', () => {
+      fs.mkdirSync(path.join(tmpDir, 'feature-a'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'feature-a', 'verification-state.json'),
+        JSON.stringify({
+          outcome: 'satisfied',
+          criteria: [{ status: 'met' }, { status: 'met' }, { status: 'not_met' }, { status: 'met' }],
+        })
+      );
+      fs.mkdirSync(path.join(tmpDir, 'feature-b'));
+      fs.writeFileSync(path.join(tmpDir, 'feature-b', 'verification-state.json'), 'not valid json{');
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'recommend-coverage-floor',
+        tmpDir,
+      ]).toString();
+      const parsed = JSON.parse(stdout);
+      expect(parsed.eligible).toBe(1);
+      expect(parsed.recommended).toBe(0.75); // 3/4 satisfied, floor(0.75 * 20 + eps)/20 = 0.75
+      expect(parsed.skipped).toEqual([
+        path.join(tmpDir, 'feature-b', 'verification-state.json'),
+      ]);
+    });
+
+    test('missing arguments print usage and exit non-zero', () => {
+      expect(() => {
+        execFileSync('node', [MODULE_PATH, 'recommend-coverage-floor'], { stdio: 'pipe' });
       }).toThrow();
     });
   });

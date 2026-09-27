@@ -1,0 +1,125 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verification-md-setup.md",
+  "trd_hash": "95497147cfd6cbdd5c7009b9f2bdbcd35187fc3e54fec4af5c93929fb2fe3b4a",
+  "branch": "feature/verification-md-setup/build",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "VSET-B001": {
+      "description": "functional-verification.js (§3.1) and the template (§3.2) as one task. The template's digest, fixture and section detection are verified against each other, so splitting them serializes on the same te",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T22:48:25.610Z",
+      "completed_at": "2026-09-27T23:13:46.044Z",
+      "last_advanced": "2026-09-27T22:50:27.529Z"
+    },
+    "VSET-B002": {
+      "description": "verify-functional.js: the coverageFloor argument, its validation and the STEP 3 payload (§3.3). docs/TRD/functional-verification.md §3.3 declares it, with a changelog row. Update verify-functional.tes",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T22:48:25.611Z",
+      "completed_at": "2026-09-27T23:13:46.044Z",
+      "last_advanced": "2026-09-27T22:50:27.530Z"
+    },
+    "VSET-B003": {
+      "description": "Command prose, as one task because both files share verify-command-surface.test.js and the dispatch-block identity test spans them. implement-trd.md (+ .claude/ mirror): §3.6a, §8.1a, §8.3 and Step 9 ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T22:48:25.611Z",
+      "completed_at": "2026-09-27T23:13:46.044Z",
+      "last_advanced": "2026-09-27T22:50:27.530Z"
+    },
+    "VSET-B004": {
+      "description": "The skill (§3.5): SKILL.md, the template.md symlink, and __tests__/skill-md.test.js. The list line (D16). The autonomy.md entry in both copies (D17). If packages/skills/README.md enumerates library sk",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verification-setup/SKILL.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T22:48:25.611Z",
+      "completed_at": "2026-09-27T23:13:46.044Z",
+      "last_advanced": "2026-09-27T22:50:27.530Z"
+    },
+    "VSET-B005": {
+      "description": "/init-project, both copies (§3.4).",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/init-project.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T22:48:25.611Z",
+      "completed_at": "2026-09-27T23:13:46.044Z",
+      "last_advanced": "2026-09-27T22:50:27.530Z"
+    },
+    "VSET-D001": {
+      "description": "Documentation with no code beside it. In .claude/rules/process.md and packages/core/templates/process.md.template (both are authored rules, so both need the edit), MAINTENANCE gains /verification-setu",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/process.md.template"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T22:48:25.611Z",
+      "completed_at": "2026-09-27T23:13:46.044Z",
+      "last_advanced": "2026-09-27T22:50:27.530Z"
+    },
+    "VSET-T001": {
+      "description": "[LIVE] Add opt-in smoke scenario test/smoke/scenarios/verification-md-setup.sh, registered in LLM_OPT_IN_SCENARIOS, following verify-functional.sh's throwaway-project pattern. It exercises the seam be",
+      "phase": 2,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "f8109df",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/verification-md-setup.investigation.md",
+    "environments": {},
+    "environments_note": "verification.md is the unfilled current template"
+  }
+}
