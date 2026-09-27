@@ -69,12 +69,6 @@ inferred from any other cell in this file. The rules, not suggestions:
 - **A blank create/destroy cell means the loop may not create one, whatever the count says.**
   A count of 4 with no command means "four already exist"; a count of 4 with a command means
   "make up to four".
-- **When N already exist, say how parallel checks tell them apart.** The framework gives each
-  exercise slice its share of the count, but it cannot know which of your four simulators is
-  which — that is specific to your project. Name the instances, or state the rule a check
-  uses to claim one (a device name per slot, a port per instance, a lock file), in the
-  create/destroy cell or in `.claude/verification-notes.md`. Without it, every slice may
-  attach to the same instance, and the count protects nothing.
 
 ## 2. Bringing the environment to the new code
 

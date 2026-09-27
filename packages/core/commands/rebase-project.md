@@ -981,14 +981,19 @@ Rules under `.claude/rules/` come in two categories with opposite update policie
 - `.claude/rules/constitution.md`
 - `.claude/rules/stack.md`
 - `.claude/rules/process.md`
+- `.claude/rules/verification.md` — the owner declares environments, capacities and
+  credentials' locations here, so a refresh overwriting it would erase that policy.
+  `scaffold-project.sh` refuses it unconditionally (`AUTHORED_RULES`). A newer template shape
+  reaches an existing project another way: `/implement-trd` §3.6a reports when the project's
+  copy still matches an older unfilled template.
 
 These are generated/customized at `init-project` and belong to the user. Even with
 `--force`, they are preserved.
 
 **Framework-shipped rules (UPDATED on rebase, exactly like commands and hooks):**
 - Every `.md` file in `@packages/core/templates/claude-directory/rules/` —
-  `async-discipline.md`, `autonomy.md`, `command-status.md`, `verification.md`, and any
-  future additions.
+  `async-discipline.md`, `autonomy.md`, `command-status.md`, and any future additions —
+  except `verification.md`, which is user-owned (above).
 
 These encode behavioral guarantees enforced by hooks: the discipline guards are
 `hookType: "prompt"`, so the rule file is the ONLY place an agent can read what the guard
@@ -1184,9 +1189,9 @@ regenerates the whole vendored runtime.
 
 ## Flag Behavior Summary
 
-`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`) is never
-touched by any flag; **framework-shipped** (`async-discipline.md`, `autonomy.md`,
-`command-status.md`, `verification.md`) behaves like commands.
+`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`,
+`verification.md`) is never touched by any flag; **framework-shipped** (`async-discipline.md`,
+`autonomy.md`, `command-status.md`) behaves like commands.
 
 | Flag | Agents | Skills | Commands | Hooks | Settings | Framework rules | Governance |
 |------|--------|--------|----------|-------|----------|-----------------|------------|

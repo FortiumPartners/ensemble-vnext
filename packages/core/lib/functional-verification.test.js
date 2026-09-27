@@ -1157,6 +1157,24 @@ describe('isVerificationUnfilled', () => {
     });
   });
 
+  test('a project file matching the first resource-table template is still reported unfilled, naming it', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.resource-table-v1.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+
+    // Shipped live from 005c389 until §1a gained the instance-naming rule; a project
+    // scaffolded in that window holds exactly this copy.
+    expect(isVerificationUnfilled(priorTemplate, currentTemplate)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'resource-table-v1',
+    });
+  });
+
   test('a project file matching the pre-resource-table template, re-saved with CRLF, is still recognised', () => {
     const priorTemplate = fs.readFileSync(
       path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
@@ -1360,3 +1378,45 @@ describe('renderReport: a cell cannot break out of its row', () => {
     expect(render('before\r\nafter')).toContain('before after');
   });
 });
+
+// ---------------------------------------------------------------------------
+// The shipped verification.md template carries what the loop reads from it (O5, VCON-B008).
+// §3.6a resolves lanes, permissions and refresh/full-run commands from these sections by
+// NAME; a template edit that drops one would leave every project resolving to the serial,
+// nothing-declared defaults with no error anywhere.
+// ---------------------------------------------------------------------------
+
+describe('shipped verification.md template content', () => {
+  const template = fs.readFileSync(
+    path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+    'utf8'
+  );
+
+  test('carries the §1a resource-capacity table and its three count rules', () => {
+    expect(template).toMatch(/^## 1a\. Resource capacity — how many may exist at once$/m);
+    expect(template).toMatch(/\| Resource \| How many may exist at once \| Which environments need it \| How the loop creates and destroys one \|/);
+    expect(template).toMatch(/\*\*`N`\*\* — a \*\*pool\*\*/);
+    expect(template).toMatch(/\*\*`1`\*\* — a \*\*queue\*\*/);
+    expect(template).toMatch(/\*\*`0`\*\* — \*\*must not be touched\.\*\*/);
+  });
+
+  test('states the two safety defaults as rules: no row counts as 1, a blank create cell withholds creation', () => {
+    expect(template).toMatch(/An environment with no row in this table counts as one resource of its own, with a count\s+of `1`\./);
+    expect(template).toMatch(/A blank create\/destroy cell means the loop may not create one, whatever the count says\./);
+  });
+
+  test('leaves telling existing instances apart to the project', () => {
+    expect(template).toMatch(/When N already exist, say how parallel checks tell them apart\./);
+  });
+
+  test('declares data permission per environment, including the preview row', () => {
+    expect(template).toMatch(/Loop may WRITE data\?/);
+    expect(template).toMatch(/must not be touched/);
+    expect(template).toMatch(/^\| preview \|/m);
+  });
+
+  test('splits a fast per-iteration refresh from an end-of-run full deploy', () => {
+    expect(template).toMatch(/\| Fast refresh \(per iteration\) \| Full deploy \(end of run\) \|/);
+  });
+});
+

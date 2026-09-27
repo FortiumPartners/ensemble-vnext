@@ -564,6 +564,9 @@ function renderReport(input) {
  */
 const KNOWN_UNFILLED_DIGESTS = {
   'pre-resource-table': 'f783eac9043329f3730b819758625efaa95ec7dd982e90565cb0e66b24451690',
+  // The first resource-table template (verification-convergence 1.5.0), before §1a said how
+  // parallel checks pick distinct existing instances. Shipped live from 005c389 onward.
+  'resource-table-v1': '67900ffeed4a7dad60e1557afcdba4ac7e5e04d2db38ee5bc9cfcb7bb60bf10d',
 };
 
 /**
