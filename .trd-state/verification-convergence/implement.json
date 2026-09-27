@@ -4,7 +4,7 @@
   "trd_hash": "045cb2f32026cf0a9c316c61b3f7f9f9c32759df78d0312bc318d8062c8963ac",
   "branch": "feature/verification-convergence/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "VCON-B001": {
       "description": "The locator rule, end to end — check, supply and exemption in one change. (a) Extend checkEvidence with the locator check, the no-locator / locator-not-found failures, LOCATOR_SCAN_BYTES with a trunca",
@@ -47,50 +47,70 @@
     "VCON-B003": {
       "description": "The capture/repair boundary: add the capture-only prohibition to the Exercise prompt — it may bring a system up when nothing is running, and may not edit source, rebuild, restart or re-deploy; anythin",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:24:05.917Z",
+      "completed_at": "2026-09-27T01:55:07.344Z",
+      "last_advanced": "2026-09-27T01:44:22.885Z"
     },
     "VCON-B004": {
       "description": "The loop's memory and its coverage exit vocabulary, as ONE unit: hold the settled/open partition in the script (§3.4), seed it from resume (met only — D2), make reconcileClaims open-set-relative, stam",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:24:05.917Z",
+      "completed_at": "2026-09-27T01:55:07.350Z",
+      "last_advanced": "2026-09-27T01:44:22.886Z"
     },
     "VCON-B005": {
       "description": "The end-of-run full-environment gate (D14): on any exit action except unbuilt / not-run the Judge runs the declared full command once, its result enters the rendered report and buildFinalResult's retu",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:24:05.917Z",
+      "completed_at": "2026-09-27T01:55:07.350Z",
+      "last_advanced": "2026-09-27T01:44:22.886Z"
     },
     "VCON-B006": {
       "description": "Lane-based slicing: read the new exerciseLanes arg (§3.3, defaulting to one lane of concurrency 1 over every criterion, createCommand: \"\"), intersect each lane with the open set, slice within the lane",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-27T01:24:05.917Z",
+      "completed_at": "2026-09-27T01:55:07.350Z",
+      "last_advanced": "2026-09-27T01:44:22.886Z"
     },
     "VCON-B007": {
       "description": "packages/core/contracts/functional-verification.md + mirror + functional-verification.test.js (the contract's own suite): add the locator rule and its stated image limit, the Tier 1 column and judge-o",
@@ -153,10 +173,19 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "cd495da",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-27T01:24:05.917Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "e03c4f8",
-    "last_checkpoint_timestamp": "2026-09-27T01:01:10.131Z",
+    "last_healthy_checkpoint": "cd495da",
+    "last_checkpoint_timestamp": "2026-09-27T01:24:05.917Z",
     "interrupted": false,
     "interrupt_reason": null
   }
