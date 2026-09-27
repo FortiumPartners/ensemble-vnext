@@ -116,18 +116,15 @@ in files the preflight never reads (a 2,567-line `verification-notes.md` holding
 production permission; `live-env.md`; CLAUDE.md). The file is filled but in the pre-4.8.0 shape,
 and the unfilled check cannot see that, so the owner is never told §1a exists.
 
-**Hazard seen:** on 2026-09-26 an agent overwrote the owner-filled file (`4bb457c75` →
-`a07892767`) claiming it was "the empty template", dropping the production read-only authorisation
-and three credential locations and introducing a factual error. The failure was writing **without asking** and
-from a false premise — not writing. So the builder **asks, then writes the file directly**
-(owner, 2026-09-27: a skill that only proposes a diff for the human to apply is one users despise).
-Safeguards live in the asking: start from the current file, never the template; keep every existing
-entry unless an answered question changes it; turn any existing owner decision the evidence
-contradicts into a question ("your file authorises production read-only — keep that?"), never a
-silent change; after writing, report in plain terms what changed. The file is in git, so an
-unwanted change is one revert. The template's header line *"An agent READS this and never writes
-it"* changes to *"No agent writes this on its own; the setup skill writes it from the owner's
-answers."*
+**How the model session handled it — the behaviour to codify.** The agent wrote the file itself,
+as part of its prep, inside the successful run: `a07892767` at 16:34Z on 2026-09-26, the first step of
+the plan the owner agreed at 16:19Z ("draft verification.md, fix the harness login, give the in-trip
+persona a future day"). It updated the file again as rulings arrived — at 05:20Z on 2026-09-27, right
+after the owner approved read-only access to live data. So the builder **writes the file** from repo
+evidence and the owner's answers, **and keeps it current as rulings land** in later bridges and runs.
+It starts from the current file rather than the template, and says in plain terms what it changed.
+The template's header *"An agent READS this and never writes it"* changes to say the setup skill and
+the bridge write it.
 
 **Derivable from the repo:** environment names/ports (scripts, docker-compose, `.env*.example`,
 vercel/railway), refresh and build commands, measured durations from past runs, installed tooling,
