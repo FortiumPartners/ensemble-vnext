@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { readScript, runWorkflow, makeAgentStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
 
 const SOURCE = readScript('verify-functional.js');
 
@@ -97,9 +97,12 @@ describe('verify-functional: source-level constraints', () => {
     expect(SOURCE).not.toMatch(/new Date\s*\(\s*\)/);
   });
 
-  it('contains no workflow( call and no parallel( call', () => {
+  it('contains no workflow( call', () => {
+    // The `parallel(` half of this assertion is superseded by VCON-B006 (§6.1): lane slicing
+    // dispatches through `parallel()`, following sweep.js's own batching pattern. The separate
+    // `waves` assertion just below is NOT changed by that -- this workflow still says "batch",
+    // "slice" and "lane", never "wave".
     expect(SOURCE).not.toMatch(/\bworkflow\s*\(/);
-    expect(SOURCE).not.toMatch(/\bparallel\s*\(/);
   });
 
   it('contains no reference to buildGraph, waves, remediation tasks, or the TRD', () => {
@@ -256,9 +259,11 @@ describe('verify-functional: Debug reports unbuilt', () => {
     expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(1); // only the first
     expect(agent.calls.filter((c) => c.opts.label === 'judge')).toHaveLength(2); // one final call
     expect(result.outcome).toBe('unbuilt');
-    // Finding: `exercised` must reflect the FINAL iteration (§3.3), which skipped Exercise --
-    // not the "2/2" the first iteration's real Exercise call reported.
-    expect(result.exercised).toBe('0/2');
+    // Finding: `exercised` must reflect the FINAL iteration (§3.3), over the OPEN set (§3.4) --
+    // not the "2/2" the first iteration's real Exercise call reported. FS-2 was judged "met" on
+    // iteration 1 (remediateJudge()'s fixture) and so is settled and out of the open set by the
+    // time iteration 2's (skipped) Exercise pass would have run -- only FS-1 remains open.
+    expect(result.exercised).toBe('0/1');
   });
 });
 
@@ -444,9 +449,10 @@ describe('verify-functional: the Judge is told the exact state-file key names', 
 
     await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
 
-    // null on remediate, a real outcome string otherwise -- both halves stated.
+    // null on remediate, a real outcome string otherwise -- both halves stated, now including
+    // insufficient-coverage (VCON-B004, D10).
     expect(capturedPrompt).toMatch(/null when decide-next returned "remediate"/);
-    expect(capturedPrompt).toMatch(/"satisfied", "unbuilt", "stalled" or "stuck"/);
+    expect(capturedPrompt).toMatch(/"satisfied", "unbuilt", "stalled", "stuck" or "insufficient-coverage"/);
     // The consequence is spelled out, so a judge that is tempted to omit the key knows why not.
     expect(capturedPrompt).toMatch(/Omitting the key\s+entirely reads as null/);
     expect(capturedPrompt).toContain('Write it on EVERY iteration');
@@ -517,10 +523,16 @@ describe('verify-functional: notesUpdated is sourced from the Exercise stage', (
   });
 });
 
-// --------------------------------------------------------------------------- full criteria every iteration
+// --------------------------------------------------------------------------- Exercise is scoped to the OPEN set (VCON-B006)
 
-describe('verify-functional: every criterion is passed to Exercise on every iteration', () => {
-  it('includes all criterion ids in the Exercise prompt on both the first and a later iteration', async () => {
+// This behaviour flipped under VCON-B006 (D4, §3.5): the Exercise prompt used to carry the
+// WHOLE criteria set on every iteration (`buildExercisePrompt`'s only coupling was `iteration`).
+// It now carries only this iteration's own SLICE of the OPEN set -- a criterion already settled
+// (FS-1 here, proven met on iteration 1) is excluded from what a later iteration's slice is told
+// about, because handing a slice agent a criterion outside its own list is the exact failure
+// lane slicing exists to stop.
+describe('verify-functional: Exercise is scoped to the open set, per slice', () => {
+  it('carries every open criterion on the first iteration, and only what is STILL open on a later one', async () => {
     const exercisePrompts = [];
     let judgeCalls = 0;
     const agent = makeAgentStub((prompt, opts) => {
@@ -530,19 +542,30 @@ describe('verify-functional: every criterion is passed to Exercise on every iter
       }
       if (opts.label === 'judge') {
         judgeCalls += 1;
-        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
+        // Iteration 1 settles FS-1 as met; FS-2 stays open and drives a second iteration.
+        return judgeCalls === 1
+          ? remediateJudge({
+              criteria: [
+                { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+                { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', files: [] },
+              ],
+              gaps: ['FS-2'],
+              debugGaps: [{ id: 'FS-2', statement: 'statement for FS-2', reason: 'no artifact', artifact: null, files: [] }],
+            })
+          : satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] }] });
       }
-      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
       return null;
     });
 
     await runWorkflow(SOURCE, { agent, args: baseArgs() });
 
     expect(exercisePrompts).toHaveLength(2);
-    for (const p of exercisePrompts) {
-      expect(p).toMatch(/"FS-1"/);
-      expect(p).toMatch(/"FS-2"/);
-    }
+    expect(exercisePrompts[0]).toMatch(/"FS-1"/);
+    expect(exercisePrompts[0]).toMatch(/"FS-2"/);
+    // FS-1 is settled by the time iteration 2's slice is built -- it must not reappear.
+    expect(exercisePrompts[1]).not.toMatch(/"FS-1"/);
+    expect(exercisePrompts[1]).toMatch(/"FS-2"/);
   });
 });
 
@@ -848,6 +871,914 @@ describe('verify-functional: Exercise claim reconciliation', () => {
     const claims = JSON.parse(capturedJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1]);
     expect(claims).toHaveLength(2);
     expect(claims[0].artifact).toBe('first');
+  });
+});
+
+// --------------------------------------------------------------------------- capture/repair boundary (VCON-B003, D11)
+
+describe('verify-functional: Exercise capture-only prohibition', () => {
+  it('every Exercise prompt, in every branch, forbids edit/rebuild/restart/re-deploy and is not preceded by any build/restart instruction', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 3 }) });
+
+    const exerciseCalls = agent.calls.filter((c) => c.opts.label === 'exercise');
+    expect(exerciseCalls.length).toBeGreaterThan(0);
+    for (const call of exerciseCalls) {
+      expect(call.prompt).toMatch(/CAPTURE ONLY/);
+      expect(call.prompt).toMatch(/may bring the system up when nothing is already running/);
+      expect(call.prompt).toMatch(/may\s+NOT edit source, rebuild, restart or re-deploy/);
+      // No instruction telling the exerciser to build or restart anything precedes the walk.
+      expect(call.prompt).not.toMatch(/\brebuild\b.*\bnow\b/i);
+      expect(call.prompt).not.toMatch(/run the (refresh|build|deploy) command/i);
+    }
+  });
+});
+
+describe('verify-functional: Debug refresh (D11)', () => {
+  it('runs the given refreshCommand as its last instructed act, after the fixes', async () => {
+    let judgeCalls = 0;
+    let capturedDebugPrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
+      }
+      if (opts.label === 'debug') {
+        capturedDebugPrompt = prompt;
+        return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh' }) });
+
+    expect(capturedDebugPrompt).toMatch(/npm run dev:refresh/);
+    // The refresh instruction is the LAST thing in the prompt body (before the return-shape
+    // instruction), not a step that precedes "fix the code in place".
+    const fixIdx = capturedDebugPrompt.indexOf('Fix the code in place');
+    const refreshIdx = capturedDebugPrompt.indexOf('npm run dev:refresh');
+    expect(refreshIdx).toBeGreaterThan(fixIdx);
+    expect(capturedDebugPrompt).toMatch(/LAST STEP/);
+  });
+
+  it('runs nothing and reports no error when refreshCommand is absent (defaults to "")', async () => {
+    let judgeCalls = 0;
+    let capturedDebugPrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
+      }
+      if (opts.label === 'debug') {
+        capturedDebugPrompt = prompt;
+        return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() }); // no refreshCommand
+
+    expect(result.outcome).toBe('satisfied');
+    expect(capturedDebugPrompt).toMatch(/No refresh command is declared/);
+    expect(capturedDebugPrompt).not.toMatch(/LAST STEP/);
+  });
+
+  it('never appears in any Exercise prompt', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh' }) });
+
+    const exerciseCalls = agent.calls.filter((c) => c.opts.label === 'exercise');
+    for (const call of exerciseCalls) {
+      expect(call.prompt).not.toMatch(/npm run dev:refresh/);
+    }
+  });
+});
+
+// --------------------------------------------------------------------------- settled/open partition (VCON-B004, D1/D2, §3.4)
+
+function openIdsFrom(prompt) {
+  const line = prompt.match(/still open, under judgement this iteration \(\d+ of \d+\):\n(.*)/)[1];
+  return JSON.parse(line).map((c) => c.id);
+}
+
+function settledFrom(prompt) {
+  const line = prompt.match(/do not belong in your "criteria" return below, which is for this iteration's judgements only:\n(.*)/)[1];
+  return JSON.parse(line);
+}
+
+describe('verify-functional: settled/open partition across iterations', () => {
+  it('narrows the Judge prompt and the claims payload to N-k criteria once k are proven met, and carries the k forward with their original artifact and provenAt', async () => {
+    let judgeCalls = 0;
+    const judgePrompts = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }, { criterion: 'FS-2', artifact: 'b.txt' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        judgePrompts.push(prompt);
+        // Iteration 1 judges the whole (still fully open) definition: FS-1 met (k=1 of N=2),
+        // FS-2 stays open.
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            reason: 'FS-2 not met',
+            criteria: [
+              { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] },
+              { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', files: ['src/b.js'] },
+            ],
+            gaps: ['FS-2'],
+            debugGaps: [{ id: 'FS-2', statement: 'statement for FS-2', reason: 'no artifact', artifact: null, files: ['src/b.js'] }],
+          });
+        }
+        return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    expect(judgePrompts).toHaveLength(2);
+    // Iteration 1: nothing settled yet -- both criteria open, no settled entries.
+    expect(openIdsFrom(judgePrompts[0])).toEqual(['FS-1', 'FS-2']);
+    expect(settledFrom(judgePrompts[0])).toEqual([]);
+    // Iteration 2: FS-1 (proven on iteration 1) is out of the open set (N-k = 1) and carried,
+    // verbatim, as a settled entry with its original artifact and provenAt.
+    expect(openIdsFrom(judgePrompts[1])).toEqual(['FS-2']);
+    const settled2 = settledFrom(judgePrompts[1]);
+    expect(settled2).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
+    // And the workflow's own final result -- which nothing but the settled map can supply,
+    // since the Judge's structured return only ever carried FS-2 -- still reports FS-1 met.
+    expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met', artifact: 'a.txt', provenAt: 1 }));
+  });
+
+  it('excludes an already-settled criterion from the Exercise claims reconciliation', async () => {
+    let judgeCalls = 0;
+    let secondJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        // The exerciser is unaware of settlement and still walks everything (buildExercisePrompt
+        // is untouched by this task) -- it returns a claim for the already-settled FS-1 too.
+        return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'still-here.txt' }, { criterion: 'FS-2', artifact: 'b.txt' }]);
+      }
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            criteria: [
+              { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] },
+              { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', files: [] },
+            ],
+            gaps: ['FS-2'],
+            debugGaps: [{ id: 'FS-2', statement: 'statement for FS-2', reason: 'no artifact', artifact: null, files: [] }],
+          });
+        }
+        secondJudgePrompt = prompt;
+        return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    // FS-1's claim on iteration 2 is discarded -- not passed to the Judge, not counted as
+    // exercised, and not logged as unknown (it IS in the definition, just already settled).
+    const claimsLine = secondJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1];
+    const claims = JSON.parse(claimsLine);
+    expect(claims.map((c) => c.criterion)).toEqual(['FS-2']);
+  });
+
+  it('ignores and logs a Judge entry for an already-settled criterion rather than overwriting it', async () => {
+    let judgeCalls = 0;
+    const judgePrompts = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }, { criterion: 'FS-2', artifact: 'b.txt' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        judgePrompts.push(prompt);
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            criteria: [
+              { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] },
+              { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', files: [] },
+            ],
+            gaps: ['FS-2'],
+            debugGaps: [{ id: 'FS-2', statement: 'statement for FS-2', reason: 'no artifact', artifact: null, files: [] }],
+          });
+        }
+        // Iteration 2 misbehaves: it re-includes FS-1 (already settled as "met") with a
+        // DIFFERENT status, as though re-judging it.
+        return satisfiedJudge({
+          criteria: [
+            { id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'regressed', files: [] },
+            { id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] },
+          ],
+        });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      return null;
+    });
+
+    const { result, logs } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    // The carried-forward entry wins -- FS-1 is still "met" with its original artifact, not
+    // "not_met" with the bogus re-judgement, and the incident is logged.
+    expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met', artifact: 'a.txt' }));
+    expect(result.criteria).not.toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'not_met' }));
+    expect(logs.join('\n')).toMatch(/already-settled criterion FS-1/);
+  });
+
+  it('stamps judgeOnly from the criterion row\'s tier1, discarding whatever the exerciser returned', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        // FS-1 is judge-only per the definition; the exerciser nonetheless returns a locator, as
+        // though it thought tier 1 applied. FS-2 is an ordinary locator criterion.
+        return exercisePlanClaims([
+          { criterion: 'FS-1', artifact: 'pic.png', locator: 'a string it claims to have seen' },
+          { criterion: 'FS-2', artifact: 'b.txt' },
+        ]);
+      }
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria: [criterion('FS-1', { tier1: 'judge-only' }), criterion('FS-2')] }),
+    });
+
+    const claims = JSON.parse(capturedJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1]);
+    expect(claims.find((c) => c.criterion === 'FS-1')).toMatchObject({ judgeOnly: true });
+    expect(claims.find((c) => c.criterion === 'FS-2')).toMatchObject({ judgeOnly: false });
+  });
+
+  it('treats a Tier 1 cell carrying its reason ("judge-only — <why>", the contract\'s own form) as judge-only', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'pic.png' }]);
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria: [criterion('FS-1', { tier1: 'judge-only — pixel/colour comparison, no text assertion is possible' })] }),
+    });
+
+    const claims = JSON.parse(capturedJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1]);
+    expect(claims[0]).toMatchObject({ criterion: 'FS-1', judgeOnly: true });
+  });
+
+  it('reloads only met resume entries as settled -- a not_verifiable entry goes back into the open set (D2)', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b.txt' }, { criterion: 'FS-3', artifact: null, reason: 'env unreachable' }]);
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge({ criteria: [
+          { id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] },
+          { id: 'FS-3', status: 'not_verifiable', tier1: 'fail', artifact: null, reason: 'env unreachable', files: [] },
+        ] });
+      }
+      return null;
+    });
+
+    const resume = {
+      iteration: 1,
+      criteria: [
+        { id: 'FS-1', status: 'met', artifact: 'a.txt', reason: null, tier1: 'pass', provenAt: 1 },
+        { id: 'FS-2', status: 'not_met', artifact: null, reason: 'still broken' },
+        { id: 'FS-3', status: 'not_verifiable', artifact: null, reason: 'env unreachable, previous invocation' },
+      ],
+      gapsClosed: [],
+    };
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], resume }),
+    });
+
+    // FS-1 (met) is the only one seeded as settled -- FS-3 (not_verifiable in a PRIOR
+    // invocation) is back in the open set for this one, alongside FS-2 (never settled).
+    expect(openIdsFrom(capturedJudgePrompt)).toEqual(['FS-2', 'FS-3']);
+    const settled = settledFrom(capturedJudgePrompt);
+    expect(settled).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
+    expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met' }));
+  });
+});
+
+// --------------------------------------------------------------------------- STEP 2's third clause (D7, §3.4)
+
+describe('verify-functional: Judge STEP 2 is taught the "skipped" tier-1 verdict', () => {
+  it('states that a skipped tier-1 verdict is judge-only, with no tier-1 gate in front of it', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'pic.png' }]);
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'skipped', artifact: 'pic.png', reason: null, files: [] }] });
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1', { tier1: 'judge-only' })] }) });
+
+    expect(capturedJudgePrompt).toMatch(/tier-1 verdict is "skipped" is judge-only/);
+    expect(capturedJudgePrompt).toMatch(/no tier-1 gate in front of it/);
+    expect(capturedJudgePrompt).toMatch(/absence from the "pass" list is not evidence against it/);
+  });
+});
+
+// --------------------------------------------------------------------------- insufficient-coverage (VCON-B004, D10)
+
+describe('verify-functional: insufficient-coverage is a first-class outcome', () => {
+  it('maps a Judge exit-insufficient-coverage action to outcome "insufficient-coverage"', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        return satisfiedJudge({
+          action: 'exit-insufficient-coverage',
+          reason: 'proven ratio 1/2 (50.0%) is below the coverage floor 0.8',
+        });
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    expect(result.outcome).toBe('insufficient-coverage');
+  });
+
+  it('is present in the JUDGE_SCHEMA action enum, in the run meta, and in the judge prompt\'s stated outcome list', async () => {
+    // Source-level: the enum literal and the meta description both name the value directly, so
+    // a Judge that returns it is not rejected outright and the loop's own self-description is
+    // not left silently behind the vocabulary it now accepts.
+    expect(SOURCE).toMatch(/enum:\s*\[[^\]]*'exit-insufficient-coverage'[^\]]*\]/);
+    expect(SOURCE).toMatch(/insufficient/i);
+    expect(SOURCE.match(/description:\s*\n?\s*'[^']*insufficient[^']*'/)).not.toBeNull();
+
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] }] });
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+
+    expect(capturedJudgePrompt).toMatch(/"exit-insufficient-coverage"/);
+    expect(capturedJudgePrompt).toMatch(/"insufficient-coverage"/);
+  });
+});
+
+// --------------------------------------------------------------------------- decide-next's met/total (D8, §3.4)
+
+describe('verify-functional: met/total reach the decide-next payload', () => {
+  it('instructs "met" as the settled-met membership plus this iteration\'s own, and "total" as the whole definition\'s count', async () => {
+    let judgeCalls = 0;
+    let secondJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }, { criterion: 'FS-2', artifact: 'b.txt' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            criteria: [
+              { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] },
+              { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no artifact', files: [] },
+            ],
+            gaps: ['FS-2'],
+            debugGaps: [{ id: 'FS-2', statement: 'statement for FS-2', reason: 'no artifact', artifact: null, files: [] }],
+          });
+        }
+        secondJudgePrompt = prompt;
+        return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, files: [] }] });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-2', result: 'fixed it' }] };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    // Iteration 2: FS-1 is the one settled-met id carried in, total is the whole definition (2).
+    expect(secondJudgePrompt).toMatch(/the 1 settled met id\(s\) carried below \(\["FS-1"\]\)/);
+    expect(secondJudgePrompt).toMatch(/"total" is the whole definition's count, 2/);
+    expect(secondJudgePrompt).toMatch(/"total":2/);
+  });
+});
+
+// --------------------------------------------------------------------------- result coverage (§3.3)
+
+describe('verify-functional: result carries coverage over the whole definition (§3.3)', () => {
+  it('reports proven/total/uncovered from the final criteria, so /implement-trd §8.4 has a coverage line to render', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        return satisfiedJudge({
+          criteria: [
+            { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] },
+            { id: 'FS-2', status: 'not_verifiable', tier1: 'skipped', artifact: null, reason: 'no environment', files: [] },
+          ],
+        });
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    expect(result.coverage).toEqual({ proven: 1, total: 2, uncovered: ['FS-2'] });
+  });
+
+  it('reports 0 of 0 with nothing uncovered when the definition is empty', async () => {
+    const agent = makeAgentStub((prompt, opts) => (opts.label === 'judge' ? satisfiedJudge({ criteria: [] }) : null));
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [] }) });
+
+    expect(result.coverage).toEqual({ proven: 0, total: 0, uncovered: [] });
+  });
+});
+
+// --------------------------------------------------------------------------- end-of-run full-environment gate (D14, VCON-B005)
+
+describe('verify-functional: end-of-run full-environment gate (D14)', () => {
+  it('defaults to finalRun {command: "", status: "skipped"} when fullRunCommand is absent, and the Judge prompt says so', async () => {
+    let judgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() }); // no fullRunCommand
+
+    expect(result.finalRun).toEqual({ command: '', status: 'skipped' });
+    expect(judgePrompt).toMatch(/no fullRunCommand is declared for this run/);
+    expect(judgePrompt).toMatch(/meaning nobody declared one, never that one passed/);
+  });
+
+  it('instructs the Judge to run a declared fullRunCommand once, unless the action is exit-unbuilt, and does not run it in Exercise or Debug prompts', async () => {
+    let judgePrompt = null;
+    let exercisePrompt = null;
+    let debugPrompt = null;
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        exercisePrompt = prompt;
+        return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      }
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        judgePrompt = prompt;
+        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge({ finalRun: { command: 'npm run deploy:check', status: 'pass' } });
+      }
+      if (opts.label === 'debug') {
+        debugPrompt = prompt;
+        return { results: [{ criterion: 'FS-1', result: 'fixed it' }] };
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ fullRunCommand: 'npm run deploy:check' }) });
+
+    expect(judgePrompt).toMatch(/npm run deploy:check/);
+    expect(judgePrompt).toMatch(/unless the action above is "exit-unbuilt"/);
+    expect(result.finalRun).toEqual({ command: 'npm run deploy:check', status: 'pass' });
+    expect(exercisePrompt).not.toMatch(/npm run deploy:check/);
+    expect(debugPrompt).not.toMatch(/npm run deploy:check/);
+  });
+
+  it('a failed full run is reported without changing the outcome string', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return satisfiedJudge({ finalRun: { command: 'npm run deploy:check', status: 'fail' } });
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ fullRunCommand: 'npm run deploy:check' }) });
+
+    expect(result.outcome).toBe('satisfied');
+    expect(result.finalRun).toEqual({ command: 'npm run deploy:check', status: 'fail' });
+  });
+
+  it('is always skipped on exit-unbuilt, even if the Judge returns something else', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        return remediateJudge({ action: 'exit-unbuilt', unbuilt: ['FS-1'], finalRun: { command: 'npm run deploy:check', status: 'pass' } });
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ fullRunCommand: 'npm run deploy:check' }) });
+
+    expect(result.outcome).toBe('unbuilt');
+    expect(result.finalRun).toEqual({ command: 'npm run deploy:check', status: 'skipped' });
+  });
+
+  it('reports a fail rather than a skip when a command is declared, the exit calls for it, and the Judge omits finalRun', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return satisfiedJudge(); // no finalRun on the return
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ fullRunCommand: 'npm run deploy:check' }) });
+
+    expect(result.finalRun).toEqual({ command: 'npm run deploy:check', status: 'fail' });
+  });
+
+  it('zero-criteria run still computes finalRun through the same Judge call', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'judge') return satisfiedJudge({ criteria: [], gaps: [], finalRun: { command: 'npm run deploy:check', status: 'pass' } });
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [], fullRunCommand: 'npm run deploy:check' }) });
+
+    expect(result.finalRun).toEqual({ command: 'npm run deploy:check', status: 'pass' });
+  });
+
+  it('finalRun is null on a not-run exit: a resume with no iteration budget left dispatches nothing', async () => {
+    const agent = makeAgentStub(() => satisfiedJudge());
+    const resume = {
+      iteration: 3,
+      criteria: [
+        { id: 'FS-1', status: 'not_met', artifact: null, reason: 'still broken' },
+        { id: 'FS-2', status: 'met', artifact: 'b.txt', reason: null },
+      ],
+      gapsClosed: [],
+    };
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume, cap: 3, fullRunCommand: 'npm run deploy:check' }) });
+
+    expect(agent.calls).toHaveLength(0);
+    expect(result.outcome).toBe('stuck');
+    expect(result.finalRun).toBeNull();
+  });
+
+  it('finalRun is null on a not-run exit: the cap is reached without the Judge ever returning an exit action', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return remediateJudge(); // never resolves
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'tried' }] };
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 2, fullRunCommand: 'npm run deploy:check' }) });
+
+    expect(result.outcome).toBe('stuck');
+    expect(result.reason).toMatch(/without the Judge returning an exit action/);
+    expect(result.finalRun).toBeNull();
+  });
+});
+
+// --------------------------------------------------------------------------- lane-based Exercise slicing (VCON-B006, D4/D5, §3.5)
+
+function manyCriteria(n, prefix = 'FS') {
+  return Array.from({ length: n }, (_, i) => criterion(`${prefix}-${i + 1}`));
+}
+
+// Every scenario below settles on the FIRST judge call so exactly one Exercise iteration
+// dispatches -- the slicing arithmetic is the thing under test, not the loop's iteration count.
+function firstIterationSatisfied(allIds) {
+  return satisfiedJudge({ criteria: allIds.map((id) => ({ id, status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] })) });
+}
+
+describe('verify-functional: lane-based Exercise slicing', () => {
+  it('absent exerciseLanes dispatches exactly one Exercise agent over the whole open set (today\'s behaviour)', async () => {
+    const ids = manyCriteria(5).map((c) => c.id);
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims(ids.map((id) => ({ criterion: id, artifact: 'a' })));
+      if (opts.label === 'judge') return firstIterationSatisfied(ids);
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: manyCriteria(5) }) });
+
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(1);
+    expect(result.exercised).toBe('5/5');
+  });
+
+  it('one lane of 20 open at concurrency 4 dispatches 3 slices of 7 / 7 / 6, not 4', async () => {
+    const criteria = manyCriteria(20);
+    const ids = criteria.map((c) => c.id);
+    const sliceSizes = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        sliceSizes.push(parsed.length);
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') return firstIterationSatisfied(ids);
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria, exerciseLanes: [{ resource: 'simulator', concurrency: 4, createCommand: '', criteria: ids }] }),
+    });
+
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(3);
+    expect(sliceSizes.sort((a, b) => b - a)).toEqual([7, 7, 6]);
+    expect(sliceSizes.reduce((a, b) => a + b, 0)).toBe(20);
+    expect(result.exercised).toBe('20/20');
+  });
+
+  it('the same 20-open lane at concurrency 1 dispatches exactly one agent with all 20', async () => {
+    const criteria = manyCriteria(20);
+    const ids = criteria.map((c) => c.id);
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') return firstIterationSatisfied(ids);
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria, exerciseLanes: [{ resource: 'simulator', concurrency: 1, createCommand: '', criteria: ids }] }),
+    });
+
+    const exerciseCalls = agent.calls.filter((c) => c.opts.label === 'exercise');
+    expect(exerciseCalls).toHaveLength(1);
+    expect(JSON.parse(exerciseCalls[0].prompt.match(/Criteria:\n(.*)/)[1])).toHaveLength(20);
+    expect(result.exercised).toBe('20/20');
+  });
+
+  it('two lanes -- a queue of 9 and a pool of 20 at concurrency 4 -- dispatch 4 slices in ONE batch, and the queue slice carries only its own 9 (O12)', async () => {
+    const queueCriteria = manyCriteria(9, 'Q');
+    const poolCriteria = manyCriteria(20, 'P');
+    const allCriteria = [...queueCriteria, ...poolCriteria];
+    const allIds = allCriteria.map((c) => c.id);
+    const sliceSizes = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        sliceSizes.push(parsed.length);
+        // O12's assertion: a slice from the queue lane must carry ONLY queue criteria.
+        if (parsed.length === 9) {
+          expect(parsed.every((c) => c.id.startsWith('Q-'))).toBe(true);
+        }
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') return firstIterationSatisfied(allIds);
+      return null;
+    });
+    const parallel = makeParallelStub();
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      parallel,
+      args: baseArgs({
+        criteria: allCriteria,
+        exerciseLanes: [
+          { resource: 'probe-row', concurrency: 1, createCommand: '', criteria: queueCriteria.map((c) => c.id) },
+          { resource: 'simulator', concurrency: 4, createCommand: 'xcrun simctl create', criteria: poolCriteria.map((c) => c.id) },
+        ],
+      }),
+    });
+
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(4);
+    expect(sliceSizes.sort((a, b) => b - a)).toEqual([9, 7, 7, 6]);
+    expect(parallel.waves).toHaveLength(1); // one batch: 4 slices is well under the 20-way cap
+    expect(parallel.waves[0].size).toBe(4);
+    expect(result.exercised).toBe('29/29');
+  });
+
+  it('lane concurrencies summing to 25 produce 25 slices dispatched as two batches (20 then 5), no criterion dropped', async () => {
+    const criteria = manyCriteria(200); // plenty of open criteria to fill every slice
+    const ids = criteria.map((c) => c.id);
+    const seenIds = new Set();
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        for (const c of parsed) seenIds.add(c.id);
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') return firstIterationSatisfied(ids);
+      return null;
+    });
+    const parallel = makeParallelStub();
+
+    // Two lanes of concurrency 20 and 5, each with enough open criteria that
+    // ceil(openInLane / SLICE_SIZE) reaches the lane's own concurrency -- 160 criteria gives
+    // ceil(160/8) = 20, and 40 gives ceil(40/8) = 5 -- so sliceCount === concurrency for both
+    // and this produces exactly 20 + 5 = 25 slices.
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      parallel,
+      args: baseArgs({
+        criteria,
+        exerciseLanes: [
+          { resource: 'a', concurrency: 20, createCommand: '', criteria: ids.slice(0, 160) },
+          { resource: 'b', concurrency: 5, createCommand: '', criteria: ids.slice(160) },
+        ],
+      }),
+    });
+
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(25);
+    expect(parallel.waves).toHaveLength(2);
+    expect(parallel.waves.map((w) => w.size).sort((a, b) => b - a)).toEqual([20, 5]);
+    expect(seenIds.size).toBe(200); // every criterion reached some slice
+    expect(result.exercised).toBe('200/200');
+  });
+
+  it('a resource: null lane of 9 criteria at concurrency 9 dispatches ceil(9/8) = 2 slices -- the concurrency term does not bind', async () => {
+    const criteria = manyCriteria(9);
+    const ids = criteria.map((c) => c.id);
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') return firstIterationSatisfied(ids);
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria, exerciseLanes: [{ resource: null, concurrency: 9, createCommand: '', criteria: ids }] }),
+    });
+
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')).toHaveLength(2);
+    expect(result.exercised).toBe('9/9');
+  });
+
+  it('a slice in a lane with a non-empty createCommand is told it may create at most one instance and must tear it down; an empty createCommand says it may not', async () => {
+    const withCreate = manyCriteria(2, 'C');
+    const withoutCreate = manyCriteria(2, 'N');
+    const prompts = { create: null, noCreate: null };
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        if (parsed[0].id.startsWith('C-')) prompts.create = prompt;
+        else prompts.noCreate = prompt;
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') return firstIterationSatisfied([...withCreate, ...withoutCreate].map((c) => c.id));
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [...withCreate, ...withoutCreate],
+        exerciseLanes: [
+          { resource: 'simulator', concurrency: 1, createCommand: 'xcrun simctl create', criteria: withCreate.map((c) => c.id) },
+          { resource: 'other', concurrency: 1, createCommand: '', criteria: withoutCreate.map((c) => c.id) },
+        ],
+      }),
+    });
+
+    expect(prompts.create).toMatch(/MAY create AT MOST ONE instance/);
+    expect(prompts.create).toMatch(/xcrun simctl create/);
+    expect(prompts.create).toMatch(/MUST tear it down/);
+    expect(prompts.noCreate).toMatch(/No create\/destroy command is declared/);
+    expect(prompts.noCreate).toMatch(/you may NOT create one/);
+  });
+
+  it('a criterion in no lane is exercised by nothing, reaches the Judge as one synthesized not_verifiable-shaped claim, and does not stay open', async () => {
+    const inLane = criterion('FS-1');
+    const orphan = criterion('FS-2');
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        // FS-2 must never be handed to any Exercise agent -- it is in no lane.
+        expect(parsed.some((c) => c.id === 'FS-2')).toBe(false);
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge({
+          criteria: [
+            { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+            { id: 'FS-2', status: 'not_verifiable', tier1: 'fail', artifact: null, reason: 'no exercise lane: the declarations reach no environment that covers this criterion', files: [] },
+          ],
+        });
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [inLane, orphan],
+        exerciseLanes: [{ resource: 'simulator', concurrency: 1, createCommand: '', criteria: ['FS-1'] }],
+      }),
+    });
+
+    const claimsLine = capturedJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1];
+    const claims = JSON.parse(claimsLine);
+    const fs2Claim = claims.find((c) => c.criterion === 'FS-2');
+    expect(fs2Claim).toBeTruthy();
+    expect(fs2Claim.artifact).toBeNull();
+    expect(fs2Claim.reason).toMatch(/no exercise lane: the declarations reach no environment that covers this criterion/);
+    expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-2', status: 'not_verifiable' }));
+    // exercised counts only the ONE actually-exercised criterion, not the orphan.
+    expect(result.exercised).toBe('1/2');
+  });
+
+  it('a slice agent returning nothing leaves only that slice\'s criteria open, without failing the iteration', async () => {
+    const laneA = manyCriteria(2, 'A');
+    const laneB = manyCriteria(2, 'B');
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        const parsed = JSON.parse(prompt.match(/Criteria:\n(.*)/)[1]);
+        if (parsed[0].id.startsWith('A-')) return undefined; // -> null: dead slice
+        return exercisePlanClaims(parsed.map((c) => ({ criterion: c.id, artifact: 'a' })));
+      }
+      if (opts.label === 'judge') return firstIterationSatisfied([...laneA, ...laneB].map((c) => c.id));
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({
+        criteria: [...laneA, ...laneB],
+        exerciseLanes: [
+          { resource: 'a', concurrency: 1, createCommand: '', criteria: laneA.map((c) => c.id) },
+          { resource: 'b', concurrency: 1, createCommand: '', criteria: laneB.map((c) => c.id) },
+        ],
+      }),
+    });
+
+    // Lane B's two criteria were actually walked; lane A's two were not -- exercised is 2/4, not
+    // 0/4 (one dead slice does not fail the whole iteration) and not 4/4 (a dead slice's
+    // criteria are not counted as walked).
+    expect(result.exercised).toBe('2/4');
+  });
+});
+
+describe('verify-functional: exerciseLanes validation', () => {
+  it('throws when exerciseLanes is not an array', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ exerciseLanes: { resource: null } }) })).rejects.toThrow(/exerciseLanes must be an array/);
+  });
+
+  it('throws when a lane concurrency is not a positive integer', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(
+      runWorkflow(SOURCE, { agent, args: baseArgs({ exerciseLanes: [{ resource: null, concurrency: 0, createCommand: '', criteria: ['FS-1', 'FS-2'] }] }) })
+    ).rejects.toThrow(/invalid concurrency/);
+  });
+
+  it('throws when a lane names a criterion id absent from the definition', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(
+      runWorkflow(SOURCE, { agent, args: baseArgs({ exerciseLanes: [{ resource: null, concurrency: 1, createCommand: '', criteria: ['FS-1', 'NOT-A-CRITERION'] }] }) })
+    ).rejects.toThrow(/unknown criterion id/);
+  });
+
+  it('throws when the same criterion id appears in two lanes', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(
+      runWorkflow(SOURCE, {
+        agent,
+        args: baseArgs({
+          exerciseLanes: [
+            { resource: 'a', concurrency: 1, createCommand: '', criteria: ['FS-1'] },
+            { resource: 'b', concurrency: 1, createCommand: '', criteria: ['FS-1', 'FS-2'] },
+          ],
+        }),
+      })
+    ).rejects.toThrow(/appears in more than one lane/);
   });
 });
 

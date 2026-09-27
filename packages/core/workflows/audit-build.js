@@ -22,10 +22,13 @@ export const meta = {
 // review passes, and never existed in src/ at all. 0 hits in code, 5 in docs. A document
 // audit does not find that; only a check that greps the delivered tree does.
 //
-// args: { trd, prd, project }
-//   trd      the TRD the code claims to implement
-//   prd      the PRD the TRD claims to satisfy
-//   project  the codebase actually delivered, when it differs from where the docs live
+// args: { trd, prd, project, report_only }
+//   trd          the TRD the code claims to implement
+//   prd          the PRD the TRD claims to satisfy
+//   project      the codebase actually delivered, when it differs from where the docs live
+//   report_only  true when the caller passed --report-only, i.e. the /implement-trd
+//                --reconcile chain is suppressed for this run. Findings are unaffected; the
+//                readout's DESTINATION wording is not (see CHAIN, below).
 // ---------------------------------------------------------------------------
 
 function readArgs(raw) {
@@ -49,6 +52,22 @@ const TRD = a.trd
 const PRD = a.prd || ''
 const PROJECT = a.project || ''
 if (!TRD) throw new Error('audit-build: args.trd (the TRD the delivered code claims to implement) is required')
+
+// --report-only suppresses the CHAIN, not the findings -- so it must still reach this script,
+// because every destination line in the readout below is a CLAIM about what happens next. A
+// readout that says a gap "chains to /implement-trd --reconcile" on a run where the chain was
+// suppressed is the false-handoff signal this whole heading block exists to remove.
+const REPORT_ONLY = a.report_only === true || a.report_only === 'true'
+const CHAIN = REPORT_ONLY
+  ? 'is /implement-trd --reconcile work, NOT handed off on this run'
+  : 'chains to /implement-trd --reconcile'
+const CHAIN_NOTE = REPORT_ONLY
+  ? `
+--report-only WAS PASSED, so nothing chains from this run. Every line above that names
+/implement-trd --reconcile describes work still waiting, which the OWNER must start by running
+that command themselves. Do not write any line that reads as though a handoff already
+happened.`
+  : ''
 
 // Same lesson as audit-trd's SCOPE: a verifier that resolves the delivered tree against the
 // wrong repository produces false positives that look like real gaps.
@@ -425,6 +444,11 @@ ${COVERAGE}${CNV}`,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0 || NOTHING_INDEXED,
     readout: `AUDIT-BUILD: ${TRD}\nPRD: ${PRD || '(none supplied)'}\n\n` +
+      `VERDICT: ${NOTHING_INDEXED
+        ? `do not proceed until ${TRD}'s requirement and task tables parse -- this run recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks, so traceability and verification checked nothing`
+        : dead > 0
+          ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+          : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
       (NOTHING_INDEXED
         ? `  INCONCLUSIVE — the Index recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks,\n` +
           `  so traceability and verification ran against an empty list. Zero findings here means\n` +
@@ -436,6 +460,12 @@ ${COVERAGE}${CNV}`,
   }
 }
 
+// --report-only is parsed by the /audit-build command (packages/core/commands/audit-build.md),
+// which decides AFTER this workflow returns whether to invoke
+// `Skill({skill: "implement-trd", args: "<trd> --reconcile"})` for the chainable gaps the
+// heading block below tells the reconcile agent to name. It reaches this script as
+// args.report_only so the destination wording can say what actually happens -- the findings
+// themselves are identical either way.
 const readout = await agent(
   `Weigh these audit-build findings against the delivered code${PRD ? ` and ${PRD}` : ''}, then
 draft the readout. Where a finding warrants a fix that is small and mechanical (a missing test
@@ -472,17 +502,41 @@ readout naming the file that refutes it. Rejecting a bad finding is as valuable 
 good one.
 ${COVERAGE}${CNV}
 
-EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Use exactly these headings,
-omitting empty ones:
+FIRST LINE OF THE READOUT, before any heading below: a VERDICT line about the DELIVERED CODE,
+one of exactly these three forms, with every caveat or blocker NAMED inline -- never merely
+counted. This command writes no application code or tests, so the verdict says whether the
+delivered code is safe to act on, not that anything here was fixed:
 
-  TRACEABILITY GAPS — implemented, no test proving it (the headline check)
-  MISSING IMPLEMENTATION — required, never built
-  MISMATCH — built, but does something other than what was required
+  VERDICT: safe to proceed — every requirement is implemented and tested
+  VERDICT: proceed with these caveats: <caveat 1>; <caveat 2>
+  VERDICT: do not proceed until <blocker>
+
+Choose "do not proceed until" when a MISSING IMPLEMENTATION or MISMATCH finding leaves the
+delivered code not doing what was required. Choose "proceed with these caveats" when
+TRACEABILITY GAPS, UNTESTED-IN-PRACTICE, or an unresolved Could Not Verify row remain.
+Otherwise "safe to proceed".
+
+EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION -- and, for a gap, WHERE IT GOES
+NEXT. This command applies almost none of these findings itself; naming the destination is
+how the reader knows what still has to happen. Use exactly these headings, omitting empty
+ones:
+
+  TRACEABILITY GAPS — implemented, no test proving it (the headline check). A task in ${TRD}
+    already covers it: note that it ${CHAIN}. No task covers the
+    requirement: note that it is recorded and reported here, not closed -- deciding how to
+    cover it is a design decision this command does not make.
+  MISSING IMPLEMENTATION — required, never built. Same split as TRACEABILITY GAPS: a covering
+    task exists -> ${CHAIN}; no covering task -> reported, not
+    closed.
+  MISMATCH — built, but does something other than what was required. The task that produced
+    it exists in the TRD, so this always ${CHAIN}.
   UNTESTED-IN-PRACTICE — a test exists but does not prove the requirement (test-quality-audit)
-  FIX THE CITATION — referenced ID or path does not resolve
+  FIXED THE CITATION — a referenced ID or path did not resolve AND the fix was inside this
+    run's own rewrite of the TRD's Could Not Verify section. A citation that does not resolve
+    anywhere ELSE in the TRD is reported, not fixed: this step edits no other section.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
-
+${CHAIN_NOTE}
 One screen. If there are 40 clean requirements, print the COUNT as one line, not forty.`,
   {
     label: 'reconcile',

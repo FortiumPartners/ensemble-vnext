@@ -376,6 +376,9 @@ ${COVERAGE}${CNV}`,
     verifiers_skipped: skippedKeys,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${PRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
+      `VERDICT: ${dead > 0
+        ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+        : 'safe to proceed'}\n\n` +
       `  NO ACTION — every requirement traces to the source, nothing is already built,\n` +
       `  every citation resolves.\n` +
       (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
@@ -416,17 +419,35 @@ good one: in one measured run 6 of 9 findings were wrong because a verifier read
 repository's constitution, five of them at high confidence.
 ${COVERAGE}${CNV}
 
-EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Use exactly these headings,
-omitting empty ones:
+FIRST LINE OF THE READOUT, before any heading below: a VERDICT line, one of exactly these
+three forms, with every caveat or blocker NAMED inline -- never merely counted, since an
+unnamed caveat is the opacity this line exists to remove:
 
-  DELETE — nothing in the source asks for these
-  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher
-  ADD BACK — in the source, missing from this PRD
+  VERDICT: safe to proceed
+  VERDICT: proceed with these caveats: <caveat 1>; <caveat 2>
+  VERDICT: do not proceed until <blocker>
+
+Choose "do not proceed until" when a PICK ONE finding, or an ALREADY BUILT finding that
+survives, leaves this PRD unsafe to design a TRD from as it stands. Choose "proceed with
+these caveats" when anything remains under CAVEAT, CONFIRM THESE ARE WANTED, or an unresolved
+Could Not Verify row. Otherwise "safe to proceed".
+
+EVERY READOUT LINE NAMES THE ACTION -- THE ACTION THIS AUDIT TOOK, not a classification of the
+finding and not something left for the reader to do. Use exactly these headings, omitting
+empty ones:
+
+  DELETED — nothing in the source asked for these
+  LOWERED TO THE CONSTITUTION FLOOR — no reason was given for exceeding it
+  ADDED BACK — in the source, missing from this PRD
   ALREADY BUILT — name the file; decide whether the requirement survives
   PICK ONE — these contradict
   CONFIRM THESE ARE WANTED — no source names them
-  FIX THE CITATION — referenced ID does not resolve
-  THE DOC IS STALE — the PRD asserts something the code contradicts
+  FIXED THE CITATION — referenced ID did not resolve
+  CORRECTED A STALE CLAIM — the PRD asserted something the code contradicts
+  CAVEAT — what this run did NOT check: <n> claims left unchecked (see the PRD's
+    ## Could Not Verify), and any verifier that failed to report. Name both when both
+    apply -- a coverage gap and a deferred claim are different facts and this is the only
+    heading either one gets.
   NO ACTION — sourced, listed for completeness
 
 One screen. If there are 40 sourced requirements, print the COUNT as one line, not forty.`,

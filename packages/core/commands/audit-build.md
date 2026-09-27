@@ -154,8 +154,13 @@ reason, new coverage gaps are added.
 ## Execution: the workflow is the orchestrator
 
 ```
-Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>" } })
+Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false> } })
 ```
+
+`report_only` is not decoration. The workflow drafts the readout, and every "chains to
+`/implement-trd --reconcile`" line in it is a claim about what happens next. Omit the flag on a
+`--report-only` run and the printed readout announces a handoff that was suppressed — the
+false-completion signal the destination wording exists to remove.
 
 The workflow returns a readout. Print it. Findings live in script variables and never enter
 this context, so a large finding set costs nothing here.
@@ -172,19 +177,47 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Any section may be "none". The command-specific content below fills those sections; it does
 not replace them.
 
-Every line names the ACTION, not the classification. Use these headings, omitting empty ones:
+A VERDICT line comes first, immediately after the `AUDIT-BUILD:`/`PRD:` header and before any
+heading below — about the DELIVERED CODE, not about fixing anything (this command writes no
+application code or tests). One of exactly three forms, with every caveat or blocker named
+inline, never merely counted:
+
+```
+VERDICT: safe to proceed — every requirement is implemented and tested
+VERDICT: proceed with these caveats: <named>
+VERDICT: do not proceed until <named>
+```
+
+Every line names the ACTION, not the classification — and, for a gap, WHERE IT GOES NEXT.
+This command applies almost none of these findings itself (see "But it DOES close the loop",
+above); naming the destination is how the reader knows what still has to happen. Use these
+headings, omitting empty ones:
 
 ```
 AUDIT-BUILD: <trd path>    PRD: <path>
 
-  TRACEABILITY GAPS — implemented, no test proving it
-  MISSING IMPLEMENTATION — required, never built
-  MISMATCH — built, but does something other than what was required
+VERDICT: <one of the three forms above>
+
+  TRACEABILITY GAPS — implemented, no test proving it. A covering task exists in the TRD:
+    chains to /implement-trd --reconcile. No task covers the requirement: recorded and
+    reported here, not closed.
+  MISSING IMPLEMENTATION — required, never built. Same split: a covering task exists ->
+    chains to /implement-trd --reconcile; no covering task -> reported, not closed.
+  MISMATCH — built, but does something other than what was required. The task that produced
+    it exists in the TRD, so this always chains to /implement-trd --reconcile.
   UNTESTED-IN-PRACTICE — a test exists but does not prove the requirement
-  FIX THE CITATION — referenced ID or path does not resolve
+  FIXED THE CITATION — a referenced ID or path did not resolve AND the fix was inside this
+    run's own rewrite of the TRD's Could Not Verify section. A citation that does not resolve
+    anywhere else in the TRD is reported, not fixed: this step edits no other section.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
 ```
+
+`--report-only` (parsed above, before any of this) suppresses every `/implement-trd
+--reconcile` handoff named in the block above — the findings still print under these
+headings, nothing chains. **Say so on the line**: a gap whose chain was suppressed reads
+"work for `/implement-trd --reconcile`, not handed off on this run", never "chains to". That
+is why `report_only` is passed to the workflow, which drafts the readout.
 
 One screen. If there are 40 clean requirements, print the count as one line, not forty.
 

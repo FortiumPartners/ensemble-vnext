@@ -43,12 +43,23 @@ const MAX_LINE_BYTES = 2048;
 
 const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
 
+// A verification-outcome record (a functional-verification criterion, recorded through this
+// same channel) carries a `status` alongside the usual fields. Only these ever promote --
+// `met` and `not_verifiable` are deliberately absent below.
+const VERIFICATION_STATUSES = ['met', 'not_met', 'not_verifiable', 'unbuilt', 'stalled'];
+const PROMOTABLE_STATUSES = ['not_met', 'stalled', 'unbuilt'];
+
 /**
  * The discoveries that should become TRD tasks, and nothing else.
  *
- * Two filters, both deliberately mechanical so the answer is checkable rather than argued:
+ * Three filters, all deliberately mechanical so the answer is checkable rather than argued:
  *  - `blocksFeature === true`  -- the objectives are not met while this stands
  *  - kind is not 'risk'        -- a risk is a thing to watch, not a thing to build
+ *  - a `status` of `not_verifiable` never promotes -- that criterion FAILED TO RUN, it did
+ *    not fail. The blocker is environmental (no environment listed covers it, tooling isn't
+ *    installed), and promoting it mints a task meaning "go deploy this," which no implementer
+ *    can action. `not_met`, `stalled` and `unbuilt` all name something to BUILD, so they still
+ *    promote; a record with no `status` at all (an ordinary bug/gap discovery) is unaffected.
  *
  * Everything else is reported and left alone. The orchestrator still decides whether to act;
  * this only narrows what it is deciding about, so an unrelated bug found while reading a file
@@ -56,7 +67,11 @@ const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
  */
 function promotable(rows) {
   if (!Array.isArray(rows)) return [];
-  return rows.filter((r) => r && r.blocksFeature === true && r.kind !== 'risk');
+  return rows.filter((r) => {
+    if (!r || r.blocksFeature !== true || r.kind === 'risk') return false;
+    if (r.status && !PROMOTABLE_STATUSES.includes(r.status)) return false;
+    return true;
+  });
 }
 
 /**
@@ -163,8 +178,16 @@ function promoteToTrd(trdPath, rows, opts = {}) {
   // function exists to close.
   const groundingEntries = [];
   for (const r of promo) {
-    const where = r.file ? ` (\`${r.file}\`)` : '';
-    const summary = `${String(r.summary).replace(/\|/g, '\\|')}${where}`;
+    // A record may implicate more than one file (`files`, in addition to the primary
+    // `file`) -- e.g. a discovery found while touching a 12-file amendment. Collapse
+    // both into one deduped list so Touches names every file the record actually
+    // implicates, not just the first one it happened to carry.
+    const allFiles = Array.from(new Set(
+      [r.file, ...(Array.isArray(r.files) ? r.files : [])].filter(Boolean)
+    ));
+    const where = allFiles.length ? ` (${allFiles.map((f) => `\`${f}\``).join(', ')})` : '';
+    const escapedSummary = String(r.summary).replace(/\|/g, '\\|');
+    const summary = `${escapedSummary}${where}`;
     if (seen.has(norm(summary))) continue;
     seen.add(norm(summary));
 
@@ -183,10 +206,20 @@ function promoteToTrd(trdPath, rows, opts = {}) {
      * `opts.serves` lets a caller that DOES know supply it. */
     if (col.serves >= 0) cells[col.serves] = opts.serves || 'amendment — no objective recorded';
     if (col.deps >= 0) cells[col.deps] = 'None';
-    if (col.ac >= 0) cells[col.ac] = 'The discovery no longer reproduces';
+    /* A generic "the discovery no longer reproduces" is unfalsifiable -- it reads the
+     * same for every promoted row regardless of what the row actually claims, so nothing
+     * can check it against the row's own evidence. Anchor it to the specific summary
+     * (and evidence, when the record carried one) so the criterion names the concrete
+     * claim a verifier or reviewer can actually check. */
+    if (col.ac >= 0) {
+      const evidence = r.evidence ? String(r.evidence).replace(/\|/g, '\\|') : null;
+      cells[col.ac] = evidence
+        ? `${escapedSummary} no longer reproduces: ${evidence}`
+        : `${escapedSummary} no longer reproduces`;
+    }
     newRows.push(`| ${cells.join(' | ')} |`);
     added.push(id);
-    groundingEntries.push({ id, file: r.file });
+    groundingEntries.push({ id, files: allFiles });
   }
   if (!newRows.length) return { added, skipped: promo.length };
 
@@ -238,26 +271,31 @@ function findLastSectionByPhrase(lines, phrase) {
  * `- Touches:` parses as nothing and ships a grounding-less task with only a warning, which
  * is the defect this whole function exists to close.
  *
- * When `file` is known, that is the entire protection `buildGraph` needs: a `Touches` entry
- * lets `computeFilePartition` see the overlap and serialize two promoted tasks that land on
- * the same file. When it is NOT known, emitting a fabricated path would be worse than
- * emitting nothing — `task-graph.js`'s partition is keyed on literal path equality, so an
- * invented placeholder would either silently conflict-edge unrelated tasks (if two records
- * happened to share the same placeholder text) or just be dead weight. Instead the block is
- * still written — so the task is not invisible to `/audit-trd` or a human reading the TRD —
- * but with no `Touches` field at all, which trips trd-parser.js's own
- * "missing the mandatory Touches field" warning. That warning IS the visible absence this
- * function is asked to produce, not a decorative fallback string that would only be scraped
- * into `touches` as a bogus non-path entry.
+ * When at least one file is known, that is the entire protection `buildGraph` needs: a
+ * `Touches` entry lets `computeFilePartition` see the overlap and serialize two promoted
+ * tasks that land on the same file. A record naming several files (an amendment that
+ * touched more than one) gets all of them on one comma-separated line -- `trd-parser.js`
+ * already splits a Touches body on every backticked span, so this is not a new parsing
+ * mode, just this function finally emitting what it already accepts. When NO file is
+ * known, emitting a fabricated path would be worse than emitting nothing — `task-graph.js`'s
+ * partition is keyed on literal path equality, so an invented placeholder would either
+ * silently conflict-edge unrelated tasks (if two records happened to share the same
+ * placeholder text) or just be dead weight. Instead the block is still written — so the
+ * task is not invisible to `/audit-trd` or a human reading the TRD — but with no `Touches`
+ * field at all, which trips trd-parser.js's own "missing the mandatory Touches field"
+ * warning. That warning IS the visible absence this function is asked to produce, not a
+ * decorative fallback string that would only be scraped into `touches` as a bogus
+ * non-path entry.
  *
  * @param {string} id
- * @param {string} [file]
+ * @param {string[]} [files]
  * @returns {string[]} lines to splice in, including the heading and trailing blank line
  */
-function groundingBlockLines(id, file) {
+function groundingBlockLines(id, files) {
   const out = [`### ${id}`, ''];
-  if (file) {
-    out.push(`- **Touches:** \`${file}\``);
+  const list = Array.isArray(files) ? files.filter(Boolean) : (files ? [files] : []);
+  if (list.length) {
+    out.push(`- **Touches:** ${list.map((f) => `\`${f}\``).join(', ')}`);
   } else {
     out.push(
       '- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is ' +
@@ -275,12 +313,12 @@ function groundingBlockLines(id, file) {
  * creating that section at the end of the document if none exists yet.
  *
  * @param {string[]} lines                  the TRD, already split on '\n' (mutated in place)
- * @param {Array<{id: string, file?: string}>} entries
+ * @param {Array<{id: string, files?: string[]}>} entries
  */
 function insertGroundingBlocks(lines, entries) {
   if (!entries.length) return;
   const blockLines = [];
-  for (const { id, file } of entries) blockLines.push(...groundingBlockLines(id, file));
+  for (const { id, files } of entries) blockLines.push(...groundingBlockLines(id, files));
 
   const section = findLastSectionByPhrase(lines, 'Task Grounding');
   if (section) {
@@ -335,7 +373,14 @@ function record(stateDir, entry, nowIso) {
   // otherwise, because the expensive mistake is promoting an unrelated bug into the plan.
   row.blocksFeature = entry.blocksFeature === true;
   if (entry.file) row.file = String(entry.file).slice(0, 200);
+  // `files` is the escape hatch for a discovery that implicates more than the one path
+  // `file` carries -- an amendment touching several files at once. Optional, capped so a
+  // careless caller cannot blow the MAX_LINE_BYTES budget below.
+  if (Array.isArray(entry.files) && entry.files.length) {
+    row.files = entry.files.map((f) => String(f).slice(0, 200)).slice(0, 20);
+  }
   if (entry.evidence) row.evidence = String(entry.evidence).slice(0, 400);
+  if (VERIFICATION_STATUSES.includes(entry.status)) row.status = entry.status;
 
   let line = JSON.stringify(row);
   if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
@@ -413,4 +458,5 @@ function render(stateDir, { phase = null } = {}) {
 
 module.exports = {
   promotable,
-  promoteToTrd, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES };
+  promoteToTrd, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES,
+  VERIFICATION_STATUSES, PROMOTABLE_STATUSES };

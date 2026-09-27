@@ -1,0 +1,129 @@
+{
+  "feature": "audit-readout-tense",
+  "prd": "docs/TRD/audit-readout-tense.md ## Intended Change",
+  "definitionPath": ".trd-state/audit-readout-tense/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "All 12 criteria met. The one gap from iteration 1 \u2014 /audit-build's citation heading still reading as an imperative \u2014 was fixed by the Debug stage and re-verified here.",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "When an audit deletes something because nothing in the source asks for it, the readout labels it DELETED, never the imperative DELETE",
+      "cites": "Intended Change table row: DELETE -> DELETED ('the audit removes it')",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-1.txt",
+      "reason": "The heading reads 'DELETED \u2014 nothing in the source asked for these' in all four /audit-trd and /audit-prd layers; the imperative form has zero occurrences across the six audit files and their .claude runtime mirrors.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "When the audit lowers a value to the constitution floor because no reason was given for exceeding it, the readout reads 'LOWERED TO THE CONSTITUTION FLOOR \u2014 no reason was given for exceeding it'; when a reason WAS given, no finding of this kind is raised",
+      "cites": "Intended Change table row: 'LOWER TO THE CONSTITUTION FLOOR, or say why it's higher' -> past-tense one-way form",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-2.txt",
+      "reason": "The past-tense heading appears verbatim in all four layers; the two-way imperative form ('LOWER TO THE CONSTITUTION FLOOR') has zero occurrences.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "When the audit restores something in the source but missing from the document, the readout labels it ADDED BACK, never the imperative ADD BACK",
+      "cites": "Intended Change table row: ADD BACK -> ADDED BACK",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-3.txt",
+      "reason": "'ADDED BACK \u2014 in the source, missing from this <doc>' present in all four layers; 'ADD BACK \u2014' has zero occurrences.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "When the audit fixes a citation whose referenced ID does not resolve, the readout labels it FIXED THE CITATION, never the imperative FIX THE CITATION",
+      "cites": "Intended Change table row: FIX THE CITATION -> FIXED THE CITATION ('mechanical')",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-4.txt",
+      "reason": "This was the single gap from iteration 1: /audit-build still carried the imperative. The Debug stage renamed it and also narrowed the claim (the fix applies only inside this run's own rewrite of the Could Not Verify section; a citation that does not resolve elsewhere is reported, not fixed). Independent grep for the literal 'FIX THE CITATION' across all six files and their .claude mirrors now returns zero.",
+      "attempts": 2,
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "When the audit corrects a stale claim in favour of what the code does, the readout labels it CORRECTED A STALE CLAIM, never the assertion THE DOC IS STALE",
+      "cites": "Intended Change table row: THE DOC IS STALE -> CORRECTED A STALE CLAIM",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-5.txt",
+      "reason": "'CORRECTED A STALE CLAIM' present in all four layers; 'THE DOC IS STALE' has zero occurrences.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "A task judged unbuildable-as-written renders as one of two distinct headings \u2014 'REDESIGNED \u2014 could not be built as written' or 'CANNOT BE BUILT \u2014 needs a design decision' \u2014 never the single undifferentiated CANNOT BE BUILT AS WRITTEN",
+      "cites": "Intended Change table row: CANNOT BE BUILT AS WRITTEN 'splits in two'",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-6.txt",
+      "reason": "Both headings are defined in /audit-trd's workflow script and command prompt (adjacent lines in each); the old single heading has zero occurrences anywhere.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "A contradiction still renders as the imperative 'PICK ONE \u2014 these contradict', unchanged",
+      "cites": "Intended Change table row: 'PICK ONE \u2014 these contradict' -> unchanged",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-7.txt",
+      "reason": "Present verbatim and unmodified in all four layers.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "A finding asking whether something is actually wanted still renders as the imperative CONFIRM THESE ARE WANTED, unchanged",
+      "cites": "Intended Change table row: CONFIRM THESE ARE WANTED -> unchanged",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-8.txt",
+      "reason": "Present and unmodified in all four layers. The pre-existing gloss difference between the workflow script ('invented machinery, no objective named' / 'no source names them') and the command prompt ('no objective named') was deliberately left alone, per the criterion, and is not a failure.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "In /audit-prd specifically, a requirement found already implemented still renders as the imperative ALREADY BUILT, unchanged",
+      "cites": "Intended Change table row: ALREADY BUILT (/audit-prd) -> unchanged",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-9.txt",
+      "reason": "'ALREADY BUILT \u2014 name the file; decide whether the requirement survives' present verbatim in both /audit-prd layers.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-10",
+      "statement": "This change adds no new heading that groups multiple finding types under a single umbrella label \u2014 the heading count is unchanged except for the one split named in FS-6",
+      "cites": "Intended Change: 'No grouping headings are added'",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-10.txt",
+      "reason": "The three named candidate umbrella strings (WHAT THE AUDIT CHANGED, WHAT NEEDS YOU, NOT CHECKED as a heading) have zero occurrences across all six files and their .claude mirrors. A full read of every heading block confirms each heading still labels exactly one finding type, and the only count change is FS-6's split of one heading into two.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "For the unchecked-claims finding, the readout reuses the spelling the clean path already emits \u2014 CAVEAT \u2014 and points at the document's own ## Could Not Verify section rather than reprinting it",
+      "cites": "Intended Change: 'reuses the spelling the clean path already emits \u2014 CAVEAT \u2014 and points at the document rather than reprinting it'",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-11.txt",
+      "reason": "The findings-path heading reads 'CAVEAT \u2014 what this run did NOT check: <n> claims left unchecked (see the TRD's/PRD's ## Could Not Verify), plus any verifier that failed to report' \u2014 a pointer naming the section, with none of its contents inlined. The pre-existing clean-path CAVEAT for failed verifiers is untouched, so each workflow script carries two occurrences and both are pointer-shaped.",
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "Across every finding type, a heading describing something the audit already did reads in past tense, and a heading describing something only the owner can decide stays imperative",
+      "cites": "Intended Change: 'a heading applied by the audit is past tense; a heading needing the owner stays imperative'",
+      "status": "met",
+      "artifact": ".trd-state/audit-readout-tense/evidence/FS-12.txt",
+      "reason": "Complete heading blocks read in all six files. Every audit-performed heading is past tense (DELETED, LOWERED, ADDED BACK, REDESIGNED, FIXED THE CITATION, CORRECTED A STALE CLAIM, REJECTED THESE FINDINGS); every owner-decision heading stays imperative (PICK ONE, CONFIRM THESE ARE WANTED, CANNOT BE BUILT, ALREADY BUILT). /audit-build's four named exceptions (TRACEABILITY GAPS, MISSING IMPLEMENTATION, MISMATCH, UNTESTED-IN-PRACTICE) correctly stay non-past-tense because that command writes no code or tests. No heading remains that both describes an audit-performed action and reads as an imperative \u2014 the FS-4 rename closed the last one.",
+      "attempts": 2,
+      "blocker": null
+    }
+  ]
+}

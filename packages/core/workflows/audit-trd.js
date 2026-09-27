@@ -455,6 +455,9 @@ ${COVERAGE}${CNV}`,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${TRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
+      `VERDICT: ${dead > 0
+        ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+        : 'safe to proceed'}\n\n` +
       `  NO ACTION — every objective traces to a source, every decision names one, every\n` +
       `  citation resolves.\n` +
       (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
@@ -495,18 +498,37 @@ good one: in one run 6 of 9 findings were wrong because a verifier read the wron
 constitution, five of them at high confidence.
 ${COVERAGE}${CNV}
 
-EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION. Readouts here have been rejected
+FIRST LINE OF THE READOUT, before any heading below: a VERDICT line, one of exactly these
+three forms, with every caveat or blocker NAMED inline -- never merely counted, since an
+unnamed caveat is the opacity this line exists to remove:
+
+  VERDICT: safe to proceed
+  VERDICT: proceed with these caveats: <caveat 1>; <caveat 2>
+  VERDICT: do not proceed until <blocker>
+
+Choose "do not proceed until" when a REDESIGNED, CANNOT BE BUILT, or PICK ONE finding leaves
+the TRD unsafe to implement from as it stands. Choose "proceed with these caveats" when
+anything remains under CAVEAT, CONFIRM THESE ARE WANTED, or an unresolved Could Not Verify
+row. Otherwise "safe to proceed".
+
+EVERY READOUT LINE NAMES THE ACTION -- THE ACTION THIS AUDIT TOOK, not a classification of the
+finding and not something left for the reader to do. Readouts here have been rejected
 repeatedly for being unreadable — "I DO NOT UNDERSTAND what action you expect me to take on
 these?" Use exactly these headings, omitting empty ones:
 
-  DELETE — nothing in the source asks for these
-  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher
-  ADD BACK — in the source, missing from this artifact
-  CANNOT BE BUILT AS WRITTEN
+  DELETED — nothing in the source asked for these
+  LOWERED TO THE CONSTITUTION FLOOR — no reason was given for exceeding it
+  ADDED BACK — in the source, missing from this artifact
+  REDESIGNED — could not be built as written
+  CANNOT BE BUILT — needs a design decision
   PICK ONE — these contradict
   CONFIRM THESE ARE WANTED — invented machinery, no objective named
-  FIX THE CITATION — referenced ID does not resolve
-  THE DOC IS STALE — the artifact asserts something the code contradicts
+  FIXED THE CITATION — referenced ID did not resolve
+  CORRECTED A STALE CLAIM — the artifact asserted something the code contradicts
+  CAVEAT — what this run did NOT check: <n> claims left unchecked (see the TRD's
+    ## Could Not Verify), and any verifier that failed to report. Name both when both
+    apply -- a coverage gap and a deferred claim are different facts and this is the only
+    heading either one gets.
   NO ACTION — sourced, listed for completeness
 
 One screen. If there are 40 sourced objectives, print the COUNT as one line, not forty.`,

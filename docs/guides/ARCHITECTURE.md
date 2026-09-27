@@ -379,7 +379,7 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
   - **async-discipline** — scans for fire-and-forget claims ("I'll let you know", "running in the background") that have no backing async machinery (`Agent({run_in_background})`, `ScheduleWakeup`, `Monitor`, `/goal`). See `.claude/rules/async-discipline.md`.
   - **autonomy-discipline** — detects hedged-pause offers ("I'll continue unless...", "Want me to keep going, or pause?") in workflow-command context. `/refine-prd` and `/refine-trd` are exempt in interactive mode. See `.claude/rules/autonomy.md`.
 - Blocks the Stop with a corrective reason so the agent either dispatches properly, completes the work synchronously, or drops the hedge and proceeds
-- There is no third Stop-chain hook doing session-end processing — there is no `SessionEnd` hook anywhere in the framework (the earlier `learning.sh` and `wiggum.js` were both retired; see the constitution's Architecture Invariants)
+- There is no third Stop-chain hook doing session-end processing — there is no `SessionEnd` hook anywhere in the framework (the earlier session-end hook and `wiggum.js` were both retired; see the constitution's Architecture Invariants)
 
 **Status (`status.js`):**
 - Active hook (not passive) -- advances cycle position

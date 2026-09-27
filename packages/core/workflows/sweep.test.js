@@ -164,6 +164,37 @@ describe('sweep', () => {
     ).rejects.toThrow(/never produced a result/);
   });
 
+  it('accounts for a fix whose agent invented its own id', async () => {
+    // Regression, measured 2026-09-26. Agents write the schema's `id` freely: a run dispatched
+    // issues "1", "2" and "3" and got back "ISSUE-1-verification-md-preflight",
+    // "ISSUE-2-env-preflight-relocation" and "issue-3-promoteToTrd-unimplementable-row". The
+    // accounting check compared triage's ids against those, matched none, and threw "never
+    // produced a result" over three fixes that had completed and landed on disk -- so the run
+    // reported `failed` and its readout was discarded.
+    //
+    // Every other test here missed it because `plan()`'s stub echoes the dispatched id back,
+    // which makes it more obedient than any real agent. This one deliberately does not.
+    const renaming = (prompt, opts) => {
+      if (opts.label === 'triage') return { fix: ISSUES, deferred: [] };
+      const m = /^fix:(.+)$/.exec(String(opts.label));
+      if (!m) return undefined;
+      return {
+        id: `ISSUE-${m[1]}-a-name-the-agent-liked-better`,
+        status: 'fixed',
+        summary: `fixed ${m[1]}`,
+        files_changed: [`src/${m[1]}.ts`],
+        verified: 'jest — 3 passed',
+      };
+    };
+    const { result } = await runWorkflow(SOURCE, {
+      agent: makeAgentStub(renaming),
+      parallel: makeParallelStub(),
+      args: { source: 'a list' },
+    });
+    // The dispatched ids survive, so the accounting check is satisfied and the readout is kept.
+    expect(result.fixed.map((r) => r.id).sort()).toEqual(['12', '18', '20']);
+  });
+
   it('refuses to run without an issue list', async () => {
     const agent = makeAgentStub(plan({ triage: { fix: [], deferred: [] } }));
     await expect(runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: {} }))

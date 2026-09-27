@@ -176,18 +176,13 @@ _needs_generator_normalize() {
     [ -d "$TEST_DIR/docs/TRD" ]
 }
 
-@test "TRD-TEST-021: Creates docs/TRD/completed/ directory" {
+@test "TRD-TEST-021: Does not create in-tree archive folders (docs are kept as-built, not archived)" {
     run "$SCAFFOLD_SCRIPT" "$TEST_DIR"
 
     [ "$status" -eq 0 ]
-    [ -d "$TEST_DIR/docs/TRD/completed" ]
-}
-
-@test "TRD-TEST-021: Creates docs/TRD/cancelled/ directory" {
-    run "$SCAFFOLD_SCRIPT" "$TEST_DIR"
-
-    [ "$status" -eq 0 ]
-    [ -d "$TEST_DIR/docs/TRD/cancelled" ]
+    [ -d "$TEST_DIR/docs/TRD" ]
+    [ ! -d "$TEST_DIR/docs/TRD/completed" ]
+    [ ! -d "$TEST_DIR/docs/TRD/cancelled" ]
 }
 
 @test "TRD-TEST-021: Creates docs/standards/ directory" {
@@ -217,8 +212,6 @@ _needs_generator_normalize() {
     [ -d "$TEST_DIR/.claude/hooks" ]
     [ -d "$TEST_DIR/docs/PRD" ]
     [ -d "$TEST_DIR/docs/TRD" ]
-    [ -d "$TEST_DIR/docs/TRD/completed" ]
-    [ -d "$TEST_DIR/docs/TRD/cancelled" ]
     [ -d "$TEST_DIR/docs/standards" ]
     [ -d "$TEST_DIR/.trd-state" ]
 }
@@ -376,8 +369,8 @@ _needs_generator_normalize() {
     [ "$status" -eq 0 ]
 
     # Check deeply nested directories were created
-    [ -d "$TEST_DIR/docs/TRD/completed" ]
-    [ -d "$TEST_DIR/docs/TRD/cancelled" ]
+    [ -d "$TEST_DIR/.claude/rules" ]
+    [ -d "$TEST_DIR/docs/TRD" ]
 }
 
 @test "Edge case: Script handles directories with spaces" {

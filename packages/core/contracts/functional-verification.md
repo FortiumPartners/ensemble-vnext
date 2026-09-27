@@ -45,7 +45,7 @@ convention exists to prevent — do not write one.
 path, no TRD excerpt, no task list. It does not know what was built; it knows only what was
 asked for.
 
-**Three source kinds are valid.** The loop needs a statement of what success looks like; a PRD
+**Four source kinds are valid.** The loop needs a statement of what success looks like; a PRD
 is one way to supply that, not the only one. Whichever applies, the agent receives **that
 source alone**:
 
@@ -56,7 +56,7 @@ source alone**:
 | **Intended change** | the extracted `## Intended Change` text | a small change decided in conversation |
 | **Behaviour preserved** | the extracted `## Behaviour Preserved` text | a refactor: the tests that passed before, and the surface that must not move |
 
-**The isolation rule is the same for all three, and it is why the last two are passed as
+**The isolation rule is the same for all four, and it is why the last three are passed as
 EXTRACTED TEXT rather than as a TRD path.** A deriver that can see the task list writes
 criteria the plan satisfies by construction, and verification becomes circular — it confirms
 the plan was followed rather than that the outcome was reached. A reproduction and a recorded
@@ -68,15 +68,16 @@ to contain them also contains the plan, and must never be handed over.
 ```markdown
 # Functional Success Definition: <feature>
 
-**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change -->
-**Source kind**: prd | reproduction | intended-change
+**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change | §Behaviour Preserved -->
+**Source kind**: prd | reproduction | intended-change | behaviour-preserved
 **Derived**: <ISO8601>
 **Criteria**: <n>
 
-| ID | Functional statement | Cites | Evidence that would prove it | Derivation |
-|----|----------------------|-------|------------------------------|------------|
-| FS-1 | A user can sign in with a valid password and reach the dashboard | FR-2, §4 line 51 | HTTP transcript: POST /auth/login → 200 with a session cookie; screenshot of the dashboard | [read] |
-| FS-2 | A repeated submit does not create two orders | domain-derived: payment flows must not double-charge | Two POSTs with one idempotency key → one row in `orders` | domain-derived |
+| ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts |
+|----|----------------------|-------|------------------------------|------------|--------|-------|
+| FS-1 | A user can sign in with a valid password and reach the dashboard | FR-2, §4 line 51 | HTTP transcript: POST /auth/login → 200 with a session cookie; screenshot of the dashboard | [read] | locator | |
+| FS-2 | A repeated submit does not create two orders | domain-derived: payment flows must not double-charge | Two POSTs with one idempotency key → one row in `orders` | domain-derived | locator | |
+| FS-3 | Each of the 32 design frames renders pixel-for-pixel against its reference PNG | FR-9, §2 line 14 | screenshot of each frame, paired against that frame's design PNG (see "Alignment artifacts," below) | [read] | judge-only — pixel/colour comparison, no text assertion is possible | 32 |
 ```
 
 **The citation rule (mandatory).** Every row's `Cites` column names **a line or section of the
@@ -98,6 +99,28 @@ died; an empty file means it ran and correctly found nothing to check.
 that artifact. An exerciser that produces a *different* artifact proving the same functional
 statement is not wrong — it records why in its notes rather than treating the definition's
 suggestion as mandatory.
+
+**Alignment artifacts.** Where the functional statement is itself a matching claim — it says
+the build follows a design, a spec, or a contract — `Evidence that would prove it` must name
+an artifact that proves ALIGNMENT with what was asked for, not only evidence that the code
+ran. "Screenshot of the dashboard" proves the page rendered; it does not prove the dashboard
+matches its design. Pair the artifact against the thing it is supposed to match — the
+screenshot against its design PNG, a control-flow trace against the specified flow — and name
+that pairing as the target. This strengthens the existing column; it does not add a second
+one.
+
+**`Parts`, only when the criterion's own sentence enumerates a count.** "Each of the 32 design
+frames," "all 5 endpoints" — the number is written in the functional statement itself, and
+`Parts` carries it forward so anyone reading the definition sees up front that the criterion
+has 32 parts and cannot pass until all 32 do. Nothing downstream reads the column yet: the loop
+and the report still rule on the criterion as a whole. Derive
+it from that sentence alone: never by counting artifacts, parsing the source document, or
+estimating. **Blank is the correct value whenever no count is stated, and blank must never be
+read as 1.** `Parts` REPORTS a count; it does not measure progress against one — that needs a
+locator per part, which is only as granular as the locator work above provides. State that
+limit in the definition itself: **a criterion carrying a `Parts` count cannot pass
+incrementally.** It resolves `met` only when every part is proven; 30 of 32 proven is not a
+partial pass, it is `not_met` with the shortfall named.
 
 ---
 
@@ -148,20 +171,69 @@ resolve to `met`: an unbacked assertion is exactly what this loop exists to refu
 
 ---
 
+## The locator rule, and its limit
+
+Attaching an artifact is not enough by itself. Tier 1 also requires a **locator**: a literal
+string the exerciser has actually seen inside that artifact's decoded text content — never a
+description of what the artifact ought to contain. The check is a literal substring match
+against the artifact's own bytes, scanned up to a byte cap (2,000,000 bytes); an artifact
+larger than the cap is scanned only up to it, and the result says so rather than silently
+passing on an unread remainder. A locator that is not found in the artifact fails tier 1 by
+name, the same way a missing or stale artifact does. A regex or a wildcard is not a locator —
+either would match anything, which reopens the exact hole this rule closes.
+
+**The stated limit: tier 1 cannot check image evidence.** A literal-substring match has
+nothing to read in a screenshot, a video frame, or any other pictorial artifact. A criterion
+whose only possible evidence is what an image *shows* — colour, spacing, scroll position — is
+not a candidate for a locator, at authoring time or ever. That criterion is marked
+`judge-only` (below) instead of being forced into a locator it cannot supply.
+
+---
+
+## Tier 1 — locator or judge-only (§3.8)
+
+The success-definition table's `Tier 1` column takes exactly two values:
+
+| Value | Meaning |
+|-------|---------|
+| `locator` | the exerciser must supply a locator found inside the artifact (the default) |
+| `judge-only` | the only possible evidence is pictorial; tier 1 is skipped and the judge reads the artifact directly |
+
+**A `judge-only` row must state, in the same cell, why no text assertion is possible** — the
+same separation the contract already draws between exerciser and judge, extended to which
+evidence tier applies. The exerciser does not get to declare a criterion `judge-only` on the
+fly: this is an authoring-time decision, made when the definition is written, precisely
+because letting the exerciser choose would turn every criterion it failed to assert against
+into "pictorial." An absent column, or an absent cell, reads as `locator` — the default this
+contract already states — so a definition written before this change still parses.
+
+---
+
 ## The exercise discipline
 
-**One exerciser, one boot, every criterion.** The exerciser brings the system up **once** and
-walks the **whole** criterion list in that single running instance — it does not start and
-stop the system per criterion, and it does not run in parallel with other exercisers against
-the same criteria. A human verifies a build the same way: start it once, walk the list. Ten
-criteria against one already-running system is a longer walk, not ten startups.
+**One boot per slice, over that slice's criteria.** This loop runs 1..k exercisers per
+iteration, each handed one slice — a subset of the still-open criteria, never the whole run's
+definition. Within its own slice, an exerciser brings the system up **once** and walks every
+criterion in that slice in that single running instance: it does not start and stop the system
+per criterion, and it does not narrow to a subset of its own slice or go looking for criteria
+outside it. A human verifies a build the same way: start it once, walk the list — the
+concurrency here lives ACROSS slices, never inside one.
 
-**One artifact per criterion.** For each criterion, the exerciser performs the user action the
-criterion describes and captures the artifact that would prove it (per the definition's
-`Evidence that would prove it` column, or a different artifact it records the reason for
-substituting). It returns a claim per criterion — an artifact path, or a stated reason none
-exists — never a verdict. Deciding `met` / `not met` belongs to the judge, a different agent,
-so nothing certifies its own evidence.
+**Capture only.** The exerciser may bring the system up when nothing is already running. It
+may **not** edit source, rebuild, restart, or re-deploy it — before, during, or after its
+walk — not even to fix something small it noticed along the way. If a criterion needs a
+repair, the exerciser does not make it: it claims that criterion with `artifact: null` and a
+stated reason describing what is wrong. That reason is what the judge rules on, and Debug — a
+separate stage that runs after the judge, never the exerciser — is the one that repairs it. A
+rebuild performed inside the Exercise stage invalidates the very capture the judge is about to
+read, which is the interleaving this rule exists to forbid.
+
+**One artifact per criterion.** For each criterion in its slice, the exerciser performs the
+user action the criterion describes and captures the artifact that would prove it (per the
+definition's `Evidence that would prove it` column, or a different artifact it records the
+reason for substituting). It returns a claim per criterion — an artifact path, a locator, or a
+stated reason none exists — never a verdict. Deciding `met` / `not met` belongs to the judge, a
+different agent, so nothing certifies its own evidence.
 
 ---
 
@@ -293,13 +365,38 @@ something it should not touch. The judge is the one who reads that stated reason
 the criterion to `not_verifiable here` — the exerciser states the reason, it does not name the
 status.
 
+**A `must not be touched` environment is not reachable at all — not even for a read.**
+`verification.md`'s data-permission column can mark an environment `must not be touched`, and
+that is stricter than `read-only`: `read-only` still authorizes exercising a live instance so
+long as nothing is written, while `must not be touched` forbids reaching it in any capacity,
+reads included. A criterion needing such an environment is treated exactly like one whose
+target no project document authorizes at all — no artifact, a stated reason, `not_verifiable`
+on the judge's reading of it — and no amount of "only reading, nothing written" makes it an
+exception.
+
 ---
 
 ## The report shape
 
-Every criterion in the success definition appears in the report, and every one carries the
-status the **final** iteration produced — this loop re-walks the full criterion list on every
-iteration, so there is never a carried-forward status to disambiguate from a fresh one.
+Every criterion in the success definition appears in the report, and every one carries a
+final status. **That status is not always freshly produced by the iteration that ends the
+run.** This loop carries `met` and `not_verifiable` forward as **settled** once a criterion
+resolves to either, so a later iteration re-walks only what is still open — a criterion's
+reported status can be the one an *earlier* iteration produced, stamped with when it was
+proven, not necessarily the final iteration's own reading. The report does not need to
+disambiguate a carried-forward status from a fresh one; it only needs to render whichever one
+the criterion actually carries.
+
+**The loop's own exit carries one of five outcomes: `satisfied`, `unbuilt`, `stalled`,
+`stuck`, or `insufficient-coverage`.** The first four are the ordinary shape — every gap
+closed, an absent capability found, remediation not converging, or the iteration cap reached.
+`insufficient-coverage` is a re-label of `satisfied`, `stalled` or `stuck` (never `unbuilt` —
+"nothing was built" is the truer statement and wins outright): when the proportion of
+criteria actually proven `met` falls below the project's coverage floor, the run exits under
+this name instead, and the report carries the ratio and which criteria remain uncovered. This
+is the case a "passing" run can otherwise hide: a run whose criteria mostly resolved
+`not_verifiable` has no open gaps and would otherwise exit `satisfied` having proven almost
+nothing.
 
 - `not_verifiable` criteria render in their own section, with the stated reason, never folded
   into failures — a project that cannot check something is not the same as a project that

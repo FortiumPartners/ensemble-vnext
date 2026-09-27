@@ -1,26 +1,33 @@
 #!/usr/bin/env bash
 # =============================================================================
-# verify-functional - Scenario: /implement-trd --verify
+# verify-functional - Scenario: /implement-trd (verification runs by default)
 # =============================================================================
 #
-# Runs `/implement-trd` headlessly TWICE against a fixture TRD with exactly
-# ONE task and a matching one-requirement PRD:
+# Functional verification now runs BY DEFAULT (verification-convergence VCON-B009
+# flip); `--no-verify` is the opt-OUT. Runs `/implement-trd` headlessly TWICE
+# against a fixture TRD with exactly ONE task and a matching two-requirement PRD:
 #
-#   1. WITHOUT --verify  -> asserts a COMMAND COMPLETE/STUCK banner
-#      and that NO .trd-state/<feature>/success-definition.md appears (Step
-#      3.6 is skipped entirely when the flag is absent).
-#   2. WITH --verify     -> asserts the banner, a success
+#   1. WITH --no-verify   -> asserts a COMMAND COMPLETE/STUCK banner and that NO
+#      .trd-state/<feature>/success-definition.md appears (opting out skips
+#      Step 3.6 -- the derive pass -- entirely, same as the whole default-on
+#      pass never having existed for this run).
+#   2. WITH NO FLAG AT ALL (the default) -> asserts the banner, a success
 #      definition whose every row carries a `Cites` value or a
-#      `domain-derived` label, a verification-state.json carrying an
-#      iteration number and a per-criterion status, and a
-#      verification-report.md naming every criterion in the definition.
+#      `domain-derived` label, a verification-state.json whose every
+#      criterion carries a `tier1` verdict and a `provenAt` iteration, and a
+#      verification-report.md whose coverage line names the proven/total
+#      ratio. The fixture's two criteria share ONE evidence artifact, and each
+#      must still get its own tier-1 verdict -- one file never stands in for
+#      two criteria without being judged per criterion.
 #
 # Each run gets its OWN throwaway project (not the same one twice) so the
 # second run's implement.json/branch state can never leak into or be
 # confused with the first's -- see functional-verification TRD FV-T001 and
 # implement-trd.md Step 3.6/Step 8.
 #
-# opt-in (registered in LLM_OPT_IN_SCENARIOS, not ALL_SCENARIOS, AC-6/NG4).
+# opt-in (registered in LLM_OPT_IN_SCENARIOS, not ALL_SCENARIOS, AC-6/NG4) --
+# this is the SCENARIO's own opt-in registration in the smoke runner, not the
+# functional-verification pass under test, which is opt-out as of VCON-B009.
 # Skips (not fail) when the `claude` CLI or `jq` is unavailable.
 # =============================================================================
 
@@ -51,8 +58,8 @@ PRD_REL="docs/PRD/${FEATURE}.md"
 # smoke_write_fv_prd <prd_path> <feature_name>
 # There is no `smoke_write_prd` helper in lib/project.sh (careful note,
 # FV-T001 grounding) -- this scenario supplies its own minimal PRD fixture
-# with exactly one functional requirement the derive agent (product-manager,
-# Step 3.6) can cite.
+# with exactly two functional requirements (VCON-T001's two-criterion
+# fixture) the derive agent (product-manager, Step 3.6) can cite.
 smoke_write_fv_prd() {
     local prd_path="$1" feature_name="$2"
     mkdir -p "$(dirname "$prd_path")"
@@ -64,12 +71,14 @@ smoke_write_fv_prd() {
 
 ## 1. Overview
 
-Smoke-test fixture PRD for the functional-verification scenario. Describes a
-single, trivially-checkable user-facing behavior.
+Smoke-test fixture PRD for the functional-verification scenario. Describes two
+trivially-checkable, closely related user-facing behaviors of a single \`greet()\`
+function, so their verification evidence shares one artifact.
 
 ## 2. Functional Requirements
 
 - FR-1: Calling \`greet()\` returns the exact string \`'hello'\`.
+- FR-2: Calling \`greet()\` never returns the string \`'goodbye'\`.
 
 ## 3. Aspirations (non-normative)
 
@@ -104,8 +113,8 @@ smoke_write_fv_trd() {
 ### 1.1 Technical Summary
 
 Smoke-test fixture TRD. Adds a single trivial module, \`src/greet.js\`, exporting
-a \`greet()\` function that returns the string \`'hello'\`, satisfying FR-1 of the
-matching fixture PRD. No other behavior.
+a \`greet()\` function that returns the string \`'hello'\`, satisfying FR-1 and FR-2
+of the matching fixture PRD. No other behavior.
 
 ## 4. Master Task List
 
@@ -113,7 +122,7 @@ matching fixture PRD. No other behavior.
 
 | Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------|--------------|----------------------|
-| ${task_id} | Create \`src/greet.js\` exporting \`greet()\`: \`module.exports.greet = () => 'hello';\` (or equivalent ESM export). Add a Jest test at \`src/greet.test.js\` asserting \`greet() === 'hello'\`. | FR-1 | | None | \`greet()\` returns the exact string \`'hello'\`, verified by a passing Jest test. |
+| ${task_id} | Create \`src/greet.js\` exporting \`greet()\`: \`module.exports.greet = () => 'hello';\` (or equivalent ESM export). Add a Jest test at \`src/greet.test.js\` asserting \`greet() === 'hello'\`. One captured artifact is expected to serve as verification evidence for both FR-1 and FR-2. | FR-1, FR-2 | | None | \`greet()\` returns the exact string \`'hello'\`, verified by a passing Jest test; and \`greet()\` never returns the string \`'goodbye'\` — true of the implementation but not asserted anywhere in that same test file. |
 
 ## 5. Execution Plan
 
@@ -124,6 +133,7 @@ matching fixture PRD. No other behavior.
 ## 6. Quality Requirements
 
 - FR-1: \`greet()\` returns the exact string \`'hello'\`, verified by a passing Jest test.
+- FR-2: \`greet()\` never returns the string \`'goodbye'\`.
 
 ## 7. Risk Assessment
 
@@ -176,7 +186,7 @@ run_implement_trd() {
 }
 
 # =============================================================================
-# Run 1: WITHOUT --verify
+# Run 1: WITH --no-verify (opting out of the default-on pass)
 # =============================================================================
 
 PROJECT_DIR_OFF="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-fvoff.XXXXXX")"
@@ -192,8 +202,8 @@ PROJECT_DIR_ON="$(mktemp -d "${TMPDIR:-/tmp}/ensemble-smoke-fvon.XXXXXX")"
 cleanup() {
     if [[ "${ASSERT_FAIL_COUNT:-0}" -gt 0 ]]; then
         echo "  scratch projects PRESERVED for diagnosis (${ASSERT_FAIL_COUNT} failure(s)):"
-        [[ -d "$PROJECT_DIR_OFF" ]] && echo "    no-flag: $PROJECT_DIR_OFF"
-        [[ -d "$PROJECT_DIR_ON" ]] && echo "    flag:    $PROJECT_DIR_ON"
+        [[ -d "$PROJECT_DIR_OFF" ]] && echo "    --no-verify:       $PROJECT_DIR_OFF"
+        [[ -d "$PROJECT_DIR_ON" ]] && echo "    default (no flag): $PROJECT_DIR_ON"
         echo "  remove them yourself when done: rm -rf /tmp/ensemble-smoke-fv*"
         return 0
     fi
@@ -205,24 +215,26 @@ trap cleanup EXIT INT TERM
 # in run-smoke.sh (their sum, plus scaffolding) and ABOVE what the shipped
 # models actually take. implement-one-task measured 341s for a bare
 # `/implement-trd` (test/smoke/baseline.json), so 840s is ~2.5x headroom for
-# run 1. Run 2 additionally pays for the Step 3.6 derive pass AND Step 8's
+# run 1 (--no-verify, the base implement loop only). Run 2 (the default, no
+# flag) additionally pays for the Step 3.6 derive pass AND Step 8's
 # verification loop (up to `cap: 3` iterations, each an exerciser + a judge and
 # possibly a debugger), so it gets its own, larger budget — sizing it the same
 # as run 1 would produce a SIGTERM that reads as a behavioral failure but is
 # purely the clock. Raise these and SCENARIO_TIMEOUT[verify-functional]
 # together, and never lower the model instead.
-# Measured 2026-08-19 on the first real run of this scenario: the flag run, which
-# does strictly MORE work (derive pass + verification loop on top of the same
-# implement loop), completed in 1471s. The no-flag run was killed at 840s having
-# not finished, so the base loop alone needs more than that on this fixture. 840
-# was extrapolated from implement-one-task's 341s in baseline.json; this TRD is
-# heavier. Both arms now get the same budget.
+# Measured 2026-08-19 on the first real run of this scenario (before the
+# VCON-B009 default flip, when run 2 required an explicit `--verify`): the
+# verifying run, which does strictly MORE work (derive pass + verification loop
+# on top of the same implement loop), completed in 1471s. The non-verifying run
+# was killed at 840s having not finished, so the base loop alone needs more than
+# that on this fixture. 840 was extrapolated from implement-one-task's 341s in
+# baseline.json; this TRD is heavier. Both arms now get the same budget.
 TIMEOUT_OFF=1500
 TIMEOUT_ON=1500
 
 SESSION_FILE_OFF="${PROJECT_DIR_OFF}/.session.jsonl"
 RUN_SCAFFOLD_OK=false
-run_implement_trd "$PROJECT_DIR_OFF" "$SESSION_FILE_OFF" "/implement-trd ${TRD_REL}" "$TIMEOUT_OFF"
+run_implement_trd "$PROJECT_DIR_OFF" "$SESSION_FILE_OFF" "/implement-trd ${TRD_REL} --no-verify" "$TIMEOUT_OFF"
 RUN_OFF_RC=$?
 # Scaffolding failed: nothing downstream can mean anything. Report the one real
 # failure rather than a cascade of misleading missing-file assertions. (A
@@ -238,25 +250,25 @@ fi
 # silently passing.
 SD_OFF_FOUND="$(find "${PROJECT_DIR_OFF}/.trd-state" -name success-definition.md 2>/dev/null | head -1)"
 if [[ -n "$SD_OFF_FOUND" ]]; then
-    assert_fail_raw "no success-definition.md without --verify (found: $SD_OFF_FOUND)"
+    assert_fail_raw "no success-definition.md with --no-verify (found: $SD_OFF_FOUND)"
 elif [[ "$RUN_OFF_RC" -ne 0 ]]; then
     # VACUOUS-PASS GUARD, and it caught itself on 2026-08-19. The baseline run
     # hit the timeout (exit 124) and was killed mid-loop, so of course no
     # definition existed -- and this assertion PASSED, reporting AC-6 proven by
     # a run that never reached the point where a definition could be written.
     # Absence only means something when the run got far enough to produce one.
-    assert_fail_raw "no success-definition.md without --verify — INCONCLUSIVE: the baseline run exited $RUN_OFF_RC (124 = timeout) so absence proves nothing"
+    assert_fail_raw "no success-definition.md with --no-verify — INCONCLUSIVE: the baseline run exited $RUN_OFF_RC (124 = timeout) so absence proves nothing"
 else
-    assert_pass_raw "no success-definition.md without --verify"
+    assert_pass_raw "no success-definition.md with --no-verify"
 fi
 
 # =============================================================================
-# Run 2: WITH --verify
+# Run 2: WITH NO FLAG (the default -- verification runs)
 # =============================================================================
 
 SESSION_FILE_ON="${PROJECT_DIR_ON}/.session.jsonl"
 RUN_SCAFFOLD_OK=false
-run_implement_trd "$PROJECT_DIR_ON" "$SESSION_FILE_ON" "/implement-trd ${TRD_REL} --verify" "$TIMEOUT_ON"
+run_implement_trd "$PROJECT_DIR_ON" "$SESSION_FILE_ON" "/implement-trd ${TRD_REL}" "$TIMEOUT_ON"
 if [[ "$RUN_SCAFFOLD_OK" != "true" ]]; then
     smoke_finish
 fi
@@ -293,8 +305,8 @@ if [[ -f "$DEFINITION_FILE" ]]; then
              | grep -Ev '^\|[[:space:]]*ID[[:space:]]*\|')
     if [[ "${#FS_ROWS[@]}" -eq 0 ]]; then
         # AC-3: zero rows is a legitimate outcome, but it must be recorded
-        # explicitly, not silently -- and it is out of scope for FR-1's
-        # single citable requirement, so treat it as a finding, not a pass.
+        # explicitly, not silently -- and it is out of scope for FR-1/FR-2's
+        # two citable requirements, so treat it as a finding, not a pass.
         assert_contains "$DEFINITION_FILE" '**Criteria**: 0' \
             "empty definition (0 rows) is explicitly recorded, if produced"
     else
@@ -351,9 +363,75 @@ if [[ -f "$STATE_FILE" ]]; then
         else
             assert_fail_raw "verification-state.json has ${MISSING_STATUS} criteria missing a status"
         fi
+
+        # VCON-T001: the state file's schema carries `tier1` and `provenAt` on every
+        # criterion (contract §3.3a step 3 — `provenAt` is present-but-null on a criterion
+        # still open, not simply absent).
+        MISSING_TIER1="$(jq '[.criteria[] | select(has("tier1") | not)] | length' "$STATE_FILE" 2>/dev/null)"
+        if [[ "$MISSING_TIER1" == "0" ]]; then
+            assert_pass_raw "every criterion in verification-state.json carries a tier1 field"
+        else
+            assert_fail_raw "verification-state.json has ${MISSING_TIER1} criteria missing tier1"
+        fi
+
+        MISSING_PROVENAT="$(jq '[.criteria[] | select(has("provenAt") | not)] | length' "$STATE_FILE" 2>/dev/null)"
+        if [[ "$MISSING_PROVENAT" == "0" ]]; then
+            assert_pass_raw "every criterion in verification-state.json carries a provenAt field"
+        else
+            assert_fail_raw "verification-state.json has ${MISSING_PROVENAT} criteria missing provenAt"
+        fi
+
+        # VCON-T001's two-criterion fixture shares ONE evidence artifact between FR-1 and FR-2.
+        # What a live run can honestly show is that the shared artifact is judged PER
+        # CRITERION: each criterion citing it carries its own tier-1 verdict and its own reason.
+        #
+        # An earlier version asserted that one of the two must FAIL tier 1 with
+        # locator-not-found. The first live run (2026-09-27) refuted the premise, not the code:
+        # FR-2 ("never returns 'goodbye'") is a negative claim, the deriver correctly made the
+        # observed "hello" its locator, and both criteria were rightly proven. A live run
+        # cannot be made to fail tier 1 on demand without building a fixture that fights the
+        # agents; the locator-not-found path is deterministic library code and is pinned by
+        # functional-verification.test.js (VCON-B001) instead.
+        SHARED_COUNT="$(jq '[.criteria[] | select(.artifact != null) | .artifact] | group_by(.) | map(length) | max // 0' "$STATE_FILE" 2>/dev/null)"
+        if [[ "$SHARED_COUNT" =~ ^[0-9]+$ ]] && (( SHARED_COUNT >= 2 )); then
+            assert_pass_raw "two or more criteria cite one shared artifact (${SHARED_COUNT})"
+            # `reason` is required only when a criterion is NOT met -- a met criterion
+            # legitimately carries reason: null (the second live run, 2026-09-27, did exactly
+            # that) -- so the per-criterion property is checked on the verdict alone.
+            BAD_VERDICTS="$(jq '[.criteria[] | select(.artifact != null) | select(.tier1 | IN("pass","fail","skipped") | not)] | length' "$STATE_FILE" 2>/dev/null)"
+            if [[ "$BAD_VERDICTS" == "0" ]]; then
+                assert_pass_raw "every criterion citing the shared artifact carries its own tier1 verdict"
+            else
+                assert_fail_raw "${BAD_VERDICTS} criteria citing an artifact lack a tier1 verdict"
+            fi
+            BAD_REASONS="$(jq '[.criteria[] | select(.artifact != null) | select(.status != "met" and ((.reason // "") | length == 0))] | length' "$STATE_FILE" 2>/dev/null)"
+            if [[ "$BAD_REASONS" == "0" ]]; then
+                assert_pass_raw "every non-met criterion citing an artifact states its reason"
+            else
+                assert_fail_raw "${BAD_REASONS} non-met criteria citing an artifact carry no reason"
+            fi
+        else
+            assert_fail_raw "no two criteria cite one shared artifact (max ${SHARED_COUNT}) — the fixture's shared-evidence premise did not hold"
+        fi
     else
-        assert_fail_raw "verification-state.json has no .criteria array (cannot check per-criterion status)"
+        assert_fail_raw "verification-state.json has no .criteria array (cannot check per-criterion status/tier1/provenAt)"
     fi
+else
+    assert_fail_raw "verification-state.json not found, cannot check iteration/criteria/tier1/provenAt"
+fi
+
+# verification-report.md's coverage line (renderReport, functional-verification.js):
+# assert on the pieces the format guarantees -- "Coverage" and the proven/total ratio -- not
+# the exact sentence, since the trailing uncovered-list prose is free text that varies with
+# which ids are uncovered.
+if [[ -f "$REPORT_FILE" ]]; then
+    if grep -qE '\*\*Coverage\*\*:[[:space:]]+[0-9]+[[:space:]]+of[[:space:]]+[0-9]+[[:space:]]+proven' "$REPORT_FILE"; then
+        assert_pass_raw "verification-report.md's coverage line names the proven/total ratio"
+    else
+        assert_fail_raw "verification-report.md has no Coverage line naming a proven/total ratio"
+    fi
+else
+    assert_fail_raw "verification-report.md not found, cannot check the coverage line"
 fi
 
 smoke_finish

@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { record, readAll, render, ledgerPath, promoteToTrd, MAX_LINE_BYTES } = require('./discovered');
+const { record, readAll, render, ledgerPath, promoteToTrd, promotable, MAX_LINE_BYTES } = require('./discovered');
 const { parseTrd } = require('./trd-parser');
 const { buildGraph } = require('./task-graph');
 
@@ -57,6 +57,43 @@ describe('record', () => {
 
   test('never throws on an unwritable path', () => {
     expect(record('/proc/nonexistent-xyz', { summary: 's' })).toBe(false);
+  });
+
+  test('a recognized verification status is kept on the row', () => {
+    record(dir, { summary: 's', status: 'not_met' });
+    expect(readAll(dir)[0].status).toBe('not_met');
+  });
+
+  test('an unrecognized status is dropped rather than stored verbatim', () => {
+    record(dir, { summary: 's', status: 'made-up' });
+    expect(readAll(dir)[0].status).toBeUndefined();
+  });
+
+  test('no status field at all when none is given — ordinary bug/gap records are unaffected', () => {
+    record(dir, { summary: 's' });
+    expect(readAll(dir)[0]).not.toHaveProperty('status');
+  });
+});
+
+/* Issue 6 (docs/plan/verification-sweep.md): a `not_verifiable` verification record must
+ * never promote to a TRD task -- that criterion failed to RUN, it did not fail. `not_met`,
+ * `stalled` and `unbuilt` all name something to build, so they still promote. */
+describe('promotable — verification status exclusion', () => {
+  const verifRow = (status) => ({
+    summary: `criterion ${status}`, kind: 'gap', foundBy: 'FV-B001', blocksFeature: true, status,
+  });
+
+  it('excludes not_verifiable even though blocksFeature is true', () => {
+    expect(promotable([verifRow('not_verifiable')])).toEqual([]);
+  });
+
+  it.each(['not_met', 'stalled', 'unbuilt'])('still promotes %s', (status) => {
+    expect(promotable([verifRow(status)])).toHaveLength(1);
+  });
+
+  it('an ordinary discovery with no status field is unaffected', () => {
+    const row = { summary: 'plain bug', kind: 'bug', blocksFeature: true };
+    expect(promotable([row])).toEqual([row]);
   });
 });
 
@@ -228,5 +265,39 @@ describe('promoteToTrd', () => {
         (w) => w.includes('AMEND-001') && w.includes('missing the mandatory Touches field')
       )).toBe(true);
     });
+
+    it('names every file a multi-file record implicates, not just the primary one', () => {
+      const f = mk(SIX);
+      const r = promoteToTrd(f, [{
+        summary: 'a 12-file amendment landed with one path recorded',
+        file: 'packages/core/lib/a.js',
+        files: ['packages/core/lib/a.js', 'packages/core/lib/b.js', 'packages/core/lib/c.js'],
+        kind: 'bug', foundBy: 'code-review', blocksFeature: true,
+      }]);
+      expect(r.added).toEqual(['AMEND-001']);
+
+      const parsed = parseTrd(fs.readFileSync(f, 'utf-8'));
+      const touches = parsed.grounding['AMEND-001'].touches;
+      expect(touches).toEqual(expect.arrayContaining([
+        'packages/core/lib/a.js', 'packages/core/lib/b.js', 'packages/core/lib/c.js',
+      ]));
+      expect(touches.length).toBe(3); // deduped, not just the primary `file`
+    });
+  });
+
+  it('anchors the acceptance criterion to the specific summary and evidence, not a generic sentence', () => {
+    const f = mk(SIX);
+    promoteToTrd(f, [{
+      summary: 'the clamp order is reversed',
+      evidence: 'unit test clamp_test.js:42 fails on descending input',
+      kind: 'bug', foundBy: 'code-review', blocksFeature: true,
+    }]);
+    const row = fs.readFileSync(f, 'utf-8').split('\n').find((l) => l.startsWith('| AMEND-001'));
+    const cells = row.split('|').slice(1, -1).map((c) => c.trim());
+    // Header order for SIX: Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria
+    const ac = cells[5];
+    expect(ac).toContain('the clamp order is reversed');
+    expect(ac).toContain('clamp_test.js:42');
+    expect(ac).not.toBe('The discovery no longer reproduces');
   });
 });

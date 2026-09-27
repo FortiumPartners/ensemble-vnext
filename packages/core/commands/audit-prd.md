@@ -123,19 +123,34 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Any section may be "none". The command-specific content below fills those sections; it does
 not replace them.
 
-Every line names the ACTION, not the classification. Use these headings, omitting empty ones:
+A VERDICT line comes first, immediately after the `AUDIT:`/`SOURCE:` header and before any
+heading below — one of exactly three forms, with every caveat or blocker named inline, never
+merely counted (an unnamed caveat tells the reader nothing):
+
+```
+VERDICT: safe to proceed
+VERDICT: proceed with these caveats: <named>
+VERDICT: do not proceed until <named>
+```
+
+Every line names the ACTION this audit took, not a classification of the finding and not
+something left for the reader to do. Use these headings, omitting empty ones:
 
 ```
 AUDIT: <path>    SOURCE: <path>
 
-  DELETE — nothing in the source asks for these
-  LOWER TO THE CONSTITUTION FLOOR, or say why it's higher
-  ADD BACK — in the source, missing from this document
+VERDICT: <one of the three forms above>
+
+  DELETED — nothing in the source asked for these
+  LOWERED TO THE CONSTITUTION FLOOR — no reason was given for exceeding it
+  ADDED BACK — in the source, missing from this document
   ALREADY BUILT — name the file; decide whether the requirement survives
   PICK ONE — these contradict
   CONFIRM THESE ARE WANTED — no objective named
-  FIX THE CITATION — referenced ID does not resolve
-  THE DOC IS STALE — asserts something the code contradicts
+  FIXED THE CITATION — referenced ID did not resolve
+  CORRECTED A STALE CLAIM — asserted something the code contradicts
+  CAVEAT — what this run did NOT check: <n> claims left unchecked (see the PRD's
+    ## Could Not Verify), plus any verifier that failed to report. Name both if both apply.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — sourced, listed for completeness
 ```

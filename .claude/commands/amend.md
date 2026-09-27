@@ -55,8 +55,32 @@ change?**
 
 Signals it is NOT, any one of which is enough:
 - it needs a decision nobody has made (the correct behaviour is a product call)
-- it touches more than ~3 files, or a symbol with many callers
+- **part of it must be done before another part** — ordering means more than one task, and
+  ordering is what the phase graph exists for; this command has none
+- **it needs more than one specialism** — this command dispatches ONE implementer, so work
+  that genuinely wants a frontend and a backend agent is two tasks wearing one description
 - it is really several changes described together
+
+**File count is deliberately NOT a signal, and a "~3 files" one was removed on 2026-09-26.**
+It was unsourced — the commit that introduced this command justified *having* a size signal by
+citing a real failure (*"a 2-task fix absorbed an audit's findings, sized 4, and escalated"*),
+which is about TASK count; nothing ever justified three, or files.
+
+It also gave a wrong answer the first time it fired in anger. A twelve-file amendment that was
+one identical edit in twelve places — no ordering, one specialism — was refused, while two
+files of intertwined logic would have passed. Breadth is a poor proxy for coupling, and
+coupling is the thing that actually decides whether this is one task.
+
+Worse, it was structurally unusable here: every runtime file in this repository exists twice,
+as `packages/core/<x>` and its vendored `.claude/<x>` mirror, which the parity test REQUIRES be
+edited together. Three physical files meant at most ONE logical file.
+
+**What this command drops is the phase graph and the review fan-out — and neither scales with
+file count.** The wave partition and file-conflict serialization are vacuous for a single task;
+`verify-app` and the end-of-run review matter by RISK, not breadth. So the question is never
+"how many files", it is "does this need ordering, a second specialism, or a decision nobody has
+made". The row lands in the TRD either way, where `--reconcile` re-attests it and
+`/audit-build` traces it — the durable record is identical.
 
 **If it is not one task, stop and say which signal fired**, and point at the heavier path:
 `/implement-trd --reconcile` after adding it to the TRD, or `/plan` if it belongs to a
