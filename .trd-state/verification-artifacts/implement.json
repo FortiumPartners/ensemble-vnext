@@ -113,9 +113,9 @@
     "VART-B004": {
       "description": "Change verify-functional.js per §3.6: read and validate checks, checkComments, pagesDir; inject each skill's text into Exercise slices and the Judge (STEP 2a) only where its rows are; enrich Debug gap",
       "phase": 1,
-      "status": "success",
-      "cycle_position": "complete",
-      "current_problem": null,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": "audit-build: no test passes a real owner comment and checks it reaches the Exercise/Judge prompts (verify-functional.js:161-173; only a non-array rejection is tested at verify-functional.test.js:1813)",
       "retry_count": 0,
       "files_changed": [
         "packages/core/workflows/verify-functional.js",
@@ -126,7 +126,7 @@
       ],
       "commit": null,
       "started_at": "2026-09-27T16:59:44.084Z",
-      "completed_at": "2026-09-27T17:28:19.113Z",
+      "completed_at": null,
       "last_advanced": "2026-09-27T17:01:42.838Z"
     },
     "VART-B005": {
@@ -149,9 +149,9 @@
     "VART-P004": {
       "description": "Add copy_framework_skills() to scaffold-project.sh, driven by a named array of the three skill names (D2), and call it from scaffold_project() (not gated on --copy-skills) and from refresh_project() a",
       "phase": 1,
-      "status": "success",
-      "cycle_position": "complete",
-      "current_problem": null,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": "audit-build: copy_skills() refresh comment (scaffold-project.sh ~:935-938) does not name copy_framework_skills() as the one exception",
       "retry_count": 0,
       "files_changed": [
         "packages/core/scripts/scaffold-project.sh",
@@ -160,7 +160,7 @@
       ],
       "commit": null,
       "started_at": "2026-09-27T16:59:44.084Z",
-      "completed_at": "2026-09-27T17:28:19.118Z",
+      "completed_at": null,
       "last_advanced": "2026-09-27T17:01:42.838Z"
     },
     "VART-P005": {
@@ -203,9 +203,9 @@
     "VART-T001": {
       "description": "[LIVE] Add opt-in smoke scenario test/smoke/scenarios/verification-artifacts.sh, registered in LLM_OPT_IN_SCENARIOS in test/smoke/run-smoke.sh, following verify-functional.sh's one-throwaway-project-p",
       "phase": 2,
-      "status": "deferred",
+      "status": "pending",
       "cycle_position": "implement",
-      "current_problem": null,
+      "current_problem": "audit-build: test/smoke/scenarios/verification-artifacts.sh was never written or registered; the TRD defers only the live run, not writing the file",
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
