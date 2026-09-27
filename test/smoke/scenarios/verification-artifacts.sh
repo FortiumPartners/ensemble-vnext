@@ -359,8 +359,17 @@ run_verify_build() {
 
     local final_file="${project_dir}/.final_text"
     smoke_final_text "$session_file" > "$final_file"
-    assert_tail_matches "$final_file" 12 '(═══ COMMAND COMPLETE|═══ COMMAND STUCK)' \
-        "output ends with a COMMAND COMPLETE/STUCK banner ($feature)"
+    # COMPLETE only, never STUCK -- unlike most scenarios in this harness. Per
+    # verify-build.md's Report/Readout sections, EVERY loop outcome (satisfied,
+    # unbuilt, stalled, insufficient-coverage) still ends in COMMAND COMPLETE;
+    # STUCK is reserved for the command itself failing to finish. The header
+    # comment's "uncaptured is a legitimate verdict, not a defect" already covers
+    # the no-headless-browser case -- it resolves to a completed run with
+    # `not_verifiable`/`insufficient-coverage` criteria, not a stuck one. A STUCK
+    # banner here means the run itself broke, and letting it pass this assertion
+    # hid that from every other check below (they'd fail confusingly instead).
+    assert_tail_matches "$final_file" 12 '═══ COMMAND COMPLETE' \
+        "output ends with a COMMAND COMPLETE banner ($feature)"
 
     return "$rc"
 }
@@ -423,17 +432,37 @@ assert_check_page() {
         if jq -e . "$verdicts_file" >/dev/null 2>&1; then
             assert_pass_raw "verdicts.json is valid JSON ($label)"
             # Each frame's entry carries a page status from the six-value set
-            # (D16 / the skill's Rubric) -- which ONE is not asserted (see
-            # header note). Counted as JSON string VALUES in verdicts.json, not
-            # as bare words on the page: "match" and "spec" occur in almost any
-            # HTML, and a status legend lists all six whatever the cards say.
-            local status_count
-            status_count="$(jq '[.. | strings | select(IN("match","minor","deviates","superseded","uncaptured","spec"))] | length' "$verdicts_file" 2>/dev/null)"
-            if [[ "${status_count:-0}" -ge 2 ]]; then
-                assert_pass_raw "verdicts.json carries a page status per frame ($label: ${status_count} status values)"
-            else
-                assert_fail_raw "verdicts.json carries ${status_count:-0} page status value(s), expected one per frame (2) ($label)"
-            fi
+            # (D16 / the skill's Rubric), TIED TO ITS OWN frame id -- a file-wide
+            # count (>= 2 status words anywhere) passed even when both belonged
+            # to the same frame and the other had none, which is exactly the
+            # "per frame" guarantee this scenario claims to check but doesn't.
+            # Counted as JSON string VALUES, not bare words on the rendered page:
+            # "match" and "spec" occur in almost any HTML, and a status legend
+            # lists all six whatever the cards say. The skill's exact verdicts.json
+            # shape is unspecified (D19 says only "one entry per criterion"), so
+            # this looks for the id keyed directly, or nested under an id/
+            # criterion/frame field -- either way requiring exactly ONE status
+            # value found for that id, not zero (missing) and not several
+            # (ambiguous/duplicated).
+            local dc_id
+            for dc_id in "$DC_ID1" "$DC_ID2"; do
+                local statuses count
+                statuses="$(jq -r --arg id "$dc_id" '
+                    [
+                        (if type == "object" and has($id) then (.[$id].status // .[$id].page_status // .[$id]) else empty end),
+                        (.. | objects | select((.id? == $id) or (.criterion? == $id) or (.frame? == $id)) | (.status // .page_status // empty))
+                    ]
+                    | map(select(type == "string" and IN("match","minor","deviates","superseded","uncaptured","spec")))
+                    | .[]
+                ' "$verdicts_file" 2>/dev/null)"
+                count=0
+                [[ -n "$statuses" ]] && count="$(printf '%s\n' "$statuses" | grep -c .)"
+                if [[ "$count" -eq 1 ]]; then
+                    assert_pass_raw "verdicts.json carries exactly one page status for ${dc_id} ($label: ${statuses})"
+                else
+                    assert_fail_raw "verdicts.json carries ${count} page status value(s) for ${dc_id}, expected exactly 1 ($label)"
+                fi
+            done
         else
             assert_fail_raw "verdicts.json is not valid JSON ($label)"
         fi

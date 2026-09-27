@@ -104,6 +104,20 @@ describe('audit-build: empty index', () => {
     expect(result.readout).not.toMatch(/INCONCLUSIVE/);
     expect(result.readout).toMatch(/NO ACTION/);
   });
+
+  it('caps the verdict when no PRD was supplied, even with zero findings', async () => {
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX));
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      parallel: makeParallelStub(),
+      args: baseArgs({ prd: '' }),
+    });
+
+    expect(result.readout).toContain('VERDICT: proceed with these caveats');
+    expect(result.readout).toContain('no source supplied');
+    expect(result.readout).not.toContain('VERDICT: safe to proceed');
+  });
 });
 
 describe('audit-build: dead verifier handling', () => {

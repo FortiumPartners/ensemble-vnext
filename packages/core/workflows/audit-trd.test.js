@@ -96,6 +96,17 @@ describe('audit-trd wiring', () => {
     expect(byLabel(agent, 'reconcile')).toBeUndefined();
   });
 
+  it('caps the verdict when no source was supplied, even with zero findings', async () => {
+    const agent = makeAgentStub(plan());
+    const parallel = makeParallelStub();
+    const { result } = await runWorkflow(SOURCE, {
+      agent, parallel, args: baseArgs({ source: '' }),
+    });
+    expect(result.readout).toContain('VERDICT: proceed with these caveats');
+    expect(result.readout).toContain('no source supplied');
+    expect(result.readout).not.toContain('VERDICT: safe to proceed');
+  });
+
   it('reports incomplete coverage rather than treating a dead verifier as clean', async () => {
     // A verifier that returns nothing has NOT cleared its dimension. Silently counting it as
     // clean is how an audit reports success over an unchecked artifact.

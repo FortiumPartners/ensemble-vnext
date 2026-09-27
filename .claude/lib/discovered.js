@@ -505,7 +505,31 @@ function record(stateDir, entry, nowIso) {
     if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
       row.summary = row.summary.slice(0, 200);
       line = JSON.stringify(row);
-      if (Buffer.byteLength(line) > MAX_LINE_BYTES) return false;
+      // Still over budget: `files`/`after` are the last things with any give — trim them
+      // from the end (their own escape-hatch caps already bound entries/count, but a run
+      // of near-max-length entries can still blow MAX_LINE_BYTES). Drop one at a time
+      // rather than the whole field, so a discovery naming several files loses only as
+      // many as it must.
+      while (Buffer.byteLength(line) > MAX_LINE_BYTES && Array.isArray(row.files) && row.files.length) {
+        row.files.pop();
+        if (row.files.length === 0) delete row.files;
+        line = JSON.stringify(row);
+      }
+      while (Buffer.byteLength(line) > MAX_LINE_BYTES && Array.isArray(row.after) && row.after.length) {
+        row.after.pop();
+        if (row.after.length === 0) delete row.after;
+        line = JSON.stringify(row);
+      }
+      if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
+        // A lost discovery costs a note, same as the mkdir/appendFile failures below --
+        // but unlike those, this one is silent unless we say something: nothing else in
+        // the caller's path will ever learn this discovery existed.
+        process.stderr.write(
+          `discovered.js: dropping discovery from "${row.foundBy}" -- record exceeds ` +
+          `${MAX_LINE_BYTES} bytes even after trimming evidence, summary, files and after\n`
+        );
+        return false;
+      }
     }
   }
 

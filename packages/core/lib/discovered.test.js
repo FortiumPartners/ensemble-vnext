@@ -59,6 +59,38 @@ describe('record', () => {
     expect(record('/proc/nonexistent-xyz', { summary: 's' })).toBe(false);
   });
 
+  test('a huge `files` list is trimmed entry-by-entry, not shed as a whole field, once evidence/summary trimming alone is not enough', () => {
+    const files = Array.from({ length: 20 }, (_, i) => `path/to/file-${i}.js`.repeat(10).slice(0, 200));
+    const ok = record(dir, { summary: 's'.repeat(1000), evidence: 'e'.repeat(1000), files });
+    expect(ok).toBe(true);
+    const [row] = readAll(dir);
+    // Some files may have survived, or none did (the field is dropped once empty) --
+    // either way the line had to shrink to fit, and never by discarding the whole
+    // discovery the way the old behaviour did.
+    if (row.files) expect(row.files.length).toBeLessThan(files.length);
+    const line = fs.readFileSync(ledgerPath(dir), 'utf-8').trim();
+    expect(Buffer.byteLength(line)).toBeLessThanOrEqual(MAX_LINE_BYTES);
+  });
+
+  test('a record that stays over budget even after trimming everything is dropped, with a reason on stderr', () => {
+    const byteLengthSpy = jest.spyOn(Buffer, 'byteLength').mockReturnValue(MAX_LINE_BYTES + 1);
+    const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const ok = record(dir, {
+        summary: 'keep me',
+        foundBy: 'FV-B099',
+        files: ['a.js', 'b.js'],
+        after: ['ref-1'],
+      });
+      expect(ok).toBe(false);
+      expect(readAll(dir)).toHaveLength(0);
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('dropping discovery from "FV-B099"'));
+    } finally {
+      byteLengthSpy.mockRestore();
+      stderrSpy.mockRestore();
+    }
+  });
+
   test('a recognized verification status is kept on the row', () => {
     record(dir, { summary: 's', status: 'not_met' });
     expect(readAll(dir)[0].status).toBe('not_met');

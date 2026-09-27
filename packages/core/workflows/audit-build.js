@@ -446,9 +446,13 @@ ${COVERAGE}${CNV}`,
     readout: `AUDIT-BUILD: ${TRD}\nPRD: ${PRD || '(none supplied)'}\n\n` +
       `VERDICT: ${NOTHING_INDEXED
         ? `do not proceed until ${TRD}'s requirement and task tables parse -- this run recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks, so traceability and verification checked nothing`
-        : dead > 0
-          ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
-          : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
+        : dead > 0 && !PRD
+          ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); no source supplied — fidelity and omission unchecked`
+          : dead > 0
+            ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+            : !PRD
+              ? 'proceed with these caveats: no source supplied — fidelity and omission unchecked'
+              : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
       (NOTHING_INDEXED
         ? `  INCONCLUSIVE — the Index recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks,\n` +
           `  so traceability and verification ran against an empty list. Zero findings here means\n` +
@@ -456,7 +460,8 @@ ${COVERAGE}${CNV}`,
           `  and task tables parse.\n`
         : `  NO ACTION — every requirement is implemented and has a test proving it, every task\n` +
           `  matches its delivered code, nothing in the PRD was dropped.\n`) +
-      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
+      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : '') +
+      (!PRD && !NOTHING_INDEXED ? `  CAVEAT — no PRD supplied; validation against product requirements did not run.\n` : ''),
   }
 }
 
@@ -515,6 +520,12 @@ Choose "do not proceed until" when a MISSING IMPLEMENTATION or MISMATCH finding 
 delivered code not doing what was required. Choose "proceed with these caveats" when
 TRACEABILITY GAPS, UNTESTED-IN-PRACTICE, or an unresolved Could Not Verify row remain.
 Otherwise "safe to proceed".
+
+${PRD ? '' : `NO PRD WAS SUPPLIED to this audit. "safe to proceed" is NOT available on this
+run, however clean the findings -- validation against product requirements was never checked,
+only traceability between the TRD and the delivered code. The verdict is capped at "proceed
+with these caveats: no source supplied — fidelity and omission unchecked" (fold in any other
+caveat alongside it).`}
 
 EVERY READOUT LINE NAMES THE ACTION, NOT THE CLASSIFICATION -- and, for a gap, WHERE IT GOES
 NEXT. This command applies almost none of these findings itself; naming the destination is
