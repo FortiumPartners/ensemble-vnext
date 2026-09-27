@@ -1625,6 +1625,11 @@ describe('decideFixRound', () => {
     expect(result.reason).toMatch(/closed-below|closed 1/);
   });
 
+  test('round 0 (blockers only) is not judged by the closed-below floor', () => {
+    const result = decideFixRound({ ...base, round: 0, closedBelow: 1, closedThisRound: 0 });
+    expect(result.action).toBe('continue');
+  });
+
   test('the closed-below floor never fires when closedBelow is null (no such rule)', () => {
     const result = decideFixRound({ ...base, closedBelow: null, closedThisRound: 0 });
     expect(result.action).toBe('continue');

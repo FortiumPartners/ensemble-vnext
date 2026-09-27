@@ -81,7 +81,10 @@ function latestPerRef(rows) {
   for (const r of rows) {
     if (!r || !r.ref) continue;
     const cur = latestByRef.get(r.ref);
-    if (!cur || String(r.ts) >= String(cur.ts)) latestByRef.set(r.ref, r);
+    // A row with no `ts` (hand-written into the ledger; record() always stamps one) must not
+    // out-rank a timestamped one -- String(undefined) is "undefined", which sorts above every
+    // ISO timestamp and would make an undated row the "latest" observation of its ref.
+    if (!cur || String(r.ts ?? '') >= String(cur.ts ?? '')) latestByRef.set(r.ref, r);
   }
   return rows.filter((r) => !r || !r.ref || latestByRef.get(r.ref) === r);
 }
@@ -189,7 +192,9 @@ function promoteToTrd(trdPath, rows, opts = {}) {
   /* Parallel to `seen`, but keyed for `ref`-carrying rows (D5): the observation key
    * `<ref>@<ts>` embedded at the end of a promoted row's description (`[<ref> @ <ts>]`)
    * says this exact observation was already promoted -- re-running `--fix` over the same
-   * ledger (or the same plan, whose blocker `ts` never changes) must not re-add it.
+   * ledger (or the same plan, provided the caller records its blockers with the plan's
+   * `**Written**` timestamp as `nowIso`, §3.2 -- record() otherwise stamps a fresh `ts` every
+   * run) must not re-add it.
    * `refToId` says which task id a `ref` was last promoted as, for two things: a second,
    * still-open observation of the same ref becomes a follow-up depending on that id, and a
    * plan blocker's `after` list resolves to the ids of the refs it names. Both are read from
@@ -198,9 +203,13 @@ function promoteToTrd(trdPath, rows, opts = {}) {
   const existingObsKeys = new Set();
   const refToId = new Map();
   const OBS_MARKER_RE = /\[(\S+) @ (\S+)\]\s*$/;
+  // Split on UNESCAPED pipes only, keeping `\|` as written: a promoted summary is stored with
+  // its pipes escaped (below), and a naive split would cut its description cell short, lose
+  // the trailing `[<ref> @ <ts>]` marker, and re-promote the same observation on every run.
+  const splitCells = (l) => l.split(/(?<!\\)\|/).slice(1, -1).map((c) => c.trim());
   for (const l of lines) {
     if (!/^\|/.test(l)) continue;
-    const cells = l.split('|').slice(1, -1).map((c) => c.trim());
+    const cells = splitCells(l);
     if (col.desc >= 0 && cells[col.desc]) {
       const descCell = cells[col.desc];
       seen.add(norm(descCell.split(' — promoted from')[0]));
@@ -277,19 +286,9 @@ function promoteToTrd(trdPath, rows, opts = {}) {
         : null;
       cells[col.serves] = opts.serves || refServes || 'amendment — no objective recorded';
     }
-    if (col.deps >= 0) {
-      let deps = 'None';
-      if (Array.isArray(r.after) && r.after.length) {
-        // `after` (plan blockers only) names sibling refs by their OWN ref, resolved to
-        // promoted ids -- including one promoted earlier in this very same call, since
-        // `refToId` is updated incrementally below as each row is added.
-        const ids = r.after.map((a) => refToId.get(a)).filter(Boolean);
-        if (ids.length) deps = ids.join(', ');
-      } else if (earlierId) {
-        deps = earlierId;
-      }
-      cells[col.deps] = deps;
-    }
+    // Dependencies are resolved after the loop (below), once every row in this call has an
+    // id: a blocker's `after` may name a sibling that appears LATER in the ledger.
+    if (col.deps >= 0) cells[col.deps] = 'None';
     /* A generic "the discovery no longer reproduces" is unfalsifiable -- it reads the
      * same for every promoted row regardless of what the row actually claims, so nothing
      * can check it against the row's own evidence. Anchor it to the specific summary
@@ -301,7 +300,7 @@ function promoteToTrd(trdPath, rows, opts = {}) {
         ? `${escapedSummary} no longer reproduces: ${evidence}`
         : `${escapedSummary} no longer reproduces`;
     }
-    newRows.push(`| ${cells.join(' | ')} |`);
+    newRows.push({ cells, after: r.after, ref: r.ref, earlierId });
     added.push(id);
     groundingEntries.push({ id, files: allFiles });
     if (r.ref) {
@@ -311,7 +310,26 @@ function promoteToTrd(trdPath, rows, opts = {}) {
   }
   if (!newRows.length) return { added, skipped: promo.length };
 
-  lines.splice(lastRow + 1, 0, ...newRows);
+  if (col.deps >= 0) {
+    for (const row of newRows) {
+      const ids = [];
+      if (Array.isArray(row.after)) {
+        // `after` (plan blockers only) names sibling refs, resolved to promoted ids --
+        // including one promoted anywhere in this same call. A plan's `After` column names
+        // blockers by bare id (`B1`), so a plan row also tries `plan:<id>` before giving up.
+        for (const a of row.after) {
+          const hit = refToId.get(a)
+            || (row.ref && row.ref.startsWith('plan:') && !String(a).startsWith('plan:')
+              ? refToId.get(`plan:${a}`) : undefined);
+          if (hit && !ids.includes(hit)) ids.push(hit);
+        }
+      }
+      if (row.earlierId && !ids.includes(row.earlierId)) ids.push(row.earlierId);
+      if (ids.length) row.cells[col.deps] = ids.join(', ');
+    }
+  }
+
+  lines.splice(lastRow + 1, 0, ...newRows.map((row) => `| ${row.cells.join(' | ')} |`));
   // Grounding is inserted AFTER the row splice, and re-locates its section from scratch on
   // the now-mutated `lines` — never reuses `headIdx`/`lastRow`, which point at the task
   // table and are meaningless once used as an index into the Task Grounding section.

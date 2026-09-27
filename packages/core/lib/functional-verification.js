@@ -671,7 +671,10 @@ function readStopRule(planText) {
   let sawMaxRounds = false;
 
   for (const raw of sectionLines) {
-    const line = raw.trim();
+    // Tolerate the Markdown a model writing the plan reaches for -- a list marker, bold or
+    // code-span around the key (`- **max-rounds**: 3`) -- rather than rejecting the whole stop
+    // rule and silently falling back to one round. The values themselves are digits or `none`.
+    const line = raw.trim().replace(/^[-*+]\s+/, '').replace(/[*`]/g, '').trim();
 
     const maxRoundsMatch = /^max-rounds:\s*(.*)$/i.exec(line);
     if (maxRoundsMatch) {
@@ -770,7 +773,9 @@ function decideFixRound(input) {
   if (round >= maxRounds) {
     return { action: 'stop', reason: `round ${round} reached max-rounds (${maxRounds})` };
   }
-  if (closedBelow !== null && closedThisRound < closedBelow) {
+  // Round 0 builds the plan's blockers, not failing criteria, so it is not judged by the
+  // closed-below rule -- the same reason it does not count toward max-rounds (TRD OQ-6).
+  if (round >= 1 && closedBelow !== null && closedThisRound < closedBelow) {
     return {
       action: 'stop',
       reason: `closed ${closedThisRound} this round, below stop-when-closed-below (${closedBelow})`,

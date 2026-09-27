@@ -271,7 +271,11 @@ a different plan.
    false }` (D9).
 
 1. **Round 0.** With a plan: record each `## Blockers` row as a discovery
-   (`kind: 'gap', ref: 'plan:<id>'`, `after` from its `After` column — §3.2), chain
+   (`kind: 'gap', foundBy: 'verify-build --fix', blocksFeature: true, ref: 'plan:<id>'`,
+   `after` from its `After` column as `plan:<id>` refs, `—` meaning none — §3.2), passing the
+   plan's `**Written**` timestamp as `record()`'s `nowIso` so a re-run of `--fix` on the same
+   plan never re-promotes a blocker. Without `blocksFeature: true` nothing promotes and the
+   chained build has nothing to build. Then chain
    `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` to build them, then
    verify (step 4, below, with its synthesised `resume`). Without a plan and with no terminal
    state file already on disk: run one ordinary verify pass and go straight to step 6 — a
@@ -282,7 +286,9 @@ a different plan.
    (retiring the earlier failure, promoting nothing new). For each criterion still open whose
    cause is buildable (`judged-failed` or `not-built` — D4; every other cause is re-verified
    next round and never built) and which no `## Accepted as not verifiable` ruling in the plan
-   covers: record a failing row, but only for criteria in the plan's **active slice** — the
+   covers: record a failing row (`kind: 'gap', foundBy: 'verify-build --fix', blocksFeature:
+   true, status: 'not_met' | 'unbuilt', ref: '<criterion id>', evidence: '<cause>: <reason>'`
+   — §3.2), but only for criteria in the plan's **active slice** — the
    first `## Slices` row, in order, that still has an open buildable criterion (D11). Slicing
    limits what is BUILT this round, never what is VERIFIED: step 4 below still walks every
    open criterion regardless of slice, so a regression outside the active slice is still seen.

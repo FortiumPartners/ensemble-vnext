@@ -1,6 +1,6 @@
 # TRD: Verification Fix Loop
 
-**Version**: 1.0.1
+**Version**: 1.0.2
 **Status**: Draft
 **Created**: 2026-09-27
 **Last Updated**: 2026-09-27
@@ -15,6 +15,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-27 | Initial TRD creation | @technical-architect |
+| 1.0.2 | 2026-09-27 | Built. End-of-run review finding: round 0 builds blockers only, so `decideFixRound` does not apply `stop-when-closed-below` to it — the same reason OQ-6 keeps it out of `max-rounds` | main agent |
 | 1.0.1 | 2026-09-27 | Audit findings applied. O1 restores the investigation's "e.g." and points at §3.1 for the full cause set, which also has `not-built`. D2 and §3.3 state that `--chained` skips §3.6a's environment preflight: `/verify-build` step 2 already ran it, its owner question must not fire unattended, and Step 8 (§3.6a's only reader) is skipped, so §8.2's fallback is never reached. VFIX-D001 now also amends VART D2, its §3.9 list line and TR6, which D14 replaces. Could Not Verify states this audit's coverage | @technical-architect |
 
 ---
@@ -944,7 +945,7 @@ None apply — this change has no UI design, no interaction diagram and renders 
 | OQ-3 | Should `--chained` skip Step 7.2's end-of-run code review? | No, it keeps it: the build's own quality gate | One review per round over the whole branch diff costs a review per round | Skip it under `--chained` and run one review at the end of `--fix` |
 | OQ-4 | Are mechanics-caused `not_met` criteria (`evidence-*`, `locator-not-found`, `never-exercised`) ever buildable? | No (D4, departing from the investigation's "each open `not_met`") | Decides what a fix batch contains | TR3's contingency widens the set |
 | OQ-5 | Should an owner ruling that changes a PRD requirement re-derive the success definition? | No. Rulings reach the Judge through `notes` (D11), and criterion IDs stay stable so `met` carries forward | Re-deriving can renumber criteria and break carry-forward and discovery refs | A ruling the Judge does not apply leaves a criterion judged against superseded wording; the next bridge would have to delete `success-definition.md` by hand |
-| OQ-6 | Does round 0 count toward `max-rounds`? | No; `max-rounds` counts fix rounds only | Changes how many builds a plan buys | `max-rounds: 1` would allow only blockers + one verify |
+| OQ-6 | Does round 0 count toward `max-rounds`? | No; `max-rounds` counts fix rounds only, and `stop-when-closed-below` is not applied to round 0 either (1.0.2) | Changes how many builds a plan buys | `max-rounds: 1` would allow only blockers + one verify |
 | OQ-7 | Each verify pass under `--fix` gets a fresh inner iteration budget (D8), so the worst case is `max-rounds` × `cap` Debug passes | Accepted: the owner sets `max-rounds` knowing this, and NG2's objection was two independent termination stories, not the count | This is the "9 attempts" arithmetic NG2 named | Run each `--fix` verify pass with `cap: 1` (Exercise + Judge only), so the fix batch is the only fixer |
 
 ## Could Not Verify
