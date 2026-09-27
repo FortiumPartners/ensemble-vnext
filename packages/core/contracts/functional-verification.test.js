@@ -56,6 +56,21 @@ describe('functional-verification contract', () => {
     expect(coreText).toMatch(/Do not collapse `unbuilt` into `not_verifiable`/);
   });
 
+  test('states the cause vocabulary (D3, §3.1): all eight causes, and that a crash during capture is judged-failed', () => {
+    expect(coreText).toMatch(/## The cause vocabulary \(D3, §3\.1\)/);
+    expect(coreText).toContain('`evidence-missing`');
+    expect(coreText).toContain('`evidence-stale`');
+    expect(coreText).toContain('`locator-not-found`');
+    expect(coreText).toContain('`never-exercised`');
+    expect(coreText).toContain('`judged-failed`');
+    expect(coreText).toContain('`not-built`');
+    expect(coreText).toContain('`environment-unreachable`');
+    expect(coreText).toContain('`capability-absent`');
+    expect(coreText).toMatch(/`met` criteria always carry `cause: null`/);
+    expect(coreText).toMatch(/A crash or error seen during capture is `judged-failed`, not `evidence-missing`/);
+    expect(coreText).toMatch(/including crashing or erroring during capture/);
+  });
+
   test("states the debugger's brief: fix in place, do not re-verify, do not implement absent capability", () => {
     expect(coreText).toMatch(/Does not re-verify/);
     expect(coreText).toMatch(/Does not implement absent capability/);

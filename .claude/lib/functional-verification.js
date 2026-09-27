@@ -7,6 +7,12 @@
  * exposing all three as subcommands. See `docs/TRD/functional-verification.md` §3.2, §3.4
  * and §3.6 for the binding interface specs, and its `### FV-B001` grounding block in §9.
  *
+ * The `--fix` loop (`docs/TRD/verification-fix-loop.md` §3.1, §3.5, D10) adds `CAUSES`,
+ * `readStopRule()`, `decideFixRound()` and `renderFixSummary()`. `readStopRule()` is called
+ * directly (it is exported for a caller with real `require`, not routed through the CLI);
+ * `decideFixRound()` and `renderFixSummary()` get `decide-fix-round` and `render-fix-summary`
+ * CLI subcommands, for the same prompt-DSL reason `decideNext()` and `renderReport()` do.
+ *
  * This module is pure apart from `fs.statSync` and, now that `checkEvidence()` matches a
  * locator (VCON-B001), reading the artifact's own content — both gated by a byte cap
  * (`LOCATOR_SCAN_BYTES`), so no read is unbounded. It still uses no clock and no git —
@@ -23,7 +29,9 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
+const { maskFencedLines, findSection } = require('./trd-parser');
 
 // ---------------------------------------------------------------------------
 // checkEvidence — tier 1 of FR-3 (§3.2)
@@ -215,6 +223,13 @@ const COVERAGE_FLOOR = null;
 // are structural (an allow-list), not a consequence of where this check sits in the chain.
 const COVERAGE_RELABELABLE_ACTIONS = new Set(['exit-satisfied', 'exit-stalled', 'exit-stuck']);
 
+// Renders a 0-1 fraction as the percentage the owner reads (D19). `toFixed(2)` then a numeric
+// round-trip drops trailing zeroes -- 0.6 -> "60%", 0.125 -> "12.5%" -- rather than a fixed
+// decimal count that would print "60.00%" for the common whole-percent case.
+function formatCoveragePercent(fraction) {
+  return `${Number((fraction * 100).toFixed(2))}%`;
+}
+
 /**
  * @param {{
  *   iteration: number,
@@ -325,13 +340,133 @@ function decideNext(input) {
       action: 'exit-insufficient-coverage',
       reason:
         `proven ratio ${met.length}/${total} (${(ratio * 100).toFixed(1)}%) is below the ` +
-        `coverage floor ${coverageFloor} — ${uncoveredCount} criterion/criteria uncovered; ` +
-        `base cause: ${result.reason}`,
+        // D19: the owner reads percentages (verification.md §5a is written as one), and the
+        // readout that quotes this reason prints percentages elsewhere too -- a bare fraction
+        // here would be the one place a ratio surfaced unitless.
+        `coverage floor ${formatCoveragePercent(coverageFloor)} — ${uncoveredCount} ` +
+        `criterion/criteria uncovered; base cause: ${result.reason}`,
       closed,
     };
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// readCoverageFloor / recommendCoverageFloor — the owner's coverage floor (D6, D7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses the `Coverage floor:` line inside the heading containing "coverage floor" (D7),
+ * case-insensitively on both the heading text and the line's own prefix. The line is read
+ * from within that heading's own section (up to the next heading of the same or a shallower
+ * level), so a stray mention of "coverage floor" elsewhere in the file cannot be mistaken for
+ * the declaration.
+ *
+ * @param {string} content - the full contents of a `verification.md`.
+ * @returns {{ floor: number|null, status: 'declared'|'none'|'absent'|'invalid', raw: string|null }}
+ *   `floor` is a fraction in [0, 1] ("60%" -> 0.6) -- percent in the file, fraction on the wire.
+ *   `none` (any case) -> `{ floor: null, status: 'none' }`. No such heading, or no such line
+ *   under it, -> `status: 'absent'`. Anything else (out of range, unparseable) -> `'invalid'`.
+ */
+function readCoverageFloor(content) {
+  if (typeof content !== 'string') {
+    throw new TypeError('readCoverageFloor: content must be a string');
+  }
+  // Same fence-aware pair readStopRule uses, so a "## Coverage floor" quoted inside a code
+  // block elsewhere in the file cannot be mistaken for the section itself.
+  const lines = maskFencedLines(content.replace(/\r\n?/g, '\n').split('\n'));
+  const section = findSection(lines, 'coverage floor');
+  if (!section) {
+    return { floor: null, status: 'absent', raw: null };
+  }
+
+  // Tolerate the Markdown an owner reaches for when hand-editing -- `**Coverage floor**: 60%`,
+  // `Coverage floor: `60%``, a list marker -- exactly as readStopRule does. Without this, a bold
+  // key read as `absent` (no line found), which nothing reports: the owner's floor would be
+  // silently dropped rather than flagged `invalid`.
+  const floorLine = lines
+    .slice(section.start, section.end)
+    .map((line) => line.trim().replace(/^[-*+]\s+/, '').replace(/[*`]/g, '').trim())
+    .find((line) => /coverage floor\s*:/i.test(line));
+  if (!floorLine) {
+    return { floor: null, status: 'absent', raw: null };
+  }
+
+  const raw = floorLine.replace(/^.*?coverage floor\s*:\s*/i, '').trim();
+
+  if (/^none$/i.test(raw)) {
+    return { floor: null, status: 'none', raw };
+  }
+
+  const percentMatch = raw.match(/^(\d+(?:\.\d+)?)\s*%$/);
+  if (percentMatch) {
+    const value = parseFloat(percentMatch[1]);
+    if (value >= 0 && value <= 100) {
+      return { floor: value / 100, status: 'declared', raw };
+    }
+  }
+
+  return { floor: null, status: 'invalid', raw };
+}
+
+// Rounding is floor-to-5% (D6): the recommendation must never sit ABOVE any past satisfied
+// run's proven share, or that run would fail to re-pass its own history. The epsilon guards
+// against a share such as 0.35 rounding down to 0.30 through floating-point error
+// (0.35 * 20 can evaluate to 6.999999999999999 rather than 7).
+function floorToFivePercent(share) {
+  return Math.floor(share * 20 + 1e-9) / 20;
+}
+
+/**
+ * Recommends a coverage floor from this project's own past verification runs (D6): the lowest
+ * proven share among runs that ended `satisfied`, rounded down to a multiple of 5% so every
+ * past satisfied run still clears it.
+ *
+ * @param {Array<{ feature: string, outcome: string|null, criteria: Array<{status: string}> }>} runs
+ * @returns {{
+ *   runs: Array<{ feature, outcome, proven, total, share }>,
+ *   eligible: number,
+ *   recommended: number|null,
+ *   lowest: { feature, proven, total, share } | null,
+ * }}
+ */
+function recommendCoverageFloor(runs) {
+  if (!Array.isArray(runs)) {
+    throw new TypeError('recommendCoverageFloor: runs must be an array');
+  }
+
+  const computed = runs.map((run) => {
+    const criteria = Array.isArray(run && run.criteria) ? run.criteria : [];
+    const total = criteria.length;
+    const proven = criteria.filter((c) => c && c.status === 'met').length;
+    return {
+      feature: run && run.feature,
+      outcome: run && run.outcome,
+      proven,
+      total,
+      share: total > 0 ? proven / total : null,
+    };
+  });
+
+  // Eligible: ended `satisfied` AND has at least one criterion (D6) -- `total: 0` is excluded
+  // rather than treated as a vacuous 100%, which would recommend a floor no run actually earned.
+  const eligible = computed.filter((r) => r.outcome === 'satisfied' && r.total > 0);
+
+  let lowest = null;
+  for (const r of eligible) {
+    if (lowest === null || r.share < lowest.share) lowest = r;
+  }
+
+  return {
+    runs: computed,
+    eligible: eligible.length,
+    recommended: lowest === null ? null : floorToFivePercent(lowest.share),
+    lowest:
+      lowest === null
+        ? null
+        : { feature: lowest.feature, proven: lowest.proven, total: lowest.total, share: lowest.share },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -346,6 +481,50 @@ const OUTCOME_LABEL = {
   'insufficient-coverage': 'Insufficient Coverage',
   'not-run': 'Not Run',
 };
+
+// The cause vocabulary (D3, §3.1), exported as `CAUSES` so `JUDGE_CRITERION_SCHEMA`'s `cause`
+// enum (VFIX-B002) is matched exactly against ONE list rather than kept in step by hand across
+// two files. Order is the TRD's own table order, which is also the order ties are broken in
+// when the Diagnosis line's descending-count sort leaves two causes equal (Array#sort is
+// stable, and this is the array `renderReport` iterates when seeding the count map, so a tie
+// resolves to this order rather than to whatever order criteria happened to appear in).
+const CAUSES = [
+  'evidence-missing',
+  'evidence-stale',
+  'locator-not-found',
+  'never-exercised',
+  'judged-failed',
+  'not-built',
+  'environment-unreachable',
+  'capability-absent',
+];
+
+// Words a Diagnosis line and the Fix run table render instead of the enum spelling (§3.1:
+// "environment not reachable", not `environment-unreachable`) -- the same fixed small-
+// vocabulary table-lookup shape as `OUTCOME_LABEL`, per this task's own `<follow>` grounding,
+// rather than a string-transform function that would drift the moment a cause's wording
+// diverges from its slug (e.g. `evidence-stale` -> "stale evidence" reads better than the
+// mechanical "evidence stale" a hyphen-replace would produce for every entry uniformly).
+const CAUSE_LABEL = {
+  'evidence-missing': 'evidence missing',
+  'evidence-stale': 'evidence stale',
+  'locator-not-found': 'locator not found',
+  'never-exercised': 'never exercised',
+  'judged-failed': 'judged failed',
+  'not-built': 'not built',
+  'environment-unreachable': 'environment not reachable',
+  'capability-absent': 'capability absent',
+  // Not itself a CAUSES member -- assigned by `renderReport`/`renderFixSummary` to a
+  // non-`met` criterion whose report input carries no `cause` at all (an older input, or one
+  // composed before VFIX-B002 wired the field through). §3.1: "counted as unrecorded, never
+  // guessed."
+  unrecorded: 'unrecorded',
+};
+
+// The four outcomes the Diagnosis/Next lines render under (§3.1). `satisfied` and `not-run`
+// are excluded deliberately: `satisfied` already has its own not-verifiable suffix above, and
+// `not-run` has no criteria to diagnose yet.
+const DIAGNOSIS_OUTCOMES = new Set(['stalled', 'stuck', 'unbuilt', 'insufficient-coverage']);
 
 function escapeCell(text) {
   // Order matters: the backslash MUST be escaped before the pipe, or a statement containing
@@ -445,6 +624,37 @@ function renderReport(input) {
         ? ` — uncovered: ${uncoveredIds.map(escapeCell).join(', ')}`
         : ' — uncovered: none')
   );
+
+  // Diagnosis + Next (D3, §3.1): only under the four outcomes a stalled/stuck/unbuilt/
+  // insufficient-coverage run can end with, and never for `satisfied` (already covered by
+  // `outcomeSuffix` above) or `not-run` (nothing yet to diagnose). Counts every non-`met`
+  // criterion by its `cause`, defaulting an absent field to `unrecorded` rather than guessing
+  // one (§3.1) -- the same defensive read `tier1 ?? ''` already uses a few lines up, per this
+  // task's own `<careful>` grounding. Sorted by count, descending; `Array#sort` is stable, so
+  // a tie between two causes breaks in `CAUSES`' own table order (seeded into the map below),
+  // not in criteria-array order.
+  if (DIAGNOSIS_OUTCOMES.has(outcome)) {
+    const open = criteria.filter((c) => c.status !== 'met');
+    const counts = new Map();
+    for (const cause of CAUSES) counts.set(cause, 0);
+    counts.set('unrecorded', 0);
+    for (const c of open) {
+      const cause = c.cause ?? 'unrecorded';
+      counts.set(cause, (counts.get(cause) ?? 0) + 1);
+    }
+    const causeWords = Array.from(counts.entries())
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cause, count]) => `${count} ${CAUSE_LABEL[cause] ?? cause}`)
+      .join(', ');
+    lines.push(
+      `**Diagnosis**: ${open.length} open` + (causeWords ? ` — ${causeWords}` : '')
+    );
+    lines.push(
+      '**Next**: agree a recovery plan with `/verify-plan-recovery`, then run `/verify-build --fix`'
+    );
+  }
+
   lines.push('');
 
   if (unrecognised.length > 0) {
@@ -540,6 +750,248 @@ function renderReport(input) {
 }
 
 // ---------------------------------------------------------------------------
+// readStopRule — §3.5, D6, D7
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the "max-rounds" and "stop-when-closed-below" fields out of a `verification-plan.md`'s
+ * `## Stop rule` section (§3.4) -- deterministically, in code, per D6: the stop rule is the only
+ * termination story of a multi-hour unattended `--fix` run (O7), and a model re-reading prose
+ * after a compaction is exactly how a second, drifting termination story would appear. Every
+ * other section of the plan is still read by a model, once per round.
+ *
+ * Reuses `trd-parser.js`'s fence-aware pair rather than a local scan (`maskFencedLines` +
+ * `findSection(..., {strategy: 'last'})`), per this task's own `<reuse>` grounding: it is the
+ * closest existing fence-aware section-finder in the repo, already exported and already tested,
+ * and `fix-audit.js` establishes the same reuse precedent for a different heading in this same
+ * `lib/` directory. `discovered.js`'s counter-precedent (a local, non-fence-aware regex scan, to
+ * avoid a parse-time dependency from a promote-time module) was weighed and set aside: this
+ * function's whole job IS fence-aware section parsing, so writing a second, weaker version of
+ * `trd-parser.js`'s own pair beside it would be the wrong economy.
+ *
+ * "Last" section outside a fence, not "first": a plan document can quote
+ * `` `## Stop rule` `` inline in prose describing itself (the same collision `trd-parser.js`'s
+ * own `strategy: 'last'` doc-comment names for "Could Not Verify" / "Open Questions"), and the
+ * canonical, terminal section should win over an accidental earlier match.
+ *
+ * @param {string} planText - the full contents of `verification-plan.md`.
+ * @returns {{maxRounds: number|null, closedBelow: number|null, errors: string[]}} `maxRounds`
+ *   is `null` when missing or not a positive integer (with a matching entry in `errors`).
+ *   `closedBelow` is `null` both when the field reads `none` (a legitimate value, §3.4) and
+ *   when it is missing or unparseable (also `errors`) -- callers needing to tell those apart
+ *   inspect `errors`, not the field alone.
+ */
+function readStopRule(planText) {
+  const errors = [];
+  const rawLines = String(planText).replace(/\r\n?/g, '\n').split('\n');
+  const maskedLines = maskFencedLines(rawLines);
+  const section = findSection(maskedLines, 'Stop rule', { strategy: 'last' });
+
+  if (!section) {
+    errors.push('no "## Stop rule" section found');
+    return { maxRounds: null, closedBelow: null, errors };
+  }
+
+  const sectionLines = maskedLines.slice(section.start, section.end);
+
+  let maxRounds = null;
+  let closedBelow = null;
+  let sawMaxRounds = false;
+
+  for (const raw of sectionLines) {
+    // Tolerate the Markdown a model writing the plan reaches for -- a list marker, bold or
+    // code-span around the key (`- **max-rounds**: 3`) -- rather than rejecting the whole stop
+    // rule and silently falling back to one round. The values themselves are digits or `none`.
+    const line = raw.trim().replace(/^[-*+]\s+/, '').replace(/[*`]/g, '').trim();
+
+    const maxRoundsMatch = /^max-rounds:\s*(.*)$/i.exec(line);
+    if (maxRoundsMatch) {
+      sawMaxRounds = true;
+      const value = maxRoundsMatch[1].trim();
+      const n = Number(value);
+      if (Number.isInteger(n) && n > 0) {
+        maxRounds = n;
+      } else {
+        errors.push(`max-rounds must be a positive integer, got "${value}"`);
+      }
+      continue;
+    }
+
+    const closedBelowMatch = /^stop-when-closed-below:\s*(.*)$/i.exec(line);
+    if (closedBelowMatch) {
+      const value = closedBelowMatch[1].trim();
+      if (/^none$/i.test(value) || value === '') {
+        closedBelow = null;
+      } else {
+        const n = Number(value);
+        if (Number.isInteger(n) && n >= 0) {
+          closedBelow = n;
+        } else {
+          errors.push(`stop-when-closed-below must be a non-negative integer or "none", got "${value}"`);
+        }
+      }
+    }
+  }
+
+  if (!sawMaxRounds) {
+    errors.push('max-rounds is missing from the "## Stop rule" section');
+  }
+
+  return { maxRounds, closedBelow, errors };
+}
+
+// ---------------------------------------------------------------------------
+// decideFixRound — §3.5, D7
+// ---------------------------------------------------------------------------
+
+/**
+ * The `--fix` loop's per-round exit decision -- the same "arithmetic, not judgement" shape as
+ * `decideNext` (§3.4), and the same validate-then-throw discipline (this task's own `<reuse>`
+ * grounding names `decideNext`'s pattern explicitly): a caller bug that omits a field must not
+ * silently read as a benign default and let the outer loop run away or stop early on the wrong
+ * evidence.
+ *
+ * Evaluation order (§3.5, fixed): nothing buildable left wins first, over even a round still
+ * within its cap -- continuing to "fix" when nothing open can be built would just re-run verify
+ * passes against a ceiling nothing can lower. Then the round cap. Then the closed-below floor,
+ * which only applies once a `stop-when-closed-below` rule exists at all (`closedBelow` may be
+ * legitimately `null`, meaning no such rule -- §3.4's "any section may hold `none`").
+ *
+ * @param {{
+ *   round: number,           // the fix round just finished, 1-based
+ *   maxRounds: number,       // 1 when there is no plan or its stop rule is unreadable
+ *   closedBelow: number|null,
+ *   closedThisRound: number, // criteria not met before this round and met after it
+ *   buildableOpen: number,   // open criteria with a buildable cause, not accepted-not-verifiable
+ * }} input
+ * @returns {{action: 'continue'|'stop', reason: string}}
+ */
+function decideFixRound(input) {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError('decideFixRound: input is required and must be an object');
+  }
+  const { round, maxRounds, closedThisRound, buildableOpen } = input;
+
+  if (typeof round !== 'number' || !Number.isFinite(round)) {
+    throw new TypeError('decideFixRound: input.round is required and must be a number');
+  }
+  if (typeof maxRounds !== 'number' || !Number.isFinite(maxRounds)) {
+    throw new TypeError('decideFixRound: input.maxRounds is required and must be a number');
+  }
+  // `closedBelow` may legitimately be `null` (no stop-when-closed-below rule) -- checked with
+  // `in` rather than `?? `, which would swallow the distinction between "explicitly null" and
+  // "the caller forgot the key entirely", exactly the caller-bug case `decideNext` throws on.
+  if (!('closedBelow' in input)) {
+    throw new TypeError('decideFixRound: input.closedBelow is required (a number, or null when there is no stop-when-closed-below rule)');
+  }
+  const closedBelow = input.closedBelow;
+  if (closedBelow !== null && (typeof closedBelow !== 'number' || !Number.isFinite(closedBelow))) {
+    throw new TypeError('decideFixRound: input.closedBelow must be a number or null');
+  }
+  if (typeof closedThisRound !== 'number' || !Number.isFinite(closedThisRound)) {
+    throw new TypeError('decideFixRound: input.closedThisRound is required and must be a number');
+  }
+  if (typeof buildableOpen !== 'number' || !Number.isFinite(buildableOpen)) {
+    throw new TypeError('decideFixRound: input.buildableOpen is required and must be a number');
+  }
+
+  if (buildableOpen === 0) {
+    return { action: 'stop', reason: 'nothing left to build' };
+  }
+  if (round >= maxRounds) {
+    return { action: 'stop', reason: `round ${round} reached max-rounds (${maxRounds})` };
+  }
+  // Round 0 builds the plan's blockers, not failing criteria, so it is not judged by the
+  // closed-below rule -- the same reason it does not count toward max-rounds (TRD OQ-6).
+  if (round >= 1 && closedBelow !== null && closedThisRound < closedBelow) {
+    return {
+      action: 'stop',
+      reason: `closed ${closedThisRound} this round, below stop-when-closed-below (${closedBelow})`,
+    };
+  }
+  return {
+    action: 'continue',
+    reason: `${closedThisRound} closed this round, ${buildableOpen} buildable still open, round ${round} of ${maxRounds}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// renderFixSummary — the "## Fix run" section (D10)
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders the `## Fix run` section `--fix` appends to `verification-report.md` after its final
+ * round (D10): one row per round (tasks promoted, criteria closed, still open), then every
+ * criterion still not `met` with its status, cause (in words, via `CAUSE_LABEL` -- the same
+ * table-lookup rendering `renderReport`'s Diagnosis line uses) and the reason `--fix` stopped on
+ * it. Pure formatting, like `renderReport` -- the decision of WHICH stop reason applies to a
+ * given criterion (not buildable by cause / accepted as not verifiable by ruling / stop rule
+ * reached / not verifiable here) is `/verify-build`'s (VFIX-B005), composed into `stopReason`
+ * before this function ever sees it.
+ *
+ * @param {{
+ *   rounds: Array<{round: number, tasksPromoted: number, criteriaClosed: number, criteriaOpen: number}>,
+ *   criteria: Array<{id: string, statement: string, status: string, cause: string|null, stopReason: string}>,
+ * }} input
+ * @returns {string} markdown for the `## Fix run` section
+ */
+/** Rendered in place of a blank `stopReason`, so an omission is visible in the report. */
+const NO_STOP_REASON = 'no stop reason recorded';
+
+function renderFixSummary(input) {
+  if (input === null || typeof input !== 'object') {
+    throw new TypeError('renderFixSummary: input is required and must be an object');
+  }
+  const { rounds, criteria } = input;
+  if (!Array.isArray(rounds)) {
+    throw new TypeError('renderFixSummary: input.rounds is required and must be an array');
+  }
+  if (!Array.isArray(criteria)) {
+    throw new TypeError('renderFixSummary: input.criteria is required and must be an array');
+  }
+
+  const lines = [];
+  lines.push('## Fix run');
+  lines.push('');
+
+  if (rounds.length === 0) {
+    lines.push('_No rounds ran._');
+  } else {
+    lines.push('| Round | Tasks promoted | Criteria closed | Still open |');
+    lines.push('|-------|-----------------|------------------|-------------|');
+    for (const r of rounds) {
+      lines.push(
+        `| ${escapeCell(r.round)} | ${escapeCell(r.tasksPromoted)} | ${escapeCell(r.criteriaClosed)} | ${escapeCell(r.criteriaOpen)} |`
+      );
+    }
+  }
+  lines.push('');
+
+  if (criteria.length === 0) {
+    lines.push('_None still open._');
+  } else {
+    lines.push('| ID | Statement | Status | Cause | Stop reason |');
+    lines.push('|----|-----------|--------|-------|-------------|');
+    for (const c of criteria) {
+      const causeWords = c.cause == null ? CAUSE_LABEL.unrecorded : (CAUSE_LABEL[c.cause] ?? c.cause);
+      // Every row carries a reason (O3: "reports the remainder, each with a reason"). A blank
+      // stopReason is a composition defect upstream (verify-build.md --fix step 6); render it
+      // as a visible placeholder rather than an empty cell that reads as "no reason needed".
+      const stopReason =
+        typeof c.stopReason === 'string' && c.stopReason.trim() !== ''
+          ? c.stopReason
+          : NO_STOP_REASON;
+      lines.push(
+        `| ${escapeCell(c.id)} | ${escapeCell(c.statement)} | ${escapeCell(c.status)} | ${escapeCell(causeWords)} | ${escapeCell(stopReason)} |`
+      );
+    }
+  }
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // isVerificationUnfilled — preflight for `/implement-trd` §8.4a and `/verify-build` §2
 // ---------------------------------------------------------------------------
 
@@ -567,6 +1019,11 @@ const KNOWN_UNFILLED_DIGESTS = {
   // The first resource-table template (verification-convergence 1.5.0), before §1a said how
   // parallel checks pick distinct existing instances. Shipped live from 005c389 onward.
   'resource-table-v1': '67900ffeed4a7dad60e1557afcdba4ac7e5e04d2db38ee5bc9cfcb7bb60bf10d',
+  // The second resource-table template (verification-md-setup D14), frozen the moment before
+  // this change adds §5a (the coverage floor) and reworks the header (D13). Every project
+  // scaffolded between the two changes holds exactly this copy
+  // (`packages/core/lib/__fixtures__/verification.resource-table-v2.md`).
+  'resource-table-v2': 'd1495d8d3240e6f413a96fc2a6b394978ebc8efe3425124dbe33226a1a51df97',
 };
 
 /**
@@ -592,29 +1049,100 @@ const KNOWN_UNFILLED_DIGESTS = {
  *   label of whichever prior template it matches instead, or `null` when the copy has been
  *   filled in and matches nothing known.
  */
-function isVerificationUnfilled(projectContent, templateContent) {
-  const normalize = (s) => String(s).replace(/\r\n?/g, '\n').trim();
-  const normalizedProject = normalize(projectContent);
+// Shared with the CLI's template-missing fallback (D11), which needs the same digest match
+// without a template to compare against first.
+function normalizeVerificationContent(s) {
+  return String(s).replace(/\r\n?/g, '\n').trim();
+}
 
-  if (normalizedProject === normalize(templateContent)) {
+// @returns {string|null} the `KNOWN_UNFILLED_DIGESTS` label matching this (already-normalized)
+// content, or `null` when it matches no known prior template.
+function matchKnownUnfilledDigest(normalizedContent) {
+  const digest = crypto.createHash('sha256').update(normalizedContent).digest('hex');
+  for (const [label, knownDigest] of Object.entries(KNOWN_UNFILLED_DIGESTS)) {
+    if (digest === knownDigest) return label;
+  }
+  return null;
+}
+
+function isVerificationUnfilled(projectContent, templateContent) {
+  const normalizedProject = normalizeVerificationContent(projectContent);
+
+  if (normalizedProject === normalizeVerificationContent(templateContent)) {
     return { unfilled: true, matchedTemplate: 'current' };
   }
 
-  const projectDigest = crypto.createHash('sha256').update(normalizedProject).digest('hex');
-  for (const [label, digest] of Object.entries(KNOWN_UNFILLED_DIGESTS)) {
-    if (projectDigest === digest) {
-      return { unfilled: true, matchedTemplate: label };
-    }
+  const matched = matchKnownUnfilledDigest(normalizedProject);
+  if (matched) {
+    return { unfilled: true, matchedTemplate: matched };
   }
 
   return { unfilled: false, matchedTemplate: null };
+}
+
+// ---------------------------------------------------------------------------
+// missingVerificationSections — old-shape detection (D10)
+// ---------------------------------------------------------------------------
+
+// Current-shape sections a verification.md may lack, in file order (D10). Keyed by id;
+// valued by the readout wording `/implement-trd` §3.6a and `/verify-build` §2 quote.
+const VERIFICATION_SECTION_LABELS = {
+  'resource-capacity': '§1a resource capacity (how many of each resource may exist at once)',
+  'write-permission-column': "§1's `Loop may WRITE data?` column",
+  'refresh-split': "§2's fast refresh / full deploy split",
+  'coverage-floor': '§5a coverage floor',
+};
+
+/**
+ * Names, in file order, the current-shape sections a `verification.md` lacks (D10). Matching
+ * is case-insensitive and structural — it looks at heading lines and table-header lines rather
+ * than the whole document, so renumbering a heading (e.g. `## 1a.` -> `## 2.`) does not count
+ * as missing, and a table cell that happens to mention "coverage floor" in prose does not
+ * count as the section either.
+ *
+ * @param {string} content
+ * @returns {string[]} ids from `VERIFICATION_SECTION_LABELS` the content lacks, in file order.
+ */
+function missingVerificationSections(content) {
+  if (typeof content !== 'string') {
+    throw new TypeError('missingVerificationSections: content must be a string');
+  }
+  const lines = maskFencedLines(content.replace(/\r\n?/g, '\n').split('\n'));
+
+  const hasHeadingContaining = (needle) =>
+    lines.some((line) => /^#{1,6}\s/.test(line) && line.toLowerCase().includes(needle));
+  // Table rows only, as the doc comment above promises: the current template's own prose
+  // names both columns ("Permitted values for **Loop may WRITE data?**", "a **fast refresh**
+  // ... and a **full deploy**"), so an any-line match would call a file whose table lacks the
+  // column complete merely because that prose survived.
+  const hasTableRowContainingAll = (needles) =>
+    lines.some((line) => {
+      if (!line.trimStart().startsWith('|')) return false;
+      const lower = line.toLowerCase();
+      return needles.every((needle) => lower.includes(needle));
+    });
+
+  const missing = [];
+  if (!hasHeadingContaining('resource capacity')) missing.push('resource-capacity');
+  if (!hasTableRowContainingAll(['loop may write data?'])) missing.push('write-permission-column');
+  if (!hasTableRowContainingAll(['fast refresh', 'full deploy'])) missing.push('refresh-split');
+  if (!hasHeadingContaining('coverage floor')) missing.push('coverage-floor');
+  return missing;
 }
 
 module.exports = {
   checkEvidence,
   decideNext,
   renderReport,
+  readStopRule,
+  decideFixRound,
+  renderFixSummary,
   isVerificationUnfilled,
+  missingVerificationSections,
+  readCoverageFloor,
+  recommendCoverageFloor,
+  VERIFICATION_SECTION_LABELS,
+  CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
@@ -646,6 +1174,12 @@ module.exports = {
 //   node functional-verification.js render-report '<input-json>'
 //   node functional-verification.js render-report --file <path>
 //   node functional-verification.js render-report -
+//   node functional-verification.js decide-fix-round '<input-json>'
+//   node functional-verification.js decide-fix-round --file <path>
+//   node functional-verification.js decide-fix-round -
+//   node functional-verification.js render-fix-summary '<input-json>'
+//   node functional-verification.js render-fix-summary --file <path>
+//   node functional-verification.js render-fix-summary -
 
 if (require.main === module) {
   const usage = () => {
@@ -654,7 +1188,11 @@ if (require.main === module) {
         "  node functional-verification.js check-evidence '<claims-json>'|--file <path>|- <sinceSec>\n" +
         "  node functional-verification.js decide-next '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-report '<input-json>'|--file <path>|-\n" +
-        '  node functional-verification.js check-verification-unfilled <projectPath> <templatePath>'
+        "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
+        "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
+        '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
+        '  node functional-verification.js read-coverage-floor <projectPath>\n' +
+        '  node functional-verification.js recommend-coverage-floor <trdStateDir>'
     );
     process.exit(1);
   };
@@ -710,18 +1248,115 @@ if (require.main === module) {
     } else {
       console.log(renderReport(JSON.parse(inputJson)));
     }
+  } else if (subcommand === 'decide-fix-round') {
+    const [inputJson] = resolveJsonPayload(rest);
+    if (!inputJson) {
+      usage();
+    } else {
+      console.log(JSON.stringify(decideFixRound(JSON.parse(inputJson))));
+    }
+  } else if (subcommand === 'render-fix-summary') {
+    const [inputJson] = resolveJsonPayload(rest);
+    if (!inputJson) {
+      usage();
+    } else {
+      console.log(renderFixSummary(JSON.parse(inputJson)));
+    }
   } else if (subcommand === 'check-verification-unfilled') {
+    // templatePath is optional (D11): a scaffolded project has no
+    // `packages/core/templates/...` tree to pass, and §3.6a's call site would otherwise throw
+    // on `readFileSync` there. Missing it degrades the check rather than crashing it.
     const [projectPath, templatePath] = rest;
-    if (!projectPath || !templatePath) {
+    if (!projectPath) {
       usage();
     } else if (!fs.existsSync(projectPath)) {
       // Missing entirely is a distinct case from "present but unfilled" -- report it rather
-      // than silently treating "no file" as either verdict.
+      // than silently treating "no file" as either verdict. Unchanged shape (D11): there is no
+      // project content to derive `missingSections` from.
       console.log(JSON.stringify({ unfilled: null, reason: 'missing', path: projectPath }));
     } else {
       const projectContent = fs.readFileSync(projectPath, 'utf8');
-      const templateContent = fs.readFileSync(templatePath, 'utf8');
-      console.log(JSON.stringify(isVerificationUnfilled(projectContent, templateContent)));
+      const missingSections = missingVerificationSections(projectContent);
+      // In a scaffolded project this module lives at `.claude/lib/`, and the one current copy
+      // of the template there is the verification-setup skill's own `template.md` (a symlink
+      // in the plugin, dereferenced by `cp -RL` at install and replaced on every --refresh).
+      // Without this fallback the CURRENT unfilled template -- the commonest case in a fresh
+      // project -- matches no prior-template digest and reports `template-missing` instead of
+      // "never filled in".
+      const skillTemplatePath = path.join(__dirname, '..', 'skills', 'verification-setup', 'template.md');
+      const resolvedTemplatePath =
+        templatePath && fs.existsSync(templatePath)
+          ? templatePath
+          : fs.existsSync(skillTemplatePath)
+            ? skillTemplatePath
+            : null;
+      if (resolvedTemplatePath) {
+        const templateContent = fs.readFileSync(resolvedTemplatePath, 'utf8');
+        const result = isVerificationUnfilled(projectContent, templateContent);
+        console.log(JSON.stringify({ ...result, missingSections }));
+      } else {
+        // No current template to compare against -- still check the prior-template digests
+        // (D11), so a project holding an old, unfilled copy is still caught.
+        const matched = matchKnownUnfilledDigest(normalizeVerificationContent(projectContent));
+        if (matched) {
+          console.log(JSON.stringify({ unfilled: true, matchedTemplate: matched, missingSections }));
+        } else {
+          console.log(
+            JSON.stringify({
+              unfilled: null,
+              reason: 'template-missing',
+              matchedTemplate: null,
+              missingSections,
+            })
+          );
+        }
+      }
+    }
+  } else if (subcommand === 'read-coverage-floor') {
+    const [projectPath] = rest;
+    if (!projectPath) {
+      usage();
+    } else if (!fs.existsSync(projectPath)) {
+      console.log(JSON.stringify({ floor: null, status: 'absent', raw: null, reason: 'missing' }));
+    } else {
+      const content = fs.readFileSync(projectPath, 'utf8');
+      console.log(JSON.stringify(readCoverageFloor(content)));
+    }
+  } else if (subcommand === 'recommend-coverage-floor') {
+    const [trdStateDir] = rest;
+    if (!trdStateDir) {
+      usage();
+    } else if (!fs.existsSync(trdStateDir)) {
+      // Distinct from "a directory with no satisfied runs": a wrong path (or a wrong cwd)
+      // must not read as "this project has no history", which recommends no floor at all.
+      console.log(
+        JSON.stringify({ ...recommendCoverageFloor([]), skipped: [], reason: 'missing', path: trdStateDir })
+      );
+    } else {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(trdStateDir, { withFileTypes: true });
+      } catch (e) {
+        entries = [];
+      }
+      const runs = [];
+      const skipped = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const statePath = path.join(trdStateDir, entry.name, 'verification-state.json');
+        if (!fs.existsSync(statePath)) continue;
+        try {
+          const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+          runs.push({
+            feature: entry.name,
+            outcome: parsed.outcome ?? null,
+            criteria: Array.isArray(parsed.criteria) ? parsed.criteria : [],
+          });
+        } catch (e) {
+          skipped.push(statePath);
+        }
+      }
+      console.log(JSON.stringify({ ...recommendCoverageFloor(runs), skipped }));
     }
   } else {
     usage();

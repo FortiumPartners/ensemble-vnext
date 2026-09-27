@@ -605,15 +605,11 @@ MUST reject requests that fall into these categories.
 **REQUIRED in every TRD written from now on.** Placed directly after `## 8. Non-Goals` and
 before `## 9. Task Grounding` — a section between the two, not a renumbering of either.
 
-Ensemble ships three verification-check skills. Each is a `SKILL.md` under `.claude/skills/`
-(fall back to `packages/skills/` in this framework's own checkout) whose own **When it
-applies** section states its trigger:
-
-| Skill | Applies when... |
-|-------|------------------|
-| `verify-design-comparison` | the PRD's UI is specified by reference design frames |
-| `verify-flow-as-built` | the PRD names an interaction diagram, or screen-to-screen journeys |
-| `verify-data-fidelity` | a screen renders data from an API or a store |
+Ensemble ships a list of framework skills, `framework-skills.txt` (`.claude/skills/`, falling
+back to `packages/skills/` in this framework's own checkout), one skill per line as `<name>
+<role>`. Read that list's `check` rows — a `support` role (e.g. the `verify-plan-recovery`
+bridge skill) is shipped for use elsewhere and is never a candidate here. For each `check`
+row, read that skill's own `SKILL.md` **When it applies** section for its trigger.
 
 **Including an applicable check is the default, not something you choose.** Read each
 skill's **When it applies** section against this TRD's own inputs. Include every check whose

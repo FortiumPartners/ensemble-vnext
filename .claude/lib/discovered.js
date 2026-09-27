@@ -65,9 +65,33 @@ const PROMOTABLE_STATUSES = ['not_met', 'stalled', 'unbuilt'];
  * this only narrows what it is deciding about, so an unrelated bug found while reading a file
  * cannot quietly become scope.
  */
+/**
+ * D5's identity pre-pass: for rows carrying a `ref` (a criterion id, or `plan:<blocker id>`),
+ * keep only the LATEST row per ref (by `ts`), so a later `met` observation retires an earlier
+ * failure entirely -- not just from promotion, from every reader of `promotable()`'s output.
+ * Rows with no `ref` pass through completely unaffected, in their original relative order.
+ *
+ * Runs as a pre-pass, before the three mechanical filters below: a superseded row must not
+ * survive just because the LATEST row for its ref happens to fail one of those filters (e.g.
+ * the latest is `met`, which promotable() would drop anyway -- the point is the earlier
+ * `not_met` row disappears too, rather than being reported as if it still stood).
+ */
+function latestPerRef(rows) {
+  const latestByRef = new Map();
+  for (const r of rows) {
+    if (!r || !r.ref) continue;
+    const cur = latestByRef.get(r.ref);
+    // A row with no `ts` (hand-written into the ledger; record() always stamps one) must not
+    // out-rank a timestamped one -- String(undefined) is "undefined", which sorts above every
+    // ISO timestamp and would make an undated row the "latest" observation of its ref.
+    if (!cur || String(r.ts ?? '') >= String(cur.ts ?? '')) latestByRef.set(r.ref, r);
+  }
+  return rows.filter((r) => !r || !r.ref || latestByRef.get(r.ref) === r);
+}
+
 function promotable(rows) {
   if (!Array.isArray(rows)) return [];
-  return rows.filter((r) => {
+  return latestPerRef(rows).filter((r) => {
     if (!r || r.blocksFeature !== true || r.kind === 'risk') return false;
     if (r.status && !PROMOTABLE_STATUSES.includes(r.status)) return false;
     return true;
@@ -165,10 +189,37 @@ function promoteToTrd(trdPath, rows, opts = {}) {
    * first 60 characters happened to occur in unrelated prose. */
   const seen = new Set();
   const norm = (sry) => String(sry).trim().replace(/\s+/g, ' ').toLowerCase();
+  /* Parallel to `seen`, but keyed for `ref`-carrying rows (D5): the observation key
+   * `<ref>@<ts>` embedded at the end of a promoted row's description (`[<ref> @ <ts>]`)
+   * says this exact observation was already promoted -- re-running `--fix` over the same
+   * ledger (or the same plan, provided the caller records its blockers with the plan's
+   * `**Written**` timestamp as `nowIso`, §3.2 -- record() otherwise stamps a fresh `ts` every
+   * run) must not re-add it.
+   * `refToId` says which task id a `ref` was last promoted as, for two things: a second,
+   * still-open observation of the same ref becomes a follow-up depending on that id, and a
+   * plan blocker's `after` list resolves to the ids of the refs it names. Both are read from
+   * rows ALREADY in the document (scanned once here, before this call's own rows exist) and
+   * then kept current as this call promotes its own ref-carrying rows below. */
+  const existingObsKeys = new Set();
+  const refToId = new Map();
+  const OBS_MARKER_RE = /\[(\S+) @ (\S+)\]\s*$/;
+  // Split on UNESCAPED pipes only, keeping `\|` as written: a promoted summary is stored with
+  // its pipes escaped (below), and a naive split would cut its description cell short, lose
+  // the trailing `[<ref> @ <ts>]` marker, and re-promote the same observation on every run.
+  const splitCells = (l) => l.split(/(?<!\\)\|/).slice(1, -1).map((c) => c.trim());
   for (const l of lines) {
     if (!/^\|/.test(l)) continue;
-    const cells = l.split('|').slice(1, -1).map((c) => c.trim());
-    if (col.desc >= 0 && cells[col.desc]) seen.add(norm(cells[col.desc].split(' — promoted from')[0]));
+    const cells = splitCells(l);
+    if (col.desc >= 0 && cells[col.desc]) {
+      const descCell = cells[col.desc];
+      seen.add(norm(descCell.split(' — promoted from')[0]));
+      const m = OBS_MARKER_RE.exec(descCell);
+      if (m) {
+        const [, ref, ts] = m;
+        existingObsKeys.add(`${ref}@${ts}`);
+        if (col.id >= 0 && cells[col.id]) refToId.set(ref, cells[col.id]);
+      }
+    }
   }
 
   const newRows = [];
@@ -188,8 +239,21 @@ function promoteToTrd(trdPath, rows, opts = {}) {
     const where = allFiles.length ? ` (${allFiles.map((f) => `\`${f}\``).join(', ')})` : '';
     const escapedSummary = String(r.summary).replace(/\|/g, '\\|');
     const summary = `${escapedSummary}${where}`;
-    if (seen.has(norm(summary))) continue;
-    seen.add(norm(summary));
+
+    // D5: a ref-carrying row dedupes on its own observation key, in parallel with (never
+    // replacing) the summary-based dedupe above, which stays the sole mechanism for rows
+    // with no ref. `earlierId` -- the id this ref was last promoted as, if any -- is read
+    // BEFORE this row is added to `refToId` below, so it names the row this one follows up,
+    // never itself.
+    let earlierId;
+    if (r.ref) {
+      const obsKey = `${r.ref}@${r.ts}`;
+      if (existingObsKeys.has(obsKey)) continue;
+      earlierId = refToId.get(r.ref);
+    } else {
+      if (seen.has(norm(summary))) continue;
+      seen.add(norm(summary));
+    }
 
     do { n += 1; } while (existing.has(`${prefix}-${String(n).padStart(3, '0')}`));
     const id = `${prefix}-${String(n).padStart(3, '0')}`;
@@ -197,14 +261,33 @@ function promoteToTrd(trdPath, rows, opts = {}) {
 
     const cells = new Array(headerCells.length).fill('');
     if (col.id >= 0) cells[col.id] = id;
-    if (col.desc >= 0) cells[col.desc] = `${summary} — promoted from a ${r.kind} discovery found by ${r.foundBy}`;
+    if (col.desc >= 0) {
+      if (r.ref) {
+        // A still-open second observation of the same ref reads as a follow-up naming the
+        // row it did not close; a ref with no earlier promotion reads like any other
+        // promoted discovery, just carrying its `[<ref> @ <ts>]` marker for future runs.
+        cells[col.desc] = earlierId
+          ? `${summary} — follow-up to ${earlierId}, which did not close it [${r.ref} @ ${r.ts}]`
+          : `${summary} — promoted from a ${r.kind} discovery found by ${r.foundBy} [${r.ref} @ ${r.ts}]`;
+      } else {
+        cells[col.desc] = `${summary} — promoted from a ${r.kind} discovery found by ${r.foundBy}`;
+      }
+    }
     /* `Serves` is mandatory and machine-readable, and a promoted discovery genuinely has no
      * objective to point at -- nothing in the ledger records one. Writing a plausible `O1`
      * would be manufacturing the provenance this framework exists to prevent, so the
      * honest value is the marker, and `/audit-trd` surfacing it is the correct outcome:
      * the owner points it at an objective, or decides it does not belong in this TRD.
-     * `opts.serves` lets a caller that DOES know supply it. */
-    if (col.serves >= 0) cells[col.serves] = opts.serves || 'amendment — no objective recorded';
+     * `opts.serves` lets a caller that DOES know supply it, and (§3.2) still wins even over
+     * a ref-derived value. */
+    if (col.serves >= 0) {
+      const refServes = r.ref
+        ? (r.ref.startsWith('plan:') ? `plan blocker ${r.ref.slice(5)}` : `criterion ${r.ref}`)
+        : null;
+      cells[col.serves] = opts.serves || refServes || 'amendment — no objective recorded';
+    }
+    // Dependencies are resolved after the loop (below), once every row in this call has an
+    // id: a blocker's `after` may name a sibling that appears LATER in the ledger.
     if (col.deps >= 0) cells[col.deps] = 'None';
     /* A generic "the discovery no longer reproduces" is unfalsifiable -- it reads the
      * same for every promoted row regardless of what the row actually claims, so nothing
@@ -217,13 +300,36 @@ function promoteToTrd(trdPath, rows, opts = {}) {
         ? `${escapedSummary} no longer reproduces: ${evidence}`
         : `${escapedSummary} no longer reproduces`;
     }
-    newRows.push(`| ${cells.join(' | ')} |`);
+    newRows.push({ cells, after: r.after, ref: r.ref, earlierId });
     added.push(id);
     groundingEntries.push({ id, files: allFiles });
+    if (r.ref) {
+      existingObsKeys.add(`${r.ref}@${r.ts}`);
+      refToId.set(r.ref, id);
+    }
   }
   if (!newRows.length) return { added, skipped: promo.length };
 
-  lines.splice(lastRow + 1, 0, ...newRows);
+  if (col.deps >= 0) {
+    for (const row of newRows) {
+      const ids = [];
+      if (Array.isArray(row.after)) {
+        // `after` (plan blockers only) names sibling refs, resolved to promoted ids --
+        // including one promoted anywhere in this same call. A plan's `After` column names
+        // blockers by bare id (`B1`), so a plan row also tries `plan:<id>` before giving up.
+        for (const a of row.after) {
+          const hit = refToId.get(a)
+            || (row.ref && row.ref.startsWith('plan:') && !String(a).startsWith('plan:')
+              ? refToId.get(`plan:${a}`) : undefined);
+          if (hit && !ids.includes(hit)) ids.push(hit);
+        }
+      }
+      if (row.earlierId && !ids.includes(row.earlierId)) ids.push(row.earlierId);
+      if (ids.length) row.cells[col.deps] = ids.join(', ');
+    }
+  }
+
+  lines.splice(lastRow + 1, 0, ...newRows.map((row) => `| ${row.cells.join(' | ')} |`));
   // Grounding is inserted AFTER the row splice, and re-locates its section from scratch on
   // the now-mutated `lines` — never reuses `headIdx`/`lastRow`, which point at the task
   // table and are meaningless once used as an index into the Task Grounding section.
@@ -381,6 +487,16 @@ function record(stateDir, entry, nowIso) {
   }
   if (entry.evidence) row.evidence = String(entry.evidence).slice(0, 400);
   if (VERIFICATION_STATUSES.includes(entry.status)) row.status = entry.status;
+  // D5: the criterion id (or `plan:<blocker id>`) this record is an observation OF. Optional
+  // -- an ordinary bug/gap discovery carries none of this. Added here, before the truncation
+  // ladder below, so both fields count toward MAX_LINE_BYTES like `file`/`files` do; like
+  // those two, they are never dropped by the ladder, only `evidence` and `summary` are.
+  if (entry.ref) row.ref = String(entry.ref).slice(0, 80);
+  // `after` -- refs this row's plan blocker follows -- is the escape hatch for blocker
+  // ordering (plan blockers only), mirroring `files`' cap-and-slice shape.
+  if (Array.isArray(entry.after) && entry.after.length) {
+    row.after = entry.after.map((a) => String(a).slice(0, 80)).slice(0, 20);
+  }
 
   let line = JSON.stringify(row);
   if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
@@ -389,7 +505,31 @@ function record(stateDir, entry, nowIso) {
     if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
       row.summary = row.summary.slice(0, 200);
       line = JSON.stringify(row);
-      if (Buffer.byteLength(line) > MAX_LINE_BYTES) return false;
+      // Still over budget: `files`/`after` are the last things with any give — trim them
+      // from the end (their own escape-hatch caps already bound entries/count, but a run
+      // of near-max-length entries can still blow MAX_LINE_BYTES). Drop one at a time
+      // rather than the whole field, so a discovery naming several files loses only as
+      // many as it must.
+      while (Buffer.byteLength(line) > MAX_LINE_BYTES && Array.isArray(row.files) && row.files.length) {
+        row.files.pop();
+        if (row.files.length === 0) delete row.files;
+        line = JSON.stringify(row);
+      }
+      while (Buffer.byteLength(line) > MAX_LINE_BYTES && Array.isArray(row.after) && row.after.length) {
+        row.after.pop();
+        if (row.after.length === 0) delete row.after;
+        line = JSON.stringify(row);
+      }
+      if (Buffer.byteLength(line) > MAX_LINE_BYTES) {
+        // A lost discovery costs a note, same as the mkdir/appendFile failures below --
+        // but unlike those, this one is silent unless we say something: nothing else in
+        // the caller's path will ever learn this discovery existed.
+        process.stderr.write(
+          `discovered.js: dropping discovery from "${row.foundBy}" -- record exceeds ` +
+          `${MAX_LINE_BYTES} bytes even after trimming evidence, summary, files and after\n`
+        );
+        return false;
+      }
     }
   }
 

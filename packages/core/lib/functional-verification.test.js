@@ -9,7 +9,14 @@ const {
   checkEvidence,
   decideNext,
   renderReport,
+  readStopRule,
+  decideFixRound,
+  renderFixSummary,
   isVerificationUnfilled,
+  missingVerificationSections,
+  readCoverageFloor,
+  recommendCoverageFloor,
+  CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
   LOCATOR_SCAN_BYTES,
@@ -484,7 +491,9 @@ describe('decideNext: the coverage re-label', () => {
     });
     expect(result.action).toBe('exit-insufficient-coverage');
     expect(result.reason).toMatch(/1\/10/);
-    expect(result.reason).toMatch(/0\.5/);
+    // D19: the floor renders as a percentage ("50%"), not the bare fraction ("0.5") it used to.
+    expect(result.reason).toMatch(/50%/);
+    expect(result.reason).toContain('%');
   });
 
   test('an explicit floor re-labels exit-stalled', () => {
@@ -1220,6 +1229,16 @@ describe('isVerificationUnfilled', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
+    // Neither the minimal template/project fixtures nor the pre-1.5.0 fixture carry any of
+    // the four current-shape sections (D10), so every test in this block that uses them
+    // expects the full list back, in file order.
+    const ALL_MISSING_SECTIONS = [
+      'resource-capacity',
+      'write-permission-column',
+      'refresh-split',
+      'coverage-floor',
+    ];
+
     test('reports unfilled: true when the project file matches the template', () => {
       const templatePath = path.join(tmpDir, 'template.md');
       const projectPath = path.join(tmpDir, 'project.md');
@@ -1232,7 +1251,11 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'current' });
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'current',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
     });
 
     test('reports unfilled: false when the project file has been edited', () => {
@@ -1247,7 +1270,11 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: false, matchedTemplate: null });
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: false,
+        matchedTemplate: null,
+        missingSections: ALL_MISSING_SECTIONS,
+      });
     });
 
     test('reports a project file matching the pre-resource-table template as unfilled, naming it', () => {
@@ -1270,7 +1297,65 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
-      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'pre-resource-table' });
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'pre-resource-table',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('reports a filled pre-1.5.0-shape file as unfilled: false, still naming all four missing sections', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+        'utf8'
+      );
+      const currentTemplate = fs.readFileSync(
+        path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+        'utf8'
+      );
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(templatePath, currentTemplate);
+      fs.writeFileSync(projectPath, `${priorTemplate}\n| local | http://localhost:4000 |\n`);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: false,
+        matchedTemplate: null,
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('reports only the missing coverage-floor section for the resource-table-v2 template', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.resource-table-v2.md'),
+        'utf8'
+      );
+      const currentTemplate = fs.readFileSync(
+        path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+        'utf8'
+      );
+      const templatePath = path.join(tmpDir, 'template.md');
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(templatePath, currentTemplate);
+      fs.writeFileSync(projectPath, priorTemplate);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        templatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'resource-table-v2',
+        missingSections: ['coverage-floor'],
+      });
     });
 
     test('reports a missing project file distinctly, not as either verdict', () => {
@@ -1284,12 +1369,408 @@ describe('isVerificationUnfilled', () => {
         projectPath,
         templatePath,
       ]).toString();
+      // Unchanged shape (D11) -- there is no project content to derive missingSections from.
       expect(JSON.parse(stdout)).toEqual({ unfilled: null, reason: 'missing', path: projectPath });
     });
 
     test('missing arguments print usage and exit non-zero', () => {
       expect(() => {
         execFileSync('node', [MODULE_PATH, 'check-verification-unfilled'], { stdio: 'pipe' });
+      }).toThrow();
+    });
+
+    // -------------------------------------------------------------------------
+    // D11 -- templatePath is optional. A scaffolded project has no
+    // packages/core/templates/... tree to pass, so the CLI must degrade rather than throw.
+    // -------------------------------------------------------------------------
+
+    test('a prior-digest match is still reported unfilled when templatePath is omitted', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+        'utf8'
+      );
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(projectPath, priorTemplate);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'pre-resource-table',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('a prior-digest match is still reported unfilled when templatePath does not exist', () => {
+      const priorTemplate = fs.readFileSync(
+        path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+        'utf8'
+      );
+      const projectPath = path.join(tmpDir, 'project.md');
+      const missingTemplatePath = path.join(tmpDir, 'does-not-exist-template.md');
+      fs.writeFileSync(projectPath, priorTemplate);
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+        missingTemplatePath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: true,
+        matchedTemplate: 'pre-resource-table',
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+
+    test('in a scaffolded layout, falls back to the verification-setup skill\'s template and recognises the CURRENT unfilled copy', () => {
+      // Mirror a scaffolded project: the module under .claude/lib, the skill's template.md
+      // (dereferenced) under .claude/skills/verification-setup, and no packages/ tree at all.
+      const libDir = path.join(tmpDir, '.claude', 'lib');
+      const skillDir = path.join(tmpDir, '.claude', 'skills', 'verification-setup');
+      fs.mkdirSync(libDir, { recursive: true });
+      fs.mkdirSync(skillDir, { recursive: true });
+      for (const f of fs.readdirSync(__dirname)) {
+        if (f.endsWith('.js') && !f.endsWith('.test.js')) {
+          fs.copyFileSync(path.join(__dirname, f), path.join(libDir, f));
+        }
+      }
+      const currentTemplate = path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md');
+      fs.copyFileSync(currentTemplate, path.join(skillDir, 'template.md'));
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.copyFileSync(currentTemplate, projectPath);
+
+      const stdout = execFileSync('node', [
+        path.join(libDir, 'functional-verification.js'),
+        'check-verification-unfilled',
+        projectPath,
+        path.join(tmpDir, 'packages', 'core', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({ unfilled: true, matchedTemplate: 'current', missingSections: [] });
+    });
+
+    test('returns template-missing with missingSections when the template path is absent and no digest matches', () => {
+      const projectPath = path.join(tmpDir, 'project.md');
+      fs.writeFileSync(
+        projectPath,
+        '# Verification environments\n\n| local | http://localhost:3000 |\n'
+      );
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'check-verification-unfilled',
+        projectPath,
+      ]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        unfilled: null,
+        reason: 'template-missing',
+        matchedTemplate: null,
+        missingSections: ALL_MISSING_SECTIONS,
+      });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missingVerificationSections — old-shape detection (D10, VSET-B001)
+// ---------------------------------------------------------------------------
+
+describe('missingVerificationSections', () => {
+  const currentTemplate = fs.readFileSync(
+    path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+    'utf8'
+  );
+
+  test('the current template lacks nothing', () => {
+    expect(missingVerificationSections(currentTemplate)).toEqual([]);
+  });
+
+  test('the pre-1.5.0 template lacks all four, in file order', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
+      'utf8'
+    );
+    expect(missingVerificationSections(priorTemplate)).toEqual([
+      'resource-capacity',
+      'write-permission-column',
+      'refresh-split',
+      'coverage-floor',
+    ]);
+  });
+
+  test('the first resource-table template lacks only the coverage floor', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.resource-table-v1.md'),
+      'utf8'
+    );
+    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor']);
+  });
+
+  test('the second resource-table template lacks only the coverage floor', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.resource-table-v2.md'),
+      'utf8'
+    );
+    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor']);
+  });
+
+  test('prose naming a column does not stand in for the table column itself', () => {
+    const content = [
+      '## 1a. Resource capacity',
+      'Permitted values for **Loop may WRITE data?**: `read-only`.',
+      'a **fast refresh** the loop runs, and a **full deploy** it runs once.',
+      '## 5a. Coverage floor',
+      'Coverage floor: none',
+    ].join('\n');
+    expect(missingVerificationSections(content)).toEqual(['write-permission-column', 'refresh-split']);
+  });
+
+  test('throws on a non-string content, matching decideNext\'s validate-don\'t-default stance', () => {
+    expect(() => missingVerificationSections(undefined)).toThrow(TypeError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readCoverageFloor — parses verification.md §5a (D7, VSET-B001)
+// ---------------------------------------------------------------------------
+
+describe('readCoverageFloor', () => {
+  const withFloor = (line) => `## 5a. Coverage floor\n\n${line}\n\n## 6. Multi-repo\n`;
+
+  test('a whole percent', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 60%'))).toEqual({
+      floor: 0.6,
+      status: 'declared',
+      raw: '60%',
+    });
+  });
+
+  test('"none"', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: none'))).toEqual({
+      floor: null,
+      status: 'none',
+      raw: 'none',
+    });
+  });
+
+  test('"NONE" (case-insensitive)', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: NONE'))).toEqual({
+      floor: null,
+      status: 'none',
+      raw: 'NONE',
+    });
+  });
+
+  test('a decimal percent', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 12.5%'))).toEqual({
+      floor: 0.125,
+      status: 'declared',
+      raw: '12.5%',
+    });
+  });
+
+  test('no "coverage floor" heading at all', () => {
+    expect(readCoverageFloor('# Verification environments\n\nsome text\n')).toEqual({
+      floor: null,
+      status: 'absent',
+      raw: null,
+    });
+  });
+
+  test('the heading exists but has no "Coverage floor:" line under it', () => {
+    expect(
+      readCoverageFloor('## 5a. Coverage floor\n\nsome prose with no declaration\n\n## 6. Multi-repo\n')
+    ).toEqual({ floor: null, status: 'absent', raw: null });
+  });
+
+  test('out of range (150%) is invalid', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 150%'))).toEqual({
+      floor: null,
+      status: 'invalid',
+      raw: '150%',
+    });
+  });
+
+  test('unparseable text is invalid', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: abc'))).toEqual({
+      floor: null,
+      status: 'invalid',
+      raw: 'abc',
+    });
+  });
+
+  test('a bare fraction (no %) is invalid -- percent in the file, fraction on the wire (D7)', () => {
+    expect(readCoverageFloor(withFloor('Coverage floor: 0.6'))).toEqual({
+      floor: null,
+      status: 'invalid',
+      raw: '0.6',
+    });
+  });
+
+  test('a bold or code-span key/value is still read, not silently dropped as absent', () => {
+    expect(readCoverageFloor(withFloor('**Coverage floor**: 60%'))).toEqual({
+      floor: 0.6,
+      status: 'declared',
+      raw: '60%',
+    });
+    expect(readCoverageFloor(withFloor('- Coverage floor: `75%`'))).toEqual({
+      floor: 0.75,
+      status: 'declared',
+      raw: '75%',
+    });
+  });
+
+  test('a "## Coverage floor" quoted inside a fenced block is not the section', () => {
+    const content =
+      '```\n## Coverage floor\nCoverage floor: 90%\n```\n\n## 5a. Coverage floor\n\nCoverage floor: 40%\n';
+    expect(readCoverageFloor(content)).toEqual({ floor: 0.4, status: 'declared', raw: '40%' });
+  });
+
+  test('throws on a non-string content', () => {
+    expect(() => readCoverageFloor(null)).toThrow(TypeError);
+  });
+
+  describe('CLI: read-coverage-floor', () => {
+    let tmpDir;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'read-coverage-floor-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('reads a declared floor from a file', () => {
+      const projectPath = path.join(tmpDir, 'verification.md');
+      fs.writeFileSync(projectPath, withFloor('Coverage floor: 60%'));
+
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-coverage-floor', projectPath]).toString();
+      expect(JSON.parse(stdout)).toEqual({ floor: 0.6, status: 'declared', raw: '60%' });
+    });
+
+    test('reports a missing file distinctly', () => {
+      const projectPath = path.join(tmpDir, 'does-not-exist.md');
+
+      const stdout = execFileSync('node', [MODULE_PATH, 'read-coverage-floor', projectPath]).toString();
+      expect(JSON.parse(stdout)).toEqual({
+        floor: null,
+        status: 'absent',
+        raw: null,
+        reason: 'missing',
+      });
+    });
+
+    test('missing arguments print usage and exit non-zero', () => {
+      expect(() => {
+        execFileSync('node', [MODULE_PATH, 'read-coverage-floor'], { stdio: 'pipe' });
+      }).toThrow();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// recommendCoverageFloor — the floor recommendation (D6, VSET-B001)
+// ---------------------------------------------------------------------------
+
+describe('recommendCoverageFloor', () => {
+  test('no runs at all -> null', () => {
+    expect(recommendCoverageFloor([])).toMatchObject({ eligible: 0, recommended: null, lowest: null });
+  });
+
+  test('only non-satisfied runs -> null', () => {
+    const runs = [
+      { feature: 'a', outcome: 'stalled', criteria: [{ status: 'met' }, { status: 'not_met' }] },
+      { feature: 'b', outcome: 'stuck', criteria: [{ status: 'met' }] },
+    ];
+    expect(recommendCoverageFloor(runs)).toMatchObject({
+      eligible: 0,
+      recommended: null,
+      lowest: null,
+    });
+  });
+
+  test('the lowest of three satisfied runs (12/12, 3/6, 26/32) rounds down to 0.5', () => {
+    const criteriaOf = (met, total) => [
+      ...Array.from({ length: met }, () => ({ status: 'met' })),
+      ...Array.from({ length: total - met }, () => ({ status: 'not_met' })),
+    ];
+    const runs = [
+      { feature: 'full', outcome: 'satisfied', criteria: criteriaOf(12, 12) },
+      { feature: 'half', outcome: 'satisfied', criteria: criteriaOf(3, 6) },
+      { feature: 'most', outcome: 'satisfied', criteria: criteriaOf(26, 32) },
+    ];
+    const result = recommendCoverageFloor(runs);
+    expect(result.eligible).toBe(3);
+    expect(result.recommended).toBe(0.5);
+    expect(result.lowest).toMatchObject({ feature: 'half', proven: 3, total: 6, share: 0.5 });
+  });
+
+  test('a share of 0.35 rounds down to 0.35, not 0.3 -- the epsilon guards the float error', () => {
+    const criteria = [
+      ...Array.from({ length: 7 }, () => ({ status: 'met' })),
+      ...Array.from({ length: 13 }, () => ({ status: 'not_met' })),
+    ];
+    const runs = [{ feature: 'twenty', outcome: 'satisfied', criteria }];
+    expect(recommendCoverageFloor(runs).recommended).toBe(0.35);
+  });
+
+  test('a satisfied run with total: 0 is excluded from eligibility', () => {
+    const runs = [{ feature: 'empty', outcome: 'satisfied', criteria: [] }];
+    const result = recommendCoverageFloor(runs);
+    expect(result.eligible).toBe(0);
+    expect(result.recommended).toBeNull();
+    expect(result.runs).toEqual([
+      { feature: 'empty', outcome: 'satisfied', proven: 0, total: 0, share: null },
+    ]);
+  });
+
+  test('throws when runs is not an array', () => {
+    expect(() => recommendCoverageFloor(null)).toThrow(TypeError);
+  });
+
+  describe('CLI: recommend-coverage-floor', () => {
+    let tmpDir;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'recommend-coverage-floor-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    test('reads every */verification-state.json under the directory, skipping ones that fail to parse', () => {
+      fs.mkdirSync(path.join(tmpDir, 'feature-a'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'feature-a', 'verification-state.json'),
+        JSON.stringify({
+          outcome: 'satisfied',
+          criteria: [{ status: 'met' }, { status: 'met' }, { status: 'not_met' }, { status: 'met' }],
+        })
+      );
+      fs.mkdirSync(path.join(tmpDir, 'feature-b'));
+      fs.writeFileSync(path.join(tmpDir, 'feature-b', 'verification-state.json'), 'not valid json{');
+
+      const stdout = execFileSync('node', [
+        MODULE_PATH,
+        'recommend-coverage-floor',
+        tmpDir,
+      ]).toString();
+      const parsed = JSON.parse(stdout);
+      expect(parsed.eligible).toBe(1);
+      expect(parsed.recommended).toBe(0.75); // 3/4 satisfied, floor(0.75 * 20 + eps)/20 = 0.75
+      expect(parsed.skipped).toEqual([
+        path.join(tmpDir, 'feature-b', 'verification-state.json'),
+      ]);
+    });
+
+    test('missing arguments print usage and exit non-zero', () => {
+      expect(() => {
+        execFileSync('node', [MODULE_PATH, 'recommend-coverage-floor'], { stdio: 'pipe' });
       }).toThrow();
     });
   });
@@ -1417,6 +1898,373 @@ describe('shipped verification.md template content', () => {
 
   test('splits a fast per-iteration refresh from an end-of-run full deploy', () => {
     expect(template).toMatch(/\| Fast refresh \(per iteration\) \| Full deploy \(end of run\) \|/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VFIX-B001: CAUSES, the Diagnosis/Next lines, readStopRule, decideFixRound,
+// renderFixSummary (docs/TRD/verification-fix-loop.md §3.1, §3.5, D10)
+// ---------------------------------------------------------------------------
+
+describe('CAUSES', () => {
+  test('is the fixed §3.1 vocabulary, exported for JUDGE_CRITERION_SCHEMA to match exactly', () => {
+    expect(CAUSES).toEqual([
+      'evidence-missing',
+      'evidence-stale',
+      'locator-not-found',
+      'never-exercised',
+      'judged-failed',
+      'not-built',
+      'environment-unreachable',
+      'capability-absent',
+    ]);
+  });
+});
+
+describe('renderReport: Diagnosis and Next lines', () => {
+  const criterionWithCause = (id, status, cause) => ({
+    id,
+    statement: `statement for ${id}`,
+    cites: 'FR-1',
+    status,
+    artifact: null,
+    reason: 'because',
+    attempts: [],
+    blocker: null,
+    cause,
+  });
+
+  const baseFor = (outcome, criteria) => ({
+    feature: 'demo',
+    prd: 'docs/PRD/demo.md',
+    definitionPath: '.trd-state/demo/success-definition.md',
+    outcome,
+    reason: 'iteration closed no gaps',
+    criteria,
+  });
+
+  test('appears under Coverage for stalled, stuck, unbuilt and insufficient-coverage', () => {
+    for (const outcome of ['stalled', 'stuck', 'unbuilt', 'insufficient-coverage']) {
+      const report = renderReport(
+        baseFor(outcome, [criterionWithCause('FS-1', 'not_met', 'evidence-missing')])
+      );
+      expect(report).toMatch(/\*\*Diagnosis\*\*: /);
+      expect(report).toContain(
+        '**Next**: agree a recovery plan with `/verify-plan-recovery`, then run `/verify-build --fix`'
+      );
+      // Diagnosis must render after Coverage, not before.
+      expect(report.indexOf('**Coverage**')).toBeLessThan(report.indexOf('**Diagnosis**'));
+    }
+  });
+
+  test('does not appear for satisfied or not-run', () => {
+    for (const outcome of ['satisfied', 'not-run']) {
+      const report = renderReport(baseFor(outcome, [criterionWithCause('FS-1', 'met', null)]));
+      expect(report).not.toContain('**Diagnosis**');
+      expect(report).not.toContain('/verify-plan-recovery');
+    }
+  });
+
+  test('counts by cause in descending order', () => {
+    const report = renderReport(
+      baseFor('stalled', [
+        criterionWithCause('FS-1', 'not_met', 'evidence-missing'),
+        criterionWithCause('FS-2', 'not_met', 'evidence-missing'),
+        criterionWithCause('FS-3', 'not_verifiable', 'environment-unreachable'),
+        criterionWithCause('FS-4', 'not_met', 'environment-unreachable'),
+        criterionWithCause('FS-5', 'not_met', 'environment-unreachable'),
+        criterionWithCause('FS-6', 'not_met', 'environment-unreachable'),
+        criterionWithCause('FS-7', 'met', null),
+      ])
+    );
+    const diagnosisLine = report.split('\n').find((l) => l.startsWith('**Diagnosis**'));
+    expect(diagnosisLine).toBe(
+      '**Diagnosis**: 6 open — 4 environment not reachable, 2 evidence missing'
+    );
+  });
+
+  test('renders causes in words, not slugs', () => {
+    const report = renderReport(
+      baseFor('unbuilt', [criterionWithCause('FS-1', 'unbuilt', 'not-built')])
+    );
+    expect(report).toContain('not built');
+    expect(report).not.toContain('not-built');
+  });
+
+  test('counts a cause-less row as unrecorded', () => {
+    const report = renderReport(
+      baseFor('stuck', [criterionWithCause('FS-1', 'not_met', undefined)])
+    );
+    const diagnosisLine = report.split('\n').find((l) => l.startsWith('**Diagnosis**'));
+    expect(diagnosisLine).toBe('**Diagnosis**: 1 open — 1 unrecorded');
+  });
+
+  test('never counts a met criterion into Diagnosis', () => {
+    const report = renderReport(
+      baseFor('stalled', [
+        criterionWithCause('FS-1', 'met', null),
+        criterionWithCause('FS-2', 'not_met', 'judged-failed'),
+      ])
+    );
+    const diagnosisLine = report.split('\n').find((l) => l.startsWith('**Diagnosis**'));
+    expect(diagnosisLine).toBe('**Diagnosis**: 1 open — 1 judged failed');
+  });
+});
+
+describe('readStopRule', () => {
+  const plan = (stopRuleBody) => `# Verification plan: demo
+
+**Written**: 2026-09-27T00:00:00Z by verify-plan-recovery
+**From run**: stalled at 2/6, report \`.trd-state/demo/verification-report.md\`
+
+## Blockers
+| ID | Blocker | Files | After | Unblocks |
+|----|---------|-------|-------|----------|
+| B1 | fix the thing | \`src/x.js\` | — | SC-3 |
+
+## Stop rule
+${stopRuleBody}
+`;
+
+  test('reads max-rounds and stop-when-closed-below', () => {
+    const result = readStopRule(plan('max-rounds: 5\nstop-when-closed-below: 2\nalways: stop when nothing is left to build'));
+    expect(result).toEqual({ maxRounds: 5, closedBelow: 2, errors: [] });
+  });
+
+  test('stop-when-closed-below: none reads as null, with no error', () => {
+    const result = readStopRule(plan('max-rounds: 3\nstop-when-closed-below: none\nalways: stop when nothing is left to build'));
+    expect(result.closedBelow).toBeNull();
+    expect(result.errors).toEqual([]);
+  });
+
+  test('a missing max-rounds is an error', () => {
+    const result = readStopRule(plan('stop-when-closed-below: none\nalways: stop when nothing is left to build'));
+    expect(result.maxRounds).toBeNull();
+    expect(result.errors.some((e) => /max-rounds/.test(e))).toBe(true);
+  });
+
+  test('a non-positive max-rounds is an error', () => {
+    for (const bad of ['0', '-1', 'not-a-number']) {
+      const result = readStopRule(plan(`max-rounds: ${bad}\nstop-when-closed-below: none\nalways: stop when nothing is left to build`));
+      expect(result.maxRounds).toBeNull();
+      expect(result.errors.some((e) => /max-rounds/.test(e))).toBe(true);
+    }
+  });
+
+  test('no "## Stop rule" section at all is an error, not a thrown exception', () => {
+    const result = readStopRule('# Verification plan: demo\n\n## Blockers\nnone\n');
+    expect(result.maxRounds).toBeNull();
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  test('reads the LAST "## Stop rule" section, and ignores one inside a fenced block', () => {
+    const text = `# Verification plan: demo
+
+Some prose mentioning \`## Stop rule\` inline, followed by a fenced example:
+
+\`\`\`markdown
+## Stop rule
+max-rounds: 999
+\`\`\`
+
+## Stop rule
+max-rounds: 4
+stop-when-closed-below: none
+always: stop when nothing is left to build
+`;
+    const result = readStopRule(text);
+    expect(result.maxRounds).toBe(4);
+    expect(result.errors).toEqual([]);
+  });
+});
+
+describe('decideFixRound', () => {
+  const base = { round: 1, maxRounds: 5, closedBelow: null, closedThisRound: 2, buildableOpen: 3 };
+
+  test('continues when buildable work remains, under the round cap, and above the closed-below floor', () => {
+    expect(decideFixRound(base)).toMatchObject({ action: 'continue' });
+  });
+
+  test('stops when nothing buildable is left, even mid-cap', () => {
+    const result = decideFixRound({ ...base, buildableOpen: 0 });
+    expect(result).toMatchObject({ action: 'stop', reason: 'nothing left to build' });
+  });
+
+  test('stops when the round has reached max-rounds', () => {
+    const result = decideFixRound({ ...base, round: 5, maxRounds: 5 });
+    expect(result.action).toBe('stop');
+    expect(result.reason).toMatch(/max-rounds/);
+  });
+
+  test('stops when fewer criteria closed this round than stop-when-closed-below', () => {
+    const result = decideFixRound({ ...base, closedBelow: 3, closedThisRound: 1 });
+    expect(result.action).toBe('stop');
+    expect(result.reason).toMatch(/closed-below|closed 1/);
+  });
+
+  test('round 0 (blockers only) is not judged by the closed-below floor', () => {
+    const result = decideFixRound({ ...base, round: 0, closedBelow: 1, closedThisRound: 0 });
+    expect(result.action).toBe('continue');
+  });
+
+  test('the closed-below floor never fires when closedBelow is null (no such rule)', () => {
+    const result = decideFixRound({ ...base, closedBelow: null, closedThisRound: 0 });
+    expect(result.action).toBe('continue');
+  });
+
+  test('evaluation order: nothing-buildable wins even when the round is also past max-rounds', () => {
+    const result = decideFixRound({ ...base, buildableOpen: 0, round: 5, maxRounds: 5 });
+    expect(result.reason).toBe('nothing left to build');
+  });
+
+  test('throws on a missing field, as decideNext does', () => {
+    const { buildableOpen, ...withoutBuildableOpen } = base;
+    expect(() => decideFixRound(withoutBuildableOpen)).toThrow(/buildableOpen/);
+
+    const { round, ...withoutRound } = base;
+    expect(() => decideFixRound(withoutRound)).toThrow(/round/);
+
+    const { maxRounds, ...withoutMaxRounds } = base;
+    expect(() => decideFixRound(withoutMaxRounds)).toThrow(/maxRounds/);
+
+    const { closedThisRound, ...withoutClosedThisRound } = base;
+    expect(() => decideFixRound(withoutClosedThisRound)).toThrow(/closedThisRound/);
+
+    const { closedBelow, ...withoutClosedBelow } = base;
+    expect(() => decideFixRound(withoutClosedBelow)).toThrow(/closedBelow/);
+  });
+
+  test('an explicit closedBelow: null is accepted, distinct from a missing key', () => {
+    expect(() => decideFixRound({ ...base, closedBelow: null })).not.toThrow();
+  });
+});
+
+describe('renderFixSummary', () => {
+  test('renders one row per round: tasks promoted, criteria closed, still open', () => {
+    const md = renderFixSummary({
+      rounds: [
+        { round: 1, tasksPromoted: 2, criteriaClosed: 3, criteriaOpen: 5 },
+        { round: 2, tasksPromoted: 1, criteriaClosed: 1, criteriaOpen: 4 },
+      ],
+      criteria: [],
+    });
+    expect(md).toContain('## Fix run');
+    expect(md).toMatch(/\| Round \| Tasks promoted \| Criteria closed \| Still open \|/);
+    expect(md).toContain('| 1 | 2 | 3 | 5 |');
+    expect(md).toContain('| 2 | 1 | 1 | 4 |');
+  });
+
+  test('lists every non-met criterion with status, cause and stop reason', () => {
+    const md = renderFixSummary({
+      rounds: [{ round: 1, tasksPromoted: 1, criteriaClosed: 1, criteriaOpen: 2 }],
+      criteria: [
+        {
+          id: 'FS-2',
+          statement: 'a repeated submit does not create two orders',
+          status: 'not_met',
+          cause: 'evidence-missing',
+          stopReason: 'not buildable by cause',
+        },
+        {
+          id: 'FS-3',
+          statement: 'mobile push notifications are delivered within 5s',
+          status: 'not_verifiable',
+          cause: 'environment-unreachable',
+          stopReason: 'not verifiable here',
+        },
+      ],
+    });
+    expect(md).toContain('FS-2');
+    expect(md).toContain('not_met');
+    expect(md).toContain('evidence missing');
+    expect(md).toContain('not buildable by cause');
+    expect(md).toContain('FS-3');
+    expect(md).toContain('environment not reachable');
+    expect(md).toContain('not verifiable here');
+  });
+
+  test('a blank or missing stop reason renders a visible placeholder, never an empty cell', () => {
+    const md = renderFixSummary({
+      rounds: [],
+      criteria: [
+        { id: 'FS-7', statement: 'x', status: 'not_met', cause: 'judged-failed', stopReason: '' },
+        { id: 'FS-8', statement: 'y', status: 'not_met', cause: 'judged-failed' },
+      ],
+    });
+    const rows = md.split('\n').filter((l) => /^\| FS-[78] /.test(l));
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toMatch(/\| no stop reason recorded \|$/);
+    }
+  });
+
+  test('a cause-less criterion renders unrecorded, never guessed', () => {
+    const md = renderFixSummary({
+      rounds: [],
+      criteria: [
+        {
+          id: 'FS-9',
+          statement: 'x',
+          status: 'not_met',
+          cause: null,
+          stopReason: 'stop rule reached',
+        },
+      ],
+    });
+    expect(md).toContain('unrecorded');
+  });
+
+  test('empty rounds and criteria render without a broken table', () => {
+    const md = renderFixSummary({ rounds: [], criteria: [] });
+    expect(md).toContain('## Fix run');
+    expect(md).toContain('_No rounds ran._');
+    expect(md).toContain('_None still open._');
+  });
+
+  test('throws when rounds or criteria are missing', () => {
+    expect(() => renderFixSummary({ criteria: [] })).toThrow(/rounds/);
+    expect(() => renderFixSummary({ rounds: [] })).toThrow(/criteria/);
+  });
+});
+
+describe('CLI: decide-fix-round and render-fix-summary', () => {
+  test('decide-fix-round subcommand: JSON in, JSON object out', () => {
+    const input = JSON.stringify({
+      round: 1,
+      maxRounds: 5,
+      closedBelow: null,
+      closedThisRound: 2,
+      buildableOpen: 3,
+    });
+    const stdout = execFileSync('node', [MODULE_PATH, 'decide-fix-round', input]).toString();
+    const parsed = JSON.parse(stdout);
+    expect(parsed.action).toBe('continue');
+  });
+
+  test('render-fix-summary subcommand: JSON in, markdown out (not JSON)', () => {
+    const input = JSON.stringify({
+      rounds: [{ round: 1, tasksPromoted: 1, criteriaClosed: 1, criteriaOpen: 0 }],
+      criteria: [],
+    });
+    const stdout = execFileSync('node', [MODULE_PATH, 'render-fix-summary', input]).toString();
+    expect(stdout).toContain('## Fix run');
+    expect(() => JSON.parse(stdout)).toThrow();
+  });
+});
+
+describe('the existing functional-verification.test.js cases still pass', () => {
+  test('sanity: decideNext and renderReport basics are untouched by the VFIX-B001 changes', () => {
+    expect(
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [] })
+    ).toMatchObject({ action: 'exit-satisfied' });
+    expect(renderReport({
+      feature: 'demo',
+      prd: 'docs/PRD/demo.md',
+      definitionPath: '.trd-state/demo/success-definition.md',
+      outcome: 'satisfied',
+      reason: 'all criteria met',
+      criteria: [],
+    })).toContain('# Functional Verification Report: demo');
   });
 });
 

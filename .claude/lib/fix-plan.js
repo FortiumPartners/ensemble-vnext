@@ -129,8 +129,11 @@ function plan(input) {
     writePointer: true,
     chain: true,
     chainSkill: 'implement-trd',
-    // --verify is not optional: re-running the recorded criterion IS the acceptance
-    // check. Without it the run asserts "done" on a suite that also passed before.
+    // Functional verification now runs by default (docs/TRD/verification-convergence.md
+    // VCON-B009), so this explicit --verify is redundant, not wrong — it just states
+    // out loud what the default flip already does. Left in place because a test pins
+    // this literal string (fix-plan.test.js); changing it would be an untested behaviour
+    // change smuggled into a comment fix.
     chainArgs: `docs/TRD/${slug}.md --verify`,
     handoffLine: `[STATUS: /plan] HANDOFF → TRD authored, chaining to /implement-trd`,
     // NO banner and NO notify on a chained run. command-status.md: nothing may
@@ -155,7 +158,7 @@ function finish({ writeTrd, reason, kind, slug }) {
     handoffLine: null,
     banner: '═══ COMMAND COMPLETE: /plan ═══',
     bannerBody: writeTrd
-      ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
+      ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd docs/TRD/${slug}.md when satisfied (functional verification runs by default).`
       : `${slug}: ${reason}.`,
     // Fires on EVERY terminating path, including the early reject — otherwise the
     // completion signal depends on which way the command happened to finish.

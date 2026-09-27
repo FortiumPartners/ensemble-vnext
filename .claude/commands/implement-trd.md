@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify]"
+argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained]"
 version: 4.0.0
 category: implementation
 ---
@@ -22,17 +22,24 @@ category: implementation
 >   old opt-in default, D11): dispatches a background success-definition derive early (Step
 >   3.6) and, at the tail of the run, an outcome-bearing verification loop (Step 8). Passing
 >   this flag explicitly is redundant on its own, but it means something paired with
->   `--resume`: with BOTH set EXPLICITLY and a non-terminal
+>   `--resume`: with BOTH set EXPLICITLY and a non-terminal (`outcome: null`)
 >   `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and
->   the whole phase loop and re-enters the verification loop directly (§3.6 step 0). `--resume`
->   **without** an explicit `--verify` never takes that branch, even though verification now
->   runs by default elsewhere in the command — it keeps its existing meaning (resume the
->   implementation checkpoint) and runs the phase loop as usual.
+>   the whole phase loop and re-enters that **interrupted** verification loop directly (§3.6
+>   step 0) — never a `satisfied`/`stalled`/`stuck`/`unbuilt`/`insufficient-coverage` one, which
+>   is a finished loop, not one to re-enter. `--resume` **without** an explicit `--verify` never
+>   takes that branch, even though verification now runs by default elsewhere in the command —
+>   it keeps its existing meaning (resume the implementation checkpoint) and runs the phase loop
+>   as usual.
 > - `--no-verify` - Opt out of the functional-verification pass entirely: no derive agent is
 >   dispatched, no `.trd-state/<feature>/success-definition.md` appears, and Step 8 is
 >   skipped — Step 9's banner reads `not run (--no-verify set)`.
+> - `--chained` - **For callers only** (`/verify-build --fix`, verification-fix-loop TRD §3.3,
+>   D2), never typed by hand: skips the derive pass, §3.6a's environment preflight, Step 8, and
+>   §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
+>   with one handoff line, `[STATUS: /implement-trd] RETURN → …`, reporting the build back to
+>   its caller instead of the usual four-section readout (§3.7).
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --no-verify`, `/implement-trd --resume --verify`
+> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --no-verify`, `/implement-trd --resume --verify`, `/implement-trd docs/TRD/user-auth.md --reconcile --chained`
 
 ---
 
@@ -42,10 +49,11 @@ category: implementation
 $ARGUMENTS
 ```
 
-Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`,
-`--verify`, `--no-verify`. Verification runs by default; `--no-verify` opts out; `--verify` is
-still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6 step 0 checks
-for.
+Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reconcile`,
+`--reset-state`, `--verify`, `--no-verify`, `--chained`. Verification runs by default; `--no-verify` opts out;
+`--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
+step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build --fix` is the one
+thing that passes it.
 
 ---
 
@@ -816,24 +824,35 @@ state.functional_verification = {
 batched question and the stated default applied, which §8.1a's report says plainly rather
 than folding into an ordinary "unusable" reason.
 
-**Report a prior-template digest match as its own line, separate from the unfilled message
-above.** The `check-verification-unfilled` call already run at the top of this step returns
-`matchedTemplate` alongside `unfilled` (D13) — read both:
+**Report what the file's shape actually is, derived from `missingSections` (D10) — not a
+fixed sentence.** The `check-verification-unfilled` call already run at the top of this step
+returns `matchedTemplate` and `missingSections` together (D10, D11) — read both, and report
+one of:
 
-- `matchedTemplate: "current"` — the file has never been filled in at all; the unfilled
-  message above already covers it.
-- `matchedTemplate` any OTHER label (e.g. `"pre-resource-table"`) — the file was NEVER filled
-  in, and it is an unfilled copy of an OLDER template: no §1a, no data-permission column, no
-  fast-refresh/full-deploy split. (A digest can only recognise an unmodified template — an
-  owner-filled file of the old shape reports `matchedTemplate: null` like any other filled
-  file, so this line never reaches that owner.) Say the consequence in one line: *"your
-  `verification.md` is an unfilled copy of a template that predates the resource /
-  read-only / fast-refresh sections — every lane resolves to concurrency 1 and no refresh or
-  full run is declared."* `scaffold-project.sh --refresh` will not rewrite this file
-  (correctly — it is owner-governed), so this line is how an owner who never filled it in
-  learns the new sections exist.
-- `matchedTemplate: null` (with `unfilled: false`) — an ordinary filled-in, current-shape file.
-  Nothing to report.
+- `unfilled: true`, `matchedTemplate: "current"` — the file has never been filled in at all.
+  Say: *"`verification.md` has never been filled in. Run `/verification-setup`."*
+- `unfilled: true`, `matchedTemplate` any OTHER label (e.g. `"pre-resource-table"`) — an
+  unfilled copy of an OLDER template. Say: *"`verification.md` is an unfilled copy of an
+  older template. It lacks <labels>. Run `/verification-setup`."*, where `<labels>` is
+  `missingSections`' ids rendered through `VERIFICATION_SECTION_LABELS` and joined with ", ".
+- `unfilled: false` (the file IS filled in) with `missingSections` non-empty — a FILLED file
+  written to an older template shape. Say: *"`verification.md` was written to an older
+  template shape. It lacks <labels>. Run `/verification-setup`; it asks only about what
+  is missing."* This keeps the one-line consequence for whichever of these are actually
+  missing: without §1a resource capacity, every lane resolves to concurrency 1; without §2's
+  fast refresh / full deploy split, no refresh or full run is declared; without §5a coverage
+  floor, no coverage floor is applied.
+- `reason: 'template-missing'` (D11 — the shipped template path does not exist, e.g. in a
+  scaffolded project) — say the unfilled check could not run: the shipped template was not
+  found, then add the same `<labels>` line above when `missingSections` is non-empty.
+- `matchedTemplate: null` with `unfilled: false` and `missingSections` empty — an ordinary
+  filled-in, current-shape file. Nothing to report.
+
+`scaffold-project.sh --refresh` will not rewrite this file (correctly — it is
+owner-governed), so these lines are how an owner learns the current sections exist at all —
+including an owner who filled the file in against an OLD shape, which a digest alone could
+never tell them (a digest only recognises an unmodified template; `missingSections` is
+derived from the file's actual headings and tables, filled or not).
 
 **Then continue straight into the phase loop.** This step never blocks on the derive agent
 and never produces `exerciseLanes`/`refreshCommand`/`fullRunCommand` itself — those are
@@ -844,6 +863,62 @@ token blocking four criteria, and reported those four as `not_met` — recording
 failures when the code was never exercised. Both halves were avoidable here: the expiry was
 discoverable before the loop started, and `not_verifiable` is the status that distinguishes
 "we could not look" from "we looked and it is broken".
+
+---
+
+### 3.7 `--chained` mode (verification-fix-loop TRD §3.3, D2)
+
+**For callers, not for direct use.** `--chained` is how `/verify-build --fix` builds each
+round's plan blockers and promoted failures —
+`Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` — never something the
+owner types by hand.
+
+**Without `--chained`, none of this section applies — including a direct `/implement-trd
+--reconcile`.** `--reconcile` on its own changes only which tasks run (§2.1a); the run then
+proceeds as a normal run: Step 3.6 dispatches the derive pass, Step 8 runs the verification
+loop **by default** (skipped only by `--no-verify`), §9.0a publishes, and Step 9 ends the run
+with this command's own `═══ COMMAND COMPLETE: /implement-trd ═══` banner — or
+`═══ COMMAND STUCK: /implement-trd ═══` on Step 10.1 retry exhaustion. Only `--chained` turns
+those off, and only `/verify-build --fix` passes it.
+
+Parsed alongside the other flags (User Input, above). Under it:
+
+- **Step 3.6 does not dispatch the derive pass** — no `product-manager` agent, no
+  `.trd-state/<feature>/success-definition.md`. The success definition this run needs already
+  exists from whichever earlier run produced the criteria `/verify-build --fix` is re-verifying.
+- **§3.6a's environment preflight is skipped.** The caller — `/verify-build` step 2 — already
+  ran it this same run and persisted `functional_verification.environments`; running it again
+  would ask its one batched question a second time, and that question must never fire at all
+  inside an unattended chained build (no `AskUserQuestion` reaches the owner under `--chained`).
+- **Step 8 is skipped entirely** — no verification loop, so §8.1a's lane resolution and §8.2's
+  "run §3.6a now if none recorded" fallback are never reached; there is nothing here for them to
+  resolve. `/verify-build --fix` runs its own verify pass, over the caller's own criteria, after
+  this chained build returns.
+- **§9.0a publishes nothing** — no report, no check pages. `/verify-build --fix` republishes
+  those itself once its own verify pass has run.
+- **No banner, no `notify-complete.sh`, no `PushNotification`.** The caller emits the run's only
+  banner and its only completion notifications (`command-status.md`: one banner per RUN, not
+  per command name).
+
+**Unchanged**: phase gates, checkpoints, commits, and Step 7.2's end-of-run
+`Skill({ skill: "code-review", args: "high --fix {branch_base}...HEAD" })` still run exactly as
+in an ordinary build.
+
+**The readout is replaced by one line**, in place of Step 9's four-section template and its
+banner:
+
+```
+[STATUS: /implement-trd] RETURN → chained by /verify-build --fix: <n> of <m> tasks built[; not built: <id> — <why>, …]
+```
+
+This line is a sibling of the DISPATCHED/RESUMED/PHASE lines in `## Output discipline` below —
+same `[STATUS: /<command>] <VERB> → …` shape, a new verb reporting a chained build's return to
+its caller rather than a run's own completion.
+
+**On a Step 10.1 STUCK reached under `--chained`**: emit
+`[STATUS: /implement-trd] RETURN → STUCK: <reason>` and no banner. The caller is the one that
+ends the run — `COMMAND STUCK: /verify-build` (verification-fix-loop TRD §3.6 step 3) — because
+under `--chained` this command never owns the run's own terminator.
 
 ---
 
@@ -1376,11 +1451,15 @@ straight to Step 9 exactly as §8.1 already sends them.
    too. Read the PRD named at §8.1 step 1's `prd_path` when one resolved, or the source text
    §3.6 resolved (the TRD's `## Reproduction` / `## Intended Change` / `## Behaviour
    Preserved`) when it did not.
-2. **Select (D9).** For each of the three skills named in `trd-authoring.md`
-   (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`), read
-   `.claude/skills/<name>/SKILL.md` (fall back to `packages/skills/<name>/SKILL.md` in the
-   framework's own checkout — the same resolution the authoring rule uses) for its **When it
-   applies** section. A check is selected when a row in the section names it. It is left out
+2. **Select (D9).** Read the `check`-role rows of `.claude/skills/framework-skills.txt` (fall
+   back to `packages/skills/framework-skills.txt` in the framework's own checkout — the same
+   resolution used below; verification-fix-loop TRD D14, §3.8). A `support`-role row (currently
+   only `verify-plan-recovery`) is never a candidate here — the list has one line per skill and
+   a role column, and only `check` rows are selectable as verification checks. For each named
+   `check` skill, read `.claude/skills/<name>/SKILL.md` (fall back to
+   `packages/skills/<name>/SKILL.md` in the framework's own checkout — the same resolution the
+   authoring rule uses) for its **When it applies** section. A check is selected when a row in
+   the section names it. It is left out
    when an `Omitted:` or `None apply —` line gives a reason — honour that reason unconditionally,
    whatever the PRD's inputs look like. Otherwise (the section is absent, or present but silent
    on this check) select it when its trigger is met by the PRD's own inputs, with those inputs
@@ -1525,6 +1604,17 @@ no environment; every "exercisable" criterion resolves to exactly one.
 5. **Record the resolved lane list, the refresh/full-run commands, and which environment each
    criterion landed on** — the same habit this step already has for the three-way bucket:
    state what was READ and what was concluded, per criterion.
+6. **Read the owner's coverage floor (D7, D9):**
+
+   ```bash
+   node .claude/lib/functional-verification.js read-coverage-floor .claude/rules/verification.md
+   ```
+
+   Set `coverageFloor` from the result's `floor` (a fraction in `[0, 1]`, or `null` when none
+   is declared). On `status: 'invalid'` — the `Coverage floor:` line under §5a does not parse
+   — `coverageFloor` stays `null` (no floor is applied), and Step 9's ISSUES names the raw
+   text and says to fix it with `/verification-setup`. This never makes the run STUCK: an
+   unreadable floor is a gap to report, not a reason to stop verifying (D9).
 
 **When no environment resolves any lane at all** — no criteria are exercisable, or the file is
 still unfilled — pass no `exerciseLanes` to §8.3 and let the workflow's own default apply: one
@@ -1594,6 +1684,7 @@ Workflow({ name: "verify-functional", args: {
   exerciseLanes,                                                 // §8.1a -- resolved from verification.md §1a; omitted lets the workflow default to one lane of concurrency 1
   refreshCommand,                                                // §8.1a -- the per-iteration refresh from verification.md §2, or "" when none is declared
   fullRunCommand,                                                // §8.1a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
+  coverageFloor,                                                 // §8.1a -- verification.md §5a as a fraction, or null when none is declared
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
@@ -1694,11 +1785,22 @@ STATE
     were never exercised, so this is not enough checking to call it verified either way."}
   {if --no-verify was set: "Nobody checked whether the software does what the PRD asked
     (--no-verify set)."}
+  {if verification ran: "Coverage floor: {N}% (from verification.md)" when §8.1a's
+   `coverageFloor` is non-null; "Coverage floor: not applied — the line in verification.md
+   does not parse" when `read-coverage-floor` returned `status: 'invalid'`; else
+   "Coverage floor: none declared" (D19). Never "none declared" for an invalid line — the
+   owner did declare one.}
   {for each selected check, from `criteria` and `pages`: one line naming the check in plain
    words and its verdict counts, with its page link when rendered — e.g. "Screens against
    their designs: 32 compared — 28 match, 2 minor, 2 deviate and are still open — <link>".}
   {if the TRD's `## Verification Artifacts` section omitted an applicable check: one line
    naming it and its stated reason.}
+  {if outcome is stalled/stuck/unbuilt/insufficient-coverage (verification-fix-loop TRD §3.1,
+   D3): a Diagnosis line by cause, counted over `criteria`'s non-`met` entries exactly as
+   `renderReport` counts them for the report — descending by count, in words, cause-less
+   entries as "unrecorded" — e.g. "**Diagnosis**: 14 open — 6 evidence missing, 5 judged
+   failed, 3 not built." Never re-derive the verdict itself here; this is a count, not a
+   second judgement.}
 
 DECISIONS
   {choices the run made that the owner did not — a default applied where the TRD was silent,
@@ -1715,11 +1817,18 @@ ISSUES
   {for each entry in `pages` with `rendered: false`: "{skill}'s page did not render at
     iteration {iteration} — {reason}."}
   {for each check input that did not resolve at §8.1b: name the check and the input.}
+  {if §8.1a's `read-coverage-floor` returned `status: 'invalid'`: "verification.md's coverage
+    floor reads `{raw}`, which is not a percentage or `none`, so no floor was applied — fix it
+    with `/verification-setup`." (D9)}
   {blocking discoveries this run found and did not do — promoted or not, and which}
   {if none: "none"}
 
 NEXT
   {the single next command, runnable as written — normally the first of:}
+    {if outcome is stalled/stuck/unbuilt/insufficient-coverage: "agree a recovery plan with
+     `/verify-plan-recovery`, then run `/verify-build --fix`" — the exact wording
+     `renderReport` puts under its own Diagnosis line (verification-fix-loop TRD §3.1), so the
+     readout and the report never disagree on what comes next.}
     /audit-build <trd> --prd <prd>     verify delivery against the TRD and PRD
     gh pr create --title "<title>"     when the audit is clean
   {name ONE. The others are the owner's to run when they get there.}
@@ -1843,6 +1952,10 @@ Waiting for input...
 
 A cycle detected at Step 3.1 uses the same banner shape, with `Stage` replaced by "graph
 cycle" and `Problem` naming every participating task ID.
+
+**Under `--chained` (§3.7), this box is never shown and nothing waits for input** — retry
+exhaustion instead emits `[STATUS: /implement-trd] RETURN → STUCK: <reason>` with no banner,
+and the caller (`/verify-build --fix`) is the one that ends the run.
 
 ---
 

@@ -2,7 +2,7 @@
 name: verify-build
 description: Run the functional verification loop on its own — does the delivered software do what the PRD says, checked with artifacts
 version: 1.0.0
-argument-hint: "[trd-path] [--resume] [--cap N]"
+argument-hint: "[trd-path] [--resume] [--cap N] [--fix [plan-path]]"
 category: verification
 ---
 
@@ -28,8 +28,10 @@ three commonest reasons to want the loop have nothing to do with running an impl
 
 - The implementation ran with **`--no-verify`** (opted out of the now-default pass) and you
   want the check now.
-- The loop **crashed, stalled, or was interrupted**, and re-running `/implement-trd` to reach
-  it would re-enter the phase loop over already-complete tasks.
+- The loop **crashed or was interrupted** (`outcome: null` in `verification-state.json`), and
+  re-running `/implement-trd` to reach it would re-enter the phase loop over already-complete
+  tasks. A run that ended **`stalled`** already finished — that is not this case; see `--fix`,
+  below, which is the command this whole reason exists to name.
 - You **fixed something by hand** — a credential, a config, the environment — and want to
   re-verify without touching implementation at all.
 
@@ -37,8 +39,9 @@ Running `/implement-trd --verify --resume` (the EXPLICIT flag, not the now-defau
 covers the second case, but only because §3.6 step 0's composition gate skips the phase loop;
 that is a subtle path to rely on for the ordinary act of "verify what is already built."
 
-**This command never implements.** It dispatches no implementer, runs no phase, writes no task
-state, and makes no commit beyond the loop's own artifacts.
+**This command never dispatches an implementer itself.** It runs no phase, writes no task
+state, and makes no commit beyond the loop's own artifacts — under `--fix` (below) it chains
+`/implement-trd`, which is the implementer; this command still never dispatches one directly.
 
 **It DOES derive the success definition when one is absent** — see step 3. That is the whole
 point of the command: the case it exists for is a run that used `--no-verify`, or one whose
@@ -63,8 +66,17 @@ ENVIRONMENTS only: read `.claude/rules/verification.md`'s §1 and resolve each D
 ENVIRONMENT as usable / unusable / needs-one-thing-from-the-owner, batch that last bucket into
 ONE question — naming the environments, not criteria — with a stated default, then persist the
 per-environment result exactly as §3.6a documents (`state.functional_verification.environments`,
-set in memory then saved). Report a prior-template digest match in one line too (VCON-B009).
-Partial verification with stated gaps beats none.
+set in memory then saved). Report the file's shape too, exactly as §3.6a's `missingSections`-
+derived reporting does — naming `/verification-setup` and whichever sections are missing
+(D10, D11) — not a fixed sentence. Partial verification with stated gaps beats none.
+
+**Under `--fix`, that one question is NOT asked** (O3: a `--fix` run asks the owner nothing,
+start to finish). Every environment in the needs-one-thing bucket takes the question's stated
+default — unusable for this run, so its criteria resolve `not_verifiable` — and the thing it
+needs is recorded as a `verification.md` need exactly as `--fix` step 2 records one (D13:
+`kind: 'gap', blocksFeature: false, file: '.claude/rules/verification.md'`), named in ISSUES
+for "the owner, at the next bridge". The owner answers it in `/verify-plan-recovery`, not
+mid-run.
 
 ### 3. Read the inputs from disk
 
@@ -161,18 +173,25 @@ exists (step 3 or 3a); select the checks the TRD's `## Verification Artifacts` s
 (or the same defaults §8.1b applies when it is absent or silent), append their rows, and
 resolve `checks`, `checkComments` and `pagesDir` exactly as §8.1b documents.
 
+Under `--fix` (below), union the plan's `## Extra checks` table into this selection first,
+restricted to rows naming a `check`-role skill in `framework-skills.txt` — a row naming the
+`support`-role `verify-plan-recovery`, or any other skill whose role is not `check`, is left
+out of the selection and reported in ISSUES (D11).
+
 ### 3c. Resolve criteria to environments and lanes
 
 **Identical to `/implement-trd` §8.1a — read that section and follow it.** `criteria` now
 includes the check rows appended at step 3b, and step 2's per-environment results are on disk
 (`.trd-state/<feature>/implement.json`'s `functional_verification.environments`) — bucket each
 criterion exercisable / not-verifiable against those results (no new `AskUserQuestion`; the
-one question already ran at step 2), then derive `exerciseLanes`, `refreshCommand` and
-`fullRunCommand` from `verification.md` §1a/§2 exactly as §8.1a documents.
+one question already ran at step 2), then derive `exerciseLanes`, `refreshCommand`,
+`fullRunCommand` and `coverageFloor` from `verification.md` §1a/§2/§5a exactly as §8.1a
+documents — `coverageFloor` via `read-coverage-floor`, `null` on an `invalid` line, named in
+ISSUES with the same D9 wording.
 
 ### 4. Dispatch
 
-All 21 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 22 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 ```javascript
@@ -195,6 +214,7 @@ Workflow({ name: "verify-functional", args: {
   exerciseLanes,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §1a; omitted defaults to one lane of concurrency 1
   refreshCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's fast refresh, or "" when none is declared
   fullRunCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's full deploy, or "" when none is declared
+  coverageFloor,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §5a as a fraction, or null when none is declared
   checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
   checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
   pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set
@@ -208,6 +228,11 @@ or either `not run` case — with the per-criterion counts, the report path, and
 ratio when the outcome is `insufficient-coverage`. A failed final full-environment run appears
 in ISSUES with who acts (VCON-B009); it does not retract the criteria proven before it.
 
+**State the coverage floor whenever this run reached step 4 (D19):** "Coverage floor: {N}%
+(from verification.md)" when 3c's `coverageFloor` is non-null; "Coverage floor: not applied —
+the line in verification.md does not parse" when `read-coverage-floor` returned `invalid`
+(with the ISSUES line 3c requires); else "Coverage floor: none declared".
+
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.
 
@@ -220,11 +245,129 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 section may be "none". No section for what was dispatched or which stages ran: that is in the
 transcript and does not change what the owner does next.
 
-## `--resume`
+**When the outcome is `stalled`, `stuck`, `unbuilt` or `insufficient-coverage`** (D3;
+verification-fix-loop TRD §3.1): STATE carries a Diagnosis line, counted over `criteria`'s
+non-`met` entries exactly as `renderReport` counts them for the report — descending by count,
+in words, cause-less entries as "unrecorded". Never re-derive the verdict here; this is a
+count, not a second judgement. NEXT is `renderReport`'s own exact wording, so the readout and
+the report never disagree on what comes next: "agree a recovery plan with
+`/verify-plan-recovery`, then run `/verify-build --fix`".
+
+## `--fix [plan-path]` and `--resume` — mutually exclusive
+
+`--fix` and `--resume` are refused together: if both are passed, stop before step 1 and name
+both flags in one line. They are two different re-entries into this command, and only one
+applies per invocation.
+
+### `--resume`
 
 Re-enters at the next iteration from `verification-state.json`, seeding `previousGaps`. The
 state file's `outcome` key decides: `null` means the run stopped mid-loop and is resumable;
 any of the five outcome strings means it finished and `--resume` starts a fresh run instead.
+Only the file's `met` entries carry forward into the resumed run — `not_verifiable` and
+`unbuilt` entries do not, so they are walked again this run. The iteration cap (`--cap N`,
+default 3) is a total budget across every resume of one run, not a fresh budget each time
+`--resume` is passed.
+
+### `--fix [plan-path]` (verification-fix-loop TRD §3.6, D1, D8–D11, D13)
+
+Owns an outer loop of build-then-verify rounds wrapped around the steps above (D1) —
+`/verify-build --fix` builds by chaining `/implement-trd`, never by dispatching an implementer
+itself (see "Why this exists separately", above). The plan path defaults to
+`.trd-state/<feature>/verification-plan.md` when that file exists; pass one explicitly to use
+a different plan.
+
+0. **Steps 1–3c run exactly as above, with three additions when a plan is present.** Fold its
+   `## Owner rulings` table into `notes` under a `## Owner rulings (verification-plan.md)`
+   heading, so the Judge applies them (D11). Union its `## Extra checks` table into step 3b's
+   selection (above). Read the stop rule with `readStopRule(planText)`
+   (`.claude/lib/functional-verification.js`) rather than the model re-deriving it from prose
+   (D6, D7) — a plan whose stop rule is missing or unreadable runs as if there were no plan
+   (one round), and ISSUES says so; no plan at all reads as `{ maxRounds: 1 }`. **Either way
+   the run is bounded, and the readout names the rule it applied**: ISSUES carries
+   "no readable stop rule in `<plan path>` (`<readStopRule's first error>`) — applied the
+   default, `max-rounds: 1` (one round)", and STATE's round count reads against that `1`.
+   The owner's fix is a `## Stop rule` section, written at the next bridge. Initialise
+   `implement.json`'s `functional_verification.fix = { plan, stopRule, rounds: [], stopped:
+   false }` (D9).
+
+1. **Round 0.** With a plan: record each `## Blockers` row as a discovery
+   (`kind: 'gap', foundBy: 'verify-build --fix', blocksFeature: true, ref: 'plan:<id>'`,
+   `after` from its `After` column as `plan:<id>` refs, `—` meaning none — §3.2), passing the
+   plan's `**Written**` timestamp as `record()`'s `nowIso` so a re-run of `--fix` on the same
+   plan never re-promotes a blocker. Without `blocksFeature: true` nothing promotes and the
+   chained build has nothing to build. Then chain
+   `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` to build them, then
+   verify (step 4, below, with its synthesised `resume`). Without a plan and with no terminal
+   state file already on disk: run one ordinary verify pass and go straight to step 6 — a
+   single round, exactly like today's plain run with no `--fix` at all.
+
+2. **Round k ≥ 1 — record.** From the latest `verification-state.json`: for each criterion now
+   `met` that carries an earlier ref'd discovery row, record a `met` row for that same `ref`
+   (retiring the earlier failure, promoting nothing new). For each criterion still open whose
+   cause is buildable (`judged-failed` or `not-built` — D4; every other cause is re-verified
+   next round and never built) and which no `## Accepted as not verifiable` ruling in the plan
+   covers: record a failing row (`kind: 'gap', foundBy: 'verify-build --fix', blocksFeature:
+   true, status: 'not_met' | 'unbuilt', ref: '<criterion id>', evidence: '<cause>: <reason>'`
+   — §3.2), but only for criteria in the plan's **active slice** — the
+   first `## Slices` row, in order, that still has an open buildable criterion (D11). Slicing
+   limits what is BUILT this round, never what is VERIFIED: step 4 below still walks every
+   open criterion regardless of slice, so a regression outside the active slice is still seen.
+   **Never recorded as a failing row, in any round:** a `not_verifiable` criterion (its causes,
+   `environment-unreachable` and `capability-absent`, are never promoted — D4), and the run's
+   outcome itself, `insufficient-coverage` included. A coverage shortfall is made of criteria
+   nobody could check, not of code that failed; no build task can raise it, so it is reported
+   in the readout and never turned into one.
+   Record any `verification.md` need found this round as an ordinary discovery (D13):
+   `kind: 'gap', blocksFeature: false, file: '.claude/rules/verification.md'`, summary naming
+   the change — this command never edits that file itself (O6, NG7). **If nothing was recorded
+   this round, skip to step 6.**
+
+3. **Round k ≥ 1 — build.** Chain `Skill({ skill: "implement-trd", args: "<trd> --reconcile
+   --chained" })` **exactly once per round** — ONE fix batch covering every row step 2
+   recorded, never one build per criterion. On `RETURN → chained by /verify-build --fix: <n> of <m> tasks built…`,
+   continue to step 4. On `RETURN → STUCK: <reason>`, end the whole run now with `═══ COMMAND
+   STUCK: /verify-build ═══` — under `--chained` the caller owns the run's only terminator, and
+   a build that cannot proceed leaves nothing for another round to verify.
+
+4. **Verify.** Step 4's dispatch (above), unchanged, with `resume` synthesised instead of read
+   from disk (D8): `{ iteration: 0, criteria: <the latest state file's entries with status
+   'met'>, gapsClosed: [] }`, dropping any criterion carrying an owner comment first — the same
+   filter `/implement-trd` §8.2 already applies on its own `--resume` path. `iteration: 0`
+   gives this round its own inner cap; passing the real state file as `resume` instead would
+   read as an already-exhausted budget and return `stuck` at once. Because those `met` entries
+   arrive as settled, **this round re-verifies only criteria still open**: a criterion already
+   `met` is carried forward with its original `provenAt` and is not exercised again. Publish the report and each
+   selected check's page to their stored `artifacts.json` URLs (the "Artifact link" section,
+   below — the same mechanism, run again each round, not a second one), then read comments on
+   each published check page (§8.1b step 5) so the next round's step 3b selection carries them
+   and this step's filter un-settles any criterion they comment on.
+
+5. **Close the round.** Append `{ round, promoted, closed, open, buildable }` to
+   `functional_verification.fix.rounds` (D9) and emit `[STATUS: /verify-build] PHASE
+   <k>/<maxRounds> COMPLETE → <closed> closed, <open> open`. Then run `node
+   .claude/lib/functional-verification.js decide-fix-round --file <payload>` (§3.5) with this
+   round's `round`, `maxRounds` and `closedBelow` (from the stop rule read at step 0),
+   `closedThisRound` and `buildableOpen` (from this round's own counts). `action: 'continue'`
+   returns to step 2 for round k+1. `action: 'stop'` — for any reason, including "nothing left
+   to build" — falls through to step 6, and sets `functional_verification.fix.stopped = true`.
+
+6. **Render and close.** Build the `## Fix run` section with `node
+   .claude/lib/functional-verification.js render-fix-summary` (D10) and append it to
+   `verification-report.md`, republish it under the same stored URL. Its `criteria` input is
+   **every criterion not `met`** in the latest state file, each with a non-empty `stopReason`
+   composed from the first of these that applies: `not verifiable here: <the Judge's reason>`
+   (status `not_verifiable`); `accepted as not verifiable: <the plan's ruling>`; `not buildable
+   by cause: <cause in words> — re-verified each round, never built` (a cause other than
+   `judged-failed`/`not-built`); `outside the active slice`; `stop rule reached: <decide-fix-round's
+   reason>`. The renderer prints `no stop reason recorded` for a blank one so an omission is
+   visible, but a blank one is a defect in this step, never an acceptable row. Emit the readout: STATE
+   carries the Diagnosis counts (above, unchanged); ISSUES names each `verification.md` need
+   recorded at step 2, "the owner, at the next bridge" (D13); NEXT is `/verify-plan-recovery`
+   when anything buildable or blocked remains, otherwise `/audit-build`. Exactly **one** `═══
+   COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —
+   `notify-complete.sh`, and a `PushNotification` (`command-status.md` Path A for
+   long-running commands).
 
 ---
 
@@ -268,7 +411,14 @@ Runs autonomously from invocation to the banner. `AskUserQuestion` is permitted 
 four cases in `autonomy.md` — and on this command the realistic one is §2's preflight batch:
 information that genuinely cannot be derived, asked ONCE, up front, with a stated default.
 
-Do not pause to report interim findings. Do not offer to fix what the loop surfaces.
+**Under `--fix`, not even that: a `--fix` run asks the owner no questions from start to
+finish** (O3). Step 2's question takes its stated default and becomes a recorded
+`verification.md` need (step 2, above); the chained build runs under `--chained`, where no
+`AskUserQuestion` reaches the owner (`/implement-trd` §3.7); and every decision the run needs
+comes from the plan the owner already agreed in `/verify-plan-recovery`.
+
+Do not pause to report interim findings. Do not offer to fix what the loop surfaces — `--fix`
+fixes because it was invoked with that flag, never because a plain run offered to.
 
 - "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
 - The declarative form is the same move: "I can fix that if you want", "say the word".

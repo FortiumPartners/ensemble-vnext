@@ -187,3 +187,122 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   (`> file 2>&1`, not `2>&1 > file`) — the reverse silently produces a 0-byte
   capture because `2>&1` binds to the terminal before the later `>` retargets
   stdout.
+
+## Exercising verification-fix-loop (2026-09-27 run, iteration 1)
+
+- [ran] `scaffold-project.sh` takes the target directory as a bare positional argument, not
+  `--project-dir` (which errors "Unknown option"). Usage:
+  `scaffold-project.sh --plugin-dir <dir> [--refresh] <project-dir>`. Confirmed against both
+  a fresh scaffold and a `--refresh` of the same directory — all four `framework-skills.txt`
+  entries (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`,
+  `verify-plan-recovery`) land in `.claude/skills/` on both paths, whatever
+  `selected-skills.txt` says, confirming the bridge skill ships exactly like the check skills.
+- [ran] `discovered.js`'s `promoteToTrd(trdPath, rows, opts)` anchors on the LAST table whose
+  header row matches `/^\|\s*Task ID\s*\|/i` — a table headed plain `| ID |` is invisible to
+  it (`skipped: N`, not an error). A fixture TRD for this library needs a `| Task ID | ... |`
+  header, not `| ID | ... |`, or promotion silently no-ops.
+- [ran] `functional-verification.js`'s `renderReport`, `readStopRule` and `decideFixRound` are
+  all pure functions exercisable via a one-off `node -e` requiring the module directly — no
+  server, no fixture TRD, no `.trd-state` state needed. Confirmed the Diagnosis block renders
+  under all four of `stalled`/`stuck`/`unbuilt`/`insufficient-coverage` and not under
+  `satisfied`; confirmed `cause` counts are read from the stored field even when the `reason`
+  text contains a different cause's keyword (a `judged-failed` row with "stale" in its reason
+  strictly counts as judged failed, never re-parsed).
+- [ran] `discovered.js`'s ref-based identity pre-pass (`latestPerRef`) collapses two
+  differently-worded rows sharing the same `ref` into ONE before promotion ever runs — proven
+  by recording two rows for `ref: "FS-99"` with different summaries and seeing exactly one
+  `AMEND-001` row in the promoted TRD, carrying the LATER wording.
+
+## Exercising verification-md-setup (2026-09-27 run, iteration 1)
+
+- [ran] The `verification-setup` skill cannot be invoked by this exerciser: `Skill({skill:
+  "verification-setup"})` returns `Unknown skill: verification-setup` even though it's
+  installed and listed in the session's available-skills reminder — its frontmatter
+  carries `disable-model-invocation: true` and "Owner-invoked only — no command or agent
+  may reach it" (SKILL.md lines 9, 16). This is corroborating evidence for the
+  no-autonomous-write criterion in this success definition, not a gap: it means the
+  interview-behaviour criteria (the ones needing an actual `AskUserQuestion` transcript)
+  cannot be captured as a real skill run by an agent in this framework, ever — not just
+  this pass. Substitute the skill's own prompt text (SKILL.md) plus live CLI calls to the
+  functions it names in its own Inputs table (`check-verification-unfilled`,
+  `recommend-coverage-floor`) as evidence instead, and say so in the claim's reason.
+- [ran] `scaffold-project.sh --plugin-dir <repo>/packages/full <scratch-dir>` (bare
+  positional target, no `--project-dir`) is the fast way to get a fixture project with the
+  real shipped skill directory (`.claude/skills/verification-setup/SKILL.md`) and the real
+  `.claude/lib/functional-verification.js` copy — confirmed live, ~2s, in the session
+  scratchpad.
+- [ran] Inside a scaffolded fixture project, `node .claude/lib/functional-verification.js
+  check-verification-unfilled .claude/rules/verification.md` must be run from THAT
+  project's own directory (or with a path that resolves relative to it) — invoking the
+  repo's own `.claude/lib/functional-verification.js` against a scratch project's file path
+  returns `{"unfilled":null,"reason":"template-missing",...}` because the module resolves
+  its shipped-template path relative to `__dirname`, not the target file's directory. Always
+  `cd` into the fixture project first, or invoke via its own copy of the lib.
+- [ran] `missingVerificationSections()` (the function behind FS-13-shaped criteria) checks
+  FOUR sections today (resource-capacity, write-permission-column, refresh-split,
+  coverage-floor), not three — a success-definition criterion that describes it naming
+  "the three sections" needs a careful read against which prior template shape it means:
+  the fixture `verification.resource-table-v2.md` (the shape immediately before this
+  change) is missing only `coverage-floor` (one section), and the oldest fixture
+  `verification.pre-1.5.0.md` is missing all four. No fixture shape yields exactly three.
+  Recorded as a judge question, not resolved here.
+- [ran] `recommend-coverage-floor <dir>` reads `<dir>/*/verification-state.json`, keyed by
+  each subdirectory's own name as `feature`; building a two-run fixture (`4/5` and
+  `3/10` proven, both `outcome: "satisfied"`) reproduces the documented "lowest satisfied
+  share, floored to a multiple of 5%" rule exactly (`recommended: 0.3` for the `3/10` run) —
+  cheap way to exercise `recommendCoverageFloor`'s formula live without a real
+  `/implement-trd` history.
+
+## Exercising verification-md-setup, iteration 2 re-check (2026-09-27)
+
+- [ran] The same locator-must-sit-on-one-line rule the verification-fix-loop notes already
+  state applies to `packages/skills/verification-setup/SKILL.md` too: its prose wraps at
+  ~90-92 columns, so a phrase copied by paraphrase from consecutive sentences (e.g. "the
+  reasoning that produced it in one line") spans a physical line break and reads
+  `locator-not-found` even though the words are all there. Fixed for FS-4/FS-7 by copying
+  the file's OWN physical lines verbatim into the evidence file (no reflow) and picking the
+  locator from inside one such line, rather than composing a paraphrase across sentence
+  boundaries. Do this for any future criterion sourced from this file.
+- [ran] `check-verification-unfilled <projectPath> [templatePath]` needs an explicit
+  `templatePath` argument when run from THIS repo's own working tree, not just from a
+  scaffolded fixture project (an earlier note only covered the fixture-project case): this
+  repo has no `.claude/skills/verification-setup/template.md` (that only exists in a
+  scaffolded consuming project), and the CLI's fallback resolves that path relative to
+  `.claude/lib/functional-verification.js`'s own directory, so an omitted second argument
+  always reports `{"unfilled":null,"reason":"template-missing"}` here, whatever the first
+  argument is. Passing `packages/core/templates/claude-directory/rules/verification.md`
+  explicitly as the second argument gets a real answer from this repo directly, with no
+  scaffold step needed.
+- [ran] `node .claude/lib/functional-verification.js decide-next '{"gaps":[],"unbuilt":[],`
+  `"met":["FS-1"],"total":10,"coverageFloor":0.8,"cap":3}'` is a fast, fixture-free way to
+  produce a real `insufficient-coverage` exit on demand (no scratch project, no real failing
+  run needed) — confirmed output:
+  `{"action":"exit-insufficient-coverage","reason":"proven ratio 1/10 (10.0%) is below the`
+  `coverage floor 80% ...","closed":[]}`. Useful for any future criterion needing this exit
+  as evidence.
+
+## Exercising verification-md-setup, iteration 3 re-check (2026-09-27)
+
+- [ran] FS-7's iteration-2 gap ("SKILL.md never tells the owner what the floor means")
+  was closed in the working tree between iteration 2's evidence capture (mtime 16:34) and
+  this pass: `packages/skills/verification-setup/SKILL.md` (mtime 16:37, uncommitted —
+  `git diff` shows the addition) now opens the Coverage floor section with the quoted
+  `AskUserQuestion` sentence itself defining the floor as "the share of the success
+  definition's criteria that must be proven (met) before a verification run may report
+  satisfied". Re-captured `FS-7.txt` from the current file content rather than reusing the
+  stale iteration-2 copy — the general rule the verification-fix-loop notes already state
+  (re-grep/re-copy before reusing a prior iteration's evidence file, since a fix landing
+  between Judge and the next Exercise makes the old capture describe pre-fix code) applied
+  here across a gap that spanned two full loop iterations, not just one Debug pass within
+  an iteration.
+
+## Debug pass, verification-fix-loop iteration 1 (2026-09-27)
+
+- [ran] Citing a committed source file (e.g. `packages/core/commands/verify-build.md`) directly as
+  the artifact fails tier 1 as `stale` whenever that file is unchanged since HEAD — its mtime is
+  older than the freshness floor. Copy the current content into `evidence/<id>.txt` in the same
+  Exercise pass and cite the copy. Ten of fifteen gaps in iteration 1 were this and nothing else.
+- [ran] A locator must sit on ONE line of the artifact. `verify-build.md` wraps its prose at ~95
+  columns, so a sentence copied from a paraphrase ("Publish the report and each selected
+  check's page to their stored") spans a line break and is reported `locator-not-found` even
+  though the text is there. Pick a locator from inside a single physical line.

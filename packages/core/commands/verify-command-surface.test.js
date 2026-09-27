@@ -86,9 +86,30 @@ describe('implement-trd.md §8.1a derives exerciseLanes/refreshCommand/fullRunCo
     expect(src()).toMatch(/per criterion.*(which environment|environment.*lane)/is);
   });
 
-  test('reports a prior-template digest match and its one-line consequence', () => {
-    expect(src()).toMatch(/matchedTemplate/);
-    expect(flat(src())).toMatch(/predates the resource \/ read-only \/ fast-refresh sections/i);
+  test('reads matchedTemplate and missingSections, the fields check-verification-unfilled emits (VSET-B003, D10)', () => {
+    const text = src();
+    expect(text).toMatch(/matchedTemplate/);
+    expect(text).toMatch(/missingSections/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coverage floor (VSET-B003, D7/D9): §8.1a reads it through a real CLI subcommand and
+// branches on a status value that subcommand actually returns.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md §8.1a reads the coverage floor through read-coverage-floor', () => {
+  const section81a = () => read(CORE_IMPLEMENT)
+    .split('### 8.1a Resolve criteria to environments and lanes')[1]
+    .split('### 8.3 Assemble the remaining args and dispatch')[0];
+
+  test('§8.1a runs read-coverage-floor and derives coverageFloor', () => {
+    expect(section81a()).toMatch(/read-coverage-floor/);
+    expect(section81a()).toMatch(/coverageFloor/);
+  });
+
+  test("§8.1a branches on status: 'invalid', a value readCoverageFloor returns", () => {
+    expect(section81a()).toMatch(/status: 'invalid'/);
   });
 });
 
@@ -156,7 +177,7 @@ describe('§8.1a is positioned correctly and §3.6a is environment-only', () => 
 });
 
 // ---------------------------------------------------------------------------
-// Both dispatch blocks: 18 fields, same order, same new three appended.
+// Both dispatch blocks: 22 fields, same order.
 // ---------------------------------------------------------------------------
 
 function extractDispatchFields(source) {
@@ -171,22 +192,23 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 21 fields in the same order', () => {
-  test('implement-trd.md §8.3 lists 21 fields ending in checks/checkComments/pagesDir', () => {
+describe('both dispatch blocks carry the same 22 fields in the same order (VSET-B002/B003, D8)', () => {
+  test('implement-trd.md §8.3 lists 22 fields ending in checks/checkComments/pagesDir', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(21);
+    expect(fields).toHaveLength(22);
     expect(fields.slice(-3)).toEqual(['checks', 'checkComments', 'pagesDir']);
   });
 
-  test('verify-build.md §4 lists the identical 21 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 22 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 21 fields, not 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 21 fields/);
+  test('verify-build.md §4 intro says 22 fields, not 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 22 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 21 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 18 fields/);
   });
 });
@@ -470,6 +492,52 @@ describe('fix-plan.js is untouched (VCON-B009 grounding: leave this call site al
 // process docs learn the flip too (both copies, same lines).
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// VFIX-B004: `--chained` mode (verification-fix-loop TRD §3.3, D2). Only the contracts
+// another file or script depends on are held here: the flag is declared where
+// /verify-build --fix's chained invocation reaches it, the §3.7 section exists ahead of
+// Step 4, and the RETURN lines /verify-build --fix waits for keep their shape.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md declares --chained for its caller', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('frontmatter argument-hint carries --chained', () => {
+    const frontmatter = src().split('---')[1];
+    expect(frontmatter).toMatch(/--chained/);
+  });
+
+  test('the §3.7 `--chained` mode section exists, before Step 4', () => {
+    const text = src();
+    const i37 = text.indexOf("### 3.7 `--chained` mode");
+    const i4 = text.indexOf('## Step 4: Main Execution Loop');
+    expect(i37).toBeGreaterThan(-1);
+    expect(i4).toBeGreaterThan(i37);
+  });
+
+  test('§3.7 states the RETURN line shapes /verify-build --fix waits for', () => {
+    const section = flat(
+      src().split("### 3.7 `--chained` mode")[1].split('## Step 4: Main Execution Loop')[0]
+    );
+    expect(section).toMatch(
+      /\[STATUS: \/implement-trd\] RETURN → chained by \/verify-build --fix: <n> of <m> tasks built/
+    );
+    expect(section).toMatch(/RETURN → STUCK: <reason>/);
+  });
+});
+
+// Step 9's NEXT line must read exactly as renderReport() writes it
+// (functional-verification.js), so the readout and the report never disagree.
+describe('Step 9 readout NEXT matches renderReport\'s wording', () => {
+  test('NEXT names the bridge then /verify-build --fix', () => {
+    const text = read(CORE_IMPLEMENT);
+    const step9 = flat(text.split('## Step 9: Completion')[1].split('### 9.0a')[0]);
+    expect(step9).toMatch(
+      /agree a recovery plan with `\/verify-plan-recovery`, then run `\/verify-build --fix`/
+    );
+  });
+});
+
 describe('process docs describe the new default', () => {
   test('packages/core/templates/process.md.template documents --no-verify', () => {
     expect(read(CORE_PROCESS_TEMPLATE)).toMatch(/`--no-verify`/);
@@ -482,5 +550,55 @@ describe('process docs describe the new default', () => {
   test('the Staged Execution Loop diagram no longer gates the functional loop as [--verify: ...]', () => {
     expect(read(CORE_PROCESS_TEMPLATE)).not.toMatch(/\[--verify: functional loop\]/);
     expect(read(CLAUDE_PROCESS)).not.toMatch(/\[--verify: functional loop\]/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VFIX-B005: verify-build.md's `--fix [plan-path]` outer loop (verification-fix-loop
+// TRD §3.6). Held: the flag is declared, the NEXT line matches renderReport(), and the
+// names/shapes `--fix` shares with code or with implement-trd.md (the chained flag, the
+// decide-fix-round CLI subcommand, discovered.js's record fields, verify-functional.js's
+// resume snapshot fields).
+// ---------------------------------------------------------------------------
+
+describe('verify-build.md argument-hint', () => {
+  test('argument-hint gains --fix [plan-path]', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(
+      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--fix \[plan-path\]\]"/
+    );
+  });
+});
+
+describe('verify-build.md readout NEXT matches renderReport\'s wording', () => {
+  test('NEXT names the bridge then /verify-build --fix', () => {
+    const section = flat(read(CORE_VERIFY_BUILD).split('## Readout')[1].split("## `--fix")[0]);
+    expect(section).toMatch(
+      /agree a recovery plan with `\/verify-plan-recovery`, then run `\/verify-build --fix`/
+    );
+  });
+});
+
+describe('verify-build.md `--fix` uses the names code and implement-trd.md define', () => {
+  const fixSection = () =>
+    flat(read(CORE_VERIFY_BUILD).split("### `--fix [plan-path]`")[1].split('## Output discipline')[0]);
+
+  test('chains /implement-trd with the --chained flag it declares', () => {
+    expect(fixSection()).toMatch(/--reconcile --chained/);
+  });
+
+  test('invokes functional-verification.js\'s decide-fix-round subcommand', () => {
+    expect(fixSection()).toMatch(/decide-fix-round --file <payload>/);
+  });
+
+  test('discovery records use discovered.js\'s field names', () => {
+    const s = fixSection();
+    expect(s).toMatch(/kind: 'gap', foundBy: 'verify-build --fix', blocksFeature: true, ref: 'plan:<id>'/);
+    expect(s).toMatch(/kind: 'gap', blocksFeature: false, file: '\.claude\/rules\/verification\.md'/);
+  });
+
+  test('the synthesised resume uses verify-functional.js\'s snapshot fields', () => {
+    expect(fixSection()).toMatch(
+      /iteration: 0, criteria: <the latest state file's entries with status\s*'met'>, gapsClosed: \[\]/
+    );
   });
 });

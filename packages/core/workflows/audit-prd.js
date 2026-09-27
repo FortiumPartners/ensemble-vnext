@@ -376,12 +376,17 @@ ${COVERAGE}${CNV}`,
     verifiers_skipped: skippedKeys,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${PRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
-      `VERDICT: ${dead > 0
-        ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
-        : 'safe to proceed'}\n\n` +
+      `VERDICT: ${dead > 0 && !SOURCE
+        ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); no source supplied — fidelity and omission unchecked`
+        : dead > 0
+          ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+          : !SOURCE
+            ? 'proceed with these caveats: no source supplied — fidelity and omission unchecked'
+            : 'safe to proceed'}\n\n` +
       `  NO ACTION — every requirement traces to the source, nothing is already built,\n` +
       `  every citation resolves.\n` +
-      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
+      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : '') +
+      (!SOURCE ? `  CAVEAT — no source supplied; fidelity and omission checks did not run.\n` : ''),
   }
 }
 
@@ -431,6 +436,12 @@ Choose "do not proceed until" when a PICK ONE finding, or an ALREADY BUILT findi
 survives, leaves this PRD unsafe to design a TRD from as it stands. Choose "proceed with
 these caveats" when anything remains under CAVEAT, CONFIRM THESE ARE WANTED, or an unresolved
 Could Not Verify row. Otherwise "safe to proceed".
+
+${SOURCE ? '' : `NO SOURCE WAS SUPPLIED to this audit. "safe to proceed" is NOT available on this
+run, however clean the findings -- fidelity and omission against the source were never
+checked, only what verifiers could infer from the PRD and code alone. The verdict is capped
+at "proceed with these caveats: no source supplied — fidelity and omission unchecked" (fold in
+any other caveat alongside it).`}
 
 EVERY READOUT LINE NAMES THE ACTION -- THE ACTION THIS AUDIT TOOK, not a classification of the
 finding and not something left for the reader to do. Use exactly these headings, omitting

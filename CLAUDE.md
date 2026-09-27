@@ -531,8 +531,8 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 Released at **4.9.0** (2026-09-27). 18 commands, 13 subagents. Test battery: 1054 Jest,
 107 pytest, 496 BATS.
 
-4.9.0 makes screen-by-screen design review part of verification. Three check skills ship to every
-project (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`); every TRD
+4.9.0 makes screen-by-screen design review part of verification. Every check-role skill listed in
+`packages/skills/framework-skills.txt` ships to every project; every TRD
 carries `## Verification Artifacts` choosing them (a feature with UI designs gets the design
 comparison unless the TRD states a reason); each chosen check adds one criterion per screen,
 journey or data view to the verification loop, judged with the skill's rubric and fixed like any

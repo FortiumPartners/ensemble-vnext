@@ -1033,7 +1033,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
     // verbatim, as a settled entry with its original artifact and provenAt.
     expect(openIdsFrom(judgePrompts[1])).toEqual(['FS-2']);
     const settled2 = settledFrom(judgePrompts[1]);
-    expect(settled2).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
+    expect(settled2).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
     // And the workflow's own final result -- which nothing but the settled map can supply,
     // since the Judge's structured return only ever carried FS-2 -- still reports FS-1 met.
     expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met', artifact: 'a.txt', provenAt: 1 }));
@@ -1197,7 +1197,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
     // invocation) is back in the open set for this one, alongside FS-2 (never settled).
     expect(openIdsFrom(capturedJudgePrompt)).toEqual(['FS-2', 'FS-3']);
     const settled = settledFrom(capturedJudgePrompt);
-    expect(settled).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
+    expect(settled).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
     expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met' }));
   });
 });
@@ -1302,6 +1302,92 @@ describe('verify-functional: met/total reach the decide-next payload', () => {
     expect(secondJudgePrompt).toMatch(/the 1 settled met id\(s\) carried below \(\["FS-1"\]\)/);
     expect(secondJudgePrompt).toMatch(/"total" is the whole definition's count, 2/);
     expect(secondJudgePrompt).toMatch(/"total":2/);
+  });
+});
+
+// --------------------------------------------------------------------------- coverageFloor (D8, §3.3)
+
+describe('verify-functional: args.coverageFloor reaches the decide-next payload', () => {
+  it('carries a declared fraction into the STEP 3 payload as "coverageFloor":<value>', async () => {
+    let judgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: 0.6 }) });
+
+    expect(judgePrompt).toMatch(/"coverageFloor":0\.6/);
+  });
+
+  it('defaults to "coverageFloor":null when omitted, leaving decideNext\'s re-label dormant', async () => {
+    let judgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs() }); // no coverageFloor
+
+    expect(judgePrompt).toMatch(/"coverageFloor":null/);
+  });
+
+  it('treats an explicit null the same as omitted', async () => {
+    let judgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: null }) });
+
+    expect(judgePrompt).toMatch(/"coverageFloor":null/);
+  });
+});
+
+describe('verify-functional: args.coverageFloor validation', () => {
+  it('throws before any agent is dispatched on a percentage (>1), not a fraction', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: 60 }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws on a negative fraction', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: -0.1 }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws on a string, even one that parses as a number', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: '0.6' }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it('throws on NaN', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ coverageFloor: NaN }) })).rejects.toThrow(
+      /args\.coverageFloor must be null or a number in \[0, 1\]/
+    );
+    expect(agent.calls).toHaveLength(0);
   });
 });
 
@@ -2220,6 +2306,95 @@ describe('verify-functional: pages is present on the no-Judge-turn early returns
     };
     const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume, cap: 3 }) });
     expect(result.pages).toEqual([]);
+  });
+});
+
+// --------------------------------------------------------------------------- cause (D3, §3.1; VFIX-B002)
+
+describe('verify-functional: cause', () => {
+  it("the schema's cause enum equals CAUSES from the lib", () => {
+    // Source-level, not a live object comparison: this script has no `require` (see "opens no
+    // file, runs no shell, uses no require" above), so JUDGE_CRITERION_SCHEMA's `cause` enum is
+    // a literal duplicated from packages/core/lib/functional-verification.js's `CAUSES`. This
+    // diffs the two lists directly rather than trusting them to stay in step by hand, the same
+    // source-text-extraction technique already used for the `exit-insufficient-coverage` enum
+    // value above.
+    const { CAUSES } = require('../lib/functional-verification');
+    const match = SOURCE.match(/cause:\s*\{\s*type:\s*\['string',\s*'null'\],\s*enum:\s*\[([\s\S]*?)\]/);
+    expect(match).not.toBeNull();
+    const values = match[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .filter((s) => s !== 'null')
+      .map((s) => s.replace(/^'(.*)'$/, '$1'));
+    expect(values).toEqual(CAUSES);
+  });
+
+  it('STEP 2 names the fixed cause vocabulary and STEP 4 names "cause" as a required key for non-met entries', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt' }]);
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, files: [] }] });
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+
+    // STEP 2: the fixed set is named, including that a crash during capture is judged-failed.
+    expect(capturedJudgePrompt).toMatch(/assign a "cause" from this fixed set/);
+    expect(capturedJudgePrompt).toMatch(/"judged-failed" -- the build was reached and did the wrong thing, INCLUDING crashing or\s+erroring during capture/);
+    // STEP 4: "cause" is in the exact-key list, alongside the existing "reason" requirement.
+    expect(capturedJudgePrompt).toMatch(/"id", "status", "tier1", "artifact", "reason", "cause",\s+"provenAt"/);
+    expect(capturedJudgePrompt).toMatch(/"cause" MUST likewise be populated.*every criterion whose status is not "met"/);
+    // STEP 5 (report input): "cause" is in its own key list alongside "reason" and "provenAt".
+    expect(capturedJudgePrompt).toMatch(/cites, status, /);
+    expect(capturedJudgePrompt).toMatch(/artifact, reason, cause, provenAt, attempts, blocker/);
+    // The Return spec's per-criterion shape also carries "cause".
+    expect(capturedJudgePrompt).toMatch(/"id","status","tier1","artifact","reason","cause","files"/);
+  });
+
+  it('carries cause through a resume: a settled met entry keeps its cause: null unchanged', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-2', artifact: 'b.txt' }]);
+      if (opts.label === 'judge') return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, cause: null, files: [] }] });
+      return null;
+    });
+    const resume = {
+      iteration: 1,
+      criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1 }],
+      gapsClosed: [1],
+    };
+
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria: [criterion('FS-1'), criterion('FS-2')], resume }),
+    });
+
+    expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met', cause: null, provenAt: 1 }));
+  });
+
+  it('folds a non-met cause from this iteration\'s Judge return into the settled map and the final result', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: null, reason: 'env unreachable' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        return satisfiedJudge({
+          criteria: [{ id: 'FS-1', status: 'not_verifiable', tier1: 'fail', artifact: null, reason: 'env unreachable', cause: 'environment-unreachable', files: [] }],
+        });
+      }
+      return null;
+    });
+
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+
+    expect(result.criteria).toContainEqual(
+      expect.objectContaining({ id: 'FS-1', status: 'not_verifiable', cause: 'environment-unreachable' })
+    );
   });
 });
 

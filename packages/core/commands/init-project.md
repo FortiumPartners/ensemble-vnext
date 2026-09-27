@@ -378,6 +378,9 @@ files generated above. Currently:
 - `async-discipline.md` — paired with the `async-discipline.js` Stop hook; documents
   the four async primitives (`run_in_background`, `ScheduleWakeup`, `Monitor`, `/goal`)
   and the regex/bypass behavior of the guard.
+- `verification.md` — copied unfilled; it describes the environments, resource
+  capacity and coverage floor a functional-verification run needs and none of this
+  project's own. It is owner-governed: run `/verification-setup` to fill it in.
 
 Verify each framework rule landed under `.claude/rules/`. If `async-discipline.md` is
 missing, copy it manually from the template path above — the Stop hook will block
@@ -871,9 +874,10 @@ Skills Selected:
 Next Steps:
   1. Review .claude/rules/constitution.md and customize if needed
   2. Review .claude/rules/stack.md for accuracy
-  3. Create a PRD with /create-prd for new features
-  4. Generate TRD with /create-trd from approved PRD
-  5. Implement with /implement-trd
+  3. Fill .claude/rules/verification.md: run /verification-setup
+  4. Create a PRD with /create-prd for new features
+  5. Generate TRD with /create-trd from approved PRD
+  6. Implement with /implement-trd
 
 Commands Available:
   FULL PIPELINE

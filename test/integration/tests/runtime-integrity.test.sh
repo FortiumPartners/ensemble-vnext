@@ -321,16 +321,16 @@ PY
 }
 
 @test "the three framework skills are never classified Stale by rebase" {
-    # VART-P005: verify-design-comparison, verify-flow-as-built and
-    # verify-data-fidelity (D2 in docs/TRD/verification-artifacts.md) match nothing in
-    # the stack-match table, so under the plain Stale rule they would be removed on
-    # every rebase. They are named as a Framework category instead: always installed,
-    # never Stale, added when missing.
+    # VFIX-P001 (D14, docs/TRD/verification-fix-loop.md §3.8): the framework
+    # skills' names are no longer hand-copied here -- they're read from the one
+    # list, packages/skills/framework-skills.txt. Its "check"-role skills match
+    # nothing in the stack-match table, so under the plain Stale rule they would
+    # be removed on every rebase. They are named as a Framework category
+    # instead: always installed, never Stale, added when missing.
     RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    LIST_FILE="${REPO_ROOT}/packages/skills/framework-skills.txt"
 
-    for f in verify-design-comparison verify-flow-as-built verify-data-fidelity; do
-        grep -q "$f" "$RP"
-    done
+    [ -f "$LIST_FILE" ]
 
     # The categorisation table (§2.2) must name a Framework row.
     DIFF="$(sed -n '/^#### 2.2 Skill Diff/,/^#### 2.3/p' "$RP")"
@@ -344,6 +344,36 @@ PY
     grep -q 'Added framework skill' <<<"$APPLY"
 
     # All three copies of the command stay byte-identical.
+    diff -q "$RP" "${REPO_ROOT}/.claude/commands/rebase-project.md"
+    diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
+}
+
+@test "rebase-project.md and CLAUDE.md name framework-skills.txt, not a hardcoded skill list" {
+    # VFIX-P002 (D14, docs/TRD/verification-fix-loop.md §3.8): the Framework
+    # category and guard read the one list rather than naming skills literally --
+    # otherwise a fifth line added to framework-skills.txt would ship the skill
+    # (VFIX-P001) but rebase would still not protect it from Stale removal, and
+    # CLAUDE.md's own delivery sentence would drift from what's actually shipped.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+    CLAUDE_MD="${REPO_ROOT}/CLAUDE.md"
+
+    DIFF="$(sed -n '/^#### 2.2 Skill Diff/,/^#### 2.3/p' "$RP")"
+    grep -q 'framework-skills.txt' <<<"$DIFF"
+    refute grep -q 'verify-design-comparison' <<<"$DIFF"
+
+    APPLY="$(sed -n '/^#### 4.2 Update Skills/,/^#### 4.3/p' "$RP")"
+    grep -q 'framework-skills.txt' <<<"$APPLY"
+    refute grep -q 'verify-design-comparison' <<<"$APPLY"
+
+    # It must say "whatever its role" (or equivalent) rather than re-scoping to
+    # the check-role skills alone -- verify-plan-recovery (role: support) must
+    # equally survive Stale removal.
+    grep -qi 'whatever its role' <<<"$DIFF$APPLY"
+
+    grep -q 'framework-skills.txt' "$CLAUDE_MD"
+    refute grep -q 'verify-design-comparison' "$CLAUDE_MD"
+
+    # All three copies stay byte-identical.
     diff -q "$RP" "${REPO_ROOT}/.claude/commands/rebase-project.md"
     diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
 }

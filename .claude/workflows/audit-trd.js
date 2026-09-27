@@ -149,15 +149,15 @@ A per-line audit cannot see a line that is not there. Dropping a requirement is 
 inventing one, and silent narrowing -- reproducing seven of eight metrics and dropping the
 eighth without comment -- has no other check that can catch it.
 
-VERIFICATION CHECKS. The framework has three checks matching three things SOURCE may
-reference: design frames (screens, mockups, a design handoff) -> verify-design-comparison; an
-interaction diagram or screen-to-screen journeys -> verify-flow-as-built; screens rendering
-API or store data -> verify-data-fidelity. Find the last "## Verification Artifacts" heading
-outside a code fence in the artifact.
+VERIFICATION CHECKS. Read framework-skills.txt (.claude/skills/framework-skills.txt, falling
+back to packages/skills/framework-skills.txt) for its "check" rows -- a "support" role is
+shipped for use elsewhere and is never a candidate here. For each check-role skill, read its
+own SKILL.md "When it applies" section for its trigger, and see whether SOURCE meets it. Find
+the last "## Verification Artifacts" heading outside a code fence in the artifact.
   - If the section EXISTS: for each trigger SOURCE meets, confirm the section either selects
     that check (a table row naming it) or gives a reason it is left out (an
-    "Omitted: <skill> — <reason>" line, or a "None apply — <reason>" line covering all
-    three). Where neither applies, report a finding: check 'omission', action 'add-back',
+    "Omitted: <skill> — <reason>" line, or a "None apply — <reason>" line covering every
+    check). Where neither applies, report a finding: check 'omission', action 'add-back',
     naming the check and the inputs SOURCE gives for it (the frame paths, the diagram or
     journeys, the data source and screen).
   - If the section is ABSENT: report the same items, but with action 'advisory' instead of
@@ -501,13 +501,18 @@ ${COVERAGE}${CNV}`,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0,
     readout: `AUDIT: ${TRD}\nSOURCE: ${SOURCE || '(none supplied)'}\n\n` +
-      `VERDICT: ${dead > 0
-        ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
-        : 'safe to proceed'}\n\n` +
+      `VERDICT: ${dead > 0 && !SOURCE
+        ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); no source supplied — fidelity and omission unchecked`
+        : dead > 0
+          ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
+          : !SOURCE
+            ? 'proceed with these caveats: no source supplied — fidelity and omission unchecked'
+            : 'safe to proceed'}\n\n` +
       `  NO ACTION — every objective traces to a source, every decision names one, every\n` +
       `  citation resolves.\n` +
       advisoryReadoutLines +
-      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
+      (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : '') +
+      (!SOURCE ? `  CAVEAT — no source supplied; fidelity and omission checks did not run.\n` : ''),
   }
 }
 
@@ -557,6 +562,12 @@ Choose "do not proceed until" when a REDESIGNED, CANNOT BE BUILT, or PICK ONE fi
 the TRD unsafe to implement from as it stands. Choose "proceed with these caveats" when
 anything remains under CAVEAT, CONFIRM THESE ARE WANTED, or an unresolved Could Not Verify
 row. Otherwise "safe to proceed".
+
+${SOURCE ? '' : `NO SOURCE WAS SUPPLIED to this audit. "safe to proceed" is NOT available on this
+run, however clean the findings -- fidelity and omission against the source were never
+checked, only what verifiers could infer from the TRD and code alone. The verdict is capped
+at "proceed with these caveats: no source supplied — fidelity and omission unchecked" (fold in
+any other caveat alongside it).`}
 
 EVERY READOUT LINE NAMES THE ACTION -- THE ACTION THIS AUDIT TOOK, not a classification of the
 finding and not something left for the reader to do. Readouts here have been rejected

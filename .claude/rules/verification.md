@@ -1,6 +1,8 @@
 # Verification environments
 
-**Owner-governed, like `stack.md`. An agent READS this and never writes it.**
+**Owner-governed, like `stack.md`. It changes only when the owner runs
+`/verification-setup`, which asks, then writes; running it is the approval. No autonomous
+run edits this file.**
 
 `stack.md` is a declarative inventory — languages, frameworks, hosting. It says nothing
 about how to REACH a running instance, and that is exactly what a functional verifier needs.
@@ -8,9 +10,11 @@ This file is that missing half, and it is the difference between a verification 
 can correct itself and one that reports `stalled` because it was measuring a build nobody
 refreshed.
 
-**Why the owner writes it and not an agent:** which instance is safe to exercise, whether a
+**Why the owner governs it, not an agent:** which instance is safe to exercise, whether a
 deploy is allowed, where credentials live — these are infrastructure policy, not
 observations. An agent inferring them from a codebase is guessing at your rules.
+`/verification-setup` offers what it detects from the repo as a default for each question,
+but the answer is always the owner's.
 
 ---
 
@@ -129,6 +133,15 @@ report will show it as a pass.
 
 - e.g. "Salesforce close flows — the sandbox token expires weekly and re-auth is manual."
 - e.g. "Email delivery — no inbox we can read from in dev."
+
+## 5a. Coverage floor
+
+The share of the success definition's criteria that must be PROVEN (`met`) before a
+verification run may report `satisfied`, `stalled` or `stuck`. Below it the run reports
+`insufficient-coverage` instead. Write a percentage or `none`; `none` leaves the check off.
+`/verification-setup` recommends a value from this project's past runs and says why.
+
+Coverage floor: none
 
 ## 6. Multi-repo
 

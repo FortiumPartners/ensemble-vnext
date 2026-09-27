@@ -290,4 +290,53 @@ describe('fix-audit: the Verification Artifacts section (TRD §3.4)', () => {
     expect(vaFindings(r)).toEqual([]);
     expect(vaAdvisories(r)).toEqual([]);
   });
+
+  test('a Skill row naming a skill whose framework-skills.txt role is not "check" is a finding (D14)', () => {
+    // verify-plan-recovery is real (a SKILL.md exists) but its role is "support" — it is
+    // shipped for the bridge conversation, never a selectable verification check.
+    fs.mkdirSync(path.join(root, 'packages', 'skills', 'verify-plan-recovery'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'packages', 'skills', 'verify-plan-recovery', 'SKILL.md'), '# stub\n');
+    fs.writeFileSync(
+      path.join(root, 'packages', 'skills', 'framework-skills.txt'),
+      '# name role\nverify-design-comparison check\nverify-plan-recovery support\n'
+    );
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| verify-plan-recovery | `package.json` | made up |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /verify-plan-recovery: role is "support", not a selectable check/.test(f.detail))).toBe(true);
+    // The skill IS real, so no "names no SKILL.md" finding should also fire.
+    expect(vaFindings(r).some((f) => /names no SKILL\.md/.test(f.detail))).toBe(false);
+  });
+
+  test('an Omitted: line naming a non-check-role skill is also a finding', () => {
+    fs.mkdirSync(path.join(root, 'packages', 'skills', 'verify-plan-recovery'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'packages', 'skills', 'verify-plan-recovery', 'SKILL.md'), '# stub\n');
+    fs.writeFileSync(
+      path.join(root, 'packages', 'skills', 'framework-skills.txt'),
+      'verify-plan-recovery support\n'
+    );
+    const md = '## Verification Artifacts\n\nOmitted: verify-plan-recovery — not applicable.\n';
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /verify-plan-recovery: role is "support", not a selectable check/.test(f.detail))).toBe(true);
+  });
+
+  test('when framework-skills.txt is absent, no role check runs — no crash, no false finding', () => {
+    // root's beforeEach never writes framework-skills.txt; a check-role skill still passes.
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| verify-design-comparison | `docs/design/create-alert/screens/png/` | made up |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r)).toEqual([]);
+  });
 });

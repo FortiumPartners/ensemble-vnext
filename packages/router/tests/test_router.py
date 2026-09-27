@@ -462,8 +462,19 @@ class TestResolveMarkerFields:
 
 # === end-to-end (subprocess) ===
 class TestEndToEnd:
-    def test_non_empty_prompt_injects_marker_and_hint(self):
-        code, out = run_hook('{"prompt": "implement the login endpoint"}')
+    def test_non_empty_prompt_injects_marker_and_hint(self, tmp_path):
+        # Isolated cwd: with no "cwd" in the payload, the router falls back to
+        # os.getcwd(), which — unpinned — is this repo's own working directory
+        # and its real .trd-state/current.json. Whenever a feature is actually
+        # in flight there (as it usually is during development), that appends
+        # IN_FLIGHT_HINT after FRAMEWORK_HINT and breaks the endswith below.
+        # Pin cwd to an empty, scaffolded tmp dir so the test is deterministic.
+        (tmp_path / ".claude" / "rules").mkdir(parents=True)
+        code, out = run_hook(
+            json.dumps(
+                {"prompt": "implement the login endpoint", "cwd": str(tmp_path)}
+            )
+        )
         assert code == 0
         assert out["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
         ctx = context_of(out)
