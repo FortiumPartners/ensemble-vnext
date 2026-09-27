@@ -118,6 +118,11 @@ narrow to a subset of your own slice or look for frames outside it):
    the state, the build failed on the way, or the screen does not exist in the build at all;
    that distinction is what the Rubric needs to choose between `not_verifiable` and `not_met`.
 
+7. **Any script this Capture step needs** — cropping, normalising, blurring, diffing,
+   stitching — is written at run time under `<evidenceDir>/verify-design-comparison/scratch/`,
+   never into the source tree. This skill ships no such script; write the one the frames in
+   front of you need.
+
 **Capture only — no source edits, rebuilds or restarts**, before, during or after the walk,
 even to fix something small noticed along the way. A repair belongs to Debug, a separate stage
 that runs after the Judge, never inside Capture.
@@ -184,7 +189,9 @@ rather than repeating it on every affected card.
 
 Render `<pagesDir>/verify-design-comparison/index.html` from `verdicts.json` and the evidence
 manifests: one static page, light and dark, responsive at phone width, with images under `img/`
-at display size and lazy-loaded.
+at display size and lazy-loaded. Any script the page assembly needs (resizing images, writing
+the HTML) is written at run time under `<evidenceDir>/verify-design-comparison/scratch/`, never
+into the source tree.
 
 - **Title and lede.** The page title (input, or the default above) and one line naming what
   build is shown and the data-difference caveat (input, or the default generic line).

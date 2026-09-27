@@ -130,3 +130,29 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   cited file:line before reusing a prior iteration's evidence file verbatim, even when the
   file "looks done" — mtimes are the cheap tell (evidence mtime vs. source mtime), same
   method the iteration-1 note already established for the FS-12/Debug handoff.
+
+## Exercising verification-artifacts (2026-09-27 run, iteration 1)
+
+- [ran] The owner's preserved exemplar is reachable at
+  `/Users/fortium/ensemble-reference/visual-compare-exemplar-2026-09-27/site/index.html` — a
+  504-line static page with all six of `verify-design-comparison`'s required page elements
+  (legend, status-filter chips, jump strip/TOC, per-frame Design|Build|Diff|Overlay panels
+  with a fade-slider input, and `s-uncaptured`-status cards for frames not captured). Grep it
+  directly rather than recalling its shape from the PRD/TRD prose — the actual markup differs
+  in small ways from a paraphrase (e.g. the fade control is a `<input type="range">` per frame,
+  named `fade-NN`, not a single page-level slider).
+- [ran] `packages/core/scripts/scaffold-project.sh` is safely runnable against a throwaway
+  directory under the session scratchpad with `--plugin-dir "$(pwd)/packages/full"` — both a
+  fresh scaffold and a `--refresh` of an existing one. Confirmed live: all three check skills
+  (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`) land in
+  `.claude/skills/` even when `.claude/selected-skills.txt` names only `jest`/`pytest`, and
+  after `--refresh` on a project that had them removed. This is a fast (~2s), side-effect-free
+  way to exercise scaffold criteria — no need to touch this repo's own `.claude/`.
+- [ran] `fix-audit.js`'s own test suite (`packages/core/lib/fix-audit.test.js:162-169`)
+  asserts that a TRD with NO `## Verification Artifacts` heading at all is a **finding**
+  (`ok: false`), with no distinction for a TRD "written before this change." This is the
+  mechanical check `/plan` invokes (`packages/core/commands/plan.md:670`,
+  `require("./.claude/lib/fix-audit")`). By contrast, `audit-trd.js`'s own prompt (lines
+  ~162-166, ~182) DOES implement an advisory-only branch for the identical missing-section
+  case. Worth a second look by the judge/debug stages: `/plan`'s mechanical check and
+  `/audit-trd`'s check disagree on whether a missing section is a finding or an advisory.

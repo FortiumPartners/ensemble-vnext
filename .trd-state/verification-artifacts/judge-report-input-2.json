@@ -1,0 +1,565 @@
+{
+  "feature": "verification-artifacts",
+  "prd": "docs/plan/verification-artifacts.investigation.md",
+  "definitionPath": ".trd-state/verification-artifacts/success-definition.md",
+  "outcome": "unbuilt",
+  "reason": "1 criterion absent (unbuilt), not misbehaving -- loop stops rather than debugging missing code. FS-21 (/plan mechanical check lacks advisory-only handling of a missing section) is unbuilt; FS-4, FS-16, FS-18, FS-28, FS-30 remain not_met because iteration 2 captured no fresh evidence.",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "Ensemble ships a design ↔ build comparison skill in `packages/skills/`: a `SKILL.md` whose frontmatter has `name`, `description`, `when_to_use` and `allowed-tools`, and whose body says when it applies and names the inputs it needs",
+      "cites": "O1 (line 13); Intended Change line 31–32",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-1.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "Ensemble ships a designed ↔ as-built interaction-flow skill in `packages/skills/`, same frontmatter format, stating when it applies and naming its inputs",
+      "cites": "O1 (line 13); Intended Change line 31–32",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-2.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "Ensemble ships a data ↔ screen fidelity skill in `packages/skills/`, same frontmatter format, stating when it applies and naming its inputs",
+      "cites": "O1 (line 13); Intended Change line 31–32",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-3.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "The three check skills are prompts only. None ships a script for cropping, diffing or page assembly; each tells the agent to write any such script itself at run time",
+      "cites": "Decision \"Skills, not tools\", line 45–48 (owner: \"I DO NOT want to go down a rabbit hole of building deterministic tools\")",
+      "status": "not_met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-4.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: No skill ships a script (ls shows only SKILL.md and __tests__), but only verify-data-fidelity says the agent writes any needed script itself at run time; verify-design-comparison (whose crop/diff/stitch step most needs one) and verify-flow-as-built carry no such line. The criterion requires each of the three to say it. (Debug edited verify-design-comparison and verify-flow-as-built SKILL.md, uncommitted, but the change was not captured as evidence.)",
+      "provenAt": null,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "The design-comparison skill produces, for every design frame, a row showing Design, Build@commit, Diff labelled \"N% differs\", and an Overlay with a fade slider",
+      "cites": "O2 (line 14)",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-5.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "The design-comparison skill requires the agent to look at every stitched design / build / diff image and write each frame's verdict itself: a status from match / minor / deviates / superseded / uncaptured / spec, one sentence, and notes. The diff percentage is evidence and never sets the status",
+      "cites": "O2 (line 14); Decision \"The judgement is the product\", line 49–51",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-6.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "The design-comparison page carries: cross-cutting problems stated once, a legend, a status filter, a jump strip, the navigation route to each frame, and uncaptured frames shown with the reason they were not captured",
+      "cites": "O2 (line 14)",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-7.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "The design-comparison skill takes the exemplar's project-specific values as inputs rather than hard-coding them: bezel crop box, frame size, status-bar height, device/capture commands, evidence paths, data caveat, title",
+      "cites": "Grounding \"The exemplar\", line 121–122",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-8.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "No check skill's published page, or the agent summary that produces it, contains a credential value; a page records where a credential lives, not what it is",
+      "cites": "domain-derived (Grounding line 124; O10 line 23)",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-9.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-10",
+      "statement": "The flow skill derives an as-built interaction diagram from the code and compares it, journey by journey, against the designed flow, reporting where they do not match",
+      "cites": "O1 (line 13); Grounding line 126–130",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-10.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "The data skill compares what a screen renders against the API or store data behind it, view by view, and reports rows that do not match",
+      "cites": "O1 (line 13); O3a (line 16); Grounding line 127–128",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-11.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "The TRD authoring contract documents a `## Verification Artifacts` section: a table with one row per chosen check (skill name, inputs, why it applies), an `Omitted: <skill> — <reason>` line per applicable check left out, or `None apply — <reason>`",
+      "cites": "O3 (line 15); Decision line 52–56; Intended Change line 33",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-12.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-13",
+      "statement": "A TRD written by `/create-trd` contains a `## Verification Artifacts` section",
+      "cites": "O3 (line 15); Intended Change line 33–34",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-13.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-14",
+      "statement": "A TRD written by `/plan` contains a `## Verification Artifacts` section, on both the light template and the medium path",
+      "cites": "O3 (line 15); Intended Change line 33–34",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-14.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-15",
+      "statement": "Selection is weighted toward each of three input kinds: reference UI screens make the design comparison the default; an interaction diagram or screen-to-screen journeys make the flow check the default; screens rendering API or store data make the data check the default",
+      "cites": "O3a (line 16); Decision line 54–55",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-15.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-16",
+      "statement": "Selection is not hard-coded: an applicable check may be omitted with any stated reason, and the authoring guidance accepts any reason rather than a fixed list of allowed ones",
+      "cites": "O3a (line 16, \"any stated reason is enough\"; owner: \"not hard coded in, but heavily weighted\"); Decision line 55–56",
+      "status": "not_met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-16.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 'any stated reason is enough' not found in the artifact. The artifact text wraps it across a line break ('any stated reason\\nis enough'), so the claim needs a locator copied verbatim from a single line.",
+      "provenAt": null,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-17",
+      "statement": "`/audit-trd` reports a finding when a TRD's `## Verification Artifacts` section names a check skill that Ensemble does not ship",
+      "cites": "O4 (line 17)",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-17.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-18",
+      "statement": "`/audit-trd` reports a finding when an input named in the section does not resolve",
+      "cites": "O4 (line 17, \"every named input resolves\")",
+      "status": "not_met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-18.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 'naming the row's skill and the path' not found. The artifact (a copy of FS-17's) is cut off at '...action 'fix-citation', naming the', so the missing-input finding text is not in the evidence.",
+      "provenAt": null,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-19",
+      "statement": "`/audit-trd` reports a real finding when a check the inputs call for is omitted from the section without a stated reason, and reports nothing for one omitted with a reason",
+      "cites": "O4 (line 17); Intended Change line 35–36",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-19.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-20",
+      "statement": "On a TRD written before this change that has no `## Verification Artifacts` section, `/audit-trd` reports an advisory only, never a finding, and does not write the section into the TRD",
+      "cites": "O4 (line 17)",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-20.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-21",
+      "statement": "`/plan`'s mechanical check for light TRDs reports a check the inputs call for that the section omits without a stated reason, and treats a missing section on an older TRD as advisory only",
+      "cites": "Intended Change line 35–36 (\"`/audit-trd` and `/plan`'s mechanical check report…\")",
+      "status": "unbuilt",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-21.txt",
+      "reason": "Debug reported this capability absent rather than broken: /plan's mechanical check (fix-audit.js checkVerificationArtifacts) treats a missing section as a finding (ok:false), and has no advisory-only path for older TRDs as /audit-trd does.",
+      "provenAt": 2,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "unbuilt"
+        }
+      ],
+      "blocker": "Capability absent: /plan mechanical check has no advisory path for a missing section"
+    },
+    {
+      "id": "FS-22",
+      "statement": "Each selected check adds one success-definition criterion per design screen, per journey and per data view, each passing on its own: a 32-frame design becomes 32 criteria, not one criterion with 32 parts",
+      "cites": "O5a (line 19); Intended Change line 37–38",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-22.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-23",
+      "statement": "The derive pass that writes the success definition stays source-only and TRD-blind; check criteria are appended after it, and each cites its design input, never the task list",
+      "cites": "O5b (line 20); Decision line 63–64",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-23.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-24",
+      "statement": "Inside the verification loop, Exercise captures each check criterion's evidence by that check skill's procedure, and the Judge rules it using that skill's rubric",
+      "cites": "O5 (line 18); Decision line 64–67",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-24.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-25",
+      "statement": "A check criterion the Judge rules `not_met` is handed to Debug and fixed like any other gap",
+      "cites": "O5 (line 18); Intended Change line 38–39",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-25.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-26",
+      "statement": "`/verify-build` runs the selected checks inside its verification loop the same way `/implement-trd`'s verification step does",
+      "cites": "O5 (line 18)",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-26.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-27",
+      "statement": "The verification readout links each check's page",
+      "cites": "O5 (line 18); Intended Change line 39–40",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-27.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-28",
+      "statement": "Each check's page is re-rendered from the check verdicts on every loop iteration and republished to the same URL, which is stored in `.trd-state/<feature>/artifacts.json`",
+      "cites": "O10 (line 23); O2 (line 14, \"republished to the same URL as fixes land\"); Intended Change line 39–40",
+      "status": "not_met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-28.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 're-renders that skill's page from the Judge's verdicts' not found in the artifact, so the per-iteration re-render and same-URL republish is unproven by the evidence.",
+      "provenAt": null,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-29",
+      "statement": "The owner's comments on a check's page are read before the next fix batch and used as input to it",
+      "cites": "O10 (line 23); Decision line 68–69",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-29.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-30",
+      "statement": "When a TRD has no `## Verification Artifacts` section, the verification step applies the weighted defaults to the PRD's inputs itself and reports each check it selected that way",
+      "cites": "O6 (line 21); Intended Change line 28–29 (\"a fallback that guarantees the design comparison whenever designs exist\")",
+      "status": "not_met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-30.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 'record one DECISIONS line' not found; in the artifact it wraps across a line break ('record\\n   one DECISIONS line'). Re-claim with a single-line locator.",
+      "provenAt": null,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-31",
+      "statement": "When a TRD's section is silent on an applicable check (neither lists it nor omits it with a reason), the verification step selects it by default and reports that; a check the section omits with a stated reason is not re-added",
+      "cites": "O6 (line 21); O3a (line 16)",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-31.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-32",
+      "statement": "A freshly scaffolded project ends with all three check skills in `.claude/skills/`, even when `.claude/selected-skills.txt` names none of them",
+      "cites": "O7 (line 22); Intended Change line 41; Decision \"Delivery\", line 71–73",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-32.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-33",
+      "statement": "An existing project that lacks the three check skills has all three in `.claude/skills/` after `scaffold-project.sh --refresh`",
+      "cites": "O7 (line 22); Intended Change line 41",
+      "status": "met",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-33.txt",
+      "reason": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-1.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-2.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-3.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-4.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: No skill ships a script (ls shows only SKILL.md and __tests__), but only verify-data-fidelity says the agent writes any needed script itself at run time; verify-design-comparison (whose crop/diff/stitch step most needs one) and verify-flow-as-built carry no such line. The criterion requires each of the three to say it. (Debug edited verify-design-comparison and verify-flow-as-built SKILL.md, uncommitted, but the change was not captured as evidence.)",
+      "provenAt": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-5.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-6.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-7.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-8.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-9.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-10.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-11.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-12.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-13.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-14.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-15.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-16.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 'any stated reason is enough' not found in the artifact. The artifact text wraps it across a line break ('any stated reason\\nis enough'), so the claim needs a locator copied verbatim from a single line.",
+      "provenAt": null
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-17.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-18.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 'naming the row's skill and the path' not found. The artifact (a copy of FS-17's) is cut off at '...action 'fix-citation', naming the', so the missing-input finding text is not in the evidence.",
+      "provenAt": null
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-19.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-20.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "unbuilt",
+      "tier1": "skipped",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-21.txt",
+      "reason": "Debug reported this capability absent rather than broken: /plan's mechanical check (fix-audit.js checkVerificationArtifacts) treats a missing section as a finding (ok:false), and has no advisory-only path for older TRDs as /audit-trd does.",
+      "provenAt": 2
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-22.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-23.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-24.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-25.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-26.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-27.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-28",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-28.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 're-renders that skill's page from the Judge's verdicts' not found in the artifact, so the per-iteration re-render and same-URL republish is unproven by the evidence.",
+      "provenAt": null
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-29.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-30",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-30.txt",
+      "reason": "Not re-exercised in iteration 2: the Exercise stage submitted no claims, so no fresh evidence exists to rule on. Iteration-1 finding still stands: Tier-1 failed: locator 'record one DECISIONS line' not found; in the artifact it wraps across a line break ('record\\n   one DECISIONS line'). Re-claim with a single-line locator.",
+      "provenAt": null
+    },
+    {
+      "id": "FS-31",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-31.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-32",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-32.txt",
+      "reason": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-33",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-33.txt",
+      "reason": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    0
+  ],
+  "outcome": "unbuilt"
+}

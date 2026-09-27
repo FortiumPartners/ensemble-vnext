@@ -68,6 +68,10 @@ For each journey in the slice:
    build fails on the way — is claimed with `artifact: null` (or the partial transcript) and a
    stated reason, same as any other capture that comes up short. Capture never edits source,
    rebuilds, or restarts to work around a broken step.
+6. **Any script this Capture step needs** — walking the journey, extracting edges, reading
+   data before and after — is written at run time under
+   `<evidenceDir>/verify-flow-as-built/scratch/`, never into the source tree. This skill ships
+   no such script; write the one the journeys in front of you need.
 
 ## Rubric
 
@@ -106,7 +110,8 @@ kept, not deleted.
 ## Page
 
 Written to `<pagesDir>/verify-flow-as-built/index.html`: light and dark, responsive at phone
-width, images (if any) lazy-loaded.
+width, images (if any) lazy-loaded. Any script the page assembly needs is written at run time
+under `<evidenceDir>/verify-flow-as-built/scratch/`, never into the source tree.
 
 - **Both diagrams, side by side**: the designed flow and the as-built flow, each screen-to-screen
   edge drawn. Use Mermaid when the design itself carries no diagramming notation of its own (the
