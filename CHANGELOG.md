@@ -10,6 +10,46 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.9.0] - 2026-09-27
+
+Screen-by-screen design review becomes part of verification. Plan:
+`docs/TRD/verification-artifacts.md` (2.0.4), 12 tasks, all built.
+
+### Added
+
+- **Three verification check skills ship with Ensemble**, copied into every project on scaffold
+  and on `--refresh` (independent of the stack's skill selection): `verify-design-comparison`
+  (built from the owner's exemplar design-vs-screenshot page), `verify-flow-as-built`, and
+  `verify-data-fidelity`. Prompts only — any cropping, diffing or page script is written by the
+  agent at run time.
+- **`## Verification Artifacts` in every TRD.** `/create-trd` and `/plan` choose the checks that
+  apply and name their inputs. Heavily weighted, not hard-coded: when a feature has UI designs,
+  journeys, or data-bearing screens, the matching check is the default and leaving it out needs a
+  stated reason. `/audit-trd` flags an unexplained omission; an older TRD without the section gets
+  an advisory, never an edit.
+- **Checks run inside the verification loop.** Each chosen check adds one criterion per screen,
+  journey or data view; exercisers capture evidence by the skill's procedure (screenshots reused
+  newest-first, each labelled with its commit), the judge rules each with the skill's rubric (the
+  model looks at every design / build / diff image; the diff % is evidence, never the verdict),
+  and Debug fixes what misses. A missing screen fails its own criterion, never the whole run.
+- **The check page** is rebuilt from those verdicts every pass and published once per run to a
+  stored link; owner comments on it are read before the next run.
+- The verification step selects a check the TRD is silent on from the PRD's own inputs, and says
+  so in DECISIONS.
+
+### Verification
+
+Jest 1054, pytest 107, BATS 496 (15 suites). Live smoke `verification-artifacts` passes 45/45 —
+the design comparison end to end, with and without a TRD section. Functional verification 29 of
+33; the remaining four were deliberate choices since ruled by the owner, or truncated evidence.
+
+### Known open
+
+- The three check-skill names are hand-listed in six places.
+- Coverage can't be measured for `verify-functional.js` / `audit-trd.js` (their test harness loads
+  them via `new Function`).
+- Three smoke-scenario tightenings from review (terminal banner, per-frame verdict check).
+
 ## [4.8.0] - 2026-09-27
 
 The functional-verification loop converges instead of re-walking everything, and it now runs
