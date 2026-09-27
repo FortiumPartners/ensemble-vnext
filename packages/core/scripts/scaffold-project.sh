@@ -883,8 +883,13 @@ copy_framework_skills() {
         fi
         if [[ -d "$dest/$skill" ]]; then
             # Already installed. On refresh, copy_skills() (called before this
-            # function) already refreshed it if it was present; on scaffold it
-            # was already selected/copied. Either way, nothing to add here.
+            # function) already refreshed it. On scaffold, replace it only under
+            # --force, matching copy_skills()' handling of a selected skill.
+            if [[ "$FORCE" == "true" && "$REFRESH" != "true" ]]; then
+                rm -rf "${dest:?}/${skill:?}"
+                cp -RL "$src/$skill" "$dest/"
+                info "Replaced framework skill: $skill"
+            fi
             continue
         fi
         cp -RL "$src/$skill" "$dest/"

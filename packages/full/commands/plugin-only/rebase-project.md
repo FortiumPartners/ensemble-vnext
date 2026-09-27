@@ -363,7 +363,7 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    | **Unchanged** | Matches the stack, in both, identical | No action |
    | **Stale** | Vendored, **exists in the plugin's skill library**, no longer matches the stack | Remove |
    | **Custom** | Vendored, **does not exist in the plugin's skill library at all** | Report, **preserve** |
-   | **Framework** | One of the three always-installed skills (D2 in `docs/TRD/verification-artifacts.md`): `verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity` | Install if missing; otherwise leave in place |
+   | **Framework** | One of the three always-installed skills (D2 in `docs/TRD/verification-artifacts.md`): `verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity` | Install if missing; replace if its content differs from the plugin's (same byte-diff as Update) |
 
    **Framework skills are excluded from the Stale rule by name, not by stack match.** The
    three names above never appear in the stack-match table and so never match `stack.md` —
@@ -399,6 +399,9 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
 
    The **"to update"** bucket is computed by, for each skill matching the stack and present
    in both plugin and vendored: byte-diffing the folder contents. Any difference → update.
+   **The three Framework skills join this bucket by the same byte-diff**, even though they
+   match no stack row — otherwise a plugin fix to one of them would never reach a project
+   that already has it.
 
 #### 2.3 Command Diff
 

@@ -166,7 +166,7 @@ outside a code fence in the artifact.
   },
   {
     key: 'deterministic', effort: 'low', model: 'haiku',
-    prompt: `Two mechanical checks over ${TRD}. Do NOT read it linearly -- both are lookups.
+    prompt: `Three mechanical checks over ${TRD}. Do NOT read it linearly -- all three are lookups.
 
   CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
   referenced ID in its live target file. Report every one that does not resolve, naming the ID
@@ -182,7 +182,7 @@ outside a code fence in the artifact.
     - No such heading exists: report one finding, check 'omission', action 'advisory', why
       "section missing -- name the checks that apply, or state why none do".
     - The heading exists but the section holds no table row, no "Omitted:" line and no
-      "None apply --" line: report a finding, why "section has no rows, no Omitted lines and
+      "None apply —" line: report a finding, why "section has no rows, no Omitted lines and
       no None apply line".
     - Skill lookup: every Skill cell and every "Omitted: <skill> — ..." line names a skill.
       ls both packages/skills/<skill>/SKILL.md and .claude/skills/<skill>/SKILL.md under

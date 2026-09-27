@@ -1413,7 +1413,11 @@ straight to Step 9 exactly as §8.1 already sends them.
    set regardless of whether any check was selected. With no check selected at all: `checks: {}`,
    `checkComments: []`, and `pagesDir` still set to that path.
 6. **Add the rows to `criteria`**, parsed into the same fields §8.1's Present branch already
-   parses the derived rows into.
+   parses the derived rows into. **First drop every `check:`-derivation entry §8.1 already
+   parsed into `criteria`** — on any re-run or `--resume` the definition file still held the
+   previous pass's check rows when §8.1 read it, and they carry the same stable IDs (§3.5) as
+   the rows just rebuilt. Appending without dropping them passes each check criterion twice,
+   which doubles its weight in the workflow's totals and coverage.
 
 ### 8.2 The `--resume` composition (§3.7, D13) — already gated at Step 3.6
 

@@ -64,10 +64,16 @@ function checkVerificationArtifacts(markdown, { root, expectedNew, add, advise }
   const omittedRaw = [];
   let noneApply = false;
   for (const raw of sectionLines) {
-    const line = raw.trim();
+    // Tolerate a list marker or bold label (`- Omitted:`, `**Omitted:**`) -- otherwise such a
+    // line is silently skipped and its skill and reason go unchecked.
+    const line = raw.trim().replace(/^[-*+]\s+/, '').replace(/^\*\*(Omitted:|None apply)\*\*/, '$1');
     const omittedMatch = /^Omitted:\s*(.*)$/.exec(line);
     if (omittedMatch) omittedRaw.push(omittedMatch[1]);
-    if (/^None apply\s*—/.test(line)) noneApply = true;
+    const noneMatch = /^None apply\s*—\s*(.*)$/.exec(line);
+    if (noneMatch) {
+      noneApply = true;
+      if (!noneMatch[1].trim()) add('verification-artifacts', '-', 'None apply line gives no reason');
+    }
   }
 
   const hasRows = tables.some((t) => t.dataRows.length > 0);
@@ -111,7 +117,15 @@ function checkInputsCell(cell, skill, { root, expectedNew, add, advise }) {
       continue;
     }
     if (expectedNew.includes(span)) continue;
-    if (!fs.existsSync(path.resolve(root, span))) {
+    // §3.4: a non-URL span is a REPOSITORY path. One that resolves outside the root (an
+    // absolute `/api/alerts`, a `../` climb) is not one, whether or not something exists there.
+    const absRoot = path.resolve(root);
+    const resolved = path.resolve(absRoot, span);
+    if (resolved !== absRoot && !resolved.startsWith(absRoot + path.sep)) {
+      add('verification-artifacts', '-', `${skill}: cited input is not a repository path: ${span}`);
+      continue;
+    }
+    if (!fs.existsSync(resolved)) {
       add('verification-artifacts', '-', `${skill}: cited path does not exist: ${span}`);
     }
   }

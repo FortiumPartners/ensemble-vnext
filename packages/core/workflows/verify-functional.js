@@ -1166,23 +1166,17 @@ for (; iteration <= CAP; iteration++) {
   // extra parallel() call -- exactly today's single `await agent(...)` -- so every existing
   // call-count and wave-count test holds. Only with check rows does Debug join a `parallel()`
   // wave alongside one Render agent per skill.
-  let debugResult
-  if (RENDER_SKILLS.length === 0) {
-    debugResult = await agent(buildDebugPrompt(enrichDebugGaps(judgeResult.debugGaps || [])), {
+  const debugThunk = () =>
+    agent(buildDebugPrompt(enrichDebugGaps(judgeResult.debugGaps || [])), {
       label: 'debug',
       phase: 'Debug',
       agentType: 'app-debugger',
       schema: DEBUG_SCHEMA,
     })
+  let debugResult
+  if (RENDER_SKILLS.length === 0) {
+    debugResult = await debugThunk()
   } else {
-    phase('Render')
-    const debugThunk = () =>
-      agent(buildDebugPrompt(enrichDebugGaps(judgeResult.debugGaps || [])), {
-        label: 'debug',
-        phase: 'Debug',
-        agentType: 'app-debugger',
-        schema: DEBUG_SCHEMA,
-      })
     const [dResult, ...renderResults] = await parallel([debugThunk, ...RENDER_SKILLS.map((skill) => dispatchRender(skill, iteration, judgeResult))])
     debugResult = dResult
     for (const r of renderResults) pagesBySkill.set(r.skill, r)
