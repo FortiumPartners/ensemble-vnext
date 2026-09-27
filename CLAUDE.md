@@ -528,8 +528,16 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.7.2** (2026-09-26). 18 commands, 13 subagents. Test battery: 769 Jest,
-107 pytest, 489 BATS.
+Released at **4.8.0** (2026-09-27). 18 commands, 13 subagents. Test battery: 929 Jest,
+107 pytest, 488 BATS.
+
+4.8.0 makes the functional-verification loop converge and turns it **on by default**
+(`--no-verify` opts out — a breaking change; the loop's cost is still unmeasured). Proven
+criteria stay settled within a run; on a resume only passes are reloaded, so criteria that
+could not be tested get another try. Evidence must contain a locator the exerciser saw.
+`verification.md` §1a declares how many of each resource may exist at once, and criteria fan
+out per resource; telling existing instances apart is the project's job. Lanes are derived at
+`/implement-trd` §8.1a, after the criteria exist. Plan: `docs/TRD/verification-convergence.md`.
 
 4.7.2 cut ~530 tests on one standard: a test earns its place if it catches something done by
 ACCIDENT. Prose assertions against prompts went, because an edited prompt is a decision, not a

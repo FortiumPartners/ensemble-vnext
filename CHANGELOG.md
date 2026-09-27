@@ -10,6 +10,62 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.8.0] - 2026-09-27
+
+The functional-verification loop converges instead of re-walking everything, and it now runs
+by default. Plan: `docs/TRD/verification-convergence.md` (1.5.3), 11 tasks, all built.
+
+### Changed — BREAKING: `--verify` is the default
+
+`/implement-trd` runs the functional-verification loop unless `--no-verify` is passed. A
+bare `--resume` still never jumps straight into verification-only mode; that needs an
+explicit `--verify --resume`. The loop's wall-clock cost is **still unmeasured** — the
+default changed by owner decision, not after a measurement.
+
+### Added
+
+- **Settled criteria stay settled.** A proven criterion is not re-walked within a run. On
+  `--resume` or a later `/verify-build` only `met` is reloaded; `not_verifiable` gets another
+  try, so an environment you unblocked is actually used.
+- **Evidence needs a locator.** An artifact proves a criterion only if it contains a string
+  the exerciser says it saw there (`no-locator` / `locator-not-found`); `judge-only` criteria
+  (image comparison and the like) are exempt and say why.
+- **Parallel per resource.** `verification.md` gains §1a: how many of each resource may exist
+  at once. Criteria contend only for the resource they need. When N instances already exist,
+  the project states how parallel checks tell them apart — that is project-specific by design.
+- **Capture-only exercise**: the exerciser may bring a system up but may not edit, rebuild or
+  restart. **One full-environment run** at the end of each loop, when declared.
+- **Coverage on every result** (`N of M proven`) and an `insufficient-coverage` outcome that
+  stays dormant until a coverage floor is set (none is, by decision).
+
+### Fixed
+
+- Lanes are derived after the criteria exist (new `/implement-trd` §8.1a), and on the
+  `--verify --resume` path too; §3.6a is now environment-level only.
+- Smoke `artifact-contracts` green again: agent copies are compared minus the skill
+  preloads the scaffolder generates, not byte for byte.
+
+### Docs
+
+- Delivered PRDs/TRDs stay in place as-built; the scaffolder no longer creates
+  `docs/TRD/completed|cancelled`.
+- The functional-verification PRD/TRD, the contract's source kinds and `/rebase-project`'s
+  claim about `verification.md` (it is owner-owned and never refreshed) now match the code.
+
+### Verification
+
+Jest 929, pytest 107, BATS 488 (15 suites). Smoke: all default scenarios pass, and the live
+`verify-functional` walk passes 29/29 against real sessions. `/code-review high --fix` and
+`/audit-build` both ran; their findings are applied or recorded.
+
+### Known open
+
+- A run whose criteria span two refreshable environments refreshes only one (TRD D15).
+- Three CodeRabbit findings deferred as follow-ups: audit verdicts can read "safe to proceed"
+  while a baseline was missing (`/audit-build` with no PRD, `/audit-prd` with no source,
+  `/audit-trd` with unverified claims); the discovery ledger can drop evidence when a long
+  `files` list exceeds its byte budget.
+
 ## [4.7.2] - 2026-09-26
 
 Test-suite and CI release. ~530 tests removed, CI restored from a 52-minute hang to 90
