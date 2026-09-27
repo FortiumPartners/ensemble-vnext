@@ -213,7 +213,8 @@
       ],
       "commit": null,
       "started_at": null,
-      "completed_at": "2026-09-27T18:19:46.255Z"
+      "completed_at": "2026-09-27T18:19:46.255Z",
+      "live_run": "passed 45/45 2026-09-27"
     }
   },
   "checkpoints": [
