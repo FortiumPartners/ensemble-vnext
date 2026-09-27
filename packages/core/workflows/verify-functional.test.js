@@ -1929,8 +1929,12 @@ describe('verify-functional: checkComments reach the Exercise and Judge prompts'
     });
 
     expect(exercisePrompts).toHaveLength(2);
-    const dc1Prompt = exercisePrompts.find((p) => p.includes('"criterion": "DC-1"') || /"id":\s*"DC-1"/.test(p));
-    const dc2Prompt = exercisePrompts.find((p) => p !== dc1Prompt);
+    // Identify each slice by the criteria it actually holds (its `Criteria:` line), the same
+    // way the stub above does -- never by a substring the injected comments could also carry.
+    const sliceIds = (p) => JSON.parse(p.match(/Criteria:\n(.*)/)[1]).map((c) => c.id);
+    const dc1Prompt = exercisePrompts.find((p) => sliceIds(p).includes('DC-1'));
+    const dc2Prompt = exercisePrompts.find((p) => sliceIds(p).includes('DC-2'));
+    expect(dc1Prompt).not.toBe(dc2Prompt);
     expect(dc1Prompt).toBeDefined();
     expect(dc2Prompt).toBeDefined();
 
@@ -1972,7 +1976,13 @@ describe('verify-functional: checkComments reach the Exercise and Judge prompts'
         criteria: [checkCriterion('DC-1', 'verify-design-comparison')],
         checks: { 'verify-design-comparison': 'THE SKILL TEXT' },
         pagesDir: '.trd-state/example/verification-artifacts',
-        checkComments: [{ criterion: null, skill: 'a-different-skill', text: 'SHOULD NEVER APPEAR' }],
+        // Both scopes, so the Exercise half is not vacuous: a `criterion: null` comment never
+        // reaches Exercise whatever its skill, so only the DC-1-scoped one exercises the
+        // skill filter there.
+        checkComments: [
+          { criterion: 'DC-1', skill: 'a-different-skill', text: 'SHOULD NEVER APPEAR (scoped)' },
+          { criterion: null, skill: 'a-different-skill', text: 'SHOULD NEVER APPEAR (skill-wide)' },
+        ],
       }),
     });
 

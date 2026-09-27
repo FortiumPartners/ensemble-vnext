@@ -291,10 +291,9 @@ EOF
 # run_verify_build <project_dir> <session_file> <feature> <with_section> <timeout_secs>
 # Scaffolds a fresh throwaway project, turns publishing off, writes the
 # fixture design assets + PRD + TRD, commits, runs `claude --print
-# /verify-build <trd>` and returns claude's exit code. Leaves the banner text
-# in "${project_dir}/.final_text" and the FULL final assistant message in
-# "${project_dir}/.final_text_full" (readout assertions need more than the
-# banner's own tail window).
+# /verify-build <trd>` and returns claude's exit code. Leaves the whole final
+# assistant message in "${project_dir}/.final_text" -- the banner assertion
+# reads only its tail, the readout assertion reads all of it.
 run_verify_build() {
     local project_dir="$1" session_file="$2" feature="$3" with_section="$4" timeout_s="$5"
     local trd_rel="docs/TRD/${feature}.md"
@@ -342,13 +341,9 @@ run_verify_build() {
     local rc=$?
     assert_exit_code 0 "$rc" "claude --print exits 0 ($feature)"
 
-    local final_text banner_file full_file
-    final_text="$(smoke_final_text "$session_file")"
-    banner_file="${project_dir}/.final_text"
-    full_file="${project_dir}/.final_text_full"
-    printf '%s\n' "$final_text" > "$banner_file"
-    cp "$banner_file" "$full_file"
-    assert_tail_matches "$banner_file" 12 '(═══ COMMAND COMPLETE|═══ COMMAND STUCK)' \
+    local final_file="${project_dir}/.final_text"
+    smoke_final_text "$session_file" > "$final_file"
+    assert_tail_matches "$final_file" 12 '(═══ COMMAND COMPLETE|═══ COMMAND STUCK)' \
         "output ends with a COMMAND COMPLETE/STUCK banner ($feature)"
 
     return "$rc"
@@ -367,16 +362,17 @@ assert_check_page() {
 
     if [[ -f "$definition_file" ]]; then
         assert_pass_raw "success-definition.md exists ($label)"
-        if grep -qF "$DC_ID1" "$definition_file" && grep -qF "check:verify-design-comparison" "$definition_file"; then
-            assert_pass_raw "success-definition.md carries ${DC_ID1} with Derivation check:verify-design-comparison ($label)"
-        else
-            assert_fail_raw "success-definition.md is missing a ${DC_ID1} / check:verify-design-comparison row ($label)"
-        fi
-        if grep -qF "$DC_ID2" "$definition_file" && grep -qF "check:verify-design-comparison" "$definition_file"; then
-            assert_pass_raw "success-definition.md carries ${DC_ID2} with Derivation check:verify-design-comparison ($label)"
-        else
-            assert_fail_raw "success-definition.md is missing a ${DC_ID2} / check:verify-design-comparison row ($label)"
-        fi
+        # The ID and the Derivation must sit on the SAME table row -- two
+        # independent file-wide greps would pass on a DC id cited by some other
+        # row plus any one check row.
+        local dc_id
+        for dc_id in "$DC_ID1" "$DC_ID2"; do
+            if grep -F "$dc_id" "$definition_file" | grep -qF "check:verify-design-comparison"; then
+                assert_pass_raw "success-definition.md carries ${dc_id} with Derivation check:verify-design-comparison ($label)"
+            else
+                assert_fail_raw "success-definition.md is missing a ${dc_id} / check:verify-design-comparison row ($label)"
+            fi
+        done
     else
         assert_fail_raw "success-definition.md not found ($label), cannot check its rows"
     fi
@@ -402,13 +398,6 @@ assert_check_page() {
         assert_contains "$page_file" 'type="range"' "index.html carries an overlay range slider ($label)"
         assert_contains "$page_file" "$DC_ID1" "index.html carries a card for ${DC_ID1} ($label)"
         assert_contains "$page_file" "$DC_ID2" "index.html carries a card for ${DC_ID2} ($label)"
-        # One of the six page statuses (D16 / the skill's Rubric) must appear
-        # somewhere on the page -- which ONE is not asserted (see header note).
-        if grep -qiE '\b(match|minor|deviates|superseded|uncaptured|spec)\b' "$page_file"; then
-            assert_pass_raw "index.html names at least one of the six page statuses ($label)"
-        else
-            assert_fail_raw "index.html names none of the six page statuses ($label)"
-        fi
     else
         assert_fail_raw "verify-design-comparison/index.html not found ($label)"
     fi
@@ -417,6 +406,18 @@ assert_check_page() {
     if [[ -f "$verdicts_file" ]]; then
         if jq -e . "$verdicts_file" >/dev/null 2>&1; then
             assert_pass_raw "verdicts.json is valid JSON ($label)"
+            # Each frame's entry carries a page status from the six-value set
+            # (D16 / the skill's Rubric) -- which ONE is not asserted (see
+            # header note). Counted as JSON string VALUES in verdicts.json, not
+            # as bare words on the page: "match" and "spec" occur in almost any
+            # HTML, and a status legend lists all six whatever the cards say.
+            local status_count
+            status_count="$(jq '[.. | strings | select(IN("match","minor","deviates","superseded","uncaptured","spec"))] | length' "$verdicts_file" 2>/dev/null)"
+            if [[ "${status_count:-0}" -ge 2 ]]; then
+                assert_pass_raw "verdicts.json carries a page status per frame ($label: ${status_count} status values)"
+            else
+                assert_fail_raw "verdicts.json carries ${status_count:-0} page status value(s), expected one per frame (2) ($label)"
+            fi
         else
             assert_fail_raw "verdicts.json is not valid JSON ($label)"
         fi
@@ -439,7 +440,7 @@ cleanup() {
         echo "  scratch projects PRESERVED for diagnosis (${ASSERT_FAIL_COUNT} failure(s)):"
         [[ -d "$PROJECT_DIR_A" ]] && echo "    Run A (TRD names the check): $PROJECT_DIR_A"
         [[ -d "$PROJECT_DIR_B" ]] && echo "    Run B (no section, PRD fallback): $PROJECT_DIR_B"
-        echo "  remove them yourself when done: rm -rf /tmp/ensemble-smoke-vart-*"
+        echo "  remove them yourself when done: rm -rf ${TMPDIR:-/tmp}/ensemble-smoke-vart-*"
         return 0
     fi
     rm -rf "$PROJECT_DIR_A" "$PROJECT_DIR_B"
@@ -481,15 +482,26 @@ assert_check_page "${PROJECT_DIR_B}/.trd-state/${FEATURE_B}" "Run B: no section,
 # Run B only (D9): with the TRD silent, §8.1b's fallback selects the check
 # from the PRD's own inputs and must record ONE DECISIONS line naming it.
 # Loose check, deliberately (VART-T001 grounding "Careful": "the readout
-# wording is the model's") -- look for the DECISIONS section, then for the
-# check's name somewhere in or after it, rather than a fixed sentence.
-FULL_TEXT_B="${PROJECT_DIR_B}/.final_text_full"
-if [[ -f "$FULL_TEXT_B" ]] && grep -qi 'DECISIONS' "$FULL_TEXT_B"; then
-    DECISIONS_TAIL="$(awk 'BEGIN{IGNORECASE=1} /DECISIONS/{found=1} found' "$FULL_TEXT_B")"
-    if printf '%s' "$DECISIONS_TAIL" | grep -qi 'verify-design-comparison'; then
-        assert_pass_raw "Run B's readout names verify-design-comparison in or after its DECISIONS section"
+# wording is the model's") -- find the DECISIONS section heading, then look
+# for the check's name inside that section only (up to the ISSUES or NEXT
+# heading), rather than for a fixed sentence. Naming the check in ISSUES,
+# NEXT or the banner does not satisfy D9's DECISIONS line. Case folding is
+# done with toupper(), not gawk's IGNORECASE, which BSD/macOS awk ignores.
+FULL_TEXT_B="${PROJECT_DIR_B}/.final_text"
+DECISIONS_BLOCK=""
+if [[ -f "$FULL_TEXT_B" ]]; then
+    DECISIONS_BLOCK="$(awk '
+        { u = toupper($0) }
+        u ~ /^[#* ]*DECISIONS([^A-Z]|$)/ { found = 1; print; next }
+        found && u ~ /^[#* ]*(ISSUES|NEXT)([^A-Z]|$)/ { exit }
+        found { print }
+    ' "$FULL_TEXT_B")"
+fi
+if [[ -n "$DECISIONS_BLOCK" ]]; then
+    if printf '%s' "$DECISIONS_BLOCK" | grep -qi 'verify-design-comparison'; then
+        assert_pass_raw "Run B's readout names verify-design-comparison in its DECISIONS section"
     else
-        assert_fail_raw "Run B's readout has a DECISIONS section but never names verify-design-comparison"
+        assert_fail_raw "Run B's readout has a DECISIONS section but it never names verify-design-comparison"
     fi
 else
     assert_fail_raw "Run B's readout has no DECISIONS section to check for the fallback-selection line"

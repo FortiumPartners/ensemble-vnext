@@ -941,7 +941,7 @@ copy_skills() {
         # adds any of the three FRAMEWORK_SKILLS still missing from dest even
         # though they weren't already selected — those ship to every project
         # regardless (D2/D10). It never replaces one already present under
-        # --refresh (that's this loop's job, just above); --force only
+        # --refresh (that's the loop just below); --force only
         # replaces an already-present framework skill outside --refresh.
         REFRESH_SKILLS_COUNT=0
         if [[ ! -d "$dest" ]]; then

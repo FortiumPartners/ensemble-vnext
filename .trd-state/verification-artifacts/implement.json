@@ -118,6 +118,10 @@
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [
+        ".claude/workflows/verify-functional.js",
+        "docs/TRD/functional-verification.md",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "packages/core/workflows/verify-functional.js",
         "packages/core/workflows/verify-functional.test.js"
       ],
       "commit": null,
@@ -150,7 +154,9 @@
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [
-        "packages/core/scripts/scaffold-project.sh"
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/skills/README.md"
       ],
       "commit": null,
       "started_at": "2026-09-27T16:59:44.084Z",
