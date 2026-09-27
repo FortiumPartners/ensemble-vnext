@@ -1026,7 +1026,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
     // verbatim, as a settled entry with its original artifact and provenAt.
     expect(openIdsFrom(judgePrompts[1])).toEqual(['FS-2']);
     const settled2 = settledFrom(judgePrompts[1]);
-    expect(settled2).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1 }]);
+    expect(settled2).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
     // And the workflow's own final result -- which nothing but the settled map can supply,
     // since the Judge's structured return only ever carried FS-2 -- still reports FS-1 met.
     expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met', artifact: 'a.txt', provenAt: 1 }));
@@ -1137,6 +1137,26 @@ describe('verify-functional: settled/open partition across iterations', () => {
     expect(claims.find((c) => c.criterion === 'FS-2')).toMatchObject({ judgeOnly: false });
   });
 
+  it('treats a Tier 1 cell carrying its reason ("judge-only — <why>", the contract\'s own form) as judge-only', async () => {
+    let capturedJudgePrompt = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'pic.png' }]);
+      if (opts.label === 'judge') {
+        capturedJudgePrompt = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+
+    await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria: [criterion('FS-1', { tier1: 'judge-only — pixel/colour comparison, no text assertion is possible' })] }),
+    });
+
+    const claims = JSON.parse(capturedJudgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1]);
+    expect(claims[0]).toMatchObject({ criterion: 'FS-1', judgeOnly: true });
+  });
+
   it('reloads only met resume entries as settled -- a not_verifiable entry goes back into the open set (D2)', async () => {
     let capturedJudgePrompt = null;
     const agent = makeAgentStub((prompt, opts) => {
@@ -1170,7 +1190,7 @@ describe('verify-functional: settled/open partition across iterations', () => {
     // invocation) is back in the open set for this one, alongside FS-2 (never settled).
     expect(openIdsFrom(capturedJudgePrompt)).toEqual(['FS-2', 'FS-3']);
     const settled = settledFrom(capturedJudgePrompt);
-    expect(settled).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1 }]);
+    expect(settled).toEqual([{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, provenAt: 1, statement: 'statement for FS-1', cites: 'FR-1' }]);
     expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', status: 'met' }));
   });
 });

@@ -140,7 +140,9 @@ function checkEvidence(claims, sinceSec) {
     // have actually SEEN inside the artifact. Appended last, after every cheaper condition,
     // so it only ever runs against a file that already cleared no-artifact/missing/
     // not-a-file/empty/stale.
-    if (!locator) {
+    // A whitespace-only locator is treated as absent: " " is a substring of nearly any text
+    // artifact, so accepting it would pass tier 1 on an artifact nothing was actually seen in.
+    if (typeof locator !== 'string' || locator.trim() === '') {
       // A claim-shape failure, not a verdict (§3.1): the Judge may still read `claim.reason`.
       // Making this pass instead would reinstate the hole the locator closes -- an artifact
       // with nothing proving it says anything about the criterion still "passing" tier 1.
@@ -186,7 +188,10 @@ function checkEvidence(claims, sinceSec) {
       };
     }
 
-    return { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator };
+    // A pass found in a truncated scan still says so -- the remainder was never read.
+    return truncated
+      ? { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator, truncated }
+      : { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator };
   });
 }
 

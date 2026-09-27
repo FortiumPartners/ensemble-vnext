@@ -134,6 +134,22 @@ const RESUME = a.resume || null
 const PROJECT = a.project || ''
 const N = CRITERIA.length
 
+// A definition's `Tier 1` cell for a judge-only row carries its reason in the same cell (the
+// contract's own example reads "judge-only — pixel/colour comparison, ..."), so an exact
+// `=== 'judge-only'` comparison would silently treat every such row as `locator` and fail its
+// pictorial artifact at tier 1. Match the leading marker instead.
+function isJudgeOnly(criterion) {
+  return typeof criterion.tier1 === 'string' && /^\s*judge-only\b/i.test(criterion.tier1)
+}
+
+// Settled entries hold verdict fields only; the Judge needs each one's statement and cites to
+// copy it into the report input (STEP 5), and has no other source for them -- a criterion
+// settled in an earlier iteration (or carried in from a resume) is not in the open set.
+const CRITERION_BY_ID = new Map(CRITERIA.map((c) => [c.id, c]))
+function settledList(settled) {
+  return Array.from(settled, ([id, v]) => ({ id, ...v }))
+}
+
 // NEW (D4, D5, §3.3, §3.5). Lane-based Exercise slicing. Absent or empty, this defaults to
 // exactly one lane of concurrency 1 over every criterion -- exactly today's single-agent
 // behaviour, and the one-lane/concurrency-1 case of the general slicing path below, not a
@@ -210,10 +226,18 @@ const SCOPE = PROJECT
 // what the exerciser is told, never the whole definition's `${N}` / `criteriaJson()` (which this
 // function used to read). Handing a 5-criterion slice a prompt that says "62" sends it hunting
 // for the other 57, which is the exact failure lanes exist to stop.
-function buildExercisePrompt(iteration, slice) {
+function buildExercisePrompt(iteration, slice, concurrentSlices = 1) {
   const { lane, criteria } = slice
   const count = criteria.length
-  const laneNote = lane.createCommand
+  const notesConcurrency =
+    concurrentSlices > 1
+      ? `${concurrentSlices - 1} other exerciser(s) run alongside you this iteration and may edit ` +
+        `the same file: re-read it immediately before writing, make only a targeted edit or ` +
+        `append, and never rewrite the whole file from an earlier read. `
+      : ''
+  const laneNote = lane.resource === null
+    ? ''
+    : lane.createCommand
     ? `LANE RESOURCE (D5, D12): ${JSON.stringify(lane.resource)}. This slice's lane declares a ` +
       `create/destroy command. You MAY create AT MOST ONE instance of this resource for this ` +
       `slice, using exactly:\n  ${lane.createCommand}\nand you MUST tear it down again before ` +
@@ -244,7 +268,8 @@ function buildExercisePrompt(iteration, slice) {
     `You own .claude/verification-notes.md (D6): read it before you start, and if anything in ` +
     `this run taught you something worth recording -- a stale hint, a corrected port or ` +
     `command, a substituted evidence artifact -- add or correct a marked line ([ran]/[read]/` +
-    `[inferred], per the contract) before you return. Report whether you touched that file.\n\n` +
+    `[inferred], per the contract) before you return. ${notesConcurrency}Report whether you ` +
+    `touched that file.\n\n` +
     `Return { "claims": [ { "criterion": "<id>", "artifact": "<path>" | null, "locator": ` +
     `"<string>" | null, "reason": "<string, present when artifact is null>" }, ... ], ` +
     `"notesUpdated": <true when you added or corrected a line in .claude/verification-notes.md ` +
@@ -258,7 +283,12 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
   const claimsJson = JSON.stringify(claims)
   const prevGapsJson = JSON.stringify(previousGaps)
   const openCriteriaJson = JSON.stringify(openCriteria)
-  const settledJson = JSON.stringify(settledEntries)
+  const settledJson = JSON.stringify(
+    settledEntries.map((e) => {
+      const def = CRITERION_BY_ID.get(e.id) || {}
+      return { ...e, statement: def.statement ?? null, cites: def.cites ?? null }
+    })
+  )
   const settledMetIds = settledEntries.filter((e) => e.status === 'met').map((e) => e.id)
   const claimsFile = `${STATE_DIR}/judge-claims-${iteration}.json`
   const decideFile = `${STATE_DIR}/judge-decide-${iteration}.json`
@@ -568,10 +598,10 @@ function reconcileClaims(returned, openCriteria) {
     const claim = byId.has(c.id)
       ? byId.get(c.id)
       : { criterion: c.id, artifact: null, reason: 'the exerciser returned no claim for this criterion' }
-    return { ...claim, judgeOnly: c.tier1 === 'judge-only' }
+    return { ...claim, judgeOnly: isJudgeOnly(c) }
   })
   const walked = openCriteria.filter((c) => byId.has(c.id)).length
-  const unknown = [...byId.keys()].filter((id) => !CRITERIA.some((c) => c.id === id))
+  const unknown = [...byId.keys()].filter((id) => !CRITERION_BY_ID.has(id))
   return { claims, walked, unknown, duplicates }
 }
 
@@ -596,7 +626,11 @@ const OUTCOME_BY_ACTION = {
 function computeFinalRun(judgeResult) {
   if (!FULL_RUN_COMMAND) return { command: '', status: 'skipped' }
   if (judgeResult.action === 'exit-unbuilt') return { command: FULL_RUN_COMMAND, status: 'skipped' }
-  return judgeResult.finalRun || { command: FULL_RUN_COMMAND, status: 'fail' }
+  // Only a pass/fail status is meaningful here, and the command is the declared one: a Judge
+  // returning "skipped" (or an empty command) for a run that was declared and due would render
+  // as "no full-environment run declared" -- the misreading this function exists to prevent.
+  const status = judgeResult.finalRun && judgeResult.finalRun.status
+  return { command: FULL_RUN_COMMAND, status: status === 'pass' ? 'pass' : 'fail' }
 }
 
 // `settled` (the Map built up across iterations, §3.4) is passed in so the returned `criteria`
@@ -613,7 +647,7 @@ function coverageOf(criteria) {
 }
 
 function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel, settled) {
-  const settledCriteria = Array.from(settled, ([id, v]) => ({ id, ...v }))
+  const settledCriteria = settledList(settled)
   const openReturned = (judgeResult.criteria || []).filter((c) => !settled.has(c.id))
   const criteria = [...settledCriteria, ...openReturned]
   return {
@@ -725,7 +759,7 @@ for (; iteration <= CAP; iteration++) {
   // walked again (§3.4). `reconcileClaims`, the lane slicing below and the Judge prompt are all
   // open-set relative.
   const openCriteria = CRITERIA.filter((c) => !settled.has(c.id))
-  const settledEntries = Array.from(settled, ([id, v]) => ({ id, ...v }))
+  const settledEntries = settledList(settled)
 
   let claims
   let exerciseNotesUpdated = false
@@ -775,7 +809,7 @@ for (; iteration <= CAP; iteration++) {
       criterion: c.id,
       artifact: null,
       reason: 'no exercise lane: the declarations reach no environment that covers this criterion',
-      judgeOnly: c.tier1 === 'judge-only',
+      judgeOnly: isJudgeOnly(c),
     }))
     if (noLaneCriteria.length > 0) {
       log(`iteration ${iteration}: ${noLaneCriteria.length} open criterion/criteria reach no exercise lane -- synthesizing a not_verifiable-shaped claim for each: ${noLaneCriteria.map((c) => c.id).join(', ')}`)
@@ -783,8 +817,8 @@ for (; iteration <= CAP; iteration++) {
 
     // Every lane's slices dispatch together, batched at MAX_PARALLEL_SLICES (sweep.js's pattern,
     // §3.5) -- a slice past the first batch runs in the next one and is never dropped.
-    const dispatchSlice = (job) => async () => {
-      const exerciseResult = await agent(buildExercisePrompt(iteration, job), {
+    const dispatchSlice = (job, batchSize) => async () => {
+      const exerciseResult = await agent(buildExercisePrompt(iteration, job, batchSize), {
         label: 'exercise',
         phase: 'Exercise',
         agentType: 'verify-app',
@@ -798,7 +832,7 @@ for (; iteration <= CAP; iteration++) {
             criterion: c.id,
             artifact: null,
             reason: 'exerciser returned nothing',
-            judgeOnly: c.tier1 === 'judge-only',
+            judgeOnly: isJudgeOnly(c),
           })),
           walked: 0,
           unknown: [],
@@ -827,7 +861,7 @@ for (; iteration <= CAP; iteration++) {
     }
     const sliceResults = []
     for (const batch of sliceBatches) {
-      sliceResults.push(...(await parallel(batch.map(dispatchSlice))))
+      sliceResults.push(...(await parallel(batch.map((job) => dispatchSlice(job, batch.length)))))
     }
 
     // Aggregate AFTER every slice of this iteration has returned (§3.4's `exercisedLabel` /
@@ -946,12 +980,14 @@ return {
   reason: `iteration cap (${CAP}) reached without the Judge returning an exit action`,
   iterations: CAP,
   reportPath: REPORT_PATH,
-  criteria: [],
+  // What this invocation did settle is still true -- returning [] would tally every banner
+  // count at 0, the same defect the resume-with-no-budget exit above was fixed for.
+  criteria: settledList(settled),
   gaps: previousGaps || [],
   unbuilt: [],
   exercised: exercisedLabel,
   debugAttempts,
   notesUpdated: false,
-  coverage: coverageOf(Array.from(settled, ([id, v]) => ({ id, ...v }))),
+  coverage: coverageOf(settledList(settled)),
   finalRun: null, // NEW (D14) -- the other "not-run" case: the loop fell through with no exit action, so no gate ran
 }

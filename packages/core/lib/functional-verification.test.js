@@ -226,6 +226,15 @@ describe('checkEvidence', () => {
     expect(verdict.failure).toBe('no-locator');
   });
 
+  test('no-locator — a whitespace-only locator counts as absent, not as a match', () => {
+    const artifact = path.join(tmpDir, 'ws-locator.txt');
+    fs.writeFileSync(artifact, 'some content');
+    const mtimeSec = Math.floor(fs.statSync(artifact).mtimeMs / 1000);
+    const [verdict] = checkEvidence([{ criterion: 'FS-1', artifact, locator: ' ' }], mtimeSec - 3600);
+    expect(verdict.tier1).toBe('fail');
+    expect(verdict.failure).toBe('no-locator');
+  });
+
   test('locator-not-found — artifact exists and is fresh, but does not contain the locator', () => {
     const artifact = path.join(tmpDir, 'wrong-content.txt');
     fs.writeFileSync(artifact, 'some content');

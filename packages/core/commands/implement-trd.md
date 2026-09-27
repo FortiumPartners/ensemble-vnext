@@ -759,8 +759,8 @@ node .claude/lib/functional-verification.js check-verification-unfilled \
   .claude/rules/verification.md packages/core/templates/claude-directory/rules/verification.md
 ```
 
-If this prints `{"unfilled": true}` — the project's copy is still byte-for-byte (modulo
-whitespace) the shipped template — say so plainly in the readout rather than letting every
+If this prints `"unfilled": true` — the project's copy is still byte-for-byte (modulo
+whitespace) the current shipped template or a prior one (`matchedTemplate` names which) — say so plainly in the readout rather than letting every
 criterion quietly resolve to `not_verifiable` as if the environments had been declared and
 simply didn't cover this one. Then continue: an unfilled file is not a reason to skip the
 loop, it is a reason to name the gap.
@@ -847,14 +847,16 @@ above.** The `check-verification-unfilled` call already run at the top of this s
 
 - `matchedTemplate: "current"` — the file has never been filled in at all; the unfilled
   message above already covers it.
-- `matchedTemplate` any OTHER label (e.g. `"pre-resource-table"`) — the file HAS been filled
-  in, but it predates this change: no §1a, no data-permission column, no fast-refresh/
-  full-deploy split. Say the consequence in one line: *"your `verification.md` predates the
-  resource / read-only / fast-refresh sections — every lane resolves to concurrency 1 and no
-  refresh or full run is declared."* This is D13's only delivery path to a project that
-  already exists: `scaffold-project.sh --refresh` will not rewrite an owner's filled-in file
-  (correctly — it is owner-governed), so this line is the only way that owner learns the new
-  sections exist.
+- `matchedTemplate` any OTHER label (e.g. `"pre-resource-table"`) — the file was NEVER filled
+  in, and it is an unfilled copy of an OLDER template: no §1a, no data-permission column, no
+  fast-refresh/full-deploy split. (A digest can only recognise an unmodified template — an
+  owner-filled file of the old shape reports `matchedTemplate: null` like any other filled
+  file, so this line never reaches that owner.) Say the consequence in one line: *"your
+  `verification.md` is an unfilled copy of a template that predates the resource /
+  read-only / fast-refresh sections — every lane resolves to concurrency 1 and no refresh or
+  full run is declared."* `scaffold-project.sh --refresh` will not rewrite this file
+  (correctly — it is owner-governed), so this line is how an owner who never filled it in
+  learns the new sections exist.
 - `matchedTemplate: null` (with `unfilled: false`) — an ordinary filled-in, current-shape file.
   Nothing to report.
 
