@@ -96,7 +96,7 @@ const FINDING_ITEMS = {
       id: { type: 'string', description: "the artifact's own ID; omit for omission findings" },
       line: { type: 'string', description: 'the text as written; omit for omission findings' },
       source_ref: { type: 'string' },
-      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation','drop-dependency'] },
+      action: { type: 'string', enum: ['delete','lower-to-floor','add-back','unbuildable','pick-one','confirm-wanted','check-reasoning','fix-citation','drop-dependency','advisory'] },
     },
   },
 }
@@ -147,11 +147,26 @@ either appears in the artifact or is explicitly listed under Non-Goals (grep the
 
 A per-line audit cannot see a line that is not there. Dropping a requirement is commoner than
 inventing one, and silent narrowing -- reproducing seven of eight metrics and dropping the
-eighth without comment -- has no other check that can catch it.`,
+eighth without comment -- has no other check that can catch it.
+
+VERIFICATION CHECKS. The framework has three checks matching three things SOURCE may
+reference: design frames (screens, mockups, a design handoff) -> verify-design-comparison; an
+interaction diagram or screen-to-screen journeys -> verify-flow-as-built; screens rendering
+API or store data -> verify-data-fidelity. Find the last "## Verification Artifacts" heading
+outside a code fence in the artifact.
+  - If the section EXISTS: for each trigger SOURCE meets, confirm the section either selects
+    that check (a table row naming it) or gives a reason it is left out (an
+    "Omitted: <skill> — <reason>" line, or a "None apply — <reason>" line covering all
+    three). Where neither applies, report a finding: check 'omission', action 'add-back',
+    naming the check and the inputs SOURCE gives for it (the frame paths, the diagram or
+    journeys, the data source and screen).
+  - If the section is ABSENT: report the same items, but with action 'advisory' instead of
+    'add-back' -- the missing section itself is handled elsewhere in this audit, and an
+    applicability item must not reach reconcile as something to add a row for.`,
   },
   {
     key: 'deterministic', effort: 'low', model: 'haiku',
-    prompt: `Two mechanical checks over ${TRD}. Do NOT read it linearly -- both are lookups.
+    prompt: `Three mechanical checks over ${TRD}. Do NOT read it linearly -- all three are lookups.
 
   CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
   referenced ID in its live target file. Report every one that does not resolve, naming the ID
@@ -162,7 +177,26 @@ eighth without comment -- has no other check that can catch it.`,
   constrain: technologies outside the declared stack, coverage figures below a stated floor,
   prohibited patterns, contradicted architectural invariants.
 
-Both are pass/fail per item. A miss is a miss; do not interpret.`,
+  VERIFICATION ARTIFACTS: find the LAST "## Verification Artifacts" heading outside a code
+  fence in ${TRD}.
+    - No such heading exists: report one finding, check 'omission', action 'advisory', why
+      "section missing -- name the checks that apply, or state why none do".
+    - The heading exists but the section holds no table row, no "Omitted:" line and no
+      "None apply —" line: report a finding, why "section has no rows, no Omitted lines and
+      no None apply line".
+    - Skill lookup: every Skill cell and every "Omitted: <skill> — ..." line names a skill.
+      ls both packages/skills/<skill>/SKILL.md and .claude/skills/<skill>/SKILL.md under
+      ${PROJECT || 'this repository'} for each one -- either resolving is enough. Report any
+      skill that resolves under neither, check 'citation', action 'fix-citation'.
+    - Every "Omitted:" line has text after its dash. Report one that does not, why "Omitted
+      line gives no reason".
+    - Per-span input lookup: every backtick-delimited span inside an Inputs cell is its OWN
+      input, classified and checked on its own -- a URL (a scheme then "://") gets an
+      advisory ("not checked (URL)"); anything else is a repo path, ls it against the root,
+      and report a miss as a finding, check 'citation', action 'fix-citation', naming the
+      row's skill and the path.
+
+Both other checks are pass/fail per item. A miss is a miss; do not interpret.`,
   },
 ]
 
@@ -353,11 +387,23 @@ const VERIFIERS = [...INDEX_BOUND_VERIFIERS, ...INDEX_FREE_VERIFIERS]
 const waves = [...boundWaves, ...freeWaves]
 
 const alive = waves.filter(Boolean)
-const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
+const allItems = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
+// Advisories (§3.4/D6) are split off HERE, at the one place findings are assembled -- never
+// passed to either reconcile agent, never counted toward `findings`, never able to change the
+// VERDICT line. A missing-section item reaching the reconcile agent would write the section
+// into an old TRD, which is exactly what the split prevents.
+const advisories = allItems.filter((f) => f.action === 'advisory')
+const findings = allItems.filter((f) => f.action !== 'advisory')
 const deadKeys = VERIFIERS.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
 const dead = deadKeys.length
 if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
-log(`${findings.length} findings from ${alive.length}/${VERIFIERS.length} verifiers`)
+log(`${findings.length} findings (${advisories.length} advisory) from ${alive.length}/${VERIFIERS.length} verifiers`)
+
+// Rendered once and appended to whichever readout is returned (the hand-built zero-findings
+// one, or the reconcile agent's) -- advisories never reach the agent that produces either.
+const advisoryReadoutLines = advisories.length
+  ? `${advisories.map((f) => `  NO ACTION — ${f.why}`).join('\n')}\n`
+  : ''
 
 // --------------------------------------------------------------------------- 3. RECONCILE
 
@@ -450,7 +496,7 @@ ${COVERAGE}${CNV}`,
   )
   if (!clean) log('WARNING: Could Not Verify rewrite returned nothing — the section is unchanged')
   return {
-    trd: TRD, findings: 0, applied: 0, rejected: 0,
+    trd: TRD, findings: 0, advisories: advisories.length, applied: 0, rejected: 0,
     still_unverified: ((clean && clean.could_not_verify_remaining) || []).length,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0,
@@ -460,6 +506,7 @@ ${COVERAGE}${CNV}`,
         : 'safe to proceed'}\n\n` +
       `  NO ACTION — every objective traces to a source, every decision names one, every\n` +
       `  citation resolves.\n` +
+      advisoryReadoutLines +
       (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : ''),
   }
 }
@@ -566,10 +613,11 @@ return {
   trd: TRD,
   source: SOURCE,
   findings: findings.length,
+  advisories: advisories.length,
   applied: readout.applied.length,
   rejected: readout.rejected.length,
   still_unverified: (readout.could_not_verify_remaining || []).length,
   verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
   incomplete_coverage: dead > 0,
-  readout: readout.readout,
+  readout: readout.readout + (advisoryReadoutLines ? `\n${advisoryReadoutLines}` : ''),
 }

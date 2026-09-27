@@ -1,0 +1,247 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verification-artifacts.md",
+  "trd_hash": "5dd4d784de3df449e1ae6d5293b9b7a3009ede8802d810f0b6ed681425f3cee4",
+  "branch": "feature/verification-artifacts/build",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "VART-P001": {
+      "description": "Write packages/skills/verify-design-comparison/SKILL.md per §3.1: common frontmatter; the seven sections, each headed exactly as named; the design-comparison Criteria, Capture (state not data, newest-",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verify-design-comparison/SKILL.md",
+        "packages/skills/verify-design-comparison/__tests__/skill-md.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.113Z",
+      "last_advanced": "2026-09-27T17:01:42.837Z"
+    },
+    "VART-P002": {
+      "description": "Write packages/skills/verify-flow-as-built/SKILL.md per §3.1.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verify-flow-as-built/SKILL.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.113Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-P003": {
+      "description": "Write packages/skills/verify-data-fidelity/SKILL.md per §3.1.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verify-data-fidelity/SKILL.md",
+        "packages/skills/verify-data-fidelity/__tests__/skill-md.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.117Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-B001": {
+      "description": "Add the section check to fix-audit.js's audit() for the TRDs /plan writes (§3.4, fix-audit.js column): when opts.markdown is given, find the section with the helpers trd-parser.js already exports (§3.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/fix-audit.js",
+        ".claude/lib/fix-audit.js",
+        "packages/core/lib/fix-audit.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.108Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-B002": {
+      "description": "Wire the checks into /audit-trd (§3.4, /audit-trd column). In audit-trd.js: the deterministic verifier's prompt gains a third lookup, VERIFICATION ARTIFACTS: ls each skill named in a row or an Omitted",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-trd.js",
+        ".claude/workflows/audit-trd.js",
+        "packages/core/workflows/audit-trd.test.js",
+        "packages/core/commands/audit-trd.md",
+        ".claude/commands/audit-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.113Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-B003": {
+      "description": "Wire the commands (§3.5, §3.8). In implement-trd.md: add §8.1b Append the check criteria after §8.1 and before §8.2; make §8.2 run §8.1b and filter resume.criteria (unknown IDs, commented criteria); a",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/command-status.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.113Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-B004": {
+      "description": "Change verify-functional.js per §3.6: read and validate checks, checkComments, pagesDir; inject each skill's text into Exercise slices and the Judge (STEP 2a) only where its rows are; enrich Debug gap",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/workflows/verify-functional.js",
+        "docs/TRD/functional-verification.md",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T18:19:46.251Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-B005": {
+      "description": "Amend packages/core/contracts/functional-verification.md (and mirror) per §3.7: a \"Check criteria\" section after \"Tier 1\"; one sentence in the Parts paragraph. Extend functional-verification.test.js.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/contracts/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.113Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-P004": {
+      "description": "Add copy_framework_skills() to scaffold-project.sh, driven by a named array of the three skill names (D2), and call it from scaffold_project() (not gated on --copy-skills) and from refresh_project() a",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/skills/README.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T18:19:46.255Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-P005": {
+      "description": "Amend packages/core/commands/rebase-project.md and its .claude/commands/ mirror, then regenerate the third copy, packages/full/commands/plugin-only/rebase-project.md, with packages/core/scripts/genera",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.118Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-D001": {
+      "description": "Document the ## Verification Artifacts section (§3.2) in packages/core/contracts/trd-authoring.md (and mirror) as a section every TRD must emit, placed after Non-Goals and before Task Grounding: the t",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/contracts/trd-authoring.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/lib/fix-template.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-27T16:59:44.084Z",
+      "completed_at": "2026-09-27T17:28:19.118Z",
+      "last_advanced": "2026-09-27T17:01:42.838Z"
+    },
+    "VART-T001": {
+      "description": "[LIVE] Add opt-in smoke scenario test/smoke/scenarios/verification-artifacts.sh, registered in LLM_OPT_IN_SCENARIOS in test/smoke/run-smoke.sh, following verify-functional.sh's one-throwaway-project-p",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/scenarios/verification-artifacts.sh",
+        "test/smoke/run-smoke.sh"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-09-27T18:19:46.255Z",
+      "live_run": "passed 45/45 2026-09-27"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "e91741d",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-27T17:28:23.093Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "e91741d",
+    "last_checkpoint_timestamp": "2026-09-27T17:28:23.093Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/verification-artifacts.investigation.md",
+    "environments": {
+      "local": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled shipped template (byte-identical by design in this repo, per runtime-integrity tests) — no environment declared"
+      }
+    }
+  }
+}

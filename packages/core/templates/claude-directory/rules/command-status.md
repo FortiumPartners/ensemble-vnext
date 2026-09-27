@@ -384,8 +384,9 @@ Markdown files publish directly. Three reasons this matters more than it looks:
 ### Store the URL, and redeploy to it
 
 Write the returned URL to `.trd-state/<feature>/artifacts.json` keyed by artifact kind
-(`prd`, `trd`, `verification-report`). On a later `/refine-prd`, `/refine-trd` or re-verify,
-pass that URL back as `url:` so the same link updates in place.
+(`prd`, `trd`, `verification-report`, and one key per verification-check skill). On a later
+`/refine-prd`, `/refine-trd` or re-verify, pass that URL back as `url:` so the same link
+updates in place.
 
 **Without this the link goes stale silently**, which is the failure this framework fights
 everywhere else: someone clicks a URL from three refinements ago and reads a superseded plan

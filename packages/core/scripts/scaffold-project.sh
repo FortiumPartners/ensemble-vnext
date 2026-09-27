@@ -36,6 +36,16 @@ FORCE=false
 REFRESH=false
 PROJECT_DIR=""
 
+# The framework-owned verification-artifact skills (docs/TRD/verification-artifacts.md
+# D2). These ship to EVERY project regardless of stack selection or --copy-skills --
+# see copy_framework_skills() below. Adding a fourth means editing this list plus
+# rebase-project.md's Framework row and trd-authoring.md's section (D2).
+FRAMEWORK_SKILLS=(
+    "verify-design-comparison"
+    "verify-flow-as-built"
+    "verify-data-fidelity"
+)
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -830,6 +840,71 @@ copy_hooks() {
     ensure_hooks_executable "$dest" "$hook_names"
 }
 
+# Copy the framework-owned verification skills (FRAMEWORK_SKILLS, D2) into every
+# project, independent of --copy-skills and selected-skills.txt -- those gate the
+# stack-selected library, not this fixed set (D10).
+#
+# On scaffold, copies each named skill that isn't already there (regardless of
+# --copy-skills). On --refresh, never creates .claude/skills/ (refresh_skips_absent),
+# but adds any of the three that are missing from it. This must run AFTER
+# copy_skills() in refresh_project(): copy_skills()'s refresh loop already re-copies
+# every skill directory already present under dest -- including a framework skill a
+# prior run installed -- so this function only needs to add what's still missing,
+# never to handle a stale copy itself. It never deletes anything.
+copy_framework_skills() {
+    local target_dir="$1"
+    local dest="$target_dir/.claude/skills"
+    refresh_skips_absent "$dest" "framework skills" && return 0
+
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        warn "No plugin directory specified, skipping framework skills"
+        return 0
+    fi
+
+    # Same skills-lib/ (falling back to skills/) resolution copy_skills() uses.
+    local src="$PLUGIN_DIR/skills-lib"
+    if [[ ! -d "$src" && -d "$PLUGIN_DIR/skills" ]]; then
+        src="$PLUGIN_DIR/skills"
+    fi
+
+    if [[ ! -d "$src" ]]; then
+        warn "Skills directory not found: $src"
+        return 0
+    fi
+
+    mkdir -p "$dest"
+
+    local count=0
+    local skill
+    for skill in "${FRAMEWORK_SKILLS[@]}"; do
+        if [[ ! -d "$src/$skill" ]]; then
+            warn "Framework skill not found in plugin: $skill"
+            continue
+        fi
+        if [[ -d "$dest/$skill" ]]; then
+            # Already installed. On refresh, copy_skills() (called before this
+            # function) already refreshed it. On scaffold, replace it only under
+            # --force, matching copy_skills()' handling of a selected skill.
+            if [[ "$FORCE" == "true" && "$REFRESH" != "true" ]]; then
+                rm -rf "${dest:?}/${skill:?}"
+                cp -RL "$src/$skill" "$dest/"
+                info "Replaced framework skill: $skill"
+            fi
+            continue
+        fi
+        cp -RL "$src/$skill" "$dest/"
+        info "Added framework skill: $skill"
+        ((count++)) || true
+    done
+
+    if [[ "$REFRESH" == "true" ]]; then
+        # copy_skills() assigns REFRESH_SKILLS_COUNT before this runs; add to it
+        # rather than overwrite, so the REFRESH_SUMMARY line's skills= count
+        # reflects both what it refreshed and what this function added.
+        REFRESH_SKILLS_COUNT=$((${REFRESH_SKILLS_COUNT:-0} + count))
+    fi
+}
+
 # Copy skills from plugin directory based on selection file
 copy_skills() {
     local target_dir="$1"
@@ -861,7 +936,13 @@ copy_skills() {
         # Refresh: never create .claude/skills/, and never add a skill
         # directory that wasn't already selected. The directories already
         # present under dest ARE the "already selected" set — adding or
-        # removing selections stays /rebase-project's job.
+        # removing selections stays /rebase-project's job. One exception:
+        # copy_framework_skills(), which runs after this function returns,
+        # adds any of the three FRAMEWORK_SKILLS still missing from dest even
+        # though they weren't already selected — those ship to every project
+        # regardless (D2/D10). It never replaces one already present under
+        # --refresh (that's the loop just below); --force only
+        # replaces an already-present framework skill outside --refresh.
         REFRESH_SKILLS_COUNT=0
         if [[ ! -d "$dest" ]]; then
             info "No existing skills directory — skipping skill refresh"
@@ -1336,6 +1417,7 @@ refresh_project() {
 
     echo "--- Skills ---"
     copy_skills "$(pwd)"
+    copy_framework_skills "$(pwd)"
     echo ""
 
     # Runs unconditionally, same as scaffold_project(): an agent file that
@@ -1495,6 +1577,12 @@ scaffold_project() {
             copy_skills "$(pwd)"
             echo ""
         fi
+
+        # Framework-owned verification skills ship to every project regardless of
+        # --copy-skills and selected-skills.txt (D2/D10).
+        echo "--- Framework Skills ---"
+        copy_framework_skills "$(pwd)"
+        echo ""
 
         # Runs unconditionally: the selection file may already exist from an
         # earlier invocation even when --copy-skills was not passed this time.

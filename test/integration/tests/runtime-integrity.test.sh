@@ -320,6 +320,34 @@ PY
     [ "$(ls "${REPO_ROOT}/packages/skills" | wc -l)" -gt 10 ]
 }
 
+@test "the three framework skills are never classified Stale by rebase" {
+    # VART-P005: verify-design-comparison, verify-flow-as-built and
+    # verify-data-fidelity (D2 in docs/TRD/verification-artifacts.md) match nothing in
+    # the stack-match table, so under the plain Stale rule they would be removed on
+    # every rebase. They are named as a Framework category instead: always installed,
+    # never Stale, added when missing.
+    RP="${REPO_ROOT}/packages/core/commands/rebase-project.md"
+
+    for f in verify-design-comparison verify-flow-as-built verify-data-fidelity; do
+        grep -q "$f" "$RP"
+    done
+
+    # The categorisation table (§2.2) must name a Framework row.
+    DIFF="$(sed -n '/^#### 2.2 Skill Diff/,/^#### 2.3/p' "$RP")"
+    grep -q '\*\*Framework\*\*' <<<"$DIFF"
+    grep -q 'never classified Stale' <<<"$DIFF"
+
+    # The APPLY step (§4.2) must guard against removal AND add it when missing.
+    APPLY="$(sed -n '/^#### 4.2 Update Skills/,/^#### 4.3/p' "$RP")"
+    grep -q 'Check the Framework guard' <<<"$APPLY"
+    grep -q 'never remove it' <<<"$APPLY"
+    grep -q 'Added framework skill' <<<"$APPLY"
+
+    # All three copies of the command stay byte-identical.
+    diff -q "$RP" "${REPO_ROOT}/.claude/commands/rebase-project.md"
+    diff -q "$RP" "${REPO_ROOT}/packages/full/commands/plugin-only/rebase-project.md"
+}
+
 @test "the skill stack-match table has no rows orphaned outside it" {
     # Three rows (Tailwind, Jira, Linear) sat AFTER a prose paragraph, outside the
     # table, so they rendered as stray text and read as not-part-of-the-mapping.

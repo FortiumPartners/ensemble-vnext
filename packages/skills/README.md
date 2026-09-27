@@ -41,3 +41,13 @@ Content here...
 Skills are loaded dynamically based on the project's technology stack.
 
 See individual skill directories for documentation.
+
+## Framework skills
+
+Three skills ship to every project regardless of stack selection or `--copy-skills`:
+`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`. They back
+the functional-verification loop's optional design/flow/data checks
+(docs/TRD/verification-artifacts.md). `scaffold-project.sh`'s `copy_framework_skills()`
+(driven by its `FRAMEWORK_SKILLS` array) installs them on scaffold and adds any that
+are missing on `--refresh`; `/rebase-project` treats them as always-installed rather
+than stack-derived.

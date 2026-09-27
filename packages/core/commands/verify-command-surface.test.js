@@ -171,23 +171,170 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 18 fields in the same order', () => {
-  test('implement-trd.md §8.3 lists 18 fields ending in the three new ones', () => {
+describe('both dispatch blocks carry the same 21 fields in the same order', () => {
+  test('implement-trd.md §8.3 lists 21 fields ending in checks/checkComments/pagesDir', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(18);
-    expect(fields.slice(-3)).toEqual(['exerciseLanes', 'refreshCommand', 'fullRunCommand']);
+    expect(fields).toHaveLength(21);
+    expect(fields.slice(-3)).toEqual(['checks', 'checkComments', 'pagesDir']);
   });
 
-  test('verify-build.md §4 lists the identical 18 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 21 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 18 fields, not 15', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 18 fields/);
-    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 15 fields/);
+  test('verify-build.md §4 intro says 21 fields, not 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 21 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 18 fields/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §8.1b (verification-artifacts TRD §3.5): the check-criteria step, its position, and
+// what it must and must not touch on either side.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md §8.1b appends check criteria in the right place, doing the right things', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('§8.1b sits after §8.1 and before §8.2 and §8.1a', () => {
+    const text = src();
+    const i81 = text.indexOf('### 8.1 Resolve the definition');
+    const i81b = text.indexOf('### 8.1b Append the check criteria');
+    const i82 = text.indexOf('### 8.2 The `--resume` composition');
+    const i81a = text.indexOf('### 8.1a Resolve criteria to environments and lanes');
+    expect(i81).toBeGreaterThan(-1);
+    expect(i81b).toBeGreaterThan(-1);
+    expect(i82).toBeGreaterThan(-1);
+    expect(i81a).toBeGreaterThan(-1);
+    expect(i81b).toBeGreaterThan(i81);
+    expect(i82).toBeGreaterThan(i81b);
+    expect(i81a).toBeGreaterThan(i81b);
+  });
+
+  test('§8.1b reads the section, selects with defaults, and honours a stated reason', () => {
+    const text = src();
+    const section = text
+      .split('### 8.1b Append the check criteria')[1]
+      .split('### 8.2 The `--resume` composition')[0];
+    expect(section).toMatch(/## Verification Artifacts/);
+    expect(section).toMatch(/Omitted:|None apply/);
+    expect(section).toMatch(/DECISIONS/);
+    expect(section).toMatch(/SKILL\.md/);
+    expect(section).toMatch(/packages\/skills\//);
+  });
+
+  test('§8.1b regenerates check: rows and leaves derived rows untouched', () => {
+    const text = src();
+    const section = text
+      .split('### 8.1b Append the check criteria')[1]
+      .split('### 8.2 The `--resume` composition')[0];
+    expect(section).toMatch(/verbatim/);
+    expect(flat(section)).toMatch(/Tier 1.*Parts|Parts.*Tier 1/i);
+  });
+
+  test('§8.1b reads page comments via a deferred ArtifactComments tool, never STUCK on failure', () => {
+    const text = src();
+    const section = text
+      .split('### 8.1b Append the check criteria')[1]
+      .split('### 8.2 The `--resume` composition')[0];
+    expect(section).toMatch(/ArtifactComments/);
+    expect(section).toMatch(/deferred tool/);
+    expect(section).toMatch(/checkComments: \[\]/);
+    expect(flat(section)).toMatch(/never STUCK/);
+  });
+
+  test('§8.2 names §8.1b and filters resume.criteria (unknown IDs, commented criteria)', () => {
+    const text = src();
+    const section82 = text
+      .split('### 8.2 The `--resume` composition')[1]
+      .split('### 8.1a Resolve criteria to environments and lanes')[0];
+    expect(section82).toMatch(/§8\.1b/);
+    expect(flat(section82)).toMatch(/remove from (its|`resume\.criteria`).*(entry|criteria).*not present|not.*regenerated definition/i);
+    expect(section82).toMatch(/owner comment/);
+  });
+
+  test("§8.1's two not-run exits still continue to Step 9 and do not name §8.1b", () => {
+    const text = src();
+    const section81 = text
+      .split('### 8.1 Resolve the definition')[1]
+      .split('### 8.1b Append the check criteria')[0];
+    const noSourceExit = section81.split('Skip the rest of this step')[1] || '';
+    expect(section81).toMatch(/continue to Step 9/);
+    expect(section81).not.toMatch(/§8\.1b/);
+  });
+
+  test("Step 8's opening sentence scopes TRD reads to §8.1b (verification-artifacts TRD §3.5)", () => {
+    const text = src();
+    const step8 = flat(text.split('## Step 8: Functional Verification')[1].split('### 8.1 ')[0]);
+    expect(step8).toMatch(/reads the TRD only at §8\.1b/);
+    expect(step8).toMatch(/never mutates it/);
+    expect(step8).toMatch(/never calls `Agent\(` directly/);
+    expect(step8).not.toMatch(/never reads or mutates the TRD/);
+  });
+
+  test('§8.4 carries `pages` from the workflow return', () => {
+    expect(src()).toMatch(/pages\s*\}/);
+    expect(flat(src())).toMatch(/Carry `pages`/);
+  });
+
+  test('§9 STATE names each selected check and any TRD-omitted check with its reason', () => {
+    expect(flat(src())).toMatch(/for each selected check.*verdict counts/i);
+    expect(flat(src())).toMatch(/omitted an applicable check.*reason/i);
+  });
+
+  test('§9.0a publishes each check page under the same publishArtifacts switch and stores the URL under the skill name', () => {
+    const section = flat(src().split('### 9.0a')[1].split('### 9.1')[0]);
+    expect(section).toMatch(/publish each selected check's page/);
+    expect(section).toMatch(/files:/);
+    expect(section).toMatch(/Store the returned URL back under the skill's own name/);
+  });
+});
+
+describe('verify-build.md 3b points at §8.1b, 3c at §8.1a', () => {
+  const src = () => read(CORE_VERIFY_BUILD);
+
+  test('step 3b is "Identical to /implement-trd §8.1b"', () => {
+    expect(src()).toMatch(/### 3b\. .*\n\n\*\*Identical to `\/implement-trd` §8\.1b/);
+  });
+
+  test('the lane-resolution step is renumbered 3c and still names §8.1a', () => {
+    expect(src()).toMatch(/### 3c\. Resolve criteria to environments and lanes/);
+    expect(src()).not.toMatch(/### 3b\. Resolve criteria to environments and lanes/);
+    const section = src().split('### 3c.')[1].split('### 4.')[0];
+    expect(section).toMatch(/Identical to `\/implement-trd` §8\.1a/);
+  });
+
+  test('step 3\'s input list resolves lanes at 3c, not 3b', () => {
+    const step3 = src().split('### 3. Read the inputs from disk')[1].split('### 3a.')[0];
+    expect(step3).toMatch(/resolved at step 3c/);
+    expect(step3).toMatch(/checks.*checkComments.*pagesDir.*step 3b/is);
+  });
+
+  test('§4 comments point exerciseLanes/refreshCommand/fullRunCommand at step 3c', () => {
+    expect(src()).toMatch(/step 3c here/);
+    expect(src()).not.toMatch(/step 3b here\).*verification\.md §1a/s);
+  });
+
+  test('the artifact-link section publishes pages too', () => {
+    const section = flat(src().split('### Artifact link')[1]);
+    expect(section).toMatch(/publish each selected check's page/);
+    expect(section).toMatch(/identical to `\/implement-trd` §9\.0a/i);
+  });
+});
+
+describe("command-status.md's artifacts.json keys sentence names the check-skill keys", () => {
+  test('packages/core template names one key per verification-check skill', () => {
+    expect(read(path.join(REPO, 'packages/core/templates/claude-directory/rules/command-status.md')))
+      .toMatch(/one key per verification-check skill/);
+  });
+
+  test('.claude/rules/command-status.md matches it identically', () => {
+    expect(read(path.join(REPO, '.claude/rules/command-status.md'))).toMatch(
+      /one key per verification-check skill/
+    );
   });
 });
 

@@ -1,0 +1,273 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-1.txt",
+      "reason": "Artifact shows name, description and when_to_use; it is a truncated excerpt, so the judge confirmed allowed-tools (line 16), \"## When it applies\" (line 21) and \"## Inputs\" (line 29) directly in packages/skills/verify-design-comparison/SKILL.md.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-2.txt",
+      "reason": "Artifact shows all four frontmatter keys and the \"When it applies\" section; the judge confirmed \"## Inputs\" at line 24 of packages/skills/verify-flow-as-built/SKILL.md (artifact excerpt stops before it).",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-3.txt",
+      "reason": "Artifact shows all four frontmatter keys and references When it applies; the judge confirmed \"## When it applies\" (line 24) and \"## Inputs\" (line 32) in packages/skills/verify-data-fidelity/SKILL.md.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-4.txt",
+      "reason": "Each skill directory holds only SKILL.md (plus a __tests__ directory in two), no crop/diff/assembly script; each Capture section says the skill ships no such script and the agent writes it at run time under the evidence scratch dir.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-5.txt",
+      "reason": "Skill requires Design | Build@commit | Diff \"N% differs\" | Overlay (with Design-Build fade slider) for every non-spec frame; each has a counterpart in the exemplar panel markup (Design, Build a3e75748e, Diff 16.7% differs, Overlay drag to fade).",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-6.txt",
+      "reason": "Rubric lists the six statuses with meanings and says the diff percentage is evidence that never sets the status; the judge confirmed its opening line \"Open every stitched image before ruling on it\" (SKILL.md line 138), which the artifact excerpt cut.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-7.txt",
+      "reason": "Page spec has cross-cutting \"What stands out\" once, a diff-colour legend, a status filter bar, a jump strip, the navigation route per frame, and uncaptured cards showing their reason; the exemplar has legend, chip filter, toc jump strip, route line and Not captured cards.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-8.txt",
+      "reason": "Inputs table names bezel crop box and frame size as per-project inputs; the judge confirmed status-bar height, capture commands, evidence folders, data-difference caveat and page title in the same table (lines 31-44) with the line \"none is a constant of this skill\"; grep for 46 returned nothing.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-9.txt",
+      "reason": "All three SKILL.md Safety sections forbid writing a credential value into the page, verdicts, manifest or any return, and require recording only where it lives.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-10.txt",
+      "reason": "Flow skill derives as-built navigation/API edges from code first, then walks each designed journey, one criterion row per journey (FL-<slug>) comparing designed and as-built.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-11.txt",
+      "reason": "Data skill emits one DF-<view> criterion per data view comparing rendered rows against the source (endpoint or store query), with a row table key | shown | source | verdict.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-12.txt",
+      "reason": "trd-authoring.md Section 9a documents the table (Skill | Inputs | Why it applies), the Omitted: <skill> — <reason> line and the None apply — <reason> form.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-13.txt",
+      "reason": "Substitution recorded: no TRD written by /create-trd after this change exists (the artifact is this feature's own TRD, docs/TRD/verification-artifacts.md). The judge confirmed the authoring stage reads .claude/contracts/trd-authoring.md as its binding instruction set (packages/core/workflows/create-trd.js:108), and that contract (both copies) carries Section 9a, which makes the section REQUIRED in every TRD.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-14.txt",
+      "reason": "Light template in plan.md carries the ## Verification Artifacts section with both forms; the medium path is authored by the create-trd workflow, whose authoring stage reads trd-authoring.md Section 9a (see FS-13).",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-15.txt",
+      "reason": "Selection table maps reference design frames -> verify-design-comparison, interaction diagram/journeys -> verify-flow-as-built, API/store data screens -> verify-data-fidelity, and makes inclusion of an applicable check the default.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-16.txt",
+      "reason": "Authoring guidance: \"Leave an applicable check out only by writing why — any stated reason is enough.\"",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-17.txt",
+      "reason": "audit-trd deterministic verifier prompt looks each named skill (table cell or Omitted line) up under packages/skills/ and .claude/skills/ and reports any that resolves under neither as a citation finding (fix-citation). Evidence is the prompt text, not a fixture run.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-18.txt",
+      "reason": "Tier-1 check failed: locator \"and report a miss as a finding, check 'citation', action 'fix-citation'\" not found in the artifact (the FS-18 excerpt is cut off mid-sentence at the per-span input lookup). Recapture a complete excerpt of the per-span input lookup in audit-trd.js, or a fixture run.",
+      "provenAt": null
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-19.txt",
+      "reason": "omission-audit prompt: for each trigger SOURCE meets, the section must select the check or give an Omitted/None apply reason; where neither, report an omission/add-back finding. A reasoned omission therefore produces nothing. Evidence is the prompt text, not a fixture run.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-20.txt",
+      "reason": "A missing section is reported with action advisory; audit-trd.js splits advisories off where findings are assembled, so neither reconcile agent sees them and the section is never written into the TRD.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "unbuilt",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-21-jest-run.txt",
+      "reason": "The applicable-omission half is absent by design: fix-audit.js checks only the section's shape, skill names and inputs (the Jest run's 13 tests are all format checks; \"a section with none of the three forms\" is an empty section, not a silently omitted applicable check). TRD decision D5 rejected applicability checking in fix-audit.js (regex over image paths gives false findings) and gives /plan's light TRDs O3a \"by instruction\" only. The older-TRD advisory half is not applicable: /plan only audits a TRD it just wrote (plan.md §5a.1, D6). Owner decision needed: accept D5 and amend the criterion, or build an applicability check for light TRDs.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-22.txt",
+      "reason": "Tier-1 check failed: locator \"one row per selected check, not a single criterion with N parts\" is a paraphrase and does not appear in the artifact; the exerciser said so itself. Recapture with a literal locator from §8.1b / the skills' Criteria sections (e.g. \"One row per designed journey\"), or a produced success definition showing one row per frame.",
+      "provenAt": null
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-23.txt",
+      "reason": "Derive dispatch prompt carries the source and output path and nothing else — no TRD path, excerpt or task list; §8.1b appends check rows afterwards, and each skill's Criteria section has Cites name the design input, never a task ID.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-24.txt",
+      "reason": "verify-functional.js injects each check skill's text into the Exercise slice (\"produce their evidence by following the Capture section below\") and gives the Judge STEP 2a to rule check rows by the skill's own Rubric.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-25.txt",
+      "reason": "Debug receives every not_met gap, check rows included; enrichDebugGaps only adds cites/derivation, and the Debug prompt tells it to open a check: gap's design input before changing code.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-26.txt",
+      "reason": "/verify-build step 3b is \"Identical to /implement-trd §8.1b\", and its dispatch passes checks, checkComments and pagesDir to the same verify-functional workflow, so Exercise/Judge/Debug handling is shared.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-27.txt",
+      "reason": "implement-trd readout adds one line per selected check with its verdict counts and page link (judge confirmed lines 1697-1699); /verify-build publishes each check's page per §9.0a and emits the link above the banner. Evidence is command text, not a produced readout.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-28",
+      "status": "unbuilt",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-28.txt",
+      "reason": "Stored-URL reuse is built (URL stored under the skill's name in artifacts.json and passed back), and the workflow's Render stage re-renders each page every iteration. But publishing happens once, after the loop returns (implement-trd §9.0a; TRD 2.0.0 change (5): \"The orchestrator publishes it to the stored URL when the loop returns\"), not on every iteration, so the owner cannot see or comment on a page mid-run. Owner decision needed: accept publish-at-return or build per-iteration publishing.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-29.txt",
+      "reason": "§8.1b step 5 reads each check page's open threads via ArtifactComments before the run and passes them as checkComments; the workflow injects them into Exercise and Judge, and a comment reporting a difference makes the criterion not_met, which routes it to Debug.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-30",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-30.txt",
+      "reason": "§8.1b step 2: when the section is absent, select each check whose trigger the PRD's inputs meet, and record one DECISIONS line naming the check and triggering inputs.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-31",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-31.txt",
+      "reason": "§8.1b step 2: a section silent on a check selects it by trigger with a DECISIONS line; an Omitted:/None apply reason is honoured unconditionally.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-32",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-32.txt",
+      "reason": "ls .claude/skills/ of a fresh scaffold shows all three verify-* skills. The artifact does not record the scaffold command or the selection list used; accepted because the directory holds only these three, which implies the selection list named none of them.",
+      "provenAt": 1
+    },
+    {
+      "id": "FS-33",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-artifacts/evidence/FS-33.txt",
+      "reason": "After removing all three verify-* skill dirs and running --refresh, ls .claude/skills/ shows all three.",
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "unbuilt"
+}

@@ -130,3 +130,60 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   cited file:line before reusing a prior iteration's evidence file verbatim, even when the
   file "looks done" — mtimes are the cheap tell (evidence mtime vs. source mtime), same
   method the iteration-1 note already established for the FS-12/Debug handoff.
+
+## Exercising verification-artifacts (2026-09-27 run, iteration 1)
+
+- [ran] The owner's preserved exemplar is reachable at
+  `/Users/fortium/ensemble-reference/visual-compare-exemplar-2026-09-27/site/index.html` — a
+  504-line static page with all six of `verify-design-comparison`'s required page elements
+  (legend, status-filter chips, jump strip/TOC, per-frame Design|Build|Diff|Overlay panels
+  with a fade-slider input, and `s-uncaptured`-status cards for frames not captured). Grep it
+  directly rather than recalling its shape from the PRD/TRD prose — the actual markup differs
+  in small ways from a paraphrase (e.g. the fade control is a `<input type="range">` per frame,
+  named `fade-NN`, not a single page-level slider).
+- [ran] `packages/core/scripts/scaffold-project.sh` is safely runnable against a throwaway
+  directory under the session scratchpad with `--plugin-dir "$(pwd)/packages/full"` — both a
+  fresh scaffold and a `--refresh` of an existing one. Confirmed live: all three check skills
+  (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`) land in
+  `.claude/skills/` even when `.claude/selected-skills.txt` names only `jest`/`pytest`, and
+  after `--refresh` on a project that had them removed. This is a fast (~2s), side-effect-free
+  way to exercise scaffold criteria — no need to touch this repo's own `.claude/`.
+- [ran] `fix-audit.js`'s own test suite (`packages/core/lib/fix-audit.test.js:162-169`)
+  asserts that a TRD with NO `## Verification Artifacts` heading at all is a **finding**
+  (`ok: false`), with no distinction for a TRD "written before this change." This is the
+  mechanical check `/plan` invokes (`packages/core/commands/plan.md:670`,
+  `require("./.claude/lib/fix-audit")`). By contrast, `audit-trd.js`'s own prompt (lines
+  ~162-166, ~182) DOES implement an advisory-only branch for the identical missing-section
+  case. Worth a second look by the judge/debug stages: `/plan`'s mechanical check and
+  `/audit-trd`'s check disagree on whether a missing section is a finding or an advisory.
+
+## Exercising verification-artifacts (2026-09-27 run, iteration 1, continued)
+
+- [ran] `scaffold-project.sh --refresh`'s framework-skill step logs only ONE
+  `[INFO] Added framework skill: <name>` line even when all three of
+  `FRAMEWORK_SKILLS` (`verify-design-comparison`, `verify-flow-as-built`,
+  `verify-data-fidelity`) were missing and got added — verified by removing all
+  three from a scaffolded project's `.claude/skills/`, running `--refresh`, and
+  finding all three back on disk even though the log printed only
+  `verify-data-fidelity`'s line. Don't read the log line count as the count of
+  skills actually restored; `ls .claude/skills/` after the run is the check that
+  matters, not the INFO output.
+- [ran] `audit-trd.js`'s `omission-audit` verifier (not `fix-audit.js`, which is
+  `/plan`'s mechanical check) is where "an applicable check silently omitted from
+  an existing `## Verification Artifacts` section is a real finding, one with a
+  stated reason is not" actually lives — its prompt text (lines ~139-165) spells
+  out both branches (`action: 'add-back'` when the section exists but is silent
+  on a triggered check; `action: 'advisory'` when the section itself is absent).
+  `fix-audit.js` only validates the section's own internal structure (rows
+  resolve, Omitted lines carry skills + reasons) — it has no PRD-input-vs-selected-
+  check comparison logic at all, so a criterion that needs THAT comparison (e.g.
+  "an applicable check omitted with no reason is a finding") cites `/audit-trd`
+  behaviour, never `/plan`'s.
+- [ran] `npx jest packages/core/lib/fix-audit.test.js -t "Verification Artifacts"`
+  runs cleanly and fast (13 tests, ~0.2s) and is real live confirmation of every
+  fix-audit.js branch (missing section, None-apply, Omitted+reason,
+  Omitted-no-reason, unknown skill in a row, unknown skill in an Omitted line,
+  missing input path, URL advisory). Redirect stdout/stderr in the right order
+  (`> file 2>&1`, not `2>&1 > file`) — the reverse silently produces a 0-byte
+  capture because `2>&1` binds to the terminal before the later `>` retargets
+  stdout.

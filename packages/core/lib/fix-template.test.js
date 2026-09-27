@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { parseTrd } = require('./trd-parser');
+const { audit } = require('./fix-audit');
 
 const REPO = path.resolve(__dirname, '../../..');
 const PLAN_MD = path.join(REPO, 'packages/core/commands/plan.md');
@@ -83,6 +84,18 @@ function fill(tpl) {
     .replace(
       /^\| FIX-001 \| \.\.\. \| O1 \| None \| \.\.\. \|$/m,
       '| FIX-001 | fix the month-boundary chunking | O1 | None | export returns rows |'
+    )
+    .replace(
+      /^\| <skill> \| `<path>` \| <why it applies> \|$/m,
+      '| verify-design-comparison | `docs/TRD/verification-artifacts.md` | the fix touches a designed screen |'
+    )
+    .replace(
+      /^Omitted: <skill> — <reason>$/m,
+      'Omitted: verify-data-fidelity — this fix touches no data view'
+    )
+    .replace(
+      /^None apply — <reason>$/m,
+      'None apply — kept here only to show the alternative form; the row above is what applies'
     );
 }
 
@@ -142,6 +155,14 @@ describe('the /plan TRD template', () => {
     const section = filled.split(/\n## /).find((s) => s.startsWith('Behaviour Preserved'));
     expect(section).toBeDefined();
     expect(section).toMatch(/public surface/i);
+  });
+
+  test('Verification Artifacts passes VART-B001\'s check with no findings', () => {
+    // The filled template's `src/export.ts` doesn't exist in this repo, so unfiltered
+    // findings would include unrelated `citation` failures — filter to this task's check.
+    const result = audit(parsed, { root: REPO, markdown: filled });
+    const vaFindings = result.findings.filter((f) => f.check === 'verification-artifacts');
+    expect(vaFindings).toEqual([]);
   });
 });
 
