@@ -1,0 +1,352 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-1-4-CAUSES.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-2-settled-carry.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-3-FS-5-FS-6.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-1-4-CAUSES.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-3-FS-5-FS-6.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-3-FS-5-FS-6.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-7-8-implement-trd.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-7-8-implement-trd.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/verify-plan-recovery-SKILL.md.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/verify-plan-recovery-SKILL.md.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/refresh-out.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-12-13-14.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-13.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-12-13-14.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-15.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-16.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-17-18-19.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-17-18-19.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-19.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/verify-build.md.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-21-22-chained.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-22.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-23.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-24.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-25-26-27-28.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-25-26-27-28.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-25-26-27-28.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-28",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-28.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/verify-build.md.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-30",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-30.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-31",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-31.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-32",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/verify-build.md.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-33",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-33.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-34",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-34.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-35",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-35.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-36",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-36.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-37",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-37.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-38",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-fix-loop/evidence/FS-38.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    }
+  ],
+  "gapsClosed": [
+    0,
+    15
+  ],
+  "outcome": "satisfied"
+}

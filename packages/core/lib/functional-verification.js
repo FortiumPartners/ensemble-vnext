@@ -807,6 +807,9 @@ function decideFixRound(input) {
  * }} input
  * @returns {string} markdown for the `## Fix run` section
  */
+/** Rendered in place of a blank `stopReason`, so an omission is visible in the report. */
+const NO_STOP_REASON = 'no stop reason recorded';
+
 function renderFixSummary(input) {
   if (input === null || typeof input !== 'object') {
     throw new TypeError('renderFixSummary: input is required and must be an object');
@@ -843,8 +846,15 @@ function renderFixSummary(input) {
     lines.push('|----|-----------|--------|-------|-------------|');
     for (const c of criteria) {
       const causeWords = c.cause == null ? CAUSE_LABEL.unrecorded : (CAUSE_LABEL[c.cause] ?? c.cause);
+      // Every row carries a reason (O3: "reports the remainder, each with a reason"). A blank
+      // stopReason is a composition defect upstream (verify-build.md --fix step 6); render it
+      // as a visible placeholder rather than an empty cell that reads as "no reason needed".
+      const stopReason =
+        typeof c.stopReason === 'string' && c.stopReason.trim() !== ''
+          ? c.stopReason
+          : NO_STOP_REASON;
       lines.push(
-        `| ${escapeCell(c.id)} | ${escapeCell(c.statement)} | ${escapeCell(c.status)} | ${escapeCell(causeWords)} | ${escapeCell(c.stopReason)} |`
+        `| ${escapeCell(c.id)} | ${escapeCell(c.statement)} | ${escapeCell(c.status)} | ${escapeCell(causeWords)} | ${escapeCell(stopReason)} |`
       );
     }
   }

@@ -81,8 +81,8 @@ Three properties drive every decision below:
   the artifact shows.
 - **Fresh context, state on disk.** The success definition, the verifier's notes, the
   evidence and the loop state all live on disk, so a re-trigger resumes rather than
-  re-derives. `--verify --resume` reads `verification-state.json` and re-enters at
-  the next iteration, running no implementation work at all (D13). Fresh context still holds
+  re-derives. `--verify --resume`, both passed explicitly, reads `verification-state.json` and —
+  only when its `outcome` is unrecorded (`null`) — re-enters at the next iteration, running no implementation work at all (D13). Fresh context still holds
   where it counts: each *iteration* is fresh, and the judge is a different agent from the
   exerciser, so nothing certifies its own output.
 
@@ -540,7 +540,12 @@ interface VerifyFunctionalArgs {
   prd: string;           // report-header display string: implement.json's
                          //   functional_verification.prd_path, or "" — nothing resolves it
   definitionPath: string; // ".trd-state/<feature>/success-definition.md" — the report's header
-  resume: {              // from a prior run's state file (D13); null on a fresh run
+  resume: {              // from a prior run's state file (D13) ONLY on an explicit resume flag
+                         //   (/implement-trd: --verify AND --resume, both explicit;
+                         //   /verify-build: --resume) AND that file's outcome is null
+                         //   (unrecorded). null otherwise — never merely because the file
+                         //   exists. /verify-build --fix synthesises it instead
+                         //   (verification-fix-loop D8)
     iteration: number;                 // the last COMPLETED iteration
     criteria: Array<{
       id: string; status: string; tier1?: string | null;
@@ -556,7 +561,8 @@ interface VerifyFunctionalArgs {
                                        //   command consumes it at the gate and does not
                                        //   forward it here — see below
   project: string;       // "" when the target is the repo the workflow runs in
-  exerciseLanes: ExerciseLane[];  // resolved from verification.md §1a by /implement-trd §3.6a
+  exerciseLanes: ExerciseLane[];  // resolved from verification.md §1a by /implement-trd §8.1a
+                                  //   (not §3.6a: no criterion exists that early — moved 2026-09-27)
                                   //   (VC D5, D15). Absent or [] → ONE lane, {resource: null,
                                   //   concurrency: 1, createCommand: "", criteria: <every id>}
   refreshCommand: string;  // the FAST per-iteration refresh (verification.md §2), run by Debug

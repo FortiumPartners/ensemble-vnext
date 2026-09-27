@@ -158,7 +158,7 @@ function finish({ writeTrd, reason, kind, slug }) {
     handoffLine: null,
     banner: '═══ COMMAND COMPLETE: /plan ═══',
     bannerBody: writeTrd
-      ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd --verify when satisfied.`
+      ? `${slug}: ${reason}. TRD at docs/TRD/${slug}.md. Run /implement-trd docs/TRD/${slug}.md when satisfied (functional verification runs by default).`
       : `${slug}: ${reason}.`,
     // Fires on EVERY terminating path, including the early reject — otherwise the
     // completion signal depends on which way the command happened to finish.

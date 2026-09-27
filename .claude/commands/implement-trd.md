@@ -49,8 +49,8 @@ category: implementation
 $ARGUMENTS
 ```
 
-Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reset-state`,
-`--verify`, `--no-verify`, `--chained`. Verification runs by default; `--no-verify` opts out;
+Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reconcile`,
+`--reset-state`, `--verify`, `--no-verify`, `--chained`. Verification runs by default; `--no-verify` opts out;
 `--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
 step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build --fix` is the one
 thing that passes it.
@@ -861,6 +861,14 @@ discoverable before the loop started, and `not_verifiable` is the status that di
 round's plan blockers and promoted failures —
 `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` — never something the
 owner types by hand.
+
+**Without `--chained`, none of this section applies — including a direct `/implement-trd
+--reconcile`.** `--reconcile` on its own changes only which tasks run (§2.1a); the run then
+proceeds as a normal run: Step 3.6 dispatches the derive pass, Step 8 runs the verification
+loop **by default** (skipped only by `--no-verify`), §9.0a publishes, and Step 9 ends the run
+with this command's own `═══ COMMAND COMPLETE: /implement-trd ═══` banner — or
+`═══ COMMAND STUCK: /implement-trd ═══` on Step 10.1 retry exhaustion. Only `--chained` turns
+those off, and only `/verify-build --fix` passes it.
 
 Parsed alongside the other flags (User Input, above). Under it:
 

@@ -187,3 +187,39 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   (`> file 2>&1`, not `2>&1 > file`) — the reverse silently produces a 0-byte
   capture because `2>&1` binds to the terminal before the later `>` retargets
   stdout.
+
+## Exercising verification-fix-loop (2026-09-27 run, iteration 1)
+
+- [ran] `scaffold-project.sh` takes the target directory as a bare positional argument, not
+  `--project-dir` (which errors "Unknown option"). Usage:
+  `scaffold-project.sh --plugin-dir <dir> [--refresh] <project-dir>`. Confirmed against both
+  a fresh scaffold and a `--refresh` of the same directory — all four `framework-skills.txt`
+  entries (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`,
+  `verify-plan-recovery`) land in `.claude/skills/` on both paths, whatever
+  `selected-skills.txt` says, confirming the bridge skill ships exactly like the check skills.
+- [ran] `discovered.js`'s `promoteToTrd(trdPath, rows, opts)` anchors on the LAST table whose
+  header row matches `/^\|\s*Task ID\s*\|/i` — a table headed plain `| ID |` is invisible to
+  it (`skipped: N`, not an error). A fixture TRD for this library needs a `| Task ID | ... |`
+  header, not `| ID | ... |`, or promotion silently no-ops.
+- [ran] `functional-verification.js`'s `renderReport`, `readStopRule` and `decideFixRound` are
+  all pure functions exercisable via a one-off `node -e` requiring the module directly — no
+  server, no fixture TRD, no `.trd-state` state needed. Confirmed the Diagnosis block renders
+  under all four of `stalled`/`stuck`/`unbuilt`/`insufficient-coverage` and not under
+  `satisfied`; confirmed `cause` counts are read from the stored field even when the `reason`
+  text contains a different cause's keyword (a `judged-failed` row with "stale" in its reason
+  strictly counts as judged failed, never re-parsed).
+- [ran] `discovered.js`'s ref-based identity pre-pass (`latestPerRef`) collapses two
+  differently-worded rows sharing the same `ref` into ONE before promotion ever runs — proven
+  by recording two rows for `ref: "FS-99"` with different summaries and seeing exactly one
+  `AMEND-001` row in the promoted TRD, carrying the LATER wording.
+
+## Debug pass, verification-fix-loop iteration 1 (2026-09-27)
+
+- [ran] Citing a committed source file (e.g. `packages/core/commands/verify-build.md`) directly as
+  the artifact fails tier 1 as `stale` whenever that file is unchanged since HEAD — its mtime is
+  older than the freshness floor. Copy the current content into `evidence/<id>.txt` in the same
+  Exercise pass and cite the copy. Ten of fifteen gaps in iteration 1 were this and nothing else.
+- [ran] A locator must sit on ONE line of the artifact. `verify-build.md` wraps its prose at ~95
+  columns, so a sentence copied from a paraphrase ("Publish the report and each selected
+  check's page to their stored") spans a line break and is reported `locator-not-found` even
+  though the text is there. Pick a locator from inside a single physical line.

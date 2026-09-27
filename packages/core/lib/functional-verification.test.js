@@ -1706,6 +1706,21 @@ describe('renderFixSummary', () => {
     expect(md).toContain('not verifiable here');
   });
 
+  test('a blank or missing stop reason renders a visible placeholder, never an empty cell', () => {
+    const md = renderFixSummary({
+      rounds: [],
+      criteria: [
+        { id: 'FS-7', statement: 'x', status: 'not_met', cause: 'judged-failed', stopReason: '' },
+        { id: 'FS-8', statement: 'y', status: 'not_met', cause: 'judged-failed' },
+      ],
+    });
+    const rows = md.split('\n').filter((l) => /^\| FS-[78] /.test(l));
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toMatch(/\| no stop reason recorded \|$/);
+    }
+  });
+
   test('a cause-less criterion renders unrecorded, never guessed', () => {
     const md = renderFixSummary({
       rounds: [],

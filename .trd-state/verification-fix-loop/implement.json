@@ -4,7 +4,7 @@
   "trd_hash": "e7b63f89e376089a3b647200fd27f8d5f19059043ce1278bdf9ffc16a18d1729",
   "branch": "feature/verification-fix-loop/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "VFIX-B001": {
       "description": "functional-verification.js: export CAUSES (§3.1); the Diagnosis and Next lines in renderReport; readStopRule, decideFixRound (§3.5) and renderFixSummary (D10), with CLI subcommands decide-fix-round an",
@@ -185,17 +185,29 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "95586a6",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-27T22:20:35.287Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "047e4b6",
+    "last_healthy_checkpoint": "95586a6",
     "interrupted": false,
-    "interrupt_reason": null
+    "interrupt_reason": null,
+    "last_checkpoint_timestamp": "2026-09-27T22:20:35.287Z"
   },
   "functional_verification": {
     "prd_resolved": true,
     "source_kind": "prd",
     "prd_path": "docs/plan/verification-fix-loop.investigation.md",
     "environments": {},
-    "environments_note": "verification.md is the unfilled current template; no environment declared — criteria resolve to on-disk evidence"
+    "environments_note": "verification.md is the unfilled current template; no environment declared — criteria resolve to on-disk evidence",
+    "outcome": "satisfied",
+    "criteria": "38/38 met"
   }
 }

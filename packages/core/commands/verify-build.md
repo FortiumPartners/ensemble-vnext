@@ -69,6 +69,14 @@ per-environment result exactly as §3.6a documents (`state.functional_verificati
 set in memory then saved). Report a prior-template digest match in one line too (VCON-B009).
 Partial verification with stated gaps beats none.
 
+**Under `--fix`, that one question is NOT asked** (O3: a `--fix` run asks the owner nothing,
+start to finish). Every environment in the needs-one-thing bucket takes the question's stated
+default — unusable for this run, so its criteria resolve `not_verifiable` — and the thing it
+needs is recorded as a `verification.md` need exactly as `--fix` step 2 records one (D13:
+`kind: 'gap', blocksFeature: false, file: '.claude/rules/verification.md'`), named in ISSUES
+for "the owner, at the next bridge". The owner answers it in `/verify-plan-recovery`, not
+mid-run.
+
 ### 3. Read the inputs from disk
 
 Exactly the inputs §8.1–§8.3 assemble. Read those sections for how each is derived rather than
@@ -266,7 +274,11 @@ a different plan.
    selection (above). Read the stop rule with `readStopRule(planText)`
    (`.claude/lib/functional-verification.js`) rather than the model re-deriving it from prose
    (D6, D7) — a plan whose stop rule is missing or unreadable runs as if there were no plan
-   (one round), and ISSUES says so; no plan at all reads as `{ maxRounds: 1 }`. Initialise
+   (one round), and ISSUES says so; no plan at all reads as `{ maxRounds: 1 }`. **Either way
+   the run is bounded, and the readout names the rule it applied**: ISSUES carries
+   "no readable stop rule in `<plan path>` (`<readStopRule's first error>`) — applied the
+   default, `max-rounds: 1` (one round)", and STATE's round count reads against that `1`.
+   The owner's fix is a `## Stop rule` section, written at the next bridge. Initialise
    `implement.json`'s `functional_verification.fix = { plan, stopRule, rounds: [], stopped:
    false }` (D9).
 
@@ -292,13 +304,19 @@ a different plan.
    first `## Slices` row, in order, that still has an open buildable criterion (D11). Slicing
    limits what is BUILT this round, never what is VERIFIED: step 4 below still walks every
    open criterion regardless of slice, so a regression outside the active slice is still seen.
+   **Never recorded as a failing row, in any round:** a `not_verifiable` criterion (its causes,
+   `environment-unreachable` and `capability-absent`, are never promoted — D4), and the run's
+   outcome itself, `insufficient-coverage` included. A coverage shortfall is made of criteria
+   nobody could check, not of code that failed; no build task can raise it, so it is reported
+   in the readout and never turned into one.
    Record any `verification.md` need found this round as an ordinary discovery (D13):
    `kind: 'gap', blocksFeature: false, file: '.claude/rules/verification.md'`, summary naming
    the change — this command never edits that file itself (O6, NG7). **If nothing was recorded
    this round, skip to step 6.**
 
 3. **Round k ≥ 1 — build.** Chain `Skill({ skill: "implement-trd", args: "<trd> --reconcile
-   --chained" })`. On `RETURN → chained by /verify-build --fix: <n> of <m> tasks built…`,
+   --chained" })` **exactly once per round** — ONE fix batch covering every row step 2
+   recorded, never one build per criterion. On `RETURN → chained by /verify-build --fix: <n> of <m> tasks built…`,
    continue to step 4. On `RETURN → STUCK: <reason>`, end the whole run now with `═══ COMMAND
    STUCK: /verify-build ═══` — under `--chained` the caller owns the run's only terminator, and
    a build that cannot proceed leaves nothing for another round to verify.
@@ -308,7 +326,9 @@ a different plan.
    'met'>, gapsClosed: [] }`, dropping any criterion carrying an owner comment first — the same
    filter `/implement-trd` §8.2 already applies on its own `--resume` path. `iteration: 0`
    gives this round its own inner cap; passing the real state file as `resume` instead would
-   read as an already-exhausted budget and return `stuck` at once. Publish the report and each
+   read as an already-exhausted budget and return `stuck` at once. Because those `met` entries
+   arrive as settled, **this round re-verifies only criteria still open**: a criterion already
+   `met` is carried forward with its original `provenAt` and is not exercised again. Publish the report and each
    selected check's page to their stored `artifacts.json` URLs (the "Artifact link" section,
    below — the same mechanism, run again each round, not a second one), then read comments on
    each published check page (§8.1b step 5) so the next round's step 3b selection carries them
@@ -325,7 +345,14 @@ a different plan.
 
 6. **Render and close.** Build the `## Fix run` section with `node
    .claude/lib/functional-verification.js render-fix-summary` (D10) and append it to
-   `verification-report.md`, republish it under the same stored URL. Emit the readout: STATE
+   `verification-report.md`, republish it under the same stored URL. Its `criteria` input is
+   **every criterion not `met`** in the latest state file, each with a non-empty `stopReason`
+   composed from the first of these that applies: `not verifiable here: <the Judge's reason>`
+   (status `not_verifiable`); `accepted as not verifiable: <the plan's ruling>`; `not buildable
+   by cause: <cause in words> — re-verified each round, never built` (a cause other than
+   `judged-failed`/`not-built`); `outside the active slice`; `stop rule reached: <decide-fix-round's
+   reason>`. The renderer prints `no stop reason recorded` for a blank one so an omission is
+   visible, but a blank one is a defect in this step, never an acceptable row. Emit the readout: STATE
    carries the Diagnosis counts (above, unchanged); ISSUES names each `verification.md` need
    recorded at step 2, "the owner, at the next bridge" (D13); NEXT is `/verify-plan-recovery`
    when anything buildable or blocked remains, otherwise `/audit-build`. Exactly **one** `═══
@@ -374,6 +401,12 @@ On unrecoverable failure use `═══ COMMAND STUCK: /verify-build ═══` 
 Runs autonomously from invocation to the banner. `AskUserQuestion` is permitted only for the
 four cases in `autonomy.md` — and on this command the realistic one is §2's preflight batch:
 information that genuinely cannot be derived, asked ONCE, up front, with a stated default.
+
+**Under `--fix`, not even that: a `--fix` run asks the owner no questions from start to
+finish** (O3). Step 2's question takes its stated default and becomes a recorded
+`verification.md` need (step 2, above); the chained build runs under `--chained`, where no
+`AskUserQuestion` reaches the owner (`/implement-trd` §3.7); and every decision the run needs
+comes from the plan the owner already agreed in `/verify-plan-recovery`.
 
 Do not pause to report interim findings. Do not offer to fix what the loop surfaces — `--fix`
 fixes because it was invoked with that flag, never because a plain run offered to.
