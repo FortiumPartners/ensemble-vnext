@@ -1,5 +1,9 @@
 # Ensemble Installation Guide
 
+> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
+> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
+> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
+
 Detailed instructions for installing, configuring, updating, and troubleshooting Ensemble for Claude Code.
 
 ---

@@ -1,5 +1,9 @@
 # Ensemble for Claude Code
 
+> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
+> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
+> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
+
 **AI-Augmented Engineering: From Copilot to Autopilot**
 
 Ensemble is a workflow framework for Claude Code that transforms ad-hoc AI-assisted coding into a governed, repeatable engineering process. It provides the structure, guardrails, and specialist agents that make AI-generated code production-ready.

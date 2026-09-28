@@ -1,5 +1,9 @@
 # Ensemble Concepts
 
+> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
+> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
+> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
+
 The mental models, principles, and patterns that make AI-augmented engineering reliable.
 
 ---

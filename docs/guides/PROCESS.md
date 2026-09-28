@@ -1,5 +1,9 @@
 # Ensemble Process Guide
 
+> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
+> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
+> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
+
 The step-by-step workflow for building features with Ensemble, from project setup through production-ready code.
 
 ---
