@@ -167,8 +167,13 @@ non-commit values found in `checkpoints[]`. Never search commit messages.
 Where the TRD has none, its Master Task List acceptance criteria stand in for objectives, one
 per task.
 
-**Staleness of the audit (D12, OQ-7)** — only relevant when `audit` is not null. Compare the
-audited commit against `<default>`:
+**Staleness of the audit (D12, OQ-7)** — only relevant when `audit` is not null. The audited
+commit reaches `git` under the same rule as a checkpoint value: it must match
+`^[0-9a-f]{7,40}$` AND `git rev-parse --verify --quiet <auditedCommit>^{commit}` must exit 0.
+A value that fails either — `/audit-build` writes the literal `unknown` when `rev-parse` failed,
+and a feature branch deleted after a squash merge leaves its short sha unresolvable in a fresh
+clone — is never passed to `git diff`: staleness cannot be computed, and ISSUES says so (see
+below). Otherwise compare the audited commit against `<default>`:
 `git diff --name-only <auditedCommit> <default>`, intersected with this TRD's own grounding
 `Touches` paths (the file list under `### <task-id>` `Touches:` entries in the TRD's Task
 Grounding section). A non-empty intersection is staleness; an audit commit whose diff touches
@@ -304,7 +309,9 @@ section may be "none".
   - `audit` is `null` → the line contains exactly `never audited`; audit present and stale (per
     the staleness check above) → the line contains exactly `audit is of <sha>; <n> touched
     file(s) changed since` — not "the build audit is out of date" or any other rewording, even
-    though it says the same thing
+    though it says the same thing; audit present but its audited commit does not resolve (per
+    the staleness check above) → the line contains exactly `audit commit <value> does not
+    resolve here; staleness unknown`
   - `merged` is `false` → the line contains exactly `checkpoint <sha> is not on <default>` (a
     squash or rebase merge leaves this false)
   - `checkpointCommit` is `null` → the line contains exactly `no checkpoint commit recorded`,
@@ -339,7 +346,8 @@ when `$NOTIFY_ON_COMPLETE` is unset.
 Owner-supplied text (the TRD path, the evidence, the `--accept` reason) never enters a shell
 string it could break out of: `closed.json` is written with the Write tool, never string-
 interpolated into a shell command; the TRD path is used only after it is confirmed to exist;
-checkpoint values reach `git` only after matching `^[0-9a-f]{7,40}$`. The published-nowhere
+checkpoint values and the audit report's audited commit reach `git` only after matching
+`^[0-9a-f]{7,40}$` (a value read from a file on disk is still untrusted input to `git`). The published-nowhere
 scope of this command means no credential-leak surface beyond what `/audit-build`'s own report
 already carries.
 

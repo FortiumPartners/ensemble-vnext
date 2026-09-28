@@ -129,10 +129,11 @@ declare -A SCENARIO_TIMEOUT=(
     # `/implement-trd --resume` and one `/amend`) across five throwaway
     # projects, but each is a lightweight read-facts-and-judge command with no
     # implementer dispatch, no phase gate and no verification loop -- nothing
-    # like implement-one-task's cost per call. 300s per call (RUN_TIMEOUT in
-    # the scenario) times 13 calls, plus five scaffolds, comfortably inside
-    # this cap; raise both together if a live run needs more.
-    [close-feature]=3600
+    # like implement-one-task's cost per call. Worst case is 300s per call
+    # (RUN_TIMEOUT in the scenario) times 13 calls = 3900s, plus five
+    # scaffolds; this cap sits above that so a slow-but-passing run is not
+    # killed mid-scenario. Raise both together if a live run needs more.
+    [close-feature]=4500
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a

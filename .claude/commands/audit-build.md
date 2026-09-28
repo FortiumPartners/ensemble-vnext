@@ -204,6 +204,21 @@ Keep the `- Audited commit:` line and the readout's `VERDICT:` line exactly as s
 `/close-feature` reads both of them back out of this file. A failed write is one line in
 STATE; it never blocks the reconcile chain and never turns the run STUCK.
 
+**Commit it, so it travels with the branch.** `/close-feature` runs later, on the default
+branch, often in another clone; an untracked report never gets there, and the feature is then
+judged "never audited". On any branch other than the default one, commit the report alone:
+
+```bash
+git add .trd-state/<feature>/audit-build-report.md
+git commit -m "docs(audit): audit-build report for <feature>" -- .trd-state/<feature>/audit-build-report.md
+```
+
+The pathspec keeps the commit to this one file whatever else is staged. The audited commit in
+the header stays the one before this commit, which is correct: this commit touches no file the
+TRD touches, so it never makes the audit look stale. **On the default branch, do not commit**:
+the owner decides what lands there, so NEXT tells them to commit the report instead. A failed
+commit is one line in STATE, never STUCK.
+
 **Publish it** (`.claude/rules/command-status.md` "Artifact links"; same publish-and-remember
 shape as `implement-trd.md` §9.0a):
 

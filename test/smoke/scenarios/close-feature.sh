@@ -320,8 +320,11 @@ EOF
 # unproven -- this is the "sole evidence" seam runs 2/3 exercise.
 smoke_write_close_verification_state() {
     local path="$1" live_status="$2" live_reason="$3"
+    # A run whose criteria are all met or not_verifiable exits "satisfied" (the
+    # Outcome line carries the unexercised count); "unbuilt" would claim
+    # src/greet.js was never built and hand the judgement a different reason to
+    # STUCK than the sole-evidence seam run 2 exists to exercise.
     local outcome="satisfied"
-    [[ "$live_status" != "met" ]] && outcome="unbuilt"
     mkdir -p "$(dirname "$path")"
     cat > "$path" <<EOF
 {
@@ -376,6 +379,19 @@ run_close() {
 
 CLOSED_JSON_REL="${STATE_DIR_REL}/closed.json"
 
+# assert_commit_count_unchanged <project_dir> <count_before> <label>
+# /close-feature never commits (D4, D11): the count after a run must equal the
+# count taken before it.
+assert_commit_count_unchanged() {
+    local project_dir="$1" before="$2" label="$3" after
+    after="$(git -C "$project_dir" rev-list --count HEAD)"
+    if [[ "$after" == "$before" ]]; then
+        assert_pass_raw "${label}: git rev-list --count HEAD unchanged (no commit)"
+    else
+        assert_fail_raw "${label}: commit count changed (${before} -> ${after}); /close-feature must never commit"
+    fi
+}
+
 # =============================================================================
 # PROJECT_1: run 1 (done-with-gaps, never audited), then run 9 (already
 # closed), run 10 (/implement-trd --resume STUCK), run 11 (/amend STUCK).
@@ -402,6 +418,7 @@ cat > "${PROJECT_1}/.trd-state/current.json" <<EOF
 { "prd": null, "trd": "${TRD_REL}", "status": ".trd-state/${FEATURE}/implement.json", "branch": "main" }
 EOF
 
+COMMITS_BEFORE_1="$(git -C "$PROJECT_1" rev-list --count HEAD)"
 SESSION_1="${PROJECT_1}/.session-run1.jsonl"
 run_close "$PROJECT_1" "${TRD_REL}" "$SESSION_1"
 RC_1=$?
@@ -445,7 +462,7 @@ else
     assert_fail_raw "run 1: final banner/summary does not name the feature ${FEATURE}"
 fi
 
-COMMITS_BEFORE_1="$(git -C "$PROJECT_1" rev-list --count HEAD)"
+assert_commit_count_unchanged "$PROJECT_1" "$COMMITS_BEFORE_1" "run 1"
 CLOSED_1_HASH_BEFORE9="$(shasum -a 256 "$CLOSED_1" 2>/dev/null | cut -d' ' -f1)"
 
 # --- Run 9: re-run in the SAME project -> already closed ------------------
@@ -487,9 +504,9 @@ fi
 
 COMMITS_BEFORE_RESTORE_1="$(git -C "$PROJECT_1" rev-list --count HEAD)"
 if [[ "$COMMITS_BEFORE_1" == "$COMMITS_BEFORE_RESTORE_1" ]]; then
-    assert_pass_raw "PROJECT_1: git rev-list --count HEAD unchanged across runs 9/10 (neither commits)"
+    assert_pass_raw "PROJECT_1: git rev-list --count HEAD unchanged across runs 1/9/10 (none commits)"
 else
-    assert_fail_raw "PROJECT_1: commit count changed across runs 9/10 (${COMMITS_BEFORE_1} -> ${COMMITS_BEFORE_RESTORE_1})"
+    assert_fail_raw "PROJECT_1: commit count changed across runs 1/9/10 (${COMMITS_BEFORE_1} -> ${COMMITS_BEFORE_RESTORE_1})"
 fi
 
 # --- Run 11: restore current.json, /amend <anything> -> the same STUCK -----
@@ -525,7 +542,7 @@ COMMITS_AFTER_1="$(git -C "$PROJECT_1" rev-list --count HEAD)"
 if [[ "$COMMITS_AFTER_1" == "$((COMMITS_BEFORE_RESTORE_1 + 1))" ]]; then
     assert_pass_raw "PROJECT_1: run 11 (/amend) added no commit of its own (only the harness's restore commit)"
 else
-    assert_fail_raw "PROJECT_1: commit count changed (${COMMITS_BEFORE_1} -> ${COMMITS_AFTER_1}); /close-feature must never commit"
+    assert_fail_raw "PROJECT_1: commit count changed (${COMMITS_BEFORE_RESTORE_1} + 1 restore -> ${COMMITS_AFTER_1}); /amend on a closed feature must not commit"
 fi
 
 # =============================================================================
@@ -557,14 +574,16 @@ else
 { "prd": null, "trd": "${TRD_REL}", "status": ".trd-state/${FEATURE}/implement.json", "branch": "main" }
 EOF
 
-    # --- Run 2: sole evidence for O1 is not_verifiable -> STUCK ------------
+    COMMITS_BEFORE_2="$(git -C "$PROJECT_2" rev-list --count HEAD)"
+
+    # --- Run 2: sole evidence for O2 is not_verifiable -> STUCK ------------
     SESSION_2="${PROJECT_2}/.session-run2.jsonl"
     run_close "$PROJECT_2" "${TRD_REL}" "$SESSION_2"
     RC_2=$?
     assert_exit_code 0 "$RC_2" "claude --print exits 0 (run 2)"
     BANNER_2="${PROJECT_2}/.final2.txt"
     printf '%s\n' "$(smoke_final_text "$SESSION_2")" > "$BANNER_2"
-    assert_tail_matches "$BANNER_2" 12 '═══ COMMAND STUCK' "run 2 ends STUCK (no other criterion covers O1)"
+    assert_tail_matches "$BANNER_2" 12 '═══ COMMAND STUCK' "run 2 ends STUCK (no other criterion covers O2)"
     if [[ -f "${PROJECT_2}/${CLOSED_JSON_REL}" ]]; then
         assert_fail_raw "run 2: closed.json was written, expected none"
     else
@@ -629,6 +648,7 @@ EOF
     else
         assert_fail_raw "run 3: current.json changed even though it pointed at a different feature"
     fi
+    assert_commit_count_unchanged "$PROJECT_2" "$COMMITS_BEFORE_2" "PROJECT_2 runs 2/3"
 fi
 
 # =============================================================================
@@ -652,6 +672,7 @@ else
 { "prd": null, "trd": "${TRD_REL}", "status": ".trd-state/${FEATURE}/implement.json", "branch": "main" }
 EOF
 
+    COMMITS_BEFORE_3="$(git -C "$PROJECT_3" rev-list --count HEAD)"
     SESSION_4="${PROJECT_3}/.session-run4.jsonl"
     run_close "$PROJECT_3" "${TRD_REL}" "$SESSION_4"
     RC_4=$?
@@ -691,6 +712,7 @@ EOF
     fi
     grep -qF '2 of 2 tasks accepted unfinished' "$SESSION_5" 2>/dev/null && assert_pass_raw "run 5: ISSUES contains '2 of 2 tasks accepted unfinished'" || assert_fail_raw "run 5: that ISSUES text was not found"
     grep -qi 'no checkpoint commit' "$SESSION_5" 2>/dev/null && assert_pass_raw "run 5: readout says no checkpoint commit was recorded" || assert_fail_raw "run 5: readout does not say so"
+    assert_commit_count_unchanged "$PROJECT_3" "$COMMITS_BEFORE_3" "PROJECT_3 runs 4/5"
 fi
 
 # =============================================================================
@@ -710,6 +732,7 @@ else
     git -C "$PROJECT_4" add -A
     git -C "$PROJECT_4" commit -q -m "smoke: close-feature fixture, TRD only, no implement.json" --no-verify
 
+    COMMITS_BEFORE_4="$(git -C "$PROJECT_4" rev-list --count HEAD)"
     SESSION_6="${PROJECT_4}/.session-run6.jsonl"
     run_close "$PROJECT_4" "${TRD_REL}" "$SESSION_6"
     RC_6=$?
@@ -739,6 +762,7 @@ else
     else
         assert_fail_raw "run 7: closed.json not written"
     fi
+    assert_commit_count_unchanged "$PROJECT_4" "$COMMITS_BEFORE_4" "PROJECT_4 runs 6/7"
 fi
 
 # =============================================================================
@@ -772,7 +796,9 @@ EOF
     BANNER_8="${PROJECT_5}/.final8.txt"
     printf '%s\n' "$(smoke_final_text "$SESSION_8")" > "$BANNER_8"
     assert_tail_matches "$BANNER_8" 12 '═══ COMMAND STUCK' "run 8 ends STUCK (wrong branch)"
-    grep -qi 'main' "$SESSION_8" 2>/dev/null && assert_pass_raw "run 8: STUCK names main" || assert_fail_raw "run 8: 'main' not found in the STUCK output"
+    # The final message only: the whole stream-json transcript mentions "main"
+    # (tool calls, the fallback itself, "remaining"...) whatever the banner says.
+    grep -qw 'main' "$BANNER_8" 2>/dev/null && assert_pass_raw "run 8: STUCK names main" || assert_fail_raw "run 8: 'main' not found in the final STUCK message"
     if [[ -f "${PROJECT_5}/${CLOSED_JSON_REL}" ]]; then
         assert_fail_raw "run 8: closed.json was written, expected none"
     else
