@@ -64,12 +64,13 @@ declare -A SCENARIO_TIMEOUT=(
     [implement-one-task]=900
     [debug-path]=900
     # verify-functional runs TWO sequential live `/implement-trd` invocations
-    # (without the flag, then with it) in separate throwaway projects. The
-    # second additionally pays for the Step 3.6 derive pass and Step 8's
-    # verification loop (up to 3 exercise/judge/debug iterations), so it is not
-    # "double a single dispatch" — it is one dispatch plus a larger one. This
-    # cap must exceed the scenario's own TIMEOUT_OFF + TIMEOUT_ON (840 + 1500)
-    # plus two scaffolds; raise all three together.
+    # (first with --no-verify, then with the default-on verification) in
+    # separate throwaway projects. The second additionally pays for the
+    # Step 3.6 derive pass and Step 8's verification loop (up to 3
+    # exercise/judge/debug iterations), so it is not "double a single
+    # dispatch" — it is one dispatch plus a larger one. This cap must exceed
+    # the scenario's own TIMEOUT_OFF + TIMEOUT_ON (1500 + 1500) plus two
+    # scaffolds; raise all three together.
     [verify-functional]=3300
     # judge-sees-marker: one bare `claude --print` turn, no subagents, no
     # scaffolding - far cheaper than the other opt-in scenarios. 90s covers
@@ -159,12 +160,12 @@ export ENSEMBLE_RUNTIME_REFRESH_DISABLE=1
 # 0) — none of those announce themselves in prompt output, which is exactly
 # why the deterministic checks are the default and the LLM scenarios are not.
 # implement-one-task stays in the default set as the single canary that the
-# full IMPLEMENT -> VERIFY -> SIMPLIFY -> VERIFY -> REVIEW loop still runs
-# end to end, including state advancement and the git branch — the highest-
-# leverage single LLM scenario to keep paying for by default.
+# per-task implement, phase gate, end-of-run review loop still runs end to
+# end, including state advancement and the git branch — the highest-leverage
+# single LLM scenario to keep paying for by default.
 ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-task)
 
-# Opt-in LLM scenarios: prd-run, trd-run, debug-path, verify-functional. These
+# Opt-in LLM scenarios: see LLM_OPT_IN_SCENARIOS below (12 scenarios). These
 # cost ~5-6 minutes each (verify-functional roughly double, two live runs)
 # to assert things a user would notice within seconds ("a PRD file
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see

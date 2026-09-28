@@ -992,7 +992,7 @@ function renderFixSummary(input) {
 }
 
 // ---------------------------------------------------------------------------
-// isVerificationUnfilled — preflight for `/implement-trd` §8.4a and `/verify-build` §2
+// isVerificationUnfilled — preflight for `/implement-trd` §3.6a and `/verify-build` §2
 // ---------------------------------------------------------------------------
 
 /**

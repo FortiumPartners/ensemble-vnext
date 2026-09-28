@@ -101,13 +101,12 @@ For each matched skill:
    - `templates/` (if exists)
    - `examples/` (if exists)
 
-### Step 4: Core Skills (Always Include)
+### Step 4: Framework Skills (Always Shipped — do not select)
 
-Some skills should always be included regardless of stack:
-
-- Prompt engineering patterns (if available)
-- Claude Code plugin development (if available)
-- Testing strategies for non-deterministic systems (if available)
+Every skill listed in `packages/skills/framework-skills.txt` ships to every project:
+`check` rows (verify-design-comparison, verify-flow-as-built, verify-data-fidelity) and
+`support` rows (verify-plan-recovery, verification-setup). `scaffold-project.sh` copies them
+itself on scaffold and refresh, so leave them out of the stack-based selection above.
 
 ---
 
@@ -170,7 +169,7 @@ After selection, report to the user:
 - `managing-railway` - No Railway config found
 
 ### How to Add More Skills
-Use `/add-skill <skill-name>` to add additional skills later.
+Copy `packages/skills/<skill-name>/` into `.claude/skills/` to add a skill later.
 ```
 
 ---

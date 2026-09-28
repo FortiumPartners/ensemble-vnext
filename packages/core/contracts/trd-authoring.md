@@ -287,9 +287,10 @@ should invoke via the Skill tool. To populate this column:
 1. **Determine the target agent** for the task based on category letter
    (B → backend-implementer, F → frontend-implementer, T → verify-app, etc.)
 2. **Consult the project's skill assignment** — `skill-affinity.json`, plus the skills
-   listed in the session's system prompt. **Do NOT read a `skills:` key from the agent
-   frontmatter: no agent has one.** Hardcoded `skills:` preloads were removed from all
-   13 agents in 4.1.1 (`c4962d0`) in favour of deterministic per-project assignment
+   listed in the session's system prompt. Source agents ship without a `skills:` key
+   (hardcoded preloads were removed from all 13 in 4.1.1, `c4962d0`); `scaffold-project.sh`
+   writes a deterministic per-project `skills:` list into each vendored agent under
+   `.claude/agents/`. Read that list
 3. **For each skill** the agent declares, read its description from the skill's
    SKILL.md (available skills are listed in the system prompt or discoverable
    via the plugin's skills directory)
@@ -413,7 +414,7 @@ they would touch. The unit tests were in the plan twice.
 
 Every phase then ends in a runnable state by construction rather than by scheduling rule —
 the code and its unit tests land together, so the phase gate has something to execute and a
-phase-boundary review reads passing tests rather than untested code.
+end-of-run review reads tested code.
 
 **End-to-end coverage is still a TASK, never an assumed follow-on.** If the feature has an
 exercisable path, there is a `-T###` task with the `[LIVE]` marker that walks it. If it
@@ -739,7 +740,7 @@ erDiagram
 These are the handoff contract. Each has a different consumer, and an artifact that omits
 them silently claims a completeness it has not earned.
 
-### `## Open Questions` — consumed by `/refine`
+### `## Open Questions` — consumed by `/refine-trd`
 
 **Every decision you made that the source did not settle.** Not doubts — decisions. You had
 to pick something to finish the document; this is where you say what you picked and that
@@ -761,7 +762,7 @@ may not apply.
 **A question with no assumption is not finished.** Always state what you did, so the
 document is usable if nobody ever answers.
 
-### `## Could Not Verify` — consumed by `/audit`
+### `## Could Not Verify` — consumed by `/audit-trd`
 
 **Every claim you made from inference rather than from reading or running.** Mirror of the
 `[inferred]` markers in grounding, promoted to document level so a reader sees it without

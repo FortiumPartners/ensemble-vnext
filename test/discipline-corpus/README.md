@@ -1,7 +1,9 @@
 # Discipline-hook judgment corpus
 
-Acceptance corpus for the discipline hooks (`async-discipline.js`, `subagent-discipline.js`,
-`autonomy-discipline.js`) as they convert from regex matching to model judgment. See
+Acceptance corpus for the model-judged `Stop` hook, `discipline-stop` (case A, promises of
+later work nothing backs; case B, mid-command pauses), which replaced the regex-based
+`async-discipline.js`, `subagent-discipline.js` and `autonomy-discipline.js`. The
+`SubagentStop` judge was removed 2026-08-28; its cases are still scored. See
 `docs/TRD/discipline-judgment.md` §1, §3.1 for the full design; this file covers only what
 lives in this directory.
 

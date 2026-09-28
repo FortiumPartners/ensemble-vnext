@@ -196,7 +196,7 @@ def build_hooks_block():
                 elif hook_type == "prompt":
                     # continueOnBlock is deliberately never emitted here — see
                     # the manifest's own $comment: it is a no-op on Stop and
-                    # SubagentStop (the only events any hook in this manifest
+                    # SubagentStop (the only events a prompt-type hook here
                     # registers on), verified against the CLI's own source in
                     # docs/modernization/probes/U3-loop-bound.md §1. The loop
                     # bound for a prompt hook is the stop_hook_active

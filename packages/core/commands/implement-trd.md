@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--phase N] [--session <name>] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained]"
+argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained]"
 version: 4.0.0
 category: implementation
 ---
@@ -10,13 +10,13 @@ category: implementation
 >
 > **Arguments:**
 > - `<trd-path>` - Path to TRD file (optional — derived from the current branch name, or from the single in-progress TRD, if omitted; see Step 1.2)
-> - `--phase N` - Execute only phase N
-> - `--session <name>` - Execute only named work session
 > - `--resume` or `--continue` - Resume from last checkpoint (attempts session resume first)
 > - `--reconcile` - **Make the delivered state match the TRD.** Re-attests every task claiming
 >   success against disk, reopens the ones disk contradicts, then runs everything outstanding
 >   — including tasks added to the TRD since the last run. Use after `/audit-build` finds a
 >   gap. NOT a synonym for `--resume`: see below.
+> - `--include-deferred` - Dispatch deferred-by-design tasks (`[LIVE]` etc.) instead of setting
+>   them aside and reporting them (§4.1a)
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
 > - `--verify` - The functional-verification pass runs **by default** (VCON O6; supersedes the
 >   old opt-in default, D11): dispatches a background success-definition derive early (Step
@@ -39,7 +39,7 @@ category: implementation
 >   with one handoff line, `[STATUS: /implement-trd] RETURN → …`, reporting the build back to
 >   its caller instead of the usual four-section readout (§3.7).
 >
-> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd --phase 2`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --no-verify`, `/implement-trd --resume --verify`, `/implement-trd docs/TRD/user-auth.md --reconcile --chained`
+> **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --no-verify`, `/implement-trd --resume --verify`, `/implement-trd docs/TRD/user-auth.md --reconcile --chained`
 
 ---
 
@@ -49,7 +49,7 @@ category: implementation
 $ARGUMENTS
 ```
 
-Parse: TRD path, `--phase N`, `--session <name>`, `--resume`/`--continue`, `--reconcile`,
+Parse: TRD path, `--resume`/`--continue`, `--reconcile`, `--include-deferred`,
 `--reset-state`, `--verify`, `--no-verify`, `--chained`. Verification runs by default; `--no-verify` opts out;
 `--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
 step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build --fix` is the one
@@ -60,7 +60,7 @@ thing that passes it.
 ## Execution Model
 
 ```
-PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN HARDENING & REVIEW -> FUNCTIONAL VERIFICATION -> COMPLETE
+PREFLIGHT -> RESUME CHECK -> PARSE TRD + BUILD GRAPH -> PHASE LOOP -> END-OF-RUN REVIEW -> FUNCTIONAL VERIFICATION -> COMPLETE
 
   Functional verification RUNS BY DEFAULT (VCON O6, supersedes D11's opt-in default).
   `--no-verify` opts out of both stages below. `--verify` is still accepted explicitly
@@ -82,12 +82,12 @@ Phase Loop (per phase N):
   mark this phase GROUP's tasks in_progress (state-write-before-dispatch)
   -> Workflow(implement-phase, {trd, phase: N, tasks, gate, project})
        (per task, inside the workflow: IMPLEMENT -> checks -> [self-debug on fail])
-       (phase gate, inside the workflow: verify-app -> phase-scoped /code-review high)
+       (phase gate, inside the workflow: verify-app; review runs once, at Step 7)
   -> command runs the full deterministic battery (resolved per project) at the phase gate
   -> on failure: retry the WHOLE phase (whole-phase retry, capped) or STUCK
   -> checkpoint + commit + PHASE banner -> next phase (no pause)
 
-`--resume` composition with an EXPLICIT `--verify` (§3.7, D13): `--resume` alone -- without
+`--resume` composition with an EXPLICIT `--verify` (functional-verification TRD §3.7, D13): `--resume` alone -- without
 an explicit `--verify` on the same command line -- keeps its existing meaning (resume the
 implementation checkpoint) and runs the phase loop as usual; the default-on verification pass
 still follows it at Step 8 unless `--no-verify` was also given. Only when `--verify` is passed
@@ -614,7 +614,7 @@ is set** — skip this step entirely, dispatch no derive agent, and produce no
 `.trd-state/<feature>/success-definition.md` (functional-verification TRD AC-6, default
 superseded).
 
-**0. The `--resume` composition gate (§3.7, D13) — requires an EXPLICIT `--verify` flag; the
+**0. The `--resume` composition gate (functional-verification TRD §3.7, D13) — requires an EXPLICIT `--verify` flag; the
 new default does NOT satisfy it.** This is the one gate the default flip must not touch: a
 bare `/implement-trd --resume` — the commonest recovery command there is — must still run the
 whole phase loop, not silently re-enter verification only because a stale non-terminal state
@@ -1004,12 +1004,9 @@ Workflow({ name: "implement-phase", args: {
 
 ### 4.3 Assemble the phase-gate prompts
 
-`implement-phase.js` runs these two **inside** the workflow (`verify-app`
-dispatched by `agentType`, foreground; the review is a foreground
-`agent()` call whose prompt instructs it to invoke the `/code-review` Skill — that skill
-self-forks to background, which is what satisfies "costs no orchestrator context" without
-the workflow needing a background variant of `agent()` itself). This command assembles all
-three prompt strings — the workflow opens no file and runs no `git`.
+`implement-phase.js` runs one gate agent **inside** the workflow — `verify-app`, dispatched
+by `agentType`, foreground. This command assembles its prompt; the workflow opens no file and
+runs no `git`.
 
 **`verifyPrompt`** — full test suite for this phase's changed files, scoped against every
 acceptance criterion of every task in phase N:
@@ -1049,7 +1046,7 @@ reason: a stage paid once per phase, forever, for benefit nobody could point at.
 `{last_checkpoint_commit_or_merge_base}` is `state.checkpoints`'s last entry's `commit` when
 one exists, else `git merge-base main HEAD` (phase 1, nothing checkpointed yet).
 
-**Why apply rather than count.** Until 2026-08-16 this prompt said only "Report the total
+**Historical (before 2026-08-28), kept for the reasoning.** Why apply rather than count: until 2026-08-16 this prompt said only "Report the total
 finding count", and nothing downstream did anything with the number: Step 4.4 does not gate
 on it and Step 5.2 writes it into a commit message. Every finding from every per-phase review
 was therefore reduced to an integer and discarded — while `review 4 finding(s)` in the git log
@@ -1159,7 +1156,7 @@ Advance `phase_cursor`.
 
 ```bash
 git add -A
-git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status}; simplify {changed|no-change}; review {findings} finding(s): {applied} applied, {reported} open)"
+git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status})"
 git push -u origin {branch_name}
 ```
 
@@ -1170,8 +1167,7 @@ banner (per `.claude/rules/command-status.md`) and **immediately spawn the next 
 the same orchestration loop** — no "Run /compact" prompt, no waiting for user input.
 
 ```
-[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, battery {green|skipped}, review {findings} finding(s) ({applied} applied, {reported} open), commit {sha}
-   open findings: {one line per reported item, or "none"}
+[STATUS: /implement-trd] PHASE {N}/{M} COMPLETE → {completed-task-count} tasks success, battery {green|skipped}, commit {sha}
 ```
 
 **Then print the discovery channel**, which is separate from review findings — a review
@@ -1324,7 +1320,7 @@ There is no session-scoped TaskTools mirror in this design — dispatch is per-p
 
 ---
 
-## Step 7: End-of-Run Hardening and Review
+## Step 7: End-of-Run Review
 
 After the final phase's checkpoint (Step 5) and before Step 8's functional verification
 (unless `--no-verify` was set) and Step 9's completion report:
@@ -1359,8 +1355,7 @@ better pass that now also applies. Review still happens automatically, in-loop, 
 Skill({ skill: "code-review", args: "high --fix {branch_base}...HEAD" })
 ```
 
-This is the **full branch diff** review (AC-F8.5), distinct from every phase-scoped review
-that already ran. Per the attested finding (ITR-P002/ITR-P003), `/code-review` is
+This is the run's only code review, over the **full branch diff** (AC-F8.5). Per the attested finding (ITR-P002/ITR-P003), `/code-review` is
 model-startable and forks itself to background subagents — this command does not block
 waiting for it to finish, and does not claim it "will report back": it states, in the past
 tense, that the review was dispatched (with its session reference, if the tool returns one),
@@ -1380,6 +1375,10 @@ call. Everything that iterates, judges, or decides what to do next belongs to
 prose, reads the TRD only at §8.1b, for its `## Verification Artifacts` section; never
 mutates it; never calls `Agent(` directly. Its whole job is resolving inputs from disk and
 rendering what the workflow returns.
+
+**Running order: §8.1 (or §8.2 on the `--resume` path) → §8.1b → §8.1a → §8.3 → §8.4.** The
+numbering is not the running order and stays as it is because other documents cite it; lanes
+(§8.1a) come last because they need every criterion, check criteria included.
 
 ### 8.1 Resolve the definition, distinguishing all three outcomes (§3.1)
 
@@ -1454,7 +1453,7 @@ straight to Step 9 exactly as §8.1 already sends them.
 2. **Select (D9).** Read the `check`-role rows of `.claude/skills/framework-skills.txt` (fall
    back to `packages/skills/framework-skills.txt` in the framework's own checkout — the same
    resolution used below; verification-fix-loop TRD D14, §3.8). A `support`-role row (currently
-   only `verify-plan-recovery`) is never a candidate here — the list has one line per skill and
+   `verify-plan-recovery` and `verification-setup`) is never a candidate here — the list has one line per skill and
    a role column, and only `check` rows are selectable as verification checks. For each named
    `check` skill, read `.claude/skills/<name>/SKILL.md` (fall back to
    `packages/skills/<name>/SKILL.md` in the framework's own checkout — the same resolution the
@@ -1498,7 +1497,7 @@ straight to Step 9 exactly as §8.1 already sends them.
    the rows just rebuilt. Appending without dropping them passes each check criterion twice,
    which doubles its weight in the workflow's totals and coverage.
 
-### 8.2 The `--resume` composition (§3.7, D13) — already gated at Step 3.6
+### 8.2 The `--resume` composition (functional-verification TRD §3.7, D13) — already gated at Step 3.6
 
 When Step 3.6's step 0 fired (both flags set, a non-terminal `verification-state.json` on
 disk), the phase loop and Step 7 were skipped entirely and this is the first thing the run

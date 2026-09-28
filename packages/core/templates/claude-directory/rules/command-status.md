@@ -368,7 +368,7 @@ the point of producing one.
 ### Publish the FILE. Do not render it.
 
 ```
-Artifact({ file_path: "docs/TRD/<feature>.md", favicon: "📐",
+Artifact({ file_path: "docs/TRD/<feature>.md", icon: "document",
            description: "<one sentence>", url: "<stored URL, if this is an update>" })
 ```
 
@@ -438,7 +438,7 @@ is load-bearing rather than tidy.
 ## Enforcement
 
 This is a documented contract, not a hook-blocked invariant — the existing
-`async-discipline.js` Stop hook does not inspect output for these banners. The contract
+`discipline-stop` Stop hook does not inspect output for these banners. The contract
 relies on each command's prompt instructing the model to emit them, and on the user
 noticing their absence as a sign of a broken command (file a fix).
 
@@ -446,10 +446,11 @@ If you find a command that doesn't end with `═══ COMMAND COMPLETE` or
 `═══ COMMAND STUCK`, that's a bug — open an issue or patch the command's final-output
 instructions.
 
-**One legitimate exception: a command that CHAINS into another.** `/plan --implement` on an AUTO tier
+**One legitimate exception: a command that CHAINS into another.** `/plan --implement`
 invokes `/implement-trd` and deliberately emits no banner of its own, because the banner is
 the LAST line of the turn and an implementation run follows it. The run still terminates with
-a banner; it carries the chained command's name. Emitting one before the chain would put a
+a banner; it carries the chained command's name. The reverse also holds: `/implement-trd
+--chained`, called by `/verify-build --fix`, emits none, and the caller's banner ends the run. Emitting one before the chain would put a
 terminator mid-turn; emitting one after would put text after `/implement-trd`'s. Both are the
 thing this rule forbids.
 

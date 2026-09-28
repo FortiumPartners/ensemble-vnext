@@ -210,11 +210,10 @@ claude --dangerously-skip-permissions
 > /implement-trd
 ```
 
-This skips all permission prompts, allowing the agent to work autonomously through the full staged execution loop per phase (implement, verify, debug, simplify, review), plus a
-feature-scale hardening pass after the final phase, without pausing for approval.
+This skips all permission prompts, allowing the agent to work autonomously through the full staged execution loop per phase (implement with self-checks, then the phase gate), then one end-of-run `/code-review` and functional verification, without pausing for approval.
 
-See [Concepts: Implementation](./CONCEPTS.md#phase-3-implementation) for how the adversarial
-hardening pass and the live-verification gate now run inside that single loop, and
+See [Concepts: Implementation](./CONCEPTS.md#phase-3-implementation) for how the whole-branch
+review and functional verification now run inside that single loop, and
 [`/audit-build`](../../.claude/commands/audit-build.md) for the post-implementation
 verification/validation/traceability pass.
 
@@ -227,7 +226,8 @@ Check `.claude/settings.json` to verify hooks are configured:
 | `SessionStart` | `session-context.js` → `runtime-refresh.sh` | Captures session identity for downstream tooling, then refreshes vendored components already present from a newer installed plugin (see [ARCHITECTURE.md](./ARCHITECTURE.md#keeping-the-runtime-current-refresh-vs-rebase)) |
 | `UserPromptSubmit` | `router.py` | Routes prompts to appropriate agents/skills |
 | `PostToolUse` | `formatter.sh` | Auto-formats edited files |
-| `SubagentStop` | `status.js` | Tracks implementation progress |
+| `SubagentStart` / `SubagentStop` | `dispatch-ledger.js` (both); `status.js` (stop) | Records each subagent dispatch to a ledger; tracks implementation progress |
+| `Stop` | `discipline-stop` (prompt hook, `claude-sonnet-5`) → `notify.sh` | Judges unbacked promises of later work and mid-command pauses; then runs `NOTIFY_ON_STOP` |
 | `PreCompact` | `precompact.js` | Preserves state before context compaction |
 | *(model-invoked)* | `notify-complete.sh` | Called directly by commands on their COMMAND COMPLETE turn to fire `NOTIFY_ON_COMPLETE` exactly once |
 

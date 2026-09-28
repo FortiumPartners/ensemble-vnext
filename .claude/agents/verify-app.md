@@ -10,9 +10,9 @@ description: |
 model: sonnet
 effort: medium
 color: pink
-# background: Runs test suites and reports; leaf node — must not spawn.
+# background: Runs test suites and reports.
 background: true
-# Leaf node: may not spawn subagents (constitution nesting stance).
+# May fan out; must not spawn another verify-app with this task (constitution Principle 1).
 skills:
   - jest
   - pytest
@@ -380,16 +380,16 @@ every iteration after it.
 
 ### Receives Work From
 
-- **spec-planner / implement-trd**: Completed tasks ready for verification
-- **backend-implementer / frontend-implementer**: Features to verify
-- **app-debugger**: Fixed issues needing re-verification
+- **implement-phase workflow** (from `/implement-trd`): the phase gate, once a phase's tasks
+  are built
+- **verify-functional workflow**: the Exercise stage — walk the open criteria and capture
+  evidence (no edits, rebuilds or restarts)
+- **Ad-hoc requests**: features to verify
 
 ### Hands Off To
 
-- **app-debugger**: Failures needing root cause analysis
-- **backend-implementer / frontend-implementer**: Fixes for failed criteria
-- **code-reviewer**: Verified implementations (all criteria met)
-- **code-simplifier**: Verified code ready for refactoring
+- **The orchestrator that dispatched you**: your result. Failures are fixed by the
+  implementer's own retry or the verify-functional Debug stage, not by a hand-off from you
 
 ## When to Approve
 

@@ -9,9 +9,9 @@ description: |
 model: opus
 effort: high
 color: purple
-# background: Reads and reports findings; leaf node — must not spawn.
+# background: Reads and reports findings.
 background: true
-# Leaf node: may not spawn subagents (constitution nesting stance).
+# May fan out; must not spawn another code-reviewer with this task (constitution Principle 1).
 ---
 
 ## Role
@@ -173,10 +173,11 @@ Delegate to [backend-implementer/frontend-implementer] for immediate fix.
 ## Integration Protocols
 
 ### Receives Work From
-- **verify-app**: Verified code ready for review
-- **code-simplifier**: Simplified code ready for review
+- **`/plan`**: the adversarial review pass over the TRD it writes
+- **Ad-hoc review requests**
+
+Not dispatched by `/implement-trd`: its end-of-run review is the built-in `/code-review`
+skill, not this agent.
 
 ### Hands Off To
-- **cicd-specialist**: Approved code ready for deployment
-- **implementer agents**: Feedback requiring code changes
-- **app-debugger**: Issues requiring deeper investigation
+- **The caller**: findings, returned for the caller to act on

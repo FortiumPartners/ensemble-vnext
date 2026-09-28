@@ -41,18 +41,12 @@ When delegated to, you receive:
 You produce execution plans that guide:
 - **Implementation agents** (backend/frontend/mobile-implementer) on task order
 - **verify-app** on when testing phases should begin
-- **code-reviewer** on checkpoint schedules
 
 ## Workflow Position
 
-```
-technical-architect --> TRD --> spec-planner --> Execution Plan --> implementers
-                                     |
-                                     v
-                              .trd-state/plan.json
-```
-
-**Invoked by**: `/implement-trd` for execution planning and parallelization
+**Not dispatched by `/implement-trd`**, which builds its waves deterministically from the
+TRD (`task-graph.js`). Invoked directly for ad-hoc planning only; your plan is returned to
+the caller, not written to `.trd-state/`.
 
 ## Skill Usage
 
@@ -204,15 +198,13 @@ Should take about 2 weeks."
 ## Integration Protocols
 
 ### Receives Work From
-- **technical-architect**: Complete TRD with task breakdown and dependencies
-- **/implement-trd command**: Request for execution planning
+- **Ad-hoc requests**: a TRD with task breakdown and dependencies to plan against
 
 ### Hands Off To
 - **backend-implementer**: Backend tasks per execution plan
 - **frontend-implementer**: Frontend tasks per execution plan
 - **mobile-implementer**: Mobile tasks per execution plan
 - **verify-app**: Testing tasks after implementation phases
-- **code-reviewer**: Review tasks at defined checkpoints
 
 ## Delegation Boundaries
 

@@ -147,22 +147,24 @@ Given non-deterministic LLM output:
 
 ## Hooks Reference
 
-### Discipline Hooks (Stop / SubagentStop) — model-judged
+### Discipline Hook (Stop) — model-judged
 
-Three hooks enforce `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`:
-`async-discipline` and `autonomy-discipline` on `Stop`, `subagent-discipline` on
-`SubagentStop`. As of 2026-08-13 (`docs/TRD/discipline-judgment.md`) all three are
-`hookType: "prompt"` in `packages/core/hooks/hooks.manifest.json` — evaluated by the
-platform's own model judge (prompt text in `packages/core/hooks/prompts/`) rather than by
-regex matching inside a `.js` file.
+One prompt-type `Stop` hook, `discipline-stop` (manifest id `discipline-stop.js`, prompt source
+`packages/core/hooks/prompts/discipline-stop.source.md`), enforces
+`.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md` as two cases: case A, a
+promise of later work that nothing will keep, and case B, a mid-command pause. It is evaluated
+by the platform's own model judge rather than by regex matching inside a `.js` file (the
+conversion to `hookType: "prompt"` dates from 2026-08-13, `docs/TRD/discipline-judgment.md`).
+There is no `SubagentStop` judge; it was removed 2026-08-28.
 
-**There are no `.js` files behind these three any more** (4.1.11, DISC-B009):
+**The three original discipline hooks have no `.js` files any more** (4.1.11, DISC-B009):
 `async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`,
 `lib/async-claim-detector.js` and `lib/transcript-text.js` were deleted, together with the
 `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` lever that regenerated them as command-type. The lever
 never worked outside this checkout — those files were never delivered to a scaffolded
-project — so it would have shipped a safety net with no detection behind it. Their manifest
-entries keep the `.js` names as **identifiers**; nothing resolves them to disk. A frozen copy
+project — so it would have shipped a safety net with no detection behind it. None of the
+three deleted file names appears in the manifest now; its one Stop judge entry is
+`discipline-stop.js`, an **identifier** that nothing resolves to disk. A frozen copy
 of the regexes lives at `test/discipline-corpus/detectors/regex.js` purely so the scoring
 baseline stays reproducible; it is a test fixture, not runtime code.
 
@@ -443,18 +445,17 @@ claude --teleport session_018oKtL6CSbVA9gNttj41T13
 
 ```
 .claude/
-  agents/        # 12 streamlined subagents
+  agents/        # 13 streamlined subagents
   commands/      # Workflow commands
   hooks/         # Hook executables
   skills/        # Compiled skills
-  rules/         # constitution.md, stack.md, process.md
+  rules/         # constitution.md, stack.md, verification.md (owner-governed); process.md and discipline rules
   settings.json  # Committed configuration
 
 docs/
   PRD/           # Product Requirements Documents
   TRD/           # Technical Requirements Documents
   standards/     # Symlinked governance docs
-  templates/     # Document templates
 
 packages/
   router/        # Routing hook + tests (pytest)
@@ -524,7 +525,8 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 **Requires Approval:**
 - Any modification to `~/dev/ensemble`
 - Schema/architectural changes
-- Changes to constitution.md or stack.md
+- Changes to constitution.md, stack.md or `.claude/rules/verification.md` (running
+  `/verification-setup` is the owner's approval)
 
 **No Approval Needed:**
 - Reading files anywhere
@@ -608,6 +610,8 @@ files exist are enabled; and six dispatch ledgers are untracked.
 **Still open after this patch:** `/audit-build` writes no durable report, and nothing closes a
 feature — `docs/TRD/completed/` holds 1 against 17 active, which is the structural cause behind
 both the stale `in_progress` rows and the unbounded ledger. The age bound treats that symptom.
+(Since then docs are kept as-built rather than archived — see `process.md` — so
+`docs/TRD/completed/` is legacy and its count no longer measures whether a feature closed.)
 
 4.7.0 rebuilds the `Stop`-hook judge from measurement. Across 3,158 real stops it blocked
 about 1 in 5, and about 95% of sampled blocks were correct turns. It now runs a hand-authored

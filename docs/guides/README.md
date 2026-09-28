@@ -110,9 +110,9 @@ claude --dangerously-skip-permissions
 > /implement-trd
 ```
 
-Per phase, this runs TDD-based implementation meeting acceptance criteria, then a
-per-phase adversarial hardening pass and (for `[LIVE]` tasks) live verification, at the
-phase gate. After the last phase it runs the hardening pass once more at feature scale.
+Per phase, this runs TDD-based implementation meeting acceptance criteria, then a test
+gate. After the last phase it runs one whole-branch code review and functional verification
+(on by default; `--no-verify` opts out).
 
 ```bash
 # After the run: verify what was delivered against the TRD and PRD, with traceability
@@ -140,11 +140,11 @@ This prevents context bloat and ensures each session starts with consolidated kn
 
 ### You Are Air Traffic Controller, Not Pilot
 
-The mental model isn't hand-flying one aircraft -- it's orchestrating a flight through phases from a control tower. You file the flight plan (PRD/TRD), clear it for takeoff (`--dangerously-skip-permissions`), let `/implement-trd` fly the whole route -- implementing, hardening, and live-verifying at each phase gate -- and course-correct via `/audit-build` when it lands. The framework handles the flying; you handle the plan and the audit.
+The mental model isn't hand-flying one aircraft -- it's orchestrating a flight through phases from a control tower. You file the flight plan (PRD/TRD), clear it for takeoff (`--dangerously-skip-permissions`), let `/implement-trd` fly the whole route -- implementing and testing each phase, then reviewing and functionally verifying the whole -- and course-correct via `/audit-build` when it lands. The framework handles the flying; you handle the plan and the audit.
 
 ### Trust the Plan, Iterate on Results
 
-Perfect execution on the first pass isn't the goal. A perfect *plan* is the goal. With a solid PRD/TRD, `/implement-trd`'s per-phase loop (implement, harden, verify) plus `/audit-build` afterward converge on production-ready code through iteration -- not through constant human supervision of every line.
+Perfect execution on the first pass isn't the goal. A perfect *plan* is the goal. With a solid PRD/TRD, `/implement-trd`'s loop (implement and test per phase, then one whole-branch review and functional verification) plus `/audit-build` afterward converge on production-ready code through iteration -- not through constant human supervision of every line.
 
 ### Context Is a Budget
 

@@ -1,11 +1,12 @@
 # Async-discipline rule
 
-**Status:** active. Enforced as a model-judged `Stop` hook (`hookType: "prompt"`, prompt text
-at `packages/core/hooks/prompts/async-discipline.prompt.md`) on every `Stop` event — the
-platform's own judge evaluates the turn's final message against this rule directly, rather
-than a regex matcher inside `async-discipline.js`. That file was deleted in 4.1.11; the
-manifest entry keeps `async-discipline.js` as its `file` value, which is now an entry
-IDENTIFIER rather than a path — nothing resolves it to disk. See
+**Status:** active. Enforced as case A of the one model-judged `Stop` hook,
+`discipline-stop` (`hookType: "prompt"`, prompt source
+`packages/core/hooks/prompts/discipline-stop.source.md`, built to `discipline-stop.prompt.md`),
+on every `Stop` event — the platform's own judge evaluates the turn's final message against
+this rule directly, rather than a regex matcher inside `async-discipline.js`. That file was
+deleted in 4.1.11, and the manifest no longer names it: the single Stop entry's `file` value is
+`discipline-stop.js`, an entry IDENTIFIER rather than a path — nothing resolves it to disk. See
 `docs/TRD/discipline-judgment.md` for the conversion.
 
 ## The rule
@@ -106,7 +107,7 @@ enforces.
 
 **As of 2026-08-22 NO command in this framework spawns teammates.** `/harden-trd-team` and
 `/verify-trd-team` went in 4.1.16 (ITR-B012 — their adversarial pass and E2E gate moved into
-the `/implement-trd` loop), and `/fix-issue`, the last one, was replaced by `/fix` (renamed `/plan` in 2.0.0) when item 12
+the `/implement-trd` loop), and `/fix-issue`, the last one, was replaced by `/fix` (renamed twice since; now `/plan`, as of 4.6.0) when item 12
 landed. `/implement-trd` states explicitly that it uses no `Agent({name, team_name})`.
 
 The guidance above therefore governs any teammate an AGENT spawns, not a command — the
@@ -170,7 +171,8 @@ session running `/goal`, each bounded by the block cap to one turn.
 ### The prompt and the model, as of 2026-09-24
 
 The judge prompt is **hand-authored**: `packages/core/hooks/prompts/discipline-stop.source.md`,
-about 4 KB. `build-judge-prompts.js` only wraps it in the display banners. It replaced a
+about 4 KB. `build-judge-prompts.js` only adds a scope line at the top and the closing
+`END STOP HOOK PROMPT` marker with the JSON response contract. It replaced a
 14.9 KB prompt assembled from blocks, which had grown one correction at a time until the judge
 stopped following it. The hook runs on **`claude-sonnet-5`** (manifest `model` field). Before,
 it ran on the platform's default small model.
@@ -202,8 +204,9 @@ another session diagnosing it; there is nothing on this side to fix until upstre
 
 **The one shape that IS ours** is an *allow* appearing the same way. An allow has nothing to
 report, so it should be silent — it surfaces only when the judge attaches a `reason` to an
-`ok: true` verdict, and the CLI displays whatever reason is present.
-`build-judge-prompts.js`'s response-contract block forbids exactly that. Measure with
+`ok: true` verdict, and the CLI displays whatever reason is present. Since 4.10.1 an allow
+carries one fixed reason, `{"ok": true, "reason": "no case A or B"}`, because the evaluator's
+JSON shape asks for one; anything longer on an allow is the anomaly. Measure with
 `node packages/core/scripts/hook-verdict-rate.js --project <slug>`. A high BLOCK count is the
 guards working, up to a point — the tool fails the run above 8%, because past there the guards
 interrupt correct work more than they catch defects.
@@ -294,10 +297,12 @@ instruction to write prose.
 
 ### The fix
 
-`build-judge-prompts.js` now appends `RESPONSE_CONTRACT_BLOCK` as the final section of all three
+`build-judge-prompts.js` appended `RESPONSE_CONTRACT_BLOCK` as the final section of all three
 prompts: *"Your entire response is a single `submit` tool call. Nothing else."* — plus the
 explicit instruction that if it finds itself composing an explanation for why something is
-fine, it should call `submit({ ok: true })` instead.
+fine, it should call `submit({ ok: true })` instead. *(Superseded for the Stop judge in 4.10.1:
+its prompt now ends in the evaluator's JSON contract, `{"ok": …, "reason": …}`, not a `submit`
+call — see "The prompt and the model", above.)*
 
 **Verify the fix by counting, not by looking — but do NOT compare against 31/251.**
 
@@ -360,8 +365,9 @@ non-empty hookErrors on stop_hook_summary records → iterate the ARRAY (not the
 ## Override
 
 **There is no runtime kill switch, and as of 4.1.11 there is no build-time one either.**
-To disable or change this guard, edit `packages/core/hooks/prompts/async-discipline.prompt.md`
-(or remove the entry from `hooks.manifest.json`), re-run `generate-hooks-artifacts.sh`, and
+To disable or change this guard, edit `packages/core/hooks/prompts/discipline-stop.source.md`
+and run `build-judge-prompts.js` (or remove the `discipline-stop.js` entry from
+`hooks.manifest.json`), re-run `generate-hooks-artifacts.sh`, and
 deliver the result through the usual `--refresh` channel.
 
 A regenerate-time lever did briefly exist — `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` (D5 /
@@ -390,8 +396,8 @@ tool-call permission matcher ("Permission rule syntax to filter when this hook r
 
 **There is no longer a model judge on `SubagentStop`.** The entry was deleted from
 `hooks.manifest.json`; that event now carries only its two command hooks (`status.js`,
-`dispatch-ledger.js`, 5s each). `subagent-discipline.prompt.md` is still generated and still
-scored by the corpus, but nothing registers it.
+`dispatch-ledger.js`, 5s each). `subagent-discipline.prompt.md` is no longer generated; the
+judge's text survives only inside `build-judge-prompts.js` so the corpus can still score it.
 
 **Why it went.** It was written to catch a subagent burning tokens and returning nothing —
 the measured case was three subagents ending with "I'll wait for the monitor notifications",
@@ -405,8 +411,10 @@ cheaper, deterministic layers in front of that failure:
    shapes as explicit failures — no record for the id, `agent()` returning null ("agent
    returned nothing"), a non-success status, and never-dispatched — then logs which task ids
    failed. Tested at `implement-phase.test.js:146`.
-3. **The phase gate.** `verify-app` then `/code-review` catch the harder case the judge never
-   could: a well-formed result claiming success on work that was not done.
+3. **The phase gate and the end-of-run review.** `verify-app` plus the project's
+   deterministic battery at each phase, and one `/code-review high --fix` over the whole
+   branch diff after the last, catch the harder case the judge never could: a well-formed
+   result claiming success on work that was not done.
 
 The judge was a fourth layer over a failure three cheaper ones already cover, and the only
 one costing a model call. Its in-session cost was measured on 2026-08-28 at **~4.6s mean,
@@ -546,25 +554,15 @@ Two facts, both established by probing the live payloads rather than reading the
 - **`prompt_id` is not stable across an agent's lifetime.** A live run produced a `stop`
   row whose `prompt_id` differed from its own `start` row. Correlate on `agent_id` only.
 
-State is the last event per `agent_id`: `start` → running, `stop` → finished, `blocked`
-→ running. **No `blocked` row is currently written.** The compensating-row logic
-(`recordBlockInLedger`) lived inside `subagent-discipline.js`'s own JS `main()`, which
-stopped executing when the hook became model-judged — the platform evaluates the prompt
-directly and no code of ours runs — and that file was deleted outright in 4.1.11. A judge
-block on `SubagentStop` therefore lets `dispatch-ledger.js` (order 3, still command-type,
-runs after) write its `stop` row exactly as if the subagent had actually finished, because
-nothing tells it otherwise. **This is a known gap introduced by the conversion to
-`hookType: "prompt"`, not yet closed**: `--open`'s output cannot be trusted to distinguish
-"genuinely finished" from "blocked and resumed". Cross-check against the session transcript
-or `background_tasks` if that distinction matters, until the gap is closed.
+State is the last event per `agent_id`: `start` → running, `stop` → finished. The reader
+still treats a `blocked` row as running, but none is written: the compensating-row logic
+lived in `subagent-discipline.js`, deleted in 4.1.11, and since 2026-08-28 there is no
+`SubagentStop` judge at all, so nothing blocks a subagent's stop and every `stop` row is a
+real stop.
 
-This is the lead-session mirror of what the `SubagentStop` guard enforces from the
-hook side: a subagent is never allowed to just claim it'll check back later, and the
-orchestrator is never left purely hoping a notification arrives — it actively re-checks
-and nudges. Neither side relies on a timer; both rely on an explicit re-entry point
-(`ScheduleWakeup` for the lead, the `stop_hook_active` bound for the subagent).
+The orchestrator is never left purely hoping a notification arrives — it actively re-checks
+and nudges, with `ScheduleWakeup` as its explicit re-entry point rather than a timer.
 
-**What this still does not cover.** The `SubagentStop` guard only fires when an agent
-*stops*. An agent that keeps running without progressing never stops, so nothing blocks
-it — the ledger plus a scheduled nudge is the only thing that reaches that case. That is
-the whole reason the ledger exists rather than being another hook guard.
+**What this still does not cover.** An agent that keeps running without progressing never
+stops, so no stop-time check reaches it — the ledger plus a scheduled nudge is the only thing
+that does. That is the whole reason the ledger exists rather than being another hook guard.

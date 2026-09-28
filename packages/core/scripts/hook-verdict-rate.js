@@ -36,14 +36,24 @@
  * So the operator-visible "error" for a block needs no fix on our side and will not get
  * one until upstream relabels it. Measured here: 41 of 43 entries are blocks.
  *
- * THE OTHER 2 ARE THE REAL DEFECT and they are ours to reduce: an ok:true verdict that
- * carries a `reason` anyway. Upstream surfaces any reason present, so an allow with
- * prose attached is displayed exactly like a block. build-judge-prompts.js's
- * RESPONSE_CONTRACT_BLOCK exists to stop that ("an ok:true verdict carries no reason");
- * it reduced but did not eliminate it, because it is a model-compliance problem.
- * Adjacent upstream evidence that the judge's response shape is not reliably held:
- * #11947, where a prompt Stop hook returned {decision, reason} instead of {ok}, giving
- * "Stop hook error: Schema validation failed ... path: [ok]" — closed as not planned.
+ * REVISED since the 4.10.1 prompt rewrite: the shipped Stop prompt
+ * (discipline-stop.source.md) now REQUIRES a reason on the allow branch too —
+ * `{"ok": true, "reason": "no case A or B"}` — because the evaluator's response
+ * shape asks for one on every verdict. That fixed, short reason therefore reaches
+ * `hookErrors` on every compliant allow, same as a block does; it is expected, not
+ * a leak. The retired `RESPONSE_CONTRACT_BLOCK` ("an ok:true verdict carries no
+ * reason") governed the three block-built judgments this file used to score and
+ * does not apply to the shipped prompt.
+ *
+ * THE REAL DEFECT is narrower than "any reason on an allow": it is an allow whose
+ * reason is LONGER than the fixed one-line contract — i.e. the judge attached actual
+ * explanatory prose instead of the required short string, which upstream then
+ * displays exactly like a block. `classify()` below treats the fixed reason as a
+ * normal allow (counted separately, never as a block or a leak) and treats a longer,
+ * descriptive allow reason as the anomaly. Adjacent upstream evidence that the
+ * judge's response shape is not reliably held: #11947, where a prompt Stop hook
+ * returned {decision, reason} instead of {ok}, giving "Stop hook error: Schema
+ * validation failed ... path: [ok]" — closed as not planned.
  *
  * TWO TRAPS, both of which cost real time:
  *   1. Count ARRAY ENTRIES, not records. One Stop event where two guards fire yields
@@ -76,15 +86,31 @@ function newestTranscript(slug) {
   return files.length ? files[0].f : null;
 }
 
+// The fixed, compliant allow reason the shipped prompt requires on every "no violation"
+// verdict (discipline-stop.source.md: `{"ok": true, "reason": "no case A or B"}`). An entry
+// matching this is a NORMAL allow that happens to reach hookErrors because upstream displays
+// any reason present — it is neither a block nor a leak, and must not be counted as either.
+const NORMAL_ALLOW_REASON = /^no case a or b\b/i;
+
+// Legacy/anomalous allow shape: descriptive prose that states the message did NOT do the
+// thing, going beyond the fixed contract reason above. This was the ONLY allow shape possible
+// under the retired RESPONSE_CONTRACT_BLOCK (which forbade any reason on ok:true), so it is
+// scored as the leak the classifier exists to catch.
+const ALLOW_SHAPE = /\b(do(es)? not (claim|violate|offer|defer|assert)|is not a violation|no (violation|deferral claim|async claim)|guard applies only|not running a workflow command|allowing)\b/i;
+
+// Classify one `hookErrors` entry's reason text as 'block', 'normal-allow' (expected,
+// compliant), or 'leak-allow' (anomalous — descriptive prose attached to an allow).
+function classify(reason) {
+  if (NORMAL_ALLOW_REASON.test(reason)) return 'normal-allow';
+  if (ALLOW_SHAPE.test(reason)) return 'leak-allow';
+  return 'block';
+}
+
 function scan(file) {
-  // Classify by detecting the ALLOW shape, not the block shape. Allows are the rare,
-  // distinctive case — they state that the message did NOT do the thing — whereas block
-  // reasons are open-ended second-person prose with no reliable common phrasing. An
-  // earlier pass matched block-like verbs instead and misfiled 4 of 43.
-  const ALLOW_SHAPE = /\b(do(es)? not (claim|violate|offer|defer|assert)|is not a violation|no (violation|deferral claim|async claim)|guard applies only|not running a workflow command|allowing)\b/i;
   let evaluations = 0;   // stop_hook_summary records = hook evaluation rounds
   let blocks = 0;        // ENTRIES whose reason instructs — the guard working
-  let allows = 0;        // ENTRIES whose reason only describes — ANOMALOUS
+  let allows = 0;        // ENTRIES that are the fixed, compliant allow reason — expected
+  let leaks = 0;         // ENTRIES whose reason is descriptive prose on an allow — ANOMALOUS
   let recordsWithEntries = 0;
   const samples = [];
 
@@ -102,14 +128,16 @@ function scan(file) {
     for (const e of entries) {
       const m = /\]:\s*([\s\S]+)$/.exec(String(e));
       const reason = m ? m[1].trim() : '';
-      if (!ALLOW_SHAPE.test(reason)) blocks++;
+      const verdict = classify(reason);
+      if (verdict === 'block') blocks++;
+      else if (verdict === 'normal-allow') allows++;
       else {
-        allows++;
+        leaks++;
         if (samples.length < 5) samples.push(reason.replace(/\s+/g, ' ').slice(0, 100));
       }
     }
   }
-  return { file, evaluations, blocks, allows, recordsWithEntries, samples };
+  return { file, evaluations, blocks, allows, leaks, recordsWithEntries, samples };
 }
 
 function main(argv) {
@@ -127,24 +155,27 @@ function main(argv) {
     return 1;
   }
 
-  let E = 0, B = 0, A = 0;
+  let E = 0, B = 0, A = 0, L = 0;
   for (const f of files) {
     const r = scan(f);
-    E += r.evaluations; B += r.blocks; A += r.allows;
+    E += r.evaluations; B += r.blocks; A += r.allows; L += r.leaks;
     console.log(`\n  ${path.basename(r.file)}`);
     console.log(`    hook evaluations:            ${r.evaluations}`);
     console.log(`    BLOCKS delivered:            ${r.blocks}   <- the guards working, not failures`);
-    console.log(`    ALLOWS surfaced (anomalous): ${r.allows}`);
-    for (const s of r.samples) console.log(`      allow: ${s}`);
+    console.log(`    ALLOWS surfaced (compliant): ${r.allows}   <- fixed reason, expected, not a leak`);
+    console.log(`    ALLOW-LEAKS (anomalous):     ${r.leaks}`);
+    for (const s of r.samples) console.log(`      leak: ${s}`);
   }
 
-  const allowPct = E ? (100 * A) / E : 0;
+  const leakPct = E ? (100 * L) / E : 0;
   const blockPct = E ? (100 * B) / E : 0;
-  console.log(`\n  TOTAL: ${E} evaluations | ${B} blocks (${blockPct.toFixed(1)}%) | ${A} anomalous allows (${allowPct.toFixed(1)}%)`);
+  console.log(`\n  TOTAL: ${E} evaluations | ${B} blocks (${blockPct.toFixed(1)}%) | ${A} compliant allows | ${L} anomalous allow-leaks (${leakPct.toFixed(1)}%)`);
   console.log('  Blocks are the guards working UP TO A POINT. Above ~8% of evaluations they are\n  interrupting correct work more than they are catching defects -- a guard the owner\n  disables protects nothing. Both rates are defect signals; they just fail differently.');
   console.log('  A block shown as "Stop hook error:" is anthropics/claude-code#62139 — an OPEN upstream');
-  console.log('  TUI labelling bug, not a fault here. An ALLOW shown that way is ours: it means the');
-  console.log('  judge attached a `reason` to an ok:true verdict. See build-judge-prompts.js.');
+  console.log('  TUI labelling bug, not a fault here. A compliant allow shows the same way because the');
+  console.log('  shipped prompt requires a reason on every verdict ({"ok":true,"reason":"no case A or B"});');
+  console.log('  that is expected, not a leak. An ALLOW-LEAK is ours: the judge attached descriptive');
+  console.log('  prose to an allow instead of the fixed reason. See build-judge-prompts.js.');
   // Two independent verdicts. The block rate had NO ceiling until 2026-08-25: this tool
   // told every reader that a high block count was the guards working, so no measurement
   // could ever have reported over-blocking. Measured that day: 72 blocks in 443
@@ -157,10 +188,10 @@ function main(argv) {
   } else {
     console.log(`  VERDICT: block rate ${blockPct.toFixed(1)}% nominal`);
   }
-  if (allowPct >= 5) { console.log('  VERDICT: allow-leak rate is elevated — worth investigating'); return 2; }
+  if (leakPct >= 5) { console.log('  VERDICT: allow-leak rate is elevated — worth investigating'); return 2; }
   console.log('  VERDICT: allow-leak rate nominal');
   return rc;
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { scan };
+module.exports = { scan, classify };

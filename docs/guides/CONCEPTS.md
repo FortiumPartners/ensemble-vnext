@@ -197,36 +197,31 @@ of what it's doing.
 
 A single implementation pass rarely produces production-ready code -- just as a single draft rarely produces a publishable document. Ensemble used to run this as three separate commands, each in its own session (`/implement-trd`, then `/harden-trd-team`, then `/verify-trd-team`). As of 4.1.16 those two team commands are gone, and the work they did runs *inside* `/implement-trd` instead — one command, one session, still `--dangerously-skip-permissions` for uninterrupted execution.
 
-**Why fold the passes into one loop?** The three-pass split existed because each pass needed an increasingly complete codebase to work against: skeleton, then hardening, then live validation. That's still true — but it turned out those checkpoints line up with phase boundaries `/implement-trd` already tracks, so there was no need for a human to manually launch a second and third session at the right moment. The command now inserts the hardening pass and the live-verification gate at the point in its own loop where the codebase is ready for them.
+**Why fold the passes into one loop?** The three-pass split existed because each pass needed an increasingly complete codebase to work against: skeleton, then hardening, then live validation. That's still true — but it turned out those checkpoints line up with phase boundaries `/implement-trd` already tracks, so there was no need for a human to manually launch a second and third session at the right moment. The command now covers those checks inside its own loop: a test gate per phase, then one whole-branch code review and functional verification once every phase is built.
 
 #### Per-phase loop
 
-For every phase, and for every task within it:
-
 ```
-IMPLEMENT --> VERIFY --> [DEBUG if fail] --> SIMPLIFY --> VERIFY --> REVIEW
+per task:   IMPLEMENT --> targeted checks --> [self-debug on fail]
+per phase:  phase gate (verify-app + the project's deterministic battery) --> checkpoint + commit
+once:       /code-review high --fix over the whole branch diff --> functional verification
 ```
 
-1. The appropriate specialist agent implements the task
-2. `verify-app` runs tests
-3. If tests fail, `app-debugger` investigates (up to 3 retries)
-4. `code-simplifier` refactors for clarity
-5. `code-reviewer` checks for security and quality (phase-scoped review)
+1. The appropriate specialist agent implements the task, runs its own targeted checks, and
+   self-corrects — there is no separate per-task debug or review agent
+2. Each phase's gate (`implement-phase.js`) runs `verify-app` plus the project's
+   deterministic test battery, then the phase is checkpointed and committed
+3. After the last phase, one `/code-review high --fix` reads the whole branch diff and applies
+   its findings — the job `/harden-trd-team` used to do, now done once over the assembled
+   feature
+4. Functional verification then checks the running software against the PRD's criteria. It is
+   on by default; `--no-verify` opts out. This is the job `/verify-trd-team` used to do
 
-Each phase's gate (`implement-phase.js`) runs a `parallel()` verifier fan-out over that
-phase's tasks — this is the adversarial "does the code hold up to scrutiny" check that used
-to be `/harden-trd-team`'s job, now scoped to what just landed rather than run separately
-after the fact. Any task marked `[LIVE]` in the TRD (or a TRD whose `verification_level` is
-`live-required`/`e2e-required`) is verified against a running instance, not mocks — this is
-the E2E gate that used to be `/verify-trd-team`'s job.
-
-#### Feature-scale hardening pass
-
-After the last phase's checkpoint and before the end-of-run review, `/implement-trd` runs
-the same hardening agent once more, at feature scale — a lens no single phase's review could
-apply, because interaction risk *between* phases only exists once every phase is assembled.
-This is the "once more, but for the whole feature" half of what `/harden-trd-team` used to
-do as a standalone pass.
+The per-phase `code-simplifier` stage (removed 2026-08-18), the per-phase code review and the
+feature-scale hardening pass (both removed 2026-08-28) are gone: across 279 tasks the gate's
+failure path never fired, and the end-of-run review reads the same diff with a better reviewer.
+Tasks the TRD lists as deferred by design (such as `[LIVE]` work that cannot finish here) are
+set aside and reported, not dispatched; `--include-deferred` forces them.
 
 #### After the run: `/audit-build`
 
@@ -310,12 +305,13 @@ own loop (see [Phase 3: Implementation](#phase-3-implementation)).
 The team commands existed to run an entire phase's worth of independent hardening/verification
 work concurrently. But `/implement-trd` already knows when a phase's tasks are done — it's
 the one holding the phase boundary — so the natural place for that fan-out is the phase gate
-itself, not a second command a human has to remember to launch afterward. `implement-phase.js`
-now runs the hardening agent as a `parallel()` verifier fan-out at that gate, per phase, and
-`/implement-trd` runs it once more at feature scale after the last phase. No standalone
+itself, not a second command a human has to remember to launch afterward. The hardening job
+first moved into a per-phase verifier fan-out plus a feature-scale pass; since 2026-08-28 both
+are replaced by one `/code-review high --fix` over the whole branch diff at the end of the run,
+and live verification by the functional-verification loop. No standalone
 replacement command was created for either job — a command adds nothing either job needs, and
 `/implement-trd` was already the right place to reach concurrently-eligible work. (This is
-a deliberate design decision, recorded as D15 in `docs/TRD/implement-trd-rework.md` — revisit
+a deliberate design decision, recorded as D15 in `docs/TRD/completed/implement-trd-rework.md` — revisit
 only if hardening code the loop did not build becomes routine; today `/code-review high`
 covers that case.)
 
@@ -358,7 +354,7 @@ The boundary has shifted further toward AI autonomy than most engineers initiall
 
 - Draft PRDs from requirements
 - Generate TRDs with architecture, task breakdown, and execution plans
-- Implement all tasks from TRDs, phase by phase, including in-loop hardening and live verification
+- Implement all tasks from TRDs, phase by phase, then review the whole branch and verify it functionally
 - Write and run tests based on acceptance criteria
 - Debug test failures (up to 3 retries per task)
 - Refactor for clarity and review for security
@@ -405,7 +401,7 @@ This enables commands to work without explicit path arguments -- just run `/crea
 
 `.trd-state/<feature>/implement.json` tracks:
 - Task status (pending, in_progress, success, failed)
-- Cycle position (implement, verify, simplify, review, complete)
+- Cycle position (implement, checks, debug, complete)
 - Checkpoints for safe resume
 - Coverage metrics
 
@@ -419,8 +415,8 @@ Ensemble no longer has standalone "team variant" commands for implementation. Th
 4.1.15, `/harden-trd-team` and `/verify-trd-team` ran *after* `/implement-trd` as separate
 sessions that spawned parallel teammates for hardening and live verification. Both were
 removed in 4.1.16 (see [Team Execution and Parallel Operation](#team-execution-and-parallel-operation)
-above for why, and where their jobs live now — inside `/implement-trd`'s own phase gate and
-feature-scale hardening pass).
+above for why, and where their jobs live now — inside `/implement-trd`'s end-of-run code
+review and functional verification).
 
 Agent teams (`Agent({subagent_type, name, prompt})`, forming automatically on first spawn,
 no setup/teardown step) remain available as a primitive, but as of 2026-08-22 **no command in

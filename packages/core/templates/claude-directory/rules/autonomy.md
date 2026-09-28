@@ -4,10 +4,10 @@
 exempt **in interactive mode only** — soliciting user input is that mode's purpose. In
 non-interactive mode they obey this rule like any other command; the exemption is
 conditional on mode, not on command name (see "Refine commands", below).
-Backed by a model-judged `Stop` hook (`hookType: "prompt"`, prompt text at
-`packages/core/hooks/prompts/autonomy-discipline.prompt.md`; the manifest entry keeps
-`autonomy-discipline.js` as its identifier, but no such file exists as of 4.1.11) — see
-Enforcement, below.
+Backed by case B of the one model-judged `Stop` hook, `discipline-stop` (`hookType:
+"prompt"`, prompt source `packages/core/hooks/prompts/discipline-stop.source.md`; manifest id
+`discipline-stop.js` — `autonomy-discipline.js` was deleted in 4.1.11 and the manifest no
+longer names it) — see Enforcement, below.
 
 ## The rule
 
@@ -32,7 +32,7 @@ the artifact the previous one produced.
 **So naming the next command is REPORTING, not deferring**, and it is the correct way for a
 finished command to end:
 
-> When you're satisfied with the TRD, run `/implement-trd docs/TRD/<slug>.md --verify`.
+> When you're satisfied with the TRD, run `/implement-trd docs/TRD/<slug>.md`.
 
 The line is **whose decision it is**, not whether a command gets named:
 
@@ -217,22 +217,19 @@ flow and defeats unattended execution.
 
 ## Enforcement
 
-Two layers, doing different jobs:
+There is no build-time check that a command's prompt embeds the autonomy block; the
+runtime judge is the enforcement.
 
-1. **Static contract tests** (BATS, `notify-on-complete.test.sh`'s Layer-2 tests) verify
-   every non-refine command's *prompt* embeds the autonomy block — a build-time check that
-   the discipline is documented where each command reads it, not a runtime check of what
-   the model actually says.
-2. **`autonomy-discipline.js`**, a model-judged `Stop` hook (`hookType: "prompt"`),
+1. **Case B of `discipline-stop`**, the one model-judged `Stop` hook (`hookType: "prompt"`),
    evaluates the *actual* final message of every `Stop` for the anti-patterns in the table
    above — hedged pause offers, "should I proceed?", checkpoint requests — and blocks with
-   a corrective reason when it finds one. Like `async-discipline.js`, it reads the turn's
+   a corrective reason when it finds one. Like case A (async discipline), it reads the turn's
    substance rather than matching a fixed phrase list, so a hedged offer that avoids the
    anti-pattern table's exact wording is still caught if it's making the same move. It does
    **not** ban `AskUserQuestion` outright — the four valid cases are legitimate uses of that tool, and the judge is expected to
    distinguish a genuine one of those from a disguised checkpoint request.
 
-3. **Judgment B applies conditionally on command state**, sourced by a channel the judge
+2. **Judgment B applies conditionally on command state**, sourced by a channel the judge
    cannot get any other way. `router.py` injects one line — `ENSEMBLE_COMMAND
    state=<active|none|unknown> session=<id>`, plus `command=`/`feature=` when
    `state=active` — into `hookSpecificOutput.additionalContext` on every prompt it emits
@@ -271,11 +268,13 @@ Two layers, doing different jobs:
 
 Loop guard, override, and `if`-field caveat are identical to the async-discipline hook's —
 see `.claude/rules/async-discipline.md`'s "How the guard works" and "Override" sections
-rather than duplicating them here: `stop_hook_active` allows unconditionally on the second
-consecutive turn (one corrective round-trip), and a judge error/timeout resolves to allow.
+rather than duplicating them here: the bound is `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP=1` in
+settings `env` (one corrective round-trip), because the judge's instruction to allow on
+`stop_hook_active` is not reliably followed; a judge error/timeout resolves to allow.
 There is no kill switch: `autonomy-discipline.js` and its `detectHedgedOffer` matcher were
 deleted in 4.1.11 along with the `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` lever that was their
-only remaining consumer. To change this guard, edit its prompt file and regenerate.
+only remaining consumer. To change this guard, edit `discipline-stop.source.md`, run
+`build-judge-prompts.js`, and regenerate.
 
 If you find a command in this framework asking a question outside the four valid cases,
 file an issue or patch the command's prompt.

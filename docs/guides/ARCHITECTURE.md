@@ -241,12 +241,12 @@ The router hook determines which implementer to use based on the task descriptio
 
 | Agent | File | Invoked By | Purpose |
 |-------|------|-----------|---------|
-| `verify-app` | `verify-app.md` | `/implement-trd` (verify stage) | Run tests, check coverage |
-| `code-simplifier` | `code-simplifier.md` | `/implement-trd` (simplify stage) | Post-verification refactoring |
-| `code-reviewer` | `code-reviewer.md` | `/implement-trd` (review stage) | Security review, quality checks |
-| `app-debugger` | `app-debugger.md` | `/implement-trd` (on test failure) | Root cause analysis, TDD fix |
+| `verify-app` | `verify-app.md` | `/implement-trd` (phase gate); functional verification (Exercise stage) | Run tests, check coverage; exercise the running software |
+| `code-simplifier` | `code-simplifier.md` | On request — not dispatched by `/implement-trd` (stage removed 2026-08-18) | Post-verification refactoring |
+| `code-reviewer` | `code-reviewer.md` | On request — `/implement-trd`'s review is the built-in `/code-review` | Security review, quality checks |
+| `app-debugger` | `app-debugger.md` | Functional verification (Debug stage) | Root cause analysis, TDD fix |
 
-Quality agents run in sequence after implementation: verify, then simplify, then review. If verify fails, the debugger gets up to 3 attempts before escalating.
+Each implementer runs its own checks and self-corrects within its task. At each phase gate `verify-app` runs with the project's deterministic test battery. After the last phase, one `/code-review high --fix` reads the whole branch diff, then functional verification runs (on by default; `--no-verify` opts out).
 
 #### DevOps Agents
 
@@ -289,7 +289,7 @@ Commands are Markdown files with optional shell scripts that define workflow ste
 | `/audit-trd` | Existing TRD | Verifies the TRD against the PRD, the design corpus and the code; rewrites its Could Not Verify section |
 | `/refine-trd` | Existing TRD + feedback | Updated TRD |
 | `/augment-trd-figma` | Existing TRD + Figma file | TRD updated with Figma design context |
-| `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking; per-phase gate includes adversarial hardening and, for `[LIVE]` tasks, live verification; a feature-scale hardening pass runs after the last phase |
+| `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking; a test gate per phase, then one whole-branch `/code-review` and functional verification (on by default) |
 | `/audit-build` | Implemented TRD + PRD | Verification (matches TRD), validation (matches PRD), traceability (implementation AND test per requirement) report |
 
 #### Shorter Paths
@@ -307,9 +307,12 @@ Whose plan the work belongs to, not its size, decides which of these three to us
 
 | Option | Description |
 |--------|-------------|
-| `--phase N` | Execute only phase N |
-| `--session <name>` | Execute only named work session |
 | `--resume` / `--continue` | Resume from last checkpoint |
+| `--reconcile` | Re-attest delivered work against the TRD; re-open anything only claimed done |
+| `--no-verify` | Skip functional verification, which otherwise runs by default |
+| `--verify` | Redundant alone; with `--resume`, re-enters an interrupted verification loop |
+| `--include-deferred` | Dispatch deferred-by-design tasks (`[LIVE]` etc.) instead of setting them aside |
+| `--reset-state` | Clear state and start fresh (requires confirmation) |
 
 ### The Implementation Workflow
 
@@ -320,7 +323,7 @@ loop instead, and `/audit-build` runs afterward:
 
 | Stage | Command | Focus | What Happens |
 |------|---------|-------|-------------|
-| **Build + harden + verify** | `/implement-trd` | Per-phase implementation | TDD-based: tests first, code second, meet acceptance criteria; each phase gate runs an adversarial hardening fan-out and (for `[LIVE]` tasks) live verification; the last phase adds one more hardening pass at feature scale. |
+| **Build + review + verify** | `/implement-trd` | Per-phase implementation | TDD-based: tests first, code second, meet acceptance criteria; each phase gate runs `verify-app` and the test battery; after the last phase, one `/code-review high --fix` over the branch diff, then functional verification (on by default). |
 | *(Optional)* | — | *CI/Reviewer pipeline* | *Automated quality/coverage/security assessment on top of what `/implement-trd` produced.* |
 | **Audit** | `/audit-build` | Validate against PRD, verify against TRD, check traceability | Confirms the delivered code matches the TRD's tasks and the PRD's requirements, and that every requirement carries both an implementation and a test. True definition of done. |
 | **Human** | — | Debug and finish | Developer steps in for remaining ~5-15% of nuanced work, guided by the audit report. |
@@ -333,17 +336,13 @@ including why this used to be three separate commands.
 
 ### The Staged Execution Loop
 
-Per phase, `/implement-trd` follows a strict cycle for each task:
-
 ```
-IMPLEMENT --> VERIFY --> [DEBUG if fail] --> SIMPLIFY --> VERIFY --> REVIEW --> COMPLETE
-     |                       |                                          |
-     |                  (max 3 retries)                            UPDATE
-     |                                                          implement.json
-     v
-  Delegate to
-  specialist agent
-  (frontend/backend/mobile/devops/cicd)
+per task:   IMPLEMENT --> targeted checks --> [self-debug on fail] --> COMPLETE
+                |                                                     |
+          Delegate to specialist agent                         UPDATE implement.json
+          (frontend/backend/mobile/agent/devops/cicd)
+per phase:  phase gate (verify-app + deterministic battery) --> checkpoint + commit
+once:       /code-review high --fix over the branch diff --> functional verification
 ```
 
 ---
@@ -359,7 +358,7 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 | **SessionStart** | When a session begins | `session-context.js` → `runtime-refresh.sh` | `session-context.js` captures session identity (session ID, cwd) and exports it via `CLAUDE_ENV_FILE` for downstream Bash tooling and notifications; `runtime-refresh.sh` then refreshes vendored `.claude/` components already present from a newer installed plugin (see [Keeping the Runtime Current](#keeping-the-runtime-current-refresh-vs-rebase) above). |
 | **UserPromptSubmit** | Every user message | `router.py` | Analyzes the prompt and recommends appropriate agents and skills. Appends routing context to the prompt. |
 | **PostToolUse** | After Edit/Write/MultiEdit | `formatter.sh` | Auto-formats the changed file using the project's formatter (Prettier, Black, etc.). |
-| **SubagentStop** | When a sub-agent completes | `status.js` | Advances cycle position in `implement.json`. Tracks which stage (implement, verify, simplify, review) just completed. |
+| **SubagentStop** | When a sub-agent completes | `status.js` | Advances cycle position in `implement.json`. Tracks which stage (implement, checks, debug) just completed. |
 | **Stop** | When a session (or workflow turn) ends | model-judged prompt hook → `notify.sh` | The prompt hook evaluates the turn's final message for two things at once — an unbacked async claim (async-discipline) and a hedged mid-loop pause (autonomy-discipline) — and blocks with a corrective reason if either fires; `notify.sh` then runs last and executes `NOTIFY_ON_STOP` on every Stop, unconditionally. |
 | **PreCompact** | Before context compaction | `precompact.js` | Handles pre-compaction bookkeeping so important state survives lossy summarization. |
 | *(model-invoked)* | Commands call it directly on their COMMAND COMPLETE turn | `notify-complete.sh` | Not tied to a lifecycle event — a workflow command invokes it explicitly to fire `NOTIFY_ON_COMPLETE` exactly once. See [command-status.md Path B](../../.claude/rules/command-status.md). |
@@ -373,8 +372,8 @@ Hooks are executable scripts that fire automatically in response to Claude Code 
 - Returns routing suggestions as context appended to the prompt
 - Does not block -- only advises
 
-**Discipline guard (async-discipline + autonomy-discipline):**
-- First hook in the Stop chain — a defensive guard, not advisory, and not a `.js` file: it is `hookType: "prompt"`, evaluated directly by the platform's own model judge rather than by code of ours. The manifest still carries `async-discipline.js` / `autonomy-discipline.js` as entry *identifiers*, but nothing resolves them to disk — both were deleted.
+**Discipline guard (`discipline-stop`):**
+- First hook in the Stop chain — a defensive guard, not advisory, and not a `.js` file: it is `hookType: "prompt"`, evaluated directly by the platform's own model judge rather than by code of ours. The manifest entry is `discipline-stop.js` (prompt source `packages/core/hooks/prompts/discipline-stop.source.md`), running on `claude-sonnet-5`; that id is an *identifier* nothing resolves to disk.
 - One prompt hook carries two independent judgments over the same final message:
   - **async-discipline** — scans for fire-and-forget claims ("I'll let you know", "running in the background") that have no backing async machinery (`Agent({run_in_background})`, `ScheduleWakeup`, `Monitor`, `/goal`). See `.claude/rules/async-discipline.md`.
   - **autonomy-discipline** — detects hedged-pause offers ("I'll continue unless...", "Want me to keep going, or pause?") in workflow-command context. `/refine-prd` and `/refine-trd` are exempt in interactive mode. See `.claude/rules/autonomy.md`.

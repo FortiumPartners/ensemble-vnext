@@ -54,7 +54,7 @@ create_valid_structure() {
     # Create .trd-state directory
     mkdir -p "$dir/.trd-state"
 
-    # Create required agent files (12 total)
+    # Create required agent files (13 total)
     local agents=(
         "product-manager.md"
         "technical-architect.md"
@@ -62,6 +62,7 @@ create_valid_structure() {
         "frontend-implementer.md"
         "backend-implementer.md"
         "mobile-implementer.md"
+        "agent-implementer.md"
         "verify-app.md"
         "code-simplifier.md"
         "code-reviewer.md"
@@ -126,8 +127,8 @@ EOF
 
     run "$VALIDATE_SCRIPT" "$TEST_DIR"
 
-    # Should report all 12 agents present
-    [[ "$output" == *"All 12 subagents present"* ]]
+    # Should report all 13 agents present
+    [[ "$output" == *"All 13 subagents present"* ]]
 
     # Should report governance files exist
     [[ "$output" == *"constitution.md exists"* ]]

@@ -120,6 +120,7 @@ REQUIRED_AGENTS=(
     "frontend-implementer.md"
     "backend-implementer.md"
     "mobile-implementer.md"
+    "agent-implementer.md"
     "verify-app.md"
     "code-simplifier.md"
     "code-reviewer.md"
@@ -138,7 +139,7 @@ for agent in "${REQUIRED_AGENTS[@]}"; do
 done
 
 if [[ $AGENT_COUNT -eq ${#REQUIRED_AGENTS[@]} ]]; then
-    pass "All 12 subagents present"
+    pass "All 13 subagents present"
 else
     info "Found $AGENT_COUNT of ${#REQUIRED_AGENTS[@]} agents"
 fi

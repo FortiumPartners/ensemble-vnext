@@ -29,8 +29,8 @@ done.
 - A new project, right after `/init-project` copies the template unfilled.
 - A readout — `/implement-trd`, `/verify-build`, or a phase gate — that named this skill
   because `check-verification-unfilled` found a missing section.
-- The `verify-plan-recovery` bridge skill recorded a need against the file (a proposed
-  answer it could not write itself — that skill never edits `verification.md`).
+- A `/verify-build --fix` run recorded a need against the file (`verify-plan-recovery`
+  names such needs in its diagnosis; it never records or edits anything there).
 - Any time the owner wants to change what the file says, filled or not.
 
 ## Inputs

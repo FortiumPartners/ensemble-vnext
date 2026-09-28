@@ -235,7 +235,7 @@ function main(argv) {
   );
   if (feature) files = [path.join('.trd-state', feature, 'dispatch.jsonl')];
   if (!files.length) {
-    console.error('usage: run-profile.js <dispatch.jsonl> | --feature <name> [--since <ISO>] [--json]');
+    console.error('usage: run-profile.js <dispatch.jsonl> | --feature <name> [--since <ISO>] [--json] [--all] [--gap <min>]');
     return 1;
   }
 

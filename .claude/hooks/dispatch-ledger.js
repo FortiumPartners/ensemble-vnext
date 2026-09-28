@@ -6,10 +6,10 @@
  *
  * Registered on TWO events (the only hook in the set that is):
  *   SubagentStart — order 1, writes the "start" row
- *   SubagentStop  — order 3, writes the "stop" row (after status.js advances
- *                   state and subagent-discipline.js decides whether to block;
- *                   when it does block, IT appends the compensating "blocked"
- *                   row, so this hook does not need to know about blocking)
+ *   SubagentStop  — order 3, writes the "stop" row, after status.js advances
+ *                   state. No hook writes a "blocked" row any more
+ *                   (subagent-discipline.js, which used to append one, was
+ *                   deleted in 4.1.11), so a stop row is trusted as-is.
  *
  * Also runnable directly by an orchestrator, which is the point of the whole
  * thing:

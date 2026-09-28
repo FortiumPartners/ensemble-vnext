@@ -1,6 +1,6 @@
 'use strict';
 /**
- * fix-audit.js — the mechanical half of `/fix`'s audit.
+ * fix-audit.js — the mechanical half of `/plan`'s audit (the command was `/fix` until 4.6.0).
  *
  * WHY THIS IS A MODULE. These checks began as prose in `fix.md` for a model to
  * carry out with an ad-hoc script each run. The first live run of `/fix`

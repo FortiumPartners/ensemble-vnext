@@ -25,10 +25,10 @@ effort: medium
 color: yellow
 # background: Reads, edits, runs builds and tests — all retained in background.
 background: true
-# Leaf node — does the work and reports it. Nesting was permitted by default and
+# Nesting is permitted; same-type self-delegation on the same task is forbidden. It
 # produced backend-implementer -> backend-implementer -> backend-implementer with an
 # IDENTICAL task at the last two levels: recursion, not decomposition, ~567k tokens
-# for one unit of work. Implementers fan nothing out; the orchestrator owns the task list.
+# for one unit of work. Out-of-scope work is reported to the orchestrator, not delegated.
 ---
 
 ## Role Statement
@@ -229,7 +229,7 @@ Before marking work complete, verify:
 
 ### Receives Work From
 
-- **spec-planner / implement-trd**: Backend tasks from TRD execution plan
+- **implement-trd** (implement-phase workflow): Backend tasks from TRD execution plan
 - **Context Required**: API specifications, database schema, business rules
 
 ### Hands Off To

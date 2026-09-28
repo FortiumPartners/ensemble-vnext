@@ -9,12 +9,12 @@ templates/
 ├── README.md                           # This file
 ├── claude-directory/                   # .claude/ directory scaffolding
 │   ├── agents/.gitkeep                 # Agent prompts directory
-│   ├── rules/.gitkeep                  # Governance documents directory
+│   ├── rules/                          # Shipped rule files: command-status.md, async-discipline.md,
+│   │                                   #   autonomy.md, verification.md
 │   ├── skills/.gitkeep                 # Stack-relevant skills directory
 │   ├── commands/.gitkeep               # Workflow commands directory
 │   ├── hooks/.gitkeep                  # Hook executables directory
-│   ├── settings.json                   # Baseline settings configuration
-│   └── router-rules.json               # Baseline router rules
+│   └── settings.json                   # Baseline settings configuration
 ├── trd-state/                          # .trd-state/ scaffolding
 │   ├── current.json.template           # Current feature pointer template
 │   └── implement.json.template         # Implementation status template
@@ -33,7 +33,6 @@ templates/
 These are copied directly during `/init-project`:
 
 - `claude-directory/settings.json` - Baseline settings with hook configuration
-- `claude-directory/router-rules.json` - Baseline routing patterns
 - `trd-state/current.json.template` - Initial current feature pointer
 
 ### Dynamic Templates

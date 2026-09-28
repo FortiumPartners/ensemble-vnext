@@ -23,9 +23,9 @@ Every feature follows the same lifecycle:
        |
        v
 /implement-trd       -->  Build, phase by phase (TDD, meet acceptance criteria);
-                          each phase gate runs an adversarial hardening pass and,
-                          for [LIVE] tasks, live verification; the last phase adds
-                          one more feature-scale hardening pass before the run ends
+                          each phase gate runs verify-app and the test battery;
+                          after the last phase, one whole-branch /code-review and
+                          functional verification (on by default; --no-verify skips)
 /fold-prompt + exit  -->  (optional, between phases on a long run) capture learnings
 /audit-build         -->  Verify + validate delivered code against the TRD/PRD,
                           with traceability (implementation AND test per requirement)
@@ -283,7 +283,9 @@ the TRD's task list, phase by phase.
 > jobs (adversarial hardening, live verification) did not go away, they moved *inside*
 > `/implement-trd`'s own loop, because the command already knows exactly when a phase is
 > done and is the natural place to trigger both. There is no replacement command for either
-> — that was a deliberate decision (D15 in `docs/TRD/implement-trd-rework.md`).
+> — that was a deliberate decision (D15 in `docs/TRD/completed/implement-trd-rework.md`).
+> Since 2026-08-28 the hardening job is one `/code-review high --fix` over the branch diff at
+> the end of the run, and live verification is the functional-verification loop.
 
 ### Reinforcing Subagent Behavior
 
@@ -292,8 +294,8 @@ It's often helpful to reinforce the framework's patterns when launching implemen
 ```
 /implement-trd
 
-Use your subagents and skills. Follow the implement-verify-simplify-review
-pattern for each task. Delegate to specialist agents based on task type.
+Use your subagents and skills. Implement each task, run its checks, and
+fix what fails before moving on. Delegate to specialist agents based on task type.
 ```
 
 This reminds the orchestrating agent to lean on the full staged execution loop rather than trying to do everything in the prime context.
@@ -306,17 +308,14 @@ claude --dangerously-skip-permissions
 ```
 
 **Per phase:** TDD-based implementation of that phase's tasks — tests first, code second,
-meeting the TRD's acceptance criteria. At the phase gate, `implement-phase.js` runs
-`verify-app`, `code-simplifier`, a phase-scoped `code-review`, and a `parallel()` adversarial
-hardening fan-out over the phase's tasks (closing gaps, edge cases, and regressions —
-the job `/harden-trd-team` used to do as a separate pass). Any task marked `[LIVE]`, or any
-TRD whose `verification_level` is `live-required`/`e2e-required`, is verified against a
-running instance rather than mocks (the job `/verify-trd-team` used to do as a separate
-pass).
+meeting the TRD's acceptance criteria. Each implementer runs its own targeted checks and
+self-corrects. At the phase gate, `implement-phase.js` runs `verify-app` plus the project's
+deterministic test battery, then the phase is checkpointed and committed.
 
-**After the last phase:** the hardening agent runs once more at feature scale — catching
-interaction risk between phases that no single phase's gate could see — before the
-end-of-run review.
+**After the last phase:** one `/code-review high --fix` reads the whole branch diff and
+applies its findings (the job `/harden-trd-team` used to do as a separate pass), then
+functional verification checks the running software against the PRD's criteria (the job
+`/verify-trd-team` used to do). Verification is on by default; `--no-verify` opts out.
 
 For a long-running implementation, fold between phases if context is filling up:
 
@@ -481,7 +480,7 @@ Backups are created before any destructive operation. Use `--dry-run` to preview
 | Architecture | `/create-trd` | Approved PRD (auto-resolved) | `docs/TRD/<feature>.md` |
 | Audit architecture | `/audit-trd` | TRD (auto-resolved) | TRD re-attested against PRD/code |
 | Refine architecture | `/refine-trd` | Audit findings or feedback | Updated TRD |
-| Build (phase loop) | `/implement-trd` | Approved TRD | Working, hardened, live-verified code + tests |
+| Build (phase loop) | `/implement-trd` | Approved TRD | Working, reviewed, functionally verified code + tests |
 | Post-build audit | `/audit-build` | Implemented code, TRD, PRD | Verification/validation/traceability report |
 | Human finish | Manual debugging | Audit report | Production-ready code |
 | Capture learnings | `/fold-prompt` | Session context | Updated CLAUDE.md |

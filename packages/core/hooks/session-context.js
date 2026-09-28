@@ -158,7 +158,8 @@ async function main(hookData) {
   if (current.trd) lines.push(`  TRD:    ${current.trd}`);
   if (current.branch) lines.push(`  Branch: ${current.branch}`);
 
-  // If the pointer references a state file (implement/verify/harden), summarize it
+  // If the pointer references a state file (implement.json; verify/harden are legacy
+  // shapes from the retired team commands), summarize it
   if (current.status) {
     const statusPath = path.join(root, current.status);
     const state = safeReadJson(statusPath);
