@@ -22,7 +22,7 @@ The question is what the work is and whose plan it belongs to. Size doesn't deci
 
 | The work is… | Use | Why |
 |---|---|---|
-| A new feature, or anything where the correct behaviour is still a product decision | The full pipeline: `/create-prd` → `/create-trd` → `/implement-trd` → `/audit-build` | Someone has to decide *what* to build before anyone decides *how* |
+| A new feature, or anything where the correct behaviour is still a product decision | The full pipeline: `/create-prd` → `/create-trd` → `/implement-trd` → `/audit-build`, then `/close-feature` once it has merged | Someone has to decide *what* to build before anyone decides *how* |
 | A bug, a small change, or a refactor | `/plan` | Sizes the work and writes a plan to match. It skips the PRD because the reproduction or your instruction already says what is wanted |
 | A list of small, unrelated fixes (say, notes from walking the app) | `/sweep` | Fixes each one in parallel, with no plan document to write |
 | One change to the feature you are already building | `/amend` | Adds the change to that feature's plan. `/plan` would fork a second plan for work that is already understood |
@@ -113,8 +113,36 @@ answers three questions about the code that was actually delivered:
 Gaps split two ways. When a TRD task already covers the gap, nothing needs deciding: the audit
 marks the task not done and chains straight into `/implement-trd --reconcile` to build it.
 When no task covers the gap, deciding *how* to close it is design work. The audit reports it
-and stops. `--report-only` gives you the findings without the chained build. The findings
-appear in the readout only; no report file is written.
+and stops. `--report-only` gives you the findings without the chained build.
+
+Every run leaves a report at `.trd-state/<feature>/audit-build-report.md`. It opens with the
+verdict, names the commit it audited, and holds the readout. It is published as a link (unless publishing is off), and on a
+feature branch the audit commits it, so it travels with the PR. `/close-feature` reads it later.
+
+### `/close-feature` — record that it is finished
+
+[`/close-feature [trd-path] ["<your evidence>"] [--accept "<reason>"]`](../../packages/core/commands/close-feature.md)
+runs after the PR has merged, on the default branch; anywhere else it stops without writing
+anything. It gathers the facts: every task's status (and the TRD's reason for any deferred
+one), the verification outcome, the audit verdict and whether the audit is out of date, and
+whether the last checkpoint commit reached the default branch. Then it judges the feature:
+
+- **done** — the objectives are proven.
+- **done with gaps** — something is unfinished, and the record names each gap and why it does
+  not leave an objective unproven. A deferred live check whose criteria were met another way
+  is the usual case.
+- **not done** — something an objective depends on is missing. It says what, writes nothing,
+  and stops.
+
+Your own evidence counts: `"deployed it and tested it live"` is weighed with the rest and
+recorded as yours. `--accept "<reason>"` overrides a not-done verdict and is recorded
+separately, next to each unfinished task. A feature that was never implemented can be closed
+only with `--accept`, and is recorded as abandoned.
+
+Closing writes `.trd-state/<feature>/closed.json` and empties `current.json`'s fields if it pointed at
+this feature. It does not commit; the readout tells you to. From then on the session banner
+and hints stop showing the feature as in flight, and `/implement-trd` and `/amend` refuse it.
+To reopen it, delete `closed.json`. No command closes a feature on its own.
 
 ---
 
@@ -223,8 +251,6 @@ UI feature. It needs the Figma MCP server and a Figma access token.
 tightens `CLAUDE.md`, README and agent configuration so later sessions start with better
 context.
 
-**`/close-feature`** is coming in the next release.
-
 ---
 
 ## 5. Maintenance
@@ -305,6 +331,8 @@ You don't need to intervene either way.
 | `.trd-state/<feature>/verification-report.md`, `verification-state.json` | The latest verification report, and the loop's resumable state |
 | `.trd-state/<feature>/verification-plan.md` | The recovery plan `/verify-plan-recovery` writes and `/verify-build --fix` runs |
 | `.trd-state/<feature>/discovered.jsonl` | Issues found along the way but not fixed. Those marked as blocking the feature become TRD tasks on the next `--reconcile`. |
+| `.trd-state/<feature>/audit-build-report.md` | The latest `/audit-build` report: its verdict, the commit it audited, and the readout |
+| `.trd-state/<feature>/closed.json` | Written by `/close-feature`: the verdict, the facts it was based on, your evidence and any `--accept` reason. Its presence is what marks the feature closed |
 | `.trd-state/<feature>/artifacts.json` | The published links for this feature's documents |
 
 `.trd-state/` is meant to be committed with the feature, so a fresh clone can resume. The

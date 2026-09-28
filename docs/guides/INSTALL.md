@@ -73,7 +73,7 @@ codebases:
    quality gates, approval rules and verification level) and `process.md` (the workflow).
 4. **Vendors the runtime** into `.claude/`:
    - `agents/` — the 13 subagents
-   - `commands/` — 16 workflow commands (`/init-project` and `/rebase-project` stay in the plugin)
+   - `commands/` — 17 workflow commands (`/init-project` and `/rebase-project` stay in the plugin)
    - `hooks/` plus hook registrations in `settings.json`
    - `rules/` — the framework rules (`async-discipline.md`, `autonomy.md`,
      `command-status.md`) and an unfilled `verification.md`
@@ -174,7 +174,7 @@ implementation is in progress. Set `ENSEMBLE_RUNTIME_REFRESH_DISABLE=1` to turn 
 
 ```bash
 ls .claude/agents/*.md | wc -l        # 13
-ls .claude/commands/*.md | wc -l      # 16
+ls .claude/commands/*.md | wc -l      # 17
 jq .ensemble.version .claude/settings.json   # the plugin version you installed (needs jq)
 ```
 
