@@ -538,13 +538,11 @@ None apply — this change has no UI design, no interaction diagram and renders 
 
 ## Could Not Verify
 
-State after `/audit-trd` on 2026-09-28 (5 of 5 verifiers reported; source `docs/plan/feature-close-out.investigation.md`). That audit raised only document-consistency findings; none of the three claims below was checked by it, because each needs a live run or a code read that happens at implementation time, not a document read.
+State after `/audit-build` on 2026-09-28 (5 of 5 verifiers reported; source `docs/plan/feature-close-out.investigation.md`; 15 requirements and 4 tasks checked against the delivered code). Two claims the `/audit-trd` pass left open are now settled and removed: the no-`origin` `main` fallback held in the recorded smoke run (`.trd-state/feature-close-out/evidence/close-feature-smoke-full.log`, five scaffolded projects with no `origin`, run 8's STUCK names `main`, 70 of 70 assertions passed), and `packages/core/hooks/session-context.test.js` captures `main`'s output in-process (6 of 6 pass). What this audit found missing is reported in its readout (`.trd-state/feature-close-out/audit-build-report.md`), not here.
 
 | Claim | How I'd check it | Why this audit did not check it |
 |-------|------------------|---------------------------------|
-| `smoke_claude` can drive `/close-feature` in a scaffolded project that has no `origin` remote, with the `main` fallback taking effect | the first run of `./test/smoke/run-smoke.sh close-feature` | needs a live smoke run; audit reads documents only |
-| The judgement returns the same verdict on repeated runs of the §3.7 fixtures | run the scenario three times; any flip on runs 1–5 is a prompt defect | needs the command built and run three times |
-| `session-context.js`'s `emit()` output can be captured by Jest when `main` is called in-process | read `emit()` in `packages/core/hooks/session-context.js` before writing the test | out of the audit's scope (a test-mechanics question for CLOSE-B001's implementer, not a TRD claim against the source) |
+| The judgement returns the same verdict on repeated runs of the §3.7 fixtures | run `./test/smoke/run-smoke.sh close-feature` three times; any verdict flip on runs 1–5 is a prompt defect | only one smoke run is recorded (the log above); a repeat needs three live `claude` runs, and this audit reads code and evidence, it runs no scenario |
 
 ## Task Grounding
 
