@@ -144,7 +144,7 @@ shown back to the *evaluated* session doesn't re-embed it.
 > `insufficient evidence in transcript` when evidence is unclear. See
 > `.claude/rules/async-discipline.md`, "How the platform actually asks the question".
 
-**[BUNDLE]** — the generic prompt/agent hook evaluator's system prompt is built as:
+**[BUNDLE]** — the **agent**-hook evaluator's system prompt is built as:
 
 ```
 "You are evaluating a ${r} hook in Claude Code. Your task is to evaluate the condition

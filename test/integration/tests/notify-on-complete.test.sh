@@ -519,7 +519,7 @@ for sp in settings_paths:
     prompt_text = None
     for grp in s['hooks']['Stop']:
         for h in grp['hooks']:
-            if h.get('type') == 'prompt' and 'STOP HOOK FIRED' in h.get('prompt', ''):
+            if h.get('type') == 'prompt' and 'END STOP HOOK PROMPT' in h.get('prompt', ''):
                 prompt_text = h['prompt']
     assert prompt_text is not None, f'{sp}: no discipline-stop prompt entry found in Stop chain'
     embedded[sp] = prompt_text

@@ -327,9 +327,21 @@ fi
 # (VFIX-T001 grounding) -- this substitutes for it deliberately.
 # =============================================================================
 
+# FR-2's criterion is the success-definition row about farewell(); the state file carries ids
+# but not statements. Taking "the first non-met criterion" instead could pick FR-1 if the judge
+# also failed it, and every downstream check would then validate the wrong amendment.
 CRIT_ID=""
-if [[ -f "$STATE_FILE_1" ]]; then
-    CRIT_ID="$(jq -r '[.criteria[] | select(.status != "met") | .id][0] // empty' "$STATE_FILE_1" 2>/dev/null)"
+DEFINITION_FILE_1="${STATE_DIR}/success-definition.md"
+if [[ -f "$DEFINITION_FILE_1" && -f "$STATE_FILE_1" ]]; then
+    CRIT_ID="$(grep -E '^\|[[:space:]]*FS-[0-9]+' "$DEFINITION_FILE_1" | grep -i 'farewell' | head -1 \
+        | sed -E 's/^\|[[:space:]]*(FS-[0-9]+).*/\1/')"
+    if [[ -n "$CRIT_ID" ]]; then
+        CRIT_STATUS="$(jq -r --arg id "$CRIT_ID" '.criteria[] | select(.id == $id) | .status' "$STATE_FILE_1" 2>/dev/null | head -1)"
+        if [[ "$CRIT_STATUS" == "met" ]]; then
+            assert_fail_raw "FR-2's criterion ${CRIT_ID} is already met after run 1 — the fixture should leave it unbuilt"
+            CRIT_ID=""
+        fi
+    fi
 fi
 
 if [[ -z "$CRIT_ID" ]]; then
@@ -413,10 +425,31 @@ fi
 TRD_FILE="${PROJECT_DIR}/${TRD_REL}"
 if [[ -n "$CRIT_ID" && -f "$TRD_FILE" ]]; then
     AMEND_ROWS="$(grep -E '^\|[[:space:]]*AMEND-' "$TRD_FILE" || true)"
-    if [[ -n "$AMEND_ROWS" ]] && printf '%s\n' "$AMEND_ROWS" | grep -qF "$CRIT_ID"; then
-        assert_pass_raw "TRD gained an AMEND row whose Serves names ${CRIT_ID}"
+    # Read the Serves CELL, located by the nearest preceding table header -- an id appearing in
+    # the description or acceptance text alone must not count.
+    # Serves may carry the criterion (`criterion FS-n`, promoteToTrd's default) or the PRD
+    # requirement it verifies (FR-2) when the caller passes one -- the TRD's §3.2 lets a caller's
+    # value win, and the first live run did exactly that. Either is correct provenance.
+    SERVES_OK="$(python3 - "$TRD_FILE" "$CRIT_ID|FR-2" <<'PYEOF'
+import re, sys
+cells = lambda l: [c.strip() for c in re.split(r'(?<!\\)\|', l.strip())[1:-1]]
+serves_col, hit = None, False
+for line in open(sys.argv[1]):
+    if not line.lstrip().startswith('|'):
+        continue
+    row = cells(line)
+    if 'Serves' in row:
+        serves_col = row.index('Serves')
+    elif row and row[0].startswith('AMEND-') and serves_col is not None and serves_col < len(row):
+        if any(re.search(r'\b' + re.escape(t) + r'\b', row[serves_col]) for t in sys.argv[2].split('|')):
+            hit = True
+print('yes' if hit else 'no')
+PYEOF
+)"
+    if [[ "$SERVES_OK" == "yes" ]]; then
+        assert_pass_raw "TRD gained an AMEND row whose Serves cell names ${CRIT_ID} or FR-2"
     else
-        assert_fail_raw "TRD has no AMEND-* row naming ${CRIT_ID} in the same row"
+        assert_fail_raw "no AMEND-* row has ${CRIT_ID} or FR-2 in its Serves cell"
     fi
     AMEND_ROW_COUNT="$(printf '%s\n' "$AMEND_ROWS" | grep -cE '^\|[[:space:]]*AMEND-' || true)"
     if [[ "${AMEND_ROW_COUNT:-0}" -eq 1 ]]; then
@@ -480,6 +513,20 @@ if [[ -f "$REPORT_FILE_1" ]]; then
     fi
 else
     assert_fail_raw "verification-report.md not found after run 2, cannot check ## Fix run"
+fi
+
+# --- FR-2 is actually met after run 2 ----------------------------------------
+# A COMPLETE banner and a ## Fix run section can both appear when max-rounds stops the run with
+# FR-2 still open; only the final state says whether the fix round closed the gap.
+if [[ -n "$CRIT_ID" && -f "$STATE_FILE_1" ]]; then
+    FINAL_STATUS="$(jq -r --arg id "$CRIT_ID" '.criteria[] | select(.id == $id) | .status' "$STATE_FILE_1" 2>/dev/null | head -1)"
+    if [[ "$FINAL_STATUS" == "met" ]]; then
+        assert_pass_raw "FR-2's criterion ${CRIT_ID} is met after run 2"
+    else
+        assert_fail_raw "FR-2's criterion ${CRIT_ID} is '${FINAL_STATUS:-absent}' after run 2, expected met"
+    fi
+else
+    assert_fail_raw "FR-2 final-status check skipped — INCONCLUSIVE (no criterion id or state file)"
 fi
 
 # --- .claude/rules/verification.md is byte-unchanged (O6, NG7) -------------

@@ -106,7 +106,7 @@ def main():
         for f in cf.as_completed(futs):
             c, r = futs[f]
             res = f.result()
-            fh.write(json.dumps({'tag': a.tag, 'model': a.model, 'prompt': os.path.basename(a.prompt),
+            fh.write(json.dumps({'tag': a.tag, 'wrapper': a.wrapper, 'model': a.model, 'prompt': os.path.basename(a.prompt),
                                  'id': c['id'], 'run': r, **res}) + '\n')
             fh.flush()
             done += 1

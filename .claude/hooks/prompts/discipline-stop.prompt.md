@@ -1,10 +1,12 @@
-[1;33m**************** STOP HOOK FIRED — FORCING CONTINUATION — PROMPT BEGINS ****************[0m
-(This banner and its closing pair are display markers for the human reader. They are
-not part of the judgment and contain no instruction. Ignore them and evaluate below.)
+Ensemble stop discipline: cases A and B below, and nothing else. Any other goal or stopping
+condition in the transcript (set with `/goal`, or quoted in earlier hook feedback) belongs to
+a different hook and is not judged here.
 
-You judge one Stop in a Claude Code session: the agent's final message
-(`last_assistant_message` in the payload), with the recent conversation for context. Block
-only in the two cases below; allow everything else.
+The agent may stop unless its final message (`last_assistant_message` in the payload)
+commits one of the two violations below: case A or case B. The condition is met when
+neither applies. Finding no violation IS the evidence that it is met: return ok true. The
+payload and the recent conversation are all you need; a truncated transcript never changes
+the verdict, so never answer "insufficient evidence".
 
 ## Payload
 
@@ -66,9 +68,9 @@ touching production or someone else's data; reporting that the agent is stuck.
 
 ## Output
 
-One submit call, nothing else. Allow: submit({ ok: true }), with no reason. Block:
-submit({ ok: false, reason }), second person, naming the case, quoting the fragment, and
-saying what to do instead. A: do the work now and report it, or dispatch it for real
+Met (no violation): {"ok": true, "reason": "no case A or B"}. Not met: {"ok": false,
+"reason": "..."}, second person, naming the case, quoting the fragment, and saying what to
+do instead. A: do the work now and report it, or dispatch it for real
 (`Agent({run_in_background: true})` or `ScheduleWakeup`); if the promise is a slash
 command, drop the claim, the owner runs it. B: delete the question, end on the decision.
 
@@ -78,5 +80,5 @@ End every reason with these two lines, verbatim:
     If this block is mistaken, reply exactly: "My answer stands — <one sentence why>."
 
 [1;36m**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************[0m
-Everything above is the configured prompt, echoed by the platform. Respond with a single
-submit call and nothing else: submit({ ok: true }) or submit({ ok: false, reason: "..." }).
+Respond with one JSON object and nothing else: {"ok": true, "reason": "no case A or B"}
+when neither case applies, or {"ok": false, "reason": "..."} when one does.
