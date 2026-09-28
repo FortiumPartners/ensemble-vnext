@@ -1,499 +1,311 @@
-# Ensemble Process Guide
+# Working with Ensemble
 
-> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
-> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
-> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
+How to take work from an idea to verified code with Ensemble's commands. This guide assumes
+you have installed Ensemble into a project ([INSTALL.md](INSTALL.md)).
 
-The step-by-step workflow for building features with Ensemble, from project setup through production-ready code.
+Each command below gets enough to use it well; the command file it links to has the rest. In an installed project the same files live in `.claude/commands/`.
 
----
+Two things hold for every command:
 
-## Overview
-
-Every feature follows the same lifecycle:
-
-```
-/init-project             One-time project setup
-       |
-       v
-/create-prd          -->  What are we building and why?
-/audit-prd           -->  (optional) Verify the PRD against its source
-/refine-prd          -->  (optional) Iterate with stakeholder feedback
-       |
-       v
-/create-trd          -->  How are we building it?
-/audit-trd           -->  (optional) Verify the TRD against the PRD
-/refine-trd          -->  (optional) Iterate with technical feedback
-       |
-       v
-/implement-trd       -->  Build, phase by phase (TDD, meet acceptance criteria);
-                          each phase gate runs verify-app and the test battery;
-                          after the last phase, one whole-branch /code-review and
-                          functional verification (on by default; --no-verify skips)
-/fold-prompt + exit  -->  (optional, between phases on a long run) capture learnings
-/audit-build         -->  Verify + validate delivered code against the TRD/PRD,
-                          with traceability (implementation AND test per requirement)
-       |
-       v
-Human debug          -->  Developer finishes remaining ~5-15%, guided by /audit-build's report
-       |
-       v
-/fold-prompt         -->  Final learning capture
-```
-
-Each step is detailed below. Outside this full-feature lifecycle, three shorter paths
-(`/plan`, `/amend`, `/sweep`) and a handful of maintenance commands cover everything else --
-see "Shorter Paths" and "Maintenance Commands" after Step 10.
+- **A command runs unattended from your invocation to its final banner.** It does not stop
+  to ask you to confirm things it can decide. It stops early only when it is stuck and needs
+  you.
+- **A command authorizes only itself.** `/create-trd` writes a TRD. It does not go on to
+  audit or build it. The final readout names the next command, and you decide whether to
+  run it.
 
 ---
 
-## Step 1: Initialize the Project (`/init-project`)
+## 1. Choosing a path
 
-Run once per project. This bootstraps the full Ensemble runtime into your repository.
+The question is what the work is and whose plan it belongs to. Size doesn't decide it.
 
-```
-/init-project
-```
+| The work is… | Use | Why |
+|---|---|---|
+| A new feature, or anything where the correct behaviour is still a product decision | The full pipeline: `/create-prd` → `/create-trd` → `/implement-trd` → `/audit-build` | Someone has to decide *what* to build before anyone decides *how* |
+| A bug, a small change, or a refactor | `/plan` | Sizes the work and writes a plan to match. It skips the PRD because the reproduction or your instruction already says what is wanted |
+| A list of small, unrelated fixes (say, notes from walking the app) | `/sweep` | Fixes each one in parallel, with no plan document to write |
+| One change to the feature you are already building | `/amend` | Adds the change to that feature's plan. `/plan` would fork a second plan for work that is already understood |
 
-### What Gets Created
-
-```
-.claude/
-  agents/           13 specialist subagents, tailored to your stack
-  commands/         Workflow slash commands
-  hooks/            session-context, runtime-refresh, router, formatter, status,
-                    notify-complete, precompact
-  skills/           Domain knowledge packs matched to your technology stack
-  rules/
-    constitution.md   Project guardrails and quality gates
-    stack.md          Detected technology stack
-    process.md        Workflow documentation
-  settings.json     Hook wiring, permissions, directory paths
-
-docs/
-  PRD/              Product Requirements Documents
-  TRD/              Technical Requirements Documents
-
-.trd-state/         Implementation tracking (git-tracked)
-```
-
-### How It Works
-
-1. **Repository analysis** -- scans your project for package.json, requirements.txt, Gemfile, Cargo.toml, etc. to detect your technology stack
-2. **Interactive configuration** -- asks about project identity, development methodology (TDD, flexible, characterization), quality gates, and approval requirements
-3. **Scaffolding** -- creates the directory structure and copies the runtime components
-4. **Agent tailoring** -- deploys 13 subagents customized with your project context (stack, conventions, directory structure). Each agent gets instructions specific to your environment
-5. **Skill selection** -- analyzes your stack definition and selects relevant skills from the library (e.g., a Python/FastAPI project gets `developing-with-python`, `pytest`; a React/TypeScript project gets `developing-with-typescript`, `jest`, `developing-with-react`)
-6. **Hook installation** -- wires lifecycle hooks into `.claude/settings.json`
-7. **Governance generation** -- creates `constitution.md` with your quality gates and `stack.md` with detected technologies
-8. **CLAUDE.md update** -- populates your project's operating manual with architecture, conventions, and file structure
-
-### Vendoring: Why Everything Lives in the Repo
-
-The entire runtime is committed to git. This is deliberate:
-
-- **Reproducibility** -- every developer and every Claude Code session (local CLI or web) gets identical behavior
-- **Self-contained** -- no external plugin dependency at runtime
-- **Customizable** -- you can edit agents, rules, and skills per-project without affecting other projects
-- **Auditable** -- the full AI governance configuration is code-reviewable in your repo
-
-### Greenfield Projects
-
-For brand-new projects with no existing code, provide a baseline specification to help Ensemble tailor its setup:
-
-```
-/init-project
-
-# When prompted, describe your project:
-# "Python FastAPI backend with PostgreSQL, React frontend with TypeScript,
-#  deployed to AWS via Terraform. TDD methodology, 80% unit coverage target."
-```
-
-The more context you provide upfront, the better the agents and skills will be tailored. You can also point to a reference codebase or API spec for additional grounding.
-
-### After Init: Add Integrations
-
-After initialization, configure any additional tooling your project needs:
-
-- **MCP Servers** -- add to `.mcp.json` (e.g., Playwright for E2E testing, Context7 for documentation retrieval)
-- **Custom skills** -- add project-specific domain knowledge to `.claude/skills/`
-- **Custom agents** -- modify agent prompts in `.claude/agents/` to match your team's conventions
-
-### Commit and Restart
-
-```bash
-git add .claude/ docs/ .trd-state/
-git commit -m "Initialize Ensemble runtime"
-
-# IMPORTANT: Restart Claude Code for it to pick up the new configuration
-exit
-claude
-```
-
-Claude Code loads configuration at session start. You must restart for the vendored runtime to take effect.
+`/plan` also sends you to `/create-prd` when its investigation finds the work is a product
+question after all.
 
 ---
 
-## Step 2: Create a PRD (`/create-prd`)
+## 2. The core flow
 
-Define what you're building and why.
+A **PRD** (Product Requirements Document) says what to build and why. A **TRD** (Technical
+Requirements Document) says how: architecture, tasks, phases. They live in `docs/PRD/` and
+`docs/TRD/`.
 
-```
-/create-prd <description of the feature or story>
-```
+For each document the order is **create → refine → audit**. Creating is required. Refining
+and auditing are optional, but you should run them: each has one job the author can't do for
+itself.
 
-The basic argument is your feature description -- a sentence, a paragraph, or a reference to an issue tracker ticket.
+### PRD
 
-### Providing Context
+| Command | What it does |
+|---|---|
+| [`/create-prd <description or issue>`](../../packages/core/commands/create-prd.md) | Writes the PRD from your description; with no argument, it interviews you first. Every requirement must trace to something real: your words, a source document, a measurement. Anything the author could not settle goes under `## Open Questions` and is not guessed. |
+| [`/refine-prd [path] [--auto] [feedback]`](../../packages/core/commands/refine-prd.md) | Answers those open questions. By default it asks you, one question at a time, with the author's assumption offered as an answer. `--auto` has an agent decide each one and mark it as answered from evidence, a default, or yours to settle. Refine also runs a challenge pass that removes requirements with no source. |
+| [`/audit-prd [path] [--source <path>]`](../../packages/core/commands/audit-prd.md) | Checks the PRD against its source in both directions: is anything the source asked for missing, and does anything in the PRD trace to nothing? It also checks the code for things the PRD asks for that already exist, and checks for conflicts with `stack.md` and `constitution.md`. It applies findings that hold up, and it rewrites the PRD's `## Could Not Verify` section. |
 
-The more context you provide, the better the PRD. Consider including:
+Audits read code as fact and documents as intent. When a design document and the code
+disagree, the code wins, and the disagreement goes on record as a finding.
 
-- **Issue tracker references** -- if you have Jira or Linear integration, reference the ticket directly
-- **Reference codebases** -- point to existing implementations to draw from: *"Similar to how the auth module works in ~/dev/other-project"*
-- **API specs** -- reference existing OpenAPI specs to design against: *"Must integrate with the API documented at https://api.example.com/openapi.json"*
-- **Constraints** -- call out non-obvious requirements: *"Must work offline, must support IE11, must handle 10k concurrent users"*
+### TRD
 
-### Auto-Detection
+| Command | What it does |
+|---|---|
+| [`/create-trd [prd-path]`](../../packages/core/commands/create-trd.md) | Writes the TRD from the PRD, then **grounds** every task against the existing code, so the plan reuses what exists and names what it replaces. The readout tells you how parallel the plan is. When the plan is mostly serial, it says why and shows the chain of tasks that sets its length. |
+| [`/refine-trd [path] [--auto] [feedback]`](../../packages/core/commands/refine-trd.md) | Same shape as `/refine-prd`, applied to the TRD's open questions. |
+| [`/audit-trd [path] [--source <path>]`](../../packages/core/commands/audit-trd.md) | Checks that every objective traces to a source, every task serves an objective, nothing from the PRD was dropped, and every design decision can actually be built the way it is specified. |
 
-The framework will auto-identify the current feature context if obvious (e.g., you're on a feature branch, there's already a `.trd-state/current.json` pointer). However, explicit context always helps, especially for the initial PRD.
+**Verification Artifacts.** Every TRD has a `## Verification Artifacts` section. It selects
+which extra checks run when the build is verified: a screen-by-screen comparison against
+designs (`verify-design-comparison`), a walk through designed user journeys
+(`verify-flow-as-built`), and a comparison of what screens show against what their data
+source returns (`verify-data-fidelity`). A check that applies is included by default, and
+leaving one out needs a stated reason. `/audit-trd` reports an applicable check that was left
+out with no reason given.
 
-### Verification wave
+### `/implement-trd` — build it
 
-`/create-prd` authors the PRD in a single fresh `product-manager` subagent, then fans out
-**verifiers** — source-fidelity, grounding, conformance — in parallel. The distinction is
-deliberate: independent agents outperform a single one when *challenging* work, and
-manufacture requirements when *generating* it. The retired `/create-prd-team` had this
-backwards, fanning out generation and briefing each specialist additively.
+[`/implement-trd [trd-path] [flags]`](../../packages/core/commands/implement-trd.md). With no
+path, it works out the TRD from the current branch, or uses the only TRD in progress.
 
-### Output
+What a run does:
 
-- `docs/PRD/<feature-name>.md` -- the PRD with user stories, acceptance criteria, edge cases, non-goals, risks, and Mermaid diagrams
-- `.trd-state/current.json` -- updated to point to the new PRD
+1. **Phases, in order.** Within a phase, tasks run in parallel waves. Tasks that touch the
+   same file never run at the same time.
+2. **Per task:** a specialist implementer (frontend, backend, mobile, or AI/agent) builds
+   the task, runs its own targeted checks, and fixes what fails before it reports back.
+3. **Phase gate:** a verification agent plus your project's own test battery. The phase is
+   then checkpointed and committed.
+4. **Once, after the last phase:** one code review (`/code-review high --fix`) over the whole
+   branch diff, with its fixes applied.
+5. **Then functional verification** (§3), on by default.
 
-### Critical: Read It
+Tasks the TRD itself says can't finish in a normal run (marked `[LIVE]`, or "after the next
+deploy") are set aside and reported. They are not dispatched.
 
-AI review catches structural issues. Human review catches intent misunderstandings. **Read the PRD before proceeding.** A bad PRD produces a bad TRD, which produces bad code across three implementation passes. This is where your time investment has the highest leverage.
+| Flag | Use it when |
+|---|---|
+| `--resume` / `--continue` | A run was interrupted. Picks up from the last checkpoint and re-runs anything not marked done. |
+| `--reconcile` | You don't trust what is marked done. Re-checks every "done" task against the disk, re-opens any task none of whose claimed files exist, adds tasks written into the TRD since the last run, then builds everything outstanding. Use it after `/audit-build` finds a gap. |
+| `--no-verify` | Skip functional verification entirely. The readout will say nobody checked the software against the PRD. |
+| `--verify` | Useful only together with `--resume`: jumps straight back into a verification loop that was interrupted partway through, without re-running the build. Verification already runs by default. |
+| `--include-deferred` | Run the tasks that would otherwise be set aside. |
+| `--reset-state` | Throw away progress tracking and start fresh. Asks you to confirm first. |
 
----
+(`--chained` also exists, but only `/verify-build --fix` passes it. Don't type it yourself.)
 
-## Step 3: Audit the PRD (`/audit-prd`, optional)
+### `/audit-build` — check what was delivered
 
-Verify the PRD against its source material, the existing design corpus, and the code -- rather than just trusting the drafting pass.
+[`/audit-build [trd-path] [--prd <path>] [--report-only]`](../../packages/core/commands/audit-build.md)
+answers three questions about the code that was actually delivered:
 
-```
-/audit-prd
-```
+- **Verification:** does the code match the TRD's tasks? It reads the files, not the state file.
+- **Validation:** does it do what the PRD asked, however the TRD restated it?
+- **Traceability** (the headline check): does every requirement have both an implementation
+  and a test that proves it? A requirement with code and no test counts as a gap, not a pass.
 
-The path is auto-resolved from `.trd-state/current.json`, or specify one explicitly. This runs the same verification wave `/create-prd` uses internally, but as a standalone re-check -- useful when a PRD was written some time ago, or by someone else, and you want it re-attested against what is actually true today. Findings that survive checking are applied directly to the PRD, and its "Could Not Verify" section is rewritten to reflect what remains open.
-
----
-
-## Step 4: Refine the PRD (`/refine-prd`, optional)
-
-Iterate on the PRD with stakeholder feedback.
-
-```
-/refine-prd <feedback or changes>
-```
-
-Or without arguments to trigger an interactive review interview that walks through requirements completeness.
-
-The path to the PRD is auto-resolved from `.trd-state/current.json`. You can also specify explicitly: `/refine-prd docs/PRD/my-feature.md <feedback>`.
-
----
-
-## Step 5: Create a TRD (`/create-trd`)
-
-Transform the approved PRD into a technical plan.
-
-```
-/create-trd
-```
-
-The input is the PRD from the previous step (auto-resolved from `current.json`, or specified explicitly).
-
-### Providing Context
-
-As with PRDs, additional context sharpens the output:
-
-- **Reference architecture** -- *"Follow the same layered architecture as ~/dev/reference-project/src"*
-- **API contracts** -- *"Backend must implement the OpenAPI spec at docs/api/openapi.yaml"*
-- **Existing patterns** -- *"Use the repository pattern established in src/repositories/"*
-- **Constraints** -- *"Must use existing PostgreSQL instance, cannot add new dependencies without approval"*
-
-### What It Produces
-
-- **Architecture decisions** with rationale and alternatives considered
-- **Master task list** with unique IDs (e.g., `AUTH-B001`, `AUTH-F002`), dependencies, and acceptance criteria
-- **Execution plan** with phases, parallelizable work sessions, and a dependency-ordered Mermaid gantt chart
-- **Quality requirements** including coverage targets and security requirements
-- **Non-goals** imported from the PRD (agents will reject work in these areas)
-- **Risk assessment** with technical mitigations
-
-### Grounding and verification
-
-`/create-trd` authors in one fresh `technical-architect` subagent, runs a sequential
-`grounding` pass that reconciles the plan against the existing codebase (reuse, what
-becomes unreachable, per-task context), then fans out **verifiers** in parallel —
-objective provenance and severity, buildability and consistency, task derivation,
-omission against the PRD, and citation checks.
-
-Fan-out is for verification only. The retired `/create-trd-team` fanned out *domain
-experts asked what else to add*, which is generation-by-committee applied to the artifact
-where manufactured requirements were already worst.
-
-### Output
-
-- `docs/TRD/<feature-name>.md`
-- `.trd-state/current.json` updated with TRD path
+Gaps split two ways. When a TRD task already covers the gap, nothing needs deciding: the audit
+marks the task not done and chains straight into `/implement-trd --reconcile` to build it.
+When no task covers the gap, deciding *how* to close it is design work. The audit reports it
+and stops. `--report-only` gives you the findings without the chained build. The findings
+appear in the readout only; no report file is written.
 
 ---
 
-## Step 6: Audit the TRD (`/audit-trd`, optional)
+## 3. Verification
 
-Verify the TRD against the PRD, the design corpus, and the code.
+Every earlier stage checks documents or code. Verification checks the **running software**:
+does it do what the PRD asked? It is the most important stage in the pipeline, and it is the
+one to understand.
 
-```
-/audit-trd
-```
+### Where it runs
 
-Same shape as `/audit-prd`: it re-runs the verification wave standalone, applies what
-survives checking, and rewrites the "Could Not Verify" section. Worth running whenever a
-TRD sat for a while before implementation started, or was authored outside this pipeline.
+| Situation | Command |
+|---|---|
+| Normal case: at the end of every build | Inside `/implement-trd`, unless you passed `--no-verify` |
+| On its own: the build ran with `--no-verify`, you fixed something by hand (a credential, a config), or the loop crashed partway through | [`/verify-build [trd-path]`](../../packages/core/commands/verify-build.md). `--resume` continues an interrupted loop. `--cap N` sets the iteration budget (default 3, counted across resumes). |
+| Recovery: a run ended without success | Run the `/verify-plan-recovery` skill, a short chat that turns the report's diagnosis into a plan with you. Then run `/verify-build --fix`, which runs that plan unattended (build, then re-verify, for as many rounds as the plan allows) and asks you nothing. |
 
----
+### What it checks against
 
-## Step 7: Refine the TRD (`/refine-trd`, optional)
+- **Success criteria derived from the PRD alone.** An agent writes them without seeing the
+  TRD, the task list or the code, so the plan can't grade its own homework. They are saved to
+  `.trd-state/<feature>/success-definition.md`. With no PRD (for example, a `/plan` fix), they
+  come from the TRD's reproduction or intended-change section.
+- **The checks the TRD selected** under `## Verification Artifacts`. Each adds one criterion
+  per screen, journey or data view.
 
-Iterate on the TRD with technical feedback. Feed `/audit-trd`'s findings in here if you ran it:
+Each iteration **exercises** the criteria against a running instance and collects evidence.
+It **judges** each criterion as met, not met, not verifiable here, or unbuilt, and then
+**debugs** what is not met, fixing the code in place. Proven criteria stay proven for the rest
+of the run.
 
-```
-/refine-trd <paste audit findings or provide your own feedback>
-```
+### What `.claude/rules/verification.md` contributes
 
-This is the last chance to course-correct the plan before implementation. The TRD is the flight plan -- everything downstream follows from it.
+This owner-written file tells the loop how to reach a running instance. It lists which
+environments it may use and what it may do there, how many of each resource (simulators,
+servers) can exist at once, how to refresh after a fix, where test credentials live (never
+their values), which tools are installed, and what cannot be verified here. The loop won't
+touch an environment the file doesn't list. It can also set a minimum share of criteria that
+must be proven (the coverage floor). Run `/verification-setup` to fill it in; it interviews
+you one topic at a time ([INSTALL.md §5](INSTALL.md#5-set-up-verification)). **An unfilled
+file doesn't stop the loop, but most criteria will come back "not verifiable here".**
 
----
+### Outcomes
 
-## Step 8: Implement (`/implement-trd`)
+| Outcome | Means | What to do |
+|---|---|---|
+| **satisfied** | No failing criterion remains. The report line says how many were never exercised: *satisfied* with 6 of 32 unchecked is not the same as fully proven | Nothing, or fill gaps in `verification.md` so more can be checked next time |
+| **unbuilt** | Some capability the PRD asked for is absent, not broken. The loop stops instead of debugging code that doesn't exist | `/verify-plan-recovery`, then `/verify-build --fix` |
+| **stalled** | A debug pass closed no gaps, so the fixes aren't converging | Same. Also check that the environment actually picks up fixes (the refresh command in `verification.md`) |
+| **stuck** | The iteration budget ran out with gaps still open | Same, or re-run with a larger `--cap` |
+| **insufficient-coverage** | Too few criteria were proven to reach the coverage floor. This is a checking problem, not a code problem | Same. The plan usually adds environments or tooling rather than code |
 
-This is where the air traffic controller model comes to life. You launch one implementation
-session with `--dangerously-skip-permissions` and let the agents work autonomously through
-the TRD's task list, phase by phase.
+For every outcome except *satisfied*, the readout has a **Diagnosis** line counting the open
+criteria by cause, and its NEXT line is the recovery pair above.
 
-> **Note on history:** through 4.1.15 this step ran as three separate commands and sessions
-> — `/implement-trd`, then `/harden-trd-team`, then `/verify-trd-team`, each a fresh pass
-> over an increasingly complete codebase. Both team commands were removed in 4.1.16; their
-> jobs (adversarial hardening, live verification) did not go away, they moved *inside*
-> `/implement-trd`'s own loop, because the command already knows exactly when a phase is
-> done and is the natural place to trigger both. There is no replacement command for either
-> — that was a deliberate decision (D15 in `docs/TRD/completed/implement-trd-rework.md`).
-> Since 2026-08-28 the hardening job is one `/code-review high --fix` over the branch diff at
-> the end of the run, and live verification is the functional-verification loop.
+### The report
 
-### Reinforcing Subagent Behavior
-
-It's often helpful to reinforce the framework's patterns when launching implementation. Add guidance like:
-
-```
-/implement-trd
-
-Use your subagents and skills. Implement each task, run its checks, and
-fix what fails before moving on. Delegate to specialist agents based on task type.
-```
-
-This reminds the orchestrating agent to lean on the full staged execution loop rather than trying to do everything in the prime context.
-
-### Run the implementation
-
-```bash
-claude --dangerously-skip-permissions
-> /implement-trd
-```
-
-**Per phase:** TDD-based implementation of that phase's tasks — tests first, code second,
-meeting the TRD's acceptance criteria. Each implementer runs its own targeted checks and
-self-corrects. At the phase gate, `implement-phase.js` runs `verify-app` plus the project's
-deterministic test battery, then the phase is checkpointed and committed.
-
-**After the last phase:** one `/code-review high --fix` reads the whole branch diff and
-applies its findings (the job `/harden-trd-team` used to do as a separate pass), then
-functional verification checks the running software against the PRD's criteria (the job
-`/verify-trd-team` used to do). Verification is on by default; `--no-verify` opts out.
-
-For a long-running implementation, fold between phases if context is filling up:
-
-```
-/fold-prompt
-exit
-claude
-> /implement-trd --resume
-```
-
-### Optional: CI/Reviewer Pipeline
-
-You can still run your own CI/CD and code review pipeline on top of what `/implement-trd`
-produces. Let automated tools assess:
-
-- Test coverage against your quality gate thresholds
-- Lint and type-checking compliance
-- Security scanning results
-- Code quality metrics
-
-Feed any findings back into the TRD or CLAUDE.md before running `/audit-build`.
-
-### After the run: `/audit-build`
-
-```bash
-> /audit-build
-```
-
-**Focus:** verification (does the code match the TRD's tasks?), validation (does it match
-the PRD's requirements?), and traceability (does every requirement have both an
-implementation AND a test proving it — a requirement with code and no test is a gap, not a
-pass). This is the check that confirms the implementation delivers what the PRD's
-stakeholder actually intended, not just what the TRD technically specified.
-
-When complete:
-
-```
-/fold-prompt
-exit
-```
+The report is written to `.trd-state/<feature>/verification-report.md` and published as a
+private link on claude.ai (see §6). The loop's resumable state is in
+`verification-state.json` next to it. Each selected check can also publish its own page,
+such as a design-versus-build frame diff.
 
 ---
 
-## Step 9: Human Debug
+## 4. Secondary flows
 
-After `/implement-trd` and `/audit-build`, the code is substantially complete -- typically
-85-95% of the way there. The remaining work is the kind of nuanced problem-solving that
-humans still do best, guided by what `/audit-build` surfaced:
+**[`/plan <what> [--implement]`](../../packages/core/commands/plan.md)** handles work that
+doesn't need a PRD. Give it a sentence, or better, a bug report, issue ref, stack trace or log,
+since those already carry steps and actual-versus-expected. A bare `/plan` writes up something
+decided earlier in the conversation. It investigates, then classifies the work two ways:
 
-- Edge cases that require domain knowledge the AI doesn't have
-- Integration issues with external systems
-- UX polish and subjective quality judgments
-- Performance tuning based on real-world profiling
-- Security hardening for your specific threat model
+- **Kind:** `defect` (success means the reproduction stops reproducing), `change` (the stated
+  outcome holds), or `refactor` (behaviour unchanged, so the existing tests pass before and
+  after).
+- **Weight:** `trivial` (a one-file fix whose approach isn't in question) and `small` (a
+  contained fix with one obvious approach) get a light TRD, with no audit. `medium` (a settled
+  body of work spanning several tasks) gets full authoring, grounding and an audit.
 
-This is where you switch from air traffic controller back to pilot -- hands on the controls for the final approach and landing.
+`/plan` then **stops**. **`--implement` is the only thing that starts building**, at any
+weight. Otherwise, run `/implement-trd` on the TRD yourself.
 
----
+**[`/sweep <file or issues inline>`](../../packages/core/commands/sweep.md)** is for a list of
+small, independent issues. It sorts out the ones that aren't quick wins. Each remaining issue
+gets its own grounded fixer: different areas are fixed in parallel, and issues in the same area
+one after another. It confirms that every claimed fix actually changed files on disk, then runs
+your test battery once. Deferred issues are recorded rather than lost. The test for using it is
+*coupling*, not size: six tasks that must land in order don't belong here.
 
-## Step 10: Final Fold (`/fold-prompt`)
+**[`/amend <what to change>`](../../packages/core/commands/amend.md)** makes one change to the
+feature in flight: it grounds the change in the code, records it as an `AMEND-nnn` row in that
+feature's TRD **before** doing it, implements it, and runs the test battery. It acts. There is
+no confirm step and no flag. It refuses, and tells you where to go instead, if the change needs
+ordering, more than one kind of specialist, or a product decision. It needs a feature in flight
+(`.trd-state/current.json`).
 
-After completing the feature, capture everything into CLAUDE.md:
+**`/implement-trd --reconcile`** is how you bring the delivered state back in line with the
+TRD after an audit gap, a hand edit to the TRD, or a suspicion that "done" is not done. See
+the flag table in §2.
 
-```
-/fold-prompt
-```
+**[`/augment-trd-figma <figma-url> [--trd <path>]`](../../packages/core/commands/augment-trd-figma.md)**
+pulls screenshots, component specs, design tokens and fixture data from Figma into the TRD and
+onto disk. Implementers can't reach Figma themselves, so do this before `/implement-trd` on a
+UI feature. It needs the Figma MCP server and a Figma access token.
 
-This analyzes the session's work and updates CLAUDE.md with:
-- New patterns and conventions discovered
-- Architecture decisions made
-- Debugging notes worth preserving
-- Updated file structure references
+**[`/fold-prompt`](../../packages/core/commands/fold-prompt.md)** analyses the project and
+tightens `CLAUDE.md`, README and agent configuration so later sessions start with better
+context.
 
-These learnings persist across sessions and improve future runs of the framework on this project.
-
----
-
-## Shorter Paths
-
-Not every change is a new feature. Three commands cover work that doesn't earn a full
-PRD -> TRD -> implement cycle. The choice between them is about **whose plan the work
-belongs to**, not how big it is:
-
-### `/plan <what>` -- a defect, a small change, or a refactor
-
-```
-/plan <description of what's wrong or what should change>
-```
-
-`/plan` investigates first, then writes whatever the work turns out to need: a light TRD
-for something contained, or a fully phased and audited TRD if the investigation shows the
-work actually spans several tasks. It does not implement on its own -- add `--implement` to
-have it build what it planned.
-
-### `/amend <what>` -- one change to the feature already in flight
-
-```
-/amend <what to change, in plain language>
-```
-
-Use this when you're partway through implementing a TRD and need to adjust something in
-its own path -- a bug in code this run just wrote, a requirement that turned out wrong. It's
-grounded, recorded as a row on the existing TRD before the work happens, and verified
-against disk afterward. It does not create a new TRD; the change belongs to the one already
-running.
-
-### `/sweep <list>` -- a batch of small, unrelated fixes
-
-```
-/sweep <path to a findings file, or the issues inline>
-```
-
-For when you (or a walkthrough) produced a list of small, independent problems that arrived
-together but aren't one change -- a typo here, a missing validation there, a UI nit
-somewhere else. Each item is triaged and fixed in parallel, grounded and checked against
-disk. No TRD.
+**`/close-feature`** is coming in the next release.
 
 ---
 
-## Maintenance Commands
+## 5. Maintenance
 
-| Command | Purpose |
-|---------|---------|
-| `/verify-build [trd-path]` | Re-run the functional-verification loop alone against already-delivered code -- does it do what the PRD says, checked with real evidence rather than assumed from passing tests. |
-| `/augment-trd-figma` | Enrich an existing TRD with a Figma design context section (screenshots, component specs, design tokens) so implementation agents have what they need for pixel-perfect visual work. |
-| `/update-project` | Capture session learnings into CLAUDE.md and propose Constitution/stack.md governance changes. |
-| `/cleanup-project [--dry-run] [--auto]` | Review and prune CLAUDE.md and accumulated project artifacts, with backups. |
-
----
-
-## Upgrading: Rebase the Project (`/rebase-project`)
-
-When the Ensemble plugin is updated, upgrade your project's vendored runtime:
-
-```
-/rebase-project
-```
-
-This upgrades commands, hooks, and settings while preserving your customizations:
-
-| Component | Behavior |
-|-----------|----------|
-| **Agents** | Preserved (your customizations kept, new agents added) |
-| **Skills** | Recomputed based on current `stack.md` |
-| **Commands** | Replaced (not customized per-project) |
-| **Hooks** | Replaced (not customized per-project) |
-| **Rules** | Always preserved (`constitution.md`, `stack.md`, `process.md` never modified) |
-| **Settings** | Merged (new keys added, your overrides preserved) |
-
-Backups are created before any destructive operation. Use `--dry-run` to preview changes first.
+- **[`/update-project`](../../packages/core/commands/update-project.md)** records what this
+  session learned in `CLAUDE.md` without asking. It *proposes* changes to `constitution.md` or
+  `stack.md` and applies them only if you approve.
+- **[`/cleanup-project [--dry-run] [--auto]`](../../packages/core/commands/cleanup-project.md)**
+  prunes stale or duplicate entries from `CLAUDE.md`, backing up first. Use `--dry-run` to
+  preview the changes.
+- **[`/rebase-project [--dry-run] [--preserve-all] [--force]`](../../packages/core/commands/rebase-project.md)**
+  upgrades the vendored runtime in `.claude/` to the installed plugin version. It needs a clean
+  git tree, because git is the undo. It never touches `constitution.md`, `stack.md` or
+  `process.md`. See [INSTALL.md §7](INSTALL.md#7-keeping-current).
 
 ---
 
-## Quick Reference
+## 6. What you'll see while a command runs
 
-| Step | Command | Input | Output |
-|------|---------|-------|--------|
-| Setup | `/init-project` | Project description | Vendored runtime in `.claude/` |
-| Requirements | `/create-prd` | Feature description, issue refs, API specs | `docs/PRD/<feature>.md` |
-| Audit requirements | `/audit-prd` | PRD (auto-resolved) | PRD re-attested against source/code |
-| Refine requirements | `/refine-prd` | Feedback | Updated PRD |
-| Architecture | `/create-trd` | Approved PRD (auto-resolved) | `docs/TRD/<feature>.md` |
-| Audit architecture | `/audit-trd` | TRD (auto-resolved) | TRD re-attested against PRD/code |
-| Refine architecture | `/refine-trd` | Audit findings or feedback | Updated TRD |
-| Build (phase loop) | `/implement-trd` | Approved TRD | Working, reviewed, functionally verified code + tests |
-| Post-build audit | `/audit-build` | Implemented code, TRD, PRD | Verification/validation/traceability report |
-| Human finish | Manual debugging | Audit report | Production-ready code |
-| Capture learnings | `/fold-prompt` | Session context | Updated CLAUDE.md |
-| Upgrade runtime | `/rebase-project` | New plugin version | Updated vendored runtime |
+**Status banners** tell you the state at a glance:
 
-**Shorter paths (outside the main feature loop -- see "Shorter Paths" above):**
+```
+[STATUS: /implement-trd] DISPATCHED → phase 2 workflow in flight: 4 tasks, 2 waves
+[STATUS: /implement-trd] RESUMED → phase 2 workflow returned
+[STATUS: /implement-trd] PHASE 2/4 COMPLETE → …
+═══ COMMAND COMPLETE: /implement-trd ═══
+═══ COMMAND STUCK: /implement-trd ═══
+```
 
-| Step | Command | Input | Output |
-|------|---------|-------|--------|
-| Defect / small change / refactor | `/plan <what>` | Description, issue ref, or source path | Light or phased TRD sized to the work; `--implement` to build it |
-| One change to work in flight | `/amend <what>` | Description of the change | The running TRD amended, verified against disk |
-| Batch of small unrelated fixes | `/sweep <list>` | Findings file or inline issue list | Each fix applied in parallel, checked against disk |
+*DISPATCHED* means the turn ended with work still running in the background, and names what
+it is waiting on. *RESUMED* opens the turn after that work reports back. *COMPLETE* and
+*STUCK* are always the very last line. STUCK gives the reason and what would unblock it.
+**If a command ends with neither, that is a bug.**
+
+**The readout.** Every finished command prints four sections just above its banner, in this
+order:
+
+| Section | Answers |
+|---|---|
+| STATE | What exists now, and what doesn't |
+| DECISIONS | Choices the command made that you didn't, each with its reason |
+| ISSUES | What's wrong or unresolved, and who has to act |
+| NEXT | The one next command, ready to run, or "nothing" |
+
+**Artifact links.** A command that produces a PRD, TRD or verification report publishes it as
+a private page on claude.ai and prints the link above the banner. Later refinements update the
+same link, so it never points at a superseded version. The links are stored in
+`.trd-state/<feature>/artifacts.json`. To turn publishing off, set
+`"ensemble": { "publishArtifacts": false }` in `.claude/settings.json`. A failed publish is one
+line in the output and never stops the command.
+
+**Completion notifications.** Long-running commands (`/implement-trd`, `/audit-build`,
+`/plan --implement`) send a desktop notification when they finish or get stuck. For a webhook,
+queue or script, set `NOTIFY_ON_COMPLETE`. It runs exactly once, when the command completes,
+with the project, branch, feature and summary in `NOTIFY_*` variables
+([command-status.md](../../.claude/rules/command-status.md) has examples).
+
+**A Stop-hook block.** A model checks every turn as it ends for two things:
+
+- a claim that work is continuing in the background when nothing was actually dispatched
+- a pause to ask you something a running command should have decided itself (checked only
+  while a command is running, not in ordinary conversation)
+
+When it objects, the CLI shows **`Stop hook error: …`**. That is a known display quirk in
+Claude Code. It is not an error in your setup. The agent gets one corrective turn. If the
+block was wrong, the agent replies `My answer stands — <one sentence why>` and the turn ends.
+You don't need to intervene either way.
+
+---
+
+## 7. Where state lives
+
+| Path | Holds |
+|---|---|
+| `.trd-state/current.json` | Pointer to the feature in flight (PRD, TRD, branch). Commands use it when you give no path. |
+| `.trd-state/<feature>/implement.json` | Task-by-task progress, checkpoints, and verification settings. `--resume` and `--reconcile` read this. |
+| `.trd-state/<feature>/success-definition.md` | The criteria verification checks, derived from the PRD |
+| `.trd-state/<feature>/verification-report.md`, `verification-state.json` | The latest verification report, and the loop's resumable state |
+| `.trd-state/<feature>/verification-plan.md` | The recovery plan `/verify-plan-recovery` writes and `/verify-build --fix` runs |
+| `.trd-state/<feature>/discovered.jsonl` | Issues found along the way but not fixed. Those marked as blocking the feature become TRD tasks on the next `--reconcile`. |
+| `.trd-state/<feature>/artifacts.json` | The published links for this feature's documents |
+
+`.trd-state/` is meant to be committed with the feature, so a fresh clone can resume. The
+installer ignores nothing inside it.
