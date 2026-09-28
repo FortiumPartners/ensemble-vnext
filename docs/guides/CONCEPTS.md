@@ -151,6 +151,28 @@ At each step an agent does its work in natural language, then returns a result i
 shape that code can check. A task that returns nothing, or a malformed result, is recorded as
 a failure rather than passed over.
 
+How one command run moves between your session, a workflow script and subagents:
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant C as The command (your session)
+    participant W as Workflow script
+    participant A as Subagents (fresh context each)
+    participant D as Files on disk
+    You->>C: /implement-trd
+    C->>D: read the TRD and saved state
+    C->>C: code builds the task graph and waves
+    C->>W: start the phase with the tasks and briefs
+    W->>A: dispatch each task with only its brief
+    A->>D: edit code, run checks
+    A-->>W: a result in a fixed shape
+    W->>W: code checks every result and decides what runs next
+    W-->>C: phase summary
+    C->>D: checkpoint and commit
+    C-->>You: readout and banner
+```
+
 **Example.** The verification loop runs at most three rounds by default. After each round, a
 plain function counts the open gaps and decides: stop as satisfied, stop because something
 was never built, stop because a fix pass closed nothing, stop at the cap, or go again.
@@ -213,7 +235,35 @@ data checks, when the TRD selects them, are criteria like any other.
 When verification can't get there, the path is: the report's **diagnosis** of why, then a
 short conversation with you that turns it into a plan, then an unattended fix run that carries
 it out. Deciding a feature is finished is a judgement on the evidence, including evidence you
-bring yourself; a command for closing features is coming.
+bring yourself: `/close-feature` weighs it and records the verdict.
+
+The loop, and how it ends:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Exercise
+    Exercise: Exercise (verify-app agents run the software and capture evidence)
+    Exercise --> Judge
+    Judge: Judge (check each piece of evidence, rule each criterion)
+    Judge --> Decide
+    Decide: Code decides the next step, first match wins
+    Decide --> Unbuilt: something asked for was never built
+    Decide --> Satisfied: no gaps left
+    Decide --> Stalled: the last fix round closed nothing
+    Decide --> Stuck: the round cap was reached (default 3)
+    Decide --> Debug: otherwise
+    Debug: Debug (app-debugger fixes each gap in place, then the environment is refreshed)
+    Debug --> Exercise
+    Unbuilt --> [*]
+    Satisfied --> [*]
+    Stalled --> [*]
+    Stuck --> [*]
+    note right of Decide
+        If less than your coverage floor is proven,
+        satisfied, stalled or stuck is reported
+        as insufficient-coverage instead.
+    end note
+```
 
 **Example** (a real run on this repository). A build reports *satisfied*, 6 of 32 criteria unchecked. That is not "fully
 proven", and the report says so. The usual fix is to tell the loop how to reach an environment
@@ -238,6 +288,22 @@ the model judging only where judgement is needed.
 | **Remind** | Every ordinary prompt you type gets a short orientation (a slash command carries its own instructions, so it is skipped): which path fits the work, to look for a relevant skill, and to check the project's rules. Every session opens with a brief on the feature in flight. |
 | **Remember** | Every subagent dispatched is recorded in a ledger. Before the conversation is summarized to free up context, the current decision trail is saved to a session log. Task progress advances on disk as agents finish. |
 | **Guard** | When a turn ends, a model check reads the final message for a promise nothing will keep ("I'll let you know when it's done" with nothing running) and, while a command is running, for a needless "shall I continue?" pause. It sends the turn back once. |
+
+When each hook fires in a session (the full list is in [the hooks reference](../reference/hooks.md)):
+
+```mermaid
+flowchart LR
+    e1(["A session starts"]) --> e2(["You send a prompt"]) --> e3(["An agent edits a file"]) --> e4(["A subagent starts or stops"]) --> e5(["The conversation is compacted"]) --> e6(["A turn ends"])
+    e1 -.- h1["session-context: the in-flight feature brief<br/>runtime-refresh: update .claude/ from the plugin"]:::code
+    e2 -.- h2["router: orientation hint and<br/>the command-running marker"]:::code
+    e3 -.- h3["formatter: format the file"]:::code
+    e4 -.- h4["dispatch-ledger: record it<br/>status: advance task state"]:::code
+    e5 -.- h5["precompact: save the decision trail"]:::code
+    e6 -.- h6["discipline-stop: a model checks for an unkept promise<br/>or a needless pause, and sends the turn back once<br/>notify: run your NOTIFY_ON_STOP"]:::model
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
 
 Most hooks are plain scripts with tests. The one model-judged check is measured against
 labelled stops from real sessions before any change to it ships.

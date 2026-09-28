@@ -30,6 +30,25 @@ The question is what the work is and whose plan it belongs to. Size doesn't deci
 `/plan` also sends you to `/create-prd` when its investigation finds the work is a product
 question after all.
 
+
+In the diagrams below, **blue** steps are decided by code, **purple** by an agent's judgement, and **orange** by you. Uncoloured boxes are commands.
+
+```mermaid
+flowchart TD
+    idea["An idea or a problem"]:::you --> q{"What is the work?"}
+    q -->|"new feature"| cprd["/create-prd"] --> aprd["/audit-prd<br/>optional /refine-prd"] --> ctrd["/create-trd"] --> atrd["/audit-trd<br/>optional /refine-trd"] --> impl["/implement-trd<br/>build, review, verify"] --> ab["/audit-build"] --> merge["You merge the PR"]:::you --> close["/close-feature"]
+    q -->|"bug, change, refactor"| plan["/plan"]
+    plan -->|"a product question after all"| cprd
+    plan -->|"with --implement, or you run it"| impl
+    q -->|"a list of small fixes"| sweep["/sweep"] --> commit["You review and commit"]:::you
+    q -->|"one change to the feature in flight"| amend["/amend"] -.->|"back into the feature's flow"| ab
+    ab -->|"a planned task was not built"| impl
+    impl -->|"verification could not finish"| vb["/verify-build --fix"] --> ab
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
+
 ---
 
 ## 2. The core flow
@@ -50,6 +69,35 @@ itself.
 | [`/refine-prd [path] [--auto] [feedback]`](../../packages/core/commands/refine-prd.md) | Answers those open questions. By default it asks you, one question at a time, with the author's assumption offered as an answer. `--auto` has an agent decide each one and mark it as answered from evidence, a default, or yours to settle. Refine also runs a challenge pass that removes requirements with no source. |
 | [`/audit-prd [path] [--source <path>]`](../../packages/core/commands/audit-prd.md) | Checks the PRD against its source in both directions: is anything the source asked for missing, and does anything in the PRD trace to nothing? It also checks the code for things the PRD asks for that already exist, and checks for conflicts with `stack.md` and `constitution.md`. It applies findings that hold up, and it rewrites the PRD's `## Could Not Verify` section. |
 
+`/create-prd`:
+
+```mermaid
+flowchart LR
+    a["Resolve the source:<br/>a file, an issue, or this chat"]:::model --> b["Index related PRDs and TRDs"]:::model --> c["Conflict scan,<br/>if any were found"]:::model --> d["product-manager<br/>writes the PRD"]:::model --> e["Drift check<br/>against your request"]:::model --> f["Readout and<br/>/audit-prd handoff assembled"]:::code --> g["Fidelity check against this chat,<br/>only if there was no source file"]:::model --> h["Publish, readout"]:::model
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
+
+`/refine-prd` and `/refine-trd` work the same way:
+
+```mermaid
+flowchart TD
+    a["Open questions<br/>in the document"] --> m{"--auto?"}
+    m -->|"no"| y["You answer each,<br/>one at a time"]:::you
+    m -->|"yes"| p["An agent decides each:<br/>from evidence, a default,<br/>or marked yours to settle"]:::model
+    y --> ch["Challenge pass:<br/>find requirements with no source"]:::model
+    p --> ch
+    ch --> ap{"--auto?"}
+    ap -->|"no"| yc["You choose what to cut"]:::you
+    ap -->|"yes"| ac["Unsourced items removed,<br/>contradictions listed for you"]:::model
+    yc --> up["Updated in place,<br/>version bumped"]:::model
+    ac --> up
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
+
 Audits read code as fact and documents as intent. When a design document and the code
 disagree, the code wins, and the disagreement goes on record as a finding.
 
@@ -60,6 +108,37 @@ disagree, the code wins, and the disagreement goes on record as a finding.
 | [`/create-trd [prd-path]`](../../packages/core/commands/create-trd.md) | Writes the TRD from the PRD, then **grounds** every task against the existing code, so the plan reuses what exists and names what it replaces. The readout tells you how parallel the plan is. When the plan is mostly serial, it says why and shows the chain of tasks that sets its length. |
 | [`/refine-trd [path] [--auto] [feedback]`](../../packages/core/commands/refine-trd.md) | Same shape as `/refine-prd`, applied to the TRD's open questions. |
 | [`/audit-trd [path] [--source <path>]`](../../packages/core/commands/audit-trd.md) | Checks that every objective traces to a source, every task serves an objective, nothing from the PRD was dropped, and every design decision can actually be built the way it is specified. |
+
+`/create-trd`:
+
+```mermaid
+flowchart TD
+    a["Resolve the PRD"]:::model --> t{"One change,<br/>or a list of fixes?"}:::model
+    t -->|"a list"| sw["Stops: use /sweep"]:::code
+    t -->|"one change"| ix["Index related documents"]:::model --> ar["technical-architect<br/>writes the TRD"]:::model --> sp["Tasks split across<br/>1 to 6 grounding agents"]:::code --> gr["Grounding against the code,<br/>and sizing, in parallel"]:::model --> mg["Grounding merged,<br/>deferred tasks listed"]:::model --> wp["Wave profile:<br/>how parallel the plan is"]:::code --> pub["Publish, readout,<br/>/audit-trd handoff"]:::model
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
+
+`/audit-prd` and `/audit-trd` share one shape:
+
+```mermaid
+flowchart LR
+    r["Resolve the document,<br/>its source, the project"]:::model --> ix["Index the document"]:::model
+    r --> v1["Verifiers that need<br/>no index start at once"]:::model
+    ix --> v2["Remaining verifiers,<br/>in parallel"]:::model
+    v1 --> c["Count verifiers<br/>that returned nothing"]:::code
+    v2 --> c
+    c --> z{"Any findings?"}:::code
+    z -->|"none"| vz["Verdict computed in code"]:::code
+    z -->|"some"| rc["Reconcile: apply or reject each,<br/>rewrite Could Not Verify"]:::model
+    vz --> out["Readout, verdict first"]:::model
+    rc --> out
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
 
 **Verification Artifacts.** Every TRD has a `## Verification Artifacts` section. It selects
 which extra checks run when the build is verified: a screen-by-screen comparison against
@@ -73,6 +152,20 @@ out with no reason given.
 
 [`/implement-trd [trd-path] [flags]`](../../packages/core/commands/implement-trd.md). With no
 path, it works out the TRD from the current branch, or uses the only TRD in progress.
+
+```mermaid
+flowchart TD
+    pre["Preflight: refuse a closed feature,<br/>pick the TRD, branch, pointer"]:::code --> rs["Resume, reconcile or reset"]:::code --> pp["Parse the TRD, build the task graph,<br/>set aside tasks that cannot finish here"]:::code
+    pp --> der["Success criteria written from the PRD<br/>alone, in the background"]:::model
+    pp --> env["Check the environments<br/>verification will need"]:::model
+    env --> im["Phase: implementers build tasks<br/>in parallel waves, fixing their own failures"]:::model --> g["Phase gate: verify-app and the test battery;<br/>a failed phase is retried, up to 3 times"]:::code --> ck["Checkpoint and commit"]:::code
+    ck -->|"next phase"| im
+    ck -->|"last phase"| rv["One /code-review<br/>over the whole branch"]:::model --> vf["Functional verification<br/>against the success criteria"]:::model --> ro["Readout and report link"]:::model --> you["You: /audit-build, then the PR"]:::you
+    der -.->|"read at verification"| vf
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
 
 What a run does:
 
@@ -110,6 +203,17 @@ answers three questions about the code that was actually delivered:
 - **Traceability** (the headline check): does every requirement have both an implementation
   and a test that proves it? A requirement with code and no test counts as a gap, not a pass.
 
+```mermaid
+flowchart TD
+    r["Resolve the TRD and PRD"]:::code --> ix["Index requirements and tasks"]:::model --> v["Five verifiers: traceability,<br/>verification, validation,<br/>test quality, deterministic"]:::model --> rc["Reconcile the findings,<br/>draft the verdict"]:::model --> rep["Report written, verdict first;<br/>committed on a feature branch; published"]:::code --> g{"Gaps?"}
+    g -->|"a planned task was not built"| re["/implement-trd --reconcile"]
+    g -->|"no task covers a requirement"| you["You decide the design"]:::you
+    g -->|"none"| m["You merge, then /close-feature"]:::you
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
+
 Gaps split two ways. When a TRD task already covers the gap, nothing needs deciding: the audit
 marks the task not done and chains straight into `/implement-trd --reconcile` to build it.
 When no task covers the gap, deciding *how* to close it is design work. The audit reports it
@@ -133,6 +237,18 @@ whether the last checkpoint commit reached the default branch. Then it judges th
   is the usual case.
 - **not done** — something an objective depends on is missing. It says what, writes nothing,
   and stops.
+
+```mermaid
+flowchart TD
+    a["Read the TRD path, your evidence,<br/>any --accept reason"]:::code --> s{"Already closed? Not on the<br/>default branch? Never implemented?"}:::code
+    s -->|"yes"| stop["Stops and writes nothing.<br/>Never implemented plus --accept:<br/>recorded as abandoned"]:::code
+    s -->|"no"| f["Gather facts: tasks, verification,<br/>the audit and whether it is stale,<br/>whether the work reached the default branch"]:::code --> j{"Judge each objective: done,<br/>done with gaps, or not done"}:::model
+    j -->|"not done, no --accept"| stop2["Stops and writes nothing"]:::code
+    j -->|"done, done with gaps,<br/>or overridden with --accept"| w["closed.json written;<br/>current.json cleared"]:::code --> y["You commit it"]:::you
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
 
 Your own evidence counts: `"deployed it and tested it live"` is weighed with the rest and
 recorded as yours. `--accept "<reason>"` overrides a not-done verdict and is recorded
@@ -159,6 +275,19 @@ one to understand.
 | Normal case: at the end of every build | Inside `/implement-trd`, unless you passed `--no-verify` |
 | On its own: the build ran with `--no-verify`, you fixed something by hand (a credential, a config), or the loop crashed partway through | [`/verify-build [trd-path]`](../../packages/core/commands/verify-build.md). `--resume` continues an interrupted loop. `--cap N` sets the iteration budget (default 3, counted across resumes). |
 | Recovery: a run ended without success | Run the `/verify-plan-recovery` skill, a short chat that turns the report's diagnosis into a plan with you. Then run `/verify-build --fix`, which runs that plan unattended (build, then re-verify, for as many rounds as the plan allows) and asks you nothing. |
+
+```mermaid
+flowchart TD
+    vb["/verify-build"] --> loop["The verification loop<br/>(CONCEPTS.md, concept 8)"]:::model --> o{"Outcome"}:::code
+    o -->|"satisfied"| ab["/audit-build"]
+    o -->|"stalled, stuck, unbuilt,<br/>or below the coverage floor"| rec["verify-plan-recovery skill:<br/>a short chat with you"]:::you --> plan["verification-plan.md"] --> fix["/verify-build --fix"]
+    fix --> round["Each round: /implement-trd --reconcile --chained,<br/>then re-verify the open criteria"]:::code --> sr{"The plan's<br/>stop rule met?"}:::code
+    sr -->|"no"| round
+    sr -->|"yes"| o
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
 
 ### What it checks against
 
@@ -224,12 +353,38 @@ decided earlier in the conversation. It investigates, then classifies the work t
 `/plan` then **stops**. **`--implement` is the only thing that starts building**, at any
 weight. Otherwise, run `/implement-trd` on the TRD yourself.
 
+```mermaid
+flowchart TD
+    s["Establish the subject"]:::model --> inv["Investigate and<br/>ground in the code"]:::model --> ex{"Would a PRD add<br/>anything the TRD would not?"}:::model
+    ex -->|"yes"| prd["Investigation record written,<br/>then the PRD is authored"]:::model
+    ex -->|"no"| w{"Weight"}:::model
+    w -->|"trivial"| l1["Light TRD"]:::model
+    w -->|"small"| l2["Light TRD,<br/>then a code-reviewer pass"]:::model
+    w -->|"medium"| l3["Full TRD, code-reviewer pass,<br/>then a TRD audit"]:::model
+    l1 --> im{"--implement given, and no path<br/>you marked never-unattended?"}:::code
+    l2 --> im
+    l3 --> im
+    im -->|"yes"| impl["/implement-trd"]
+    im -->|"no"| stop["Stops with the TRD path;<br/>you decide when to build"]:::you
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
+
 **[`/sweep <file or issues inline>`](../../packages/core/commands/sweep.md)** is for a list of
 small, independent issues. It sorts out the ones that aren't quick wins. Each remaining issue
 gets its own grounded fixer: different areas are fixed in parallel, and issues in the same area
 one after another. It confirms that every claimed fix actually changed files on disk, then runs
 your test battery once. Deferred issues are recorded rather than lost. The test for using it is
 *coupling*, not size: six tasks that must land in order don't belong here.
+
+```mermaid
+flowchart TD
+    l["Your list, verbatim"]:::you --> t["Triage: quick and independent,<br/>or deferred"]:::model --> g["Grouped by area"]:::code --> f["One fixer per issue: areas in parallel,<br/>one at a time within an area"]:::model --> a["Claimed files checked on disk;<br/>tests run once"]:::code --> r["Deferred issues recorded"]:::code --> c["You review and commit"]:::you
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
 
 **[`/amend <what to change>`](../../packages/core/commands/amend.md)** makes one change to the
 feature in flight: it grounds the change in the code, records it as an `AMEND-nnn` row in that
@@ -241,6 +396,16 @@ ordering, more than one kind of specialist, or a product decision. It needs a fe
 **`/implement-trd --reconcile`** is how you bring the delivered state back in line with the
 TRD after an audit gap, a hand edit to the TRD, or a suspicion that "done" is not done. See
 the flag table in §2.
+
+```mermaid
+flowchart LR
+    a["A feature in flight,<br/>and not closed?"]:::code --> b{"Is it one task?"}:::model
+    b -->|"no"| s["Stops: use /plan<br/>or the full pipeline"]:::code
+    b -->|"yes"| g["Ground in the code"]:::model --> r["AMEND row added<br/>to the TRD first"]:::model --> i["One implementer<br/>does the work"]:::model --> v["Tests run, claims<br/>checked on disk"]:::code
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
 
 **[`/augment-trd-figma <figma-url> [--trd <path>]`](../../packages/core/commands/augment-trd-figma.md)**
 pulls screenshots, component specs, design tokens and fixture data from Figma into the TRD and
