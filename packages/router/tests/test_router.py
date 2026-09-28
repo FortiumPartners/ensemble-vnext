@@ -754,23 +754,38 @@ class TestInFlightCarveOut:
         assert "IN FLIGHT" not in FRAMEWORK_HINT
 
 
+CLOSED_FEATURE_FIXTURE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+    "test", "integration", "fixtures", "closed-feature.json",
+)
+
+
 class TestFeatureInFlightTerminator:
     """Finding 13, /code-review 2026-09-20: the in-flight hint never stopped firing.
 
-    Nothing in the framework clears current.json when a feature ships, so every
-    conversational turn kept being told an unrelated bug was an amendment to a
-    long-archived TRD.
+    Originally nothing in the framework cleared current.json when a feature shipped,
+    so every conversational turn kept being told an unrelated bug was an amendment to
+    a long-archived TRD. `/close-feature` (CLOSE-B001) now nulls current.json AND
+    writes `.trd-state/<feature>/closed.json`, which this terminator checks first --
+    the working tree that ran `/close-feature` isn't the only one that needs to see
+    the feature as closed.
     """
 
-    def _tree(self, tmp_path, trd, tasks=None):
+    def _tree(self, tmp_path, trd, tasks=None, closed=False):
         (tmp_path / ".trd-state").mkdir()
         (tmp_path / ".trd-state" / "current.json").write_text(
             json.dumps({"trd": trd})
         )
+        feature, _ext = os.path.splitext(os.path.basename(trd))
+        feature_dir = tmp_path / ".trd-state" / feature
         if tasks is not None:
-            d = tmp_path / ".trd-state" / "feat"
-            d.mkdir()
-            (d / "implement.json").write_text(json.dumps({"tasks": tasks}))
+            feature_dir.mkdir(exist_ok=True)
+            (feature_dir / "implement.json").write_text(json.dumps({"tasks": tasks}))
+        if closed:
+            feature_dir.mkdir(exist_ok=True)
+            with open(CLOSED_FEATURE_FIXTURE, "r", encoding="utf-8") as f:
+                record = f.read()
+            (feature_dir / "closed.json").write_text(record)
         return str(tmp_path)
 
     def test_unfinished_work_is_in_flight(self, tmp_path):
@@ -798,3 +813,42 @@ class TestFeatureInFlightTerminator:
                          {"A": {"status": "success"}})
         assert derive_feature(cwd) == "feat"
         assert feature_in_flight(cwd) == ""
+
+    def test_closed_feature_with_unfinished_tasks_terminates_the_hint(self, tmp_path):
+        # closed.json is the third terminator, and it must win even though the
+        # implement.json tasks are genuinely unfinished (in_progress + deferred).
+        cwd = self._tree(
+            tmp_path, "docs/TRD/closed-feature.md",
+            {"TASK-A": {"status": "in_progress"}, "TASK-B": {"status": "deferred"}},
+            closed=True,
+        )
+        assert feature_in_flight(cwd) == ""
+
+    def test_closed_feature_with_no_implement_json_terminates_the_hint(self, tmp_path):
+        # An abandoned feature (D8): a close record with no implement.json at all.
+        cwd = self._tree(tmp_path, "docs/TRD/closed-feature.md", None, closed=True)
+        assert feature_in_flight(cwd) == ""
+
+    def test_same_tree_without_closed_json_is_still_in_flight(self, tmp_path):
+        # Same task shape as the closed case above, minus closed.json: still in flight.
+        cwd = self._tree(
+            tmp_path, "docs/TRD/closed-feature.md",
+            {"TASK-A": {"status": "in_progress"}, "TASK-B": {"status": "deferred"}},
+        )
+        assert feature_in_flight(cwd) == "closed-feature"
+
+    def test_same_tree_without_closed_json_and_no_implement_json_is_still_in_flight(self, tmp_path):
+        cwd = self._tree(tmp_path, "docs/TRD/closed-feature.md", None)
+        assert feature_in_flight(cwd) == "closed-feature"
+
+
+class TestFrameworkHintNamesCloseFeature:
+    """D3 / §3.4: FRAMEWORK_HINT's FLOW bullet names /close-feature after /audit-build
+    as the owner's post-merge step -- discoverability for a command nothing else
+    surfaces mid-session.
+    """
+
+    def test_flow_names_close_feature_after_audit_build(self):
+        idx_audit = FRAMEWORK_HINT.index("/audit-build")
+        idx_close = FRAMEWORK_HINT.index("/close-feature")
+        assert idx_close > idx_audit

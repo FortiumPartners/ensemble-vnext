@@ -95,6 +95,55 @@ function summarizeVerifyState(state) {
   return parts.join('; ');
 }
 
+/**
+ * Return the "Closed:" banner line for a feature whose close record exists, or
+ * `null` when there is no `closed.json` for it (§3.4 of docs/TRD/feature-close-out.md).
+ *
+ * Presence alone means closed (D5) — even a record that fails to parse, or that is
+ * missing the fields this reads, still returns the "unreadable" line rather than
+ * falling through to the ordinary Impl:/Verify: tally, because that tally would
+ * describe a feature the owner already closed.
+ *
+ * @param {string} root - project root (as resolved by resolveProjectRoot).
+ * @param {string} feature - TRD basename without extension.
+ * @returns {string|null} the line to push onto the banner, or null if not closed.
+ */
+function closedFeatureLine(root, feature) {
+  const closedPath = path.join(root, '.trd-state', feature, 'closed.json');
+  if (!fs.existsSync(closedPath)) return null;
+
+  const unreadable = `  Closed: record unreadable (.trd-state/${feature}/closed.json)`;
+  const record = safeReadJson(closedPath);
+  if (!record || typeof record !== 'object') return unreadable;
+
+  const date = typeof record.closedAt === 'string' ? record.closedAt.slice(0, 10) : null;
+  if (!date) return unreadable;
+
+  // Checked first: an abandoned record always also carries acceptedReason, and the
+  // abandoned wording takes priority over the generic "accepted unfinished" wording.
+  if (record.abandoned) {
+    return `  Closed: ${date} — abandoned, never implemented: ${record.acceptedReason}`;
+  }
+
+  if (record.acceptedReason) {
+    const unfinished = Array.isArray(record.unfinished) ? record.unfinished.length : 0;
+    const total =
+      record.tasks && typeof record.tasks === 'object'
+        ? Object.values(record.tasks).reduce((sum, n) => sum + (typeof n === 'number' ? n : 0), 0)
+        : 0;
+    return `  Closed: ${date} — not done; closed with ${unfinished} of ${total} tasks accepted unfinished: ${record.acceptedReason}`;
+  }
+
+  if (typeof record.verdict !== 'string') return unreadable;
+
+  if (record.verdict === 'done-with-gaps') {
+    const gaps = Array.isArray(record.outstanding) ? record.outstanding.length : 0;
+    return `  Closed: ${date} — ${record.verdict} (${gaps} gap${gaps === 1 ? '' : 's'})`;
+  }
+
+  return `  Closed: ${date} — ${record.verdict}`;
+}
+
 function lastCheckpointSummary(state) {
   if (!state || !Array.isArray(state.checkpoints) || state.checkpoints.length === 0) {
     return null;
@@ -158,9 +207,16 @@ async function main(hookData) {
   if (current.trd) lines.push(`  TRD:    ${current.trd}`);
   if (current.branch) lines.push(`  Branch: ${current.branch}`);
 
-  // If the pointer references a state file (implement.json; verify/harden are legacy
-  // shapes from the retired team commands), summarize it
-  if (current.status) {
+  // A closed feature (D5/D10) replaces the task tally with one Closed: line rather
+  // than presenting alongside it — the tally describes work the owner already closed.
+  const feature = current.trd ? path.basename(current.trd, path.extname(current.trd)) : null;
+  const closedLine = feature ? closedFeatureLine(root, feature) : null;
+
+  if (closedLine) {
+    lines.push(closedLine);
+  } else if (current.status) {
+    // If the pointer references a state file (implement.json; verify/harden are legacy
+    // shapes from the retired team commands), summarize it
     const statusPath = path.join(root, current.status);
     const state = safeReadJson(statusPath);
     if (state) {
@@ -198,25 +254,33 @@ async function main(hookData) {
   emit(lines.join('\n'));
 }
 
-// Stdin handling
-let inputData = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => {
-  inputData += chunk;
-});
-process.stdin.on('end', async () => {
-  try {
-    const hookData = inputData.trim() ? JSON.parse(inputData) : {};
-    await main(hookData);
-  } catch (err) {
-    debug(`fatal: ${err.message}`);
+// Stdin handling — guarded by `require.main === module` so that requiring this file
+// (as session-context.test.js does, to call the exported `main` in-process) never
+// also attaches these listeners. Without the guard, `main()` fires a second,
+// uncontrolled time whenever this process's stdin reaches 'end' — and since `emit()`
+// ends in `process.exit(0)`, that second firing can tear down the whole Jest worker
+// mid-run. `status.js` and `dispatch-ledger.js` hit exactly this (status.js:376-387,
+// dispatch-ledger.js:182) and carry the same guard for the same reason.
+if (require.main === module) {
+  let inputData = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk) => {
+    inputData += chunk;
+  });
+  process.stdin.on('end', async () => {
+    try {
+      const hookData = inputData.trim() ? JSON.parse(inputData) : {};
+      await main(hookData);
+    } catch (err) {
+      debug(`fatal: ${err.message}`);
+      emit('');
+    }
+  });
+  process.stdin.on('error', (err) => {
+    debug(`stdin error: ${err.message}`);
     emit('');
-  }
-});
-process.stdin.on('error', (err) => {
-  debug(`stdin error: ${err.message}`);
-  emit('');
-});
+  });
+}
 
 // Exports for testing
 module.exports = {
@@ -224,4 +288,5 @@ module.exports = {
   summarizeImplementState,
   summarizeVerifyState,
   lastCheckpointSummary,
+  closedFeatureLine,
 };

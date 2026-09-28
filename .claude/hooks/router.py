@@ -82,7 +82,8 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   between /plan (which forks a second TRD) and raw prompting.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; the functional loop runs by default, --no-verify
-  skips it) -> /audit-build. /verify-build re-runs verification alone; /implement-trd --reconcile
+  skips it) -> /audit-build -> /close-feature, once the PR has merged, on the default
+  branch. /verify-build re-runs verification alone; /implement-trd --reconcile
   re-attests delivered work against the TRD and re-opens anything only claimed done;
   /audit-prd and /audit-trd verify an artifact, /refine-prd and /refine-trd iterate one.
   Check .trd-state/current.json first.
@@ -384,24 +385,29 @@ def feature_in_flight(cwd: str) -> str:
 
     `derive_feature()` answers "what does current.json point at", which is the right
     question for the ENSEMBLE_COMMAND marker. It is the WRONG question for the in-flight
-    amendment hint, because nothing in the framework clears `current.json` when a feature
-    ships -- only /create-prd, /create-trd and /init-project ever write it. So the hint
-    outlived every feature that produced it, and months later an ordinary conversational
-    turn was still being told that an unrelated new bug is "an AMENDMENT to this TRD",
-    steering it toward /amend against an archived document.
+    amendment hint: `current.json` is nulled only when `/close-feature` closes the
+    feature it points at, and any other checkout -- one that never ran `/close-feature`
+    locally -- still has it populated. Relying on `current.json` alone would keep
+    steering an ordinary conversational turn toward /amend against a feature the owner
+    already closed, in a different checkout, months ago.
 
-    Two terminators, both read from disk rather than remembered:
+    Three terminators, all read from disk rather than remembered:
+      - `.trd-state/<feature>/closed.json` exists -- checked first, because an
+        abandoned feature has a close record and no implement.json
       - the TRD has been archived to docs/TRD/completed/
       - every task in .trd-state/<feature>/implement.json is `success`
 
-    A feature with NO implement.json is still in flight: that is the PRD/TRD authoring
-    stage, where an amendment to the document being written is exactly right.
+    A feature with NO implement.json AND no closed.json is still in flight: that is
+    the PRD/TRD authoring stage, where an amendment to the document being written is
+    exactly right.
     """
     feature = derive_feature(cwd)
     if not feature:
         return ""
     try:
         root = os.path.abspath(cwd) if cwd else os.getcwd()
+        if os.path.exists(os.path.join(root, ".trd-state", feature, "closed.json")):
+            return ""
         with open(os.path.join(root, ".trd-state", "current.json"), "r", encoding="utf-8") as f:
             trd = (json.load(f) or {}).get("trd", "")
         if "TRD/completed/" in str(trd).replace("\\", "/"):

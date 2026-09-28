@@ -20,6 +20,16 @@ $ARGUMENTS
 If no path is given, use `current.trd` from `.trd-state/current.json`. If `--prd` is omitted,
 use `current.prd` from the same file.
 
+**No TRD (D14).** No path argument was given, AND `current.json` is either absent or its
+`trd` is null or empty (this is exactly what closing a feature leaves behind) → do not call
+the workflow. End immediately:
+
+```
+═══ COMMAND STUCK: /audit-build ═══
+Reason: no TRD path given and .trd-state/current.json names none (closing a feature clears it)
+Next:   /audit-build docs/TRD/<feature>.md
+```
+
 **Parse `--report-only`.** Present → produce the findings and stop at the readout; absent →
 the automatic `/implement-trd --reconcile` chain below applies. The flag was documented at
 §"`--report-only` suppresses the chain" before any step parsed it, so a user who typed it got
@@ -169,6 +179,45 @@ this context, so a large finding set costs nothing here.
 from this context and reconciling their findings yourself — the checks above are the
 contract, the workflow is only the execution vehicle.
 
+## Writing the audit report (D1, D2, D12)
+
+**Right after the workflow call above returns** — before printing the readout, and before
+any `/implement-trd --reconcile` chain below, on `--report-only` runs too — write
+`.trd-state/<feature>/audit-build-report.md` (`<feature>` is the TRD's basename without its
+extension), overwriting whatever report was there from a previous run:
+
+```markdown
+# Audit report: <feature>
+
+- Date: <YYYY-MM-DD>
+- Audited commit: <output of `git rev-parse --short HEAD`, or "unknown" if it fails>
+- TRD: <trd path>
+- PRD: <prd path, or "none">
+- Findings: <n> · applied: <n> · rejected: <n> · still unverified: <n> · verifiers reporting: <as returned>
+
+<the readout, verbatim as printed below — it opens with the AUDIT-BUILD: header and its VERDICT: line>
+```
+
+The workflow's return already carries `findings`, `applied`, `rejected`, `still_unverified`
+and `verifiers_reporting` — this header adds only the date and `git rev-parse --short HEAD`.
+Keep the `- Audited commit:` line and the readout's `VERDICT:` line exactly as shown:
+`/close-feature` reads both of them back out of this file. A failed write is one line in
+STATE; it never blocks the reconcile chain and never turns the run STUCK.
+
+**Publish it** (`.claude/rules/command-status.md` "Artifact links"; same publish-and-remember
+shape as `implement-trd.md` §9.0a):
+
+```
+Artifact({ file_path: ".trd-state/<feature>/audit-build-report.md",
+           url: "<artifacts.json's audit-build-report key, if present>" })
+```
+
+Store the returned URL back into `.trd-state/<feature>/artifacts.json` under
+`audit-build-report`, so the next audit of this feature updates the same link instead of
+minting a second one. **With publishing off (`ensemble.publishArtifacts: false`) or a failed
+publish, STATE names the local report path instead of a link — one line, never STUCK, never
+retried.** STATE always names the report path; add the link above it only when one was made.
+
 ## Readout
 
 
@@ -220,6 +269,13 @@ headings, nothing chains. **Say so on the line**: a gap whose chain was suppress
 is why `report_only` is passed to the workflow, which drafts the readout.
 
 One screen. If there are 40 clean requirements, print the count as one line, not forty.
+
+**NEXT.** When the VERDICT is `safe to proceed` or `proceed with these caveats`, NEXT names
+`/close-feature <trd>` on the default branch, after the PR merges. On `do not proceed`, NEXT
+is the reconcile work, as today. This is the one readout in the framework that names
+`/close-feature` — it is not added to `/implement-trd`'s own NEXT guidance (owner decision
+2026-09-28); `/implement-trd` and `/audit-build`'s chained `/implement-trd --reconcile` runs
+reach that command's own guard instead.
 
 ---
 

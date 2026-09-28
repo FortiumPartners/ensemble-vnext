@@ -9,7 +9,7 @@ category: implementation
 > **Usage:** `/implement-trd [trd-path] [options]` from project root with `docs/TRD/` directory.
 >
 > **Arguments:**
-> - `<trd-path>` - Path to TRD file (optional — derived from the current branch name, or from the single in-progress TRD, if omitted; see Step 1.2)
+> - `<trd-path>` - Path to TRD file (optional — derived from the current branch name, or from the single in-progress, unclosed TRD, if omitted; see Step 1.2)
 > - `--resume` or `--continue` - Resume from last checkpoint (attempts session resume first)
 > - `--reconcile` - **Make the delivered state match the TRD.** Re-attests every task claiming
 >   success against disk, reopens the ones disk contradicts, then runs everything outstanding
@@ -151,7 +151,7 @@ stopping at the first hit:**
    (`<issue-id>-<session>`, `feature/<trd-name>/<session>`); match the derived slug against
    `docs/TRD/*.md` filenames and `.trd-state/*/` directory names.
 3. **Single in-progress** — exactly one `.trd-state/*/implement.json` exists with
-   uncompleted tasks; use its `trd_file`.
+   uncompleted tasks and no `closed.json` beside it; use its `trd_file`.
 4. **STUCK** — emit `═══ COMMAND STUCK ═══` naming the current branch and every candidate
    TRD/state-dir found in steps 2–3. This is a legitimate `AskUserQuestion` case under
    `autonomy.md` case 2 (information that cannot be derived), but STUCK with the candidates
@@ -159,6 +159,30 @@ stopping at the first hit:**
 
 **Validation:** Must contain a "Master Task List" section, parsed by `trd-parser.js` (Step 3) —
 see that step's Error Handling for what a missing or unparseable section does.
+
+**Closed-feature guard (D13, §3.5).** Whichever of steps 1–3 above resolved the TRD, and in
+every mode this command runs in — plain, `--resume`, `--reconcile`, `--reset-state`,
+`--chained` — stop right here, before `### 1.3` switches branches, before `### 1.3a` writes the
+feature pointer, and before `### 2.1`'s `--reset-state` deletes state. `<feature>` is the TRD's
+basename without its extension (the rule `/close-feature`'s §3.2 shares with `router.py`'s
+`derive_feature()`). If `.trd-state/<feature>/closed.json` exists:
+
+- Ordinarily, end the run:
+  ```
+  ═══ COMMAND STUCK: /implement-trd ═══
+  Reason: <feature> was closed on <date>
+  Next:   delete .trd-state/<feature>/closed.json to reopen
+  ```
+  (`<date>` is the record's `closedAt`.)
+- Under `--chained` (§3.7) emit no banner — the caller owns the run's only terminator — and
+  report the same reason on the handoff line instead:
+  ```
+  [STATUS: /implement-trd] RETURN → STUCK: <feature> was closed on <date> — delete .trd-state/<feature>/closed.json to reopen
+  ```
+
+This is the one place the stop belongs: a resumed run that proceeded past here would repopulate
+`.trd-state/current.json` and reopen the feature while its close record still says closed —
+reopening is a decision (delete `closed.json`), never a side effect of resuming.
 
 ### 1.3 Git Branch Management
 
@@ -1307,7 +1331,7 @@ session-coordination map existed for cross-implementation coordination that NG13
 it held an empty object on every `implement.json` this project ever produced, so removing
 it changes nothing observable. The pointer file is untracked (`.gitignore`) and out of the
 active-TRD resolution chain entirely — Step 1.2 derives the active TRD from the branch name
-or from the single in-progress state file instead.
+or from the single in-progress, unclosed state file instead.
 
 ### Session vs Persistent State
 

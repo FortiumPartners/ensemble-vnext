@@ -48,6 +48,24 @@ recorded nowhere.
 **It requires a feature in flight.** With nothing in `.trd-state/current.json` there is no
 document to amend — that is `/plan`. Say so and stop.
 
+## Closed-feature guard (D13, §3.5)
+
+Right after the feature-in-flight check above, and before Step 1: `<feature>` is the basename
+of `.trd-state/current.json`'s `trd`, without its extension (the same rule `/close-feature`'s
+§3.2 and `router.py`'s `derive_feature()` use). If `.trd-state/<feature>/closed.json` exists,
+stop here — an abandoned closed feature must not be re-seeded by Step 5's missing-`implement.json`
+fallback:
+
+```
+═══ COMMAND STUCK: /amend ═══
+Reason: <feature> was closed on <date>
+Next:   delete .trd-state/<feature>/closed.json to reopen
+```
+
+(`<date>` is the record's `closedAt`.) Then run
+`.claude/hooks/notify-complete.sh "amend" "stuck" "<feature> was closed on <date>"`. Write
+nothing — no TRD row, no discovery record, no `implement.json` seed.
+
 ## Step 1: Is this one task?
 
 Read the instruction and the code it names. Then ask one question: **is this a single

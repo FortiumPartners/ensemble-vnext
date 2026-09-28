@@ -29,6 +29,8 @@ const CORE_VERIFY_BUILD = path.join(REPO, 'packages/core/commands/verify-build.m
 const CLAUDE_VERIFY_BUILD = path.join(REPO, '.claude/commands/verify-build.md');
 const CORE_PROCESS_TEMPLATE = path.join(REPO, 'packages/core/templates/process.md.template');
 const CLAUDE_PROCESS = path.join(REPO, '.claude/rules/process.md');
+const CORE_AMEND = path.join(REPO, 'packages/core/commands/amend.md');
+const CLAUDE_AMEND = path.join(REPO, '.claude/commands/amend.md');
 
 const read = (p) => fs.readFileSync(p, 'utf8');
 // Prose wraps at ~80 columns, so a phrase that reads as one sentence to a human can straddle
@@ -47,6 +49,117 @@ describe('packages/core <-> .claude mirror parity', () => {
 
   test('verify-build.md is byte-identical to its mirror', () => {
     expect(read(CLAUDE_VERIFY_BUILD)).toBe(read(CORE_VERIFY_BUILD));
+  });
+
+  test('amend.md is byte-identical to its mirror', () => {
+    expect(read(CLAUDE_AMEND)).toBe(read(CORE_AMEND));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CLOSE-B003 (docs/TRD/feature-close-out.md D13, §3.5): /implement-trd and /amend refuse a
+// closed feature. Both guards sit at the point CLOSE-B003's grounding names -- before the
+// pointer write / branch switch / --reset-state deletion for /implement-trd, before Step 1
+// for /amend -- and both spell out how to reopen.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md §1.2 refuses a closed feature (CLOSE-B003, D13)', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test('step 3 ("single in-progress") now excludes a state dir holding closed.json', () => {
+    const section12 = src().split('### 1.2 TRD Selection')[1].split('### 1.3 Git Branch Management')[0];
+    expect(flat(section12)).toMatch(
+      /uncompleted tasks and no `closed\.json` beside it/
+    );
+  });
+
+  test('the closed-feature guard sits after the priority list and before §1.3', () => {
+    const text = src();
+    const i12 = text.indexOf('### 1.2 TRD Selection');
+    const iGuard = text.indexOf('Closed-feature guard (D13, §3.5)');
+    const i13 = text.indexOf('### 1.3 Git Branch Management');
+    expect(i12).toBeGreaterThan(-1);
+    expect(iGuard).toBeGreaterThan(-1);
+    expect(i13).toBeGreaterThan(-1);
+    expect(iGuard).toBeGreaterThan(i12);
+    expect(i13).toBeGreaterThan(iGuard);
+  });
+
+  test('the guard applies in every mode and names the reopen instruction', () => {
+    const text = src();
+    const section = flat(
+      text.split('Closed-feature guard (D13, §3.5)')[1].split('### 1.3 Git Branch Management')[0]
+    );
+    expect(section).toMatch(/--resume/);
+    expect(section).toMatch(/--reconcile/);
+    expect(section).toMatch(/--reset-state/);
+    expect(section).toMatch(/--chained/);
+    expect(section).toMatch(/delete \.trd-state\/<feature>\/closed\.json to reopen/);
+    expect(section).toMatch(/═══ COMMAND STUCK: \/implement-trd ═══/);
+  });
+
+  test('under --chained the guard emits no banner, only the RETURN → STUCK handoff line', () => {
+    const text = src();
+    const section = flat(
+      text.split('Closed-feature guard (D13, §3.5)')[1].split('### 1.3 Git Branch Management')[0]
+    );
+    expect(section).toMatch(
+      /\[STATUS: \/implement-trd\] RETURN → STUCK: <feature> was closed on <date> — delete \.trd-state\/<feature>\/closed\.json to reopen/
+    );
+  });
+
+  test('the guard precedes §1.3a (pointer write) and §2.1 (--reset-state deletion)', () => {
+    const section = flat(
+      src().split('Closed-feature guard (D13, §3.5)')[1].split('### 1.3 Git Branch Management')[0]
+    );
+    expect(section).toMatch(/before `### 1\.3` switches branches/);
+    expect(section).toMatch(/before `### 1\.3a` writes the feature pointer/);
+    expect(section).toMatch(/before `### 2\.1`'s `--reset-state` deletes state/);
+  });
+});
+
+describe('implement-trd.md says "unclosed" everywhere it restates the single-in-progress rule', () => {
+  const src = () => read(CORE_IMPLEMENT);
+
+  test("the header's <trd-path> note says unclosed", () => {
+    const frontHeader = src().split('## User Input')[0];
+    expect(frontHeader).toMatch(/single in-progress, unclosed TRD/);
+  });
+
+  test("Step 6's restatement says unclosed", () => {
+    const step6 = src().split('## Step 6: State Management')[1].split('## Step 7:')[0];
+    expect(step6).toMatch(/single in-progress, unclosed state file/);
+  });
+});
+
+describe('amend.md refuses a closed feature before Step 1 (CLOSE-B003, D13)', () => {
+  const src = () => read(CORE_AMEND);
+
+  test('the guard sits after the feature-in-flight paragraph and before Step 1', () => {
+    const text = src();
+    const iFlight = text.indexOf('It requires a feature in flight');
+    const iGuard = text.indexOf('Closed-feature guard (D13, §3.5)');
+    const iStep1 = text.indexOf('## Step 1: Is this one task?');
+    expect(iFlight).toBeGreaterThan(-1);
+    expect(iGuard).toBeGreaterThan(-1);
+    expect(iStep1).toBeGreaterThan(-1);
+    expect(iGuard).toBeGreaterThan(iFlight);
+    expect(iStep1).toBeGreaterThan(iGuard);
+  });
+
+  test('the guard names the STUCK banner and the reopen instruction', () => {
+    const section = flat(
+      src().split('Closed-feature guard (D13, §3.5)')[1].split('## Step 1: Is this one task?')[0]
+    );
+    expect(section).toMatch(/═══ COMMAND STUCK: \/amend ═══/);
+    expect(section).toMatch(/delete \.trd-state\/<feature>\/closed\.json to reopen/);
+  });
+
+  test('the guard sends the stuck notify-complete.sh call', () => {
+    const section = flat(
+      src().split('Closed-feature guard (D13, §3.5)')[1].split('## Step 1: Is this one task?')[0]
+    );
+    expect(section).toMatch(/notify-complete\.sh "amend" "stuck"/);
   });
 });
 
