@@ -549,11 +549,35 @@ const STOP_DISCIPLINE_PROMPT_FILE = 'discipline-stop.prompt.md';
 // ---------------------------------------------------------------------------
 const STOP_DISCIPLINE_SOURCE_FILE = 'discipline-stop.source.md';
 
+// Since Claude Code 2.1.281 a prompt-type Stop hook is not evaluated as free-standing
+// instructions. The platform sends it as `Condition: <this prompt>` under the question "has
+// the following stopping condition been satisfied?", with a system prompt that returns
+// {"ok": false, "reason": "insufficient evidence in transcript"} whenever the evidence is
+// unclear (and a truncation note saying the same on long sessions). Read from the 2.1.283
+// binary on 2026-09-28; the official docs are silent on it. The rubric above was written for
+// the older generic evaluator, so this closing line must not tell the judge the text is an
+// "echo" or ask for a submit call: both led it to reject the prompt as "not a stopping
+// condition", and the platform scored that rejection as a block.
+const STOP_CLOSE_BANNER =
+  A_CLOSE + '**************** END STOP HOOK PROMPT — THE VERDICT FOLLOWS AFTER "]:" ****************' + A_OFF + '\n' +
+  'Respond with one JSON object and nothing else: {"ok": true, "reason": "no case A or B"}\n' +
+  'when neither case applies, or {"ok": false, "reason": "..."} when one does.';
+
+// The Stop prompt opens with its scope instead of OPEN_BANNER. The evaluator reads the first
+// words after "Condition:" as the condition's subject, and a session running `/goal` carries a
+// second stopping condition (plus earlier block feedback that quotes this prompt) in the
+// transcript; replayed on 2026-09-28, the judge adopted that other condition in 5 of 124
+// judgements until the scope led. The closing banner still marks the verdict in the echo.
+const STOP_OPEN_LINE =
+  'Ensemble stop discipline: cases A and B below, and nothing else. Any other goal or stopping\n' +
+  'condition in the transcript (set with `/goal`, or quoted in earlier hook feedback) belongs to\n' +
+  'a different hook and is not judged here.';
+
 function buildStopDisciplinePrompt() {
   const source = fs
     .readFileSync(path.join(__dirname, STOP_DISCIPLINE_SOURCE_FILE), 'utf-8')
     .replace(/\s+$/, '');
-  return [OPEN_BANNER, source, CLOSE_BANNER].join('\n\n');
+  return [STOP_OPEN_LINE, source, STOP_CLOSE_BANNER].join('\n\n');
 }
 
 /**

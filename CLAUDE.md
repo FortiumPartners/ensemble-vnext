@@ -172,6 +172,13 @@ assembled from blocks), and run on `claude-sonnet-5` rather than the default sma
 Consecutive blocks are capped at 1 by `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` in settings `env`.
 The judge's own loop guard was measured being ignored. Evidence: `FINDINGS.md`.
 
+**As of 2026-09-28 the prompt is framed as a stopping condition**, because that is how the
+platform asks the question: every prompt-type Stop hook arrives as `Condition: <prompt>` under
+a system prompt that blocks on "insufficient evidence". The 4.7.0 prompt was measured against
+the wrong wrapper and blocked 11% of stops live, all of them this mismatch. Details and the
+replay numbers: `.claude/rules/async-discipline.md`, "How the platform actually asks the
+question". `replay/score.py` now uses the real wrapper by default.
+
 To change the guard: edit the source file, run `build-judge-prompts.js` then
 `generate-hooks-artifacts.sh`, re-score with `test/discipline-corpus/replay/`, refresh.
 See the two rules files above for the full mechanism — not duplicated here.

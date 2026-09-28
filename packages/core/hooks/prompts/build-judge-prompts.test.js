@@ -277,13 +277,17 @@ describe('the shipped Stop prompt (hand-authored, 2026-09-24)', () => {
     expect(prompt).toMatch(/## Payload\n\n\$ARGUMENTS/);
   });
 
-  it('is wrapped in both display banners', () => {
-    expect(prompt).toContain('STOP HOOK FIRED');
+  it('opens with its scope, not a display banner, and closes on the verdict marker', () => {
+    // The evaluator reads the opening as the condition's subject (2.1.281+ wrapper).
+    expect(prompt.startsWith('Ensemble stop discipline')).toBe(true);
     expect(prompt).toContain('END STOP HOOK PROMPT');
   });
 
-  it('allows without a reason, so an allow cannot surface as an error', () => {
-    expect(prompt).toMatch(/Allow: submit\(\{ ok: true \}\), with no reason/);
+  it('answers in the JSON shape the 2.1.281+ Stop evaluator parses, never a submit call', () => {
+    // The platform's stop-condition evaluator wants {"ok", "reason"} JSON; a prompt that asks
+    // for submit() was rejected by the judge as "not a stopping condition" and scored a block.
+    expect(prompt).toContain('{"ok": true');
+    expect(prompt).not.toMatch(/submit\(/);
   });
 
   it('stays short: the regrowth guard', () => {
