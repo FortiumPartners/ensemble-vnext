@@ -232,7 +232,7 @@ run_verify_build_fix() {
 
     grep '^{' "$session_file" 2>/dev/null | jq -rs '
         [.[] | select(.type=="assistant")] |
-        map(($.message.content // [])[]? | select(.type=="text") | .text) | join("\n---\n")
+        map((.message.content // [])[]? | select(.type=="text") | .text) | join("\n---\n")
     ' > "${project_dir}/.all_run2.txt" 2>/dev/null
 
     return "$rc"
