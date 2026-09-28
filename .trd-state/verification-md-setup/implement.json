@@ -99,14 +99,17 @@
     "VSET-T001": {
       "description": "[LIVE] Add opt-in smoke scenario test/smoke/scenarios/verification-md-setup.sh, registered in LLM_OPT_IN_SCENARIOS, following verify-functional.sh's throwaway-project pattern. It exercises the seam be",
       "phase": 2,
-      "status": "deferred",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/smoke/scenarios/verification-md-setup.sh"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-09-28T00:26:54.852Z",
+      "last_advanced": "2026-09-28T00:20:49.420Z"
     }
   },
   "checkpoints": [
