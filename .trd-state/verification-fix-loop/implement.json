@@ -175,14 +175,17 @@
     "VFIX-T001": {
       "description": "[LIVE] Add opt-in smoke scenario test/smoke/scenarios/verify-fix.sh, registered in LLM_OPT_IN_SCENARIOS, following verify-functional.sh's throwaway-project pattern. Fixture: a PRD with two criteria, o",
       "phase": 2,
-      "status": "deferred",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "test/smoke/scenarios/verify-fix.sh"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-28T00:03:24.076Z",
+      "completed_at": "2026-09-28T00:14:09.517Z",
+      "last_advanced": "2026-09-28T00:12:37.623Z"
     }
   },
   "checkpoints": [

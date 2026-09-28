@@ -644,10 +644,9 @@ backlog — read it rather than this section for what is open. Items 1–13 are 
   finish here are now predicted and skipped with a report (`parseDeferred`), but the `[LIVE]`
   flag itself still has no consumer in `implement-phase.js`.
 - Item 15.4: a readout glyph can read "verified" where the verdict was `unbuilt`.
-- **The two audit stages are the next real speed reduction** — `/audit-prd` at 9.1 min and
-  `/audit-trd` at 14.5 min, both untouched, both already using the fan-out pattern. Two
-  specific findings sit ready: `/audit-trd` never reads the buildability findings
-  `/create-trd` writes to disk for it, and both audits sequence verifiers behind an index
-  several of them do not use.
+- **The two audit speed-ups landed in 4.5.0 (91dc0fe) but were never timed.** `/audit-trd`
+  now reuses the buildability findings `/create-trd` writes, and in both audits the verifiers
+  that do not need the index run alongside it. Baselines: `/audit-prd` 9.1 min, `/audit-trd`
+  14.5 min.
 - **Nothing has been timed since 4.4.0's changes.** The 1,384-second `/create-trd` median
   (57 runs) is the baseline; no run has been taken against it.
