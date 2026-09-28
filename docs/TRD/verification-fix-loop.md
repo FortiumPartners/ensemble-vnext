@@ -16,6 +16,7 @@
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-27 | Initial TRD creation | @technical-architect |
 | 1.0.2 | 2026-09-27 | Built. End-of-run review finding: round 0 builds blockers only, so `decideFixRound` does not apply `stop-when-closed-below` to it — the same reason OQ-6 keeps it out of `max-rounds` | main agent |
+| 1.0.3 | 2026-09-27 | **Synced from `docs/TRD/functional-verification.md` (VFIX-D002).** §3.3's `resume.criteria` and `VerifyFunctionalResult.criteria` gain `cause` field; §3.6's `renderReport()` adds `cause` to report input; report gains `**Diagnosis**`/`**Next**` lines counting causes under Coverage line | @technical-architect |
 | 1.0.1 | 2026-09-27 | Audit findings applied. O1 restores the investigation's "e.g." and points at §3.1 for the full cause set, which also has `not-built`. D2 and §3.3 state that `--chained` skips §3.6a's environment preflight: `/verify-build` step 2 already ran it, its owner question must not fire unattended, and Step 8 (§3.6a's only reader) is skipped, so §8.2's fallback is never reached. VFIX-D001 now also amends VART D2, its §3.9 list line and TR6, which D14 replaces. Could Not Verify states this audit's coverage | @technical-architect |
 
 ---
