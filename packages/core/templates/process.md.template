@@ -18,6 +18,8 @@ FULL PIPELINE (new feature)
 /refine-trd            --> (optional) Iterate on the TRD with feedback
 /implement-trd         --> Execute implementation (review runs INSIDE it)
 /audit-build           --> Verify delivered code against TRD and PRD
+/close-feature         --> After the PR merges, on the default branch: judge the feature
+                           against its TRD's objectives and record an explicit close
 
 SHORTER PATHS
 /plan <what>           --> Defect / small change / refactor: sizes the work and writes

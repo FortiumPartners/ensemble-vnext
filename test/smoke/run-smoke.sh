@@ -125,6 +125,14 @@ declare -A SCENARIO_TIMEOUT=(
     # like verify-fix's TIMEOUT_RUN1; this cap covers that plus one scaffold
     # and fixture-write overhead. Raise both together (VSET-T001).
     [verification-md-setup]=1800
+    # close-feature: ELEVEN separate `/close-feature` invocations (plus one
+    # `/implement-trd --resume` and one `/amend`) across five throwaway
+    # projects, but each is a lightweight read-facts-and-judge command with no
+    # implementer dispatch, no phase gate and no verification loop -- nothing
+    # like implement-one-task's cost per call. 300s per call (RUN_TIMEOUT in
+    # the scenario) times 13 calls, plus five scaffolds, comfortably inside
+    # this cap; raise both together if a live run needs more.
+    [close-feature]=3600
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
@@ -171,7 +179,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup close-feature)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()

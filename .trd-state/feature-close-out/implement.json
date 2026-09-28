@@ -4,7 +4,7 @@
   "trd_hash": "755994ae70b540f80b5c9ae2444b6d31f6be771903ab4110e14b077236dcaa8e",
   "branch": "feature/feature-close-out/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "CLOSE-B001": {
       "description": "In-flight readers treat closed.json as terminal (§3.4): router.py feature_in_flight gains the third terminator ahead of the no-implement.json branch, its docstrings are corrected, and FRAMEWORK_HINT's",
@@ -56,21 +56,35 @@
     "CLOSE-B004": {
       "description": "New /close-feature command (§3.2, §3.3) in packages/core/commands/ and .claude/commands/: argument parsing (TRD path, owner evidence, --accept), the three deterministic stops, fact gathering, the judg",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/close-feature.md",
+        "test/smoke/scenarios/close-feature.sh"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-09-28T05:17:20.247Z",
+      "completed_at": "2026-09-28T06:14:25.931Z",
+      "last_advanced": "2026-09-28T06:12:20.320Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1c7ee55",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-28T05:17:20.247Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "7129bb2",
+    "last_healthy_checkpoint": "1c7ee55",
     "interrupted": false,
-    "interrupt_reason": null
+    "interrupt_reason": null,
+    "last_checkpoint_timestamp": "2026-09-28T05:17:20.247Z"
   },
   "functional_verification": {
     "prd_resolved": true,

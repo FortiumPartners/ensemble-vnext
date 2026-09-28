@@ -548,6 +548,7 @@ Check that these commands exist in `.claude/commands/`:
 - `augment-trd-figma.md`
 - `implement-trd.md`
 - `audit-build.md`
+- `close-feature.md`
 - `verify-build.md`
 - `plan.md`
 - `amend.md`
@@ -900,6 +901,7 @@ Commands Available:
   /refine-trd      - Iterate on an existing TRD
   /implement-trd   - Execute staged implementation (review runs inside it)
   /audit-build     - Verify delivered code against TRD and PRD
+  /close-feature   - After the PR merges, on the default branch: judge and close
 
   SHORTER PATHS
   /plan            - Defect / small change / refactor: sizes the work, writes a TRD to match

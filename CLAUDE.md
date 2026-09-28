@@ -62,6 +62,8 @@ FULL PIPELINE
 /audit-trd     --> verify the TRD against the PRD
 /implement-trd --> implementation + .trd-state/ tracking (review and hardening run INSIDE it)
 /audit-build   --> verify delivered code against TRD and PRD
+/close-feature --> after the PR merges, on the default branch: judge the feature against
+                   its TRD's objectives and record an explicit close
 
 SHORTER PATHS
 /plan <what>         --> defect / small change / refactor: sizes the work and writes a TRD
@@ -538,7 +540,7 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.10.1** (2026-09-28). 18 commands, 13 subagents. Test battery: 1191 Jest,
+Released at **4.10.1** (2026-09-28). 19 commands, 13 subagents. Test battery: 1191 Jest,
 107 pytest, 576 BATS.
 
 4.10.1 fixes the Stop judge's over-firing: the platform evaluates a Stop prompt hook as a
