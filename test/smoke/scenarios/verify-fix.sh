@@ -485,11 +485,14 @@ fi
 # --- implement.json: functional_verification.fix.rounds has one entry ------
 if [[ -f "$IMPLEMENT_JSON" ]]; then
     if jq -e '.functional_verification.fix.rounds | type == "array"' "$IMPLEMENT_JSON" >/dev/null 2>&1; then
-        ROUNDS_LEN="$(jq '.functional_verification.fix.rounds | length' "$IMPLEMENT_JSON" 2>/dev/null)"
+        # Count FIX rounds (round >= 1). Round 0 -- blockers, or a plain verify pass when the
+        # plan has none -- may or may not be logged (the command only requires fix rounds to be),
+        # and it never counts toward max-rounds (TRD OQ-6).
+        ROUNDS_LEN="$(jq '[.functional_verification.fix.rounds[] | select(.round >= 1)] | length' "$IMPLEMENT_JSON" 2>/dev/null)"
         if [[ "$ROUNDS_LEN" == "1" ]]; then
-            assert_pass_raw "implement.json's functional_verification.fix.rounds holds exactly one entry"
+            assert_pass_raw "implement.json records exactly one fix round (max-rounds: 1)"
         else
-            assert_fail_raw "implement.json's functional_verification.fix.rounds holds ${ROUNDS_LEN} entries, expected 1"
+            assert_fail_raw "implement.json records ${ROUNDS_LEN} fix rounds, expected 1 (max-rounds: 1)"
         fi
     else
         assert_fail_raw "implement.json has no functional_verification.fix.rounds array"
