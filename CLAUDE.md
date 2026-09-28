@@ -536,8 +536,13 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.10.0** (2026-09-27). 18 commands, 13 subagents. Test battery: 1191 Jest,
+Released at **4.10.1** (2026-09-28). 18 commands, 13 subagents. Test battery: 1191 Jest,
 107 pytest, 576 BATS.
+
+4.10.1 fixes the Stop judge's over-firing: the platform evaluates a Stop prompt hook as a
+stopping condition that defaults to block, and the prompt is now framed that way (blocks on
+stops allowed live, 7/60 to 0/60 in replay). The 4.10.0 smoke tests for `--fix` and
+`/verification-setup` now pass live.
 
 4.10.0 gives a stalled verification run a way forward. The report counts failures by cause;
 `/verify-plan-recovery` turns a short chat with the owner into
@@ -547,7 +552,7 @@ writes `verification.md` (running it is the approval) and recommends a coverage 
 runs, which now reaches the loop. Every framework-shipped skill is named once, in
 `packages/skills/framework-skills.txt`, marked `check` or `support`. Plans:
 `docs/TRD/verification-fix-loop.md`, `docs/TRD/verification-md-setup.md`. **Known open:** the
-live smoke tests for both are deferred, and the floor applies only if the judge copies it.
+floor applies only if the judge copies it.
 
 4.9.0 makes screen-by-screen design review part of verification. Every check-role skill listed in
 `packages/skills/framework-skills.txt` ships to every project; every TRD

@@ -10,6 +10,40 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.10.1] - 2026-09-28
+
+The Stop discipline judge stops over-firing. PR #8.
+
+### Fixed
+
+- **The Stop judge was plugged in wrong, not judging wrong.** Claude Code sends every
+  prompt-type Stop hook to its evaluator as `Condition: <prompt>` under "has the following
+  stopping condition been satisfied?", and its system prompt blocks with "insufficient evidence
+  in transcript" whenever evidence is unclear. The docs describe none of this; it was read from
+  the 2.1.283 binary. The 4.7.0 prompt was replayed against a different wrapper, so live the
+  judge often rejected it as "not a stopping condition" and the platform scored that as a block
+  (in one session, 14 of 14 discipline blocks and 11% of all stops). The rubric (cases A and B)
+  is unchanged; the prompt now opens with its scope, states the condition, says finding no
+  violation is the evidence, and answers in the evaluator's JSON shape. Replayed on 62 real
+  stops, twice each, through the real wrapper: blocks 29/124 to 8/124, "insufficient evidence"
+  blocks 22 to 0, blocks on stops that were allowed live 7/60 to 0/60, median judge time 30.7 s
+  to 19.0 s.
+- **The replay harness now uses the real wrapper** (`score.py`; `--wrapper legacy` keeps the
+  old one, and results from the two are never pooled). `extract.py` recognises both prompt
+  openings.
+
+### Verified
+
+- Live smoke tests for 4.10.0's two deferred checks now pass: `/verify-build --fix` (24/24:
+  it built the missing requirement in one fix round and ended satisfied) and
+  `/verification-setup`'s coverage floor and old-layout detection (18/18).
+
+### Known open
+
+- 2 of 124 replayed judgements judged an active `/goal` condition instead of cases A and B.
+  Only in sessions running `/goal`; each bounded to one turn by the block cap.
+- Consuming projects get the fix only after `/rebase-project`.
+
 ## [4.10.0] - 2026-09-27
 
 A stalled verification run now has a way forward: a diagnosis, a short chat, then an
