@@ -101,3 +101,29 @@ precompact.test.js, notify-on-complete.test.sh, validate-init.test.sh, runtime-i
 |----|----------|----------------|------------|
 | OQ-1 | Command name | `/close-feature` | no |
 | OQ-2 | Should closing also require the audit-build verdict to be "safe to proceed"? | No: the verdict is recorded, not gated; a feature closed with caveats says so in its record | no |
+
+## Owner decisions after review (2026-09-28)
+
+These supersede the matching parts above; the TRD (v2.0.2) carries them in full.
+
+- **Closing is a judgement, not a status count.** `/close-feature` gathers the facts (every task's
+  status and, for a deferred task, the TRD's reason; the verification outcome and unmet criteria;
+  the audit-build verdict and the commit it audited; whether the last checkpoint commit is on the
+  default branch) and the model judges `done`, `done-with-gaps` (each gap named, with why it does
+  not undermine an objective) or `not-done` (what is missing, and which objective it leaves
+  unproven). Example: a deferred live-verification task can be a gap (criteria met another way) or
+  a reason for `not-done` (it was the only evidence the behaviour works).
+- **The owner's evidence counts.** An optional free-text note ("deployed live and I tested it") is
+  weighed with the repo facts and recorded verbatim as owner-attested.
+- **`--accept "<reason>"` is an override**, used only when the judgement is `not-done`; recorded
+  separately from owner evidence. A feature with no `implement.json` may be closed only with it,
+  and is recorded as abandoned.
+- **`/close-feature` runs only on the default branch**, writes `closed.json` without committing, and
+  says to commit it; on any other branch it ends STUCK.
+- **Closed features are guarded:** `/implement-trd` (every mode, including its automatic TRD
+  lookup) and `/amend` refuse a closed feature and say how to reopen it.
+- **The audit report is written by `/audit-build` itself** (no separate library); with no path and
+  no current feature it ends STUCK asking for one. An absent or stale audit (a file this TRD
+  touches changed after the audited commit) is named, never blocking.
+- **No new libraries.** Status counting and the close decision need judgement; the facts are
+  plain git and file reads.
