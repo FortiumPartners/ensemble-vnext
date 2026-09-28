@@ -410,7 +410,7 @@ assert_contains "$ALL_TEXT_FILE" "verification-setup" \
 # deterministic `missingSections` output in the session log instead (JSON-escaped
 # there, hence the optional backslashes).
 for sec in resource-capacity write-permission-column refresh-split; do
-    if grep -qE "missingSections\\?\":\[[^]]*${sec}" "$SESSION_FILE" 2>/dev/null; then
+    if grep -qE 'missingSections\\?":\[[^]]*'"${sec}" "$SESSION_FILE" 2>/dev/null; then
         assert_pass_raw "check-verification-unfilled reported ${sec} as missing"
     else
         assert_fail_raw "check-verification-unfilled did not report ${sec} as missing"
