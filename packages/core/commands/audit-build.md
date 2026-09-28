@@ -187,6 +187,8 @@ any `/implement-trd --reconcile` chain below, on `--report-only` runs too — wr
 extension), overwriting whatever report was there from a previous run:
 
 ```markdown
+<the readout's VERDICT: line, copied — the report's first line>
+
 # Audit report: <feature>
 
 - Date: <YYYY-MM-DD>
@@ -200,7 +202,7 @@ extension), overwriting whatever report was there from a previous run:
 
 The workflow's return already carries `findings`, `applied`, `rejected`, `still_unverified`
 and `verifiers_reporting` — this header adds only the date and `git rev-parse --short HEAD`.
-Keep the `- Audited commit:` line and the readout's `VERDICT:` line exactly as shown:
+The report opens with the VERDICT line so a reader sees the verdict before anything else (investigation O1); the readout below repeats it. Keep the `- Audited commit:` line and the `VERDICT:` line exactly as shown:
 `/close-feature` reads both of them back out of this file. A failed write is one line in
 STATE; it never blocks the reconcile chain and never turns the run STUCK.
 

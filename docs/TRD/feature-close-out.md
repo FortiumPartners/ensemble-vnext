@@ -1,6 +1,6 @@
 # TRD: Feature Close-Out — durable audit report and an explicit, judged close
 
-**Version**: 2.0.2
+**Version**: 2.0.3
 **Status**: Draft
 **Created**: 2026-09-28
 **Last Updated**: 2026-09-28
@@ -16,6 +16,7 @@
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-28 | Initial TRD creation | @technical-architect |
 | 2.0.0 | 2026-09-28 | adversarial review applied; trimmed to ~6 tasks. Then three further owner decisions the same day took it to 4: both planned libraries (`audit-report.js`, `feature-close.js`) dropped; whether a feature is done became a judgement against its TRD's objectives instead of a status count; owner evidence added as an input separate from the `--accept` override. Also: `/close-feature` runs only on the default branch and does not commit; `/implement-trd` and `/amend` refuse a closed feature; a never-implemented feature closes only as `abandoned`; the merge-message search replaced by checkpoint ancestry; `/implement-trd` Step 9 left unchanged; the release task removed (the orchestrator releases); OQ-3, OQ-5 resolved and OQ-6 removed; v1.0.0's grounding findings resolved or made moot | @technical-architect |
+| 2.0.3 | 2026-09-28 | Build corrections: the audit report's first line is its VERDICT line (investigation O1 says the report begins with it; 2.0.2 put a title first); `/audit-build` commits its report on a feature branch so it reaches the default branch with the PR (end-of-run review) | main agent |
 | 2.0.2 | 2026-09-28 | Audit advisory: `abandoned` is checked before `acceptedReason` in the banner and readout; B001 tests it | main agent |
 | 2.0.1 | 2026-09-28 | `/audit-trd`: §3.1's Purpose line now lists O6 and D12, matching CLOSE-B002's Serves column; Could Not Verify states why each row was out of this audit's scope | @technical-architect |
 
@@ -191,9 +192,11 @@ never written, by the close.
 
 **File** — `.trd-state/<feature>/audit-build-report.md`, where `<feature>` is the TRD's basename
 without its extension. Header lines exactly as below; `/close-feature` reads the
-`- Audited commit:` line and the first line beginning `VERDICT:`.
+`- Audited commit:` line and the first line beginning `VERDICT:`. The report's first line is that VERDICT line (investigation O1: the report "begins with the VERDICT line"); the readout below repeats it.
 
 ```markdown
+<the readout's VERDICT: line, copied — the report's first line>
+
 # Audit report: <feature>
 
 - Date: <YYYY-MM-DD>
