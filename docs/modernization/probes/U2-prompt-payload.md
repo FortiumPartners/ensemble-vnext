@@ -138,7 +138,13 @@ shown back to the *evaluated* session doesn't re-embed it.
 
 ### Bundle-extracted system-prompt template
 
-**[BUNDLE]** — the generic prompt/agent hook evaluator's system prompt is built as:
+> **Correction, 2026-09-28.** The template below is the **agent**-hook path's (`type: "agent"`),
+> not the prompt-hook path's. For `Stop`/`SubagentStop` prompt hooks the platform wraps the
+> prompt as `Condition: <prompt>` under a stop-condition system prompt that returns
+> `insufficient evidence in transcript` when evidence is unclear. See
+> `.claude/rules/async-discipline.md`, "How the platform actually asks the question".
+
+**[BUNDLE]** — the **agent**-hook evaluator's system prompt is built as:
 
 ```
 "You are evaluating a ${r} hook in Claude Code. Your task is to evaluate the condition

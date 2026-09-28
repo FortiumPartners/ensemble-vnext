@@ -172,6 +172,14 @@ assembled from blocks), and run on `claude-sonnet-5` rather than the default sma
 Consecutive blocks are capped at 1 by `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` in settings `env`.
 The judge's own loop guard was measured being ignored. Evidence: `FINDINGS.md`.
 
+**As of 2026-09-28 the prompt is framed as a stopping condition**, because that is how the
+platform asks the question: every prompt-type Stop hook arrives as `Condition: <prompt>` under
+a system prompt that blocks on "insufficient evidence". The 4.7.0 prompt was measured against
+the wrong wrapper; in one measured session it blocked 11% of stops (14 of 125), every one of
+them this mismatch. Details and the
+replay numbers: `.claude/rules/async-discipline.md`, "How the platform actually asks the
+question". `replay/score.py` now uses the real wrapper by default.
+
 To change the guard: edit the source file, run `build-judge-prompts.js` then
 `generate-hooks-artifacts.sh`, re-score with `test/discipline-corpus/replay/`, refresh.
 See the two rules files above for the full mechanism — not duplicated here.
@@ -644,10 +652,9 @@ backlog — read it rather than this section for what is open. Items 1–13 are 
   finish here are now predicted and skipped with a report (`parseDeferred`), but the `[LIVE]`
   flag itself still has no consumer in `implement-phase.js`.
 - Item 15.4: a readout glyph can read "verified" where the verdict was `unbuilt`.
-- **The two audit stages are the next real speed reduction** — `/audit-prd` at 9.1 min and
-  `/audit-trd` at 14.5 min, both untouched, both already using the fan-out pattern. Two
-  specific findings sit ready: `/audit-trd` never reads the buildability findings
-  `/create-trd` writes to disk for it, and both audits sequence verifiers behind an index
-  several of them do not use.
+- **The two audit speed-ups landed in 4.5.0 (91dc0fe) but were never timed.** `/audit-trd`
+  now reuses the buildability findings `/create-trd` writes, and in both audits the verifiers
+  that do not need the index run alongside it. Baselines: `/audit-prd` 9.1 min, `/audit-trd`
+  14.5 min.
 - **Nothing has been timed since 4.4.0's changes.** The 1,384-second `/create-trd` median
   (57 runs) is the baseline; no run has been taken against it.

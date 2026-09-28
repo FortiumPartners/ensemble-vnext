@@ -27,7 +27,9 @@ ALLOW_SHAPE = re.compile(
     r"\b(do(es)? not (claim|violate|offer|defer|assert)|is not a violation|no (violation|"
     r"deferral claim|async claim)|guard applies only|not running a workflow command|allowing)\b",
     re.I)
-BANNER = 'STOP HOOK FIRED'
+# The Stop judge's opening, old (4.7.x) and current (framed as a stopping condition, 2026-09-28).
+# Repeat blocks echo only the prompt's first 500 chars, so the opening is what identifies it.
+BANNERS = ('STOP HOOK FIRED', 'Ensemble stop discipline')
 
 
 def text_of(content):
@@ -83,7 +85,7 @@ def render(r):
 def classify(entries):
     """hookErrors entries from the discipline judge -> ('block'|'allow-leak', reason)."""
     for e in entries:
-        if BANNER not in e:
+        if not any(b in e for b in BANNERS):
             continue
         reason = e.split(']: ', 1)[1].strip() if ']: ' in e else ''
         return ('allow-leak' if ALLOW_SHAPE.search(reason) else 'block'), reason
@@ -91,12 +93,12 @@ def classify(entries):
 
 
 def judge_ran(summary):
-    return any(BANNER in str(h.get('command', '')) for h in summary.get('hookInfos') or [])
+    return any(any(b in str(h.get('command', '')) for b in BANNERS) for h in summary.get('hookInfos') or [])
 
 
 def judge_ms(summary):
     for h in summary.get('hookInfos') or []:
-        if BANNER in str(h.get('command', '')):
+        if any(b in str(h.get('command', '')) for b in BANNERS):
             return h.get('durationMs')
     return None
 

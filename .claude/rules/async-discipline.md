@@ -141,6 +141,32 @@ value stands. A judge call that errors or
 times out resolves to **allow** — the hook never wedges a session on evaluator
 unavailability.
 
+### How the platform actually asks the question (found 2026-09-28)
+
+**A prompt-type `Stop` hook is not run as free-standing instructions.** Claude Code sends it
+as `Condition: <the prompt>`, after the transcript, under *"has the following stopping
+condition been satisfied? Answer based on transcript evidence only."* The system prompt tells
+the model to return `{"ok": false, "reason": "insufficient evidence in transcript"}` whenever
+the evidence is unclear, and on long sessions a truncation note repeats that. So "unclear"
+means **block**, the opposite of the rubric's "if unsure, allow". This is the same evaluator
+`/goal` uses; it has been in place since at least 2.1.195. The official docs describe none of
+it: it was read from the 2.1.283 binary.
+
+The 4.7.0 prompt was written and replayed against a different wrapper, the one the agent-hook
+path uses, which `docs/modernization/probes/U2-prompt-payload.md` had mistaken for this one.
+Live, the judge often rejected the prompt as "not a stopping condition" and the platform
+scored that as a block: 14 of 14 of this session's discipline blocks, 11% of all stops.
+
+**The fix changed the framing, not the rubric.** The prompt opens with its scope, states the
+condition as "the agent may stop unless case A or case B applies", says outright that finding
+no violation is the evidence, and answers in the evaluator's JSON shape (no `submit` call).
+Replayed on 62 real stops through the real wrapper
+(`test/discipline-corpus/replay/score.py`, which now defaults to it), 2 runs each: blocks fell
+from 29 of 124 to 8, "insufficient evidence" blocks from 22 to 0, and blocks on stops that
+were allowed live from 7 of 60 to 0. Six of the eight are the rubric's own verdicts on three
+stops. **Known residual:** 2 of 124 judged the owner's `/goal` condition instead, only in a
+session running `/goal`, each bounded by the block cap to one turn.
+
 ### The prompt and the model, as of 2026-09-24
 
 The judge prompt is **hand-authored**: `packages/core/hooks/prompts/discipline-stop.source.md`,

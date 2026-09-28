@@ -100,6 +100,30 @@ declare -A SCENARIO_TIMEOUT=(
     # 1800s per run; this cap covers both runs plus two scaffolds. Raise all
     # three together (VART-T001).
     [verification-artifacts]=3900
+    # verify-fix runs TWO sequential live `/verify-build` invocations in the
+    # SAME throwaway project (unlike the other two-run scenarios above, which
+    # each use a separate one -- here the whole point is state carrying over:
+    # the ledger row, the TRD amendment, implement.json's fix.rounds). Run 1
+    # pays for the foreground derive plus one verification loop
+    # (TIMEOUT_RUN1=1500, sized like verify-functional's TIMEOUT_ON). Run 2
+    # (--fix) pays for MORE: steps 1-3c again, a no-op round 0, then round 1's
+    # record + a chained `/implement-trd --reconcile --chained` build of the
+    # missing `farewell()` + a re-verify (TIMEOUT_RUN2=1800 -- effectively one
+    # verify-functional pass plus one implement-one-task pass). This cap must
+    # exceed TIMEOUT_RUN1 + TIMEOUT_RUN2 (3300) plus one scaffold; raise all
+    # three together, never lower the model instead (VFIX-T001).
+    [verify-fix]=3600
+    # verification-md-setup runs ONE live `/verify-build` invocation (no
+    # --fix, no --resume) in a single throwaway project. It pays for the
+    # same two stages as verify-fix's run 1 -- the foreground success-
+    # definition derive plus one verification loop iteration -- and no more:
+    # the fixture is built so no gap ever opens (3 of 4 criteria settle
+    # `not_verifiable` at the environment preflight before any Exercise
+    # attempt, the 4th settles `met`), so there is no Debug stage and no
+    # second iteration. TIMEOUT_RUN in the scenario itself is 1500s, sized
+    # like verify-fix's TIMEOUT_RUN1; this cap covers that plus one scaffold
+    # and fixture-write overhead. Raise both together (VSET-T001).
+    [verification-md-setup]=1800
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
@@ -146,7 +170,7 @@ ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts)
+LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()

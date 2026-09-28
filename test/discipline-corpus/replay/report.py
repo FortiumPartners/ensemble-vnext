@@ -19,7 +19,8 @@ def main():
     res = [json.loads(l) for l in open(sys.argv[2])]
     by = collections.defaultdict(list)
     for r in res:
-        by[r['tag']].append(r)
+        # Rows from different evaluator wrappers must never be pooled (score.py --wrapper).
+        by[f"{r['tag']} [{r.get('wrapper', 'legacy')}]"].append(r)
     live_fb = sum(1 for g in gold.values() if g['live_verdict'] == 'block' and g['gold'] == 'clean')
     live_miss = sum(1 for g in gold.values() if g['live_verdict'] != 'block' and g['gold'] == 'violation')
     n_clean = sum(g['gold'] == 'clean' for g in gold.values())
