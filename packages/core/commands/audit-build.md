@@ -172,8 +172,9 @@ Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or
 `--report-only` run and the printed readout announces a handoff that was suppressed — the
 false-completion signal the destination wording exists to remove.
 
-The workflow returns a readout. Print it. Findings live in script variables and never enter
-this context, so a large finding set costs nothing here.
+The workflow returns a readout. Print it — **as written into the report (next section), not
+reworded.** Findings live in script variables and never enter this context, so a large finding
+set costs nothing here.
 
 **If the workflow is unavailable**, fall back to running the verifiers as parallel subagents
 from this context and reconciling their findings yourself — the checks above are the
@@ -203,7 +204,17 @@ extension), overwriting whatever report was there from a previous run:
 The workflow's return already carries `findings`, `applied`, `rejected`, `still_unverified`
 and `verifiers_reporting` — this header adds only the date and `git rev-parse --short HEAD`.
 The report opens with the VERDICT line so a reader sees the verdict before anything else (investigation O1); the readout below repeats it. Keep the `- Audited commit:` line and the `VERDICT:` line exactly as shown:
-`/close-feature` reads both of them back out of this file. A failed write is one line in
+`/close-feature` reads both of them back out of this file.
+
+**One text, written once, printed as written.** Settle the readout's final wording — the
+`AUDIT-BUILD:` header, the `VERDICT:` line and every finding line — BEFORE writing this file,
+then print that same text in the terminal, copied character for character. Do not rephrase,
+re-punctuate, shorten or "plain-English" it on the way to the terminal: a printed VERDICT that
+differs from the report's first line by so much as a dash is two verdicts, and the owner reads
+one while `/close-feature` reads the other. If the wording can be clearer, make it clearer in
+the text you write here; the terminal then shows the improved text too. The only thing the
+printed readout adds is STATE lines about this report itself (where it was written, whether
+it was committed, the link) — those come after the write and do not exist in the file. A failed write is one line in
 STATE; it never blocks the reconcile chain and never turns the run STUCK.
 
 **Commit it, so it travels with the branch.** `/close-feature` runs later, on the default
@@ -253,6 +264,10 @@ VERDICT: safe to proceed — every requirement is implemented and tested
 VERDICT: proceed with these caveats: <named>
 VERDICT: do not proceed until <named>
 ```
+
+The printed VERDICT line is the report's first line, character for character (see "One text,
+written once, printed as written", above) — the `safe to proceed` form is printed exactly as
+shown, em dash included, never re-worded into a sentence of your own.
 
 Every line names the ACTION, not the classification — and, for a gap, WHERE IT GOES NEXT.
 This command applies almost none of these findings itself (see "But it DOES close the loop",
