@@ -320,6 +320,47 @@ Bash tool's working directory, while `router.py` writes relative to the hook's `
 agree as long as the command's Bash calls run from the project root. How to wire up either
 notification: `.claude/rules/command-status.md`, "Notification on completion".
 
+### 7.1 `notify.sh`'s full env-var surface
+
+Input, read by the hook:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NOTIFY_ON_STOP` | (unset) | Command to execute when the session stops. If unset, empty, or whitespace-only, the hook exits silently. |
+| `NOTIFY_HOOK_DEBUG` | `0` | Set to `1` to enable debug logging to stderr. Sensitive values are masked. |
+| `NOTIFY_HOOK_DISABLE` | `0` | Set to `1` to disable the hook entirely. |
+
+Output, exported for `$NOTIFY_ON_STOP` to read:
+
+| Variable | Description |
+|----------|-------------|
+| `NOTIFY_SESSION_ID` | Session ID from the hook input, or `"unknown"` if not provided. |
+| `NOTIFY_CWD` | Working directory from the hook input, or `"unknown"` if not provided. |
+| `NOTIFY_TRANSCRIPT_PATH` | Transcript file path from the hook input, or `"unknown"` if not provided. |
+
+Usage patterns:
+
+```bash
+# tmux notification (notify an orchestrating pane)
+export NOTIFY_ON_STOP="tmux send-keys -t orchestrator 'echo Session complete' Enter"
+
+# Webhook (trigger CI/CD)
+export NOTIFY_ON_STOP="curl -X POST https://webhook.example.com/session-complete"
+
+# File-based signal (shell script orchestration)
+export NOTIFY_ON_STOP="touch /tmp/session-complete-signal"
+
+# Message queue (AWS SQS)
+export NOTIFY_ON_STOP="aws sqs send-message --queue-url https://sqs... --message-body 'done'"
+
+# Session context in a log line
+export NOTIFY_ON_STOP='echo "Session $NOTIFY_SESSION_ID completed in $NOTIFY_CWD" >> /tmp/sessions.log'
+```
+
+Gate on `COMMAND COMPLETE` if per-stop firing (every dispatch and wake-up turn, not just the
+command's end) is too noisy for your use — `.claude/rules/command-status.md`'s Path C covers
+that recipe.
+
 ---
 
 ## 8. The dispatch ledger (SubagentStart and SubagentStop)

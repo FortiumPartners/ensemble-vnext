@@ -279,6 +279,13 @@ regardless of the project's `verification_level` setting. Use `[LIVE]` for:
 
 Tasks WITHOUT `[LIVE]` use the project's default `verification_level` from constitution.md.
 
+**An acceptance criterion that needs a live, model-spending run of its own — anything that
+starts `claude` sessions, e.g. `test/smoke/run-smoke.sh` or `claude -p` — never belongs to a
+build task's acceptance criteria.** It is planned as its own `[LIVE]` verification task instead.
+`/implement-trd` already sets `[LIVE]` tasks aside by default (`--include-deferred` to
+dispatch them), which is exactly the point: a build task's implementer must be able to satisfy
+its own criteria without spending model allocation on a nested session.
+
 ### 4.1.2 Skill Hints
 
 Each task SHOULD include a `Skills` column listing ensemble skills the implementer

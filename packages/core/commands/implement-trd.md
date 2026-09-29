@@ -595,6 +595,10 @@ than filled with a tool that isn't there):
     red run. Only report "failed" if the battery is still red after you've genuinely
     tried to fix it. This is the entire DEBUG step for this task: no separate debugging
     agent is spawned for it (D8).
+
+    NEVER run a live, model-spending check — anything that starts `claude` sessions, e.g.
+    `test/smoke/run-smoke.sh` or `claude -p`. If a check would need one, report it "not run";
+    do not start it, wait on it, or poll it.
   </instruction>
 </check_battery>
 ```

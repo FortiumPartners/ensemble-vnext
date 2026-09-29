@@ -248,7 +248,7 @@ teardown_file() {
     local root="${REPO_ROOT}/packages/full"
     local missing=()
     for p in commands/core hooks hooks/lib hooks/prompts lib contracts \
-             workflows templates skills-lib agents; do
+             workflows templates skills-lib agents-lib; do
         [ -e "${root}/${p}" ] || missing+=("$p")
     done
     if [ "${#missing[@]}" -gt 0 ]; then

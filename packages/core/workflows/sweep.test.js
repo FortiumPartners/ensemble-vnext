@@ -200,4 +200,14 @@ describe('sweep', () => {
     await expect(runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: {} }))
       .rejects.toThrow(/source is required/);
   });
+
+  it('gives every agent() call an explicit agentType or model — none may inherit the session model', async () => {
+    // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
+    // (packages/core/workflows/audit-trd.test.js:70-75) to this file's two call sites:
+    // triage and fix:<id>.
+    const { agent } = await sweep({ triage: { fix: ISSUES, deferred: [] } });
+    expect(agent.calls.length).toBeGreaterThan(0);
+    const unpinned = agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+    expect(unpinned).toEqual([]);
+  });
 });

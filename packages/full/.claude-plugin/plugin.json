@@ -21,20 +21,5 @@
   ],
   "commands": [
     "./commands/plugin-only"
-  ],
-  "agents": [
-    "./agents/product-manager.md",
-    "./agents/technical-architect.md",
-    "./agents/spec-planner.md",
-    "./agents/frontend-implementer.md",
-    "./agents/backend-implementer.md",
-    "./agents/mobile-implementer.md",
-    "./agents/verify-app.md",
-    "./agents/code-simplifier.md",
-    "./agents/code-reviewer.md",
-    "./agents/app-debugger.md",
-    "./agents/devops-engineer.md",
-    "./agents/cicd-specialist.md",
-    "./agents/agent-implementer.md"
   ]
 }

@@ -211,17 +211,17 @@ PAIRS = [('packages/core/hooks', '.claude/hooks'),
          ('packages/core/workflows', '.claude/workflows'),
          ('packages/core/contracts', '.claude/contracts'),
          ('packages/core/commands', '.claude/commands'),
-         ('packages/full/agents', '.claude/agents')]
+         ('packages/full/agents-lib', '.claude/agents')]
 # Tests and their harness are deliberately NOT shipped into a project -- a tree
 # with no runner wired up does not need them (copy_workflows/copy_libs skip them).
 SKIP = lambda f: f.endswith('.test.js') or f == 'test-harness.js'
 # The agents pair carries one legitimate, deterministic exception: scaffold-project.sh
 # --refresh injects a per-project "Project Skills" block the plugin source cannot
-# contain -- it names the CONSUMING project's stack, which packages/full/agents/*.md
+# contain -- it names the CONSUMING project's stack, which packages/full/agents-lib/*.md
 # has no way to know. Strip exactly that generated region (frontmatter `skills:` list
 # + the marked body block) before comparing, so real drift elsewhere in these files
 # still fails the test.
-GENERATED_PAIRS = {('packages/full/agents', '.claude/agents')}
+GENERATED_PAIRS = {('packages/full/agents-lib', '.claude/agents')}
 def strip_generated(text):
     text = re.sub(r'\n\n<!-- ENSEMBLE:SKILLS:BEGIN.*?ENSEMBLE:SKILLS:END -->', '', text, flags=re.S)
     text = re.sub(r'\nskills:\n(?:  - .*\n)+', '\n', text)

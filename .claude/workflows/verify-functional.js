@@ -903,6 +903,9 @@ function dispatchRender(skill, iteration, judgeResult) {
     const renderResult = await agent(buildRenderPrompt(skill, ids, iteration, judgeResult), {
       label: 'render',
       phase: 'Render',
+      // Sonnet: filling a fixed page template from already-judged results is mechanical, not a
+      // decision -- no reason to pay Opus for it.
+      model: 'sonnet',
       schema: RENDER_SCHEMA,
     })
     if (!renderResult) {
@@ -929,7 +932,9 @@ if (N === 0) {
   const judgeResult = required(
     await agent(
       buildJudgePrompt({ iteration: 0, openCriteria: [], settledEntries: [], claims: [], previousGaps: null, forcedUnbuilt: null }),
-      { label: 'judge', phase: 'Judge', schema: JUDGE_SCHEMA }
+      // Opus: this call rules met/not-met on evidence, which decides the run's outcome --
+      // cheap insurance against a wrong verdict.
+      { label: 'judge', phase: 'Judge', model: 'opus', schema: JUDGE_SCHEMA }
     ),
     'Judge'
   )
@@ -1167,7 +1172,9 @@ for (; iteration <= CAP; iteration++) {
   const judgeResult = required(
     await agent(
       buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, previousGaps, forcedUnbuilt, exerciseNotesUpdated }),
-      { label: 'judge', phase: 'Judge', schema: JUDGE_SCHEMA }
+      // Opus: this call rules met/not-met on evidence, which decides the run's outcome --
+      // cheap insurance against a wrong verdict.
+      { label: 'judge', phase: 'Judge', model: 'opus', schema: JUDGE_SCHEMA }
     ),
     'Judge'
   )

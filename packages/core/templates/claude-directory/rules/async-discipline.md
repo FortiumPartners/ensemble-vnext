@@ -1,13 +1,9 @@
 # Async-discipline rule
 
-**Status:** active. Enforced as case A of the one model-judged `Stop` hook,
-`discipline-stop` (`hookType: "prompt"`, prompt source
-`packages/core/hooks/prompts/discipline-stop.source.md`, built to `discipline-stop.prompt.md`),
-on every `Stop` event — the platform's own judge evaluates the turn's final message against
-this rule directly, rather than a regex matcher inside `async-discipline.js`. That file was
-deleted in 4.1.11, and the manifest no longer names it: the single Stop entry's `file` value is
-`discipline-stop.js`, an entry IDENTIFIER rather than a path — nothing resolves it to disk. See
-`docs/TRD/discipline-judgment.md` for the conversion.
+**Status:** active. Enforced as case A of the one model-judged `Stop` hook, `discipline-stop`
+(`hookType: "prompt"`, prompt source
+`packages/core/hooks/prompts/discipline-stop.source.md`) — the platform's own judge evaluates
+the turn's final message against this rule directly, on every `Stop` event.
 
 ## The rule
 
@@ -15,554 +11,120 @@ An agent must **never claim async work** — "I'll let you know when done", "run
 background", "I'll check back", "I'll report back", or any equivalent — without ALSO using
 one of these primitives **in the same turn**:
 
-1. **`Agent({run_in_background: true, …})`** — spawn a subagent asynchronously; the
-   harness re-invokes the parent on completion.
+1. **`Agent({run_in_background: true, …})`** — spawn a subagent asynchronously; the harness
+   re-invokes the parent on completion.
 2. **`ScheduleWakeup({delaySeconds: <ETA>, …})`** — self-rendezvous; the harness re-invokes
-   the current session after the delay with the prompt you set.
-3. **`Monitor`** — hold the current turn open streaming a background process's output
-   line-by-line until it exits (no idle gap).
+   the session after the delay with the prompt you set.
+3. **`Monitor`** — hold the turn open streaming a background process's output until it exits
+   (no idle gap).
 4. **`/goal <condition>`** — keep the session working turn-after-turn until a machine-
-   checkable condition is met (the verify-goal pattern is one example).
-
-   **`/goal` is the one primitive here with no bound of its own — do not reach for it first.**
-   The other three self-limit: a background agent finishes, a wakeup fires once, `Monitor`
-   ends when its process exits. `/goal` re-invokes until its condition reads true, and if the
-   condition is one the session cannot actually reach, it does not stop. Measured 2026-08-26
-   in `-Users-james-dev-lightning-lane-prompt-fixes`: **114 re-injections across 15 chains,
-   the longest 17 consecutive**, 10 chains past the platform's 8-block cap, with 27
-   near-verbatim restatements of one verdict paragraph. For contrast, the discipline hooks in
-   the same session bounded at **2** — the `stop_hook_active` guard working exactly as
-   designed. Prefer `ScheduleWakeup` when a bounded re-entry will do, and reserve `/goal` for
-   conditions that are genuinely machine-checkable AND reachable.
+   checkable condition is met. **This is the one primitive with no bound of its own — do not
+   reach for it first.** The other three self-limit (an agent finishes, a wakeup fires once,
+   `Monitor` ends when its process exits); `/goal` re-invokes until its condition reads true
+   and does not stop if that condition is unreachable. Prefer `ScheduleWakeup` for a bounded
+   re-entry; reserve `/goal` for conditions that are genuinely machine-checkable AND
+   reachable.
 
 If none of those apply, **do the work synchronously in the current turn and report results
 inline.** Do NOT claim async.
 
-## Why this exists
-
-There is a recurring failure mode in which an agent says *"I dispatched X, I'll let you know
-when done"* and then ends its turn — but the dispatch was a foreground `Bash` invocation or
-some other call that produces no notification path back. The work completes, but the agent
-sits idle until the user nudges it, at which point it checks and instantly sees the work was
-done long ago. **The root cause is a hallucinated notification:** the agent thinks the
-system will tell it, but nothing will.
-
-This rule + the `Stop`-hook guard prevent that pattern structurally — the `Stop` hook is
-evaluated by a model judge that reads the turn's final message for a deferral claim and
-checks it against the `Stop` payload's `background_tasks` / `session_crons` fields. A claim
-with no active async machinery is blocked with a reason instructing the agent to either
-dispatch properly or complete the work synchronously.
+**Why this exists:** an agent says *"I dispatched X, I'll let you know when done"* and ends
+its turn, but the dispatch produces no notification path back — the work completes, the agent
+sits idle until nudged. **The root cause is a hallucinated notification.**
 
 ## What counts as "async machinery in flight"
 
-- `hookData.background_tasks` is non-empty — at least one harness-tracked background task
-  is running (set by `Agent({run_in_background: true})` or equivalent).
+- `hookData.background_tasks` non-empty — a harness-tracked background task is running (set
+  by `Agent({run_in_background: true})` or equivalent).
 
-  **Exception, measured 2026-08-16: `Bash({run_in_background: true})` does NOT appear here.**
-  A lead session holding exactly one background shell task saw `background_tasks` list 49
-  unrelated teammate tasks and not the shell task. The primitive is real — the harness
-  re-invokes the session when the process exits — but it is invisible to the judge, so an
-  unhelpful `background_tasks` is not evidence against a claim that names one. This is a
-  fifth primitive alongside the four listed above, and the only one with a genuine
-  notification path and no payload trace. The prompt now instructs the judge to allow when a
-  turn points at a specific, checkable background process (task id, PID, log file) and to
-  keep judging any *other* deferral in the same message on its own merits.
-
-  Found the way these things should be found: the guard blocked a turn that was waiting on a
-  background shell task, and its block message reported what `background_tasks` actually
-  contained. The instrument answered the question by firing.
-- `hookData.session_crons` is non-empty — `ScheduleWakeup` / `/schedule` registered a future
+  **Exception: `Bash({run_in_background: true})` does NOT appear here.** The primitive is
+  real, but invisible to the judge — an unhelpful `background_tasks` is not evidence against
+  a claim naming one. It is a fifth primitive, the only one with a genuine notification path
+  and no payload trace; the judge allows when a turn points at a specific, checkable process
+  (task id, PID, log file).
+- `hookData.session_crons` non-empty — `ScheduleWakeup` / `/schedule` registered a future
   wakeup or recurring task.
-- `Monitor` is in use — the Stop event wouldn't fire (Monitor holds the turn open).
-- `/goal` is active — the session keeps looping; Stop wouldn't fire to completion.
+- `Monitor` in use, or `/goal` active — the Stop event wouldn't fire at all.
 
-The first two are the explicit signals the `Stop` hook can read. The last two prevent Stop
-from firing at all when active.
+The first two are explicit signals the `Stop` hook can read; the last two prevent Stop from
+firing while active.
 
-## Teammate spawns (`Agent({subagent_type, name, ...})`) — auto-delivery satisfies the rule
+## Teammate spawns — auto-delivery satisfies the rule
 
-As of Claude Code v2.1.178, `TeamCreate`/`TeamDelete` no longer exist and `team_name` on
-the `Agent` tool is accepted but ignored — a team forms automatically the moment the first
-teammate spawns, with no setup step and no cleanup step. Teammates communicate with the
-lead via `SendMessage`.
-
-**Auto-delivery works and satisfies this discipline on its own.** A live experiment
-confirmed it: a spawned teammate's `SendMessage` calls were auto-delivered and re-invoked
-the lead with no `ScheduleWakeup` involved. This matches the current team docs, which
-promise that teammate deliveries auto-arrive as new lead turns. A prior version of this
-rule claimed auto-re-invocation "has been observed to silently stall" and mandated a
-paired `ScheduleWakeup` on every team spawn — that claim was not reproduced and is now
-known to be stale; it has been removed.
-
-**Recommended, not mandatory:** pair a team spawn with a fallback in the same turn —
-- `ScheduleWakeup({delaySeconds, prompt})` — cheap insurance; the wake re-enters the
-  orchestrating command and is a harmless no-op if auto-delivery already fired (default
-  cadence for team commands: 1200s / 20 min).
-- `/goal <condition>` — keeps the session looping until the team's deliverables are
-  observable.
-
-Treat this as best-practice belt-and-suspenders (the evidence base is one live experiment
-plus the current docs, not exhaustive), not as a requirement the async-discipline hook
-enforces.
-
-**As of 2026-08-22 NO command in this framework spawns teammates.** `/harden-trd-team` and
-`/verify-trd-team` went in 4.1.16 (ITR-B012 — their adversarial pass and E2E gate moved into
-the `/implement-trd` loop), and `/fix-issue`, the last one, was replaced by `/fix` (renamed twice since; now `/plan`, as of 4.6.0) when item 12
-landed. `/implement-trd` states explicitly that it uses no `Agent({name, team_name})`.
-
-The guidance above therefore governs any teammate an AGENT spawns, not a command — the
-pairing is still recommended belt-and-braces wherever that happens, and is not something this
-hook enforces.
-
-## How the guard works (at a glance)
-
-```
-Stop event fires
-   ↓
-stop_hook_active == true?         → ALLOW stop unconditionally (loop guard — see below)
-   ↓ (false)
-judge reads last_assistant_message + payload for a deferral claim
-   ↓
-no claim?                         → ALLOW stop
-claim + background_tasks          → ALLOW stop (real async in flight)
-claim + session_crons             → ALLOW stop (scheduled work in flight)
-claim + nothing active            → BLOCK stop with a reason explaining the four primitives
-```
-
-`stop_hook_active` is the loop guard: `false` the first time a turn reaches this hook, `true`
-on any re-entry that followed a block from THIS hook. The judge is instructed to allow
-unconditionally on `stop_hook_active: true` — **but that is only an instruction, and it is
-not reliably followed**: measured 2026-09-23, the judge blocked a `stop_hook_active: true`
-case 2 of 3 times offline, and one live session took five consecutive blocks against a
-correct ask. So the bound this rule relies on is the platform's:
-`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` ships as `"1"` in `.claude/settings.json` `env` (platform
-default 8), which ends the turn on the second consecutive block — one corrective turn,
-whatever the judge decides. `--refresh` backfills it only when absent, so an owner's own
-value stands. A judge call that errors or
-times out resolves to **allow** — the hook never wedges a session on evaluator
-unavailability.
-
-### How the platform actually asks the question (found 2026-09-28)
-
-**A prompt-type `Stop` hook is not run as free-standing instructions.** Claude Code sends it
-as `Condition: <the prompt>`, after the transcript, under *"has the following stopping
-condition been satisfied? Answer based on transcript evidence only."* The system prompt tells
-the model to return `{"ok": false, "reason": "insufficient evidence in transcript"}` whenever
-the evidence is unclear, and on long sessions a truncation note repeats that. So "unclear"
-means **block**, the opposite of the rubric's "if unsure, allow". This is the same evaluator
-`/goal` uses; it has been in place since at least 2.1.195. The official docs describe none of
-it: it was read from the 2.1.283 binary.
-
-The 4.7.0 prompt was written and replayed against a different wrapper, the one the agent-hook
-path uses, which `docs/modernization/probes/U2-prompt-payload.md` had mistaken for this one.
-Live, the judge often rejected the prompt as "not a stopping condition" and the platform
-scored that as a block: 14 of 14 of this session's discipline blocks, 11% of all stops.
-
-**The fix changed the framing, not the rubric.** The prompt opens with its scope, states the
-condition as "the agent may stop unless case A or case B applies", says outright that finding
-no violation is the evidence, and answers in the evaluator's JSON shape (no `submit` call).
-Replayed on 62 real stops through the real wrapper
-(`test/discipline-corpus/replay/score.py`, which now defaults to it), 2 runs each: blocks fell
-from 29 of 124 to 8, "insufficient evidence" blocks from 22 to 0, and blocks on stops that
-were allowed live from 7 of 60 to 0. Six of the eight are the rubric's own verdicts on three
-stops. **Known residual:** 2 of 124 judged the owner's `/goal` condition instead, only in a
-session running `/goal`, each bounded by the block cap to one turn.
-
-### The prompt and the model, as of 2026-09-24
-
-The judge prompt is **hand-authored**: `packages/core/hooks/prompts/discipline-stop.source.md`,
-about 4 KB. `build-judge-prompts.js` only adds a scope line at the top and the closing
-`END STOP HOOK PROMPT` marker with the JSON response contract. It replaced a
-14.9 KB prompt assembled from blocks, which had grown one correction at a time until the judge
-stopped following it. The hook runs on **`claude-sonnet-5`** (manifest `model` field). Before,
-it ran on the platform's default small model.
-
-Measured on 153 labelled real stops, 3 runs each (`FINDINGS.md`; tools in
-`test/discipline-corpus/replay/`): the old prompt on the small model wrongly blocked about 9% of
-correct turns in replay and about 95% of its live blocks were wrong. The new prompt on Sonnet
-wrongly blocked 0 of 432 correct-turn judgements, caught 26 of 27 violation runs (9 of 9
-violations by majority), and never re-blocked a `stop_hook_active` turn. Live latency on
-Sonnet matched the small model (1.6 s median, short sessions). The nine violations were also
-what it was tuned against; on 100 unseen stops it added no blocks beyond the three an earlier
-version made, all of which read as real.
-
-**To change it:** edit the source file, run `build-judge-prompts.js` then
-`generate-hooks-artifacts.sh`, and re-score with `test/discipline-corpus/replay/score.py` and
-`report.py` before shipping. Do not append a correction per incident: the regrowth guard in
-`build-judge-prompts.test.js` fails the build past 6,000 characters on purpose.
-
-### A block is displayed as `Stop hook error:` — that is upstream, not us
-
-When one of these guards blocks, the CLI renders it as **`Stop hook error: [<prompt>]: <reason>`**.
-It is not an error and nothing here is misconfigured. This is
-[anthropics/claude-code#62139](https://github.com/anthropics/claude-code/issues/62139) — OPEN,
-labelled `area:hooks` / `area:tui` / `enhancement` — whose own reproduction is a `type: "prompt"`
-Stop hook returning `{ok: false, reason: "test"}`, and which states that returning `ok: false` is
-the *intended success path* for review-style hooks. Same family: #34600 (exit-2 Stop hook shown as
-an error rather than feedback), #34713 (false "Hook Error" on exit 0 with valid JSON). Do not spend
-another session diagnosing it; there is nothing on this side to fix until upstream relabels.
-
-**The one shape that IS ours** is an *allow* appearing the same way. An allow has nothing to
-report, so it should be silent — it surfaces only when the judge attaches a `reason` to an
-`ok: true` verdict, and the CLI displays whatever reason is present. Since 4.10.1 an allow
-carries one fixed reason, `{"ok": true, "reason": "no case A or B"}`, because the evaluator's
-JSON shape asks for one; anything longer on an allow is the anomaly. Measure with
-`node packages/core/scripts/hook-verdict-rate.js --project <slug>`. A high BLOCK count is the
-guards working, up to a point — the tool fails the run above 8%, because past there the guards
-interrupt correct work more than they catch defects.
-
-*(A figure of `38 blocks to 5 such allows (~1.7% of 296 evaluations)` stood here. It predates
-the 2026-08-18 metric correction described below and is not comparable to what the tool reports
-now; see "Verify the fix by counting".)*
+A team forms automatically the moment the first teammate spawns; a teammate's `SendMessage`
+auto-re-invokes the lead as a new turn, satisfying the rule with no `ScheduleWakeup` needed.
+Recommended but not mandatory: pair a team spawn with `ScheduleWakeup({delaySeconds,
+prompt})` as cheap insurance, or `/goal <condition>` until deliverables are observable. No
+command in this framework spawns teammates — this governs a teammate an AGENT spawns.
 
 ## What counts as a violation (judged, not pattern-matched)
 
 The judge reads `last_assistant_message` for an ASSERTION that something will notify or
-resume the agent later — however it happens to be phrased — instead of matching a fixed
-phrase list. A regex battery used to do this job and it failed in production on a
-one-character paraphrase: a real subagent wrote “waiting **on** the monitor event for
-completion” and was not caught, because every pattern (and all 24 tests written against
-them) used “waiting **for**” — see `docs/TRD/discipline-judgment.md` §1.1. Those patterns
-were deleted in 4.1.11; a frozen copy survives only as a scoring fixture at
-`test/discipline-corpus/detectors/regex.js`, so the published baseline the judge is measured
-against stays reproducible.
+resume the agent later — however it's phrased — rather than matching a fixed phrase list.
+**Self-documentation is not a violation**: a rule file explaining the pattern, or a quoted
+example, is talk *about* a claim, not a live one — the judge tells them apart by context and
+fails open (allows) when genuinely ambiguous, because a missed violation is recoverable and a
+judge that leans toward blocking would eventually block this project's own documentation
+about the rule.
 
-### Self-documentation is not a violation
+**There is no "about to" escape at `Stop`.** A turn can make the same false claim in future
+tense — **"I'm going to dispatch those three now,"** turn ends, nothing dispatched — and it's
+judged the same as "I did X" or "I'm doing X": if the payload would show the asserted action
+and it isn't there, it's unbacked. This must not catch ordinary mid-turn narration: the judge
+only sees the FINAL message, so "I'm going to read the file" followed by actually reading it
+in the same turn is normal. It fires only when the LAST message asserts an action as
+imminent-and-unstarted and the turn ends right there, contradicted by the payload. Ambiguous
+cases fail open — allow.
 
-Rule files, TRDs, hook source comments, commit messages, and everyday conversation *about*
-this rule are saturated with the exact vocabulary a violation would use — “waiting for”,
-“I'll report back”, “come back when done”. The judge distinguishes a live claim
-(`last_assistant_message` itself asserting, in the present tense, “I am waiting” / “I will
-come back later”) from talk *about* such a claim (a rule file explaining the pattern, a
-quoted example, a corrected retelling, a report of what a *different* turn said) by reading
-context, not by stripping code spans or quoted strings the way the retired regex matcher
-did. When genuinely ambiguous, the judge is instructed to allow: a missed violation is a
-bounded, recoverable cost (an idle session someone eventually notices); a judge that leans
-toward blocking would eventually block this project's own documentation about the rule,
-which makes the project unmaintainable.
+### How the platform actually asks the question
 
-### There is no "about to" at `Stop` (added 2026-08-13, third violation shape)
-
-**Scope note:** this clause is deliberately an exception to `docs/TRD/discipline-judgment.md`
-§8, which otherwise forbids this conversion from changing what the rules *say*. It changes
-what counts as a violation, not just how enforcement works — recorded as an explicit
-override, not a silent expansion; see the TRD for the full rationale and the measurements
-that motivated it.
-
-The first two claim shapes ("I did X" / "I'm doing X" — past and present tense) were already
-covered. A turn can make the identical false claim in future tense and it was, until now, a
-blind spot: **"I'm going to dispatch those three now,"** turn ends, nothing dispatched. That
-is not a *pending* claim waiting to be fulfilled — the turn is over, so at the moment this
-hook fires, the assertion is already false, in exactly the way "I dispatched them" would be.
-Confirmed empirically: this exact phrasing was missed three times in one build session before
-the clause existed, alongside a control (identical banner prose, dispatch genuinely real) that
-the judge correctly allowed — proof the payload check itself works; the gap was that
-future-tense claims weren't being checked against it at all.
-
-Judge it the same way as the other two tenses: if the payload would show the asserted action
-(a real dispatch in `background_tasks`, a real schedule in `session_crons`) and it is not
-there, "I'm about to X" is unbacked exactly like "I did X" or "I'm doing X" would be.
-
-**This must not catch ordinary mid-turn narration.** The judge only ever sees the turn's
-FINAL message. "I'm going to read the file" followed, within that same turn, by actually
-reading it and reporting the result is completely normal — that intermediate sentence isn't
-even what gets evaluated. This clause fires only when the LAST message itself asserts an
-action as imminent-and-unstarted and the turn ends right there, contradicted by the payload.
-Ambiguous cases (is this stage-setting for something the message goes on to do, or a bare
-assertion the turn stops on?) fail open — allow.
-
-## "Stop hook error: <pages of prompt>" — a real defect, fixed 2026-08-16
-
-**If you see the CLI print `Stop hook error:` followed by pages of prompt text and nothing
-useful, that is this bug.** It is not intended behaviour and it is not a guard failing to run.
-
-### What it actually is
-
-The judge sometimes answered in PROSE instead of calling the `submit` tool. With no structured
-verdict, the harness recorded the loose output as a `hookErrors` entry — formatted
-`[<the entire 13-17 KB prompt>]: <the judge's reasoning>` — and the CLI renders that as an
-error, leading with the prompt.
-
-Measured over one session: **31 of 251 evaluations (~12%)**, and — decisively —
-**it happens on ALLOW verdicts as well as blocks.** Two of the most recent were
-*"Your final message does not claim to be doing work asynchronously"* and *"You are not running
-a workflow command… No autonomy violation exists."* Both allows. Both displayed as errors.
-
-### Why the judge did it
-
-The prompt contained **zero** instruction that the response must be the tool call alone, and it
-**ended** on the violation branch — *"Call `submit` with `ok: false` and a `reason`…"* followed
-by three sub-points on composing a good reason. The last thing the judge read was an
-instruction to write prose.
-
-### The fix
-
-`build-judge-prompts.js` appended `RESPONSE_CONTRACT_BLOCK` as the final section of all three
-prompts: *"Your entire response is a single `submit` tool call. Nothing else."* — plus the
-explicit instruction that if it finds itself composing an explanation for why something is
-fine, it should call `submit({ ok: true })` instead. *(Superseded for the Stop judge in 4.10.1:
-its prompt now ends in the evaluator's JSON contract, `{"ok": …, "reason": …}`, not a `submit`
-call — see "The prompt and the model", above.)*
-
-**Verify the fix by counting, not by looking — but do NOT compare against 31/251.**
-
-That figure and the `38 blocks to 5 allows` one above were taken under a metric the tool has
-since retired. `hook-verdict-rate.js`'s own header records the correction, dated
-**2026-08-18**, after both:
-
-> The earlier version of this file called every entry a "prose leak"... That was wrong and
-> actively misleading: it reported the fix had made things 2.5x worse (11.4% -> 28.6%) when
-> the real cause was simply that the agent got blocked more often in that window.
-
-The current classifier separates blocks from allow-leaks by a structural signal — a block
-reason INSTRUCTS, an allow reason only DESCRIBES — rather than by counting `hookErrors`
-entries. So the two numbers count different things and must not be subtracted.
-
-**Current measurement** (`-Users-james-dev-lightning-lane-prompt-fixes`, 2026-08-26):
-
-```
-957 evaluations | 100 blocks (10.4%) | 3 anomalous allows (0.3%)
-VERDICT: allow-leak rate nominal
-VERDICT: block rate 10.4% exceeds 8% -- the guards are interrupting correct work
-```
-
-**Whether the response-contract fix improved the allow-leak rate is NOT established here**, and
-this file no longer claims it. The like-for-like was attempted and is unavailable: the two older
-transcripts in that project return `0 blocks, 0 allows over 596 evaluations` because they
-predate the prompt-type hooks, and the session behind the historical `251` is named nowhere.
-What IS established is the rate today, and the tool's verdict on it: nominal.
-
-**The live signal is the other verdict.** At 10.4% the block rate is over the 8% ceiling, which
-the tool treats as a defect in its own right — guards that interrupt correct work get disabled,
-and a disabled guard protects nothing.
-
-To count by hand:
-
-```
-non-empty hookErrors on stop_hook_summary records → iterate the ARRAY (not the record)
-→ split each entry on "]: " → the tail is the judge's text
-```
-
-### Two fields that mislead, and a counting trap
-
-- **`preventedContinuation` is NOT "was this blocked?"** It was `false` on all 251 records,
-  including every one carrying a block, because the session continued afterward with corrected
-  behaviour.
-- **`hookInfos` lists only `command` hooks**, with `durationMs`. Prompt hooks never appear there.
-- **Count entries, not records.** A single Stop event where both guards fire yields ONE record
-  with a two-element array. Counting records produced a phantom "gap of 3" and sent this
-  investigation down a wrong path.
-
-### Eliminated hypotheses, so nobody re-derives them
-
-| Hypothesis | Verdict |
-|---|---|
-| Prompt text emitted into a `command` field | **No.** The generator emits `{"type":"prompt","prompt":…}`; consuming projects carry correct entries |
-| Stale or broken scaffolded config | **No.** A consuming project's prompts were within ~120 bytes of source |
-| Prompt too large / short timeout | **No.** All three carry `timeout: 60`, and the guard erroring most was the *smallest* prompt |
-| Blocks display as errors; allows do not | **No.** ALLOW verdicts appear in `hookErrors` too. This was believed and committed before the newest records refuted it |
+A prompt-type `Stop` hook is not run as free-standing instructions: Claude Code sends it as
+`Condition: <the prompt>` under a stopping-condition system prompt that returns `{"ok":
+false, "reason": "insufficient evidence in transcript"}` whenever the evidence is unclear —
+so "unclear" means **block**. `discipline-stop.source.md` is written for this framing.
 
 ## Override
 
-**There is no runtime kill switch, and as of 4.1.11 there is no build-time one either.**
-To disable or change this guard, edit `packages/core/hooks/prompts/discipline-stop.source.md`
-and run `build-judge-prompts.js` (or remove the `discipline-stop.js` entry from
-`hooks.manifest.json`), re-run `generate-hooks-artifacts.sh`, and
-deliver the result through the usual `--refresh` channel.
+**There is no runtime kill switch and no build-time one either.** To disable or change this
+guard, edit `packages/core/hooks/prompts/discipline-stop.source.md`, run
+`build-judge-prompts.js` then `generate-hooks-artifacts.sh`, and deliver through `--refresh`.
+Never set `if` on this hook, or on any `Stop`/`SubagentStop` hook: the field is a tool-call
+permission matcher and these events have no tool call for it to match — any non-empty `if`
+silently disables the hook.
 
-A regenerate-time lever did briefly exist — `ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` (D5 /
-DISC-B007) regenerated every `hookType: "prompt"` entry as `command`-type, pointing back at
-each hook's regex predecessor. It was dropped together with those predecessors in 4.1.11
-(`docs/TRD/discipline-judgment.md` §4.4.1) because it never worked outside the development
-checkout: the generator prunes `packages/full/hooks/<file>` for prompt-type entries and
-`scaffold-project.sh` copies through that directory, so no scaffolded project ever received
-the `.js` files the lever pointed at, with or without the variable set. It would have emitted
-valid `command` hooks that silently allow everything — a safety net that reports as present
-while having no detection logic behind it. Reverting to regex detection is a `git revert` of
-4.1.11, not an environment variable.
+## SubagentStop has no model judge
 
-`ENSEMBLE_ASYNC_DISCIPLINE_DEBUG` and `ENSEMBLE_ASYNC_DISCIPLINE_DISABLE` belonged to the
-deleted `async-discipline.js` and no longer exist. A prompt-type hook is evaluated entirely
-by the platform, with no code of ours in the loop and no environment in its payload — see
-`docs/modernization/probes/U5-kill-switch-mechanism.md` for the proof that no env-var
-mechanism of any shape is available to it.
-
-Never set `if` on this hook, or on any `Stop`/`SubagentStop` hook: the field's schema is a
-tool-call permission matcher ("Permission rule syntax to filter when this hook runs"), and
-`Stop`/`SubagentStop` have no associated tool call for it to match against — any non-empty
-`if` on one of these events silently disables the hook unconditionally.
-
-## The SubagentStop counterpart — REMOVED 2026-08-28
-
-**There is no longer a model judge on `SubagentStop`.** The entry was deleted from
-`hooks.manifest.json`; that event now carries only its two command hooks (`status.js`,
-`dispatch-ledger.js`, 5s each). `subagent-discipline.prompt.md` is no longer generated; the
-judge's text survives only inside `build-judge-prompts.js` so the corpus can still score it.
-
-**Why it went.** It was written to catch a subagent burning tokens and returning nothing —
-the measured case was three subagents ending with "I'll wait for the monitor notifications",
-~240k tokens across 179 tool calls, no result. Since then the item-8 rework put three
-cheaper, deterministic layers in front of that failure:
-
-1. **Schema-forced returns.** Essentially every production dispatch is
-   `agent(prompt, {schema})`, which forces a `StructuredOutput` call. A subagent that ends
-   with a deferral instead of a result does not produce a valid one.
-2. **Orchestrator result checking.** `implement-phase.js` records four distinct bad-result
-   shapes as explicit failures — no record for the id, `agent()` returning null ("agent
-   returned nothing"), a non-success status, and never-dispatched — then logs which task ids
-   failed. Tested at `implement-phase.test.js:146`.
-3. **The phase gate and the end-of-run review.** `verify-app` plus the project's
-   deterministic battery at each phase, and one `/code-review high --fix` over the whole
-   branch diff after the last, catch the harder case the judge never could: a well-formed
-   result claiming success on work that was not done.
-
-The judge was a fourth layer over a failure three cheaper ones already cover, and the only
-one costing a model call. Its in-session cost was measured on 2026-08-28 at **~4.6s mean,
-2.2s median** per stop (attributed with `test/smoke/analyze-session.js`), with 6–8
-subagents per `/implement-trd` run.
-
-**A 16.6s figure was cited for this while the change was being made, and it was wrong.**
-That number came from `test/discipline-corpus/`'s offline harness, which shells out to
-`claude -p` per case and so pays process startup; it measures the HARNESS, not the hook.
-Removing this judge saved ~40s of a 774s run, not the 100–130s the inflated figure
-predicted. The guard's removal still stands on the three-layer argument above — but the
-cost side of it was a quarter of what was claimed.
-
-**What this gives up, honestly.** Subagents the lead dispatches DIRECTLY, outside a workflow,
-carry no schema and get no orchestrator result-checking (`/implement-trd --verify`'s
-background derive pass is one). Those are now unguarded. They are a minority of dispatches,
-and the lead sees their results, but the cover is not total.
-
-**The lead's `Stop` guard is unaffected** and still runs on every turn.
-
-## Historical: how the SubagentStop guard worked
-
-### Original notes (retained for the payload facts, which are still true)
-
-#### `subagent-discipline.js`
-
-`async-discipline.js` only runs on `Stop`, so it protects the main session and nothing
-else. Subagents fail the same way — three subagents in one observed session ended with
-"I'll wait for the monitor notifications to arrive" and "Waiting for background scenario
-completions", burning ~240k tokens across 179 tool calls and returning nothing.
-`subagent-discipline.js` (registered on `SubagentStop`, right after `status.js`) catches
-this in the place `async-discipline.js` never looks. Like `async-discipline.js`, it is now
-model-judged (`hookType: "prompt"`, prompt text at
-`packages/core/hooks/prompts/subagent-discipline.prompt.md`) rather than driven by a pattern
-battery. That battery — and the `.js` files that held it — were deleted in 4.1.11; see
-Override, above.
-
-**The rule is stricter for subagents than for the lead**, verified empirically
-(2026-08-12 — see `docs/modernization/2026-08-improvement-plan.md` item 5e for the full
-probe results, since the platform's hooks reference is wrong or silent on all four
-points):
-
-- `ScheduleWakeup` is removed from every subagent by the platform's first tool filter
-  (foreground and background alike). A subagent claiming it will "come back later" or
-  "check back when X finishes" is false **by construction** — there is no mechanism by
-  which it could. So `subagent-discipline.js` does NOT treat a non-empty `session_crons`
-  as a legitimate escape valve the way `async-discipline.js` does for the lead — a
-  subagent cannot have populated it.
-- `Agent({run_in_background: true})` is not filtered the same way, so a non-empty
-  `background_tasks` IS still treated as legitimate (the subagent dispatched its own
-  nested background work).
-- `{"decision":"block","reason":...}` **works** on `SubagentStop` — the subagent
-  resumes with its existing context (it does not respawn), and the `reason` text
-  reaches it; its next turn answers the reason directly.
-- `stop_hook_active` **is** present in the `SubagentStop` payload, same as `Stop`.
-- A judge call that errors or times out resolves to **allow** on `SubagentStop` too — same
-  as `Stop`; see "How the guard works," above.
-
-**Loop safety.** Blocking forever is worse than the failure being guarded. A subagent
-that genuinely cannot proceed must be allowed to stop, with the situation visible in its
-final message. The loop guard is the same
-`stop_hook_active` precedence check the lead's guard uses: `false` the first time a
-turn reaches the hook, `true` on any re-entry that followed a block from THIS hook, and the
-judge is instructed to allow unconditionally on `true` — exactly one corrective round-trip,
-no persisted state needed (see the bullet list above: `stop_hook_active` is present on
-`SubagentStop` too). Unlike the lead's guard, there is no `session_crons` escape valve for a
-subagent's own claim (see above), so a subagent still blocked after its one corrective turn
-has nothing left to try except stating the blocker plainly and stopping — which the judge is
-instructed to allow.
-
-The platform's `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` (shipped as 1; platform default 8) is a hard backstop
-underneath that, not something the guard relies on.
-
-Before 4.1.11 the command-type `subagent-discipline.js` bounded the loop differently, with a
-per-`agent_id` consecutive-block counter persisted to a small JSON file under the OS temp dir
-and capped at 2. That file, its counter, and its `ENSEMBLE_SUBAGENT_DISCIPLINE_DISABLE` /
-`ENSEMBLE_SUBAGENT_DISCIPLINE_DEBUG` env vars no longer exist — `stop_hook_active` reaches
-the same bound with no persisted state, which is why the counter was not carried forward.
+There is no model judge on `SubagentStop` (removed 2026-08-28) — it carries only two command
+hooks. The failure it used to catch (a subagent burning tokens and returning nothing) is now
+caught more cheaply by schema-forced returns, orchestrator result-checking in
+`implement-phase.js`, and the phase gate plus end-of-run `/code-review`. **The lead's `Stop`
+guard is unaffected.**
 
 ## Orchestration pattern: the scheduled nudge
 
 `ScheduleWakeup` is unavailable to subagents but **available to the lead session**, and
-`SendMessage` reaches a named background agent with its context intact. Combined, these
-give an orchestrator a way to actively babysit dispatched background work instead of
-just hoping a completion notification arrives — without any timeout mechanism (this
-project deliberately does not use timeouts for this; the subagent guard's `stop_hook_active`
-bound is a *loop* guard, not a *time* guard).
+`SendMessage` reaches a named background agent with its context intact. Combined, an
+orchestrator can actively babysit dispatched background work instead of just hoping a
+completion notification arrives — with no timeout mechanism (deliberate).
 
-The shape:
+The shape: **dispatch** subagents in the background
+(`Agent({subagent_type, run_in_background: true, name: "be-001", ...})`); **schedule a wake**
+before ending the turn (`ScheduleWakeup({delaySeconds: <ETA>, prompt: "..."})`); **on wake,
+read the dispatch ledger** rather than relying on remembered context —
+`node .claude/hooks/dispatch-ledger.js --open` prints every subagent whose last recorded
+event is not `stop`, oldest first (`--json`, `--session <id>`); **nudge anything stalled**
+via `SendMessage`; **re-schedule** if work is still in flight, or proceed once everything has
+reported in.
 
-1. **Dispatch** one or more subagents in the background:
-   `Agent({subagent_type, run_in_background: true, name: "be-001", ...})`.
-2. **Schedule a wake before ending the turn** — this is the same safety-net pairing
-   already mandated for `Agent({team_name})` spawns elsewhere in this file:
-   `ScheduleWakeup({delaySeconds: <ETA>, prompt: "check on be-001 / fe-001 progress"})`.
-3. **On wake, read the dispatch ledger** — do NOT rely on remembering what you
-   dispatched. That memory is exactly what compaction destroys, and compaction is the
-   case this pattern exists to survive:
+`dispatch-ledger.js` runs on **both** `SubagentStart` and `SubagentStop`, appending to
+`.trd-state/<feature>/dispatch.jsonl` (or `_dispatch.jsonl` with no active feature) — a hook
+cannot schedule the wake itself, so the lead calls `ScheduleWakeup` and the ledger makes that
+wake useful. State is the last event per `agent_id`: `start` → running, `stop` → finished;
+correlate on `agent_id`, not `prompt_id` (unstable across an agent's lifetime). An agent that
+keeps running without progressing never stops, so this pattern — not a stop-time check — is
+the only thing that catches it.
 
-   ```bash
-   node .claude/hooks/dispatch-ledger.js --open
-   ```
+---
 
-   It prints every subagent whose last recorded event is not `stop`, oldest first, with
-   how long each has been running. `--json` for machine-readable output, `--session <id>`
-   to scope to the current session. Cross-check against `background_tasks` in the
-   re-invocation payload rather than assuming silence means either "done" or "stuck."
-4. **Nudge anything that looks stalled**: `SendMessage({to: "<agent_id>", message:
-   "status check — what have you completed and what's blocking you?"})`. The agent
-   resumes with its full context; the nudge is informational, not a kill switch.
-5. **Re-schedule another wake** if work is still in flight, or proceed once everything
-   has reported in.
-
-### The dispatch ledger
-
-`dispatch-ledger.js` runs on **both** `SubagentStart` and `SubagentStop` and appends to
-`.trd-state/<feature>/dispatch.jsonl` (or `.trd-state/_dispatch.jsonl` with no active
-feature). It exists because a hook **cannot** schedule the wake for you: hooks are
-separate processes with no tool surface, and `SubagentStart` is command-type only — a
-prompt-type hook there is rejected outright. The lead must still call `ScheduleWakeup`
-itself. What the ledger does is make that wake *useful*.
-
-Two facts, both established by probing the live payloads rather than reading the docs:
-
-- **There is no `name` field on either event — but the name is not lost.** Corrected
-  2026-08-13, after the 4.1.8 notes claimed the name "never reaches a hook": it does,
-  through `agent_type`. That field carries the **name** when one was given
-  (`Agent({name: "be-001"})` → `agent_type: "be-001"`) and the actual subagent type when
-  one was not (`agent_type: "general-purpose"`). So a named dispatch trades the type away
-  for the name; there is no payload in which both appear.
-
-  The ledger still keys on `agent_id`, and that is still right: `agent_id` is stable and
-  unambiguous, whereas the CLI changelog records `SendMessage` misrouting when a
-  re-spawned agent reused a previous agent's name. But `--open`'s `type=` column is
-  therefore showing the name for named agents, which is misleading labelling rather than
-  a wrong key.
-- **`prompt_id` is not stable across an agent's lifetime.** A live run produced a `stop`
-  row whose `prompt_id` differed from its own `start` row. Correlate on `agent_id` only.
-
-State is the last event per `agent_id`: `start` → running, `stop` → finished. The reader
-still treats a `blocked` row as running, but none is written: the compensating-row logic
-lived in `subagent-discipline.js`, deleted in 4.1.11, and since 2026-08-28 there is no
-`SubagentStop` judge at all, so nothing blocks a subagent's stop and every `stop` row is a
-real stop.
-
-The orchestrator is never left purely hoping a notification arrives — it actively re-checks
-and nudges, with `ScheduleWakeup` as its explicit re-entry point rather than a timer.
-
-**What this still does not cover.** An agent that keeps running without progressing never
-stops, so no stop-time check reaches it — the ledger plus a scheduled nudge is the only thing
-that does. That is the whole reason the ledger exists rather than being another hook guard.
+History and measurements: `FortiumPartners/ensemble-vnext`,
+`docs/rules-history/async-discipline.md`.

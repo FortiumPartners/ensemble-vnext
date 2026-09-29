@@ -123,7 +123,7 @@ Examples:
    | `@packages/core/workflows/` | `workflows/` |
    | `@packages/core/templates/` | `templates/` |
    | `@packages/skills/` | `skills-lib/` |
-   | `@packages/full/agents/` | `agents/` |
+   | `@packages/full/agents-lib/` | `agents-lib/` |
 
    Example: to read `@packages/core/commands/create-prd.md`, resolve
    `${CLAUDE_PLUGIN_ROOT}/commands/core/create-prd.md`.
@@ -249,7 +249,7 @@ copy. The plugin is the source of truth for any agent it ships; the user's custo
 is recoverable from git. User-created agents (not shipped by the plugin) are never touched.
 
 1. **List plugin agents:**
-   Read agent files from plugin source: `@packages/full/agents/`
+   Read agent files from plugin source: `@packages/full/agents-lib/`
 
 2. **List vendored agents:**
    Read agent files from `.claude/agents/`

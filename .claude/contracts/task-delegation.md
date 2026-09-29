@@ -235,6 +235,10 @@ emit an empty element.
 There is no separate debug dispatch: the implementer runs its own checks and self-corrects
 within its task.
 
+If your `<check_battery>` names a check that would need a live, model-spending run — anything
+that starts `claude` sessions, e.g. `test/smoke/run-smoke.sh` or `claude -p` — report that
+check "not run" in your deliverables. Never start it, wait on it, or poll it.
+
 ---
 
 ## Autonomy

@@ -76,6 +76,17 @@ describe('audit-trd wiring', () => {
     expect(missing).toEqual([]);
   });
 
+  it('gives every agent() call an explicit agentType or model — none may inherit the session model', async () => {
+    // Same invariant as above, stated the way verify-functional.js needs it: that file has
+    // call sites (Render, Judge) with no dedicated agentType that pin `model` directly
+    // instead. This file happens to set agentType on every call already, so this assertion
+    // is currently equivalent to the one above -- it is here so the check-battery pattern is
+    // identical across every workflow's harness test.
+    const { agent } = await audit();
+    const unpinned = agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+    expect(unpinned).toEqual([]);
+  });
+
   it('feeds the index into the verifiers that reason about objectives and tasks', async () => {
     const { agent } = await audit();
     const derivation = verifiers(agent).find((c) => c.opts.label.includes('derivation'));

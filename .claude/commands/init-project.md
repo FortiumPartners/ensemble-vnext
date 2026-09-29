@@ -398,7 +398,7 @@ fire-and-forget claims without a paired explanation otherwise.
 
 **Copy and Customize All 13 Subagents**
 
-For each agent in `@packages/full/agents/`:
+For each agent in `@packages/full/agents-lib/`:
 
 1. Read the base agent .md file
 2. Customize for the detected project stack:
@@ -438,7 +438,7 @@ For each agent in `@packages/full/agents/`:
   `packages/core/agents/skill-affinity.json` with this project's
   `.claude/selected-skills.txt`. Writing the field yourself produces a preload naming
   skills the project may not have selected — the exact defect that shipped in 4.0.0.
-  Shipped agents in `packages/full/agents/` deliberately carry no `skills:` field.
+  Shipped agents in `packages/full/agents-lib/` deliberately carry no `skills:` field.
 - **Never edit inside the `<!-- ENSEMBLE:SKILLS:BEGIN -->` / `<!-- ENSEMBLE:SKILLS:END -->`
   markers.** That block is regenerated on every scaffold and rebase; edits are
   overwritten. It exists because teammates spawned via `Agent({subagent_type, name, ...})`

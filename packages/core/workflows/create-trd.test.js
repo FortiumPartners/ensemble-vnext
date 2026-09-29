@@ -108,6 +108,15 @@ describe('create-trd wiring', () => {
     expect(call(agent, 'ground:brownfield').opts.agentType).toBeTruthy();
   });
 
+  it('gives every agent() call an explicit agentType or model — none may inherit the session model', async () => {
+    // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
+    // (packages/core/workflows/audit-trd.test.js:70-75) to this file's own four call sites.
+    const { agent } = await run();
+    expect(agent.calls.length).toBeGreaterThan(0);
+    const unpinned = agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+    expect(unpinned).toEqual([]);
+  });
+
   it('reports task and objective counts from the author, not from thin air', async () => {
     const { result } = await run();
     expect(result.tasks).toBe(2);
