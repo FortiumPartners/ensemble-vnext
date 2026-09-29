@@ -439,3 +439,29 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   scratch project's own `permissions.allow` list is ignored without it. Wall clock: about 4
   minutes for the workflow (5 verifiers + report write), in line with the prior iteration's
   ~2.5-3 minute budget.
+
+## Exercising context-model-hygiene (2026-09-29 run, iteration 1)
+
+- [ran] `scaffold-project.sh <dest>` with NO `--plugin-dir` silently skips agent copying
+  (`copy_agents` warns "No plugin directory specified, skipping agents" and `.claude/agents/`
+  ends up empty) — pass `--plugin-dir "$(pwd)/packages/full"` (the source tree with
+  `agents-lib/`, not `packages/core`) to get the real 13-agent scaffold. `--copy-skills` is
+  optional but harmless to add alongside it.
+- [ran] `claude plugin details full@ensemble-vnext` reports `Agents (0)` for this plugin as of
+  4.10.1/agents-lib rename — confirms O3 without spending any model call; it is a local
+  manifest read, not a live session.
+- [ran] Per-workflow "every agent() call is pinned" harness tests (audit-build, audit-trd,
+  create-prd, create-trd, implement-phase, sweep, verify-functional — the 7 workflow files that
+  have a `.test.js`) can be flipped from pass to fail by blanking one `agentType:`/`model:` line
+  in the corresponding `packages/core/workflows/<name>.js` and running
+  `npx jest packages/core/workflows/<name>.test.js -t "every agent"`; restoring the original
+  line (`git checkout` or restoring from a saved copy) makes it pass again with a clean
+  `git status`. `audit-prd.js` has no corresponding `.test.js` at all, so it carries no such
+  assertion to demonstrate.
+- [inferred] There is exactly one subagent transcript under this session's
+  `subagents/**/*.jsonl` with an mtime after commit 4039cf8's commit time
+  (2026-09-29 01:01:15 -0700) as of this run — it is this very Exercise-stage dispatch
+  (`agentType: verify-app`), not an unrelated implementer/verifier run, so its first-turn
+  context total (~109k) is not a clean like-for-like against the TRD's pre-change ~90k
+  median: that baseline was ordinary dispatches, and this one carries the full
+  functional-verification contract plus a 7-row criteria list in its own prompt.
