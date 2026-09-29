@@ -465,3 +465,67 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   context total (~109k) is not a clean like-for-like against the TRD's pre-change ~90k
   median: that baseline was ordinary dispatches, and this one carries the full
   functional-verification contract plus a 7-row criteria list in its own prompt.
+
+## Exercising context-model-hygiene (2026-09-29 run, iteration 1 re-run after reconcile commit 4912d11)
+
+- [ran] The reconcile commit (`4912d11`, 2026-09-29 02:57:24 -0700) added a deterministic BATS
+  pair to `test/integration/tests/runtime-integrity.test.sh` that covers two of this run's
+  criteria directly, so the exerciser should reach for these before hand-rolling `wc -c`/manual
+  scaffolds: `@test "the rule files' and CLAUDE.md's byte ceilings hold, in both copies"` (FS-1,
+  O4/O5) and `@test "packages/full registers no agents: no agents key, no default agents/ dir"`
+  (FS-4/O3, checks both `packages/full/agents` absence and the marketplace entry). Run with
+  `npx bats test/integration/tests/runtime-integrity.test.sh --filter "<name substring>"`; both
+  passed on the current HEAD.
+- [ran] **Correction to the FS-2 demonstration method above:** `grep -n "agentType: '" <file>`
+  to find the "pin line" to blank is not reliable for `implement-phase.js` — its first match
+  (line 173) is a comment (`// agentType: 'technical-architect' (attested: ...)`), not a live
+  pin, so blanking it leaves the test passing (a false demonstration: no FAIL was produced).
+  The real pin for `implement-phase.js` is the `agentType: 'verify-app',` call at line 232
+  (the `gate:verify-app` dispatch) — blanking that one correctly flips the "every agent() call
+  is pinned" test from FAIL to PASS-on-restore. Anyone repeating this demonstration should
+  verify the matched line is inside an actual `agent(...)` call (check the line isn't preceded
+  by `//`), not just take grep's first hit.
+- [ran] Evidence artifacts from the first Exercise pass (dated 01:02–01:04, before the reconcile
+  commit) were regenerated in full rather than reused, because their mtimes predated HEAD's
+  commit time (02:57:24) and would fail the tier-1 freshness gate ("newer than HEAD's commit
+  time"). Re-running the same commands (`wc -c`, the bats pair, the jest flip-demonstration per
+  workflow, `claude plugin details`, a fresh `scaffold-project.sh` into a new temp dir, and a
+  fresh grep of the contract/instruction files) reproduced the same substance with current
+  timestamps in `.trd-state/context-model-hygiene/evidence/`.
+
+## Exercising context-model-hygiene (2026-09-29 run, iteration 1 Debug-stage corrections)
+
+- [read] **Second correction to the FS-2 demonstration method:** blanking ONE `agentType:` or
+  `model:` line is not a demonstration when the call carries both pins — the harness test
+  (`unpinnedLabels` in `packages/core/workflows/test-harness.js`) accepts `agentType` OR
+  `model`, so the remaining one still pins the call and the test keeps passing. `create-trd.js`
+  is the case that tripped this: `triage:shape` (lines 163-169) sets `agentType:
+  'technical-architect'` AND `model: 'haiku'`. Remove BOTH lines from one call, run
+  `npx jest packages/core/workflows/create-trd.test.js -t "every agent"` (expect FAIL, since the
+  default fixture calls triage first), restore with `git checkout -- <file>`, re-run (expect
+  PASS), then confirm `git status` shows the file clean. Apply the same rule to every
+  workflow: pick a call and strip every pin it has, not just the first grep hit.
+- [read] **FS-7 must measure an ordinary post-change dispatch, not the Exercise stage's own.**
+  The FIX-006 implementer transcript is
+  `~/.claude/projects/-Users-james-dev-fortium-ensemble-vnext/be117aff-b3d2-4f82-88cc-81317cf111b7/subagents/workflows/wf_69686c80-e0a/agent-a03f49f8a9a79dc25.jsonl`
+  (its `.meta.json` says `agentType: backend-implementer`, `task:FIX-006`). Its sibling
+  `agent-a39d4bccdaf02dabe.jsonl` is the `verify-app` phase gate, also a like-for-like
+  candidate. Sum `input_tokens + cache_read_input_tokens + cache_creation_input_tokens` from
+  the first assistant message's `usage` and record it beside the ~90k pre-change median.
+
+## Exercising context-model-hygiene (2026-09-29 run, iteration 2)
+
+- [ran] Applied both corrections above and confirmed them: (1) FS-2 — removed BOTH
+  `agentType: 'technical-architect'` and `model: 'haiku'` from `create-trd.js`'s
+  `triage:shape` call, `npx jest packages/core/workflows/create-trd.test.js -t "every agent"`
+  went from PASS (with only `agentType` removed, the old false demonstration) to FAIL (both
+  removed, `unpinnedLabels` reports `["triage:shape"]`); `git checkout --` restored it, the
+  test PASSED again, and `git status --short packages/` was empty afterward. (2) FS-7 —
+  measured `agent-a03f49f8a9a79dc25.jsonl` (FIX-006 backend-implementer): first-turn usage
+  `input_tokens:2, cache_read_input_tokens:21870, cache_creation_input_tokens:87751` = 109,623
+  tokens, recorded beside the ~90k baseline; also measured the sibling `verify-app` gate
+  transcript (`agent-a39d4bccdaf02dabe.jsonl`) at 107,634 tokens for context. Both transcripts'
+  own mtimes (02:39/02:48) predate HEAD 4912d11's commit time (02:57:24) — they were produced
+  by the dispatch that built and reconciled this feature, one commit before the last-mile
+  citation/registration fixes — so a still-more-current sample does not yet exist in this run;
+  noted in the evidence file rather than left silent.

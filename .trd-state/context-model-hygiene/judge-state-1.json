@@ -1,72 +1,9 @@
-{
-  "iteration": 1,
-  "criteria": [
-    {
-      "id": "FS-1",
-      "status": "met",
-      "tier1": "pass",
-      "artifact": ".trd-state/context-model-hygiene/evidence/FS-1-byte-targets.txt",
-      "reason": "async-discipline.md + autonomy.md = 16,228 bytes (target <=17,000); command-status.md 12,206 (<=12,500); CLAUDE.md 14,857 (<=15,000); both rules copies identical.",
-      "cause": null,
-      "provenAt": 1
-    },
-    {
-      "id": "FS-2",
-      "status": "met",
-      "tier1": "pass",
-      "artifact": ".trd-state/context-model-hygiene/evidence/FS-2-harness-fails-when-unpinned.txt",
-      "reason": "All 7 workflows with a harness test failed their pin assertion with one call unpinned and passed once restored; git status clean afterwards. audit-prd.js has no harness test.",
-      "cause": null,
-      "provenAt": 1
-    },
-    {
-      "id": "FS-3",
-      "status": "met",
-      "tier1": "pass",
-      "artifact": ".trd-state/context-model-hygiene/evidence/FS-3-render-judge-pinned.txt",
-      "reason": "Render call names model 'sonnet'; both Judge calls name model 'opus'; create-trd.js calls carry agentType technical-architect; verify-functional and create-trd pin tests pass.",
-      "cause": null,
-      "provenAt": 1
-    },
-    {
-      "id": "FS-4",
-      "status": "met",
-      "tier1": "pass",
-      "artifact": ".trd-state/context-model-hygiene/evidence/FS-4-agent-registration.txt",
-      "reason": "Plugin details show Agents (0), so no prefixed copies register; scaffold into a temp dir produced all 13 agent files in .claude/agents/, so each appears once.",
-      "cause": null,
-      "provenAt": 1
-    },
-    {
-      "id": "FS-5",
-      "status": "met",
-      "tier1": "pass",
-      "artifact": ".trd-state/context-model-hygiene/evidence/FS-5-trd-authoring-live-checks.txt",
-      "reason": "trd-authoring.md 4.1.1 states a criterion needing a live, model-spending run never belongs to a build task and is planned as its own [LIVE] task.",
-      "cause": null,
-      "provenAt": 1
-    },
-    {
-      "id": "FS-6",
-      "status": "met",
-      "tier1": "pass",
-      "artifact": ".trd-state/context-model-hygiene/evidence/FS-6-implementer-check-instruction.txt",
-      "reason": "implement-trd.md check_battery instruction and task-delegation.md 'When a check fails' both say never run a live model-spending check; report it 'not run'.",
-      "cause": null,
-      "provenAt": 1
-    },
-    {
-      "id": "FS-7",
-      "status": "met",
-      "tier1": "pass",
-      "artifact": ".trd-state/context-model-hygiene/evidence/FS-7-first-turn-context.txt",
-      "reason": "Measured 109,432 first-turn tokens on a post-4039cf8 verify-app Exercise dispatch, recorded beside the ~90k baseline; noted as not like-for-like (large verification prompt). Reported, not gated.",
-      "cause": null,
-      "provenAt": 1
-    }
-  ],
-  "gapsClosed": [
-    0
-  ],
-  "outcome": "satisfied"
-}
+{"iteration":1,"criteria":[
+{"id":"FS-1","status":"met","tier1":"pass","artifact":".trd-state/context-model-hygiene/evidence/FS-1-bats-byte-ceilings.txt","reason":"BATS ceiling test passes; wc -c shows async+autonomy 16228 (<=17000), command-status 12206 (<=12500), CLAUDE.md 14961 (<=15000), identical in both rule copies.","cause":null,"provenAt":1},
+{"id":"FS-2","status":"not_met","tier1":"pass","artifact":".trd-state/context-model-hygiene/evidence/FS-2-harness-fails-when-unpinned.txt","reason":"6 of 7 workflows demonstrated (FAIL when unpinned, PASS on restore). create-trd was not: the exerciser removed only agentType at create-trd.js:167 while model: 'haiku' on line 169 kept the call pinned, so the test correctly still PASSED -- no failing run exists for create-trd. Redo that one with both agentType and model removed from one call.","cause":"evidence-missing","provenAt":null},
+{"id":"FS-3","status":"met","tier1":"pass","artifact":".trd-state/context-model-hygiene/evidence/FS-3-render-judge-pinned.txt","reason":"Render carries model 'sonnet' (verify-functional.js:908), both Judge calls model 'opus' (937, 1177), create-trd.js:719 keeps agentType technical-architect; both harness pin tests pass.","cause":null,"provenAt":1},
+{"id":"FS-4","status":"met","tier1":"pass","artifact":".trd-state/context-model-hygiene/evidence/FS-4-bats-registration.txt","reason":"BATS registration test passes; claude plugin details full@ensemble-vnext shows Agents (0); fresh scaffold with packages/full produced exactly 13 files in .claude/agents/ (all 13 parts).","cause":null,"provenAt":1},
+{"id":"FS-5","status":"met","tier1":"pass","artifact":".trd-state/context-model-hygiene/evidence/FS-5-trd-authoring-live-checks.txt","reason":"trd-authoring.md 4.1.1 states a live, model-spending criterion never belongs to a build task and is planned as its own [LIVE] task.","cause":null,"provenAt":1},
+{"id":"FS-6","status":"met","tier1":"pass","artifact":".trd-state/context-model-hygiene/evidence/FS-6-implementer-check-instruction.txt","reason":"implement-trd.md check_battery (lines 599-601) and task-delegation.md 'When a check fails' (238-240) both say never run a live check; report it 'not run'.","cause":null,"provenAt":1},
+{"id":"FS-7","status":"not_met","tier1":"pass","artifact":".trd-state/context-model-hygiene/evidence/FS-7-first-turn-context.txt","reason":"The figure recorded (109,401 tokens) is from the Exercise-stage verifier's own transcript, which the artifact itself says is not like-for-like with the ~90k baseline. The criterion names the like-for-like sample -- the FIX-006 backend-implementer transcript under wf_69686c80-e0a, which exists (agent-a03f49f8a9a79dc25 / agent-a39d4bccdaf02dabe) -- and it was not measured. Measure that transcript's first assistant turn and record it beside the ~90k baseline.","cause":"evidence-missing","provenAt":null}
+],"gapsClosed":[0],"outcome":null}
