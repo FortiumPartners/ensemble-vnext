@@ -73,7 +73,7 @@ not absorbed: `verification-setup` gaining `--auto` — its answers are infrastr
 
 ## Verification Artifacts
 
-None apply: there are no UI designs, interaction diagrams or data views. The surfaces are command prompts, a report renderer and docs.
+None apply — there are no UI designs, interaction diagrams or data views. The surfaces are command prompts, a report renderer and docs.
 
 ## Open Questions
 
