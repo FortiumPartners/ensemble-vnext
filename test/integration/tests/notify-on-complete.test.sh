@@ -20,7 +20,7 @@
 #   session_id is supplied, so the helper can read it as $CLAUDE_SESSION_ID.
 #
 # The "does the model actually fire the helper at runtime?" question is
-# answered manually per the recipes in `.claude/rules/command-status.md` —
+# answered manually per the recipes in `docs/rules-history/command-status.md` —
 # that surface is non-deterministic by design.
 #
 # Run with:

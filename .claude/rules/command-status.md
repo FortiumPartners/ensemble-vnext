@@ -148,9 +148,10 @@ session identity, exports it as `NOTIFY_*` env vars (`NOTIFY_CMD`, `NOTIFY_STATU
 `NOTIFY_SUMMARY`, `NOTIFY_PROJECT`, `NOTIFY_CWD`, `NOTIFY_BRANCH`, `NOTIFY_FEATURE`,
 `NOTIFY_SESSION_ID`, `NOTIFY_TMUX_SESSION`, `NOTIFY_TMUX_PANE`), and dispatches
 `$NOTIFY_ON_COMPLETE` via `/bin/sh -c`. Because this goes through the model's tool surface it
-fires exactly once — never during DISPATCHED/RESUMED turns; silent no-op if unset. Setup
-(`export NOTIFY_ON_COMPLETE='<shell command>'`) and worked recipes are in the history doc
-linked below.
+fires exactly once — never during DISPATCHED/RESUMED turns; silent no-op if unset. Setup,
+once per machine: `export NOTIFY_ON_COMPLETE='echo "[$NOTIFY_PROJECT/$NOTIFY_BRANCH]
+$NOTIFY_CMD $NOTIFY_STATUS: $NOTIFY_SUMMARY" >> ~/ensemble-completions.log'`. Webhook, Slack
+and tmux recipes are in the history doc linked below.
 
 **Three paths, by audience:** A alerts the user, once on the final turn; B (this one) drives
 external systems, once on the final turn; C (below) fires on *every* Stop, including dispatch
@@ -161,8 +162,9 @@ and wake turns — use it only when you want a signal on every idle, not just co
 `notify.sh` (`packages/core/hooks/notify.sh`) fires every session Stop and runs whatever's in
 `NOTIFY_ON_STOP` — including dispatch and ScheduleWakeup turns. For "tell external system
 this command finished," use Path B instead. To cut the noise, gate the alert on the `COMMAND
-COMPLETE` banner appearing in `$NOTIFY_TRANSCRIPT_PATH`. Worked recipes are in the history
-doc linked below.
+COMPLETE` banner appearing in `$NOTIFY_TRANSCRIPT_PATH`, e.g.
+`export NOTIFY_ON_STOP='grep -q "═══ COMMAND COMPLETE" "$NOTIFY_TRANSCRIPT_PATH" && printf "\a"'`.
+More recipes are in the history doc linked below.
 
 ## Artifact links
 

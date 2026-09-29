@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('verify-functional.js');
 
@@ -2297,7 +2297,7 @@ describe('verify-functional: Render stage', () => {
     await runWorkflow(SOURCE, { agent, args: twoSkillArgs() });
 
     expect(agent.calls.length).toBeGreaterThan(0);
-    const unpinned = agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+    const unpinned = unpinnedLabels(agent);
     expect(unpinned).toEqual([]);
   });
 

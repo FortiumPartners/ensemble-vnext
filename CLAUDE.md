@@ -36,7 +36,7 @@ beats "dispatched the phase workflow, ran the gate, applied review findings."
 
 **Numbers carry their unit and their baseline.** "677s, was 341s" beats "improved latency."
 
-Fuller guidance, with worked before/after pairs taken from a real session, is in
+Fuller guidance, with a worked before/after pair taken from a real session, is in
 `.claude/rules/command-status.md` under "Write for someone who was not in the session". The
 router's orientation hint carries a short form of this on every turn. Neither will land every
 time; that is expected, and it is why the guidance appears in more than one place.
@@ -160,8 +160,8 @@ model judge, on `claude-sonnet-5`, rather than on regex matching inside a `.js` 
 is no `SubagentStop` judge (removed 2026-08-28), and the three original discipline `.js` files
 no longer exist (4.1.11). To change the guard: edit the source file, run
 `build-judge-prompts.js` then `generate-hooks-artifacts.sh`, re-score with
-`test/discipline-corpus/replay/`, refresh. Full mechanism, prompt history and measurements:
-the two rule files above and `docs/reference/hooks.md` §6.
+`test/discipline-corpus/replay/`, refresh. Mechanism: `docs/reference/hooks.md` §6; history
+and measurements: `docs/rules-history/`.
 
 **Notify Hook (Stop).** `.claude/hooks/notify.sh` fires on every session stop and optionally
 runs a notification command (`$NOTIFY_ON_STOP`) — for orchestration patterns where a parent

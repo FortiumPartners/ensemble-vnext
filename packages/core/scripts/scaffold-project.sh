@@ -286,7 +286,7 @@ copy_contracts() {
 # workflows 9 files, contracts 3, audit-build.md present, lib EMPTY.
 #
 # packages/full/lib/ now carries per-file symlinks to the three modules -- the
-# same pattern hooks/ and agents/ use, which demonstrably survives packaging.
+# same pattern hooks/ and agents-lib/ use, which demonstrably survives packaging.
 # So check "$PLUGIN_DIR/lib" FIRST, but only when it actually contains *.js, and
 # keep the monorepo path as the dev-checkout fallback.
 # REFRESH SEMANTICS, corrected 2026-08-16. `--refresh` used to update only files
@@ -495,7 +495,7 @@ copy_commands() {
 }
 
 # Locate a JSON sidecar that ships alongside a package subdirectory
-# (hooks/hooks.manifest.json, agents/skill-affinity.json). Echoes the first
+# (hooks/hooks.manifest.json, agents-lib/skill-affinity.json). Echoes the first
 # existing candidate and returns 0; returns 1 if none exist.
 #
 # Every such sidecar must be reachable from BOTH install layouts, so the

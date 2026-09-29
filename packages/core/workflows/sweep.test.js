@@ -10,7 +10,7 @@
 
 'use strict';
 
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('sweep.js');
 
@@ -207,7 +207,7 @@ describe('sweep', () => {
     // triage and fix:<id>.
     const { agent } = await sweep({ triage: { fix: ISSUES, deferred: [] } });
     expect(agent.calls.length).toBeGreaterThan(0);
-    const unpinned = agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+    const unpinned = unpinnedLabels(agent);
     expect(unpinned).toEqual([]);
   });
 });

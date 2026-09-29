@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { readScript, runWorkflow, makeAgentStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('create-prd.js');
 
@@ -185,7 +185,7 @@ describe('create-prd: every agent() call is pinned', () => {
   it('gives every agent() call an explicit agentType or model — none may inherit the session model', async () => {
     // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
     // (packages/core/workflows/audit-trd.test.js:70-75): this file uses BOTH conventions
-    // (corpus-index/drift pin `model` directly; conflict-scan/author pin `agentType`), so an
+    // (corpus-index pins `model` directly; conflict-scan/author/drift pin `agentType`), so an
     // unset agentType alone is not the right check here. This plan drives all four call
     // sites: corpus-index (has documents -> conflict-scan fires), author, and drift
     // (SOURCE_PACKAGE is always non-empty, so drift always runs).
@@ -202,7 +202,7 @@ describe('create-prd: every agent() call is pinned', () => {
     expect(agent.calls.length).toBeGreaterThan(0);
     const labels = agent.calls.map((c) => c.opts.label);
     expect(labels).toEqual(expect.arrayContaining(['corpus-index', 'conflict-scan', 'author:product-manager', 'drift']));
-    const unpinned = agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+    const unpinned = unpinnedLabels(agent);
     expect(unpinned).toEqual([]);
   });
 });

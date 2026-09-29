@@ -279,7 +279,7 @@ Case B only ever fires while a command is known to be running, which means an `a
 younger than 30 minutes (§5.1). Everywhere else (ordinary conversation, `state=none`,
 `state=unknown`, no marker at all) only case A is judged. This direction was chosen on
 2026-09-24 after the opposite default was measured blocking about one stop in five, almost all of
-them correct turns (`.claude/rules/autonomy.md`, "Enforcement" item 2).
+them correct turns (`.claude/rules/autonomy.md`, "Enforcement").
 
 ### 6.4 How far a block can go: the block cap
 
@@ -287,7 +287,7 @@ The prompt tells the judge to allow on `stop_hook_active`, but the judge has bee
 ignoring that. The actual bound is the platform's: `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP = "1"` in
 `settings.json` `env` (platform default 8), so the session gets at most one corrective turn in a
 row, whatever the judge decides. A judge call that errors or times out (60 s) resolves to allow.
-Source for both: `.claude/rules/async-discipline.md`, "How the guard works".
+Source for both: `.claude/rules/async-discipline.md`, "Override" (history: `docs/rules-history/async-discipline.md`, "How the guard works").
 
 ### 6.5 Changing it
 

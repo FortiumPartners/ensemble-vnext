@@ -64,10 +64,21 @@ cases: do not ask. Decide. Proceed. Document.**
 | "Multiple approaches are possible. Which do you prefer?" (unless the choice is which command to run next — the owner's) | Decide; document rationale. |
 | **"Say the word and I'll do X." / "I can do X if you want."** — reads as disclosing a capability rather than asking, but hands the decision back identically | If you can do it, do it. Report the result. |
 | "I'm about to make a significant change. Confirm?" | If not irreversible-destructive, proceed. |
+| "Given X went cleanly, want me to pause and review?" | Self-defeating — you just said there is nothing to address. Proceed. |
+| "This affects X. Should we check with product / stakeholders first?" / "I noticed an inconsistency — clarify with stakeholders?" | No stakeholders are in the loop. Decide from the documented goals; note the resolution. |
+| "Have you verified this is what you want?" | The user verified by invoking the command. Proceed. |
+| "Would you like me to also do X?" | If X is needed to satisfy the command, do it; if not, don't. |
 
 The `COMMAND COMPLETE` banner is the first and only return of control during a run. A STUCK
 condition after retry exhaustion is the one thing that stops one early — everything in the
 table above is forbidden unconditionally, with no flag that enables or disables it.
+
+## When one of the four cases does apply
+
+Ask about **one specific decision**, not for general guidance. **State the default you will
+apply** if there is no answer, give the context (what you tried, why you're asking, the
+trade-offs), and **resume the loop** after the answer — it unblocks the run, it does not
+restart the conversation.
 
 ## Refine commands (`/refine-prd`, `/refine-trd`) — exempt by MODE, not by name
 

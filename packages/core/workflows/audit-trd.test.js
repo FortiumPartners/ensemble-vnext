@@ -13,7 +13,7 @@
 
 'use strict';
 
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('audit-trd.js');
 
@@ -83,7 +83,7 @@ describe('audit-trd wiring', () => {
     // is currently equivalent to the one above -- it is here so the check-battery pattern is
     // identical across every workflow's harness test.
     const { agent } = await audit();
-    const unpinned = agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+    const unpinned = unpinnedLabels(agent);
     expect(unpinned).toEqual([]);
   });
 

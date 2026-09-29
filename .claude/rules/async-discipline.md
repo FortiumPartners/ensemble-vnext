@@ -46,9 +46,6 @@ sits idle until nudged. **The root cause is a hallucinated notification.**
   wakeup or recurring task.
 - `Monitor` in use, or `/goal` active — the Stop event wouldn't fire at all.
 
-The first two are explicit signals the `Stop` hook can read; the last two prevent Stop from
-firing while active.
-
 ## Teammate spawns — auto-delivery satisfies the rule
 
 A team forms automatically the moment the first teammate spawns; a teammate's `SendMessage`
@@ -85,6 +82,15 @@ so "unclear" means **block**. `discipline-stop.source.md` is written for this fr
 
 ## Override
 
+**Loop guard.** The judge is told to allow on `stop_hook_active` but does not reliably; the
+bound is `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP="1"` in settings `env` (one corrective turn in a
+row). A judge error or timeout allows.
+
+**A block is displayed as `Stop hook error: …`.** That is an upstream display issue
+(anthropics/claude-code#62139), not a fault here — do not spend a session diagnosing it. An
+allow should be silent or carry the fixed reason `no case A or B`; an allow with a longer
+reason is the anomaly worth measuring (`hook-verdict-rate.js`).
+
 **There is no runtime kill switch and no build-time one either.** To disable or change this
 guard, edit `packages/core/hooks/prompts/discipline-stop.source.md`, run
 `build-judge-prompts.js` then `generate-hooks-artifacts.sh`, and deliver through `--refresh`.
@@ -94,11 +100,10 @@ silently disables the hook.
 
 ## SubagentStop has no model judge
 
-There is no model judge on `SubagentStop` (removed 2026-08-28) — it carries only two command
-hooks. The failure it used to catch (a subagent burning tokens and returning nothing) is now
-caught more cheaply by schema-forced returns, orchestrator result-checking in
-`implement-phase.js`, and the phase gate plus end-of-run `/code-review`. **The lead's `Stop`
-guard is unaffected.**
+Removed 2026-08-28; `SubagentStop` carries only two command hooks. What it caught (a subagent
+burning tokens and returning nothing) is now caught more cheaply by schema-forced returns,
+orchestrator result-checking in `implement-phase.js`, and the phase gate plus end-of-run
+`/code-review`. **The lead's `Stop` guard is unaffected.**
 
 ## Orchestration pattern: the scheduled nudge
 
