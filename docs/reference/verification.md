@@ -420,12 +420,22 @@ loop is still running.
 
 ### The chat (`verify-plan-recovery`)
 
-An interactive skill, exempt from the no-questions rule like `/refine-*` (`autonomy.md`). It
-reads the report, the state file, the discovery ledger and any existing plan, then:
+A skill you run yourself. It may ask you questions, but only ones the evidence cannot settle
+(`autonomy.md`). It reads the report, the state file, the discovery ledger, the PRD and TRD
+and any existing plan, then:
 
 1. States the diagnosis in plain words (outcome, proven/total, causes by name and count).
-2. Walks the plan sections one `AskUserQuestion` at a time, each with a proposed default: **Blockers** (from `judged-failed`/`not-built` causes, ordered by an `After` column), **Slices** (build order), **Owner rulings** (written into the PRD or TRD with a dated changelog line), **Accepted as not verifiable** (proposed from the two never-buildable causes), **Extra checks** (check-role skills only), **Stop rule** (proposed `max-rounds: 3`, `stop-when-closed-below: 1`).
-3. Writes `.trd-state/<f>/verification-plan.md` only on your clear yes.
+2. Works out every plan section from that evidence, without asking: **Blockers** (each
+   confirmed `judged-failed`/`not-built` gap, ordered by an `After` column), **Slices**
+   (scarcest resource first), **Owner rulings** (a criterion aligned with a decision the
+   PRD/TRD already records, written back with a dated changelog line), **Accepted as not
+   verifiable** (the two never-buildable causes, plus anything the TRD assigns to a
+   production-only task), **Extra checks** (check-role skills only), **Stop rule**
+   (`max-rounds: 3`, `stop-when-closed-below: 1`).
+3. Asks, in one question, only what is left: a criterion change no document settles, a gap it
+   cannot classify, or access only you have. When nothing is left it asks nothing.
+4. Writes `.trd-state/<f>/verification-plan.md` and shows it. Running `/verify-build --fix`
+   is your approval.
 
 It never edits `verification.md` (it points you at `verification-setup`) and never starts
 `--fix`. Plan shape: `docs/TRD/verification-fix-loop.md` §3.4.
