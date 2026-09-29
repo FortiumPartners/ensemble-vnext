@@ -149,11 +149,11 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 
 ## Could Not Verify
 
-Rewritten by `/audit-build`, 2026-09-29. Gaps this audit found are in its readout, not here.
+Rewritten by `/audit-build`, 2026-09-29 (second pass, after the reconcile run). Gaps this audit found are in its readout, not here.
 
 | Claim | Why not checked |
 |-------|-----------------|
-| Whether the delivered change does what the owner asked for, beyond what this TRD says | No source PRD exists (header: "small change decided in session"), so the audit checked the code against this TRD only; product-level fidelity and omissions were not checked |
-| How much of a subagent's ~90k starting context the double agent registration added, and how far it fell | Needs a live platform measurement, not a code read. The mechanism is confirmed (`claude plugin details` reports `Agents (0)`, recorded once in `.trd-state/context-model-hygiene/evidence/FS-4-agent-registration.txt`), but no before/after first-turn context size was recorded |
-| O6, "every existing test still passes", across the full battery | This audit re-ran only the workflow Jest suites (8 suites, 236 tests, all passing); the full Jest, pytest and BATS battery was last recorded green at the phase gate (commit `7abb6a8`), not re-run here |
-| Whether cache reads count against the owner's plan allocation the same way they bill on the API | Not documented in anything read here; out of scope for a code audit |
+| Whether the delivered change does what the owner asked for, beyond what this TRD says | No source PRD exists (header: "small change decided in session"; `.trd-state/current.json` records `"prd": null`), so the audit checked the code against this TRD only. Product-level fidelity and omissions were not checked |
+| Whether removing the double agent registration made a subagent's starting context smaller, and by how much | A figure after the change now exists: 109.6k and 107.6k first-turn tokens for two subagents from one dispatch (`.trd-state/context-model-hygiene/evidence/FS-7-first-turn-context.txt`), against a ~90k median over 270 transcripts from before the change. Both samples are above the baseline, not below it. Two samples cannot be compared with a 270-transcript median, and nothing measured isolates what the registration itself contributed. Establishing that needs a matched before/after live run, not a code read |
+| O6, "every existing test still passes", across the full battery | The full Jest, pytest and BATS battery was last recorded green at the reconcile checkpoint (commit `6613684`). One commit touched tests after that (`4912d11`): this audit re-ran the file it changed, `test/integration/tests/runtime-integrity.test.sh`, and all 17 tests passed. The rest of the battery was not re-run here |
+| Whether cache reads count against the owner's plan allocation the same way they bill on the API | Not documented in anything read here. Out of scope for a code audit |
