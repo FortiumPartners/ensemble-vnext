@@ -854,7 +854,9 @@ directly.
   "narrows the four ask-cases to STUCK, with no flag to enable it" (:389). Adding the marker
   description must not disturb those anchors — which is also NG2 mechanically enforced [read]
 - **Careful:** D12 scopes transmission to `autonomy.md` only. `.claude/rules/async-discipline.md`
-  carries its own "How the guard works (at a glance)" flow, but that describes Judgment A, which
+  carried its own "How the guard works (at a glance)" flow (now in
+  `docs/rules-history/async-discipline.md`; its loop-guard and error-allows rules survive under
+  the rule file's "Override"), but that describes Judgment A, which
   NG1 leaves untouched — so it does not go stale from this change [read]
 - **Replaces:** nothing. No rule content is added, removed or softened; the section documents a
   mechanism, not a new rule.

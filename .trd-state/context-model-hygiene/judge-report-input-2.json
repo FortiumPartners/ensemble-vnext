@@ -1,73 +1,97 @@
 {
-  "iteration": 2,
+  "feature": "context-model-hygiene",
+  "prd": "docs/TRD/context-model-hygiene.md#Intended Change",
+  "definitionPath": ".trd-state/context-model-hygiene/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met or not verifiable here",
   "criteria": [
     {
       "id": "FS-1",
+      "statement": "The byte targets named O4 and O5 hold on the delivered files",
+      "cites": "Intended Change line 9; before sizes line 5",
       "status": "met",
-      "tier1": "pass",
       "artifact": ".trd-state/context-model-hygiene/evidence/FS-1-bats-byte-ceilings.txt",
       "reason": "BATS ceiling test passes; wc -c: async+autonomy 16228 (<=17000), command-status 12206 (<=12500), CLAUDE.md 14961 (<=15000), both copies identical.",
       "cause": null,
-      "provenAt": 1
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
     },
     {
       "id": "FS-2",
+      "statement": "Each workflow's existing harness test fails when any agent() call it records names neither agentType nor model",
+      "cites": "lines 9-10",
       "status": "met",
-      "tier1": "pass",
       "artifact": ".trd-state/context-model-hygiene/evidence/FS-2-harness-fails-when-unpinned.txt",
       "reason": "All 7 workflows with a harness test (audit-build, audit-trd, create-prd, create-trd, implement-phase, sweep, verify-functional) FAIL with the stripped call named by unpinnedLabels, then PASS after restore; create-trd now strips both agentType and model from triage:shape and fails; git status for packages/ is clean afterwards.",
       "cause": null,
-      "provenAt": 2
+      "provenAt": 2,
+      "attempts": 2,
+      "blocker": null
     },
     {
       "id": "FS-3",
+      "statement": "The workflow steps that previously named neither agentType nor model (verify-functional.js Render and Judge) now name one, and create-trd.js sizing stays pinned",
+      "cites": "line 6; lines 9-10",
       "status": "met",
-      "tier1": "pass",
       "artifact": ".trd-state/context-model-hygiene/evidence/FS-3-render-judge-pinned.txt",
       "reason": "Render model 'sonnet' (verify-functional.js:908), Judge model 'opus' (937, 1177), create-trd.js:719 agentType technical-architect; both harness pin tests pass.",
       "cause": null,
-      "provenAt": 1
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
     },
     {
       "id": "FS-4",
+      "statement": "A Claude Code session in a scaffolded project lists each of the plugin's 13 agents once, not once under the plugin prefix and again unprefixed",
+      "cites": "line 7; line 11",
       "status": "met",
-      "tier1": "pass",
       "artifact": ".trd-state/context-model-hygiene/evidence/FS-4-bats-registration.txt",
       "reason": "BATS registration test passes; plugin details shows Agents (0); fresh scaffold produced exactly 13 agent files.",
       "cause": null,
-      "provenAt": 1
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
     },
     {
       "id": "FS-5",
+      "statement": "The TRD authoring contract keeps live checks out of build tasks",
+      "cites": "lines 11-12",
       "status": "met",
-      "tier1": "pass",
       "artifact": ".trd-state/context-model-hygiene/evidence/FS-5-trd-authoring-live-checks.txt",
       "reason": "trd-authoring.md 4.1.1 says a live, model-spending criterion never belongs to a build task; planned as its own [LIVE] task.",
       "cause": null,
-      "provenAt": 1
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
     },
     {
       "id": "FS-6",
+      "statement": "The implementer's check instruction says live scenarios are not the implementer's to run",
+      "cites": "line 12",
       "status": "met",
-      "tier1": "pass",
       "artifact": ".trd-state/context-model-hygiene/evidence/FS-6-implementer-check-instruction.txt",
       "reason": "implement-trd.md check_battery (599-601) and task-delegation.md (238-240) both instruct: never run a live check, report it 'not run'.",
       "cause": null,
-      "provenAt": 1
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
     },
     {
       "id": "FS-7",
+      "statement": "The first-turn context size of a subagent dispatched in this repo after the change is measured and recorded against the ~90k-token before figure",
+      "cites": "line 4; lines 12-14",
       "status": "met",
-      "tier1": "pass",
       "artifact": ".trd-state/context-model-hygiene/evidence/FS-7-first-turn-context.txt",
       "reason": "Measured and recorded: FIX-006 backend-implementer first turn 109,623 tokens (2 + 21,870 cache read + 87,751 cache creation) against the ~90k pre-change median; sibling verify-app 107,634. Reported, not gated: the figure is higher than the baseline, which the criterion records rather than tests.",
       "cause": null,
-      "provenAt": 2
+      "provenAt": 2,
+      "attempts": 2,
+      "blocker": null
     }
   ],
-  "gapsClosed": [
-    0,
-    2
-  ],
-  "outcome": "satisfied"
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  }
 }

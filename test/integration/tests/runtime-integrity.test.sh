@@ -478,3 +478,57 @@ PY
         false
     fi
 }
+
+@test "packages/full registers no agents: no agents key, no default agents/ dir" {
+    # This plugin ships its 13 subagents through packages/full/agents-lib (mirrored
+    # to .claude/agents), not through the plugin's own agent registration. Either
+    # registration path would add a second, competing agent set the mirror-parity
+    # tests above never look at -- silently:
+    #   - an `agents` key on plugin.json, or on the marketplace entry for `full`;
+    #   - a directory at the plugin root's DEFAULT location, packages/full/agents,
+    #     which the platform auto-discovers with no manifest key at all (the reason
+    #     FIX-003 renamed it to agents-lib rather than only dropping the key).
+    [ ! -e "${REPO_ROOT}/packages/full/agents" ]
+    PLUGIN_JSON="${REPO_ROOT}/packages/full/.claude-plugin/plugin.json"
+    MARKETPLACE_JSON="${REPO_ROOT}/.claude-plugin/marketplace.json"
+    [ -f "$PLUGIN_JSON" ]
+    [ -f "$MARKETPLACE_JSON" ]
+    run python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    plugin = json.load(f)
+with open(sys.argv[2]) as f:
+    market = json.load(f)
+entries = [p for p in market.get('plugins', []) if p.get('name') == 'full']
+sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
+" "$PLUGIN_JSON" "$MARKETPLACE_JSON"
+    [ "$status" -eq 0 ]
+}
+
+@test "the rule files' and CLAUDE.md's byte ceilings hold, in both copies" {
+    # O4/O5 (amended, context-model-hygiene): async-discipline.md + autonomy.md
+    # combined <= 17000 bytes, command-status.md <= 12500, CLAUDE.md <= 15000.
+    # "No rule is deleted" outranks a size target, so these are ceilings the
+    # trim must fit under, not targets to shrink toward.
+    for dir in "${REPO_ROOT}/.claude/rules" "${REPO_ROOT}/packages/core/templates/claude-directory/rules"; do
+        async_bytes=$(wc -c < "${dir}/async-discipline.md")
+        autonomy_bytes=$(wc -c < "${dir}/autonomy.md")
+        combined=$((async_bytes + autonomy_bytes))
+        if [ "$combined" -gt 17000 ]; then
+            echo "async-discipline.md + autonomy.md in ${dir} = ${combined} bytes, exceeds 17000" >&2
+            false
+        fi
+
+        status_bytes=$(wc -c < "${dir}/command-status.md")
+        if [ "$status_bytes" -gt 12500 ]; then
+            echo "command-status.md in ${dir} = ${status_bytes} bytes, exceeds 12500" >&2
+            false
+        fi
+    done
+
+    claude_md_bytes=$(wc -c < "${REPO_ROOT}/CLAUDE.md")
+    if [ "$claude_md_bytes" -gt 15000 ]; then
+        echo "CLAUDE.md = ${claude_md_bytes} bytes, exceeds 15000" >&2
+        false
+    fi
+}

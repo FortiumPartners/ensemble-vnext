@@ -1,7 +1,7 @@
 # Subagents
 
 Ensemble ships 13 subagents. Each is a Markdown prompt with YAML frontmatter
-(`packages/full/agents/<name>.md`), copied into a project's `.claude/agents/` by
+(`packages/full/agents-lib/<name>.md`), copied into a project's `.claude/agents/` by
 `scaffold-project.sh`. Commands decide **when** an agent runs and what it is given; the agent
 decides **how** to do the work. For why the work is split this way, see
 [CONCEPTS](../guides/CONCEPTS.md) "4. You direct; specialists with fresh context do the work".
@@ -12,7 +12,7 @@ For where each command sits in the overall process, see [README.md](README.md).
 The vendored copy in `.claude/agents/` differs from the plugin source in exactly one way:
 `scaffold-project.sh` adds a `skills:` list and a generated `## Project Skills` section
 (between `ENSEMBLE:SKILLS:BEGIN` / `END` markers). The list is the agent's candidate pool in
-`packages/full/agents/skill-affinity.json`, intersected with the skills this project selected
+`packages/full/agents-lib/skill-affinity.json`, intersected with the skills this project selected
 (`.claude/selected-skills.txt`). The shipped source files must never carry `skills:`
 themselves, because the right list differs per project. Edits inside the markers are
 overwritten on the next refresh.
