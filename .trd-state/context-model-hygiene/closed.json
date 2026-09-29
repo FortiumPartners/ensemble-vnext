@@ -1,0 +1,12 @@
+{
+  "feature": "context-model-hygiene",
+  "trd": "docs/TRD/context-model-hygiene.md",
+  "closedAt": "2026-09-29T14:21:14Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source PRD was supplied, so the audit could not check whether the change does what the owner asked or whether anything was left out; the rule that implementers leave live, model-spending checks to verification (O1, O7) has no test, by design; `audit-prd.js` has no test proving its model pins; `docs/reference/agents.md` still points at the deleted `packages/full/agents/` directory; the full test battery was not re-run after the last test edit; no measurement shows that subagent starting context fell (two samples after the change read 109.6k and 107.6k tokens, against a median of about 90k before it)",
+    "report": ".trd-state/context-model-hygiene/audit-build-report.md",
+    "auditedCommit": "4a756b7"
+  }
+}

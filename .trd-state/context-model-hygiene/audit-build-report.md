@@ -1,42 +1,35 @@
-VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; FIX-004's rule-file trim removed two section headings that three other documents still cite by name; nothing tests the live-check rule, the absence of plugin agent registration, or the byte ceilings on the rule files and CLAUDE.md
+VERDICT: proceed with these caveats: no source PRD was supplied, so the audit could not check whether the change does what the owner asked or whether anything was left out; the rule that implementers leave live, model-spending checks to verification (O1, O7) has no test, by design; `audit-prd.js` has no test proving its model pins; `docs/reference/agents.md` still points at the deleted `packages/full/agents/` directory; the full test battery was not re-run after the last test edit; no measurement shows that subagent starting context fell (two samples after the change read 109.6k and 107.6k tokens, against a median of about 90k before it)
 
 # Audit report: context-model-hygiene
 
 - Date: 2026-09-29
-- Audited commit: 418f5b6
+- Audited commit: 4a756b7
 - TRD: docs/TRD/context-model-hygiene.md
 - PRD: none
-- Findings: 8 · applied: 4 · rejected: 1 · still unverified: 4 · verifiers reporting: 5/5
+- Findings: 5 · applied: 1 · rejected: 0 · still unverified: 4 · verifiers reporting: 5/5
 
 AUDIT-BUILD: docs/TRD/context-model-hygiene.md    PRD: none
 
-VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; FIX-004's rule-file trim removed two section headings that three other documents still cite by name; nothing tests the live-check rule, the absence of plugin agent registration, or the byte ceilings on the rule files and CLAUDE.md
+VERDICT: proceed with these caveats: no source PRD was supplied, so the audit could not check whether the change does what the owner asked or whether anything was left out; the rule that implementers leave live, model-spending checks to verification (O1, O7) has no test, by design; `audit-prd.js` has no test proving its model pins; `docs/reference/agents.md` still points at the deleted `packages/full/agents/` directory; the full test battery was not re-run after the last test edit; no measurement shows that subagent starting context fell (two samples after the change read 109.6k and 107.6k tokens, against a median of about 90k before it)
 
-Coverage: all 5 of 5 verifiers reported. 7 requirements and 5 tasks were indexed. There was no PRD, so validation against product requirements did NOT run. This audit checked the TRD against the code only.
+Coverage: all 5 verifiers reported. 7 requirements and 6 tasks were checked. Nothing was checked against a PRD because none exists for this feature (`.trd-state/current.json` has `"prd": null`).
 
-TRACEABILITY GAPS: each is built, but no test proves it. A task covers every one, so each goes to /implement-trd --reconcile.
-- The rule that implementers never run live, model-spending checks (O1, O7; FIX-001). The rule is present in trd-authoring.md:282, task-delegation.md:238 and implement-trd.md:599, and each matches its .claude/ copy. No test asserts the text. Note that the 4.7.2 standard dropped prose assertions against prompts, so the reconcile should decide whether this rule deserves a test at all.
-- Agents registered once (O3; FIX-003). Nothing fails if an "agents" key is added back to packages/full/.claude-plugin/plugin.json. The rename to agents-lib is already guarded by scaffold-delivery.test.sh:251, agent-validation.test.js:43 and runtime-integrity.test.sh:214. The live `claude plugin details` count of 0 agents was recorded once, as evidence, and is not a test.
-- Rule-file byte ceilings (O4; FIX-004). The files measure 8,041 + 8,187 = 16,228 bytes against the 17,000 ceiling, and command-status.md measures 12,206 against 12,500. No test holds either ceiling, so the files could grow back.
-- CLAUDE.md byte ceiling (O5; FIX-005). It measures 14,961 bytes against 15,000. No test holds it.
-- Model pins in audit-prd.js (O2). All four agent() calls are pinned, but that workflow has no harness test. The TRD already declares this.
+TRACEABILITY GAPS
+- The live-check rule for implementers and TRD authors (O1, O7). The rule is present in `packages/core/contracts/trd-authoring.md:282-284`, `packages/core/contracts/task-delegation.md:239-240` and the `<check_battery>` block of `implement-trd.md`, with byte-identical mirrors. No test asserts it. The TRD chose this on purpose in the FIX-006 row, citing 4.7.2: tests should catch accidents, and a prompt edit is a decision, not an accident. Recorded and reported here, not closed. No task covers it and none should.
+- Model pinning in `packages/core/workflows/audit-prd.js` (part of O2). All four `agent()` calls name an explicit `agentType` or `model` (checked at lines 106/109, 163/166, 361, 472), but `audit-prd.test.js` does not exist, so nothing proves this. The problem predates this TRD, and FIX-002's grounding note defers it. Recorded and reported here, not closed. Whether to add a test harness is a design decision this command does not make.
 
-MISMATCH: goes to /implement-trd --reconcile (FIX-004).
-- The trim dropped the heading "How the guard works (at a glance)" from async-discipline.md. Two documents still cite it: docs/PRD/autonomy-judge-command-scope.md:390 and docs/TRD/autonomy-judge-command-scope.md:857. The rule itself survives: "A judge error or timeout allows." is now under "Override".
-- The trim also folded "The dispatch ledger" into "Orchestration pattern: the scheduled nudge". docs/TRD/completed/implement-trd-rework.md:1095 still cites the old heading.
-- docs/reference/hooks.md:290 was already repointed to the history file. The reconcile should repoint these three citations the same way.
-- I did not fix them here: they sit outside this TRD's Could Not Verify section.
+MISSING IMPLEMENTATION
+- The rename of the agent source directory (FIX-003) left stale references in the docs. `docs/reference/agents.md` lines 4 and 15 still cite `packages/full/agents/<name>.md` and `packages/full/agents/skill-affinity.json`. That directory no longer exists; the files are in `packages/full/agents-lib/`. FIX-003's stated scope covered commands, tests and scripts but not docs, so its own criteria still pass. For that reason `/implement-trd --reconcile` would not reopen it. Reported here, not closed. It is a two-line edit suited to `/amend` or `/sweep`.
 
-REJECTED THESE FINDINGS (in part):
-- O1/O7 claimed that "even mirror drift on trd-authoring.md goes uncaught". That is wrong. test/integration/tests/runtime-integrity.test.sh:204-214 compares every file in packages/core/contracts against .claude/contracts. The missing content test still stands.
+REJECTED THESE FINDINGS
+- None. I re-opened every disputed file and each finding matches what is on disk. The "no PRD, validation skipped" finding is correct. It is reflected in the verdict and in the first Could Not Verify row, not listed as a gap.
 
-NO ACTION:
-- O2's pins. verify-functional.js now pins Render to sonnet (:908) and both Judge calls to opus (:937, :1177). Seven workflow harness tests assert that every agent() call carries an agentType or a model. I re-ran the 8 workflow suites: 236 tests, all passing.
+NO ACTION
+- O3, O4, O5 and the rest of O2 are implemented and tested. The workflow model pins are held by `verify-functional.test.js:2255` and its sibling tests, which were confirmed to fail when a pin is removed. `runtime-integrity.test.sh` holds the check that no agents are registered and the byte ceilings on the rule files; I re-ran that file after `4912d11` edited it and all 17 of its tests passed.
 
-Could Not Verify, rewritten in docs/TRD/context-model-hygiene.md, now has 4 rows:
-1. Fidelity to the owner's request: no PRD exists.
-2. How much subagent starting context the change saved: needs a live measurement.
-3. The full test battery: not re-run here. It was last green at commit 7abb6a8.
-4. Whether cache reads bill against the owner's plan the same way as on the API.
+Could Not Verify, rewritten in `/Users/james/dev/fortium/ensemble-vnext/docs/TRD/context-model-hygiene.md`:
+- Kept, both still out of scope: whether the change delivers what the owner asked for (no PRD), and cache-read billing.
+- Updated: the starting-context row. A figure after the change now exists but is above the baseline, and nothing isolates what the registration fix contributed.
+- Updated: the full-battery row. The last green run was at `6613684`, and this audit re-ran only the one test file changed since.
 
-NEXT: /implement-trd docs/TRD/context-model-hygiene.md --reconcile
+NEXT: `/amend fix the stale packages/full/agents paths in docs/reference/agents.md`, then run the full battery (`npx jest`, pytest, BATS) before closing the feature.
