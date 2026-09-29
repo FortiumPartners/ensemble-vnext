@@ -93,13 +93,15 @@ COMMAND COMPLETE when the refinement is final.
 
 ## Two skills exempt for the same reason: interactive by purpose
 
-`packages/skills/verify-plan-recovery/SKILL.md` and
-`packages/skills/verification-setup/SKILL.md` sit beside the refine commands: a chat with the
-owner is the whole job. Each is invoked directly by the owner, never chained from a command
-or run unattended — `verification-setup` also sets `disable-model-invocation: true`. Each
-writes the artifact that IS the owner's ruling/approval, so its interview (one
-`AskUserQuestion` per topic, offering a default) is not a checkpoint asked of someone already
-authorized.
+`packages/skills/verification-setup/SKILL.md` and
+`packages/skills/verify-plan-recovery/SKILL.md` sit beside the refine commands. Each is
+invoked directly by the owner, never chained from a command or run unattended —
+`verification-setup` also sets `disable-model-invocation: true`. `verification-setup`
+interviews the owner (one `AskUserQuestion` per topic, offering a default) because its
+answers are infrastructure policy only the owner holds. `verify-plan-recovery` is narrower:
+it derives the plan from the evidence and asks only what the evidence cannot settle — a
+question with an obvious default ("fix the confirmed gaps?", "how many rounds?", "write it?")
+is the checkpoint this rule forbids, even there.
 
 ## Enforcement
 
