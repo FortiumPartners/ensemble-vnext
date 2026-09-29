@@ -125,15 +125,14 @@ declare -A SCENARIO_TIMEOUT=(
     # like verify-fix's TIMEOUT_RUN1; this cap covers that plus one scaffold
     # and fixture-write overhead. Raise both together (VSET-T001).
     [verification-md-setup]=1800
-    # close-feature: ELEVEN separate `/close-feature` invocations (plus one
-    # `/implement-trd --resume` and one `/amend`) across five throwaway
-    # projects, but each is a lightweight read-facts-and-judge command with no
-    # implementer dispatch, no phase gate and no verification loop -- nothing
-    # like implement-one-task's cost per call. Worst case is 300s per call
-    # (RUN_TIMEOUT in the scenario) times 13 calls = 3900s, plus five
-    # scaffolds; this cap sits above that so a slow-but-passing run is not
-    # killed mid-scenario. Raise both together if a live run needs more.
-    [close-feature]=4500
+    # close-feature: five model calls -- three `/close-feature`, one
+    # `/implement-trd --resume` and one `/amend`, the last two stopping at the
+    # closed-feature guard -- across two throwaway projects. The command only
+    # writes a record, so no call dispatches an implementer or runs a gate.
+    # Worst case is 300s per call (RUN_TIMEOUT in the scenario) x 5 = 1500s,
+    # plus two scaffolds (well under a minute each) = 1800s. Raise both
+    # together if a live run needs more.
+    [close-feature]=1800
 )
 
 # Advisory wall-clock target (seconds). REPORTING ONLY — exceeding it is a
