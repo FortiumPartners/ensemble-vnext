@@ -20,6 +20,16 @@ $ARGUMENTS
 If no path is given, use `current.trd` from `.trd-state/current.json`. If `--prd` is omitted,
 use `current.prd` from the same file.
 
+**No TRD (D14).** No path argument was given, AND `current.json` is either absent or its
+`trd` is null or empty (this is exactly what closing a feature leaves behind) → do not call
+the workflow. End immediately:
+
+```
+═══ COMMAND STUCK: /audit-build ═══
+Reason: no TRD path given and .trd-state/current.json names none (closing a feature clears it)
+Next:   /audit-build docs/TRD/<feature>.md
+```
+
 **Parse `--report-only`.** Present → produce the findings and stop at the readout; absent →
 the automatic `/implement-trd --reconcile` chain below applies. The flag was documented at
 §"`--report-only` suppresses the chain" before any step parsed it, so a user who typed it got
@@ -162,12 +172,92 @@ Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or
 `--report-only` run and the printed readout announces a handoff that was suppressed — the
 false-completion signal the destination wording exists to remove.
 
-The workflow returns a readout. Print it. Findings live in script variables and never enter
-this context, so a large finding set costs nothing here.
+The workflow returns a readout. Print it — **as written into the report (next section), not
+reworded.** Findings live in script variables and never enter this context, so a large finding
+set costs nothing here.
 
 **If the workflow is unavailable**, fall back to running the verifiers as parallel subagents
 from this context and reconciling their findings yourself — the checks above are the
 contract, the workflow is only the execution vehicle.
+
+## Writing the audit report (D1, D2, D12)
+
+**Right after the workflow call above returns** — before printing the readout, and before
+any `/implement-trd --reconcile` chain below, on `--report-only` runs too — write
+`.trd-state/<feature>/audit-build-report.md` (`<feature>` is the TRD's basename without its
+extension), overwriting whatever report was there from a previous run:
+
+```markdown
+<the readout's VERDICT: line, copied — the report's first line>
+
+# Audit report: <feature>
+
+- Date: <YYYY-MM-DD>
+- Audited commit: <output of `git rev-parse --short HEAD`, or "unknown" if it fails>
+- TRD: <trd path>
+- PRD: <prd path, or "none">
+- Findings: <n> · applied: <n> · rejected: <n> · still unverified: <n> · verifiers reporting: <as returned>
+
+<the readout, verbatim as printed below — it opens with the AUDIT-BUILD: header and its VERDICT: line>
+```
+
+The workflow's return already carries `findings`, `applied`, `rejected`, `still_unverified`
+and `verifiers_reporting` — this header adds only the date and `git rev-parse --short HEAD`.
+The report opens with the VERDICT line so a reader sees the verdict before anything else; the
+readout below repeats it. Keep the `- Audited commit:` line and the `VERDICT:` line exactly as
+shown: the close record below copies both.
+
+**One text, written once, printed as written.** Settle the readout's final wording — the
+`AUDIT-BUILD:` header, the `VERDICT:` line and every finding line — BEFORE writing this file,
+then print that same text in the terminal, copied character for character. Do not rephrase,
+re-punctuate, shorten or "plain-English" it on the way to the terminal: a printed VERDICT that
+differs from the report's first line by so much as a dash is two verdicts, and the owner reads
+one while the close record holds the other. If the wording can be clearer, make it clearer in
+the text you write here; the terminal then shows the improved text too. The only thing the
+printed readout adds is STATE lines about this report itself (where it was written, whether
+it was committed, the link) — those come after the write and do not exist in the file. A failed write is one line in
+STATE; it never blocks the reconcile chain and never turns the run STUCK.
+
+**Close the feature when the audit passes.** A passing audit is one of the two ways a feature
+gets closed (the other is the owner running `/close-feature`). It passes when all three hold:
+
+- the VERDICT is `safe to proceed` or `proceed with these caveats`;
+- nothing is chained to `/implement-trd --reconcile` on this run (no gap with a covering task);
+- the run is not `--report-only`.
+
+Then perform `/close-feature`'s "The close step" (`.claude/commands/close-feature.md`), with
+`"closedBy": "audit"`, `"note": null` and
+`"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>" }`,
+except that its commit is folded into the one below. On `do not proceed`, or when work was
+chained, the feature stays open: say so in STATE. A feature that is already closed (a re-audit)
+gets its `closed.json` rewritten with this run's audit fields.
+
+**Commit, so it travels with the branch.** On any branch other than the default one, commit
+the report, and the close record when one was written, in one commit and nothing else:
+
+```bash
+git add .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+git commit -m "docs(audit): audit-build report for <feature>" -- .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+```
+
+(Drop `closed.json` from both lines when the audit did not close the feature.) The pathspec
+keeps the commit to those files whatever else is staged. **On the default branch, do not
+commit**: the owner decides what lands there, so NEXT gives them the command instead. A failed
+commit is one line in STATE, never STUCK.
+
+**Publish it** (`.claude/rules/command-status.md` "Artifact links"; same publish-and-remember
+shape as `implement-trd.md` §9.0a):
+
+```
+Artifact({ file_path: ".trd-state/<feature>/audit-build-report.md",
+           url: "<artifacts.json's audit-build-report key, if present>" })
+```
+
+Store the returned URL back into `.trd-state/<feature>/artifacts.json` under
+`audit-build-report`, so the next audit of this feature updates the same link instead of
+minting a second one. **With publishing off (`ensemble.publishArtifacts: false`) or a failed
+publish, STATE names the local report path instead of a link — one line, never STUCK, never
+retried.** STATE always names the report path; add the link above it only when one was made.
 
 ## Readout
 
@@ -187,6 +277,10 @@ VERDICT: safe to proceed — every requirement is implemented and tested
 VERDICT: proceed with these caveats: <named>
 VERDICT: do not proceed until <named>
 ```
+
+The printed VERDICT line is the report's first line, character for character (see "One text,
+written once, printed as written", above) — the `safe to proceed` form is printed exactly as
+shown, em dash included, never re-worded into a sentence of your own.
 
 Every line names the ACTION, not the classification — and, for a gap, WHERE IT GOES NEXT.
 This command applies almost none of these findings itself (see "But it DOES close the loop",
@@ -220,6 +314,10 @@ headings, nothing chains. **Say so on the line**: a gap whose chain was suppress
 is why `report_only` is passed to the workflow, which drafts the readout.
 
 One screen. If there are 40 clean requirements, print the count as one line, not forty.
+
+**NEXT.** When the audit closed the feature: open or update the PR. When work was chained: that
+run's own readout carries on. On `do not proceed` with nothing chained: the design work the
+readout names.
 
 ---
 

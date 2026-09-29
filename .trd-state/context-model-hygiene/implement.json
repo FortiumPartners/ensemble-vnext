@@ -1,0 +1,135 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/context-model-hygiene.md",
+  "trd_hash": "9f5338e803d00273ecaeaa412f544e606b656f14ea188e60d7bec3cc14cfc53b",
+  "branch": "feature/context-model-hygiene/build",
+  "strategy": "test-after",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Keep live model-spending checks out of build tasks",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/trd-authoring.md",
+        "packages/core/commands/implement-trd.md",
+        "packages/core/contracts/task-delegation.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T07:15:44.645Z",
+      "completed_at": "2026-09-29T07:50:30.589Z",
+      "last_advanced": "2026-09-29T07:18:54.445Z"
+    },
+    "FIX-002": {
+      "description": "Pin unpinned workflow dispatches + harness assertion",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T07:15:44.645Z",
+      "completed_at": "2026-09-29T07:50:30.592Z",
+      "last_advanced": "2026-09-29T07:18:54.445Z"
+    },
+    "FIX-003": {
+      "description": "Stop plugin registering agents (agents -> agents-lib)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/full/.claude-plugin/plugin.json",
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/full/agents-lib"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T07:15:44.645Z",
+      "completed_at": "2026-09-29T07:50:30.592Z",
+      "last_advanced": "2026-09-29T07:18:54.445Z"
+    },
+    "FIX-004": {
+      "description": "Cut three rule files to rules; history to docs/rules-history",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/rules/async-discipline.md",
+        "docs/rules-history/async-discipline.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T07:15:44.645Z",
+      "completed_at": "2026-09-29T07:50:30.593Z",
+      "last_advanced": "2026-09-29T07:18:54.445Z"
+    },
+    "FIX-005": {
+      "description": "Cut CLAUDE.md to <=15KB",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "CLAUDE.md",
+        "docs/reference/hooks.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T07:15:44.645Z",
+      "completed_at": "2026-09-29T07:50:30.593Z",
+      "last_advanced": "2026-09-29T07:18:54.445Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "7abb6a8",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-29T07:50:36.331Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "7abb6a8",
+    "last_checkpoint_timestamp": "2026-09-29T07:50:36.331Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/context-model-hygiene.md#Intended Change",
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "local": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

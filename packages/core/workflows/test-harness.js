@@ -128,4 +128,13 @@ async function runWorkflow(source, opts = {}) {
   return { result, phases, logs };
 }
 
-module.exports = { readScript, runWorkflow, makeAgentStub, makeParallelStub, WORKFLOWS_DIR };
+/**
+ * Labels of every recorded agent() call that names neither `agentType` nor `model`. Such a call
+ * is not "no agent": it runs the platform's generic workflow subagent on the SESSION model,
+ * unchosen. Every workflow's harness test asserts this is empty.
+ */
+function unpinnedLabels(agent) {
+  return agent.calls.filter((c) => !c.opts.agentType && !c.opts.model).map((c) => c.opts.label);
+}
+
+module.exports = { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels, WORKFLOWS_DIR };

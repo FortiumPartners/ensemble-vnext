@@ -84,10 +84,11 @@ its reasoning discarded. That argues for shallow, purposeful nesting — not for
 - Test mechanism: `claude --prompt "..." --session-id xxx --dangerously-skip-permissions`
 - Review session logs to verify agents, skills, and hooks used
 - Hooks are no longer uniformly deterministic (amended 2026-08-13, see Changelog). Most hooks
-  are `hookType: "command"` — scripts, unit-tested like any other code. Three Stop/SubagentStop
-  discipline hooks (`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`)
-  are `hookType: "prompt"` — evaluated by the platform's own model judge instead of our code,
-  per `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`
+  are `hookType: "command"` — scripts, unit-tested like any other code. One Stop discipline
+  hook, `discipline-stop` (case A: unbacked promises; case B: mid-command pauses), is
+  `hookType: "prompt"` — evaluated by the platform's own model judge instead of our code, per
+  `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`. There is no
+  SubagentStop judge (removed 2026-08-28)
 - Model-judged hooks are verified differently: against a labeled corpus, with acceptance
   thresholds stated over multiple runs rather than a single pass/fail, because the judge has
   been observed to vary its false-positive and false-negative calls across identical repeated
@@ -241,7 +242,7 @@ This is a plugin development project. Standard unit/integration tests are suffic
    same turn is a hallucinated notification — the agent will sit idle until prompted.
    **`/goal` is not interchangeable with the other three: it has no bound of its own.**
    Prefer a bounded primitive where one will do; see `async-discipline.md` for the measurement.
-   Enforced by the `async-discipline.js` Stop hook (blocks the violation; one of the
+   Enforced by the `discipline-stop` Stop hook, case A (blocks the violation; one of the
    explicit-exception cases under rule 4).
 7. **No silent completion** - See `.claude/rules/command-status.md`. Every workflow
    command emits standard `[STATUS: ...] DISPATCHED`, `[STATUS: ...] RESUMED`, and
@@ -273,6 +274,12 @@ Given the non-deterministic nature of LLM-based systems:
 ---
 
 ## Changelog
+
+### Version 1.4.1 (2026-09-28)
+
+- Factual corrections only, owner-approved: Principle 4 and Prohibited Pattern 6 named three
+  discipline hook files deleted in 4.1.11; the guard is now one Stop hook, `discipline-stop`,
+  and there is no SubagentStop judge. No rule changed.
 
 ### Version 1.4.0 (2026-09-27)
 

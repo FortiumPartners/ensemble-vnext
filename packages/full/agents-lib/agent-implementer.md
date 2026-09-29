@@ -30,10 +30,10 @@ effort: medium
 color: purple
 # background: Reads, edits, WebFetch for provider docs — all retained in background.
 background: true
-# Leaf node — does the work and reports it. Nesting was permitted by default and
+# Nesting is permitted; same-type self-delegation on the same task is forbidden. It
 # produced backend-implementer -> backend-implementer -> backend-implementer with an
 # IDENTICAL task at the last two levels: recursion, not decomposition, ~567k tokens
-# for one unit of work. Implementers fan nothing out; the orchestrator owns the task list.
+# for one unit of work. Out-of-scope work is reported to the orchestrator, not delegated.
 ---
 
 ## Role Statement
@@ -122,18 +122,16 @@ Before starting any work, verify the task falls within your scope.
 
 - **In scope**: anything LLM/agent/RAG-shaped — the AI feature, its prompts, its memory, its
   retrieval, its tools, its traces and evals.
-- **Delegate**: general backend/API plumbing not specific to the AI feature → `backend-implementer`.
-  Infrastructure provisioning (vector-DB cluster sizing, model-hosting infra) → `devops-engineer`.
-  CI/CD pipeline for the AI service → `cicd-specialist`. UI surfaces around the AI feature →
-  `frontend-implementer`. Verification of the AI feature against acceptance criteria →
-  `verify-app`. Code review → `code-reviewer`. Hard bugs in production AI flows → `app-debugger`.
+- **Out of scope** (general backend/API plumbing, infrastructure provisioning, CI/CD, UI
+  surfaces around the AI feature): report it to the orchestrator as a scope conflict; do not
+  delegate it.
 
 **CRITICAL**: respect non-goals in the TRD. If a request would expand into a separate AI feature
 not in scope (e.g. "while you're in there, add summarization"), stop and report the scope conflict.
 
 ## Context Awareness
 
-When delegated from `/implement-trd` (or a team teammate spawn), you receive:
+When delegated from `/implement-trd`, you receive:
 
 - **Task ID + description**: the specific AI-feature task.
 - **Strategy**: `tdd` / `bug-fix` / `refactor` / etc. Your tests are eval datasets + traditional
@@ -221,14 +219,12 @@ Before marking work complete, verify:
 ### Receives Work From
 - **technical-architect** — AI-feature task from a TRD (PRD/TRD specifies the user-facing outcome,
   not the model choice).
-- **spec-planner** — work-session assignment within a team-mode implementation.
 
 ### Hands Off To
 - **verify-app** — completed AI feature for live verification (probe → fix → re-probe against the
   promise; eval scores included in evidence).
 - **code-reviewer** — code review (security, prompt-injection guards, dependency hygiene, cost
   guards, secrets discipline, OWASP for the HTTP surface).
-- **code-simplifier** — post-verification refactoring of the implementation.
 - **backend-implementer** — for non-AI plumbing the feature needs (CRUD endpoints, auth, DB
   migrations not vector-related).
 - **frontend-implementer** — for UI consuming the AI feature (chat surface, streaming UI).

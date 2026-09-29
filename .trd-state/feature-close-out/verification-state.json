@@ -1,0 +1,317 @@
+{
+  "iteration": 3,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-1-report-iter3.md",
+      "reason": "Live /audit-build run on a scratch project (tiny-adder): the report's first line is byte-identical to the VERDICT line the run printed in its terminal readout (FS-1-readout-transcript-iter3.txt), 'VERDICT: proceed with these caveats: no source supplied — ...'. The iteration-2 drift between report and readout is gone.",
+      "cause": null,
+      "provenAt": 3
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-2.txt",
+      "reason": "Source-only: the report template's header line carries all five counts, and the readout is embedded verbatim below it.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-3.txt",
+      "reason": "Source-only: the template records the Date and 'Audited commit: <git rev-parse --short HEAD>', taken at write time, i.e. the checked-out commit.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-5.txt",
+      "reason": "Source-only: the report is published and its URL stored in artifacts.json under 'audit-build-report'.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-6.txt",
+      "reason": "Source-only: the publish call passes the stored audit-build-report URL back as url:, so a second run updates the same link.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-7.txt",
+      "reason": "Source-only: publishing off or a failed publish is one STATE line naming the local path, never STUCK, never retried; the report is written before the publish step.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-8.txt",
+      "reason": "Source-only: no path and no current.json trd ends COMMAND STUCK before the workflow runs (so no report is written), with Next naming /audit-build docs/TRD/<feature>.md.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-10-both-places.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Live: run 3 judged done and wrote closed.json, ending with one banner. Four-section order confirmed from close-feature.md's Readout section. Run 3's audit was stale rather than current, which the criterion does not require to change the verdict.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Live run 1 plus three real closed.json captures show closedAt, checkpointCommit, merged, tasks tally, audit, verification {outcome, report} and verdict fields.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Live commit-count unchanged across runs; NEXT line 'git add ... closed.json && git commit ...' confirmed in close-feature.md.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Live nulling with file kept; validate-init.sh only checks current.json exists and parses, which a null-fielded file satisfies (source).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/close-feature-smoke-full.log",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-23-router-fixture.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-24-router-fixture.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-25-session-context.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-26-four-readers.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-27-FS-28-closed-records.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-28",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-27-FS-28-closed-records.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-30",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-30-guard-source.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-32",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-32-no-close-writes.txt",
+      "reason": "Source-only: neither audit-build.md nor implement-trd.md contains any write of closed.json (audit-build.md has no mention; implement-trd.md only checks existence).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-33",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-33-lib-diff.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-34",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-34-docs-as-built.txt",
+      "reason": "Evidence read and confirms the criterion.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-4-report.md",
+      "reason": "A live run with zero findings (5/5 verifiers reporting) still wrote the report, and its first line is 'VERDICT: safe to proceed — every requirement is implemented and tested'. The terminal's rewording belongs to FS-1, not this criterion.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-29-guard-current.txt",
+      "reason": "Source-only. The closed-feature guard applies whichever of steps 1–3 resolved the TRD: an explicit path, or the automatic lookup with no path (branch-derived or single in-progress). It applies in every mode, including --resume and --reconcile. It stops before any branch switch, pointer write or state change, and it ends STUCK with 'Next: delete .trd-state/<feature>/closed.json to reopen'.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-31",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/feature-close-out/evidence/FS-31-audit-build-next.txt",
+      "reason": "Source-only, and the FS-4 live run agrees. audit-build.md's NEXT names /close-feature <trd> on the default branch, to run after the PR merges. implement-trd.md's Step 9 NEXT template (FS-31-implement-trd-step9-next.txt) never names /close-feature.",
+      "cause": null,
+      "provenAt": 2
+    }
+  ],
+  "gapsClosed": [
+    0,
+    3,
+    1
+  ],
+  "outcome": "satisfied"
+}

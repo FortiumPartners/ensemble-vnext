@@ -1,167 +1,112 @@
 # Ensemble for Claude Code
 
-**AI-Augmented Engineering: From Copilot to Autopilot**
+Ensemble is a Claude Code plugin that turns "ask the AI and edit what comes back" into a
+repeatable engineering process. You write down what to build, specialist agents build it, and
+the result is proven against the running software, not just claimed.
 
-Ensemble is a workflow framework for Claude Code that transforms ad-hoc AI-assisted coding into a governed, repeatable engineering process. It provides the structure, guardrails, and specialist agents that make AI-generated code production-ready.
+> **Code decides the shape of the work. Language fills it in. You decide what matters and
+> anything that leaves the building.**
+>
+> Scripts own the order of work, the loop limits and when to stop. The model owns the
+> judgement: planning, writing code, weighing evidence. You own product intent, approvals,
+> the project's rules, and anything outward-facing: push, merge, deploy.
 
-## The Problem
+---
 
-Teams adopt AI coding tools and get an initial productivity boost, only to hit a wall when shipping to production. The issue isn't the AI -- it's the lack of governance and specifications.
+## What it answers
 
-- Inconsistent code quality that varies between sessions
-- Thin specifications lead to endless rework loops
-- Fast prototypes that can't survive production scrutiny
-- Hidden technical debt that surfaces during code review
+AI coding agents are capable but not reliable, and the ways they fail are predictable. Each
+has an answer built into the framework ([CONCEPTS.md](CONCEPTS.md) takes each in turn).
 
-## The Solution: Artifact-First + Gates
+| What goes wrong | What Ensemble does |
+|---|---|
+| Work reported as done that isn't, in the same confident voice as work that is | A feature is done only when its criteria are proven with evidence captured from the running software |
+| Requirements nobody asked for | Every requirement must trace to a source: your words, a document, a measurement. Audits remove what traces to nothing |
+| Long sessions forget and degrade | Each task goes to a fresh specialist agent (a subagent) given only what that task needs; plans and progress live on disk, so a run can resume |
+| Nothing learned between sessions | Findings, notes and test examples accumulate in the repo; the rules change only with you |
+| Chat-and-edit drifts into code nobody planned | Work flows through written plans, sized to the risk: a product requirements document (PRD) and a technical plan with tasks (TRD) for a feature, a light plan for a small fix |
 
-Ensemble's core insight is simple: **write down what you're building before you build it, and validate what you've built before you ship it.**
-
-- **Artifacts before implementation** -- PRD and TRD specs drive code generation
-- **Gates before merging** -- automated tests, CI checks, and code review enforce quality
-- **Agents execute, humans course-correct** -- specialist AI agents do the work; you set the plan and adjust after each pass
-
-## How It Works
-
-Ensemble adds four building blocks to any Claude Code project:
-
-| Block | What It Does |
-|-------|-------------|
-| **Commands** | Slash commands (`/create-prd`, `/implement-trd`) that encode proven workflow patterns |
-| **Agents** | 13 specialist AI workers (backend, frontend, mobile, AI/agent, testing, debugging, etc.) that receive focused tasks |
-| **Skills** | Domain knowledge packs (pytest, TypeScript, React, etc.) loaded on demand |
-| **Hooks** | Automated guardrails that run on every prompt, edit, and session boundary |
-
-Together they create a development loop:
+## How the work flows
 
 ```
-Story/Idea
-    |
-    v
-/create-prd  -->  Product Requirements Document (what + why)
-    |
-    v
-/create-trd  -->  Technical Requirements Document (how + tasks)
-    |
-    v
-/implement-trd  -->  Code + Tests + Review (governed execution)
-    |
-    v
-/fold-prompt  -->  Update CLAUDE.md with learnings
-    |
-    v
-Quit + Restart  -->  Fresh context for next iteration
+new feature   /create-prd → /audit-prd → /create-trd → /audit-trd → /implement-trd → /audit-build (closes it when it passes) → PR
+a bug or small change      /plan   (writes a plan sized to the risk; --implement builds it)
+a list of small fixes      /sweep
+one change to the feature you're building   /amend
 ```
 
-## Quickstart
+`/implement-trd` builds in phases, reviews the whole branch once, and then verifies the running
+software against criteria written from the PRD. That verification runs by default. The full
+map, with a diagram for every command, is in [PROCESS.md](PROCESS.md).
 
-### Prerequisites
+## Quick start
 
-- **Claude Code CLI** installed and configured
-- **Node.js** 18+ and npm
-- **Git** 2.x+
+You need the Claude Code CLI, git, Node.js 18+ and Python 3.
 
-### 1. Install the Ensemble Plugin
+**1. Install the plugin** (once per machine), then restart Claude Code:
 
 ```bash
-# Clone the repository
-git clone https://github.com/fortiumPartners/ensemble.git ~/dev/ensemble
-cd ~/dev/ensemble && npm install
-
-# Register as a local plugin marketplace
-claude plugins add-marketplace ./
-
-# Install at user scope (available across all projects)
-claude plugin install ensemble-full --scope user
+claude plugin marketplace add FortiumPartners/ensemble-vnext
+claude plugin install full@ensemble-vnext
 ```
 
-### 2. Initialize Your Project
-
-Open Claude Code in any project and run:
+**2. Set up a project.** From its root, in Claude Code:
 
 ```
 /init-project
 ```
 
-This analyzes your project and creates:
-- `.claude/agents/` -- 13 specialist subagents
-- `.claude/commands/` -- workflow commands
-- `.claude/hooks/` -- quality guardrails
-- `.claude/skills/` -- domain knowledge matched to your stack
-- `.claude/rules/constitution.md` -- project guardrails and quality gates
-- `.claude/rules/stack.md` -- detected technology stack
+This detects your stack, asks a few questions, writes your rules to `.claude/rules/`, and
+copies the runtime (commands, agents, hooks, skills) into `.claude/`. Commit it.
 
-### 3. Build Your First Feature
+**3. Tell verification how to reach your app.** Run the `/verification-setup` skill. It
+interviews you and writes `.claude/rules/verification.md`: which environments exist, what the
+checks may touch, where test credentials live (never their values).
 
-```
-/create-prd     # Describe the feature, get a structured PRD
-                 # READ IT. AI review catches structure; human review catches intent.
-
-/create-trd     # Generate architecture, task breakdown, and execution plan
-                 # READ IT. This is your flight plan.
-```
-
-### 4. Run Implementation
-
-We recommend running with `--dangerously-skip-permissions`:
-
-```bash
-claude --dangerously-skip-permissions
-> /implement-trd
-```
-
-Per phase, this runs TDD-based implementation meeting acceptance criteria, then a
-per-phase adversarial hardening pass and (for `[LIVE]` tasks) live verification, at the
-phase gate. After the last phase it runs the hardening pass once more at feature scale.
-
-```bash
-# After the run: verify what was delivered against the TRD and PRD, with traceability
-> /audit-build
-```
-
-The human developer then steps in to debug what `/audit-build` surfaced and get the
-feature over the finish line. See [Concepts](./CONCEPTS.md#phase-3-implementation) for the
-full rationale, including why this used to be three separate commands and why that work
-now runs inside `/implement-trd`'s own loop.
-
-### 5. Fold and Restart
-
-Between phases of a long-running implementation (and at the end), fold learnings into CLAUDE.md:
+**4. Build something.**
 
 ```
-/fold-prompt     # Capture learnings into CLAUDE.md
-exit             # Quit Claude Code
-claude           # Restart with fresh context
+/create-prd "Users can reset their password by email"
+/audit-prd
+/create-trd
+/audit-trd
+/implement-trd docs/TRD/<feature>.md
+/audit-build
 ```
 
-This prevents context bloat and ensures each session starts with consolidated knowledge.
+Each command picks up the file the previous one wrote, except `/implement-trd`: give it the
+TRD path that `/create-trd` prints, unless your branch is named `feature/<feature>/<session>`.
 
-## Key Concepts
+Each command ends with a short readout (what exists now, what it decided, what needs you, and
+the next command) and a `COMMAND COMPLETE` or `COMMAND STUCK` line. Commands run from start to
+finish without asking you to confirm each step.
 
-### You Are Air Traffic Controller, Not Pilot
+For a bug, start with `/plan <what's wrong>` instead.
 
-The mental model isn't hand-flying one aircraft -- it's orchestrating a flight through phases from a control tower. You file the flight plan (PRD/TRD), clear it for takeoff (`--dangerously-skip-permissions`), let `/implement-trd` fly the whole route -- implementing, hardening, and live-verifying at each phase gate -- and course-correct via `/audit-build` when it lands. The framework handles the flying; you handle the plan and the audit.
+## The documents
 
-### Trust the Plan, Iterate on Results
+**Guides**: read these first.
 
-Perfect execution on the first pass isn't the goal. A perfect *plan* is the goal. With a solid PRD/TRD, `/implement-trd`'s per-phase loop (implement, harden, verify) plus `/audit-build` afterward converge on production-ready code through iteration -- not through constant human supervision of every line.
+| Guide | For |
+|---|---|
+| [INSTALL.md](INSTALL.md) | Installing, setting a project up, what gets committed, and keeping it current with `/rebase-project` |
+| [PROCESS.md](PROCESS.md) | Using the commands: which path to take, what each command does, verification, and where state lives |
+| [CONCEPTS.md](CONCEPTS.md) | Why it works this way: the problems, and the eleven ideas that answer them |
 
-### Context Is a Budget
+**Reference**: look things up here. Every command step in order, which agent does it, and the
+file and section it comes from.
 
-AI context is finite. Quality degrades as it fills up. Write important decisions into artifacts (PRD, TRD, CLAUDE.md), not just chat. Plan to fold and restart when context reaches 50-60%.
+| Page | Covers |
+|---|---|
+| [reference/README.md](../reference/README.md) | Index, and all 19 commands at a glance |
+| [reference/implement-trd.md](../reference/implement-trd.md) | Everything `/implement-trd` does, flag by flag |
+| [reference/authoring.md](../reference/authoring.md) | Creating, refining and auditing PRDs and TRDs |
+| [reference/verification.md](../reference/verification.md) | The verification loop, its outcomes, the check skills, and recovery |
+| [reference/other-commands.md](../reference/other-commands.md) | `/plan`, `/sweep`, `/amend`, `/audit-build`, `/close-feature`, maintenance |
+| [reference/hooks.md](../reference/hooks.md) | Every hook: when it fires, what it reads and writes |
+| [reference/agents.md](../reference/agents.md) | The 13 subagents and where each is used |
 
-### Durable IP vs Swappable Tools
-
-Your workflow (commands, templates, quality gates) is durable IP that survives tool churn. The specific LLM, IDE, or CI platform is swappable. Invest in process, not tool memorization.
-
-## Documentation
-
-| Document | Purpose |
-|----------|---------|
-| [Installation Guide](./INSTALL.md) | Detailed setup, configuration, updating, and troubleshooting |
-| [Concepts](./CONCEPTS.md) | Mental models, artifact flow, context management, human/AI responsibilities |
-| [Process Guide](./PROCESS.md) | Step-by-step workflow from init through implementation and post-build audit |
-| [Architecture](./ARCHITECTURE.md) | Complete reference for agents, commands, hooks, skills, and governance files |
+What changed in each release is in [CHANGELOG.md](../../CHANGELOG.md).
 
 ## License
 

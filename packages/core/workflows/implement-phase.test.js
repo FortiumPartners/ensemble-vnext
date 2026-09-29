@@ -9,7 +9,7 @@
 
 'use strict';
 
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('implement-phase.js');
 
@@ -139,6 +139,19 @@ describe('implement-phase: agentType passthrough', () => {
 
     const call = agent.calls.find((c) => c.opts.label === 'task:A');
     expect(call.opts.agentType).toBe('backend-implementer');
+  });
+
+  it('gives every agent() call an explicit agentType or model — none may inherit the session model', async () => {
+    // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
+    // (packages/core/workflows/audit-trd.test.js:70-75) to this file's two call sites:
+    // task:<id> (opts.agentType set AFTER the object literal, per implement-phase.js:188 --
+    // exactly the shape a source-scanning test would miss) and gate:verify-app.
+    const agent = makeAgentStub(happyPlan());
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+
+    expect(agent.calls.length).toBeGreaterThan(0);
+    const unpinned = unpinnedLabels(agent);
+    expect(unpinned).toEqual([]);
   });
 });
 

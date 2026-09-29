@@ -73,15 +73,15 @@ summary="$3"
 # this is the CLOSING write, recorded on the command's completion turn. If
 # this ran only after the early-exit, a user with no NOTIFY_ON_COMPLETE set
 # would never get their run-state closed, and by D5/D12 an unclosed `active`
-# marker is the one state that wrongly keeps the Stop judge's Judgment B
-# suppressed. Format and location match router.py exactly:
+# marker wrongly keeps the Stop judge's pause check ON after the command has
+# ended. Format and location match router.py exactly:
 # `.trd-state/_command-runs/<session-id>.json`, atomic temp-file + rename.
 #
 # Any failure here (missing dir, unwritable fs, bad session id) degrades to
-# "no write happened" — the absent/stale marker then reads as `state=unknown`
-# on the judge side (D5), which is the same fail-safe direction router.py
-# uses. This function must NEVER change the script's exit status: that
-# status is contractually the user's NOTIFY_ON_COMPLETE command's.
+# "no write happened" — the absent/stale marker then reads as state=unknown,
+# which skips the pause check — the same direction router.py uses. This
+# function must NEVER change the script's exit status: that status is
+# contractually the user's NOTIFY_ON_COMPLETE command's.
 close_command_run_state() {
     local session_id="${CLAUDE_SESSION_ID:-unknown}"
 

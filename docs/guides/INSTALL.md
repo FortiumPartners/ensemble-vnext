@@ -1,408 +1,213 @@
-# Ensemble Installation Guide
+# Installing Ensemble
 
-Detailed instructions for installing, configuring, updating, and troubleshooting Ensemble for Claude Code.
-
----
-
-## Prerequisites
-
-| Requirement | Version | Purpose |
-|-------------|---------|---------|
-| Claude Code CLI | Latest | Runtime engine for commands and agents |
-| Node.js | 18+ | Hook execution (JavaScript hooks) |
-| npm | Included with Node.js | Package management |
-| Git | 2.x+ | Version control, vendored runtime |
-| Python | 3.x | Router hook |
-
-**Optional:**
-- jq -- JSON parsing in shell scripts
-- Warp Terminal -- AI-assisted terminal with better formatting
+This guide takes you from nothing to a project Ensemble can work in. For what the commands do
+once you are set up, read [PROCESS.md](PROCESS.md).
 
 ---
 
-## Step 1: Remove Prior Versions
+## 1. What you're installing
 
-If you have previous installations of Ensemble or its predecessors, remove them first.
+Ensemble has two layers.
 
-### Check for Existing Installations
+- **The plugin** is the generator. You install it once into Claude Code. It carries the
+  templates, agents, commands, hooks and skill library. Two commands stay in the plugin
+  because they create or refresh a project's runtime: `/init-project` and `/rebase-project`.
+- **The runtime** is what the plugin copies into each project's `.claude/` directory. It holds
+  the workflow commands, the 13 subagents, the hooks, the rules and the skills that project
+  uses. **You commit it to git.**
+
+```
+plugin (installed once)  ──/init-project──▶  project/.claude/  (committed)
+                         ──/rebase-project─▶  (refreshed when you choose)
+```
+
+Committing it is deliberate: the project behaves the same in a local CLI session and a web
+session (which sees only the repo), each project stays pinned to its own runtime version, and
+every framework change arrives as a diff you can review.
+
+## 2. Prerequisites
+
+| Need | Why |
+|------|-----|
+| Claude Code CLI, current | Runs everything |
+| git | The runtime is committed, and `/rebase-project` relies on git as its undo |
+| Node.js 18+ | Most hooks are JavaScript |
+| Python 3 (`python3` on your PATH) | The prompt router hook, and the session-start refresh check |
+| jq (optional) | Used by some helper scripts; they degrade without it |
+
+## 3. Install the plugin
+
+The plugin lives in the public repo `FortiumPartners/ensemble-vnext`. Its root defines a
+marketplace called `ensemble-vnext`, which contains one plugin called `full`.
 
 ```bash
-# List installed Claude plugins
-claude plugins list
-
-# Look for any of these:
-# - ensemble-full
-# - ai-mesh
-# - claude-config
+claude plugin marketplace add FortiumPartners/ensemble-vnext
+claude plugin install full@ensemble-vnext
 ```
 
-### Uninstall via Plugin Manager
+Inside Claude Code: `/plugin marketplace add FortiumPartners/ensemble-vnext`, then
+`/plugin install full@ensemble-vnext`. Restart Claude Code afterwards. **Scope** defaults to
+`user` (every project on this machine); `--scope project` records it in the repo for teammates.
+
+**To update later:**
 
 ```bash
-claude plugin uninstall ensemble-full 2>/dev/null
-claude plugin uninstall ai-mesh 2>/dev/null
-claude plugin uninstall claude-config 2>/dev/null
+claude plugin marketplace update ensemble-vnext
+claude plugin update full@ensemble-vnext     # restart Claude Code to apply
 ```
 
-### Manual Cleanup (if needed)
+Then bring each project up to date ([section 7](#7-keeping-current)).
 
-If plugins were installed manually or the uninstall commands don't work:
+## 4. Initialize a project
+
+From the project root, in Claude Code, run `/init-project`. It works on new and existing
+codebases:
+
+1. **Detects your stack** from manifests and config (languages, frameworks, test runners,
+   infrastructure) and writes it to `.claude/rules/stack.md`.
+2. **Asks a few questions** — project name and description, development methodology, test
+   coverage targets, which changes need your approval, and how deeply features must be
+   verified (unit tests only, against a running instance, end-to-end, or with your sign-off).
+   `/init-project minimal` skips the questions and takes defaults.
+3. **Writes the rest of your governance files** in `.claude/rules/`: `constitution.md` (your
+   quality gates, approval rules and verification level) and `process.md` (the workflow).
+4. **Vendors the runtime** into `.claude/`:
+   - `agents/` — the 13 subagents
+   - `commands/` — 17 workflow commands (`/init-project` and `/rebase-project` stay in the plugin)
+   - `hooks/` plus hook registrations in `settings.json`
+   - `rules/` — the framework rules (`async-discipline.md`, `autonomy.md`,
+     `command-status.md`) and an unfilled `verification.md`
+   - `skills/` — skills chosen for your stack, plus five that ship to every project: three
+     verification checks (`verify-design-comparison`, `verify-flow-as-built`,
+     `verify-data-fidelity`), `verify-plan-recovery`, and `verification-setup`
+   - `workflows/`, `lib/`, `contracts/` — scripts and reference text the commands use
+5. **Creates** `CLAUDE.md`, `docs/PRD/`, `docs/TRD/`, `.trd-state/` (where implementation
+   progress is tracked), and adds local-only files (`.claude/settings.local.json`, `*.local.*`, `.env`, `.env.local`) to
+   `.gitignore`.
+
+If the directory already has a `.claude/` from something else, Ensemble adds to it rather
+than replacing it. If it already has Ensemble, you are offered migration options instead.
+
+Then commit:
 
 ```bash
-# Remove from user-level installation
-rm -rf ~/.claude/plugins/cache/ensemble/
-rm -rf ~/.claude/plugins/cache/ai-mesh/
-rm -rf ~/.claude/plugins/cache/claude-config/
-
-# Check for legacy direct installations
-rm -rf ~/.claude/commands/ai-mesh/
-rm -rf ~/.claude/agents/ai-mesh-*/
-rm -rf ~/.claude/skills/ai-mesh/
+git add .claude CLAUDE.md .trd-state docs .gitignore
+git commit -m "chore: initialize Ensemble runtime"
 ```
 
----
+## 5. Set up verification
 
-## Step 2: Clone the Repository
+After `/implement-trd` builds a feature, it checks the result against the running software,
+not just the tests — this is on by default. To do that it needs to know how to reach a running
+instance, and how to bring that instance up to date after it fixes something; otherwise it
+keeps measuring the old build and reports it could not converge. `/init-project` ships
+`.claude/rules/verification.md` unfilled. Run `/verification-setup` to fill it: it interviews
+you one topic at a time, offering what it can detect from the repo as the default. Until you
+do, checks that need a running instance are reported as "not verifiable here".
+
+What the file records:
+
+- **Environments** — local, preview, dev, staging, production: how to reach each, and whether
+  the loop may write data to it, deploy to it, or restart it. An environment not listed is
+  off-limits.
+- **Resource counts** — how many of a thing (a simulator, a dev server, a shared database) may
+  exist at once. `0` means never touch it; no entry means one at a time.
+- **Refresh and full-deploy commands** — a fast refresh run after every fix, and a full deploy
+  run once at the end.
+- **Test credentials — where they live, never their values.** The file is committed.
+- **Tooling installed, and what cannot be verified here** — a gap written down is reported as
+  a gap; a gap left out reads as a pass.
+- **Coverage floor** — the share of acceptance criteria that must actually be proven before a
+  run may call itself satisfied. The command recommends a value from this project's past runs,
+  or says it has none yet.
+
+Running the command is your approval to write the file; there is no second confirmation.
+Re-run it whenever environments, credentials locations or tooling change — it asks only about
+what differs.
+
+## 6. Who owns what
+
+| Owned by you — the framework never overwrites these | Owned by the framework — refreshed on rebase |
+|---|---|
+| `.claude/rules/stack.md`, `constitution.md`, `process.md` | `.claude/agents/`, `commands/`, `hooks/`, `workflows/`, `lib/`, `contracts/` |
+| `.claude/rules/verification.md` (changed only via `/verification-setup`) | `.claude/rules/async-discipline.md`, `autonomy.md`, `command-status.md` |
+| `CLAUDE.md` (grows via `/update-project`, pruned via `/cleanup-project`) | Skills the plugin ships (yours are kept) |
+| Settings values you have set | New default keys in `.claude/settings.json` |
+
+## 7. Keeping current
+
+After updating the plugin, run in each project, on a clean git tree:
+
+```
+/rebase-project            # or --dry-run to preview
+```
+
+It replaces every framework-owned file that differs from the plugin, adds new ones, removes
+commands and agents the framework has retired, and recomputes plugin skills against your
+`stack.md`. It writes no backup copies: git is the undo, which is why it refuses to run with
+uncommitted changes under `.claude/`, or outside a git repo, unless you pass `--force`
+(which discards those changes). Review with `git diff`, then commit.
+
+It never touches anything in the left column of [section 6](#6-who-owns-what), nor skills,
+agents or hooks you added yourself. `--preserve-all` narrows it to commands, hooks,
+`workflows/`, `lib/` and `contracts/`: agents, skills and rules stay as they are and settings
+only gain new keys. It exists for heavily customized projects.
+
+**Between rebases,** a session-start hook refreshes the framework files a project already has
+whenever the installed plugin is newer, leaving the changes uncommitted for you to review. It
+never adds or removes anything — that stays `/rebase-project`'s job — and it skips while an
+implementation is in progress. Set `ENSEMBLE_RUNTIME_REFRESH_DISABLE=1` to turn it off.
+
+## 8. Settings worth knowing
+
+- **Documents are published as private claude.ai pages by default.** PRDs, TRDs and
+  verification reports get a link you can open and later share. To turn it off, set this in
+  `.claude/settings.json` — no upgrade will turn it back on:
+  ```json
+  { "ensemble": { "publishArtifacts": false } }
+  ```
+- **A stop-time guard** checks each turn's final message for false "I'll let you know when
+  it's done" claims and for needless "shall I continue?" pauses, and sends the turn back once
+  if it finds one. The details are in your project's `.claude/rules/async-discipline.md`.
+
+## 9. Check it works
 
 ```bash
-# Choose a location (e.g., ~/dev or ~/utils)
-cd ~/dev
-
-# Clone the repository
-git clone https://github.com/fortiumPartners/ensemble.git
-
-# Enter the directory and install dependencies
-cd ensemble
-npm install
+ls .claude/agents/*.md | wc -l        # 13
+ls .claude/commands/*.md | wc -l      # 17
+jq .ensemble.version .claude/settings.json   # the plugin version you installed (needs jq)
 ```
 
----
-
-## Step 3: Register as Local Plugin Marketplace
-
-Configure the cloned repository as a local plugin source:
+For a full check, run the plugin's validator against the project:
 
 ```bash
-# From within the ensemble directory
-claude plugins add-marketplace ./
+"$(jq -r '.plugins["full@ensemble-vnext"][0].installPath' ~/.claude/plugins/installed_plugins.json)/scripts/validate-init.sh" .
 ```
 
-### Verify Marketplace Registration
+Then try a small real task: `/plan <one small change you actually want>`. It should size the
+work and write a plan to `docs/TRD/`.
+
+**If something is off:**
+
+- **Commands don't appear after installing or updating** — restart Claude Code. Plugin
+  changes apply on restart.
+- **Hooks error on every prompt** — `node` or `python3` is not on the PATH Claude Code sees.
+- **`/rebase-project` refuses to start** — you have uncommitted changes under `.claude/`
+  (perhaps from the session-start refresh). Review and commit them, or stash them.
+- **The CLI shows `Stop hook error:` with a reason** — that is the stop-time guard sending a
+  turn back, displayed by Claude Code as an error. Nothing is misconfigured.
+- **Verification reports criteria "not verifiable here", or stalls** — `verification.md` is
+  unfilled or has no refresh command for the environment. Run `/verification-setup`.
+
+## 10. Running from source (contributors)
 
 ```bash
-claude plugins list-marketplaces
-# You should see your local path listed
+git clone https://github.com/FortiumPartners/ensemble-vnext.git
+claude plugin marketplace add ./ensemble-vnext
+claude plugin install full@ensemble-vnext
 ```
 
----
-
-## Step 4: Install the Plugin
-
-Install `ensemble-full` at user scope:
-
-```bash
-claude plugin install ensemble-full --scope user
-```
-
-### Scope Options
-
-| Scope | Location | Use Case |
-|-------|----------|----------|
-| `user` | `~/.claude/plugins/` | **Recommended.** Available across all projects. |
-| `project` | `./.claude/plugins/` | Per-project installation. |
-
-The plugin doesn't impose requirements on projects that don't use it. If you don't invoke Ensemble commands in a project, they simply won't run.
-
-### Verify Installation
-
-```bash
-# List installed plugins
-claude plugins list
-# Should show: ensemble-full (user) - vX.x.x
-
-# Test a command
-claude /help
-# Ensemble commands should appear in the list
-```
-
----
-
-## Step 5: Initialize a Project
-
-Open Claude Code in any project and run the initialization command:
-
-```
-/init-project
-```
-
-### What It Does
-
-1. **Detects your technology stack** -- scans package.json, requirements.txt, Gemfile, etc.
-2. **Creates governance files** -- `constitution.md` (project guardrails) and `stack.md` (detected technologies)
-3. **Vendors the runtime** -- copies agents, commands, hooks, and skills into `.claude/`
-4. **Sets up document structure** -- creates `docs/PRD/` and `docs/TRD/` directories
-5. **Configures hooks** -- installs router, formatter, runtime-refresh, and other lifecycle hooks
-
-### Initialization Modes
-
-```
-/init-project           # Interactive mode with prompts
-/init-project minimal   # Use detected defaults, minimal prompts
-/init-project force     # Overwrite existing configuration
-```
-
-### What Gets Created
-
-```
-.claude/
-  agents/              # 13 specialist subagents
-  commands/            # Workflow commands (/create-prd, /implement-trd, etc.)
-  hooks/               # Automated guardrails
-  skills/              # Domain knowledge matched to your stack
-  rules/
-    constitution.md    # Project guardrails and quality gates
-    stack.md           # Detected technology stack
-    process.md         # Workflow documentation
-  settings.json        # Hook configuration and permissions
-
-docs/
-  PRD/                 # Product Requirements Documents
-  TRD/                 # Technical Requirements Documents
-
-.trd-state/            # Implementation tracking (git-tracked)
-```
-
-All of this is committed to git, ensuring identical behavior across local CLI and Claude Code Web sessions.
-
----
-
-## Step 6: Verify and Run
-
-After initialization, verify the key components and run your first feature.
-
-### Commands Available
-
-```
-# In Claude Code, type / to see available commands
-# You should see all 18:
-/create-prd              /create-trd
-/refine-prd               /refine-trd
-/audit-prd                /audit-trd
-/implement-trd            /audit-build
-/plan                     /amend
-/sweep                    /augment-trd-figma
-/verify-build             /fold-prompt
-/update-project           /cleanup-project
-/init-project             /rebase-project
-```
-
-`/plan`, `/amend`, and `/sweep` are the shorter paths -- a defect, small change, or refactor;
-one change to a feature already in flight; or a list of small unrelated fixes -- each grounded
-and verified without spinning up a full PRD/TRD pair. See
-[Concepts: Shorter Paths](./CONCEPTS.md#shorter-paths) for how they differ.
-
-### Running Implementation
-
-We recommend running implementation passes with `--dangerously-skip-permissions` to allow uninterrupted autonomous execution:
-
-```bash
-claude --dangerously-skip-permissions
-> /implement-trd
-```
-
-This skips all permission prompts, allowing the agent to work autonomously through the full staged execution loop per phase (implement, verify, debug, simplify, review), plus a
-feature-scale hardening pass after the final phase, without pausing for approval.
-
-See [Concepts: Implementation](./CONCEPTS.md#phase-3-implementation) for how the adversarial
-hardening pass and the live-verification gate now run inside that single loop, and
-[`/audit-build`](../../.claude/commands/audit-build.md) for the post-implementation
-verification/validation/traceability pass.
-
-### Hooks Active
-
-Check `.claude/settings.json` to verify hooks are configured:
-
-| Hook Event | Handler | Purpose |
-|------------|---------|---------|
-| `SessionStart` | `session-context.js` → `runtime-refresh.sh` | Captures session identity for downstream tooling, then refreshes vendored components already present from a newer installed plugin (see [ARCHITECTURE.md](./ARCHITECTURE.md#keeping-the-runtime-current-refresh-vs-rebase)) |
-| `UserPromptSubmit` | `router.py` | Routes prompts to appropriate agents/skills |
-| `PostToolUse` | `formatter.sh` | Auto-formats edited files |
-| `SubagentStop` | `status.js` | Tracks implementation progress |
-| `PreCompact` | `precompact.js` | Preserves state before context compaction |
-| *(model-invoked)* | `notify-complete.sh` | Called directly by commands on their COMMAND COMPLETE turn to fire `NOTIFY_ON_COMPLETE` exactly once |
-
----
-
-## Updating Ensemble
-
-To update to a newer version:
-
-```bash
-# Pull latest changes
-cd ~/dev/ensemble
-git pull
-
-# Reinstall the plugin
-claude plugin uninstall ensemble-full
-claude plugin install ensemble-full --scope user
-```
-
-### Updating an Existing Project
-
-After updating the plugin, update the vendored runtime in your project:
-
-```
-/rebase-project
-```
-
-This upgrades the vendored runtime while preserving your customizations to `constitution.md`, `stack.md`, and any custom agents or skills.
-
----
-
-## Optional: MCP Server Configuration
-
-MCP (Model Context Protocol) servers extend Claude Code with additional capabilities.
-
-### Context7 (Documentation Retrieval)
-
-Provides access to up-to-date library documentation.
-
-**Global installation** (available across all projects):
-
-Add to `~/.claude.json`:
-
-```json
-{
-  "mcpServers": {
-    "context7": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
-    }
-  }
-}
-```
-
-### Playwright MCP (Browser Automation)
-
-Enables Claude to control a browser for E2E test development.
-
-**Project-level installation** (recommended):
-
-Create or edit `.mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
-    }
-  }
-}
-```
-
-### Enable Project MCP Servers
-
-Create `.claude/settings.local.json` (gitignored):
-
-```json
-{
-  "enableAllProjectMcpServers": true
-}
-```
-
-Restart Claude Code after configuring MCP servers.
-
----
-
-## Project-Specific Configuration
-
-### CLAUDE.md
-
-The `CLAUDE.md` file in your project root is automatically loaded by Claude Code at session start. Ensemble uses this as the project's operating manual:
-
-- Architecture decisions and conventions
-- File structure reference
-- Testing patterns and commands
-- Agent delegation preferences
-- Key debugging notes
-
-This file is updated by `/fold-prompt` at the end of each development session and by `/update-project` for manual learning capture.
-
-### Constitution and Stack
-
-| File | Purpose | Change Frequency |
-|------|---------|-----------------|
-| `.claude/rules/constitution.md` | Project absolutes and quality gates | Rare (requires confirmation) |
-| `.claude/rules/stack.md` | Technology stack definition | Occasional (requires confirmation) |
-| `CLAUDE.md` | Session knowledge and patterns | Frequent (automatic via fold) |
-
----
-
-## Troubleshooting
-
-### Plugin Not Found
-
-```bash
-# Ensure marketplace is registered
-claude plugins list-marketplaces
-
-# Re-add if missing
-cd ~/dev/ensemble
-claude plugins add-marketplace ./
-```
-
-### Commands Not Appearing
-
-```bash
-# Verify installation
-claude plugins list
-
-# Check plugin status
-claude plugin info ensemble-full
-
-# Restart Claude Code if commands were recently added
-exit
-claude
-```
-
-### Version Conflicts
-
-```bash
-# Full cleanup and reinstall
-claude plugin uninstall ensemble-full
-rm -rf ~/.claude/plugins/cache/ensemble/
-cd ~/dev/ensemble && git pull
-claude plugin install ensemble-full --scope user
-```
-
-### Hooks Not Firing
-
-Check `.claude/settings.json` exists and contains the `hooks` configuration. Common issues:
-
-| Problem | Solution |
-|---------|----------|
-| Router not triggering | Verify `router.py` is executable: `chmod +x .claude/hooks/router.py` |
-| Formatter errors | Check that `prettier` or your formatter is installed |
-| Runtime not refreshing | Check `ENSEMBLE_RUNTIME_REFRESH_DEBUG=1` output; see the four guards in [ARCHITECTURE.md](./ARCHITECTURE.md#the-four-guards) |
-| Python not found | Ensure Python 3.x is on your PATH |
-
-### Initialization Failures
-
-| Problem | Solution |
-|---------|----------|
-| `/init-project` not recognized | Plugin not installed -- follow Steps 2-4 |
-| "Permission denied" errors | Run `chmod +x .claude/hooks/*.sh .claude/hooks/*.py .claude/hooks/*.js` |
-| Stack detection wrong | Edit `.claude/rules/stack.md` manually, then run `/update-project` |
-| Existing `.claude/` conflict | Use `/init-project force` to overwrite, or manually merge |
-
-### Context Issues
-
-| Symptom | Solution |
-|---------|----------|
-| AI output becoming generic | Context is full. Run `/fold-prompt`, exit, restart |
-| Agent forgetting earlier decisions | Write decisions into artifacts (PRD/TRD/CLAUDE.md), not just chat |
-| Slow response times | Large context. Fold and restart |
-| Commands behaving unexpectedly | Restart Claude Code for a fresh context |
+The local directory registers under the same marketplace name, `ensemble-vnext`, as the GitHub
+one, so remove one before adding the other (`claude plugin marketplace remove ensemble-vnext`).
+For one-off testing without installing, `claude --plugin-dir ./ensemble-vnext/packages/full`
+loads the plugin for that session only.

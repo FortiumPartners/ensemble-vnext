@@ -172,13 +172,24 @@ copy_template() {
 
 # Copy agents from plugin directory
 copy_agents() {
-    local src="$PLUGIN_DIR/agents"
     local dest="$1/.claude/agents"
     refresh_skips_absent "$dest" "agents" && return 0
 
     if [[ -z "$PLUGIN_DIR" ]]; then
         warn "No plugin directory specified, skipping agents"
         return 0
+    fi
+
+    # The agent roster ships as agents-lib/ and is deliberately NOT registered in
+    # plugin.json -- registering it would make Claude Code discover the directory on
+    # its own and load every agent's frontmatter into every session on the machine,
+    # the same always-on cost the skills fix (8dc88ec) eliminated for the skill
+    # library. Fall back to agents/ so installs predating the rename still scaffold
+    # correctly.
+    local src="$PLUGIN_DIR/agents-lib"
+    if [[ ! -d "$src" && -d "$PLUGIN_DIR/agents" ]]; then
+        src="$PLUGIN_DIR/agents"
+        info "Using legacy agents/ source (plugin predates agents-lib)"
     fi
 
     if [[ ! -d "$src" ]]; then
@@ -275,7 +286,7 @@ copy_contracts() {
 # workflows 9 files, contracts 3, audit-build.md present, lib EMPTY.
 #
 # packages/full/lib/ now carries per-file symlinks to the three modules -- the
-# same pattern hooks/ and agents/ use, which demonstrably survives packaging.
+# same pattern hooks/ and agents-lib/ use, which demonstrably survives packaging.
 # So check "$PLUGIN_DIR/lib" FIRST, but only when it actually contains *.js, and
 # keep the monorepo path as the dev-checkout fallback.
 # REFRESH SEMANTICS, corrected 2026-08-16. `--refresh` used to update only files
@@ -484,7 +495,7 @@ copy_commands() {
 }
 
 # Locate a JSON sidecar that ships alongside a package subdirectory
-# (hooks/hooks.manifest.json, agents/skill-affinity.json). Echoes the first
+# (hooks/hooks.manifest.json, agents-lib/skill-affinity.json). Echoes the first
 # existing candidate and returns 0; returns 1 if none exist.
 #
 # Every such sidecar must be reachable from BOTH install layouts, so the
@@ -1055,7 +1066,10 @@ inject_agent_skills() {
     local agents_dir="$target_dir/.claude/agents"
     local manifest=""
 
-    manifest="$(find_plugin_json agents skill-affinity.json)" || manifest=""
+    # agents-lib/ is the current source (see copy_agents' rationale above); fall back
+    # to the pre-rename agents/ for installs from an older plugin version.
+    manifest="$(find_plugin_json agents-lib skill-affinity.json)" || \
+        manifest="$(find_plugin_json agents skill-affinity.json)" || manifest=""
 
     if [[ -z "$manifest" ]]; then
         info "No skill-affinity manifest found — skipping agent skill preloads"

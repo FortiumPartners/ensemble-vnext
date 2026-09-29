@@ -20,7 +20,7 @@
 #   session_id is supplied, so the helper can read it as $CLAUDE_SESSION_ID.
 #
 # The "does the model actually fire the helper at runtime?" question is
-# answered manually per the recipes in `.claude/rules/command-status.md` —
+# answered manually per the recipes in `docs/rules-history/command-status.md` —
 # that surface is non-deterministic by design.
 #
 # Run with:
@@ -310,7 +310,7 @@ JSON
     diff -q "$RULE_FILE" "$RULE_TEMPLATE"
 }
 
-@test "L2: all 16 workflow commands invoke the notify-complete.sh helper" {
+@test "L2: every workflow command invokes the notify-complete.sh helper" {
     # DISCOVERED, not hardcoded. This roster listed fix-issue and
     # investigate-issue and broke the moment item 12 deleted them — the same
     # rot that took the mirror-parity test from a hardcoded 14-file list to a

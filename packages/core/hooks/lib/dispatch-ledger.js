@@ -29,9 +29,10 @@
  *
  * Two consequences drove this design:
  *
- *   1. There is NO `name` field on either event. The `name` passed to
- *      `Agent({name: "probe-alpha"})` never reaches a hook. So the ledger keys
- *      on `agent_id`, which IS addressable: the lead renders agents as
+ *   1. There is no `name` field on either event, but a name given to
+ *      `Agent({name: "probe-alpha"})` arrives as `agent_type` instead
+ *      (corrected 2026-08-13 -- see async-discipline.md). The ledger still
+ *      keys on `agent_id`, which IS addressable: the lead renders agents as
  *      `probe-alpha (ae5ed58fc661530ad)` and `SendMessage` accepts an id or a
  *      name. `agent_id` is also the SAFER key — the CLI changelog records
  *      `SendMessage` misrouting when a re-spawned agent reused a previous
@@ -49,13 +50,13 @@
  *   blocked → running  (see below)
  *   stop    → finished
  *
- * The `blocked` row is what makes this exact rather than approximate.
- * `subagent-discipline.js` can BLOCK a SubagentStop, which continues the same
- * subagent — so the `stop` row that fired alongside the block describes an
- * agent that did not, in fact, stop. Without a compensating row the ledger
- * would report a still-running agent as finished, and the orchestrator would
- * skip precisely the agent most likely to need a nudge. So the discipline hook
- * appends `blocked` after it blocks, reopening the row.
+ * A `blocked` row was written by `subagent-discipline.js`, which blocked a
+ * SubagentStop to continue the same subagent, reopening the row so the
+ * ledger would not report a still-running agent as finished. That hook was
+ * deleted in 4.1.11 (there is no SubagentStop judge any more), so nothing
+ * writes a `blocked` row today, and a subagent that was blocked and resumed
+ * under the old judge would have read as finished. This is a known gap,
+ * carried here as history rather than current behaviour.
  *
  * CONCURRENCY
  *

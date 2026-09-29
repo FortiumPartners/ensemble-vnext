@@ -134,7 +134,7 @@ Skills are compiled from the plugin library based on this stack definition.
 
 ```
 .claude/
-  agents/       # 12 streamlined subagents
+  agents/       # 13 streamlined subagents
   commands/     # Workflow commands
   hooks/        # Hook executables
   skills/       # Compiled skills

@@ -14,7 +14,7 @@
 #     least one shape actually in use across current TRDs.
 #   - packages/core/commands/*.md and .claude/commands/*.md are byte-identical
 #     for every command present in both.
-#   - packages/full/agents/*.md and .claude/agents/*.md are identical apart from the
+#   - packages/full/agents-lib/*.md and .claude/agents/*.md are identical apart from the
 #     per-project skill preloads scaffold-project.sh generates into the vendored copy.
 #   - packages/full/commands/plugin-only/*.md are REAL FILES byte-identical to
 #     packages/core/commands/ (symlinked plugin commands silently do not load),
@@ -116,7 +116,7 @@ done
 assert_true "at least one command pair compared" -- test "$CMD_COMPARED" -gt 0
 
 # -----------------------------------------------------------------------------
-# packages/full/agents/*.md <-> .claude/agents/*.md identical, apart from what
+# packages/full/agents-lib/*.md <-> .claude/agents/*.md identical, apart from what
 # scaffold-project.sh's inject_agent_skills() GENERATES into the vendored copy:
 # the frontmatter `skills:` list and the ENSEMBLE:SKILLS body block. Those are
 # per-project by design (4.1.1 moved skill assignment out of the agent files), so a
@@ -136,7 +136,7 @@ if m:
 sys.stdout.write(text.rstrip("\n") + "\n")
 PY
 }
-FULL_AGENTS_DIR="${REPO_ROOT}/packages/full/agents"
+FULL_AGENTS_DIR="${REPO_ROOT}/packages/full/agents-lib"
 VENDORED_AGENTS_DIR="${REPO_ROOT}/.claude/agents"
 AGENT_COMPARED=0
 for f in "$FULL_AGENTS_DIR"/*.md; do

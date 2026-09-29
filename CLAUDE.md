@@ -36,7 +36,7 @@ beats "dispatched the phase workflow, ran the gate, applied review findings."
 
 **Numbers carry their unit and their baseline.** "677s, was 341s" beats "improved latency."
 
-Fuller guidance, with worked before/after pairs taken from a real session, is in
+Fuller guidance, with a worked before/after pair taken from a real session, is in
 `.claude/rules/command-status.md` under "Write for someone who was not in the session". The
 router's orientation hint carries a short form of this on every turn. Neither will land every
 time; that is expected, and it is why the guidance appears in more than one place.
@@ -61,7 +61,8 @@ FULL PIPELINE
 /create-trd    --> docs/TRD/<feature>.md
 /audit-trd     --> verify the TRD against the PRD
 /implement-trd --> implementation + .trd-state/ tracking (review and hardening run INSIDE it)
-/audit-build   --> verify delivered code against TRD and PRD
+/audit-build   --> verify delivered code against TRD and PRD; a passing audit closes the feature
+/close-feature --> close a feature on your say-so (records it, clears its in-flight state)
 
 SHORTER PATHS
 /plan <what>         --> defect / small change / refactor: sizes the work and writes a TRD
@@ -147,295 +148,73 @@ Given non-deterministic LLM output:
 
 ## Hooks Reference
 
-### Discipline Hooks (Stop / SubagentStop) — model-judged
+Full mechanism, every hook, and the measurements behind each one: `docs/reference/hooks.md`.
+The two load-bearing ones, in brief:
 
-Three hooks enforce `.claude/rules/async-discipline.md` and `.claude/rules/autonomy.md`:
-`async-discipline` and `autonomy-discipline` on `Stop`, `subagent-discipline` on
-`SubagentStop`. As of 2026-08-13 (`docs/TRD/discipline-judgment.md`) all three are
-`hookType: "prompt"` in `packages/core/hooks/hooks.manifest.json` — evaluated by the
-platform's own model judge (prompt text in `packages/core/hooks/prompts/`) rather than by
-regex matching inside a `.js` file.
+**Discipline Hook (Stop) — model-judged.** One prompt-type `Stop` hook, `discipline-stop`
+(manifest id `discipline-stop.js`, prompt source
+`packages/core/hooks/prompts/discipline-stop.source.md`), enforces
+`.claude/rules/async-discipline.md` (case A: a promise of later work that nothing will keep)
+and `.claude/rules/autonomy.md` (case B: a mid-command pause). It runs on the platform's own
+model judge, on `claude-sonnet-5`, rather than on regex matching inside a `.js` file — there
+is no `SubagentStop` judge (removed 2026-08-28), and the three original discipline `.js` files
+no longer exist (4.1.11). To change the guard: edit the source file, run
+`build-judge-prompts.js` then `generate-hooks-artifacts.sh`, re-score with
+`test/discipline-corpus/replay/`, refresh. Mechanism: `docs/reference/hooks.md` §6; history
+and measurements: `docs/rules-history/`.
 
-**There are no `.js` files behind these three any more** (4.1.11, DISC-B009):
-`async-discipline.js`, `autonomy-discipline.js`, `subagent-discipline.js`,
-`lib/async-claim-detector.js` and `lib/transcript-text.js` were deleted, together with the
-`ENSEMBLE_DISCIPLINE_JUDGE_DISABLE` lever that regenerated them as command-type. The lever
-never worked outside this checkout — those files were never delivered to a scaffolded
-project — so it would have shipped a safety net with no detection behind it. Their manifest
-entries keep the `.js` names as **identifiers**; nothing resolves them to disk. A frozen copy
-of the regexes lives at `test/discipline-corpus/detectors/regex.js` purely so the scoring
-baseline stays reproducible; it is a test fixture, not runtime code.
-
-**As of 2026-09-24 the two `Stop` judgments share one hand-authored prompt**,
-`packages/core/hooks/prompts/discipline-stop.source.md` (~4 KB, replacing a 14.9 KB prompt
-assembled from blocks), and run on `claude-sonnet-5` rather than the default small model.
-Consecutive blocks are capped at 1 by `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` in settings `env`.
-The judge's own loop guard was measured being ignored. Evidence: `FINDINGS.md`.
-
-**As of 2026-09-28 the prompt is framed as a stopping condition**, because that is how the
-platform asks the question: every prompt-type Stop hook arrives as `Condition: <prompt>` under
-a system prompt that blocks on "insufficient evidence". The 4.7.0 prompt was measured against
-the wrong wrapper; in one measured session it blocked 11% of stops (14 of 125), every one of
-them this mismatch. Details and the
-replay numbers: `.claude/rules/async-discipline.md`, "How the platform actually asks the
-question". `replay/score.py` now uses the real wrapper by default.
-
-To change the guard: edit the source file, run `build-judge-prompts.js` then
-`generate-hooks-artifacts.sh`, re-score with `test/discipline-corpus/replay/`, refresh.
-See the two rules files above for the full mechanism — not duplicated here.
-
-### Notify Hook (Stop)
-
-The notify hook (`.claude/hooks/notify.sh`) fires when a Claude Code session stops and optionally executes a notification command. This enables orchestration patterns where a parent process or external system needs to know when a session has finished.
-
-**Purpose:**
-- Notify orchestrating agents when sessions complete
-- Trigger webhooks for CI/CD pipelines
-- Write signal files for shell script orchestration
-- Send messages to queue systems
-
-**Environment Variables (Input):**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NOTIFY_ON_STOP` | (unset) | Command to execute when session stops. If unset, empty, or whitespace-only, the hook exits silently. |
-| `NOTIFY_HOOK_DEBUG` | `0` | Set to `1` to enable debug logging to stderr. Sensitive values are masked. |
-| `NOTIFY_HOOK_DISABLE` | `0` | Set to `1` to disable the hook entirely. |
-
-**Environment Variables (Output - available to NOTIFY_ON_STOP command):**
-
-| Variable | Description |
-|----------|-------------|
-| `NOTIFY_SESSION_ID` | Session ID from hook input, or "unknown" if not provided. |
-| `NOTIFY_CWD` | Working directory from hook input, or "unknown" if not provided. |
-| `NOTIFY_TRANSCRIPT_PATH` | Transcript file path from hook input, or "unknown" if not provided. |
-
-**Usage Examples:**
-
-```bash
-# Pattern 1: tmux Notification (notify orchestrating pane)
-export NOTIFY_ON_STOP="tmux send-keys -t orchestrator 'echo Session complete' Enter"
-claude --remote "Implement feature X"
-
-# Pattern 2: Webhook Notification (trigger CI/CD)
-export NOTIFY_ON_STOP="curl -X POST https://webhook.example.com/session-complete"
-claude --remote "Run tests"
-
-# Pattern 3: File-based Signal (shell script orchestration)
-export NOTIFY_ON_STOP="touch /tmp/session-complete-signal"
-claude --remote "Build project"
-
-# Pattern 4: Message Queue (AWS SQS)
-export NOTIFY_ON_STOP="aws sqs send-message --queue-url https://sqs... --message-body 'done'"
-claude --remote "Deploy to staging"
-
-# Pattern 5: Using session context variables
-export NOTIFY_ON_STOP='echo "Session $NOTIFY_SESSION_ID completed in $NOTIFY_CWD" >> /tmp/sessions.log'
-claude --remote "Implement feature"
-
-# Pattern 6: OpenClaw integration with session context
-export NOTIFY_ON_STOP='openclaw gateway wake --session-id "$NOTIFY_SESSION_ID" --text "Done in $NOTIFY_CWD" --mode now'
-claude --remote "Process data"
-```
-
-**Behavior:**
-- Executes `NOTIFY_ON_STOP` via `/bin/sh -c` with a 30-second command timeout
-- Falls back to `openclaw gateway wake` if the primary command fails
-- Always exits 0 (non-blocking) to avoid blocking session termination
-- Returns `{"continue": true}` to Claude Code
-
-**Testing:**
-- Unit tests: `packages/core/hooks/notify.test.sh`
-- Run tests: `npx bats packages/core/hooks/notify.test.sh`
-
-**Integration with Other Hooks:**
-
-The notify hook is the last entry in the `Stop` hook array, after the discipline
-guard (`learning.sh` and `wiggum.js`, both referenced here in older docs, were retired in
-4.1.0 and 4.1.18 respectively — see `.claude/rules/constitution.md`'s Architecture
-Invariants):
-
-```json
-"Stop": [
-  { "type": "prompt", "prompt": "...", "timeout": 60, "model": "claude-sonnet-5" },  // discipline-stop.js
-  { "type": "command", "command": ".claude/hooks/notify.sh", "timeout": 60 }
-]
-```
-
-Both fire on every session stop, independently — see the Discipline Hooks section above for
-what the first evaluates. The notify hook sends any configured notification last.
+**Notify Hook (Stop).** `.claude/hooks/notify.sh` fires on every session stop and optionally
+runs a notification command (`$NOTIFY_ON_STOP`) — for orchestration patterns where a parent
+process or external system needs to know a session went idle. It is the last entry in the
+`Stop` array, after the discipline judge, and fires independently of it. Full env-var surface
+and usage patterns: `docs/reference/hooks.md` §7.1. Unit tests: `packages/core/hooks/notify.test.sh`.
 
 ---
 
 ## Eval Framework Usage
 
-The eval framework at `test/evals/framework/` enables A/B testing of skills and agents.
-
-### Spec Hierarchy
-
-**Use `dev-loop/` specs by default.** Other categories serve specific purposes:
-
-| Category | Purpose | When to Use |
-|----------|---------|-------------|
-| `dev-loop/` | **Primary A/B testing** with 3 variants (baseline, framework, full-workflow) | Default for comprehensive evaluation |
-| `skills/` | Skill-specific isolation testing | Narrow skill effectiveness testing |
-| `agents/` | Agent routing evaluation | Testing specific agent behaviors |
-| `commands/` | Command workflow testing | Testing command implementations |
-
-### Key Components
-
-| File | Purpose | Execution Model |
-|------|---------|-----------------|
-| `run-eval.js` | YAML spec parsing, session orchestration | Async, parallel |
-| `run-session.sh` | Session execution with `--remote` | Async cloud execution |
-| `collect-results.sh` | Teleports sessions, extracts artifacts | Post-session |
-| `judge.js` | Code evaluation with Claude Opus 4.5 | **Sync local execution** |
-| `aggregate.js` | Statistical analysis (Welch's t-test) | Post-judging |
-| `schema.js` | YAML spec validation | Validation |
-
-### Important: Judge vs Session Execution
-
-**Session execution** (`run-session.sh`): Supports both local and remote modes
-```bash
-# LOCAL mode (--local flag): Uses --print, supports all flags
-./run-session.sh --local "Build a calculator"
-
-# REMOTE mode (default): Uses --remote, requires git repo pushed to GitHub
-# - Uses `script` command to capture TTY output
-# - Prompt is argument to --remote (not piped)
-# - Does NOT support --dangerously-skip-permissions or --session-id
-./run-session.sh "Build a calculator"
-```
-
-**Judge execution** (`judge.js`): Runs locally and synchronously with Opus 4.5
-```javascript
-// Judge evaluates already-collected local artifacts
-// No tool use needed - just rubric + code -> score
-const CLAUDE_MODEL = 'claude-opus-4-5-20251101';
-```
-
-### Eval Spec Format
-
-```yaml
-name: skill-eval-name
-variants:
-  - id: with-skill
-    prompt_suffix: "Use developing-with-python skill"
-  - id: without-skill
-    prompt_suffix: ""
-checks:       # Binary pass/fail checks
-  - name: file_created
-    type: file_exists
-    path: "*.py"
-metrics:      # Judged metrics (1-5 scale)
-  - name: code_quality
-    rubric: code-quality  # References test/evals/rubrics/code-quality.md
-```
-
-### Running Evals
+The eval framework at `test/evals/framework/` (`run-eval.js`, `run-session.sh`,
+`collect-results.sh`, `judge.js`, `aggregate.js`, `schema.js`) enables A/B testing of skills
+and agents. **Use `dev-loop/` specs by default** — 3 variants (baseline, framework,
+full-workflow) — not `skills/`, `agents/` or `commands/`, which are for narrower isolation
+testing. Session execution supports `--local` (uses `--print`) and remote (default, needs a
+GitHub-pushed repo); the judge (`judge.js`) always runs locally and synchronously, on Opus 4.5.
 
 ```bash
-# RECOMMENDED: Run dev-loop eval for comprehensive A/B comparison
+# Run a dev-loop eval, collect, then judge and aggregate
 node test/evals/framework/run-eval.js test/evals/specs/dev-loop/dev-loop-pytest.yaml --local
-
-# For skill-specific isolation testing (narrower scope)
-node test/evals/framework/run-eval.js test/evals/specs/skills/pytest.yaml --local
-
-# Collect results after sessions complete
 ./test/evals/framework/collect-results.sh <session-id> <output-dir>
-
-# Judge collected artifacts
 node test/evals/framework/judge.js <session-dir> code-quality
-
-# Generate comparison report
 node test/evals/framework/aggregate.js <results-dir>
 ```
+
+An eval spec is YAML: `variants` (each a `prompt_suffix`), `checks` (binary pass/fail) and
+`metrics` (a `rubric` from `test/evals/rubrics/`, judged 1–5). See existing specs under
+`test/evals/specs/` for the full shape.
 
 ---
 
 ## Headless Testing with Claude CLI
 
-**Using Local Plugin (Required for Testing):**
-```bash
-# Always use --plugin-dir and --setting-sources project for testing
-# This ensures tests use the development plugin and project agents are discovered
-claude --plugin-dir /path/to/packages/full --setting-sources project <other args>
+**Always use `--plugin-dir` and `--setting-sources project`** — this is what makes a headless
+run use the development plugin and discover project agents. Test scripts do this
+automatically via `PLUGIN_ROOT`.
 
-# The test scripts handle this automatically via PLUGIN_ROOT environment variable
-```
-
-**Local Headless Execution (`--print`):**
 ```bash
-# Run a prompt non-interactively with local plugin
+# Local, non-interactive
 PLUGIN_DIR="/home/james/dev/ensemble-vnext/packages/full"
 echo "Build a calculator" | claude --print \
     --plugin-dir "$PLUGIN_DIR" \
     --setting-sources project \
     --dangerously-skip-permissions
-
-# With session ID for tracking
-SESSION_ID=$(uuidgen)
-echo "Create test.py" | claude --print \
-    --plugin-dir "$PLUGIN_DIR" \
-    --setting-sources project \
-    --session-id "$SESSION_ID" \
-    --dangerously-skip-permissions
-
-# Sessions persist locally, can be resumed
-claude --resume "$SESSION_ID"
 ```
 
-**Remote Execution (`--remote`):**
-```bash
-# Run on Claude's cloud infrastructure
-# IMPORTANT: Prompt is the ARGUMENT, not piped
-claude --remote "Build a calculator"
-
-# Key requirements:
-# - Must run from a git repo that is pushed to GitHub
-# - Prompt MUST be the argument to --remote (not piped via stdin)
-# - Does NOT support --dangerously-skip-permissions
-# - Does NOT support --session-id (auto-generated as session_xxx)
-# - Does NOT support --plugin-dir or --setting-sources
-# - Requires TTY - output redirection breaks it (use `script` command)
-# - Runs at repo ROOT, not subdirectory you invoked from
-```
-
-**Remote Session Output Capture (for scripts):**
-```bash
-# Remote requires TTY, so use `script` to capture output
-script -q -c 'claude --remote "Build a calculator"' output.txt
-
-# Output contains session URL and teleport command:
-# Created remote session: Build calculator app
-# View: https://claude.ai/code/session_018oKtL6CSbVA9gNttj41T13?m=0
-# Resume with: claude --teleport session_018oKtL6CSbVA9gNttj41T13
-```
-
-**Teleporting Web Sessions (`--teleport`):**
-```bash
-# Retrieve a remote session to local CLI
-claude --teleport session_<REMOTE_SESSION_ID>
-
-# Example: Transfer from remote to local
-claude --teleport session_018oKtL6CSbVA9gNttj41T13
-
-# Teleport checks out the branch and retrieves session context
-# Requires the branch to be pushed to GitHub first
-```
-
-**Session ID Formats:**
-- Local sessions: UUID format (`ebb01d82-e53e-4ddb-842f-3c77580c426c`)
-- Remote/Web sessions: `session_<ID>` format (`session_018oKtL6CSbVA9gNttj41T13`)
-
-### Known Limitations (as of v2.1.7)
-
-- `--remote` requires TTY - cannot redirect stdout directly (use `script`)
-- `--remote` runs at repo root, loses subdirectory context
-- `--remote` does not support `--dangerously-skip-permissions` or `--session-id`
-- `--teleport` requires branch to be pushed to GitHub first
-- Remote sessions commit code but NOT session logs
-- `/teleport` slash command has known bugs (may not appear)
+`--remote` runs on Claude's cloud infrastructure instead: the prompt is the CLI argument (not
+piped), it needs a GitHub-pushed repo, it does not accept `--dangerously-skip-permissions`,
+`--session-id`, `--plugin-dir` or `--setting-sources`, it needs a TTY (wrap in `script` to
+capture output), and it runs at the repo root rather than the invoking subdirectory.
+`claude --teleport session_<id>` pulls a remote session back to the local CLI (branch must
+already be pushed). Local session ids are UUIDs; remote ones are `session_<id>`.
 
 ---
 
@@ -443,18 +222,17 @@ claude --teleport session_018oKtL6CSbVA9gNttj41T13
 
 ```
 .claude/
-  agents/        # 12 streamlined subagents
+  agents/        # 13 streamlined subagents
   commands/      # Workflow commands
   hooks/         # Hook executables
   skills/        # Compiled skills
-  rules/         # constitution.md, stack.md, process.md
+  rules/         # constitution.md, stack.md, verification.md (owner-governed); process.md and discipline rules
   settings.json  # Committed configuration
 
 docs/
   PRD/           # Product Requirements Documents
   TRD/           # Technical Requirements Documents
   standards/     # Symlinked governance docs
-  templates/     # Document templates
 
 packages/
   router/        # Routing hook + tests (pytest)
@@ -524,7 +302,8 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 **Requires Approval:**
 - Any modification to `~/dev/ensemble`
 - Schema/architectural changes
-- Changes to constitution.md or stack.md
+- Changes to constitution.md, stack.md or `.claude/rules/verification.md` (running
+  `/verification-setup` is the owner's approval)
 
 **No Approval Needed:**
 - Reading files anywhere
@@ -536,130 +315,32 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.10.1** (2026-09-28). 18 commands, 13 subagents. Test battery: 1191 Jest,
-107 pytest, 576 BATS.
+Released at **4.10.2** (2026-09-29). 20 commands, 13 subagents. Test battery: 1214 Jest,
+112 pytest, 576 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.10.1 fixes the Stop judge's over-firing: the platform evaluates a Stop prompt hook as a
-stopping condition that defaults to block, and the prompt is now framed that way (blocks on
-stops allowed live, 7/60 to 0/60 in replay). The 4.10.0 smoke tests for `--fix` and
-`/verification-setup` now pass live.
+4.10.2 adds `/close-feature` (a passing `/audit-build` also closes a feature) and cuts
+context: no live runs by implementers, every workflow step names its model, agents
+registered once, rule history moved to `docs/rules-history/`.
 
-4.10.0 gives a stalled verification run a way forward. The report counts failures by cause;
-`/verify-plan-recovery` turns a short chat with the owner into
-`.trd-state/<feature>/verification-plan.md`; `/verify-build --fix` runs that plan unattended to
-its stop rule, building through `/implement-trd --reconcile --chained`. `/verification-setup`
-writes `verification.md` (running it is the approval) and recommends a coverage floor from past
-runs, which now reaches the loop. Every framework-shipped skill is named once, in
-`packages/skills/framework-skills.txt`, marked `check` or `support`. Plans:
-`docs/TRD/verification-fix-loop.md`, `docs/TRD/verification-md-setup.md`. **Known open:** the
-floor applies only if the judge copies it.
+Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
+marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
+one (4.10.0/4.9.0).
 
-4.9.0 makes screen-by-screen design review part of verification. Every check-role skill listed in
-`packages/skills/framework-skills.txt` ships to every project; every TRD
-carries `## Verification Artifacts` choosing them (a feature with UI designs gets the design
-comparison unless the TRD states a reason); each chosen check adds one criterion per screen,
-journey or data view to the verification loop, judged with the skill's rubric and fixed like any
-other gap. Plan: `docs/TRD/verification-artifacts.md`.
+**Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.10.2: the default `npm run smoke` set runs one real `claude` session, and the phase gate
+  picks it; the subagent starting-context drop is not yet measured like-for-like.
+- 4.10.1: 2 of 124 replayed judgements judged an active `/goal` condition instead of the
+  discipline rubric (only in sessions running `/goal`, each bounded to one turn by the block
+  cap); consuming projects get the fix only after `/rebase-project`.
+- 4.10.0: the coverage floor `/verification-setup` recommends applies only if the judge that
+  reads it copies it into the loop.
+- 4.8.0: the functional-verification loop runs by default now; its cost is still unmeasured.
+- 4.7.2: `packages/core/lib/discovered.test.js` hangs on the GitHub runner only (cause
+  unidentified after eliminating Node version, stdin, open handles and regex backtracking);
+  excluded from CI via `jest.config.ci.js`, which holds the evidence.
+- 4.7.0: the autonomy check (case B of the Stop judge) applies only on an explicit
+  `state=active` marker, and that marker's 30-minute ceiling is a real gap on long
+  commands — the next fix.
 
-4.8.0 makes the functional-verification loop converge and turns it **on by default**
-(`--no-verify` opts out — a breaking change; the loop's cost is still unmeasured). Proven
-criteria stay settled within a run; on a resume only passes are reloaded, so criteria that
-could not be tested get another try. Evidence must contain a locator the exerciser saw.
-`verification.md` §1a declares how many of each resource may exist at once, and criteria fan
-out per resource; telling existing instances apart is the project's job. Lanes are derived at
-`/implement-trd` §8.1a, after the criteria exist. Plan: `docs/TRD/verification-convergence.md`.
-
-4.7.2 cut ~530 tests on one standard: a test earns its place if it catches something done by
-ACCIDENT. Prose assertions against prompts went, because an edited prompt is a decision, not a
-regression. So did enumerated duplicates, fifteen tests asserting the test harness's own
-functions exist, and ~210 tests of test tooling (`npm run test:evals`, `npm run test:tooling`
-run those on demand). What survives catches file-copy drift, stale generated artifacts, a
-rebase eating a user's skill, and malformed agent YAML.
-
-**CI:** the Jest step's inline `--testPathIgnorePatterns` was REPLACING the config value, not
-extending it — every exclusion in `package.json` was ignored on the runner. Now
-`jest.config.ci.js` extends it. Every job has `timeout-minutes: 10`; there was no bound
-before, so a hang cost 52 minutes and yielded no log.
-
-**Known open:** `packages/core/lib/discovered.test.js` hangs on the GitHub runner only,
-emitting zero bytes, cause unidentified after eliminating Node version, stdin, open handles and
-regex backtracking. Excluded from CI via `jest.config.ci.js`, which holds the evidence.
-
-4.7.1 is a patch with one theme: seven places that reported success over work that had not
-happened. No new capability.
-
-The two worth knowing about as behaviour changes. **A verification report no longer says a bare
-"Satisfied" when criteria went unexercised** — the Outcome line now carries the count, and this
-repo's own latest run reads `satisfied` with 6 of 32 never checked. **`/sweep` no longer drops
-work past its parallel cap**: the cap was an unsourced 6 against the platform's real 20, and
-regions past it were sliced off after a log line promising they would run later. Found by
-counting seven issues in and six out; the run reported 0 failed. The cap is 20 with its source
-named, overflow runs in a second batch, and an accounting check now throws if any triaged issue
-produces no result at all.
-
-Also: `scaffold-project.sh --refresh` no longer overwrites an owner-filled `verification.md`;
-the in-flight guard that had deferred every refresh in this checkout for a month is bounded at
-30 minutes, matching `router.py`; `--reconcile` now repairs the `in_progress`/`complete` state a
-killed run leaves; `/implement-trd`'s invented 80%/70% coverage default is gone (an unreadable
-floor is reported as unenforced, not replaced); the discovery ledger stops calling a month of
-records "this run"; five agent-frontmatter tests disabled on the false premise that no agent
-files exist are enabled; and six dispatch ledgers are untracked.
-
-**Still open after this patch:** `/audit-build` writes no durable report, and nothing closes a
-feature — `docs/TRD/completed/` holds 1 against 17 active, which is the structural cause behind
-both the stale `in_progress` rows and the unbounded ledger. The age bound treats that symptom.
-
-4.7.0 rebuilds the `Stop`-hook judge from measurement. Across 3,158 real stops it blocked
-about 1 in 5, and about 95% of sampled blocks were correct turns. It now runs a hand-authored
-~4 KB prompt (`discipline-stop.source.md`) on `claude-sonnet-5`, and consecutive blocks are
-capped at 1 by the platform. On 153 labelled real stops it wrongly blocked 0 of 432
-correct-turn judgements and caught 9 of 9 violations. **Breaking:** the autonomy check
-applies only on an explicit `state=active` marker, which makes the marker's 30-minute
-ceiling a real gap for long commands; that is the next fix. **Verify after refresh** with
-`hook-verdict-rate.js` on a live session. The replay tools in `test/discipline-corpus/replay/`
-are how any future edit gets scored.
-
-4.6.0 renames `/investigate` to `/plan` — deleted, not aliased — and sizes work on two axes
-instead of one tier ladder: a `kind` (defect | change | refactor) and a `weight` (trivial |
-small | medium), with `feature` as the exit to `/create-prd`. `kind` changes the stage list,
-not just the scoring. The weights are strict supersets, and none of the nine cells gets its own
-name. Both size ceilings are deleted rather than raised, and `fix-sizing.js` is down to
-`matchNeverUnattended()` — the owner's policy list is the only brake left, which is the point.
-
-**Weights select a pipeline shape, never a permission.** `--implement` remains the only thing
-that starts work and is honoured at every weight.
-
-Verified by three live runs rather than a code read, including a decoy defect where `/plan`
-found the real cause and left the plant untouched. Functional verification derived its criteria
-from the PRD with the TRD withheld: 29 of 32 met, 0 not met, 3 open on the open-question
-channel.
-
-4.5.0 makes `/create-trd`'s readout advise on **depth** rather than width: it names whichever
-cause actually makes a plan serial — declared dependencies or shared files — and prints the
-chain that sets the depth, which `buildGraph` has always computed and never shown. Grounding
-now challenges dependencies it cannot justify; sizing names tasks that will run long. Both
-advisory. Both `Stop`-hook guards were also recalibrated after measuring 10 blocks in 33
-evaluations with none of them correct — **that change is unmeasured; if the block rate does not
-fall, revert it.**
-
-4.4.0 was the release aimed at **time**: `/sweep` (a list of small fixes, no TRD), scope-drift
-and sizing checks at three points in the pipeline, parallel grounding in `/create-trd`,
-phase-group dispatch in `/implement-trd`, and `run-profile.js` — which reads timestamps the
-dispatch ledger has always written and reports where a run's wall clock actually went.
-
-The modernization run in `docs/modernization/2026-08-improvement-plan.md` is the live
-backlog — read it rather than this section for what is open. Items 1–13 are delivered;
-14 (review cadence) and 15 (phantom success) landed in 4.2.x–4.3.x.
-
-**Known open, as of 4.4.0:**
-- `[LIVE]` verification tasks are still planned without reading `.claude/rules/verification.md`.
-  4.4.0 narrows this rather than closing it: tasks that say in their own text they cannot
-  finish here are now predicted and skipped with a report (`parseDeferred`), but the `[LIVE]`
-  flag itself still has no consumer in `implement-phase.js`.
-- Item 15.4: a readout glyph can read "verified" where the verdict was `unbuilt`.
-- **The two audit speed-ups landed in 4.5.0 (91dc0fe) but were never timed.** `/audit-trd`
-  now reuses the buildability findings `/create-trd` writes, and in both audits the verifiers
-  that do not need the index run alongside it. Baselines: `/audit-prd` 9.1 min, `/audit-trd`
-  14.5 min.
-- **Nothing has been timed since 4.4.0's changes.** The 1,384-second `/create-trd` median
-  (57 runs) is the baseline; no run has been taken against it.
+The modernization backlog, `docs/modernization/2026-08-improvement-plan.md`, is the live list
+for anything older than this.

@@ -166,20 +166,11 @@ of one change disagreeing about its approach is a real, measured failure: one ag
   </instruction>
 </skills>
 
-<tdd_context>
-  <!-- Only when strategy=tdd and a RED phase produced failing tests -->
-  <failing_tests>{test files from the RED phase}</failing_tests>
-  <instruction>
-    Write the MINIMAL implementation to make these tests pass. Do NOT add features
-    beyond what the tests require. Do NOT modify the tests.
-  </instruction>
-</tdd_context>
-
 <strategy_instructions>
 Strategy is: {strategy}
 
-- **tdd** — RED is written by verify-app, GREEN is yours: minimal code to pass the
-  given failing tests. Do not add beyond them; do not refactor.
+- **tdd** — write the failing test and the minimal fix within this task; do not add
+  beyond what the test requires, and do not refactor.
 - **bug-fix** — REPRODUCE the bug, write a failing test that captures it, then apply
   the minimal fix.
 - **characterization** — write tests that capture EXISTING behavior, not desired
@@ -239,31 +230,14 @@ emit an empty element.
 
 ---
 
-## DEBUG, when a check fails
+## When a check fails
 
-```xml
-<debug_request>
-  <task_id>{task_id}</task_id>
-  <failures>{failure output from the checks — verbatim}</failures>
-  <files_modified>{files changed by the implementer}</files_modified>
-  <retry_count>{previous debug attempts on this task}</retry_count>
-</debug_request>
+There is no separate debug dispatch: the implementer runs its own checks and self-corrects
+within its task.
 
-<known_risks>
-  <!-- From the TRD's Risk Assessment. Omit if the TRD names none. -->
-  {risks with IDs, descriptions and mitigations; contingency plans for high-impact ones}
-</known_risks>
-
-<instructions>
-1. Reproduce the failure
-2. Check whether it matches a documented risk above — if so, apply that mitigation FIRST
-3. Find the root cause (5 Whys); do not patch the symptom
-4. Implement the fix
-5. Report what was wrong, how it was fixed, and whether a documented risk materialized
-</instructions>
-```
-
-**Invoke:** `Agent(subagent_type="app-debugger", prompt="[above]")`
+If your `<check_battery>` names a check that would need a live, model-spending run — anything
+that starts `claude` sessions, e.g. `test/smoke/run-smoke.sh` or `claude -p` — report that
+check "not run" in your deliverables. Never start it, wait on it, or poll it.
 
 ---
 
@@ -279,6 +253,6 @@ assumption, proceed, and record it in your deliverables. The exception is the on
 `<unverified_claims>` instruction already names: a claim you check and find **false** — stop
 and report that to the orchestrator, which is a return, not a question.
 
-You are a subagent. Do not spawn subagents of your own (`constitution.md`, Principle 1). Work
-that falls outside your scope is a finding you report to the orchestrator, not work you
-delegate.
+You are a subagent. Do not spawn your own type with this task — same-type self-delegation is
+forbidden (`constitution.md`, Principle 1). Work that falls outside your scope is a finding
+you report to the orchestrator, not work you delegate.

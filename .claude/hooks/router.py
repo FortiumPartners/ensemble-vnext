@@ -81,8 +81,9 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   TRD row before the work, verified against disk. No new TRD. It is the middle weight
   between /plan (which forks a second TRD) and raw prompting.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
-  and verification run INSIDE it; --verify adds the functional loop) ->
-  /audit-build. /verify-build re-runs verification alone; /implement-trd --reconcile
+  and verification run INSIDE it; the functional loop runs by default, --no-verify
+  skips it) -> /audit-build, which closes the feature when it passes; /close-feature
+  closes one on your say-so. /verify-build re-runs verification alone; /implement-trd --reconcile
   re-attests delivered work against the TRD and re-opens anything only claimed done;
   /audit-prd and /audit-trd verify an artifact, /refine-prd and /refine-trd iterate one.
   Check .trd-state/current.json first.
@@ -264,7 +265,7 @@ def command_run_state_path(cwd: str, session_id: str) -> str:
 
 
 # How long an `active` run-state record stays believable. Beyond this it degrades
-# to "unknown" (guard ON). 30 minutes matches the staleness window
+# to "unknown" (the pause check is skipped). 30 minutes matches the staleness window
 # `/implement-trd` already uses for implement.lock, so the framework has one
 # answer to "how long before we stop believing a lock" rather than two.
 ACTIVE_RUN_CEILING_SECONDS = 1800
@@ -276,8 +277,9 @@ def read_command_run_state(path: str) -> tuple:
     Returns a (state, command, feature) tuple:
     - Missing file -> ("none", None, None): no run has ever been recorded for
       this session, which reads the same as "nothing is running".
-    - Unreadable or malformed content -> ("unknown", None, None): degrade
-      toward the guard being ON rather than silently disabling it (D12).
+    - Unreadable or malformed content -> ("unknown", None, None), which the
+      Stop judge treats as "skip the pause check", so a bad record never
+      blocks a turn (D12).
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -296,17 +298,17 @@ def read_command_run_state(path: str) -> tuple:
         return "unknown", None, None
 
     if data.get("state") == "active":
-        # A stale `active` is the guard-OFF failure, and it is the COMMON case, not
-        # an edge one: the router opens a run for ANY prompt starting with "/", but
-        # only the ensemble commands call notify-complete.sh to close it. One
+        # A stale `active` is the guard-stuck-ON failure, and it is the COMMON case,
+        # not an edge one: the router opens a run for ANY prompt starting with "/",
+        # but only the ensemble commands call notify-complete.sh to close it. One
         # `/code-review`, `/simplify`, `/loop` or `/run` therefore opens a run that
-        # nothing ever closes, and an unbounded `active` suppresses Judgment B for
-        # the remainder of the session — the exact inversion D12 exists to prevent.
+        # nothing ever closes, so the pause check would stay on for the whole
+        # session — the exact inversion D12 exists to prevent.
         #
         # An allowlist of ensemble commands would fix that one cause and miss the
-        # others (TR2's crash and interrupt). Age covers all of them uniformly, so
-        # a run older than the ceiling degrades to "unknown", which by D5 means
-        # Judgment B applies. Fail toward the guard being ON.
+        # others (TR2's crash and interrupt). Age covers every cause uniformly, so
+        # a run older than the ceiling degrades to "unknown", which switches the
+        # pause check off (reversed 2026-09-24).
         if _active_is_stale(data.get("ts")):
             return "unknown", None, None
         return "active", data.get("command"), data.get("feature")
@@ -317,7 +319,8 @@ def _active_is_stale(ts: object) -> bool:
     """True when an `active` record is older than ACTIVE_RUN_CEILING_SECONDS.
 
     An unparseable or absent timestamp counts as stale: the record cannot be
-    shown to be current, and D12's direction is to fail toward the guard being ON.
+    shown to be current, so it is treated as stale ("unknown", pause check
+    skipped) per D12.
     """
     if not isinstance(ts, str):
         return True
@@ -382,24 +385,29 @@ def feature_in_flight(cwd: str) -> str:
 
     `derive_feature()` answers "what does current.json point at", which is the right
     question for the ENSEMBLE_COMMAND marker. It is the WRONG question for the in-flight
-    amendment hint, because nothing in the framework clears `current.json` when a feature
-    ships -- only /create-prd, /create-trd and /init-project ever write it. So the hint
-    outlived every feature that produced it, and months later an ordinary conversational
-    turn was still being told that an unrelated new bug is "an AMENDMENT to this TRD",
-    steering it toward /amend against an archived document.
+    amendment hint: `current.json` is nulled only in the checkout where the feature
+    was closed (by `/close-feature` or a passing `/audit-build`), and any other
+    checkout still has it populated. Relying on `current.json` alone would keep
+    steering an ordinary conversational turn toward /amend against a feature the owner
+    already closed, in a different checkout, months ago.
 
-    Two terminators, both read from disk rather than remembered:
+    Three terminators, all read from disk rather than remembered:
+      - `.trd-state/<feature>/closed.json` exists -- checked first, because an
+        abandoned feature has a close record and no implement.json
       - the TRD has been archived to docs/TRD/completed/
       - every task in .trd-state/<feature>/implement.json is `success`
 
-    A feature with NO implement.json is still in flight: that is the PRD/TRD authoring
-    stage, where an amendment to the document being written is exactly right.
+    A feature with NO implement.json AND no closed.json is still in flight: that is
+    the PRD/TRD authoring stage, where an amendment to the document being written is
+    exactly right.
     """
     feature = derive_feature(cwd)
     if not feature:
         return ""
     try:
         root = os.path.abspath(cwd) if cwd else os.getcwd()
+        if os.path.exists(os.path.join(root, ".trd-state", feature, "closed.json")):
+            return ""
         with open(os.path.join(root, ".trd-state", "current.json"), "r", encoding="utf-8") as f:
             trd = (json.load(f) or {}).get("trd", "")
         if "TRD/completed/" in str(trd).replace("\\", "/"):

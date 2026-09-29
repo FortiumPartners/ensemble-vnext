@@ -17,7 +17,7 @@
 
 'use strict';
 
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('create-trd.js');
 
@@ -106,6 +106,15 @@ describe('create-trd wiring', () => {
     // it is SET at all is the invariant.
     const { agent } = await run();
     expect(call(agent, 'ground:brownfield').opts.agentType).toBeTruthy();
+  });
+
+  it('gives every agent() call an explicit agentType or model — none may inherit the session model', async () => {
+    // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
+    // (packages/core/workflows/audit-trd.test.js:70-75) to every call site this run exercises.
+    const { agent } = await run();
+    expect(agent.calls.length).toBeGreaterThan(0);
+    const unpinned = unpinnedLabels(agent);
+    expect(unpinned).toEqual([]);
   });
 
   it('reports task and objective counts from the author, not from thin air', async () => {

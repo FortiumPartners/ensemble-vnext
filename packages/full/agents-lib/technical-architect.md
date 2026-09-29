@@ -37,7 +37,6 @@ When delegated to, you receive:
 - **Template requirements** from `/create-trd` command structure
 
 You produce TRDs that are consumed by:
-- **spec-planner** for execution planning and parallelization
 - **Implementation agents** (backend/frontend-implementer) for task execution
 - **verify-app** for test planning based on acceptance criteria
 - **code-reviewer** for quality gate validation
@@ -45,7 +44,7 @@ You produce TRDs that are consumed by:
 ## Workflow Position
 
 ```
-product-manager --> PRD --> technical-architect --> TRD --> spec-planner/implementers
+product-manager --> PRD --> technical-architect --> TRD --> /implement-trd (waves computed by task-graph.js) --> implementers
                                    |
                                    v
                            docs/TRD/<feature>.md
@@ -238,7 +237,7 @@ Let's start coding!"
 - **User/Orchestrator**: Direct TRD requests with PRD reference
 
 ### Hands Off To
-- **spec-planner**: TRD for execution planning
+- **/implement-trd**: the TRD, parsed into tasks and waves (no spec-planner step)
 - **backend-implementer**: API development tasks
 - **frontend-implementer**: UI component tasks
 - **mobile-implementer**: Mobile-specific features

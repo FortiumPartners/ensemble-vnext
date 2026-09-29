@@ -578,6 +578,31 @@ MUST reject requests that fall into these categories.
 | NG2 | [From PRD] | [From PRD] |
 ```
 
+### Section 9a: Verification Artifacts
+
+**Required in every TRD.** Placed after `## 8. Non-Goals` and before `## 9. Task Grounding`,
+without renumbering either. It chooses which verification checks (the `check` rows of
+`framework-skills.txt`) join this feature's verification loop. Including an applicable check
+is the default; leaving one out needs a stated reason. The full rule is Section 9a of
+`packages/core/contracts/trd-authoring.md`, which is what the architect is given. One of two
+forms:
+
+```markdown
+## Verification Artifacts
+
+| Skill | Inputs | Why it applies |
+|-------|--------|----------------|
+| verify-design-comparison | design frames: `docs/design/<feature>/screens/png/` | the PRD's UI is specified by a design handoff |
+
+Omitted: verify-data-fidelity — [reason]
+```
+
+```markdown
+## Verification Artifacts
+
+None apply — [one reason covering every check]
+```
+
 ### Section 10: Task Grounding
 
 > **Not written by the authoring stage.** A dedicated grounding pass emits this section
@@ -896,7 +921,8 @@ Each finding is an object with at minimum:
 
 One subagent reads the findings files plus the draft, applies them, and drafts the readout.
 **It spawns nothing** — the verify wave has already run, and a reconcile agent that spawned
-its own verifiers would be nesting, which `constitution.md` §1 forbids by default.
+its own verifiers would be nesting this stage does not need (`constitution.md` §1 permits nesting, but asks that
+it be shallow and purposeful).
 
 Keeping reconcile out of the main agent is deliberate: applying findings across six
 verifiers means re-reading the draft and editing it repeatedly, which is the other half of

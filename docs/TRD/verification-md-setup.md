@@ -15,6 +15,7 @@
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-27 | Initial TRD creation | @technical-architect |
+| 1.0.1 | 2026-09-27 | **Synced from `docs/TRD/functional-verification.md` (VSET-B002).** §3.3's `VerifyFunctionalArgs` gains optional `coverageFloor?: number | null` field after `fullRunCommand`; Judge STEP 3 payload gains `"coverageFloor"` value; test `verify-functional-trd-sync.test.js` field count moves from 21 to 22 | @technical-architect |
 
 ---
 

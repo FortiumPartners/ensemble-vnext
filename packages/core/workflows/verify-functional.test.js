@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('verify-functional.js');
 
@@ -287,6 +287,7 @@ describe('verify-functional: empty criteria array', () => {
 
     expect(agent.calls).toHaveLength(1);
     expect(agent.calls[0].opts.label).toBe('judge');
+    expect(agent.calls[0].opts.model).toBe('opus'); // pinned even on the empty-criteria Judge call
     expect(result.outcome).toBe('satisfied');
     expect(result.iterations).toBe(0);
     expect(result.exercised).toBe('0/0');
@@ -2249,6 +2250,55 @@ describe('verify-functional: Render stage', () => {
     expect(agent.calls.some((c) => c.opts.label === 'debug')).toBe(false);
     expect(result.pages).toHaveLength(2);
     expect(result.outcome).toBe('satisfied');
+  });
+
+  it('gives every agent() call an explicit agentType or model -- none may inherit the session model', async () => {
+    // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
+    // (packages/core/workflows/audit-trd.test.js:70-75) to this workflow's own convention:
+    // Exercise/Debug pin an agentType (verify-app / app-debugger); Render and Judge pin a
+    // `model` directly instead, because there is no dedicated subagent type for either. An
+    // unset agentType AND unset model is not "no agent" -- it is the platform's generic
+    // workflow subagent on the SESSION model, unchosen.
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        return exercisePlanClaims([
+          { criterion: 'DC-1', artifact: null, reason: 'deviates' },
+          { criterion: 'FL-1', artifact: null, reason: 'deviates' },
+        ]);
+      }
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            criteria: [
+              { id: 'DC-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'deviates', files: [] },
+              { id: 'FL-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'deviates', files: [] },
+            ],
+            gaps: ['DC-1', 'FL-1'],
+            debugGaps: [
+              { id: 'DC-1', statement: 'DC-1', reason: 'deviates', artifact: null, files: [] },
+              { id: 'FL-1', statement: 'FL-1', reason: 'deviates', artifact: null, files: [] },
+            ],
+          });
+        }
+        return satisfiedJudge({
+          criteria: [
+            { id: 'DC-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+            { id: 'FL-1', status: 'met', tier1: 'pass', artifact: 'b', reason: null, files: [] },
+          ],
+        });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'DC-1', result: 'fixed' }, { criterion: 'FL-1', result: 'fixed' }] };
+      if (opts.label === 'render') return { rendered: true, page: 'x/index.html', cards: 1, reason: '' };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: twoSkillArgs() });
+
+    expect(agent.calls.length).toBeGreaterThan(0);
+    const unpinned = unpinnedLabels(agent);
+    expect(unpinned).toEqual([]);
   });
 
   it('a dead render agent yields rendered: false and the loop continues', async () => {

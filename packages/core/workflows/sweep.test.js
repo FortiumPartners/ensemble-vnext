@@ -10,7 +10,7 @@
 
 'use strict';
 
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('sweep.js');
 
@@ -199,5 +199,15 @@ describe('sweep', () => {
     const agent = makeAgentStub(plan({ triage: { fix: [], deferred: [] } }));
     await expect(runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: {} }))
       .rejects.toThrow(/source is required/);
+  });
+
+  it('gives every agent() call an explicit agentType or model — none may inherit the session model', async () => {
+    // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
+    // (packages/core/workflows/audit-trd.test.js:70-75) to this file's two call sites:
+    // triage and fix:<id>.
+    const { agent } = await sweep({ triage: { fix: ISSUES, deferred: [] } });
+    expect(agent.calls.length).toBeGreaterThan(0);
+    const unpinned = unpinnedLabels(agent);
+    expect(unpinned).toEqual([]);
   });
 });

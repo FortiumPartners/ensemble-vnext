@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * build-judge-prompts.js — single source of truth for the three `type: "prompt"`
- * discipline-hook judgments (docs/TRD/discipline-judgment.md DISC-B004, §2.2.1
- * Shape A, §2.3).
+ * build-judge-prompts.js — builds the one shipped `Stop` prompt (from
+ * discipline-stop.source.md) and keeps the three retired block-built
+ * judgments here only for corpus scoring (docs/TRD/discipline-judgment.md
+ * DISC-B004, §2.2.1 Shape A, §2.3).
  *
  * WHY ONE GENERATOR INSTEAD OF THREE HAND-WRITTEN PROMPTS
  *
@@ -36,10 +37,12 @@
  * `node build-judge-prompts.js` regenerates the ready-to-embed prompt text in this
  * directory:
  *   discipline-stop.prompt.md     the shipped `Stop` prompt: discipline-stop.source.md
- *                                   (hand-authored, 2026-09-24) wrapped in the display
- *                                   banners. See buildStopDisciplinePrompt() below for why
- *                                   it is no longer assembled from the blocks in this file.
- *   subagent-discipline.prompt.md (unmerged; SubagentStop)
+ *                                   (hand-authored, 2026-09-24) prefixed with STOP_OPEN_LINE
+ *                                   and closed with STOP_CLOSE_BANNER. See
+ *                                   buildStopDisciplinePrompt() below for why it is no
+ *                                   longer assembled from the blocks in this file.
+ *   subagent-discipline.prompt.md (no longer written — the manifest does not declare it;
+ *                                   main() deletes a stale copy if one exists on disk)
  *
  * These are literal strings meant to be dropped into a `hooks.manifest.json` entry's
  * `"prompt"` field by DISC-B005/B008 (not this task — this task does not touch the
@@ -621,7 +624,9 @@ function main() {
     console.log(`wrote ${outPath} (${text.length} chars)`);
   }
 
-  // The Stop-event prompt: hand-authored source, wrapped in the display banners.
+  // The Stop-event prompt: hand-authored source, prefixed with STOP_OPEN_LINE and
+  // closed with STOP_CLOSE_BANNER (the opening "STOP HOOK FIRED" display banner is gone;
+  // only the closing marker remains).
   const combinedText = buildStopDisciplinePrompt();
   const combinedPath = path.join(__dirname, STOP_DISCIPLINE_PROMPT_FILE);
   fs.writeFileSync(combinedPath, combinedText + '\n', 'utf-8');

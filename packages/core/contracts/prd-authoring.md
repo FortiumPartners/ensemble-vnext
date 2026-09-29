@@ -358,7 +358,7 @@ Use appendices for reference material that doesn't fit in main sections.
 These are the handoff contract. Each has a different consumer, and an artifact that omits
 them silently claims a completeness it has not earned.
 
-### `## Open Questions` — consumed by `/refine`
+### `## Open Questions` — consumed by `/refine-prd`
 
 **Every decision you made that the source did not settle.** Not doubts — decisions. You had
 to pick something to finish the document; this is where you say what you picked and that
@@ -380,7 +380,7 @@ may not apply.
 **A question with no assumption is not finished.** Always state what you did, so the
 document is usable if nobody ever answers.
 
-### `## Could Not Verify` — consumed by `/audit`
+### `## Could Not Verify` — consumed by `/audit-prd`
 
 **Every claim you made from inference rather than from reading or running.** Mirror of the
 `[inferred]` markers in grounding, promoted to document level so a reader sees it without

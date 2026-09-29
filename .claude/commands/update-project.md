@@ -30,7 +30,6 @@ Examples:
 - Propose Constitution changes when architectural invariants are discovered (requires confirmation)
 - Propose stack.md updates when technology changes are detected (requires confirmation)
 - If stack changes are approved, check for matching skills to add
-- Regenerate router rules when stack changes
 
 ---
 
@@ -316,7 +315,7 @@ Default: "No, skip stack changes"
 
 4. **If skills should be added:**
    - Check if skill exists in `.claude/skills/`
-   - If not present, inform user they can add with `/add-skill <skill-name>`
+   - If not present, tell the user to run `/rebase-project`, which installs the skills matching the updated stack.md
 
 5. **If changes applied:**
    ```
@@ -357,9 +356,6 @@ Default: "No, skip stack changes"
 - Status: [Added / Suggested / No changes]
 - Skills: [list if any]
 
-### Router Rules
-- Status: [Regenerated / Skipped]
-
 ---
 
 Next suggested actions:
@@ -378,7 +374,7 @@ Next suggested actions:
 | constitution.md doesn't exist | Warn user, suggest running /init-project |
 | stack.md doesn't exist | Warn user, suggest running /init-project |
 | User cancels all changes | Report "No changes applied" and exit gracefully |
-| Skill not found in library | Inform user, suggest /add-skill command |
+| Skill not found in library | Inform user that the plugin's skill library has no match; nothing to install |
 
 ---
 
@@ -478,8 +474,6 @@ Apply these stack changes?
 Stack updated with:
 - Added Redis to Databases section
 
-Router rules regenerated.
-
 ## /update-project Summary
 ...
 ```
@@ -491,7 +485,6 @@ Router rules regenerated.
 - CLAUDE.md updates are always applied without confirmation (fast layer)
 - Constitution and stack changes ALWAYS require user confirmation (slow layer)
 - If user provides specific learnings in arguments, prioritize those
-- Router rules are only regenerated if stack actually changes
 - This command is idempotent - running multiple times won't duplicate entries
 - Learnings should be concise and actionable, not verbose documentation
 

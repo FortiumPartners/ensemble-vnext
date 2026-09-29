@@ -2,7 +2,7 @@
 name: refine-prd
 description: Refine and enhance existing PRD with stakeholder feedback and additional detail
 version: 1.0.0
-argument-hint: "[path-to-prd] <feedback>"
+argument-hint: "[path-to-prd] [--auto] [feedback]"
 # Expensive, and its description matches how a user would phrase the task —
 # so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
@@ -183,7 +183,7 @@ This command operates within the vendored `.claude/` runtime structure:
 ## Usage
 
 ```
-/refine-prd [path-to-prd]
+/refine-prd [path-to-prd] [--auto] [feedback]
 ```
 
 **Path Resolution:**
@@ -196,6 +196,7 @@ This command operates within the vendored `.claude/` runtime structure:
 ```
 /refine-prd docs/PRD/user-authentication.md   # Explicit path
 /refine-prd                                    # Uses current.json
+/refine-prd --auto                            # Unattended: closes every open question, asks nothing
 ```
 
 ## Handoff

@@ -121,6 +121,10 @@ VERDICT: proceed with these caveats: <named>
 VERDICT: do not proceed until <named>
 ```
 
+With no source supplied, "safe to proceed" is not available: however clean the findings, the
+verdict is capped at `proceed with these caveats: no source supplied — fidelity and omission
+unchecked`, because nothing checked the document against what it was written from.
+
 Every line names the ACTION this audit took, not a classification of the finding and not
 something left for the reader to do. Use these headings, omitting empty ones:
 

@@ -1,0 +1,104 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/feature-close-out.md",
+  "trd_hash": "755994ae70b540f80b5c9ae2444b6d31f6be771903ab4110e14b077236dcaa8e",
+  "branch": "feature/feature-close-out/build",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "CLOSE-B001": {
+      "description": "In-flight readers treat closed.json as terminal (§3.4): router.py feature_in_flight gains the third terminator ahead of the no-implement.json branch, its docstrings are corrected, and FRAMEWORK_HINT's",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/router/hooks/router.py",
+        "packages/core/hooks/session-context.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-28T05:05:55.685Z",
+      "completed_at": "2026-09-28T05:17:19.901Z",
+      "last_advanced": "2026-09-28T05:08:31.864Z"
+    },
+    "CLOSE-B002": {
+      "description": "/audit-build writes .trd-state/<feature>/audit-build-report.md itself (§3.1 header, then the readout verbatim) right after the workflow returns and before any reconcile chain, on --report-only too; pu",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-28T05:05:55.685Z",
+      "completed_at": "2026-09-28T05:17:19.901Z",
+      "last_advanced": "2026-09-28T05:08:31.865Z"
+    },
+    "CLOSE-B003": {
+      "description": "Closed-feature guards (§3.5): /implement-trd §1.2 step 3 skips state directories holding closed.json; a stop after §1.2's list, before §1.3, ends STUCK for a closed feature whichever route resolved it",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/amend.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-28T05:05:55.685Z",
+      "completed_at": "2026-09-28T05:17:19.901Z",
+      "last_advanced": "2026-09-28T05:08:31.865Z"
+    },
+    "CLOSE-B004": {
+      "description": "New /close-feature command (§3.2, §3.3) in packages/core/commands/ and .claude/commands/: argument parsing (TRD path, owner evidence, --accept), the three deterministic stops, fact gathering, the judg",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/close-feature.md",
+        "test/smoke/scenarios/close-feature.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-09-28T05:17:20.247Z",
+      "completed_at": "2026-09-28T06:14:25.931Z",
+      "last_advanced": "2026-09-28T06:12:20.320Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1c7ee55",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-28T05:17:20.247Z"
+    },
+    {
+      "phase": 2,
+      "commit": "78b928a",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-28T06:14:26.106Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "78b928a",
+    "interrupted": false,
+    "interrupt_reason": null,
+    "last_checkpoint_timestamp": "2026-09-28T06:14:26.106Z"
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/feature-close-out.investigation.md",
+    "environments": {},
+    "environments_note": "verification.md is the unfilled current template"
+  }
+}

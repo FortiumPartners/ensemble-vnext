@@ -205,6 +205,8 @@ function buildGraph(tasks, grounding) {
       if (indegree.get(id) === 0) ready.push(id);
     }
     if (ready.length === 0) break; // nothing left is resolvable — a cycle (see below)
+    // INVARIANT: This is the ONLY levelisation call in this module. A second copy would make
+    // wave order non-deterministic. See docs/TRD/authoring-parallelism-advice.md D3.
     ready.sort();
     waves.push(ready);
     for (const id of ready) {

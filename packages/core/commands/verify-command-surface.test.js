@@ -29,6 +29,8 @@ const CORE_VERIFY_BUILD = path.join(REPO, 'packages/core/commands/verify-build.m
 const CLAUDE_VERIFY_BUILD = path.join(REPO, '.claude/commands/verify-build.md');
 const CORE_PROCESS_TEMPLATE = path.join(REPO, 'packages/core/templates/process.md.template');
 const CLAUDE_PROCESS = path.join(REPO, '.claude/rules/process.md');
+const CORE_AMEND = path.join(REPO, 'packages/core/commands/amend.md');
+const CLAUDE_AMEND = path.join(REPO, '.claude/commands/amend.md');
 
 const read = (p) => fs.readFileSync(p, 'utf8');
 // Prose wraps at ~80 columns, so a phrase that reads as one sentence to a human can straddle
@@ -48,7 +50,18 @@ describe('packages/core <-> .claude mirror parity', () => {
   test('verify-build.md is byte-identical to its mirror', () => {
     expect(read(CLAUDE_VERIFY_BUILD)).toBe(read(CORE_VERIFY_BUILD));
   });
+
+  test('amend.md is byte-identical to its mirror', () => {
+    expect(read(CLAUDE_AMEND)).toBe(read(CORE_AMEND));
+  });
 });
+
+// ---------------------------------------------------------------------------
+// CLOSE-B003 (docs/TRD/feature-close-out.md D13, §3.5): /implement-trd and /amend refuse a
+// closed feature. Both guards sit at the point CLOSE-B003's grounding names -- before the
+// pointer write / branch switch / --reset-state deletion for /implement-trd, before Step 1
+// for /amend -- and both spell out how to reopen.
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // The lane / refresh / full-run derivation (§8.1a) -- moved out of §3.6a because no

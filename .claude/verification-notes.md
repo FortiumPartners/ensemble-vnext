@@ -306,3 +306,136 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   columns, so a sentence copied from a paraphrase ("Publish the report and each selected
   check's page to their stored") spans a line break and is reported `locator-not-found` even
   though the text is there. Pick a locator from inside a single physical line.
+
+## Exercising feature-close-out (2026-09-28 run, iteration 1)
+
+- [ran] `test/smoke/scenarios/close-feature.sh` (opt-in, `./test/smoke/run-smoke.sh
+  close-feature`) is the fastest real-behaviour evidence for `/close-feature` and its
+  closed-feature guards on `/implement-trd --resume` and `/amend` — eleven headless `claude
+  --print` runs across five scaffolded scratch projects, asserting on `closed.json` fields,
+  `current.json` nulling, transcript text and commit counts. It takes on the order of
+  20-40 minutes end to end (11 sequential `claude --print` calls, up to 300s timeout each) —
+  dispatch it in the BACKGROUND (`Bash` with `run_in_background: true`) at the very start of
+  an Exercise pass on this feature and do source-reading work while it runs, rather than
+  waiting on it synchronously.
+- [ran] **The scenario's `cleanup()` trap deletes every scratch project directory ON SUCCESS**
+  (`PROJECT_DIRS`, including each run's `.session-runN.jsonl` transcript) — only a failing
+  run leaves them on disk for diagnosis. A passing run's own `close-feature-smoke.log` (the
+  captured stdout+stderr of `run-smoke.sh`) is therefore the ONLY surviving artifact, and its
+  `assert_pass_raw`/`assert_fail_raw` lines (`  [HH:MM:SS] PASS: <description>` /
+  `  [HH:MM:SS] FAIL: <description>`, per `test/smoke/lib/assert.sh`) are what a locator must
+  be picked from — the raw JSONL session transcripts are gone by the time the log finishes
+  printing. `run-smoke.sh`'s "concurrently" mode also buffers each scenario's full stdout
+  until it exits, so the log file shows nothing until the whole 11-run scenario is done, then
+  everything at once.
+- [ran] **A plain `git clone` of a LOCAL checkout sets the clone's `refs/remotes/origin/HEAD`
+  to whatever branch the source repo had checked out at clone time — not to that repo's
+  actual configured default branch.** Cloning this repo while `feature/feature-close-out/build`
+  was checked out produced a clone whose `git symbolic-ref --quiet refs/remotes/origin/HEAD`
+  resolved to `refs/remotes/origin/feature/feature-close-out/build`, so `/close-feature`'s D4
+  default-branch resolution correctly (per its own documented logic) treated `main` as the
+  WRONG branch and went STUCK — a fixture-setup bug on the exerciser's part, not a defect in
+  `close-feature.md`. Fix before running `/close-feature` (or anything else that resolves the
+  default branch this way) against such a clone:
+  `git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main`.
+- [ran] To exercise `/close-feature --accept` against this repository's own three stale
+  features (judge-prompt-generative-rule, discipline-judgment, testing-phase) without running
+  on this checkout's own feature branch (S-2/D4 forbid that — `/close-feature` requires the
+  default branch): `git clone` this repo locally into scratch, checkout `main`, fix the
+  `origin/HEAD` symref per the note above, then `rsync -a --delete <repo>/.claude/
+  <clone>/.claude/` to apply this branch's runtime (the `/close-feature` command itself isn't
+  on `main` yet) without merging. A `.trd-state/current.json` naming none of the three
+  features must be created first (`main` has none) so the headless invocation has a valid
+  file to read/null. Each run takes its explicit TRD path as an argument, not
+  `current.json` lookup, so this works even before `current.json` exists validly.
+- [ran] `testing-phase/implement.json` really does use the legacy status literal
+  `"completed"` (not `"success"`) for every one of its `TRD-TEST-*` rows — confirmed by grep,
+  not assumed from the TRD prose. `/close-feature`'s own rule ("only `success` counts") means
+  every one of those rows reads as unfinished, exactly as FS-27 expects. Confirmed live:
+  closing it produced `"tasks": { "completed": 80, "pending": 2 }` — the 80 legacy-`completed`
+  rows were never counted as `success` or silently folded in, and only the genuinely-`pending`
+  two landed in `unfinished`.
+- [learned] **Never launch the same `/close-feature --accept` loop over the same clone twice.**
+  A background dispatch that appeared to fail (the very first attempt used an invalid
+  `claude --timeout` flag and errored instantly) is easy to mistake for "safe to just retry" —
+  but the retry was launched as a SECOND background job while the fix to the underlying
+  problem was applied, and both then ran concurrently against the same scratch clone,
+  redirecting to the same log file with `>` (each truncating the other's output). Two
+  concurrent `/close-feature` runs against the SAME clone did not corrupt any single file in
+  this instance (each session happened to reach a different feature's `closed.json` before
+  being killed), but that was luck, not a guarantee — `/close-feature` has no lock file.
+  Before relaunching a killed/errored background exerciser run, confirm with `ps aux` that
+  nothing from the first attempt is still alive; kill it explicitly first.
+
+## Exercising audit-build report-first-line (FS-1/FS-4, 2026-09-28, iteration 2)
+
+- [ran] A scratch project's own `.claude/settings.json` `permissions.allow` list is IGNORED
+  by a headless `claude --print --dangerously-skip-permissions` run when that workspace has
+  never been opened interactively — the CLI prints "Ignoring N permissions.allow entries...
+  this workspace has not been trusted" and the run does nothing further (no error exit, no
+  further output; the process just sits). `--permission-mode bypassPermissions` (the flag
+  `test/smoke/lib/project.sh`'s `smoke_claude()` actually uses, not
+  `--dangerously-skip-permissions`) does NOT hit this trust check and runs cleanly — use it
+  for any future headless run against a scratch project, matching the smoke harness exactly
+  rather than the shorter form CLAUDE.md's own doc examples show.
+- [ran] Plain zsh on this machine has no `timeout` builtin or coreutils `timeout` on PATH
+  (`(eval):6: command not found: timeout`) — a headless run wrapped in `timeout 300 claude
+  ...` fails instantly with a 1-line log and no diagnostic pointing at the real cause. Drop
+  the wrapper and use `Bash({run_in_background: true})` plus a bounded poll loop (`until ! ps
+  -p <pid>; do sleep N; done`) instead.
+- [ran] A real `/audit-build --report-only` run over a 1-task, 1-requirement fixture TRD
+  (no PRD, no stack.md/constitution.md) took about 2.5 minutes wall clock (5 verifiers +
+  report write); the same shape WITH a PRD, `stack.md`, `package.json`+jest present took
+  about the same. Budget ~3 minutes per real `/audit-build` headless run, not the ~20 minutes
+  a prior note estimated for a full `/create-trd` pipeline — this command alone is much
+  cheaper to exercise live than a document-authoring pipeline.
+- [learned] **The report's embedded "readout" and the actual printed readout are composed
+  independently and are NOT byte-identical**, even though the report template's own
+  instruction is "the readout, verbatim as printed below." Confirmed live: the report's first
+  line and its embedded copy read `VERDICT: proceed with these caveats: no source supplied —
+  fidelity and omission unchecked (there is no PRD...); the unit test tests/add.test.js was
+  confirmed to exist...`, while the terminal's actual final `AUDIT-BUILD:`/`VERDICT:` block
+  read `VERDICT: proceed with these caveats: there is no PRD, so nobody has checked...; the
+  test in \`tests/add.test.js\` exists and checks that \`add(2, 3)\` is 5, but it was never
+  run...` — same three caveats, same category (`proceed with these caveats`), different
+  prose. FS-1 requires "the same VERDICT line the run's readout printed"; whether same-category-
+  different-wording satisfies that is a judge question, not resolved here — evidence captured
+  as both the report file and the transcript's printed readout, not reconciled.
+- [ran] **Confirmed as a repeat pattern, not a one-off**, on a second real run against a
+  zero-findings fixture (PRD + stack.md + package.json/jest all present, `--report-only`):
+  the report's first line was `VERDICT: safe to proceed — every requirement is implemented
+  and tested`; the terminal's actual final `VERDICT:` line was `VERDICT: safe to proceed.
+  Every requirement is implemented and has a test that checks it.` — em dash vs. period,
+  "is implemented and tested" vs. "has a test that checks it," same category (`safe to
+  proceed`) both times, prose reworded both times. Both fixtures used, evidence files, and
+  the finding are `.trd-state/feature-close-out/evidence/FS-1-*` and `FS-4-*`.
+
+## Correction: the divergence above is FIXED as of commit 2649aef (2026-09-27, iteration 3)
+
+- [ran] **The two notes directly above are now superseded, not just re-checked — do not treat
+  them as the current state of the report template.** Commit `2649aef` changed
+  `packages/core/commands/audit-build.md` (and its `.claude/` mirror) so the template's
+  instruction reads "Settle the readout's final wording... BEFORE writing this file, then
+  print that same text in the terminal, copied character for character" — the wording-drift
+  the two notes above describe is exactly what this line was added to forbid. Re-ran the
+  identical `tiny-adder` fixture (1 requirement, 1 task, no PRD, no package.json) through a
+  fresh headless `/audit-build docs/TRD/tiny-adder.md --report-only` in a new scratch project
+  scaffolded from this repo's current `packages/full`. Result: the report file's first line
+  (`.trd-state/tiny-adder/audit-build-report.md`) and the transcript's printed `VERDICT:` line
+  are now **byte-identical** (`diff` of both, captured to one file each, reports no
+  difference) — confirmed with `diff`, not eyeballed. Both both begin
+  `VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked
+  (no PRD exists, so the code was checked only against the TRD, never against product
+  requirements); the one test, tests/add.test.js, has never been run because the repo has no
+  package.json or test runner to run it`. Evidence:
+  `.trd-state/feature-close-out/evidence/FS-1-report-iter3.md` (the report file) and
+  `FS-1-readout-transcript-iter3.txt` (the full session log, `--print` output).
+- [ran] The scratch project was built the same way the prior iteration's notes describe:
+  `scaffold-project.sh --plugin-dir <repo>/packages/full <scratch-dir>` for the harness, then
+  a hand-written `docs/TRD/tiny-adder.md` + `src/add.js` + `tests/add.test.js` fixture
+  committed with git (a clean git repo is required — `/audit-build` reads `git rev-parse
+  --short HEAD`). Headless invocation used `--permission-mode bypassPermissions` (not
+  `--dangerously-skip-permissions`), matching the prior iteration's finding that the
+  scratch project's own `permissions.allow` list is ignored without it. Wall clock: about 4
+  minutes for the workflow (5 verifiers + report write), in line with the prior iteration's
+  ~2.5-3 minute budget.

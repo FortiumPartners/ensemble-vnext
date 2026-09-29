@@ -17,7 +17,10 @@ FULL PIPELINE (new feature)
 /audit-trd             --> Verify the TRD against the PRD
 /refine-trd            --> (optional) Iterate on the TRD with feedback
 /implement-trd         --> Execute implementation (review runs INSIDE it)
-/audit-build           --> Verify delivered code against TRD and PRD
+/audit-build           --> Verify delivered code against TRD and PRD; a passing audit
+                           closes the feature
+/close-feature         --> Close a feature on your say-so: records it and clears its
+                           in-flight state
 
 SHORTER PATHS
 /plan <what>           --> Defect / small change / refactor: sizes the work and writes
@@ -135,13 +138,12 @@ or
 **Options**:
 | Option | Description |
 |--------|-------------|
-| `--phase N` | Execute only phase N |
-| `--session <name>` | Execute only named work session |
 | `--resume` | Resume from last checkpoint |
 | `--continue` | Alias for `--resume` |
 | `--reconcile` | Re-attest delivered work against the TRD; re-open anything only claimed done |
 | `--verify` | Functional verification now runs **by default**; this flag is accepted explicitly and matters only paired with `--resume`, and only when the prior run's state file has `outcome: null` — it then re-enters that interrupted verification loop directly instead of re-running the whole phase loop |
 | `--no-verify` | Opt out of the functional-verification loop entirely |
+| `--include-deferred` | Dispatch deferred-by-design tasks (`[LIVE]` etc.) instead of setting them aside and reporting them |
 | `--reset-state` | Clear state and start fresh (requires confirmation) |
 
 **Staged Execution Loop**:
@@ -254,7 +256,7 @@ File: `.trd-state/<feature>/implement.json`
 
 Tracks:
 - Task status (pending, in_progress, success, failed)
-- Cycle position (implement, verify, simplify, review, complete)
+- Cycle position (implement, checks, debug, complete)
 - Checkpoints
 - Coverage metrics
 - Recovery information

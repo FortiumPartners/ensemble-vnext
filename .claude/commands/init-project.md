@@ -3,7 +3,7 @@ name: init-project
 description: Initialize project with vendored ensemble runtime for AI-augmented development
 version: 1.0.0
 category: scaffolding
-argument-hint: "[--persona <name>]"
+argument-hint: "[minimal] [force]"
 # Expensive, and its description matches how a user would phrase the task —
 # so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
@@ -66,7 +66,7 @@ skills: [skill1, skill2]  # optional: pre-select skills
 - Create vendored runtime in `.claude/` directory with project-tailored components
 - Detect existing project structure and technology stack
 - Generate governance files: constitution.md, stack.md, process.md
-- Copy and customize 12 subagents for project-specific needs
+- Copy and customize 13 subagents for project-specific needs
 - Select and copy relevant skills from plugin library
 - Configure hooks (router, formatter, status, discipline, session-context, precompact)
 - Set up `.trd-state/` directory with current.json
@@ -320,17 +320,17 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - All `docs/` subdirectories (PRD, TRD, standards)
 - `.trd-state/` directory
 - Template files: `CLAUDE.md`, `.claude/settings.json`, `.trd-state/current.json`
-- **12 agent files** copied to `.claude/agents/`
-- **8 command files** copied to `.claude/commands/`
+- **13 agent files** copied to `.claude/agents/`
+- **17 command files** copied to `.claude/commands/` (every command except the plugin-only `init-project` and `rebase-project`)
 - **All hooks** copied to `.claude/hooks/` (including the shared `lib/` helpers)
 
 **Verify all directories and these files exist before proceeding:**
 - `CLAUDE.md`
 - `.claude/settings.json`
 - `.trd-state/current.json`
-- `.claude/agents/*.md` (12 files)
-- `.claude/commands/*.md` (8 files)
-- `.claude/hooks/` (router.py, formatter.sh, status.js, notify.sh, session-context.js, precompact.js, lib/, prompts/discipline-stop.prompt.md, prompts/subagent-discipline.prompt.md)
+- `.claude/agents/*.md` (13 files)
+- `.claude/commands/*.md` (17 files)
+- `.claude/hooks/` (router.py, formatter.sh, status.js, notify.sh, session-context.js, precompact.js, lib/, prompts/discipline-stop.prompt.md)
 
 ### Step 4: Generate Governance Files
 
@@ -375,9 +375,13 @@ The scaffold script (`scaffold-project.sh`) copies every `.md` file in
 behavioral guarantees enforced by hooks and are distinct from the user-owned governance
 files generated above. Currently:
 
-- `async-discipline.md` — paired with the `async-discipline.js` Stop hook; documents
-  the four async primitives (`run_in_background`, `ScheduleWakeup`, `Monitor`, `/goal`)
-  and the regex/bypass behavior of the guard.
+- `async-discipline.md` — paired with the model-judged `discipline-stop` Stop hook;
+  documents the four async primitives (`run_in_background`, `ScheduleWakeup`, `Monitor`,
+  `/goal`) and how the judge decides.
+- `autonomy.md` — the autonomous-execution rule the same Stop hook's second judgment
+  enforces: when a command may ask the owner a question, and when it must decide and proceed.
+- `command-status.md` — the DISPATCHED / RESUMED / COMMAND COMPLETE banners and the
+  four-section readout every command ends with.
 - `verification.md` — copied unfilled; it describes the environments, resource
   capacity and coverage floor a functional-verification run needs and none of this
   project's own. It is owner-governed: run `/verification-setup` to fill it in.
@@ -394,7 +398,7 @@ fire-and-forget claims without a paired explanation otherwise.
 
 **Copy and Customize All 13 Subagents**
 
-For each agent in `@packages/full/agents/`:
+For each agent in `@packages/full/agents-lib/`:
 
 1. Read the base agent .md file
 2. Customize for the detected project stack:
@@ -434,7 +438,7 @@ For each agent in `@packages/full/agents/`:
   `packages/core/agents/skill-affinity.json` with this project's
   `.claude/selected-skills.txt`. Writing the field yourself produces a preload naming
   skills the project may not have selected — the exact defect that shipped in 4.0.0.
-  Shipped agents in `packages/full/agents/` deliberately carry no `skills:` field.
+  Shipped agents in `packages/full/agents-lib/` deliberately carry no `skills:` field.
 - **Never edit inside the `<!-- ENSEMBLE:SKILLS:BEGIN -->` / `<!-- ENSEMBLE:SKILLS:END -->`
   markers.** That block is regenerated on every scaffold and rebase; edits are
   overwritten. It exists because teammates spawned via `Agent({subagent_type, name, ...})`
@@ -523,7 +527,7 @@ Output your reasoning:
 
 ### Considered but Not Included
 - `using-celery` - No background job patterns detected
-- `managing-railway` - No deployment config found; can add later with `/add-skill`
+- `managing-railway` - No deployment config found; can add later with `/rebase-project` after updating stack.md
 ```
 
 </skill-selection>
@@ -536,13 +540,22 @@ Output your reasoning:
 
 Check that these commands exist in `.claude/commands/`:
 - `create-prd.md`
+- `audit-prd.md`
 - `refine-prd.md`
 - `create-trd.md`
+- `audit-trd.md`
 - `refine-trd.md`
+- `augment-trd-figma.md`
 - `implement-trd.md`
+- `audit-build.md`
+- `close-feature.md`
+- `verify-build.md`
+- `plan.md`
+- `amend.md`
+- `sweep.md`
+- `fold-prompt.md`
 - `update-project.md`
 - `cleanup-project.md`
-- `fold-prompt.md`
 
 If any are missing, re-run the scaffold (use `--force` to overwrite existing files):
 ```bash
@@ -560,11 +573,11 @@ PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH
 <!-- ENSEMBLE:HOOKS-TABLE:BEGIN — generated by packages/core/scripts/generate-hooks-artifacts.sh; edits are overwritten -->
 
 Check these hooks in `.claude/hooks/` (9 files, 10 event registrations):
-1. **Router Hook** (`UserPromptSubmit`) — `.claude/hooks/router.py` (static framework-leverage reminder injected on every user prompt)
+1. **Router Hook** (`UserPromptSubmit`) — `.claude/hooks/router.py` (framework-orientation reminder plus the ENSEMBLE_COMMAND run-state marker the Stop judge reads; opens the run-state record on slash commands)
 2. **Formatter Hook** (`PostToolUse`) — `.claude/hooks/formatter.sh` (auto-formats files touched by Edit/Write/MultiEdit using project-detected formatters)
 3. **Dispatch-Ledger Hook** (`SubagentStart`) — `.claude/hooks/dispatch-ledger.js` (records subagent dispatch to an append-only ledger at `.trd-state/<feature>/dispatch.jsonl` so an orchestrator can enumerate in-flight agents after compaction; also runnable as `--open` to report the still-running set)
 4. **Status Hook** (`SubagentStop`) — `.claude/hooks/status.js` (active state machine: advances cycle_position in `implement.json` as subagents complete)
-5. **Dispatch-Ledger Hook** (`SubagentStop`) — `.claude/hooks/dispatch-ledger.js` (records subagent completion to the dispatch ledger; runs after subagent-discipline.js, which appends a compensating 'blocked' row when it blocks a stop (a blocked subagent has not actually stopped))
+5. **Dispatch-Ledger Hook** (`SubagentStop`) — `.claude/hooks/dispatch-ledger.js` (records subagent completion to the dispatch ledger; runs after status.js)
 6. **Discipline-Stop Hook** (`Stop`) — `.claude/hooks/prompts/discipline-stop.prompt.md` (model-judged, two independent judgments in one Stop-hook prompt (FIX-002, docs/TRD/judge-prompt-generative-rule.md): (a) blocks fire-and-forget async claims made without real async machinery in flight (pairs with `.claude/rules/async-discipline.md`); (b) blocks hedged mid-loop pause offers that violate autonomous-execution discipline (pairs with `.claude/rules/autonomy.md`))
 7. **Notify Hook** (`Stop`) — `.claude/hooks/notify.sh` (optional outbound notification (`NOTIFY_ON_STOP`) fired every time a session stops)
 8. **Session-Context Hook** (`SessionStart`) — `.claude/hooks/session-context.js` (auto-loads in-flight TRD/PRD state from `.trd-state/current.json` into session context)
@@ -762,17 +775,16 @@ A good CLAUDE.md should let a future session:
 
 | File/Directory | Created In Step | Required |
 |----------------|-----------------|----------|
-| `.claude/agents/` (12 files) | Step 5 | YES |
+| `.claude/agents/` (13 files) | Step 5 | YES |
 | `.claude/rules/constitution.md` | Step 4 | YES |
 | `.claude/rules/stack.md` | Step 4 | YES |
 | `.claude/rules/process.md` | Step 4 | YES |
 | `.claude/rules/async-discipline.md` | Step 3 (scaffold, framework rule) | YES |
 | `.claude/skills/` (1+ skill folders) | Step 6 | YES |
-| `.claude/commands/` (8 files) | Step 7 | YES |
+| `.claude/commands/` (17 files) | Step 7 | YES |
 | `.claude/hooks/router.py` | Step 8 | YES |
 | `.claude/hooks/formatter.sh` | Step 8 | YES |
 | `.claude/hooks/status.js` | Step 8 | YES |
-| `.claude/hooks/learning.js` | Step 8 | YES |
 | `.claude/settings.json` | Step 3 (scaffold) | YES |
 | `.trd-state/current.json` | Step 3 (scaffold) | YES |
 | `CLAUDE.md` | Step 3 (scaffold), Step 12 (update) | YES |
@@ -850,11 +862,11 @@ Project initialized for AI-augmented development
 
 Vendored Runtime Created:
   .claude/
-    agents/       - 12 project-tailored subagents
+    agents/       - 13 project-tailored subagents
     rules/        - constitution.md, stack.md, process.md
     skills/       - [N] stack-relevant skills
-    commands/     - 8 workflow commands
-    hooks/        - 5 hook scripts
+    commands/     - 17 workflow commands
+    hooks/        - 9 hook scripts (10 event registrations)
     settings.json - Permissions and hook configuration
 
 Documentation:
@@ -887,12 +899,14 @@ Commands Available:
   /create-trd      - Generate TRD from PRD
   /audit-trd       - Verify the TRD against the PRD
   /refine-trd      - Iterate on an existing TRD
-  /implement-trd   - Execute staged implementation (review + hardening run inside it)
+  /implement-trd   - Execute staged implementation (review runs inside it)
   /audit-build     - Verify delivered code against TRD and PRD
+  /close-feature   - Close a feature on your say-so (a passing /audit-build closes it too)
 
   SHORTER PATHS
   /plan            - Defect / small change / refactor: sizes the work, writes a TRD to match
   /amend           - ONE change to the feature already in flight, without a new TRD
+  /sweep           - A list of small unrelated fixes, in parallel, without a TRD
   /verify-build    - Re-run functional verification alone
   /fold-prompt     - Optimize context for continued work
 
@@ -900,6 +914,7 @@ Commands Available:
   /update-project  - Capture learnings, update governance
   /cleanup-project - Prune CLAUDE.md and artifacts
   /rebase-project  - Refresh the vendored runtime from the plugin
+  /augment-trd-figma - Add Figma design context to a TRD
 ```
 
 </completion-report>

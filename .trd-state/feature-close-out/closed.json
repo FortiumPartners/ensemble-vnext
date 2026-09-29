@@ -1,0 +1,8 @@
+{
+  "feature": "feature-close-out",
+  "trd": "docs/TRD/feature-close-out.md",
+  "closedAt": "2026-09-29T00:07:02Z",
+  "closedBy": "owner",
+  "note": "built, verified (34/34 criteria) and audited (proceed with caveats); closed at the owner's instruction before the 4.10.2 PR",
+  "audit": null
+}

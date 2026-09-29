@@ -40,7 +40,7 @@ try {
 // Constants
 // =============================================================================
 
-const AGENTS_DIR = path.join(__dirname, '../../full/agents');
+const AGENTS_DIR = path.join(__dirname, '../../full/agents-lib');
 
 /**
  * Required 13 agents as per TRD constitution and CLAUDE.md

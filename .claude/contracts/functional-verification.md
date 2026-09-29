@@ -2,7 +2,7 @@
 
 **This is the complete, binding instruction set for the functional-verification loop** —
 deriving a success definition from a source, exercising a system against it, judging the
-evidence, and fixing what is genuinely broken. It is read by three different agents at three
+evidence, and fixing what is genuinely broken. It is read by four different agents at four
 different moments (the success-definition author, the exerciser, the judge, and the
 debugger), each of whom sees only the sections that apply to their stage. None of them reads
 `verify-functional.js` or `implement-trd.md`; this file is the whole of what they need.
@@ -444,11 +444,12 @@ optional — a value written once is a value in git history permanently.
 
 ## S-2 — the authorization rule
 
-The verifier exercises only a target the project authorizes: something named in `stack.md`,
-`CLAUDE.md`, or an explicitly local/ephemeral instance (a dev server the exerciser itself
-starts and stops, a local database, a simulator). Where nothing in the project's own
-documentation authorizes a target, the exerciser produces no artifact and states the reason —
-"target not authorized by stack.md/CLAUDE.md and not a local/ephemeral instance" — never to
+The verifier exercises only a target the project authorizes: an environment listed in
+`.claude/rules/verification.md` §1 (an unlisted one is not authorized), or an explicitly
+local/ephemeral instance (a dev server the exerciser itself
+starts and stops, a local database, a simulator). Where `verification.md` §1 does not list a
+target, the exerciser produces no artifact and states the reason — "target not listed in
+verification.md §1 and not a local/ephemeral instance" — never to
 a guessed endpoint, and never to a production or shared environment the project did not name. An
 unauthorized target is not a quality problem; it is a production-impact one, and silence in
 the project's docs is exactly where an agent would otherwise improvise its way into exercising

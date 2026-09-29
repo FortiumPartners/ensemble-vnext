@@ -9,7 +9,7 @@
 
 'use strict';
 
-const { readScript, runWorkflow, makeAgentStub, makeParallelStub } = require('./test-harness');
+const { readScript, runWorkflow, makeAgentStub, makeParallelStub, unpinnedLabels } = require('./test-harness');
 
 const SOURCE = readScript('audit-build.js');
 
@@ -223,5 +223,26 @@ describe('audit-build: required() guard on a dead Index', () => {
         args: baseArgs(),
       })
     ).rejects.toThrow(/Index stage returned no result/i);
+  });
+});
+
+describe('audit-build: every agent() call is pinned', () => {
+  // Extends audit-trd.test.js's "gives every agent an explicit agentType" pattern
+  // (packages/core/workflows/audit-trd.test.js:70-75). Run once per reconcile branch, since
+  // the clean branch (reconcile:could-not-verify) and the findings branch (reconcile) are
+  // mutually exclusive within a single run.
+  it('pins every call on the clean (no-findings) reconcile branch', async () => {
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX));
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    expect(agent.calls.length).toBeGreaterThan(0);
+    expect(unpinnedLabels(agent)).toEqual([]);
+  });
+
+  it('pins every call on the findings reconcile branch', async () => {
+    const findings = { 'verify:traceability-audit': [{ check: 'traceability', why: 'no test', confidence: 'high', action: 'gap' }] };
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX, findings));
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    expect(agent.calls.length).toBeGreaterThan(0);
+    expect(unpinnedLabels(agent)).toEqual([]);
   });
 });

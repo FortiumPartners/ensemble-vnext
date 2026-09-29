@@ -1,0 +1,8 @@
+{
+  "feature": "closed-feature",
+  "trd": "docs/TRD/closed-feature.md",
+  "closedAt": "2026-09-20T12:00:00Z",
+  "closedBy": "owner",
+  "note": "shipped anyway; owner verified the happy path manually",
+  "audit": null
+}

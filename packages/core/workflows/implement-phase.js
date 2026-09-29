@@ -1,10 +1,10 @@
 export const meta = {
   name: 'implement-phase',
   description: 'Execute one phase of a TRD implementation: dispatch its tasks by wave, then gate the phase',
-  whenToUse: 'Invoked by /implement-trd once per phase, after the command has computed the wave partition (task-graph.js) and pre-assembled every prompt this script needs. This script opens no file and runs no shell -- every input arrives in args. It dispatches each eligibility wave of tasks in parallel, awaits sequentially between waves so a later wave never starts before an earlier one that shares a touched file finishes, then gates the phase with verify-app, code-simplifier and a phase-scoped code review.',
+  whenToUse: 'Invoked by /implement-trd once per phase, after the command has computed the wave partition (task-graph.js) and pre-assembled every prompt this script needs. This script opens no file and runs no shell -- every input arrives in args. It dispatches each eligibility wave of tasks in parallel, awaits sequentially between waves so a later wave never starts before an earlier one that shares a touched file finishes, then gates the phase with verify-app and the deterministic battery.',
   phases: [
     { title: 'Dispatch', detail: 'run each wave of tasks in parallel, sequential between waves (D7)' },
-    { title: 'Gate', detail: 'verify-app, then phase-scoped code review' },
+    { title: 'Gate', detail: 'verify-app and the deterministic battery' },
   ],
 }
 
@@ -26,11 +26,10 @@ export const meta = {
 //   trd:     string,   path to the TRD, for citation only -- never opened here
 //   phase:   number,   1-based phase number
 //   tasks:   { waves: string[][], records: (Task & { prompt: string, agentType?: string })[] }
-//   gate:    { verifyPrompt: string, simplifyPrompt: string, reviewPrompt: string }
+//   gate:    { verifyPrompt: string }  (simplifyPrompt/reviewPrompt are no longer read)
 //   project: string,   project root; '' means the repo the workflow runs in (unused here --
-//                      passed through only because verify-app/code-simplifier/review prompts
-//                      already carry whatever path context they need; this script never
-//                      resolves a path itself)
+//                      passed through only because the gate prompt already carries whatever
+//                      path context it needs; this script never resolves a path itself)
 // }
 // ---------------------------------------------------------------------------
 
@@ -224,11 +223,9 @@ if (deadTasks.length > 0) {
 
 phase('Gate')
 
-// verify-app and code-simplifier run as named agents dispatched from inside this workflow
-// (attested: agent() accepts opts.agentType). Both run in the foreground -- neither needs to
-// be a background subagent (that requirement, AC-F8.4/NFR-4/AC-N4, applies only to the
-// review below), and verify-app's own frontmatter declares `background: true` and
-// `disallowedTools: Agent`, so it cannot fan out further even if asked to.
+// verify-app runs as a named agent dispatched from inside this workflow, in the foreground
+// (attested: agent() accepts opts.agentType). Its frontmatter marks it a leaf node (no
+// subagents).
 const verifyResult = await agent(GATE.verifyPrompt, {
   label: 'gate:verify-app',
   phase: `Phase ${PHASE}`,

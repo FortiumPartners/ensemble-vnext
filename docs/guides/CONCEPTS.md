@@ -1,437 +1,346 @@
 # Ensemble Concepts
 
-The mental models, principles, and patterns that make AI-augmented engineering reliable.
+Why Ensemble is shaped the way it is. This guide explains the problems and the ideas; it
+does not teach command syntax. For that, read [PROCESS.md](PROCESS.md) (how to use the
+commands) and [INSTALL.md](INSTALL.md) (how to set a project up).
+
+> **The principle underneath everything**
+>
+> **Code decides the shape of the work. Language fills it in. You decide what matters and
+> anything that leaves the building.**
+>
+> - **Code** owns control flow: counting, ordering, how many times a loop may run, and when
+>   it stops.
+> - **The model** owns the work that needs judgement: planning, implementing, weighing
+>   evidence, deciding what is in scope.
+> - **You** own product intent, approvals, changes to the project's rules, and anything
+>   outward-facing: push, merge, deploy.
 
 ---
 
-## The Evolution of AI Development
+## Part 1 — What goes wrong when you build with AI
 
-Understanding where Ensemble fits helps clarify both its power and its boundaries.
+If you are new to AI-assisted development, these five problems are the reason the rest of
+this guide exists. Every concept in Part 3 answers one or more of them.
 
-| Stage | Description | Human Role |
-|-------|-------------|------------|
-| **Manual** | Developer writes every line, makes every decision | Full control |
-| **Copilot** | IDE suggests completions and snippets | Drives every decision, gets typing help |
-| **Vibe Coding** | AI generates substantial code from prompts | Prompts, reviews, iterates |
-| **Autopilot** | Governed agent execution with specifications driving implementation | Sets plan, monitors, intervenes on exceptions |
-
-Ensemble operates at the **Autopilot** level: specifications drive implementation, gates ensure quality, and humans monitor for exceptions. Intervention is exception-based, not constant.
-
----
-
-## Ground Rules
-
-Success with AI-augmented engineering requires a fundamental mindset shift. These aren't restrictions -- they're enabling constraints that make speed safe and sustainable.
-
-### You Are Air Traffic Controller, Not Pilot
-
-The mental model isn't hand-flying one aircraft -- it's orchestrating multiple flights from a control tower. You file the flight plan (PRD/TRD), clear flights for takeoff (`--dangerously-skip-permissions`), monitor several in-flight simultaneously (team agents), and course-correct when they land. The framework handles the flying; you handle the plan and the adjustments between passes.
-
-Think like an air traffic controller:
-- **You** file the flight plans (PRD/TRD specifications)
-- **You** clear flights for takeoff (launch `--dangerously-skip-permissions` sessions)
-- **You** monitor the airspace (review results between passes)
-- **You** course-correct when flights land (adjust plan, re-run)
-- **AI** flies the aircraft (implements tasks autonomously)
-- **AI** follows the filed plan (adheres to TRD specs)
-- **AI** reports position on landing (fold-prompt, status hooks)
-- **AI** handles all in-flight operations (routing, formatting, testing)
-
-The key insight: you don't need to watch every line of code being written any more than a controller watches every control input in every cockpit. You trust the system, verify on landing, and intervene only on exceptions.
-
-### Perfect Plan Over Perfect Execution
-
-The goal isn't perfect code on the first pass -- it's a perfect *plan* that converges on production-ready code through iteration. With a solid PRD/TRD and three implementation passes, the framework gets you there without constant human supervision of every line.
-
-This is counterintuitive for engineers accustomed to writing code themselves. The instinct is to watch everything, correct in real-time, and hand-tune each function. That approach doesn't scale. Instead, invest your time in the specification (PRD and TRD), trust the framework to execute, and course-correct between passes based on results.
-
-### Review Artifacts Before Code
-
-Specifications drive implementation quality. Catching errors in the PRD or TRD is 10x cheaper than fixing them in code. A bad PRD produces a wrong TRD, which produces misaligned code that needs to be thrown away.
-
-### Trust Tests + CI Over Vibes
-
-Automated validation provides objective confidence. Subjective assessment without gates leads to hidden technical debt. "It looks right" is not a quality gate.
-
-### Stop Early When Narrative Smells Wrong
-
-AI drift compounds. If the output feels generic, superficial, or off-track, pause immediately and redirect rather than letting it continue. The cost of stopping and correcting is always less than the cost of building on a bad foundation.
+| # | Problem | What it looks like |
+|---|---|---|
+| 1 | **Capable, not reliable** | It reports work done that wasn't, cites code that doesn't exist, and writes tests that check nothing — all in the same confident voice as its correct work. |
+| 2 | **It invents** | It adds plausible requirements nobody asked for: a latency target, a retry policy, a coverage number. |
+| 3 | **It forgets, and long sessions degrade** | Its working memory (the *context*) is finite. Early detail blurs, and when the conversation is summarized to make room, things drop out. |
+| 4 | **It doesn't learn unless you make it** | Each session starts close to blank. Yesterday's hard-won lesson is gone unless it was written somewhere. |
+| 5 | **Chat-and-edit drifts** | Asking for changes one message at a time is fine for small things. For large ones it produces code nobody planned and nobody can trace back to a reason. |
 
 ---
 
-## Core Concepts
+## Part 2 — Claude Code building blocks
 
-### Artifacts = Source of Truth
+Ensemble is built from parts Claude Code already provides. You don't need to master them, but
+the names come up.
 
-Artifacts are written specifications that persist across sessions, enable safe restarts, and provide reviewable quality gates. They're not optional documentation -- they're the operating system of your autopilot.
+| Term | What it is |
+|---|---|
+| **Session** | One conversation with Claude Code, with its own context. ([How Claude Code works](https://code.claude.com/docs/en/how-claude-code-works)) |
+| **Slash command** | A saved prompt you run by name, such as `/plan`. ([Skills and slash commands](https://code.claude.com/docs/en/skills)) |
+| **Subagent** | A fresh Claude instance with a clean context, given one job. It returns only its result, not its working. ([Subagents](https://code.claude.com/docs/en/sub-agents)) |
+| **Skill** | A packaged set of instructions the model loads when a task calls for it. ([Skills](https://code.claude.com/docs/en/skills)) |
+| **Hook** | Code, or a short model check, that Claude Code runs automatically at set moments: when you submit a prompt, when a subagent finishes, when a turn ends. ([Hooks](https://code.claude.com/docs/en/hooks)) |
+| **Workflow** | A script that runs agents in a fixed order: in parallel waves, in loops, fanned out and gathered back. ([Workflows](https://code.claude.com/docs/en/workflows)) |
+| **Memory and `CLAUDE.md`** | What carries over from one session to the next. ([Memory](https://code.claude.com/docs/en/memory)) |
+| **Plugin** | A package of all of the above that you install once. ([Plugins](https://code.claude.com/docs/en/plugins)) |
 
-**The three core artifacts:**
-
-| Artifact | Defines | Audience | Created By |
-|----------|---------|----------|------------|
-| **PRD** (Product Requirements Document) | What and why. User stories, acceptance criteria, edge cases, constraints. | Product review | `/create-prd` |
-| **TRD** (Technical Requirements Document) | How. Architecture, API contracts, data models, task breakdown, test plan. | Technical review | `/create-trd` |
-| **CLAUDE.md** | Project memory. Patterns, conventions, past decisions, debugging notes. | AI sessions | `/fold-prompt` |
-
-**Quality indicators for artifacts:**
-- PRD includes edge cases and non-goals
-- TRD tasks map 1:1 to acceptance criteria
-- CLAUDE.md captures decisions and rationale
-- Artifacts are reviewable without running code
-
-### Gates = Quality Enforcement
-
-Gates are automated validation checkpoints that provide objective confidence before code moves forward. They transform "hope" into "proof."
-
-| Gate | What It Checks | When |
-|------|---------------|------|
-| **Tests** | Unit, integration, E2E -- components work correctly | During implementation |
-| **CI Checks** | Lint, type checking, build, security scanning, coverage | On every commit |
-| **PR Protections** | CI passing, human code review, approval required | Before merge |
-| **Fold Prompt** | Learnings captured, CLAUDE.md updated | Session end |
-
-Without gates, speed creates chaos. With gates, speed creates value.
-
-### Context Is a Budget
-
-This is perhaps the most counterintuitive but critical concept: AI context is a finite, degrading resource. Managing it well is the difference between reliable and unreliable output.
-
-**Why context management matters:**
-
-As context fills up, output quality degrades. The AI starts making simplifications, forgetting earlier decisions, and generating confident but incorrect responses. Auto-compaction makes this worse by compressing earlier work into lossy summaries.
-
-**The degradation curve:**
-- **0-50% context:** Quality remains high and stable
-- **50-60% context:** Subtle degradation -- slightly generic responses, minor oversimplifications
-- **80%+ context:** Unreliable -- confident but wrong simplifications, lost constraints
-
-**The heuristic:** If something is important enough to remember, write it down in an artifact (PRD, TRD, CLAUDE.md), don't just mention it in chat. Artifacts persist; chat history gets compressed or forgotten.
-
-**Practical rules:**
-- Keep the prime agent lean and focused
-- Push detailed work into sub-agents (they get fresh context)
-- Restart sessions before quality degrades (fold at 50-60%)
-- Use artifacts to preserve decisions across sessions
-
-### Durable IP vs Swappable Tools
-
-One of the most important strategic insights: invest in workflows and patterns that survive technology churn, not in mastering specific tools that will be obsolete in 18 months.
-
-| Durable (Your IP) | Swappable (Tool Layer) |
-|-------------------|----------------------|
-| Command patterns and orchestration logic | Specific LLM model (Claude, GPT, Gemini) |
-| Artifact templates (PRD/TRD/CLAUDE.md) | IDE or code editor |
-| Quality gates and acceptance criteria | Ticketing system integration |
-| Team habits around fold and restart | UI generator tool |
-| Project-specific conventions and decisions | Test framework (within reason) |
-
-The workflow survives tool churn. When a better model ships next quarter, you don't rebuild your process -- you just swap the model.
+Ensemble is a plugin built from these parts.
 
 ---
 
-## The Development Loop
+## Part 3 — Ensemble's concepts
 
-### Artifact Flow
+Eleven ideas in four stages: **PLAN → EXECUTE → PROVE → SUSTAIN.**
 
-Every feature follows the same flow, whether it takes 30 minutes or 3 weeks:
+## PLAN
 
-```
-Story / Idea
-     |
-     v
-/create-prd  ---------->  docs/PRD/<feature>.md
-     |
-     v  (optional: /refine-prd)
-     |
-/create-trd  ---------->  docs/TRD/<feature>.md
-     |
-     v  (optional: /refine-trd)
-     |
-/implement-trd  ------->  Code + Tests + Review
-     |                     .trd-state/<feature>/implement.json
-     v
-/fold-prompt  ---------->  Updated CLAUDE.md
-     |
-     v
-Quit + Restart  -------->  Fresh context for next iteration
-```
+### 1. Write it down before you build it
 
-### Shorter Paths
+**Answers:** forgetting (3), drift (5).
 
-Not every change needs the full PRD -> TRD -> implement pipeline. Three commands exist for
-narrower situations, distinguished by **whose plan the work belongs to**, not by size:
+**The rule.** Work starts as a document, not a chat. A **PRD** (Product Requirements
+Document) says what to build and why. A **TRD** (Technical Requirements Document) says how,
+broken into tasks. Agents work from those files, and you review the files rather than a
+scrolling conversation.
 
-- **`/plan <what>`** -- a defect, small change, or refactor. Investigates first, then writes
-  whatever the work earns: a light TRD for something contained, or a fully phased and audited
-  TRD when the scope turns out to span several tasks. Implements only when you pass `--implement`.
-- **`/amend <what>`** -- ONE change to a feature already in flight. Grounded against the
-  codebase, recorded as a row in that feature's own TRD before the work starts, and verified
-  against disk afterward. No new TRD.
-- **`/sweep <list>`** -- a list of small, unrelated fixes that arrived together. Triaged and
-  fixed in parallel, each one checked against disk. No TRD.
+Progress is written to disk too, in `.trd-state/`: which tasks are done, what verification
+found, what was published. Because the state is a file and not a memory, a run can resume
+after an interruption, be re-checked against the code, or be handed to someone else.
 
-Work sitting inside the feature currently in flight is an amendment to *its* TRD -- `/plan`
-would fork a second TRD for something already understood, which is how a session loses track
-of what it's doing.
+**Where you'll meet it:** `docs/PRD/`, `docs/TRD/`, `.trd-state/`
+([PROCESS.md §2](PROCESS.md#2-the-core-flow), [§7](PROCESS.md#7-where-state-lives)).
 
-### Phase 1: Requirements (PRD)
+### 2. Match the process to the risk
 
-`/create-prd` takes a feature description and produces a comprehensive Product Requirements Document. You can feed requirements directly from your lifecycle management system:
+**Answers:** drift (5), without making a one-line fix pay for a full feature's paperwork.
 
-- **Jira:** Use the `managing-jira-issues` skill
-- **Linear:** Use the `managing-linear-issues` skill
-- **Azure DevOps:** Use the relevant MCP server
+**The rule.** The question is *whose plan the work belongs to*, not how big it is.
 
-**Critical:** Even with AI review via `/refine-prd`, it is essential to **thoroughly read the PRD yourself**. AI review catches structural issues; human review catches requirements misunderstandings.
+| The work is… | Path |
+|---|---|
+| A new feature, or anything where the right behaviour is still a product decision | The full pipeline: PRD, then TRD, then build, then audit |
+| A defect, a small change, or a refactor | `/plan`, which investigates and writes a plan sized to the work |
+| A list of small, unrelated fixes | `/sweep`, which fixes them in parallel with no plan document |
+| One change to the feature you're already building | `/amend`, which adds it to that feature's existing TRD |
 
-### Phase 2: Architecture (TRD)
+**Example.** A change to the feature in flight looks small enough for `/plan`. But `/plan`
+would write a second TRD for work the first one already understands, and the session loses
+track of which plan it is following. So it goes through `/amend` instead.
 
-`/create-trd` transforms the approved PRD into a Technical Requirements Document with:
-- Architecture decisions and trade-offs
-- API contracts and data models
-- Master task list with unique IDs (TRD-XXX format)
-- Execution plan with phases and work sessions
-- Testing strategy and quality requirements
+**Where you'll meet it:** [PROCESS.md §1](PROCESS.md#1-choosing-a-path).
 
-### Phase 3: Implementation
+### 3. Everything traces to a source; plans are checked against the real code
 
-A single implementation pass rarely produces production-ready code -- just as a single draft rarely produces a publishable document. Ensemble used to run this as three separate commands, each in its own session (`/implement-trd`, then `/harden-trd-team`, then `/verify-trd-team`). As of 4.1.16 those two team commands are gone, and the work they did runs *inside* `/implement-trd` instead — one command, one session, still `--dangerously-skip-permissions` for uninterrupted execution.
+**Answers:** invention (2), unreliability (1).
 
-**Why fold the passes into one loop?** The three-pass split existed because each pass needed an increasingly complete codebase to work against: skeleton, then hardening, then live validation. That's still true — but it turned out those checkpoints line up with phase boundaries `/implement-trd` already tracks, so there was no need for a human to manually launch a second and third session at the right moment. The command now inserts the hardening pass and the live-verification gate at the point in its own loop where the codebase is ready for them.
+**The rule.** The model may invent *how* to build something. It may never invent *how well*:
+every threshold, acceptance criterion and quality target must trace to the PRD, your project
+rules, a measurement, or your own instruction. And every task in a TRD names the existing
+code it reuses or replaces. Ensemble calls that step **grounding**: checking the plan against
+what is actually in the repository.
 
-#### Per-phase loop
+The audits check both. `/audit-prd` and `/audit-trd` look for requirements that trace to
+nothing, and for plans that describe code that isn't there. Documents say what someone
+intended; the code shows what exists. When they disagree, the code wins and the
+disagreement is recorded.
 
-For every phase, and for every task within it:
+**Example.** A TRD says "responses under 200ms". If nothing in the PRD, the project rules or a
+measurement says so, the refine and audit steps remove it or ask about it rather than letting
+it quietly become a target.
 
-```
-IMPLEMENT --> VERIFY --> [DEBUG if fail] --> SIMPLIFY --> VERIFY --> REVIEW
+**Where you'll meet it:** `/create-trd`, `/audit-prd`, `/audit-trd`, `/refine-prd`,
+`/refine-trd` ([PROCESS.md §2](PROCESS.md#2-the-core-flow)).
+
+## EXECUTE
+
+### 4. You direct; specialists with fresh context do the work
+
+**Answers:** long sessions degrading (3), unreliability (1).
+
+**The rule.** Each task goes to a subagent that starts clean, with only a brief: the task, the
+grounding for it, and the decisions it must respect. It returns a result, not a transcript.
+Your main session (the *orchestrator*) keeps only the plan, so its context stays small.
+
+Fresh context is also **independence**: the thing that checks the work never wrote it. The
+success criteria verification uses are written from the PRD by an agent that never sees the
+plan or the code, and the audits and final code review read work they had no hand in.
+
+**The trade-off.** A subagent's reasoning does not come back, only its conclusion. A wrong
+conclusion three layers down arrives looking confident, so agents dispatching agents is kept
+shallow.
+
+**Where you'll meet it:** `/implement-trd` sends each task to a specialist (frontend,
+backend, mobile, or AI/agent work); the 13 agents live in `.claude/agents/`.
+
+### 5. Workflows: a fixed skeleton, language at each step
+
+**Answers:** unreliability (1), drift (5).
+
+**The rule.** This is the principle at work: the order of the work is code, not a conversation. A TRD's tasks and their
+dependencies become a graph, and the graph becomes **waves**: groups of tasks that can run in
+parallel. Two tasks that touch the same file never run at the same time. Loops have a cap on
+how many times they may run, and whether a loop stops is decided by code, not by the model
+saying it is done.
+
+At each step an agent does its work in natural language, then returns a result in a fixed
+shape that code can check. A task that returns nothing, or a malformed result, is recorded as
+a failure rather than passed over.
+
+How one command run moves between your session, a workflow script and subagents:
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant C as The command (your session)
+    participant W as Workflow script
+    participant A as Subagents (fresh context each)
+    participant D as Files on disk
+    You->>C: /implement-trd
+    C->>D: read the TRD and saved state
+    C->>C: code builds the task graph and waves
+    C->>W: start the phase with the tasks and briefs
+    W->>A: dispatch each task with only its brief
+    A->>D: edit code, run checks
+    A-->>W: a result in a fixed shape
+    W->>W: code checks every result and decides what runs next
+    W-->>C: phase summary
+    C->>D: checkpoint and commit
+    C-->>You: readout and banner
 ```
 
-1. The appropriate specialist agent implements the task
-2. `verify-app` runs tests
-3. If tests fail, `app-debugger` investigates (up to 3 retries)
-4. `code-simplifier` refactors for clarity
-5. `code-reviewer` checks for security and quality (phase-scoped review)
+**Example.** The verification loop runs at most three rounds by default. After each round, a
+plain function counts the open gaps and decides: stop as satisfied, stop because something
+was never built, stop because a fix pass closed nothing, stop at the cap, or go again.
 
-Each phase's gate (`implement-phase.js`) runs a `parallel()` verifier fan-out over that
-phase's tasks — this is the adversarial "does the code hold up to scrutiny" check that used
-to be `/harden-trd-team`'s job, now scoped to what just landed rather than run separately
-after the fact. Any task marked `[LIVE]` in the TRD (or a TRD whose `verification_level` is
-`live-required`/`e2e-required`) is verified against a running instance, not mocks — this is
-the E2E gate that used to be `/verify-trd-team`'s job.
+**Why it matters:** the same TRD produces the same waves every time, a run can resume from its
+last checkpoint, and its timings can be measured.
 
-#### Feature-scale hardening pass
+**Where you'll meet it:** `/implement-trd`, `/verify-build`, the audits; the scripts are in
+`.claude/workflows/`.
 
-After the last phase's checkpoint and before the end-of-run review, `/implement-trd` runs
-the same hardening agent once more, at feature scale — a lens no single phase's review could
-apply, because interaction risk *between* phases only exists once every phase is assembled.
-This is the "once more, but for the whole feature" half of what `/harden-trd-team` used to
-do as a standalone pass.
+### 6. One command, one authorization, one result
 
-#### After the run: `/audit-build`
+**Answers:** drift (5), and the cost of babysitting a run.
 
-`/implement-trd` finishing does not mean the feature is verified against its source
-documents. Run `/audit-build` afterward for post-implementation verification (does the code
-match the TRD's tasks?), validation (does it match the PRD's requirements?), and
-traceability (does every requirement have both an implementation AND a test proving it?).
-A requirement with code and no test is a **gap**, not a pass — that's the check nothing
-else in this pipeline performs.
+**The rule.** Running a command means "take this all the way through". It doesn't stop to ask
+about things it can decide for itself; it stops early only when it is genuinely stuck. It also
+doesn't start the *next* command: `/create-trd` writes a TRD and ends, and its last line names
+`/implement-trd` for you to run when you're ready. Naming the next step is a report, not a
+request. Anything that leaves the building — a push, a merge, a deploy — comes back to you.
 
-#### Human Finishes
+You always know where a run stands from its **banners** (`DISPATCHED`, `RESUMED`,
+`COMMAND COMPLETE`, `COMMAND STUCK`) and a four-part **readout** at the end: what exists now,
+what was decided for you, what's wrong and who acts, and the next command.
 
-At this point the code is substantially complete -- typically 85-95% -- and the remaining
-work is the kind of nuanced problem-solving that humans still do best: debugging what
-`/audit-build` surfaced, and final acceptance.
+**Where you'll meet it:** every command
+([PROCESS.md §6](PROCESS.md#6-what-youll-see-while-a-command-runs)); the rules are in
+`.claude/rules/autonomy.md` and `command-status.md`.
 
-### Phase 4: Fold and Restart
+### 7. Findings are recorded, not absorbed
 
-Between phases of a long-running implementation (and at the end), fold learnings and restart:
+**Answers:** drift (5), invention (2).
 
-```bash
-/fold-prompt     # Capture learnings into CLAUDE.md
-exit             # Quit Claude Code
-claude           # Restart with fresh context
+**The rule.** When an agent finds a problem outside its task, it writes it down; it does not
+quietly fix it. Findings go into a ledger (`discovered.jsonl`). From there they come back to
+you in the readout, or, if they block the feature, become TRD tasks the next time you run
+`/implement-trd --reconcile` (which re-checks delivered work against the TRD). The plan that was approved is the plan that gets built.
+
+**Example.** An implementer building a login form notices the password-reset email is broken.
+It records the finding and finishes the login form. The reset bug reaches you as a line in the
+readout, not as an unreviewed change buried in the login commit.
+
+**Where you'll meet it:** the readout's ISSUES section, `.trd-state/<feature>/discovered.jsonl`,
+`--reconcile` ([PROCESS.md §2](PROCESS.md#2-the-core-flow)).
+
+## PROVE
+
+### 8. "Done" means proven, not claimed
+
+**Answers:** unreliability (1) most directly.
+
+**The rule.** A feature is done when the running software is shown to do what the PRD asked,
+not when an agent says so. Success criteria come from the PRD, and each one needs captured
+evidence from exercising the software.
+
+Results are honest. Each criterion comes out **met**, **not met**, **not verifiable here**, or
+**not built**, and "could not check" is never counted as a pass. A run that ends *satisfied*
+still says how many criteria were never exercised. Design comparisons, user-journey walks and
+data checks, when the TRD selects them, are criteria like any other.
+
+When verification can't get there, the path is: the report's **diagnosis** of why, then a
+short conversation with you that turns it into a plan, then an unattended fix run that carries
+it out. Deciding a feature is finished is a judgement on the evidence, including evidence you
+bring yourself. A feature is marked closed in one of two ways: a passing `/audit-build` closes
+it, or you close it with `/close-feature`.
+
+The loop, and how it ends:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Exercise
+    Exercise: Exercise (verify-app agents run the software and capture evidence)
+    Exercise --> Judge
+    Judge: Judge (check each piece of evidence, rule each criterion)
+    Judge --> Decide
+    Decide: Code decides the next step, first match wins
+    Decide --> Unbuilt: something asked for was never built
+    Decide --> Satisfied: no gaps left
+    Decide --> Stalled: the last fix round closed nothing
+    Decide --> Stuck: the round cap was reached (default 3)
+    Decide --> Debug: otherwise
+    Debug: Debug (app-debugger fixes each gap in place, then the environment is refreshed)
+    Debug --> Exercise
+    Unbuilt --> [*]
+    Satisfied --> [*]
+    Stalled --> [*]
+    Stuck --> [*]
+    note right of Decide
+        If less than your coverage floor is proven,
+        satisfied, stalled or stuck is reported
+        as insufficient-coverage instead.
+    end note
 ```
 
-`/fold-prompt` analyzes the session's work and updates CLAUDE.md with:
-- New patterns and conventions discovered
-- Architecture decisions made
-- Debugging notes worth preserving
-- Updated file structure references
+**Example** (a real run on this repository). A build reports *satisfied*, 6 of 32 criteria unchecked. That is not "fully
+proven", and the report says so. The usual fix is to tell the loop how to reach an environment
+it couldn't, not to write more code.
 
-Restarting Claude Code ensures each session starts with fresh context and consolidated knowledge. This prevents context degradation (see [Context Is a Budget](#context-is-a-budget) above) and ensures each pass operates at peak quality.
+**Where you'll meet it:** the end of `/implement-trd`, `/verify-build`,
+`.claude/rules/verification.md` ([PROCESS.md §3](PROCESS.md#3-verification),
+[INSTALL.md §5](INSTALL.md#5-set-up-verification)).
 
-### Other Commands
+## SUSTAIN
 
-Rounding out the roster -- setup, governance, and one-off verification, none of them part of
-the per-feature loop above:
+### 9. Hooks reinforce and guard the process
 
-| Command | Purpose |
-|---------|---------|
-| `/audit-prd` | Verifies an existing PRD against its source material |
-| `/audit-trd` | Verifies an existing TRD against the PRD it was built from |
-| `/augment-trd-figma` | Adds Figma design context to a TRD |
-| `/init-project` | One-time project setup: vendors the runtime, detects the stack |
-| `/rebase-project` | Refreshes the vendored runtime from the plugin |
-| `/update-project` | Captures session learnings into CLAUDE.md; proposes governance changes |
-| `/cleanup-project` | Prunes CLAUDE.md and project artifacts |
-| `/verify-build` | Re-runs the functional-verification loop on its own |
+**Answers:** forgetting (3), unreliability (1).
 
----
+**The rule.** A prompt can only ask the model to do something. A hook runs every time. So the
+parts of the process that must not be skipped are hooks: code again owning what must happen,
+the model judging only where judgement is needed.
 
-## Orchestration Model
+| Job | What happens |
+|---|---|
+| **Remind** | Every ordinary prompt you type gets a short orientation (a slash command carries its own instructions, so it is skipped): which path fits the work, to look for a relevant skill, and to check the project's rules. Every session opens with a brief on the feature in flight. |
+| **Remember** | Every subagent dispatched is recorded in a ledger. Before the conversation is summarized to free up context, the current decision trail is saved to a session log. Task progress advances on disk as agents finish. |
+| **Guard** | When a turn ends, a model check reads the final message for a promise nothing will keep ("I'll let you know when it's done" with nothing running) and, while a command is running, for a needless "shall I continue?" pause. It sends the turn back once. |
 
-### Commands Orchestrate, Agents Execute
+When each hook fires in a session (the full list is in [the hooks reference](../reference/hooks.md)):
 
-This is a fundamental architectural principle. **Commands** define and control workflow logic. **Agents** perform specialized work delegated by commands. This separation provides visibility, debuggability, and determinism.
-
-Think of it as structured prompting with rails. The commands guide Claude through proven workflows while allowing flexibility within each step.
-
-### The Prime + Sub-Agent Pattern
-
-Instead of one bloated conversation trying to handle everything, Ensemble maintains a lean coordinator (the prime agent) and creates fresh, focused contexts for specific tasks via sub-agents.
-
-**Why this matters:**
-- Sub-agents get fresh context (no accumulated noise)
-- Each specialist agent has focused instructions
-- The prime agent stays lean and strategic
-- Context budget is spent efficiently
-
-### Team Execution and Parallel Operation
-
-Ensemble used to have two commands (`/harden-trd-team`, `/verify-trd-team`) that took the
-sub-agent pattern further by running multiple specialists concurrently as agent-team
-teammates spawned directly (`Agent({subagent_type, name, prompt})`) — a team forms
-automatically on the first spawn, with no setup or teardown step. Both were removed in
-4.1.16 (ITR-B012); their jobs did not disappear, they moved *inside* `/implement-trd`'s
-own loop (see [Phase 3: Implementation](#phase-3-implementation)).
-
-**Why fold parallel teams into the loop instead of keeping them as standalone commands?**
-The team commands existed to run an entire phase's worth of independent hardening/verification
-work concurrently. But `/implement-trd` already knows when a phase's tasks are done — it's
-the one holding the phase boundary — so the natural place for that fan-out is the phase gate
-itself, not a second command a human has to remember to launch afterward. `implement-phase.js`
-now runs the hardening agent as a `parallel()` verifier fan-out at that gate, per phase, and
-`/implement-trd` runs it once more at feature scale after the last phase. No standalone
-replacement command was created for either job — a command adds nothing either job needs, and
-`/implement-trd` was already the right place to reach concurrently-eligible work. (This is
-a deliberate design decision, recorded as D15 in `docs/TRD/implement-trd-rework.md` — revisit
-only if hardening code the loop did not build becomes routine; today `/code-review high`
-covers that case.)
-
-run; the `status` hook still tracks which tasks complete and which need attention.
-
-### The 13 Specialist Agents
-
-| Category | Agent | Responsibility |
-|----------|-------|---------------|
-| **Artifact** | `product-manager` | PRD creation and refinement |
-| **Artifact** | `technical-architect` | TRD creation and refinement |
-| **Planning** | `spec-planner` | Execution planning and parallelization |
-| **Implementation** | `frontend-implementer` | UI, components, client logic |
-| **Implementation** | `backend-implementer` | APIs, services, data layer |
-| **Implementation** | `mobile-implementer` | Mobile apps (when applicable) |
-| **Implementation** | `agent-implementer` | AI/agent apps — prompts, model selection, RAG, tool calling, agent memory |
-| **Quality** | `verify-app` | Test execution and verification |
-| **Quality** | `code-simplifier` | Post-verification refactoring |
-| **Quality** | `code-reviewer` | Security and quality review |
-| **Quality** | `app-debugger` | Debug verification failures and bugs |
-| **DevOps** | `devops-engineer` | Infrastructure and deployment |
-| **DevOps** | `cicd-specialist` | CI/CD pipeline configuration |
-
----
-
-## Human vs AI Responsibilities
-
-Clarity about who does what prevents confusion and quality degradation. This isn't about replacing humans -- it's about optimal task allocation based on comparative advantage.
-
-The boundary has shifted further toward AI autonomy than most engineers initially expect. The human role is concentrated at the *beginning* (specification) and *end* (final debugging and approval) of the cycle, with AI handling the bulk of execution in the middle.
-
-### Human Responsibilities
-
-- **Before execution:** Define intent, goals, and constraints. Review and approve PRD and TRD.
-- **Between phases (for long runs):** Review progress via `/fold-prompt`, adjust plan, run CI/reviewer pipelines. Course-correct.
-- **After the run:** Debug what `/audit-build` surfaced. Final testing and acceptance.
-- **Always:** Make risk and priority decisions. Approve PRs and releases. Maintain team standards.
-
-### AI Responsibilities
-
-- Draft PRDs from requirements
-- Generate TRDs with architecture, task breakdown, and execution plans
-- Implement all tasks from TRDs, phase by phase, including in-loop hardening and live verification
-- Write and run tests based on acceptance criteria
-- Debug test failures (up to 3 retries per task)
-- Refactor for clarity and review for security
-- Track progress across sessions via state management
-- Summarize and document decisions via fold-prompt
-
-**The golden rule:** Humans set the plan and validate the result. AI handles everything in between. The quality of the plan determines the quality of the output.
-
----
-
-## Implementation Strategies
-
-`/implement-trd` supports different strategies based on the nature of the work:
-
-| Strategy | Best For | Behavior |
-|----------|----------|----------|
-| `tdd` | Greenfield projects | Tests first, RED-GREEN-REFACTOR |
-| `characterization` | Legacy/brownfield | Document current behavior AS-IS, no refactoring |
-| `test-after` | Prototypes, UI work | Implement then test |
-| `bug-fix` | Regressions | Reproduce with failing test, fix, verify |
-| `refactor` | Tech debt | Tests pass before AND after |
-
----
-
-## State Management
-
-Ensemble tracks implementation progress across sessions using `.trd-state/`.
-
-### Current Feature Pointer
-
-`.trd-state/current.json` remembers which feature you're working on:
-
-```json
-{
-  "prd": "docs/PRD/<feature>.md",
-  "trd": "docs/TRD/<feature>.md",
-  "status": ".trd-state/<feature>/implement.json"
-}
+```mermaid
+flowchart LR
+    e1(["A session starts"]) --> e2(["You send a prompt"]) --> e3(["An agent edits a file"]) --> e4(["A subagent starts or stops"]) --> e5(["The conversation is compacted"]) --> e6(["A turn ends"])
+    e1 -.- h1["session-context: the in-flight feature brief<br/>runtime-refresh: update .claude/ from the plugin"]:::code
+    e2 -.- h2["router: orientation hint and<br/>the command-running marker"]:::code
+    e3 -.- h3["formatter: format the file"]:::code
+    e4 -.- h4["dispatch-ledger: record it<br/>status: advance task state"]:::code
+    e5 -.- h5["precompact: save the decision trail"]:::code
+    e6 -.- h6["discipline-stop: a model checks for an unkept promise<br/>or a needless pause, and sends the turn back once<br/>notify: run your NOTIFY_ON_STOP"]:::model
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
 ```
 
-This enables commands to work without explicit path arguments -- just run `/create-trd` and it knows which PRD to use.
+Most hooks are plain scripts with tests. The one model-judged check is measured against
+labelled stops from real sessions before any change to it ships.
 
-### Implementation Status
+**Where you'll meet it:** mostly you won't; that's the point. The guard shows up as
+`Stop hook error:` in the CLI, which is a display quirk, not a fault
+([PROCESS.md §6](PROCESS.md#6-what-youll-see-while-a-command-runs)).
 
-`.trd-state/<feature>/implement.json` tracks:
-- Task status (pending, in_progress, success, failed)
-- Cycle position (implement, verify, simplify, review, complete)
-- Checkpoints for safe resume
-- Coverage metrics
+### 10. Learning flows in fast; rules change slowly, and only with you
 
-Use `--resume` or `--continue` with `/implement-trd` to pick up where you left off.
+**Answers:** not learning (4), invention (2).
 
----
+**The rule.** What a project learns lives in three layers, each with a different speed and a
+different owner.
 
-## Where Agent Teams Still Run
+| Layer | Holds | Changes |
+|---|---|---|
+| **The corpus** | PRDs, TRDs and investigations kept up to date with what was built; ledgers of findings; verification notes; measured test sets | Every run adds to it. New plans cite it as their source, so decisions are inherited instead of re-invented |
+| **Memory and `CLAUDE.md`** | Lessons, conventions, gotchas | Fast. `/update-project` adds, `/cleanup-project` prunes. Advisory: a remembered fact is checked against the code before anything depends on it |
+| **Governance** | `constitution.md`, `stack.md`, `verification.md` | Slowly. The system may propose a change; only you ratify it |
 
-Ensemble no longer has standalone "team variant" commands for implementation. Through
-4.1.15, `/harden-trd-team` and `/verify-trd-team` ran *after* `/implement-trd` as separate
-sessions that spawned parallel teammates for hardening and live verification. Both were
-removed in 4.1.16 (see [Team Execution and Parallel Operation](#team-execution-and-parallel-operation)
-above for why, and where their jobs live now — inside `/implement-trd`'s own phase gate and
-feature-scale hardening pass).
+**Example.** `/update-project` writes what a session learned into `CLAUDE.md` without asking,
+but a proposed change to `constitution.md` waits for your approval.
 
-Agent teams (`Agent({subagent_type, name, prompt})`, forming automatically on first spawn,
-no setup/teardown step) remain available as a primitive, but as of 2026-08-22 **no command in
-this framework spawns teammates directly** -- every command's own fan-out (the phase gate's
-verifier wave, `/plan`'s grounding pass, and so on) runs through ordinary subagents, not
-teammates:
+**Where you'll meet it:** [PROCESS.md §5](PROCESS.md#5-maintenance).
 
-| Command | Team use |
-|---------|----------|
-| *(none)* | No command currently spawns teammates. The mechanism stays available to an individual agent that genuinely needs it -- see `.claude/rules/async-discipline.md`. |
+### 11. You own the rules; the framework owns the machinery
 
-Teammate `SendMessage` auto-delivery reliably re-invokes the orchestrating session as new
-turns; an agent that does spawn a teammate pairs it with a recommended (not mandatory)
-`ScheduleWakeup` safety-net (see `.claude/rules/async-discipline.md`).
+**Answers:** drift (5), at the level of the framework itself.
+
+**The rule.** Ensemble's runtime (its commands, agents, hooks and workflows) is copied into
+your repository's `.claude/` directory and committed. That makes it reproducible (a web
+session and a local one behave the same), reviewable (every framework change is a diff), and
+stable (it changes only when the plugin does, through `/rebase-project` or a session-start
+refresh that leaves the changes uncommitted for you to review). Your governance files are
+never overwritten by an upgrade.
+
+**Where you'll meet it:** [INSTALL.md §6](INSTALL.md#6-who-owns-what) and
+[§7](INSTALL.md#7-keeping-current).

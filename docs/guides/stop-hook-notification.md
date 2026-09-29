@@ -1,5 +1,9 @@
 # Stop Hook Notification Guide
 
+> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
+> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
+> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
+
 ## Overview
 
 The Stop Hook Notification feature sends a signal when a Claude Code session ends by executing a user-configured shell command. It enables orchestration patterns where a parent process, CI/CD pipeline, or monitoring system needs to know when a session has finished -- without relying on polling or LLM behavior.

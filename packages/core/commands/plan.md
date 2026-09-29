@@ -33,9 +33,9 @@ category: implementation
 > - `<source>` — a bug report, Jam link, GH issue ref, stack trace, log excerpt. **Prefer
 >   this**: a written report already carries steps, environment and actual-vs-expected.
 > - *(bare)* — read this conversation for a decided change
-> - `--implement` — after the last stage the work earns, chain into `/implement-trd
->   --verify`. Honoured at every weight — this flag alone decides whether work begins; see
->   "Implement, or stop", below.
+> - `--implement` — after the last stage the work earns, chain into `/implement-trd`
+>   (functional verification runs by default). Honoured at every weight — this flag alone
+>   decides whether work begins; see "Implement, or stop", below.
 
 ---
 
@@ -575,7 +575,7 @@ asserts "behaviour is unchanged" with nothing behind the claim.
 
 An earlier version of this paragraph said the before-run was mandatory here, which is the
 answer OQ-T3 rejected. Do not read the template above as re-imposing it: the section is shown
-because it is where `--verify` derives a refactor's success definition from, so **recording a
+because it is where the verification pass derives a refactor's success definition from, so **recording a
 before-run when you can is strictly better than not** — it just is not a gate at this weight.
 If there is nothing you could record, that absence is itself the signal a heavier weight was
 warranted — see Step 4.
@@ -624,7 +624,7 @@ assigns a phase-less task list to phase 1 as a structural default, and agent sel
 back to keyword matching. Adding those sections would be ceremony.
 
 **`## Reproduction` / `## Intended Change` / `## Behaviour Preserved` are load-bearing, not
-documentation.** Whichever one your `kind` calls for is what `/implement-trd`'s `--verify`
+documentation.** Whichever one your `kind` calls for is what `/implement-trd`'s verification pass
 derives its success definition from when there is no PRD. Omit it and the fix ships
 unverified — including a refactor, whose section is the one this sentence used to forget.
 
@@ -958,7 +958,7 @@ signal had no guard at all — so a chained run told webhooks "complete" at the 
 *began*. One table written five times cannot stay consistent; a function with tests can.
 
 **You can always implement a TRD this command wrote — that is what `/implement-trd` is.** The
-TRD is written and on disk; running `/implement-trd docs/TRD/<slug>.md --verify` yourself does
+TRD is written and on disk; running `/implement-trd docs/TRD/<slug>.md` yourself does
 exactly what a `--implement` run would have done.
 
 There is no `--force` flag, and the distinction is narrow but real: the capability is yours

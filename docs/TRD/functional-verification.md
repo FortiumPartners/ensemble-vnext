@@ -146,7 +146,7 @@ No new runtime dependency is introduced.
 | System | Type | Direction | Notes |
 |--------|------|-----------|-------|
 | `packages/core/lib/implement-state.js` | Node module | In | `save()` is filepath-generic; reused by the judge agent for `verification-state.json`'s atomic write |
-| `docs/PRD/<feature>.md`, or one extracted TRD section | Markdown artifact | In | Sole input to the success-definition pass — whichever source resolves first (D5, §3.1) |
+| `docs/PRD/<feature>.md`, or one extracted TRD section | Markdown artifact | In | Primary source for success definition; resolves to PRD first, then TRD sections (D5, §3.1) |
 | `.claude/rules/stack.md`, `CLAUDE.md`, project memory | Markdown | In | How to exercise this project (D12); what is safe to exercise (S-2) |
 | `git` | CLI | In | HEAD commit time is one of the two inputs to the tier-1 freshness floor (§3.2); the other is the loop start time |
 | `packages/core/scripts/scaffold-project.sh` | Shell | Out | Delivers the new contract, lib and workflow by directory glob — **no change required**; `copy_libs`/`copy_workflows`/`copy_contracts` add missing files on `--refresh` as of the 2026-08-16 fix |
@@ -1597,7 +1597,7 @@ A 2026-08-18 verifier reported all three as unresolvable citations — that find
 - **Careful:** PRD-path resolution must handle four header shapes and a literal `None` — see
   the ground-truth table. `runtime-refresh.md:8` reads `**Source PRD**: None — derived from
   the Claude Code / Sunstone comparison review (2026-08-10/11)` [read]; that must resolve to
-  `not run: no PRD resolved`, not to a file called `None`.
+  `not run: no success definition derivable`, not to a file called `None`.
 - **Careful:** the `.trd-state/current.json` fallback is **gitignored** (`.gitignore:26`) and
   written by Step 1.3a (`### 1.3a Write the feature pointer`, `:108`), which runs before
   Step 3 [read] — present in-session, absent on a fresh clone.
@@ -1677,7 +1677,7 @@ A 2026-08-18 verifier reported all three as unresolvable citations — that find
   emits no `**Source PRD**:` header — it goes from
   `# ${feature_name} — Technical Requirements Document` straight to `## 1. Overview`
   [read] `project.sh:165–207`. This task must supply both the PRD fixture and a resolvable
-  header, or the flag run legitimately reports `not run: no PRD resolved` and the scenario
+  header, or the flag run legitimately reports `not run: no success definition derivable` and the scenario
   fails for a reason that is not the one under test.
 - **Careful:** registration is two literals, and a third that must **not** change:
   `declare -A SCENARIO_TIMEOUT=(` (`run-smoke.sh:57`, existing LLM scenarios budget `900`),
