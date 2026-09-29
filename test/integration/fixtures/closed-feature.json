@@ -2,22 +2,7 @@
   "feature": "closed-feature",
   "trd": "docs/TRD/closed-feature.md",
   "closedAt": "2026-09-20T12:00:00Z",
-  "defaultBranch": "main",
-  "checkpointCommit": "abc1234",
-  "merged": true,
-  "abandoned": false,
-  "verdict": "not-done",
-  "outstanding": [
-    { "item": "TASK-A", "why": "left in_progress at close" },
-    { "item": "TASK-B", "why": "deferred, never run" }
-  ],
-  "ownerEvidence": null,
-  "acceptedReason": "shipped anyway; owner verified the happy path manually",
-  "tasks": { "in_progress": 1, "deferred": 1 },
-  "unfinished": [
-    { "id": "TASK-A", "status": "in_progress" },
-    { "id": "TASK-B", "status": "deferred" }
-  ],
-  "verification": { "outcome": null, "report": null },
+  "closedBy": "owner",
+  "note": "shipped anyway; owner verified the happy path manually",
   "audit": null
 }

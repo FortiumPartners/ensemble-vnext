@@ -321,7 +321,7 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - `.trd-state/` directory
 - Template files: `CLAUDE.md`, `.claude/settings.json`, `.trd-state/current.json`
 - **13 agent files** copied to `.claude/agents/`
-- **16 command files** copied to `.claude/commands/` (every command except the plugin-only `init-project` and `rebase-project`)
+- **17 command files** copied to `.claude/commands/` (every command except the plugin-only `init-project` and `rebase-project`)
 - **All hooks** copied to `.claude/hooks/` (including the shared `lib/` helpers)
 
 **Verify all directories and these files exist before proceeding:**
@@ -329,7 +329,7 @@ The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (s
 - `.claude/settings.json`
 - `.trd-state/current.json`
 - `.claude/agents/*.md` (13 files)
-- `.claude/commands/*.md` (16 files)
+- `.claude/commands/*.md` (17 files)
 - `.claude/hooks/` (router.py, formatter.sh, status.js, notify.sh, session-context.js, precompact.js, lib/, prompts/discipline-stop.prompt.md)
 
 ### Step 4: Generate Governance Files
@@ -781,7 +781,7 @@ A good CLAUDE.md should let a future session:
 | `.claude/rules/process.md` | Step 4 | YES |
 | `.claude/rules/async-discipline.md` | Step 3 (scaffold, framework rule) | YES |
 | `.claude/skills/` (1+ skill folders) | Step 6 | YES |
-| `.claude/commands/` (16 files) | Step 7 | YES |
+| `.claude/commands/` (17 files) | Step 7 | YES |
 | `.claude/hooks/router.py` | Step 8 | YES |
 | `.claude/hooks/formatter.sh` | Step 8 | YES |
 | `.claude/hooks/status.js` | Step 8 | YES |
@@ -865,7 +865,7 @@ Vendored Runtime Created:
     agents/       - 13 project-tailored subagents
     rules/        - constitution.md, stack.md, process.md
     skills/       - [N] stack-relevant skills
-    commands/     - 16 workflow commands
+    commands/     - 17 workflow commands
     hooks/        - 9 hook scripts (10 event registrations)
     settings.json - Permissions and hook configuration
 
@@ -901,7 +901,7 @@ Commands Available:
   /refine-trd      - Iterate on an existing TRD
   /implement-trd   - Execute staged implementation (review runs inside it)
   /audit-build     - Verify delivered code against TRD and PRD
-  /close-feature   - After the PR merges, on the default branch: judge and close
+  /close-feature   - Close a feature on your say-so (a passing /audit-build closes it too)
 
   SHORTER PATHS
   /plan            - Defect / small change / refactor: sizes the work, writes a TRD to match

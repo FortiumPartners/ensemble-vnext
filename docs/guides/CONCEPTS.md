@@ -235,7 +235,8 @@ data checks, when the TRD selects them, are criteria like any other.
 When verification can't get there, the path is: the report's **diagnosis** of why, then a
 short conversation with you that turns it into a plan, then an unattended fix run that carries
 it out. Deciding a feature is finished is a judgement on the evidence, including evidence you
-bring yourself: `/close-feature` weighs it and records the verdict.
+bring yourself. A feature is marked closed in one of two ways: a passing `/audit-build` closes
+it, or you close it with `/close-feature`.
 
 The loop, and how it ends:
 

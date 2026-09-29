@@ -82,8 +82,8 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   between /plan (which forks a second TRD) and raw prompting.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; the functional loop runs by default, --no-verify
-  skips it) -> /audit-build -> /close-feature, once the PR has merged, on the default
-  branch. /verify-build re-runs verification alone; /implement-trd --reconcile
+  skips it) -> /audit-build, which closes the feature when it passes; /close-feature
+  closes one on your say-so. /verify-build re-runs verification alone; /implement-trd --reconcile
   re-attests delivered work against the TRD and re-opens anything only claimed done;
   /audit-prd and /audit-trd verify an artifact, /refine-prd and /refine-trd iterate one.
   Check .trd-state/current.json first.
@@ -385,9 +385,9 @@ def feature_in_flight(cwd: str) -> str:
 
     `derive_feature()` answers "what does current.json point at", which is the right
     question for the ENSEMBLE_COMMAND marker. It is the WRONG question for the in-flight
-    amendment hint: `current.json` is nulled only when `/close-feature` closes the
-    feature it points at, and any other checkout -- one that never ran `/close-feature`
-    locally -- still has it populated. Relying on `current.json` alone would keep
+    amendment hint: `current.json` is nulled only in the checkout where the feature
+    was closed (by `/close-feature` or a passing `/audit-build`), and any other
+    checkout still has it populated. Relying on `current.json` alone would keep
     steering an ordinary conversational turn toward /amend against a feature the owner
     already closed, in a different checkout, months ago.
 

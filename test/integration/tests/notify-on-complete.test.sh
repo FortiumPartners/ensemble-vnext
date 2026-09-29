@@ -310,7 +310,7 @@ JSON
     diff -q "$RULE_FILE" "$RULE_TEMPLATE"
 }
 
-@test "L2: all 16 workflow commands invoke the notify-complete.sh helper" {
+@test "L2: every workflow command invokes the notify-complete.sh helper" {
     # DISCOVERED, not hardcoded. This roster listed fix-issue and
     # investigate-issue and broke the moment item 12 deleted them — the same
     # rot that took the mirror-parity test from a hardcoded 14-file list to a

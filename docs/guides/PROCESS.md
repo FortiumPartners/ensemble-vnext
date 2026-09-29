@@ -22,7 +22,7 @@ The question is what the work is and whose plan it belongs to. Size doesn't deci
 
 | The work is… | Use | Why |
 |---|---|---|
-| A new feature, or anything where the correct behaviour is still a product decision | The full pipeline: `/create-prd` → `/create-trd` → `/implement-trd` → `/audit-build`, then `/close-feature` once it has merged | Someone has to decide *what* to build before anyone decides *how* |
+| A new feature, or anything where the correct behaviour is still a product decision | The full pipeline: `/create-prd` → `/create-trd` → `/implement-trd` → `/audit-build`, which closes the feature when it passes | Someone has to decide *what* to build before anyone decides *how* |
 | A bug, a small change, or a refactor | `/plan` | Sizes the work and writes a plan to match. It skips the PRD because the reproduction or your instruction already says what is wanted |
 | A list of small, unrelated fixes (say, notes from walking the app) | `/sweep` | Fixes each one in parallel, with no plan document to write |
 | One change to the feature you are already building | `/amend` | Adds the change to that feature's plan. `/plan` would fork a second plan for work that is already understood |
@@ -36,7 +36,7 @@ In the diagrams below, **blue** steps are decided by code, **purple** by an agen
 ```mermaid
 flowchart TD
     idea["An idea or a problem"]:::you --> q{"What is the work?"}
-    q -->|"new feature"| cprd["/create-prd"] --> aprd["/audit-prd<br/>optional /refine-prd"] --> ctrd["/create-trd"] --> atrd["/audit-trd<br/>optional /refine-trd"] --> impl["/implement-trd<br/>build, review, verify"] --> ab["/audit-build"] --> merge["You merge the PR"]:::you --> close["/close-feature"]
+    q -->|"new feature"| cprd["/create-prd"] --> aprd["/audit-prd<br/>optional /refine-prd"] --> ctrd["/create-trd"] --> atrd["/audit-trd<br/>optional /refine-trd"] --> impl["/implement-trd<br/>build, review, verify"] --> ab["/audit-build<br/>closes the feature if it passes"] --> merge["You open and merge the PR"]:::you
     q -->|"bug, change, refactor"| plan["/plan"]
     plan -->|"a product question after all"| cprd
     plan -->|"with --implement, or you run it"| impl
@@ -44,6 +44,7 @@ flowchart TD
     q -->|"one change to the feature in flight"| amend["/amend"] -.->|"back into the feature's flow"| ab
     ab -->|"a planned task was not built"| impl
     impl -->|"verification could not finish"| vb["/verify-build --fix"] --> ab
+    you2["You decide it is finished"]:::you --> cf["/close-feature"]
     classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
     classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
@@ -205,10 +206,10 @@ answers three questions about the code that was actually delivered:
 
 ```mermaid
 flowchart TD
-    r["Resolve the TRD and PRD"]:::code --> ix["Index requirements and tasks"]:::model --> v["Five verifiers: traceability,<br/>verification, validation,<br/>test quality, deterministic"]:::model --> rc["Reconcile the findings,<br/>draft the verdict"]:::model --> rep["Report written, verdict first;<br/>committed on a feature branch; published"]:::code --> g{"Gaps?"}
+    r["Resolve the TRD and PRD"]:::code --> ix["Index requirements and tasks"]:::model --> v["Five verifiers: traceability,<br/>verification, validation,<br/>test quality, deterministic"]:::model --> rc["Reconcile the findings,<br/>draft the verdict"]:::model --> rep["Report written, verdict first; published"]:::code --> g{"Gaps?"}
     g -->|"a planned task was not built"| re["/implement-trd --reconcile"]
     g -->|"no task covers a requirement"| you["You decide the design"]:::you
-    g -->|"none"| m["You merge, then /close-feature"]:::you
+    g -->|"none: verdict passes"| cl["Feature closed: closed.json written,<br/>current.json cleared; committed<br/>with the report on a feature branch"]:::code --> m["You open and merge the PR"]:::you
     classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
     classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
@@ -221,44 +222,34 @@ and stops. `--report-only` gives you the findings without the chained build.
 
 Every run leaves a report at `.trd-state/<feature>/audit-build-report.md`. It opens with the
 verdict, names the commit it audited, and holds the readout. It is published as a link (unless publishing is off), and on a
-feature branch the audit commits it, so it travels with the PR. `/close-feature` reads it later.
+feature branch the audit commits it, so it travels with the PR.
 
-### `/close-feature` — record that it is finished
+**A passing audit closes the feature.** When the verdict is "safe to proceed" or "proceed with
+these caveats", nothing is handed back to `/implement-trd`, and the run isn't `--report-only`,
+the audit marks the feature closed: it writes `.trd-state/<feature>/closed.json` with its
+verdict, clears `current.json`, and commits the record with the report.
 
-[`/close-feature [trd-path] ["<your evidence>"] [--accept "<reason>"]`](../../packages/core/commands/close-feature.md)
-runs after the PR has merged, on the default branch; anywhere else it stops without writing
-anything. It gathers the facts: every task's status (and the TRD's reason for any deferred
-one), the verification outcome, the audit verdict and whether the audit is out of date, and
-whether the last checkpoint commit reached the default branch. Then it judges the feature:
+### `/close-feature` — close it on your say-so
 
-- **done** — the objectives are proven.
-- **done with gaps** — something is unfinished, and the record names each gap and why it does
-  not leave an objective unproven. A deferred live check whose criteria were met another way
-  is the usual case.
-- **not done** — something an objective depends on is missing. It says what, writes nothing,
-  and stops.
+[`/close-feature [trd-path] ["<note>"]`](../../packages/core/commands/close-feature.md) is the
+other way a feature gets closed: you say it's done. Shipped and tested, superseded, abandoned:
+your word is the whole decision, and the note records why. It checks nothing and judges
+nothing.
 
 ```mermaid
-flowchart TD
-    a["Read the TRD path, your evidence,<br/>any --accept reason"]:::code --> s{"Already closed? Not on the<br/>default branch? Never implemented?"}:::code
-    s -->|"yes"| stop["Stops and writes nothing.<br/>Never implemented plus --accept:<br/>recorded as abandoned"]:::code
-    s -->|"no"| f["Gather facts: tasks, verification,<br/>the audit and whether it is stale,<br/>whether the work reached the default branch"]:::code --> j{"Judge each objective: done,<br/>done with gaps, or not done"}:::model
-    j -->|"not done, no --accept"| stop2["Stops and writes nothing"]:::code
-    j -->|"done, done with gaps,<br/>or overridden with --accept"| w["closed.json written;<br/>current.json cleared"]:::code --> y["You commit it"]:::you
+flowchart LR
+    a["You: /close-feature,<br/>optional note"]:::you --> c{"Already closed?"}:::code
+    c -->|"yes"| n["Says when and by whom;<br/>changes nothing"]:::code
+    c -->|"no"| w["closed.json written;<br/>current.json cleared;<br/>run lock removed"]:::code --> k["Committed on a feature branch;<br/>on main, you commit it"]:::code
     classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
     classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
 ```
 
-Your own evidence counts: `"deployed it and tested it live"` is weighed with the rest and
-recorded as yours. `--accept "<reason>"` overrides a not-done verdict and is recorded
-separately, next to each unfinished task. A feature that was never implemented can be closed
-only with `--accept`, and is recorded as abandoned.
-
-Closing writes `.trd-state/<feature>/closed.json` and empties `current.json`'s fields if it pointed at
-this feature. It does not commit; the readout tells you to. From then on the session banner
-and hints stop showing the feature as in flight, and `/implement-trd` and `/amend` refuse it.
-To reopen it, delete `closed.json`. No command closes a feature on its own.
+However it closes, the effect is the same bookkeeping. The session banner says "Closed", the
+prompt hint stops treating the feature as in flight, and `/implement-trd` and `/amend` refuse
+to work on it. `implement.json`, the TRD and the reports are left as they are. To reopen a
+feature, delete its `closed.json`.
 
 ---
 
@@ -497,7 +488,7 @@ You don't need to intervene either way.
 | `.trd-state/<feature>/verification-plan.md` | The recovery plan `/verify-plan-recovery` writes and `/verify-build --fix` runs |
 | `.trd-state/<feature>/discovered.jsonl` | Issues found along the way but not fixed. Those marked as blocking the feature become TRD tasks on the next `--reconcile`. |
 | `.trd-state/<feature>/audit-build-report.md` | The latest `/audit-build` report: its verdict, the commit it audited, and the readout |
-| `.trd-state/<feature>/closed.json` | Written by `/close-feature`: the verdict, the facts it was based on, your evidence and any `--accept` reason. Its presence is what marks the feature closed |
+| `.trd-state/<feature>/closed.json` | Written by a passing `/audit-build` or by `/close-feature`: when, by whom, and the audit verdict or your note. Its presence is what marks the feature closed |
 | `.trd-state/<feature>/artifacts.json` | The published links for this feature's documents |
 
 `.trd-state/` is meant to be committed with the feature, so a fresh clone can resume. The

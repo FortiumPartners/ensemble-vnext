@@ -1482,7 +1482,7 @@ claude --version > .claude/.claude-version
 
 ## Appendix B: Related Documents
 
-- [Architecture Vision](../ensemble-vnext/architecture.md)
+- [How it works (reference)](../reference/README.md)
 - [Implementation Notes](../ensemble-vnext/implementation-notes.md)
 
 ## Appendix C: Claude Code Frontmatter Specifications

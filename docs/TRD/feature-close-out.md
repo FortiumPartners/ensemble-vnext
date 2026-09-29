@@ -1,6 +1,6 @@
 # TRD: Feature Close-Out — durable audit report and an explicit, judged close
 
-**Version**: 2.0.3
+**Version**: 2.1.0
 **Status**: Draft
 **Created**: 2026-09-28
 **Last Updated**: 2026-09-28
@@ -16,11 +16,30 @@
 |---------|------|---------|--------|
 | 1.0.0 | 2026-09-28 | Initial TRD creation | @technical-architect |
 | 2.0.0 | 2026-09-28 | adversarial review applied; trimmed to ~6 tasks. Then three further owner decisions the same day took it to 4: both planned libraries (`audit-report.js`, `feature-close.js`) dropped; whether a feature is done became a judgement against its TRD's objectives instead of a status count; owner evidence added as an input separate from the `--accept` override. Also: `/close-feature` runs only on the default branch and does not commit; `/implement-trd` and `/amend` refuse a closed feature; a never-implemented feature closes only as `abandoned`; the merge-message search replaced by checkpoint ancestry; `/implement-trd` Step 9 left unchanged; the release task removed (the orchestrator releases); OQ-3, OQ-5 resolved and OQ-6 removed; v1.0.0's grounding findings resolved or made moot | @technical-architect |
+| 2.1.0 | 2026-09-28 | **Owner simplification** (§0 below): two ways to close — the owner says so (`/close-feature`) or a passing `/audit-build` closes it — and closing is only bookkeeping. The judgement, the default-branch rule, the merge check, `--accept`, owner evidence and the abandoned case are removed. Supersedes O3, O4, O6, O11, O12, D3, D4, D6, D7, D8, D11, NG4, NG5 and the §3.2–§3.3/§3.7 specification of `/close-feature` where they conflict | main agent |
 | 2.0.3 | 2026-09-28 | Build corrections: the audit report's first line is its VERDICT line (investigation O1 says the report begins with it; 2.0.2 put a title first); `/audit-build` commits its report on a feature branch so it reaches the default branch with the PR (end-of-run review) | main agent |
 | 2.0.2 | 2026-09-28 | Audit advisory: `abandoned` is checked before `acceptedReason` in the banner and readout; B001 tests it | main agent |
 | 2.0.1 | 2026-09-28 | `/audit-trd`: §3.1's Purpose line now lists O6 and D12, matching CLOSE-B002's Serves column; Could Not Verify states why each row was out of this audit's scope | @technical-architect |
 
 ---
+
+## 0. Owner simplification (2026-09-28) — read this first
+
+The owner, on seeing the built command: *"There should be two ways to close a feature: the user
+asserting it's closed; an audit verifying it's closed. When that happens, closing the feature
+should be a simple act of cleaning up the state, marking it closed. This has been way over
+complicated."* And earlier: *"A successful audit should close the feature. Requiring the user to
+do it will simply perpetuate features never being marked closed."*
+
+What is now true, superseding every conflicting row below:
+
+| Topic | Now |
+|---|---|
+| Who closes | The owner, with `/close-feature [trd] ["<note>"]`; or `/audit-build`, when its verdict is `safe to proceed` or `proceed with these caveats`, it chains no work to `/implement-trd --reconcile`, and the run is not `--report-only` |
+| What closing does | Writes `.trd-state/<feature>/closed.json` `{feature, trd, closedAt, closedBy: "owner" \| "audit", note, audit}`; nulls `current.json` when it points at the feature; removes `implement.lock`; commits the record on a non-default branch (with the report, for an audit close); on the default branch leaves it for the owner to commit |
+| Removed | The model judgement (`done` / `done-with-gaps` / `not-done`), the default-branch-only rule and the merge check, `--accept`, owner evidence as a separate input, the abandoned case, fact gathering. An owner close IS the decision; an audit close carries the audit's verdict |
+| Unchanged | The in-flight readers (router, SessionStart banner) key on `closed.json`'s presence (D5, D10); `/implement-trd` and `/amend` refuse a closed feature, reopen by deleting the file (D13, O10); the audit report (O1, O2, D1, D2, D12, D14) |
+| Why | A close that waits on the owner to remember it perpetuates the stale features this TRD exists to end (the 1-in-17 count). Judging "done" duplicated what verification and the audit already establish |
 
 ## 1. Overview
 

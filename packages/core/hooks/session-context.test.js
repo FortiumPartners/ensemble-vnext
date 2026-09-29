@@ -16,8 +16,8 @@
  * both before calling `main` and restores them afterward.
  *
  * Both this file and test_router.py's TestFeatureInFlightTerminator read the same
- * fixture, test/integration/fixtures/closed-feature.json, for the "accepted,
- * unfinished tasks" scenario (the cross-seam case: two readers, one on-disk record).
+ * fixture, test/integration/fixtures/closed-feature.json (an owner close with a
+ * note, over unfinished tasks: the cross-seam case of two readers, one on-disk record).
  */
 
 'use strict';
@@ -90,7 +90,7 @@ async function runMain() {
 }
 
 describe('session-context.js closed-feature banner', () => {
-  it('an accepted record with 2 of 2 tasks unfinished prints the accepted-unfinished line and no Impl: line', async () => {
+  it('an owner close prints the date and note and no Impl: line', async () => {
     const record = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf-8'));
     writeClosedJson('closed-feature', record);
     const status = writeImplementJson('closed-feature', {
@@ -101,36 +101,45 @@ describe('session-context.js closed-feature banner', () => {
 
     const ctx = await runMain();
 
-    expect(ctx).toContain('closed with 2 of 2 tasks accepted unfinished');
+    expect(ctx).toContain('Closed: 2026-09-20 by owner: shipped anyway');
     expect(ctx).not.toContain('Impl:');
   });
 
-  it('a done-with-gaps record prints the verdict and its gap count', async () => {
-    writeClosedJson('gappy-feature', {
-      feature: 'gappy-feature',
-      trd: 'docs/TRD/gappy-feature.md',
+  it('an audit close prints the verdict without its VERDICT: prefix', async () => {
+    writeClosedJson('audited-feature', {
+      feature: 'audited-feature',
+      trd: 'docs/TRD/audited-feature.md',
       closedAt: '2026-09-22T09:00:00Z',
-      defaultBranch: 'main',
-      checkpointCommit: 'deadbee',
-      merged: true,
-      abandoned: false,
-      verdict: 'done-with-gaps',
-      outstanding: [
-        { item: 'live SSO check', why: 'covered manually, not by the exerciser' },
-      ],
-      ownerEvidence: null,
-      acceptedReason: null,
-      tasks: { success: 5 },
-      unfinished: [],
-      verification: { outcome: 'satisfied', report: null },
-      audit: null,
+      closedBy: 'audit',
+      note: null,
+      audit: {
+        verdict: 'VERDICT: safe to proceed — every requirement is implemented and tested',
+        report: '.trd-state/audited-feature/audit-build-report.md',
+        auditedCommit: 'deadbee',
+      },
     });
-    writeCurrentJson({ trd: 'docs/TRD/gappy-feature.md' });
+    writeCurrentJson({ trd: 'docs/TRD/audited-feature.md' });
 
     const ctx = await runMain();
 
-    expect(ctx).toContain('done-with-gaps');
-    expect(ctx).toContain('1 gap');
+    expect(ctx).toContain('Closed: 2026-09-22 by audit — safe to proceed');
+    expect(ctx).not.toContain('VERDICT:');
+  });
+
+  it('an owner close with no note prints no trailing colon', async () => {
+    writeClosedJson('quiet-feature', {
+      feature: 'quiet-feature',
+      trd: 'docs/TRD/quiet-feature.md',
+      closedAt: '2026-09-23T00:00:00Z',
+      closedBy: 'owner',
+      note: null,
+      audit: null,
+    });
+    writeCurrentJson({ trd: 'docs/TRD/quiet-feature.md' });
+
+    const ctx = await runMain();
+
+    expect(ctx).toMatch(/Closed: 2026-09-23 by owner\s*(\n|$)/);
   });
 
   it('an unparseable closed.json prints the unreadable-record line and does not throw', async () => {
@@ -162,31 +171,5 @@ describe('session-context.js closed-feature banner', () => {
 
     expect(ctx).toContain('Impl:');
     expect(ctx).not.toContain('Closed:');
-  });
-
-  it('an abandoned record with acceptedReason renders the abandoned line, not the accepted-unfinished one', async () => {
-    writeClosedJson('abandoned-feature', {
-      feature: 'abandoned-feature',
-      trd: 'docs/TRD/abandoned-feature.md',
-      closedAt: '2026-09-23T00:00:00Z',
-      defaultBranch: 'main',
-      checkpointCommit: null,
-      merged: null,
-      abandoned: true,
-      verdict: 'not-done',
-      outstanding: [],
-      ownerEvidence: null,
-      acceptedReason: 'design shelved before implementation started',
-      tasks: {},
-      unfinished: [],
-      verification: { outcome: null, report: null },
-      audit: null,
-    });
-    writeCurrentJson({ trd: 'docs/TRD/abandoned-feature.md' });
-
-    const ctx = await runMain();
-
-    expect(ctx).toContain('abandoned, never implemented: design shelved before implementation started');
-    expect(ctx).not.toContain('accepted unfinished');
   });
 });

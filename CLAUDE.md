@@ -61,9 +61,8 @@ FULL PIPELINE
 /create-trd    --> docs/TRD/<feature>.md
 /audit-trd     --> verify the TRD against the PRD
 /implement-trd --> implementation + .trd-state/ tracking (review and hardening run INSIDE it)
-/audit-build   --> verify delivered code against TRD and PRD
-/close-feature --> after the PR merges, on the default branch: judge the feature against
-                   its TRD's objectives and record an explicit close
+/audit-build   --> verify delivered code against TRD and PRD; a passing audit closes the feature
+/close-feature --> close a feature on your say-so (records it, clears its in-flight state)
 
 SHORTER PATHS
 /plan <what>         --> defect / small change / refactor: sizes the work and writes a TRD

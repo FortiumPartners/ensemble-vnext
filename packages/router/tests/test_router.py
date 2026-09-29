@@ -825,7 +825,7 @@ class TestFeatureInFlightTerminator:
         assert feature_in_flight(cwd) == ""
 
     def test_closed_feature_with_no_implement_json_terminates_the_hint(self, tmp_path):
-        # An abandoned feature (D8): a close record with no implement.json at all.
+        # A feature closed without ever being implemented: a close record, no implement.json.
         cwd = self._tree(tmp_path, "docs/TRD/closed-feature.md", None, closed=True)
         assert feature_in_flight(cwd) == ""
 

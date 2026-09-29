@@ -119,32 +119,17 @@ function closedFeatureLine(root, feature) {
   const date = typeof record.closedAt === 'string' ? record.closedAt.slice(0, 10) : null;
   if (!date) return unreadable;
 
-  // Checked first: an abandoned record always also carries acceptedReason, and the
-  // abandoned wording takes priority over the generic "accepted unfinished" wording.
-  if (record.abandoned) {
-    // acceptedReason is always set by /close-feature, but the record is hand-deletable
-    // and hand-editable; never print the literal "undefined" into the banner.
-    const reason = record.acceptedReason ? `: ${record.acceptedReason}` : '';
-    return `  Closed: ${date} — abandoned, never implemented${reason}`;
+  // Two ways a feature closes: the owner says so (closedBy "owner", optional note), or a
+  // passing /audit-build closes it (closedBy "audit", audit.verdict). Anything else is shown
+  // plainly rather than guessed at.
+  if (record.closedBy === 'audit') {
+    const verdict = record.audit && typeof record.audit.verdict === 'string'
+      ? ` — ${record.audit.verdict.replace(/^VERDICT:\s*/, '').slice(0, 80)}`
+      : '';
+    return `  Closed: ${date} by audit${verdict}`;
   }
-
-  if (record.acceptedReason) {
-    const unfinished = Array.isArray(record.unfinished) ? record.unfinished.length : 0;
-    const total =
-      record.tasks && typeof record.tasks === 'object'
-        ? Object.values(record.tasks).reduce((sum, n) => sum + (typeof n === 'number' ? n : 0), 0)
-        : 0;
-    return `  Closed: ${date} — not done; closed with ${unfinished} of ${total} tasks accepted unfinished: ${record.acceptedReason}`;
-  }
-
-  if (typeof record.verdict !== 'string') return unreadable;
-
-  if (record.verdict === 'done-with-gaps') {
-    const gaps = Array.isArray(record.outstanding) ? record.outstanding.length : 0;
-    return `  Closed: ${date} — ${record.verdict} (${gaps} gap${gaps === 1 ? '' : 's'})`;
-  }
-
-  return `  Closed: ${date} — ${record.verdict}`;
+  const note = typeof record.note === 'string' && record.note ? `: ${record.note}` : '';
+  return `  Closed: ${date} by owner${note}`;
 }
 
 function lastCheckpointSummary(state) {

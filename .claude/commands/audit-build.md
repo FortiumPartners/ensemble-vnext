@@ -203,33 +203,46 @@ extension), overwriting whatever report was there from a previous run:
 
 The workflow's return already carries `findings`, `applied`, `rejected`, `still_unverified`
 and `verifiers_reporting` — this header adds only the date and `git rev-parse --short HEAD`.
-The report opens with the VERDICT line so a reader sees the verdict before anything else (investigation O1); the readout below repeats it. Keep the `- Audited commit:` line and the `VERDICT:` line exactly as shown:
-`/close-feature` reads both of them back out of this file.
+The report opens with the VERDICT line so a reader sees the verdict before anything else; the
+readout below repeats it. Keep the `- Audited commit:` line and the `VERDICT:` line exactly as
+shown: the close record below copies both.
 
 **One text, written once, printed as written.** Settle the readout's final wording — the
 `AUDIT-BUILD:` header, the `VERDICT:` line and every finding line — BEFORE writing this file,
 then print that same text in the terminal, copied character for character. Do not rephrase,
 re-punctuate, shorten or "plain-English" it on the way to the terminal: a printed VERDICT that
 differs from the report's first line by so much as a dash is two verdicts, and the owner reads
-one while `/close-feature` reads the other. If the wording can be clearer, make it clearer in
+one while the close record holds the other. If the wording can be clearer, make it clearer in
 the text you write here; the terminal then shows the improved text too. The only thing the
 printed readout adds is STATE lines about this report itself (where it was written, whether
 it was committed, the link) — those come after the write and do not exist in the file. A failed write is one line in
 STATE; it never blocks the reconcile chain and never turns the run STUCK.
 
-**Commit it, so it travels with the branch.** `/close-feature` runs later, on the default
-branch, often in another clone; an untracked report never gets there, and the feature is then
-judged "never audited". On any branch other than the default one, commit the report alone:
+**Close the feature when the audit passes.** A passing audit is one of the two ways a feature
+gets closed (the other is the owner running `/close-feature`). It passes when all three hold:
+
+- the VERDICT is `safe to proceed` or `proceed with these caveats`;
+- nothing is chained to `/implement-trd --reconcile` on this run (no gap with a covering task);
+- the run is not `--report-only`.
+
+Then perform `/close-feature`'s "The close step" (`.claude/commands/close-feature.md`), with
+`"closedBy": "audit"`, `"note": null` and
+`"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>" }`,
+except that its commit is folded into the one below. On `do not proceed`, or when work was
+chained, the feature stays open: say so in STATE. A feature that is already closed (a re-audit)
+gets its `closed.json` rewritten with this run's audit fields.
+
+**Commit, so it travels with the branch.** On any branch other than the default one, commit
+the report, and the close record when one was written, in one commit and nothing else:
 
 ```bash
-git add .trd-state/<feature>/audit-build-report.md
-git commit -m "docs(audit): audit-build report for <feature>" -- .trd-state/<feature>/audit-build-report.md
+git add .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+git commit -m "docs(audit): audit-build report for <feature>" -- .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
 ```
 
-The pathspec keeps the commit to this one file whatever else is staged. The audited commit in
-the header stays the one before this commit, which is correct: this commit touches no file the
-TRD touches, so it never makes the audit look stale. **On the default branch, do not commit**:
-the owner decides what lands there, so NEXT tells them to commit the report instead. A failed
+(Drop `closed.json` from both lines when the audit did not close the feature.) The pathspec
+keeps the commit to those files whatever else is staged. **On the default branch, do not
+commit**: the owner decides what lands there, so NEXT gives them the command instead. A failed
 commit is one line in STATE, never STUCK.
 
 **Publish it** (`.claude/rules/command-status.md` "Artifact links"; same publish-and-remember
@@ -302,12 +315,9 @@ is why `report_only` is passed to the workflow, which drafts the readout.
 
 One screen. If there are 40 clean requirements, print the count as one line, not forty.
 
-**NEXT.** When the VERDICT is `safe to proceed` or `proceed with these caveats`, NEXT names
-`/close-feature <trd>` on the default branch, after the PR merges. On `do not proceed`, NEXT
-is the reconcile work, as today. This is the one readout in the framework that names
-`/close-feature` — it is not added to `/implement-trd`'s own NEXT guidance (owner decision
-2026-09-28); `/implement-trd` and `/audit-build`'s chained `/implement-trd --reconcile` runs
-reach that command's own guard instead.
+**NEXT.** When the audit closed the feature: open or update the PR. When work was chained: that
+run's own readout carries on. On `do not proceed` with nothing chained: the design work the
+readout names.
 
 ---
 
