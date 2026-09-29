@@ -105,13 +105,6 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 
 ## Task Grounding
 
-### FIX-006
-- **Touches:** `test/integration/tests/runtime-integrity.test.sh` (or a Jest test beside `packages/core/agents/agent-validation.test.js`), `docs/PRD/autonomy-judge-command-scope.md`, `docs/TRD/autonomy-judge-command-scope.md`, `docs/TRD/completed/implement-trd-rework.md`
-- **Reuse:** `runtime-integrity.test.sh:204-214`'s existing structure checks [read]; `docs/reference/hooks.md:290`'s repointing wording [read]
-- **Replaces:** nothing
-- **Follow:** tests catch accidental regressions (4.7.2 standard): a size ceiling and a manifest key are accidents worth catching; rule wording is not
-- **Careful:** `CLAUDE.md` sits at 14,961 of 15,000 bytes; the test states the ceiling, it does not tighten it [read]
-
 ### FIX-001
 - **Touches:** `packages/core/contracts/trd-authoring.md`, `.claude/contracts/trd-authoring.md`, `packages/core/commands/implement-trd.md`, `.claude/commands/implement-trd.md`, `packages/core/contracts/task-delegation.md`, `.claude/contracts/task-delegation.md`
 - **Reuse:** the existing `<check_battery>` block at `implement-trd.md` §3.5 (~line 587), whose `<instruction>` already governs what the implementer runs [read]
@@ -146,6 +139,13 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 - **Replaces:** the long Current Status history and the Notify Hook section's tables and examples in `CLAUDE.md`
 - **Follow:** "How to talk to the owner", Core Principles, Approval Requirements and the known-open list stay
 - **Careful:** `runtime-integrity.test.sh:373` requires the string `framework-skills.txt` in `CLAUDE.md`, which today appears only in the 4.10.0 and 4.9.0 paragraphs [read]; other docs cite `CLAUDE.md` sections by name [inferred]
+
+### FIX-006
+- **Touches:** `test/integration/tests/runtime-integrity.test.sh` (or a Jest test beside `packages/core/agents/agent-validation.test.js`), `docs/PRD/autonomy-judge-command-scope.md`, `docs/TRD/autonomy-judge-command-scope.md`, `docs/TRD/completed/implement-trd-rework.md`
+- **Reuse:** `runtime-integrity.test.sh:204-214`'s existing structure checks [read]; `docs/reference/hooks.md:290`'s repointing wording [read]
+- **Replaces:** nothing
+- **Follow:** tests catch accidental regressions (4.7.2 standard): a size ceiling and a manifest key are accidents worth catching; rule wording is not
+- **Careful:** `CLAUDE.md` sits at 14,961 of 15,000 bytes; the test states the ceiling, it does not tighten it [read]
 
 ## Could Not Verify
 

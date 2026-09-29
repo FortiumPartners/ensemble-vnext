@@ -479,19 +479,29 @@ PY
     fi
 }
 
-@test "packages/full plugin.json carries no agents key" {
+@test "packages/full registers no agents: no agents key, no default agents/ dir" {
     # This plugin ships its 13 subagents through packages/full/agents-lib (mirrored
-    # to .claude/agents), not through the marketplace manifest's own `agents` field.
-    # An `agents` key on plugin.json would register a second, competing agent set
-    # the mirror-parity tests above never look at -- silently.
+    # to .claude/agents), not through the plugin's own agent registration. Either
+    # registration path would add a second, competing agent set the mirror-parity
+    # tests above never look at -- silently:
+    #   - an `agents` key on plugin.json, or on the marketplace entry for `full`;
+    #   - a directory at the plugin root's DEFAULT location, packages/full/agents,
+    #     which the platform auto-discovers with no manifest key at all (the reason
+    #     FIX-003 renamed it to agents-lib rather than only dropping the key).
+    [ ! -e "${REPO_ROOT}/packages/full/agents" ]
     PLUGIN_JSON="${REPO_ROOT}/packages/full/.claude-plugin/plugin.json"
+    MARKETPLACE_JSON="${REPO_ROOT}/.claude-plugin/marketplace.json"
     [ -f "$PLUGIN_JSON" ]
+    [ -f "$MARKETPLACE_JSON" ]
     run python3 -c "
 import json, sys
 with open(sys.argv[1]) as f:
-    data = json.load(f)
-sys.exit(1 if 'agents' in data else 0)
-" "$PLUGIN_JSON"
+    plugin = json.load(f)
+with open(sys.argv[2]) as f:
+    market = json.load(f)
+entries = [p for p in market.get('plugins', []) if p.get('name') == 'full']
+sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
+" "$PLUGIN_JSON" "$MARKETPLACE_JSON"
     [ "$status" -eq 0 ]
 }
 

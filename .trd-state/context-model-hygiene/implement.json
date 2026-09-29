@@ -1,7 +1,7 @@
 {
   "version": "4.0.0",
   "trd_file": "docs/TRD/context-model-hygiene.md",
-  "trd_hash": "9f5338e803d00273ecaeaa412f544e606b656f14ea188e60d7bec3cc14cfc53b",
+  "trd_hash": "0a4dc1a43f7652c361f5cf62773b74db5e09d098cea42f65e317d01ab75011d3",
   "branch": "feature/context-model-hygiene/reconcile",
   "strategy": "test-after",
   "phase_cursor": 1,
@@ -115,11 +115,19 @@
         "findings": 0
       },
       "timestamp": "2026-09-29T07:50:36.331Z"
+    },
+    {
+      "phase": 1,
+      "commit": "6613684",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-29T09:54:27.068Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "7abb6a8",
-    "last_checkpoint_timestamp": "2026-09-29T07:50:36.331Z",
+    "last_healthy_checkpoint": "6613684",
+    "last_checkpoint_timestamp": "2026-09-29T09:54:27.068Z",
     "interrupted": false,
     "interrupt_reason": null
   },

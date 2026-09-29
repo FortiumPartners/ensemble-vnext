@@ -1096,7 +1096,7 @@ convenience beside them and rot on the first edit.
   (history: `docs/rules-history/async-discipline.md`, "The dispatch ledger") documents the
   ledger's state model (`start` → running, `stop` → finished) and the CLI
   `node .claude/hooks/dispatch-ledger.js --open` [read].
-- **Careful:** that same section records a **known open gap** — no `blocked` row is written any
+- **Careful:** the history file's "The dispatch ledger" section records a **known open gap** — no `blocked` row is written any
   more, so `--open` cannot distinguish "finished" from "blocked and resumed" [read]. A probe
   that counts agents from the ledger inherits that imprecision; say so in the record.
   `/code-review` is a **Skill**, not a subagent type, so `smoke_agent_invoked`-style
