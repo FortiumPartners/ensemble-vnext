@@ -2,7 +2,7 @@
   "version": "4.0.0",
   "trd_file": "docs/TRD/context-model-hygiene.md",
   "trd_hash": "9f5338e803d00273ecaeaa412f544e606b656f14ea188e60d7bec3cc14cfc53b",
-  "branch": "feature/context-model-hygiene/build",
+  "branch": "feature/context-model-hygiene/reconcile",
   "strategy": "test-after",
   "phase_cursor": 1,
   "tasks": {
@@ -87,6 +87,24 @@
       "started_at": "2026-09-29T07:15:44.645Z",
       "completed_at": "2026-09-29T07:50:30.593Z",
       "last_advanced": "2026-09-29T07:18:54.445Z"
+    },
+    "FIX-006": {
+      "description": "Close the build audit gaps",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/runtime-integrity.test.sh",
+        "docs/PRD/autonomy-judge-command-scope.md",
+        "docs/TRD/autonomy-judge-command-scope.md",
+        "docs/TRD/completed/implement-trd-rework.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T09:30:21.892Z",
+      "completed_at": "2026-09-29T09:48:22.005Z",
+      "last_advanced": "2026-09-29T09:39:15.845Z"
     }
   },
   "checkpoints": [
