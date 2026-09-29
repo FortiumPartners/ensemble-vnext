@@ -10,6 +10,53 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.10.2] - 2026-09-29
+
+Features can now be closed, and every agent carries less context and runs on a chosen model.
+Plans: `docs/TRD/feature-close-out.md`, `docs/TRD/context-model-hygiene.md`.
+
+### Added
+
+- **`/close-feature [trd] ["note"]`** — closes a feature on your say-so. A passing
+  `/audit-build` (verdict `safe to proceed` or `proceed with these caveats`, nothing handed back
+  to `/implement-trd`, not `--report-only`) closes it too. Closing is bookkeeping: write
+  `.trd-state/<feature>/closed.json` (`closedBy: owner | audit`), clear `current.json`, remove
+  the run lock, and commit the record on a feature branch so it travels with the PR.
+  `/implement-trd` and `/amend` refuse a closed feature; delete `closed.json` to reopen.
+- **`/audit-build` writes a durable report**, `.trd-state/<feature>/audit-build-report.md`,
+  opening with the verdict line exactly as printed, and publishes it as an artifact.
+- **Rewritten guides** (`docs/guides/`: INSTALL, PROCESS, CONCEPTS, README) with diagrams for
+  the overall process and each core command, and a new step-by-step reference in
+  `docs/reference/`.
+
+### Changed
+
+- **Implementers no longer run live, model-spending checks.** A check that starts `claude`
+  sessions (`test/smoke/run-smoke.sh`, `claude -p`) is its own `[LIVE]` task in the TRD, never
+  a build task's acceptance criterion; an implementer that meets one reports it "not run".
+  Measured cause: one implementer ran an 11-run smoke scenario and polled it ~830 times, each
+  re-reading 300k–650k tokens — about $171 of ~$740 subagent spend.
+- **Every workflow step names its model.** Verification's Render step moves from an inherited
+  Opus to Sonnet; its Judge is pinned to Opus explicitly. Each workflow's harness test now fails
+  if any `agent()` call names neither `agentType` nor `model`.
+- **Agents are registered once.** The plugin no longer registers its 13 agents on top of the
+  vendored `.claude/agents/` copies (`packages/full/agents/` → `agents-lib/`, the same fix 4.1.x
+  made for skills). `claude plugin details` reports 0 plugin agents, was 13.
+- **Rule files carry rules, not history.** `async-discipline.md` + `autonomy.md` 54.9 KB →
+  16.2 KB; `command-status.md` 21.3 KB → 12.2 KB; this repo's `CLAUDE.md` 30.8 KB → 14.9 KB.
+  Every rule is kept; measurements and incident history moved to `docs/rules-history/`.
+  These files load into every agent.
+
+### Known open
+
+- The default `npm run smoke` set includes one scenario that runs a real `claude` session
+  (`implement-one-task`, ~4 min), and `/implement-trd`'s phase gate picks `smoke` first — so a
+  phase gate in this repo still spends model allocation.
+- The drop in a subagent's starting context is not yet measured like-for-like: the one
+  post-change sample (109k tokens) was a verifier carrying the 32 KB verification contract,
+  against a ~90k median over all agent types.
+- Consuming projects get these changes only after `/rebase-project`.
+
 ## [4.10.1] - 2026-09-28
 
 The Stop discipline judge stops over-firing. PR #8.
