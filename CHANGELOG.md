@@ -10,6 +10,56 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.10.3] - 2026-09-29
+
+Recovering from a verification run that fell short is now one loop: `/refine-verification`
+plans the next round, and `/verify-build` builds and re-checks by default. Plan:
+`docs/TRD/refine-verification.md`.
+
+### Added
+
+- **`/refine-verification [--auto]`** is the only thing that writes
+  `.trd-state/<feature>/verification-plan.md`. It works out every plan section from the
+  report, the discovery ledger, the TRD and `verification.md`. By default it asks you one
+  question for each item the evidence can't settle, showing what the check saw, the attempts
+  so far and the cause. With `--auto`, a `product-manager` agent answers every item and marks
+  each answer `answered`, `default` or `OWNER-CALL`. In both modes the readout opens with every
+  ruling. It replaces the `verify-plan-recovery` skill (decision D12 of the
+  verification-fix-loop TRD, amended at the owner's direction).
+
+### Changed
+
+- **Breaking: `/verify-build` builds and re-verifies by default whenever a plan exists**,
+  as `--fix` did before. `--no-fix` gives a report-only run, and `--fix <plan-path>` still
+  names a different plan. With no plan it verifies once and names `/refine-verification`
+  next. This mirrors 4.8.0, where `/implement-trd` started verifying by default.
+- **A plan is used once.** It counts only when it was written after the last verification
+  run, so an earlier cycle's plan and rulings are never re-applied to a run meant as a check.
+  The loop is: refine, run, repeat.
+- **One NEXT rule for `/implement-trd`, `/verify-build` and the report.** If the outcome is
+  `satisfied`, the next step is `/audit-build`. Otherwise it is `/refine-verification`, then
+  `/verify-build`.
+- `--resume` builds nothing and ignores a plan, so an interrupted run can always be resumed.
+- `verify-plan-recovery` (PR #11, before this change) derived its plan and asked only what the
+  evidence couldn't settle. In lightning-lane its old one-question-per-section interview asked
+  six questions, and five of them were answered by the default.
+- Tests now hold the context savings from 4.10.2: the plugin registers no agents, whether
+  through `plugin.json`, a `packages/full/agents/` folder or its marketplace entry, and the
+  rule files and `CLAUDE.md` stay under their size limits (PR #10).
+
+### Removed
+
+- The `verify-plan-recovery` skill. `/rebase-project` now removes it from existing projects
+  through a new retired-skills list.
+
+### Known open
+
+- Neither `/refine-verification` nor `/verify-build`'s new default has been used in a real
+  stalled run. Whether `--auto`'s answers match what the owner would choose is unmeasured.
+- `/verify-build --no-fix --fix <plan-path>` together is undefined.
+- A subagent's starting context has not measurably fallen since 4.10.2: samples read 107–110k
+  tokens, against about 90k before.
+
 ## [4.10.2] - 2026-09-29
 
 Features can now be closed, and every agent carries less context and runs on a chosen model.
