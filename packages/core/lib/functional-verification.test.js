@@ -1658,6 +1658,24 @@ describe('readNeverUnattended', () => {
     expect(result.raw).toContain('-');
   });
 
+  test.each([['- '], ['-'], ['*'], ['1.'], ['- auth\n- ']])(
+    'a bare list marker with nothing after it (%j) is invalid, not prose -- never "absent"',
+    (body) => {
+      const result = readNeverUnattended(withSection(body));
+      expect(result.status).toBe('invalid');
+      expect(result.paths).toEqual([]);
+      expect(result.raw).toBe(body.split('\n').pop().trim());
+    }
+  );
+
+  test('a horizontal rule is not mistaken for an empty bullet', () => {
+    expect(readNeverUnattended(withSection('- auth\n\n---\n'))).toEqual({
+      paths: ['auth'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
   test('the current template ships with "Paths: none" -- no brake by default', () => {
     const currentTemplate = fs.readFileSync(
       path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),

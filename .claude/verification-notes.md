@@ -655,3 +655,90 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   non-slash prompt against an already-`active` record — content alone isn't quite enough proof
   since a rewrite with identical values would look the same; the mtime being bit-for-bit
   unchanged is what actually rules out a rewrite-with-same-content path.
+
+## Exercising never-unattended-paths §5b "unreadable line" (2026-09-30 run, iteration 2)
+
+- [ran] An "unreadable line" in §5b (the case `readNeverUnattended`'s own doc comment calls
+  out — "a bullet that is empty after stripping markup") is reproduced with a bare marker
+  bullet line (`-` with nothing after it, no trailing space needed) following a real bullet —
+  confirmed both through `readNeverUnattended()` directly (`node -e` requiring
+  `packages/core/lib/functional-verification.js`) and through the `check-never-unattended`
+  CLI with a companion TRD fixture (needs a real `## Master Task List` table, not just
+  `## Task Grounding` — the bare `## Task Grounding` heading alone throws `No "Master Task
+  List" heading found`): both return `status: "invalid"`, `raw: "-"` (the offending line's own
+  trimmed text), and the CLI additionally confirms `hits: []` — the caller gathers neither
+  paths nor files once the section is invalid, matching this criterion's `Checker` cite
+  verbatim.
+
+## Exercising never-unattended-paths §5b (2026-09-30 run, iteration 1)
+
+- [ran] `readNeverUnattended()`/`missingVerificationSections()` (both exported from
+  `packages/core/lib/functional-verification.js`) are exercisable with no server/fixture
+  project via a one-off `node -e` requiring the module directly and reading a `.md` string —
+  no scaffold, no live `/plan` run. Confirmed against the shipped template
+  (`packages/core/templates/claude-directory/rules/verification.md`) and six inline fixtures
+  covering every branch the reader documents: two bullets, a `*`-marker+backtick bullet, a
+  bolded `**Paths: none**`, a bare `Paths: none`, a one-line `Paths: a, b`, and a
+  bullet-plus-`Paths: none` conflict — every result matched the function's own doc comment
+  exactly (bullets -> `declared` with stripped fragments in document order; `Paths: none`
+  (bolded or not) -> `status: 'none'`; both forms present -> `status: 'invalid'`).
+- [ran] The shipped template's own §5b (`Paths: none`, no bullets) reads as
+  `{status: 'none', paths: []}` via `readNeverUnattended`, and
+  `missingVerificationSections()` returns `[]` for the same file (heading `## 5b. Never
+  unattended` is matched by the `never unattended` substring check) — so a freshly
+  scaffolded project's own template neither triggers `invalid` (which would stop `/plan`)
+  nor gets flagged as missing the section.
+
+## Exercising never-unattended-paths checker CLI and cross-section isolation (2026-09-30 run, iteration 1, continued)
+
+- [ran] `check-never-unattended <trd> <verification.md>` is exercisable standalone with two
+  throwaway temp files, no live TRD from the repo needed: a 3-task TRD fixture with a
+  `## Task Grounding` section (`### T-1`/`T-2`/`T-3`, each a `- **Touches:** \`<path>\`` line)
+  parsed by `trd-parser.js`, and a `verification.md` fixture with only `## 5b. Never
+  unattended` filled in. `node .claude/lib/functional-verification.js check-never-unattended
+  <trd> <verification.md>` flattens every task's `touches` (grounding-block order) and
+  substring-matches them against the declared fragments, returning `{hits, status, raw,
+  touches}` — confirmed `hits` selects exactly the touched files containing the fragment
+  (`Paths: auth` against touches `src/auth/login.js`, `lib/oauth-client.js`, `docs/readme.md`
+  → hits the first two, not the third), returns `hits: []` both when the declared list
+  matches nothing and when `Paths: none`, and passes the reader's `status`/`raw` straight
+  through unmodified for `invalid` (bullet + `Paths:` both present) and `absent`
+  (verification.md file missing, or present with no §5b at all) — no re-deriving needed.
+- [read] `readNeverUnattended` only reads inside the §5b boundary `findSection` computes:
+  confirmed a fixture with "e.g." bullets under `## 5. What CANNOT be verified here` and
+  numbered/bulleted repo names under `## 6. Multi-repo`, with `Paths: none` inside §5b itself,
+  reads as `{status: 'none', paths: []}` — the other sections' bullets never leak into
+  `paths`. Also confirmed fenced code is ignored two ways: a bullet fenced inside §5b is
+  skipped (only the un-fenced `Paths: none` line after it is read), and a `## 5b. Never
+  unattended` heading appearing only inside a fence under a *different* real section is not
+  matched as the section boundary at all (`findSection` never sees it — result is `absent`,
+  same as a file with no §5b anywhere).
+
+## Exercising never-unattended-paths FS-15..FS-20 (2026-09-30 run, iteration 1)
+
+- [ran] `fix-plan.js`'s `plan()` takes `neverUnattendedHit`/`neverUnattendedStatus` directly
+  as input fields (not derived from a file path) — confirmed the full checker-to-planner
+  transcript: `check-never-unattended`'s `hits` (from a 3-task TRD fixture, fragment `auth`)
+  fed straight into `plan({ weight, route, implement: true, neverUnattendedHit: hits,
+  neverUnattendedStatus: status })` returns `chain: false`, `writeTrd: true`, and
+  `bannerBody` naming both matched paths verbatim
+  ("owner policy — src/auth/login.js, lib/oauth-client.js are marked never-unattended").
+  No live `/plan` session needed; this is two library calls piped together.
+- [read] `packages/core/commands/plan.md` Step 7 (line ~897) is entirely prose/bash-block —
+  no live session exercises it meaningfully beyond confirming the text itself; judged as an
+  instruction-exists claim, not observed model behaviour, matching the success definition's
+  own preface note on FS-16..FS-19.
+- [ran] `missingVerificationSections()` and `check-verification-unfilled` on hand-built
+  "filled-in" fixtures (§1/§1a/§2/§5a present, real content, not template-matching) confirm
+  `never-unattended` appears in `missingSections` only when §5b's heading is absent, and
+  vanishes once a `## 5b. Never unattended` heading is added — independent confirmation of
+  the `VERIFICATION_SECTION_LABELS` entry, using fixtures distinct from the shipped template
+  (the other exerciser's iteration-1 notes above used the template itself for this check).
+- [ran] `git show f852b78:packages/core/templates/claude-directory/rules/verification.md` is
+  byte-identical (`diff`, zero output) to the frozen fixture
+  `packages/core/lib/__fixtures__/verification.coverage-floor-v1.md` — confirms the frozen
+  copy really is the pre-§5b template, not a hand-reconstruction. `check-verification-unfilled`
+  on that temp copy returns `matchedTemplate: "coverage-floor-v1"` (not `null`), and on THIS
+  repo's own `.claude/rules/verification.md` (read-only, never edited) returns
+  `unfilled: true, matchedTemplate: "current"` — consistent with the dispatch's own stack-hint
+  that this repo's verification.md is still the unfilled template.

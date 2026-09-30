@@ -522,9 +522,11 @@ function readNeverUnattended(content) {
     if (trimmed === '') continue;
 
     // Numbered items are list items too -- an owner writing "1. auth" must not have the
-    // entry silently dropped as prose.
-    const bulletMatch = /^(?:[-*+]|\d+[.)])\s+(.*)$/.exec(trimmed);
-    const body = (bulletMatch ? bulletMatch[1] : trimmed).replace(/[*`]/g, '').trim();
+    // entry silently dropped as prose. A bare marker ("- " trims to "-") is a list item with
+    // nothing in it -- an unreadable entry, so `invalid` below, never prose read as `absent`.
+    // The marker must be followed by whitespace or end of line, so "---" is not a bullet.
+    const bulletMatch = /^(?:[-*+]|\d+[.)])(?:\s+(.*))?$/.exec(trimmed);
+    const body = (bulletMatch ? bulletMatch[1] ?? '' : trimmed).replace(/[*`]/g, '').trim();
 
     // Tolerate bold/code wrap and a list marker around the key, as readCoverageFloor does
     // for "Coverage floor" -- `- Paths: auth` is a Paths line, not a fragment literally
