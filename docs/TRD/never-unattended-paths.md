@@ -114,6 +114,9 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 
 ## Could Not Verify
 
-| Claim                                                                          | Why not checked                                                                                    |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| That a live `/plan --implement` run with a declared list stops before building | Needs a live run; the unit tests prove the reader and `fix-plan.js` already has tests for the stop |
+Rewritten by `/audit-build`, 2026-09-30 (5 of 5 verifiers reported; 9 requirements, 4 tasks).
+
+| Claim | Why not checked |
+| ----- | --------------- |
+| That a live `/plan --implement` run with a declared list stops before building | Out of scope for a static audit: it needs a live run. The unit tests prove the reader and the checker, and `fix-plan.js` already has tests for the stop |
+| That this change is what the owner asked for (validation against product requirements) | No PRD exists — the source is the owner's in-session decision of 2026-09-30, quoted in Objectives. The audit checked the delivered code against this TRD only; whether the TRD captured the owner's intent, or omitted something asked for, was not checked |
