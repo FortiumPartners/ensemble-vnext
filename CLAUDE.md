@@ -339,9 +339,6 @@ one (4.10.0/4.9.0).
 - 4.7.2: `packages/core/lib/discovered.test.js` hangs on the GitHub runner only (cause
   unidentified after eliminating Node version, stdin, open handles and regex backtracking);
   excluded from CI via `jest.config.ci.js`, which holds the evidence.
-- 4.7.0: the autonomy check (case B of the Stop judge) applies only on an explicit
-  `state=active` marker, and that marker's 30-minute ceiling is a real gap on long
-  commands — the next fix.
 
 The modernization backlog, `docs/modernization/2026-08-improvement-plan.md`, is the live list
 for anything older than this.

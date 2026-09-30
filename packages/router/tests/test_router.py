@@ -352,6 +352,178 @@ class TestWriteCommandRunState:
         assert ok is False
 
 
+# === read_command_run_state: liveness extension (FIX-001) ===
+#
+# A stale `active` record (older than ACTIVE_RUN_CEILING_SECONDS) is normally
+# demoted to "unknown". These tests cover the one exception: a framework-owned
+# command (one whose `.claude/commands/<name>.md` calls notify-complete.sh)
+# whose session still shows dispatch-ledger activity since the record's `ts`
+# stays "active" instead — see docs/TRD/command-run-liveness.md, FIX-001.
+class TestReadCommandRunStateLiveness:
+    """Nine cases from the FIX-001 acceptance criteria, plus a read-only proof."""
+
+    @staticmethod
+    def _make_project(tmp_path, command="/implement-trd", owned=True):
+        """A tmp_path scaffolded project with (optionally) a framework-owned command file."""
+        (tmp_path / ".claude" / "commands").mkdir(parents=True)
+        if owned:
+            name = command.lstrip("/")
+            (tmp_path / ".claude" / "commands" / f"{name}.md").write_text(
+                "... calls .claude/hooks/notify-complete.sh at the end ...\n"
+            )
+        return tmp_path
+
+    @staticmethod
+    def _state_path(tmp_path, session_id="sess-1"):
+        return tmp_path / ".trd-state" / "_command-runs" / f"{session_id}.json"
+
+    @staticmethod
+    def _write_state(tmp_path, command, ts, session_id="sess-1", state="active"):
+        path = TestReadCommandRunStateLiveness._state_path(tmp_path, session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = {"state": state, "command": command, "ts": ts.isoformat()}
+        path.write_text(json.dumps(record))
+        return path
+
+    @staticmethod
+    def _write_ledger_row(tmp_path, ts, session_id="sess-1", event="stop", agent_id="a1"):
+        ledger = tmp_path / ".trd-state" / "_dispatch.jsonl"
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "ts": ts.isoformat().replace("+00:00", "Z"),
+            "event": event,
+            "agent_id": agent_id,
+            "session_id": session_id,
+        }
+        with open(ledger, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+
+    def _snapshot(self, path):
+        return path.read_bytes() if path.exists() else None
+
+    def test_1_recent_ledger_row_after_ts_reads_active(self, tmp_path):
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        recent = datetime.now(timezone.utc) - timedelta(minutes=5)
+        self._write_ledger_row(tmp_path, recent)
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("active", "/implement-trd", None)
+        assert self._snapshot(path) == before
+
+    def test_2_ledger_row_older_than_ceiling_reads_unknown(self, tmp_path):
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        too_old = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 60)
+        self._write_ledger_row(tmp_path, too_old)
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("unknown", None, None)
+        assert self._snapshot(path) == before
+
+    def test_3_open_agent_started_after_ts_under_4h_reads_active(self, tmp_path):
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        # Started 45 minutes ago (older than the 30-min ceiling) but still
+        # running (no stop row) and less than 4 hours old -> counts as alive now.
+        started = datetime.now(timezone.utc) - timedelta(minutes=45)
+        self._write_ledger_row(tmp_path, started, event="start", agent_id="open-1")
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("active", "/implement-trd", None)
+        assert self._snapshot(path) == before
+
+    def test_4_open_agent_started_before_ts_reads_unknown(self, tmp_path):
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        # This agent's start predates the run's own ts -- a stranded row from
+        # an earlier command, must not revive this run.
+        started_before_ts = stale_ts - timedelta(minutes=10)
+        self._write_ledger_row(tmp_path, started_before_ts, event="start", agent_id="stale-1")
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("unknown", None, None)
+        assert self._snapshot(path) == before
+
+    def test_5_recent_rows_for_a_different_session_read_unknown(self, tmp_path):
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        recent = datetime.now(timezone.utc) - timedelta(minutes=5)
+        self._write_ledger_row(tmp_path, recent, session_id="sess-OTHER")
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("unknown", None, None)
+        assert self._snapshot(path) == before
+
+    def test_6_foreign_command_with_recent_rows_reads_unknown(self, tmp_path):
+        self._make_project(tmp_path, command="/code-review", owned=False)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/code-review", stale_ts)
+        recent = datetime.now(timezone.utc) - timedelta(minutes=5)
+        self._write_ledger_row(tmp_path, recent)
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("unknown", None, None)
+        assert self._snapshot(path) == before
+
+    def test_7_none_record_with_recent_rows_stays_none(self, tmp_path):
+        self._make_project(tmp_path)
+        old_ts = datetime.now(timezone.utc) - timedelta(days=1)
+        path = self._write_state(tmp_path, "/implement-trd", old_ts, state="none")
+        recent = datetime.now(timezone.utc) - timedelta(minutes=5)
+        self._write_ledger_row(tmp_path, recent)
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("none", None, None)
+        assert self._snapshot(path) == before
+
+    def test_8_no_ledger_file_reads_unknown(self, tmp_path):
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        before = self._snapshot(path)
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("unknown", None, None)
+        assert self._snapshot(path) == before
+
+    def test_9_run_state_file_is_never_written_by_the_read_path(self, tmp_path):
+        """Byte-for-byte proof across every case above, run once more here."""
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        recent = datetime.now(timezone.utc) - timedelta(minutes=5)
+        self._write_ledger_row(tmp_path, recent)
+        before_bytes = path.read_bytes()
+        before_mtime = path.stat().st_mtime_ns
+
+        read_command_run_state(str(path), str(tmp_path), "sess-1")
+        read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert path.read_bytes() == before_bytes
+        assert path.stat().st_mtime_ns == before_mtime
+
+
 # === derive_feature ===
 class TestDeriveFeature:
     def test_reads_feature_from_current_json(self, tmp_path):
