@@ -213,20 +213,22 @@ runs other slash commands from staying `active` forever).
 
 For a framework-owned command, the router also reads the session's **dispatch ledger** — the
 same file `dispatch-ledger.js` writes, at the same path its `ledgerPath()` resolves
-(`.trd-state/<feature>/dispatch.jsonl` from `current.json`'s TRD basename, plus the shared
-`.trd-state/_dispatch.jsonl` always) — tailing the last 64 KB of each and skipping a partial
+(`.trd-state/<feature>/dispatch.jsonl` from `current.json`'s TRD basename, plus the ledger of
+the feature the record was opened under, plus the shared `.trd-state/_dispatch.jsonl` always) — tailing the last 64 KB of each and skipping a partial
 first line. It looks for this session's rows timestamped at or after the record's `ts`: either
-a `start`/`stop` row in that window, or an agent whose `start` has no matching `stop` yet and
-is itself less than 4 hours old (`OPEN_AGENT_LIVENESS_CEILING_SECONDS`). If the newer of `ts`
+a `start`/`stop` row in that window, or an agent whose last row is a `start` (the
+`openAgents()` reading, so a resumed agent counts) that is itself less than 4 hours old (`OPEN_AGENT_LIVENESS_CEILING_SECONDS`). If the newer of `ts`
 and that activity is within 30 minutes of now, the record reads `active`; otherwise `unknown`.
 
 This closes the gap that motivated it: a long `/implement-trd` phase workflow has no `Stop`
 event between dispatching a wave of subagents and the wave's result arriving, so 30 minutes in
 Judgment B (§6, case B) used to switch off mid-command. Now it stays on as long as the
 session's own dispatch ledger keeps showing agents starting or stopping. A crashed or
-interrupted framework command still lapses to `unknown` 30 minutes after its last sign of
-life, same as before this change — the extension tracks activity, it does not disable the
-ceiling.
+interrupted framework command lapses to `unknown` 30 minutes after the session's last ledger
+activity — which is not "30 minutes after it opened", as it was before this change. The ledger
+does not say which command dispatched an agent, so any agent the session dispatches afterwards,
+in ordinary conversation included, keeps the interrupted run `active` (and case B on) until
+the next slash command reopens the record. The TRD records this as accepted, not absorbed.
 
 ---
 
@@ -302,7 +304,8 @@ upstream display issue (anthropics/claude-code#62139), not a failure.
 ### 6.3 When case B applies
 
 Case B only ever fires while a command is known to be running, which means an `active` record
-younger than 30 minutes (§5.1). Everywhere else (ordinary conversation, `state=none`,
+younger than 30 minutes, or, for a framework-owned command, one whose session showed
+dispatch-ledger activity within the last 30 minutes (§5.1). Everywhere else (ordinary conversation, `state=none`,
 `state=unknown`, no marker at all) only case A is judged. This direction was chosen on
 2026-09-24 after the opposite default was measured blocking about one stop in five, almost all of
 them correct turns (`.claude/rules/autonomy.md`, "Enforcement").

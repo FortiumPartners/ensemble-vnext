@@ -523,6 +523,55 @@ class TestReadCommandRunStateLiveness:
         assert path.read_bytes() == before_bytes
         assert path.stat().st_mtime_ns == before_mtime
 
+    def test_agent_resumed_after_a_stop_counts_as_open(self, tmp_path):
+        """Last event wins, as in openAgents(): start, stop, start again = running."""
+        self._make_project(tmp_path)
+        now = datetime.now(timezone.utc)
+        stale_ts = now - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/implement-trd", stale_ts)
+        self._write_ledger_row(tmp_path, now - timedelta(minutes=80), event="start", agent_id="r1")
+        self._write_ledger_row(tmp_path, now - timedelta(minutes=70), event="stop", agent_id="r1")
+        self._write_ledger_row(tmp_path, now - timedelta(minutes=45), event="start", agent_id="r1")
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("active", "/implement-trd", None)
+
+    def test_open_agent_in_the_ledger_the_run_opened_under_counts(self, tmp_path):
+        """current.json repointed mid-run: the old feature's ledger is still read."""
+        self._make_project(tmp_path)
+        now = datetime.now(timezone.utc)
+        stale_ts = now - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._state_path(tmp_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({
+            "state": "active", "command": "/implement-trd",
+            "ts": stale_ts.isoformat(), "feature": "old-feature",
+        }))
+        (tmp_path / ".trd-state" / "current.json").write_text(
+            json.dumps({"trd": "docs/TRD/new-feature.md"})
+        )
+        old_ledger = tmp_path / ".trd-state" / "old-feature" / "dispatch.jsonl"
+        old_ledger.parent.mkdir(parents=True)
+        old_ledger.write_text(json.dumps({
+            "ts": (now - timedelta(minutes=45)).isoformat().replace("+00:00", "Z"),
+            "event": "start", "agent_id": "o1", "session_id": "sess-1",
+        }) + "\n")
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("active", "/implement-trd", "old-feature")
+
+    def test_plugin_namespaced_command_is_framework_owned(self, tmp_path):
+        self._make_project(tmp_path)
+        stale_ts = datetime.now(timezone.utc) - timedelta(seconds=ACTIVE_RUN_CEILING_SECONDS + 3600)
+        path = self._write_state(tmp_path, "/ensemble-vnext:implement-trd", stale_ts)
+        self._write_ledger_row(tmp_path, datetime.now(timezone.utc) - timedelta(minutes=5))
+
+        result = read_command_run_state(str(path), str(tmp_path), "sess-1")
+
+        assert result == ("active", "/ensemble-vnext:implement-trd", None)
+
 
 # === derive_feature ===
 class TestDeriveFeature:
