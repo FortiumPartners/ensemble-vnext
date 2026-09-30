@@ -375,7 +375,7 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    **Retired framework skills — DELETE THESE BY NAME, no inference required.** A skill
    dropped from `framework-skills.txt` stops being Framework, but its folder is also gone
    from the plugin's skill library, not merely off the stack-match table — so the plain
-   Custom row below ("does not exist in the plugin's skill library at all" → preserve)
+   Custom row above ("does not exist in the plugin's skill library at all" → preserve)
    would protect it forever. That is the same trap the Agent diff's retired-agent list
    closes (§2.1); this list closes it for skills.
 
@@ -411,6 +411,7 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    - Skills to update (content differs vs plugin): [list]   ← drives the content sync
    - Skills unchanged (match stack + identical):   [count]
    - Skills to remove (plugin skill, off-stack):   [list]
+   - Retired framework skills to remove (by name): [list]   ← the retired-skills list above
    - Custom skills (not in plugin, preserved):     [list if any]
    - Framework skills (always installed):          [list]
    ```

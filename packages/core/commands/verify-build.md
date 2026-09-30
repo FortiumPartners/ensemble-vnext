@@ -30,8 +30,8 @@ three commonest reasons to want the loop have nothing to do with running an impl
   want the check now.
 - The loop **crashed or was interrupted** (`outcome: null` in `verification-state.json`), and
   re-running `/implement-trd` to reach it would re-enter the phase loop over already-complete
-  tasks. A run that ended **`stalled`** already finished — that is not this case; see `--fix`,
-  below, which is the command this whole reason exists to name.
+  tasks. A run that ended **`stalled`** already finished — that is not this case; run
+  `/refine-verification`, then this command, whose fix loop (below) runs that plan.
 - You **fixed something by hand** — a credential, a config, the environment — and want to
   re-verify without touching implementation at all.
 
@@ -40,7 +40,7 @@ covers the second case, but only because §3.6 step 0's composition gate skips t
 that is a subtle path to rely on for the ordinary act of "verify what is already built."
 
 **This command never dispatches an implementer itself.** It runs no phase, writes no task
-state, and makes no commit beyond the loop's own artifacts — under `--fix` (below) it chains
+state, and makes no commit beyond the loop's own artifacts — its fix loop (below) chains
 `/implement-trd`, which is the implementer; this command still never dispatches one directly.
 
 **It DOES derive the success definition when one is absent** — see step 3. That is the whole
@@ -270,10 +270,21 @@ once and stops there, exactly like the no-plan case below.
 **With no plan present** (and nothing to opt out of): the run is a single verify pass — Steps
 1–5 above — and NEXT follows O4, above: `/refine-verification`, then `/verify-build`.
 
-The fix loop and `--resume` are refused together: if `--resume` is passed alongside `--fix`,
-or alongside a plan that would otherwise trigger the fix loop by default, stop before step 1
-and name the conflict in one line. They are two different re-entries into this command, and
-only one applies per invocation.
+**A plan is used once.** It counts as present only when its `**Written**` timestamp is later
+than the last verification run's finish — the modification time of
+`.trd-state/<feature>/verification-report.md`, or no report at all. `/refine-verification`
+writes a plan after a run that fell short, so a fresh plan is always newer. Once a
+`/verify-build` run has used it, the report it writes is newer than the plan, so the next
+plain `/verify-build` reads that plan as spent: a single verify pass, NEXT `/refine-verification`.
+Refine, run, repeat — never an old cycle's plan re-applied, with its rulings, to a run the
+owner meant as a check. `--fix <plan-path>` names a plan explicitly and is used whatever its
+timestamp; say in DECISIONS that an older plan was applied on request.
+
+**`--resume` builds nothing (OQ-2).** It only continues an interrupted verification loop, so
+it implies `--no-fix`: a plan on disk is ignored for that run, never a reason to refuse it —
+otherwise a crashed loop could not be resumed while any plan exists. Only an explicit `--fix`
+passed together with `--resume` is refused: stop before step 1 and name both flags in one
+line. Fixing after a resumed run is a fresh `/verify-build`.
 
 ### `--resume`
 
@@ -298,7 +309,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    selection (above). Read the stop rule with `readStopRule(planText)`
    (`.claude/lib/functional-verification.js`) rather than the model re-deriving it from prose
    (D6, D7) — a plan whose stop rule is missing or unreadable runs as if there were no plan
-   (one round), and ISSUES says so; no plan at all reads as `{ maxRounds: 1 }`. **Either way
+   (one round), and ISSUES says so. **Either way
    the run is bounded, and the readout names the rule it applied**: ISSUES carries
    "no readable stop rule in `<plan path>` (`<readStopRule's first error>`) — applied the
    default, `max-rounds: 1` (one round)", and STATE's round count reads against that `1`.
@@ -340,7 +351,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 
 3. **Round k ≥ 1 — build.** Chain `Skill({ skill: "implement-trd", args: "<trd> --reconcile
    --chained" })` **exactly once per round** — ONE fix batch covering every row step 2
-   recorded, never one build per criterion. On `RETURN → chained by /verify-build --fix: <n> of <m> tasks built…`,
+   recorded, never one build per criterion. On `RETURN → chained by /verify-build: <n> of <m> tasks built…`,
    continue to step 4. On `RETURN → STUCK: <reason>`, end the whole run now with `═══ COMMAND
    STUCK: /verify-build ═══` — under `--chained` the caller owns the run's only terminator, and
    a build that cannot proceed leaves nothing for another round to verify.

@@ -1961,8 +1961,16 @@ describe('renderReport: Diagnosis and Next lines', () => {
     for (const outcome of ['satisfied', 'not-run']) {
       const report = renderReport(baseFor(outcome, [criterionWithCause('FS-1', 'met', null)]));
       expect(report).not.toContain('**Diagnosis**');
+      expect(report).not.toContain('/refine-verification');
       expect(report).not.toContain('/verify-plan-recovery');
     }
+  });
+
+  test('satisfied names /audit-build as Next (O4); not-run names nothing', () => {
+    const satisfied = renderReport(baseFor('satisfied', [criterionWithCause('FS-1', 'met', null)]));
+    expect(satisfied).toContain('**Next**: `/audit-build`');
+    const notRun = renderReport(baseFor('not-run', [criterionWithCause('FS-1', 'met', null)]));
+    expect(notRun).not.toContain('**Next**');
   });
 
   test('counts by cause in descending order', () => {

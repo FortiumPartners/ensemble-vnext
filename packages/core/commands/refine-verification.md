@@ -123,8 +123,9 @@ three verdicts `/refine-trd --auto` uses:
 | **OWNER-CALL** | Genuinely the owner's to make. **Decide it anyway**, on the owner's behalf, and make the decision maximally reviewable: the question unchanged, the decision taken, the reasoning, and an explicit marker that this was the owner's call taken in their absence. |
 
 **Access only the owner has is never guessed.** An item asking for a credential, an account,
-or an approval the agent has no way to supply is marked not verifiable, and the need is
-recorded exactly as the interactive path records one for `/verification-setup`.
+or an approval the agent has no way to supply is marked not verifiable, and the need is named
+in the readout's ISSUES for the owner to take to `/verification-setup` — the same way the
+interactive path names one in its diagnosis. Nothing is recorded or written for it (see Never).
 
 ---
 
@@ -180,7 +181,8 @@ recorded exactly as the interactive path records one for `/verification-setup`.
   owner's own decisions. An owner ruling from interactive mode is written into the PRD or TRD,
   with a dated changelog line, the same as any other ruling in this framework.
 
-- Nothing else. This command has no other output.
+- The PRD or TRD, only for an owner ruling made in interactive mode (above). Nothing else —
+  no other file, and never `.claude/rules/verification.md`.
 
 ## Never
 
