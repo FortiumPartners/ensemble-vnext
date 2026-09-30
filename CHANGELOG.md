@@ -10,6 +10,38 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.10.4] - 2026-09-30
+
+Long commands stay covered by the check against mid-command "should I continue?" pauses.
+Plan: `docs/TRD/command-run-liveness.md`.
+
+### Fixed
+
+- **A command stays marked as running for as long as it is visibly working.** The Stop
+  judge's pause check (case B) applies only while the router reports `state=active`. Before
+  this fix, a run older than 30 minutes read `unknown`, so the check switched off 30 minutes
+  into any long command. In one session, a notification turn after a 28-minute wait for a
+  workflow read `unknown`.
+  - Now, for this framework's own commands (a command file that calls `notify-complete.sh`),
+    the router measures the run from its last sign of life: the newest dispatch-ledger row for
+    the session after the run opened, or an agent still open and started less than 4 hours ago.
+  - The run stays `active` while that is within 30 minutes.
+  - Any other slash command keeps the flat 30 minutes from opening.
+- **The router's read path stays read-only**, never rewriting the run record. It adds two
+  64 KB tail reads, and only once a run is past 30 minutes. It reads both the ledger of the
+  feature the run opened under and the shared ledger; an agent counts as running when its last
+  event is a `start`; plugin-prefixed commands such as `/ensemble-vnext:implement-trd` count.
+  Any failure reads `unknown`.
+
+### Known open
+
+- A framework command that is interrupted stays `active` while the session keeps dispatching
+  agents, and lapses 30 minutes after the last one.
+- On a busy or recently rotated ledger, a long-running agent's start row can fall outside the
+  64 KB window.
+- Waits with no subagent activity (for example, a background shell task) still lapse after
+  30 minutes.
+
 ## [4.10.3] - 2026-09-29
 
 Recovering from a verification run that fell short is now one loop: `/refine-verification`

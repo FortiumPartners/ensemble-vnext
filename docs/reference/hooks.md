@@ -50,7 +50,7 @@ survives. What it does is in §6.4.
 
 | Hook | Event (order) | Type | Timeout | Can block? | Reads | Writes | Puts into model context |
 |---|---|---|---|---|---|---|---|
-| `router.py` | UserPromptSubmit (1) | command | 10 s | no | the prompt, `cwd`, `session_id`; `.trd-state/_command-runs/<session>.json`; `current.json`; `<feature>/closed.json` and `implement.json` | `_command-runs/<session>.json` = `active`, only on a slash-command prompt | the `ENSEMBLE_COMMAND` marker line (the run-state signal the Stop judge reads) on every qualifying prompt; on non-slash prompts only, the orientation hint, plus the in-flight addendum when a feature is unfinished. All three are described in §5 |
+| `router.py` | UserPromptSubmit (1) | command | 10 s | no | the prompt, `cwd`, `session_id`; `.trd-state/_command-runs/<session>.json`; `current.json`; `<feature>/closed.json` and `implement.json`; on a stale `active` record for a framework-owned command, a tail of `dispatch.jsonl`/`_dispatch.jsonl` | `_command-runs/<session>.json` = `active`, only on a slash-command prompt | the `ENSEMBLE_COMMAND` marker line (the run-state signal the Stop judge reads) on every qualifying prompt; on non-slash prompts only, the orientation hint, plus the in-flight addendum when a feature is unfinished. All three are described in §5 |
 | `formatter.sh` | PostToolUse on `Edit\|Write\|MultiEdit` (1) | command | 30 s | no | the hook payload | the edited file, reformatted in place | nothing |
 | `dispatch-ledger.js` | SubagentStart (1) | command | 5 s | no | `current.json` | a `start` row in `.trd-state/<feature>/dispatch.jsonl` | nothing |
 | `status.js` | SubagentStop (1) | command | 5 s | no | every `.trd-state/*/implement.json` | those files: `session_id` cleared, `cycle_position` advanced one step | nothing |
@@ -186,7 +186,8 @@ stateDiagram-v2
     active --> active: another slash prompt, timestamp renewed
     active --> none: notify-complete.sh on COMMAND COMPLETE or STUCK
     unknown --> none: notify-complete.sh
-    active --> unknown: read more than 30 minutes after ts
+    active --> unknown: read more than 30 minutes after ts, and no fresh sign of life
+    active --> active: read within the ceiling of ts, or (framework command only) within 30 minutes of the session's last ledger activity since ts
     none --> unknown: file unreadable or malformed
 ```
 
@@ -194,13 +195,40 @@ stateDiagram-v2
 |---|---|---|---|
 | `active` is written | `router.py`, on any prompt starting with `/`, ensemble command or not | *code* | `resolve_marker_fields()` |
 | `none` is written | `notify-complete.sh`, when the command runs it on its final turn | *code*, triggered by *model* following the command | `notify-complete.sh` `close_command_run_state()` |
-| `active` reads as `unknown` | `router.py`, when the record's `ts` is more than 1,800 s (30 minutes) old, in the future by more than that, or missing | *code* | `ACTIVE_RUN_CEILING_SECONDS`, `_active_is_stale()` |
+| `active` reads as `unknown` | `router.py`, when the record's `ts` is more than 1,800 s (30 minutes) old, in the future by more than that, or missing — **unless** the command is one of this framework's own and the session's dispatch ledger still shows a sign of life within the ceiling (see below) | *code* | `ACTIVE_RUN_CEILING_SECONDS`, `_active_is_stale()`, `_is_framework_owned_command()`, `_last_sign_of_life_is_fresh()` |
 | a missing file reads as `none`; an unreadable one as `unknown` | `router.py` | *code* | `read_command_run_state()` |
 
-`unknown` is computed when the file is read; the file itself still says `active`. The ceiling
-exists because a non-ensemble slash command (`/code-review`, `/loop`) opens a record that
-nothing ever closes. Its cost: 30 minutes into any long command, such as most `/implement-trd`
-runs, case B of the judge (the check for mid-command pauses) switches off (see §6.3).
+`unknown` is computed when the file is read; the file itself still says `active`. This read
+path never writes.
+
+**The liveness extension (command-run-liveness, FIX-001).** A stale `active` record used to
+degrade to `unknown` unconditionally — the common cause being a non-ensemble slash command
+(`/code-review`, `/simplify`, `/loop`, `/run`) that opens a record nothing ever closes, so the
+ceiling had to apply to everyone. Now the router first checks whether the record's `command`
+is **framework-owned**: `.claude/commands/<name>.md` exists under the project root and its
+text contains `notify-complete.sh`, meaning the command closes its own run. Only a
+framework-owned command gets the extension; `/code-review` and the like still lapse at a flat
+30 minutes from when they opened, exactly as before (this is what keeps a session that just
+runs other slash commands from staying `active` forever).
+
+For a framework-owned command, the router also reads the session's **dispatch ledger** — the
+same file `dispatch-ledger.js` writes, at the same path its `ledgerPath()` resolves
+(`.trd-state/<feature>/dispatch.jsonl` from `current.json`'s TRD basename, plus the ledger of
+the feature the record was opened under, plus the shared `.trd-state/_dispatch.jsonl` always) — tailing the last 64 KB of each and skipping a partial
+first line. It looks for this session's rows timestamped at or after the record's `ts`: either
+a `start`/`stop` row in that window, or an agent whose last row is a `start` (the
+`openAgents()` reading, so a resumed agent counts) that is itself less than 4 hours old (`OPEN_AGENT_LIVENESS_CEILING_SECONDS`). If the newer of `ts`
+and that activity is within 30 minutes of now, the record reads `active`; otherwise `unknown`.
+
+This closes the gap that motivated it: a long `/implement-trd` phase workflow has no `Stop`
+event between dispatching a wave of subagents and the wave's result arriving, so 30 minutes in
+Judgment B (§6, case B) used to switch off mid-command. Now it stays on as long as the
+session's own dispatch ledger keeps showing agents starting or stopping. A crashed or
+interrupted framework command lapses to `unknown` 30 minutes after the session's last ledger
+activity — which is not "30 minutes after it opened", as it was before this change. The ledger
+does not say which command dispatched an agent, so any agent the session dispatches afterwards,
+in ordinary conversation included, keeps the interrupted run `active` (and case B on) until
+the next slash command reopens the record. The TRD records this as accepted, not absorbed.
 
 ---
 
@@ -276,7 +304,8 @@ upstream display issue (anthropics/claude-code#62139), not a failure.
 ### 6.3 When case B applies
 
 Case B only ever fires while a command is known to be running, which means an `active` record
-younger than 30 minutes (§5.1). Everywhere else (ordinary conversation, `state=none`,
+younger than 30 minutes, or, for a framework-owned command, one whose session showed
+dispatch-ledger activity within the last 30 minutes (§5.1). Everywhere else (ordinary conversation, `state=none`,
 `state=unknown`, no marker at all) only case A is judged. This direction was chosen on
 2026-09-24 after the opposite default was measured blocking about one stop in five, almost all of
 them correct turns (`.claude/rules/autonomy.md`, "Enforcement").
@@ -315,7 +344,9 @@ it.
 The first is what closes the run record, so it matters even if you never set a notification.
 It relies on `$CLAUDE_SESSION_ID`, which only exists because `session-context.js` exported it at
 session start. Without it (`unknown`, or an id failing the safety pattern) the close is skipped
-and the `active` record lapses on its own after 30 minutes. It writes relative to `$PWD`, the
+and the `active` record lapses on its own — 30 minutes after it opened, or, for a
+framework-owned command whose session keeps showing dispatch-ledger activity, 30 minutes
+after that activity's last trace (§5.1). It writes relative to `$PWD`, the
 Bash tool's working directory, while `router.py` writes relative to the hook's `cwd`; the two
 agree as long as the command's Bash calls run from the project root. How to wire up either
 notification: `.claude/rules/command-status.md`, "Notification on completion".

@@ -122,8 +122,11 @@ LAST such marker and **applies Judgment B only on an explicit `state=active` mat
 states skip it. State lives in `.trd-state/_command-runs/<session>.json`: `router.py` writes
 `active` for a slash-command prompt, `notify-complete.sh` writes `none` on every
 COMMAND COMPLETE/STUCK turn, and an `active` record older than 30 minutes degrades to
-`unknown` — a known gap for any command still running past that mark. Judgment A is
-unconditional and reads none of this.
+`unknown` unless the command is one of this framework's own (it closes its own run via
+`notify-complete.sh`) and its session is still showing agent activity — then it stays
+`active` until 30 minutes after that last sign of life. Any other slash command still lapses
+30 minutes after it opened, exactly as before. Judgment A is unconditional and reads none of
+this.
 
 Loop guard, override, `if`-field caveat: identical to async-discipline's — see
 `.claude/rules/async-discipline.md`.

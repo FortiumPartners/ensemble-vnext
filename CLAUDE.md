@@ -315,12 +315,12 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.10.3** (2026-09-29). 21 commands, 13 subagents. Test battery: 1210 Jest,
-112 pytest, 578 BATS. **Full release history: `CHANGELOG.md`.**
+Released at **4.10.4** (2026-09-30). 21 commands, 13 subagents. Test battery: 1210 Jest,
+124 pytest, 578 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.10.3: if verification falls short, `/refine-verification [--auto]` writes the plan and
-`/verify-build` builds and re-checks by default (`--no-fix` for a report only); repeat
-until satisfied, then `/audit-build`.
+4.10.4: a framework command stays `state=active` while its session shows agent activity, so
+the mid-command pause check covers long commands. 4.10.3: `/refine-verification [--auto]`
+plans the next round and `/verify-build` builds by default.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
@@ -339,9 +339,6 @@ one (4.10.0/4.9.0).
 - 4.7.2: `packages/core/lib/discovered.test.js` hangs on the GitHub runner only (cause
   unidentified after eliminating Node version, stdin, open handles and regex backtracking);
   excluded from CI via `jest.config.ci.js`, which holds the evidence.
-- 4.7.0: the autonomy check (case B of the Stop judge) applies only on an explicit
-  `state=active` marker, and that marker's 30-minute ceiling is a real gap on long
-  commands — the next fix.
 
 The modernization backlog, `docs/modernization/2026-08-improvement-plan.md`, is the live list
 for anything older than this.

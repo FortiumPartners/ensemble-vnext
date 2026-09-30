@@ -1,0 +1,193 @@
+{
+  "feature": "command-run-liveness",
+  "prd": "docs/TRD/command-run-liveness.md#Intended Change",
+  "definitionPath": ".trd-state/command-run-liveness/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met or not verifiable here",
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "A framework command opened 45 minutes ago whose agents are still starting and stopping reads active",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-1.txt",
+      "reason": "Router read state=active for a 45-minute-old /implement-trd record kept alive by fresh ledger rows after ts.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "The same framework command, 31 minutes after its last agent stopped and none open, reads unknown",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-2.txt",
+      "reason": "state=unknown when newest post-ts row was a stop 31 minutes old, no open agent.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "A /code-review run reads unknown past 30 minutes however many subagents the session dispatched afterwards",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-3.txt",
+      "reason": "state=unknown for stale /code-review despite fresh ledger rows.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "A command whose file exists but does not call notify-complete.sh is not treated as framework-owned",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-4.txt",
+      "reason": "state=unknown for /simplify (file exists, no notify-complete.sh) despite a fresh row.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "Ledger rows from a different session do not keep a run alive",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-5.txt",
+      "reason": "state=unknown when the fresh row belonged to another session.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "An agent started before the record's ts and never stopped is not a sign of life",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-6.txt",
+      "reason": "state=unknown when the only row was an unmatched start before ts.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "An agent started at or after ts, still open, under 4 hours old, keeps the run active",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-7.txt",
+      "reason": "state=active from an open agent started 40 min ago, after ts, under 4 hours.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "An agent left open 4 hours or more no longer counts; the run reads unknown",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-8.txt",
+      "reason": "state=unknown when the only open agent started 4.5 hours ago.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "Rows in the shared _dispatch.jsonl count even when current.json names a feature",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-9.txt",
+      "reason": "state=active from shared _dispatch.jsonl rows while current.json named a feature (IN FLIGHT line confirms).",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-10",
+      "statement": "With no current.json the router finds signs of life in _dispatch.jsonl",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-10.txt",
+      "reason": "state=active from shared _dispatch.jsonl with no current.json.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "A current.json TRD name resolving outside .trd-state/ is rejected; no ledger is read through it",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-11.txt",
+      "reason": "A current.json trd name that strips to \"..\" was rejected: rows placed only at the traversal path left the router at state=unknown, the path was absent from _ledger_paths(), and a control with the same rows in the shared ledger read active.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": 2,
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "A ledger over 64 KB is handled: active from a fresh last row, exit 0, well-formed output",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-12.txt",
+      "reason": "state=active from the fresh last row of a >64 KB ledger, exit 0, well-formed JSON.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-13",
+      "statement": "An unreadable ledger degrades to unknown, never an error or crash",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-13.txt",
+      "reason": "state=unknown, exit 0, empty stderr with the ledger path as a directory.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-14",
+      "statement": "Reading never rewrites the run record: ts unchanged after a read that resolves active through the ledger",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-14.txt",
+      "reason": "Record content and mtime identical before and after a read that resolved active.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-15",
+      "statement": "A framework run younger than 30 minutes reads active with no ledger at all",
+      "cites": "see definition row",
+      "status": "met",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-15.txt",
+      "reason": "A 10-minute-old /implement-trd record with no current.json and no ledger anywhere read state=active.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": 2,
+      "blocker": null
+    }
+  ]
+}

@@ -273,8 +273,15 @@ def command_run_state_path(cwd: str, session_id: str) -> str:
 # answer to "how long before we stop believing a lock" rather than two.
 ACTIVE_RUN_CEILING_SECONDS = 1800
 
+# How long an OPEN agent (dispatched, no `stop` row yet) counts as a live sign
+# of the command it belongs to, even though its own start may be older than
+# ACTIVE_RUN_CEILING_SECONDS. Bounds a crashed agent without cutting off a
+# genuinely long one — the longest single phase observed at authoring time was
+# 28 minutes (docs/TRD/command-run-liveness.md, OQ-1).
+OPEN_AGENT_LIVENESS_CEILING_SECONDS = 4 * 60 * 60
 
-def read_command_run_state(path: str) -> tuple:
+
+def read_command_run_state(path: str, cwd: str = None, session_id: str = None) -> tuple:
     """Read the run-state file at `path`.
 
     Returns a (state, command, feature) tuple:
@@ -283,6 +290,10 @@ def read_command_run_state(path: str) -> tuple:
     - Unreadable or malformed content -> ("unknown", None, None), which the
       Stop judge treats as "skip the pause check", so a bad record never
       blocks a turn (D12).
+
+    `cwd` and `session_id` are used only for the liveness extension below
+    (FIX-001); omitting them reproduces the pre-FIX-001 behaviour exactly
+    (a stale `active` record always degrades to "unknown").
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -311,11 +322,211 @@ def read_command_run_state(path: str) -> tuple:
         # An allowlist of ensemble commands would fix that one cause and miss the
         # others (TR2's crash and interrupt). Age covers every cause uniformly, so
         # a run older than the ceiling degrades to "unknown", which switches the
-        # pause check off (reversed 2026-09-24).
+        # pause check off (reversed 2026-09-24) -- UNLESS the command is one of
+        # this framework's own AND its session still shows dispatch-ledger
+        # activity since the record opened (FIX-001): a long `/implement-trd`
+        # phase workflow has no Stop between dispatch and result, so age alone
+        # would otherwise switch the pause check off mid-command.
         if _active_is_stale(data.get("ts")):
+            command = data.get("command")
+            if _is_framework_owned_command(command, cwd) and _last_sign_of_life_is_fresh(
+                cwd, session_id, data.get("ts"), data.get("feature")
+            ):
+                return "active", command, data.get("feature")
             return "unknown", None, None
         return "active", data.get("command"), data.get("feature")
     return "none", None, None
+
+
+def _is_framework_owned_command(command: object, cwd: str) -> bool:
+    """True when `command` is one of this framework's own, i.e. it closes its own run.
+
+    Read from the command's own file rather than a hand-kept allowlist (per the
+    TRD's Decision): `.claude/commands/<name>.md` under the project root exists
+    and calls `notify-complete.sh`. A command this framework does not own
+    (`/code-review`, `/loop`, ...) never writes `none`, so ledger activity must
+    never extend ITS run -- that would keep it `active` for as long as the
+    session keeps dispatching agents at all, which is the "an unclosed run must
+    still lapse" outcome (O2 in the TRD) this check exists to protect.
+
+    A plugin-namespaced invocation (`/ensemble-vnext:implement-trd`) resolves
+    to the same vendored file as the bare name.
+    """
+    if not isinstance(command, str) or not command:
+        return False
+    name = command.lstrip("/").rsplit(":", 1)[-1]
+    if not name or "/" in name or "\\" in name or ".." in name:
+        return False
+    root = os.path.abspath(cwd) if cwd else os.getcwd()
+    file_path = os.path.join(root, ".claude", "commands", f"{name}.md")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return False
+    return "notify-complete.sh" in content
+
+
+def _parse_iso_ts(ts: object):
+    """Parse an ISO-8601 timestamp, accepting both `Z` and `+00:00` suffixes.
+
+    Returns a tz-aware `datetime`, or `None` if `ts` isn't a parseable string.
+    Naive results (no offset at all) are assumed UTC, matching `_active_is_stale`.
+    """
+    if not isinstance(ts, str):
+        return None
+    s = ts[:-1] + "+00:00" if ts.endswith("Z") else ts
+    try:
+        parsed = datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _tail_read(path: str, max_bytes: int = 65536) -> str:
+    """Read the last `max_bytes` of `path`, dropping a partial first line.
+
+    Bounded and cheap by design: the router runs on every prompt, and this is
+    only reached at all when an `active` record has already aged past the
+    ceiling. Any failure (missing file, unreadable) degrades to "" rather than
+    raising -- consistent with this hook's never-block posture.
+    """
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as f:
+            if size > max_bytes:
+                # Read one byte before the window so a window that starts exactly
+                # on a line boundary keeps that (complete) first line.
+                f.seek(size - max_bytes - 1)
+                data = f.read()
+                nl = data.find(b"\n")
+                data = data[nl + 1 :] if nl != -1 else b""
+            else:
+                data = f.read()
+        return data.decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _safe_feature_dir(name: object) -> str:
+    """`name` as a single safe path component (`ledgerPath()`'s rule), else ""."""
+    if not isinstance(name, str) or not name:
+        return ""
+    base = os.path.basename(name)
+    if base.lower().endswith(".md"):
+        base = base[: -len(".md")]
+    if base and base not in (".", "..") and "/" not in base and "\\" not in base:
+        return base
+    return ""
+
+
+def _ledger_paths(cwd: str, record_feature: object = None) -> list:
+    """Ledger file paths to read, mirroring `dispatch-ledger.js`'s `ledgerPath()`.
+
+    Per-feature (`.trd-state/<feature>/dispatch.jsonl`) when `current.json`
+    names a TRD whose basename is a safe single path component, PLUS the
+    feature the run-state record was opened under (a command such as
+    `/create-trd` or `/plan` repoints `current.json` mid-run, so rows written
+    before the switch -- including an open agent's `start` -- live in the
+    previous feature's ledger), PLUS the shared `.trd-state/_dispatch.jsonl`
+    always -- the same agent's start/stop rows can land in any of these.
+    """
+    root = os.path.abspath(cwd) if cwd else os.getcwd()
+    state_dir = os.path.join(root, ".trd-state")
+    paths = []
+    try:
+        with open(os.path.join(state_dir, "current.json"), "r", encoding="utf-8") as f:
+            current = json.load(f)
+        base = _safe_feature_dir(current.get("trd") if isinstance(current, dict) else None)
+        if base:
+            paths.append(os.path.join(state_dir, base, "dispatch.jsonl"))
+    except Exception:
+        pass  # absent or unreadable current.json -> record's feature + shared ledger
+    opened_under = _safe_feature_dir(record_feature)
+    if opened_under:
+        opened_path = os.path.join(state_dir, opened_under, "dispatch.jsonl")
+        if opened_path not in paths:
+            paths.append(opened_path)
+    shared = os.path.join(state_dir, "_dispatch.jsonl")
+    if shared not in paths:
+        paths.append(shared)
+    return paths
+
+
+def _read_ledger_rows(cwd: str, session_id: str, record_feature: object = None) -> list:
+    """Rows from every ledger path, filtered to `session_id`.
+
+    Malformed lines are skipped, not raised on -- a truncated final line from
+    a killed process must not blind the reader to every row before it (same
+    posture as `dispatch-ledger.js`'s `readRows()`).
+    """
+    rows = []
+    for ledger_path in _ledger_paths(cwd, record_feature):
+        text = _tail_read(ledger_path)
+        if not text:
+            continue
+        for line in text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(row, dict) and row.get("session_id") == session_id:
+                rows.append(row)
+    return rows
+
+
+def _last_sign_of_life_is_fresh(
+    cwd: str, session_id: str, ts: object, record_feature: object = None
+) -> bool:
+    """True when this session's dispatch ledger shows the command still alive.
+
+    The last sign of life is the later of `ts` (the record's own open time,
+    never rewritten) and the newest ledger row for this session timestamped at
+    or after `ts`. An agent whose LAST row since `ts` is a `start` (the same
+    "last event wins" reading as `dispatch-ledger.js`'s `openAgents()`, so an
+    agent resumed after a `stop` counts as running again) additionally counts
+    as alive RIGHT NOW, provided that start is less than
+    OPEN_AGENT_LIVENESS_CEILING_SECONDS old -- a stranded row from before `ts`
+    is excluded by the `ts` filter itself, so it cannot revive an unrelated
+    later run.
+    """
+    record_ts = _parse_iso_ts(ts)
+    if record_ts is None or not session_id:
+        return False
+
+    relevant = []
+    for row in _read_ledger_rows(cwd, session_id, record_feature):
+        row_ts = _parse_iso_ts(row.get("ts"))
+        agent_id = row.get("agent_id")
+        event = row.get("event")
+        if row_ts is None or row_ts < record_ts or not agent_id or not event:
+            continue
+        relevant.append((row_ts, agent_id, event))
+
+    if not relevant:
+        return False
+
+    now = datetime.now(timezone.utc)
+
+    # Rows come from up to three files; order by time so "last event" is real.
+    relevant.sort(key=lambda r: r[0])
+    last_by_agent = {}
+    for row_ts, agent_id, event in relevant:
+        last_by_agent[agent_id] = (row_ts, event)
+
+    for row_ts, event in last_by_agent.values():
+        open_for = abs((now - row_ts).total_seconds())
+        if event == "start" and open_for < OPEN_AGENT_LIVENESS_CEILING_SECONDS:
+            return True
+
+    last_sign_of_life = max(record_ts, relevant[-1][0])
+    age = (now - last_sign_of_life).total_seconds()
+    return abs(age) <= ACTIVE_RUN_CEILING_SECONDS
 
 
 def _active_is_stale(ts: object) -> bool:
@@ -325,14 +536,9 @@ def _active_is_stale(ts: object) -> bool:
     shown to be current, so it is treated as stale ("unknown", pause check
     skipped) per D12.
     """
-    if not isinstance(ts, str):
+    recorded = _parse_iso_ts(ts)
+    if recorded is None:
         return True
-    try:
-        recorded = datetime.fromisoformat(ts)
-    except (ValueError, TypeError):
-        return True
-    if recorded.tzinfo is None:
-        recorded = recorded.replace(tzinfo=timezone.utc)
     age = (datetime.now(timezone.utc) - recorded).total_seconds()
     return age > ACTIVE_RUN_CEILING_SECONDS or age < -ACTIVE_RUN_CEILING_SECONDS
 
@@ -495,7 +701,7 @@ def resolve_marker_fields(prompt: str, cwd: str, raw_session_id: object) -> tupl
         return "unknown", None, None, session_marker
 
     path = command_run_state_path(cwd, session_id)
-    state, command, feature = read_command_run_state(path)
+    state, command, feature = read_command_run_state(path, cwd, session_id)
     return state, command, feature, session_marker
 
 

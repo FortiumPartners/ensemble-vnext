@@ -1,0 +1,1 @@
+[{"criterion":"FS-11","artifact":".trd-state/command-run-liveness/evidence/FS-11.txt","locator":"ENSEMBLE_COMMAND state=unknown session=sess-fs11","judgeOnly":false},{"criterion":"FS-15","artifact":".trd-state/command-run-liveness/evidence/FS-15.txt","locator":"ENSEMBLE_COMMAND state=active session=sess-fs15 command=implement-trd","judgeOnly":false}]

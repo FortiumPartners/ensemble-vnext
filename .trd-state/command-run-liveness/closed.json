@@ -1,0 +1,12 @@
+{
+  "feature": "command-run-liveness",
+  "trd": "docs/TRD/command-run-liveness.md",
+  "closedAt": "2026-09-30T02:27:24Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this feature has no PRD, so the code was checked against the TRD only, never against product requirements); two claims that only a live run can settle remain open: waits with no subagent activity still lapse after 30 minutes, and whether the Stop judge's pause check then behaves correctly on long runs",
+    "report": ".trd-state/command-run-liveness/audit-build-report.md",
+    "auditedCommit": "5f8dda4"
+  }
+}

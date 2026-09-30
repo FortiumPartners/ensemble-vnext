@@ -1,0 +1,85 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/command-run-liveness.md",
+  "trd_hash": "fcb036ca64ab82b31e92363be20120472a43ce9455a80196929c0f7012a70a3f",
+  "branch": "feature/command-run-liveness/build",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "router.py: activity-based liveness for framework-owned runs",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/router/hooks/router.py",
+        "packages/router/tests/test_router.py"
+      ],
+      "commit": null,
+      "started_at": "2026-09-30T01:19:37.095Z",
+      "completed_at": "2026-09-30T01:32:55.763Z",
+      "last_advanced": "2026-09-30T01:21:15.104Z"
+    },
+    "FIX-002": {
+      "description": "Docs: autonomy.md, CLAUDE.md, hooks.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/rules/autonomy.md",
+        "docs/reference/hooks.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-30T01:19:37.095Z",
+      "completed_at": "2026-09-30T01:32:55.763Z",
+      "last_advanced": "2026-09-30T01:21:15.104Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "2700495",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-30T01:32:56.105Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "2700495",
+    "last_checkpoint_timestamp": "2026-09-30T01:32:56.105Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/command-run-liveness.md#Intended Change",
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "local": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
