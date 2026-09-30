@@ -47,6 +47,21 @@ command_exists() {
     command -v "$1" &> /dev/null
 }
 
+# Does the project (the hook's cwd, which settings.json sets to the project root)
+# declare a Prettier config? Prettier with no config applies ITS defaults —
+# double quotes, semicolons, 80-column wrap — and rewrites every file an agent
+# touches against the project's own style. Measured 2026-09-30: once this hook
+# found the edited file, a one-paragraph prompt edit in audit-trd.js became a
+# 466-line diff in a repo that has no .prettierrc. No config, no Prettier.
+has_prettier_config() {
+    local dir="${1:-$PWD}"
+    compgen -G "${dir}/.prettierrc" > /dev/null && return 0
+    compgen -G "${dir}/.prettierrc.*" > /dev/null && return 0
+    compgen -G "${dir}/prettier.config.*" > /dev/null && return 0
+    [[ -f "${dir}/package.json" ]] && grep -q '"prettier"[[:space:]]*:' "${dir}/package.json" && return 0
+    return 1
+}
+
 # Get formatter command for a given file extension
 # Returns: formatter command string or empty if no formatter for extension
 get_formatter_command() {
@@ -56,7 +71,9 @@ get_formatter_command() {
     case "$ext" in
         # Prettier: JavaScript, TypeScript, HTML, CSS, JSON, YAML, Markdown
         js|jsx|ts|tsx|html|css|json|yaml|yml|md)
-            if command_exists prettier; then
+            if ! has_prettier_config; then
+                :   # no project config: leave the file in the project's own style
+            elif command_exists prettier; then
                 echo "prettier --write"
             elif [[ -x "node_modules/.bin/prettier" ]]; then
                 # Prefer the project's own pinned copy over npx: faster, and it
@@ -185,8 +202,13 @@ parse_file_path() {
 
     # Try jq first (most reliable)
     if command_exists jq; then
-        # Try various JSON paths where file path might be
-        file_path=$(echo "$input" | jq -r '.tool_result.file_path // .file_path // .toolResult.file_path // .result.file_path // empty' 2>/dev/null)
+        # Try various JSON paths where file path might be.
+        # .tool_input.file_path is tried first: it's the real PostToolUse
+        # payload's field for Edit/Write (the file that was actually edited).
+        # Without it first, the catch-all fallback below can match
+        # transcript_path (also an absolute path with an extension, .jsonl)
+        # before ever finding the real target file.
+        file_path=$(echo "$input" | jq -r '.tool_input.file_path // .tool_result.file_path // .file_path // .toolResult.file_path // .result.file_path // empty' 2>/dev/null)
         if [[ -z "$file_path" || "$file_path" == "null" ]]; then
             # Try to find any field ending in _path or containing file
             file_path=$(echo "$input" | jq -r '.. | strings | select(test("^/.*\\.[a-zA-Z0-9]+$"))' 2>/dev/null | head -1)

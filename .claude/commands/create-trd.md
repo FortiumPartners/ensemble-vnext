@@ -809,35 +809,49 @@ took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
      treat that as in-scope source — a TRD verified against a retired PRD
      certifies a retired design.
 
-1. AUTHOR                1 subagent (technical-architect, fresh context)
+1. TRIAGE                1 cheap subagent (haiku) — is this one coupled change, or a
+     list of unrelated items that arrived together? Runs before authoring because
+     that stage is the expensive one; a list is redirected to /sweep instead.
+
+2. CORPUS                1 cheap subagent (haiku) — indexes related PRDs/TRDs already
+     in the repo (path, decisions, superseded-by) so the author inherits provenance
+     instead of re-deciding it. A map, not a summary.
+
+3. AUTHOR                1 subagent (technical-architect, fresh context)
      Sees the PRD + constraints + repo.
      Types every line it writes — objective | decision | task — and records
      decisions in the Key Technical Decisions table WITH alternatives.
 
-2. GROUND                1 subagent, sequential, GENERATIVE
-     Reconciles the decisions against the codebase: consistency, reuse, what
-     becomes unreachable, per-task context. Emits Section 10, Task Grounding.
+4. GROUND                1 subagent when the task list is small; fans out to up to 6
+     agents in parallel on a larger one (4 tasks per agent), each grounding a disjoint
+     set of tasks, then ONE merge agent assembles their blocks into a single Section 10.
+     GENERATIVE — reconciles the decisions against the codebase: consistency, reuse,
+     what becomes unreachable, per-task context.
 
-3. READOUT               main agent — prints the readout, COMMAND COMPLETE,
+5. READOUT               main agent — prints the readout, COMMAND COMPLETE,
      and names /audit-trd as the next step. The TRD is NOT verified yet.
 
    ── /audit-trd runs the rest, as a separate command, whenever you choose ──
 
-4. INDEX                 1 cheap subagent — re-derives objectives/decisions/tasks
+6. INDEX                 1 cheap subagent — re-derives objectives/decisions/tasks
      from the DOCUMENT, so audit works on any TRD, not just one create wrote.
 
-5. VERIFY                5 subagents, parallel, read-only, none may invent.
+7. VERIFY                5 subagents, parallel, read-only, none may invent.
      Findings live in script variables, never in an orchestrator context.
 
-6. RECONCILE             1 subagent — applies what survives, REJECTS bad findings
+8. RECONCILE             1 subagent — applies what survives, REJECTS bad findings
      naming the file that refutes each, and rewrites ## Could Not Verify.
 ```
 
-**Grounding runs sequentially and alone, not as part of the verify wave.** It is
-*generative* — it writes task context rather than finding faults — and the rule that
-fan-out is for verification only applies to it. Four grounding agents in parallel would
-produce four opinions about which code to reuse. It runs *after* decisions exist, because
-grounding a decision that has not been made is meaningless.
+**Grounding runs inside create, not as part of /audit-trd's verify wave — but it is not
+always one agent.** It is *generative* — it writes task context rather than finding
+faults — so the rule that independent fan-out is for verification never applies to a
+single grounding agent's OWN set of tasks; each agent still decides its assigned tasks
+alone. What fan-out buys here is throughput on a large task list, not a second opinion:
+above 4 tasks the work is split into disjoint chunks (never more than 6 agents; parallel()
+caps higher anyway) so no two agents ground the same task, and a merge step assembles one
+Section 10 from their blocks. It runs *after* decisions exist, because grounding a
+decision that has not been made is meaningless.
 
 **Fan out for verification; never for generation.** Independent agents demonstrably
 outperform a single one when challenging and checking, and manufacture when generating.
@@ -897,9 +911,9 @@ it could not.
 
 Return exactly: `<n> findings → <path>` (or `0 findings` and write nothing).
 
-Do **not** return the findings themselves as prose. Six verifiers returning full findings
+Do **not** return the findings themselves as prose. Five verifiers returning full findings
 lists is the single largest contribution to this command's context cost, and the orchestrator
-does not read them — the reconcile stage does. All the orchestrator needs is six one-line
+does not read them — the reconcile stage does. All the orchestrator needs is five one-line
 receipts.
 
 Findings are per-run scratch: overwrite them each invocation, and never treat a stale file
@@ -924,7 +938,7 @@ One subagent reads the findings files plus the draft, applies them, and drafts t
 its own verifiers would be nesting this stage does not need (`constitution.md` §1 permits nesting, but asks that
 it be shallow and purposeful).
 
-Keeping reconcile out of the main agent is deliberate: applying findings across six
+Keeping reconcile out of the main agent is deliberate: applying findings across five
 verifiers means re-reading the draft and editing it repeatedly, which is the other half of
 this command's context cost. The main agent receives the finished readout, prints it, and
 emits COMMAND COMPLETE.
@@ -1058,7 +1072,7 @@ Path is optional if `.trd-state/current.json` has PRD reference.
 After TRD creation:
 1. **`/refine-trd`** — answers the `## Open Questions` this command raised. Interactive by
    default; `--auto` has a product-manager answer from the corpus and code, marking each
-   **answered** / **default** / **owner-only**.
+   **answered** / **default** / **OWNER-CALL**.
 2. **`/audit-trd`** — runs the verification wave and rewrites `## Could Not Verify`.
    **The TRD is not verified until this has run.**
 3. **`/implement-trd`** — begins execution.
@@ -1080,7 +1094,7 @@ The implementation phase:
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the TRD with
-`Artifact({ file_path: "docs/TRD/<feature>.md", favicon: "📐" })` — the markdown FILE, never a
+`Artifact({ file_path: "docs/TRD/<feature>.md", icon: "document" })` — the markdown FILE, never a
 rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
 `trd`) when one is present, and storing it when one is not. Emit the link ABOVE the
 banner. A failed publish is one line of prose and nothing more; it never blocks the banner.

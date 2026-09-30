@@ -30,7 +30,7 @@ preface) — that's a judged, statistical concern, not a pass/fail smoke check.
 | `hooks-health` | No | Yes | Every hook registered in **this repo's** `.claude/settings.json` (+ `notify-complete.sh`) loads and exits 0 on a minimal valid payload; stdout is empty or valid JSON. |
 | `scaffold-integrity` | No | Yes | Scaffolds a throwaway project with `scaffold-project.sh` and asserts the delivered runtime is coherent: every hook registered in the **scaffolded project's** `settings.json` loads and exits 0 run from inside that project; `validate-init.sh` passes; all 13 agents present with parseable frontmatter, explicit `background:`; every shippable manifest hook + `lib/` delivered; `settings.json` valid and hook-set-identical to this repo's; `ensemble.version` stamped; commands vendored with `init-project.md`/`rebase-project.md` excluded; `.trd-state/`/`docs/` created; no retired component in the output. This is the check that would have caught the permitter shipping broken — `hooks-health` alone never would have, because it only ever checked this repo's own (always-working) hooks. |
 | `artifact-contracts` | No | Yes | Static, no scaffolding: every TRD's Master Task List has machine-findable task IDs in a recognised shape (checkbox or table) and `implement-trd.md`'s documented format matches at least one shape actually in use; `packages/core/commands/` ↔ `.claude/commands/` byte-identical; `packages/full/agents-lib/` ↔ `.claude/agents/` byte-identical; `packages/full/commands/plugin-only/*` resolve as symlinks into `packages/core/commands/`; `generate-hooks-artifacts.sh --check` and `check-version-sync.sh` both exit 0; no retired component referenced in `packages/`, `.claude/`, `docs/guides/`. |
-| `implement-one-task` | Yes | Yes | `/implement-trd` against a fixture TRD with exactly one trivial task: banner, `src/greet.js` created, `implement.json` shows the task at `status: success` / `cycle_position: complete`, an implementer + `verify-app` appear in the log, git is on a feature branch. Kept as the **single LLM canary** in the default set — it exercises the most (implement → phase gate → end-of-run review, state advancement, the git branch) for the cost of one scenario. |
+| `implement-one-task` | Yes | Opt-in (`--with-llm`) | `/implement-trd` against a fixture TRD with exactly one trivial task: banner, `src/greet.js` created, `implement.json` shows the task at `status: success` / `cycle_position: complete`, an implementer + `verify-app` appear in the log, git is on a feature branch. The broadest single LLM check (implement → phase gate → end-of-run review, state advancement, the git branch). It left the default set 2026-09-30: `/implement-trd`'s phase gate runs the default set, so it was costing a model session on every phase. |
 | `prd-run` | Yes | Opt-in (`--with-llm`) | `/create-prd` in a throwaway project: exit 0, last output line is a `COMMAND COMPLETE`/`STUCK` banner, `docs/PRD/*.md` created and non-empty, `product-manager` appears in the session log. |
 | `trd-run` | Yes | Opt-in (`--with-llm`) | `/create-trd` in a throwaway project: exit 0, banner, `docs/TRD/*.md` created and non-empty. |
 | `debug-path` | Yes | Opt-in (`--with-llm`) | Same shape as `implement-one-task`, but the task's test is pre-written to fail — exercises VERIFY → DEBUG. A `STUCK` banner is a **pass** here (the point is entering the debug path, not fixing an intentionally-unfixable bug). Asserts `app-debugger` appears in the log and `retry_count` incremented. |
@@ -72,7 +72,7 @@ runs it.
 ## Running it
 
 ```bash
-npm run smoke                                        # default: deterministic + 1 LLM canary
+npm run smoke                                        # default: deterministic only, no model
 ./test/smoke/run-smoke.sh                             # same thing, directly
 ./test/smoke/run-smoke.sh hooks-health                 # one scenario
 ./test/smoke/run-smoke.sh hooks-health scaffold-integrity   # a subset
@@ -81,7 +81,7 @@ npm run smoke:full                                    # default set + all opt-in
 ./test/smoke/run-smoke.sh prd-run                       # a single opt-in LLM scenario by name
 ```
 
-All LLM scenarios (the default's `implement-one-task`, plus the opt-in three) skip (not
+All LLM scenarios skip (not
 fail) when the `claude` CLI isn't on `PATH` — this is the expected CI situation. A skip is
 never reported as a pass; the summary table marks it `SKIP` distinctly from `PASS`/`FAIL`,
 and `run-smoke.sh` exits 0 when everything present passed or was skipped, non-zero when
@@ -105,7 +105,7 @@ test/smoke/
     hooks-health.sh          # deterministic — this repo's hooks
     scaffold-integrity.sh     # deterministic — a scaffolded project's hooks + delivered runtime
     artifact-contracts.sh     # deterministic — static cross-artifact contracts
-    implement-one-task.sh     # LLM canary, default
+    implement-one-task.sh     # LLM canary, opt-in
     prd-run.sh                # LLM, opt-in (--with-llm)
     trd-run.sh                 # LLM, opt-in (--with-llm)
     debug-path.sh               # LLM, opt-in (--with-llm)
@@ -146,8 +146,8 @@ test/smoke/
    deterministic (no LLM), add it to `ALL_SCENARIOS` AND `DETERMINISTIC_SCENARIOS` — the
    latter makes it run serially, fail-fast, before any LLM scenario. If it needs the `claude`
    CLI, think hard before adding it to `ALL_SCENARIOS` (the default set) — the bar is "worth
-   paying LLM cost on every pre-commit run"; `implement-one-task` is the one LLM scenario that
-   clears it today. Otherwise add it to `LLM_OPT_IN_SCENARIOS` instead, runnable by name or
+   paying LLM cost on every pre-commit run", and no LLM scenario clears it today
+   (`implement-one-task` did until 2026-09-30). Otherwise add it to `LLM_OPT_IN_SCENARIOS` instead, runnable by name or
    via `--with-llm`.
 6. Make it independently runnable: `./test/smoke/run-smoke.sh <name>` must work on its own.
 7. Run `shellcheck --severity=warning --exclude=SC1091,SC2317` over anything you add.
@@ -204,9 +204,8 @@ needs an LLM, together they finish in single-digit seconds, and if a registered 
 even load or an artifact contract has drifted, every downstream behavioral assertion is
 noise. Fail fast and cheap.
 
-The default set's one LLM scenario, `implement-one-task`, then runs alone (nothing left to
-share the machine with by default). When `--with-llm` pulls in `prd-run`, `trd-run`,
-`debug-path`, and `verify-functional`, all five LLM scenarios run **concurrently** — this is not an optimisation, it's
+The default set has no LLM scenario. When `--with-llm` pulls in `implement-one-task`,
+`prd-run`, `trd-run`, `debug-path` and the rest, the LLM scenarios run **concurrently** — this is not an optimisation, it's
 what keeps a full `--with-llm` pass from blowing past ten minutes. Measured serially the LLM
 scenarios cost 352s + 297s + 291s + ~380s ≈ over 22 minutes; concurrently the total is the
 slowest one, roughly 6 minutes. They are independent by construction — each builds its own
@@ -243,8 +242,8 @@ Concurrency is the one legitimate speedup, because it does not change what runs.
 
 ### Skipped is not passed
 
-Every LLM scenario (`implement-one-task` in the default set; `prd-run`/`trd-run`/`debug-path`
-under `--with-llm`) needs the `claude` CLI. Where it is absent — CI, a fresh clone — they
+Every LLM scenario (`implement-one-task`, `prd-run`, `trd-run`, `debug-path` and the rest,
+all under `--with-llm`) needs the `claude` CLI. Where it is absent — CI, a fresh clone — they
 **skip**, and a skip is reported distinctly and never counted as a pass. A harness that
 silently degrades to "all green, nothing ran" is worse than no harness. The three
 deterministic scenarios need no CLI and still run everywhere.

@@ -36,9 +36,9 @@ line is **whose decision it is**, not whether a command gets named:
 **When the promised thing is a command invocation, the correction is never to run it** — that
 trades a false promise for an uninvoked command, the same defect through a different door. A
 chain runs when the owner asks for a chain. Nor does a command's authorization reach an
-outward-facing or irreversible act that merely follows from its work — a push, a merge, a
-deploy — those need their own authorization. The whole pipeline unattended stays available;
-it just has to be **asked for**.
+outward-facing or irreversible act that merely follows from its work — a merge, a
+deploy, a release — those need their own authorization. The whole pipeline unattended
+stays available; it just has to be **asked for**.
 
 ## What's legitimate to ask (the FOUR cases)
 

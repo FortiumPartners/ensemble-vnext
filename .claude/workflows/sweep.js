@@ -53,6 +53,32 @@ const SCOPE = PROJECT
  * Regions past this run in a second batch after the first finishes -- they are never dropped. */
 const MAX_PARALLEL_REGIONS = 20
 
+/* Route each fix to the specialist implementer, the same way `/amend` and the implement loop
+ * do -- via `lib/agent-routing.js`'s keyword table. Workflow scripts have no filesystem or
+ * Node.js API access (see the workflow-authoring reference), so this cannot `require()` that
+ * file; the table is copied here instead. Keep it in sync with `KEYWORD_TABLE` in
+ * packages/core/lib/agent-routing.js -- `agent-routing.test.js` pins the source of truth.
+ *
+ * Before this, every fixer was hardcoded to `backend-implementer` regardless of the issue's
+ * area, so a frontend or infra one-liner ran through the wrong specialist. */
+const AGENT_KEYWORD_TABLE = [
+  { agent: 'agent-implementer', keywords: ['llm', 'rag', 'prompt', 'embedding', 'vector', 'langgraph', 'langfuse', 'openai', 'anthropic', 'claude', 'gpt', 'sonar', 'retrieval', 'tool-calling', 'multi-agent'] },
+  { agent: 'cicd-specialist', keywords: ['pipeline', 'github actions', ' ci ', ' cd ', 'ci/cd'] },
+  { agent: 'devops-engineer', keywords: ['infra', 'deploy', 'docker', 'k8s', 'kubernetes', 'aws', 'cloud', 'terraform'] },
+  { agent: 'mobile-implementer', keywords: ['mobile', 'flutter', 'react-native', 'ios', 'android'] },
+  { agent: 'frontend-implementer', keywords: ['frontend', 'ui', 'component', 'react', 'vue', 'angular', 'web page', 'stylesheet', 'css'] },
+  { agent: 'backend-implementer', keywords: ['backend', 'api', 'endpoint', 'database', 'server', 'service', 'migration'] },
+]
+const DEFAULT_FIX_AGENT = 'backend-implementer'
+
+function resolveFixAgent(item) {
+  const haystack = ` ${[item.summary, item.region].filter(Boolean).join(' ').toLowerCase()} `
+  for (const { agent, keywords } of AGENT_KEYWORD_TABLE) {
+    if (keywords.some((k) => haystack.includes(k))) return agent
+  }
+  return DEFAULT_FIX_AGENT
+}
+
 if (!SOURCE) throw new Error('sweep: args.source is required — the issue list, verbatim')
 
 // --------------------------------------------------------------------------- 1. TRIAGE
@@ -212,7 +238,7 @@ const runRegion = ([region, items]) => async () => {
       const r = await agent(fixPrompt(item), {
         label: `fix:${item.id}`,
         phase: 'Fix',
-        agentType: 'backend-implementer',
+        agentType: resolveFixAgent(item),
         effort: 'medium',
         schema: fixSchema,
       })

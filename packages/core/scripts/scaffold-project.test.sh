@@ -1247,7 +1247,7 @@ if conflicting:
     print('conflicting_sources:', conflicting)
 
 core_hooks_dir = os.path.join(repo_root, 'packages/core/hooks')
-exclude_names = {'hooks.manifest.json', 'hooks.json', 'package.json', 'package-lock.json'}
+exclude_names = {'hooks.manifest.json', 'package.json', 'package-lock.json'}
 on_disk = set()
 for fname in os.listdir(core_hooks_dir):
     if not os.path.isfile(os.path.join(core_hooks_dir, fname)):

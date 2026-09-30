@@ -91,12 +91,12 @@ _names_in_array() {
     # scenario landing there turns a seconds-long check into a many-minute one
     # and makes the default set cost money — the specific misregistration the
     # runner's own comment above ALL_SCENARIOS warns about.
-    # ONE model scenario in the default set is deliberate: test/smoke/baseline.json
-    # records implement-one-task under default_set with "llm": true, and the
-    # harness's rationale wants one end-to-end loop measured by default. This
-    # test guards against an UNINTENDED second one, so the sanctioned exception
-    # is named here rather than the check being dropped.
-    local SANCTIONED_LLM_IN_DEFAULT=(implement-one-task)
+    # There is no sanctioned exception any more: implement-one-task left the
+    # default set 2026-09-30 (owner), because /implement-trd's phase gate runs
+    # this set and was paying for a model session on every phase. The list is
+    # kept, empty, so a future deliberate exception is named rather than the
+    # check being dropped.
+    local SANCTIONED_LLM_IN_DEFAULT=()
     local leaked=()
     local n s
     while IFS= read -r n; do

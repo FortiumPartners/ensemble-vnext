@@ -600,11 +600,15 @@ def feature_in_flight(cwd: str) -> str:
     steering an ordinary conversational turn toward /amend against a feature the owner
     already closed, in a different checkout, months ago.
 
-    Three terminators, all read from disk rather than remembered:
+    Two terminators, both read from disk rather than remembered:
       - `.trd-state/<feature>/closed.json` exists -- checked first, because an
         abandoned feature has a close record and no implement.json
-      - the TRD has been archived to docs/TRD/completed/
       - every task in .trd-state/<feature>/implement.json is `success`
+
+    `docs/TRD/completed/` is no longer a terminator: since `process.md`'s "docs are
+    kept as-built rather than archived" change, TRDs stay where they are and nothing
+    moves into that directory on close. `closed.json` (written by `/close-feature`
+    and a passing `/audit-build`) is the only record a feature actually closed.
 
     A feature with NO implement.json AND no closed.json is still in flight: that is
     the PRD/TRD authoring stage, where an amendment to the document being written is
@@ -616,10 +620,6 @@ def feature_in_flight(cwd: str) -> str:
     try:
         root = os.path.abspath(cwd) if cwd else os.getcwd()
         if os.path.exists(os.path.join(root, ".trd-state", feature, "closed.json")):
-            return ""
-        with open(os.path.join(root, ".trd-state", "current.json"), "r", encoding="utf-8") as f:
-            trd = (json.load(f) or {}).get("trd", "")
-        if "TRD/completed/" in str(trd).replace("\\", "/"):
             return ""
         impl = os.path.join(root, ".trd-state", feature, "implement.json")
         if not os.path.exists(impl):

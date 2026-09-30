@@ -40,7 +40,7 @@
       "timeout": 5,
       "registration": "command",
       "shippable": true,
-      "description": "Active state machine: advances cycle_position in `implement.json` as subagents complete."
+      "description": "Best-effort safety net: advances cycle_position in `implement.json` as subagents complete, so the durable marker keeps moving even if the session dies mid-loop."
     },
     {
       "file": "dispatch-ledger.js",
@@ -50,7 +50,7 @@
       "timeout": 5,
       "registration": "command",
       "shippable": true,
-      "description": "Records subagent completion to the dispatch ledger; runs after status.js."
+      "description": "Records subagent completion to the dispatch ledger. `order` reflects registration order only — Claude Code runs the hooks matched on one event in parallel, so this is not guaranteed to run after status.js."
     },
     {
       "file": "discipline-stop.js",

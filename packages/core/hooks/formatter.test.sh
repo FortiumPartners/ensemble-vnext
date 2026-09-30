@@ -43,6 +43,11 @@ setup() {
     # Source the formatter script functions for unit testing
     # We need to extract functions without running main
     source <(sed '/^main "\$@"/d' "$FORMATTER_SCRIPT")
+
+    # Prettier runs only where the project declares a config (has_prettier_config),
+    # so the routing tests run from a directory that declares one.
+    touch "${TEST_DIR}/.prettierrc"
+    cd "$TEST_DIR" || return 1
 }
 
 teardown() {
@@ -114,6 +119,27 @@ function_exists() {
 # =============================================================================
 
 # --- JavaScript/TypeScript (Prettier) ---
+
+@test "prettier: no project config means no formatter, even with prettier installed" {
+    create_mock_command "prettier"
+    export PATH="${MOCK_BIN}:$PATH"
+    rm -f "${TEST_DIR}/.prettierrc"
+
+    result=$(get_formatter_command "js" "/test/file.js")
+    [ -z "$result" ]
+    result=$(get_formatter_command "md" "/test/file.md")
+    [ -z "$result" ]
+}
+
+@test "prettier: a prettier key in package.json counts as a config" {
+    create_mock_command "prettier"
+    export PATH="${MOCK_BIN}:$PATH"
+    rm -f "${TEST_DIR}/.prettierrc"
+    printf '{ "name": "x", "prettier": { "semi": false } }\n' > "${TEST_DIR}/package.json"
+
+    result=$(get_formatter_command "js" "/test/file.js")
+    [ "$result" = "prettier --write" ]
+}
 
 @test "extension routing: .js maps to prettier" {
     create_mock_command "prettier"

@@ -479,9 +479,10 @@ used during a run, [other-commands.md](other-commands.md) for `/close-feature` a
   transcript does not exist), and left the badly formatted `.js` file untouched. The same
   payload with `transcript_path` removed formatted the `.js` file with Prettier. The effect is
   that the hook is a silent no-op, not that it damages the transcript.
-- **`dispatch-ledger.js`'s manifest entry says it "runs after status.js".** Claude Code runs the
-  hooks matched on one event in parallel, so that ordering is not guaranteed. Nothing currently
-  depends on it.
-- **`packages/core/hooks/hooks.json` is a leftover.** It registers `status.js`, `formatter.sh`
-  and `notify.sh` through `${CLAUDE_PLUGIN_ROOT}`; nothing ships or reads it
-  (`packages/full/hooks/hooks.json` is empty).
+- ~~`dispatch-ledger.js`'s manifest entry says it "runs after status.js".~~ **Fixed.** The
+  description now states plainly that Claude Code runs the hooks matched on one event in
+  parallel, so that ordering was never guaranteed. Nothing currently depends on it.
+- ~~`packages/core/hooks/hooks.json` is a leftover.~~ **Fixed.** It registered `status.js`,
+  `formatter.sh` and `notify.sh` through `${CLAUDE_PLUGIN_ROOT}`, but nothing shipped or read
+  it; it has been deleted. (`packages/full/hooks/hooks.json` is still intentionally empty —
+  see `packages/full/hooks/README.md`.)
