@@ -109,7 +109,9 @@ buried in ISSUES. **DECISIONS** — choices the owner didn't make and would want
 default applied, an approach taken, a documented decision overridden), one line each with the
 reason, or "none". **ISSUES** — what is wrong or unresolved, and who has to act; a finding
 nobody must act on belongs in the artifact, not here. **NEXT** — the literal next command,
-runnable as written, or "nothing — this is done", never a menu of options.
+runnable as written, or "nothing — this is done", never a menu of options. Put the
+command alone in a fenced code block, with no other text inside, so the owner can copy it
+with one tap; any explanation goes on the line above the block.
 
 **Length: one screen** — the longest section overflowing means it should point at a document
 instead of reproducing one. **This governs the command's own closing prose too**: narrating
