@@ -1,0 +1,171 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-1.txt",
+      "reason": "Command file frontmatter names refine-verification with argument-hint \"[feature-or-trd] [--auto]\".",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-2.txt",
+      "reason": "Command text states it is the only place any command writes verification-plan.md; /verify-build uses .trd-state/<feature>/verification-plan.md by default (FS-8 evidence).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-3.txt",
+      "reason": "One AskUserQuestion per open item; open items enumerated; \"If nothing is left, ask nothing.\"",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-4.txt",
+      "reason": "All three parts present: what the check saw, the attempts so far, and the cause, beside the criterion text.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-5.txt",
+      "reason": "--auto spawns one product-manager subagent with every open item; \"It asks nothing and it leaves nothing open.\"",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-6.txt",
+      "reason": "Every --auto answer carries one of answered / default / OWNER-CALL, defined in a three-row table.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-7.txt",
+      "reason": "Readout section (shared by both modes): STATE opens with every ruling made, before anything else.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-8.txt",
+      "reason": "Build-and-reverify loop runs by default whenever a plan is present at the default path.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-9.txt",
+      "reason": "--no-fix makes the run report-only even with a plan on disk.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-10.txt",
+      "reason": "No plan: single verify pass, NEXT follows O4: /refine-verification then /verify-build.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-11.txt",
+      "reason": "argument-hint carries --fix [plan-path]; an explicitly named plan is used whatever its timestamp.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-12.txt",
+      "reason": "Readout rule O4: satisfied -> /audit-build.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-13.txt",
+      "reason": "All four parts: stalled, stuck, unbuilt, insufficient-coverage -> /refine-verification then /verify-build.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-14.txt",
+      "reason": "implement-trd readout template: /audit-build is the NEXT when the short-of-threshold branch does not apply (satisfied).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-15.txt",
+      "reason": "All four parts: implement-trd NEXT for stalled/stuck/unbuilt/insufficient-coverage is refine the plan with /refine-verification then /verify-build.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-16.txt",
+      "reason": "All five parts: renderReport emits /audit-build on satisfied and refine-then-verify on the four DIAGNOSIS_OUTCOMES (confirmed at functional-verification.js:527); no verify-plan-recovery or --fix text. not-run is outside the five outcomes.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/refine-verification/evidence/FS-17.txt",
+      "reason": "Tier 1 failed: locator \"verify-flow-as-past\" not found in the artifact (the listing shows verify-flow-as-built). Content not judged. The artifact also lists remaining grep hits for verify-plan-recovery in packages/core/lib/functional-verification.test.js and .claude/verification-notes.md that a re-capture should classify.",
+      "cause": "locator-not-found",
+      "provenAt": null
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/refine-verification/evidence/FS-18.txt",
+      "reason": "rebase-project categorisation: retired-skills list names verify-plan-recovery (Stale, removed); a vendored skill not on the list with no plugin folder stays Custom and preserved.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}

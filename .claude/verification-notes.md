@@ -197,6 +197,9 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   entries (`verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`,
   `verify-plan-recovery`) land in `.claude/skills/` on both paths, whatever
   `selected-skills.txt` says, confirming the bridge skill ships exactly like the check skills.
+  **Superseded:** `refine-verification` (FIX-003) deleted `verify-plan-recovery` and dropped
+  its `framework-skills.txt` row; it no longer ships. Historical record of that run only — the
+  retired-skills table in `rebase-project.md` now removes it from existing projects.
 - [ran] `discovered.js`'s `promoteToTrd(trdPath, rows, opts)` anchors on the LAST table whose
   header row matches `/^\|\s*Task ID\s*\|/i` — a table headed plain `| ID |` is invisible to
   it (`skipped: N`, not an error). A fixture TRD for this library needs a `| Task ID | ... |`
@@ -529,3 +532,56 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   by the dispatch that built and reconciled this feature, one commit before the last-mile
   citation/registration fixes — so a still-more-current sample does not yet exist in this run;
   noted in the evidence file rather than left silent.
+
+## Exercising refine-verification (2026-09-29 run, iteration 1)
+
+- [ran] All 18 criteria in this slice (FS-1..FS-18) are static-text/static-code checks over
+  four files: `packages/core/commands/{refine-verification,verify-build,implement-trd,
+  rebase-project}.md` and `packages/core/lib/functional-verification.js`. No server, browser,
+  live `/refine-verification` or `/verify-build` session is needed — every statement is
+  checked by reading the command prompt's own text or the renderer's own source, per the
+  dispatch's stack hints (never start a claude session; never run smoke). Evidence copied into
+  `.trd-state/refine-verification/evidence/FS-*.txt` rather than citing the source files
+  directly, since those files are unchanged since HEAD and would fail tier 1 as `stale`
+  (same pattern the verification-fix-loop and audit-readout-tense notes already record).
+- [read] `packages/skills/verify-plan-recovery/` no longer exists on disk, and
+  `packages/skills/framework-skills.txt` no longer lists it at all (4 rows: three `check`,
+  one `support` — `verification-setup`). **Correction to a stale prior-run note**: the
+  verification-fix-loop notes/evidence (`judge-claims-1.json`,
+  `docs/TRD/verification-fix-loop.md:362`) recorded `verify-plan-recovery    support` as a
+  row in this same file — that was true when `verification-fix-loop` shipped the skill, but
+  `refine-verification`'s own build (FIX-003) deleted the skill and dropped its row. A future
+  run must not reuse that older locator; grep `framework-skills.txt` fresh each time rather
+  than trusting a cached row list.
+- [ran] The only remaining repo-wide references to the string `verify-plan-recovery` are:
+  three copies of `rebase-project.md`'s retired-skills table (the mechanism FS-18 is about),
+  `functional-verification.test.js`'s negative assertion (`expect(report).not.toContain(...)`,
+  which must keep naming it to prove the renderer no longer does), and dated historical notes
+  in this file and `docs/TRD/*.md`/`docs/rules-history/autonomy.md`. None of these is a live
+  pointer sending an owner to the deleted skill — confirms FS-17.
+- [ran] `functional-verification.js`'s `renderReport` (~line 625-660) branches on
+  `DIAGNOSIS_OUTCOMES.has(outcome)` (stalled/stuck/unbuilt/insufficient-coverage) for the
+  refine-then-verify Next line, and a separate `else if (outcome === 'satisfied')` branch for
+  `` **Next**: `/audit-build` ``. `not-run` and any outcome outside those five falls through
+  with no Next line at all — worth a second look by the judge on whether FS-16's "for all five
+  outcomes" is fully met, since the fifth outcome covered is `insufficient-coverage` (inside
+  `DIAGNOSIS_OUTCOMES`), not a sixth `not-run` case the code also has to handle.
+
+## Exercising skill-retirement claims (e.g. FS-17, refine-verification run, 2026-09-29)
+
+- [read] A "skill X is deleted and nothing shipped still sends the owner to it" criterion is
+  checked with two greps, no live session: (1) confirm no directory named for the skill
+  remains anywhere under `packages/` or `.claude/skills`; (2) repo-wide grep for the skill's
+  name, excluding `.git`, `.trd-state`, and `.claude/worktrees/*` (worktrees hold stale
+  in-progress copies and will false-positive). Every surviving hit must be either the
+  retired-skills table entry that names its replacement (e.g. `rebase-project.md`'s "Skill |
+  Retired | Replaced by" table) or a test/doc asserting the skill's absence — never a command,
+  workflow, or rule text that tells the owner to open or run it.
+- [read] `.claude/rules/autonomy.md` had a whole exemption section for `verify-plan-recovery`
+  (and its two mirrors — `docs/rules-history/autonomy.md`,
+  `packages/core/templates/claude-directory/rules/autonomy.md`) in an earlier revision; as of
+  this run the live copy (`.claude/rules/autonomy.md`, `packages/core/templates/.../autonomy.md`)
+  has had that section fully removed, leaving only the surviving `verification-setup` skill's
+  exemption section. `docs/rules-history/autonomy.md` still names it — expected, since that
+  path is the history record and its purpose is to preserve superseded revisions, not to be
+  kept current.
