@@ -127,3 +127,4 @@ None apply — no UI designs, interaction diagrams or data views; the surface is
 |-------|-----------------|
 | Whether every long wait inside a command has ledger activity at least every 30 minutes (for example, a lead waiting on a background shell task with no subagents) | Such a wait writes no ledger rows. It still lapses after 30 minutes, as today. Measuring how common it is needs live runs |
 | Whether the Stop judge then applies case B correctly on those later turns | The judge's behaviour is unchanged. This change only makes the marker `active` on turns where it was `unknown`; a live long run is the check |
+| Whether the delivered change matches product intent beyond this TRD's two objectives | No PRD exists for this feature (a small change decided in session, 2026-09-29; `current.json` records `prd: null`). `/audit-build` (2026-09-29) checked the code against this TRD's tasks only; checking it against product requirements had no source to run on |
