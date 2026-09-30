@@ -140,7 +140,11 @@ None apply — there are no UI designs, interaction diagrams or data views. The 
 
 ## Could Not Verify
 
+*Rewritten by `/audit-build`, 2026-09-29. FIX-001 to FIX-004 were checked against the code and tests and are no longer listed here.*
+
 | Claim | Why not checked |
 |-------|-----------------|
+| Whether the delivered behaviour matches what the owner asked for, beyond the objectives table above | There is no PRD by design (see **Source PRD**). The audit checked code against O1–O5 and their quoted owner instructions, but had no separate product document to check them against, so a requirement the owner stated in session and the TRD left out would not be caught |
+| That the BATS battery passes and `shellcheck` is clean on `test/smoke/scenarios/verify-fix.sh` (FIX-003's acceptance criteria) | The audit's verifiers reported Jest (1,210 passing) and pytest (112 passing) only; neither BATS nor `shellcheck` was run in this audit |
 | Whether an `--auto` plan closes as many criteria as the owner-agreed plan did in lightning-lane (49 → 64 of 69 met) | Needs a live run that falls short. The only sample had the owner accept every default |
 | Whether the `product-manager` agent's OWNER-CALL rulings match what the owner would choose | Needs live runs. The readout surfaces every ruling so one can be corrected by re-running `/refine-verification` |
