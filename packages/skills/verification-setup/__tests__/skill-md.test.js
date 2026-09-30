@@ -120,7 +120,12 @@ describe('packages/skills/verification-setup/SKILL.md', () => {
     const CLI_PATH = path.join(SKILL_DIR, '..', '..', 'core', 'lib', 'functional-verification.js');
     const cli = fs.readFileSync(CLI_PATH, 'utf8');
 
-    test.each(['check-verification-unfilled', 'read-coverage-floor', 'recommend-coverage-floor'])(
+    test.each([
+      'check-verification-unfilled',
+      'read-coverage-floor',
+      'recommend-coverage-floor',
+      'read-never-unattended'
+    ])(
       '%s is named by the skill and dispatched by functional-verification.js',
       (name) => {
         expect(parsed.body).toContain(name);

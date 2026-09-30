@@ -81,7 +81,7 @@ flowchart TD
 | 5b | Phased TRD | model | Step 5b | Writes `docs/plan/<slug>.investigation.md`, then `Workflow(create-trd)` with that file as its source — the `technical-architect` authors and the workflow grounds (see [authoring](authoring.md)). |
 | 6 | Adversarial pass | model | Step 6 | One `code-reviewer` subagent judges five things: root cause vs symptom, regressions in each caller, a simpler fix, conflict with local convention, whether the declared kind matches the diff. Reports only. Runs once; it may send the weight back up, never down. |
 | 5b cont. | Audit | model | Step 5b "Verify" | `Workflow(audit-trd)` against the investigation record (see [authoring](authoring.md)). |
-| 7 | Implement or stop | code | Step 7; `fix-sizing.js` `matchNeverUnattended()`, `fix-plan.js` `plan()` | Touched files are matched against the owner's never-unattended paths in `verification.md`. `plan()` returns whether to write `current.json`, whether to chain, and the banner. Work begins only when `--implement` was passed **and** no never-unattended path matched. |
+| 7 | Implement or stop | code | Step 7; `fix-sizing.js` `matchNeverUnattended()`, `fix-plan.js` `plan()` | Touched files are matched against the owner's never-unattended paths in `verification.md`. `plan()` returns whether to write `current.json`, whether to chain, and the banner. Work begins only when `--implement` was passed **and** no never-unattended path matched. A touched path listed in `verification.md` §5b stops `--implement` — checked by `check-never-unattended <trd> <verification.md>` (`functional-verification.js`), which also stops the chain on an unreadable §5b list rather than treating it as empty. |
 
 ### What each weight runs
 

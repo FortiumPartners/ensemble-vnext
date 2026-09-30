@@ -31,7 +31,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { maskFencedLines, findSection } = require('./trd-parser');
+const { maskFencedLines, findSection, parseTrd } = require('./trd-parser');
+const { matchNeverUnattended } = require('./fix-sizing');
 
 // ---------------------------------------------------------------------------
 // checkEvidence — tier 1 of FR-3 (§3.2)
@@ -467,6 +468,115 @@ function recommendCoverageFloor(runs) {
         ? null
         : { feature: lowest.feature, proven: lowest.proven, total: lowest.total, share: lowest.share },
   };
+}
+
+// ---------------------------------------------------------------------------
+// readNeverUnattended — parses verification.md §5b (never-unattended-paths FIX-001)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses the owner-governed "never unattended" path list out of the heading containing
+ * "never unattended" (case-insensitive), the same fence-aware, section-scoped shape
+ * `readCoverageFloor` uses -- so a stray mention of the phrase elsewhere in the file, or an
+ * example quoted inside a fenced block, cannot be mistaken for the declaration.
+ *
+ * Two accepted forms, per the template: one `- <fragment>` bullet per path, or a single
+ * `Paths: a, b` line. `/plan --implement` never builds a task touching one of these paths
+ * without the owner watching (substring match, done by the caller via `matchNeverUnattended`
+ * -- this function only reads the list).
+ *
+ * @param {string} content - the full contents of a `verification.md`.
+ * @returns {{ paths: string[], status: 'declared'|'none'|'absent'|'invalid', raw: string|null }}
+ *   No heading containing "never unattended" -> `absent`. A section holding only prose (no
+ *   bullets, no `Paths:` line) -> `absent` (nothing declared). One or more bullets, with no
+ *   `Paths:` line -> `declared`, `paths` the stripped bullet text, in document order. A single
+ *   `Paths: a, b` line, with no bullets -> `declared`, split on commas, trimmed, empties
+ *   dropped. `Paths: none` (case-insensitive), alone -> `none`. Both bullets AND a `Paths:`
+ *   line present (any value, including `none`) -> `invalid` -- two conflicting declarations
+ *   in one file is never resolved by guessing which one the owner meant. A `Paths:` line with
+ *   an empty value, or a bullet that is empty after stripping markup, is also `invalid`, with
+ *   `raw` naming the offending line -- an unreadable list must never silently read as `none`
+ *   (D: "an unreadable list stops the build; invalid is never 'no brake'").
+ */
+function readNeverUnattended(content) {
+  if (typeof content !== 'string') {
+    throw new TypeError('readNeverUnattended: content must be a string');
+  }
+  const lines = maskFencedLines(content.replace(/\r\n?/g, '\n').split('\n'));
+  const section = findSection(lines, 'never unattended');
+  if (!section) {
+    return { paths: [], status: 'absent', raw: null };
+  }
+
+  const sectionLines = lines.slice(section.start, section.end);
+
+  const bullets = [];
+  let emptyBulletRaw = null;
+  let pathsLine = null; // { raw: '<original Paths: line>', value: '<text after the colon>' }
+
+  for (const rawLine of sectionLines) {
+    const trimmed = rawLine.trim();
+    if (trimmed === '') continue;
+
+    const bulletMatch = /^[-*+]\s+(.*)$/.exec(trimmed);
+    if (bulletMatch) {
+      const cleaned = bulletMatch[1].replace(/[*`]/g, '').trim();
+      if (cleaned === '') {
+        emptyBulletRaw = emptyBulletRaw ?? trimmed;
+      } else {
+        bullets.push(cleaned);
+      }
+      continue;
+    }
+
+    // Tolerate bold/code wrap around the key, as readCoverageFloor does for "Coverage floor".
+    const pathsMatch = /^paths\s*:\s*(.*)$/i.exec(trimmed.replace(/[*`]/g, '').trim());
+    if (pathsMatch && pathsLine === null) {
+      pathsLine = { raw: trimmed, value: pathsMatch[1].trim() };
+      continue;
+    }
+
+    // Anything else, non-blank, is treated as prose explanation (the template's own
+    // introductory sentences) and ignored -- it is neither a bullet nor a `Paths:` line, and
+    // nothing it could say would hide a declared path.
+  }
+
+  // Both forms present is ambiguous by construction -- conservative per spec: never guess
+  // which one the owner meant, even when the `Paths:` line reads `none`.
+  if (bullets.length > 0 && pathsLine !== null) {
+    return {
+      paths: [],
+      status: 'invalid',
+      raw: `both a "- " bullet list and "${pathsLine.raw}" are present`,
+    };
+  }
+
+  if (emptyBulletRaw !== null) {
+    return { paths: [], status: 'invalid', raw: emptyBulletRaw };
+  }
+
+  if (pathsLine !== null) {
+    if (/^none$/i.test(pathsLine.value)) {
+      return { paths: [], status: 'none', raw: pathsLine.raw };
+    }
+    if (pathsLine.value === '') {
+      return { paths: [], status: 'invalid', raw: pathsLine.raw };
+    }
+    const paths = pathsLine.value
+      .split(',')
+      .map((p) => p.trim())
+      .filter((p) => p !== '');
+    if (paths.length === 0) {
+      return { paths: [], status: 'invalid', raw: pathsLine.raw };
+    }
+    return { paths, status: 'declared', raw: pathsLine.raw };
+  }
+
+  if (bullets.length > 0) {
+    return { paths: bullets, status: 'declared', raw: null };
+  }
+
+  return { paths: [], status: 'absent', raw: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -1028,6 +1138,11 @@ const KNOWN_UNFILLED_DIGESTS = {
   // scaffolded between the two changes holds exactly this copy
   // (`packages/core/lib/__fixtures__/verification.resource-table-v2.md`).
   'resource-table-v2': 'd1495d8d3240e6f413a96fc2a6b394978ebc8efe3425124dbe33226a1a51df97',
+  // The coverage-floor template (never-unattended-paths FIX-001), frozen the moment before
+  // this change adds §5b (the never-unattended paths brake). Every project scaffolded
+  // between the two changes holds exactly this copy
+  // (`packages/core/lib/__fixtures__/verification.coverage-floor-v1.md`).
+  'coverage-floor-v1': 'f561757a678a062e375b9678d2798e85fb97fbbfe116548490498ec393f1e69b',
 };
 
 /**
@@ -1095,6 +1210,7 @@ const VERIFICATION_SECTION_LABELS = {
   'write-permission-column': "§1's `Loop may WRITE data?` column",
   'refresh-split': "§2's fast refresh / full deploy split",
   'coverage-floor': '§5a coverage floor',
+  'never-unattended': '§5b never-unattended paths',
 };
 
 /**
@@ -1131,6 +1247,7 @@ function missingVerificationSections(content) {
   if (!hasTableRowContainingAll(['loop may write data?'])) missing.push('write-permission-column');
   if (!hasTableRowContainingAll(['fast refresh', 'full deploy'])) missing.push('refresh-split');
   if (!hasHeadingContaining('coverage floor')) missing.push('coverage-floor');
+  if (!hasHeadingContaining('never unattended')) missing.push('never-unattended');
   return missing;
 }
 
@@ -1145,6 +1262,7 @@ module.exports = {
   missingVerificationSections,
   readCoverageFloor,
   recommendCoverageFloor,
+  readNeverUnattended,
   VERIFICATION_SECTION_LABELS,
   CAUSES,
   DEFAULT_CAP,
@@ -1196,7 +1314,9 @@ if (require.main === module) {
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
-        '  node functional-verification.js recommend-coverage-floor <trdStateDir>'
+        '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
+        '  node functional-verification.js read-never-unattended <verificationPath>\n' +
+        '  node functional-verification.js check-never-unattended <trdPath> <verificationPath>'
     );
     process.exit(1);
   };
@@ -1361,6 +1481,37 @@ if (require.main === module) {
         }
       }
       console.log(JSON.stringify({ ...recommendCoverageFloor(runs), skipped }));
+    }
+  } else if (subcommand === 'read-never-unattended') {
+    const [verificationPath] = rest;
+    if (!verificationPath) {
+      usage();
+    } else if (!fs.existsSync(verificationPath)) {
+      console.log(JSON.stringify({ paths: [], status: 'absent', raw: null, reason: 'missing' }));
+    } else {
+      const content = fs.readFileSync(verificationPath, 'utf8');
+      console.log(JSON.stringify(readNeverUnattended(content)));
+    }
+  } else if (subcommand === 'check-never-unattended') {
+    const [trdPath, verificationPath] = rest;
+    if (!trdPath || !verificationPath) {
+      usage();
+    } else {
+      const trdMarkdown = fs.readFileSync(trdPath, 'utf8');
+      const { grounding } = parseTrd(trdMarkdown, { path: trdPath });
+      // Every task's grounding `touches`, flattened, in grounding-block order -- the same
+      // source `/plan --implement`'s brake reads (D: "gather touched files in code, never
+      // have the model do either").
+      const touches = Object.values(grounding).flatMap((g) => g.touches || []);
+
+      if (!fs.existsSync(verificationPath)) {
+        console.log(JSON.stringify({ hits: [], status: 'absent', raw: null, touches }));
+      } else {
+        const verificationContent = fs.readFileSync(verificationPath, 'utf8');
+        const { paths, status, raw } = readNeverUnattended(verificationContent);
+        const hits = matchNeverUnattended(touches, paths);
+        console.log(JSON.stringify({ hits, status, raw, touches }));
+      }
     }
   } else {
     usage();

@@ -898,6 +898,22 @@ Apply clearly-correct findings; report the rest in `## Could Not Verify`.
 
 **Every path converges here** — `trivial`, `small`, and (once its own stages finish) `medium`.
 
+`neverUnattendedHit` comes from the owner's never-unattended path list, `.claude/rules/verification.md`
+§5b. One call gathers this run's touched files from the TRD's own grounding and matches them
+against it — the model gathers neither the paths nor the files:
+
+```bash
+node .claude/lib/functional-verification.js check-never-unattended docs/TRD/<slug>.md .claude/rules/verification.md
+```
+
+This prints `{ hits, status, raw, touches }`. `status: 'invalid'` means §5b could not be read —
+**stop here; do not chain into `/implement-trd`** — and name the unreadable line (`raw`) in the
+readout. `status: 'absent'` means the project has no §5b at all — proceed, but add one readout
+line: "no never-unattended list declared — run `/verification-setup`." `status: 'none'` and
+`status: 'declared'` with an empty `hits` both mean no brake; say nothing extra.
+
+Pass `hits` as `neverUnattendedHit`:
+
 ```bash
 node -e '
   const { plan } = require("./.claude/lib/fix-plan");
@@ -906,22 +922,6 @@ node -e '
 { "weight": "small", "route": "plan", "implement": false, "kind": "defect", "slug": "<slug>",
   "neverUnattendedHit": [] }
 JSON
-)"
-```
-
-`neverUnattendedHit` comes from matching this run's touched files against the owner's
-never-unattended path list in `.claude/rules/verification.md` (empty list if it names none):
-
-```bash
-node -e '
-  const { matchNeverUnattended } = require("./.claude/lib/fix-sizing");
-  console.log(JSON.stringify(matchNeverUnattended(JSON.parse(process.argv[1]), JSON.parse(process.argv[2]))));
-' "$(cat <<'"'"'TOUCHES'"'"'
-["src/session.ts"]
-TOUCHES
-)" "$(cat <<'"'"'PATTERNS'"'"'
-[]
-PATTERNS
 )"
 ```
 
@@ -947,7 +947,7 @@ the run is over. Emit nothing.**
 There is no weight at which the flag is refused; there is no weight at which it is implied.
 `workBegins` in `fix-plan.js` does not read the weight at all — only whether `--implement` was
 passed and whether `neverUnattendedHit` came back empty. A path the owner has named
-never-unattended in `verification.md` suppresses the chain regardless of everything else,
+never-unattended in `verification.md` §5b suppresses the chain regardless of everything else,
 with the reason naming the matched paths.
 
 **Why this is a lib call and not a table you read.** These outputs used to be prose in five

@@ -62,7 +62,8 @@ way the file does rather than jumping around:
 6. **§5 What cannot be verified here** — the gaps, stated plainly, so they read as a stated
    limit rather than a silent pass.
 7. **§5a Coverage floor** — see Coverage floor, below.
-8. **§6 Multi-repo** — only when the system spans more than one repository.
+8. **§5b Never unattended** — see Never unattended, below.
+9. **§6 Multi-repo** — only when the system spans more than one repository.
 
 Each call offers, in this order: the detected value (marked as detected, with its source),
 then the file's current value where it differs from the detection, then "keep". An answer of
@@ -99,6 +100,25 @@ written as `Coverage floor: <N>%` or `Coverage floor: none` — the only two for
 `read-coverage-floor` parses. An answer of `0.6` or `60` is written as `60%`, and the
 recommendation (a fraction in the CLI's output) is offered as a percentage too.
 
+## Never unattended
+
+§5b is the list of paths `/plan --implement` will never build without the owner watching.
+
+The question itself states that in one sentence before asking for a value: "Never-unattended
+paths are folders `/plan --implement` will never build without you watching — nothing is
+written without your answer." It is asked in the same `AskUserQuestion` call that carries the
+detected default below, so the owner sees the reasoning and the proposal together.
+
+The detected default is every folder that EXISTS in this repository whose path matches
+`auth`, `payments`, `billing`, `migrations`, `secrets`, or `infra`/`prod` (substring match,
+same as the brake itself) — offered as a starting list for the owner to edit, never written
+as-is without an answer. With no matching folder in the repo, the default is `Paths: none`.
+
+Any answer is accepted, including `none` or an edited list, but it is written in exactly the
+two forms `readNeverUnattended` parses: one `- <fragment>` bullet per path, or a single
+`Paths: none` line — never both in the same file, and never a bullet or a `Paths:` value left
+empty.
+
 ## Writing
 
 Once every topic has an answer (an explicit value, "keep", or an owner-only default), the
@@ -106,10 +126,11 @@ whole file is written at once, in the current shape. There is no preview step an
 confirmation — invoking this skill was the approval. A section the interview did not change
 keeps its owner-authored content verbatim.
 
-After writing, the skill re-runs `check-verification-unfilled` and `read-coverage-floor`
-against the file it just wrote. A non-empty `missingSections`, or a floor that reads
-`invalid`, is the skill's own defect — report it in ISSUES rather than silently shipping a
-file the next check would flag.
+After writing, the skill re-runs `check-verification-unfilled`, `read-coverage-floor`, and
+`read-never-unattended` against the file it just wrote. A non-empty `missingSections`, a
+floor that reads `invalid`, or a never-unattended list that reads `invalid`, is the skill's
+own defect — report it in ISSUES rather than silently shipping a file the next check would
+flag.
 
 ## Never
 

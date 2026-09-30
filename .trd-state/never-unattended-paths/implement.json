@@ -1,0 +1,96 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/never-unattended-paths.md",
+  "trd_hash": "c337a0039de1169a8c2d84352c46b1ba6a7d3b411c62e48b93d6ca3f5e1673de",
+  "branch": "feature/never-unattended-paths/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Template §5b, reader, checker, digest, section label",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/__fixtures__/verification.coverage-floor-v1.md",
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        "packages/core/templates/claude-directory/rules/verification.md",
+        ".claude/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-30T20:16:56.367Z",
+      "completed_at": "2026-09-30T20:29:16.615Z",
+      "last_advanced": "2026-09-30T20:18:35.673Z"
+    },
+    "FIX-002": {
+      "description": "verification-setup interview topic",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verification-setup/SKILL.md",
+        "packages/skills/verification-setup/__tests__/skill-md.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-30T20:16:56.367Z",
+      "completed_at": "2026-09-30T20:29:16.615Z",
+      "last_advanced": "2026-09-30T20:18:35.674Z"
+    },
+    "FIX-003": {
+      "description": "plan.md Step 7 calls check-never-unattended",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-30T20:16:56.367Z",
+      "completed_at": "2026-09-30T20:29:16.615Z",
+      "last_advanced": "2026-09-30T20:18:35.674Z"
+    },
+    "FIX-004": {
+      "description": "Reference docs",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/reference/verification.md",
+        "docs/reference/other-commands.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-30T20:16:56.367Z",
+      "completed_at": "2026-09-30T20:29:16.615Z",
+      "last_advanced": "2026-09-30T20:18:35.674Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/never-unattended-paths.md#Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree; no service needed"
+      }
+    }
+  }
+}
