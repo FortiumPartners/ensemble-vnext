@@ -585,3 +585,73 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   exemption section. `docs/rules-history/autonomy.md` still names it — expected, since that
   path is the history record and its purpose is to preserve superseded revisions, not to be
   kept current.
+
+## Exercising command-run-liveness (2026-09-29 run, iteration 1)
+
+- [ran] `packages/router/hooks/router.py` (mirrored byte-identical to `.claude/hooks/router.py`,
+  confirmed with `diff -q`) is fully exercisable as a black box with no `claude` session: build a
+  throwaway project dir with `.trd-state/_command-runs/<session>.json`, an optional
+  `.trd-state/current.json`, `.trd-state/<feature>/dispatch.jsonl` and/or
+  `.trd-state/_dispatch.jsonl` ledger rows, and — for a command the router must treat as
+  framework-owned — a `.claude/commands/<name>.md` file containing the literal substring
+  `notify-complete.sh`. Pipe `{"prompt": "<non-slash text>", "cwd": "<dir>", "session_id":
+  "<session>"}` as JSON into `python3 router.py` and read the `ENSEMBLE_COMMAND state=...` line
+  out of `hookSpecificOutput.additionalContext` in the printed JSON. All 15 of this feature's
+  criteria (FS-1 through FS-15) were reproduced this way in one sitting, each in under a second,
+  using a fresh scratch directory per scenario that needed a clean `current.json`/ledger state
+  (scenarios that only differ in ledger rows and the run-state file were layered into one shared
+  directory instead, filtering ledger rows by `session_id` keeps them from cross-contaminating).
+- [ran] `.claude/commands/<name>.md` need not resemble a real command file — the framework-owned
+  check (`_is_framework_owned_command`) only requires the file to exist at that exact path and
+  contain the substring `notify-complete.sh` anywhere in its text. A one-line fixture
+  (`calls notify-complete.sh`) is sufficient and was used throughout instead of copying the real
+  multi-hundred-line command prompts.
+- [ran] `_safe_feature_dir` neutralizes path traversal by taking `os.path.basename()` first, so
+  a `current.json` `trd` value like `"../../../etc/passwd.md"` does NOT need special-casing —
+  it resolves to the harmless single component `passwd`. The actual "rejected" case (FS-11) is a
+  `trd` value whose basename IS itself `".."` or `"."` (or contains a literal `/`/`\` after
+  basename-ing, which basename already prevents on POSIX) — set `current.json`'s `trd` field to
+  exactly `".."` to hit the explicit rejection branch, not a deep multi-segment traversal string.
+- [read] **Correction (iteration 2, 2026-09-30): the FS-11 decoy-path note above was wrong** —
+  it named `<project>/decoy/dispatch.jsonl` as the useful decoy location. That path is NOT what
+  a `..` traversal from `.trd-state/` would ever name, so the judge (iteration 1) correctly
+  rejected the resulting artifact as proving nothing ("a traversal through '..' would not reach
+  either"). The path the criterion actually needs decoy'd is
+  `.trd-state/../dispatch.jsonl` == `<project-root>/dispatch.jsonl` (a sibling of `.trd-state/`,
+  not a subdirectory under the project root, and NOT under `.trd-state/` itself). Write the
+  fresh session rows there. Confirm the rejection two ways in the same evidence artifact: (1)
+  call `router._ledger_paths(cwd, None)` directly and show `<project-root>/dispatch.jsonl` is
+  absent from the returned list; (2) a **control run** — copy the project, move the identical
+  fresh rows into `.trd-state/_dispatch.jsonl` (the shared ledger the router does read), rerun
+  the same prompt, and show it now reads `state=active`. Without the control run, `state=unknown`
+  in the test run is also consistent with "no ledger was read at all," which proves nothing
+  about the rejection specifically — this is exactly the gap iteration 1's judge flagged
+  (`cause: evidence-missing`).
+- [read] **Correction (iteration 2, 2026-09-30): the FS-15 evidence in iteration 1 used a
+  non-framework command name** (`/anything-not-framework-owned`) instead of `implement-trd`, and
+  the judge rejected it for not exercising "a framework command" as the criterion states — even
+  though the router's actual behaviour for a record under the 30-minute ceiling does not consult
+  framework-ownership at all (`read_command_run_state` returns `active` immediately once
+  `_active_is_stale(ts)` is `False`, before `_is_framework_owned_command` is ever called). Rebuild
+  FS-15 with `command: "implement-trd"` and a real `.claude/commands/implement-trd.md` containing
+  `notify-complete.sh`, `ts` ~10 minutes old, and no ledger file anywhere in the project at all —
+  confirms `state=active` with nothing to read, and that the framework-ownership/ledger-liveness
+  path (FIX-001) is only reached once a record is already stale.
+- [ran] `_ledger_paths()` can be inspected directly and cheaply without invoking the whole hook:
+  `python3 -c "import sys; sys.path.insert(0, '<repo>/packages/router/hooks'); import router;
+  print(router._ledger_paths('<cwd>', None))"` — confirms exactly which files a given
+  `current.json`/`record_feature` combination will read, useful for verifying FS-9/FS-10/FS-11's
+  path-selection claims before or instead of running the full router end to end.
+- [ran] A >64KB ledger (FS-12) is trivial to produce: pad with ~3000 rows for an unrelated
+  `session_id` (ignored by the session filter) ahead of one fresh, real row for the session under
+  test, as the file's last line — `_tail_read`'s 64KB tail window plus its "drop the partial first
+  line" logic reads the fresh row correctly regardless of file size, confirmed at 353KB.
+- [ran] An unreadable ledger (FS-13) is reproduced by making the ledger PATH A DIRECTORY instead
+  of a file (`mkdir -p .trd-state/_dispatch.jsonl`) rather than chmod 000 (fragile across
+  filesystems/users) — `open()` raises `IsADirectoryError`, caught by `_tail_read`'s bare `except
+  OSError` and degraded to `""`, with zero stderr output and exit 0.
+- [ran] To prove FS-14 ("reading never rewrites the run record"), diff both the file's raw
+  content AND its mtime (`stat -f %m` on macOS) before and after invoking the router with a
+  non-slash prompt against an already-`active` record — content alone isn't quite enough proof
+  since a rewrite with identical values would look the same; the mtime being bit-for-bit
+  unchanged is what actually rules out a rewrite-with-same-content path.

@@ -1,0 +1,144 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-1.txt",
+      "reason": "Router read state=active for a 45-minute-old /implement-trd record kept alive by fresh start/stop ledger rows after ts.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-2.txt",
+      "reason": "Router read state=unknown when the newest ledger row after ts was a stop 31 minutes old with no open agent.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-3.txt",
+      "reason": "Router read state=unknown for a stale /code-review record despite fresh ledger rows for the session.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-4.txt",
+      "reason": "Router read state=unknown for /simplify, whose command file exists without notify-complete.sh, despite a fresh ledger row.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-5.txt",
+      "reason": "Router read state=unknown when the only fresh ledger row belonged to a different session.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-6.txt",
+      "reason": "Router read state=unknown when the only ledger row was an unmatched start before the record's ts.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-7.txt",
+      "reason": "Router read state=active from an open agent started 40 minutes ago, after ts and under 4 hours old, with no row in the last 30 minutes.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-8.txt",
+      "reason": "Router read state=unknown when the only open agent had started 4.5 hours ago.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-9.txt",
+      "reason": "Router read state=active from rows only in the shared _dispatch.jsonl while current.json named fs9-current-feature (shown in the IN FLIGHT line).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-10.txt",
+      "reason": "Router read state=active from rows in the shared _dispatch.jsonl with no current.json.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-11.txt",
+      "reason": "Artifact shows state=unknown but proves nothing about rejection: the decoy ledger was placed at <project>/decoy/dispatch.jsonl, which a traversal through '..' would not reach either (it names <project>/dispatch.jsonl), and the control run the definition requires (same rows in _dispatch.jsonl reading active) is not in the artifact. The _ledger_paths() inspection is asserted in the claim only.",
+      "cause": "evidence-missing",
+      "provenAt": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-12.txt",
+      "reason": "Router read state=active from the fresh last row of a >64 KB ledger, exit 0, well-formed JSON on stdout.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-13.txt",
+      "reason": "Router read state=unknown with exit 0 and empty stderr when the ledger path was a directory.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-14.txt",
+      "reason": "Run record content (ts 2026-09-30T00:55:36.506367Z) and mtime identical before and after a read that resolved state=active.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/command-run-liveness/evidence/FS-15.txt",
+      "reason": "Artifact exercises /anything-not-framework-owned, not a framework command; the criterion (and definition row: record for implement-trd at now-10 min, no ledger) concerns a framework run, which was never exercised.",
+      "cause": "evidence-missing",
+      "provenAt": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}
