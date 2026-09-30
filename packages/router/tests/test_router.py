@@ -1019,9 +1019,11 @@ class TestFeatureInFlightTerminator:
                          {"A": {"status": "success"}, "B": {"status": "success"}})
         assert feature_in_flight(cwd) == ""
 
-    def test_archived_trd_terminates_the_hint(self, tmp_path):
+    def test_archived_trd_path_no_longer_terminates_the_hint(self, tmp_path):
+        # docs/TRD/completed/ is legacy (process.md: docs stay put, kept as-built) --
+        # only closed.json closes a feature now.
         cwd = self._tree(tmp_path, "docs/TRD/completed/feat.md", None)
-        assert feature_in_flight(cwd) == ""
+        assert feature_in_flight(cwd) == "feat"
 
     def test_no_implement_json_is_still_in_flight(self, tmp_path):
         # PRD/TRD authoring stage — an amendment to the document being written is right.

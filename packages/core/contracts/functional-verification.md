@@ -163,8 +163,9 @@ content:
 
 - it **exists** at the claimed path;
 - it is **non-empty** (more than zero bytes);
-- its mtime is **newer than HEAD's commit time** — an artifact older than the code it claims
-  to prove is not evidence of anything the current code does.
+- its mtime is **newer than the freshness floor** (the later of HEAD's commit time and the
+  verification loop's start time) — an artifact older than that is not evidence of anything
+  the current run's code does.
 
 A claim that names no artifact — because none applies, or none could be produced — is not
 automatically a failure. It carries a stated reason instead, and the criterion can still

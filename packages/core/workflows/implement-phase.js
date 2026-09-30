@@ -1,10 +1,10 @@
 export const meta = {
   name: 'implement-phase',
   description: 'Execute one phase of a TRD implementation: dispatch its tasks by wave, then gate the phase',
-  whenToUse: 'Invoked by /implement-trd once per phase, after the command has computed the wave partition (task-graph.js) and pre-assembled every prompt this script needs. This script opens no file and runs no shell -- every input arrives in args. It dispatches each eligibility wave of tasks in parallel, awaits sequentially between waves so a later wave never starts before an earlier one that shares a touched file finishes, then gates the phase with verify-app and the deterministic battery.',
+  whenToUse: 'Invoked by /implement-trd once per phase, after the command has computed the wave partition (task-graph.js) and pre-assembled every prompt this script needs. This script opens no file and runs no shell -- every input arrives in args. It dispatches each eligibility wave of tasks in parallel, awaits sequentially between waves so a later wave never starts before an earlier one that shares a touched file finishes, then gates the phase with verify-app; the command runs the deterministic battery itself, afterward (D8).',
   phases: [
     { title: 'Dispatch', detail: 'run each wave of tasks in parallel, sequential between waves (D7)' },
-    { title: 'Gate', detail: 'verify-app and the deterministic battery' },
+    { title: 'Gate', detail: 'verify-app (the command runs the deterministic battery itself, afterward)' },
   ],
 }
 
@@ -224,8 +224,8 @@ if (deadTasks.length > 0) {
 phase('Gate')
 
 // verify-app runs as a named agent dispatched from inside this workflow, in the foreground
-// (attested: agent() accepts opts.agentType). Its frontmatter marks it a leaf node (no
-// subagents).
+// (attested: agent() accepts opts.agentType). Its frontmatter permits fan-out (constitution
+// Principle 1); the one thing it must not do is spawn another verify-app on this same task.
 const verifyResult = await agent(GATE.verifyPrompt, {
   label: 'gate:verify-app',
   phase: `Phase ${PHASE}`,

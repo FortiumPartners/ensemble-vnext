@@ -476,16 +476,19 @@ fallback, never an override. On this project's own TRD the parser recovers assig
 14 of 19 tasks — including `agent-implementer` for the prompt-engineering work and
 `verify-app` for the measurement tasks.
 
-**2. Keyword match** on the task description, when the TRD assigned nothing:
+**2. Keyword match** on the task description, when the TRD assigned nothing.
+`.claude/lib/agent-routing.js`'s `KEYWORD_TABLE` is the source of truth — this is a mirror of
+it, in the same order (first entry whose keyword matches wins); if the two ever disagree, the
+code is right and this table is stale:
 
 | Task Keywords | agentType |
 |---------------|-----------|
-| backend, api, endpoint, database, server, service | `backend-implementer` |
-| frontend, ui, component, react, vue, angular, web, page | `frontend-implementer` |
-| mobile, flutter, react-native, ios, android, app | `mobile-implementer` |
-| infra, deploy, docker, k8s, aws, cloud, terraform | `devops-engineer` |
-| pipeline, ci, cd, github actions, workflow | `cicd-specialist` |
-| llm, agent, rag, prompt, embedding, vector, langgraph, langfuse, openai, anthropic, claude, gpt, sonar, retrieval, tool-calling, multi-agent | `agent-implementer` |
+| llm, rag, prompt, embedding, vector, langgraph, langfuse, openai, anthropic, claude, gpt, sonar, retrieval, tool-calling, multi-agent | `agent-implementer` |
+| pipeline, github actions, ci, cd, ci/cd | `cicd-specialist` |
+| infra, deploy, docker, k8s, kubernetes, aws, cloud, terraform | `devops-engineer` |
+| mobile, flutter, react-native, ios, android | `mobile-implementer` |
+| frontend, ui, component, react, vue, angular, web page, stylesheet, css | `frontend-implementer` |
+| backend, api, endpoint, database, server, service, migration | `backend-implementer` |
 
 **3. When neither the TRD nor a keyword decides, use `backend-implementer`.** Do NOT leave
 `agentType` unset.
@@ -835,7 +838,7 @@ that strands however many criteria turn out to need that environment.
 **Persist the per-environment result — this is what §8.1a reads back, hundreds of tool calls
 later, to resolve criteria without re-deriving reachability or asking the question twice.**
 Set it on the in-memory state object first, then persist with `implement-state.save()` —
-follow EXACTLY the pattern §3.6 (step 6, above) already documents for `functional_verification`:
+follow EXACTLY the pattern §3.6 ("Set it on the in-memory state object first…", above) already documents for `functional_verification`:
 never a bare `writeFileSync`, never a read-modify-write of the file on disk.
 
 ```javascript
@@ -1185,8 +1188,11 @@ Advance `phase_cursor`.
 ```bash
 git add -A
 git commit -m "chore(phase {N}): checkpoint (battery {green|red|skipped}; verify-app {status})"
-git push -u origin {branch_name}
 ```
+
+Commit only — no push here. Pushing after every phase buys nothing but network round-trips:
+nobody reads a phase-N branch mid-run, and the branch is pushed once, at Step 9, after the
+whole run (including Step 7.2's review fixes) is on it.
 
 ### 5.3 Context Management at Phase Boundary — DO NOT PAUSE
 
@@ -1214,12 +1220,6 @@ To act on one, it goes into the TRD and the next `--resume` picks it up through 
 parse → graph → dispatch path — never by injecting a task into a dispatch already in
 flight, which would leave the wave partition, the file-conflict serialization and the phase
 gate all computed against a task set that no longer exists.
-
-**Print the reported findings, do not just count them.** `gate.review.summary` carries one
-line per item the reviewer left open. A phase that fixed three things and left one for a
-human is a different phase from one that found four and fixed none, and the banner is the
-only place a human sees either. Open findings are NOT a pause condition — print them and
-continue; Step 7's feature-scale pass sees them again over the whole branch.
 
 Then continue into the next phase. Pause ONLY on the explicit conditions enumerated in
 Step 10 (STUCK with retry exhaustion, unrecoverable error, user `Ctrl+C`). Routine phase
@@ -1288,6 +1288,7 @@ the durable companion to `implement.json` — state records *what* happened, the
   },
   "functional_verification": {
     "prd_resolved": true,
+    "source_kind": "prd | reproduction | intended-change | behaviour-preserved | none",
     "prd_path": "docs/PRD/<feature>.md or null",
     "environments": {
       "<environment name from verification.md §1>": {
@@ -1791,6 +1792,16 @@ before.
 
 ## Step 9: Completion
 
+### 9.0 Final push
+
+```bash
+git push -u origin {branch_name}
+```
+
+The one push of the run — everything committed at each phase checkpoint (Step 5.2) and by
+Step 7.2's review fixes goes up together. A network failure here follows the same retry-then-
+pause handling as any other git push (Step 10).
+
 **Format: the four-section readout in `.claude/rules/command-status.md`** — STATE, DECISIONS,
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session.
 
@@ -1886,7 +1897,7 @@ Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, and **un
 used `--no-verify`** (i.e. Step 8 actually ran), publish the verification report:
 
 ```
-Artifact({ file_path: ".trd-state/<feature>/verification-report.md", favicon: "✅",
+Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "check",
            url: "<artifacts.json's verification-report key, if present>" })
 ```
 
@@ -1900,7 +1911,7 @@ call per skill, in the same call shape as the report above, plus a `files` map f
 
 ```
 Artifact({ file_path: "<pagesDir>/<skill>/index.html", files: { "img/…": "<pagesDir>/<skill>/img/…" },
-           favicon: "🖼", url: "<artifacts.json's <skill> key, if present>" })
+           icon: "image", url: "<artifacts.json's <skill> key, if present>" })
 ```
 
 Store the returned URL back under the skill's own name in `artifacts.json` (beside `prd`,

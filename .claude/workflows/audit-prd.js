@@ -124,9 +124,12 @@ const INDEX_FREE_VERIFIERS = [
   technologies outside the declared stack, figures below a stated floor, prohibited patterns,
   contradicted invariants.
 
-  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
-  referenced ID in its live target file. Report every one that does not resolve, naming the
-  ID and the file searched.
+  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line). For each one,
+  quote the exact line in ${PRD} where it appears -- this is what makes the ID real rather
+  than remembered. Then grep the referenced ID in its live target file. Report every one that
+  does not resolve, naming the ID, quoting the ${PRD} line it came from, and the file
+  searched. An ID you cannot quote from ${PRD} is not a citation to check -- do not report it
+  as missing.
 
 Both are pass/fail per item. A miss is a miss; do not interpret.`,
   },
@@ -455,6 +458,7 @@ empty ones:
   CONFIRM THESE ARE WANTED — no source names them
   FIXED THE CITATION — referenced ID did not resolve
   CORRECTED A STALE CLAIM — the PRD asserted something the code contradicts
+  REJECTED THESE FINDINGS — and the file that refutes each
   CAVEAT — what this run did NOT check: <n> claims left unchecked (see the PRD's
     ## Could Not Verify), and any verifier that failed to report. Name both when both
     apply -- a coverage gap and a deferred claim are different facts and this is the only

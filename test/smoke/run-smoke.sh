@@ -10,7 +10,7 @@
 # non-zero if any scenario failed.
 #
 # Usage:
-#   ./run-smoke.sh                        Deterministic checks + implement-one-task canary
+#   ./run-smoke.sh                        Deterministic checks only (no model, no API cost)
 #   ./run-smoke.sh hooks-health            Run one scenario by name
 #   ./run-smoke.sh hooks-health prd-run    Run a subset by name
 #   ./run-smoke.sh --with-llm              Default set + the opt-in LLM scenarios
@@ -161,25 +161,24 @@ SMOKE_TOTAL_BUDGET="${SMOKE_TOTAL_BUDGET:-900}"
 # The refresh hook must never fire mid-scenario and rewrite a fixture runtime.
 export ENSEMBLE_RUNTIME_REFRESH_DISABLE=1
 
-# Default set: deterministic checks (no LLM, no API cost) plus ONE end-to-end
-# LLM canary. Every real defect found in this framework recently was SILENT
+# Default set: deterministic checks only (no LLM, no API cost). Every real defect found in this framework recently was SILENT
 # ABSENCE (a hook that shipped broken, hooks that never shipped, a manifest
 # that never reached the installed plugin, a drift-checker that always exited
 # 0) — none of those announce themselves in prompt output, which is exactly
 # why the deterministic checks are the default and the LLM scenarios are not.
-# implement-one-task stays in the default set as the single canary that the
-# per-task implement, phase gate, end-of-run review loop still runs end to
-# end, including state advancement and the git branch — the highest-leverage
-# single LLM scenario to keep paying for by default.
-ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts implement-one-task)
+# implement-one-task, the end-to-end implement-loop canary, used to live here.
+# Owner, 2026-09-30: it moved to the opt-in set, because /implement-trd's own
+# phase gate runs this default set, so every phase of every run in this repo
+# was spending ~6 minutes of model time on it. Run it by name or with --with-llm.
+ALL_SCENARIOS=(hooks-health scaffold-integrity artifact-contracts)
 
-# Opt-in LLM scenarios: see LLM_OPT_IN_SCENARIOS below (12 scenarios). These
+# Opt-in LLM scenarios: see LLM_OPT_IN_SCENARIOS below. These
 # cost ~5-6 minutes each (verify-functional roughly double, two live runs)
 # to assert things a user would notice within seconds ("a PRD file
 # appeared") — output QUALITY is test/evals/'s job, deliberately deferred (see
 # test/smoke/README.md). Run explicitly by name, or pass --with-llm to add
 # the whole set to whatever's already selected.
-LLM_OPT_IN_SCENARIOS=(prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup close-feature)
+LLM_OPT_IN_SCENARIOS=(implement-one-task prd-run trd-run debug-path verify-functional rebase-old-tree judge-sees-marker plan-light-fix plan-decoy-root-cause plan-medium-weight verification-artifacts verify-fix verification-md-setup close-feature)
 
 WITH_LLM=false
 EXPLICIT_NAMES=()

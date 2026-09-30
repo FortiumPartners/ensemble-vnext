@@ -168,9 +168,12 @@ the last "## Verification Artifacts" heading outside a code fence in the artifac
     key: 'deterministic', effort: 'low', model: 'haiku',
     prompt: `Three mechanical checks over ${TRD}. Do NOT read it linearly -- all three are lookups.
 
-  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line), then grep each
-  referenced ID in its live target file. Report every one that does not resolve, naming the ID
-  and the file searched.
+  CITATIONS: grep for citation-shaped strings (IDs, section refs, file:line). For each one,
+  quote the exact line in ${TRD} where it appears -- this is what makes the ID real rather
+  than remembered. Then grep the referenced ID in its live target file. Report every one that
+  does not resolve, naming the ID, quoting the ${TRD} line it came from, and the file
+  searched. An ID you cannot quote from ${TRD} is not a citation to check -- do not report it
+  as missing.
 
   CONFORMANCE: read ${PROJECT || 'this repository'}'s .claude/rules/stack.md and
   .claude/rules/constitution.md -- both short -- then grep the artifact for what they
@@ -583,6 +586,7 @@ these?" Use exactly these headings, omitting empty ones:
   CONFIRM THESE ARE WANTED — invented machinery, no objective named
   FIXED THE CITATION — referenced ID did not resolve
   CORRECTED A STALE CLAIM — the artifact asserted something the code contradicts
+  REJECTED THESE FINDINGS — and the file that refutes each
   CAVEAT — what this run did NOT check: <n> claims left unchecked (see the TRD's
     ## Could Not Verify), and any verifier that failed to report. Name both when both
     apply -- a coverage gap and a deferred claim are different facts and this is the only

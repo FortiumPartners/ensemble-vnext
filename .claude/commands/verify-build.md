@@ -403,7 +403,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the verification report with
-`Artifact({ file_path: ".trd-state/<feature>/verification-report.md", favicon: "✅" })` — the markdown FILE, never a
+`Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "check" })` — the markdown FILE, never a
 rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
 `verification-report`) when one is present, and storing it when one is not.
 

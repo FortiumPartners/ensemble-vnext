@@ -214,7 +214,7 @@ After refinement:
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the refined PRD with
-`Artifact({ file_path: "docs/PRD/<feature>.md", favicon: "📋" })` — the markdown FILE, never a
+`Artifact({ file_path: "docs/PRD/<feature>.md", icon: "document" })` — the markdown FILE, never a
 rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
 `prd`) when one is present, and storing it when one is not. Emit the link ABOVE the
 banner. A failed publish is one line of prose and nothing more; it never blocks the banner.

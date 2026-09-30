@@ -210,4 +210,24 @@ describe('sweep', () => {
     const unpinned = unpinnedLabels(agent);
     expect(unpinned).toEqual([]);
   });
+
+  it('routes each fix to the specialist implementer its issue keywords match, not always backend-implementer', async () => {
+    // Regression for the reported defect: every fixer was dispatched as backend-implementer
+    // regardless of the issue's area. This mirrors lib/agent-routing.js's KEYWORD_TABLE
+    // (agent-routing.js is the source of truth; agent-routing.test.js pins it there) since a
+    // workflow script cannot require() it.
+    const mixedIssues = [
+      { id: '1', summary: 'rate box styling is misaligned in the React component', region: 'web/offer' },
+      { id: '2', summary: 'Docker deploy to k8s fails on the workers image', region: 'infra' },
+      { id: '3', summary: 'confirmation email API endpoint returns a 500', region: 'api' },
+    ];
+    const { agent } = await sweep(
+      { triage: { fix: mixedIssues, deferred: [] } },
+      { source: 'three issues' }
+    );
+    const byId = (id) => fixCalls(agent).find((c) => c.opts.label === `fix:${id}`);
+    expect(byId('1').opts.agentType).toBe('frontend-implementer');
+    expect(byId('2').opts.agentType).toBe('devops-engineer');
+    expect(byId('3').opts.agentType).toBe('backend-implementer');
+  });
 });

@@ -56,7 +56,11 @@ Catalog all 1920×1080 frames (screens). For each, record:
 - What state it represents
 - Group state variations of the same page component
 
-Present the inventory to the user:
+Catalog the inventory, then proceed with all of it by default — per `autonomy.md`, the
+user already authorized this command by invoking it, so nothing pauses here to ask which
+screens to include. A screen the catalog itself marks `[DEFERRED - not implemented]` is
+logged as excluded, not asked about; everything else proceeds. Record the inventory for the
+readout:
 ```
 Found 12 screens in "Knowledge Base & Playbook":
   1. KB - categories - all (3988:124034) [BROWSE]
@@ -65,8 +69,10 @@ Found 12 screens in "Knowledge Base & Playbook":
   ...
   12. Change History (3988:125741) [DEFERRED - not implemented]
 
-Proceed with all 12? Or specify which to include:
+Proceeding with 11 of 12 (Change History excluded — deferred, not implemented).
 ```
+If the user's invocation named specific screens to include, honor that instead of the
+default-all behavior.
 
 ### Step 2: Decompose Each Screen into Components
 
@@ -273,7 +279,7 @@ definitions.
 ```
 
 Report to user:
-- Number of screens cataloged
+- Number of screens cataloged, and which (if any) were excluded as deferred/not implemented
 - Number of components identified
 - Number of baseline PNGs downloaded
 - Size of design context JSON

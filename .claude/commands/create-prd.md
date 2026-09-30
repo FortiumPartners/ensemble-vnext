@@ -476,7 +476,7 @@ Before completing, verify:
 After PRD creation:
 1. **`/refine-prd`** — answers the `## Open Questions` this command raised. Interactive by
    default (each question put to the owner); `--auto` has a product-manager answer from the
-   corpus and code, marking each **answered** / **default** / **owner-only**.
+   corpus and code, marking each **answered** / **default** / **OWNER-CALL**.
 2. **`/audit-prd`** — runs the verification wave: source fidelity both directions, whether
    any of it already exists, conformance. Consumes and rewrites `## Could Not Verify`.
 3. **`/create-trd`** — generates technical requirements.
@@ -839,7 +839,7 @@ if there are 40 of them, print the count as one line, not forty.
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the PRD with
-`Artifact({ file_path: "docs/PRD/<feature>.md", favicon: "📋" })` — the markdown FILE, never a
+`Artifact({ file_path: "docs/PRD/<feature>.md", icon: "document" })` — the markdown FILE, never a
 rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
 `prd`) when one is present, and storing it when one is not. Emit the link ABOVE the
 banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
