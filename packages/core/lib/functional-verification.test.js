@@ -1950,7 +1950,7 @@ describe('renderReport: Diagnosis and Next lines', () => {
       );
       expect(report).toMatch(/\*\*Diagnosis\*\*: /);
       expect(report).toContain(
-        '**Next**: agree a recovery plan with `/verify-plan-recovery`, then run `/verify-build --fix`'
+        '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
       );
       // Diagnosis must render after Coverage, not before.
       expect(report.indexOf('**Coverage**')).toBeLessThan(report.indexOf('**Diagnosis**'));
@@ -2014,7 +2014,7 @@ describe('renderReport: Diagnosis and Next lines', () => {
 describe('readStopRule', () => {
   const plan = (stopRuleBody) => `# Verification plan: demo
 
-**Written**: 2026-09-27T00:00:00Z by verify-plan-recovery
+**Written**: 2026-09-27T00:00:00Z by refine-verification
 **From run**: stalled at 2/6, report \`.trd-state/demo/verification-report.md\`
 
 ## Blockers
@@ -2075,6 +2075,57 @@ always: stop when nothing is left to build
     const result = readStopRule(text);
     expect(result.maxRounds).toBe(4);
     expect(result.errors).toEqual([]);
+  });
+});
+
+// FIX-001: refine-verification.md carries a complete example verification-plan.md, in a
+// fenced ```markdown block, so a reader sees a real plan rather than a placeholder-only
+// shape. That example must itself be a plan readStopRule() can parse, or the command's own
+// documentation would be silently wrong about the one section this file's own parser reads.
+describe("refine-verification.md's example plan", () => {
+  const COMMAND_PATH = path.join(
+    __dirname, '..', 'commands', 'refine-verification.md'
+  );
+
+  function extractExamplePlan(commandText) {
+    const match = /^[ \t]*```markdown\n([\s\S]*?# Verification plan:[\s\S]*?)\n[ \t]*```/m.exec(
+      commandText
+    );
+    if (!match) {
+      throw new Error('no fenced example verification plan found in refine-verification.md');
+    }
+    // The fence sits inside a bullet list in the source doc, so every line carries the
+    // bullet's indentation. Strip the common leading whitespace so the extracted text is a
+    // real verification-plan.md, not one where every line is shifted right.
+    return match[1]
+      .split('\n')
+      .map((line) => line.replace(/^  /, ''))
+      .join('\n');
+  }
+
+  test('the fenced example plan is present and readStopRule() parses its stop rule', () => {
+    const commandText = fs.readFileSync(COMMAND_PATH, 'utf8');
+    const examplePlan = extractExamplePlan(commandText);
+
+    const result = readStopRule(examplePlan);
+
+    expect(result.errors).toEqual([]);
+    expect(result.maxRounds).toBe(3);
+    expect(result.closedBelow).toBe(1);
+  });
+
+  test('sanity: readStopRule() reports an error when the example is missing its max-rounds line', () => {
+    const commandText = fs.readFileSync(COMMAND_PATH, 'utf8');
+    const examplePlan = extractExamplePlan(commandText);
+    const withoutMaxRounds = examplePlan
+      .split('\n')
+      .filter((line) => !/^max-rounds:/.test(line.trim()))
+      .join('\n');
+
+    const result = readStopRule(withoutMaxRounds);
+
+    expect(result.maxRounds).toBeNull();
+    expect(result.errors.some((e) => /max-rounds/.test(e))).toBe(true);
   });
 });
 

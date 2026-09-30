@@ -60,21 +60,21 @@ FULL PIPELINE
 /audit-prd     --> verify the PRD against its source
 /create-trd    --> docs/TRD/<feature>.md
 /audit-trd     --> verify the TRD against the PRD
-/implement-trd --> implementation + .trd-state/ tracking (review and hardening run INSIDE it)
+/implement-trd --> implementation + .trd-state/ tracking (review/hardening/verify INSIDE it)
 /audit-build   --> verify delivered code against TRD and PRD; a passing audit closes the feature
 /close-feature --> close a feature on your say-so (records it, clears its in-flight state)
 
 SHORTER PATHS
-/plan <what>         --> defect / small change / refactor: sizes the work and writes a TRD
-                         sized to match — light at trivial/small (no audit), phased and
-                         audited at medium. --implement to build.
-/amend <what>        --> ONE change to the feature in flight. No new TRD.
+/plan <what>   --> defect/small change/refactor: sizes work, writes a matching TRD —
+                   light at trivial/small (no audit), phased+audited at medium. --implement builds.
+/amend <what>  --> ONE change to the feature in flight. No new TRD.
 /implement-trd --reconcile --> re-attest delivered work; re-open anything only claimed done
+/refine-verification --> falls short? agree a plan (--auto: unattended)
+/verify-build  --> fixes by default now too; --no-fix for report-only
 ```
 
-**`/plan` vs `/amend` is about whose plan the work belongs to, not size.** Work on the
-feature in flight, sitting in its path, is an amendment to ITS TRD; `/plan` would fork
-a second TRD for something already understood, which is how a session loses its thread.
+**`/plan` vs `/amend`: whose plan it is, not size.** Work in flight is an amendment to ITS
+TRD; `/plan` would fork a second TRD, losing the thread.
 
 ---
 

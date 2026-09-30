@@ -13,7 +13,7 @@ is a bug.
 | this page | where each path's steps live, every command at a glance, the steps every command shares |
 | [authoring.md](authoring.md) | `/create-prd`, `/audit-prd`, `/refine-prd`, `/create-trd`, `/audit-trd`, `/refine-trd`, `/augment-trd-figma` |
 | [implement-trd.md](implement-trd.md) | `/implement-trd`, step by step |
-| [verification.md](verification.md) | the functional-verification loop, `/verify-build` and `--fix`, the check and support skills |
+| [verification.md](verification.md) | the functional-verification loop, `/verify-build` (fixes by default; `--no-fix` for report-only), `/refine-verification`, the check and support skills |
 | [other-commands.md](other-commands.md) | `/plan`, `/sweep`, `/amend`, `/audit-build`, `/close-feature`, and the maintenance commands |
 | [hooks.md](hooks.md) | every hook: when it fires, what it reads, what it can block |
 | [agents.md](agents.md) | the 13 subagents, who dispatches each, and how dispatch works |
@@ -52,7 +52,7 @@ says where each step lives.
 | 4 | `/create-trd` turns the PRD into a TRD with a task list, then checks every task against the code that already exists ("grounding"). | you, then code + model | `create-trd.md`; `workflows/create-trd.js` |
 | 5 | `/audit-trd`, `/refine-trd` and `/augment-trd-figma` (optional) are the TRD's equivalents of steps 2–3, plus a Figma extraction for UI work. | you | `audit-trd.md`, `refine-trd.md`, `augment-trd-figma.md` |
 | 6 | `/implement-trd` builds the TRD phase by phase, reviews the whole branch once, then runs functional verification (on by default). | you, then code + model | `implement-trd.md`; see [implement-trd.md](implement-trd.md) |
-| 7 | `/verify-build` re-runs verification alone; `--fix` builds and re-verifies in rounds. | you | `verify-build.md`; see [verification.md](verification.md) |
+| 7 | `/verify-build` builds and re-verifies in rounds by default, once a plan exists; `--no-fix` re-runs verification alone. If it falls short, `/refine-verification [--auto]` agrees the plan the next round runs. | you | `verify-build.md`; see [verification.md](verification.md) |
 | 8 | `/audit-build` checks delivered code against TRD and PRD. A task the TRD has but nobody built is set back to pending and `/implement-trd --reconcile` runs automatically; a requirement with no task stops for you, because deciding how to cover it is design. `--report-only` suppresses the chain. When the verdict passes and nothing was chained, it closes the feature: writes `.trd-state/<feature>/closed.json`, clears `current.json`, and commits the record with its report. | you, then code + model | `audit-build.md` "But it DOES close the loop", "Close the feature when the audit passes" |
 | 9 | You open and merge the PR. Merging and releasing are never done by a command. | you | `.claude/rules/autonomy.md` "The authorization is scoped to ONE command" |
 | 10 | `/close-feature` is the other way to close: you say the feature is closed, with an optional note. Same bookkeeping as the audit's close; no judgement. | you, then code | `close-feature.md` "The close step" |
@@ -79,7 +79,7 @@ The other shorter paths:
 |---|---|---|
 | `/sweep` | 1. Resolve the list verbatim (**model**). 2. The sweep workflow triages, then dispatches one fixer per issue — different areas in parallel, one area in sequence (**code** + **model**). 3. The lead confirms every claimed file shows up in `git status`; an issue whose claimed files are untouched is reported failed (**code**). 4. Deferred items are recorded (**code**). | `sweep.md` Steps 1–4; `workflows/sweep.js` |
 | `/amend` | 1. Is this one task — no ordering between parts, one specialism, no undecided product question? File count is deliberately not a signal (**model**). 2. Ground it (**model**). 3. Write the `AMEND-<nnn>` row into the TRD's Master Task List and a discovery row **before** the work (**code**). 4. One implementer, chosen by `lib/agent-routing.js` (**model** does the work). 5. Run the check battery and attest through `implement-state.js` `recordResult()`, which fails a success claim whose files do not exist (**code**). | `amend.md` Steps 1–5 |
-| `/verify-build --fix` | Rounds of: record buildable failures, chain `/implement-trd --reconcile --chained` once, re-verify open criteria, then `lib/functional-verification.js decide-fix-round` (code) says continue or stop. When it stops with work left, NEXT points you to the `verify-plan-recovery` skill, a conversation with you that writes `.trd-state/<feature>/verification-plan.md` for the next run. | `verify-build.md` "`--fix [plan-path]`"; see [verification.md](verification.md) |
+| `/verify-build` | With a plan, rounds of: record buildable failures, chain `/implement-trd --reconcile --chained` once, re-verify open criteria, then `lib/functional-verification.js decide-fix-round` (code) says continue or stop. This is now the default; `--no-fix` runs one verify pass and builds nothing. When it stops with work left, or with no plan at all, NEXT points you to `/refine-verification` (add `--auto` for an unattended answer), which writes `.trd-state/<feature>/verification-plan.md` for the next run. | `verify-build.md` "`--fix [plan-path]`", "`--no-fix`"; see [verification.md](verification.md) |
 
 ### Maintenance commands
 
@@ -116,7 +116,7 @@ does all the work itself.
 | `/refine-trd` | revised TRD | none | interactive: none; `--auto`: product-manager, technical-architect | [authoring](authoring.md) |
 | `/augment-trd-figma` | a Visual Design Context section in the TRD, and downloaded design assets | none | lead only — subagents cannot reach the Figma tools | [authoring](authoring.md) |
 | `/implement-trd` | code and commits; `.trd-state/<feature>/implement.json`; `verification-report.md` | `implement-phase.js` (once per phase group), `verify-functional.js` (once) | the routed implementers, verify-app (phase gate, exercise), product-manager (success definition), app-debugger (verification fixes); the built-in `/code-review` skill over the branch | [implement-trd](implement-trd.md) |
-| `/verify-build` | `verification-report.md`, `verification-state.json`; with `--fix`, a `## Fix run` section | `verify-functional.js` | verify-app, app-debugger; product-manager if no success definition exists yet; `--fix` chains `/implement-trd` | [verification](verification.md) |
+| `/verify-build` | `verification-report.md`, `verification-state.json`; when fixing (the default, once a plan exists), a `## Fix run` section | `verify-functional.js` | verify-app, app-debugger; product-manager if no success definition exists yet; fixing chains `/implement-trd` | [verification](verification.md) |
 | `/audit-build` | `.trd-state/<feature>/audit-build-report.md` | `audit-build.js` | generic workflow agents (index, verifiers); backend-implementer, technical-architect (reconcile); chains `/implement-trd --reconcile` | [other-commands](other-commands.md) |
 | `/close-feature` | `.trd-state/<feature>/closed.json`; clears `current.json` | none | lead only | [other-commands](other-commands.md) |
 | `/plan` | a light or phased TRD; `docs/plan/<slug>.investigation.md` on the medium and PRD routes | `create-trd.js` + `audit-trd.js` (medium), `create-prd.js` (PRD route) | code-reviewer (small, medium); chains `/implement-trd` with `--implement` | [other-commands](other-commands.md) |
@@ -153,6 +153,6 @@ Two variations on this shape:
 
 - **Lead-only commands** (`/close-feature`, `/amend`, `/augment-trd-figma`, the maintenance
   commands) skip step 3; the lead does the work or dispatches with the `Agent` tool directly.
-- **Chaining commands** (`/plan --implement`, `/audit-build`, `/verify-build --fix`) start
+- **Chaining commands** (`/plan --implement`, `/audit-build`, `/verify-build` when fixing) start
   `/implement-trd` in the same session with `Skill(...)`. The run ends on exactly one banner,
   printed by whichever command finishes last (`command-status.md` "Enforcement").

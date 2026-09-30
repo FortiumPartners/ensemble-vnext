@@ -2,7 +2,7 @@
 name: verify-build
 description: Run the functional verification loop on its own — does the delivered software do what the PRD says, checked with artifacts
 version: 1.0.0
-argument-hint: "[trd-path] [--resume] [--cap N] [--fix [plan-path]]"
+argument-hint: "[trd-path] [--resume] [--cap N] [--no-fix] [--fix [plan-path]]"
 category: verification
 ---
 
@@ -70,13 +70,13 @@ set in memory then saved). Report the file's shape too, exactly as §3.6a's `mis
 derived reporting does — naming `/verification-setup` and whichever sections are missing
 (D10, D11) — not a fixed sentence. Partial verification with stated gaps beats none.
 
-**Under `--fix`, that one question is NOT asked** (O3: a `--fix` run asks the owner nothing,
-start to finish). Every environment in the needs-one-thing bucket takes the question's stated
-default — unusable for this run, so its criteria resolve `not_verifiable` — and the thing it
-needs is recorded as a `verification.md` need exactly as `--fix` step 2 records one (D13:
-`kind: 'gap', blocksFeature: false, file: '.claude/rules/verification.md'`), named in ISSUES
-for "the owner, at the next bridge". The owner answers it in `/verify-plan-recovery`, not
-mid-run.
+**When the fix loop runs (default whenever a plan is present, unless `--no-fix` was passed),
+that one question is NOT asked** (O3: the fix loop asks the owner nothing, start to finish).
+Every environment in the needs-one-thing bucket takes the question's stated default — unusable
+for this run, so its criteria resolve `not_verifiable` — and the thing it needs is recorded as
+a `verification.md` need exactly as the fix loop's step 2 records one (D13: `kind: 'gap',
+blocksFeature: false, file: '.claude/rules/verification.md'`), named in ISSUES for "the owner,
+at the next bridge". The owner answers it in `/refine-verification`, not mid-run.
 
 ### 3. Read the inputs from disk
 
@@ -173,9 +173,9 @@ exists (step 3 or 3a); select the checks the TRD's `## Verification Artifacts` s
 (or the same defaults §8.1b applies when it is absent or silent), append their rows, and
 resolve `checks`, `checkComments` and `pagesDir` exactly as §8.1b documents.
 
-Under `--fix` (below), union the plan's `## Extra checks` table into this selection first,
-restricted to rows naming a `check`-role skill in `framework-skills.txt` — a row naming the
-`support`-role `verify-plan-recovery`, or any other skill whose role is not `check`, is left
+Under the fix loop (below), union the plan's `## Extra checks` table into this selection
+first, restricted to rows naming a `check`-role skill in `framework-skills.txt` — a row naming
+the `support`-role `verification-setup`, or any other skill whose role is not `check`, is left
 out of the selection and reported in ISSUES (D11).
 
 ### 3c. Resolve criteria to environments and lanes
@@ -245,19 +245,35 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 section may be "none". No section for what was dispatched or which stages ran: that is in the
 transcript and does not change what the owner does next.
 
+**NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`. Any
+other outcome (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage`) → `/refine-verification`,
+then `/verify-build`. The report's Next line says the same, so the readout and the report never
+disagree on what comes next.**
+
 **When the outcome is `stalled`, `stuck`, `unbuilt` or `insufficient-coverage`** (D3;
 verification-fix-loop TRD §3.1): STATE carries a Diagnosis line, counted over `criteria`'s
 non-`met` entries exactly as `renderReport` counts them for the report — descending by count,
 in words, cause-less entries as "unrecorded". Never re-derive the verdict here; this is a
-count, not a second judgement. NEXT is `renderReport`'s own exact wording, so the readout and
-the report never disagree on what comes next: "agree a recovery plan with
-`/verify-plan-recovery`, then run `/verify-build --fix`".
+count, not a second judgement. NEXT is `renderReport`'s own exact wording per O4, above:
+"refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run
+`/verify-build`".
 
-## `--fix [plan-path]` and `--resume` — mutually exclusive
+## `--fix [plan-path]`, `--no-fix`, and `--resume`
 
-`--fix` and `--resume` are refused together: if both are passed, stop before step 1 and name
-both flags in one line. They are two different re-entries into this command, and only one
-applies per invocation.
+**The build-and-reverify loop below runs by default whenever a plan is present** —
+`.trd-state/<feature>/verification-plan.md`, or a different path named explicitly with
+`--fix <plan-path>`. `--fix` with no path never disables anything; it only ever names a plan.
+
+**`--no-fix` makes the run report-only**, even with a plan on disk: it runs Steps 1–5 above
+once and stops there, exactly like the no-plan case below.
+
+**With no plan present** (and nothing to opt out of): the run is a single verify pass — Steps
+1–5 above — and NEXT follows O4, above: `/refine-verification`, then `/verify-build`.
+
+The fix loop and `--resume` are refused together: if `--resume` is passed alongside `--fix`,
+or alongside a plan that would otherwise trigger the fix loop by default, stop before step 1
+and name the conflict in one line. They are two different re-entries into this command, and
+only one applies per invocation.
 
 ### `--resume`
 
@@ -269,13 +285,12 @@ Only the file's `met` entries carry forward into the resumed run — `not_verifi
 default 3) is a total budget across every resume of one run, not a fresh budget each time
 `--resume` is passed.
 
-### `--fix [plan-path]` (verification-fix-loop TRD §3.6, D1, D8–D11, D13)
+### The fix loop (default when a plan exists; verification-fix-loop TRD §3.6, D1, D8–D11, D13)
 
-Owns an outer loop of build-then-verify rounds wrapped around the steps above (D1) —
-`/verify-build --fix` builds by chaining `/implement-trd`, never by dispatching an implementer
-itself (see "Why this exists separately", above). The plan path defaults to
-`.trd-state/<feature>/verification-plan.md` when that file exists; pass one explicitly to use
-a different plan.
+Owns an outer loop of build-then-verify rounds wrapped around the steps above (D1) — it builds
+by chaining `/implement-trd`, never by dispatching an implementer itself (see "Why this exists
+separately", above). The plan path defaults to `.trd-state/<feature>/verification-plan.md`
+when that file exists; `--fix <plan-path>` names a different one explicitly.
 
 0. **Steps 1–3c run exactly as above, with three additions when a plan is present.** Fold its
    `## Owner rulings` table into `notes` under a `## Owner rulings (verification-plan.md)`
@@ -298,9 +313,9 @@ a different plan.
    plan never re-promotes a blocker. Without `blocksFeature: true` nothing promotes and the
    chained build has nothing to build. Then chain
    `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` to build them, then
-   verify (step 4, below, with its synthesised `resume`). Without a plan and with no terminal
-   state file already on disk: run one ordinary verify pass and go straight to step 6 — a
-   single round, exactly like today's plain run with no `--fix` at all.
+   verify (step 4, below, with its synthesised `resume`). (There is no "no plan" case inside
+   this loop any more — a run with no plan, and no `--fix`, never enters it; see the no-plan
+   branch under the section above.)
 
 2. **Round k ≥ 1 — record.** From the latest `verification-state.json`: for each criterion now
    `met` that carries an earlier ref'd discovery row, record a `met` row for that same `ref`
@@ -363,8 +378,9 @@ a different plan.
    reason>`. The renderer prints `no stop reason recorded` for a blank one so an omission is
    visible, but a blank one is a defect in this step, never an acceptable row. Emit the readout: STATE
    carries the Diagnosis counts (above, unchanged); ISSUES names each `verification.md` need
-   recorded at step 2, "the owner, at the next bridge" (D13); NEXT is `/verify-plan-recovery`
-   when anything buildable or blocked remains, otherwise `/audit-build`. Exactly **one** `═══
+   recorded at step 2, "the owner, at the next bridge" (D13); NEXT follows O4, above:
+   `/refine-verification`, then `/verify-build`, when anything buildable or blocked remains,
+   otherwise `/audit-build`. Exactly **one** `═══
    COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —
    `notify-complete.sh`, and a `PushNotification` (`command-status.md` Path A for
    long-running commands).
@@ -411,14 +427,15 @@ Runs autonomously from invocation to the banner. `AskUserQuestion` is permitted 
 four cases in `autonomy.md` — and on this command the realistic one is §2's preflight batch:
 information that genuinely cannot be derived, asked ONCE, up front, with a stated default.
 
-**Under `--fix`, not even that: a `--fix` run asks the owner no questions from start to
-finish** (O3). Step 2's question takes its stated default and becomes a recorded
-`verification.md` need (step 2, above); the chained build runs under `--chained`, where no
-`AskUserQuestion` reaches the owner (`/implement-trd` §3.7); and every decision the run needs
-comes from the plan the owner already agreed in `/verify-plan-recovery`.
+**Under the fix loop, not even that: it asks the owner no questions from start to finish** (O3).
+Step 2's question takes its stated default and becomes a recorded `verification.md` need (step
+2, above); the chained build runs under `--chained`, where no `AskUserQuestion` reaches the
+owner (`/implement-trd` §3.7); and every decision the run needs comes from the plan the owner
+already agreed in `/refine-verification`.
 
-Do not pause to report interim findings. Do not offer to fix what the loop surfaces — `--fix`
-fixes because it was invoked with that flag, never because a plain run offered to.
+Do not pause to report interim findings. Do not offer to fix what the loop surfaces — the fix
+loop fixes because a plan was present (or `--fix` named one) and `--no-fix` was not passed,
+never because a plain run offered to.
 
 - "I'll continue unless you want me to pause." / "Want me to keep going, or pause for a look?" → **HEDGED OFFERS ARE STILL OFFERS.** Just proceed without announcing. If you draft a sentence offering to pause, delete it and continue.
 - The declarative form is the same move: "I can fix that if you want", "say the word".

@@ -615,8 +615,8 @@ before `## 9. Task Grounding` — a section between the two, not a renumbering o
 
 Ensemble ships a list of framework skills, `framework-skills.txt` (`.claude/skills/`, falling
 back to `packages/skills/` in this framework's own checkout), one skill per line as `<name>
-<role>`. Read that list's `check` rows — a `support` role (e.g. the `verify-plan-recovery`
-bridge skill) is shipped for use elsewhere and is never a candidate here. For each `check`
+<role>`. Read that list's `check` rows — a `support` role (e.g. the `verification-setup`
+skill) is shipped for use elsewhere and is never a candidate here. For each `check`
 row, read that skill's own `SKILL.md` **When it applies** section for its trigger.
 
 **Including an applicable check is the default, not something you choose.** Read each

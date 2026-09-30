@@ -9,7 +9,7 @@ description: >
   past verification runs. Owner-invoked only — no command or agent may reach it.
 when_to_use: >
   Reach for this right after `/init-project` ships the file unfilled, whenever a readout or
-  the `verify-plan-recovery` bridge skill names a need against `.claude/rules/verification.md`,
+  `/refine-verification` names a need against `.claude/rules/verification.md`,
   or any time the owner wants to change what the file says. Not for reading the file (any
   agent does that directly) and not for a run that only needs to check whether it is filled
   (`check-verification-unfilled`, `functional-verification.js`).
@@ -29,7 +29,7 @@ done.
 - A new project, right after `/init-project` copies the template unfilled.
 - A readout — `/implement-trd`, `/verify-build`, or a phase gate — that named this skill
   because `check-verification-unfilled` found a missing section.
-- A `/verify-build --fix` run recorded a need against the file (`verify-plan-recovery`
+- A `/verify-build --fix` run recorded a need against the file (`/refine-verification`
   names such needs in its diagnosis; it never records or edits anything there).
 - Any time the owner wants to change what the file says, filled or not.
 

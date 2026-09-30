@@ -651,7 +651,7 @@ function renderReport(input) {
       `**Diagnosis**: ${open.length} open` + (causeWords ? ` — ${causeWords}` : '')
     );
     lines.push(
-      '**Next**: agree a recovery plan with `/verify-plan-recovery`, then run `/verify-build --fix`'
+      '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
     );
   }
 

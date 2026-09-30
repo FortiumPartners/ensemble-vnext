@@ -83,10 +83,13 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; the functional loop runs by default, --no-verify
   skips it) -> /audit-build, which closes the feature when it passes; /close-feature
-  closes one on your say-so. /verify-build re-runs verification alone; /implement-trd --reconcile
-  re-attests delivered work against the TRD and re-opens anything only claimed done;
-  /audit-prd and /audit-trd verify an artifact, /refine-prd and /refine-trd iterate one.
-  Check .trd-state/current.json first.
+  closes one on your say-so. If verification fell short instead of meeting the
+  coverage floor: /implement-trd -> /refine-verification [--auto] -> /verify-build
+  (builds and re-verifies by default now, like /implement-trd's --verify; --no-fix
+  for a report-only pass) -> repeat until satisfied, then /audit-build.
+  /implement-trd --reconcile re-attests delivered work against the TRD and re-opens
+  anything only claimed done; /audit-prd and /audit-trd verify an artifact,
+  /refine-prd and /refine-trd iterate one. Check .trd-state/current.json first.
 
 * SKILLS + SUBAGENTS. Scan the available skills for one that fits this task and
   invoke it rather than reasoning from memory. Then decide deliberately whether this

@@ -28,8 +28,8 @@ agent instructions are `packages/core/contracts/functional-verification.md` ("th
 |---|---|---|---|
 | `/implement-trd` Step 8 | Every build, unless `--no-verify` | Derive runs in the background at the start; the loop runs once, after the end-of-run review | `implement-trd.md` §3.6, Step 8 |
 | `/verify-build [--resume]` | Built with `--no-verify`, loop was interrupted (`--resume` continues it when its state file says `outcome: null`), or you changed something by hand | Derives the definition in the foreground if it is missing | `verify-build.md` Steps 1–5, "--resume" |
-| `/verify-build --fix` | After a run ended short and you agreed a plan | Rounds of build-then-verify, unattended | `verify-build.md` "--fix" |
-| `verify-plan-recovery` skill | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` | A chat with you that writes the plan `--fix` runs | `packages/skills/verify-plan-recovery/SKILL.md` |
+| `/verify-build` | After a run ended short and you agreed a plan (the default now, once a plan exists) | Rounds of build-then-verify, unattended | `verify-build.md` "--fix" |
+| `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
 | `verification-setup` skill | New project, or a readout names a missing section | Interviews you and writes `.claude/rules/verification.md` | `packages/skills/verification-setup/SKILL.md` |
 
 Both commands dispatch the **same** workflow with the same 22 arguments
@@ -47,7 +47,7 @@ Both commands dispatch the **same** workflow with the same 22 arguments
 | `.trd-state/<f>/judge-{claims,decide,report-input,state}-<n>.json` | the Judge | the checker CLI; `implement-state.save()` for the state payload | Payload files, one set per iteration n (keeps free text off the shell command line) |
 | `.trd-state/<f>/verification-artifacts/<skill>/` | Judge (`verdicts.json`), Render agent (`index.html`, `img/`) | you, as a published page | One page per selected check |
 | `.claude/verification-notes.md` | exercisers | every Exercise and Debug prompt | What past runs learned about running this project; each line marked `[ran]` / `[read]` / `[inferred]` |
-| `.trd-state/<f>/verification-plan.md` | `verify-plan-recovery`, on your yes | `/verify-build --fix` | Blockers, slices, rulings, stop rule |
+| `.trd-state/<f>/verification-plan.md` | `/refine-verification`, on your yes (or an agent's, under `--auto`) | `/verify-build` | Blockers, slices, rulings, stop rule |
 | `.trd-state/<f>/artifacts.json` | the command | the command | Published page URLs, so a re-run updates the same link |
 
 ---
@@ -340,7 +340,7 @@ throws rather than defaulting.
 | Outcome | Means | Where to go next |
 |---|---|---|
 | `satisfied` | Nothing open. The outcome line adds "(N of M not verifiable)" when some were never checked | `/audit-build` |
-| `unbuilt` | Something asked for was never built; the loop stopped rather than debug absent code | `/verify-plan-recovery`, then `/verify-build --fix` |
+| `unbuilt` | Something asked for was never built; the loop stopped rather than debug absent code | `/refine-verification`, then `/verify-build` |
 | `stalled` | A debug round closed nothing | same |
 | `stuck` | The cap ran out with gaps open, or a `--resume` arrived with no budget left | same |
 | `insufficient-coverage` | Too little was proven to call it either way | same |
@@ -363,7 +363,7 @@ without calling the workflow (`implement-trd.md` §8.1). Only the four short out
 | Header | Feature, source, definition path |
 | **Outcome** | Label, plus "(N of M not verifiable)" on a satisfied run, and "(final full-environment run FAILED)" or "(no full-environment run declared)". A failed full deploy never retracts proven criteria |
 | **Reason**, **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
-| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt and insufficient-coverage (`DIAGNOSIS_OUTCOMES`). Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/verify-plan-recovery` then `/verify-build --fix`. The readout repeats both and never re-judges |
+| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt and insufficient-coverage (`DIAGNOSIS_OUTCOMES`). Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
 | Unrecognised Status | Any status that is none of the four, so a typo cannot hide a criterion |
 | Unbuilt / Met / Not Met / Not Verifiable | One table each. Met shows *proven at* iteration; Not Met shows tier 1, reason, blocker, and the debugger's attempt per iteration |
 | `## Fix run` | Appended by `--fix` only (`renderFixSummary()`) |
@@ -416,13 +416,14 @@ loop is still running.
 
 ---
 
-## 12. Recovery: `verify-plan-recovery` then `/verify-build --fix`
+## 12. Recovery: `/refine-verification` then `/verify-build`
 
-### The chat (`verify-plan-recovery`)
+### The chat (`/refine-verification`)
 
-A skill you run yourself. It may ask you questions, but only ones the evidence cannot settle
-(`autonomy.md`). It reads the report, the state file, the discovery ledger, the PRD and TRD
-and any existing plan, then:
+A refine command you run yourself — interactive by default, `--auto` for an unattended
+answer (`autonomy.md`'s "Refine commands"). It may ask you questions, but only ones the
+evidence cannot settle. It reads the report, the state file, the discovery ledger, the PRD
+and TRD and any existing plan, then:
 
 1. States the diagnosis in plain words (outcome, proven/total, causes by name and count).
 2. Works out every plan section from that evidence, without asking: **Blockers** (each
@@ -432,15 +433,18 @@ and any existing plan, then:
    verifiable** (the two never-buildable causes, plus anything the TRD assigns to a
    production-only task), **Extra checks** (check-role skills only), **Stop rule**
    (`max-rounds: 3`, `stop-when-closed-below: 1`).
-3. Asks, in one question, only what is left: a criterion change no document settles, a gap it
-   cannot classify, or access only you have. When nothing is left it asks nothing.
-4. Writes `.trd-state/<f>/verification-plan.md` and shows it. Running `/verify-build --fix`
-   is your approval.
+3. Interactively, asks one question per item left over: a criterion change no document
+   settles, a gap it cannot classify, or access only you have — one `AskUserQuestion` per
+   item, evidence shown alongside. When nothing is left it asks nothing. Under `--auto`, a
+   `product-manager` subagent answers every open item instead, each marked `answered`,
+   `default` or `OWNER-CALL`, and the readout leads with every ruling.
+4. Writes `.trd-state/<f>/verification-plan.md` and shows it. Running `/verify-build`
+   is your approval — `/refine-verification` never starts it itself.
 
-It never edits `verification.md` (it points you at `verification-setup`) and never starts
-`--fix`. Plan shape: `docs/TRD/verification-fix-loop.md` §3.4.
+It never edits `verification.md` (it points you at `verification-setup`). Plan shape:
+`docs/TRD/verification-fix-loop.md` §3.4.
 
-### The unattended rounds (`/verify-build --fix`)
+### The unattended rounds (`/verify-build`, fixing by default)
 
 ```mermaid
 sequenceDiagram

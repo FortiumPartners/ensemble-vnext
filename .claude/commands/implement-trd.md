@@ -33,7 +33,7 @@ category: implementation
 > - `--no-verify` - Opt out of the functional-verification pass entirely: no derive agent is
 >   dispatched, no `.trd-state/<feature>/success-definition.md` appears, and Step 8 is
 >   skipped — Step 9's banner reads `not run (--no-verify set)`.
-> - `--chained` - **For callers only** (`/verify-build --fix`, verification-fix-loop TRD §3.3,
+> - `--chained` - **For callers only** (`/verify-build`'s fix loop, verification-fix-loop TRD §3.3,
 >   D2), never typed by hand: skips the derive pass, §3.6a's environment preflight, Step 8, and
 >   §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
 >   with one handoff line, `[STATUS: /implement-trd] RETURN → …`, reporting the build back to
@@ -52,7 +52,7 @@ $ARGUMENTS
 Parse: TRD path, `--resume`/`--continue`, `--reconcile`, `--include-deferred`,
 `--reset-state`, `--verify`, `--no-verify`, `--chained`. Verification runs by default; `--no-verify` opts out;
 `--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
-step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build --fix` is the one
+step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build`'s fix loop is the one
 thing that passes it.
 
 ---
@@ -896,7 +896,7 @@ discoverable before the loop started, and `not_verifiable` is the status that di
 
 ### 3.7 `--chained` mode (verification-fix-loop TRD §3.3, D2)
 
-**For callers, not for direct use.** `--chained` is how `/verify-build --fix` builds each
+**For callers, not for direct use.** `--chained` is how `/verify-build`'s fix loop builds each
 round's plan blockers and promoted failures —
 `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` — never something the
 owner types by hand.
@@ -907,22 +907,22 @@ proceeds as a normal run: Step 3.6 dispatches the derive pass, Step 8 runs the v
 loop **by default** (skipped only by `--no-verify`), §9.0a publishes, and Step 9 ends the run
 with this command's own `═══ COMMAND COMPLETE: /implement-trd ═══` banner — or
 `═══ COMMAND STUCK: /implement-trd ═══` on Step 10.1 retry exhaustion. Only `--chained` turns
-those off, and only `/verify-build --fix` passes it.
+those off, and only `/verify-build`'s fix loop passes it.
 
 Parsed alongside the other flags (User Input, above). Under it:
 
 - **Step 3.6 does not dispatch the derive pass** — no `product-manager` agent, no
   `.trd-state/<feature>/success-definition.md`. The success definition this run needs already
-  exists from whichever earlier run produced the criteria `/verify-build --fix` is re-verifying.
+  exists from whichever earlier run produced the criteria `/verify-build` is re-verifying.
 - **§3.6a's environment preflight is skipped.** The caller — `/verify-build` step 2 — already
   ran it this same run and persisted `functional_verification.environments`; running it again
   would ask its one batched question a second time, and that question must never fire at all
   inside an unattended chained build (no `AskUserQuestion` reaches the owner under `--chained`).
 - **Step 8 is skipped entirely** — no verification loop, so §8.1a's lane resolution and §8.2's
   "run §3.6a now if none recorded" fallback are never reached; there is nothing here for them to
-  resolve. `/verify-build --fix` runs its own verify pass, over the caller's own criteria, after
+  resolve. `/verify-build` runs its own verify pass, over the caller's own criteria, after
   this chained build returns.
-- **§9.0a publishes nothing** — no report, no check pages. `/verify-build --fix` republishes
+- **§9.0a publishes nothing** — no report, no check pages. `/verify-build` republishes
   those itself once its own verify pass has run.
 - **No banner, no `notify-complete.sh`, no `PushNotification`.** The caller emits the run's only
   banner and its only completion notifications (`command-status.md`: one banner per RUN, not
@@ -936,7 +936,7 @@ in an ordinary build.
 banner:
 
 ```
-[STATUS: /implement-trd] RETURN → chained by /verify-build --fix: <n> of <m> tasks built[; not built: <id> — <why>, …]
+[STATUS: /implement-trd] RETURN → chained by /verify-build: <n> of <m> tasks built[; not built: <id> — <why>, …]
 ```
 
 This line is a sibling of the DISPATCHED/RESUMED/PHASE lines in `## Output discipline` below —
@@ -1481,7 +1481,7 @@ straight to Step 9 exactly as §8.1 already sends them.
 2. **Select (D9).** Read the `check`-role rows of `.claude/skills/framework-skills.txt` (fall
    back to `packages/skills/framework-skills.txt` in the framework's own checkout — the same
    resolution used below; verification-fix-loop TRD D14, §3.8). A `support`-role row (currently
-   `verify-plan-recovery` and `verification-setup`) is never a candidate here — the list has one line per skill and
+   `verification-setup`) is never a candidate here — the list has one line per skill and
    a role column, and only `check` rows are selectable as verification checks. For each named
    `check` skill, read `.claude/skills/<name>/SKILL.md` (fall back to
    `packages/skills/<name>/SKILL.md` in the framework's own checkout — the same resolution the
@@ -1852,10 +1852,10 @@ ISSUES
 
 NEXT
   {the single next command, runnable as written — normally the first of:}
-    {if outcome is stalled/stuck/unbuilt/insufficient-coverage: "agree a recovery plan with
-     `/verify-plan-recovery`, then run `/verify-build --fix`" — the exact wording
-     `renderReport` puts under its own Diagnosis line (verification-fix-loop TRD §3.1), so the
-     readout and the report never disagree on what comes next.}
+    {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): "refine the plan with
+     `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`" —
+     the exact wording `renderReport` puts under its own Diagnosis line (verification-fix-loop
+     TRD §3.1), so the readout and the report never disagree on what comes next.}
     /audit-build <trd> --prd <prd>     verify delivery against the TRD and PRD
     gh pr create --title "<title>"     when the audit is clean
   {name ONE. The others are the owner's to run when they get there.}
@@ -1982,7 +1982,7 @@ cycle" and `Problem` naming every participating task ID.
 
 **Under `--chained` (§3.7), this box is never shown and nothing waits for input** — retry
 exhaustion instead emits `[STATUS: /implement-trd] RETURN → STUCK: <reason>` with no banner,
-and the caller (`/verify-build --fix`) is the one that ends the run.
+and the caller (`/verify-build`) is the one that ends the run.
 
 ---
 

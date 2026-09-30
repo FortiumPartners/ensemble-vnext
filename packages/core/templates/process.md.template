@@ -30,7 +30,11 @@ SHORTER PATHS
                            recorded as a TRD row before the work, verified. No new TRD.
 /sweep <issues>        --> A list of small, unrelated issues from a walkthrough — each
                            fixed in parallel, grounded and attested. No TRD.
-/verify-build          --> Re-run functional verification alone
+/refine-verification   --> Between a verification run that fell short and the next one:
+                           agrees a recovery plan, interactively or with --auto. The only
+                           step /implement-trd and /verify-build both point at.
+/verify-build          --> Builds and re-verifies by default, once a plan exists (like
+                           /implement-trd's --verify); --no-fix for a report-only pass
 /fold-prompt           --> Optimize context for continued work
 
 MAINTENANCE

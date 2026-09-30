@@ -22,9 +22,9 @@
 #   and its Next line naming `--fix`.
 #
 #   Hand-written bridge: `verification-plan.md` is written BY THIS SCRIPT, in
-#   §3.4's exact shape, with `max-rounds: 1` -- the bridge (`verify-plan-recovery`)
+#   §3.4's exact shape, with `max-rounds: 1` -- the plan writer (`/refine-verification`)
 #   is a chat and cannot run headless (VFIX-T001 grounding), so nothing here
-#   invokes that skill. The plan's Slices row names the actual FR-2 criterion id
+#   invokes that command. The plan's Slices row names the actual FR-2 criterion id
 #   read back from Run 1's own verification-state.json, never guessed.
 #
 #   Run 2: `/verify-build <trd> --fix`. Asserts: the discovery ledger holds a row
@@ -322,8 +322,8 @@ else
 fi
 
 # =============================================================================
-# Hand-write the bridge's output: verification-plan.md, in §3.4's exact shape.
-# The bridge (verify-plan-recovery) is a chat and cannot run headless
+# Hand-write the plan writer's output: verification-plan.md, in §3.4's exact shape.
+# The plan writer (/refine-verification) is a chat and cannot run headless
 # (VFIX-T001 grounding) -- this substitutes for it deliberately.
 # =============================================================================
 
@@ -354,7 +354,7 @@ mkdir -p "$STATE_DIR"
 cat > "$PLAN_FILE" <<EOF
 # Verification plan: ${FEATURE}
 
-**Written**: $(date -u +%Y-%m-%dT%H:%M:%SZ) by verify-plan-recovery
+**Written**: $(date -u +%Y-%m-%dT%H:%M:%SZ) by /refine-verification
 **From run**: unbuilt at 1/2, report \`${STATE_DIR_REL}/verification-report.md\`
 
 ## Blockers

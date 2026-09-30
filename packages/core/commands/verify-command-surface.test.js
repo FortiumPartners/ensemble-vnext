@@ -528,12 +528,12 @@ describe('implement-trd.md declares --chained for its caller', () => {
     expect(i4).toBeGreaterThan(i37);
   });
 
-  test('§3.7 states the RETURN line shapes /verify-build --fix waits for', () => {
+  test('§3.7 states the RETURN line shapes /verify-build waits for', () => {
     const section = flat(
       src().split("### 3.7 `--chained` mode")[1].split('## Step 4: Main Execution Loop')[0]
     );
     expect(section).toMatch(
-      /\[STATUS: \/implement-trd\] RETURN → chained by \/verify-build --fix: <n> of <m> tasks built/
+      /\[STATUS: \/implement-trd\] RETURN → chained by \/verify-build: <n> of <m> tasks built/
     );
     expect(section).toMatch(/RETURN → STUCK: <reason>/);
   });
@@ -541,13 +541,19 @@ describe('implement-trd.md declares --chained for its caller', () => {
 
 // Step 9's NEXT line must read exactly as renderReport() writes it
 // (functional-verification.js), so the readout and the report never disagree.
-describe('Step 9 readout NEXT matches renderReport\'s wording', () => {
-  test('NEXT names the bridge then /verify-build --fix', () => {
+describe('Step 9 readout NEXT matches renderReport\'s wording (O4)', () => {
+  test('non-satisfied branch: NEXT names /refine-verification then /verify-build', () => {
     const text = read(CORE_IMPLEMENT);
     const step9 = flat(text.split('## Step 9: Completion')[1].split('### 9.0a')[0]);
     expect(step9).toMatch(
-      /agree a recovery plan with `\/verify-plan-recovery`, then run `\/verify-build --fix`/
+      /refine the plan with `\/refine-verification`.*then run `\/verify-build`/
     );
+  });
+
+  test('satisfied branch: NEXT names /audit-build', () => {
+    const text = read(CORE_IMPLEMENT);
+    const step9 = flat(text.split('## Step 9: Completion')[1].split('### 9.0a')[0]);
+    expect(step9).toMatch(/\/audit-build <trd> --prd <prd>/);
   });
 });
 
@@ -575,25 +581,30 @@ describe('process docs describe the new default', () => {
 // ---------------------------------------------------------------------------
 
 describe('verify-build.md argument-hint', () => {
-  test('argument-hint gains --fix [plan-path]', () => {
+  test('argument-hint carries --no-fix and --fix [plan-path]', () => {
     expect(read(CORE_VERIFY_BUILD)).toMatch(
-      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--fix \[plan-path\]\]"/
+      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\]"/
     );
   });
 });
 
-describe('verify-build.md readout NEXT matches renderReport\'s wording', () => {
-  test('NEXT names the bridge then /verify-build --fix', () => {
+describe('verify-build.md readout NEXT matches renderReport\'s wording (O4)', () => {
+  test('non-satisfied branch: NEXT names /refine-verification then /verify-build', () => {
     const section = flat(read(CORE_VERIFY_BUILD).split('## Readout')[1].split("## `--fix")[0]);
     expect(section).toMatch(
-      /agree a recovery plan with `\/verify-plan-recovery`, then run `\/verify-build --fix`/
+      /refine the plan with `\/refine-verification`.*then run `\/verify-build`/
     );
+  });
+
+  test('satisfied branch: NEXT names /audit-build', () => {
+    const section = flat(read(CORE_VERIFY_BUILD).split('## Readout')[1].split("## `--fix")[0]);
+    expect(section).toMatch(/outcome `satisfied` → `\/audit-build`/);
   });
 });
 
 describe('verify-build.md `--fix` uses the names code and implement-trd.md define', () => {
   const fixSection = () =>
-    flat(read(CORE_VERIFY_BUILD).split("### `--fix [plan-path]`")[1].split('## Output discipline')[0]);
+    flat(read(CORE_VERIFY_BUILD).split("### The fix loop (default when a plan exists")[1].split('## Output discipline')[0]);
 
   test('chains /implement-trd with the --chained flag it declares', () => {
     expect(fixSection()).toMatch(/--reconcile --chained/);

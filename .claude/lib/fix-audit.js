@@ -54,7 +54,7 @@ function frameworkSkillRoles(root) {
 
 /** A skill named in a `## Verification Artifacts` row or `Omitted:` line must be a
  * SELECTABLE check (D14) -- a `support` role is shipped for use elsewhere (e.g. the
- * verify-plan-recovery bridge skill) and is never a valid choice here. */
+ * verification-setup skill) and is never a valid choice here. */
 function checkSkillRole(roles, skill, add) {
   if (!roles) return; // framework-skills.txt absent -- degrade gracefully, no guess
   const role = roles[skill];

@@ -362,7 +362,8 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    | **Update** | Matches the stack, in both, content differs | Replace |
    | **Unchanged** | Matches the stack, in both, identical | No action |
    | **Stale** | Vendored, **exists in the plugin's skill library**, no longer matches the stack | Remove |
-   | **Custom** | Vendored, **does not exist in the plugin's skill library at all** | Report, **preserve** |
+   | **Stale** | Vendored, plugin's skill library no longer has it, AND named in the retired-skills list below | Remove |
+   | **Custom** | Vendored, **does not exist in the plugin's skill library at all**, and not on that list | Report, **preserve** |
    | **Framework** | Every skill listed in `framework-skills.txt` (D14 in `docs/TRD/verification-fix-loop.md` §3.8), whatever its role — always installed | Install if missing; replace if its content differs from the plugin's (same byte-diff as Update) |
 
    **Framework skills are excluded from the Stale rule by name, not by stack match.** The
@@ -370,6 +371,23 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    never match `stack.md` — under the plain Stale rule they would be removed on every
    single rebase. They are installed unconditionally and are never classified Stale,
    whether or not `stack.md` mentions them.
+
+   **Retired framework skills — DELETE THESE BY NAME, no inference required.** A skill
+   dropped from `framework-skills.txt` stops being Framework, but its folder is also gone
+   from the plugin's skill library, not merely off the stack-match table — so the plain
+   Custom row below ("does not exist in the plugin's skill library at all" → preserve)
+   would protect it forever. That is the same trap the Agent diff's retired-agent list
+   closes (§2.1); this list closes it for skills.
+
+   | Skill | Retired | Replaced by |
+   |---|---|---|
+   | `verify-plan-recovery` | FIX-003 (`docs/TRD/refine-verification.md`) | `/refine-verification` |
+
+   A vendored skill named here is Stale (removed) even though the plugin no longer ships
+   any folder for it. A vendored skill NOT named here, with no matching plugin folder, is
+   still Custom and preserved — a wrong deletion destroys work that exists nowhere else.
+   Keep this list current when a framework skill is retired, or the removal will not
+   propagate to any existing project.
 
    **The Custom row is load-bearing and was missing until 2026-08-21.** The stack-match
    table above only knows skills the plugin ships. A project-authored skill —

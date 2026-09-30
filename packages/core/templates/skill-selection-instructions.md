@@ -105,7 +105,7 @@ For each matched skill:
 
 Every skill listed in `packages/skills/framework-skills.txt` ships to every project:
 `check` rows (verify-design-comparison, verify-flow-as-built, verify-data-fidelity) and
-`support` rows (verify-plan-recovery, verification-setup). `scaffold-project.sh` copies them
+the `support` row (verification-setup). `scaffold-project.sh` copies them
 itself on scaffold and refresh, so leave them out of the stack-based selection above.
 
 ---

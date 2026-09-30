@@ -366,7 +366,7 @@ PY
     refute grep -q 'verify-design-comparison' <<<"$APPLY"
 
     # It must say "whatever its role" (or equivalent) rather than re-scoping to
-    # the check-role skills alone -- verify-plan-recovery (role: support) must
+    # the check-role skills alone -- verification-setup (role: support) must
     # equally survive Stale removal.
     grep -qi 'whatever its role' <<<"$DIFF$APPLY"
 
