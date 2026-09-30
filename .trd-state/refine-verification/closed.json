@@ -1,0 +1,12 @@
+{
+  "feature": "refine-verification",
+  "trd": "docs/TRD/refine-verification.md",
+  "closedAt": "2026-09-30T00:56:03Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (the TRD has no PRD by design; its objectives quote the owner's in-session instructions); BATS battery and shellcheck on verify-fix.sh not run in this audit; two claims about --auto quality need live runs that fall short",
+    "report": ".trd-state/refine-verification/audit-build-report.md",
+    "auditedCommit": "f0410ab"
+  }
+}
