@@ -4,7 +4,7 @@
   "trd_hash": "c337a0039de1169a8c2d84352c46b1ba6a7d3b411c62e48b93d6ca3f5e1673de",
   "branch": "feature/never-unattended-paths/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Template §5b, reader, checker, digest, section label",
@@ -75,10 +75,19 @@
       "last_advanced": "2026-09-30T20:18:35.674Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "f0c9eab",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-30T20:29:20.153Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "f0c9eab",
+    "last_checkpoint_timestamp": "2026-09-30T20:29:20.153Z",
     "interrupted": false,
     "interrupt_reason": null
   },

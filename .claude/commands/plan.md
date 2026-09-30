@@ -912,7 +912,8 @@ readout. `status: 'absent'` means the project has no §5b at all — proceed, bu
 line: "no never-unattended list declared — run `/verification-setup`." `status: 'none'` and
 `status: 'declared'` with an empty `hits` both mean no brake; say nothing extra.
 
-Pass `hits` as `neverUnattendedHit`:
+Pass `hits` as `neverUnattendedHit` and `status` as `neverUnattendedStatus` — `plan()` itself
+refuses to chain on `'invalid'`, so the stop above does not rest on this prose alone:
 
 ```bash
 node -e '
@@ -920,7 +921,7 @@ node -e '
   console.log(JSON.stringify(plan(JSON.parse(process.argv[1])), null, 2));
 ' "$(cat <<'"'"'JSON'"'"'
 { "weight": "small", "route": "plan", "implement": false, "kind": "defect", "slug": "<slug>",
-  "neverUnattendedHit": [] }
+  "neverUnattendedHit": [], "neverUnattendedStatus": "none" }
 JSON
 )"
 ```

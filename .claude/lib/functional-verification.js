@@ -492,7 +492,8 @@ function recommendCoverageFloor(runs) {
  *   `Paths:` line -> `declared`, `paths` the stripped bullet text, in document order. A single
  *   `Paths: a, b` line, with no bullets -> `declared`, split on commas, trimmed, empties
  *   dropped. `Paths: none` (case-insensitive), alone -> `none`. Both bullets AND a `Paths:`
- *   line present (any value, including `none`) -> `invalid` -- two conflicting declarations
+ *   line present (any value, including `none`), or two `Paths:` lines -> `invalid` -- two
+ *   conflicting declarations
  *   in one file is never resolved by guessing which one the owner meant. A `Paths:` line with
  *   an empty value, or a bullet that is empty after stripping markup, is also `invalid`, with
  *   `raw` naming the offending line -- an unreadable list must never silently read as `none`
@@ -503,7 +504,9 @@ function readNeverUnattended(content) {
     throw new TypeError('readNeverUnattended: content must be a string');
   }
   const lines = maskFencedLines(content.replace(/\r\n?/g, '\n').split('\n'));
-  const section = findSection(lines, 'never unattended');
+  // The house spelling elsewhere is hyphenated ("never-unattended paths"); an owner who
+  // titles the heading that way must not read as `absent`.
+  const section = findSection(lines, 'never unattended') || findSection(lines, 'never-unattended');
   if (!section) {
     return { paths: [], status: 'absent', raw: null };
   }
@@ -518,21 +521,40 @@ function readNeverUnattended(content) {
     const trimmed = rawLine.trim();
     if (trimmed === '') continue;
 
-    const bulletMatch = /^[-*+]\s+(.*)$/.exec(trimmed);
-    if (bulletMatch) {
-      const cleaned = bulletMatch[1].replace(/[*`]/g, '').trim();
-      if (cleaned === '') {
-        emptyBulletRaw = emptyBulletRaw ?? trimmed;
-      } else {
-        bullets.push(cleaned);
+    // Numbered items are list items too -- an owner writing "1. auth" must not have the
+    // entry silently dropped as prose.
+    const bulletMatch = /^(?:[-*+]|\d+[.)])\s+(.*)$/.exec(trimmed);
+    const body = (bulletMatch ? bulletMatch[1] : trimmed).replace(/[*`]/g, '').trim();
+
+    // Tolerate bold/code wrap and a list marker around the key, as readCoverageFloor does
+    // for "Coverage floor" -- `- Paths: auth` is a Paths line, not a fragment literally
+    // named "Paths: auth" that could never match anything.
+    const pathsMatch = /^paths?\s*:\s*(.*)$/i.exec(body);
+    if (pathsMatch) {
+      if (pathsLine !== null) {
+        // Two Paths: lines (the template's `Paths: none` left in place above an added
+        // `Paths: auth`) is two conflicting declarations -- never resolve it to the first.
+        return {
+          paths: [],
+          status: 'invalid',
+          raw: `more than one "Paths:" line: "${pathsLine.raw}" and "${trimmed}"`,
+        };
       }
+      pathsLine = { raw: trimmed, value: pathsMatch[1].trim() };
       continue;
     }
 
-    // Tolerate bold/code wrap around the key, as readCoverageFloor does for "Coverage floor".
-    const pathsMatch = /^paths\s*:\s*(.*)$/i.exec(trimmed.replace(/[*`]/g, '').trim());
-    if (pathsMatch && pathsLine === null) {
-      pathsLine = { raw: trimmed, value: pathsMatch[1].trim() };
+    if (bulletMatch) {
+      // A bullet may list several fragments comma-separated, exactly as a Paths: line may.
+      const fragments = body
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p !== '');
+      if (fragments.length === 0) {
+        emptyBulletRaw = emptyBulletRaw ?? trimmed;
+      } else {
+        bullets.push(...fragments);
+      }
       continue;
     }
 
@@ -556,7 +578,9 @@ function readNeverUnattended(content) {
   }
 
   if (pathsLine !== null) {
-    if (/^none$/i.test(pathsLine.value)) {
+    // `Paths: none — no brake` / `Paths: none.` still mean none; a comma after `none`
+    // means a list and stays a declaration.
+    if (/^none\b[^,]*$/i.test(pathsLine.value)) {
       return { paths: [], status: 'none', raw: pathsLine.raw };
     }
     if (pathsLine.value === '') {
@@ -1247,7 +1271,9 @@ function missingVerificationSections(content) {
   if (!hasTableRowContainingAll(['loop may write data?'])) missing.push('write-permission-column');
   if (!hasTableRowContainingAll(['fast refresh', 'full deploy'])) missing.push('refresh-split');
   if (!hasHeadingContaining('coverage floor')) missing.push('coverage-floor');
-  if (!hasHeadingContaining('never unattended')) missing.push('never-unattended');
+  if (!hasHeadingContaining('never unattended') && !hasHeadingContaining('never-unattended')) {
+    missing.push('never-unattended');
+  }
   return missing;
 }
 
@@ -1497,20 +1523,33 @@ if (require.main === module) {
     if (!trdPath || !verificationPath) {
       usage();
     } else {
-      const trdMarkdown = fs.readFileSync(trdPath, 'utf8');
-      const { grounding } = parseTrd(trdMarkdown, { path: trdPath });
-      // Every task's grounding `touches`, flattened, in grounding-block order -- the same
-      // source `/plan --implement`'s brake reads (D: "gather touched files in code, never
-      // have the model do either").
-      const touches = Object.values(grounding).flatMap((g) => g.touches || []);
+      let touches;
+      try {
+        const trdMarkdown = fs.readFileSync(trdPath, 'utf8');
+        const { grounding } = parseTrd(trdMarkdown, { path: trdPath });
+        // Every task's grounding `touches`, flattened, in grounding-block order -- the same
+        // source `/plan --implement`'s brake reads (D: "gather touched files in code, never
+        // have the model do either").
+        touches = Object.values(grounding).flatMap((g) => g.touches || []);
+      } catch (err) {
+        // A TRD that cannot be read yields no touches to check, so the brake cannot be
+        // evaluated -- report it as `invalid` (which stops the chain), never a stack trace
+        // the caller has no instruction for.
+        console.log(
+          JSON.stringify({ hits: [], status: 'invalid', raw: `cannot read TRD ${trdPath}: ${err.message}`, touches: [] })
+        );
+        process.exitCode = 1;
+      }
 
-      if (!fs.existsSync(verificationPath)) {
-        console.log(JSON.stringify({ hits: [], status: 'absent', raw: null, touches }));
-      } else {
-        const verificationContent = fs.readFileSync(verificationPath, 'utf8');
-        const { paths, status, raw } = readNeverUnattended(verificationContent);
-        const hits = matchNeverUnattended(touches, paths);
-        console.log(JSON.stringify({ hits, status, raw, touches }));
+      if (touches !== undefined) {
+        if (!fs.existsSync(verificationPath)) {
+          console.log(JSON.stringify({ hits: [], status: 'absent', raw: null, touches }));
+        } else {
+          const verificationContent = fs.readFileSync(verificationPath, 'utf8');
+          const { paths, status, raw } = readNeverUnattended(verificationContent);
+          const hits = matchNeverUnattended(touches, paths);
+          console.log(JSON.stringify({ hits, status, raw, touches }));
+        }
       }
     }
   } else {

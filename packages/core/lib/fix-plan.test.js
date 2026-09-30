@@ -96,6 +96,20 @@ describe('fix-plan: workBegins is identical across weights (AC-F5.1/AC-F5.2)', (
     expect(r.bannerBody).toMatch(/auth\/login\.js/);
     expect(r.bannerBody).toMatch(/secrets\/vault\.js/);
   });
+
+  test('an unreadable never-unattended list (status invalid) suppresses the chain even with empty hits', () => {
+    for (const weight of ['trivial', 'small', 'medium']) {
+      const r = P({ weight, implement: true, neverUnattendedHit: [], neverUnattendedStatus: 'invalid' });
+      expect(r.chain).toBe(false);
+      expect(r.writePointer).toBe(false);
+      expect(r.bannerBody).toMatch(/could not be read/);
+    }
+  });
+
+  test('a readable list with no hits still lets --implement chain', () => {
+    const r = P({ implement: true, neverUnattendedHit: [], neverUnattendedStatus: 'declared' });
+    expect(r.chain).toBe(true);
+  });
 });
 
 describe('fix-plan: route "prd" exits directly (D8, AC-F7.5, AC-F7.2)', () => {

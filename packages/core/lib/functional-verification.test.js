@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const {
   checkEvidence,
@@ -1670,6 +1670,44 @@ describe('readNeverUnattended', () => {
     });
   });
 
+  test('a second "Paths:" line is invalid -- the template default left above an added list is not "none"', () => {
+    const result = readNeverUnattended(withSection('Paths: none\nPaths: auth, payments'));
+    expect(result.status).toBe('invalid');
+    expect(result.paths).toEqual([]);
+  });
+
+  test('a "Paths:" line written as a bullet is still a Paths line', () => {
+    expect(readNeverUnattended(withSection('- Paths: auth, payments'))).toEqual({
+      paths: ['auth', 'payments'],
+      status: 'declared',
+      raw: '- Paths: auth, payments',
+    });
+  });
+
+  test('a bullet listing several fragments comma-separated yields each one', () => {
+    expect(readNeverUnattended(withSection('- auth, payments')).paths).toEqual(['auth', 'payments']);
+  });
+
+  test('numbered list items are read as entries, not dropped as prose', () => {
+    expect(readNeverUnattended(withSection('1. auth\n2. payments'))).toEqual({
+      paths: ['auth', 'payments'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
+  test('"Paths: none — no brake" still reads as none', () => {
+    expect(readNeverUnattended(withSection('Paths: none — no brake')).status).toBe('none');
+  });
+
+  test('a hyphenated "Never-unattended" heading is found', () => {
+    expect(readNeverUnattended('## 5b. Never-unattended paths\n\n- auth\n')).toEqual({
+      paths: ['auth'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
   test('throws on non-string content', () => {
     expect(() => readNeverUnattended(undefined)).toThrow(TypeError);
   });
@@ -1729,6 +1767,22 @@ describe('CLI: check-never-unattended', () => {
     expect(result.status).toBe('declared');
     expect(result.hits).toEqual(['src/auth/login.ts']);
     expect(result.touches).toEqual(['src/auth/login.ts', 'src/ui/button.tsx']);
+  });
+
+  test('an unreadable TRD reports invalid, not a stack trace', () => {
+    const verificationPath = path.join(tmpDir, 'verification.md');
+    fs.writeFileSync(verificationPath, '## 5b. Never unattended\n\n- auth\n');
+    const r = spawnSync('node', [
+      MODULE_PATH,
+      'check-never-unattended',
+      path.join(tmpDir, 'missing-trd.md'),
+      verificationPath,
+    ]);
+    expect(r.status).toBe(1);
+    const result = JSON.parse(r.stdout.toString());
+    expect(result.status).toBe('invalid');
+    expect(result.hits).toEqual([]);
+    expect(result.raw).toMatch(/cannot read TRD/);
   });
 
   test('a missing verification.md reports absent, with no hits', () => {
