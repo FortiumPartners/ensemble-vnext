@@ -759,7 +759,7 @@ EOF
 # VFIX-P001 (D14, TRD §3.8): the one list, packages/skills/framework-skills.txt
 #
 # verify-design-comparison, verify-flow-as-built, verify-data-fidelity and
-# verify-plan-recovery ship to every project regardless of --copy-skills /
+# verification-setup ship to every project regardless of --copy-skills /
 # selected-skills.txt. What ships is no longer hand-copied here or in
 # scaffold-project.sh -- both read framework-skills.txt. No existing fixture
 # builds a synthetic skills-lib/, so these tests build one under TEST_DIR: a

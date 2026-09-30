@@ -77,9 +77,9 @@ codebases:
    - `hooks/` plus hook registrations in `settings.json`
    - `rules/` — the framework rules (`async-discipline.md`, `autonomy.md`,
      `command-status.md`) and an unfilled `verification.md`
-   - `skills/` — skills chosen for your stack, plus five that ship to every project: three
+   - `skills/` — skills chosen for your stack, plus four that ship to every project: three
      verification checks (`verify-design-comparison`, `verify-flow-as-built`,
-     `verify-data-fidelity`), `verify-plan-recovery`, and `verification-setup`
+     `verify-data-fidelity`), and `verification-setup`
    - `workflows/`, `lib/`, `contracts/` — scripts and reference text the commands use
 5. **Creates** `CLAUDE.md`, `docs/PRD/`, `docs/TRD/`, `.trd-state/` (where implementation
    progress is tracked), and adds local-only files (`.claude/settings.local.json`, `*.local.*`, `.env`, `.env.local`) to

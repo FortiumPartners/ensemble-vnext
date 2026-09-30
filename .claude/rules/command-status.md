@@ -226,9 +226,9 @@ that's a bug.
 `/implement-trd` and deliberately emits no banner of its own, because the banner is the LAST
 line of the turn and an implementation run follows it — the run still terminates with a
 banner, carrying the chained command's name. The reverse also holds: `/implement-trd
---chained`, called by `/verify-build --fix`, emits none, and the caller's banner ends the
-run. So the invariant is **one banner per RUN, not one per command name** — a chaining
-command that emits none is correct.
+--chained`, called by `/verify-build` (fixing is its default now, not a flag), emits none,
+and the caller's banner ends the run. So the invariant is **one banner per RUN, not one per
+command name** — a chaining command that emits none is correct.
 
 ---
 

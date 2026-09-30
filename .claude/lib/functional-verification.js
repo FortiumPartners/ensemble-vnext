@@ -651,8 +651,12 @@ function renderReport(input) {
       `**Diagnosis**: ${open.length} open` + (causeWords ? ` — ${causeWords}` : '')
     );
     lines.push(
-      '**Next**: agree a recovery plan with `/verify-plan-recovery`, then run `/verify-build --fix`'
+      '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
     );
+  } else if (outcome === 'satisfied') {
+    // O4 (docs/TRD/refine-verification.md): the report's Next line follows the same rule as
+    // both commands' readouts, so a satisfied run names its successor too.
+    lines.push('**Next**: `/audit-build`');
   }
 
   lines.push('');

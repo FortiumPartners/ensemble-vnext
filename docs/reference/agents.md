@@ -121,8 +121,9 @@ flowchart LR
 
 `/plan` also reaches every agent of `/create-trd`, `/audit-trd` and `/create-prd` by starting
 those workflows on its medium and PRD routes, and `/plan --implement`, `/audit-build` and
-`/verify-build --fix` reach everything `/implement-trd` does by chaining it. `/close-feature`,
-`/augment-trd-figma` and the maintenance commands dispatch no agents.
+`/verify-build` (fixing, its default once a plan exists) reach everything `/implement-trd`
+does by chaining it. `/close-feature`, `/augment-trd-figma` and the maintenance commands
+dispatch no agents.
 
 ### The full dispatch table
 

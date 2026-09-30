@@ -43,7 +43,8 @@ flowchart TD
     q -->|"a list of small fixes"| sweep["/sweep"] --> commit["You review and commit"]:::you
     q -->|"one change to the feature in flight"| amend["/amend"] -.->|"back into the feature's flow"| ab
     ab -->|"a planned task was not built"| impl
-    impl -->|"verification could not finish"| vb["/verify-build --fix"] --> ab
+    impl -->|"verification fell short"| rv["/refine-verification<br/>optional --auto"] --> vb["/verify-build<br/>builds and re-verifies by default"] --> ab
+    vb -->|"still falls short"| rv
     you2["You decide it is finished"]:::you --> cf["/close-feature"]
     classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
     classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
@@ -192,7 +193,8 @@ deploy") are set aside and reported. They are not dispatched.
 | `--include-deferred` | Run the tasks that would otherwise be set aside. |
 | `--reset-state` | Throw away progress tracking and start fresh. Asks you to confirm first. |
 
-(`--chained` also exists, but only `/verify-build --fix` passes it. Don't type it yourself.)
+(`--chained` also exists, but only `/verify-build` passes it, when fixing. Don't type it
+yourself.)
 
 ### `/audit-build` — check what was delivered
 
@@ -265,13 +267,13 @@ one to understand.
 |---|---|
 | Normal case: at the end of every build | Inside `/implement-trd`, unless you passed `--no-verify` |
 | On its own: the build ran with `--no-verify`, you fixed something by hand (a credential, a config), or the loop crashed partway through | [`/verify-build [trd-path]`](../../packages/core/commands/verify-build.md). `--resume` continues an interrupted loop. `--cap N` sets the iteration budget (default 3, counted across resumes). |
-| Recovery: a run ended without success | Run the `/verify-plan-recovery` skill, a short chat that turns the report's diagnosis into a plan with you. Then run `/verify-build --fix`, which runs that plan unattended (build, then re-verify, for as many rounds as the plan allows) and asks you nothing. |
+| Recovery: a run ended without success | Run `/refine-verification` — interactive by default, `--auto` for an unattended answer — which turns the report's diagnosis into a plan with you (or, under `--auto`, with an agent). Then run `/verify-build`, which now builds and re-verifies that plan by default (`--no-fix` for a report-only pass), for as many rounds as the plan allows, and asks you nothing. |
 
 ```mermaid
 flowchart TD
     vb["/verify-build"] --> loop["The verification loop<br/>(CONCEPTS.md, concept 8)"]:::model --> o{"Outcome"}:::code
     o -->|"satisfied"| ab["/audit-build"]
-    o -->|"stalled, stuck, unbuilt,<br/>or below the coverage floor"| rec["verify-plan-recovery skill:<br/>a short chat with you"]:::you --> plan["verification-plan.md"] --> fix["/verify-build --fix"]
+    o -->|"stalled, stuck, unbuilt,<br/>or below the coverage floor"| rec["/refine-verification<br/>optional --auto"]:::you --> plan["verification-plan.md"] --> fix["/verify-build<br/>fixes by default"]
     fix --> round["Each round: /implement-trd --reconcile --chained,<br/>then re-verify the open criteria"]:::code --> sr{"The plan's<br/>stop rule met?"}:::code
     sr -->|"no"| round
     sr -->|"yes"| o
@@ -310,7 +312,7 @@ file doesn't stop the loop, but most criteria will come back "not verifiable her
 | Outcome | Means | What to do |
 |---|---|---|
 | **satisfied** | No failing criterion remains. The report line says how many were never exercised: *satisfied* with 6 of 32 unchecked is not the same as fully proven | Nothing, or fill gaps in `verification.md` so more can be checked next time |
-| **unbuilt** | Some capability the PRD asked for is absent, not broken. The loop stops instead of debugging code that doesn't exist | `/verify-plan-recovery`, then `/verify-build --fix` |
+| **unbuilt** | Some capability the PRD asked for is absent, not broken. The loop stops instead of debugging code that doesn't exist | `/refine-verification`, then `/verify-build` |
 | **stalled** | A debug pass closed no gaps, so the fixes aren't converging | Same. Also check that the environment actually picks up fixes (the refresh command in `verification.md`) |
 | **stuck** | The iteration budget ran out with gaps still open | Same, or re-run with a larger `--cap` |
 | **insufficient-coverage** | Too few criteria were proven to reach the coverage floor. This is a checking problem, not a code problem | Same. The plan usually adds environments or tooling rather than code |
@@ -485,7 +487,7 @@ You don't need to intervene either way.
 | `.trd-state/<feature>/implement.json` | Task-by-task progress, checkpoints, and verification settings. `--resume` and `--reconcile` read this. |
 | `.trd-state/<feature>/success-definition.md` | The criteria verification checks, derived from the PRD |
 | `.trd-state/<feature>/verification-report.md`, `verification-state.json` | The latest verification report, and the loop's resumable state |
-| `.trd-state/<feature>/verification-plan.md` | The recovery plan `/verify-plan-recovery` writes and `/verify-build --fix` runs |
+| `.trd-state/<feature>/verification-plan.md` | The recovery plan `/refine-verification` writes and `/verify-build` runs |
 | `.trd-state/<feature>/discovered.jsonl` | Issues found along the way but not fixed. Those marked as blocking the feature become TRD tasks on the next `--reconcile`. |
 | `.trd-state/<feature>/audit-build-report.md` | The latest `/audit-build` report: its verdict, the commit it audited, and the readout |
 | `.trd-state/<feature>/closed.json` | Written by a passing `/audit-build` or by `/close-feature`: when, by whom, and the audit verdict or your note. Its presence is what marks the feature closed |

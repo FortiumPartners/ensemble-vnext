@@ -60,21 +60,21 @@ FULL PIPELINE
 /audit-prd     --> verify the PRD against its source
 /create-trd    --> docs/TRD/<feature>.md
 /audit-trd     --> verify the TRD against the PRD
-/implement-trd --> implementation + .trd-state/ tracking (review and hardening run INSIDE it)
+/implement-trd --> implementation + .trd-state/ tracking (review/hardening/verify INSIDE it)
 /audit-build   --> verify delivered code against TRD and PRD; a passing audit closes the feature
 /close-feature --> close a feature on your say-so (records it, clears its in-flight state)
 
 SHORTER PATHS
-/plan <what>         --> defect / small change / refactor: sizes the work and writes a TRD
-                         sized to match — light at trivial/small (no audit), phased and
-                         audited at medium. --implement to build.
-/amend <what>        --> ONE change to the feature in flight. No new TRD.
+/plan <what>   --> defect/small change/refactor: sizes work, writes a matching TRD —
+                   light at trivial/small (no audit), phased+audited at medium. --implement builds.
+/amend <what>  --> ONE change to the feature in flight. No new TRD.
 /implement-trd --reconcile --> re-attest delivered work; re-open anything only claimed done
+/refine-verification --> falls short? agree a plan (--auto: unattended)
+/verify-build  --> fixes by default now too; --no-fix for report-only
 ```
 
-**`/plan` vs `/amend` is about whose plan the work belongs to, not size.** Work on the
-feature in flight, sitting in its path, is an amendment to ITS TRD; `/plan` would fork
-a second TRD for something already understood, which is how a session loses its thread.
+**`/plan` vs `/amend`: whose plan it is, not size.** Work in flight is an amendment to ITS
+TRD; `/plan` would fork a second TRD, losing the thread.
 
 ---
 
@@ -315,20 +315,21 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.10.2** (2026-09-29). 20 commands, 13 subagents. Test battery: 1214 Jest,
-112 pytest, 576 BATS. **Full release history: `CHANGELOG.md`.**
+Released at **4.10.3** (2026-09-29). 21 commands, 13 subagents. Test battery: 1210 Jest,
+112 pytest, 578 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.10.2 adds `/close-feature` (a passing `/audit-build` also closes a feature) and cuts
-context: no live runs by implementers, every workflow step names its model, agents
-registered once, rule history moved to `docs/rules-history/`.
+4.10.3: if verification falls short, `/refine-verification [--auto]` writes the plan and
+`/verify-build` builds and re-checks by default (`--no-fix` for a report only); repeat
+until satisfied, then `/audit-build`.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
-- 4.10.2: the default `npm run smoke` set runs one real `claude` session, and the phase gate
-  picks it; the subagent starting-context drop is not yet measured like-for-like.
+- 4.10.3: `/refine-verification` and fix-by-default are unproven in a live stalled run.
+- 4.10.2: `npm run smoke`'s default set runs one real `claude` session and the phase gate
+  picks it; subagent starting context has not measurably fallen.
 - 4.10.1: 2 of 124 replayed judgements judged an active `/goal` condition instead of the
   discipline rubric (only in sessions running `/goal`, each bounded to one turn by the block
   cap); consuming projects get the fix only after `/rebase-project`.

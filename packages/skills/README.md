@@ -49,8 +49,7 @@ regardless of stack selection or `--copy-skills`. That file is the one list (D14
 docs/TRD/verification-fix-loop.md §3.8): one skill per line as `<name> <role>`, with
 `#` comments allowed. `role` is `check` (selectable as an optional functional-verification
 check — design/flow/data comparisons, docs/TRD/verification-artifacts.md) or `support`
-(shipped, but not offered as a check — e.g. `verify-plan-recovery`, the bridge skill that
-turns a stalled verification run into a fix plan, and `verification-setup`, the
+(shipped, but not offered as a check — e.g. `verification-setup`, the
 owner-invoked interview that writes `.claude/rules/verification.md`).
 
 `scaffold-project.sh`'s `copy_framework_skills()` reads this file at runtime (there is no

@@ -1,0 +1,121 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/refine-verification.md",
+  "trd_hash": "57d4a9b2a271bd8d2b7cab91899b75d29755a49f04f0fd3eca33f94eb075bb9f",
+  "branch": "feature/refine-verification/build",
+  "strategy": "test-after",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Create /refine-verification command",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/refine-verification.md",
+        ".claude/commands/refine-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T23:54:20.160Z",
+      "completed_at": "2026-09-30T00:16:52.389Z",
+      "last_advanced": "2026-09-29T23:55:39.870Z"
+    },
+    "FIX-002": {
+      "description": "/verify-build fixes by default; NEXT rule",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        "packages/core/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T23:54:20.160Z",
+      "completed_at": "2026-09-30T00:16:52.392Z",
+      "last_advanced": "2026-09-29T23:55:39.870Z"
+    },
+    "FIX-003": {
+      "description": "Remove verify-plan-recovery skill; retire in rebase",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/framework-skills.txt",
+        "packages/core/commands/rebase-project.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T23:54:20.160Z",
+      "completed_at": "2026-09-30T00:16:52.393Z",
+      "last_advanced": "2026-09-29T23:55:39.870Z",
+      "files_deleted": [
+        "packages/skills/verify-plan-recovery/SKILL.md"
+      ]
+    },
+    "FIX-004": {
+      "description": "Rules and docs",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/rules/autonomy.md",
+        "CLAUDE.md",
+        "docs/TRD/verification-fix-loop.md"
+      ],
+      "commit": null,
+      "started_at": "2026-09-29T23:54:20.160Z",
+      "completed_at": "2026-09-30T00:16:52.393Z",
+      "last_advanced": "2026-09-29T23:55:39.870Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "9a70bfa",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-09-30T00:16:53.081Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "9a70bfa",
+    "last_checkpoint_timestamp": "2026-09-30T00:16:53.081Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/refine-verification.md#Intended Change",
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "local": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no real endpoint declared"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}
