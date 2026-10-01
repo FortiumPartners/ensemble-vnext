@@ -111,9 +111,10 @@ exit 0
   }
 
   // Runs after the scenarios below (inner afterAll runs before the file-level temp cleanup).
+  // The stub's logging itself is proven by the "no open PR -> opened" test's `pr create`
+  // assertion, so this does not demand one here: a `-t`-filtered run may log nothing at all.
   afterAll(() => {
     const all = ghLogs.map((f) => f()).join('\n');
-    expect(all).toMatch(/pr create/); // the logs were really populated
     expect(all.split('\n').filter((l) => l.trim().split(/\s+/).includes('merge'))).toEqual([]);
   });
 
@@ -227,6 +228,19 @@ describe('source safety', () => {
       } else if (c === '/' && n === '*') {
         const end = code.indexOf('*/', i + 2);
         i = end === -1 ? code.length : end + 2;
+      } else if (c === '/' && /(^|[(,=:[!&|?{};]|\breturn)$/.test(out.trimEnd())) {
+        // A regex literal: keep it (it is executable), and never read a `\//` or `\/*` inside
+        // it as the start of a comment, which would drop the rest of the line from the check.
+        let j = i + 1;
+        let inClass = false;
+        while (j < code.length && code[j] !== '\n' && (inClass || code[j] !== '/')) {
+          if (code[j] === '\\') j++;
+          else if (code[j] === '[') inClass = true;
+          else if (code[j] === ']') inClass = false;
+          j++;
+        }
+        out += code.slice(i, j + 1);
+        i = j + 1;
       } else if (c === "'" || c === '"' || c === '`') {
         let j = i + 1;
         while (j < code.length && code[j] !== c) j += code[j] === '\\' ? 2 : 1;
@@ -251,6 +265,8 @@ describe('source safety', () => {
     expect(mentionsMerge('run(`gh pr merge ${n}`)')).toBe(true);
     expect(mentionsMerge("const sub = 'merge'; run('gh', ['pr', sub])")).toBe(true);
     expect(mentionsMerge("run('gh', ['pr', \"merge\", '--auto'])")).toBe(true);
+    // A regex literal ending in an escaped slash is not a `//` comment.
+    expect(mentionsMerge("s.replace(/^refs\\/origin\\//, ''); run('gh', ['pr', 'merge'])")).toBe(true);
   });
   test('never uses execSync', () => expect(src).not.toMatch(/execSync/));
 });

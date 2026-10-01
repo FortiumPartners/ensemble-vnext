@@ -84,7 +84,7 @@
       "last_advanced": "2026-10-01T08:36:16.342Z"
     },
     "AMEND-001": {
-      "description": "audit-build gap",
+      "description": "Test: this repo sets openPullRequest to auto (O3)",
       "phase": 1,
       "status": "success",
       "cycle_position": "complete",
@@ -93,13 +93,13 @@
       "files_changed": [
         "test/integration/tests/notify-on-complete.test.sh"
       ],
-      "commit": null,
+      "commit": "cc42f9f",
       "started_at": "2026-10-01T19:26:29.723Z",
       "completed_at": "2026-10-01T19:29:31.847Z",
       "last_advanced": "2026-10-01T19:27:14.851Z"
     },
     "AMEND-002": {
-      "description": "audit-build gap",
+      "description": "Test: when the PR opens (commit succeeded; not on already-closed)",
       "phase": 1,
       "status": "success",
       "cycle_position": "complete",
@@ -108,13 +108,13 @@
       "files_changed": [
         "packages/core/commands/verify-command-surface.test.js"
       ],
-      "commit": null,
+      "commit": "cc42f9f",
       "started_at": "2026-10-01T19:26:29.723Z",
       "completed_at": "2026-10-01T19:29:31.847Z",
       "last_advanced": "2026-10-01T19:27:14.851Z"
     },
     "AMEND-003": {
-      "description": "audit-build gap",
+      "description": "Test: never-merges catches every invocation form",
       "phase": 1,
       "status": "success",
       "cycle_position": "complete",
@@ -123,7 +123,7 @@
       "files_changed": [
         "packages/core/lib/pull-request.test.js"
       ],
-      "commit": null,
+      "commit": "cc42f9f",
       "started_at": "2026-10-01T19:26:29.723Z",
       "completed_at": "2026-10-01T19:29:31.847Z",
       "last_advanced": "2026-10-01T19:27:14.851Z"

@@ -692,7 +692,7 @@ describe('the cycle-ending commands open the pull request', () => {
   });
 
   test('audit-build.md opens the PR only when the audit commit succeeded', () => {
-    expect(auditBuild).toMatch(/Only when .*the audit commit above succeeded/);
+    expect(auditBuild).toMatch(/Open the pull request\.\*\* Only when [^.]*the audit commit above succeeded/);
     expect(auditBuild).toMatch(/No audit commit, no PR\./);
   });
 

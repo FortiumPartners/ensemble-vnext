@@ -627,11 +627,11 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd plan verify-build imp
 
 @test "openPullRequest is exactly \"auto\" in this repository's own settings (objective O3)" {
     # The shipped templates say "never"; this repo opts in itself. A bare
-    # typeof-string check would still pass if someone set it to "never".
-    run node -e '
-      process.exit(require(process.argv[1]).ensemble.openPullRequest === "auto" ? 0 : 1);
-    ' "${REPO_ROOT}/.claude/settings.json"
+    # typeof-string check would still pass if someone set it to "never". Ask the
+    # reader the commands actually use, so its semantics are what is tested.
+    run bash -c 'cd "$1" && node .claude/lib/pull-request.js mode' _ "${REPO_ROOT}"
     [ "$status" -eq 0 ]
+    [ "$output" = '"auto"' ]
 }
 
 @test "openPullRequest backfill uses setdefault, never assignment" {
