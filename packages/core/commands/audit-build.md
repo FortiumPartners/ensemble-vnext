@@ -260,8 +260,11 @@ publish, STATE names the local report path instead of a link — one line, never
 retried.** STATE always names the report path; add the link above it only when one was made.
 
 **Open the pull request.** Only when the audit closed the feature (a re-audit included), the
-run is not `--report-only`, and the audit commit above succeeded. Write a short PR body (the
-VERDICT line and the report link, or its path) to a temp file, then run:
+run is not `--report-only`, and the audit commit above succeeded. When "Publish it" just
+changed `artifacts.json`, commit that file first (`git commit -m "chore(<feature>): store audit
+report link" -- .trd-state/<feature>/artifacts.json`), so the stored link is on the branch the
+PR carries. Write a short PR body (the VERDICT line and the report link, or its path) to a
+temp file, then run:
 
 ```bash
 node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-file <tmp>
@@ -329,8 +332,9 @@ One screen. If there are 40 clean requirements, print the count as one line, not
 
 **NEXT.** When the audit closed the feature and a PR is open (`action` `opened` or
 `updated`): a line saying to run this once you have reviewed the PR (merging stays yours),
-then `gh pr merge <number> --merge` alone in its fenced block. Closed with no PR:
-`gh pr create --title "<title>"`. When work was chained: that
+then `gh pr merge <number> --merge` alone in its fenced block. Closed on a feature branch
+with no PR: `gh pr create --title "<title>"`. Closed on the default branch (nothing was
+committed): the `git add … && git commit …` for the report and close record. When work was chained: that
 run's own readout carries on. On `do not proceed` with nothing chained: the design work the
 readout names.
 

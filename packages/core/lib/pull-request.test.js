@@ -83,9 +83,13 @@ describe('ensure CLI', () => {
     fs.writeFileSync(path.join(bin, 'gh'), `#!/bin/sh
 echo "$@" >> "${log}"
 case "$1 $2" in
-  "auth status") exit 0 ;;
+  "auth status") [ -n "$STUB_AUTH_FAIL" ] && exit 1; exit 0 ;;
   "repo view") [ -n "$STUB_DEFAULT" ] && { echo "$STUB_DEFAULT"; exit 0; } || exit 1 ;;
-  "pr list") [ -n "$STUB_OPEN_URL" ] && echo "$STUB_OPEN_URL"; exit 0 ;;
+  "pr list") [ -n "$STUB_LIST_FAIL" ] && { echo "HTTP 502: list failed" >&2; exit 1; }
+             [ -n "$STUB_OPEN_URL" ] && echo "$STUB_OPEN_URL"
+             # A closed PR is only listed when the query does not filter to open ones.
+             case "$*" in *"--state open"*) ;; *) [ -n "$STUB_CLOSED_URL" ] && echo "$STUB_CLOSED_URL" ;; esac
+             exit 0 ;;
   "pr create") [ -n "$STUB_CREATE_FAIL" ] && { echo "boom: create failed" >&2; echo "second line" >&2; exit 1; }
                echo "https://example.test/pr/7"; exit 0 ;;
 esac
@@ -138,7 +142,7 @@ exit 0
 
   test('only a closed PR (list --state open prints nothing) -> opened', () => {
     const s = setup();
-    const out = s.ensure({ STUB_DEFAULT: 'main' });
+    const out = s.ensure({ STUB_DEFAULT: 'main', STUB_CLOSED_URL: 'https://example.test/pr/1' });
     expect(out.action).toBe('opened');
     expect(s.calls()).toMatch(/pr list --head feature\/x --state open/);
   });
@@ -161,6 +165,33 @@ exit 0
     const s = setup();
     const out = s.ensure({ STUB_DEFAULT: 'main', STUB_CREATE_FAIL: '1' });
     expect(out).toMatchObject({ action: 'failed', reason: 'boom: create failed' });
+  });
+
+  test('gh not authenticated -> skipped with that reason, no repo view', () => {
+    const s = setup();
+    const out = s.ensure({ STUB_AUTH_FAIL: '1' });
+    expect(out).toMatchObject({ action: 'skipped', reason: 'gh missing or not authenticated' });
+    expect(s.calls()).not.toMatch(/repo view/);
+  });
+
+  test('pr list fails -> failed, no blind create', () => {
+    const s = setup();
+    const out = s.ensure({ STUB_DEFAULT: 'main', STUB_LIST_FAIL: '1' });
+    expect(out).toMatchObject({ action: 'failed', reason: 'HTTP 502: list failed' });
+    expect(s.calls()).not.toMatch(/pr create/);
+  });
+
+  test('rejected push -> reason names the rejection, not the "To <remote>" line', () => {
+    const s = setup();
+    // Put a diverging commit on origin's feature/x so the push is non-fast-forward.
+    git(s.repo, 'commit', '--allow-empty', '-m', 'local');
+    git(s.repo, 'push', '-u', 'origin', 'feature/x');
+    git(s.repo, 'reset', '--hard', 'HEAD~1');
+    git(s.repo, 'commit', '--allow-empty', '-m', 'diverged');
+    const out = s.ensure({ STUB_DEFAULT: 'main' });
+    expect(out.action).toBe('failed');
+    expect(out.reason).not.toMatch(/^To /);
+    expect(out.reason).toMatch(/rejected/);
   });
 });
 

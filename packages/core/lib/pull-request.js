@@ -42,9 +42,9 @@ function readMode(settingsPath) {
 function decide({ mode, branch, defaultBranch, ghAvailable, openPrUrl }) {
   if (mode !== 'auto') return { action: 'skipped', reason: 'openPullRequest is never' };
   if (!branch || branch === 'HEAD') return { action: 'skipped', reason: 'detached HEAD' };
+  if (!ghAvailable) return { action: 'skipped', reason: 'gh missing or not authenticated' };
   if (!defaultBranch) return { action: 'skipped', reason: 'default branch unknown' };
   if (branch === defaultBranch) return { action: 'skipped', reason: 'on the default branch' };
-  if (!ghAvailable) return { action: 'skipped', reason: 'gh missing or not authenticated' };
   if (openPrUrl) return { action: 'updated', reason: 'open pull request exists' };
   return { action: 'opened', reason: 'no open pull request' };
 }
@@ -54,8 +54,14 @@ function run(cmd, args) {
   return { ok: !r.error && r.status === 0, out: (r.stdout || '').trim(), err: (r.stderr || (r.error && r.error.message) || '').trim() };
 }
 
+/**
+ * The line of git/gh stderr that names the error. The literal first line is often noise:
+ * a rejected push starts with "To <remote>", and gh prefixes "Warning: N uncommitted changes".
+ */
 function firstLine(s) {
-  return String(s || '').split('\n')[0] || 'unknown error';
+  const lines = String(s || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const noise = /^(To |hint:|Warning:)/;
+  return lines.find((l) => !noise.test(l)) || lines[0] || 'unknown error';
 }
 
 function findDefaultBranch() {
@@ -71,22 +77,24 @@ function ensure({ title, bodyFile, settingsPath = './.claude/settings.json' }) {
   const skip = (reason) => ({ action: 'skipped', url: null, reason });
   const b = run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
   const branch = b.ok ? b.out : '';
-  const base = { mode, branch };
-  // Settle every skip that needs no network first, so `never` makes no gh call at all.
-  const early = decide({ ...base, defaultBranch: 'x', ghAvailable: true, openPrUrl: null });
-  if (mode !== 'auto' || early.reason === 'detached HEAD') return skip(early.reason);
-
-  const defaultBranch = findDefaultBranch();
+  // Settle every skip that needs no network first, so `never` makes no gh call at all, and
+  // check auth before asking GitHub anything, so a missing gh is reported as that.
+  if (mode !== 'auto') return skip(decide({ mode }).reason);
+  if (!branch || branch === 'HEAD') return skip(decide({ mode, branch }).reason);
   const ghAvailable = run('gh', ['auth', 'status']).ok;
-  const pre = decide({ ...base, defaultBranch, ghAvailable, openPrUrl: null });
+  const defaultBranch = ghAvailable ? findDefaultBranch() : '';
+  const base = { mode, branch, defaultBranch, ghAvailable };
+  const pre = decide({ ...base, openPrUrl: null });
   if (pre.action === 'skipped') return skip(pre.reason);
 
   const push = run('git', ['push', '-u', 'origin', branch]);
   if (!push.ok) return { action: 'failed', url: null, reason: firstLine(push.err) };
 
   const list = run('gh', ['pr', 'list', '--head', branch, '--state', 'open', '--json', 'url', '--jq', '.[0].url // empty']);
-  const openPrUrl = list.ok ? list.out.split('\n')[0] : '';
-  const d = decide({ ...base, defaultBranch, ghAvailable, openPrUrl });
+  // A failed lookup is not "no open PR": creating blind could duplicate one or mislead.
+  if (!list.ok) return { action: 'failed', url: null, reason: firstLine(list.err || list.out) };
+  const openPrUrl = list.out.split('\n')[0];
+  const d = decide({ ...base, openPrUrl });
   if (d.action === 'updated') return { action: 'updated', url: openPrUrl, reason: d.reason };
 
   const create = run('gh', ['pr', 'create', '--base', defaultBranch, '--head', branch, '--title', title, '--body-file', bodyFile]);

@@ -4,7 +4,7 @@
   "trd_hash": "f4237e8fff875f7c359baad7bfbd8eba61d3ae22276c91fdbf997b957562f936",
   "branch": "feature/pr-at-cycle-end/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "pull-request.js lib + CLI + tests",
@@ -84,10 +84,19 @@
       "last_advanced": "2026-10-01T08:36:16.342Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "a89d64c",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-01T08:40:40.370Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "a89d64c",
+    "last_checkpoint_timestamp": "2026-10-01T08:40:40.370Z",
     "interrupted": false,
     "interrupt_reason": null
   },
