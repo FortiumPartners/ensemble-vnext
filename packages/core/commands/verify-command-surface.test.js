@@ -665,3 +665,35 @@ describe('verify-build.md `--fix` uses the names code and implement-trd.md defin
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// pr-at-cycle-end FIX-003: the commands that end the cycle open the PR; merging stays the owner's.
+// ---------------------------------------------------------------------------
+describe('the cycle-ending commands open the pull request', () => {
+  const auditBuild = flat(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
+  const closeFeature = flat(read(path.join(REPO, 'packages/core/commands/close-feature.md')));
+  const implementTrd = flat(read(CORE_IMPLEMENT));
+  const autonomy = read(path.join(REPO, '.claude/rules/autonomy.md'));
+
+  test('audit-build.md and close-feature.md call pull-request.js ensure', () => {
+    expect(auditBuild).toMatch(/pull-request\.js ensure/);
+    expect(closeFeature).toMatch(/pull-request\.js ensure/);
+  });
+
+  test('audit-build.md ties the PR to --report-only being absent', () => {
+    expect(auditBuild).toMatch(/Open the pull request\.\*\* Only when .*the run is not `--report-only`/);
+  });
+
+  test('NEXT offers gh pr merge, never a command that merges on its own', () => {
+    expect(auditBuild).toMatch(/gh pr merge <number> --merge/);
+    expect(closeFeature).toMatch(/gh pr merge <number> --merge/);
+  });
+
+  test('implement-trd.md says /audit-build opens the PR when openPullRequest is auto', () => {
+    expect(implementTrd).toMatch(/passing `\/audit-build` opens the PR when `ensemble\.openPullRequest` is `auto`/);
+  });
+
+  test('autonomy.md names openPullRequest', () => {
+    expect(autonomy).toMatch(/openPullRequest/);
+  });
+});

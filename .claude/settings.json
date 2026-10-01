@@ -159,6 +159,7 @@
     "prd_dir": "docs/PRD",
     "trd_dir": "docs/TRD",
     "publishArtifacts": true,
+    "openPullRequest": "auto",
     "version": "4.7.0",
     "refreshed_at": "2026-09-25T02:31:04Z"
   }

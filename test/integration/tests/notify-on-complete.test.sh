@@ -606,6 +606,34 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd plan verify-build imp
     done
 }
 
+@test "openPullRequest is present in all three settings copies; shipped templates say never" {
+    for f in "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json" \
+             "${REPO_ROOT}/packages/full/.claude/settings.json" \
+             "${REPO_ROOT}/.claude/settings.json"; do
+        run node -e '
+          const d = require(process.argv[1]);
+          if (typeof d.ensemble?.openPullRequest !== "string") process.exit(1);
+        ' "$f"
+        [ "$status" -eq 0 ]
+    done
+    for f in "${REPO_ROOT}/packages/core/templates/claude-directory/settings.json" \
+             "${REPO_ROOT}/packages/full/.claude/settings.json"; do
+        run node -e '
+          process.exit(require(process.argv[1]).ensemble.openPullRequest === "never" ? 0 : 1);
+        ' "$f"
+        [ "$status" -eq 0 ]
+    done
+}
+
+@test "openPullRequest backfill uses setdefault, never assignment" {
+    run grep -n 'ensemble.setdefault("openPullRequest"' \
+        "${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
+    [ "$status" -eq 0 ]
+    run grep -c 'ensemble\["openPullRequest"\] *=' \
+        "${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"
+    [ "$output" = "0" ]
+}
+
 @test "L2c: the backfill uses setdefault so an owner false survives refresh" {
     # Assignment here would silently re-enable publishing on every rebase for
     # every owner who turned it off — the exact shape of bug item 13 collects.

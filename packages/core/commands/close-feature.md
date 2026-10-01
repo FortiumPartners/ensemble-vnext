@@ -86,6 +86,12 @@ and the audit fields differ.
    The pathspec keeps the commit to that one file. **On the default branch, don't commit**:
    what lands there is yours to decide, so NEXT gives you the command. A failed commit is one
    line in ISSUES, never STUCK.
+5. **Open the pull request** after a successful close commit on a feature branch. Write a
+   short PR body (the feature, closed by you, the note) to a temp file, then run
+   `node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-file <tmp>`.
+   It prints one JSON line `{action, url, reason}`, acts only when `ensemble.openPullRequest`
+   is `auto`, and never merges. STATE names the URL or the skip/failed reason in one line;
+   never STUCK, never retried. The "already closed" path opens nothing.
 
 `implement.json`, the TRD and every report are left exactly as they are: they are the history
 of the feature, and closing it does not rewrite history.
@@ -98,7 +104,9 @@ The four-section readout from `.claude/rules/command-status.md`, one screen:
   committed and on which branch, and whether `current.json` was cleared.
 - **DECISIONS** — none.
 - **ISSUES** — a record that would not parse, or a commit that failed. Otherwise none.
-- **NEXT** — on a feature branch, open or update the PR. On the default branch:
+- **NEXT** — on a feature branch with a PR open: a line saying to run this once you have
+  reviewed it, then `gh pr merge <number> --merge` alone in its fenced block. On a feature
+  branch with no PR: `gh pr create --title "<title>"`. On the default branch:
   `git add .trd-state/<feature>/closed.json && git commit -m "chore(<feature>): close feature"`.
 
 Then the banner, as the last line:
