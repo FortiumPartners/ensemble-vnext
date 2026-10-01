@@ -18,7 +18,7 @@
  *   - This lib never merges. Merging stays the owner's.
  *
  * CLI
- *   node pull-request.js mode                              -> prints auto|never
+ *   node pull-request.js mode                              -> one JSON line: "auto"|"never"
  *   node pull-request.js ensure --title <t> --body-file <f> -> one JSON line
  */
 
@@ -111,7 +111,8 @@ function argValue(argv, flag) {
 function main(argv) {
   const [cmd] = argv;
   if (cmd === 'mode') {
-    process.stdout.write(readMode('./.claude/settings.json') + '\n');
+    // JSON, like `ensure`: every subcommand prints one line a caller can JSON.parse.
+    process.stdout.write(JSON.stringify(readMode('./.claude/settings.json')) + '\n');
     return 0;
   }
   if (cmd === 'ensure') {

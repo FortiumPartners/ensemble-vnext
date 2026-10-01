@@ -110,7 +110,15 @@ exit 0
   test('mode subcommand prints the setting relative to cwd', () => {
     const { repo } = setup();
     const r = spawnSync('node', [LIB, 'mode'], { cwd: repo, encoding: 'utf8', env: cleanEnv() });
-    expect(r.stdout.trim()).toBe('auto');
+    expect(r.stdout.split('\n').filter(Boolean)).toHaveLength(1);
+    expect(JSON.parse(r.stdout)).toBe('auto');
+  });
+
+  test('mode subcommand prints never as one JSON line', () => {
+    const { repo } = setup({ mode: 'never' });
+    const r = spawnSync('node', [LIB, 'mode'], { cwd: repo, encoding: 'utf8', env: cleanEnv() });
+    expect(r.stdout.split('\n').filter(Boolean)).toHaveLength(1);
+    expect(JSON.parse(r.stdout)).toBe('never');
   });
 
   test('default branch -> skipped, no pr create', () => {

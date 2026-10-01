@@ -1,0 +1,280 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs-1-mode-auto.txt",
+      "reason": "With the setting \"auto\", mode exited 0 and printed one line, \"auto\". JSON.parse and jq both accepted it.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs-2-mode-never.txt",
+      "reason": "With the setting \"never\", mode exited 0 and printed one line, \"never\". JSON.parse and jq both accepted it.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/mode-transcript.txt",
+      "reason": "An ensemble block with no key, no ensemble block, and no settings file each printed never.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/mode-transcript.txt",
+      "reason": "\"always\", true and \"AUTO \" each printed never.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/ensure-fs6-8-transcript.txt",
+      "reason": "Every ensure run printed one line with the keys action, url and reason, and an allowed action. Line counts are explicit for FS-6/7/8/17/18 and the extra runs. FS-9 to FS-16 show single-line stdout in their own transcripts.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/ensure-fs6-8-transcript.txt",
+      "reason": "skipped with 'openPullRequest is never'. Bare refs were unchanged and the gh log was empty.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/ensure-fs6-8-transcript.txt",
+      "reason": "skipped with 'on the default branch'. Refs were unchanged and the log shows no pr create.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/ensure-fs6-8-transcript.txt",
+      "reason": "rev-parse printed HEAD. skipped with 'detached HEAD'. Refs were unchanged and the gh log was empty.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-9.txt",
+      "reason": "symbolic-ref failed and a local main exists. skipped with 'default branch unknown'. Nothing was pushed and pr create count was 0.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-10.txt",
+      "reason": "repo view was called, then pr create --base develop. Result: opened.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-11.txt",
+      "reason": "origin/HEAD pointed at trunk. pr create used --base trunk. Result: opened.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-12.txt",
+      "reason": "With gh absent from PATH, the result was skipped with 'gh missing or not authenticated'. The TRD (line 38) specifies this as one combined reason. Origin stayed empty.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-13.txt",
+      "reason": "auth status exited 1. The result was skipped with the combined reason the TRD specifies. The log has only auth status and origin stayed empty.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-14.txt",
+      "reason": "The origin ref equals local HEAD and the upstream is origin/feat/x. pr create passed base, head, title and body file. Result: opened, with the stub URL.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-15.txt",
+      "reason": "Both runs reported updated with the EXISTING URL. The second commit was pushed (origin ref equals HEAD) and pr create was not called.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/FS-16.txt",
+      "reason": "pr list used --state open and was followed by pr create. Result: opened with NEW16, not the closed PR's CLOSED-OLD.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs17-18-19-transcript.txt",
+      "reason": "The pre-receive hook rejected the push. Result: failed, with the reason equal to the first stderr line. No pr create.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs17-18-19-transcript.txt",
+      "reason": "The stub printed 3 stderr lines and the reason carries only the first.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs17-18-19-transcript.txt",
+      "reason": "No merge appears in the stub log (count 0) and the bare main SHA is unchanged. The per-scenario logs for FS-9 to FS-16 have no merge either.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs20-21-templates.txt",
+      "reason": "The repo's settings read \"auto\".",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs20-21-templates.txt",
+      "reason": "Both shipped settings templates read never.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs22-scaffold-transcript.txt",
+      "reason": "An absent key became never and stayed never. auto stayed auto. The second run was identical apart from refreshed_at.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs23-24-section.txt",
+      "reason": "The ensure call (line 270) comes after commit (235) and publish (248), gated on three conditions at lines 262-263.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs23-24-section.txt",
+      "reason": "STATE names the URL or reason (274-275). NEXT gives merge with a review line (333-335) and falls back to gh pr create (336). On the default branch with nothing committed, NEXT is the commit command instead, which is a sensible refinement.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs25-26.txt",
+      "reason": "A close needs nothing chained and must not be do-not-proceed. The ensure call is gated on that close.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs25-26.txt",
+      "reason": "ensure runs only after a successful close commit. The text says the already-closed path opens nothing.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs27-28.txt",
+      "reason": "The gh pr create line carries the auto/never conditions. The template still says 'name ONE' (checked in implement-trd.md around 1860-1874).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-28",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs27-28.txt",
+      "reason": "The old phrase occurs 0 times. The replacement at 1877-1880 conditions on the setting and keeps the stranded-on-a-branch reason.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs29.txt",
+      "reason": "The clause is at line 40 of both autonomy.md and its template.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-30",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/pr-at-cycle-end/evidence/fs30.txt",
+      "reason": "8041 + 8954 = 16995 bytes, within the 17000 limit.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    2
+  ],
+  "outcome": "satisfied"
+}

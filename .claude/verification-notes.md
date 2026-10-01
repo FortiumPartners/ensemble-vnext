@@ -742,3 +742,16 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   repo's own `.claude/rules/verification.md` (read-only, never edited) returns
   `unfilled: true, matchedTemplate: "current"` — consistent with the dispatch's own stack-hint
   that this repo's verification.md is still the unfilled template.
+
+## Exercising `pull-request.js ensure` (pr-at-cycle-end)
+
+- [ran] `ensure` can be walked with no network: temp git repo + local bare `origin`, cwd there, a stub `gh` first on PATH that logs argv (auth/repo view/pr list/pr create switchable by env), `.claude/settings.json` with `ensemble.openPullRequest: auto`. For "gh missing" use `PATH=/usr/bin:/bin` (no gh there on this machine; `command -v gh` exits 1). Both the missing-gh and unauthenticated skips print the same reason, "gh missing or not authenticated" (one combined string, not two distinct ones).
+
+- [ran] pr-at-cycle-end FS-22: `scaffold-project.sh --refresh --plugin-dir packages/full <tmpdir>` against a temp project holding only `.claude/settings.json` is enough to exercise the `openPullRequest` backfill (exit 0, `REFRESH_SUMMARY` all zeros); `jq -S 'del(.ensemble.refreshed_at)'` is needed to compare run 1 to run 2, since `refreshed_at` changes each run.
+- [ran] pr-at-cycle-end FS-21: the only shipped settings templates are `packages/core/templates/claude-directory/settings.json` and `packages/full/.claude/settings.json` (`find packages -name 'settings*.json'`); both read `"never"`. Under zsh, `grep --include=*.json` aborts with "no matches found" unless quoted.
+
+## Exercising `pull-request.js` (pr-at-cycle-end, 2026-10-01)
+
+- [ran] `node packages/core/lib/pull-request.js mode|ensure` runs against a throwaway temp repo with a local bare origin and a stub `gh` first on PATH (stub logs argv); cwd must be the temp repo (settings read from `./.claude/settings.json`). Never needs a real remote or real `gh`.
+- [ran] `mode` prints a bare word (`auto` or `never`), NOT a JSON line, so `JSON.parse` of its stdout fails; FS-1/FS-2 as worded ("parses as JSON") do not match this output. `ensure` does print one JSON line {action,url,reason}.
+- [ran] Sandbox note: `rm -rf $VAR/...` is blocked by a safety check; use a fresh unique temp dir per run instead of deleting.
