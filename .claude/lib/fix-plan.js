@@ -51,6 +51,8 @@ const VERIFICATION_SECTION = {
  *   otherwise identical other inputs (AC-F5.1/AC-F5.2).
  * @param {'defect'|'change'|'refactor'} [input.kind]
  * @param {string} [input.slug]                       for the chain argument
+ * @param {string|null} [input.neverUnattendedStatus] check-never-unattended's `status`;
+ *   'invalid' (the §5b list could not be read) suppresses the chain even with empty hits.
  * @param {string[]} [input.neverUnattendedHit]        path fragments matched by
  *   fix-sizing.js's matchNeverUnattended() against this run's touches. Non-empty means the
  *   owner has ruled this path out for unattended work (O-NU) — this is a policy rule, not a
@@ -65,6 +67,7 @@ function plan(input) {
     kind = 'defect',
     slug = '<slug>',
     neverUnattendedHit = [],
+    neverUnattendedStatus = null,
   } = input || {};
 
   if (!['trivial', 'small', 'medium'].includes(weight)) {
@@ -102,6 +105,18 @@ function plan(input) {
     return finish({
       writeTrd: true,
       reason: `owner policy — ${neverUnattendedHit.join(', ')} ${neverUnattendedHit.length === 1 ? 'is' : 'are'} marked never-unattended in verification.md; run /implement-trd yourself when you are satisfied`,
+      kind,
+      slug,
+    });
+  }
+
+  // An unreadable never-unattended list (check-never-unattended's `status: 'invalid'`) comes
+  // back with EMPTY hits — matching against a list that could not be read finds nothing. It
+  // must still stop the chain: an unreadable list is never "no brake".
+  if (neverUnattendedStatus === 'invalid') {
+    return finish({
+      writeTrd: true,
+      reason: 'owner policy — the never-unattended list in verification.md §5b could not be read, so nothing is built unattended; fix it (or run /verification-setup), then run /implement-trd yourself when you are satisfied',
       kind,
       slug,
     });

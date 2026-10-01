@@ -1,0 +1,190 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-1.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-2.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-3.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-4.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-5.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-6.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-7.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/reader-checks.json",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/reader-checks.json",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/reader-checks.json",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/checker-fs12.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/checker-fs13.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/checker-fs14.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-15.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-16-FS-17.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-16-FS-17.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-18.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-19.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/never-unattended-paths/evidence/FS-20.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": "satisfied"
+}

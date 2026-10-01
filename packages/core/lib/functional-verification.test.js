@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const {
   checkEvidence,
@@ -16,6 +16,7 @@ const {
   missingVerificationSections,
   readCoverageFloor,
   recommendCoverageFloor,
+  readNeverUnattended,
   CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
@@ -1184,6 +1185,24 @@ describe('isVerificationUnfilled', () => {
     });
   });
 
+  test('a project file matching the coverage-floor-v1 template (frozen just before §5b) is still reported unfilled, naming it', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.coverage-floor-v1.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+
+    // Shipped live until never-unattended-paths FIX-001 added §5b; every project scaffolded
+    // before that change holds exactly this copy.
+    expect(isVerificationUnfilled(priorTemplate, currentTemplate)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'coverage-floor-v1',
+    });
+  });
+
   test('a project file matching the pre-resource-table template, re-saved with CRLF, is still recognised', () => {
     const priorTemplate = fs.readFileSync(
       path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
@@ -1230,13 +1249,14 @@ describe('isVerificationUnfilled', () => {
     });
 
     // Neither the minimal template/project fixtures nor the pre-1.5.0 fixture carry any of
-    // the four current-shape sections (D10), so every test in this block that uses them
+    // the five current-shape sections (D10), so every test in this block that uses them
     // expects the full list back, in file order.
     const ALL_MISSING_SECTIONS = [
       'resource-capacity',
       'write-permission-column',
       'refresh-split',
       'coverage-floor',
+      'never-unattended',
     ];
 
     test('reports unfilled: true when the project file matches the template', () => {
@@ -1331,7 +1351,7 @@ describe('isVerificationUnfilled', () => {
       });
     });
 
-    test('reports only the missing coverage-floor section for the resource-table-v2 template', () => {
+    test('reports the missing coverage-floor and never-unattended sections for the resource-table-v2 template', () => {
       const priorTemplate = fs.readFileSync(
         path.join(__dirname, '__fixtures__', 'verification.resource-table-v2.md'),
         'utf8'
@@ -1354,7 +1374,7 @@ describe('isVerificationUnfilled', () => {
       expect(JSON.parse(stdout)).toEqual({
         unfilled: true,
         matchedTemplate: 'resource-table-v2',
-        missingSections: ['coverage-floor'],
+        missingSections: ['coverage-floor', 'never-unattended'],
       });
     });
 
@@ -1488,7 +1508,7 @@ describe('missingVerificationSections', () => {
     expect(missingVerificationSections(currentTemplate)).toEqual([]);
   });
 
-  test('the pre-1.5.0 template lacks all four, in file order', () => {
+  test('the pre-1.5.0 template lacks all five, in file order', () => {
     const priorTemplate = fs.readFileSync(
       path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),
       'utf8'
@@ -1498,23 +1518,32 @@ describe('missingVerificationSections', () => {
       'write-permission-column',
       'refresh-split',
       'coverage-floor',
+      'never-unattended',
     ]);
   });
 
-  test('the first resource-table template lacks only the coverage floor', () => {
+  test('the first resource-table template lacks the coverage floor and never-unattended sections', () => {
     const priorTemplate = fs.readFileSync(
       path.join(__dirname, '__fixtures__', 'verification.resource-table-v1.md'),
       'utf8'
     );
-    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor']);
+    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor', 'never-unattended']);
   });
 
-  test('the second resource-table template lacks only the coverage floor', () => {
+  test('the second resource-table template lacks the coverage floor and never-unattended sections', () => {
     const priorTemplate = fs.readFileSync(
       path.join(__dirname, '__fixtures__', 'verification.resource-table-v2.md'),
       'utf8'
     );
-    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor']);
+    expect(missingVerificationSections(priorTemplate)).toEqual(['coverage-floor', 'never-unattended']);
+  });
+
+  test('the coverage-floor-v1 template lacks only never-unattended', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.coverage-floor-v1.md'),
+      'utf8'
+    );
+    expect(missingVerificationSections(priorTemplate)).toEqual(['never-unattended']);
   });
 
   test('prose naming a column does not stand in for the table column itself', () => {
@@ -1525,11 +1554,292 @@ describe('missingVerificationSections', () => {
       '## 5a. Coverage floor',
       'Coverage floor: none',
     ].join('\n');
-    expect(missingVerificationSections(content)).toEqual(['write-permission-column', 'refresh-split']);
+    expect(missingVerificationSections(content)).toEqual([
+      'write-permission-column',
+      'refresh-split',
+      'never-unattended',
+    ]);
   });
 
   test('throws on a non-string content, matching decideNext\'s validate-don\'t-default stance', () => {
     expect(() => missingVerificationSections(undefined)).toThrow(TypeError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readNeverUnattended — parses verification.md §5b (never-unattended-paths FIX-001)
+// ---------------------------------------------------------------------------
+
+describe('readNeverUnattended', () => {
+  const withSection = (body) => `## 5b. Never unattended\n\n${body}\n\n## 6. Multi-repo\n`;
+
+  test('declared bullets become paths, in document order', () => {
+    expect(readNeverUnattended(withSection('- auth\n- payments'))).toEqual({
+      paths: ['auth', 'payments'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
+  test('backtick-wrapped bullets come back clean', () => {
+    expect(readNeverUnattended(withSection('- `src/auth/`\n- `**payments**`'))).toEqual({
+      paths: ['src/auth/', 'payments'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
+  test('a comma-separated "Paths:" line becomes paths', () => {
+    expect(readNeverUnattended(withSection('Paths: auth, payments'))).toEqual({
+      paths: ['auth', 'payments'],
+      status: 'declared',
+      raw: 'Paths: auth, payments',
+    });
+  });
+
+  test('"Paths: none" means no brake', () => {
+    expect(readNeverUnattended(withSection('Paths: none'))).toEqual({
+      paths: [],
+      status: 'none',
+      raw: 'Paths: none',
+    });
+  });
+
+  test('"Paths: NONE" is case-insensitive', () => {
+    expect(readNeverUnattended(withSection('Paths: NONE'))).toEqual({
+      paths: [],
+      status: 'none',
+      raw: 'Paths: NONE',
+    });
+  });
+
+  test('bullets plus "Paths: none" is invalid -- never resolved to "no brake"', () => {
+    const result = readNeverUnattended(withSection('- auth\nPaths: none'));
+    expect(result.status).toBe('invalid');
+    expect(result.paths).toEqual([]);
+  });
+
+  test('no "## 5b" heading at all is absent', () => {
+    expect(readNeverUnattended('## 6. Multi-repo\n\nsome text\n')).toEqual({
+      paths: [],
+      status: 'absent',
+      raw: null,
+    });
+  });
+
+  test('a section holding only prose, with no bullets and no "Paths:" line, is absent', () => {
+    expect(
+      readNeverUnattended(
+        withSection('Paths /plan --implement will never build without you watching.')
+      )
+    ).toEqual({ paths: [], status: 'absent', raw: null });
+  });
+
+  test('a fenced example inside the section is ignored, not read as a declaration', () => {
+    const body = ['Example:', '```', '- auth', 'Paths: payments', '```'].join('\n');
+    expect(readNeverUnattended(withSection(body))).toEqual({
+      paths: [],
+      status: 'absent',
+      raw: null,
+    });
+  });
+
+  test('a "Paths:" line with an empty value is invalid, naming the offending line', () => {
+    const result = readNeverUnattended(withSection('Paths:'));
+    expect(result.status).toBe('invalid');
+    expect(result.paths).toEqual([]);
+    expect(result.raw).toMatch(/Paths:/);
+  });
+
+  test('a bullet that is empty after stripping markup is invalid, naming the offending line', () => {
+    const result = readNeverUnattended(withSection('- ``'));
+    expect(result.status).toBe('invalid');
+    expect(result.paths).toEqual([]);
+    expect(result.raw).toContain('-');
+  });
+
+  test.each([['- '], ['-'], ['*'], ['1.'], ['- auth\n- ']])(
+    'a bare list marker with nothing after it (%j) is invalid, not prose -- never "absent"',
+    (body) => {
+      const result = readNeverUnattended(withSection(body));
+      expect(result.status).toBe('invalid');
+      expect(result.paths).toEqual([]);
+      expect(result.raw).toBe(body.split('\n').pop().trim());
+    }
+  );
+
+  test('a horizontal rule is not mistaken for an empty bullet', () => {
+    expect(readNeverUnattended(withSection('- auth\n\n---\n'))).toEqual({
+      paths: ['auth'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
+  test('the current template ships with "Paths: none" -- no brake by default', () => {
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+    expect(readNeverUnattended(currentTemplate)).toEqual({
+      paths: [],
+      status: 'none',
+      raw: 'Paths: none',
+    });
+  });
+
+  test('a second "Paths:" line is invalid -- the template default left above an added list is not "none"', () => {
+    const result = readNeverUnattended(withSection('Paths: none\nPaths: auth, payments'));
+    expect(result.status).toBe('invalid');
+    expect(result.paths).toEqual([]);
+  });
+
+  test('a "Paths:" line written as a bullet is still a Paths line', () => {
+    expect(readNeverUnattended(withSection('- Paths: auth, payments'))).toEqual({
+      paths: ['auth', 'payments'],
+      status: 'declared',
+      raw: '- Paths: auth, payments',
+    });
+  });
+
+  test('a bullet listing several fragments comma-separated yields each one', () => {
+    expect(readNeverUnattended(withSection('- auth, payments')).paths).toEqual(['auth', 'payments']);
+  });
+
+  test('numbered list items are read as entries, not dropped as prose', () => {
+    expect(readNeverUnattended(withSection('1. auth\n2. payments'))).toEqual({
+      paths: ['auth', 'payments'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
+  test('"Paths: none — no brake" still reads as none', () => {
+    expect(readNeverUnattended(withSection('Paths: none — no brake')).status).toBe('none');
+  });
+
+  test('a hyphenated "Never-unattended" heading is found', () => {
+    expect(readNeverUnattended('## 5b. Never-unattended paths\n\n- auth\n')).toEqual({
+      paths: ['auth'],
+      status: 'declared',
+      raw: null,
+    });
+  });
+
+  test('throws on non-string content', () => {
+    expect(() => readNeverUnattended(undefined)).toThrow(TypeError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// check-never-unattended CLI -- reads a TRD's grounding touches and matches them against
+// verification.md's §5b list (never-unattended-paths FIX-001)
+// ---------------------------------------------------------------------------
+
+describe('CLI: check-never-unattended', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'never-unattended-cli-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const trdWithTouches = (touches) =>
+    [
+      '# Test TRD',
+      '',
+      '## Master Task List',
+      '',
+      '| ID | Description | Depends On |',
+      '|----|-------------|------------|',
+      '| FIX-001 | Do a thing |  |',
+      '',
+      '## Task Grounding',
+      '',
+      '### FIX-001',
+      '',
+      `- **Touches:** ${touches.map((t) => `\`${t}\``).join(', ')}`,
+      '- **Reuse:** none',
+      '- **Replaces:** nothing',
+      '- **Follow:** none',
+      '- **Careful:** none',
+      '',
+    ].join('\n');
+
+  test('returns hits for a TRD touching a path the owner listed', () => {
+    const trdPath = path.join(tmpDir, 'trd.md');
+    const verificationPath = path.join(tmpDir, 'verification.md');
+    fs.writeFileSync(trdPath, trdWithTouches(['src/auth/login.ts', 'src/ui/button.tsx']));
+    fs.writeFileSync(verificationPath, '## 5b. Never unattended\n\n- auth\n');
+
+    const stdout = execFileSync('node', [
+      MODULE_PATH,
+      'check-never-unattended',
+      trdPath,
+      verificationPath,
+    ]).toString();
+    const result = JSON.parse(stdout);
+    expect(result.status).toBe('declared');
+    expect(result.hits).toEqual(['src/auth/login.ts']);
+    expect(result.touches).toEqual(['src/auth/login.ts', 'src/ui/button.tsx']);
+  });
+
+  test('an unreadable TRD reports invalid, not a stack trace', () => {
+    const verificationPath = path.join(tmpDir, 'verification.md');
+    fs.writeFileSync(verificationPath, '## 5b. Never unattended\n\n- auth\n');
+    const r = spawnSync('node', [
+      MODULE_PATH,
+      'check-never-unattended',
+      path.join(tmpDir, 'missing-trd.md'),
+      verificationPath,
+    ]);
+    expect(r.status).toBe(1);
+    const result = JSON.parse(r.stdout.toString());
+    expect(result.status).toBe('invalid');
+    expect(result.hits).toEqual([]);
+    expect(result.raw).toMatch(/cannot read TRD/);
+  });
+
+  test('a missing verification.md reports absent, with no hits', () => {
+    const trdPath = path.join(tmpDir, 'trd.md');
+    const verificationPath = path.join(tmpDir, 'does-not-exist.md');
+    fs.writeFileSync(trdPath, trdWithTouches(['src/auth/login.ts']));
+
+    const stdout = execFileSync('node', [
+      MODULE_PATH,
+      'check-never-unattended',
+      trdPath,
+      verificationPath,
+    ]).toString();
+    expect(JSON.parse(stdout)).toEqual({
+      hits: [],
+      status: 'absent',
+      raw: null,
+      touches: ['src/auth/login.ts'],
+    });
+  });
+
+  test('"Paths: none" reports no hits even when a listed-looking path is touched', () => {
+    const trdPath = path.join(tmpDir, 'trd.md');
+    const verificationPath = path.join(tmpDir, 'verification.md');
+    fs.writeFileSync(trdPath, trdWithTouches(['src/auth/login.ts']));
+    fs.writeFileSync(verificationPath, '## 5b. Never unattended\n\nPaths: none\n');
+
+    const stdout = execFileSync('node', [
+      MODULE_PATH,
+      'check-never-unattended',
+      trdPath,
+      verificationPath,
+    ]).toString();
+    expect(JSON.parse(stdout)).toEqual({
+      hits: [],
+      status: 'none',
+      raw: 'Paths: none',
+      touches: ['src/auth/login.ts'],
+    });
   });
 });
 

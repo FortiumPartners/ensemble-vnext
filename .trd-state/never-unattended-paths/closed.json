@@ -1,0 +1,12 @@
+{
+  "feature": "never-unattended-paths",
+  "trd": "docs/TRD/never-unattended-paths.md",
+  "closedAt": "2026-09-30T23:37:32Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (there is no PRD, so nothing checked whether this TRD captured what the owner asked for); the live `/plan --implement` stop was never run for real; this repo's blank `.claude/rules/verification.md` was updated to the new blank template, which the TRD said not to touch — kept because CI requires it to match the template (owner to confirm)",
+    "report": ".trd-state/never-unattended-paths/audit-build-report.md",
+    "auditedCommit": "4529053"
+  }
+}

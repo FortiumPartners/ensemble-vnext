@@ -143,6 +143,18 @@ verification run may report `satisfied`, `stalled` or `stuck`. Below it the run 
 
 Coverage floor: none
 
+## 5b. Never unattended
+
+Paths `/plan --implement` will never build without you watching — auth, payments,
+migrations, secrets, deletion, anything where a wrong unattended change is expensive to
+undo. Matched by **substring, not glob**: a fragment like `auth` covers any path containing
+it, including `src/auth/`, `lib/authorize.ts` and `packages/auth-service/`.
+
+Write one `- <fragment>` bullet per path, or list them on one line as `Paths: a, b`. The
+default is `Paths: none` — no brake.
+
+Paths: none
+
 ## 6. Multi-repo
 
 When the system spans repositories, name them and say which holds what. A verifier that

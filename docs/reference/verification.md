@@ -39,7 +39,7 @@ Both commands dispatch the **same** workflow with the same 22 arguments
 
 | File | Written by | Read by | Holds |
 |---|---|---|---|
-| `.claude/rules/verification.md` | you, via `verification-setup` | preflight §3.6a, lanes §8.1a, every loop agent (inside `stackHints`) | Environments and permissions (§1), how many of each resource may exist (§1a), refresh/deploy commands (§2), where credentials live (§3), tooling (§4), known gaps (§5), coverage floor (§5a) |
+| `.claude/rules/verification.md` | you, via `verification-setup` | preflight §3.6a, lanes §8.1a, every loop agent (inside `stackHints`), `/plan`'s Step 7 (via `check-never-unattended`) | Environments and permissions (§1), how many of each resource may exist (§1a), refresh/deploy commands (§2), where credentials live (§3), tooling (§4), known gaps (§5), coverage floor (§5a), never-unattended paths (§5b) |
 | `.trd-state/<f>/success-definition.md` | `product-manager` (derived rows); the command (check rows) | the command at §8.1, which parses it into `criteria` | The criteria table |
 | `.trd-state/<f>/evidence/` | exercisers | the checker, the Judge | Screenshots, transcripts, row tables |
 | `.trd-state/<f>/verification-state.json` | the Judge, every iteration | `--resume`, `--fix`, `recommend-coverage-floor` | Per-criterion verdicts, `outcome` |
@@ -498,7 +498,7 @@ no confirmation step after the interview.
 | # | Step | Kind |
 |---|---|---|
 | 1 | Read the current file (or the template), `missingSections`, repo signals (`package.json` scripts, compose files, `.env*.example` key names only, `vercel.json`, `railway.*`, notes, `CLAUDE.md`), any installed detector skills, and needs recorded against the file by `--fix` | code + model |
-| 2 | One `AskUserQuestion` per topic in file order — §1 environments, §1a capacity, §2 refresh/deploy, §3 where credentials live, §4 tooling, §5 gaps, §5a floor, §6 multi-repo — each offering the detected value (with its source), the current value, then "keep" | you |
+| 2 | One `AskUserQuestion` per topic in file order — §1 environments, §1a capacity, §2 refresh/deploy, §3 where credentials live, §4 tooling, §5 gaps, §5a floor, §5b never-unattended paths, §6 multi-repo — each offering the detected value (with its source), the current value, then "keep" | you |
 | 3 | Permissions, counts and whether a gap is permanent cannot be detected; they default to the template's example row, labelled "not detectable — the conservative default" | model |
 | 4 | On a filled file, ask only topics whose section is missing, whose detected evidence changed, or that a recorded need names | model |
 | 5 | Write the whole file once, unchanged sections verbatim; re-run `check-verification-unfilled` and `read-coverage-floor` on it and report any problem as its own defect | code + model |
@@ -510,3 +510,16 @@ every past satisfied run still clears it. The interview shows the per-run table 
 with no satisfied run it recommends nothing yet. Answers are written `Coverage floor: 60%` or
 `Coverage floor: none`, the two forms the parser reads. The skill never writes a credential
 value, probes an environment, edits another file, or starts a run.
+
+**§5b, never-unattended paths, is a separate brake with its own reader,
+`readNeverUnattended()` in `functional-verification.js`.** It holds the paths an owner never
+wants touched without them watching — one bullet per path fragment (`- migrations/`,
+`- src/auth/`), or `Paths: none` when there are none. Bullets and `Paths:` on one line,
+comma-separated, are both accepted; matching is by substring, not glob, so `auth` covers
+anything under an `auth` folder. `/plan` Step 7 checks a run's touched files against this
+list through `check-never-unattended <trd> <verification.md>` — not by reading the section
+itself — and a hit stops `--implement` before anything builds, naming the path that matched.
+A section the reader cannot parse (bullets mixed with `Paths: none`, or an unreadable line)
+comes back `invalid` and stops the build the same way a real match would, rather than being
+read as empty; an absent section is reported in `/plan`'s readout as no list declared, and
+`Paths: none` means, correctly, no brake.

@@ -31,6 +31,8 @@ const CORE_PROCESS_TEMPLATE = path.join(REPO, 'packages/core/templates/process.m
 const CLAUDE_PROCESS = path.join(REPO, '.claude/rules/process.md');
 const CORE_AMEND = path.join(REPO, 'packages/core/commands/amend.md');
 const CLAUDE_AMEND = path.join(REPO, '.claude/commands/amend.md');
+const CORE_PLAN = path.join(REPO, 'packages/core/commands/plan.md');
+const CLAUDE_PLAN = path.join(REPO, '.claude/commands/plan.md');
 
 const read = (p) => fs.readFileSync(p, 'utf8');
 // Prose wraps at ~80 columns, so a phrase that reads as one sentence to a human can straddle
@@ -53,6 +55,43 @@ describe('packages/core <-> .claude mirror parity', () => {
 
   test('amend.md is byte-identical to its mirror', () => {
     expect(read(CLAUDE_AMEND)).toBe(read(CORE_AMEND));
+  });
+
+  test('plan.md is byte-identical to its mirror', () => {
+    expect(read(CLAUDE_PLAN)).toBe(read(CORE_PLAN));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FIX-003 (never-unattended-paths TRD): plan.md Step 7 calls the checker instead of having
+// the model gather touches and read the never-unattended list from verification.md by hand.
+// ---------------------------------------------------------------------------
+
+describe('plan.md Step 7 uses check-never-unattended instead of gathering touches by hand', () => {
+  const step7 = () =>
+    read(CORE_PLAN).split('## Step 7: Implement, or stop')[1].split('---')[0];
+
+  test('calls the check-never-unattended subcommand', () => {
+    expect(step7()).toMatch(/check-never-unattended docs\/TRD\/<slug>\.md \.claude\/rules\/verification\.md/);
+  });
+
+  test('passes hits as neverUnattendedHit, not a hand-rolled matchNeverUnattended call', () => {
+    expect(step7()).toMatch(/hits.*as `neverUnattendedHit`|Pass `hits` as `neverUnattendedHit`/i);
+  });
+
+  test("status: 'invalid' stops the chain and names the unreadable raw line", () => {
+    expect(step7()).toMatch(/status: 'invalid'/);
+    expect(flat(step7())).toMatch(/stop here; do not chain into `\/implement-trd`/);
+    expect(step7()).toMatch(/`raw`/);
+  });
+
+  test("status: 'absent' adds one readout line pointing at /verification-setup", () => {
+    expect(step7()).toMatch(/status: 'absent'/);
+    expect(step7()).toMatch(/\/verification-setup/);
+  });
+
+  test('describes the list as living in verification.md §5b', () => {
+    expect(read(CORE_PLAN)).toMatch(/verification\.md`?\s*§5b|§5b/);
   });
 });
 
