@@ -49,6 +49,8 @@ describe('ensure CLI', () => {
     if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
     return r.stdout;
   };
+  // Every scenario's stub-gh log reader, so one check can cover them all.
+  const ghLogs = [];
   function cleanEnv(extra = {}) {
     const e = { ...process.env, ...extra };
     delete e.GIT_DIR;
@@ -104,8 +106,16 @@ exit 0
       return JSON.parse(r.stdout.trim());
     };
     const calls = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '');
+    ghLogs.push(calls);
     return { repo, ensure, calls };
   }
+
+  // Runs after the scenarios below (inner afterAll runs before the file-level temp cleanup).
+  afterAll(() => {
+    const all = ghLogs.map((f) => f()).join('\n');
+    expect(all).toMatch(/pr create/); // the logs were really populated
+    expect(all.split('\n').filter((l) => l.trim().split(/\s+/).includes('merge'))).toEqual([]);
+  });
 
   test('mode subcommand prints the setting relative to cwd', () => {
     const { repo } = setup();
@@ -204,7 +214,43 @@ exit 0
 });
 
 describe('source safety', () => {
+  // Drop // and /* */ comments but keep string and template-literal contents, so prose may say
+  // "merge" while any executable use (string, template, or argument) is still seen.
+  function stripComments(code) {
+    let out = '';
+    let i = 0;
+    while (i < code.length) {
+      const c = code[i];
+      const n = code[i + 1];
+      if (c === '/' && n === '/') {
+        while (i < code.length && code[i] !== '\n') i++;
+      } else if (c === '/' && n === '*') {
+        const end = code.indexOf('*/', i + 2);
+        i = end === -1 ? code.length : end + 2;
+      } else if (c === "'" || c === '"' || c === '`') {
+        let j = i + 1;
+        while (j < code.length && code[j] !== c) j += code[j] === '\\' ? 2 : 1;
+        out += code.slice(i, j + 1);
+        i = j + 1;
+      } else {
+        out += c;
+        i++;
+      }
+    }
+    return out;
+  }
+  const mentionsMerge = (code) => /merge/i.test(stripComments(code));
+
   const src = fs.readFileSync(LIB, 'utf8');
-  test('never invokes pr merge', () => expect(src).not.toMatch(/['"]merge['"]/));
+  test('never invokes pr merge in executable code', () => expect(mentionsMerge(src)).toBe(false));
+  test('the merge check ignores comments but catches every invocation form', () => {
+    expect(mentionsMerge('// never merge\n/* gh pr merge */ run("gh", ["pr", "create"]);')).toBe(false);
+    expect(mentionsMerge("run('gh', ['pr', 'merge'])")).toBe(true);
+    expect(mentionsMerge('run("gh", ["pr", "merge"])')).toBe(true);
+    expect(mentionsMerge("run('gh', 'pr merge 7'.split(' '))")).toBe(true);
+    expect(mentionsMerge('run(`gh pr merge ${n}`)')).toBe(true);
+    expect(mentionsMerge("const sub = 'merge'; run('gh', ['pr', sub])")).toBe(true);
+    expect(mentionsMerge("run('gh', ['pr', \"merge\", '--auto'])")).toBe(true);
+  });
   test('never uses execSync', () => expect(src).not.toMatch(/execSync/));
 });

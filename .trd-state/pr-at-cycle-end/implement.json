@@ -82,6 +82,51 @@
       "started_at": "2026-10-01T08:34:40.849Z",
       "completed_at": "2026-10-01T08:40:40.249Z",
       "last_advanced": "2026-10-01T08:36:16.342Z"
+    },
+    "AMEND-001": {
+      "description": "audit-build gap",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/notify-on-complete.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-10-01T19:26:29.723Z",
+      "completed_at": "2026-10-01T19:29:31.847Z",
+      "last_advanced": "2026-10-01T19:27:14.851Z"
+    },
+    "AMEND-002": {
+      "description": "audit-build gap",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-01T19:26:29.723Z",
+      "completed_at": "2026-10-01T19:29:31.847Z",
+      "last_advanced": "2026-10-01T19:27:14.851Z"
+    },
+    "AMEND-003": {
+      "description": "audit-build gap",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/pull-request.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-01T19:26:29.723Z",
+      "completed_at": "2026-10-01T19:29:31.847Z",
+      "last_advanced": "2026-10-01T19:27:14.851Z"
     }
   },
   "checkpoints": [

@@ -625,6 +625,15 @@ ARTIFACT_CMDS=(create-prd refine-prd create-trd refine-trd plan verify-build imp
     done
 }
 
+@test "openPullRequest is exactly \"auto\" in this repository's own settings (objective O3)" {
+    # The shipped templates say "never"; this repo opts in itself. A bare
+    # typeof-string check would still pass if someone set it to "never".
+    run node -e '
+      process.exit(require(process.argv[1]).ensemble.openPullRequest === "auto" ? 0 : 1);
+    ' "${REPO_ROOT}/.claude/settings.json"
+    [ "$status" -eq 0 ]
+}
+
 @test "openPullRequest backfill uses setdefault, never assignment" {
     run grep -n 'ensemble.setdefault("openPullRequest"' \
         "${REPO_ROOT}/packages/core/scripts/scaffold-project.sh"

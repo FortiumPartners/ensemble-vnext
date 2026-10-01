@@ -684,6 +684,18 @@ describe('the cycle-ending commands open the pull request', () => {
     expect(auditBuild).toMatch(/Open the pull request\.\*\* Only when .*the run is not `--report-only`/);
   });
 
+  // WHEN the PR opens: each condition below is a regex over the shipped command text, so
+  // removing the wording from the command file fails the matching assertion.
+  test('close-feature.md opens the PR only after a successful close commit, never on the already-closed path', () => {
+    expect(closeFeature).toMatch(/\*\*Open the pull request\*\* after a successful close commit/);
+    expect(closeFeature).toMatch(/The "already closed" path opens nothing\./);
+  });
+
+  test('audit-build.md opens the PR only when the audit commit succeeded', () => {
+    expect(auditBuild).toMatch(/Only when .*the audit commit above succeeded/);
+    expect(auditBuild).toMatch(/No audit commit, no PR\./);
+  });
+
   test('NEXT offers gh pr merge, never a command that merges on its own', () => {
     expect(auditBuild).toMatch(/gh pr merge <number> --merge/);
     expect(closeFeature).toMatch(/gh pr merge <number> --merge/);
