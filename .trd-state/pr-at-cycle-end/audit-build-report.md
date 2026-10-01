@@ -1,31 +1,30 @@
-VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; no test checks that this repo's setting is "auto" (O3); no test covers the conditions that decide when /close-feature and /audit-build open a PR; a live PR-opening run has never happened
+VERDICT: proceed with these caveats: no PRD was supplied, so whether the change matches what the owner asked for, and whether it leaves anything out, was not checked; no live run has confirmed that a real PR opens on GitHub under the stated conditions
 
 # Audit report: pr-at-cycle-end
 
 - Date: 2026-10-01
-- Audited commit: d68a43e
+- Audited commit: c57a180
 - TRD: docs/TRD/pr-at-cycle-end.md
 - PRD: none
-- Findings: 6 · applied: 5 · rejected: 0 · still unverified: 2 · verifiers reporting: 5/5
+- Findings: 1 · applied: 1 · rejected: 0 · still unverified: 2 · verifiers reporting: 5/5
 
 AUDIT-BUILD: docs/TRD/pr-at-cycle-end.md    PRD: none
 
-VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; no test checks that this repo's setting is "auto" (O3); no test covers the conditions that decide when /close-feature and /audit-build open a PR; a live PR-opening run has never happened
+VERDICT: proceed with these caveats: no PRD was supplied, so whether the change matches what the owner asked for, and whether it leaves anything out, was not checked; no live run has confirmed that a real PR opens on GitHub under the stated conditions
 
-Coverage: all 5 verifiers reported. No PRD was supplied (the source is the owner's in-session statement), so validation against product requirements did not run. Every disputed file was re-opened; all six findings match the code, so none was rejected.
+COVERAGE: all 5 verifiers reported. 3 requirements and 7 tasks were indexed. Validation against product requirements was NOT checked, because no PRD exists for this change.
 
-TRACEABILITY GAPS — implemented, but no test proves it. Each is covered by an existing task, so each goes to /implement-trd --reconcile, recorded as a must-fix item for this feature.
-- This repo's own setting is "auto" (O3, settings task FIX-002). `.claude/settings.json:162` says "auto", and `node .claude/lib/pull-request.js mode` prints "auto". But the only test that reads this repo's settings (`test/integration/tests/notify-on-complete.test.sh:609-626`) checks only that the value is a string, so it would pass with "never".
-- When the cycle-ending commands open a PR (O1, commands task FIX-003). /close-feature opens one only after a successful close commit, and its "already closed" path opens nothing (`packages/core/commands/close-feature.md:88-93`). /audit-build opens one only if its audit commit succeeded (`audit-build.md:262-276`). None of these conditions has an assertion in `verify-command-surface.test.js:669-698`; only `--report-only` is tested.
+NO ACTION — the code matches all 7 TRD tasks (FIX-001..004, AMEND-001..003) and each has tests:
+- The PR script and the command-surface checks pass their Jest suites, 114 of 114 (`packages/core/lib/pull-request.test.js`, `packages/core/commands/verify-command-surface.test.js`).
+- The runtime copy of the PR script is byte-identical to the source, and the `packages/full` symlink resolves.
+- The three command copies (audit-build, close-feature, implement-trd) and both copies of autonomy.md are byte-identical.
+- This repo's `.claude/settings.json` has `openPullRequest: "auto"`, and a BATS test fails if it were changed (`notify-on-complete.test.sh:628`).
+- The test that the script never merges a PR now catches every way of writing the merge call (`pull-request.test.js:256-269`).
+- Both reference docs mention `openPullRequest`.
 
-UNTESTED-IN-PRACTICE — a test exists but proves less than the requirement
-- FIX-003's command tests check only that sentences exist in the prompts; they cannot show that a run follows them. That limit is recorded in Could Not Verify as needing a live run.
-- FIX-001's "never invokes pr merge" test (`packages/core/lib/pull-request.test.js:208`) matches only a quoted `'merge'` token, so `'pr merge'` or a template literal would get past it. The source has no merge call today, so nothing is wrong now, but the test is weaker than the acceptance criterion. Goes to /implement-trd --reconcile under FIX-001.
+RECORDED, NOT CLOSED — the validation verifier reported "no PRD supplied". That is true, but it is a limit on what this audit could check, not a defect in the code, so it is recorded in the TRD's Could Not Verify section. Whether this change needs a source document is the owner's call.
 
-REJECTED THESE FINDINGS
-- none. One sub-claim was confirmed: the setdefault grep test is text-only, but `test/integration/tests/scaffold-delivery.test.sh:169-201` tests the behaviour (a refresh keeps "auto", a missing key gets "never").
+FIXED THE CITATION — none.
+REJECTED THESE FINDINGS — none.
 
-NO ACTION — implemented, tested, sourced
-- O2 (the setting survives refresh and rebase) and FIX-004 (docs). The pull-request lib's tests and the command-surface tests pass, 111 of 111. Command mirrors are byte-identical.
-
-Could Not Verify (rewritten in docs/TRD/pr-at-cycle-end.md): the live-run row is widened to cover the PR-opening conditions as well as opening a real PR, and a new row records that no PRD exists.
+Could Not Verify (rewritten in docs/TRD/pr-at-cycle-end.md) now has two rows: the live GitHub PR behaviour, which needs a real run against the remote; and the check against the owner's request, skipped because there is no PRD.

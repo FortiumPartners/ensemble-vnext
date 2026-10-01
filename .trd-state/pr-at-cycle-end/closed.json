@@ -1,0 +1,12 @@
+{
+  "feature": "pr-at-cycle-end",
+  "trd": "docs/TRD/pr-at-cycle-end.md",
+  "closedAt": "2026-10-01T23:19:36Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no PRD was supplied, so whether the change matches what the owner asked for, and whether it leaves anything out, was not checked; no live run has confirmed that a real PR opens on GitHub under the stated conditions",
+    "report": ".trd-state/pr-at-cycle-end/audit-build-report.md",
+    "auditedCommit": "c57a180"
+  }
+}

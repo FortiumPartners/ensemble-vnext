@@ -144,9 +144,9 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 
 ## Could Not Verify
 
-Updated by `/audit-build`, 2026-10-01. Gaps that audit found are in its report, not here.
+Updated by `/audit-build`, 2026-10-01 (re-audit after AMEND-001..003). All five verifiers reported; this audit found no gaps in the code against the TRD's seven tasks. What it did not, or could not, check:
 
 | Claim | Why not checked |
 |-------|-----------------|
 | A live `/audit-build` or `/close-feature` run opens a real PR on GitHub, and only under the conditions in Intended Change (audit closed the feature, not `--report-only`, the commit succeeded; the "already closed" path opens nothing) | Needs a live run against the remote. The unit tests use a stub `gh`, and the command conditions are prompt prose, so tests can only show the wording is there, not that a run follows it |
-| The change matches what the owner asked for | No PRD exists; the source is the owner's in-session statement quoted under Objectives. The audit checked the TRD against the code only, so nothing was checked against the request itself or for omissions |
+| The change matches what the owner asked for, and leaves nothing out | No PRD exists; the source is the owner's in-session statement quoted under Objectives. The validation verifier, which checks delivered code against product requirements, had none to check against and did nothing. This audit checked the TRD against the code only |
