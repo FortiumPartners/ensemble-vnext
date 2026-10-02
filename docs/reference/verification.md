@@ -182,7 +182,9 @@ gets a synthesised claim, "no exercise lane", so the Judge still rules on it.
 
 **The freshness floor** `since` is `max(HEAD commit time, now)`, taken at the moment of
 dispatch (`implement-trd.md` §8.3). HEAD alone would let a prior run's leftover evidence pass
-on a `--resume`, which makes no new commit.
+on a `--resume`, which makes no new commit. Older evidence passes only by
+reuse: a `[LIVE]` task's recorded artifact (`evidence/live-manifest.jsonl`) whose declared
+source files still hash as recorded. `covers` comes from that manifest, never from the exerciser.
 
 ---
 
@@ -277,7 +279,7 @@ first failure wins:
 | 2 | It exists | `missing` |
 | 3 | It is a regular file (not a directory, socket…) | `not-a-file` |
 | 4 | It is non-empty | `empty` |
-| 5 | Its mtime is strictly later than `since` | `stale` |
+| 5 | Its mtime is strictly later than `since`, **or** it is a reused `[LIVE]` artifact: the manifest's `covers` is non-empty, every path absolute and an existing file, and each file's sha256 equals the recorded one (reported `reused: true`) | `stale` |
 | 6 | A non-blank locator was supplied | `no-locator` |
 | 7 | The locator appears **literally** in the file's first 2,000,000 bytes (`truncated: true` if cut) | `locator-not-found` |
 
@@ -305,7 +307,7 @@ duplicated as an enum in the workflow's `JUDGE_CRITERION_SCHEMA`):
 | Cause | Assigned when | Buildable |
 |---|---|---|
 | `evidence-missing` | Tier 1 failed (`missing`/`empty`/`not-a-file`/`no-artifact`) and nothing seen shows the build misbehaving | no |
-| `evidence-stale` | Tier 1 failed `stale` | no |
+| `evidence-stale` | Tier 1 failed `stale`, including a reuse rejected because a covered file changed | no |
 | `locator-not-found` | Tier 1 failed `no-locator` or `locator-not-found` | no |
 | `never-exercised` | No claim reached the Judge | no |
 | `judged-failed` | The build was reached and did the wrong thing — **including a crash during capture** — or a check row ruled `deviates` | **yes** |

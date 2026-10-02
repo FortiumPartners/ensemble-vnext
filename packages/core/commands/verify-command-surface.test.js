@@ -244,22 +244,23 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 22 fields in the same order (VSET-B002/B003, D8)', () => {
-  test('implement-trd.md §8.3 lists 22 fields ending in checks/checkComments/pagesDir', () => {
+describe('both dispatch blocks carry the same 23 fields in the same order (VSET-B002/B003, D8)', () => {
+  test('implement-trd.md §8.3 lists 23 fields ending in checks/checkComments/pagesDir', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(22);
+    expect(fields).toHaveLength(23);
     expect(fields.slice(-3)).toEqual(['checks', 'checkComments', 'pagesDir']);
   });
 
-  test('verify-build.md §4 lists the identical 22 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 23 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 22 fields, not 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 22 fields/);
+  test('verify-build.md §4 intro says 23 fields, not 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 23 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 22 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 21 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 18 fields/);
   });
@@ -797,5 +798,62 @@ describe('implement-trd section 2.1a: audit-promoted tasks fix the class', () =>
 
   test('names fixing every instance across touched files and listing each', () => {
     expect(sec).toMatch(/find and fix every instance of this weakness across the feature's touched files, and list each one fixed/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verification-reuses-evidence FIX-004: [LIVE] tasks record evidence for the loop, the loop is
+// handed it, and the authoring rules no longer claim [LIVE] tasks are set aside by default.
+// ---------------------------------------------------------------------------
+
+describe('[LIVE] tasks feed the verification loop (verification-reuses-evidence)', () => {
+  const CORE_TRD_AUTHORING = path.join(REPO, 'packages/core/contracts/trd-authoring.md');
+  const CORE_CREATE_TRD = path.join(REPO, 'packages/core/commands/create-trd.md');
+  const CORE_CONTRACT = path.join(REPO, 'packages/core/contracts/functional-verification.md');
+  const impl = flat(read(CORE_IMPLEMENT));
+  const sec35 = flat(read(CORE_IMPLEMENT).split('### 3.5 ')[1].split('\n### 3.6')[0]);
+
+  test('§3.5 adds a [LIVE]-only element naming live-evidence.js record', () => {
+    expect(sec35).toMatch(/task\.live/);
+    expect(sec35).toMatch(/node \.claude\/lib\/live-evidence\.js record/);
+    expect(sec35).toMatch(/evidence\/live\/\{task_id\}/);
+    expect(sec35).toMatch(/--covers/);
+  });
+
+  test('§8.3 and verify-build.md pass liveEvidence, read from live-evidence.js read', () => {
+    expect(impl).toMatch(/liveEvidence,\s+\/\/[^\n]*live-evidence\.js read/);
+    expect(flat(read(CORE_VERIFY_BUILD))).toMatch(/liveEvidence,\s+\/\/[^\n]*live-evidence\.js read/);
+  });
+
+  test('§8.3 qualifies "produced by THIS run" and line 18 no longer calls [LIVE] deferred', () => {
+    expect(impl).toMatch(/unless it qualifies for reuse/);
+    expect(impl).not.toMatch(/\(`\[LIVE\]` etc\.\)/);
+  });
+
+  test('the contract names the reuse path in the freshness bullet and the evidence-stale row', () => {
+    const c = flat(read(CORE_CONTRACT));
+    expect(c).toMatch(/unless it qualifies for reuse/);
+    expect(c).toMatch(/\| `evidence-stale` \|[^|]*reuse[^|]*\|/);
+  });
+
+  test.each([
+    ['trd-authoring.md', CORE_TRD_AUTHORING],
+    ['create-trd.md', CORE_CREATE_TRD],
+  ])('%s says [LIVE] tasks record evidence in the live-evidence manifest', (_n, file) => {
+    const t = flat(read(file));
+    expect(t).toMatch(/live-manifest\.jsonl/);
+    expect(t).not.toMatch(/already sets `\[LIVE\]` tasks aside by default/);
+  });
+
+  test('trd-authoring.md drops the false set-aside claim in §4.1.1', () => {
+    expect(flat(read(CORE_TRD_AUTHORING))).not.toMatch(/sets `\[LIVE\]` tasks aside/);
+  });
+
+  test.each([
+    ['contracts/functional-verification.md', 'contracts/functional-verification.md'],
+    ['contracts/trd-authoring.md', 'contracts/trd-authoring.md'],
+    ['commands/create-trd.md', 'commands/create-trd.md'],
+  ])('%s mirrors byte for byte', (_n, rel) => {
+    expect(read(path.join(REPO, '.claude', rel))).toBe(read(path.join(REPO, 'packages/core', rel)));
   });
 });

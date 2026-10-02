@@ -336,6 +336,13 @@ regardless of the project's `verification_level` setting. Use `[LIVE]` for:
 
 Tasks WITHOUT `[LIVE]` use the project's default `verification_level` from constitution.md.
 
+A `[LIVE]` task also **records what it captures for the verification loop.** `/implement-trd`
+tells it to save each artifact under `.trd-state/<feature>/evidence/live/<task-id>/` and list it,
+with the source files it exercises, in `.trd-state/<feature>/evidence/live-manifest.jsonl`. The
+loop then reuses an artifact whose listed files are unchanged instead of capturing the same
+thing again, so the run does not prove one criterion twice. Write the task's acceptance criteria
+so the artifact it records is the proof of the behaviour.
+
 ### 4.1.2 Skill Hints
 
 Each task SHOULD include a `Skills` column listing ensemble skills the implementer

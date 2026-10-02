@@ -308,6 +308,81 @@ describe('checkEvidence', () => {
     });
   });
 
+  describe('reuse by content hash of covers', () => {
+    const crypto = require('crypto');
+    const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+    let artifact;
+    let src;
+    let mtimeSec;
+    let covers;
+
+    beforeEach(() => {
+      artifact = path.join(tmpDir, 'old.txt');
+      src = path.join(tmpDir, 'src.js');
+      fs.writeFileSync(artifact, 'saw: Welcome back');
+      fs.writeFileSync(src, 'v1');
+      mtimeSec = Math.floor(fs.statSync(artifact).mtimeMs / 1000);
+      covers = [{ path: src, sha256: sha('v1') }];
+    });
+
+    const run = (extra = {}, since = mtimeSec + 100) =>
+      checkEvidence([{ criterion: 'FS-1', artifact, locator: 'Welcome back', covers, ...extra }], since)[0];
+
+    test('old artifact, unchanged covered file: pass with reused', () => {
+      const v = run();
+      expect(v.tier1).toBe('pass');
+      expect(v.reused).toBe(true);
+    });
+
+    test('covered file edited: stale; restored to old bytes: pass again', () => {
+      fs.writeFileSync(src, 'v2');
+      expect(run()).toMatchObject({ tier1: 'fail', failure: 'stale' });
+      fs.writeFileSync(src, 'v1');
+      expect(run()).toMatchObject({ tier1: 'pass', reused: true });
+    });
+
+    test('empty, relative, missing, directory or malformed covers: stale', () => {
+      for (const bad of [
+        [],
+        [{ path: 'src.js', sha256: sha('v1') }],
+        [{ path: path.join(tmpDir, 'gone.js'), sha256: sha('v1') }],
+        [{ path: tmpDir, sha256: sha('v1') }],
+        [{ path: src }],
+        'nope',
+      ]) {
+        expect(run({ covers: bad })).toMatchObject({ tier1: 'fail', failure: 'stale' });
+      }
+    });
+
+    test('no covers on an old artifact: stale as before', () => {
+      expect(run({ covers: undefined })).toMatchObject({ failure: 'stale' });
+    });
+
+    test('locator gate still runs on a reused artifact', () => {
+      expect(run({ locator: 'absent' })).toMatchObject({ failure: 'locator-not-found' });
+      expect(run({ locator: undefined })).toMatchObject({ failure: 'no-locator' });
+    });
+
+    test('fresh artifact passes with no covers and is not marked reused', () => {
+      const v = run({ covers: undefined }, mtimeSec - 10);
+      expect(v.tier1).toBe('pass');
+      expect(v.reused).toBeUndefined();
+    });
+
+    test('judge-only: reports stale true when covered file edited, skipped regardless', () => {
+      fs.writeFileSync(src, 'v2');
+      expect(run({ judgeOnly: true })).toMatchObject({ tier1: 'skipped', stale: true });
+    });
+
+    test('judge-only: unchanged covers reports reused, not stale; fresh reports stale false', () => {
+      expect(run({ judgeOnly: true })).toMatchObject({ tier1: 'skipped', stale: false, reused: true });
+      expect(run({ judgeOnly: true, covers: undefined }, mtimeSec - 10)).toMatchObject({
+        tier1: 'skipped',
+        stale: false,
+      });
+    });
+  });
+
   test('LOCATOR_SCAN_BYTES is 2,000,000', () => {
     expect(LOCATOR_SCAN_BYTES).toBe(2_000_000);
   });

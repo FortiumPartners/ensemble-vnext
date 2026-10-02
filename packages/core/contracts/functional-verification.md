@@ -165,7 +165,11 @@ content:
 - it is **non-empty** (more than zero bytes);
 - its mtime is **newer than the freshness floor** (the later of HEAD's commit time and the
   verification loop's start time) — an artifact older than that is not evidence of anything
-  the current run's code does.
+  the current run's code does, **unless it qualifies for reuse**: a `[LIVE]` task recorded it
+  in `evidence/live-manifest.jsonl` with the source files it exercises (`covers`) and each
+  file's sha256, and every one of those files still has exactly that hash. The checker
+  recomputes the hashes; the exerciser cannot supply `covers`, only claim a listed artifact. A
+  reused artifact still needs its locator, and any change to a covered file makes it `stale`.
 
 A claim that names no artifact — because none applies, or none could be produced — is not
 automatically a failure. It carries a stated reason instead, and the criterion can still
@@ -331,7 +335,7 @@ fixed set (never invented, never a free-text substitute):
 | Cause | Assigned when | Buildable |
 |---|---|---|
 | `evidence-missing` | Tier 1 failed with `missing`, `empty`, `not-a-file` or `no-artifact`, and nothing seen shows the build misbehaving | No |
-| `evidence-stale` | Tier 1 failed with `stale` | No |
+| `evidence-stale` | Tier 1 failed with `stale`, including a reuse rejected because a covered file changed | No |
 | `locator-not-found` | Tier 1 failed with `no-locator` or `locator-not-found` | No |
 | `never-exercised` | No claim reached the judge for this criterion | No |
 | `judged-failed` | The build was reached and did the wrong thing, **including crashing or erroring during capture**; also a check row the judge ruled `deviates` | Yes |

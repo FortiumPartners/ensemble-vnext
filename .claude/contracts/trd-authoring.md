@@ -279,12 +279,20 @@ regardless of the project's `verification_level` setting. Use `[LIVE]` for:
 
 Tasks WITHOUT `[LIVE]` use the project's default `verification_level` from constitution.md.
 
+A `[LIVE]` task also **records what it captures for the verification loop.** `/implement-trd`
+tells it to save each artifact under `.trd-state/<feature>/evidence/live/<task-id>/` and list it,
+with the source files it exercises, in `.trd-state/<feature>/evidence/live-manifest.jsonl`. The
+loop then reuses an artifact whose listed files are unchanged instead of capturing the same
+thing again, so the run does not prove one criterion twice. Write the task's acceptance criteria
+so the artifact it records is the proof of the behaviour.
+
 **An acceptance criterion that needs a live, model-spending run of its own — anything that
 starts `claude` sessions, e.g. `test/smoke/run-smoke.sh` or `claude -p` — never belongs to a
 build task's acceptance criteria.** It is planned as its own `[LIVE]` verification task instead.
-`/implement-trd` already sets `[LIVE]` tasks aside by default (`--include-deferred` to
-dispatch them), which is exactly the point: a build task's implementer must be able to satisfy
-its own criteria without spending model allocation on a nested session.
+Only tasks under `## Deferred by design` are set aside by `/implement-trd`
+(`--include-deferred` to dispatch them); a `[LIVE]` task is dispatched like any other. Keeping
+such a run out of a build task's criteria is what lets that task's implementer satisfy them
+without spending model allocation on a nested session.
 
 ### 4.1.2 Skill Hints
 
@@ -415,7 +423,9 @@ they would touch. The unit tests were in the plan twice.
   in the phase where that seam closes.
 - **`[LIVE]` end-to-end verification of the assembled feature.** This is the one thing that
   legitimately belongs in a terminal phase, because it genuinely needs the whole system: a
-  Playwright run across a completed flow, a full scaffold-and-refresh cycle.
+  Playwright run across a completed flow, a full scaffold-and-refresh cycle. Its
+  artifacts are recorded in the live-evidence manifest (§4.1.1), so the verification loop reuses
+  them rather than repeating the run.
 
 **So the shape is: unit tests as you go, feature-level verification at the end.**
 

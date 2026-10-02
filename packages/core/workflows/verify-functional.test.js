@@ -2448,6 +2448,103 @@ describe('verify-functional: cause', () => {
   });
 });
 
+describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captured)', () => {
+  const entry = (over = {}) => ({
+    task: 'T-9',
+    artifact: '/repo/.trd-state/example/evidence/live/T-9/home.txt',
+    shows: 'the home page at 1280px',
+    environment: 'local',
+    covers: [{ path: '/repo/src/home.js', sha256: 'abc123' }],
+    ...over,
+  });
+
+  async function run(liveEvidence, exerciseClaims) {
+    const prompts = { exercise: null, judge: null };
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        prompts.exercise = prompt;
+        return exercisePlanClaims(exerciseClaims || [{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      }
+      if (opts.label === 'judge') {
+        prompts.judge = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+    const args = baseArgs(liveEvidence === undefined ? {} : { liveEvidence });
+    await runWorkflow(SOURCE, { agent, args });
+    return prompts;
+  }
+
+  const claimsOf = (judgePrompt) => JSON.parse(judgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1]);
+
+  it('lists a manifest artifact path and the reuse instruction in the Exercise prompt', async () => {
+    const { exercise } = await run([entry()]);
+    expect(exercise).toContain(entry().artifact);
+    expect(exercise).toMatch(/already proves it/);
+  });
+
+  it('adds no reuse block when liveEvidence is absent or empty', async () => {
+    for (const le of [undefined, []]) {
+      const { exercise } = await run(le);
+      expect(exercise).not.toMatch(/already proves it/);
+    }
+  });
+
+  it('replaces an exerciser-supplied covers with the manifest\'s, matched by artifact path', async () => {
+    const { judge } = await run([entry()], [
+      { criterion: 'FS-1', artifact: entry().artifact, covers: [{ path: '/etc/passwd', sha256: 'forged' }] },
+      { criterion: 'FS-2', artifact: 'b' },
+    ]);
+    const claims = claimsOf(judge);
+    expect(claims[0].covers).toEqual(entry().covers);
+  });
+
+  it('gives a claim on a non-manifest artifact no covers, even when the exerciser sent some', async () => {
+    const { judge } = await run([entry()], [
+      { criterion: 'FS-1', artifact: 'not-in-manifest.txt', covers: [{ path: '/x', sha256: 'y' }] },
+      { criterion: 'FS-2', artifact: null, reason: 'none' },
+    ]);
+    const claims = claimsOf(judge);
+    expect(claims[0]).not.toHaveProperty('covers');
+    expect(claims[1]).not.toHaveProperty('covers');
+  });
+
+  it('drops exerciser covers even when no liveEvidence is supplied', async () => {
+    const { judge } = await run(undefined, [
+      { criterion: 'FS-1', artifact: 'a', covers: [{ path: '/x', sha256: 'y' }] },
+      { criterion: 'FS-2', artifact: 'b' },
+    ]);
+    expect(claimsOf(judge)[0]).not.toHaveProperty('covers');
+  });
+
+  it('teaches the Judge about reused passes and judge-only stale claims', async () => {
+    const { judge } = await run([entry()]);
+    expect(judge).toMatch(/reused/);
+    expect(judge).toMatch(/stale: true/);
+    expect(judge).toMatch(/evidence-stale/);
+  });
+
+  it('throws naming the index when liveEvidence is not an array', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: { artifact: 'x' } }) })).rejects.toThrow(/liveEvidence must be an array/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it.each([
+    ['no artifact', { artifact: undefined }],
+    ['an empty artifact', { artifact: '' }],
+    ['no covers', { covers: undefined }],
+    ['empty covers', { covers: [] }],
+  ])('throws naming the index for an entry with %s, before any agent runs', async (_n, over) => {
+    const agent = makeAgentStub(() => null);
+    await expect(
+      runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: [entry(), entry(over)] }) })
+    ).rejects.toThrow(/liveEvidence\[1\]/);
+    expect(agent.calls).toHaveLength(0);
+  });
+});
+
 describe('verify-functional: mirror parity', () => {
   it('is byte-identical to the .claude/workflows/ copy', () => {
     const mirrorPath = path.join(__dirname, '..', '..', '..', '.claude', 'workflows', 'verify-functional.js');

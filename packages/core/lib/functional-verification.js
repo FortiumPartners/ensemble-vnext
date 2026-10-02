@@ -15,7 +15,9 @@
  *
  * This module is pure apart from `fs.statSync` and, now that `checkEvidence()` matches a
  * locator (VCON-B001), reading the artifact's own content — both gated by a byte cap
- * (`LOCATOR_SCAN_BYTES`), so no read is unbounded. It still uses no clock and no git —
+ * (`LOCATOR_SCAN_BYTES`), so no read is unbounded. The reuse path (an old artifact whose
+ * declared `covers` files are byte-identical) additionally reads and hashes those covered
+ * files, each under its own cap (`COVERS_HASH_BYTES`). It still uses no clock and no git —
  * `sinceSec` and `cap` are parameters, not internally computed — which is what the purity
  * claim is load-bearing for: every function here is testable without a repository or a wall
  * clock.
@@ -43,6 +45,40 @@ const { matchNeverUnattended } = require('./fix-sizing');
 // the scan just stops here and the result says so via `truncated: true`.
 const LOCATOR_SCAN_BYTES = 2_000_000;
 
+// The most a single covered file is read for hashing on the reuse path. A covered file larger
+// than this is not reusable (it reads as changed) rather than hashed from a partial read, which
+// could report identical bytes after a change past the cap.
+const COVERS_HASH_BYTES = 10_000_000;
+
+/**
+ * Whether every file in `covers` still has the sha256 recorded when the evidence was captured.
+ * Content hash, not mtime: a checkout or rebase rewrites mtimes (false staleness) and a
+ * retargeted symlink can dodge them (false freshness). `covers` is attached by the workflow
+ * from the live-evidence manifest, never taken from the exerciser. Anything short of a
+ * non-empty list of absolute, existing regular files with matching hashes is "not reusable".
+ *
+ * @param {unknown} covers - `[{path, sha256}]`
+ * @returns {boolean}
+ */
+function coversUnchanged(covers) {
+  if (!Array.isArray(covers) || covers.length === 0) return false;
+  for (const entry of covers) {
+    if (!entry || typeof entry.path !== 'string' || typeof entry.sha256 !== 'string') return false;
+    if (!path.isAbsolute(entry.path)) return false;
+    try {
+      const st = fs.statSync(entry.path);
+      // A directory, socket or device has no bytes to compare; a directory "hash" would
+      // otherwise throw or vacuously pass.
+      if (!st.isFile() || st.size > COVERS_HASH_BYTES) return false;
+      const digest = crypto.createHash('sha256').update(fs.readFileSync(entry.path)).digest('hex');
+      if (digest !== entry.sha256) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Deterministic, cheap tier-1 evidence check. Not settable by an agent: it only looks at
  * what is actually on disk, and — for a locator — what is actually inside it (D6).
@@ -52,11 +88,17 @@ const LOCATOR_SCAN_BYTES = 2_000_000;
  *   EXERCISER claims to have seen inside `artifact` (supplied via `EXERCISE_SCHEMA`,
  *   VCON-B001). `judgeOnly` is stamped by `reconcileClaims` from the criterion's own
  *   definition, never by the agent (D7), and short-circuits this claim to `tier1: 'skipped'`
- *   before anything else is checked.
+ *   before anything else is checked. `covers` (`[{path, sha256}]`) is attached by the workflow
+ *   from the live-evidence manifest — never by the exerciser — and enables reuse of an
+ *   artifact older than `sinceSec` (see below).
  * @param {number} sinceSec - The freshness floor, in seconds:
  *   `max(HEAD commit time, this run's verification-loop start time)`, derived by the command
  *   (`/implement-trd` Step 8.3, TRD §3.2) and passed in whole. An artifact whose mtime is not
- *   strictly greater than this is stale.
+ *   strictly greater than this is stale — unless the claim carries `covers` and every covered
+ *   file is absolute, exists, and hashes (sha256) to its recorded value: then the old artifact
+ *   still passes tier 1 with `reused: true`, because the code it exercised has not changed.
+ *   Any other old artifact is `stale`. A fresh artifact passes with or without `covers`.
+ *   The locator gate still runs on a reused artifact.
  *
  *   It is NOT HEAD's commit time alone. That is only a proxy for "when the code last changed",
  *   and it breaks on `--verify --resume`: the phase loop is skipped, no new commit
@@ -75,6 +117,7 @@ const LOCATOR_SCAN_BYTES = 2_000_000;
  *   file) changes this parameter's meaning and so is `/refine-trd` work.
  * @returns {Array<{criterion: string, tier1: 'pass'|'fail'|'skipped', artifact: string|null,
  *   bytes: number|null, mtimeSec: number|null, locator?: string|null, truncated?: boolean,
+ *   reused?: true, stale?: boolean,   // `stale` is reported on skipped (judge-only) rows only
  *   failure?: 'missing'|'empty'|'stale'|'no-artifact'|'not-a-file'|'no-locator'|
  *     'locator-not-found'}>}
  */
@@ -87,13 +130,33 @@ function checkEvidence(claims, sinceSec) {
     // judge-only claim carrying no artifact (or a nonexistent one) never surfaces a failure
     // that would mean nothing for a tier this criterion was never meant to pass through.
     if (judgeOnly) {
-      return {
+      const skipped = {
         criterion,
         tier1: 'skipped',
         artifact: artifact ?? null,
         bytes: null,
         mtimeSec: null,
       };
+      // Information for the Judge only; tier 1 is still not applied. Reported when the artifact
+      // can be stat-ed: whether it predates the floor and, if so, whether reuse conditions hold.
+      if (artifact) {
+        try {
+          const st = fs.statSync(artifact);
+          if (st.isFile()) {
+            if (Math.floor(st.mtimeMs / 1000) > sinceSec) {
+              skipped.stale = false;
+            } else if (coversUnchanged(claim.covers)) {
+              skipped.stale = false;
+              skipped.reused = true;
+            } else {
+              skipped.stale = true;
+            }
+          }
+        } catch {
+          // Missing artifact: nothing to say about staleness; the Judge reads the reason.
+        }
+      }
+      return skipped;
     }
 
     if (!artifact) {
@@ -141,8 +204,13 @@ function checkEvidence(claims, sinceSec) {
       return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'empty' };
     }
 
+    // Older than the floor is stale unless the files this evidence depends on are unchanged.
+    let reused = false;
     if (!(mtimeSec > sinceSec)) {
-      return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'stale' };
+      if (!coversUnchanged(claim.covers)) {
+        return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'stale' };
+      }
+      reused = true;
     }
 
     // Tier 1's final gate (D6, VCON-B001): a literal locator string the exerciser claims to
@@ -198,9 +266,10 @@ function checkEvidence(claims, sinceSec) {
     }
 
     // A pass found in a truncated scan still says so -- the remainder was never read.
-    return truncated
-      ? { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator, truncated }
-      : { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator };
+    const pass = { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator };
+    if (truncated) pass.truncated = true;
+    if (reused) pass.reused = true;
+    return pass;
   });
 }
 

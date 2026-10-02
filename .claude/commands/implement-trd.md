@@ -15,7 +15,7 @@ category: implementation
 >   success against disk, reopens the ones disk contradicts, then runs everything outstanding
 >   — including tasks added to the TRD since the last run. Use after `/audit-build` finds a
 >   gap. NOT a synonym for `--resume`: see below.
-> - `--include-deferred` - Dispatch deferred-by-design tasks (`[LIVE]` etc.) instead of setting
+> - `--include-deferred` - Dispatch deferred-by-design tasks (tasks listed under `## Deferred by design`) instead of setting
 >   them aside and reporting them (§4.1a)
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
 > - `--verify` - The functional-verification pass runs **by default** (VCON O6; supersedes the
@@ -608,6 +608,33 @@ than filled with a tool that isn't there):
     do not start it, wait on it, or poll it.
   </instruction>
 </check_battery>
+```
+
+**For a `[LIVE]` task only (`task.live`), append a live-evidence element** — verification-
+reuses-evidence TRD §3, item 1. The verification loop at Step 8 reuses what a live task captured
+instead of capturing it again, but only if the task records it; without this element the
+artifacts exist on disk and the loop never hears of them:
+
+```xml
+<live_evidence>
+  <instruction>
+    Bring the environment to the CURRENT code before you capture anything: run the fast
+    refresh `.claude/rules/verification.md` §2 declares for the environment you are using
+    (skip this when none is declared). Save each artifact you capture under
+    `.trd-state/{feature}/evidence/live/{task_id}/`, then record each one:
+
+      node .claude/lib/live-evidence.js record --state-dir .trd-state/{feature} \
+        --task {task_id} --artifact <path to the artifact> \
+        --covers <comma-separated source files whose behaviour this artifact exercises> \
+        --shows "<what it proves, one line>" --environment <name from verification.md §1>
+
+    `--covers` is yours to declare and must name every source file the artifact depends on: the
+    loop treats the artifact as still valid only while those files are byte-identical to now.
+    A file you leave out can change without making the evidence stale. `record` rejects an
+    artifact that is not a file, an empty `--covers`, or a covered path that does not exist,
+    and says so on stderr; fix the call, do not skip it.
+  </instruction>
+</live_evidence>
 ```
 
 **Then append the discovery channel** — the answer to "I found something that is not my
@@ -1683,8 +1710,11 @@ exists, HEAD dates from the **prior** run, and that run's leftover artifacts und
 the tier-1 freshness gate having proved nothing about this run — so a criterion whose new
 Exercise produces nothing could be scored against a stale artifact at the same path. Raising
 the floor to the loop start enforces the invariant actually wanted (*this artifact was
-produced by THIS run's verification loop*) and rejects nothing legitimate: only OPEN criteria
-are walked, so every artifact checked against the floor was produced by this invocation. A
+produced by THIS run's verification loop*, unless it qualifies for reuse: a `[LIVE]` task's
+recorded artifact whose declared source files are byte-identical to when it was captured,
+which the checker verifies by hash; see `contracts/functional-verification.md`) and rejects
+nothing legitimate: only OPEN criteria are walked, so every artifact checked against the
+floor was either produced by this invocation or reused on that proof. A
 `met` criterion carried forward from the prior run keeps its artifact and `provenAt` and is
 never re-checked against the floor (verification-convergence TRD §3.4).
 
@@ -1718,6 +1748,7 @@ Workflow({ name: "verify-functional", args: {
   refreshCommand,                                                // §8.1a -- the per-iteration refresh from verification.md §2, or "" when none is declared
   fullRunCommand,                                                // §8.1a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
   coverageFloor,                                                 // §8.1a -- verification.md §5a as a fraction, or null when none is declared
+  liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
