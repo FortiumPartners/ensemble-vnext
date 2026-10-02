@@ -1,5 +1,5 @@
 {
-  "iteration": 2,
+  "iteration": 1,
   "criteria": [
     {
       "id": "FS-1",
@@ -219,12 +219,12 @@
     },
     {
       "id": "FS-25",
-      "status": "not_met",
-      "tier1": "fail",
-      "artifact": "/Users/james/dev/fortium/ensemble-vnext/.trd-state/verification-reuses-evidence/evidence/fs25-judge-prompt-grep.txt",
-      "reason": "Tier-1 evidence check failed with locator-not-found: the claimed locator sentence is not present contiguously in fs25-judge-prompt-grep.txt. In packages/core/workflows/verify-functional.js the sentence is split across concatenated string literals (lines 501-502: '...only if its content (and, for a live-check ` + `artifact, what it shows) actually matches that criterion'), so a grep/sed capture of the source never contains it as one line. The artifact needs a locator that appears verbatim in it (e.g. a single source line), or a capture of the assembled prompt text.",
-      "cause": "locator-not-found",
-      "provenAt": null
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs25-assembled-judge-prompt.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
     },
     {
       "id": "FS-26",
@@ -237,8 +237,7 @@
     }
   ],
   "gapsClosed": [
-    0,
     0
   ],
-  "outcome": "stalled"
+  "outcome": "satisfied"
 }

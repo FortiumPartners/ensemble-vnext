@@ -755,3 +755,18 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [ran] `node packages/core/lib/pull-request.js mode|ensure` runs against a throwaway temp repo with a local bare origin and a stub `gh` first on PATH (stub logs argv); cwd must be the temp repo (settings read from `./.claude/settings.json`). Never needs a real remote or real `gh`.
 - [ran] `mode` prints a bare word (`auto` or `never`), NOT a JSON line, so `JSON.parse` of its stdout fails; FS-1/FS-2 as worded ("parses as JSON") do not match this output. `ensure` does print one JSON line {action,url,reason}.
 - [ran] Sandbox note: `rm -rf $VAR/...` is blocked by a safety check; use a fresh unique temp dir per run instead of deleting.
+
+## Exercising `live-evidence.js` (verification-reuses-evidence, 2026-10-02)
+
+- [ran] `node .claude/lib/live-evidence.js record|read --state-dir D` needs no server; use a temp dir fixture. Under zsh wrap the command in a shell function (`LE(){ node ...live-evidence.js "$@"; }`) -- a `$LE` variable holding the command is not word-split and fails with exit 127.
+- [ran] `record` also appends the artifact itself to `covers` (a second entry beside the declared covered files), so the stored line carries one more `{path, sha256}` than `--covers` names; a typical line is about 400 bytes.
+
+## Exercising live-evidence reuse (verification-reuses-evidence run, 2026-10-02)
+
+- [ran] The reuse gate is exercisable with no server: record an artifact with `node .claude/lib/live-evidence.js record --state-dir <tmp> --task T --artifact <abs> --covers <abs file> --shows x --environment local`, `touch -t 202001010000` the artifact, then `node .claude/lib/functional-verification.js check-evidence --state-dir <tmp> --file claims.json 1700000000`. Pass shows `"tier1":"pass",...,"reused":true`; a failure shows `"tier1":"fail","failure":"stale"` (there is no literal `stale` tier value). `record` also adds the artifact itself to covers.
+- [ran] zsh does not word-split an unquoted `$CLI` variable holding a command line; wrap the check in a shell function instead.
+- [ran] Shapes the manifest cannot hold (covers `[]`, relative path, absolute directory/nonexistent) are exercised by `require('.claude/lib/functional-verification.js').checkEvidence(claims, sinceSec)` in a `node` script; all give `failure: "stale"`.
+
+## Capturing the assembled Judge prompt (verification-reuses-evidence, FS-25)
+
+- [ran] A grep of `packages/core/workflows/verify-functional.js` cannot show a Judge-prompt sentence, because each one spans concatenated string literals with escaped backticks. Capture the assembled string instead: load the script with `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js`, return stub results for the `exercise` and `judge` labels, then write `agent.calls.find(c => c.opts.label === 'judge').prompt` to a file. Script: `.trd-state/verification-reuses-evidence/evidence/fs25-capture.js`.

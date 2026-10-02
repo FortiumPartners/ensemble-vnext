@@ -219,12 +219,12 @@
     },
     {
       "id": "FS-25",
-      "status": "not_met",
-      "tier1": "fail",
-      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs25-judge-prompt.txt",
-      "reason": "Tier 1 failed: locator-not-found. The artifact is an excerpt of the JS source, where the backticks around stale: true are escaped (\\`stale: true\\`), so the exerciser locator with plain backticks does not occur in it. The excerpt does appear to carry both required sentences; it needs a recapture whose locator matches the artifact text exactly (or a rendered Judge prompt).",
-      "cause": "locator-not-found",
-      "provenAt": null
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs25-assembled-judge-prompt.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
     },
     {
       "id": "FS-26",
@@ -239,5 +239,5 @@
   "gapsClosed": [
     0
   ],
-  "outcome": null
+  "outcome": "satisfied"
 }
