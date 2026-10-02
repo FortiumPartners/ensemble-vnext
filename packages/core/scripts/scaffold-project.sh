@@ -1300,6 +1300,10 @@ ensemble.setdefault("agents_dir", ".claude/agents")
 # shipped default. setdefault, never assignment: an owner who turned this
 # OFF must not have it turned back on by a refresh.
 ensemble.setdefault("publishArtifacts", True)
+# Same backfill rule for the PR-at-cycle-end switch: shipped default "never".
+# setdefault, never assignment: an owner who chose "auto" must keep it
+# across every refresh.
+ensemble.setdefault("openPullRequest", "never")
 data["ensemble"] = ensemble
 
 # The one env key this touches, and only when absent. The Stop-hook judge was

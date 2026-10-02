@@ -1,0 +1,159 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/pr-at-cycle-end.md",
+  "trd_hash": "f4237e8fff875f7c359baad7bfbd8eba61d3ae22276c91fdbf997b957562f936",
+  "branch": "feature/pr-at-cycle-end/impl",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "pull-request.js lib + CLI + tests",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/pull-request.js",
+        "packages/core/lib/pull-request.test.js",
+        ".claude/lib/pull-request.js",
+        "packages/full/lib/pull-request.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-01T08:34:40.849Z",
+      "completed_at": "2026-10-01T08:40:40.249Z",
+      "last_advanced": "2026-10-01T08:36:16.341Z"
+    },
+    "FIX-002": {
+      "description": "openPullRequest setting in settings copies + scaffold setdefault + tests",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/settings.json",
+        "packages/core/templates/claude-directory/settings.json",
+        "packages/full/.claude/settings.json",
+        "packages/core/scripts/scaffold-project.sh",
+        "test/integration/tests/notify-on-complete.test.sh",
+        "test/integration/tests/scaffold-delivery.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-10-01T08:34:40.849Z",
+      "completed_at": "2026-10-01T08:40:40.249Z",
+      "last_advanced": "2026-10-01T08:36:16.342Z"
+    },
+    "FIX-003": {
+      "description": "audit-build/close-feature/implement-trd/autonomy wiring + surface tests",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/close-feature.md",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/close-feature.md",
+        ".claude/commands/implement-trd.md",
+        ".claude/rules/autonomy.md",
+        "packages/core/templates/claude-directory/rules/autonomy.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-01T08:34:40.849Z",
+      "completed_at": "2026-10-01T08:40:40.249Z",
+      "last_advanced": "2026-10-01T08:36:16.342Z"
+    },
+    "FIX-004": {
+      "description": "Reference docs",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/reference/implement-trd.md",
+        "docs/reference/other-commands.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-01T08:34:40.849Z",
+      "completed_at": "2026-10-01T08:40:40.249Z",
+      "last_advanced": "2026-10-01T08:36:16.342Z"
+    },
+    "AMEND-001": {
+      "description": "Test: this repo sets openPullRequest to auto (O3)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/integration/tests/notify-on-complete.test.sh"
+      ],
+      "commit": "cc42f9f",
+      "started_at": "2026-10-01T19:26:29.723Z",
+      "completed_at": "2026-10-01T19:29:31.847Z",
+      "last_advanced": "2026-10-01T19:27:14.851Z"
+    },
+    "AMEND-002": {
+      "description": "Test: when the PR opens (commit succeeded; not on already-closed)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": "cc42f9f",
+      "started_at": "2026-10-01T19:26:29.723Z",
+      "completed_at": "2026-10-01T19:29:31.847Z",
+      "last_advanced": "2026-10-01T19:27:14.851Z"
+    },
+    "AMEND-003": {
+      "description": "Test: never-merges catches every invocation form",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/pull-request.test.js"
+      ],
+      "commit": "cc42f9f",
+      "started_at": "2026-10-01T19:26:29.723Z",
+      "completed_at": "2026-10-01T19:29:31.847Z",
+      "last_advanced": "2026-10-01T19:27:14.851Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "a89d64c",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-01T08:40:40.370Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "a89d64c",
+    "last_checkpoint_timestamp": "2026-10-01T08:40:40.370Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/pr-at-cycle-end.md#Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree; gh is stubbed in tests"
+      }
+    }
+  }
+}

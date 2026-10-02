@@ -238,6 +238,7 @@ sequenceDiagram
 | 7a | Commit | code | "Commit, so it travels with the branch" | On any branch but the default one, commits the report and any close record together (`git commit -- <paths>`) so they travel with the PR. The audited commit in the header is the one *before* this commit, which touches no TRD file and so never makes the audit look stale. On the default branch it does not commit; NEXT tells you to. A failed write or commit is one STATE line, never STUCK. |
 | 8 | Publish | code | same section | `Artifact(...)` of the report, URL stored in `.trd-state/<feature>/artifacts.json` key `audit-build-report`. Off or failed → STATE names the local path. |
 | 9 | Chain or stop | model | "But it DOES close the loop" | A gap whose task exists in the TRD but was not built → `Skill implement-trd <trd> --reconcile` (re-opens work only claimed done; `--resume` would skip it). A requirement no task covers is a design decision → recorded, reported, not chained. `--report-only` suppresses the chain and the readout says "not handed off on this run". |
+| 8a | Open the pull request | code | "Open the pull request" | Only when the audit closed the feature, the run is not `--report-only` and the commit succeeded, and `ensemble.openPullRequest` is `auto` (shipped default `never`; this repo sets `auto`): `node .claude/lib/pull-request.js ensure` opens the PR, or updates it if one is already open (a closed one is ignored). It skips with a one-line reason (setting `never`, default branch, detached HEAD, `gh` missing) or fails with one line; neither blocks. It never merges: NEXT is `gh pr merge <number> --merge` for you to run after review. |
 
 ### The five verifiers
 
@@ -281,6 +282,8 @@ Top-level flow: [PROCESS.md](../guides/PROCESS.md).
 | 5 | Commit | code | "The close step" 4 | On any branch but the default (from `git symbolic-ref refs/remotes/origin/HEAD`, else `main`), commits `closed.json` alone. On the default branch, NEXT gives you the command. |
 
 `implement.json`, the TRD and the reports are left exactly as they are.
+
+After a successful close commit on a feature branch, it also opens the pull request when `ensemble.openPullRequest` is `auto` (values `auto` or `never`; shipped default `never`, this repo `auto`), using the same script as `/audit-build` step 8a: an already-open PR is updated, a skip or failure is one STATE line and never blocks, and the "already closed" path opens nothing. Merging stays yours.
 
 ### `closed.json` fields
 

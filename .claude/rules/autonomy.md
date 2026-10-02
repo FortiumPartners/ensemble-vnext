@@ -12,9 +12,8 @@ hook, `discipline-stop`
 Commands run as autonomously as possible from one explicit user invocation to one final
 result (the `═══ COMMAND COMPLETE ═══` banner). **The user already authorized THAT COMMAND by
 invoking it. Do not ask them to authorize it again, in pieces, mid-loop — and do not read it
-as authorizing the next command in the pipeline (see below).** Mid-loop "should I proceed?"
-prompts, "please review and confirm" handshakes, and deferential "should we check with
-stakeholders?" deflections are all anti-patterns.
+as authorizing the next command in the pipeline (see below).** Mid-loop "should I proceed?",
+"please review and confirm" and "should we check with stakeholders?" are all anti-patterns.
 
 ## The authorization is scoped to ONE command
 
@@ -37,8 +36,9 @@ line is **whose decision it is**, not whether a command gets named:
 trades a false promise for an uninvoked command, the same defect through a different door. A
 chain runs when the owner asks for a chain. Nor does a command's authorization reach an
 outward-facing or irreversible act that merely follows from its work — a merge, a
-deploy, a release — those need their own authorization. The whole pipeline unattended
-stays available; it just has to be **asked for**.
+deploy, a release — those need their own authorization. The one exception: with
+`ensemble.openPullRequest: auto`, opening a PR (never merging one) is authorized by that
+setting. The whole pipeline unattended stays available; it just has to be **asked for**.
 
 ## What's legitimate to ask (the FOUR cases)
 

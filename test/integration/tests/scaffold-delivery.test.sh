@@ -82,7 +82,7 @@ teardown_file() {
     # plan-weight is the one /plan cannot run without — it is delivered only through
     # packages/full/lib's per-file symlink, which is exactly the delivery that was
     # missing when the module was first added.
-    for m in trd-parser task-graph implement-state fix-sizing fix-plan fix-audit plan-weight; do
+    for m in trd-parser task-graph implement-state fix-sizing fix-plan fix-audit plan-weight pull-request; do
         [ -f "$TREE/.claude/lib/${m}.js" ]
         [ ! -L "$TREE/.claude/lib/${m}.js" ]
         run node -e 'require(process.argv[1])' "$TREE/.claude/lib/${m}.js"
@@ -163,6 +163,45 @@ teardown_file() {
     ' "$off"
     local rc="$status"
     rm -rf "$off"
+    [ "$rc" -eq 0 ]
+}
+
+@test "refresh keeps an owner's openPullRequest and backfills never when absent" {
+    # Fails if the backfill is an assignment: "auto" would be reset to "never".
+    local t
+    t="$(mktemp -d)"
+    git -C "$t" init -q .
+    git -C "$t" config user.email "test@example.com"
+    git -C "$t" config user.name "Test"
+    git -C "$t" commit -q --allow-empty -m init
+    bash "$SCAFFOLD" "$t" --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+
+    node -e '
+      const fs = require("fs"), p = process.argv[1] + "/.claude/settings.json";
+      const d = JSON.parse(fs.readFileSync(p, "utf8"));
+      d.ensemble.openPullRequest = "auto";
+      fs.writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+    ' "$t"
+    bash "$SCAFFOLD" "$t" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+    run node -e '
+      const d = require(process.argv[1] + "/.claude/settings.json");
+      process.exit(d.ensemble.openPullRequest === "auto" ? 0 : 1);
+    ' "$t"
+    [ "$status" -eq 0 ]
+
+    node -e '
+      const fs = require("fs"), p = process.argv[1] + "/.claude/settings.json";
+      const d = JSON.parse(fs.readFileSync(p, "utf8"));
+      delete d.ensemble.openPullRequest;
+      fs.writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+    ' "$t"
+    bash "$SCAFFOLD" "$t" --refresh --plugin-dir "$PLUGIN_DIR" >/dev/null 2>&1
+    run node -e '
+      const d = require(process.argv[1] + "/.claude/settings.json");
+      process.exit(d.ensemble.openPullRequest === "never" ? 0 : 1);
+    ' "$t"
+    local rc="$status"
+    rm -rf "$t"
     [ "$rc" -eq 0 ]
 }
 
