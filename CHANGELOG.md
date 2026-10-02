@@ -10,6 +10,61 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.11.0] - 2026-10-02
+
+`/audit-build` converges. Plan: `docs/TRD/audit-convergence.md`. Measured cause: in
+lightning-lane, one feature (one-active-trip) took six audits. Only rounds 1 and 2 found
+product defects; rounds 3 to 6 found weak tests in a different sample each time, and one
+wake-up fired twice, 21 minutes apart, and started an audit nobody asked for.
+
+### Changed
+
+- **Re-audits only after a true product defect, at most twice.** A new library,
+  `packages/core/lib/audit-rounds.js`, makes the decision in code: it classifies each finding
+  as a defect, a test gap or other, keeps a one-line-per-round ledger
+  (`.trd-state/<feature>/audit-rounds.jsonl`), and decides whether to chain a fix, re-audit
+  or close. At most three audits per feature, counted since its last close.
+- **A feature never closes while a true defect is open,** not even with a caveat. At the cap
+  the defects still go to the fix run, but the feature stays open and NEXT is
+  `/close-feature`, the owner's call, never another audit.
+- **Tests are not the product.** A finding from the test-quality check is a test gap. A weak
+  test counts as a defect only when it hides a real one, and then it is reported as that
+  defect. Test gaps are fixed in the same pass but never block closing or start a re-audit.
+- **A re-audit does not resample.** It checks only the previous round's defects and the
+  files changed since the last audited commit. Anything else it notices is recorded as
+  non-blocking. When the TRD's objectives and task list are unchanged, it reuses the previous
+  round's requirement list.
+- **The fix run runs inside the audit** (`/implement-trd --reconcile --chained`), so the run
+  has one banner and the audit closes the feature and opens the PR. A fix promoted from an
+  audit finding fixes every instance of the weakness, not only the one the audit named.
+- **A duplicate wake-up does nothing:** it is recognised by its workflow run id.
+- Verifier findings must say whether a gap is unbuilt or untested (`gap-unbuilt` /
+  `gap-untested`).
+
+### Fixed (sweep 2026-10-01)
+
+- The PR step checks that the checked-out branch is the feature's own (`--expect-branch`)
+  before pushing.
+- `gh` login is checked only for the host the remote uses, so a stale login elsewhere no
+  longer makes the PR step skip.
+- Audit findings promoted to tasks read correctly: a checkable acceptance criterion, and the
+  objective the finding names.
+- The never-unattended check stops a build whose task names no touched files, and ignores a
+  trailing note on a listed path.
+- Findings can be marked resolved (`discovered.js resolve`).
+
+### Known open
+
+- After the re-audit cap, an audit the owner starts again is still a narrow re-audit; only
+  `/close-feature` resets the count.
+- A mismatch found by the consistency check counts as neither a defect nor a test gap, so it
+  is reported but never sent to the fix run, even when the stale text is a task's own
+  deliverable.
+- Live convergence on a real feature is unproven; the tests prove the decision table and a
+  replay of the one-active-trip sequence (3 audits instead of 6).
+- `rules/async-discipline.md` + `rules/autonomy.md` are 5 bytes under their 17,000-byte
+  ceiling.
+
 ## [4.10.5] - 2026-10-01
 
 Pull requests become the end of the build cycle, the never-unattended brake works, and a
