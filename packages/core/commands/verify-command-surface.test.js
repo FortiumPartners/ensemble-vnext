@@ -572,7 +572,7 @@ describe('implement-trd.md declares --chained for its caller', () => {
       src().split("### 3.7 `--chained` mode")[1].split('## Step 4: Main Execution Loop')[0]
     );
     expect(section).toMatch(
-      /\[STATUS: \/implement-trd\] RETURN → chained by \/verify-build: <n> of <m> tasks built/
+      /\[STATUS: \/implement-trd\] RETURN → chained by <caller: \/verify-build or \/audit-build>: <n> of <m> tasks built/
     );
     expect(section).toMatch(/RETURN → STUCK: <reason>/);
   });
@@ -712,5 +712,49 @@ describe('the cycle-ending commands open the pull request', () => {
 
   test('autonomy.md names openPullRequest', () => {
     expect(autonomy).toMatch(/openPullRequest/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// audit-convergence FIX-003: /audit-build chains the fix run itself, and a deterministic
+// decision (audit-rounds.js decide) owns whether to re-audit or close.
+// ---------------------------------------------------------------------------
+describe('audit-build owns the fix run and the round decision', () => {
+  const auditBuild = flat(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
+  const implementTrd = read(CORE_IMPLEMENT);
+  const section37 = implementTrd.slice(implementTrd.indexOf('### 3.7 `--chained` mode'), implementTrd.indexOf('### 3.7 `--chained` mode') + 4000);
+
+  test('names audit-rounds.js decide, stale-wake and the chained reconcile call', () => {
+    expect(auditBuild).toMatch(/audit-rounds\.js decide/);
+    expect(auditBuild).toMatch(/stale-wake/);
+    expect(auditBuild).toMatch(/--reconcile --chained/);
+  });
+
+  test('no longer requires "nothing is chained" to close', () => {
+    expect(auditBuild).not.toMatch(/nothing is chained to `\/implement-trd --reconcile` on this run/);
+  });
+
+  test('uncovered items are never chained', () => {
+    expect(auditBuild).toMatch(/Uncovered items[^.]*are never recorded for the fix run or chained/);
+  });
+
+  test('implement-trd.md section 3.7 names /audit-build as a caller of --chained', () => {
+    expect(flat(section37)).toMatch(/`\/audit-build` runs the fix/);
+    expect(flat(section37)).toMatch(/`\/verify-build`'s fix loop and `\/audit-build` pass it/);
+  });
+
+  test('the mirrors are byte-identical', () => {
+    expect(read(path.join(REPO, '.claude/commands/audit-build.md'))).toBe(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
+    expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
+  });
+});
+
+describe('implement-trd section 2.1a: audit-promoted tasks fix the class', () => {
+  const t = read(CORE_IMPLEMENT);
+  const i = t.indexOf('### 2.1a Handle --reconcile');
+  const sec = flat(t.slice(i, t.indexOf('### 2.2 ', i)));
+
+  test('names fixing every instance across touched files and listing each', () => {
+    expect(sec).toMatch(/find and fix every instance of this weakness across the feature's touched files, and list each one fixed/);
   });
 });

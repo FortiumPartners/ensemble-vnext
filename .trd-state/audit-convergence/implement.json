@@ -1,0 +1,115 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/audit-convergence.md",
+  "trd_hash": "4d8255998cd4c62fbc3b227505dc15a10952061798bdc964579366ec5d0113ee",
+  "branch": "feature/audit-convergence/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "audit-rounds.js: classify, ledger, decide, staleWake",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/audit-rounds.js",
+        "packages/core/lib/audit-rounds.test.js",
+        ".claude/lib/audit-rounds.js",
+        "packages/full/lib/audit-rounds.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:47:38.400Z",
+      "completed_at": "2026-10-02T06:54:18.745Z",
+      "last_advanced": "2026-10-02T06:49:13.696Z"
+    },
+    "FIX-002": {
+      "description": "audit-build.js: gap split, handoff, previous/index reuse",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-build.js",
+        "packages/core/workflows/audit-build.test.js",
+        ".claude/workflows/audit-build.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:47:38.400Z",
+      "completed_at": "2026-10-02T06:54:18.745Z",
+      "last_advanced": "2026-10-02T06:49:13.703Z"
+    },
+    "FIX-003": {
+      "description": "audit-build.md + implement-trd §3.7: decide-driven chain/close, stale wake",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:47:38.400Z",
+      "completed_at": "2026-10-02T06:54:18.745Z",
+      "last_advanced": "2026-10-02T06:49:13.703Z"
+    },
+    "FIX-004": {
+      "description": "class-not-instance in promoteToTrd and §2.1a",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/discovered.js",
+        "packages/core/lib/discovered.test.js",
+        ".claude/lib/discovered.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:47:38.400Z",
+      "completed_at": "2026-10-02T06:54:18.745Z",
+      "last_advanced": "2026-10-02T06:49:13.703Z"
+    },
+    "FIX-005": {
+      "description": "Reference docs",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/reference/other-commands.md",
+        "docs/reference/implement-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:47:38.400Z",
+      "completed_at": "2026-10-02T06:54:18.745Z",
+      "last_advanced": "2026-10-02T06:49:13.703Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/audit-convergence.md#Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree"
+      }
+    }
+  }
+}

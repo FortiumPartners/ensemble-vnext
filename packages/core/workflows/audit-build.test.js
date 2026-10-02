@@ -194,7 +194,7 @@ describe('audit-build: clean path', () => {
   });
 
   it('returns `trd` on the findings path too (reconcile branch)', async () => {
-    const findings = { 'verify:traceability-audit': [{ check: 'traceability', why: 'no test', confidence: 'high', action: 'gap' }] };
+    const findings = { 'verify:traceability-audit': [{ check: 'traceability', why: 'no test', confidence: 'high', action: 'gap-untested' }] };
     const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX, findings));
 
     const { result } = await runWorkflow(SOURCE, {
@@ -239,10 +239,76 @@ describe('audit-build: every agent() call is pinned', () => {
   });
 
   it('pins every call on the findings reconcile branch', async () => {
-    const findings = { 'verify:traceability-audit': [{ check: 'traceability', why: 'no test', confidence: 'high', action: 'gap' }] };
+    const findings = { 'verify:traceability-audit': [{ check: 'traceability', why: 'no test', confidence: 'high', action: 'gap-untested' }] };
     const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX, findings));
     await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
     expect(agent.calls.length).toBeGreaterThan(0);
     expect(unpinnedLabels(agent)).toEqual([]);
+  });
+});
+
+describe('audit-build: gap kinds, handoff and re-audit reuse', () => {
+  const run = (args, findings) => {
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX, findings));
+    return runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs(args) }).then((r) => ({ ...r, agent }));
+  };
+  const FINDING = { 'verify:traceability-audit': [{ check: 'traceability', why: 'x', confidence: 'high', action: 'gap-unbuilt' }] };
+  const PREV = { reportPath: 'r.md', auditedCommit: 'abc123', index: NONEMPTY_INDEX, trdHash: 'h1' };
+  const verifierCalls = (agent) => agent.calls.filter((c) => VERIFIER_LABELS.includes(c.opts.label));
+
+  it('schema action enum has gap-unbuilt and gap-untested, no bare gap, and is required', async () => {
+    const { agent } = await run();
+    const schema = verifierCalls(agent)[0].opts.schema.properties.findings.items;
+    expect(schema.properties.action.enum).toEqual(expect.arrayContaining(['gap-unbuilt', 'gap-untested']));
+    expect(schema.properties.action.enum).not.toContain('gap');
+    expect(schema.required).toContain('action');
+  });
+
+  it('reconcile schema returns a handoff with no class field', async () => {
+    const { agent } = await run({}, FINDING);
+    const props = agent.calls.find((c) => c.opts.label === 'reconcile').opts.schema.properties.handoff.items;
+    expect(props.required).toEqual(['id', 'action', 'check', 'summary', 'evidence', 'covered']);
+    expect(props.properties.class).toBeUndefined();
+  });
+
+  it('skips the Index agent when previous.trdHash matches args.trdHash', async () => {
+    const { agent, result } = await run({ previous: PREV, trdHash: 'h1' });
+    expect(agent.calls.some((c) => c.opts.label === 'index')).toBe(false);
+    expect(result.index).toEqual(NONEMPTY_INDEX);
+  });
+
+  it('dispatches the Index agent when the hash differs or previous.index is absent', async () => {
+    const a = await run({ previous: PREV, trdHash: 'h2' });
+    expect(a.agent.calls.some((c) => c.opts.label === 'index')).toBe(true);
+    const b = await run({ previous: { ...PREV, index: undefined }, trdHash: 'h1' });
+    expect(b.agent.calls.some((c) => c.opts.label === 'index')).toBe(true);
+  });
+
+  it('names the changed-files scope in every verifier prompt only when previous is set', async () => {
+    const withPrev = await run({ previous: PREV, trdHash: 'h1' });
+    const calls = verifierCalls(withPrev.agent);
+    expect(calls).toHaveLength(5);
+    calls.forEach((c) => expect(c.prompt).toMatch(/abc123/));
+    const without = await run();
+    verifierCalls(without.agent).forEach((c) => expect(c.prompt).not.toMatch(/RE-AUDIT SCOPE/));
+  });
+
+  it('keeps the representative-sample wording only on a first audit', async () => {
+    const first = await run();
+    expect(verifierCalls(first.agent).find((c) => c.opts.label === 'verify:test-quality-audit').prompt).toMatch(/representative sample/);
+    const re = await run({ previous: PREV, trdHash: 'h1' });
+    expect(verifierCalls(re.agent).find((c) => c.opts.label === 'verify:test-quality-audit').prompt).not.toMatch(/representative sample/);
+  });
+
+  it('both return paths carry handoff and index', async () => {
+    const clean = await run();
+    expect(clean.result.handoff).toEqual([]);
+    expect(clean.result.index).toEqual(NONEMPTY_INDEX);
+    const agent = makeAgentStub((p, o) => o.label === 'reconcile'
+      ? { readout: 'R', applied: [], rejected: [], handoff: [{ id: 'AC-1', action: 'gap-unbuilt', check: 'traceability', summary: 's', evidence: 'e', covered: false }] }
+      : planWithIndex(NONEMPTY_INDEX, FINDING)(p, o));
+    const { result } = await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    expect(result.handoff).toHaveLength(1);
+    expect(result.index).toEqual(NONEMPTY_INDEX);
   });
 });

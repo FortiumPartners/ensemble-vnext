@@ -243,6 +243,16 @@ describe('promoteToTrd', () => {
     '| EX-B001 | Build it | O1 | None | works |', '',
   ].join('\n');
 
+  it('audit-build promotions ask for the whole class fixed; other discoveries are unchanged', () => {
+    const f = mk(SIX);
+    promoteToTrd(f, [{ ...disc('weak spot'), foundBy: 'audit-build' }, disc('other spot')]);
+    const rows = fs.readFileSync(f, 'utf8').split('\n');
+    const audit = rows.find((l) => l.includes('weak spot'));
+    const other = rows.find((l) => l.includes('other spot'));
+    expect(audit).toMatch(/find and fix every instance of this weakness across the feature's touched files, and list each one fixed/);
+    expect(other).not.toMatch(/every instance/);
+  });
+
   it('numbers from the highest existing id, so a second discovery is not lost', () => {
     const f = mk(SIX);
     expect(promoteToTrd(f, [disc('first thing')]).added).toEqual(['AMEND-001']);

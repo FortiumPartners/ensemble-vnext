@@ -263,6 +263,30 @@ VERDICT: do not proceed until <named>
 On the first two (with nothing chained) the audit has closed the feature, and NEXT is to open
 or update the PR; on the third, NEXT is the reconcile or design work.
 
+### Rounds: when it audits again, and when it stops
+
+`audit-rounds.js` (`lib/audit-rounds.js`) decides what happens after each audit, as code with
+tests rather than the lead's reading of the findings. It keeps a ledger, one line per audit, in
+`.trd-state/<feature>/audit-rounds.jsonl`.
+
+- **Only a true product defect earns another audit.** A requirement that is unbuilt, or code
+  that does something other than the requirement says, is a defect. Re-audits are capped at
+  two, so a feature gets at most three audits, counted since it was last closed. After the cap
+  the feature closes anyway, and the readout says the defect fixes were not re-audited.
+- **Test-only gaps never cause another audit.** Code that exists but has no proving test is
+  fixed in the same pass, and the feature then closes.
+- **A requirement no task covers stops for design.** It is reported, not chained, and the
+  feature stays open.
+- **The fix runs inside the audit.** The audit records each coverable finding, then runs
+  `/implement-trd <trd> --reconcile --chained` itself. The fix run ends with one RETURN line
+  instead of its own banner, so the audit's banner is the only one in the run. Anything the fix
+  run did not build is listed as a caveat.
+- **A re-audit starts from the last one.** When the TRD file is unchanged it reuses the
+  previous requirement list (saved as `audit-index.json`) and checks the files changed since the
+  audited commit, plus the open items, first.
+- **A stale wake-up does nothing.** A fallback wake-up for an audit that already ran at this
+  commit prints one line and stops: no workflow, no report, no banner.
+
 ---
 
 ## `/close-feature` — close a feature on your say-so
