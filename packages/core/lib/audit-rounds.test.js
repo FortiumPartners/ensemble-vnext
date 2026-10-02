@@ -53,6 +53,14 @@ describe('decide', () => {
   test('do not proceed with defects still reaudits', () => {
     expect(A.decide({ rounds: rounds(1), verdict: 'do not proceed', defects: 1 })).toMatchObject({ chain: true, reaudit: true });
   });
+  test('the full VERDICT line form of do not proceed is recognised and never closes', () => {
+    for (const verdict of ['do not proceed until the tables parse', 'VERDICT: do not proceed until X']) {
+      expect(A.decide({ rounds: rounds(1), verdict })).toMatchObject({ close: false, chain: false });
+    }
+  });
+  test('do not proceed with test gaps only chains them but stays open', () => {
+    expect(A.decide({ rounds: rounds(1), verdict: 'do not proceed until X', testGaps: 2 })).toMatchObject({ chain: true, close: false, reaudit: false });
+  });
   test('report-only does nothing', () => {
     expect(A.decide({ rounds: [], verdict: 'proceed', defects: 3, testGaps: 1, reportOnly: true })).toEqual({ chain: false, reaudit: false, close: false, capReached: false, caveats: [] });
   });
@@ -66,6 +74,21 @@ describe('decide', () => {
     expect(decisions.map((d) => d.reaudit)).toEqual([true, true, false]);
     expect(decisions[2]).toMatchObject({ chain: true, close: true, capReached: false });
     expect(led).toHaveLength(3);
+  });
+});
+
+describe('tally', () => {
+  test('uncovered items count only as uncovered, never as defects or test gaps', () => {
+    expect(A.tally([
+      { action: 'gap-unbuilt', check: 'traceability', covered: false },
+      { action: 'gap-unbuilt', check: 'traceability', covered: true },
+      { action: 'gap-untested', check: 'traceability', covered: true },
+      { action: 'fix-citation', check: 'citation', covered: true },
+    ])).toEqual({ defects: 1, testGaps: 1, uncovered: 1 });
+  });
+  test('only uncovered items never chain', () => {
+    const counts = A.tally([{ action: 'gap-unbuilt', check: 'traceability', covered: false }]);
+    expect(A.decide({ rounds: rounds(1), verdict: 'proceed', ...counts })).toMatchObject({ chain: false, close: false });
   });
 });
 
@@ -105,6 +128,18 @@ describe('ledger', () => {
     // a defect in the first round after reopening gets a reaudit, not a capped close
     expect(A.decide({ rounds: rs, verdict: 'proceed', defects: 1 }).reaudit).toBe(true);
   });
+  test('record stamps a missing or unparseable ts so the round still counts after a close', () => {
+    fs.writeFileSync(path.join(dir, 'closed.json'), JSON.stringify({ closedAt: '2026-10-01T00:00:05Z' }));
+    A.record(dir, R(1, { ts: 'now' }));
+    A.record(dir, R(2, { ts: undefined }));
+    expect(A.readRounds(dir)).toHaveLength(2);
+  });
+  test('stale-wake still sees the round of an audit that then closed the feature', () => {
+    A.record(dir, R(1, { runId: 'closing-run', ts: '2026-10-01T00:00:01Z' }));
+    fs.writeFileSync(path.join(dir, 'closed.json'), JSON.stringify({ closedAt: '2026-10-01T00:00:05Z' }));
+    expect(A.readRounds(dir)).toEqual([]);
+    expect(A.staleWake({ rounds: A.readRounds(dir, { all: true }), runId: 'closing-run', head: 'zzz' })).toBe(true);
+  });
   test('malformed lines are skipped', () => {
     fs.writeFileSync(path.join(dir, 'audit-rounds.jsonl'), 'not json\n' + JSON.stringify(R(1)) + '\n');
     expect(A.readRounds(dir)).toHaveLength(1);
@@ -124,6 +159,18 @@ describe('CLI', () => {
     try {
       expect(run('record', { stateDir: dir, round: R(1) }).out).toEqual({ ok: true });
       expect(run('decide', { stateDir: dir, verdict: 'proceed', testGaps: 1 }).out).toMatchObject({ close: true, reaudit: false });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+  test('decide accepts the handoff and tallies it', () => {
+    const handoff = [{ action: 'gap-unbuilt', check: 'traceability', covered: false }];
+    expect(run('decide', { rounds: rounds(1), verdict: 'proceed', handoff }).out).toMatchObject({ chain: false, close: false });
+  });
+  test('stale-wake from stateDir ignores the close', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-rounds-cli-'));
+    try {
+      run('record', { stateDir: dir, round: R(1, { runId: 'done', ts: '2026-10-01T00:00:01Z' }) });
+      fs.writeFileSync(path.join(dir, 'closed.json'), JSON.stringify({ closedAt: '2026-10-01T00:00:05Z' }));
+      expect(run('stale-wake', { stateDir: dir, runId: 'done', head: 'x' }).out).toEqual({ stale: true });
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
   test('unknown subcommand exits non-zero', () => expect(run('nope', {}).status).toBe(1));

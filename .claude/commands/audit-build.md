@@ -236,10 +236,11 @@ carries the workflow run id in its prompt. On ANY re-entry (a wake, a resume), f
 When it prints `{"stale":true}`, print one line (the audit already ran at this commit) and stop:
 no workflow, no report, no banner.
 
-**1. Count.** Classify each `handoff` item:
-`node .claude/lib/audit-rounds.js classify '{"action":"<action>","check":"<check>"}'` gives
-`defect`, `test-gap` or `other`. Count `defects`, `testGaps`, and `uncovered` (items with
-`covered: false`).
+**1. Count.** Tally the whole `handoff` in one call:
+`node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>}'` returns
+`{ defects, testGaps, uncovered }`. An item with `covered: false` counts only as uncovered, never
+as a defect or test gap. (`classify '{"action":"<action>","check":"<check>"}'` gives one item's
+class — `defect`, `test-gap` or `other` — for step 3.)
 
 **2. Record and decide.** Record the round (skipped on `--report-only`):
 `node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<sha256 of the TRD>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"ts":"<ISO time>"}}'`,
@@ -249,7 +250,9 @@ it returns `{ chain, reaudit, close, capReached, caveats }`. `round` is the numb
 since the last close, counting this one. The cap is two re-audits after defects, so at most three
 audits (a first audit and two re-audits).
 
-**3. Chain the fix.** When `chain` is true, record each COVERED handoff item as a discovery:
+**3. Chain the fix.** When `chain` is true, record each COVERED handoff item whose class is
+`defect` or `test-gap` as a discovery (an `other` item — a citation to fix, a question for the
+owner — is reported, never turned into a build task):
 `require("./.claude/lib/discovered").record(".trd-state/<feature>", { kind: "gap", foundBy: "audit-build", blocksFeature: true, phase: 1, summary: "[<class>] <item summary>", evidence: "<item evidence>" })`,
 then run `Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained" })`. The fix
 run ends with a `[STATUS: /implement-trd] RETURN →` line; anything it reports as not built is a
@@ -266,7 +269,8 @@ They are reported for design, and the feature stays open.
   gets its `closed.json` rewritten with this run's audit fields.
 - `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
   `previous` and `trdHash`, below). Commit the report; no close record, no PR.
-- Neither (uncovered items, or `do not proceed` with nothing to hand off): the feature stays open;
+- Neither (uncovered items, or `do not proceed` with no defects — any test gaps are still
+  chained): the feature stays open;
   say so in STATE, and NEXT is the design work the readout names.
 
 **On a re-audit** (the ledger already has a round), pass the workflow `previous`:
