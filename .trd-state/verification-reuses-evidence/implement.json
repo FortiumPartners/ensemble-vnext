@@ -72,6 +72,21 @@
       "started_at": "2026-10-02T22:48:50.206Z",
       "completed_at": "2026-10-02T22:57:52.331Z",
       "last_advanced": "2026-10-02T22:50:10.379Z"
+    },
+    "AMEND-001": {
+      "description": "checker reads covers from the manifest itself (--state-dir)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/workflows/verify-functional.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T23:06:53.877Z",
+      "completed_at": "2026-10-02T23:06:53.877Z"
     }
   },
   "checkpoints": [
