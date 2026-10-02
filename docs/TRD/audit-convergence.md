@@ -52,6 +52,14 @@
 - **A stale wake-up does nothing.** Every fallback `ScheduleWakeup` `/audit-build` schedules carries the workflow run id in its prompt. On any re-entry, `/audit-build` calls `stale-wake`; when it is true, it prints one line saying the audit already ran at this commit and stops.
 - **Fix runs fix the class, not the instance.** Rows that `promoteToTrd` writes for `foundBy: 'audit-build'` discoveries tell the implementer to find and fix every instance of that weakness across the feature's touched files and to list each one, and `implement-trd.md` §2.1a says the same.
 
+## Owner rulings, 2026-10-01 (after the first build)
+
+These supersede anything above that disagrees with them.
+
+1. **Never close while a true defect is open, not even with a caveat.** At the cap, the defects still go to the fix run, but the feature stays open and NEXT is the owner's call, not another audit.
+2. **Tests are not the product.** A finding about a weak or missing test matters only if the weak test masks a real defect. When it does, the finding is reported as that defect, and it counts as a defect for re-audits. When it doesn't, the test is fixed as secondary work; it never blocks closing and never triggers a re-audit. So a finding from the test-quality check is always a test gap, and a masked defect is reported by its own check.
+3. **An audit is not a verification.** It samples, so a re-audit must not take a fresh sample. A re-audit checks only two things: whether the previous round's defects are fixed, and the code changed since that audit. Anything it notices outside that scope is recorded as a non-blocking discovery, never raised as a finding.
+
 ## Decision
 
 - **The decision to re-audit is code.** `decide()` owns it, with tests, the same way `fix-plan.js`'s `plan()` owns whether `/plan` chains. The rule that let one-active-trip run six rounds lived in prose that read sensibly paragraph by paragraph.
@@ -83,7 +91,7 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 
 | ID | Question | What I assumed | Owner-only |
 |----|----------|----------------|------------|
-| OQ-1 | When the cap is reached with defect fixes not yet re-audited, should the feature close with a caveat, or stay open for you? | Close, naming the un-re-audited fixes as a caveat — consistent with "cap at two" and with how you closed trip-dates by hand | owner-only |
+| OQ-1 | When the cap is reached with defect fixes not yet re-audited, should the feature close with a caveat, or stay open for you? | **Answered by the owner, 2026-10-01: stay open.** "We don't close with a caveat if there are true defects open." See AMEND-001 | answered |
 | OQ-2 | Under `--chained` the fix run skips functional verification. Is that acceptable for audit-chained fixes? | Yes: a re-audit checks defect fixes, and test-gap fixes are themselves tests | owner-only |
 
 ## Master Task List
@@ -95,6 +103,9 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 | FIX-003 | `packages/core/commands/audit-build.md`:<br>• after the workflow returns, classify each `handoff` item with `audit-rounds.js classify`, count defects, test gaps and uncovered items, record the round, and call `decide`;<br>• record each item `decide` hands off as a discovery (`foundBy: 'audit-build'`, `blocksFeature: true`), then chain `/implement-trd <trd> --reconcile --chained`; when `close` is true, write the close record after the chained run returns, commit it with the report, open the PR, and print the single banner, adding anything the fix run did not finish as a caveat;<br>• on a re-audit, pass `previous` (from the ledger and `audit-index.json`) and the TRD's hash;<br>• every fallback wake-up carries the run id, and every re-entry first runs `stale-wake`;<br>• the readout names the round and why it closes or re-audits, and NEXT names `/audit-build` only when `reaudit` is true;<br>• replace the close rule at `:221-232` and the chain step at `:130-133` with this.<br>In `packages/core/commands/implement-trd.md` §3.7, add `/audit-build` as a caller of `--chained`. Mirror both. Add command-surface assertions | O1, O2, O5 | FIX-001, FIX-002 | <ul><li>New assertions in `verify-command-surface.test.js` require that `audit-build.md` names `audit-rounds.js decide`, `stale-wake` and `--reconcile --chained`, no longer requires "nothing is chained" to close, and that `implement-trd.md` §3.7 names `/audit-build` as a caller. Each fails against today's files.</li><li>The mirrors are identical.</li></ul> |
 | FIX-004 | Class, not instance: in `packages/core/lib/discovered.js` `promoteToTrd` (`:308-312`), rows promoted from `foundBy: 'audit-build'` discoveries add to their description: find and fix every instance of this weakness across the feature's touched files, and list each one fixed. Say the same in `packages/core/commands/implement-trd.md` §2.1a. Mirror both | O4 | None | <ul><li>A `discovered.test.js` case shows an audit-found row carries the instruction and a non-audit row does not; it fails without the change.</li><li>A command-surface assertion requires §2.1a to name it; it fails against today's file.</li></ul> |
 | FIX-005 | Docs: in `docs/reference/other-commands.md` (`/audit-build`) and `docs/reference/implement-trd.md`, describe the round cap, the defect vs test-gap split, re-audits building on the previous round, chaining with `--chained`, and the stale-wake rule | O1, O2, O3, O5 | FIX-003 | <ul><li>`grep -c "audit-rounds"` is at least 1 in each doc; it is 0 today.</li></ul> |
+| AMEND-001 | `packages/core/lib/audit-rounds.js` per Owner rulings 1–2:<br>• at the cap, `decide()` returns `chain: true, close: false, reaudit: false, capReached: true` when defects are present, and the caveat text is removed;<br>• `classify()` returns `test-gap` for any finding whose `check` is `test-quality`, whatever its `action`;<br>• `staleWake()` matches by run id only, dropping the same-commit rule (review finding: it could silence an audit still in progress at the same commit).<br>Update `audit-rounds.test.js`: at the cap with defects the feature stays open; a test-quality `mismatch` is a test gap; the same commit with a new run id is not stale. Mirror to `.claude/lib/` | O1, O2, O5 | FIX-001 | <ul><li>A test fails if `decide()` ever returns `close: true` with defects > 0.</li><li>A test fails if a test-quality finding is ever classed as a defect.</li><li>A test fails if a new run id at an unchanged commit reads as stale.</li><li>Mirror identical.</li><li>`npx jest packages/core/lib/audit-rounds.test.js` passes.</li></ul> |
+| AMEND-002 | `packages/core/workflows/audit-build.js` per Owner rulings 2–3:<br>• the test-quality verifier is told that a weak or missing test matters only if it masks a defect; when it does, it reports the defect itself (`action` `mismatch` or `gap-unbuilt`, with the masked behaviour as evidence) under the `verification` or `traceability` check; otherwise it reports the test under `test-quality`;<br>• when `previous` is set, every verifier is limited to (a) whether each defect in the previous report is fixed and (b) the files changed since `previous.auditedCommit`; anything outside that scope goes in a separate `outOfScope` list in its return, never in `findings`; the test-quality sample is not taken on a re-audit;<br>• the requirement-list reuse hash covers only the TRD's Objectives and Master Task List sections, so promoted rows and a rewritten Could Not Verify section don't defeat it (review finding).<br>Mirror to `.claude/workflows/`. Extend `audit-build.test.js` | O2, O3 | FIX-002 | <ul><li>A test asserts that with `previous` set, the verifier prompts name the previous-defects-plus-diff scope and the `outOfScope` rule; it fails if removed.</li><li>A test asserts that the test-quality prompt names the masks-a-defect rule; it fails if removed.</li><li>A test asserts that changing only the Could Not Verify section leaves the reuse hash unchanged.</li><li>Mirror identical.</li></ul> |
+| AMEND-003 | `packages/core/commands/audit-build.md` and the reference docs per Owner rulings 1 and 3: when `capReached`, the readout says the feature stays open with the defects named, and NEXT is the owner's call (`/close-feature` once satisfied), never `/audit-build`; on a re-audit, the workflow's `outOfScope` items are recorded as non-blocking discoveries (`blocksFeature: false`) and listed, never chained. Update `docs/reference/other-commands.md` and `docs/reference/implement-trd.md` to match. Mirror the command. Add command-surface assertions | O1, O3 | AMEND-001, AMEND-002 | <ul><li>New `verify-command-surface.test.js` assertions require `audit-build.md` to say a capped feature stays open, and to record `outOfScope` items as non-blocking; each fails against the current file.</li><li>Mirror identical.</li></ul> |
 
 ## Task Grounding
 
@@ -153,10 +164,31 @@ None apply — no UI designs, interaction diagrams or data views; the surfaces a
 - **Follow:** plain language [read]
 - **Careful:** none
 
+### AMEND-001
+- **Touches:** `packages/core/lib/audit-rounds.js`, `packages/core/lib/audit-rounds.test.js`, `.claude/lib/audit-rounds.js`
+- **Reuse:** `decide`, `classify` and `staleWake` as built and reviewed (commits e705510, 59c428c) [read]
+- **Replaces:** the cap's close-with-caveat branch; the same-commit stale rule [read]
+- **Follow:** Owner rulings 1–2 [read]
+- **Careful:** `stale-wake` reads all rounds, including those before a close (review fix); keep that [read]
+
+### AMEND-002
+- **Touches:** `packages/core/workflows/audit-build.js`, `packages/core/workflows/audit-build.test.js`, `.claude/workflows/audit-build.js`
+- **Reuse:** the `previous` and `trdHash` arguments and the test-quality verifier prompt as built in FIX-002 [read]
+- **Replaces:** the whole-TRD hash for requirement-list reuse; the "check changed files first" wording, which becomes a hard scope on re-audits [read]
+- **Follow:** Owner ruling 3; workflow scripts open no files, so the command computes the section hash and passes it in [read]
+- **Careful:** a first audit (no `previous`) keeps today's sampling and scope [read]
+
+### AMEND-003
+- **Touches:** `packages/core/commands/audit-build.md`, `.claude/commands/audit-build.md`, `packages/core/commands/verify-command-surface.test.js`, `docs/reference/other-commands.md`, `docs/reference/implement-trd.md`
+- **Reuse:** the decide-driven readout and NEXT from FIX-003 and its review fixes [read]
+- **Replaces:** any text saying a capped feature closes with a caveat [read]
+- **Follow:** NEXT is one command in a fenced block; the owner's call at the cap is `/close-feature` once satisfied [read]
+- **Careful:** never edit `autonomy.md` or `async-discipline.md` (5 bytes under their ceiling); the command must compute the Objectives + Master Task List hash for AMEND-002 [read]
+
 ## Could Not Verify
 
 | Claim | Why not checked |
 |-------|-----------------|
 | A real feature converges in at most three audits | Needs a live run on a real feature; the tests prove the decision table and the one-active-trip sequence, not an audit's behaviour |
 | Verifiers choose `gap-unbuilt` versus `gap-untested` correctly | Model judgement; the prompt asks for it, the tests check only the schema |
-| A weak test hiding a real defect is classed as a test gap, so its fix is not re-audited | Accepted limit of classifying at the source |
+| A weak test that hides a real defect is reported as that defect (Owner ruling 2) | Model judgement: the test-quality verifier is told to report the masked defect; the tests check only that the prompt says so |
