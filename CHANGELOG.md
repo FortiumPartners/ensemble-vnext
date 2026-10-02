@@ -10,6 +10,51 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.10.5] - 2026-10-01
+
+Pull requests become the end of the build cycle, the never-unattended brake works, and a
+batch of small fixes. Plans: `docs/TRD/pr-at-cycle-end.md`, `docs/TRD/never-unattended-paths.md`.
+
+### Added
+
+- **A passing audit opens the pull request itself.** New setting `ensemble.openPullRequest`
+  (`auto` | `never`); shipped templates say `never`, this repo `auto`, and a refresh never
+  overwrites an owner's value. `packages/core/lib/pull-request.js` pushes the branch and opens
+  a PR or updates the open one. It reuses only an open PR, asks GitHub for the default branch,
+  skips with a reason when there is nothing sensible to do, and never merges. `/audit-build`
+  (when it closes the feature and its commit succeeded) and `/close-feature` call it; their
+  NEXT becomes `gh pr merge <number> --merge`. `autonomy.md` records `auto` as standing
+  permission to open a PR, never to merge one. PR #17 was opened by this step on its first
+  live run.
+- **The never-unattended brake can fire.** `verification.md` gains §5b, a list of paths
+  `/plan --implement` will never build without the owner. `check-never-unattended` reads the
+  list and the plan's touched files in code; an unreadable list stops the build rather than
+  reading as "no brake". `/verification-setup` asks for it. Older blank copies of the
+  template are still recognised as blank.
+- **Readouts put NEXT in its own code block,** so it copies with one tap.
+
+### Fixed
+
+- **The formatter formats the file that was edited**, and runs Prettier only when the
+  project declares a Prettier config. Without that guard it rewrote whole files in
+  Prettier's default style.
+- **`npm run smoke`'s default set no longer starts a model session;** the implement-loop
+  canary is opt-in (`--with-llm`).
+- **`/implement-trd` commits per phase and pushes once, at the end of the run.**
+- Audit citation checks must quote the line an id appears on; `/sweep` routes fixers by
+  keyword; the router treats a feature as closed only when `closed.json` exists;
+  `/augment-trd-figma` no longer pauses mid-command; the unused `hooks.json` is gone; doc
+  drift corrected across seven commands.
+
+### Known open
+
+- The PR step uses whatever branch is checked out; run on the wrong branch, it would commit
+  and open a PR there.
+- A stale `gh` login on another host makes `gh` look unauthenticated, so the PR step skips.
+- `discovered.js` writes garbled task rows when it promotes audit findings to tasks.
+- `rules/async-discipline.md` + `rules/autonomy.md` are 5 bytes under their 17,000-byte
+  ceiling.
+
 ## [4.10.4] - 2026-09-30
 
 Long commands stay covered by the check against mid-command "should I continue?" pauses.
