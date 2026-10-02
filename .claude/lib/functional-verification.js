@@ -35,6 +35,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { maskFencedLines, findSection, parseTrd } = require('./trd-parser');
 const { matchNeverUnattended } = require('./fix-sizing');
+const { hashFile, COVERS_HASH_BYTES } = require('./live-evidence');
 
 // ---------------------------------------------------------------------------
 // checkEvidence — tier 1 of FR-3 (§3.2)
@@ -45,10 +46,10 @@ const { matchNeverUnattended } = require('./fix-sizing');
 // the scan just stops here and the result says so via `truncated: true`.
 const LOCATOR_SCAN_BYTES = 2_000_000;
 
-// The most a single covered file is read for hashing on the reuse path. A covered file larger
-// than this is not reusable (it reads as changed) rather than hashed from a partial read, which
-// could report identical bytes after a change past the cap.
-const COVERS_HASH_BYTES = 10_000_000;
+// The most a single covered file is read for hashing on the reuse path is COVERS_HASH_BYTES,
+// shared with live-evidence.js so the recorder rejects what this checker would never accept. A
+// covered file larger than it is not reusable (it reads as changed) rather than hashed from a
+// partial read, which could report identical bytes after a change past the cap.
 
 /**
  * Whether every file in `covers` still has the sha256 recorded when the evidence was captured.
@@ -58,23 +59,21 @@ const COVERS_HASH_BYTES = 10_000_000;
  * non-empty list of absolute, existing regular files with matching hashes is "not reusable".
  *
  * @param {unknown} covers - `[{path, sha256}]`
+ * @param {Map<string, string|null>} [digests] - per-call memo, path -> digest: one live artifact
+ *   often proves several criteria, and each claim on it would otherwise re-read and re-hash the
+ *   same covered files (up to COVERS_HASH_BYTES each).
  * @returns {boolean}
  */
-function coversUnchanged(covers) {
+function coversUnchanged(covers, digests = new Map()) {
   if (!Array.isArray(covers) || covers.length === 0) return false;
   for (const entry of covers) {
     if (!entry || typeof entry.path !== 'string' || typeof entry.sha256 !== 'string') return false;
     if (!path.isAbsolute(entry.path)) return false;
-    try {
-      const st = fs.statSync(entry.path);
-      // A directory, socket or device has no bytes to compare; a directory "hash" would
-      // otherwise throw or vacuously pass.
-      if (!st.isFile() || st.size > COVERS_HASH_BYTES) return false;
-      const digest = crypto.createHash('sha256').update(fs.readFileSync(entry.path)).digest('hex');
-      if (digest !== entry.sha256) return false;
-    } catch {
-      return false;
-    }
+    // hashFile returns null for a directory, socket or device (no bytes to compare), a file over
+    // the cap, or an unreadable path -- all "not reusable".
+    if (!digests.has(entry.path)) digests.set(entry.path, hashFile(entry.path, COVERS_HASH_BYTES));
+    const digest = digests.get(entry.path);
+    if (digest === null || digest !== entry.sha256) return false;
   }
   return true;
 }
@@ -122,6 +121,7 @@ function coversUnchanged(covers) {
  *     'locator-not-found'}>}
  */
 function checkEvidence(claims, sinceSec) {
+  const digests = new Map(); // covered-file hashes, computed once per call (see coversUnchanged)
   return claims.map((claim) => {
     const { criterion, artifact, locator, judgeOnly } = claim;
 
@@ -145,7 +145,7 @@ function checkEvidence(claims, sinceSec) {
           if (st.isFile()) {
             if (Math.floor(st.mtimeMs / 1000) > sinceSec) {
               skipped.stale = false;
-            } else if (coversUnchanged(claim.covers)) {
+            } else if (coversUnchanged(claim.covers, digests)) {
               skipped.stale = false;
               skipped.reused = true;
             } else {
@@ -207,7 +207,7 @@ function checkEvidence(claims, sinceSec) {
     // Older than the floor is stale unless the files this evidence depends on are unchanged.
     let reused = false;
     if (!(mtimeSec > sinceSec)) {
-      if (!coversUnchanged(claim.covers)) {
+      if (!coversUnchanged(claim.covers, digests)) {
         return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'stale' };
       }
       reused = true;

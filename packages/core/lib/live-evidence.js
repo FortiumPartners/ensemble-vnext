@@ -32,6 +32,13 @@ const crypto = require('crypto');
 /** Same bound, same reason, as discovered.js: keep one append under PIPE_BUF (4096). */
 const MAX_LINE_BYTES = 2048;
 
+/**
+ * The most a single covered file is read for hashing, here and in the checker
+ * (`functional-verification.js` imports this). A file over it is rejected at record time rather
+ * than recorded and then silently treated as "changed" by every later check.
+ */
+const COVERS_HASH_BYTES = 10_000_000;
+
 function manifestPath(stateDir) {
   return path.join(stateDir, 'evidence', 'live-manifest.jsonl');
 }
@@ -44,67 +51,108 @@ function isFile(p) {
   }
 }
 
-/** sha256 of a file's bytes, or null when it cannot be read as a file. */
-function hashFile(p) {
+/**
+ * sha256 of a file's bytes, or null when it is not a regular file, is larger than `maxBytes`
+ * (never hashed from a partial read, which could report identical bytes after a change past the
+ * cap), or cannot be read.
+ */
+function hashFile(p, maxBytes = COVERS_HASH_BYTES) {
   try {
+    const st = fs.statSync(p);
+    if (!st.isFile() || st.size > maxBytes) return null;
     return crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
   } catch {
     return null;
   }
 }
 
+/** One covered path -> `{path, sha256}` with its real absolute path, or a rejection reason. */
+function coverEntry(p) {
+  if (!p || !isFile(p)) return { reason: `covered path is not an existing file: ${p}` };
+  let real;
+  try {
+    real = fs.realpathSync(p);
+  } catch {
+    return { reason: `covered path cannot be resolved: ${p}` };
+  }
+  const sha256 = hashFile(real);
+  if (!sha256) return { reason: `covered file is unreadable or larger than ${COVERS_HASH_BYTES} bytes: ${p}` };
+  return { path: real, sha256 };
+}
+
 /**
- * Append one live-evidence entry. Returns true if written, false if rejected (nothing written).
- *
- * Rejects: no stateDir/task/artifact, an artifact that is not an existing file, empty `covers`,
- * a covered path that is not an existing file, or a line over MAX_LINE_BYTES.
- * `covers` paths are resolved through symlinks to absolute real paths, so a symlink records
- * its target and a later retarget changes the hash.
+ * `record`'s body, returning why a record was rejected so the CLI can say so -- an agent told
+ * "fix the call, do not skip it" cannot fix a call whose error names the wrong cause.
+ * @returns {{ok: true} | {ok: false, reason: string}}
  */
-function record(stateDir, entry, nowIso) {
-  if (!stateDir || !entry || !entry.task || !entry.artifact) return false;
-  if (!isFile(String(entry.artifact))) return false;
-  if (!Array.isArray(entry.covers) || entry.covers.length === 0) return false;
+function recordWithReason(stateDir, entry, nowIso) {
+  if (!stateDir || !entry || !entry.task || !entry.artifact) {
+    return { ok: false, reason: 'need --state-dir, --task and --artifact' };
+  }
+  const artifact = path.resolve(String(entry.artifact));
+  if (!isFile(artifact)) return { ok: false, reason: `artifact is not an existing file: ${entry.artifact}` };
+  if (!Array.isArray(entry.covers) || entry.covers.length === 0) {
+    return { ok: false, reason: '--covers must name at least one source file' };
+  }
 
   const covers = [];
-  for (const c of entry.covers) {
-    const p = typeof c === 'string' ? c : c && c.path;
-    if (!p || !isFile(p)) return false;
-    let real;
-    try {
-      real = fs.realpathSync(p);
-    } catch {
-      return false;
-    }
-    const sha256 = hashFile(real);
-    if (!sha256) return false;
-    if (!covers.some((x) => x.path === real)) covers.push({ path: real, sha256 });
+  // The artifact itself is covered too: the manifest is matched by artifact PATH, so without its
+  // own hash a different capture later written to the same path (with no successful record of
+  // its own) would be reused under this record's `covers` and `shows`.
+  for (const p of [...entry.covers.map((c) => (typeof c === 'string' ? c : c && c.path)), artifact]) {
+    const c = coverEntry(p);
+    if (c.reason) return { ok: false, reason: c.reason };
+    if (!covers.some((x) => x.path === c.path)) covers.push(c);
   }
 
   const row = {
     ts: nowIso || new Date().toISOString(),
     task: String(entry.task).slice(0, 60),
-    artifact: String(entry.artifact),
+    artifact,
     shows: String(entry.shows || '').slice(0, 300),
     environment: String(entry.environment || '').slice(0, 80),
     covers,
   };
   const line = JSON.stringify(row);
-  if (Buffer.byteLength(line) > MAX_LINE_BYTES) return false;
+  const bytes = Buffer.byteLength(line);
+  if (bytes > MAX_LINE_BYTES) {
+    return {
+      ok: false,
+      reason:
+        `the record is ${bytes} bytes, over the ${MAX_LINE_BYTES}-byte line cap (${covers.length} covered ` +
+        `files). Never drop a file the artifact depends on to fit: split the capture into ` +
+        `narrower artifacts, each covering fewer files, and record each one`,
+    };
+  }
 
   try {
     fs.mkdirSync(path.dirname(manifestPath(stateDir)), { recursive: true });
     fs.appendFileSync(manifestPath(stateDir), line + '\n');
-  } catch {
-    return false;
+  } catch (e) {
+    return { ok: false, reason: `cannot write the manifest: ${e.message}` };
   }
-  return true;
+  return { ok: true };
+}
+
+/**
+ * Append one live-evidence entry. Returns true if written, false if rejected (nothing written).
+ *
+ * Rejects: no stateDir/task/artifact, an artifact that is not an existing file, empty `covers`,
+ * a covered path that is not an existing file or is over COVERS_HASH_BYTES, or a line over
+ * MAX_LINE_BYTES. The artifact is stored as an absolute path. `covers` paths are resolved
+ * through symlinks to absolute real paths, so a symlink records its target and a later retarget
+ * changes the hash; the artifact itself is appended to `covers`, binding the record to its bytes.
+ */
+function record(stateDir, entry, nowIso) {
+  return recordWithReason(stateDir, entry, nowIso).ok;
 }
 
 /**
  * Entries in file order, one per artifact (the LAST entry for an artifact wins, so a re-capture
- * supersedes an earlier record). Malformed lines and rows missing `artifact`/`covers` are
- * skipped. `[]` when the manifest is absent.
+ * supersedes an earlier record). Malformed lines and rows without a non-empty `artifact` and a
+ * non-empty `covers` are skipped -- the same standard `verify-functional` validates `liveEvidence`
+ * against, so one degenerate line cannot make the whole verification run throw. `[]` when the
+ * manifest is absent.
  */
 function read(stateDir) {
   let text;
@@ -122,7 +170,8 @@ function read(stateDir) {
     } catch {
       continue;
     }
-    if (!row || typeof row.artifact !== 'string' || !Array.isArray(row.covers)) continue;
+    if (!row || typeof row.artifact !== 'string' || row.artifact === '') continue;
+    if (!Array.isArray(row.covers) || row.covers.length === 0) continue;
     byArtifact.delete(row.artifact); // re-insert so order follows the latest record
     byArtifact.set(row.artifact, row);
   }
@@ -151,11 +200,11 @@ function main(argv, out = process.stdout, err = process.stderr) {
     }
     if (sub === 'record') {
       const covers = (f.covers || '').split(',').map((s) => s.trim()).filter(Boolean);
-      const ok = record(f['state-dir'], {
+      const r = recordWithReason(f['state-dir'], {
         task: f.task, artifact: f.artifact, shows: f.shows, environment: f.environment, covers,
       });
-      if (!ok) {
-        err.write('live-evidence: rejected -- need --task, an existing --artifact file, and --covers naming existing files\n');
+      if (!r.ok) {
+        err.write(`live-evidence: rejected -- ${r.reason}\n`);
         return 1;
       }
       return 0;
@@ -169,4 +218,4 @@ function main(argv, out = process.stdout, err = process.stderr) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { record, read, manifestPath, hashFile, main, MAX_LINE_BYTES };
+module.exports = { record, recordWithReason, read, manifestPath, hashFile, main, MAX_LINE_BYTES, COVERS_HASH_BYTES };

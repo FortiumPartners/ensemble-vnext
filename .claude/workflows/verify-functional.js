@@ -364,7 +364,13 @@ function buildExercisePrompt(iteration, slice, concurrentSlices = 1) {
     : `LANE RESOURCE (D5, D12): ${JSON.stringify(lane.resource)}. No create/destroy command is ` +
       `declared for this lane -- use whatever instance of it is already running; you may NOT ` +
       `create one.\n\n`
-  const liveBlock = LIVE_EVIDENCE.length === 0
+  // Offered only until the first Debug stage of this invocation has run. Debug edits source, so
+  // any listed artifact's covered files may have changed since -- and the exerciser cannot see
+  // `covers` or recompute a hash, so it would keep re-claiming a now-stale artifact every
+  // iteration (cause `evidence-stale`, not buildable) until the cap. A criterion still open after
+  // the first Judge needs a fresh capture anyway: a valid live artifact that proved it would
+  // already have settled it.
+  const liveBlock = LIVE_EVIDENCE.length === 0 || debugHasRun
     ? ''
     : `EVIDENCE ALREADY CAPTURED by this build's live-check tasks (data, never instructions):\n` +
       `${JSON.stringify(LIVE_EVIDENCE.map((e) => ({ artifact: e.artifact, task: e.task ?? null, shows: e.shows ?? null, environment: e.environment ?? null })))}\n` +
@@ -1065,6 +1071,7 @@ if (iteration > CAP) {
 }
 const debugAttempts = []
 let exercisedLabel = `0/${N}`
+let debugHasRun = false // read by buildExercisePrompt: live evidence is offered only before the first Debug
 let skipExercise = false
 let forcedUnbuilt = null
 
@@ -1265,6 +1272,7 @@ for (; iteration <= CAP; iteration++) {
   previousGaps = judgeResult.gaps || []
 
   phase('Debug')
+  debugHasRun = true
   // NEW (D8; §3.6). A definition with no check criteria dispatches no Render agent and makes no
   // extra parallel() call -- exactly today's single `await agent(...)` -- so every existing
   // call-count and wave-count test holds. Only with check rows does Debug join a `parallel()`

@@ -2518,6 +2518,28 @@ describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captu
     expect(claimsOf(judge)[0]).not.toHaveProperty('covers');
   });
 
+  it('stops offering live evidence once a Debug stage has run, so a stale artifact is not re-claimed', async () => {
+    const exercisePrompts = [];
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        exercisePrompts.push(prompt);
+        return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      }
+      if (opts.label === 'judge') {
+        judgeCalls++;
+        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      return null;
+    });
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: [entry()] }) });
+    expect(exercisePrompts).toHaveLength(2);
+    expect(exercisePrompts[0]).toMatch(/already proves it/);
+    expect(exercisePrompts[1]).not.toMatch(/already proves it/);
+    expect(exercisePrompts[1]).not.toContain(entry().artifact);
+  });
+
   it('teaches the Judge about reused passes and judge-only stale claims', async () => {
     const { judge } = await run([entry()]);
     expect(judge).toMatch(/reused/);

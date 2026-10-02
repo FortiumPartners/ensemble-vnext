@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
-const { record, read, manifestPath, main, MAX_LINE_BYTES } = require('./live-evidence');
+const { record, read, manifestPath, main, MAX_LINE_BYTES, COVERS_HASH_BYTES } = require('./live-evidence');
 
 let dir; let state; let artifact; let src;
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -30,8 +30,28 @@ describe('record', () => {
     expect(Buffer.byteLength(text)).toBeLessThan(MAX_LINE_BYTES);
     const row = JSON.parse(text);
     expect(row.ts).toBe('2026-01-01T00:00:00.000Z');
-    expect(row.covers).toEqual([{ path: src, sha256: sha('one') }]);
+    expect(row.covers).toEqual([{ path: src, sha256: sha('one') }, { path: artifact, sha256: sha('png') }]);
     expect(path.isAbsolute(row.covers[0].path)).toBe(true);
+  });
+
+  test('the artifact itself is covered, so a later different capture at the same path reads as changed', () => {
+    record(state, entry());
+    const own = read(state)[0].covers.find((c) => c.path === artifact);
+    expect(own).toEqual({ path: artifact, sha256: sha('png') });
+  });
+
+  test('a relative artifact path is stored absolute', () => {
+    const cwd = process.cwd();
+    process.chdir(dir);
+    try { expect(record(state, entry({ artifact: 'shot.png' }))).toBe(true); } finally { process.chdir(cwd); }
+    expect(read(state)[0].artifact).toBe(artifact);
+  });
+
+  test('a covered file over COVERS_HASH_BYTES is rejected, not recorded as never-reusable', () => {
+    const big = path.join(dir, 'big.bin');
+    fs.writeFileSync(big, Buffer.alloc(COVERS_HASH_BYTES + 1));
+    expect(record(state, entry({ covers: [big] }))).toBe(false);
+    expect(fs.existsSync(manifestPath(state))).toBe(false);
   });
 
   test('a relative covered path is stored absolute', () => {
@@ -82,7 +102,10 @@ describe('read', () => {
 
   test('skips malformed lines and rows without artifact/covers', () => {
     record(state, entry());
-    fs.appendFileSync(manifestPath(state), 'not json\n{"artifact":"x"}\n{"covers":[]}\n\n');
+    fs.appendFileSync(
+      manifestPath(state),
+      'not json\n{"artifact":"x"}\n{"covers":[]}\n{"artifact":"y","covers":[]}\n{"artifact":"","covers":[{"path":"/a","sha256":"b"}]}\n\n'
+    );
     expect(read(state)).toHaveLength(1);
   });
 
@@ -120,6 +143,19 @@ describe('CLI', () => {
     expect(fs.existsSync(manifestPath(state))).toBe(false);
     expect(run('bogus', '--state-dir', state).status).toBe(2);
     expect(run('read').status).toBe(2);
+  });
+
+  test('a line over the cap is rejected with a stderr reason naming the cap, not a missing flag', () => {
+    const many = [];
+    for (let i = 0; i < 40; i++) {
+      const f = path.join(dir, `f-${'x'.repeat(40)}-${i}.js`);
+      fs.writeFileSync(f, String(i));
+      many.push(f);
+    }
+    const r = run('record', '--state-dir', state, '--task', 'T', '--artifact', artifact, '--covers', many.join(','));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/line cap/);
+    expect(r.stderr).not.toMatch(/need --task/);
   });
 
   test('main is callable in-process', () => {
