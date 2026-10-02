@@ -389,7 +389,14 @@ For each requirement:
          mismatch, not a pass.
 
 A requirement can be documented in the TRD, referenced in a review, and still not exist in the
-delivered tree. Verify by grepping the tree, never by trusting that it must be there.`,
+delivered tree. Verify by grepping the tree, never by trusting that it must be there.
+
+A weak or missing test matters ONLY if it masks a defect -- tests are not the product. When a
+weak or missing test hides behaviour that is wrong or absent, report the DEFECT itself, not the
+test: action mismatch (it does something other than the requirement states) or gap-unbuilt (it
+is not there), with the masked behaviour as the evidence -- that is a defect and counts as one
+on a re-audit. Otherwise (the behaviour is right and only its proof is weak or missing) the
+finding is a test gap, action gap-untested, fixed as secondary work.`,
   },
   {
     key: 'verification-audit', effort: 'high',
@@ -402,7 +409,14 @@ ${TSK}
 For each task, open the files in its touches list (or grep for the described change if the
 list is empty) and confirm the described work is actually present, matches the task's
 description, and was not silently narrowed or left half-done. A task marked complete
-elsewhere (implement.json, a commit message) is a claim, not evidence -- check the code.`,
+elsewhere (implement.json, a commit message) is a claim, not evidence -- check the code.
+
+A weak or missing test matters ONLY if it masks a defect -- tests are not the product. When a
+weak or missing test hides behaviour that is wrong or absent, report the DEFECT itself, not the
+test: action mismatch (the code does something other than the task specified) or gap-unbuilt
+(the work is not there), with the masked behaviour as the evidence -- that is a defect and
+counts as one on a re-audit. Otherwise (the code is right and only its test is weak or missing)
+the finding is a test gap, action gap-untested, fixed as secondary work.`,
   },
 ]
 
