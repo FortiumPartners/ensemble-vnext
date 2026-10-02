@@ -315,21 +315,22 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.10.4** (2026-09-30). 21 commands, 13 subagents. Test battery: 1210 Jest,
-124 pytest, 578 BATS. **Full release history: `CHANGELOG.md`.**
+Released at **4.10.5** (2026-10-01). 21 commands, 13 subagents. Test battery: 1287 Jest,
+124 pytest, 584 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.10.4: a framework command stays `state=active` while its session shows agent activity, so
-the mid-command pause check covers long commands. 4.10.3: `/refine-verification [--auto]`
-plans the next round and `/verify-build` builds by default.
+4.10.5: a passing `/audit-build` opens the PR itself (`ensemble.openPullRequest: auto`;
+merging stays the owner's), and `verification.md` §5b lists paths `/plan --implement` must
+never build unattended. 4.10.4: long commands stay `state=active` while agents run.
+4.10.3: `/refine-verification [--auto]` plans the next round; `/verify-build` builds by default.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.10.5: the PR step uses whatever branch is checked out.
 - 4.10.3: `/refine-verification` and fix-by-default are unproven in a live stalled run.
-- 4.10.2: `npm run smoke`'s default set runs one real `claude` session and the phase gate
-  picks it; subagent starting context has not measurably fallen.
+- 4.10.2: subagent starting context has not measurably fallen.
 - 4.10.1: 2 of 124 replayed judgements judged an active `/goal` condition instead of the
   discipline rubric (only in sessions running `/goal`, each bounded to one turn by the block
   cap); consuming projects get the fix only after `/rebase-project`.
