@@ -680,6 +680,11 @@ describe('the cycle-ending commands open the pull request', () => {
     expect(closeFeature).toMatch(/pull-request\.js ensure/);
   });
 
+  test('both commands pass --expect-branch, so a PR never opens from the wrong branch', () => {
+    expect(auditBuild).toMatch(/pull-request\.js ensure[^`]*--expect-branch/);
+    expect(closeFeature).toMatch(/pull-request\.js ensure[^`]*--expect-branch/);
+  });
+
   test('audit-build.md ties the PR to --report-only being absent', () => {
     expect(auditBuild).toMatch(/Open the pull request\.\*\* Only when .*the run is not `--report-only`/);
   });

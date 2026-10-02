@@ -15,11 +15,15 @@
  *   - Only OPEN PRs are reused; a closed one for the same branch is ignored and a new PR opened.
  *   - The default branch is asked of GitHub (then origin/HEAD). Unknown means skip — never
  *     assume `main`, or a PR could be opened against the wrong base.
+ *   - `--expect-branch <name>`: the branch the feature was built on (implement.json's `branch`).
+ *     If the checked-out branch differs, skip BEFORE any push or gh call — the owner may have
+ *     switched branches since, and a PR from the wrong branch is worse than none. Omitted means
+ *     no check.
  *   - This lib never merges. Merging stays the owner's.
  *
  * CLI
  *   node pull-request.js mode                              -> one JSON line: "auto"|"never"
- *   node pull-request.js ensure --title <t> --body-file <f> -> one JSON line
+ *   node pull-request.js ensure --title <t> --body-file <f> [--expect-branch <b>] -> one JSON line
  */
 
 const fs = require('fs');
@@ -72,7 +76,19 @@ function findDefaultBranch() {
   return '';
 }
 
-function ensure({ title, bodyFile, settingsPath = './.claude/settings.json' }) {
+/**
+ * Host of the origin remote, so auth is checked for the host the PR will go to. A bare
+ * `gh auth status` fails when ANY logged-in host is broken, skipping a PR for an unrelated
+ * one. Anything unparseable (a local path, no origin) defaults to github.com.
+ */
+function originHost() {
+  const r = run('git', ['remote', 'get-url', 'origin']);
+  if (!r.ok) return 'github.com';
+  const m = r.out.match(/^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^/:]+)[:/]/i);
+  return m && m[1] && !r.out.startsWith('/') ? m[1] : 'github.com';
+}
+
+function ensure({ title, bodyFile, expectBranch, settingsPath = './.claude/settings.json' }) {
   const mode = readMode(settingsPath);
   const skip = (reason) => ({ action: 'skipped', url: null, reason });
   const b = run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
@@ -81,7 +97,10 @@ function ensure({ title, bodyFile, settingsPath = './.claude/settings.json' }) {
   // check auth before asking GitHub anything, so a missing gh is reported as that.
   if (mode !== 'auto') return skip(decide({ mode }).reason);
   if (!branch || branch === 'HEAD') return skip(decide({ mode, branch }).reason);
-  const ghAvailable = run('gh', ['auth', 'status']).ok;
+  if (expectBranch && branch !== expectBranch) {
+    return skip(`on ${branch}, expected ${expectBranch}`);
+  }
+  const ghAvailable = run('gh', ['auth', 'status', '--hostname', originHost()]).ok;
   const defaultBranch = ghAvailable ? findDefaultBranch() : '';
   const base = { mode, branch, defaultBranch, ghAvailable };
   const pre = decide({ ...base, openPrUrl: null });
@@ -118,13 +137,14 @@ function main(argv) {
   if (cmd === 'ensure') {
     const title = argValue(argv, '--title');
     const bodyFile = argValue(argv, '--body-file');
+    const expectBranch = argValue(argv, '--expect-branch');
     const result = title && bodyFile
-      ? ensure({ title, bodyFile })
-      : { action: 'failed', url: null, reason: 'usage: ensure --title <t> --body-file <f>' };
+      ? ensure({ title, bodyFile, expectBranch })
+      : { action: 'failed', url: null, reason: 'usage: ensure --title <t> --body-file <f> [--expect-branch <b>]' };
     process.stdout.write(JSON.stringify(result) + '\n');
     return 0;
   }
-  process.stderr.write('usage: pull-request.js mode | ensure --title <t> --body-file <f>\n');
+  process.stderr.write('usage: pull-request.js mode | ensure --title <t> --body-file <f> [--expect-branch <b>]\n');
   return 2;
 }
 

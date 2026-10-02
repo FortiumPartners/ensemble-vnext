@@ -406,8 +406,8 @@ running a check nothing asked for and `/audit-prd` will repeat against the same 
 
 Calling the **workflow** rather than the **command** means nothing downstream prints a banner
 — D5's rule (*workflows emit no banner; commands do*) applies here exactly as it does to
-`create-trd` and `audit-trd`. So this is the one chain in this command where `plan()`'s
-`banner: null` does not mean "say nothing": D8 states plainly that `/plan` "owns... the
+`create-trd` and `audit-trd`. So this is the one chain in this command that ends with
+its own banner (`plan()` returns it): D8 states plainly that `/plan` "owns... the
 readout" for this exit and "emits the run's single banner itself," precisely because the run
 genuinely ends inside this turn — nothing further is dispatched. Print the four-section
 readout first — **NEXT** names `/audit-prd docs/PRD/<slug>.md`, and **STATE** says the PRD is
@@ -423,11 +423,7 @@ readout first — **NEXT** names `/audit-prd docs/PRD/<slug>.md`, and **STATE** 
 ```
 
 Both the banner and the completion signal fire here, same as any other path that genuinely
-terminates in this command — `plan()`'s own literal `banner: null` / `notify: false` on this
-branch describe the OLD mechanism (`Skill({skill:"create-prd"})` invoking the command itself,
-which would have printed its own terminator); they were not revisited when F6 moved the
-dispatch to the workflow, which prints none. Recorded via the discovered-work channel below
-rather than silently worked around.
+terminates in this command — `plan()` returns them for this route.
 
 ---
 

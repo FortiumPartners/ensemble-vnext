@@ -526,7 +526,12 @@ function readNeverUnattended(content) {
     // nothing in it -- an unreadable entry, so `invalid` below, never prose read as `absent`.
     // The marker must be followed by whitespace or end of line, so "---" is not a bullet.
     const bulletMatch = /^(?:[-*+]|\d+[.)])(?:\s+(.*))?$/.exec(trimmed);
-    const body = (bulletMatch ? bulletMatch[1] ?? '' : trimmed).replace(/[*`]/g, '').trim();
+    // A trailing note ("- auth — the login flow", "- auth # why") is cut at the first ' — ',
+    // ' - ' or ' #', so it cannot become part of the fragment and never match any path.
+    const body = (bulletMatch ? bulletMatch[1] ?? '' : trimmed)
+      .replace(/[*`]/g, '')
+      .split(/ — | - | #/)[0]
+      .trim();
 
     // Tolerate bold/code wrap and a list marker around the key, as readCoverageFloor does
     // for "Coverage floor" -- `- Paths: auth` is a Paths line, not a fragment literally
@@ -1528,7 +1533,18 @@ if (require.main === module) {
       let touches;
       try {
         const trdMarkdown = fs.readFileSync(trdPath, 'utf8');
-        const { grounding } = parseTrd(trdMarkdown, { path: trdPath });
+        const { tasks, grounding } = parseTrd(trdMarkdown, { path: trdPath });
+        // A task with no grounding block, or one with no Touches, contributes nothing to
+        // match -- so a TRD of such tasks would read "no hits" and pass the brake silently.
+        // The brake cannot be evaluated for them: report invalid, naming each task.
+        const ungrounded = tasks
+          .filter((t) => !grounding[t.id] || !(grounding[t.id].touches || []).length)
+          .map((t) => t.id);
+        if (ungrounded.length > 0) {
+          throw Object.assign(new Error(`no grounding Touches for: ${ungrounded.join(', ')}`), {
+            ungrounded: true,
+          });
+        }
         // Every task's grounding `touches`, flattened, in grounding-block order -- the same
         // source `/plan --implement`'s brake reads (D: "gather touched files in code, never
         // have the model do either").
@@ -1538,7 +1554,12 @@ if (require.main === module) {
         // evaluated -- report it as `invalid` (which stops the chain), never a stack trace
         // the caller has no instruction for.
         console.log(
-          JSON.stringify({ hits: [], status: 'invalid', raw: `cannot read TRD ${trdPath}: ${err.message}`, touches: [] })
+          JSON.stringify({
+            hits: [],
+            status: 'invalid',
+            raw: err.ungrounded ? err.message : `cannot read TRD ${trdPath}: ${err.message}`,
+            touches: [],
+          })
         );
         process.exitCode = 1;
       }

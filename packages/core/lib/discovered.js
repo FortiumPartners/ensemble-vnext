@@ -41,6 +41,9 @@ const path = require('path');
  *  hooks/lib/dispatch-ledger.js. */
 const MAX_LINE_BYTES = 2048;
 
+/** How much of a summary identifies a record inside a resolve marker. */
+const RESOLVE_KEY_LEN = 80;
+
 const KINDS = ['bug', 'scope-conflict', 'stale-grounding', 'gap', 'risk'];
 
 // A verification-outcome record (a functional-verification criterion, recorded through this
@@ -92,6 +95,8 @@ function latestPerRef(rows) {
 function promotable(rows) {
   if (!Array.isArray(rows)) return [];
   return latestPerRef(rows).filter((r) => {
+    // A resolved record is finished work; promoting it would mint a task for a fix that landed.
+    if (r && r.resolvedAt) return false;
     if (!r || r.blocksFeature !== true || r.kind === 'risk') return false;
     if (r.status && !PROMOTABLE_STATUSES.includes(r.status)) return false;
     return true;
@@ -284,7 +289,11 @@ function promoteToTrd(trdPath, rows, opts = {}) {
       const refServes = r.ref
         ? (r.ref.startsWith('plan:') ? `plan blocker ${r.ref.slice(5)}` : `criterion ${r.ref}`)
         : null;
-      cells[col.serves] = opts.serves || refServes || 'amendment — no objective recorded';
+      // An objective the finder named in the summary -- "(O3)" -- is real provenance the
+      // record carries; it outranks a ref-derived label but never an explicit `opts.serves`.
+      const named = /\((O\d+)\)/.exec(String(r.summary));
+      cells[col.serves] = opts.serves || (named && named[1]) || refServes
+        || 'amendment — no objective recorded';
     }
     // Dependencies are resolved after the loop (below), once every row in this call has an
     // id: a blocker's `after` may name a sibling that appears LATER in the ledger.
@@ -296,9 +305,16 @@ function promoteToTrd(trdPath, rows, opts = {}) {
      * claim a verifier or reviewer can actually check. */
     if (col.ac >= 0) {
       const evidence = r.evidence ? String(r.evidence).replace(/\|/g, '\\|') : null;
-      cells[col.ac] = evidence
-        ? `${escapedSummary} no longer reproduces: ${evidence}`
-        : `${escapedSummary} no longer reproduces`;
+      if (r.kind === 'gap') {
+        // A gap's evidence is what was observed MISSING, so it is not a check that can pass:
+        // the pass condition is the gap closing; the observation belongs in the description.
+        cells[col.ac] = `${escapedSummary} is met`;
+        if (evidence && col.desc >= 0) cells[col.desc] += ` (observed: ${evidence})`;
+      } else {
+        cells[col.ac] = evidence
+          ? `${escapedSummary} no longer reproduces: ${evidence}`
+          : `${escapedSummary} no longer reproduces`;
+      }
     }
     newRows.push({ cells, after: r.after, ref: r.ref, earlierId });
     added.push(id);
@@ -542,10 +558,38 @@ function record(stateDir, entry, nowIso) {
 }
 
 /**
+ * Mark a recorded discovery fixed. Append-only like everything else in this ledger: the
+ * original line is never edited, a `resolves` marker is appended that names it by `ts` plus
+ * the start of its summary (`ts` alone is not unique -- a batch is stamped in one millisecond).
+ * Returns true if written. Swallows its own errors, as record() does.
+ *
+ *   resolve(stateDir, { ts: '2026-09-28T08:25:08.174Z', summary: 'implement.lock ...' }, 'fixed in PR #15')
+ */
+function resolve(stateDir, target, note, nowIso) {
+  if (!stateDir || !target || !target.ts || !target.summary) return false;
+  const marker = {
+    ts: nowIso || new Date().toISOString(),
+    resolves: String(target.ts),
+    resolvesSummary: String(target.summary).slice(0, RESOLVE_KEY_LEN),
+    summary: String(note || 'resolved').slice(0, 400),
+  };
+  try {
+    fs.mkdirSync(stateDir, { recursive: true });
+    fs.appendFileSync(ledgerPath(stateDir), JSON.stringify(marker) + '\n');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Read every discovery. A malformed line is skipped rather than throwing — a
  * truncated final line from a killed run must not blind the reader to the rest.
+ *
+ * Resolve markers are never returned as rows. A record they name carries `resolvedAt`
+ * (the marker's ts) so callers can tell; with `{ open: true }` those records are dropped.
  */
-function readAll(stateDir) {
+function readAll(stateDir, { open = false } = {}) {
   let raw;
   try {
     raw = fs.readFileSync(ledgerPath(stateDir), 'utf-8');
@@ -553,16 +597,23 @@ function readAll(stateDir) {
     return [];
   }
   const rows = [];
+  const markers = [];
   for (const line of raw.split('\n')) {
     if (!line.trim()) continue;
     try {
       const row = JSON.parse(line);
-      if (row && typeof row === 'object' && row.summary) rows.push(row);
+      if (!row || typeof row !== 'object' || !row.summary) continue;
+      (row.resolves ? markers : rows).push(row);
     } catch {
       /* skip */
     }
   }
-  return rows;
+  const resolvedAt = new Map(markers.map((m) => [`${m.resolves}|${m.resolvesSummary}`, m.ts]));
+  for (const r of rows) {
+    const at = resolvedAt.get(`${r.ts}|${String(r.summary).slice(0, RESOLVE_KEY_LEN)}`);
+    if (at) r.resolvedAt = at;
+  }
+  return open ? rows.filter((r) => !r.resolvedAt) : rows;
 }
 
 /**
@@ -572,7 +623,7 @@ function readAll(stateDir) {
  * found none" when in fact nothing was recorded, and those are different claims.
  */
 function render(stateDir, { phase = null } = {}) {
-  const rows = readAll(stateDir).filter((r) => phase === null || r.phase === phase);
+  const rows = readAll(stateDir, { open: true }).filter((r) => phase === null || r.phase === phase);
   if (rows.length === 0) return '';
 
   const byKind = {};
@@ -582,8 +633,8 @@ function render(stateDir, { phase = null } = {}) {
   // implement loop, so a completion-time call with no `phase` filter renders everything ever
   // recorded, including items from weeks-old runs. The header used to claim "this run found",
   // which reads as a fresh count and was wrong by construction: there is no per-run or
-  // resolved/unresolved distinction here to filter on (a promoted discovery is never marked
-  // back in this ledger), so all recorded items still show until someone acts on them.
+  // per-run distinction here to filter on, so every item not marked fixed through resolve()
+  // still shows until someone acts on it.
   const lines = [`DISCOVERED — ${rows.length} item(s) recorded for this feature, not yet acted on:`];
   for (const kind of KINDS) {
     for (const r of byKind[kind] || []) {
@@ -598,5 +649,5 @@ function render(stateDir, { phase = null } = {}) {
 
 module.exports = {
   promotable,
-  promoteToTrd, record, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES,
+  promoteToTrd, record, resolve, readAll, render, ledgerPath, KINDS, MAX_LINE_BYTES,
   VERIFICATION_STATUSES, PROMOTABLE_STATUSES };

@@ -88,7 +88,9 @@ and the audit fields differ.
    line in ISSUES, never STUCK.
 5. **Open the pull request** after a successful close commit on a feature branch. Write a
    short PR body (the feature, closed by you, the note) to a temp file, then run
-   `node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-file <tmp>`.
+   `node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-file <tmp> --expect-branch "<branch from .trd-state/<feature>/implement.json>"`.
+   The flag makes it skip, with a reason, when the checked-out branch is not the one the feature
+   was built on; leave it off only when `implement.json` has no `branch`.
    It prints one JSON line `{action, url, reason}`, acts only when `ensemble.openPullRequest`
    is `auto`, and never merges. STATE names the URL or the skip/failed reason in one line;
    never STUCK, never retried. The "already closed" path opens nothing.

@@ -267,10 +267,11 @@ PR carries. Write a short PR body (the VERDICT line and the report link, or its 
 temp file, then run:
 
 ```bash
-node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-file <tmp>
+node .claude/lib/pull-request.js ensure --title "<feature>: <one line>" --body-file <tmp> \
+  --expect-branch "<branch from .trd-state/<feature>/implement.json>"
 ```
 
-It prints one JSON line `{action, url, reason}` and always exits 0; it acts only when
+`--expect-branch` makes it skip when the checked-out branch is not the one the feature was built on (omit it only when `implement.json` has no `branch`). It prints one JSON line `{action, url, reason}` and always exits 0; it acts only when
 `ensemble.openPullRequest` is `auto`, and it never merges. STATE names the URL, or the
 skip/failed reason, in one line — never STUCK, never retried. No audit commit, no PR.
 

@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { record, readAll, render, ledgerPath, promoteToTrd, promotable, MAX_LINE_BYTES } = require('./discovered');
+const { record, resolve, readAll, render, ledgerPath, promoteToTrd, promotable, MAX_LINE_BYTES } = require('./discovered');
 const { parseTrd } = require('./trd-parser');
 const { buildGraph } = require('./task-graph');
 
@@ -138,6 +138,52 @@ describe('readAll', () => {
     record(dir, { summary: 'good' });
     fs.appendFileSync(ledgerPath(dir), '{"summary":"trunc');
     expect(readAll(dir).map((r) => r.summary)).toEqual(['good']);
+  });
+});
+
+describe('resolve', () => {
+  const T = '2026-10-01T00:00:00.000Z';
+
+  test('an appended marker hides the record from open reads, render and promotion', () => {
+    record(dir, { summary: 'fixed one', blocksFeature: true }, T);
+    record(dir, { summary: 'still open', blocksFeature: true }, T);
+    expect(resolve(dir, { ts: T, summary: 'fixed one' }, 'fixed in PR #1')).toBe(true);
+    expect(readAll(dir, { open: true }).map((r) => r.summary)).toEqual(['still open']);
+    expect(render(dir)).not.toContain('fixed one');
+    expect(render(dir)).toContain('1 item(s)');
+    expect(promotable(readAll(dir)).map((r) => r.summary)).toEqual(['still open']);
+  });
+
+  test('default readAll still returns the resolved record, flagged, and never the marker', () => {
+    record(dir, { summary: 'a' }, T);
+    resolve(dir, { ts: T, summary: 'a' }, 'done');
+    const rows = readAll(dir);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].resolvedAt).toBeTruthy();
+  });
+
+  test('is append-only: the original line is untouched', () => {
+    record(dir, { summary: 'a' }, T);
+    const before = fs.readFileSync(ledgerPath(dir), 'utf-8');
+    resolve(dir, { ts: T, summary: 'a' }, 'done');
+    expect(fs.readFileSync(ledgerPath(dir), 'utf-8').startsWith(before)).toBe(true);
+  });
+
+  test('a shared ts does not resolve a sibling with a different summary', () => {
+    record(dir, { summary: 'one' }, T);
+    record(dir, { summary: 'two' }, T);
+    resolve(dir, { ts: T, summary: 'one' });
+    expect(readAll(dir, { open: true }).map((r) => r.summary)).toEqual(['two']);
+  });
+
+  test('rejects an incomplete target', () => {
+    expect(resolve(dir, { ts: T }, 'x')).toBe(false);
+  });
+
+  test('render is empty once everything is resolved', () => {
+    record(dir, { summary: 'a' }, T);
+    resolve(dir, { ts: T, summary: 'a' });
+    expect(render(dir)).toBe('');
   });
 });
 
@@ -331,5 +377,18 @@ describe('promoteToTrd', () => {
     expect(ac).toContain('the clamp order is reversed');
     expect(ac).toContain('clamp_test.js:42');
     expect(ac).not.toBe('The discovery no longer reproduces');
+  });
+
+  it('a gap keeps its evidence out of the pass condition, and Serves takes an (O3) id from the summary', () => {
+    const f = mk(SIX);
+    promoteToTrd(f, [{
+      summary: 'export is missing (O3)', evidence: 'no export route exists',
+      kind: 'gap', foundBy: 'verify-build', blocksFeature: true,
+    }]);
+    const row = fs.readFileSync(f, 'utf-8').split('\n').find((l) => l.startsWith('| AMEND-001'));
+    const cells = row.split('|').slice(1, -1).map((c) => c.trim());
+    expect(cells[2]).toBe('O3');
+    expect(cells[5]).toBe('export is missing (O3) is met');
+    expect(cells[1]).toContain('(observed: no export route exists)');
   });
 });

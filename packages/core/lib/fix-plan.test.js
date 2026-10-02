@@ -29,11 +29,12 @@ describe('fix-plan: the invariant that prose kept breaking', () => {
         expect(p.chain || p.banner !== null).toBe(true); // exactly one, never neither
       }
     }
-    // route: 'prd' also chains, at any weight, regardless of --implement.
+    // route: 'prd' also chains, at any weight — but the create-prd workflow prints no
+    // terminator, so /plan itself emits the banner (the one chain that does).
     for (const weight of ['trivial', 'small', 'medium']) {
       const p = P({ weight, route: 'prd' });
       expect(p.chain).toBe(true);
-      expect(p.banner).toBe(null);
+      expect(p.banner).toBe('═══ COMMAND COMPLETE: /plan ═══');
     }
   });
 
@@ -41,7 +42,6 @@ describe('fix-plan: the invariant that prose kept breaking', () => {
     // notify-complete.sh signals webhooks/queues. On a chained run the work is
     // BEGINNING — command-status.md Path B requires exactly-once at real completion.
     expect(P({ implement: true }).notify).toBe(false);
-    expect(P({ route: 'prd' }).notify).toBe(false);
   });
 
   test('the completion signal fires on EVERY terminating path', () => {
@@ -113,10 +113,11 @@ describe('fix-plan: workBegins is identical across weights (AC-F5.1/AC-F5.2)', (
 });
 
 describe('fix-plan: route "prd" exits directly (D8, AC-F7.5, AC-F7.2)', () => {
-  test('returns banner: null, notify: false, chainSkill: create-prd', () => {
-    const r = P({ route: 'prd' });
-    expect(r.banner).toBe(null);
-    expect(r.notify).toBe(false);
+  test('returns the banner, notify: true, chainSkill: create-prd', () => {
+    const r = P({ route: 'prd', slug: 'demo' });
+    expect(r.banner).toBe('═══ COMMAND COMPLETE: /plan ═══');
+    expect(r.bannerBody).toMatch(/docs\/PRD\/demo\.md \(unverified — run \/audit-prd\)/);
+    expect(r.notify).toBe(true);
     expect(r.chainSkill).toBe('create-prd');
   });
 

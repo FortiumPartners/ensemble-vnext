@@ -79,9 +79,8 @@ function plan(input) {
 
   // route: 'prd' exits the /plan feature entirely — the investigation found enough content
   // for a PRD, and /create-prd takes it from here (D8, AC-F7.5). This is not a stop-and-wait
-  // path like the old ESCALATE: it chains immediately, same as the workBegins branch below,
-  // and for the same reason — command-status.md: nothing may follow COMMAND COMPLETE, and
-  // /create-prd emits the run's terminator, not /plan.
+  // path like the old ESCALATE: it chains immediately. Unlike the workBegins branch below,
+  // the chained create-prd workflow emits no terminator, so /plan does.
   if (route === 'prd') {
     return {
       writeTrd: false,
@@ -90,9 +89,11 @@ function plan(input) {
       chainSkill: 'create-prd',
       chainArgs: `docs/plan/${slug}.investigation.md`,
       handoffLine: `[STATUS: /plan] HANDOFF → investigation record complete, route prd, chaining to /create-prd`,
-      banner: null,
-      bannerBody: null,
-      notify: false,
+      // The one chain that ends inside this command: the create-prd workflow prints no
+      // terminator of its own, so /plan emits the run's single banner and signal here.
+      banner: '═══ COMMAND COMPLETE: /plan ═══',
+      bannerBody: `${slug}: investigation captured, PRD authored at docs/PRD/${slug}.md (unverified — run /audit-prd)`,
+      notify: true,
       verificationSection: VERIFICATION_SECTION[kind] || VERIFICATION_SECTION.defect,
     };
   }
