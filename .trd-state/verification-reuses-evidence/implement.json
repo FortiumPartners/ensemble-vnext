@@ -74,10 +74,19 @@
       "last_advanced": "2026-10-02T22:50:10.379Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "ade8b54",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-02T22:57:52.599Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "ade8b54",
+    "last_checkpoint_timestamp": "2026-10-02T22:57:52.599Z",
     "interrupted": false,
     "interrupt_reason": null
   },
