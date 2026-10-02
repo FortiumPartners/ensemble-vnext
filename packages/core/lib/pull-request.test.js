@@ -85,7 +85,11 @@ describe('ensure CLI', () => {
     fs.writeFileSync(path.join(bin, 'gh'), `#!/bin/sh
 echo "$@" >> "${log}"
 case "$1 $2" in
-  "auth status") [ -n "$STUB_AUTH_FAIL" ] && exit 1; exit 0 ;;
+  "auth status") [ -n "$STUB_AUTH_FAIL" ] && exit 1
+                 # Fails only for the named host, as a broken login on an unrelated host would.
+                 case "$*" in *"--hostname $STUB_AUTH_FAIL_HOST"*) [ -n "$STUB_AUTH_FAIL_HOST" ] && exit 1 ;; esac
+                 case "$*" in *--hostname*) ;; *) [ -n "$STUB_AUTH_FAIL_HOST" ] && exit 1 ;; esac
+                 exit 0 ;;
   "repo view") [ -n "$STUB_DEFAULT" ] && { echo "$STUB_DEFAULT"; exit 0; } || exit 1 ;;
   "pr list") [ -n "$STUB_LIST_FAIL" ] && { echo "HTTP 502: list failed" >&2; exit 1; }
              [ -n "$STUB_OPEN_URL" ] && echo "$STUB_OPEN_URL"
@@ -97,8 +101,8 @@ case "$1 $2" in
 esac
 exit 0
 `, { mode: 0o755 });
-    const ensure = (env = {}) => {
-      const r = spawnSync('node', [LIB, 'ensure', '--title', 'T', '--body-file', 'body.md'], {
+    const ensure = (env = {}, extraArgs = []) => {
+      const r = spawnSync('node', [LIB, 'ensure', '--title', 'T', '--body-file', 'body.md', ...extraArgs], {
         cwd: repo,
         encoding: 'utf8',
         env: cleanEnv({ PATH: `${bin}:${process.env.PATH}`, ...env }),
@@ -159,6 +163,21 @@ exit 0
     expect(s.calls()).not.toMatch(/pr create/);
   });
 
+  test('--expect-branch mismatch -> skipped before any push or gh call', () => {
+    const s = setup();
+    const out = s.ensure({ STUB_DEFAULT: 'main' }, ['--expect-branch', 'feature/other']);
+    expect(out).toEqual({ action: 'skipped', url: null, reason: 'on feature/x, expected feature/other' });
+    expect(s.calls()).toBe('');
+    expect(git(s.repo, 'ls-remote', '--heads', 'origin', 'feature/x')).toBe('');
+  });
+
+  test('--expect-branch match -> opened as usual', () => {
+    const s = setup();
+    const out = s.ensure({ STUB_DEFAULT: 'main' }, ['--expect-branch', 'feature/x']);
+    expect(out.action).toBe('opened');
+    expect(s.calls()).toMatch(/pr create --base main --head feature\/x/);
+  });
+
   test('only a closed PR (list --state open prints nothing) -> opened', () => {
     const s = setup();
     const out = s.ensure({ STUB_DEFAULT: 'main', STUB_CLOSED_URL: 'https://example.test/pr/1' });
@@ -191,6 +210,21 @@ exit 0
     const out = s.ensure({ STUB_AUTH_FAIL: '1' });
     expect(out).toMatchObject({ action: 'skipped', reason: 'gh missing or not authenticated' });
     expect(s.calls()).not.toMatch(/repo view/);
+  });
+
+  test('auth is checked for the origin host only; an unrelated host failing does not skip', () => {
+    const s = setup();
+    const out = s.ensure({ STUB_DEFAULT: 'main', STUB_AUTH_FAIL_HOST: 'ghe.example.com' });
+    expect(out.action).toBe('opened');
+    expect(s.calls()).toMatch(/auth status --hostname github\.com/);
+  });
+
+  test('origin on another host -> auth checked for that host', () => {
+    const s = setup();
+    spawnSync('git', ['remote', 'set-url', 'origin', 'git@ghe.example.com:o/r.git'], { cwd: s.repo });
+    const out = s.ensure({ STUB_AUTH_FAIL_HOST: 'ghe.example.com' });
+    expect(out).toMatchObject({ action: 'skipped', reason: 'gh missing or not authenticated' });
+    expect(s.calls()).toMatch(/auth status --hostname ghe\.example\.com/);
   });
 
   test('pr list fails -> failed, no blind create', () => {

@@ -1714,6 +1714,16 @@ describe('readNeverUnattended', () => {
     });
   });
 
+  test('a trailing note on a bullet or Paths line is cut, so the fragment still matches', () => {
+    expect(
+      readNeverUnattended(withSection('- auth — the login flow\n- payments - billing\n- secrets # keys')).paths
+    ).toEqual(['auth', 'payments', 'secrets']);
+    expect(readNeverUnattended(withSection('Paths: auth, payments — owner note')).paths).toEqual([
+      'auth',
+      'payments',
+    ]);
+  });
+
   test('"Paths: none — no brake" still reads as none', () => {
     expect(readNeverUnattended(withSection('Paths: none — no brake')).status).toBe('none');
   });
@@ -1820,6 +1830,25 @@ describe('CLI: check-never-unattended', () => {
       raw: null,
       touches: ['src/auth/login.ts'],
     });
+  });
+
+  test('a task with no grounding Touches reports invalid, naming the task', () => {
+    const trdPath = path.join(tmpDir, 'trd.md');
+    const verificationPath = path.join(tmpDir, 'verification.md');
+    fs.writeFileSync(
+      trdPath,
+      trdWithTouches(['src/auth/login.ts']).replace(
+        '| FIX-001 | Do a thing |  |',
+        '| FIX-001 | Do a thing |  |\n| FIX-002 | Ungrounded |  |'
+      )
+    );
+    fs.writeFileSync(verificationPath, '## 5b. Never unattended\n\n- auth\n');
+    const r = spawnSync('node', [MODULE_PATH, 'check-never-unattended', trdPath, verificationPath]);
+    expect(r.status).toBe(1);
+    const result = JSON.parse(r.stdout.toString());
+    expect(result.status).toBe('invalid');
+    expect(result.raw).toMatch(/FIX-002/);
+    expect(result.raw).not.toMatch(/FIX-001/);
   });
 
   test('"Paths: none" reports no hits even when a listed-looking path is touched', () => {

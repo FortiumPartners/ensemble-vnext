@@ -151,7 +151,12 @@ undo. Matched by **substring, not glob**: a fragment like `auth` covers any path
 it, including `src/auth/`, `lib/authorize.ts` and `packages/auth-service/`.
 
 Write one `- <fragment>` bullet per path, or list them on one line as `Paths: a, b`. The
-default is `Paths: none` — no brake.
+default is `Paths: none` — no brake. A trailing note is allowed and ignored: text after
+` — `, ` - ` or ` #` is cut off (`- auth — the login flow`).
+
+The brake can only check what a TRD says it touches. A task with no grounding **Touches**
+makes the check report `invalid` (naming the task) and stops the build, rather than passing
+silently with nothing to match.
 
 Paths: none
 
