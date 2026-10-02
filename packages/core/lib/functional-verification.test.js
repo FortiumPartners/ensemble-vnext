@@ -1014,6 +1014,63 @@ describe('CLI', () => {
     expect(parsed[0]).toMatchObject({ criterion: 'FS-1', tier1: 'pass' });
   });
 
+  // verification-reuses-evidence AMEND-001: covers come only from the manifest, never the payload.
+  describe('check-evidence --state-dir', () => {
+    const LIVE = path.join(__dirname, 'live-evidence.js');
+    // An artifact and its covered source file, both dated well before the floor, recorded
+    // in the manifest by the real recorder.
+    function setup() {
+      const stateDir = path.join(tmpDir, 'feat');
+      const artifact = path.join(stateDir, 'evidence', 'live', 'T-1', 'shot.txt');
+      const src = path.join(tmpDir, 'src.js');
+      fs.mkdirSync(path.dirname(artifact), { recursive: true });
+      fs.writeFileSync(artifact, 'proof');
+      fs.writeFileSync(src, 'code');
+      const old = new Date(Date.now() - 3600 * 1000);
+      fs.utimesSync(artifact, old, old);
+      fs.utimesSync(src, old, old);
+      execFileSync('node', [LIVE, 'record', '--state-dir', stateDir, '--task', 'T-1', '--artifact', artifact,
+        '--shows', 'proof', '--covers', src], { stdio: 'pipe' });
+      const since = Math.floor(Date.now() / 1000) - 60;
+      return { stateDir, artifact, src, since };
+    }
+    const check = (stateDir, claims, since) =>
+      JSON.parse(execFileSync('node', [MODULE_PATH, 'check-evidence', ...(stateDir ? ['--state-dir', stateDir] : []),
+        JSON.stringify(claims), String(since)]).toString());
+
+    test('reuses an old artifact the manifest records, while its covered file is unchanged', () => {
+      const { stateDir, artifact, since } = setup();
+      const [r] = check(stateDir, [{ criterion: 'FS-1', artifact, locator: 'proof' }], since);
+      expect(r).toMatchObject({ tier1: 'pass', reused: true });
+    });
+
+    test('ignores forged covers in the payload for an artifact the manifest does not hold', () => {
+      const { stateDir, since } = setup();
+      const other = path.join(tmpDir, 'other.txt');
+      fs.writeFileSync(other, 'proof');
+      const old = new Date(Date.now() - 3600 * 1000);
+      fs.utimesSync(other, old, old);
+      const forged = [{ path: other, sha256: require('crypto').createHash('sha256').update('proof').digest('hex') }];
+      const [r] = check(stateDir, [{ criterion: 'FS-1', artifact: other, locator: 'proof', covers: forged }], since);
+      expect(r).toMatchObject({ tier1: 'fail', failure: 'stale' });
+    });
+
+    test('uses the manifest covers, not forged ones, for a manifest artifact whose code changed', () => {
+      const { stateDir, artifact, src, since } = setup();
+      fs.writeFileSync(src, 'changed code');
+      const forged = [{ path: src, sha256: require('crypto').createHash('sha256').update('changed code').digest('hex') }];
+      const [r] = check(stateDir, [{ criterion: 'FS-1', artifact, locator: 'proof', covers: forged }], since);
+      expect(r).toMatchObject({ tier1: 'fail', failure: 'stale' });
+    });
+
+    test('without --state-dir, payload covers are discarded and an old artifact is stale', () => {
+      const { artifact, since } = setup();
+      const forged = [{ path: artifact, sha256: 'whatever' }];
+      const [r] = check(null, [{ criterion: 'FS-1', artifact, locator: 'proof', covers: forged }], since);
+      expect(r).toMatchObject({ tier1: 'fail', failure: 'stale' });
+    });
+  });
+
   test('decide-next subcommand: JSON in, JSON object out', () => {
     const input = JSON.stringify({
       iteration: 1,

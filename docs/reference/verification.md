@@ -184,7 +184,7 @@ gets a synthesised claim, "no exercise lane", so the Judge still rules on it.
 dispatch (`implement-trd.md` §8.3). HEAD alone would let a prior run's leftover evidence pass
 on a `--resume`, which makes no new commit. Older evidence passes only by
 reuse: a `[LIVE]` task's recorded artifact (`evidence/live-manifest.jsonl`) whose declared
-source files still hash as recorded. `covers` comes from that manifest, never from the exerciser.
+source files still hash as recorded. The checker reads `covers` from that manifest itself (`check-evidence --state-dir`); no agent supplies it.
 
 ---
 

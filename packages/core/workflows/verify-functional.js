@@ -102,7 +102,6 @@ const LIVE_EVIDENCE = (() => {
   return raw
 })()
 // Last entry per artifact wins, matching live-evidence.js `read`.
-const COVERS_BY_ARTIFACT = new Map(LIVE_EVIDENCE.map((e) => [e.artifact, e.covers]))
 const EVIDENCE_DIR = a.evidenceDir
 if (!EVIDENCE_DIR) {
   throw new Error('verify-functional: args.evidenceDir (the evidence directory) is required')
@@ -488,7 +487,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `requirement.\n\n` +
     `STEP 1 (do this FIRST, before reading any file content): write the claims JSON below to ` +
     `${claimsFile}, then run the evidence checker over the whole claim set:\n` +
-    `  node ${CHECKER} check-evidence --file ${claimsFile} ${SINCE}\n\n` +
+    `  node ${CHECKER} check-evidence --file ${claimsFile} --state-dir ${STATE_DIR} ${SINCE}\n\n` +
     `STEP 2: only for the criteria whose tier-1 verdict just came back "pass", read the ` +
     `evidence artifact's content and decide, per criterion, one of "met" / "not_met" / ` +
     `"not_verifiable" / "unbuilt", with a reason, a cause (see below), and implicated files for ` +
@@ -871,13 +870,11 @@ function reconcileClaims(returned, openCriteria) {
     const claim = byId.has(c.id)
       ? byId.get(c.id)
       : { criterion: c.id, artifact: null, reason: 'the exerciser returned no claim for this criterion' }
-    // `covers` is never taken from the exerciser: it comes from the live-evidence manifest, by
-    // artifact path, so an artifact the manifest does not hold cannot be reused.
+    // `covers` is never taken from the exerciser, and never copied here either: the checker reads
+    // it from the live-evidence manifest itself (`check-evidence --state-dir`, AMEND-001), so no
+    // hash passes through an agent on its way to tier 1.
     const { covers: _discarded, ...rest } = claim
-    const covers = typeof rest.artifact === 'string' ? COVERS_BY_ARTIFACT.get(rest.artifact) : undefined
-    return covers
-      ? { ...rest, judgeOnly: isJudgeOnly(c), covers }
-      : { ...rest, judgeOnly: isJudgeOnly(c) }
+    return { ...rest, judgeOnly: isJudgeOnly(c) }
   })
   const walked = openCriteria.filter((c) => byId.has(c.id)).length
   const unknown = [...byId.keys()].filter((id) => !CRITERION_BY_ID.has(id))

@@ -168,7 +168,8 @@ content:
   the current run's code does, **unless it qualifies for reuse**: a `[LIVE]` task recorded it
   in `evidence/live-manifest.jsonl` with the source files it exercises (`covers`) and each
   file's sha256, and every one of those files still has exactly that hash. The checker
-  recomputes the hashes; the exerciser cannot supply `covers`, only claim a listed artifact. A
+  reads `covers` from the manifest itself and recomputes the hashes; no agent supplies `covers`,
+  the exerciser only claims a listed artifact. A
   reused artifact still needs its locator, and any change to a covered file makes it `stale`.
 
 A claim that names no artifact — because none applies, or none could be produced — is not

@@ -2491,13 +2491,23 @@ describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captu
     }
   });
 
-  it('replaces an exerciser-supplied covers with the manifest\'s, matched by artifact path', async () => {
+  // AMEND-001: no hash is copied into the claims; the checker reads the manifest itself.
+  it('drops an exerciser-supplied covers on a manifest artifact and copies no hashes into the claims', async () => {
     const { judge } = await run([entry()], [
       { criterion: 'FS-1', artifact: entry().artifact, covers: [{ path: '/etc/passwd', sha256: 'forged' }] },
       { criterion: 'FS-2', artifact: 'b' },
     ]);
     const claims = claimsOf(judge);
-    expect(claims[0].covers).toEqual(entry().covers);
+    expect(claims[0]).not.toHaveProperty('covers');
+    expect(judge).not.toMatch(/abc123/);
+  });
+
+  it('tells the Judge to run check-evidence with --state-dir, so the checker reads the manifest itself', async () => {
+    const { judge } = await run([entry()], [
+      { criterion: 'FS-1', artifact: entry().artifact },
+      { criterion: 'FS-2', artifact: 'b' },
+    ]);
+    expect(judge).toMatch(/check-evidence --file \S+ --state-dir \S+ \d+/);
   });
 
   it('gives a claim on a non-manifest artifact no covers, even when the exerciser sent some', async () => {

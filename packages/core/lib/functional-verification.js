@@ -54,8 +54,8 @@ const LOCATOR_SCAN_BYTES = 2_000_000;
 /**
  * Whether every file in `covers` still has the sha256 recorded when the evidence was captured.
  * Content hash, not mtime: a checkout or rebase rewrites mtimes (false staleness) and a
- * retargeted symlink can dodge them (false freshness). `covers` is attached by the workflow
- * from the live-evidence manifest, never taken from the exerciser. Anything short of a
+ * retargeted symlink can dodge them (false freshness). Through the CLI, `covers` comes only from
+ * the live-evidence manifest (`check-evidence --state-dir`), never from any agent's payload. Anything short of a
  * non-empty list of absolute, existing regular files with matching hashes is "not reusable".
  *
  * @param {unknown} covers - `[{path, sha256}]`
@@ -87,8 +87,8 @@ function coversUnchanged(covers, digests = new Map()) {
  *   EXERCISER claims to have seen inside `artifact` (supplied via `EXERCISE_SCHEMA`,
  *   VCON-B001). `judgeOnly` is stamped by `reconcileClaims` from the criterion's own
  *   definition, never by the agent (D7), and short-circuits this claim to `tier1: 'skipped'`
- *   before anything else is checked. `covers` (`[{path, sha256}]`) is attached by the workflow
- *   from the live-evidence manifest — never by the exerciser — and enables reuse of an
+ *   before anything else is checked. `covers` (`[{path, sha256}]`) is attached by the CLI from
+ *   the live-evidence manifest (`--state-dir`) — never from an agent's payload — and enables reuse of an
  *   artifact older than `sinceSec` (see below).
  * @param {number} sinceSec - The freshness floor, in seconds:
  *   `max(HEAD commit time, this run's verification-loop start time)`, derived by the command
@@ -1391,6 +1391,7 @@ module.exports = {
 //
 //   node functional-verification.js check-evidence '<claims-json>' <sinceSec>
 //   node functional-verification.js check-evidence --file <path> <sinceSec>
+//   node functional-verification.js check-evidence --state-dir <dir> --file <path> <sinceSec>   (covers from <dir>'s live-evidence manifest)
 //   node functional-verification.js check-evidence - <sinceSec>        (payload piped on stdin)
 //   node functional-verification.js decide-next '<input-json>'
 //   node functional-verification.js decide-next --file <path>
@@ -1409,7 +1410,7 @@ if (require.main === module) {
   const usage = () => {
     console.error(
       'Usage (JSON payload arg accepts inline JSON, `--file <path>`, or `-` for stdin):\n' +
-        "  node functional-verification.js check-evidence '<claims-json>'|--file <path>|- <sinceSec>\n" +
+        "  node functional-verification.js check-evidence [--state-dir <dir>] '<claims-json>'|--file <path>|- <sinceSec>\n" +
         "  node functional-verification.js decide-next '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-report '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
@@ -1443,6 +1444,16 @@ if (require.main === module) {
   const [, , subcommand, ...rest] = process.argv;
 
   if (subcommand === 'check-evidence') {
+    // `--state-dir <dir>` (verification-reuses-evidence AMEND-001): `covers` reaches the checker
+    // ONLY from that feature's live-evidence manifest, matched by resolved artifact path. Any
+    // `covers` in the claims payload is discarded, so no agent -- exerciser or Judge -- can
+    // supply the hashes that decide whether old evidence is reused.
+    let stateDir = null;
+    const sd = rest.indexOf('--state-dir');
+    if (sd !== -1) {
+      stateDir = rest[sd + 1];
+      rest.splice(sd, 2);
+    }
     const [claimsJson, remaining] = resolveJsonPayload(rest);
     const [sinceSecArg] = remaining;
     const sinceSec = Number(sinceSecArg);
@@ -1457,7 +1468,17 @@ if (require.main === module) {
       // artifact of any age. A real HEAD commit time is never zero or negative.
       usage();
     } else {
-      const claims = JSON.parse(claimsJson);
+      const coversByArtifact = new Map(
+        stateDir
+          ? require('./live-evidence').read(stateDir).map((e) => [path.resolve(e.artifact), e.covers])
+          : []
+      );
+      const claims = JSON.parse(claimsJson).map((claim) => {
+        const { covers: _discarded, ...rest } = claim || {};
+        const covers =
+          typeof rest.artifact === 'string' ? coversByArtifact.get(path.resolve(rest.artifact)) : undefined;
+        return covers ? { ...rest, covers } : rest;
+      });
       console.log(JSON.stringify(checkEvidence(claims, sinceSec)));
     }
   } else if (subcommand === 'decide-next') {
