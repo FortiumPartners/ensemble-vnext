@@ -753,7 +753,7 @@ describe('audit-build owns the fix run and the round decision', () => {
 
   test('computes trdHash over Objectives and Master Task List only', () => {
     expect(auditBuild).toMatch(/`trdHash` covers only the TRD's `## Objectives` and `## Master Task List` sections/);
-    expect(auditBuild).toMatch(/createHash\('sha256'\)/);
+    expect(auditBuild).toMatch(/node \.claude\/lib\/audit-rounds\.js trd-hash '\{"trd":"<trd-path>"\}'/);
   });
 
   test('test gaps are fixed but never block closing or trigger a re-audit', () => {

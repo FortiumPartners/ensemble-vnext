@@ -197,3 +197,21 @@ describe('CLI', () => {
   });
   test('unknown subcommand exits non-zero', () => expect(run('nope', {}).status).toBe(1));
 });
+
+describe('trdHash', () => {
+  const numbered = '# T\n## 1. Overview\nx\n## 4. Master Task List\n| a |\n## 5. Plan\ny\n';
+  test('finds a numbered Master Task List heading', () => {
+    expect(A.trdHash(numbered)).not.toBe(A.trdHash(numbered.replace('| a |', '| b |')));
+  });
+  test('ignores edits outside the two sections', () => {
+    expect(A.trdHash(numbered)).toBe(A.trdHash(numbered.replace('y\n', 'z\n')));
+  });
+  test('hashes the whole text when neither section exists, so edits still change it', () => {
+    expect(A.trdHash('# none\nfoo')).not.toBe(A.trdHash('# none\nbar'));
+  });
+  test('a fenced example heading is not the section', () => {
+    const t = '## Objectives\no\n```\n## Master Task List\n```\n## Master Task List\nm\n## CNV\nc';
+    expect(A.trdHash(t)).not.toBe(A.trdHash(t.replace('\nm\n', '\nn\n')));
+    expect(A.trdHash(t)).toBe(A.trdHash(t.replace(/c$/, 'd')));
+  });
+});

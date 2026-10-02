@@ -77,9 +77,21 @@ RE-AUDIT SCOPE. This is a later round, and an audit is not a verification: it sa
 re-audit takes NO fresh sample. You are limited to exactly two things:
   (a) whether each defect in the previous report${PREV.reportPath ? ` (${PREV.reportPath})` : ''} is now fixed; and
   (b) the files changed since commit ${PREV.auditedCommit || '(unknown)'} (git diff --name-only against it).
+This scope OVERRIDES any instruction above to check every requirement, every task or a sample of
+tests: apply those instructions only to items inside (a) or (b).
 Anything you notice OUTSIDE that scope goes in the separate \`outOfScope\` array of your return and
 NEVER in \`findings\`. Out-of-scope items are recorded as non-blocking discoveries; they are not
 raised as findings and they do not trigger another round.`
+  : ''
+// Told to the reconcile stages too: a re-audit checked only the previous defects and the diff,
+// so its zero findings are not "every requirement is implemented and tested", and a Could Not
+// Verify row it never looked at must stay.
+const PREV_COVERAGE = PREV
+  ? `
+THIS WAS A RE-AUDIT, LIMITED to whether the previous round's defects are fixed and the files
+changed since commit ${PREV.auditedCommit || '(unknown)'}. It took no fresh sample. Do NOT claim
+every requirement is implemented and tested on the strength of it, and treat every Could Not
+Verify row outside that scope as NOT checked by this audit.`
   : ''
 if (!TRD) throw new Error('audit-build: args.trd (the TRD the delivered code claims to implement) is required')
 
@@ -154,24 +166,27 @@ const FINDING_ITEMS = {
     },
   },
 }
+const OUT_OF_SCOPE = {
+  type: 'array',
+  description: 're-audit only: things noticed outside the previous defects and the changed files; never findings',
+  items: {
+    type: 'object', additionalProperties: false,
+    required: ['why'],
+    properties: {
+      why: { type: 'string' },
+      id: { type: 'string' },
+      evidence: { type: 'string' },
+    },
+  },
+}
 const FINDING_SCHEMA = {
   type: 'object', additionalProperties: false,
   required: ['findings'],
   properties: {
     findings: FINDING_ITEMS,
-    outOfScope: {
-      type: 'array',
-      description: 're-audit only: things noticed outside the previous defects and the changed files; never findings',
-      items: {
-        type: 'object', additionalProperties: false,
-        required: ['why'],
-        properties: {
-          why: { type: 'string' },
-          id: { type: 'string' },
-          evidence: { type: 'string' },
-        },
-      },
-    },
+    // Re-audits only. On a first audit there is no scope to be outside of, and an outOfScope
+    // slot would let a real finding land where nothing blocks on it.
+    ...(PREV ? { outOfScope: OUT_OF_SCOPE } : {}),
   },
 }
 
@@ -191,7 +206,7 @@ function dispatchVerifier(v) {
     effort: v.effort,
     model: v.model || VERIFIER_MODEL,
     schema: FINDING_SCHEMA,
-  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [], outOfScope: r.outOfScope || [] } : null))
+  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [], outOfScope: (PREV && r.outOfScope) || [] } : null))
 }
 
 // These three read only the delivered code, the TRD/PRD paths and this project's own rules
@@ -223,7 +238,7 @@ behaviour is right and the test is merely weak) report the test under check 'tes
 
 Grep the delivered project's test directories for tests touching the requirements/tasks
 indexed above. ${PREV
-  ? 'Take NO fresh sample. Look only at the tests changed since the previous audit and any test the previous report flagged:'
+  ? 'Take NO fresh sample. Look only at the tests changed since the previous audit and the tests tied to a defect in the previous report:'
   : `For a representative sample (do not read every test file -- pick the ones tied
 to the requirements that matter most, and any with round numbers or generic names that suggest
 they were written to satisfy a coverage gate rather than to prove behavior):`}
@@ -469,7 +484,7 @@ recovered from ${TRD}${PRD ? ` or ${PRD}` : ''}, and say so in the readout.`
   ? `
 ZERO TASKS WERE INDEXED, so verification against the TRD's tasks could not have found
 anything. Add a Could Not Verify row saying so.`
-  : ''}`
+  : ''}${PREV_COVERAGE}`
 
 const NOTHING_INDEXED = EMPTY_REQS || EMPTY_TASKS
 
@@ -480,7 +495,10 @@ if (findings.length === 0) {
 clean bill of health on this run: the Index recovered ${index.requirements.length} requirements and
 ${index.tasks.length} tasks, so the checks below had nothing to run against. Report the audit as
 INCONCLUSIVE, not passing.`
-      : ` Verification, validation and traceability all
+      : PREV
+        ? ` The previous round's defects are fixed and the changed
+files raised nothing; nothing outside that scope was checked.`
+        : ` Verification, validation and traceability all
 confirm.`} Your only job is the ## Could Not Verify section in
 ${TRD} -- do not otherwise edit the document, and do not invent findings.
 ${COVERAGE}${CNV}`,
@@ -516,14 +534,19 @@ ${COVERAGE}${CNV}`,
             ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
             : !PRD
               ? 'proceed with these caveats: no source supplied — fidelity and omission unchecked'
-              : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
+              : PREV
+                ? 'safe to proceed — the previous round\'s defects are fixed and the changed files raised nothing'
+                : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
       (NOTHING_INDEXED
         ? `  INCONCLUSIVE — the Index recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks,\n` +
           `  so traceability and verification ran against an empty list. Zero findings here means\n` +
           `  nothing was checked, NOT that everything passed. Re-run once the TRD's requirement\n` +
           `  and task tables parse.\n`
-        : `  NO ACTION — every requirement is implemented and has a test proving it, every task\n` +
-          `  matches its delivered code, nothing in the PRD was dropped.\n`) +
+        : PREV
+          ? `  NO ACTION — this re-audit checked the previous round's defects and the files changed since\n` +
+            `  ${PREV.auditedCommit || '(unknown)'}; it took no fresh sample, so nothing outside that scope was re-checked.\n`
+          : `  NO ACTION — every requirement is implemented and has a test proving it, every task\n` +
+            `  matches its delivered code, nothing in the PRD was dropped.\n`) +
       (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : '') +
       (!PRD && !NOTHING_INDEXED ? `  CAVEAT — no PRD supplied; validation against product requirements did not run.\n` : ''),
   }

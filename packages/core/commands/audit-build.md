@@ -173,10 +173,12 @@ Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or
 
 **`trdHash` covers only the TRD's `## Objectives` and `## Master Task List` sections**, never the
 whole file, so promoted rows and a rewritten Could Not Verify section do not defeat requirement-list
-reuse. Compute it with this one-line command and pass it on every run, first audits included:
+reuse. Compute it with this command and pass it on every run, first audits included (it finds the
+sections the way the TRD parser does, so a numbered `## 4. Master Task List` counts, and it hashes
+the whole file when a TRD has neither section, so such a TRD never hashes the same after an edit):
 
 ```
-node -e "const t=require('fs').readFileSync(process.argv[1],'utf8');const g=n=>(t.match(new RegExp('^## '+n+'\\\\b[\\\\s\\\\S]*?(?=^## |(?![\\\\s\\\\S]))','m'))||[''])[0];console.log(require('crypto').createHash('sha256').update(g('Objectives')+g('Master Task List')).digest('hex'))" <trd-path>
+node .claude/lib/audit-rounds.js trd-hash '{"trd":"<trd-path>"}'
 ```
 
 `report_only` is not decoration. The workflow drafts the readout, and every "chains to
@@ -240,8 +242,9 @@ recorded, handed off or closed.
 
 **0. A stale wake-up does nothing.** Every fallback `ScheduleWakeup` this command schedules
 carries the workflow run id in its prompt. On ANY re-entry (a wake, a resume), first run
-`node .claude/lib/audit-rounds.js stale-wake '{"stateDir":".trd-state/<feature>","runId":"<run id>","head":"<git rev-parse --short HEAD>"}'`.
-When it prints `{"stale":true}`, print one line (the audit already ran at this commit) and stop:
+`node .claude/lib/audit-rounds.js stale-wake '{"stateDir":".trd-state/<feature>","runId":"<run id>"}'`.
+It matches on the run id alone, never the commit: a new audit at an unchanged commit is not stale.
+When it prints `{"stale":true}`, print one line (this audit run already recorded its round) and stop:
 no workflow, no report, no banner.
 
 **1. Count.** Tally the whole `handoff` in one call:

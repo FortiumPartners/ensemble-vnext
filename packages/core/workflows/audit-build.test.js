@@ -385,10 +385,33 @@ describe('audit-build: re-audit scope, masked defects, outOfScope', () => {
     const plan = (p, o) => o.label === 'verify:verification-audit'
       ? { findings: [{ check: 'verification', why: 'w', confidence: 'high', action: 'mismatch' }], outOfScope: [{ why: 'x' }] }
       : planWithIndex(NONEMPTY_INDEX)(p, o);
-    const { result } = await run({}, plan);
+    const { result } = await run({ previous: PREV, trdHash: 'h1' }, plan);
     expect(result.findings).toBe(1);
     expect(result.outOfScope).toHaveLength(1);
     const clean = await run();
     expect(clean.result.outOfScope).toEqual([]);
+  });
+
+  it('a first audit offers no outOfScope slot and ignores one returned anyway', async () => {
+    const plan = (p, o) => o.label === 'verify:verification-audit'
+      ? { findings: [], outOfScope: [{ why: 'a real defect parked here' }] }
+      : planWithIndex(NONEMPTY_INDEX)(p, o);
+    const { agent, result } = await run({}, plan);
+    expect(verifierCalls(agent)[0].opts.schema.properties.outOfScope).toBeUndefined();
+    expect(result.outOfScope).toEqual([]);
+  });
+
+  it('a clean re-audit never claims every requirement is implemented and tested', async () => {
+    const { result, agent } = await run({ previous: PREV, trdHash: 'h1' });
+    expect(result.readout).not.toMatch(/every requirement is implemented/);
+    expect(result.readout).toMatch(/previous round's defects are fixed/);
+    const cnv = agent.calls.find((c) => c.opts.label === 'reconcile:could-not-verify');
+    expect(cnv.prompt).toMatch(/THIS WAS A RE-AUDIT, LIMITED/);
+    expect(cnv.prompt).not.toMatch(/traceability all\s+confirm/);
+  });
+
+  it('the re-audit scope overrides the every-requirement instructions', async () => {
+    const { agent } = await run({ previous: PREV, trdHash: 'h1' });
+    verifierCalls(agent).forEach((c) => expect(c.prompt).toMatch(/This scope OVERRIDES any instruction above/));
   });
 });

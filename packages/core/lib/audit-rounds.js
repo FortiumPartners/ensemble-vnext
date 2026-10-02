@@ -19,9 +19,12 @@
  *   classify    {action, check}
  *   stale-wake  {stateDir?|rounds, runId}
  *   record      {stateDir, round}
+ *   trd-hash    {trd}      -> {trdHash}
  */
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { normalizeLineEndings, maskFencedLines, findSection } = require('./trd-parser');
 
 const LEDGER = 'audit-rounds.jsonl';
 const MAX_REAUDITS = 2;
@@ -131,6 +134,25 @@ function staleWake({ rounds = [], runId } = {}) {
   return Boolean(runId && rounds.some((r) => r.runId === runId));
 }
 
+/**
+ * The TRD hash that decides whether a re-audit may reuse the previous requirement list: sha256
+ * over ONLY the Objectives and Master Task List sections, so promoted rows and a rewritten
+ * Could Not Verify section do not defeat reuse. Sections are found the way trd-parser finds
+ * them -- loose heading match (so "## 4. Master Task List" counts), fenced examples ignored.
+ * When NEITHER section exists the whole text is hashed: hashing two empty strings would give
+ * every edit of such a TRD the same hash and reuse a stale requirement list forever.
+ */
+function trdHash(text) {
+  const lines = normalizeLineEndings(String(text || '')).split('\n');
+  const masked = maskFencedLines(lines);
+  const parts = ['Objectives', 'Master Task List']
+    .map((phrase) => findSection(masked, phrase))
+    .filter(Boolean)
+    .map((sec) => lines.slice(sec.headingIndex, sec.end).join('\n'));
+  const body = parts.length ? parts.join('\n') : lines.join('\n');
+  return crypto.createHash('sha256').update(body).digest('hex');
+}
+
 function cli(argv) {
   const [cmd, arg] = argv;
   let input = {};
@@ -142,15 +164,18 @@ function cli(argv) {
     case 'decide': return decide({ ...input, ...(input.handoff ? tally(input.handoff) : {}), rounds: ledger() });
     case 'classify': return { class: classify(input) };
     case 'stale-wake': return { stale: staleWake({ ...input, rounds: ledger({ all: true }) }) };
+    case 'trd-hash':
+      if (!input.trd) throw new Error('trd-hash needs trd (a path)');
+      return { trdHash: trdHash(fs.readFileSync(input.trd, 'utf8')) };
     case 'record':
       if (!input.stateDir || !input.round) throw new Error('record needs stateDir and round');
       record(input.stateDir, input.round);
       return { ok: true };
-    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record [json]');
+    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash [json]');
   }
 }
 
-module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake };
+module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake, trdHash };
 
 if (require.main === module) {
   try {

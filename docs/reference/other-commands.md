@@ -292,8 +292,8 @@ tests rather than the lead's reading of the findings. It keeps a ledger, one lin
   discoveries and listed in the readout, never raised as findings and never chained. It reuses the
   previous requirement list (saved as `audit-index.json`) when the TRD's Objectives and Master
   Task List sections are unchanged (the command passes a `trdHash` over just those two sections).
-- **A stale wake-up does nothing.** A fallback wake-up for an audit that already ran at this
-  commit prints one line and stops: no workflow, no report, no banner.
+- **A stale wake-up does nothing.** A fallback wake-up for an audit run that already recorded its
+  round (matched by run id, not commit) prints one line and stops: no workflow, no report, no banner.
 
 ---
 
