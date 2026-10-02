@@ -306,6 +306,10 @@ node -e '
 '
 ```
 
+A task promoted from an `/audit-build` discovery carries one extra instruction in its
+description: find and fix every instance of this weakness across the feature's touched files,
+and list each one fixed — the fix run fixes the class, not just the instance the audit saw.
+
 Only `blocksFeature: true` discoveries promote, and `kind: risk` never does — a risk is
 something to watch, not something to build. Everything else stays a reported finding. That
 filter is the whole defence against a feature absorbing every bug anyone noticed while
@@ -900,7 +904,8 @@ discoverable before the loop started, and `not_verifiable` is the status that di
 ### 3.7 `--chained` mode (verification-fix-loop TRD §3.3, D2)
 
 **For callers, not for direct use.** `--chained` is how `/verify-build`'s fix loop builds each
-round's plan blockers and promoted failures —
+round's plan blockers and promoted failures, and how `/audit-build` runs the fix for the gaps its
+audit handed off (its RETURN line names the caller) —
 `Skill({ skill: "implement-trd", args: "<trd> --reconcile --chained" })` — never something the
 owner types by hand.
 
@@ -910,7 +915,7 @@ proceeds as a normal run: Step 3.6 dispatches the derive pass, Step 8 runs the v
 loop **by default** (skipped only by `--no-verify`), §9.0a publishes, and Step 9 ends the run
 with this command's own `═══ COMMAND COMPLETE: /implement-trd ═══` banner — or
 `═══ COMMAND STUCK: /implement-trd ═══` on Step 10.1 retry exhaustion. Only `--chained` turns
-those off, and only `/verify-build`'s fix loop passes it.
+those off, and only `/verify-build`'s fix loop and `/audit-build` pass it.
 
 Parsed alongside the other flags (User Input, above). Under it:
 
@@ -939,7 +944,7 @@ in an ordinary build.
 banner:
 
 ```
-[STATUS: /implement-trd] RETURN → chained by /verify-build: <n> of <m> tasks built[; not built: <id> — <why>, …]
+[STATUS: /implement-trd] RETURN → chained by <caller: /verify-build or /audit-build>: <n> of <m> tasks built[; not built: <id> — <why>, …]
 ```
 
 This line is a sibling of the DISPATCHED/RESUMED/PHASE lines in `## Output discipline` below —

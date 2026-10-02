@@ -572,7 +572,7 @@ describe('implement-trd.md declares --chained for its caller', () => {
       src().split("### 3.7 `--chained` mode")[1].split('## Step 4: Main Execution Loop')[0]
     );
     expect(section).toMatch(
-      /\[STATUS: \/implement-trd\] RETURN → chained by \/verify-build: <n> of <m> tasks built/
+      /\[STATUS: \/implement-trd\] RETURN → chained by <caller: \/verify-build or \/audit-build>: <n> of <m> tasks built/
     );
     expect(section).toMatch(/RETURN → STUCK: <reason>/);
   });
@@ -712,5 +712,90 @@ describe('the cycle-ending commands open the pull request', () => {
 
   test('autonomy.md names openPullRequest', () => {
     expect(autonomy).toMatch(/openPullRequest/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// audit-convergence FIX-003: /audit-build chains the fix run itself, and a deterministic
+// decision (audit-rounds.js decide) owns whether to re-audit or close.
+// ---------------------------------------------------------------------------
+describe('audit-build owns the fix run and the round decision', () => {
+  const auditBuild = flat(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
+  const implementTrd = read(CORE_IMPLEMENT);
+  const section37 = implementTrd.slice(implementTrd.indexOf('### 3.7 `--chained` mode'), implementTrd.indexOf('### 3.7 `--chained` mode') + 4000);
+
+  test('names audit-rounds.js decide, stale-wake and the chained reconcile call', () => {
+    expect(auditBuild).toMatch(/audit-rounds\.js decide/);
+    expect(auditBuild).toMatch(/stale-wake/);
+    expect(auditBuild).toMatch(/--reconcile --chained/);
+  });
+
+  test('no longer requires "nothing is chained" to close', () => {
+    expect(auditBuild).not.toMatch(/nothing is chained to `\/implement-trd --reconcile` on this run/);
+  });
+
+  test('uncovered items are never chained', () => {
+    expect(auditBuild).toMatch(/Uncovered items[^.]*are never recorded for the fix run or chained/);
+  });
+
+  // audit-convergence AMEND-003: owner rulings 2026-10-01.
+  test('a capped feature stays open and NEXT is /close-feature, never /audit-build', () => {
+    expect(auditBuild).toMatch(/`capReached` true: \*\*the feature stays open\./);
+    expect(auditBuild).toMatch(/`\/close-feature docs\/TRD\/<feature>\.md` alone in its fenced block; never `\/audit-build`/);
+    expect(auditBuild).not.toMatch(/closes with a caveat\.?\s*$/m);
+  });
+
+  test('records outOfScope items as non-blocking discoveries and never chains them', () => {
+    expect(auditBuild).toMatch(/`outOfScope` list/);
+    expect(auditBuild).toMatch(/foundBy: "audit-build", blocksFeature: false/);
+    expect(auditBuild).toMatch(/never a finding and never chained/);
+  });
+
+  test('computes trdHash over Objectives and Master Task List only', () => {
+    expect(auditBuild).toMatch(/`trdHash` covers only the TRD's `## Objectives` and `## Master Task List` sections/);
+    expect(auditBuild).toMatch(/node \.claude\/lib\/audit-rounds\.js trd-hash '\{"trd":"<trd-path>"\}'/);
+  });
+
+  test('test gaps are fixed but never block closing or trigger a re-audit', () => {
+    expect(auditBuild).toMatch(/Test gaps are fixed in the fix pass, but they never block closing and never trigger a re-audit/);
+  });
+
+  // audit-convergence AMEND-004 (audit round 1 test gap, O3): the command half of re-audit
+  // reuse, and the other ledger instructions in the same section, had no assertion.
+  test('a re-audit passes previous and trdHash to the workflow', () => {
+    expect(auditBuild).toMatch(/trdHash: "<the trdHash, computed as below>", previous: <on a re-audit only: \{ reportPath, auditedCommit, index, trdHash \}>/);
+    expect(auditBuild).toMatch(/`\{ reportPath: "\.trd-state\/<feature>\/audit-build-report\.md", auditedCommit, index, trdHash \}`/);
+    expect(auditBuild).toMatch(/taking `auditedCommit` and `trdHash` from the last ledger round and `index` from `\.trd-state\/<feature>\/audit-index\.json`/);
+  });
+
+  test('records each round to the ledger and the index to audit-index.json', () => {
+    expect(auditBuild).toMatch(/audit-rounds\.js tally '\{"handoff":/);
+    expect(auditBuild).toMatch(/audit-rounds\.js record '\{"stateDir":"\.trd-state\/<feature>","round":\{"round":<n>,"runId":"<run id>","auditedCommit":/);
+    expect(auditBuild).toMatch(/write the workflow's returned `index` to `\.trd-state\/<feature>\/audit-index\.json` \(overwritten each round\)/);
+  });
+
+  test('every fallback wake-up carries the run id and re-entry checks stale-wake by run id', () => {
+    expect(auditBuild).toMatch(/Every fallback `ScheduleWakeup` this command schedules carries the workflow run id in its prompt/);
+    expect(auditBuild).toMatch(/stale-wake '\{"stateDir":"\.trd-state\/<feature>","runId":"<run id>"\}'/);
+  });
+
+  test('implement-trd.md section 3.7 names /audit-build as a caller of --chained', () => {
+    expect(flat(section37)).toMatch(/`\/audit-build` runs the fix/);
+    expect(flat(section37)).toMatch(/`\/verify-build`'s fix loop and `\/audit-build` pass it/);
+  });
+
+  test('the mirrors are byte-identical', () => {
+    expect(read(path.join(REPO, '.claude/commands/audit-build.md'))).toBe(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
+    expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
+  });
+});
+
+describe('implement-trd section 2.1a: audit-promoted tasks fix the class', () => {
+  const t = read(CORE_IMPLEMENT);
+  const i = t.indexOf('### 2.1a Handle --reconcile');
+  const sec = flat(t.slice(i, t.indexOf('### 2.2 ', i)));
+
+  test('names fixing every instance across touched files and listing each', () => {
+    expect(sec).toMatch(/find and fix every instance of this weakness across the feature's touched files, and list each one fixed/);
   });
 });

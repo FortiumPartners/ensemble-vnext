@@ -277,6 +277,11 @@ function promoteToTrd(trdPath, rows, opts = {}) {
       } else {
         cells[col.desc] = `${summary} — promoted from a ${r.kind} discovery found by ${r.foundBy}`;
       }
+      // An audit finding is usually one instance of a class; fixing only the instance
+      // lets the next audit round find its sibling, so the row asks for the class.
+      if (r.foundBy === 'audit-build') {
+        cells[col.desc] += " — find and fix every instance of this weakness across the feature's touched files, and list each one fixed";
+      }
     }
     /* `Serves` is mandatory and machine-readable, and a promoted discovery genuinely has no
      * objective to point at -- nothing in the ledger records one. Writing a plausible `O1`

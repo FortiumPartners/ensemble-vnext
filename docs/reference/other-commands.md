@@ -234,10 +234,10 @@ sequenceDiagram
 | 4 | Guard an empty index | code | `EMPTY_REQS`, `EMPTY_TASKS` | Zero requirements or zero tasks indexed is never reported as clean — the readout and Could Not Verify say traceability was unchecked. |
 | 5 | Reconcile | model | phase `Reconcile` | A `technical-architect` (Opus, high effort — the one deliberately expensive judgement) re-opens each disputed file, accepts or rejects each finding naming the refuting file, and rejects absence claims that do not show the search that was run. Rewrites the TRD's `## Could Not Verify` section. Drafts the readout: an `AUDIT-BUILD:`/`PRD:` header, then the VERDICT line. With zero findings a `backend-implementer` does only the Could Not Verify rewrite and the workflow's own code builds the readout and VERDICT (*code*); an empty index forces `do not proceed`. No stage writes application code or tests. |
 | 6 | Write the report | code | "Writing the audit report" | Right after the workflow returns, before any chain, `--report-only` runs included: `.trd-state/<feature>/audit-build-report.md`, overwritten each run. **First line: the VERDICT line**, then date, `- Audited commit:` (`git rev-parse --short HEAD`), paths and counts, then the readout verbatim. The terminal prints the same text character for character; a close record copies the VERDICT and audited commit. |
-| 7 | Close the feature if the audit passes | code | "Close the feature when the audit passes" | Verdict `safe to proceed` or `proceed with these caveats`, nothing chained, not `--report-only` → `/close-feature`'s close step with `closedBy: "audit"` and the audit's verdict, report path and audited commit. Otherwise the feature stays open and STATE says so. |
+| 7 | Close the feature if the audit passes | code | "After the workflow returns: rounds, the fix run, the close" | `audit-rounds.js decide` returns `close: true` (no defects and nothing uncovered; test gaps are fixed first by the chained run), not `--report-only` → `/close-feature`'s close step with `closedBy: "audit"` and the audit's verdict, report path and audited commit. Otherwise the feature stays open and STATE says so. |
 | 7a | Commit | code | "Commit, so it travels with the branch" | On any branch but the default one, commits the report and any close record together (`git commit -- <paths>`) so they travel with the PR. The audited commit in the header is the one *before* this commit, which touches no TRD file and so never makes the audit look stale. On the default branch it does not commit; NEXT tells you to. A failed write or commit is one STATE line, never STUCK. |
 | 8 | Publish | code | same section | `Artifact(...)` of the report, URL stored in `.trd-state/<feature>/artifacts.json` key `audit-build-report`. Off or failed → STATE names the local path. |
-| 9 | Chain or stop | model | "But it DOES close the loop" | A gap whose task exists in the TRD but was not built → `Skill implement-trd <trd> --reconcile` (re-opens work only claimed done; `--resume` would skip it). A requirement no task covers is a design decision → recorded, reported, not chained. `--report-only` suppresses the chain and the readout says "not handed off on this run". |
+| 9 | Chain or stop | model | "But it DOES close the loop" | A covered defect or test gap → recorded as a discovery, then `Skill implement-trd <trd> --reconcile --chained` (re-opens work only claimed done; `--resume` would skip it; `--chained` leaves the run's one banner to this command). See "Rounds" below for when a re-audit follows. A requirement no task covers is a design decision → recorded, reported, not chained. `--report-only` suppresses the chain and the readout says "not handed off on this run". |
 | 8a | Open the pull request | code | "Open the pull request" | Only when the audit closed the feature, the run is not `--report-only` and the commit succeeded, and `ensemble.openPullRequest` is `auto` (shipped default `never`; this repo sets `auto`): `node .claude/lib/pull-request.js ensure` opens the PR, or updates it if one is already open (a closed one is ignored). It skips with a one-line reason (setting `never`, default branch, detached HEAD, `gh` missing) or fails with one line; neither blocks. It never merges: NEXT is `gh pr merge <number> --merge` for you to run after review. |
 
 ### The five verifiers
@@ -260,8 +260,40 @@ VERDICT: proceed with these caveats: <named>
 VERDICT: do not proceed until <named>
 ```
 
-On the first two (with nothing chained) the audit has closed the feature, and NEXT is to open
-or update the PR; on the third, NEXT is the reconcile or design work.
+On the first two (with no defect open) the audit has closed the feature, and NEXT is to open
+or update the PR; on the third, NEXT is the reconcile or design work. At the re-audit cap with
+defects still open, the feature stays open and NEXT is `/close-feature` once you are satisfied.
+
+### Rounds: when it audits again, and when it stops
+
+`audit-rounds.js` (`lib/audit-rounds.js`) decides what happens after each audit, as code with
+tests rather than the lead's reading of the findings. It keeps a ledger, one line per audit, in
+`.trd-state/<feature>/audit-rounds.jsonl`.
+
+- **Only a true product defect earns another audit.** A requirement that is unbuilt, or code
+  that does something other than the requirement says, is a defect. Re-audits are capped at
+  two, so a feature gets at most three audits, counted since it was last closed. At the cap the
+  defects still go to the fix run, but the feature stays open: it never closes with a defect open,
+  not even with a caveat. The readout names the open defects, and NEXT is your call,
+  `/close-feature docs/TRD/<feature>.md` once you are satisfied, never another `/audit-build`.
+- **Test-only gaps never cause another audit.** Code that exists but has no proving test is
+  fixed in the same pass, and the feature then closes. Every finding from the test-quality check
+  is a test gap: a weak test matters only when it masks a real defect, and then it is reported as
+  that defect by its own check. Test gaps never block closing.
+- **A requirement no task covers stops for design.** It is reported, not chained, and the
+  feature stays open.
+- **The fix runs inside the audit.** The audit records each coverable finding, then runs
+  `/implement-trd <trd> --reconcile --chained` itself. The fix run ends with one RETURN line
+  instead of its own banner, so the audit's banner is the only one in the run. Anything the fix
+  run did not build is listed as a caveat.
+- **A re-audit does not resample.** An audit is a sample, not a verification, so a re-audit checks
+  only whether the previous round's defects are fixed and the files changed since the audited
+  commit. Anything else it notices comes back as an `outOfScope` list, recorded as non-blocking
+  discoveries and listed in the readout, never raised as findings and never chained. It reuses the
+  previous requirement list (saved as `audit-index.json`) when the TRD's Objectives and Master
+  Task List sections are unchanged (the command passes a `trdHash` over just those two sections).
+- **A stale wake-up does nothing.** A fallback wake-up for an audit run that already recorded its
+  round (matched by run id, not commit) prints one line and stops: no workflow, no report, no banner.
 
 ---
 

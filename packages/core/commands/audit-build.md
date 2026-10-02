@@ -127,11 +127,15 @@ Only the first chains. The second is a TRD change, and a command that invents ta
 its own findings is manufacturing requirements — the failure `/create-prd` and `/create-trd`
 spend most of their length preventing.
 
-For chainable gaps:
+For chainable gaps, the command records each as a discovery and runs the fix as part of this
+run (steps in "After the workflow returns", below):
 
 ```
-Skill({ skill: "implement-trd", args: "<trd-path> --reconcile" })
+Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained" })
 ```
+
+`--chained` makes the fix run end with one RETURN line instead of its own banner, so this
+command owns the run's single banner (`implement-trd.md` §3.7).
 
 `--reconcile` is the right flag, not `--resume`: resume SKIPS anything already marked
 success, which is exactly the state a phantom task is in.
@@ -164,7 +168,17 @@ reason, new coverage gaps are added.
 ## Execution: the workflow is the orchestrator
 
 ```
-Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false> } })
+Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false>, trdHash: "<the trdHash, computed as below>", previous: <on a re-audit only: { reportPath, auditedCommit, index, trdHash }> } })
+```
+
+**`trdHash` covers only the TRD's `## Objectives` and `## Master Task List` sections**, never the
+whole file, so promoted rows and a rewritten Could Not Verify section do not defeat requirement-list
+reuse. Compute it with this command and pass it on every run, first audits included (it finds the
+sections the way the TRD parser does, so a numbered `## 4. Master Task List` counts, and it hashes
+the whole file when a TRD has neither section, so such a TRD never hashes the same after an edit):
+
+```
+node .claude/lib/audit-rounds.js trd-hash '{"trd":"<trd-path>"}'
 ```
 
 `report_only` is not decoration. The workflow drafts the readout, and every "chains to
@@ -172,7 +186,8 @@ Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or
 `--report-only` run and the printed readout announces a handoff that was suppressed — the
 false-completion signal the destination wording exists to remove.
 
-The workflow returns a readout. Print it — **as written into the report (next section), not
+The workflow returns a readout, plus `handoff` (the findings the fix run can act on) and `index`
+(the requirement list). Print the readout — **as written into the report (next section), not
 reworded.** Findings live in script variables and never enter this context, so a large finding
 set costs nothing here.
 
@@ -218,19 +233,78 @@ printed readout adds is STATE lines about this report itself (where it was writt
 it was committed, the link) — those come after the write and do not exist in the file. A failed write is one line in
 STATE; it never blocks the reconcile chain and never turns the run STUCK.
 
-**Close the feature when the audit passes.** A passing audit is one of the two ways a feature
-gets closed (the other is the owner running `/close-feature`). It passes when all three hold:
+## After the workflow returns: rounds, the fix run, the close
 
-- the VERDICT is `safe to proceed` or `proceed with these caveats`;
-- nothing is chained to `/implement-trd --reconcile` on this run (no gap with a covering task);
-- the run is not `--report-only`.
+`audit-rounds.js` (`.claude/lib/audit-rounds.js`) owns whether this run chains a fix, re-audits,
+or closes. The decision is its `decide`, never your reading of the findings. Skip every step in
+this section except the report and the readout when the run is `--report-only`: nothing is
+recorded, handed off or closed.
 
-Then perform `/close-feature`'s "The close step" (`.claude/commands/close-feature.md`), with
-`"closedBy": "audit"`, `"note": null` and
-`"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>" }`,
-except that its commit is folded into the one below. On `do not proceed`, or when work was
-chained, the feature stays open: say so in STATE. A feature that is already closed (a re-audit)
-gets its `closed.json` rewritten with this run's audit fields.
+**0. A stale wake-up does nothing.** Every fallback `ScheduleWakeup` this command schedules
+carries the workflow run id in its prompt. On ANY re-entry (a wake, a resume), first run
+`node .claude/lib/audit-rounds.js stale-wake '{"stateDir":".trd-state/<feature>","runId":"<run id>"}'`.
+It matches on the run id alone, never the commit: a new audit at an unchanged commit is not stale.
+When it prints `{"stale":true}`, print one line (this audit run already recorded its round) and stop:
+no workflow, no report, no banner.
+
+**1. Count.** Tally the whole `handoff` in one call:
+`node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>}'` returns
+`{ defects, testGaps, uncovered }`. An item with `covered: false` counts only as uncovered, never
+as a defect or test gap. (`classify '{"action":"<action>","check":"<check>"}'` gives one item's
+class — `defect`, `test-gap` or `other` — for step 3.)
+
+**2. Record and decide.** Record the round (skipped on `--report-only`):
+`node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<the trdHash above>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"ts":"<ISO time>"}}'`,
+then write the workflow's returned `index` to `.trd-state/<feature>/audit-index.json`
+(overwritten each round). Then run `node .claude/lib/audit-rounds.js decide '{"stateDir":".trd-state/<feature>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"reportOnly":false}'`;
+it returns `{ chain, reaudit, close, capReached, caveats }`. `round` is the number of ledger lines
+since the last close, counting this one. The cap is two re-audits after defects, so at most three
+audits (a first audit and two re-audits).
+
+**3. Chain the fix.** When `chain` is true, record each COVERED handoff item whose class is
+`defect` or `test-gap` as a discovery (an `other` item — a citation to fix, a question for the
+owner — is reported, never turned into a build task):
+`require("./.claude/lib/discovered").record(".trd-state/<feature>", { kind: "gap", foundBy: "audit-build", blocksFeature: true, phase: 1, summary: "[<class>] <item summary>", evidence: "<item evidence>" })`,
+then run `Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained" })`. The fix
+run ends with a `[STATUS: /implement-trd] RETURN →` line; anything it reports as not built is a
+caveat. **Uncovered items (`covered: false`) are never recorded for the fix run or chained.**
+They are reported for design, and the feature stays open.
+
+**4. Close, or re-audit.**
+- `close` true: after the chained run's RETURN line, perform `/close-feature`'s "The close step"
+  (`.claude/commands/close-feature.md`) with `"closedBy": "audit"`, `"note": null` and
+  `"audit": { "verdict": "<the VERDICT line>", "report": ".trd-state/<feature>/audit-build-report.md", "auditedCommit": "<the header's value>" }`,
+  except that its commit is folded into the one below. Then commit, publish and open the PR as
+  below, and print the run's single banner. Add every caveat `decide` returned, and anything
+  the fix run did not finish, to the readout. A feature that is already closed (a re-audit)
+  gets its `closed.json` rewritten with this run's audit fields.
+- `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
+  `previous` and `trdHash`, below). Commit the report; no close record, no PR.
+- `capReached` true: **the feature stays open. It never closes with a caveat while a defect is
+  open.** The defects still went to the fix run (step 3), but they are not re-audited. Commit the
+  report; no close record, no PR. The readout names each open defect, and NEXT is the owner's
+  call, not another audit: `/close-feature docs/TRD/<feature>.md` once satisfied. Never NEXT
+  `/audit-build` here.
+- Neither (uncovered items, or `do not proceed` with no defects — any test gaps are still
+  chained): the feature stays open;
+  say so in STATE, and NEXT is the design work the readout names.
+
+**On a re-audit** (the ledger already has a round), pass the workflow `previous`:
+`{ reportPath: ".trd-state/<feature>/audit-build-report.md", auditedCommit, index, trdHash }`,
+taking `auditedCommit` and `trdHash` from the last ledger round and `index` from
+`.trd-state/<feature>/audit-index.json`, along with `trdHash` for the TRD as it is now. When the
+hashes match the workflow reuses the index. **A re-audit does not resample.** Every verifier checks
+only whether the previous round's defects are fixed and the files changed since that audited commit.
+
+**Out-of-scope items.** The workflow also returns an `outOfScope` list: things a re-audit noticed
+beyond that scope. Record each as a non-blocking discovery, never a finding and never chained:
+`require("./.claude/lib/discovered").record(".trd-state/<feature>", { kind: "gap", foundBy: "audit-build", blocksFeature: false, phase: 1, summary: "[out-of-scope] <why>", evidence: "<evidence>" })`,
+and list them in the readout (ISSUES, under "noticed outside this re-audit's scope"). They never
+change the verdict, `decide`, or whether the feature closes.
+
+**Test findings.** A finding from the `test-quality` check is a test gap. Test gaps are fixed in
+the fix pass, but they never block closing and never trigger a re-audit. A weak test matters only
+when it masks a real defect, and then it is reported as that defect by its own check.
 
 **Commit, so it travels with the branch.** On any branch other than the default one, commit
 the report, and the close record when one was written, in one commit and nothing else:
@@ -240,7 +314,7 @@ git add .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.j
 git commit -m "docs(audit): audit-build report for <feature>" -- .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
 ```
 
-(Drop `closed.json` from both lines when the audit did not close the feature.) The pathspec
+(Drop `closed.json` from both lines when the audit did not close the feature.) On a close, this commit comes after the chained fix run, so the fix run's own commits are already on the branch. The pathspec
 keeps the commit to those files whatever else is staged. **On the default branch, do not
 commit**: the owner decides what lands there, so NEXT gives them the command instead. A failed
 commit is one line in STATE, never STUCK.
@@ -331,12 +405,19 @@ is why `report_only` is passed to the workflow, which drafts the readout.
 
 One screen. If there are 40 clean requirements, print the count as one line, not forty.
 
-**NEXT.** When the audit closed the feature and a PR is open (`action` `opened` or
+**Name the round and the reason.** STATE says which round this was ("round 2 of at most 3") and
+why the feature closes or is re-audited (for example "defects found, so one more audit;
+re-audits used: 1 of 2", or "only test gaps, fixed and closed"). When `capReached`, STATE says the
+feature stays open, ISSUES names each open defect and says its fix was not re-audited, and nothing
+says the feature closes with a caveat.
+
+**NEXT.** When `capReached` is true: a line saying the feature stays open and closing it is your
+call once you are satisfied, then `/close-feature docs/TRD/<feature>.md` alone in its fenced block;
+never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature and a PR is open (`action` `opened` or
 `updated`): a line saying to run this once you have reviewed the PR (merging stays yours),
 then `gh pr merge <number> --merge` alone in its fenced block. Closed on a feature branch
 with no PR: `gh pr create --title "<title>"`. Closed on the default branch (nothing was
-committed): the `git add … && git commit …` for the report and close record. When work was chained: that
-run's own readout carries on. On `do not proceed` with nothing chained: the design work the
+committed): the `git add … && git commit …` for the report and close record. On `do not proceed` with nothing chained: the design work the
 readout names.
 
 ---

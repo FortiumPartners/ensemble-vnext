@@ -22,13 +22,24 @@ export const meta = {
 // review passes, and never existed in src/ at all. 0 hits in code, 5 in docs. A document
 // audit does not find that; only a check that greps the delivered tree does.
 //
-// args: { trd, prd, project, report_only }
+// args: { trd, prd, project, report_only, trdHash, previous }
 //   trd          the TRD the code claims to implement
 //   prd          the PRD the TRD claims to satisfy
 //   project      the codebase actually delivered, when it differs from where the docs live
 //   report_only  true when the caller passed --report-only, i.e. the /implement-trd
 //                --reconcile chain is suppressed for this run. Findings are unaffected; the
 //                readout's DESTINATION wording is not (see CHAIN, below).
+//   trdHash      hash computed by the caller over ONLY the TRD's Objectives and Master Task
+//                List sections -- not the whole file -- so promoted rows and a rewritten Could
+//                Not Verify section do not defeat requirement-list reuse. This script has no
+//                file access and no clock, so it cannot compute it; the command does.
+//   previous     { reportPath, auditedCommit, index, trdHash } from the prior round of a
+//                re-audit. When previous.trdHash === trdHash and previous.index is present
+//                the Index stage is skipped and previous.index is reused. Every verifier is
+//                then LIMITED to (a) whether each defect in the previous report is now fixed
+//                and (b) the files changed since auditedCommit; anything else it notices goes
+//                in its separate outOfScope list, never in findings. An audit samples, so a
+//                re-audit takes no fresh sample (owner ruling 2026-10-01).
 // ---------------------------------------------------------------------------
 
 function readArgs(raw) {
@@ -51,6 +62,37 @@ const a = readArgs(args)
 const TRD = a.trd
 const PRD = a.prd || ''
 const PROJECT = a.project || ''
+const TRD_HASH = a.trdHash || ''
+const PREV = a.previous && typeof a.previous === 'object' ? a.previous : null
+// Reuse the requirement list only when the TRD text is unchanged: a changed TRD may have new or
+// reworded requirements, and a stale index would audit the wrong promises.
+const prevIndex = PREV && PREV.index && Array.isArray(PREV.index.requirements) && Array.isArray(PREV.index.tasks)
+  ? PREV.index : null
+const REUSE_INDEX = !!(prevIndex && TRD_HASH && PREV.trdHash === TRD_HASH)
+// Added to every verifier prompt on a re-audit, so a later round checks what moved rather
+// than re-reading the whole tree.
+const PREV_SCOPE = PREV
+  ? `
+RE-AUDIT SCOPE. This is a later round, and an audit is not a verification: it samples, so a
+re-audit takes NO fresh sample. You are limited to exactly two things:
+  (a) whether each defect in the previous report${PREV.reportPath ? ` (${PREV.reportPath})` : ''} is now fixed; and
+  (b) the files changed since commit ${PREV.auditedCommit || '(unknown)'} (git diff --name-only against it).
+This scope OVERRIDES any instruction above to check every requirement, every task or a sample of
+tests: apply those instructions only to items inside (a) or (b).
+Anything you notice OUTSIDE that scope goes in the separate \`outOfScope\` array of your return and
+NEVER in \`findings\`. Out-of-scope items are recorded as non-blocking discoveries; they are not
+raised as findings and they do not trigger another round.`
+  : ''
+// Told to the reconcile stages too: a re-audit checked only the previous defects and the diff,
+// so its zero findings are not "every requirement is implemented and tested", and a Could Not
+// Verify row it never looked at must stay.
+const PREV_COVERAGE = PREV
+  ? `
+THIS WAS A RE-AUDIT, LIMITED to whether the previous round's defects are fixed and the files
+changed since commit ${PREV.auditedCommit || '(unknown)'}. It took no fresh sample. Do NOT claim
+every requirement is implemented and tested on the strength of it, and treat every Could Not
+Verify row outside that scope as NOT checked by this audit.`
+  : ''
 if (!TRD) throw new Error('audit-build: args.trd (the TRD the delivered code claims to implement) is required')
 
 // --report-only suppresses the CHAIN, not the findings -- so it must still reach this script,
@@ -105,24 +147,47 @@ as context size. Prefer one grep over five. Do not re-open a file you have read.
 // Shared by every verifier, and known before the Index stage runs -- none of it depends on
 // what the Index recovers. Hoisted here so the verifiers that never read the index (below)
 // can be dispatched alongside it instead of waiting for it.
+// gap-unbuilt: required, never built. gap-untested: built, no test proving it. The command's
+// lib derives the class from these, so the verifier names the kind of gap at the source.
+const ACTIONS = ['gap-unbuilt', 'gap-untested', 'untested', 'mismatch', 'fix-citation', 'confirm-wanted']
+const CHECKS = ['traceability', 'verification', 'validation', 'test-quality', 'consistency', 'citation']
 const FINDING_ITEMS = {
   type: 'array',
   items: {
     type: 'object', additionalProperties: false,
-    required: ['check', 'why', 'confidence'],
+    required: ['check', 'why', 'confidence', 'action'],
     properties: {
-      check: { type: 'string', enum: ['traceability', 'verification', 'validation', 'test-quality', 'consistency', 'citation'] },
+      check: { type: 'string', enum: CHECKS },
       why: { type: 'string' },
       confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
       id: { type: 'string', description: "the requirement or task ID this finding is about; omit if none applies" },
       evidence: { type: 'string', description: 'the file:line or grep result that supports this finding' },
-      action: { type: 'string', enum: ['gap', 'untested', 'mismatch', 'fix-citation', 'confirm-wanted'] },
+      action: { type: 'string', enum: ACTIONS },
+    },
+  },
+}
+const OUT_OF_SCOPE = {
+  type: 'array',
+  description: 're-audit only: things noticed outside the previous defects and the changed files; never findings',
+  items: {
+    type: 'object', additionalProperties: false,
+    required: ['why'],
+    properties: {
+      why: { type: 'string' },
+      id: { type: 'string' },
+      evidence: { type: 'string' },
     },
   },
 }
 const FINDING_SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['findings'], properties: { findings: FINDING_ITEMS },
+  required: ['findings'],
+  properties: {
+    findings: FINDING_ITEMS,
+    // Re-audits only. On a first audit there is no scope to be outside of, and an outOfScope
+    // slot would let a real finding land where nothing blocks on it.
+    ...(PREV ? { outOfScope: OUT_OF_SCOPE } : {}),
+  },
 }
 
 const GROUNDING_RULE = `
@@ -135,13 +200,13 @@ document is a fabrication.`
 const VERIFIER_MODEL = 'sonnet'
 
 function dispatchVerifier(v) {
-  return agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
+  return agent(`${v.prompt}\n${GROUNDING_RULE}\n${SCOPE}${PREV_SCOPE}\n${CORPUS_RULE}\n${BATCH}\n${FINDABLE_ONLY}`, {
     label: `verify:${v.key}`,
     phase: 'Verify',
     effort: v.effort,
     model: v.model || VERIFIER_MODEL,
     schema: FINDING_SCHEMA,
-  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
+  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [], outOfScope: (PREV && r.outOfScope) || [] } : null))
 }
 
 // These three read only the delivered code, the TRD/PRD paths and this project's own rules
@@ -166,10 +231,17 @@ without a source cannot run, and guessing what the PRD asked for would manufactu
     prompt: `Sample the tests that the traceability check will rely on and judge whether they
 are REAL proof or theater.
 
+A weak or missing test matters ONLY if it masks a defect -- tests are not the product. When it
+does, report the DEFECT itself, not the test: action 'mismatch' or 'gap-unbuilt', under check
+'verification' or 'traceability', with the masked behaviour as the evidence. Otherwise (the
+behaviour is right and the test is merely weak) report the test under check 'test-quality'.
+
 Grep the delivered project's test directories for tests touching the requirements/tasks
-indexed above. For a representative sample (do not read every test file -- pick the ones tied
+indexed above. ${PREV
+  ? 'Take NO fresh sample. Look only at the tests changed since the previous audit and the tests tied to a defect in the previous report:'
+  : `For a representative sample (do not read every test file -- pick the ones tied
 to the requirements that matter most, and any with round numbers or generic names that suggest
-they were written to satisfy a coverage gate rather than to prove behavior):
+they were written to satisfy a coverage gate rather than to prove behavior):`}
   - Does the test assert a specific outcome, or just that a call did not throw?
   - Is the assertion tautological (mocking the exact thing being tested, asserting the mock
     was called rather than what it returned)?
@@ -204,7 +276,7 @@ phase('Index')
 // Started here, not after the Index resolves below -- see INDEX_FREE_VERIFIERS above.
 const indexFreeWavesPromise = parallel(INDEX_FREE_VERIFIERS.map((v) => () => dispatchVerifier(v)))
 
-const index = await agent(
+const index = REUSE_INDEX ? prevIndex : await agent(
   `Index ${TRD}${PRD ? ` and ${PRD}` : ''} so the verifiers can target their reads instead of
 scanning whole documents.
 
@@ -262,6 +334,7 @@ BATCH YOUR READS. Grep for tables and headings; do not read either document line
   }
 )
 required(index, 'Index')
+if (REUSE_INDEX) log('reusing the previous round\'s index: the TRD is unchanged')
 log(`indexed ${index.requirements.length} requirements, ${index.tasks.length} tasks` +
     `${(index.could_not_verify || []).length ? `; ${index.could_not_verify.length} unverified claims declared` : ''}`)
 
@@ -306,17 +379,24 @@ For each requirement:
      requirement names -- the return value, the error path, the rejected input -- is proof.
   3. Classify:
        - implemented + tested: no finding.
-       - implemented, no test proving it: GAP. This is the case that gets missed. A requirement
-         with code and no test is a GAP, not a pass -- report it as such even though "the
-         feature works."
-       - no implementation found at all: GAP, and say so plainly -- do not assume it exists
+       - implemented, no test proving it: GAP, action gap-untested. This is the case that gets
+         missed. A requirement with code and no test is a GAP, not a pass -- report it as such
+         even though "the feature works."
+       - no implementation found at all: GAP, action gap-unbuilt, and say so plainly -- do not assume it exists
          because a design document describes it. Grep src/ (or the delivered project's
          equivalent) directly; zero hits is zero hits regardless of how many documents mention it.
        - implementation found, but it does something other than what the requirement states:
          mismatch, not a pass.
 
 A requirement can be documented in the TRD, referenced in a review, and still not exist in the
-delivered tree. Verify by grepping the tree, never by trusting that it must be there.`,
+delivered tree. Verify by grepping the tree, never by trusting that it must be there.
+
+A weak or missing test matters ONLY if it masks a defect -- tests are not the product. When a
+weak or missing test hides behaviour that is wrong or absent, report the DEFECT itself, not the
+test: action mismatch (it does something other than the requirement states) or gap-unbuilt (it
+is not there), with the masked behaviour as the evidence -- that is a defect and counts as one
+on a re-audit. Otherwise (the behaviour is right and only its proof is weak or missing) the
+finding is a test gap, action gap-untested, fixed as secondary work.`,
   },
   {
     key: 'verification-audit', effort: 'high',
@@ -329,7 +409,14 @@ ${TSK}
 For each task, open the files in its touches list (or grep for the described change if the
 list is empty) and confirm the described work is actually present, matches the task's
 description, and was not silently narrowed or left half-done. A task marked complete
-elsewhere (implement.json, a commit message) is a claim, not evidence -- check the code.`,
+elsewhere (implement.json, a commit message) is a claim, not evidence -- check the code.
+
+A weak or missing test matters ONLY if it masks a defect -- tests are not the product. When a
+weak or missing test hides behaviour that is wrong or absent, report the DEFECT itself, not the
+test: action mismatch (the code does something other than the task specified) or gap-unbuilt
+(the work is not there), with the masked behaviour as the evidence -- that is a defect and
+counts as one on a re-audit. Otherwise (the code is right and only its test is weak or missing)
+the finding is a test gap, action gap-untested, fixed as secondary work.`,
   },
 ]
 
@@ -341,6 +428,9 @@ const waves = [...boundWaves, ...freeWaves]
 
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
+// Re-audit only: noticed-but-out-of-scope items. Never findings; the command records them as
+// non-blocking discoveries.
+const outOfScope = alive.flatMap((w) => (w.outOfScope || []).map((o) => ({ ...o, verifier: w.verifier })))
 const deadKeys = VERIFIERS.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
 const dead = deadKeys.length
 if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
@@ -408,7 +498,7 @@ recovered from ${TRD}${PRD ? ` or ${PRD}` : ''}, and say so in the readout.`
   ? `
 ZERO TASKS WERE INDEXED, so verification against the TRD's tasks could not have found
 anything. Add a Could Not Verify row saying so.`
-  : ''}`
+  : ''}${PREV_COVERAGE}`
 
 const NOTHING_INDEXED = EMPTY_REQS || EMPTY_TASKS
 
@@ -419,7 +509,10 @@ if (findings.length === 0) {
 clean bill of health on this run: the Index recovered ${index.requirements.length} requirements and
 ${index.tasks.length} tasks, so the checks below had nothing to run against. Report the audit as
 INCONCLUSIVE, not passing.`
-      : ` Verification, validation and traceability all
+      : PREV
+        ? ` The previous round's defects are fixed and the changed
+files raised nothing; nothing outside that scope was checked.`
+        : ` Verification, validation and traceability all
 confirm.`} Your only job is the ## Could Not Verify section in
 ${TRD} -- do not otherwise edit the document, and do not invent findings.
 ${COVERAGE}${CNV}`,
@@ -443,6 +536,9 @@ ${COVERAGE}${CNV}`,
     still_unverified: ((clean && clean.could_not_verify_remaining) || []).length,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0 || NOTHING_INDEXED,
+    handoff: [],
+    outOfScope,
+    index,
     readout: `AUDIT-BUILD: ${TRD}\nPRD: ${PRD || '(none supplied)'}\n\n` +
       `VERDICT: ${NOTHING_INDEXED
         ? `do not proceed until ${TRD}'s requirement and task tables parse -- this run recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks, so traceability and verification checked nothing`
@@ -452,14 +548,19 @@ ${COVERAGE}${CNV}`,
             ? `proceed with these caveats: ${dead} verifier(s) failed to report (${deadKeys.join(', ')})`
             : !PRD
               ? 'proceed with these caveats: no source supplied — fidelity and omission unchecked'
-              : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
+              : PREV
+                ? 'safe to proceed — the previous round\'s defects are fixed and the changed files raised nothing'
+                : 'safe to proceed — every requirement is implemented and tested'}\n\n` +
       (NOTHING_INDEXED
         ? `  INCONCLUSIVE — the Index recovered ${index.requirements.length} requirements and ${index.tasks.length} tasks,\n` +
           `  so traceability and verification ran against an empty list. Zero findings here means\n` +
           `  nothing was checked, NOT that everything passed. Re-run once the TRD's requirement\n` +
           `  and task tables parse.\n`
-        : `  NO ACTION — every requirement is implemented and has a test proving it, every task\n` +
-          `  matches its delivered code, nothing in the PRD was dropped.\n`) +
+        : PREV
+          ? `  NO ACTION — this re-audit checked the previous round's defects and the files changed since\n` +
+            `  ${PREV.auditedCommit || '(unknown)'}; it took no fresh sample, so nothing outside that scope was re-checked.\n`
+          : `  NO ACTION — every requirement is implemented and has a test proving it, every task\n` +
+            `  matches its delivered code, nothing in the PRD was dropped.\n`) +
       (dead > 0 ? `  CAVEAT — ${dead} verifier(s) failed to report (${deadKeys.join(', ')}); coverage is incomplete.\n` : '') +
       (!PRD && !NOTHING_INDEXED ? `  CAVEAT — no PRD supplied; validation against product requirements did not run.\n` : ''),
   }
@@ -548,6 +649,10 @@ ones:
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
 ${CHAIN_NOTE}
+ALSO return \`handoff\`: one item per finding you ACCEPTED that /implement-trd --reconcile would
+act on (id, action, check, summary, evidence, covered), plus every requirement with no covering
+task as covered: false. Do not classify them; the caller does. Empty when none.
+
 One screen. If there are 40 clean requirements, print the COUNT as one line, not forty.`,
   {
     label: 'reconcile',
@@ -567,9 +672,25 @@ One screen. If there are 40 clean requirements, print the COUNT as one line, not
     effort: 'high',
     schema: {
       type: 'object', additionalProperties: false,
-      required: ['readout', 'applied', 'rejected'],
+      required: ['readout', 'applied', 'rejected', 'handoff'],
       properties: {
         readout: { type: 'string' },
+        handoff: {
+          type: 'array',
+          description: 'items to hand to /implement-trd --reconcile, plus any requirement with no covering task (covered: false)',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['id', 'action', 'check', 'summary', 'evidence', 'covered'],
+            properties: {
+              id: { type: 'string' },
+              action: { type: 'string', enum: ACTIONS },
+              check: { type: 'string', enum: CHECKS },
+              summary: { type: 'string' },
+              evidence: { type: 'string' },
+              covered: { type: 'boolean', description: 'true when a task in the TRD covers it' },
+            },
+          },
+        },
         applied: { type: 'array', items: { type: 'string' } },
         rejected: { type: 'array', items: { type: 'string' } },
         could_not_verify_remaining: { type: 'array', items: { type: 'string' } },
@@ -589,4 +710,7 @@ return {
   verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
   incomplete_coverage: dead > 0,
   readout: readout.readout,
+  handoff: readout.handoff || [],
+  outOfScope,
+  index,
 }

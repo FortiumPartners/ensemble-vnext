@@ -1,0 +1,334 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/slice-fs1-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs9.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs10.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs11.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs12.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs13.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs14.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/iter2-fs15.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs16.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs17-18-stale-wake.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs17-18-stale-wake.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs19-trd-hash.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs20-schema.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs21-22-text.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs21-22-text.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs23-chained.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs24-promote.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs25-implement-trd-2.1a.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/audit-build-md-close-next-cap.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-27",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/audit-build-md-close-next-cap.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-28",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/audit-build-md-close-next-cap.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-29",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/audit-build-md-close-next-cap.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-30",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/audit-build-md-close-next-cap.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-31",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/audit-build-js-reaudit.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-32",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/audit-build-js-reaudit.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-33",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/iter2-fs33.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-34",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs33-34-36-audit-build-js.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-35",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/fs33-35-audit-build-md.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-36",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-convergence/evidence/iter2-fs36.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 2
+    }
+  ],
+  "gapsClosed": [
+    0,
+    3
+  ],
+  "outcome": "satisfied"
+}
