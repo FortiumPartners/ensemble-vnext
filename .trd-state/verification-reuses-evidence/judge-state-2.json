@@ -1,0 +1,244 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs8-live-branch.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs12-13-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs12-13-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs18-19-21-source-excerpts.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs18-19-21-source-excerpts.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs22-23-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs22-23-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs24-grep.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": "/Users/james/dev/fortium/ensemble-vnext/.trd-state/verification-reuses-evidence/evidence/fs25-judge-prompt-grep.txt",
+      "reason": "Tier-1 evidence check failed with locator-not-found: the claimed locator sentence is not present contiguously in fs25-judge-prompt-grep.txt. In packages/core/workflows/verify-functional.js the sentence is split across concatenated string literals (lines 501-502: '...only if its content (and, for a live-check ` + `artifact, what it shows) actually matches that criterion'), so a grep/sed capture of the source never contains it as one line. The artifact needs a locator that appears verbatim in it (e.g. a single source line), or a capture of the assembled prompt text.",
+      "cause": "locator-not-found",
+      "provenAt": null
+    },
+    {
+      "id": "FS-26",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs26-grep.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    0
+  ],
+  "outcome": "stalled"
+}

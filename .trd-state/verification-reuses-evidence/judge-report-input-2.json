@@ -1,0 +1,459 @@
+{
+  "feature": "verification-reuses-evidence",
+  "prd": "docs/TRD/verification-reuses-evidence.md#Intended Change",
+  "definitionPath": ".trd-state/verification-reuses-evidence/success-definition.md",
+  "outcome": "stalled",
+  "reason": "iteration closed no gaps — remediation is not converging. 25 of 26 criteria met; FS-25 (Judge prompt states the reused/stale rules) remains open because its evidence locator is not found verbatim in the captured artifact.",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "`live-evidence.js record` appends exactly one line to `.trd-state/<feature>/evidence/live-manifest.jsonl`, a JSON object carrying `task`, `artifact`, `shows`, `environment`, `covers: [{path, sha256}]` and `ts`; the line is under 2048 bytes; each `covers` path is absolute and its `sha256` equals the covered file's hash at record time",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "`record` rejects an entry that names no artifact, and appends nothing",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "`record` rejects an entry whose artifact is not a file (e.g. a directory or a missing path), and appends nothing",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "`record` rejects an entry with an empty `covers`, and appends nothing",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "`record` rejects an entry whose covered path does not exist, and appends nothing",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "A covered path given as a relative path or through a symlink is stored as the absolute, symlink-resolved path of the real file",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "`live-evidence.js read` skips malformed manifest lines and returns only the last entry for each artifact",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/live-evidence-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "When `/implement-trd` assembles the prompt for a `[LIVE]` task, the prompt tells the task to bring the environment to the current code first (the `verification.md` §2 fast refresh, when declared), save each artifact under `.trd-state/<feature>/evidence/live/<task-id>/`, and record it with `node .claude/lib/live-evidence.js record`, with the task (not the exerciser) declaring `covers`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs8-live-branch.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "An artifact older than `since` passes tier 1, marked `reused: true`, when its covers (from the live-evidence manifest) name files that are absolute, exist, and still hash to the recorded `sha256`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-10",
+      "statement": "The same old artifact is `stale` once a covered file has been edited",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "Restoring the covered file to its recorded bytes makes the old artifact pass again, `reused: true`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "An old artifact whose claim carries `covers: []` is `stale`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs12-13-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-13",
+      "statement": "An old artifact whose `covers` names a relative path is `stale`, even if that path resolves to an unchanged file",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs12-13-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-14",
+      "statement": "An old artifact whose `covers` names an absolute path that no longer exists (or is not a file) is `stale`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs9-14-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-15",
+      "statement": "An artifact newer than `since` passes exactly as before this change — with or without `covers`, and not marked `reused: true`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-16",
+      "statement": "A judge-only claim on an old artifact whose covered file has been edited still returns `tier1: 'skipped'` and additionally reports `stale: true`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-17",
+      "statement": "A judge-only claim on an old artifact whose covered files are unchanged returns `tier1: 'skipped'` with `stale: false` and reports `reused`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-18",
+      "statement": "Given a `liveEvidence` manifest entry, the Exercise prompt lists that entry's artifact path and instructs the exerciser to check whether a listed artifact already proves a criterion before capturing, and if so to claim it (with a locator seen in it, or none for a judge-only row) without capturing again",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs18-19-21-source-excerpts.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-19",
+      "statement": "Each claim's `covers` is attached from the manifest entry whose artifact matches the claim's, by the checker at check time (`check-evidence --state-dir`), and any `covers` sent by the exerciser or in the claims payload is discarded (restated after amendment AMEND-001 moved this from `reconcileClaims` into the checker)",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-20",
+      "statement": "An old artifact that is not in the manifest gets no `covers` and is therefore `stale` — even if the exerciser sent `covers` for it",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs15-20-checker-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-21",
+      "statement": "A `liveEvidence` value that is not an array throws before any agent is dispatched",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs18-19-21-source-excerpts.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-22",
+      "statement": "A `liveEvidence` entry with no `artifact` throws before any agent is dispatched, and the error names that entry's index",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs22-23-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-23",
+      "statement": "A `liveEvidence` entry with no `covers` throws before any agent is dispatched, and the error names that entry's index",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs22-23-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-24",
+      "statement": "`/implement-trd` (at its §8.3 verification step) and `/verify-build` both pass `liveEvidence` to `verify-functional`, read via `node .claude/lib/live-evidence.js read`, and `[]` when the manifest is absent",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs24-grep.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-25",
+      "statement": "The Judge prompt states that a `reused` pass predates this run and proves the criterion only if its `shows` and content match the criterion, and that a judge-only claim reported `stale: true` is `not_met` with cause `evidence-stale`",
+      "cites": "see definition file",
+      "status": "not_met",
+      "artifact": "/Users/james/dev/fortium/ensemble-vnext/.trd-state/verification-reuses-evidence/evidence/fs25-judge-prompt-grep.txt",
+      "reason": "Tier-1 evidence check failed with locator-not-found: the claimed locator sentence is not present contiguously in fs25-judge-prompt-grep.txt. In packages/core/workflows/verify-functional.js the sentence is split across concatenated string literals (lines 501-502: '...only if its content (and, for a live-check ` + `artifact, what it shows) actually matches that criterion'), so a grep/sed capture of the source never contains it as one line. The artifact needs a locator that appears verbatim in it (e.g. a single source line), or a capture of the assembled prompt text.",
+      "cause": "locator-not-found",
+      "provenAt": null,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "not_met (locator-not-found)"
+        }
+      ],
+      "blocker": "locator-not-found: locator sentence is split across concatenated string literals in the source, so it never appears verbatim in a grep capture"
+    },
+    {
+      "id": "FS-26",
+      "statement": "The TRD authoring rule states that a `[LIVE]` task records its artifacts for the verification loop, which reuses them so the run does not prove the same thing twice — in `trd-authoring.md` §4.1.1, in the end-to-end paragraph of its §5, and in the copy in `create-trd.md`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/verification-reuses-evidence/evidence/fs26-grep.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  }
+}
