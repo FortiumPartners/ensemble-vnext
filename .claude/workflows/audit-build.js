@@ -29,13 +29,17 @@ export const meta = {
 //   report_only  true when the caller passed --report-only, i.e. the /implement-trd
 //                --reconcile chain is suppressed for this run. Findings are unaffected; the
 //                readout's DESTINATION wording is not (see CHAIN, below).
-//   trdHash      hash of the TRD's current text, computed by the caller (this script has no
-//                file access and no clock)
+//   trdHash      hash computed by the caller over ONLY the TRD's Objectives and Master Task
+//                List sections -- not the whole file -- so promoted rows and a rewritten Could
+//                Not Verify section do not defeat requirement-list reuse. This script has no
+//                file access and no clock, so it cannot compute it; the command does.
 //   previous     { reportPath, auditedCommit, index, trdHash } from the prior round of a
 //                re-audit. When previous.trdHash === trdHash and previous.index is present
-//                the Index stage is skipped and previous.index is reused; the verifiers are
-//                also told to check the files changed since auditedCommit and the previous
-//                report's open items first.
+//                the Index stage is skipped and previous.index is reused. Every verifier is
+//                then LIMITED to (a) whether each defect in the previous report is now fixed
+//                and (b) the files changed since auditedCommit; anything else it notices goes
+//                in its separate outOfScope list, never in findings. An audit samples, so a
+//                re-audit takes no fresh sample (owner ruling 2026-10-01).
 // ---------------------------------------------------------------------------
 
 function readArgs(raw) {
@@ -69,10 +73,13 @@ const REUSE_INDEX = !!(prevIndex && TRD_HASH && PREV.trdHash === TRD_HASH)
 // than re-reading the whole tree.
 const PREV_SCOPE = PREV
   ? `
-RE-AUDIT SCOPE. This is a later round. FIRST check the files changed since commit
-${PREV.auditedCommit || '(unknown)'} (git diff --name-only against it) and the open items in the previous
-report${PREV.reportPath ? ` at ${PREV.reportPath}` : ''}; confirm each is now resolved or still open. Then
-check anything else you must.`
+RE-AUDIT SCOPE. This is a later round, and an audit is not a verification: it samples, so a
+re-audit takes NO fresh sample. You are limited to exactly two things:
+  (a) whether each defect in the previous report${PREV.reportPath ? ` (${PREV.reportPath})` : ''} is now fixed; and
+  (b) the files changed since commit ${PREV.auditedCommit || '(unknown)'} (git diff --name-only against it).
+Anything you notice OUTSIDE that scope goes in the separate \`outOfScope\` array of your return and
+NEVER in \`findings\`. Out-of-scope items are recorded as non-blocking discoveries; they are not
+raised as findings and they do not trigger another round.`
   : ''
 if (!TRD) throw new Error('audit-build: args.trd (the TRD the delivered code claims to implement) is required')
 
@@ -149,7 +156,23 @@ const FINDING_ITEMS = {
 }
 const FINDING_SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['findings'], properties: { findings: FINDING_ITEMS },
+  required: ['findings'],
+  properties: {
+    findings: FINDING_ITEMS,
+    outOfScope: {
+      type: 'array',
+      description: 're-audit only: things noticed outside the previous defects and the changed files; never findings',
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['why'],
+        properties: {
+          why: { type: 'string' },
+          id: { type: 'string' },
+          evidence: { type: 'string' },
+        },
+      },
+    },
+  },
 }
 
 const GROUNDING_RULE = `
@@ -168,7 +191,7 @@ function dispatchVerifier(v) {
     effort: v.effort,
     model: v.model || VERIFIER_MODEL,
     schema: FINDING_SCHEMA,
-  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
+  }).then((r) => (r ? { verifier: v.key, findings: r.findings || [], outOfScope: r.outOfScope || [] } : null))
 }
 
 // These three read only the delivered code, the TRD/PRD paths and this project's own rules
@@ -193,9 +216,14 @@ without a source cannot run, and guessing what the PRD asked for would manufactu
     prompt: `Sample the tests that the traceability check will rely on and judge whether they
 are REAL proof or theater.
 
+A weak or missing test matters ONLY if it masks a defect -- tests are not the product. When it
+does, report the DEFECT itself, not the test: action 'mismatch' or 'gap-unbuilt', under check
+'verification' or 'traceability', with the masked behaviour as the evidence. Otherwise (the
+behaviour is right and the test is merely weak) report the test under check 'test-quality'.
+
 Grep the delivered project's test directories for tests touching the requirements/tasks
 indexed above. ${PREV
-  ? 'Start with the tests changed since the previous audit and any test the previous report flagged:'
+  ? 'Take NO fresh sample. Look only at the tests changed since the previous audit and any test the previous report flagged:'
   : `For a representative sample (do not read every test file -- pick the ones tied
 to the requirements that matter most, and any with round numbers or generic names that suggest
 they were written to satisfy a coverage gate rather than to prove behavior):`}
@@ -371,6 +399,9 @@ const waves = [...boundWaves, ...freeWaves]
 
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
+// Re-audit only: noticed-but-out-of-scope items. Never findings; the command records them as
+// non-blocking discoveries.
+const outOfScope = alive.flatMap((w) => (w.outOfScope || []).map((o) => ({ ...o, verifier: w.verifier })))
 const deadKeys = VERIFIERS.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
 const dead = deadKeys.length
 if (dead > 0) log(`WARNING: ${dead} verifier(s) returned nothing — coverage is incomplete for this run`)
@@ -474,6 +505,7 @@ ${COVERAGE}${CNV}`,
     verifiers_reporting: `${alive.length}/${VERIFIERS.length}`,
     incomplete_coverage: dead > 0 || NOTHING_INDEXED,
     handoff: [],
+    outOfScope,
     index,
     readout: `AUDIT-BUILD: ${TRD}\nPRD: ${PRD || '(none supplied)'}\n\n` +
       `VERDICT: ${NOTHING_INDEXED
@@ -642,5 +674,6 @@ return {
   incomplete_coverage: dead > 0,
   readout: readout.readout,
   handoff: readout.handoff || [],
+  outOfScope,
   index,
 }

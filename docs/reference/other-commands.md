@@ -260,8 +260,9 @@ VERDICT: proceed with these caveats: <named>
 VERDICT: do not proceed until <named>
 ```
 
-On the first two (with nothing chained) the audit has closed the feature, and NEXT is to open
-or update the PR; on the third, NEXT is the reconcile or design work.
+On the first two (with no defect open) the audit has closed the feature, and NEXT is to open
+or update the PR; on the third, NEXT is the reconcile or design work. At the re-audit cap with
+defects still open, the feature stays open and NEXT is `/close-feature` once you are satisfied.
 
 ### Rounds: when it audits again, and when it stops
 
@@ -271,19 +272,26 @@ tests rather than the lead's reading of the findings. It keeps a ledger, one lin
 
 - **Only a true product defect earns another audit.** A requirement that is unbuilt, or code
   that does something other than the requirement says, is a defect. Re-audits are capped at
-  two, so a feature gets at most three audits, counted since it was last closed. After the cap
-  the feature closes anyway, and the readout says the defect fixes were not re-audited.
+  two, so a feature gets at most three audits, counted since it was last closed. At the cap the
+  defects still go to the fix run, but the feature stays open: it never closes with a defect open,
+  not even with a caveat. The readout names the open defects, and NEXT is your call,
+  `/close-feature docs/TRD/<feature>.md` once you are satisfied, never another `/audit-build`.
 - **Test-only gaps never cause another audit.** Code that exists but has no proving test is
-  fixed in the same pass, and the feature then closes.
+  fixed in the same pass, and the feature then closes. Every finding from the test-quality check
+  is a test gap: a weak test matters only when it masks a real defect, and then it is reported as
+  that defect by its own check. Test gaps never block closing.
 - **A requirement no task covers stops for design.** It is reported, not chained, and the
   feature stays open.
 - **The fix runs inside the audit.** The audit records each coverable finding, then runs
   `/implement-trd <trd> --reconcile --chained` itself. The fix run ends with one RETURN line
   instead of its own banner, so the audit's banner is the only one in the run. Anything the fix
   run did not build is listed as a caveat.
-- **A re-audit starts from the last one.** When the TRD file is unchanged it reuses the
-  previous requirement list (saved as `audit-index.json`) and checks the files changed since the
-  audited commit, plus the open items, first.
+- **A re-audit does not resample.** An audit is a sample, not a verification, so a re-audit checks
+  only whether the previous round's defects are fixed and the files changed since the audited
+  commit. Anything else it notices comes back as an `outOfScope` list, recorded as non-blocking
+  discoveries and listed in the readout, never raised as findings and never chained. It reuses the
+  previous requirement list (saved as `audit-index.json`) when the TRD's Objectives and Master
+  Task List sections are unchanged (the command passes a `trdHash` over just those two sections).
 - **A stale wake-up does nothing.** A fallback wake-up for an audit that already ran at this
   commit prints one line and stops: no workflow, no report, no banner.
 

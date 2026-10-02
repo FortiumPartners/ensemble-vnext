@@ -738,6 +738,28 @@ describe('audit-build owns the fix run and the round decision', () => {
     expect(auditBuild).toMatch(/Uncovered items[^.]*are never recorded for the fix run or chained/);
   });
 
+  // audit-convergence AMEND-003: owner rulings 2026-10-01.
+  test('a capped feature stays open and NEXT is /close-feature, never /audit-build', () => {
+    expect(auditBuild).toMatch(/`capReached` true: \*\*the feature stays open\./);
+    expect(auditBuild).toMatch(/`\/close-feature docs\/TRD\/<feature>\.md` alone in its fenced block; never `\/audit-build`/);
+    expect(auditBuild).not.toMatch(/closes with a caveat\.?\s*$/m);
+  });
+
+  test('records outOfScope items as non-blocking discoveries and never chains them', () => {
+    expect(auditBuild).toMatch(/`outOfScope` list/);
+    expect(auditBuild).toMatch(/foundBy: "audit-build", blocksFeature: false/);
+    expect(auditBuild).toMatch(/never a finding and never chained/);
+  });
+
+  test('computes trdHash over Objectives and Master Task List only', () => {
+    expect(auditBuild).toMatch(/`trdHash` covers only the TRD's `## Objectives` and `## Master Task List` sections/);
+    expect(auditBuild).toMatch(/createHash\('sha256'\)/);
+  });
+
+  test('test gaps are fixed but never block closing or trigger a re-audit', () => {
+    expect(auditBuild).toMatch(/Test gaps are fixed in the fix pass, but they never block closing and never trigger a re-audit/);
+  });
+
   test('implement-trd.md section 3.7 names /audit-build as a caller of --chained', () => {
     expect(flat(section37)).toMatch(/`\/audit-build` runs the fix/);
     expect(flat(section37)).toMatch(/`\/verify-build`'s fix loop and `\/audit-build` pass it/);

@@ -92,6 +92,59 @@
       "started_at": "2026-10-02T06:47:38.400Z",
       "completed_at": "2026-10-02T06:54:18.745Z",
       "last_advanced": "2026-10-02T06:49:13.703Z"
+    },
+    "AMEND-001": {
+      "description": "lib: stay open at cap; test-quality is a test gap; stale by run id",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/audit-rounds.js",
+        "packages/core/lib/audit-rounds.test.js",
+        ".claude/lib/audit-rounds.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:58:51.269Z",
+      "completed_at": "2026-10-02T07:04:05.736Z",
+      "last_advanced": "2026-10-02T07:00:28.130Z"
+    },
+    "AMEND-002": {
+      "description": "workflow: masks-defect rule; strict re-audit scope; section hash",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-build.js",
+        "packages/core/workflows/audit-build.test.js",
+        ".claude/workflows/audit-build.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:58:51.269Z",
+      "completed_at": "2026-10-02T07:04:05.736Z",
+      "last_advanced": "2026-10-02T07:00:28.130Z"
+    },
+    "AMEND-003": {
+      "description": "command + docs: capped feature stays open; outOfScope non-blocking",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "docs/reference/other-commands.md",
+        "docs/reference/implement-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T06:58:51.269Z",
+      "completed_at": "2026-10-02T07:04:05.736Z",
+      "last_advanced": "2026-10-02T07:00:28.130Z"
     }
   },
   "checkpoints": [],

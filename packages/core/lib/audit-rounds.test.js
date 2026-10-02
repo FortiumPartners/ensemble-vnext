@@ -16,6 +16,8 @@ describe('classify', () => {
     [{ action: 'mismatch', check: 'consistency' }, 'other'],
     [{ action: 'gap-untested', check: 'traceability' }, 'test-gap'],
     [{ action: 'untested', check: 'test-quality' }, 'test-gap'],
+    [{ action: 'mismatch', check: 'test-quality' }, 'test-gap'],
+    [{ action: 'gap-unbuilt', check: 'test-quality' }, 'test-gap'],
     [{ action: 'fix-citation', check: 'citation' }, 'other'],
     [{ action: 'confirm-wanted', check: 'x' }, 'other'],
     [{ action: 'whatever' }, 'other'],
@@ -35,9 +37,18 @@ describe('decide', () => {
       expect(A.decide({ rounds: rounds(n), verdict: 'proceed', defects: 1 })).toMatchObject({ chain: true, reaudit: true, close: false });
     }
   });
-  test('defects in round 3 hit the cap: chain, close, caveat, no third reaudit', () => {
+  test('defects in round 3 hit the cap: chain, stay open, no caveat close, no third reaudit', () => {
     const d = A.decide({ rounds: rounds(3), verdict: 'proceed', defects: 1 });
-    expect(d).toEqual({ chain: true, reaudit: false, close: true, capReached: true, caveats: ['these defect fixes were not re-audited'] });
+    expect(d).toEqual({ chain: true, reaudit: false, close: false, capReached: true, caveats: [] });
+  });
+  test('close is never true while defects > 0, at any round or verdict', () => {
+    for (const n of [1, 2, 3, 4, 5]) {
+      for (const verdict of ['proceed', 'do not proceed until X']) {
+        for (const testGaps of [0, 2]) {
+          expect(A.decide({ rounds: rounds(n), verdict, defects: 1, testGaps }).close).toBe(false);
+        }
+      }
+    }
   });
   test('uncovered items stop: feature stays open, never chained on their own', () => {
     const d = A.decide({ rounds: rounds(1), verdict: 'proceed', uncovered: 2 });
@@ -75,6 +86,17 @@ describe('decide', () => {
     expect(decisions[2]).toMatchObject({ chain: true, close: true, capReached: false });
     expect(led).toHaveLength(3);
   });
+  test('one-active-trip variant: round 3 still has defects stays open, no reaudit', () => {
+    const led = [];
+    const plan = [{ defects: 2 }, { defects: 1 }, { defects: 1, testGaps: 1 }];
+    const decisions = plan.map((f, i) => {
+      led.push(R(i + 1));
+      return A.decide({ rounds: led, verdict: 'proceed', ...f });
+    });
+    expect(decisions.map((d) => d.reaudit)).toEqual([true, true, false]);
+    expect(decisions[2]).toMatchObject({ chain: true, close: false, capReached: true });
+    expect(led).toHaveLength(3);
+  });
 });
 
 describe('tally', () => {
@@ -94,7 +116,7 @@ describe('tally', () => {
 
 describe('staleWake', () => {
   test('by run id', () => expect(A.staleWake({ rounds: rounds(2), runId: 'r1', head: 'zzz' })).toBe(true));
-  test('by unchanged commit', () => expect(A.staleWake({ rounds: rounds(2), runId: 'new', head: 'c2' })).toBe(true));
+  test('a new run id at an unchanged commit is not stale', () => expect(A.staleWake({ rounds: rounds(2), runId: 'new', head: 'c2' })).toBe(false));
   test('false otherwise', () => expect(A.staleWake({ rounds: rounds(2), runId: 'new', head: 'c9' })).toBe(false));
   test('false on empty ledger', () => expect(A.staleWake({ rounds: [], runId: 'x', head: 'y' })).toBe(false));
 });

@@ -17,7 +17,7 @@
  *   decide      {stateDir?|rounds, verdict, defects, testGaps, uncovered, reportOnly}
  *               (or {..., handoff} in place of the three counts)
  *   classify    {action, check}
- *   stale-wake  {stateDir?|rounds, runId, head}
+ *   stale-wake  {stateDir?|rounds, runId}
  *   record      {stateDir, round}
  */
 const fs = require('fs');
@@ -25,13 +25,15 @@ const path = require('path');
 
 const LEDGER = 'audit-rounds.jsonl';
 const MAX_REAUDITS = 2;
-const NOT_REAUDITED = 'these defect fixes were not re-audited';
 
 /**
  * Class of a finding, a pure function of what the verifier said.
  * @returns {'defect'|'test-gap'|'other'}
  */
 function classify({ action, check } = {}) {
+  // Tests are not the product: a test-quality finding is a test gap whatever its action. A weak
+  // test that masks a real defect is reported by its own check (verification/traceability).
+  if (check === 'test-quality') return 'test-gap';
   if (action === 'gap-unbuilt') return 'defect';
   if (action === 'mismatch' && check !== 'citation' && check !== 'consistency') return 'defect';
   if (action === 'gap-untested' || action === 'untested') return 'test-gap';
@@ -115,17 +117,18 @@ function decide({ rounds = [], verdict, defects = 0, testGaps = 0, uncovered = 0
   if (isDoNotProceed(verdict) && defects === 0) return out;
   if (defects === 0) { out.close = true; return out; }
   if (used < MAX_REAUDITS) { out.reaudit = true; return out; }
-  out.close = true;
+  // At the cap with defects open: they still go to the fix run, but the feature never closes
+  // (not even with a caveat) and no further re-audit runs; what happens next is the owner's call.
   out.capReached = true;
-  out.caveats.push(NOT_REAUDITED);
   return out;
 }
 
-/** True when a wake-up has nothing to do: this run already recorded, or nothing changed. */
-function staleWake({ rounds = [], runId, head } = {}) {
-  if (runId && rounds.some((r) => r.runId === runId)) return true;
-  const last = rounds[rounds.length - 1];
-  return Boolean(last && head && last.auditedCommit === head);
+/**
+ * True when a wake-up has nothing to do: this run id already recorded. Run id only -- a same-commit
+ * rule could silence a new audit still in progress at an unchanged commit.
+ */
+function staleWake({ rounds = [], runId } = {}) {
+  return Boolean(runId && rounds.some((r) => r.runId === runId));
 }
 
 function cli(argv) {
@@ -147,7 +150,7 @@ function cli(argv) {
   }
 }
 
-module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake, NOT_REAUDITED };
+module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake };
 
 if (require.main === module) {
   try {

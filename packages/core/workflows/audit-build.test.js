@@ -312,3 +312,83 @@ describe('audit-build: gap kinds, handoff and re-audit reuse', () => {
     expect(result.index).toEqual(NONEMPTY_INDEX);
   });
 });
+
+describe('audit-build: re-audit scope, masked defects, outOfScope', () => {
+  const run = (args, plan) => {
+    const agent = makeAgentStub(plan || planWithIndex(NONEMPTY_INDEX));
+    return runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs(args) }).then((r) => ({ ...r, agent }));
+  };
+  const PREV = { reportPath: 'r.md', auditedCommit: 'abc123', index: NONEMPTY_INDEX, trdHash: 'h1' };
+  const verifierCalls = (agent) => agent.calls.filter((c) => VERIFIER_LABELS.includes(c.opts.label));
+  const tq = (agent) => verifierCalls(agent).find((c) => c.opts.label === 'verify:test-quality-audit');
+
+  it('with previous set, every verifier prompt names previous defects plus the diff and the outOfScope rule', async () => {
+    const { agent } = await run({ previous: PREV, trdHash: 'h1' });
+    const calls = verifierCalls(agent);
+    expect(calls).toHaveLength(5);
+    calls.forEach((c) => {
+      expect(c.prompt).toMatch(/each defect in the previous report/);
+      expect(c.prompt).toMatch(/files changed since commit abc123/);
+      expect(c.prompt).toMatch(/outOfScope/);
+      expect(c.prompt).toMatch(/NEVER in `findings`/);
+      expect(c.prompt).toMatch(/NO fresh sample/);
+    });
+  });
+
+  it('without previous, no verifier prompt carries the re-audit scope', async () => {
+    const { agent } = await run();
+    verifierCalls(agent).forEach((c) => {
+      expect(c.prompt).not.toMatch(/RE-AUDIT SCOPE/);
+      expect(c.prompt).not.toMatch(/outOfScope/);
+    });
+  });
+
+  it('the test-quality prompt names the masks-a-defect rule on first audits and re-audits', async () => {
+    for (const args of [{}, { previous: PREV, trdHash: 'h1' }]) {
+      const { agent } = await run(args);
+      const p = tq(agent).prompt;
+      expect(p).toMatch(/matters ONLY if it masks a defect/);
+      expect(p).toMatch(/report the DEFECT itself/);
+      expect(p).toMatch(/'mismatch' or 'gap-unbuilt'/);
+      expect(p).toMatch(/check\s+'test-quality'/);
+    }
+  });
+
+  it('a re-audit test-quality verifier takes no fresh sample', async () => {
+    const { agent } = await run({ previous: PREV, trdHash: 'h1' });
+    expect(tq(agent).prompt).toMatch(/Take NO fresh sample/);
+    const first = await run();
+    expect(tq(first.agent).prompt).not.toMatch(/Take NO fresh sample/);
+  });
+
+  it('the verifier schema accepts an optional outOfScope array', async () => {
+    const { agent } = await run({ previous: PREV, trdHash: 'h1' });
+    const schema = verifierCalls(agent)[0].opts.schema;
+    expect(schema.properties.outOfScope.type).toBe('array');
+    expect(schema.required).not.toContain('outOfScope');
+    expect(schema.properties.outOfScope.items.required).toEqual(['why']);
+  });
+
+  it('returns the combined outOfScope list on the clean path and never counts it as findings', async () => {
+    const plan = (p, o) => o.label === 'verify:traceability-audit'
+      ? { findings: [], outOfScope: [{ why: 'odd thing in untouched file', id: 'AC-1' }] }
+      : o.label === 'verify:validation-audit'
+        ? { findings: [], outOfScope: [{ why: 'another' }] }
+        : planWithIndex(NONEMPTY_INDEX)(p, o);
+    const { result } = await run({ previous: PREV, trdHash: 'h1' }, plan);
+    expect(result.findings).toBe(0);
+    expect(result.outOfScope).toHaveLength(2);
+    expect(result.outOfScope.map((o) => o.verifier).sort()).toEqual(['traceability-audit', 'validation-audit']);
+  });
+
+  it('returns outOfScope on the findings path too, and an empty list when none', async () => {
+    const plan = (p, o) => o.label === 'verify:verification-audit'
+      ? { findings: [{ check: 'verification', why: 'w', confidence: 'high', action: 'mismatch' }], outOfScope: [{ why: 'x' }] }
+      : planWithIndex(NONEMPTY_INDEX)(p, o);
+    const { result } = await run({}, plan);
+    expect(result.findings).toBe(1);
+    expect(result.outOfScope).toHaveLength(1);
+    const clean = await run();
+    expect(clean.result.outOfScope).toEqual([]);
+  });
+});

@@ -168,7 +168,15 @@ reason, new coverage gaps are added.
 ## Execution: the workflow is the orchestrator
 
 ```
-Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false>, trdHash: "<sha256 of the TRD file>", previous: <on a re-audit only: { reportPath, auditedCommit, index, trdHash }> } })
+Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false>, trdHash: "<the trdHash, computed as below>", previous: <on a re-audit only: { reportPath, auditedCommit, index, trdHash }> } })
+```
+
+**`trdHash` covers only the TRD's `## Objectives` and `## Master Task List` sections**, never the
+whole file, so promoted rows and a rewritten Could Not Verify section do not defeat requirement-list
+reuse. Compute it with this one-line command and pass it on every run, first audits included:
+
+```
+node -e "const t=require('fs').readFileSync(process.argv[1],'utf8');const g=n=>(t.match(new RegExp('^## '+n+'\\\\b[\\\\s\\\\S]*?(?=^## |(?![\\\\s\\\\S]))','m'))||[''])[0];console.log(require('crypto').createHash('sha256').update(g('Objectives')+g('Master Task List')).digest('hex'))" <trd-path>
 ```
 
 `report_only` is not decoration. The workflow drafts the readout, and every "chains to
@@ -243,7 +251,7 @@ as a defect or test gap. (`classify '{"action":"<action>","check":"<check>"}'` g
 class — `defect`, `test-gap` or `other` — for step 3.)
 
 **2. Record and decide.** Record the round (skipped on `--report-only`):
-`node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<sha256 of the TRD>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"ts":"<ISO time>"}}'`,
+`node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<the trdHash above>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"ts":"<ISO time>"}}'`,
 then write the workflow's returned `index` to `.trd-state/<feature>/audit-index.json`
 (overwritten each round). Then run `node .claude/lib/audit-rounds.js decide '{"stateDir":".trd-state/<feature>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"reportOnly":false}'`;
 it returns `{ chain, reaudit, close, capReached, caveats }`. `round` is the number of ledger lines
@@ -269,6 +277,11 @@ They are reported for design, and the feature stays open.
   gets its `closed.json` rewritten with this run's audit fields.
 - `reaudit` true: the feature stays open and NEXT is `/audit-build` (the next round passes
   `previous` and `trdHash`, below). Commit the report; no close record, no PR.
+- `capReached` true: **the feature stays open. It never closes with a caveat while a defect is
+  open.** The defects still went to the fix run (step 3), but they are not re-audited. Commit the
+  report; no close record, no PR. The readout names each open defect, and NEXT is the owner's
+  call, not another audit: `/close-feature docs/TRD/<feature>.md` once satisfied. Never NEXT
+  `/audit-build` here.
 - Neither (uncovered items, or `do not proceed` with no defects — any test gaps are still
   chained): the feature stays open;
   say so in STATE, and NEXT is the design work the readout names.
@@ -277,7 +290,18 @@ They are reported for design, and the feature stays open.
 `{ reportPath: ".trd-state/<feature>/audit-build-report.md", auditedCommit, index, trdHash }`,
 taking `auditedCommit` and `trdHash` from the last ledger round and `index` from
 `.trd-state/<feature>/audit-index.json`, along with `trdHash` for the TRD as it is now. When the
-hashes match the workflow reuses the index and checks what changed since that commit first.
+hashes match the workflow reuses the index. **A re-audit does not resample.** Every verifier checks
+only whether the previous round's defects are fixed and the files changed since that audited commit.
+
+**Out-of-scope items.** The workflow also returns an `outOfScope` list: things a re-audit noticed
+beyond that scope. Record each as a non-blocking discovery, never a finding and never chained:
+`require("./.claude/lib/discovered").record(".trd-state/<feature>", { kind: "gap", foundBy: "audit-build", blocksFeature: false, phase: 1, summary: "[out-of-scope] <why>", evidence: "<evidence>" })`,
+and list them in the readout (ISSUES, under "noticed outside this re-audit's scope"). They never
+change the verdict, `decide`, or whether the feature closes.
+
+**Test findings.** A finding from the `test-quality` check is a test gap. Test gaps are fixed in
+the fix pass, but they never block closing and never trigger a re-audit. A weak test matters only
+when it masks a real defect, and then it is reported as that defect by its own check.
 
 **Commit, so it travels with the branch.** On any branch other than the default one, commit
 the report, and the close record when one was written, in one commit and nothing else:
@@ -380,10 +404,13 @@ One screen. If there are 40 clean requirements, print the count as one line, not
 
 **Name the round and the reason.** STATE says which round this was ("round 2 of at most 3") and
 why the feature closes or is re-audited (for example "defects found, so one more audit;
-re-audits used: 1 of 2", or "only test gaps, fixed and closed"). When `capReached`, DECISIONS
-or ISSUES says the defect fixes were not re-audited.
+re-audits used: 1 of 2", or "only test gaps, fixed and closed"). When `capReached`, STATE says the
+feature stays open, ISSUES names each open defect and says its fix was not re-audited, and nothing
+says the feature closes with a caveat.
 
-**NEXT.** When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature and a PR is open (`action` `opened` or
+**NEXT.** When `capReached` is true: a line saying the feature stays open and closing it is your
+call once you are satisfied, then `/close-feature docs/TRD/<feature>.md` alone in its fenced block;
+never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature and a PR is open (`action` `opened` or
 `updated`): a line saying to run this once you have reviewed the PR (merging stays yours),
 then `gh pr merge <number> --merge` alone in its fenced block. Closed on a feature branch
 with no PR: `gh pr create --title "<title>"`. Closed on the default branch (nothing was
