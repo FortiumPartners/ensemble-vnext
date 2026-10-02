@@ -39,7 +39,7 @@
     - **Defects found, fewer than 2 re-audits used** → hand off defects and test gaps, then re-audit.
     - **Defects found, 2 re-audits used** → hand off everything, then close, naming "these defect fixes were not re-audited" as a caveat. `capReached` is true.
   - The round count restarts after a close (rounds are counted since the last `closed.json`).
-  - `staleWake({ ledger, runId, head })` is true when the ledger already has `runId`, or when the last round's `auditedCommit` equals `head` and nothing has changed since.
+  - `staleWake({ rounds, runId })` is true when the ledger already has `runId`. (An earlier same-commit rule was removed in review: it silenced an audit still in progress at the same commit.)
 - **The fix run is chained, so the audit owns the run's one banner.** `/audit-build` records each handed-off item as a discovery (`foundBy: 'audit-build'`, `blocksFeature: true`, with its class), so `--reconcile` promotes it to a task. It then starts `/implement-trd <trd> --reconcile --chained`. `implement-trd.md` §3.7 lists `/audit-build` as a second sanctioned caller.
   - Under `--chained`, the fix run skips its own verification and banner and returns one RETURN line. The audit's re-audit is the check on defect fixes; test-gap fixes are checked by the fix run's own tests.
   - When `close` is true, `/audit-build` then writes the close record, commits it and the report together, opens the PR, and prints the run's single banner. Anything the fix run reports as not done becomes a caveat.
@@ -49,7 +49,7 @@
   - When the TRD's hash matches the previous round's `trdHash`, the workflow reuses `previous.index` and skips the Index stage; when it has changed, it rebuilds as today.
   - The verifiers are told to check the files changed since `auditedCommit`, and the previous report's open items, first. The test-quality check reads those instead of a fresh sample.
   - The clean-path return and the normal return both carry `handoff` and `index`.
-- **A stale wake-up does nothing.** Every fallback `ScheduleWakeup` `/audit-build` schedules carries the workflow run id in its prompt. On any re-entry, `/audit-build` calls `stale-wake`; when it is true, it prints one line saying the audit already ran at this commit and stops.
+- **A stale wake-up does nothing.** Every fallback `ScheduleWakeup` `/audit-build` schedules carries the workflow run id in its prompt. On any re-entry, `/audit-build` calls `stale-wake`; when it is true, it prints one line saying that audit already ran and stops.
 - **Fix runs fix the class, not the instance.** Rows that `promoteToTrd` writes for `foundBy: 'audit-build'` discoveries tell the implementer to find and fix every instance of that weakness across the feature's touched files and to list each one, and `implement-trd.md` §2.1a says the same.
 
 ## Owner rulings, 2026-10-01 (after the first build)
