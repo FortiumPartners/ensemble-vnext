@@ -760,6 +760,25 @@ describe('audit-build owns the fix run and the round decision', () => {
     expect(auditBuild).toMatch(/Test gaps are fixed in the fix pass, but they never block closing and never trigger a re-audit/);
   });
 
+  // audit-convergence AMEND-004 (audit round 1 test gap, O3): the command half of re-audit
+  // reuse, and the other ledger instructions in the same section, had no assertion.
+  test('a re-audit passes previous and trdHash to the workflow', () => {
+    expect(auditBuild).toMatch(/trdHash: "<the trdHash, computed as below>", previous: <on a re-audit only: \{ reportPath, auditedCommit, index, trdHash \}>/);
+    expect(auditBuild).toMatch(/`\{ reportPath: "\.trd-state\/<feature>\/audit-build-report\.md", auditedCommit, index, trdHash \}`/);
+    expect(auditBuild).toMatch(/taking `auditedCommit` and `trdHash` from the last ledger round and `index` from `\.trd-state\/<feature>\/audit-index\.json`/);
+  });
+
+  test('records each round to the ledger and the index to audit-index.json', () => {
+    expect(auditBuild).toMatch(/audit-rounds\.js tally '\{"handoff":/);
+    expect(auditBuild).toMatch(/audit-rounds\.js record '\{"stateDir":"\.trd-state\/<feature>","round":\{"round":<n>,"runId":"<run id>","auditedCommit":/);
+    expect(auditBuild).toMatch(/write the workflow's returned `index` to `\.trd-state\/<feature>\/audit-index\.json` \(overwritten each round\)/);
+  });
+
+  test('every fallback wake-up carries the run id and re-entry checks stale-wake by run id', () => {
+    expect(auditBuild).toMatch(/Every fallback `ScheduleWakeup` this command schedules carries the workflow run id in its prompt/);
+    expect(auditBuild).toMatch(/stale-wake '\{"stateDir":"\.trd-state\/<feature>","runId":"<run id>"\}'/);
+  });
+
   test('implement-trd.md section 3.7 names /audit-build as a caller of --chained', () => {
     expect(flat(section37)).toMatch(/`\/audit-build` runs the fix/);
     expect(flat(section37)).toMatch(/`\/verify-build`'s fix loop and `\/audit-build` pass it/);

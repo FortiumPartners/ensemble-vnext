@@ -145,6 +145,20 @@
       "started_at": "2026-10-02T06:58:51.269Z",
       "completed_at": "2026-10-02T07:04:05.736Z",
       "last_advanced": "2026-10-02T07:00:28.130Z"
+    },
+    "AMEND-004": {
+      "description": "command-surface assertion that a re-audit passes previous and trdHash (O3)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T07:34:47.377Z",
+      "completed_at": "2026-10-02T07:35:53.094Z"
     }
   },
   "checkpoints": [],
