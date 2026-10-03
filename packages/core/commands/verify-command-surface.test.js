@@ -702,9 +702,15 @@ describe('the cycle-ending commands open the pull request', () => {
     expect(auditBuild).toMatch(/No audit commit, no PR\./);
   });
 
-  test('NEXT offers gh pr merge, never a command that merges on its own', () => {
-    expect(auditBuild).toMatch(/gh pr merge <number> --merge/);
-    expect(closeFeature).toMatch(/gh pr merge <number> --merge/);
+  test('NEXT says to merge the PR in words, with no gh or git command in its paragraph', () => {
+    for (const doc of [auditBuild, closeFeature]) {
+      expect(doc).not.toMatch(/gh pr /);
+      expect(doc).toMatch(/merge the PR once you\s+have reviewed it/);
+    }
+    const nextAudit = auditBuild.slice(auditBuild.indexOf('**NEXT.** When `capReached`'));
+    expect(nextAudit.slice(0, nextAudit.indexOf('---'))).not.toMatch(/git (add|commit)/);
+    const nextClose = closeFeature.slice(closeFeature.indexOf('- **NEXT**'));
+    expect(nextClose.slice(0, nextClose.indexOf('Then the banner'))).not.toMatch(/git (add|commit)/);
   });
 
   test('implement-trd.md says /audit-build opens the PR when openPullRequest is auto', () => {
@@ -855,5 +861,66 @@ describe('[LIVE] tasks feed the verification loop (verification-reuses-evidence)
     ['commands/create-trd.md', 'commands/create-trd.md'],
   ])('%s mirrors byte for byte', (_n, rel) => {
     expect(read(path.join(REPO, '.claude', rel))).toBe(read(path.join(REPO, 'packages/core', rel)));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// next-in-order: NEXT is the few steps to take now, in order, never shell.
+// ---------------------------------------------------------------------------
+
+describe("command-status.md defines NEXT as ordered steps, one block per slash command", () => {
+  const copies = [
+    'packages/core/templates/claude-directory/rules/command-status.md',
+    '.claude/rules/command-status.md',
+  ];
+
+  test.each(copies)('%s carries the ordered-steps, short and no-shell wording', (rel) => {
+    const rule = read(path.join(REPO, rel)).replace(/\s+/g, ' ');
+    expect(rule).toMatch(/few steps to take now/);
+    expect(rule).toMatch(/in order/);
+    expect(rule).toMatch(/one fenced block per slash command/i);
+    expect(rule).toMatch(/never a shell command/);
+    expect(rule).not.toMatch(/literal next command/);
+  });
+
+  test('the two copies are byte-identical', () => {
+    expect(read(path.join(REPO, copies[0]))).toBe(read(path.join(REPO, copies[1])));
+  });
+});
+
+// next-in-order (FIX-003): the two commands whose NEXT text caused the failure list steps in
+// order, one fenced block per slash command, with no shell and no "name ONE".
+describe('implement-trd.md and verify-build.md NEXT list ordered steps', () => {
+  const implementNext = () => {
+    const text = read(CORE_IMPLEMENT);
+    const at = text.indexOf('\nNEXT\n');
+    return text.slice(at, text.indexOf('**Rules this template enforces'));
+  };
+
+  test('implement-trd.md carries no gh command and no single-command wording', () => {
+    const text = read(CORE_IMPLEMENT);
+    expect(text).not.toMatch(/gh pr /);
+    expect(text).not.toMatch(/name ONE/);
+    expect(text).not.toMatch(/single next command/);
+  });
+
+  test('implement-trd.md NEXT is ordered steps with the PR in words', () => {
+    const next = flat(implementNext());
+    expect(next).toMatch(/in order/);
+    expect(next).toMatch(/passing `\/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`/);
+  });
+
+  test('verify-build.md states the ordered fenced-steps rule and the first-step-as-text rule', () => {
+    const section = flat(read(CORE_VERIFY_BUILD).split('## Readout')[1].split("## `--fix")[0]);
+    expect(section).toMatch(/numbered steps/);
+    expect(section).toMatch(/one fenced block per slash command/i);
+    expect(section).toMatch(/must come first[^.]*plain text/i);
+  });
+
+  test.each([
+    ['implement-trd.md', CORE_IMPLEMENT, CLAUDE_IMPLEMENT],
+    ['verify-build.md', CORE_VERIFY_BUILD, CLAUDE_VERIFY_BUILD],
+  ])('%s mirror is byte-identical', (_n, core, mirror) => {
+    expect(read(mirror)).toBe(read(core));
   });
 });

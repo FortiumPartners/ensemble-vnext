@@ -108,10 +108,10 @@ or failing. Say what proves a claim of "done"; a part that didn't happen is name
 buried in ISSUES. **DECISIONS** — choices the owner didn't make and would want to know (a
 default applied, an approach taken, a documented decision overridden), one line each with the
 reason, or "none". **ISSUES** — what is wrong or unresolved, and who has to act; a finding
-nobody must act on belongs in the artifact, not here. **NEXT** — the literal next command,
-runnable as written, or "nothing — this is done", never a menu of options. Put the
-command alone in a fenced code block, with no other text inside, so the owner can copy it
-with one tap; any explanation goes on the line above the block.
+nobody must act on belongs in the artifact, not here. **NEXT** — the few steps to take now (usually one to three), in order, or "nothing — this is
+done"; never a menu. One fenced block per slash command, nothing else inside it, so the owner
+can copy it with one tap; a step that is not a slash command (a merge, a PR, a commit) is a
+plain sentence above the next block, never a shell command.
 
 **Length: one screen** — the longest section overflowing means it should point at a document
 instead of reproducing one. **This governs the command's own closing prose too**: narrating

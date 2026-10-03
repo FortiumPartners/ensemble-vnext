@@ -249,7 +249,9 @@ transcript and does not change what the owner does next.
 **NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`. Any
 other outcome (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage`) → `/refine-verification`,
 then `/verify-build`. The report's Next line says the same, so the readout and the report never
-disagree on what comes next.**
+disagree on what comes next.** NEXT lists those commands as numbered steps in the order to
+take them, one fenced block per slash command, never a shell command. A step that must come
+first and is not a slash command (a merge, a deploy) leads as plain text, not a block.
 
 **When the outcome is `stalled`, `stuck`, `unbuilt` or `insufficient-coverage`** (D3;
 verification-fix-loop TRD §3.1): STATE carries a Diagnosis line, counted over `criteria`'s

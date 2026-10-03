@@ -316,7 +316,8 @@ git commit -m "docs(audit): audit-build report for <feature>" -- .trd-state/<fea
 
 (Drop `closed.json` from both lines when the audit did not close the feature.) On a close, this commit comes after the chained fix run, so the fix run's own commits are already on the branch. The pathspec
 keeps the commit to those files whatever else is staged. **On the default branch, do not
-commit**: the owner decides what lands there, so NEXT gives them the command instead. A failed
+commit**: the owner decides what lands there, so NEXT tells them to commit the report and close
+record. A failed
 commit is one line in STATE, never STUCK.
 
 **Publish it** (`.claude/rules/command-status.md` "Artifact links"; same publish-and-remember
@@ -414,10 +415,10 @@ says the feature closes with a caveat.
 **NEXT.** When `capReached` is true: a line saying the feature stays open and closing it is your
 call once you are satisfied, then `/close-feature docs/TRD/<feature>.md` alone in its fenced block;
 never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature and a PR is open (`action` `opened` or
-`updated`): a line saying to run this once you have reviewed the PR (merging stays yours),
-then `gh pr merge <number> --merge` alone in its fenced block. Closed on a feature branch
-with no PR: `gh pr create --title "<title>"`. Closed on the default branch (nothing was
-committed): the `git add … && git commit …` for the report and close record. On `do not proceed` with nothing chained: the design work the
+`updated`): a line saying to merge the PR once you have reviewed it (merging stays yours), in words, no
+command. Closed on a feature branch with no PR: a line saying to open a PR for the branch.
+Closed on the default branch (nothing was committed): a line saying to commit the report and
+close record. On `do not proceed` with nothing chained: the design work the
 readout names.
 
 ---

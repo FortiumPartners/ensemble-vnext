@@ -1898,20 +1898,21 @@ ISSUES
   {if none: "none"}
 
 NEXT
-  {the single next command, runnable as written — normally the first of:}
-    {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): "refine the plan with
+  {the few steps to take now, in order — one fenced block per slash command, explanation on
+   the line above each block, never a shell command:}
+  1. {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): "refine the plan with
      `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`" —
      the exact wording `renderReport` puts under its own Diagnosis line (verification-fix-loop
      TRD §3.1), so the readout and the report never disagree on what comes next.}
-    /audit-build <trd> --prd <prd>     verify delivery against the TRD and PRD
-    gh pr create --title "<title>"     when the audit is clean (a passing /audit-build opens the
-                                       PR itself when ensemble.openPullRequest is auto; this is
-                                       the owner's command when it is never)
-  {name ONE. The others are the owner's to run when they get there.}
+     {otherwise: verify delivery against the TRD and PRD, in a block of its own:}
+     /audit-build <trd> --prd <prd>
+  2. {in words, not a block: open the PR once the audit is clean — a passing `/audit-build`
+     opens the PR when `ensemble.openPullRequest` is `auto`; when it is `never`, say to open
+     it on GitHub, or ask for it.}
 ```
 
 **A passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`; when it is
-`never`, `gh pr create` is the owner's command, and NEXT must name it.** `/implement-trd`
+`never`, NEXT says in words to open it.** `/implement-trd`
 itself opens nothing, and no command merges. The reason NEXT names it — a run that ends without telling
 them how to ship leaves the work stranded on a branch. This line was lost when the seven-
 section template was replaced on 2026-09-20 and restored the same day; the old template

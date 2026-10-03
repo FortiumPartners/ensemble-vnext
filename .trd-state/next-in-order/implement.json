@@ -1,0 +1,76 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/next-in-order.md",
+  "trd_hash": "71e57bde1e468709b6ccbcdc86d9f94bada8c55e9a1f48a43f1c134c5d14957b",
+  "branch": "feature/verification-reuses-evidence/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Rewrite the NEXT definition in command-status.md (.claude/rules/ and packages/core/templates/claude-directory/rules/, by",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T01:27:19.152Z",
+      "completed_at": "2026-10-03T01:31:28.026Z",
+      "last_advanced": "2026-10-03T01:28:19.976Z"
+    },
+    "FIX-002": {
+      "description": "audit-build.md and close-feature.md: NEXT in words (merge the PR once reviewed; open a PR for the branch; commit the rep",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/close-feature.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T01:27:19.152Z",
+      "completed_at": "2026-10-03T01:31:28.030Z",
+      "last_advanced": "2026-10-03T01:28:19.977Z"
+    },
+    "FIX-003": {
+      "description": "implement-trd.md §9 NEXT template (:1900-1918): ordered steps, each slash command fenced, gh pr create row in words, \"na",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T01:27:19.152Z",
+      "completed_at": "2026-10-03T01:31:28.030Z",
+      "last_advanced": "2026-10-03T01:28:19.977Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/next-in-order.md ## Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree"
+      }
+    }
+  }
+}
