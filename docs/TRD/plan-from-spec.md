@@ -251,12 +251,13 @@ spanning five surfaces would leave a single attestation covering all five.
 
 ## Could Not Verify
 
-State after `/audit-trd` (2026-10-02; 5 of 5 verifiers reported; source `docs/plan/plan-from-spec.investigation.md`). The audit checked, and this revision settles: the sweep rule's text, `plan()`'s ending, `/verify-build`'s sweep next steps, the medium-weight write order, the header and sweep-file formats, guard placement, and why the test-file tasks run in sequence. None of these remain open.
+State after `/audit-build` (2026-10-02; 5 of 5 verifiers reported; no PRD supplied). The audit checked the delivered code against this TRD and found every objective (O1–O4) built by its tasks (FIX-001…FIX-006) and covered by tests: the five suites those tasks touch pass (472 tests), and the functional verification run proved 25 of 25 criteria (`.trd-state/plan-from-spec/verification-report.md`). Those claims are no longer open. What remains is what a code audit cannot settle.
 
 | Claim | Why not checked |
 |-------|-----------------|
-| `/plan` classifies sweep versus core correctly | Model judgement; `check` proves completeness and `overlap` proves no shared files, but neither proves the "no dependency, no auth/data/shared-contract change" conditions, or that each item belongs where it landed. Out of scope for a document audit |
-| Specs other than lightning-lane's put criteria under an "Acceptance criteria" heading | Only that roadmap was read; another format yields no criteria and today's behaviour. No other spec was supplied to this audit |
-| A reused swept criterion still holds after the core lands | The checker sees only the files that criterion's fix changed; a core change to a file it depends on but did not change leaves the evidence reused |
+| O1–O4 say what the owner asked for, and nothing the owner asked for is missing | No source was supplied to `/audit-build`'s validation pass, so it did not run. This TRD's source is `docs/plan/plan-from-spec.investigation.md`; only traceability between this TRD and the code was checked |
+| O4's "option B" reading (carry the sweep's evidence forward, re-prove only criteria whose files the core changed) is the owner's ruling | The ruling is recorded only in this TRD's changelog (v1.3.0); the investigation record quotes the original request (line 29) but not the clarification. Only the owner can confirm it |
+| `/plan` classifies sweep versus core correctly | Model judgement; `check` proves completeness and `overlap` proves no shared files, but neither proves the "no dependency, no auth/data/shared-contract change" conditions, or that each item belongs where it landed |
+| Specs other than lightning-lane's put criteria under an "Acceptance criteria" heading | Only that roadmap was used as a fixture; another format yields no criteria and today's behaviour |
+| A reused swept criterion still holds after the core lands | By design the checker sees only the files that criterion's fix changed; a core change to a file it depends on but did not change leaves the evidence reused. Needs a live sweep-then-core run |
 | The sweep-then-core order saves the build time the owner expects | Unmeasured until a real run (backlog item 25 names what to record) |
-| "Reuses that evidence" (O4) means the core does not re-prove swept criteria, rather than carrying the sweep's captures into the core's run | The record quotes the owner's request but not the exchange behind O3/O4, so the reading in the Decision section is the architect's; only the owner can confirm it |
