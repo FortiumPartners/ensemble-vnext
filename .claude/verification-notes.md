@@ -782,3 +782,34 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [read] The readout template block in `command-status.md` (line ~71) still reads "NEXT the
   exact command or action, ready to run"; only the prose under "What each section carries"
   was reworded to ordered steps.
+
+## Exercising the plan-from-spec criteria (2026-10-03 run, `plan-from-spec`)
+
+- [ran] `.claude/lib/spec-scope.js` is exercisable directly with no server or session. Zsh does not
+  word-split a `SC="node .claude/lib/spec-scope.js"` variable; define a shell function instead. Run
+  it from a temp dir (spec path is read relative to cwd) to see the repo-relative `**Source spec**:`
+  path form. The lightning-lane roadmap was copied to a temp dir and never touched in place.
+- [ran] `extract` on a section with no "Acceptance criteria" heading prints
+  `{"criteria":[],"verification":{}}`, not a bare `[]` (the `/plan` prose at §2g and the criterion text say
+  `[]`). Recorded as an observed wording difference for the judge, not a verdict.
+- [ran] When appending a criterion to a sweep file by hand for a `duplicated` defect, put it BEFORE the
+  `**Regression guards:**` lead-in; after it, `extract` reads it as a guard and `check` correctly reports
+  nothing duplicated (guards sit outside the split).
+- [ran] The swept-evidence reuse check (FS-25) is exercisable end to end without Jest: `live-evidence.js
+  record --covers a,b` then `functional-verification.js check-evidence --state-dir D '<claims json>' <since>`
+  with the artifact and sources backdated via `touch -t`: pass+`reused:true` while bytes match, `stale` after
+  one byte of a covered file changes.
+- [read] The contract's "Four source kinds" table (functional-verification.md line 48) was not extended;
+  `spec` appears only in the definition-header template (lines 72, 76-77). `implement-trd.md` state schema
+  (line ~1342) also still lists `source_kind` without `spec`. Wording `renderReport` uses for a sweep file's
+  Next line differs from the literal sentences in the success definition (FS-22).
+
+## Exercising plan-from-spec (2026-10-02 run, iteration 2, FS-16/21/22/23)
+
+- [ran] `spec-scope.js render-sweep` only accepts ids from a spec whose criteria sit under a
+  `### Acceptance criteria` heading as `- **AC-x.y** · Surface: text` bullets; a hand-written
+  `**Spec**:`-style sweep fixture is rejected by `source` ("no **Source spec**: line"). Build a sweep
+  fixture by running `render-sweep ... --core-trd none --out <scratch>` on a tiny spec, then run
+  `source --file` on the output to get `coreTrd: "none"`.
+- [ran] `npx jest <file> -t "<describe name>"` reports skipped counts for everything else; the line
+  `4 passed` is the usable locator for the sweep-file `renderReport` block.
