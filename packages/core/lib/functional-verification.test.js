@@ -756,6 +756,25 @@ describe('renderReport', () => {
     ],
   };
 
+  describe('a sweep file as the source', () => {
+    const sweep = { ...baseInput, prd: 'docs/plan/onboarding.sweep.md' };
+    test.each(['satisfied', 'stuck', 'stalled'])('%s names the sweep Next, never the TRD commands', (outcome) => {
+      const report = renderReport({ ...sweep, outcome });
+      expect(report).not.toContain('/refine-verification');
+      expect(report).not.toContain('/audit-build');
+      expect(report).toMatch(
+        outcome === 'satisfied'
+          ? /\*\*Next\*\*: commit the sweep, then `\/implement-trd` on the core TRD/
+          : /\*\*Next\*\*: re-run `\/sweep` on the failed items, then `\/verify-build`/
+      );
+    });
+
+    test('a non-sweep prd keeps today\'s lines', () => {
+      expect(renderReport({ ...baseInput, outcome: 'satisfied' })).toContain('**Next**: `/audit-build`');
+      expect(renderReport({ ...baseInput, outcome: 'stuck' })).toContain('`/refine-verification`');
+    });
+  });
+
   test('every criterion in the definition appears in the report (AC-9)', () => {
     const report = renderReport(baseInput);
     for (const c of baseInput.criteria) {

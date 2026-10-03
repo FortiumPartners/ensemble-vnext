@@ -843,6 +843,10 @@ function renderReport(input) {
   // task's own `<careful>` grounding. Sorted by count, descending; `Array#sort` is stable, so
   // a tie between two causes breaks in `CAUSES`' own table order (seeded into the map below),
   // not in criteria-array order.
+  // A sweep file's run has no fix loop and no plan: a failure is a sweep item that did not work,
+  // so it goes back through /sweep. Pointing it at /refine-verification or /audit-build would hand
+  // a sweep file to commands that expect a TRD. The sweep file is recognised by its name.
+  const isSweep = typeof prd === 'string' && /\.sweep\.md$/.test(prd.trim());
   if (DIAGNOSIS_OUTCOMES.has(outcome)) {
     const open = criteria.filter((c) => c.status !== 'met');
     const counts = new Map();
@@ -861,8 +865,12 @@ function renderReport(input) {
       `**Diagnosis**: ${open.length} open` + (causeWords ? ` — ${causeWords}` : '')
     );
     lines.push(
-      '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
+      isSweep
+        ? '**Next**: re-run `/sweep` on the failed items, then `/verify-build`'
+        : '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
     );
+  } else if (outcome === 'satisfied' && isSweep) {
+    lines.push('**Next**: commit the sweep, then `/implement-trd` on the core TRD');
   } else if (outcome === 'satisfied') {
     // O4 (docs/TRD/refine-verification.md): the report's Next line follows the same rule as
     // both commands' readouts, so a satisfied run names its successor too.

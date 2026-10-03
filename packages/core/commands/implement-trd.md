@@ -708,7 +708,26 @@ finish with `not_met` criteria still on the books at an iteration below the cap,
 "there are still open gaps, therefore resumable" rule misreads both as resumable and re-enters
 a loop that already gave its final answer.
 
-**1. Resolve the PRD path**, in order:
+**1. Resolve the PRD path**, in order. **First, a spec source** (plan-from-spec): when the TRD
+header has a `**Source spec**: <path> § <section>` line, the criteria are already written down
+verbatim in that spec, so none are derived. Check with
+`node .claude/lib/spec-scope.js source --file <TRD>` (exit 0 → spec source; exit 1 → no such
+line, continue below). Write the definition with the library and **skip step 2 and step 3's
+dispatch entirely** (no agent):
+
+```
+node .claude/lib/spec-scope.js criteria --spec <spec> --section <section> --ids <ids> \
+     --feature <feature> --out .trd-state/<feature>/success-definition.md
+```
+
+`<ids>` are the ids in the TRD's Objectives table, plus every id the sweep file lists when
+`docs/plan/<feature>.sweep.md` exists (read them with `spec-scope.js extract --file <that
+file>`). The swept criteria belong in the core's definition: the evidence checker reuses the
+artifact `/verify-build` recorded for each one (§8.3's existing `liveEvidence` read) while the
+files its fix changed are byte-identical, and re-proves it if the core touched them. Guards are
+added by the library. Record `source_kind: "spec"`, `prd_resolved: true` and `prd_path` as the
+TRD path plus the section name (report header only), then persist as below. This applies **only**
+to a TRD with the `**Source spec**:` header; every other TRD resolves as follows.
 
 1. Read the TRD's `**Source PRD**:` header (the line parsed in Step 1). Its on-disk form is
    not uniform — handle all of these:
@@ -746,7 +765,7 @@ a loop that already gave its final answer.
    (functional-verification TRD §3.1, §3.7) and skip the rest of this step — dispatch nothing.
 
 **Record which source won.** Write `functional_verification` with `source_kind`
-(`prd` | `reproduction` | `intended-change` | `behaviour-preserved` | `none`) alongside the existing keys. `prd_path`
+(`prd` | `spec` | `reproduction` | `intended-change` | `behaviour-preserved` | `none`) alongside the existing keys. `prd_path`
 keeps its meaning when `source_kind` is `prd`; for the three section kinds it holds the TRD path
 plus the section name (for the report header only — Step 8 renders it, nothing resolves it).
 `prd_resolved` stays for compatibility and means "a source resolved", true for all four.
@@ -1508,7 +1527,9 @@ straight to Step 9 exactly as §8.1 already sends them.
 
 1. **Read the section.** The TRD's last `## Verification Artifacts` heading outside a code
    fence (§3.3) — table rows, `Omitted:` lines, or a `None apply —` line; absent is legitimate
-   too. Read the PRD named at §8.1 step 1's `prd_path` when one resolved, or the source text
+   too. For `source_kind: "spec"` the source text is the spec section named by the
+   `**Source spec**:` header (read it through `spec-scope.js source`). Otherwise read the PRD
+   named at §8.1 step 1's `prd_path` when one resolved, or the source text
    §3.6 resolved (the TRD's `## Reproduction` / `## Intended Change` / `## Behaviour
    Preserved`) when it did not.
 2. **Select (D9).** Read the `check`-role rows of `.claude/skills/framework-skills.txt` (fall

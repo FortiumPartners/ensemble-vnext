@@ -181,3 +181,81 @@ describe('fix-plan: the two /fix strings are gone', () => {
     expect(text).toMatch(/COMMAND COMPLETE: \/plan/);
   });
 });
+
+// plan-from-spec (FIX-003): when a sweep list exists, plan() owns how /plan ends. It never
+// chains and never writes the pointer, whatever `implement` says, because the sweep must be
+// built, verified and committed before the core TRD is built.
+describe('fix-plan: the sweep path (plan-from-spec)', () => {
+  const S = (over = {}) => P({ sweepList: true, coreTrd: true, ...over });
+  const stepOrder = (body, needles) => needles.map((n) => body.indexOf(n));
+
+  test('with a sweep list there is no chain and no pointer, whatever implement says', () => {
+    for (const weight of ['trivial', 'small', 'medium']) {
+      for (const implement of [false, true]) {
+        const r = S({ weight, implement });
+        expect(r.chain).toBe(false);
+        expect(r.chainSkill).toBeNull();
+        expect(r.chainArgs).toBeNull();
+        expect(r.handoffLine).toBeNull();
+        expect(r.writePointer).toBe(false);
+        expect(r.banner).toBe('═══ COMMAND COMPLETE: /plan ═══');
+        expect(r.notify).toBe(true);
+      }
+    }
+  });
+
+  test('the banner lists sweep, verify the sweep, commit, then implement, in that order', () => {
+    const r = S({ implement: true, slug: 'lane' });
+    const at = stepOrder(r.bannerBody, [
+      '/sweep docs/plan/lane.sweep.md',
+      '/verify-build docs/plan/lane.sweep.md',
+      'commit the swept fixes',
+      '/implement-trd docs/TRD/lane.md',
+    ]);
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+  });
+
+  test('the banner never says to re-run with --implement, with or without the flag', () => {
+    for (const implement of [false, true]) {
+      expect(S({ implement }).bannerBody).not.toMatch(/re-run with --implement/);
+    }
+  });
+
+  test('the banner says the sweep is built, verified and committed first', () => {
+    expect(S().bannerBody).toMatch(/built, verified and committed first/);
+  });
+
+  test('a core TRD keeps writeTrd true', () => {
+    expect(S().writeTrd).toBe(true);
+  });
+
+  test('coreTrd false: no TRD, and the banner omits /implement-trd', () => {
+    const r = S({ coreTrd: false, implement: true, slug: 'lane' });
+    expect(r.writeTrd).toBe(false);
+    expect(r.bannerBody).not.toMatch(/implement-trd/);
+    expect(r.bannerBody).not.toMatch(/docs\/TRD\//);
+    expect(r.bannerBody).toMatch(/\/sweep docs\/plan\/lane\.sweep\.md/);
+    expect(r.bannerBody).toMatch(/commit/);
+  });
+
+  test('coreTrd defaults to true when a sweep list is given', () => {
+    expect(P({ sweepList: true }).writeTrd).toBe(true);
+  });
+
+  test('without a sweep list nothing changes', () => {
+    expect(P({ implement: true }).chain).toBe(true);
+    expect(P({ implement: false }).bannerBody).toMatch(/re-run with --implement/);
+    expect(P({ coreTrd: false }).writeTrd).toBe(true); // coreTrd is read only with a sweep list
+  });
+
+  test('an owner-policy hit still names its paths on the sweep path', () => {
+    const r = S({ implement: true, neverUnattendedHit: ['auth/'] });
+    expect(r.chain).toBe(false);
+    expect(r.bannerBody).toMatch(/auth\//);
+  });
+
+  test('route prd still wins over a sweep list', () => {
+    expect(P({ route: 'prd', sweepList: true }).chainSkill).toBe('create-prd');
+  });
+});

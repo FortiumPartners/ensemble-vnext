@@ -58,6 +58,12 @@ work, which is precisely when you would not need it.
 Explicit path argument wins; otherwise `.trd-state/current.json`'s `trd`. The feature slug is
 the TRD basename. No branch derivation — you are verifying what is on disk now.
 
+**A sweep file is accepted in place of a TRD** — a path ending `.sweep.md` (`docs/plan/<slug>.sweep.md`,
+written by `/plan` from a spec). Then the feature is `<slug>-sweep` (so its state directory is
+never the core feature's, and a stale `success-definition.md` there cannot be reused), `cap` is
+`1`, `prd_path` is the sweep file's path, and the fix loop is skipped (see "A sweep file" in
+step 3a and the Readout). `<slug>` is the file's name before `.sweep.md`.
+
 ### 2. Preflight the environment
 
 **Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist
@@ -114,6 +120,49 @@ the authority on what the fields ARE; §4 is the dispatch, not a competing spec.
   one — when a source IS known, the header should name it instead of going blank.
 
 ### 3a. Absent definition → derive it, in the FOREGROUND
+
+**A spec-sourced input is never derived.** Two inputs carry criteria that are already written
+down, verbatim, in a spec: a sweep file (`.sweep.md`), and a TRD whose header has a
+`**Source spec**: <path> § <section>` line. For either, write the definition with the library
+and **skip the rest of 3a** (no source resolution, no agent, no `prd_path` table):
+
+```
+node .claude/lib/spec-scope.js source --file <sweep file or TRD>          # → {spec, section[, coreTrd]}
+node .claude/lib/spec-scope.js extract --file <sweep file>                # sweep: the ids it lists
+node .claude/lib/spec-scope.js criteria --spec <spec> --section <section> --ids <ids> \
+     --feature <feature> --out .trd-state/<feature>/success-definition.md
+```
+
+For a TRD, `<ids>` are the Objectives table's ids (guards included — the library adds them
+anyway). The file carries `**Source kind**: spec`. A sweep file's ids are the criteria it
+lists under `## Acceptance criteria`. An exit 1 from `source` on a TRD means it has no
+`**Source spec**:` line, which sends you back to the ordinary derive below.
+
+**A sweep file runs as its own feature, one iteration, no fix.** Dispatch step 4 with
+`feature: "<slug>-sweep"`, `cap: 1`, `prd: <the sweep file's path>`, and `definitionPath` /
+`statePath` / `reportPath` / `evidenceDir` under `.trd-state/<slug>-sweep/`. With `cap: 1`
+`decideNext` stops before it would dispatch Debug, so nothing is fixed in place: a criterion
+that fails is a sweep item that did not work, and goes back through `/sweep`. **Skip the fix
+loop entirely** (it would chain `implement-trd <trd> --reconcile`, which must never be handed
+a sweep file), and never point NEXT at `/refine-verification` or `/audit-build`.
+
+**After a satisfied sweep run, carry the evidence to the core.** The core TRD is the sweep
+file's `coreTrd` (from `source` above); unless it is `none`, its feature slug is that TRD's
+basename. Read `.trd-state/<slug>-sweep/sweep-result.json` (`fixed`: criterion id → files its
+fix changed; written by `/sweep`) and the run's `verification-state.json`. For each criterion
+that is `met` and has an `artifact`, record it in the CORE feature's manifest — not the
+sweep's, because the core's own run reads `liveEvidence` from there (§8.3):
+
+```
+node .claude/lib/live-evidence.js record --state-dir .trd-state/<core-slug> --task <criterion id> \
+     --artifact <that criterion's artifact> --covers <that criterion's files from sweep-result.json, comma-separated>
+```
+
+The core's success definition includes the swept criteria and the evidence checker reuses an
+artifact while its covered files are byte-identical, so nothing is captured twice when the
+split was right, and a swept criterion is re-proven if the core touched its files. A criterion
+with no entry in `fixed` (already fine) has no changed files to cover and is not recorded. A
+record the library rejects goes in ISSUES with its reason; it does not fail the run.
 
 Resolve the source exactly as `/implement-trd` §3.6 step 1 does — PRD, else the TRD's
 `## Reproduction`, `## Intended Change` or `## Behaviour Preserved`. **No source at all →
@@ -261,6 +310,11 @@ count, not a second judgement. NEXT's explaining line is `renderReport`'s own ex
 per O4, above: "refine the plan with `/refine-verification` (add `--auto` to let an agent
 answer), then run `/verify-build`" — followed by `/refine-verification` and `/verify-build`,
 each in its own fenced block, in that order; never both commands inline as the only NEXT.
+
+**A sweep file's NEXT replaces the rule above (and the report's Next line says the same):**
+outcome `satisfied` → commit the sweep (`/sweep` never commits, and `/implement-trd` needs a
+clean tree), then `/implement-trd <core TRD>`; any other outcome → `/sweep` on the failed
+items, then `/verify-build`. Never `/refine-verification` or `/audit-build`.
 
 ## `--fix [plan-path]`, `--no-fix`, and `--resume`
 

@@ -53,6 +53,12 @@ const VERIFICATION_SECTION = {
  * @param {string} [input.slug]                       for the chain argument
  * @param {string|null} [input.neverUnattendedStatus] check-never-unattended's `status`;
  *   'invalid' (the §5b list could not be read) suppresses the chain even with empty hits.
+ * @param {boolean} [input.sweepList]   a sweep list (`docs/plan/<slug>.sweep.md`) was written
+ *   (plan-from-spec). The sweep must be built, verified and committed BEFORE the core TRD is
+ *   built, so this path never chains and never writes the pointer, whatever `implement` says,
+ *   and its banner gives the four ordered steps. Read only when true.
+ * @param {boolean} [input.coreTrd]      with `sweepList`: whether a core TRD exists (default
+ *   true). False means every criterion was swept — no TRD is kept and no `/implement-trd` step.
  * @param {string[]} [input.neverUnattendedHit]        path fragments matched by
  *   fix-sizing.js's matchNeverUnattended() against this run's touches. Non-empty means the
  *   owner has ruled this path out for unattended work (O-NU) — this is a policy rule, not a
@@ -68,6 +74,8 @@ function plan(input) {
     slug = '<slug>',
     neverUnattendedHit = [],
     neverUnattendedStatus = null,
+    sweepList = false,
+    coreTrd = true,
   } = input || {};
 
   if (!['trivial', 'small', 'medium'].includes(weight)) {
@@ -96,6 +104,13 @@ function plan(input) {
       notify: true,
       verificationSection: VERIFICATION_SECTION[kind] || VERIFICATION_SECTION.defect,
     };
+  }
+
+  // The sweep path owns its own ending. Going through finish() would say "re-run with
+  // --implement" and always report a TRD at docs/TRD/<slug>.md, both wrong here: the order is
+  // sweep -> verify the sweep -> commit -> implement the core, and there may be no core TRD.
+  if (sweepList === true) {
+    return finishSweep({ coreTrd: coreTrd !== false, kind, slug, neverUnattendedHit, neverUnattendedStatus });
   }
 
   // The owner's own policy overrides everything else: a path they have named as
@@ -179,6 +194,43 @@ function finish({ writeTrd, reason, kind, slug }) {
     // Fires on EVERY terminating path, including the early reject — otherwise the
     // completion signal depends on which way the command happened to finish.
     notify: true,
+    verificationSection: VERIFICATION_SECTION[kind] || VERIFICATION_SECTION.defect,
+  };
+}
+
+/**
+ * The sweep path's ending (plan-from-spec): the ordered steps, and no chain.
+ * `/sweep` never commits, and `/implement-trd` needs a clean tree and commits phases with
+ * `git add -A`, so the owner commits the swept fixes between the two.
+ */
+function finishSweep({ coreTrd, kind, slug, neverUnattendedHit, neverUnattendedStatus }) {
+  const sweep = `docs/plan/${slug}.sweep.md`;
+  const steps = [
+    `/sweep ${sweep}`,
+    `/verify-build ${sweep}`,
+    'commit the swept fixes (/sweep never commits)',
+  ];
+  if (coreTrd) steps.push(`/implement-trd docs/TRD/${slug}.md (functional verification runs by default)`);
+
+  let policy = '';
+  if (coreTrd && neverUnattendedHit.length > 0) {
+    policy = ` Owner policy: ${neverUnattendedHit.join(', ')} ${neverUnattendedHit.length === 1 ? 'is' : 'are'} marked never-unattended in verification.md, so nothing is built for you.`;
+  } else if (coreTrd && neverUnattendedStatus === 'invalid') {
+    policy = ' Owner policy: the never-unattended list in verification.md §5b could not be read, so nothing is built for you.';
+  }
+
+  const where = coreTrd ? `sweep list at ${sweep}, core TRD at docs/TRD/${slug}.md` : `sweep list at ${sweep}, no core TRD (every criterion is swept)`;
+  return {
+    writeTrd: coreTrd,
+    writePointer: false,
+    chain: false,
+    chainSkill: null,
+    chainArgs: null,
+    handoffLine: null,
+    banner: '═══ COMMAND COMPLETE: /plan ═══',
+    bannerBody: `${slug}: investigation complete; ${where}. The sweep is built, verified and committed first. In order: ${steps.map((t, i) => `${i + 1}. ${t}`).join('; ')}.${policy}`,
+    notify: true,
+    nextSteps: steps,
     verificationSection: VERIFICATION_SECTION[kind] || VERIFICATION_SECTION.defect,
   };
 }

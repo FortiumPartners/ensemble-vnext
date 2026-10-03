@@ -77,6 +77,19 @@ scope — reproducing seven of a PRD's eight metrics and dropping the eighth wit
 is the failure that a per-line audit structurally cannot see. Check the source forwards, not
 just the TRD backwards.
 
+### Locked scope: when the source is a spec with acceptance criteria
+
+When a TRD, or the source it is authored from, carries a `**Source spec**:` header, the
+spec's scope is locked. The TRD's objectives are the spec's core criteria and its regression
+guards, copied verbatim with their ids, and no others. Do not add, reword, merge, narrow or
+widen one. Criteria the spec's `/plan` split sent to `/sweep` are listed under Non-Goals as
+"handled by `/sweep <file>`", each by id. A criterion that looks wrong is not corrected: it
+becomes an owner-only open question quoting the spec line, and the criterion stays as written.
+
+This rule binds only a TRD with the header. A TRD without it, including every PRD-sourced
+TRD, is unchanged: constitution- and domain-derived objectives stay allowed under the typing
+rule above.
+
 ---
 ## TRD Document Structure
 

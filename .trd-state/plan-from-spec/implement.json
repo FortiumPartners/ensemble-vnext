@@ -1,0 +1,143 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/plan-from-spec.md",
+  "trd_hash": "96c45492ad9076988b73cbddac2d108d6c96327c2cd04bd8d215acee58e51468",
+  "branch": "feature/verification-reuses-evidence/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "New packages/core/lib/spec-scope.js with extract, source, renderObjectives, renderSweep, check, criteria, overlap and a ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/spec-scope.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/spec-scope.test.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/__fixtures__/spec-scope-item4.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/lib/spec-scope.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/full/lib/spec-scope.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T04:04:29.414Z",
+      "completed_at": "2026-10-03T04:15:06.846Z",
+      "last_advanced": "2026-10-03T04:05:58.180Z"
+    },
+    "FIX-002": {
+      "description": "trd-authoring.md (core and .claude/contracts/ mirror): the conditional locked-scope rule beside \"Omission is a failure t",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/contracts/trd-authoring.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/contracts/trd-authoring.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T04:04:29.414Z",
+      "completed_at": "2026-10-03T04:15:06.850Z",
+      "last_advanced": "2026-10-03T04:05:58.180Z"
+    },
+    "FIX-003": {
+      "description": "plan.md (core and mirror) and fix-plan.js (core and mirror): the spec path. In plan.md: exit test false; classify by the",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/fix-plan.js",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/lib/fix-plan.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/fix-plan.test.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/plan.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/commands/plan.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T04:04:29.414Z",
+      "completed_at": "2026-10-03T04:15:06.850Z",
+      "last_advanced": "2026-10-03T04:05:58.180Z"
+    },
+    "FIX-004": {
+      "description": "sweep.js and sweep.md (core and mirrors): criterion ids as triage ids, deferred items keep ids, every criterion accounte",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/workflows/sweep.js",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/workflows/sweep.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/workflows/sweep.test.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/sweep.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/commands/sweep.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T04:04:29.414Z",
+      "completed_at": "2026-10-03T04:15:06.850Z",
+      "last_advanced": "2026-10-03T04:05:58.180Z"
+    },
+    "FIX-005": {
+      "description": "verify-build.md (core and mirror): step 3a accepts a sweep file or a Source spec: TRD and writes the definition with spe",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T04:04:29.414Z",
+      "completed_at": "2026-10-03T04:15:06.850Z",
+      "last_advanced": "2026-10-03T04:05:58.180Z"
+    },
+    "FIX-006": {
+      "description": "implement-trd.md §3.6 step 1 and §8.1b (core and mirror): a Source spec: TRD writes its definition with spec-scope.js cr",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/implement-trd.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/commands/implement-trd.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-03T04:04:29.414Z",
+      "completed_at": "2026-10-03T04:15:06.850Z",
+      "last_advanced": "2026-10-03T04:05:58.180Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/plan-from-spec.md ## Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree"
+      }
+    }
+  }
+}

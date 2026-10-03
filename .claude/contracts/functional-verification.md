@@ -68,10 +68,13 @@ to contain them also contains the plan, and must never be handed over.
 ```markdown
 # Functional Success Definition: <feature>
 
-**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change | §Behaviour Preserved -->
-**Source kind**: prd | reproduction | intended-change | behaviour-preserved
+**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change | §Behaviour Preserved | <spec path> § <section> -->
+**Source kind**: prd | reproduction | intended-change | behaviour-preserved | spec
 **Derived**: <ISO8601>
 **Criteria**: <n>
+
+<!-- Source kind `spec`: the rows are a spec section's acceptance criteria, copied verbatim by
+     `spec-scope.js criteria`, never derived by an agent. -->
 
 | ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts |
 |----|----------------------|-------|------------------------------|------------|--------|-------|
