@@ -3649,6 +3649,90 @@ the count.
 
 ---
 
+## Item 24 — a project-aware `/merge-feature` (owner-queued 2026-10-02)
+
+**Queued, not started. Comes after the rules in flight** (NEXT lists every step in order and
+never hands out shell commands — `docs/TRD/next-in-order.md`; locked scope and the sweep split
+in `/plan`).
+
+Owner, 2026-10-02: *"a project should have a vendored /merge-feature (or merge-build, etc) slash
+command that understands the project's environments, deployment topology, rules, branch and merge
+rules — so that the agent has a project-aware way to promote features to different environments
+that can scale to the project."*
+
+**The gap it fills.** The cycle ends at an opened PR (`ensemble.openPullRequest: auto`), and
+everything after it is left to the owner as prose: merge it, deploy it, re-verify there. The
+lightning-lane NEXT that prompted the NEXT-order fix read "Merge #1316, then re-run the live
+proof", which is exactly a promotion step with no command behind it. Once NEXT may no longer hand
+out `gh pr merge`, "merge the PR" needs a project-aware command to point at, or it stays a step the
+owner types elsewhere.
+
+**What it should know, and where that already lives:**
+- **Environments and what the loop may do in each:** `.claude/rules/verification.md` §1
+  (environments, write/deploy/restart permissions), §1a (capacity), §2 (fast refresh, full deploy).
+- **Never-unattended paths:** `verification.md` §5b.
+- **Branch and merge rules:** not recorded anywhere yet — base branch, merge style (merge, squash,
+  rebase), required checks, who may merge, release/tag conventions. Likely a new owner-governed
+  section, set by `/verification-setup` or a sibling interview, never inferred by an agent.
+- **Deployment topology:** which environment a merge reaches (preview per branch, staging on main,
+  production on tag), so the command can promote stepwise and re-verify at each stop.
+
+**Open, for the owner before planning:**
+- Name: `/merge-feature`, `/merge-build`, `/promote`?
+- Scope of one invocation: merge only, or merge-then-promote through every environment the
+  topology allows, re-verifying at each?
+- Authorization: `autonomy.md` says a merge, deploy or release needs its own authorization;
+  invoking this command would be that authorization. Does each environment step need its own
+  confirmation, or does the topology declare which promotions are automatic?
+- Owner-governed or derived: the branch/merge rules are policy, so they belong beside
+  `verification.md` (owner-governed), not in a file an agent writes.
+
+**Route when it starts:** `/create-prd` — what the command should do per environment is a
+product decision, not a defect or a contained change.
+
+---
+
+## Item 25 — the sweep split on the standard path (owner-queued 2026-10-02)
+
+**Queued, not started. Comes after `docs/TRD/plan-from-spec.md` has run once on a real spec.**
+
+Owner, 2026-10-02: *"What about a standard-path (PRD-TRD-implement) flow? Does it make sense to
+review if low risk/low complexity tasks can be dispatched out via sweep?"*
+
+`plan-from-spec` gives `/plan` the split: a spec's independent, low-risk criteria go to a `/sweep`
+built and verified first, and only the coupled core gets a TRD. Its locked-scope rule lives in
+`trd-authoring.md`, so `/create-trd` already inherits that half. The split itself does not: on the
+standard path it belongs in `/create-trd` (a workflow with its own author and ground stages),
+sorting the PRD's criteria into a sweep list and a core TRD with the same `spec-scope.js
+check-split` guarantee.
+
+**Why wait:** PRD-driven features are usually more coupled than a QA findings list, so the gain is
+less certain, and the `/plan` version should first show the classification is trustworthy on a
+real run. **Evidence to collect from that run:** how many criteria were swept, whether any swept
+item failed or turned out to touch the core, and the build and verification time against a
+comparable unsplit feature.
+
+---
+
+## Item 26 — automatic command updates via plugin auto-update (owner-parked 2026-10-02)
+
+**Parked by the owner ("We'll come back to that").** Two parts, found 2026-10-02:
+
+- **Owner's machine:** the `ensemble-vnext` marketplace is a local directory (this checkout) with a
+  relative-path plugin entry (`./packages/full`). Per the Claude Code docs (plugins/loading, "In-place
+  and copied plugins"), such a plugin loads in place from the checkout at every session start — so it
+  serves whatever branch is checked out — and auto-update never refreshes its install record.
+  Remedy: re-add the marketplace from GitHub pinned to `main` (or a release tag) and enable
+  auto-update. Auto-update runs once per session, a random delay of up to ten minutes after the first
+  message, and only when the version changes; `/plugin marketplace update ensemble-vnext` skips the
+  wait.
+- **Framework defect:** `runtime-refresh.sh` decides from `installed_plugins.json`'s recorded version,
+  which goes stale for an in-place plugin (recorded 4.10.4 since 2026-09-30 while the checkout says
+  4.11.0), so projects never refresh past it — lightning-lane is stuck on 4.10.4. Fix: read the live
+  `plugin.json` version for in-place installs. A `/plan`.
+
+---
+
 ## Deliberately not doing
 
 - **Repairing the statistical eval framework.** Answers a question you rarely ask, at high cost. Item 4 covers

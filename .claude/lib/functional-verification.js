@@ -15,7 +15,9 @@
  *
  * This module is pure apart from `fs.statSync` and, now that `checkEvidence()` matches a
  * locator (VCON-B001), reading the artifact's own content — both gated by a byte cap
- * (`LOCATOR_SCAN_BYTES`), so no read is unbounded. It still uses no clock and no git —
+ * (`LOCATOR_SCAN_BYTES`), so no read is unbounded. The reuse path (an old artifact whose
+ * declared `covers` files are byte-identical) additionally reads and hashes those covered
+ * files, each under its own cap (`COVERS_HASH_BYTES`). It still uses no clock and no git —
  * `sinceSec` and `cap` are parameters, not internally computed — which is what the purity
  * claim is load-bearing for: every function here is testable without a repository or a wall
  * clock.
@@ -33,6 +35,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { maskFencedLines, findSection, parseTrd } = require('./trd-parser');
 const { matchNeverUnattended } = require('./fix-sizing');
+const { hashFile, COVERS_HASH_BYTES } = require('./live-evidence');
 
 // ---------------------------------------------------------------------------
 // checkEvidence — tier 1 of FR-3 (§3.2)
@@ -43,6 +46,38 @@ const { matchNeverUnattended } = require('./fix-sizing');
 // the scan just stops here and the result says so via `truncated: true`.
 const LOCATOR_SCAN_BYTES = 2_000_000;
 
+// The most a single covered file is read for hashing on the reuse path is COVERS_HASH_BYTES,
+// shared with live-evidence.js so the recorder rejects what this checker would never accept. A
+// covered file larger than it is not reusable (it reads as changed) rather than hashed from a
+// partial read, which could report identical bytes after a change past the cap.
+
+/**
+ * Whether every file in `covers` still has the sha256 recorded when the evidence was captured.
+ * Content hash, not mtime: a checkout or rebase rewrites mtimes (false staleness) and a
+ * retargeted symlink can dodge them (false freshness). Through the CLI, `covers` comes only from
+ * the live-evidence manifest (`check-evidence --state-dir`), never from any agent's payload. Anything short of a
+ * non-empty list of absolute, existing regular files with matching hashes is "not reusable".
+ *
+ * @param {unknown} covers - `[{path, sha256}]`
+ * @param {Map<string, string|null>} [digests] - per-call memo, path -> digest: one live artifact
+ *   often proves several criteria, and each claim on it would otherwise re-read and re-hash the
+ *   same covered files (up to COVERS_HASH_BYTES each).
+ * @returns {boolean}
+ */
+function coversUnchanged(covers, digests = new Map()) {
+  if (!Array.isArray(covers) || covers.length === 0) return false;
+  for (const entry of covers) {
+    if (!entry || typeof entry.path !== 'string' || typeof entry.sha256 !== 'string') return false;
+    if (!path.isAbsolute(entry.path)) return false;
+    // hashFile returns null for a directory, socket or device (no bytes to compare), a file over
+    // the cap, or an unreadable path -- all "not reusable".
+    if (!digests.has(entry.path)) digests.set(entry.path, hashFile(entry.path, COVERS_HASH_BYTES));
+    const digest = digests.get(entry.path);
+    if (digest === null || digest !== entry.sha256) return false;
+  }
+  return true;
+}
+
 /**
  * Deterministic, cheap tier-1 evidence check. Not settable by an agent: it only looks at
  * what is actually on disk, and — for a locator — what is actually inside it (D6).
@@ -52,11 +87,17 @@ const LOCATOR_SCAN_BYTES = 2_000_000;
  *   EXERCISER claims to have seen inside `artifact` (supplied via `EXERCISE_SCHEMA`,
  *   VCON-B001). `judgeOnly` is stamped by `reconcileClaims` from the criterion's own
  *   definition, never by the agent (D7), and short-circuits this claim to `tier1: 'skipped'`
- *   before anything else is checked.
+ *   before anything else is checked. `covers` (`[{path, sha256}]`) is attached by the CLI from
+ *   the live-evidence manifest (`--state-dir`) — never from an agent's payload — and enables reuse of an
+ *   artifact older than `sinceSec` (see below).
  * @param {number} sinceSec - The freshness floor, in seconds:
  *   `max(HEAD commit time, this run's verification-loop start time)`, derived by the command
  *   (`/implement-trd` Step 8.3, TRD §3.2) and passed in whole. An artifact whose mtime is not
- *   strictly greater than this is stale.
+ *   strictly greater than this is stale — unless the claim carries `covers` and every covered
+ *   file is absolute, exists, and hashes (sha256) to its recorded value: then the old artifact
+ *   still passes tier 1 with `reused: true`, because the code it exercised has not changed.
+ *   Any other old artifact is `stale`. A fresh artifact passes with or without `covers`.
+ *   The locator gate still runs on a reused artifact.
  *
  *   It is NOT HEAD's commit time alone. That is only a proxy for "when the code last changed",
  *   and it breaks on `--verify --resume`: the phase loop is skipped, no new commit
@@ -75,10 +116,12 @@ const LOCATOR_SCAN_BYTES = 2_000_000;
  *   file) changes this parameter's meaning and so is `/refine-trd` work.
  * @returns {Array<{criterion: string, tier1: 'pass'|'fail'|'skipped', artifact: string|null,
  *   bytes: number|null, mtimeSec: number|null, locator?: string|null, truncated?: boolean,
+ *   reused?: true, stale?: boolean,   // `stale` is reported on skipped (judge-only) rows only
  *   failure?: 'missing'|'empty'|'stale'|'no-artifact'|'not-a-file'|'no-locator'|
  *     'locator-not-found'}>}
  */
 function checkEvidence(claims, sinceSec) {
+  const digests = new Map(); // covered-file hashes, computed once per call (see coversUnchanged)
   return claims.map((claim) => {
     const { criterion, artifact, locator, judgeOnly } = claim;
 
@@ -87,13 +130,33 @@ function checkEvidence(claims, sinceSec) {
     // judge-only claim carrying no artifact (or a nonexistent one) never surfaces a failure
     // that would mean nothing for a tier this criterion was never meant to pass through.
     if (judgeOnly) {
-      return {
+      const skipped = {
         criterion,
         tier1: 'skipped',
         artifact: artifact ?? null,
         bytes: null,
         mtimeSec: null,
       };
+      // Information for the Judge only; tier 1 is still not applied. Reported when the artifact
+      // can be stat-ed: whether it predates the floor and, if so, whether reuse conditions hold.
+      if (artifact) {
+        try {
+          const st = fs.statSync(artifact);
+          if (st.isFile()) {
+            if (Math.floor(st.mtimeMs / 1000) > sinceSec) {
+              skipped.stale = false;
+            } else if (coversUnchanged(claim.covers, digests)) {
+              skipped.stale = false;
+              skipped.reused = true;
+            } else {
+              skipped.stale = true;
+            }
+          }
+        } catch {
+          // Missing artifact: nothing to say about staleness; the Judge reads the reason.
+        }
+      }
+      return skipped;
     }
 
     if (!artifact) {
@@ -141,8 +204,13 @@ function checkEvidence(claims, sinceSec) {
       return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'empty' };
     }
 
+    // Older than the floor is stale unless the files this evidence depends on are unchanged.
+    let reused = false;
     if (!(mtimeSec > sinceSec)) {
-      return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'stale' };
+      if (!coversUnchanged(claim.covers, digests)) {
+        return { criterion, tier1: 'fail', artifact, bytes, mtimeSec, failure: 'stale' };
+      }
+      reused = true;
     }
 
     // Tier 1's final gate (D6, VCON-B001): a literal locator string the exerciser claims to
@@ -198,9 +266,10 @@ function checkEvidence(claims, sinceSec) {
     }
 
     // A pass found in a truncated scan still says so -- the remainder was never read.
-    return truncated
-      ? { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator, truncated }
-      : { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator };
+    const pass = { criterion, tier1: 'pass', artifact, bytes, mtimeSec, locator };
+    if (truncated) pass.truncated = true;
+    if (reused) pass.reused = true;
+    return pass;
   });
 }
 
@@ -774,6 +843,10 @@ function renderReport(input) {
   // task's own `<careful>` grounding. Sorted by count, descending; `Array#sort` is stable, so
   // a tie between two causes breaks in `CAUSES`' own table order (seeded into the map below),
   // not in criteria-array order.
+  // A sweep file's run has no fix loop and no plan: a failure is a sweep item that did not work,
+  // so it goes back through /sweep. Pointing it at /refine-verification or /audit-build would hand
+  // a sweep file to commands that expect a TRD. The sweep file is recognised by its name.
+  const isSweep = typeof prd === 'string' && /\.sweep\.md$/.test(prd.trim());
   if (DIAGNOSIS_OUTCOMES.has(outcome)) {
     const open = criteria.filter((c) => c.status !== 'met');
     const counts = new Map();
@@ -792,8 +865,14 @@ function renderReport(input) {
       `**Diagnosis**: ${open.length} open` + (causeWords ? ` — ${causeWords}` : '')
     );
     lines.push(
-      '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
+      isSweep
+        ? `**Next**: re-run \`/sweep ${prd.trim()}\` for the failed criteria, then \`/verify-build ${prd.trim()}\``
+        : '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
     );
+  } else if (outcome === 'satisfied' && isSweep) {
+    // A sweep file whose `**Core TRD**:` is `none` has no core to build: the commit is the end
+    // (the command's readout resolves that line and drops the build step; the report only names it).
+    lines.push("**Next**: commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line");
   } else if (outcome === 'satisfied') {
     // O4 (docs/TRD/refine-verification.md): the report's Next line follows the same rule as
     // both commands' readouts, so a satisfied run names its successor too.
@@ -1322,6 +1401,7 @@ module.exports = {
 //
 //   node functional-verification.js check-evidence '<claims-json>' <sinceSec>
 //   node functional-verification.js check-evidence --file <path> <sinceSec>
+//   node functional-verification.js check-evidence --state-dir <dir> --file <path> <sinceSec>   (covers from <dir>'s live-evidence manifest)
 //   node functional-verification.js check-evidence - <sinceSec>        (payload piped on stdin)
 //   node functional-verification.js decide-next '<input-json>'
 //   node functional-verification.js decide-next --file <path>
@@ -1340,7 +1420,7 @@ if (require.main === module) {
   const usage = () => {
     console.error(
       'Usage (JSON payload arg accepts inline JSON, `--file <path>`, or `-` for stdin):\n' +
-        "  node functional-verification.js check-evidence '<claims-json>'|--file <path>|- <sinceSec>\n" +
+        "  node functional-verification.js check-evidence [--state-dir <dir>] '<claims-json>'|--file <path>|- <sinceSec>\n" +
         "  node functional-verification.js decide-next '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-report '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
@@ -1374,6 +1454,16 @@ if (require.main === module) {
   const [, , subcommand, ...rest] = process.argv;
 
   if (subcommand === 'check-evidence') {
+    // `--state-dir <dir>` (verification-reuses-evidence AMEND-001): `covers` reaches the checker
+    // ONLY from that feature's live-evidence manifest, matched by resolved artifact path. Any
+    // `covers` in the claims payload is discarded, so no agent -- exerciser or Judge -- can
+    // supply the hashes that decide whether old evidence is reused.
+    let stateDir = null;
+    const sd = rest.indexOf('--state-dir');
+    if (sd !== -1) {
+      stateDir = rest[sd + 1];
+      rest.splice(sd, 2);
+    }
     const [claimsJson, remaining] = resolveJsonPayload(rest);
     const [sinceSecArg] = remaining;
     const sinceSec = Number(sinceSecArg);
@@ -1388,7 +1478,17 @@ if (require.main === module) {
       // artifact of any age. A real HEAD commit time is never zero or negative.
       usage();
     } else {
-      const claims = JSON.parse(claimsJson);
+      const coversByArtifact = new Map(
+        stateDir
+          ? require('./live-evidence').read(stateDir).map((e) => [path.resolve(e.artifact), e.covers])
+          : []
+      );
+      const claims = JSON.parse(claimsJson).map((claim) => {
+        const { covers: _discarded, ...rest } = claim || {};
+        const covers =
+          typeof rest.artifact === 'string' ? coversByArtifact.get(path.resolve(rest.artifact)) : undefined;
+        return covers ? { ...rest, covers } : rest;
+      });
       console.log(JSON.stringify(checkEvidence(claims, sinceSec)));
     }
   } else if (subcommand === 'decide-next') {

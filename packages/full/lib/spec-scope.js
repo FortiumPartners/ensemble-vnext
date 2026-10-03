@@ -1,0 +1,1 @@
+../../core/lib/spec-scope.js

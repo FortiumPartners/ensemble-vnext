@@ -1,9 +1,9 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.6.0
+**Version**: 2.7.0
 **Status**: Draft
 **Created**: 2026-08-17
-**Last Updated**: 2026-09-27
+**Last Updated**: 2026-10-02
 **Author**: @technical-architect
 **Source PRD**: `docs/PRD/functional-verification.md`
 **Task ID Prefix**: FV
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.7.0 | 2026-10-02 | **Synced to `docs/TRD/verification-reuses-evidence.md` (FIX-003).** §3.3's `VerifyFunctionalArgs` gains an optional `liveEvidence?: LiveEvidenceEntry[]` field, placed directly after `coverageFloor`: the entries of `.trd-state/<feature>/evidence/live-manifest.jsonl` that `[LIVE]` tasks recorded (`live-evidence.js read`), `[]` when absent. The Exercise prompt lists them and tells the exerciser to claim an already-captured artifact rather than capture again; `reconcileClaims` is the only source of a claim's `covers`, set from the manifest by artifact path while any `covers` the exerciser sent is discarded. The Judge prompt names a `reused` tier-1 pass and a judge-only `stale: true` claim (`not_met`, cause `evidence-stale`). Validated per entry before any agent is dispatched: not an array, or an entry without a non-empty `artifact` or `covers`, throws naming the index. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 22 to 23 | @backend-implementer (FIX-003) |
 | 2.6.0 | 2026-09-27 | **Synced to `docs/TRD/verification-md-setup.md` (D8, VSET-B002).** §3.3's `VerifyFunctionalArgs` gains an optional `coverageFloor?: number \| null` field, placed directly after `fullRunCommand` — the owner's coverage floor from `verification.md` §5a, as a fraction. `null` (the default, whether omitted or explicit) leaves `decideNext`'s coverage re-label dormant, exactly as before this row. Validated null-or-finite-fraction-in-`[0, 1]` before any agent is dispatched, same standard as `since`/`cap` — a percentage (`60`), a negative fraction, a numeric string (`"0.6"`) or `NaN` all throw. The Judge's STEP 3 decide-next payload gains `"coverageFloor":${JSON.stringify(FLOOR)}` right after `"cap"` and before `"met"`. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 21 to 22 | @technical-architect (VSET-B002) |
 | 2.5.0 | 2026-09-27 | **Synced to `docs/TRD/verification-fix-loop.md` (VFIX-D002).** §3.3's `resume.criteria` and `VerifyFunctionalResult.criteria` shapes gain `cause` (D3, §3.1 of that TRD; VFIX-B002), carried through a resume verbatim and never re-derived. §3.6's `renderReport()` interface gains the same field on its report-input criteria, and its Behavior section gains the `**Diagnosis**`/`**Next**` lines (VFIX-B001) — counts by cause, descending, `unrecorded` for an absent value, rendered only under the four outcomes that can stall. §3.7 corrected in two places that had drifted from the delivered command: the "Step 3.6a" paragraph claimed lane derivation happens there, when the delivered `/implement-trd` puts it at §8.1a instead (no criterion list exists yet at §3.6a's point in the run) — split into a corrected §3.6a paragraph (environments only) and a new §8.1a paragraph (lanes, `refreshCommand`, `fullRunCommand`); and Step 8 item 2's "read `verification-state.json` if a prior run left one, and pass it as `resume`" is corrected to the explicit-flag, `outcome: null` gate the same section's opening paragraph already states, so a stale non-terminal file no longer reads as license to resume an ordinary run | @technical-architect (VFIX-D002) |
 | 2.4.0 | 2026-09-27 | **§3.3's arguments are 21, declared in both directions (VART-B004)** — synced to `docs/TRD/verification-artifacts.md` §3.6, which owns the mechanism; `checks`, `checkComments` and `pagesDir` join the 18. The result gains `pages`. A short paragraph after the interface names, in outline, where each of the three is injected (Exercise slice, Judge STEP 2a, Debug gap enrichment, the new Render stage) and points at that TRD's §3.6 for the full mechanism rather than duplicating it here. The validation paragraph gains the three arguments' own rules (plain object / array / non-empty-when-any-check-criterion-exists). `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 18 to 21 | @technical-architect (VART-B004) |
@@ -574,6 +575,13 @@ interface VerifyFunctionalArgs {
                            //   from verification.md §5a, as a fraction in [0, 1]; null (the
                            //   default) leaves decideNext's re-label dormant. Validated before
                            //   any agent is dispatched, or the workflow throws
+  liveEvidence?: Array<{          // NEW (verification-reuses-evidence). Evidence `[LIVE]` tasks
+    artifact: string;             //   already captured, from live-manifest.jsonl; absent/[] = none.
+    covers: Array<{ path: string; sha256: string }>;  // the ONLY source of a claim's `covers`
+    task?: string; shows?: string; environment?: string;  //   (reconcileClaims, by artifact path;
+  }>;                             //   exerciser-sent `covers` are discarded). Each entry needs a
+                                  //   non-empty artifact and covers, or the workflow throws
+                                  //   naming the index, before any agent is dispatched
   checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
                                         //   skill's SKILL.md text, keyed by skill name; {} when
                                         //   none were selected. Every criterion whose

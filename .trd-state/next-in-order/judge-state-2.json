@@ -1,0 +1,73 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/next-in-order/evidence/fs1-iter2.txt",
+      "reason": "Both copies are identical. Line 71 now reads 'the steps to take now, in order, ready to run' (the iteration-1 contradiction is gone), and lines 111-115 define NEXT as numbered steps in order or 'nothing — this is done', each a line with one fenced block per slash command under it, and a non-command step (merge, PR, commit) as its line alone in the sequence. Always numbering is a superset of 'numbered when there is more than one', so it does not contradict the criterion.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/next-in-order/evidence/fs1-3-rule-grep.txt",
+      "reason": "Zero matches for 'literal next command' in both copies; both say 'never a menu' and 'never a shell command'.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/next-in-order/evidence/fs1-3-rule-grep.txt",
+      "reason": "Both copies say 'the few steps to take now (usually one to three)'.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/next-in-order/evidence/fs4-6-next-excerpts.txt",
+      "reason": "The implement-trd NEXT template lists ordered, numbered steps with one fenced block per slash command. There are zero matches for 'single next command' or 'name ONE' in either copy (the judge confirmed this directly), and the .claude copy is identical.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/next-in-order/evidence/fs4-6-next-excerpts.txt",
+      "reason": "verify-build still keeps the O4 rule that decides which commands come next. NEXT lists those commands as numbered steps, one fenced block each, and a merge or deploy that must come first leads as plain text. The .claude copy is identical.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/next-in-order/evidence/fs6-gh-git-grep.txt",
+      "reason": "There are no gh pr hits. Every remaining git add or git commit line is a commit the command runs itself: audit-build's report and artifacts.json commits, close-feature's close commit, and implement-trd's phase checkpoint. The error-table stash/commit hint is out of scope by the owner's ruling. NEXT says to merge the PR in words, naming it by number and URL.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/next-in-order/evidence/fs7-jest.txt",
+      "reason": "40 suites, 1457 tests passed, 0 failed.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": "satisfied"
+}

@@ -245,6 +245,71 @@ describe('verify-functional: dead Debug agent', () => {
   });
 });
 
+// --------------------------------------------------------------------------- evidence-capture gaps skip Debug
+
+describe('verify-functional: evidence-capture gaps go back to Exercise, not Debug', () => {
+  for (const cause of ['locator-not-found', 'evidence-missing', 'evidence-stale']) {
+    it(`${cause}: no Debug dispatch; the next Exercise prompt states the failure`, async () => {
+      let judgeCalls = 0;
+      const agent = makeAgentStub((prompt, opts) => {
+        if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+        if (opts.label === 'judge') {
+          judgeCalls += 1;
+          if (judgeCalls > 1) return satisfiedJudge();
+          const j = remediateJudge();
+          j.criteria[0] = { ...j.criteria[0], cause, reason: 'locator "Total: 5" not in artifact' };
+          j.debugGaps = [{ id: 'FS-1', statement: 'statement for FS-1', reason: 'locator "Total: 5" not in artifact', artifact: 'a', files: [] }];
+          return j;
+        }
+        return null;
+      });
+
+      const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+      expect(result.outcome).toBe('satisfied');
+      expect(agent.calls.filter((c) => c.opts.label === 'debug')).toHaveLength(0);
+      const exercisePrompts = agent.calls.filter((c) => c.opts.label === 'exercise').map((c) => c.prompt);
+      expect(exercisePrompts).toHaveLength(2);
+      expect(exercisePrompts[0]).not.toMatch(/RE-CAPTURE REQUIRED/);
+      expect(exercisePrompts[1]).toMatch(/RE-CAPTURE REQUIRED/);
+      expect(exercisePrompts[1]).toContain(cause);
+      expect(exercisePrompts[1]).toContain('not in artifact');
+    });
+  }
+
+  it('a mixed set sends only the build gap to Debug and the capture gap to Exercise', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls > 1) return satisfiedJudge();
+        return remediateJudge({
+          criteria: [
+            { id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'wrong output', cause: 'judged-failed', files: [] },
+            { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'stale copy', cause: 'evidence-stale', files: [] },
+          ],
+          gaps: ['FS-1', 'FS-2'],
+          debugGaps: [
+            { id: 'FS-1', statement: 's1', reason: 'wrong output', artifact: null, files: [] },
+            { id: 'FS-2', statement: 's2', reason: 'stale copy', artifact: null, files: [] },
+          ],
+        });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    const debugCalls = agent.calls.filter((c) => c.opts.label === 'debug');
+    expect(debugCalls).toHaveLength(1);
+    expect(debugCalls[0].prompt).toContain('wrong output');
+    expect(debugCalls[0].prompt).not.toContain('stale copy');
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')[1].prompt).toMatch(/RE-CAPTURE REQUIRED[\s\S]*evidence-stale/);
+  });
+});
+
 // --------------------------------------------------------------------------- unbuilt from Debug
 
 describe('verify-functional: Debug reports unbuilt', () => {
@@ -2445,6 +2510,135 @@ describe('verify-functional: cause', () => {
     expect(result.criteria).toContainEqual(
       expect.objectContaining({ id: 'FS-1', status: 'not_verifiable', cause: 'environment-unreachable' })
     );
+  });
+});
+
+describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captured)', () => {
+  const entry = (over = {}) => ({
+    task: 'T-9',
+    artifact: '/repo/.trd-state/example/evidence/live/T-9/home.txt',
+    shows: 'the home page at 1280px',
+    environment: 'local',
+    covers: [{ path: '/repo/src/home.js', sha256: 'abc123' }],
+    ...over,
+  });
+
+  async function run(liveEvidence, exerciseClaims) {
+    const prompts = { exercise: null, judge: null };
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        prompts.exercise = prompt;
+        return exercisePlanClaims(exerciseClaims || [{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      }
+      if (opts.label === 'judge') {
+        prompts.judge = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+    const args = baseArgs(liveEvidence === undefined ? {} : { liveEvidence });
+    await runWorkflow(SOURCE, { agent, args });
+    return prompts;
+  }
+
+  const claimsOf = (judgePrompt) => JSON.parse(judgePrompt.match(/This iteration's Exercise claims:\n(.*)/)[1]);
+
+  it('lists a manifest artifact path and the reuse instruction in the Exercise prompt', async () => {
+    const { exercise } = await run([entry()]);
+    expect(exercise).toContain(entry().artifact);
+    expect(exercise).toMatch(/already proves it/);
+  });
+
+  it('adds no reuse block when liveEvidence is absent or empty', async () => {
+    for (const le of [undefined, []]) {
+      const { exercise } = await run(le);
+      expect(exercise).not.toMatch(/already proves it/);
+    }
+  });
+
+  // AMEND-001: no hash is copied into the claims; the checker reads the manifest itself.
+  it('drops an exerciser-supplied covers on a manifest artifact and copies no hashes into the claims', async () => {
+    const { judge } = await run([entry()], [
+      { criterion: 'FS-1', artifact: entry().artifact, covers: [{ path: '/etc/passwd', sha256: 'forged' }] },
+      { criterion: 'FS-2', artifact: 'b' },
+    ]);
+    const claims = claimsOf(judge);
+    expect(claims[0]).not.toHaveProperty('covers');
+    expect(judge).not.toMatch(/abc123/);
+  });
+
+  it('tells the Judge to run check-evidence with --state-dir, so the checker reads the manifest itself', async () => {
+    const { judge } = await run([entry()], [
+      { criterion: 'FS-1', artifact: entry().artifact },
+      { criterion: 'FS-2', artifact: 'b' },
+    ]);
+    expect(judge).toMatch(/check-evidence --file \S+ --state-dir \S+ \d+/);
+  });
+
+  it('gives a claim on a non-manifest artifact no covers, even when the exerciser sent some', async () => {
+    const { judge } = await run([entry()], [
+      { criterion: 'FS-1', artifact: 'not-in-manifest.txt', covers: [{ path: '/x', sha256: 'y' }] },
+      { criterion: 'FS-2', artifact: null, reason: 'none' },
+    ]);
+    const claims = claimsOf(judge);
+    expect(claims[0]).not.toHaveProperty('covers');
+    expect(claims[1]).not.toHaveProperty('covers');
+  });
+
+  it('drops exerciser covers even when no liveEvidence is supplied', async () => {
+    const { judge } = await run(undefined, [
+      { criterion: 'FS-1', artifact: 'a', covers: [{ path: '/x', sha256: 'y' }] },
+      { criterion: 'FS-2', artifact: 'b' },
+    ]);
+    expect(claimsOf(judge)[0]).not.toHaveProperty('covers');
+  });
+
+  it('stops offering live evidence once a Debug stage has run, so a stale artifact is not re-claimed', async () => {
+    const exercisePrompts = [];
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        exercisePrompts.push(prompt);
+        return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      }
+      if (opts.label === 'judge') {
+        judgeCalls++;
+        return judgeCalls === 1 ? remediateJudge() : satisfiedJudge();
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      return null;
+    });
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: [entry()] }) });
+    expect(exercisePrompts).toHaveLength(2);
+    expect(exercisePrompts[0]).toMatch(/already proves it/);
+    expect(exercisePrompts[1]).not.toMatch(/already proves it/);
+    expect(exercisePrompts[1]).not.toContain(entry().artifact);
+  });
+
+  it('teaches the Judge about reused passes and judge-only stale claims', async () => {
+    const { judge } = await run([entry()]);
+    expect(judge).toMatch(/reused/);
+    expect(judge).toMatch(/stale: true/);
+    expect(judge).toMatch(/evidence-stale/);
+  });
+
+  it('throws naming the index when liveEvidence is not an array', async () => {
+    const agent = makeAgentStub(() => null);
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: { artifact: 'x' } }) })).rejects.toThrow(/liveEvidence must be an array/);
+    expect(agent.calls).toHaveLength(0);
+  });
+
+  it.each([
+    ['no artifact', { artifact: undefined }],
+    ['an empty artifact', { artifact: '' }],
+    ['no covers', { covers: undefined }],
+    ['empty covers', { covers: [] }],
+  ])('throws naming the index for an entry with %s, before any agent runs', async (_n, over) => {
+    const agent = makeAgentStub(() => null);
+    await expect(
+      runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: [entry(), entry(over)] }) })
+    ).rejects.toThrow(/liveEvidence\[1\]/);
+    expect(agent.calls).toHaveLength(0);
   });
 });
 

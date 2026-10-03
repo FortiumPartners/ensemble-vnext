@@ -755,3 +755,61 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [ran] `node packages/core/lib/pull-request.js mode|ensure` runs against a throwaway temp repo with a local bare origin and a stub `gh` first on PATH (stub logs argv); cwd must be the temp repo (settings read from `./.claude/settings.json`). Never needs a real remote or real `gh`.
 - [ran] `mode` prints a bare word (`auto` or `never`), NOT a JSON line, so `JSON.parse` of its stdout fails; FS-1/FS-2 as worded ("parses as JSON") do not match this output. `ensure` does print one JSON line {action,url,reason}.
 - [ran] Sandbox note: `rm -rf $VAR/...` is blocked by a safety check; use a fresh unique temp dir per run instead of deleting.
+
+## Exercising `live-evidence.js` (verification-reuses-evidence, 2026-10-02)
+
+- [ran] `node .claude/lib/live-evidence.js record|read --state-dir D` needs no server; use a temp dir fixture. Under zsh wrap the command in a shell function (`LE(){ node ...live-evidence.js "$@"; }`) -- a `$LE` variable holding the command is not word-split and fails with exit 127.
+- [ran] `record` also appends the artifact itself to `covers` (a second entry beside the declared covered files), so the stored line carries one more `{path, sha256}` than `--covers` names; a typical line is about 400 bytes.
+
+## Exercising live-evidence reuse (verification-reuses-evidence run, 2026-10-02)
+
+- [ran] The reuse gate is exercisable with no server: record an artifact with `node .claude/lib/live-evidence.js record --state-dir <tmp> --task T --artifact <abs> --covers <abs file> --shows x --environment local`, `touch -t 202001010000` the artifact, then `node .claude/lib/functional-verification.js check-evidence --state-dir <tmp> --file claims.json 1700000000`. Pass shows `"tier1":"pass",...,"reused":true`; a failure shows `"tier1":"fail","failure":"stale"` (there is no literal `stale` tier value). `record` also adds the artifact itself to covers.
+- [ran] zsh does not word-split an unquoted `$CLI` variable holding a command line; wrap the check in a shell function instead.
+- [ran] Shapes the manifest cannot hold (covers `[]`, relative path, absolute directory/nonexistent) are exercised by `require('.claude/lib/functional-verification.js').checkEvidence(claims, sinceSec)` in a `node` script; all give `failure: "stale"`.
+
+## Capturing the assembled Judge prompt (verification-reuses-evidence, FS-25)
+
+- [ran] A grep of `packages/core/workflows/verify-functional.js` cannot show a Judge-prompt sentence, because each one spans concatenated string literals with escaped backticks. Capture the assembled string instead: load the script with `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js`, return stub results for the `exercise` and `judge` labels, then write `agent.calls.find(c => c.opts.label === 'judge').prompt` to a file. Script: `.trd-state/verification-reuses-evidence/evidence/fs25-capture.js`.
+
+## Exercising the NEXT-readout wording (2026-10-02 run, `next-in-order`)
+
+- [ran] All 7 criteria are static-text checks over `.claude/rules/command-status.md`, its
+  template copy `packages/core/templates/claude-directory/rules/command-status.md`, and four
+  command files; grep over them plus one `npx jest` run (about 10s, 40 suites, 1457 tests) is
+  sufficient. `diff -q` shows the `.claude/` and `packages/core/` copies are identical.
+- [ran] Under zsh, an `echo ====` line is parsed as a command (`=` expansion) and aborts the
+  rest of a chained command; avoid bare `====` separators in Bash calls.
+- [read] The readout template block in `command-status.md` (line ~71) still reads "NEXT the
+  exact command or action, ready to run"; only the prose under "What each section carries"
+  was reworded to ordered steps.
+
+## Exercising the plan-from-spec criteria (2026-10-03 run, `plan-from-spec`)
+
+- [ran] `.claude/lib/spec-scope.js` is exercisable directly with no server or session. Zsh does not
+  word-split a `SC="node .claude/lib/spec-scope.js"` variable; define a shell function instead. Run
+  it from a temp dir (spec path is read relative to cwd) to see the repo-relative `**Source spec**:`
+  path form. The lightning-lane roadmap was copied to a temp dir and never touched in place.
+- [ran] `extract` on a section with no "Acceptance criteria" heading prints
+  `{"criteria":[],"verification":{}}`, not a bare `[]` (the `/plan` prose at §2g and the criterion text say
+  `[]`). Recorded as an observed wording difference for the judge, not a verdict.
+- [ran] When appending a criterion to a sweep file by hand for a `duplicated` defect, put it BEFORE the
+  `**Regression guards:**` lead-in; after it, `extract` reads it as a guard and `check` correctly reports
+  nothing duplicated (guards sit outside the split).
+- [ran] The swept-evidence reuse check (FS-25) is exercisable end to end without Jest: `live-evidence.js
+  record --covers a,b` then `functional-verification.js check-evidence --state-dir D '<claims json>' <since>`
+  with the artifact and sources backdated via `touch -t`: pass+`reused:true` while bytes match, `stale` after
+  one byte of a covered file changes.
+- [read] The contract's "Four source kinds" table (functional-verification.md line 48) was not extended;
+  `spec` appears only in the definition-header template (lines 72, 76-77). `implement-trd.md` state schema
+  (line ~1342) also still lists `source_kind` without `spec`. Wording `renderReport` uses for a sweep file's
+  Next line differs from the literal sentences in the success definition (FS-22).
+
+## Exercising plan-from-spec (2026-10-02 run, iteration 2, FS-16/21/22/23)
+
+- [ran] `spec-scope.js render-sweep` only accepts ids from a spec whose criteria sit under a
+  `### Acceptance criteria` heading as `- **AC-x.y** · Surface: text` bullets; a hand-written
+  `**Spec**:`-style sweep fixture is rejected by `source` ("no **Source spec**: line"). Build a sweep
+  fixture by running `render-sweep ... --core-trd none --out <scratch>` on a tiny spec, then run
+  `source --file` on the output to get `coreTrd: "none"`.
+- [ran] `npx jest <file> -t "<describe name>"` reports skipped counts for everything else; the line
+  `4 passed` is the usable locator for the sweep-file `renderReport` block.

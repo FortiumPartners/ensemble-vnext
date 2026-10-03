@@ -45,9 +45,9 @@ convention exists to prevent — do not write one.
 path, no TRD excerpt, no task list. It does not know what was built; it knows only what was
 asked for.
 
-**Four source kinds are valid.** The loop needs a statement of what success looks like; a PRD
-is one way to supply that, not the only one. Whichever applies, the agent receives **that
-source alone**:
+**Five source kinds are valid.** The loop needs a statement of what success looks like; a PRD
+is one way to supply that, not the only one. Whichever of the first four applies, the agent
+receives **that source alone**; the fifth, `spec`, is never derived by an agent at all:
 
 | Source | Given to the agent as | Used when |
 |---|---|---|
@@ -55,9 +55,11 @@ source alone**:
 | **Reproduction** | the extracted `## Reproduction` text | a defect: steps, actual, expected |
 | **Intended change** | the extracted `## Intended Change` text | a small change decided in conversation |
 | **Behaviour preserved** | the extracted `## Behaviour Preserved` text | a refactor: the tests that passed before, and the surface that must not move |
+| **Spec** | not given to any agent: the criteria are copied verbatim by `spec-scope.js criteria` from the spec section, never derived | a sweep file (`.sweep.md`), or a TRD whose header has `**Source spec**: <path> § <section>` — the spec already lists the acceptance criteria |
 
-**The isolation rule is the same for all four, and it is why the last three are passed as
-EXTRACTED TEXT rather than as a TRD path.** A deriver that can see the task list writes
+**The isolation rule is the same for the four derived kinds, and it is why reproduction,
+intended change and behaviour preserved are passed as EXTRACTED TEXT rather than as a TRD
+path.** A deriver that can see the task list writes
 criteria the plan satisfies by construction, and verification becomes circular — it confirms
 the plan was followed rather than that the outcome was reached. A reproduction and a recorded
 decision are statements of *outcome*, and stay legitimate sources; the TRD file that happens
@@ -68,10 +70,13 @@ to contain them also contains the plan, and must never be handed over.
 ```markdown
 # Functional Success Definition: <feature>
 
-**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change | §Behaviour Preserved -->
-**Source kind**: prd | reproduction | intended-change | behaviour-preserved
+**Source**: docs/PRD/<feature>.md   <!-- or: <trd path> §Reproduction | §Intended Change | §Behaviour Preserved | <spec path> § <section> -->
+**Source kind**: prd | reproduction | intended-change | behaviour-preserved | spec
 **Derived**: <ISO8601>
 **Criteria**: <n>
+
+<!-- Source kind `spec`: the rows are a spec section's acceptance criteria, copied verbatim by
+     `spec-scope.js criteria`, never derived by an agent. -->
 
 | ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts |
 |----|----------------------|-------|------------------------------|------------|--------|-------|
@@ -165,7 +170,12 @@ content:
 - it is **non-empty** (more than zero bytes);
 - its mtime is **newer than the freshness floor** (the later of HEAD's commit time and the
   verification loop's start time) — an artifact older than that is not evidence of anything
-  the current run's code does.
+  the current run's code does, **unless it qualifies for reuse**: a `[LIVE]` task recorded it
+  in `evidence/live-manifest.jsonl` with the source files it exercises (`covers`) and each
+  file's sha256, and every one of those files still has exactly that hash. The checker
+  reads `covers` from the manifest itself and recomputes the hashes; no agent supplies `covers`,
+  the exerciser only claims a listed artifact. A
+  reused artifact still needs its locator, and any change to a covered file makes it `stale`.
 
 A claim that names no artifact — because none applies, or none could be produced — is not
 automatically a failure. It carries a stated reason instead, and the criterion can still
@@ -331,7 +341,7 @@ fixed set (never invented, never a free-text substitute):
 | Cause | Assigned when | Buildable |
 |---|---|---|
 | `evidence-missing` | Tier 1 failed with `missing`, `empty`, `not-a-file` or `no-artifact`, and nothing seen shows the build misbehaving | No |
-| `evidence-stale` | Tier 1 failed with `stale` | No |
+| `evidence-stale` | Tier 1 failed with `stale`, including a reuse rejected because a covered file changed | No |
 | `locator-not-found` | Tier 1 failed with `no-locator` or `locator-not-found` | No |
 | `never-exercised` | No claim reached the judge for this criterion | No |
 | `judged-failed` | The build was reached and did the wrong thing, **including crashing or erroring during capture**; also a check row the judge ruled `deviates` | Yes |

@@ -1,0 +1,1 @@
+[{"criterion":"FS-25","artifact":".trd-state/verification-reuses-evidence/evidence/fs25-assembled-judge-prompt.txt","locator":"A \"skipped\" judge-only claim reported `stale: true` is an old artifact whose covered files changed or were never declared: rule it \"not_met\" with cause \"evidence-stale\" rather than reading it as proof.","judgeOnly":false}]

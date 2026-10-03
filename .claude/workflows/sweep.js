@@ -81,6 +81,28 @@ function resolveFixAgent(item) {
 
 if (!SOURCE) throw new Error('sweep: args.source is required — the issue list, verbatim')
 
+/* A sweep file written by `/plan` from a spec carries criterion ids: bold-id items such as
+ * "- **AC-4.1** · ..." above its "**Regression guards:**" lead-in. Guards are constraints, not
+ * work, so they are cut off before looking. Without ids (an owner's walkthrough list) this is
+ * empty and nothing below changes. Regex mirrors spec-scope.js's id shape; the workflow
+ * sandbox cannot require() it. */
+const CRITERION_LINES = [
+  ...SOURCE.split(/^\s*\*\*Regression guards:?\*\*/m)[0].matchAll(
+    /^\s*[-*]\s+\*\*([A-Za-z][A-Za-z0-9]*-\d+(?:\.\d+)*)\*\*.*$/gm
+  ),
+]
+const CRITERION_IDS = CRITERION_LINES.map((m) => m[1])
+/* The fixer is otherwise given only triage's one-line paraphrase. A criterion's own words are
+ * the locked scope, so its fixer reads them verbatim. */
+const CRITERION_TEXT = new Map(CRITERION_LINES.map((m) => [m[1], m[0].trim()]))
+const ID_RULE = CRITERION_IDS.length
+  ? `
+THE LIST CARRIES CRITERION IDS: ${CRITERION_IDS.join(', ')}. Use each one, exactly as written,
+as that item's \`id\` -- in \`fix\` AND in \`deferred\`. Every id appears in exactly one of the two.
+Items under a "Regression guards" heading are constraints, not work: leave them out of both.
+`
+  : ''
+
 // --------------------------------------------------------------------------- 1. TRIAGE
 
 phase('Triage')
@@ -109,7 +131,8 @@ mistake: a schema change dispatched as a quick win damages a working tree.
 
 An issue that is unclear rather than large is also deferred: say what you would need to know.
 
-Zero deferrals is common and fine. So is deferring most of the list.`,
+Zero deferrals is common and fine. So is deferring most of the list.
+${ID_RULE}`,
   {
     label: 'triage',
     phase: 'Triage',
@@ -140,6 +163,7 @@ Zero deferrals is common and fine. So is deferring most of the list.`,
             additionalProperties: false,
             required: ['summary', 'why'],
             properties: {
+              id: { type: 'string', description: 'the item id, when the list carries ids' },
               summary: { type: 'string' },
               why: { type: 'string', description: 'too large, coupled to another issue, or unclear — and which' },
             },
@@ -160,6 +184,7 @@ if (!TO_FIX.length) {
   return {
     fixed: [],
     deferred: DEFERRED,
+    criterion_ids: CRITERION_IDS,
     readout:
       `SWEEP: nothing to fix — ${DEFERRED.length} issue(s) all deferred\n` +
       DEFERRED.map((d) => `    ${d.summary} — ${d.why}`).join('\n') +
@@ -198,7 +223,7 @@ const fixPrompt = (item) =>
   `Fix ONE reported issue, grounded in the code that exists.
 ${SCOPE}
 ISSUE ${item.id}: ${item.summary}
-
+${CRITERION_TEXT.has(item.id) ? `THE CRITERION, VERBATIM (this is the scope; do not widen it): ${CRITERION_TEXT.get(item.id)}\n` : ''}
 GROUND IT FIRST. Find the code that produces this behaviour. Read it. Do not fix from the
 issue text alone — the reporter described a symptom, and the symptom is not always where the
 cause is.
@@ -288,6 +313,7 @@ return {
   too_big: tooBig.map((r) => ({ id: r.id, summary: r.summary, detail: r.detail || '' })),
   failed: failed.map((r) => ({ id: r.id, summary: r.summary, detail: r.detail || '' })),
   deferred: DEFERRED,
+  criterion_ids: CRITERION_IDS,
   regions: allRegions.length,
   readout:
     `SWEEP: ${fixed.length} fixed across ${allRegions.length} region(s) in parallel\n` +

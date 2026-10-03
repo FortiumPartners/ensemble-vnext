@@ -1,0 +1,136 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verification-reuses-evidence.md",
+  "trd_hash": "ab965e84ea8dcc0a0c38da11588d7c243e05ef7feb90480d7e1bd330881cfa4b",
+  "branch": "feature/verification-reuses-evidence/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "New packages/core/lib/live-evidence.js (record, read, CLI record/read), modelled on discovered.js: injectable clock, 204",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/live-evidence.js",
+        "packages/core/lib/live-evidence.test.js",
+        ".claude/lib/live-evidence.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T22:48:50.206Z",
+      "completed_at": "2026-10-02T22:57:52.325Z",
+      "last_advanced": "2026-10-02T22:50:10.365Z"
+    },
+    "FIX-002": {
+      "description": "functional-verification.js checkEvidence: reuse path by sha256 of covers for locator claims; stale/reused information on",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T22:48:50.206Z",
+      "completed_at": "2026-10-02T22:57:52.331Z",
+      "last_advanced": "2026-10-02T22:50:10.379Z"
+    },
+    "FIX-003": {
+      "description": "verify-functional.js: liveEvidence arg validated per entry; Exercise prompt lists it with the reuse instruction; reconci",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "docs/TRD/functional-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T22:48:50.206Z",
+      "completed_at": "2026-10-02T22:57:52.331Z",
+      "last_advanced": "2026-10-02T22:50:10.379Z"
+    },
+    "FIX-004": {
+      "description": "Commands, contracts and docs: implement-trd.md §3.5 adds the live-evidence element to [LIVE] task prompts (task.live), §",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/contracts/trd-authoring.md",
+        "docs/reference/verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T22:48:50.206Z",
+      "completed_at": "2026-10-02T22:57:52.331Z",
+      "last_advanced": "2026-10-02T22:50:10.379Z"
+    },
+    "AMEND-001": {
+      "description": "checker reads covers from the manifest itself (--state-dir)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/workflows/verify-functional.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-02T23:06:53.877Z",
+      "completed_at": "2026-10-02T23:06:53.877Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "ade8b54",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-02T22:57:52.599Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "ade8b54",
+    "last_checkpoint_timestamp": "2026-10-02T22:57:52.599Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/verification-reuses-evidence.md#Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree"
+      }
+    },
+    "fix": {
+      "plan": ".trd-state/verification-reuses-evidence/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "promoted": 0,
+          "closed": 1,
+          "open": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
+    }
+  }
+}

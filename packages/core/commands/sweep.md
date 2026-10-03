@@ -71,6 +71,37 @@ them.
 
 Then run the project's check battery once over the whole batch, not once per issue.
 
+## Step 3a: Criterion accounting — only when the list carries criterion ids
+
+A sweep file written by `/plan` from a spec (`docs/plan/<slug>.sweep.md`) lists criteria by id
+(`AC-4.1` and the like). The workflow result then has a non-empty `criterion_ids`. **A list
+without criterion ids skips this whole step and behaves exactly as above.**
+
+1. **Account for every id.** After Step 3's attestation, each criterion id must sit in exactly
+   one of: fixed (attested), already fine, or failed. An id that was deferred at triage or came
+   back too big is **not a sweep item**: end the run `COMMAND STUCK: /sweep` with the reason
+   "`<id>` is not a sweep item — re-run `/plan` to move it to the core". An id in no bucket at
+   all is a failed one. Regression guards are not items and are not counted.
+2. **Record what each fixed criterion changed.** Write
+   `.trd-state/<slug>-sweep/sweep-result.json` (`<slug>` is the sweep file's name before
+   `.sweep.md`), mapping criterion id to the files that criterion's fix changed, taken from
+   the attested `files_changed` (a claimed file untouched on disk is dropped):
+
+   ```json
+   { "sweepFile": "docs/plan/<slug>.sweep.md", "fixed": { "AC-4.1": ["src/a.ts", "src/b.ts"] } }
+   ```
+
+   `/verify-build` reads this to carry each criterion's evidence into the core's verification.
+   Write it whether or not the run ends STUCK, so the fixed criteria are not lost.
+3. **Check overlap with the core.** Read the core TRD from the file's `**Core TRD**:` line
+   (`node .claude/lib/spec-scope.js source --file <sweep file>`, field `coreTrd`). Unless it is
+   `none`, run
+   `node .claude/lib/spec-scope.js overlap --sweep-files <every changed file, comma-separated> --trd <core TRD>`.
+   Any shared file ends the run `COMMAND STUCK: /sweep` naming each file: the split was wrong
+   and `/plan` must move that criterion to the core.
+
+---
+
 ## Step 4: Record what was found but not done
 
 For anything triage deferred or a fixer returned as too big, record it so it survives the

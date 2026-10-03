@@ -308,6 +308,81 @@ describe('checkEvidence', () => {
     });
   });
 
+  describe('reuse by content hash of covers', () => {
+    const crypto = require('crypto');
+    const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+    let artifact;
+    let src;
+    let mtimeSec;
+    let covers;
+
+    beforeEach(() => {
+      artifact = path.join(tmpDir, 'old.txt');
+      src = path.join(tmpDir, 'src.js');
+      fs.writeFileSync(artifact, 'saw: Welcome back');
+      fs.writeFileSync(src, 'v1');
+      mtimeSec = Math.floor(fs.statSync(artifact).mtimeMs / 1000);
+      covers = [{ path: src, sha256: sha('v1') }];
+    });
+
+    const run = (extra = {}, since = mtimeSec + 100) =>
+      checkEvidence([{ criterion: 'FS-1', artifact, locator: 'Welcome back', covers, ...extra }], since)[0];
+
+    test('old artifact, unchanged covered file: pass with reused', () => {
+      const v = run();
+      expect(v.tier1).toBe('pass');
+      expect(v.reused).toBe(true);
+    });
+
+    test('covered file edited: stale; restored to old bytes: pass again', () => {
+      fs.writeFileSync(src, 'v2');
+      expect(run()).toMatchObject({ tier1: 'fail', failure: 'stale' });
+      fs.writeFileSync(src, 'v1');
+      expect(run()).toMatchObject({ tier1: 'pass', reused: true });
+    });
+
+    test('empty, relative, missing, directory or malformed covers: stale', () => {
+      for (const bad of [
+        [],
+        [{ path: 'src.js', sha256: sha('v1') }],
+        [{ path: path.join(tmpDir, 'gone.js'), sha256: sha('v1') }],
+        [{ path: tmpDir, sha256: sha('v1') }],
+        [{ path: src }],
+        'nope',
+      ]) {
+        expect(run({ covers: bad })).toMatchObject({ tier1: 'fail', failure: 'stale' });
+      }
+    });
+
+    test('no covers on an old artifact: stale as before', () => {
+      expect(run({ covers: undefined })).toMatchObject({ failure: 'stale' });
+    });
+
+    test('locator gate still runs on a reused artifact', () => {
+      expect(run({ locator: 'absent' })).toMatchObject({ failure: 'locator-not-found' });
+      expect(run({ locator: undefined })).toMatchObject({ failure: 'no-locator' });
+    });
+
+    test('fresh artifact passes with no covers and is not marked reused', () => {
+      const v = run({ covers: undefined }, mtimeSec - 10);
+      expect(v.tier1).toBe('pass');
+      expect(v.reused).toBeUndefined();
+    });
+
+    test('judge-only: reports stale true when covered file edited, skipped regardless', () => {
+      fs.writeFileSync(src, 'v2');
+      expect(run({ judgeOnly: true })).toMatchObject({ tier1: 'skipped', stale: true });
+    });
+
+    test('judge-only: unchanged covers reports reused, not stale; fresh reports stale false', () => {
+      expect(run({ judgeOnly: true })).toMatchObject({ tier1: 'skipped', stale: false, reused: true });
+      expect(run({ judgeOnly: true, covers: undefined }, mtimeSec - 10)).toMatchObject({
+        tier1: 'skipped',
+        stale: false,
+      });
+    });
+  });
+
   test('LOCATOR_SCAN_BYTES is 2,000,000', () => {
     expect(LOCATOR_SCAN_BYTES).toBe(2_000_000);
   });
@@ -681,6 +756,25 @@ describe('renderReport', () => {
     ],
   };
 
+  describe('a sweep file as the source', () => {
+    const sweep = { ...baseInput, prd: 'docs/plan/onboarding.sweep.md' };
+    test.each(['satisfied', 'stuck', 'stalled'])('%s names the sweep Next, never the TRD commands', (outcome) => {
+      const report = renderReport({ ...sweep, outcome });
+      expect(report).not.toContain('/refine-verification');
+      expect(report).not.toContain('/audit-build');
+      expect(report).toContain(
+        outcome === 'satisfied'
+          ? "**Next**: commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line"
+          : '**Next**: re-run `/sweep docs/plan/onboarding.sweep.md` for the failed criteria, then `/verify-build docs/plan/onboarding.sweep.md`'
+      );
+    });
+
+    test('a non-sweep prd keeps today\'s lines', () => {
+      expect(renderReport({ ...baseInput, outcome: 'satisfied' })).toContain('**Next**: `/audit-build`');
+      expect(renderReport({ ...baseInput, outcome: 'stuck' })).toContain('`/refine-verification`');
+    });
+  });
+
   test('every criterion in the definition appears in the report (AC-9)', () => {
     const report = renderReport(baseInput);
     for (const c of baseInput.criteria) {
@@ -937,6 +1031,63 @@ describe('CLI', () => {
     const parsed = JSON.parse(stdout);
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed[0]).toMatchObject({ criterion: 'FS-1', tier1: 'pass' });
+  });
+
+  // verification-reuses-evidence AMEND-001: covers come only from the manifest, never the payload.
+  describe('check-evidence --state-dir', () => {
+    const LIVE = path.join(__dirname, 'live-evidence.js');
+    // An artifact and its covered source file, both dated well before the floor, recorded
+    // in the manifest by the real recorder.
+    function setup() {
+      const stateDir = path.join(tmpDir, 'feat');
+      const artifact = path.join(stateDir, 'evidence', 'live', 'T-1', 'shot.txt');
+      const src = path.join(tmpDir, 'src.js');
+      fs.mkdirSync(path.dirname(artifact), { recursive: true });
+      fs.writeFileSync(artifact, 'proof');
+      fs.writeFileSync(src, 'code');
+      const old = new Date(Date.now() - 3600 * 1000);
+      fs.utimesSync(artifact, old, old);
+      fs.utimesSync(src, old, old);
+      execFileSync('node', [LIVE, 'record', '--state-dir', stateDir, '--task', 'T-1', '--artifact', artifact,
+        '--shows', 'proof', '--covers', src], { stdio: 'pipe' });
+      const since = Math.floor(Date.now() / 1000) - 60;
+      return { stateDir, artifact, src, since };
+    }
+    const check = (stateDir, claims, since) =>
+      JSON.parse(execFileSync('node', [MODULE_PATH, 'check-evidence', ...(stateDir ? ['--state-dir', stateDir] : []),
+        JSON.stringify(claims), String(since)]).toString());
+
+    test('reuses an old artifact the manifest records, while its covered file is unchanged', () => {
+      const { stateDir, artifact, since } = setup();
+      const [r] = check(stateDir, [{ criterion: 'FS-1', artifact, locator: 'proof' }], since);
+      expect(r).toMatchObject({ tier1: 'pass', reused: true });
+    });
+
+    test('ignores forged covers in the payload for an artifact the manifest does not hold', () => {
+      const { stateDir, since } = setup();
+      const other = path.join(tmpDir, 'other.txt');
+      fs.writeFileSync(other, 'proof');
+      const old = new Date(Date.now() - 3600 * 1000);
+      fs.utimesSync(other, old, old);
+      const forged = [{ path: other, sha256: require('crypto').createHash('sha256').update('proof').digest('hex') }];
+      const [r] = check(stateDir, [{ criterion: 'FS-1', artifact: other, locator: 'proof', covers: forged }], since);
+      expect(r).toMatchObject({ tier1: 'fail', failure: 'stale' });
+    });
+
+    test('uses the manifest covers, not forged ones, for a manifest artifact whose code changed', () => {
+      const { stateDir, artifact, src, since } = setup();
+      fs.writeFileSync(src, 'changed code');
+      const forged = [{ path: src, sha256: require('crypto').createHash('sha256').update('changed code').digest('hex') }];
+      const [r] = check(stateDir, [{ criterion: 'FS-1', artifact, locator: 'proof', covers: forged }], since);
+      expect(r).toMatchObject({ tier1: 'fail', failure: 'stale' });
+    });
+
+    test('without --state-dir, payload covers are discarded and an old artifact is stale', () => {
+      const { artifact, since } = setup();
+      const forged = [{ path: artifact, sha256: 'whatever' }];
+      const [r] = check(null, [{ criterion: 'FS-1', artifact, locator: 'proof', covers: forged }], since);
+      expect(r).toMatchObject({ tier1: 'fail', failure: 'stale' });
+    });
   });
 
   test('decide-next subcommand: JSON in, JSON object out', () => {
@@ -2622,6 +2773,21 @@ describe('renderFixSummary', () => {
   test('throws when rounds or criteria are missing', () => {
     expect(() => renderFixSummary({ criteria: [] })).toThrow(/rounds/);
     expect(() => renderFixSummary({ rounds: [] })).toThrow(/criteria/);
+  });
+
+  test('renders a round recorded in the shape verify-build.md step 5 documents', () => {
+    // The command's documented record shape is the contract the renderer reads; a rename on
+    // either side renders a blank table, so pin the command text to the renderer's field names.
+    const cmd = fs.readFileSync(path.join(__dirname, '..', 'commands', 'verify-build.md'), 'utf8');
+    const m = cmd.match(/Append `\{ ([^}]+) \}` to\s+`functional_verification\.fix\.rounds`/);
+    expect(m).not.toBeNull();
+    const fields = m[1].split(',').map((f) => f.trim());
+    expect(fields).toEqual(expect.arrayContaining(['round', 'tasksPromoted', 'criteriaClosed', 'criteriaOpen']));
+    const md = renderFixSummary({
+      rounds: [{ round: 1, tasksPromoted: 2, criteriaClosed: 3, criteriaOpen: 5, buildable: 4 }],
+      criteria: [],
+    });
+    expect(md).toContain('| 1 | 2 | 3 | 5 |');
   });
 });
 

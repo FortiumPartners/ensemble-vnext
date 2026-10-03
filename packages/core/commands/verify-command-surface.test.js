@@ -244,22 +244,23 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 22 fields in the same order (VSET-B002/B003, D8)', () => {
-  test('implement-trd.md §8.3 lists 22 fields ending in checks/checkComments/pagesDir', () => {
+describe('both dispatch blocks carry the same 23 fields in the same order (VSET-B002/B003, D8)', () => {
+  test('implement-trd.md §8.3 lists 23 fields ending in checks/checkComments/pagesDir', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(22);
+    expect(fields).toHaveLength(23);
     expect(fields.slice(-3)).toEqual(['checks', 'checkComments', 'pagesDir']);
   });
 
-  test('verify-build.md §4 lists the identical 22 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 23 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 22 fields, not 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 22 fields/);
+  test('verify-build.md §4 intro says 23 fields, not 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 23 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 22 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 21 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 18 fields/);
   });
@@ -701,9 +702,20 @@ describe('the cycle-ending commands open the pull request', () => {
     expect(auditBuild).toMatch(/No audit commit, no PR\./);
   });
 
-  test('NEXT offers gh pr merge, never a command that merges on its own', () => {
-    expect(auditBuild).toMatch(/gh pr merge <number> --merge/);
-    expect(closeFeature).toMatch(/gh pr merge <number> --merge/);
+  test('NEXT says to merge the PR in words, with no gh or git command in its paragraph', () => {
+    for (const doc of [auditBuild, closeFeature]) {
+      expect(doc).not.toMatch(/gh pr /);
+      expect(doc).toMatch(/merge the PR once you\s+have reviewed it/);
+    }
+    const between = (doc, start, end) => {
+      const from = doc.indexOf(start);
+      expect(from).toBeGreaterThan(-1);
+      const to = doc.indexOf(end, from);
+      expect(to).toBeGreaterThan(from);
+      return doc.slice(from, to);
+    };
+    expect(between(auditBuild, '**NEXT.** When `capReached`', ' --- ')).not.toMatch(/git (add|commit)/);
+    expect(between(closeFeature, '- **NEXT**', 'Then the banner')).not.toMatch(/git (add|commit)/);
   });
 
   test('implement-trd.md says /audit-build opens the PR when openPullRequest is auto', () => {
@@ -797,5 +809,411 @@ describe('implement-trd section 2.1a: audit-promoted tasks fix the class', () =>
 
   test('names fixing every instance across touched files and listing each', () => {
     expect(sec).toMatch(/find and fix every instance of this weakness across the feature's touched files, and list each one fixed/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verification-reuses-evidence FIX-004: [LIVE] tasks record evidence for the loop, the loop is
+// handed it, and the authoring rules no longer claim [LIVE] tasks are set aside by default.
+// ---------------------------------------------------------------------------
+
+describe('[LIVE] tasks feed the verification loop (verification-reuses-evidence)', () => {
+  const CORE_TRD_AUTHORING = path.join(REPO, 'packages/core/contracts/trd-authoring.md');
+  const CORE_CREATE_TRD = path.join(REPO, 'packages/core/commands/create-trd.md');
+  const CORE_CONTRACT = path.join(REPO, 'packages/core/contracts/functional-verification.md');
+  const impl = flat(read(CORE_IMPLEMENT));
+  const sec35 = flat(read(CORE_IMPLEMENT).split('### 3.5 ')[1].split('\n### 3.6')[0]);
+
+  test('§3.5 adds a [LIVE]-only element naming live-evidence.js record', () => {
+    expect(sec35).toMatch(/task\.live/);
+    expect(sec35).toMatch(/node \.claude\/lib\/live-evidence\.js record/);
+    expect(sec35).toMatch(/evidence\/live\/\{task_id\}/);
+    expect(sec35).toMatch(/--covers/);
+  });
+
+  test('§8.3 and verify-build.md pass liveEvidence, read from live-evidence.js read', () => {
+    expect(impl).toMatch(/liveEvidence,\s+\/\/[^\n]*live-evidence\.js read/);
+    expect(flat(read(CORE_VERIFY_BUILD))).toMatch(/liveEvidence,\s+\/\/[^\n]*live-evidence\.js read/);
+  });
+
+  test('§8.3 qualifies "produced by THIS run" and line 18 no longer calls [LIVE] deferred', () => {
+    expect(impl).toMatch(/unless it qualifies for reuse/);
+    expect(impl).not.toMatch(/\(`\[LIVE\]` etc\.\)/);
+  });
+
+  test('the contract names the reuse path in the freshness bullet and the evidence-stale row', () => {
+    const c = flat(read(CORE_CONTRACT));
+    expect(c).toMatch(/unless it qualifies for reuse/);
+    expect(c).toMatch(/\| `evidence-stale` \|[^|]*reuse[^|]*\|/);
+  });
+
+  test.each([
+    ['trd-authoring.md', CORE_TRD_AUTHORING],
+    ['create-trd.md', CORE_CREATE_TRD],
+  ])('%s says [LIVE] tasks record evidence in the live-evidence manifest', (_n, file) => {
+    const t = flat(read(file));
+    expect(t).toMatch(/live-manifest\.jsonl/);
+    expect(t).not.toMatch(/already sets `\[LIVE\]` tasks aside by default/);
+  });
+
+  test('trd-authoring.md drops the false set-aside claim in §4.1.1', () => {
+    expect(flat(read(CORE_TRD_AUTHORING))).not.toMatch(/sets `\[LIVE\]` tasks aside/);
+  });
+
+  test.each([
+    ['contracts/functional-verification.md', 'contracts/functional-verification.md'],
+    ['contracts/trd-authoring.md', 'contracts/trd-authoring.md'],
+    ['commands/create-trd.md', 'commands/create-trd.md'],
+  ])('%s mirrors byte for byte', (_n, rel) => {
+    expect(read(path.join(REPO, '.claude', rel))).toBe(read(path.join(REPO, 'packages/core', rel)));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// plan-from-spec FIX-002: the locked-scope authoring rule, conditional on `**Source spec**:`.
+// ---------------------------------------------------------------------------
+
+describe('trd-authoring.md locked-scope rule (plan-from-spec)', () => {
+  const file = path.join(REPO, 'packages/core/contracts/trd-authoring.md');
+  const raw = read(file);
+  const afterOmission = raw.split('### Omission is a failure too')[1] || '';
+  const ruleRaw = afterOmission.split('### Locked scope')[1];
+  const rule = ruleRaw ? flat(ruleRaw.split('\n---')[0]) : '';
+  const between = flat((afterOmission.split('### Locked scope')[0] || '').trim());
+
+  test('sits right after "Omission is a failure too"', () => {
+    expect(rule).not.toBe('');
+    expect(afterOmission).toMatch(/### Locked scope/);
+    expect(between).not.toMatch(/###/);
+  });
+
+  test('applies only when the TRD or its source carries Source spec:', () => {
+    expect(rule).toMatch(/TRD, or the source it is authored from, carries a `\*\*Source spec\*\*:` header/);
+    expect(rule).toMatch(/TRD without it, including every PRD-sourced TRD, is unchanged/);
+    expect(rule).toMatch(/constitution- and domain-derived objectives/);
+  });
+
+  test('objectives are verbatim core criteria and guards with ids, no others', () => {
+    expect(rule).toMatch(/verbatim with their ids/);
+    expect(rule).toMatch(/guards/);
+    expect(rule).toMatch(/no others/);
+  });
+
+  test('swept criteria go under Non-Goals', () => {
+    expect(rule).toMatch(/Non-Goals/);
+    expect(rule).toMatch(/handled by `\/sweep <file>`/);
+  });
+
+  test('a wrong-looking criterion is an owner-only open question quoting the spec line', () => {
+    expect(rule).toMatch(/owner-only open question/);
+    expect(rule).toMatch(/quoting the spec line/);
+  });
+
+  test('mirror is byte-identical', () => {
+    expect(read(path.join(REPO, '.claude/contracts/trd-authoring.md'))).toBe(read(file));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// next-in-order: NEXT is the few steps to take now, in order, never shell.
+// ---------------------------------------------------------------------------
+
+describe("command-status.md defines NEXT as ordered steps, one block per slash command", () => {
+  const copies = [
+    'packages/core/templates/claude-directory/rules/command-status.md',
+    '.claude/rules/command-status.md',
+  ];
+
+  test.each(copies)('%s carries the ordered-steps, short and no-shell wording', (rel) => {
+    const rule = read(path.join(REPO, rel)).replace(/\s+/g, ' ');
+    expect(rule).toMatch(/few steps to take now/);
+    expect(rule).toMatch(/in order/);
+    expect(rule).toMatch(/one fenced block per slash command/i);
+    expect(rule).toMatch(/never a shell command/);
+    expect(rule).not.toMatch(/literal next command/);
+  });
+
+  test('the two copies are byte-identical', () => {
+    expect(read(path.join(REPO, copies[0]))).toBe(read(path.join(REPO, copies[1])));
+  });
+});
+
+// next-in-order (FIX-003): the two commands whose NEXT text caused the failure list steps in
+// order, one fenced block per slash command, with no shell and no "name ONE".
+describe('implement-trd.md and verify-build.md NEXT list ordered steps', () => {
+  const implementNext = () => {
+    const text = read(CORE_IMPLEMENT);
+    const at = text.indexOf('\nNEXT\n');
+    const end = text.indexOf('**Rules this template enforces', at);
+    expect(at).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(at);
+    return text.slice(at, end);
+  };
+
+  test('implement-trd.md carries no gh command and no single-command wording', () => {
+    const text = read(CORE_IMPLEMENT);
+    expect(text).not.toMatch(/gh pr /);
+    expect(text).not.toMatch(/name ONE/);
+    expect(text).not.toMatch(/single next command/);
+  });
+
+  test('implement-trd.md NEXT is ordered steps with the PR in words', () => {
+    const next = flat(implementNext());
+    expect(next).toMatch(/in order/);
+    expect(next).toMatch(/passing `\/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`/);
+  });
+
+  test('verify-build.md states the ordered fenced-steps rule and the first-step-as-text rule', () => {
+    const section = flat(read(CORE_VERIFY_BUILD).split('## Readout')[1].split("## `--fix")[0]);
+    expect(section).toMatch(/numbered steps/);
+    expect(section).toMatch(/one fenced block per slash command/i);
+    expect(section).toMatch(/must come first[^.]*plain text/i);
+  });
+
+  test.each([
+    ['implement-trd.md', CORE_IMPLEMENT, CLAUDE_IMPLEMENT],
+    ['verify-build.md', CORE_VERIFY_BUILD, CLAUDE_VERIFY_BUILD],
+  ])('%s mirror is byte-identical', (_n, core, mirror) => {
+    expect(read(mirror)).toBe(read(core));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// plan-from-spec FIX-003: plan.md's spec path (locked criteria, sweep/core split, objectives
+// written by the library after the last model writer, plan() told about the sweep list).
+// ---------------------------------------------------------------------------
+
+describe('plan.md spec path (plan-from-spec)', () => {
+  const raw = read(CORE_PLAN);
+  const specPath = flat((raw.split('### 2g.')[1] || '').split('\n---')[0]);
+  const lockStep = flat((raw.split('## Step 6a')[1] || '').split('\n---')[0]);
+  const step7 = flat((raw.split('## Step 7:')[1] || '').split('\n## Readout')[0]);
+
+  test('sits at the end of Step 2, applies only when extract finds criteria', () => {
+    expect(specPath).not.toBe('');
+    expect(raw.indexOf('### 2g.')).toBeGreaterThan(raw.indexOf('### 2f.'));
+    expect(raw.indexOf('### 2g.')).toBeLessThan(raw.indexOf('## Step 3:'));
+    expect(specPath).toMatch(/spec-scope\.js extract --file <spec> --section "<section heading>"/);
+    expect(specPath).toMatch(/`\[\]`[^.]*does not apply/);
+  });
+
+  test('the scope is locked: verbatim ids, nothing added, a wrong-looking one is an owner-only question', () => {
+    expect(specPath).toMatch(/scope is locked/i);
+    expect(specPath).toMatch(/verbatim with its id/);
+    expect(specPath).toMatch(/nothing is added, reworded, merged, narrowed or widened/i);
+    expect(specPath).toMatch(/owner-only open question quoting the spec line/);
+  });
+
+  test('the exit test passes prdWouldHaveContent false', () => {
+    expect(specPath).toMatch(/prdWouldHaveContent: false/);
+  });
+
+  test('classifies by the owner\'s three conditions, in the owner\'s words', () => {
+    expect(specPath).toContain(
+      '"no file shared with the core, no dependency on it, no auth/data/shared-contract change"'
+    );
+    expect(specPath).toMatch(/independent low-risk finding/);
+  });
+
+  test('uncertain, guarded and open-question criteria stay in the core; guards sit outside the split', () => {
+    expect(specPath).toMatch(/uncertain, guarded or open-question criteria stay in the core/i);
+    expect(specPath).toMatch(/guards? (are|is) outside the split/i);
+  });
+
+  test('Step 4 weighs the core only', () => {
+    expect(specPath).toMatch(/Step 4 weighs the core only/);
+  });
+
+  test('the sweep list is written by render-sweep, never typed', () => {
+    expect(specPath).toMatch(/spec-scope\.js render-sweep --spec <spec> --section "<section heading>" --ids <swept ids> --core-trd docs\/TRD\/<slug>\.md --out docs\/plan\/<slug>\.sweep\.md/);
+    expect(specPath).toMatch(/never types criterion text/);
+  });
+
+  test('the investigation record carries the Source spec header and lists only core criteria', () => {
+    expect(specPath).toMatch(/investigation record[^.]*`\*\*Source spec\*\*: <spec path> § <section heading>`/);
+    expect(specPath).toMatch(/lists only the core criteria/);
+  });
+
+  test('all swept: no TRD; all core: no sweep file', () => {
+    expect(specPath).toMatch(/every criterion is swept[^.]*no TRD/i);
+    expect(specPath).toMatch(/every criterion is core[^.]*no sweep file/i);
+  });
+
+  test('plan() is called with sweepList and coreTrd', () => {
+    expect(specPath).toMatch(/`sweepList`/);
+    expect(specPath).toMatch(/`coreTrd`/);
+    expect(step7).toMatch(/"sweepList": true/);
+    expect(step7).toMatch(/"coreTrd": true/);
+    expect(step7).toMatch(/never chains[^.]*even with `--implement`/);
+  });
+
+  test('Step 7 skips the never-unattended check when there is no core TRD', () => {
+    expect(step7).toMatch(/no core TRD[^.]*skip/i);
+  });
+
+  test('Step 6a runs after audit-trd (medium) and after Step 6 (small), after the last model writer', () => {
+    expect(lockStep).not.toBe('');
+    expect(raw.indexOf('## Step 6a')).toBeGreaterThan(raw.indexOf('## Step 6:'));
+    expect(raw.indexOf('## Step 6a')).toBeLessThan(raw.indexOf('## Step 7:'));
+    expect(lockStep).toMatch(/after `audit-trd` at medium/);
+    expect(lockStep).toMatch(/after Step 6's findings are applied at small/);
+    expect(lockStep).toMatch(/last model writer/);
+  });
+
+  test('Step 6a runs render-objectives --trd and then check, and a failure stops the plan naming each problem', () => {
+    expect(lockStep).toMatch(/spec-scope\.js render-objectives --spec <spec> --section "<section heading>" --ids <core ids> --trd docs\/TRD\/<slug>\.md/);
+    const checkAt = lockStep.indexOf('spec-scope.js check');
+    expect(checkAt).toBeGreaterThan(lockStep.indexOf('spec-scope.js render-objectives'));
+    expect(lockStep).toMatch(/--sweep docs\/plan\/<slug>\.sweep\.md --trd docs\/TRD\/<slug>\.md/);
+    expect(lockStep).toMatch(/COMMAND STUCK: \/plan/);
+    expect(lockStep).toMatch(/naming each (problem|id)/);
+  });
+
+  test('Step 5b points at Step 6a before Step 7', () => {
+    const fiveB = flat(raw.split('### 5b.')[1].split('## Step 6:')[0]);
+    expect(fiveB).toMatch(/Step 6a/);
+  });
+
+  test('plan.md is still byte-identical to its mirror', () => {
+    expect(read(CLAUDE_PLAN)).toBe(raw);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// plan-from-spec FIX-004: /sweep keeps every criterion accounted for.
+// ---------------------------------------------------------------------------
+
+describe('sweep.md criterion accounting (plan-from-spec)', () => {
+  const raw = read(path.join(path.dirname(CORE_PLAN), 'sweep.md'));
+  const step = flat((raw.split('## Step 3a:')[1] || '').split('\n## Step 4')[0]);
+
+  test('sits between attestation and recording, and applies only with criterion ids', () => {
+    expect(step).not.toBe('');
+    expect(raw.indexOf('## Step 3a:')).toBeGreaterThan(raw.indexOf('## Step 3:'));
+    expect(raw.indexOf('## Step 3a:')).toBeLessThan(raw.indexOf('## Step 4:'));
+    expect(step).toMatch(/without criterion ids skips this whole step/);
+  });
+
+  test('every id lands in fixed, already fine or failed; deferred or too-big is STUCK', () => {
+    expect(step).toMatch(/exactly one of: fixed \(attested\), already fine, or failed/);
+    expect(step).toMatch(/COMMAND STUCK: \/sweep[^.]*is not a sweep item[^.]*re-run `\/plan`/);
+  });
+
+  test('writes sweep-result.json mapping criterion id to changed files', () => {
+    expect(step).toMatch(/\.trd-state\/<slug>-sweep\/sweep-result\.json/);
+    expect(step).toMatch(/"fixed": \{ "AC-4\.1": \[/);
+    expect(step).toMatch(/whether or not the run ends STUCK/);
+  });
+
+  test('runs overlap against the core TRD and stops on any shared file', () => {
+    expect(step).toMatch(/spec-scope\.js overlap --sweep-files <every changed file, comma-separated> --trd <core TRD>/);
+    expect(step).toMatch(/`\*\*Core TRD\*\*:` line/);
+    expect(step).toMatch(/Unless it is `none`/);
+    expect(step).toMatch(/Any shared file ends the run `COMMAND STUCK: \/sweep`/);
+  });
+
+  test('sweep.md is byte-identical to its mirror', () => {
+    expect(read(path.join(path.dirname(CLAUDE_PLAN), 'sweep.md'))).toBe(raw);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// plan-from-spec FIX-005: a sweep file or a `**Source spec**:` TRD is verified from spec-scope
+// criteria (never derived); a sweep file runs as <slug>-sweep, one iteration, no fix loop.
+// ---------------------------------------------------------------------------
+
+describe('verify-build.md verifies spec-sourced inputs without deriving', () => {
+  const body = () => flat(read(CORE_VERIFY_BUILD));
+  const step3a = () => body().split('### 3a.')[1].split('### 3b.')[0];
+
+  test('both inputs write the definition with spec-scope.js criteria and skip the derive', () => {
+    const s = step3a();
+    expect(s).toMatch(/A spec-sourced input is never derived/);
+    expect(s).toMatch(/a sweep file \(`\.sweep\.md`\), and a TRD whose header has a `\*\*Source spec\*\*: <path> § <section>` line/);
+    expect(s).toMatch(/node \.claude\/lib\/spec-scope\.js criteria --spec <spec> --section <section> --ids <ids>/);
+    expect(s).toMatch(/\*\*Source kind\*\*: spec/);
+  });
+
+  test('a sweep file runs as <slug>-sweep with cap 1 and prd set to the sweep file', () => {
+    const s = step3a();
+    expect(s).toMatch(/feature: "<slug>-sweep"`, `cap: 1`, `prd: <the sweep file's path>`/);
+  });
+
+  test('a sweep file skips the fix loop and never points at /refine-verification or /audit-build', () => {
+    expect(step3a()).toMatch(/Skip the fix\s+loop entirely/);
+    expect(step3a()).toMatch(/never point NEXT at `\/refine-verification` or `\/audit-build`/);
+  });
+
+  test('a sweep readout NEXT gives renderReport\'s steps as literal commands, core TRD from spec-scope.js source', () => {
+    const readout = flat(body().split('## Readout')[1].split("## `--fix")[0]);
+    expect(readout).toContain('node .claude/lib/spec-scope.js source --file <sweep file>');
+    expect(readout).toContain(
+      "\"commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line\""
+    );
+    expect(readout).toContain('`/implement-trd <coreTrd>`');
+    expect(readout).toMatch(/When `coreTrd` is `none`, drop the `\/implement-trd` step/);
+    expect(readout).toContain(
+      '"re-run `/sweep <sweep file>` for the failed criteria, then `/verify-build <sweep file>`"'
+    );
+    expect(readout).toContain('Step 1 is `/sweep <sweep file>`, step 2 is `/verify-build <sweep file>`');
+  });
+
+  test('each met swept criterion is recorded in the CORE feature manifest, covering its changed files', () => {
+    const s = step3a();
+    expect(s).toMatch(/live-evidence\.js record --state-dir \.trd-state\/<core-slug>/);
+    expect(s).toMatch(/--covers <that criterion's files from sweep-result\.json/);
+    expect(s).toMatch(/sweep-result\.json/);
+  });
+});
+
+describe('functional-verification contract lists the spec source kind', () => {
+  test('Source kind includes spec', () => {
+    const c = read(path.join(REPO, 'packages/core/contracts/functional-verification.md'));
+    expect(c).toMatch(/\*\*Source kind\*\*: prd \| reproduction \| intended-change \| behaviour-preserved \| spec/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// plan-from-spec FIX-006: a `**Source spec**:` TRD gets its definition from spec-scope criteria
+// (Objectives ids plus the sweep file's ids), source_kind "spec", and no derive agent.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md writes a spec-sourced definition without deriving (plan-from-spec)', () => {
+  const body = () => flat(read(CORE_IMPLEMENT));
+  const step1 = () => body().split('**1. Resolve the PRD path**')[1].split('**2. Dispatch the derive pass')[0];
+
+  test('the header check precedes the PRD fallbacks and applies only to a Source spec TRD', () => {
+    const s = step1();
+    expect(s).toMatch(/spec-scope\.js source --file <TRD>/);
+    expect(s.indexOf('spec-scope.js source')).toBeLessThan(s.indexOf("1. Read the TRD's"));
+    expect(s).toMatch(/applies \*\*only\*\* to a TRD with the `\*\*Source spec\*\*:` header/);
+  });
+
+  test('the library call carries Objectives ids plus the sweep file ids when it exists', () => {
+    const s = step1();
+    expect(s).toMatch(/spec-scope\.js criteria --spec <spec> --section <section> --ids <ids>/);
+    expect(s).toMatch(/--out \.trd-state\/<feature>\/success-definition\.md/);
+    expect(s).toMatch(/Objectives table, plus every id the sweep file lists when `docs\/plan\/<feature>\.sweep\.md` exists/);
+  });
+
+  test('records source_kind "spec" and skips the derive agent in that case only', () => {
+    const s = step1();
+    expect(s).toMatch(/source_kind: "spec"/);
+    expect(s).toMatch(/skip step 2 and step 3's dispatch entirely\*\* \(no agent\)/);
+    expect(body()).toMatch(/\(`prd` \| `spec` \| `reproduction`/);
+  });
+
+  test("swept criteria reuse evidence through §8.3's existing liveEvidence read", () => {
+    expect(step1()).toMatch(/§8\.3's existing `liveEvidence` read/);
+    expect(body()).toMatch(/liveEvidence,\s+\/\/ `node \.claude\/lib\/live-evidence\.js read/);
+  });
+
+  test('§8.1b reads the spec section as its source text for a spec source', () => {
+    const s81b = body().split('### 8.1b')[1].split('### 8.2')[0];
+    expect(s81b).toMatch(/For `source_kind: "spec"` the source text is the spec section/);
+  });
+
+  test('implement-trd.md mirror stays byte-identical', () => {
+    expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
   });
 });

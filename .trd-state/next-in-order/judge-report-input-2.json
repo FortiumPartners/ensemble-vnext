@@ -1,0 +1,97 @@
+{
+  "feature": "next-in-order",
+  "prd": "docs/TRD/next-in-order.md ## Intended Change",
+  "definitionPath": ".trd-state/next-in-order/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met or not verifiable here",
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "The readout rule defines NEXT as the steps the owner takes, in order, numbered when there is more than one, or \"nothing — this is done\"; a step that is an action rather than a command is a plain line that keeps its place in the order; each slash command sits alone in its own fenced block directly under its line. This holds in both `.claude/rules/command-status.md` and its shipped template copy `packages/core/templates/claude-directory/rules/command-status.md`",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/next-in-order/evidence/fs1-iter2.txt",
+      "reason": "Both copies are identical. Line 71 now reads 'the steps to take now, in order, ready to run' (the iteration-1 contradiction is gone), and lines 111-115 define NEXT as numbered steps in order or 'nothing — this is done', each a line with one fenced block per slash command under it, and a non-command step (merge, PR, commit) as its line alone in the sequence. Always numbering is a superset of 'numbered when there is more than one', so it does not contradict the criterion.",
+      "cause": null,
+      "provenAt": 2,
+      "attempts": 2,
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "The readout rule no longer says \"the literal next command\", and states that NEXT is never a menu of alternatives and never a shell command",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/next-in-order/evidence/fs1-3-rule-grep.txt",
+      "reason": "Zero matches for 'literal next command' in both copies; both say 'never a menu' and 'never a shell command'.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "The readout rule keeps NEXT short: only the steps to take now (usually one to three), never a long checklist",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/next-in-order/evidence/fs1-3-rule-grep.txt",
+      "reason": "Both copies say 'the few steps to take now (usually one to three)'.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "`/implement-trd`'s readout section (§9) states NEXT as ordered steps with each slash command in its own fenced block, and no longer instructs \"the single next command\" or \"name ONE\"",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/next-in-order/evidence/fs4-6-next-excerpts.txt",
+      "reason": "The implement-trd NEXT template lists ordered, numbered steps with one fenced block per slash command. There are zero matches for 'single next command' or 'name ONE' in either copy (the judge confirmed this directly), and the .claude copy is identical.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "`/verify-build`'s readout states NEXT as ordered steps with each slash command in its own fenced block; its O4 rule still decides which commands, and a step that must come first (a merge, a deploy) is written first as a plain line",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/next-in-order/evidence/fs4-6-next-excerpts.txt",
+      "reason": "verify-build still keeps the O4 rule that decides which commands come next. NEXT lists those commands as numbered steps, one fenced block each, and a merge or deploy that must come first leads as plain text. The .claude copy is identical.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "No NEXT passage in /audit-build, /close-feature, /implement-trd or /verify-build tells the owner to run gh pr merge, gh pr create, git add or git commit; each such step is said in words (a PR open: merge PR #<number> once reviewed, as a plain first step). git add / git commit remain only where the command runs its own commit (git stash hints and stop messages are out of scope for this change)",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/next-in-order/evidence/fs6-gh-git-grep.txt",
+      "reason": "There are no gh pr hits. Every remaining git add or git commit line is a commit the command runs itself: audit-build's report and artifacts.json commits, close-feature's close commit, and implement-trd's phase checkpoint. The error-table stash/commit hint is out of scope by the owner's ruling. NEXT says to merge the PR in words, naming it by number and URL.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "The project's Jest battery still passes after the four command files and the rule are edited",
+      "cites": "see definition file",
+      "status": "met",
+      "artifact": ".trd-state/next-in-order/evidence/fs7-jest.txt",
+      "reason": "40 suites, 1457 tests passed, 0 failed.",
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    }
+  ]
+}

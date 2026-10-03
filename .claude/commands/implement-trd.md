@@ -15,7 +15,7 @@ category: implementation
 >   success against disk, reopens the ones disk contradicts, then runs everything outstanding
 >   — including tasks added to the TRD since the last run. Use after `/audit-build` finds a
 >   gap. NOT a synonym for `--resume`: see below.
-> - `--include-deferred` - Dispatch deferred-by-design tasks (`[LIVE]` etc.) instead of setting
+> - `--include-deferred` - Dispatch deferred-by-design tasks (tasks listed under `## Deferred by design`) instead of setting
 >   them aside and reporting them (§4.1a)
 > - `--reset-state` - Clear state file and start fresh (requires confirmation)
 > - `--verify` - The functional-verification pass runs **by default** (VCON O6; supersedes the
@@ -610,6 +610,33 @@ than filled with a tool that isn't there):
 </check_battery>
 ```
 
+**For a `[LIVE]` task only (`task.live`), append a live-evidence element** — verification-
+reuses-evidence TRD §3, item 1. The verification loop at Step 8 reuses what a live task captured
+instead of capturing it again, but only if the task records it; without this element the
+artifacts exist on disk and the loop never hears of them:
+
+```xml
+<live_evidence>
+  <instruction>
+    Bring the environment to the CURRENT code before you capture anything: run the fast
+    refresh `.claude/rules/verification.md` §2 declares for the environment you are using
+    (skip this when none is declared). Save each artifact you capture under
+    `.trd-state/{feature}/evidence/live/{task_id}/`, then record each one:
+
+      node .claude/lib/live-evidence.js record --state-dir .trd-state/{feature} \
+        --task {task_id} --artifact <path to the artifact> \
+        --covers <comma-separated source files whose behaviour this artifact exercises> \
+        --shows "<what it proves, one line>" --environment <name from verification.md §1>
+
+    `--covers` is yours to declare and must name every source file the artifact depends on: the
+    loop treats the artifact as still valid only while those files are byte-identical to now.
+    A file you leave out can change without making the evidence stale. `record` rejects an
+    artifact that is not a file, an empty `--covers`, or a covered path that does not exist,
+    and says so on stderr; fix the call, do not skip it.
+  </instruction>
+</live_evidence>
+```
+
 **Then append the discovery channel** — the answer to "I found something that is not my
 task":
 
@@ -681,7 +708,26 @@ finish with `not_met` criteria still on the books at an iteration below the cap,
 "there are still open gaps, therefore resumable" rule misreads both as resumable and re-enters
 a loop that already gave its final answer.
 
-**1. Resolve the PRD path**, in order:
+**1. Resolve the PRD path**, in order. **First, a spec source** (plan-from-spec): when the TRD
+header has a `**Source spec**: <path> § <section>` line, the criteria are already written down
+verbatim in that spec, so none are derived. Check with
+`node .claude/lib/spec-scope.js source --file <TRD>` (exit 0 → spec source; exit 1 → no such
+line, continue below). Write the definition with the library and **skip step 2 and step 3's
+dispatch entirely** (no agent):
+
+```
+node .claude/lib/spec-scope.js criteria --spec <spec> --section <section> --ids <ids> \
+     --feature <feature> --out .trd-state/<feature>/success-definition.md
+```
+
+`<ids>` are the ids in the TRD's Objectives table, plus every id the sweep file lists when
+`docs/plan/<feature>.sweep.md` exists (read them with `spec-scope.js extract --file <that
+file>`). The swept criteria belong in the core's definition: the evidence checker reuses the
+artifact `/verify-build` recorded for each one (§8.3's existing `liveEvidence` read) while the
+files its fix changed are byte-identical, and re-proves it if the core touched them. Guards are
+added by the library. Record `source_kind: "spec"`, `prd_resolved: true` and `prd_path` as the
+TRD path plus the section name (report header only), then persist as below. This applies **only**
+to a TRD with the `**Source spec**:` header; every other TRD resolves as follows.
 
 1. Read the TRD's `**Source PRD**:` header (the line parsed in Step 1). Its on-disk form is
    not uniform — handle all of these:
@@ -719,7 +765,7 @@ a loop that already gave its final answer.
    (functional-verification TRD §3.1, §3.7) and skip the rest of this step — dispatch nothing.
 
 **Record which source won.** Write `functional_verification` with `source_kind`
-(`prd` | `reproduction` | `intended-change` | `behaviour-preserved` | `none`) alongside the existing keys. `prd_path`
+(`prd` | `spec` | `reproduction` | `intended-change` | `behaviour-preserved` | `none`) alongside the existing keys. `prd_path`
 keeps its meaning when `source_kind` is `prd`; for the three section kinds it holds the TRD path
 plus the section name (for the report header only — Step 8 renders it, nothing resolves it).
 `prd_resolved` stays for compatibility and means "a source resolved", true for all four.
@@ -1481,7 +1527,9 @@ straight to Step 9 exactly as §8.1 already sends them.
 
 1. **Read the section.** The TRD's last `## Verification Artifacts` heading outside a code
    fence (§3.3) — table rows, `Omitted:` lines, or a `None apply —` line; absent is legitimate
-   too. Read the PRD named at §8.1 step 1's `prd_path` when one resolved, or the source text
+   too. For `source_kind: "spec"` the source text is the spec section named by the
+   `**Source spec**:` header (read it through `spec-scope.js source`). Otherwise read the PRD
+   named at §8.1 step 1's `prd_path` when one resolved, or the source text
    §3.6 resolved (the TRD's `## Reproduction` / `## Intended Change` / `## Behaviour
    Preserved`) when it did not.
 2. **Select (D9).** Read the `check`-role rows of `.claude/skills/framework-skills.txt` (fall
@@ -1683,8 +1731,11 @@ exists, HEAD dates from the **prior** run, and that run's leftover artifacts und
 the tier-1 freshness gate having proved nothing about this run — so a criterion whose new
 Exercise produces nothing could be scored against a stale artifact at the same path. Raising
 the floor to the loop start enforces the invariant actually wanted (*this artifact was
-produced by THIS run's verification loop*) and rejects nothing legitimate: only OPEN criteria
-are walked, so every artifact checked against the floor was produced by this invocation. A
+produced by THIS run's verification loop*, unless it qualifies for reuse: a `[LIVE]` task's
+recorded artifact whose declared source files are byte-identical to when it was captured,
+which the checker verifies by hash; see `contracts/functional-verification.md`) and rejects
+nothing legitimate: only OPEN criteria are walked, so every artifact checked against the
+floor was either produced by this invocation or reused on that proof. A
 `met` criterion carried forward from the prior run keeps its artifact and `provenAt` and is
 never re-checked against the floor (verification-convergence TRD §3.4).
 
@@ -1718,6 +1769,7 @@ Workflow({ name: "verify-functional", args: {
   refreshCommand,                                                // §8.1a -- the per-iteration refresh from verification.md §2, or "" when none is declared
   fullRunCommand,                                                // §8.1a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
   coverageFloor,                                                 // §8.1a -- verification.md §5a as a fraction, or null when none is declared
+  liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
@@ -1867,20 +1919,24 @@ ISSUES
   {if none: "none"}
 
 NEXT
-  {the single next command, runnable as written — normally the first of:}
-    {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): "refine the plan with
-     `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`" —
-     the exact wording `renderReport` puts under its own Diagnosis line (verification-fix-loop
-     TRD §3.1), so the readout and the report never disagree on what comes next.}
-    /audit-build <trd> --prd <prd>     verify delivery against the TRD and PRD
-    gh pr create --title "<title>"     when the audit is clean (a passing /audit-build opens the
-                                       PR itself when ensemble.openPullRequest is auto; this is
-                                       the owner's command when it is never)
-  {name ONE. The others are the owner's to run when they get there.}
+  {the few steps to take now, in order — one fenced block per slash command, explanation on
+   the line above each block, never a shell command:}
+  {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): the line "refine the plan
+   with `/refine-verification` (add `--auto` to let an agent answer), then run
+   `/verify-build`" — the exact wording `renderReport` puts under its own Diagnosis line
+   (verification-fix-loop TRD §3.1), so the readout and the report never disagree on what
+   comes next — then the two steps, each command in a block of its own:}
+  1. /refine-verification
+  2. /verify-build
+  {otherwise: verify delivery against the TRD and PRD, in a block of its own:}
+  1. /audit-build <trd> --prd <prd>
+  2. {only when `ensemble.openPullRequest` is `never`, in words, not a block: open the PR once
+     the audit is clean, on GitHub, or ask for it. A passing `/audit-build` opens the PR when
+     `ensemble.openPullRequest` is `auto`, so then this is no step of yours and NEXT omits it.}
 ```
 
 **A passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`; when it is
-`never`, `gh pr create` is the owner's command, and NEXT must name it.** `/implement-trd`
+`never`, NEXT says in words to open it.** `/implement-trd`
 itself opens nothing, and no command merges. The reason NEXT names it — a run that ends without telling
 them how to ship leaves the work stranded on a branch. This line was lost when the seven-
 section template was replaced on 2026-09-20 and restored the same day; the old template

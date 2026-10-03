@@ -84,7 +84,7 @@ and the audit fields differ.
    ```
 
    The pathspec keeps the commit to that one file. **On the default branch, don't commit**:
-   what lands there is yours to decide, so NEXT gives you the command. A failed commit is one
+   what lands there is yours to decide, so NEXT tells you to commit it. A failed commit is one
    line in ISSUES, never STUCK.
 5. **Open the pull request** after a successful close commit on a feature branch. Write a
    short PR body (the feature, closed by you, the note) to a temp file, then run
@@ -106,10 +106,9 @@ The four-section readout from `.claude/rules/command-status.md`, one screen:
   committed and on which branch, and whether `current.json` was cleared.
 - **DECISIONS** — none.
 - **ISSUES** — a record that would not parse, or a commit that failed. Otherwise none.
-- **NEXT** — on a feature branch with a PR open: a line saying to run this once you have
-  reviewed it, then `gh pr merge <number> --merge` alone in its fenced block. On a feature
-  branch with no PR: `gh pr create --title "<title>"`. On the default branch:
-  `git add .trd-state/<feature>/closed.json && git commit -m "chore(<feature>): close feature"`.
+- **NEXT** — on a feature branch with a PR open: a line saying to merge the PR once you
+  have reviewed it, naming it by number and URL, in words, no command. On a feature branch with no PR: a line saying to open
+  a PR for the branch. On the default branch: a line saying to commit the close record.
 
 Then the banner, as the last line:
 

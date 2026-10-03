@@ -284,6 +284,48 @@ unsure yet. A blocker whose correct behaviour is discoverable by reading the cod
 environment answers "no" to the exit test, with an extra task. Routing a merely-unfamiliar
 blocker to `/create-prd` sends a knowable defect somewhere it was never a product decision.
 
+### 2g. A source that already carries acceptance criteria: the spec path
+
+**Check once, whatever the kind.** When the work comes from a document (a roadmap item, a spec
+section), ask the library whether that section already lists criteria:
+
+```bash
+node .claude/lib/spec-scope.js extract --file <spec> --section "<section heading>"
+```
+
+It reads only criteria under that section's "Acceptance criteria" heading, as ids with their
+text, plus its regression guards. **`[]` means the spec path does not apply** — carry on as
+before. Findings, task rows and other bold-id items elsewhere in the section are not criteria.
+
+When it returns criteria, **the scope is locked** (measured: a spec with 18 criteria came back
+as 29 objectives and four unasked consolidations, all in one 33-task TRD):
+
+1. **Every criterion is carried verbatim with its id.** Nothing is added, reworded, merged,
+   narrowed or widened. A criterion that looks wrong is an owner-only open question quoting the
+   spec line, never an edit.
+2. **The exit test (Step 3) passes `prdWouldHaveContent: false`.** The intent is already
+   settled by the spec.
+3. **Classify each criterion, sweep or core, by the owner's rule.** A criterion is swept only
+   when its fix is an independent low-risk finding:
+   "no file shared with the core, no dependency on it, no auth/data/shared-contract change".
+   Uncertain, guarded or open-question criteria stay in the core, because calling a risky item
+   sweepable is the expensive mistake. Guards are outside the split: they belong to both
+   documents and the library places them.
+4. **Step 4 weighs the core only.** The swept items are not part of the weight.
+5. **The library writes the documents; you only pick ids.** The model never types criterion text:
+
+```bash
+node .claude/lib/spec-scope.js render-sweep --spec <spec> --section "<section heading>" --ids <swept ids> --core-trd docs/TRD/<slug>.md --out docs/plan/<slug>.sweep.md
+```
+
+   Pass `--core-trd none` when no core TRD will exist. At medium weight the investigation record
+   carries the line `**Source spec**: <spec path> § <section heading>` under its title and lists
+   only the core criteria. The TRD's Objectives and header are written by Step 6a, last.
+6. **The two end cases.** When every criterion is swept, write no core TRD (no TRD in Step 5 or
+   5b; Step 6a checks the sweep file alone). When every criterion is core, write no sweep file.
+7. **Tell `plan()`.** Step 7 passes `sweepList` (true when a sweep file was written) and
+   `coreTrd` (false only when every criterion is swept). `plan()` then owns the ending.
+
 ---
 
 ## Step 3: The exit test — would a PRD have content the TRD would not?
@@ -307,7 +349,8 @@ node -e '
 '
 ```
 
-Pass `true` only when the sentence you just wrote says so. The lib takes that one boolean and
+Pass `true` only when the sentence you just wrote says so (on the spec path, §2g, it is
+`false`). The lib takes that one boolean and
 nothing else — no count of any kind — which is what makes "the sizing ceiling no longer
 participates in this decision" a structural fact rather than a promise kept by convention.
 
@@ -849,6 +892,9 @@ NEXT: /refine-trd docs/TRD/<slug>.md — <n> open question(s) the audit could no
 readout text, per §3.6 — `/refine-trd` stays interactive precisely so a human is the one who
 answers it, which is the same reason it is the one command `autonomy.md` exempts outright.
 
+On the spec path (§2g), run **Step 6a** before Step 7: the TRD's Objectives are written by the
+library after `audit-trd`, never by the model.
+
 Once `Workflow(audit-trd)` returns, this weight's own work is done. Converge to **Step 7**
 below like every other path, with its `plan()` call now carrying `weight: "medium"`.
 
@@ -890,9 +936,34 @@ Apply clearly-correct findings; report the rest in `## Could Not Verify`.
 
 ---
 
+## Step 6a: Lock the objectives (spec path only)
+
+**Skip this step unless §2g applied.** Run it once the TRD is final, **after the last model
+writer**: after `audit-trd` at medium, after Step 6's findings are applied at small, after
+§5a.1's checks at trivial. Both `create-trd`'s author and `audit-trd` rewrite whole sections, so
+anything written earlier would pass through a model again. Skip the `render-objectives` call when
+no core TRD exists.
+
+```bash
+node .claude/lib/spec-scope.js render-objectives --spec <spec> --section "<section heading>" --ids <core ids> --trd docs/TRD/<slug>.md
+node .claude/lib/spec-scope.js check --spec <spec> --section "<section heading>" --sweep docs/plan/<slug>.sweep.md --trd docs/TRD/<slug>.md
+```
+
+`render-objectives` replaces the `## Objectives` table with the core criteria and the guards,
+copied from the spec, and sets the `**Source spec**:` header. `check` reads the written
+documents (omit `--sweep` when no sweep file exists, `--trd` when no core TRD does) and reports
+`missing`, `duplicated`, `added`, `reworded` and `noHeader` by id. **When it is not `ok`, stop
+with `COMMAND STUCK: /plan`, naming each problem and its id.** Do not edit the documents by hand
+to satisfy it.
+
+---
+
 ## Step 7: Implement, or stop — the lib decides, you execute
 
 **Every path converges here** — `trivial`, `small`, and (once its own stages finish) `medium`.
+
+**On the spec path with no core TRD** (every criterion swept) there is no TRD for the check below
+to read: skip it and pass `"neverUnattendedHit": []`.
 
 `neverUnattendedHit` comes from the owner's never-unattended path list, `.claude/rules/verification.md`
 §5b. One call gathers this run's touched files from the TRD's own grounding and matches them
@@ -921,6 +992,13 @@ node -e '
 JSON
 )"
 ```
+
+**Spec path (§2g): add `"sweepList": true, "coreTrd": true` (`false` when every criterion is
+swept) to that object.** With a sweep list `plan()` never chains, even with `--implement`,
+writes no state pointer, keeps a TRD only when `coreTrd` is true, and its banner gives the
+steps in order: `/sweep`, `/verify-build` on the sweep file, commit the swept fixes, then
+`/implement-trd` (omitted without a core TRD). Print that order in the readout's NEXT, one
+fenced block per slash command and the commit as a plain line.
 
 Then do exactly what `plan()` returns, and nothing else:
 

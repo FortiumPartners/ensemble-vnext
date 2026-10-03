@@ -230,4 +230,33 @@ describe('sweep', () => {
     expect(byId('2').opts.agentType).toBe('devops-engineer');
     expect(byId('3').opts.agentType).toBe('backend-implementer');
   });
+
+  describe('criterion ids (plan-from-spec)', () => {
+    const SWEEP_FILE = [
+      '# Sweep: Lane', '', '**Source spec**: docs/roadmap.md § Lane', '**Core TRD**: none', '',
+      '## Acceptance criteria', '',
+      '- **AC-4.1** · Label reads Sign in.', '- **AC-4.2** · Rate box is wider.', '',
+      '**Regression guards:**', '', '- **RG-4.1:** Onboarding is unchanged.', '',
+    ].join('\n');
+
+    it('requires each criterion id as the item id, in fix and deferred, and leaves guards out', async () => {
+      const { agent, result } = await sweep(
+        { triage: { fix: [{ id: 'AC-4.1', summary: 'label', region: 'web' }], deferred: [{ id: 'AC-4.2', summary: 'rate', why: 'too large' }] } },
+        { source: SWEEP_FILE }
+      );
+      const prompt = agent.calls[0].prompt;
+      expect(prompt).toContain('CRITERION IDS: AC-4.1, AC-4.2');
+      expect(prompt).not.toMatch(/CRITERION IDS:[^\n]*RG-4\.1/);
+      expect(result.criterion_ids).toEqual(['AC-4.1', 'AC-4.2']);
+      expect(result.deferred[0].id).toBe('AC-4.2');
+      const deferredProps = agent.calls[0].opts.schema.properties.deferred.items.properties;
+      expect(deferredProps.id).toBeDefined();
+    });
+
+    it('is unchanged for a list without criterion ids', async () => {
+      const { agent, result } = await sweep({ triage: { fix: ISSUES, deferred: [] } });
+      expect(agent.calls[0].prompt).not.toContain('CRITERION IDS');
+      expect(result.criterion_ids).toEqual([]);
+    });
+  });
 });

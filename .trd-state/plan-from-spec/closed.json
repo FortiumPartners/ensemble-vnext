@@ -1,0 +1,12 @@
+{
+  "feature": "plan-from-spec",
+  "trd": "docs/TRD/plan-from-spec.md",
+  "closedAt": "2026-10-03T04:45:48Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; O4's \"option B\" reading is recorded only in the TRD changelog, not in the source record; a reused swept criterion is not re-proven when the core changes a file it depends on but did not change (unproven in a live run)",
+    "report": ".trd-state/plan-from-spec/audit-build-report.md",
+    "auditedCommit": "913a5ab"
+  }
+}
