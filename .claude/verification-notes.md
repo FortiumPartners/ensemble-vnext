@@ -770,3 +770,15 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 ## Capturing the assembled Judge prompt (verification-reuses-evidence, FS-25)
 
 - [ran] A grep of `packages/core/workflows/verify-functional.js` cannot show a Judge-prompt sentence, because each one spans concatenated string literals with escaped backticks. Capture the assembled string instead: load the script with `readScript`/`runWorkflow`/`makeAgentStub` from `packages/core/workflows/test-harness.js`, return stub results for the `exercise` and `judge` labels, then write `agent.calls.find(c => c.opts.label === 'judge').prompt` to a file. Script: `.trd-state/verification-reuses-evidence/evidence/fs25-capture.js`.
+
+## Exercising the NEXT-readout wording (2026-10-02 run, `next-in-order`)
+
+- [ran] All 7 criteria are static-text checks over `.claude/rules/command-status.md`, its
+  template copy `packages/core/templates/claude-directory/rules/command-status.md`, and four
+  command files; grep over them plus one `npx jest` run (about 10s, 40 suites, 1457 tests) is
+  sufficient. `diff -q` shows the `.claude/` and `packages/core/` copies are identical.
+- [ran] Under zsh, an `echo ====` line is parsed as a command (`=` expansion) and aborts the
+  rest of a chained command; avoid bare `====` separators in Bash calls.
+- [read] The readout template block in `command-status.md` (line ~71) still reads "NEXT the
+  exact command or action, ready to run"; only the prose under "What each section carries"
+  was reworded to ordered steps.
