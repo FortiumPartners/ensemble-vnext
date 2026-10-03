@@ -2755,6 +2755,21 @@ describe('renderFixSummary', () => {
     expect(() => renderFixSummary({ criteria: [] })).toThrow(/rounds/);
     expect(() => renderFixSummary({ rounds: [] })).toThrow(/criteria/);
   });
+
+  test('renders a round recorded in the shape verify-build.md step 5 documents', () => {
+    // The command's documented record shape is the contract the renderer reads; a rename on
+    // either side renders a blank table, so pin the command text to the renderer's field names.
+    const cmd = fs.readFileSync(path.join(__dirname, '..', 'commands', 'verify-build.md'), 'utf8');
+    const m = cmd.match(/Append `\{ ([^}]+) \}` to\s+`functional_verification\.fix\.rounds`/);
+    expect(m).not.toBeNull();
+    const fields = m[1].split(',').map((f) => f.trim());
+    expect(fields).toEqual(expect.arrayContaining(['round', 'tasksPromoted', 'criteriaClosed', 'criteriaOpen']));
+    const md = renderFixSummary({
+      rounds: [{ round: 1, tasksPromoted: 2, criteriaClosed: 3, criteriaOpen: 5, buildable: 4 }],
+      criteria: [],
+    });
+    expect(md).toContain('| 1 | 2 | 3 | 5 |');
+  });
 });
 
 describe('CLI: decide-fix-round and render-fix-summary', () => {

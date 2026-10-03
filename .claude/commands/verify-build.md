@@ -370,7 +370,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    each published check page (§8.1b step 5) so the next round's step 3b selection carries them
    and this step's filter un-settles any criterion they comment on.
 
-5. **Close the round.** Append `{ round, promoted, closed, open, buildable }` to
+5. **Close the round.** Append `{ round, tasksPromoted, criteriaClosed, criteriaOpen, buildable }` to
    `functional_verification.fix.rounds` (D9) and emit `[STATUS: /verify-build] PHASE
    <k>/<maxRounds> COMPLETE → <closed> closed, <open> open`. Then run `node
    .claude/lib/functional-verification.js decide-fix-round --file <payload>` (§3.5) with this

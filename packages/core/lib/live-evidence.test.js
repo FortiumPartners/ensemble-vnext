@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
-const { record, read, manifestPath, main, MAX_LINE_BYTES, COVERS_HASH_BYTES } = require('./live-evidence');
+const { record, read, readFresh, manifestPath, main, MAX_LINE_BYTES, COVERS_HASH_BYTES } = require('./live-evidence');
 
 let dir; let state; let artifact; let src;
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -120,6 +120,23 @@ describe('read', () => {
   });
 });
 
+describe('readFresh', () => {
+  test('drops an entry whose covered file changed and counts it', () => {
+    record(state, entry());
+    expect(readFresh(state)).toMatchObject({ dropped: 0, entries: [{ task: 'LIVE-1' }] });
+    fs.writeFileSync(src, 'edited by review');
+    const r = readFresh(state);
+    expect(r.entries).toEqual([]);
+    expect(r.dropped).toBe(1);
+  });
+
+  test('a deleted covered file counts as changed', () => {
+    record(state, entry());
+    fs.rmSync(src);
+    expect(readFresh(state).dropped).toBe(1);
+  });
+});
+
 describe('CLI', () => {
   const run = (...args) => spawnSync('node', [path.join(__dirname, 'live-evidence.js'), ...args], { encoding: 'utf8' });
 
@@ -131,6 +148,14 @@ describe('CLI', () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ task: 'LIVE-1', artifact, shows: 'login ok', environment: 'local' });
     expect(out[0].covers[0].sha256).toBe(sha('one'));
+  });
+
+  test('read omits stale entries and reports the count on stderr', () => {
+    run('record', '--state-dir', state, '--task', 'T', '--artifact', artifact, '--covers', src);
+    fs.writeFileSync(src, 'changed');
+    const r = run('read', '--state-dir', state);
+    expect(JSON.parse(r.stdout)).toEqual([]);
+    expect(r.stderr).toMatch(/dropped 1 stale entry/);
   });
 
   test('read of an absent manifest prints []', () => {

@@ -23,6 +23,10 @@
  *   node .claude/lib/live-evidence.js record --state-dir D --task T --artifact P \
  *        --covers a.js,b.js [--shows S] [--environment E]
  *   node .claude/lib/live-evidence.js read --state-dir D       # JSON array; [] when absent
+ *
+ * `read` on the CLI drops entries whose covered files no longer hash as recorded (a review edit
+ * after capture) and says how many on stderr, so the exerciser is never offered evidence that is
+ * already stale and has to learn so from the Judge.
  */
 
 const fs = require('fs');
@@ -178,6 +182,24 @@ function read(stateDir) {
   return [...byArtifact.values()];
 }
 
+/**
+ * True when every covered file still hashes as recorded. A file now missing, unreadable, or
+ * over the hash cap counts as changed (hashFile returns null), matching the checker.
+ */
+function isStillFresh(row) {
+  return row.covers.every((c) => c && typeof c.path === 'string' && hashFile(c.path) === c.sha256);
+}
+
+/**
+ * `read`, minus entries whose covered files changed since they were recorded.
+ * @returns {{entries: object[], dropped: number}}
+ */
+function readFresh(stateDir) {
+  const all = read(stateDir);
+  const entries = all.filter(isStillFresh);
+  return { entries, dropped: all.length - entries.length };
+}
+
 function parseFlags(args) {
   const flags = {};
   for (let i = 0; i < args.length; i += 2) {
@@ -195,7 +217,9 @@ function main(argv, out = process.stdout, err = process.stderr) {
     const f = parseFlags(rest);
     if (!f['state-dir']) throw new Error('--state-dir is required');
     if (sub === 'read') {
-      out.write(JSON.stringify(read(f['state-dir'])) + '\n');
+      const { entries, dropped } = readFresh(f['state-dir']);
+      if (dropped > 0) err.write(`live-evidence: dropped ${dropped} stale entr${dropped === 1 ? 'y' : 'ies'} (covered files changed since capture)\n`);
+      out.write(JSON.stringify(entries) + '\n');
       return 0;
     }
     if (sub === 'record') {
@@ -218,4 +242,4 @@ function main(argv, out = process.stdout, err = process.stderr) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { record, recordWithReason, read, manifestPath, hashFile, main, MAX_LINE_BYTES, COVERS_HASH_BYTES };
+module.exports = { record, recordWithReason, read, readFresh, manifestPath, hashFile, main, MAX_LINE_BYTES, COVERS_HASH_BYTES };

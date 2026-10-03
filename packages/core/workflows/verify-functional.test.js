@@ -245,6 +245,71 @@ describe('verify-functional: dead Debug agent', () => {
   });
 });
 
+// --------------------------------------------------------------------------- evidence-capture gaps skip Debug
+
+describe('verify-functional: evidence-capture gaps go back to Exercise, not Debug', () => {
+  for (const cause of ['locator-not-found', 'evidence-missing', 'evidence-stale']) {
+    it(`${cause}: no Debug dispatch; the next Exercise prompt states the failure`, async () => {
+      let judgeCalls = 0;
+      const agent = makeAgentStub((prompt, opts) => {
+        if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+        if (opts.label === 'judge') {
+          judgeCalls += 1;
+          if (judgeCalls > 1) return satisfiedJudge();
+          const j = remediateJudge();
+          j.criteria[0] = { ...j.criteria[0], cause, reason: 'locator "Total: 5" not in artifact' };
+          j.debugGaps = [{ id: 'FS-1', statement: 'statement for FS-1', reason: 'locator "Total: 5" not in artifact', artifact: 'a', files: [] }];
+          return j;
+        }
+        return null;
+      });
+
+      const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+      expect(result.outcome).toBe('satisfied');
+      expect(agent.calls.filter((c) => c.opts.label === 'debug')).toHaveLength(0);
+      const exercisePrompts = agent.calls.filter((c) => c.opts.label === 'exercise').map((c) => c.prompt);
+      expect(exercisePrompts).toHaveLength(2);
+      expect(exercisePrompts[0]).not.toMatch(/RE-CAPTURE REQUIRED/);
+      expect(exercisePrompts[1]).toMatch(/RE-CAPTURE REQUIRED/);
+      expect(exercisePrompts[1]).toContain(cause);
+      expect(exercisePrompts[1]).toContain('not in artifact');
+    });
+  }
+
+  it('a mixed set sends only the build gap to Debug and the capture gap to Exercise', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls > 1) return satisfiedJudge();
+        return remediateJudge({
+          criteria: [
+            { id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'wrong output', cause: 'judged-failed', files: [] },
+            { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'stale copy', cause: 'evidence-stale', files: [] },
+          ],
+          gaps: ['FS-1', 'FS-2'],
+          debugGaps: [
+            { id: 'FS-1', statement: 's1', reason: 'wrong output', artifact: null, files: [] },
+            { id: 'FS-2', statement: 's2', reason: 'stale copy', artifact: null, files: [] },
+          ],
+        });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      return null;
+    });
+
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+
+    const debugCalls = agent.calls.filter((c) => c.opts.label === 'debug');
+    expect(debugCalls).toHaveLength(1);
+    expect(debugCalls[0].prompt).toContain('wrong output');
+    expect(debugCalls[0].prompt).not.toContain('stale copy');
+    expect(agent.calls.filter((c) => c.opts.label === 'exercise')[1].prompt).toMatch(/RE-CAPTURE REQUIRED[\s\S]*evidence-stale/);
+  });
+});
+
 // --------------------------------------------------------------------------- unbuilt from Debug
 
 describe('verify-functional: Debug reports unbuilt', () => {
