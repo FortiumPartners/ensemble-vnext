@@ -3714,6 +3714,25 @@ comparable unsplit feature.
 
 ---
 
+## Item 26 — automatic command updates via plugin auto-update (owner-parked 2026-10-02)
+
+**Parked by the owner ("We'll come back to that").** Two parts, found 2026-10-02:
+
+- **Owner's machine:** the `ensemble-vnext` marketplace is a local directory (this checkout) with a
+  relative-path plugin entry (`./packages/full`). Per the Claude Code docs (plugins/loading, "In-place
+  and copied plugins"), such a plugin loads in place from the checkout at every session start — so it
+  serves whatever branch is checked out — and auto-update never refreshes its install record.
+  Remedy: re-add the marketplace from GitHub pinned to `main` (or a release tag) and enable
+  auto-update. Auto-update runs once per session, a random delay of up to ten minutes after the first
+  message, and only when the version changes; `/plugin marketplace update ensemble-vnext` skips the
+  wait.
+- **Framework defect:** `runtime-refresh.sh` decides from `installed_plugins.json`'s recorded version,
+  which goes stale for an in-place plugin (recorded 4.10.4 since 2026-09-30 while the checkout says
+  4.11.0), so projects never refresh past it — lightning-lane is stuck on 4.10.4. Fix: read the live
+  `plugin.json` version for in-place installs. A `/plan`.
+
+---
+
 ## Deliberately not doing
 
 - **Repairing the statistical eval framework.** Answers a question you rarely ask, at high cost. Item 4 covers
