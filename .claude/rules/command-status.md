@@ -68,7 +68,7 @@ reader never learns a new format per command:
 STATE      what exists now, and what does not
 DECISIONS  what was chosen, and what it rules out
 ISSUES     what is wrong or unresolved, and who has to act
-NEXT       the exact command or action, ready to run
+NEXT       the steps to take now, in order, ready to run
 ```
 
 **Any section may be empty. Saying "none" is correct and takes one line** — padding a section
