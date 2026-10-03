@@ -3692,6 +3692,28 @@ product decision, not a defect or a contained change.
 
 ---
 
+## Item 25 — the sweep split on the standard path (owner-queued 2026-10-02)
+
+**Queued, not started. Comes after `docs/TRD/plan-from-spec.md` has run once on a real spec.**
+
+Owner, 2026-10-02: *"What about a standard-path (PRD-TRD-implement) flow? Does it make sense to
+review if low risk/low complexity tasks can be dispatched out via sweep?"*
+
+`plan-from-spec` gives `/plan` the split: a spec's independent, low-risk criteria go to a `/sweep`
+built and verified first, and only the coupled core gets a TRD. Its locked-scope rule lives in
+`trd-authoring.md`, so `/create-trd` already inherits that half. The split itself does not: on the
+standard path it belongs in `/create-trd` (a workflow with its own author and ground stages),
+sorting the PRD's criteria into a sweep list and a core TRD with the same `spec-scope.js
+check-split` guarantee.
+
+**Why wait:** PRD-driven features are usually more coupled than a QA findings list, so the gain is
+less certain, and the `/plan` version should first show the classification is trustworthy on a
+real run. **Evidence to collect from that run:** how many criteria were swept, whether any swept
+item failed or turned out to touch the core, and the build and verification time against a
+comparable unsplit feature.
+
+---
+
 ## Deliberately not doing
 
 - **Repairing the statistical eval framework.** Answers a question you rarely ask, at high cost. Item 4 covers
