@@ -10,7 +10,8 @@
 |----|-----------|--------|
 | O1 | A readout's NEXT lists the owner's steps in the order they take them; when the first step is an action rather than a command (merge a PR), it is still written first, as plain text, and a later command never stands alone as if it were the step to take now. | owner, 2026-10-02: "If there are multiple next steps, the next section should clearly escape each, in sequence. It's ok if the first next is not a command but 'merge X'." |
 | O2 | Each slash command in NEXT sits in its own fenced block, in sequence, directly under the line that explains it. | owner, 2026-10-02 (same message) |
-| O3 | No readout NEXT, stop message or owner-facing instruction a command prints hands out a shell command (`gh`, `git`, or a tool installer); the step is said in words or given as a slash command. Commands a command RUNS ITSELF are not owner-facing and stay. | owner, 2026-10-02: "Do NOT give shell commands; the user is in Claude code, not a shell." |
+| O3 | No readout NEXT hands out a shell command (`gh`, `git`); the step is said in words or given as a slash command. Commands a command RUNS ITSELF are not owner-facing and stay. | owner, 2026-10-02: "Do NOT give shell commands; the user is in Claude code, not a shell." |
+| O4 | NEXT stays short: only the steps to take now, usually one to three, never a long checklist. | owner, 2026-10-02: "Next in order needs to kept small" |
 
 ## Intended Change
 
@@ -57,14 +58,8 @@ After this change:
    - a PR open → "Merge PR #<number> once you have reviewed it" (plain text, first step);
    - closed, no PR → "Open a pull request for `<branch>`";
    - on the default branch → "Commit the report and close record" (say what, not how);
-   - `/rebase-project` not in a repo → "make `.claude/` a committed git repository first";
-   - `/implement-trd` dirty tree → "set aside or commit the uncommitted changes first";
-   - `/init-project` missing formatter → name the tool and its installer in words.
-   - `/plan`'s `/refine-trd` example puts the explanation on its own line and the command
-     alone in its block.
-   - Checkable: no owner-facing passage in these commands contains `gh pr`, `git init`,
-     `git stash`, `brew install`, `gem install`, `cargo install` or `go install`; `git add` /
-     `git commit` appear only in the commits the commands run themselves.
+   - Checkable: no NEXT passage in these commands contains `gh pr`, `git add` or `git commit`;
+     `git add` / `git commit` appear only in the commits the commands run themselves.
 3. **The docs.** `docs/reference/implement-trd.md:297` ("NEXT (one command: …)") and
    `docs/reference/other-commands.md:238`, `:241`, `:314` describe NEXT the new way.
 
@@ -87,6 +82,11 @@ After this change:
 - **`/verify-build`'s O4 keeps choosing the commands**; only how NEXT presents them changes.
   The report file's own `**Next**` line (`functional-verification.js:864`) is not a readout and
   stays as it is.
+- **Kept small (owner, 2026-10-02, mid-build: "Next in order needs to kept small").** Scope cut to
+  the rule and the four commands whose NEXT text caused the failure. Recorded as findings, not
+  built here: shell commands in `/rebase-project`'s not-a-repo stops (`:172`, `:1232`) and
+  `/init-project`'s installer table (`:659-664`); `git stash` hints in `/implement-trd` (`:195`,
+  `:2047`); `/plan`'s `/refine-trd` example fencing its explanation (`:844-846`).
 - not absorbed: the router's orientation hint ("CLOSE THE TURN") — the rule governs readouts
   without it; a separate change if wanted.
 
@@ -108,10 +108,9 @@ none
 
 | Task ID | Description | Serves | Dependencies | Acceptance Criteria |
 |---------|-------------|--------|--------------|---------------------|
-| FIX-001 | Rewrite the NEXT definition in `command-status.md` (`.claude/rules/` and `packages/core/templates/claude-directory/rules/`, byte-identical) as ordered steps, one fenced block per slash command with nothing else inside, never a shell command; replace the "literal next command" wording; fit the byte ceiling or raise it in `runtime-integrity.test.sh` with a one-line reason | O1, O2, O3 | None | A test asserts the rule contains the ordered-steps and no-shell-command wording and not "the literal next command"; the two copies are byte-identical; `runtime-integrity.test.sh` passes |
+| FIX-001 | Rewrite the NEXT definition in `command-status.md` (`.claude/rules/` and `packages/core/templates/claude-directory/rules/`, byte-identical) as the few steps to take now (usually one to three), in order, one fenced block per slash command with nothing else inside, never a shell command; replace the "literal next command" wording; fit the byte ceiling or raise it in `runtime-integrity.test.sh` with a one-line reason | O1, O2, O3, O4 | None | A test asserts the rule contains the ordered-steps, keep-it-short and no-shell-command wording and not "the literal next command"; the two copies are byte-identical; `runtime-integrity.test.sh` passes |
 | FIX-002 | `audit-build.md` and `close-feature.md`: NEXT in words (merge the PR once reviewed; open a PR for the branch; commit the report and close record), and the "NEXT gives them the command" prose to "NEXT tells them to commit it"; `docs/reference/other-commands.md:238`, `:241`, `:314`; mirrors; replace the `gh pr merge` test | O1, O3 | FIX-001 | Tests: neither file contains `gh pr `; their NEXT paragraphs contain no `git add`/`git commit`; both still say to merge the PR once reviewed; audit-build's own commit step (`:313-314`) unchanged; `verify-command-surface.test.js:745`'s text kept verbatim |
-| FIX-003 | `implement-trd.md` §9 NEXT template (`:1900-1918`): ordered steps, each slash command fenced, `gh pr create` row in words, "name ONE" removed; `:195` and `:2047` `git stash` in words; `verify-build.md` Readout (`:249-260`): O4 picks the commands, NEXT lists them as numbered fenced steps with any must-come-first step (merge, deploy) first as plain text; `docs/reference/implement-trd.md:297`; mirrors | O1, O2, O3 | FIX-002 | Tests: `implement-trd.md` contains no `gh pr ` and no "name ONE"/"single next command"; `verify-build.md` states the ordered fenced-steps rule and the first-step-as-text rule; the "refine the plan with `/refine-verification` … then run `/verify-build`" wording and `implement-trd.md:1913`'s "passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`" kept verbatim (tests at `:584-598`, `:631-642`, `:709-711`) |
-| FIX-004 | `rebase-project.md` (`:172`, `:1232`) and `init-project.md` (`:659-664`) in words, in all three copies each (`packages/core/commands`, `.claude/commands`, `packages/full/commands/plugin-only`); `plan.md:844-846` example split into an explanation line and `/refine-trd docs/TRD/<slug>.md` alone in its block; mirrors | O2, O3 | FIX-003 | Tests: neither rebase-project nor init-project contains `git init`, `brew install`, `gem install`, `cargo install` or `go install`; plan.md's `/refine-trd` block contains only the command; all copies byte-identical and `runtime-integrity.test.sh` passes |
+| FIX-003 | `implement-trd.md` §9 NEXT template (`:1900-1918`): ordered steps, each slash command fenced, `gh pr create` row in words, "name ONE" removed; `verify-build.md` Readout (`:249-260`): O4 picks the commands, NEXT lists them as numbered fenced steps with any must-come-first step (merge, deploy) first as plain text; `docs/reference/implement-trd.md:297`; mirrors | O1, O2, O3 | FIX-002 | Tests: `implement-trd.md` contains no `gh pr ` and no "name ONE"/"single next command"; `verify-build.md` states the ordered fenced-steps rule and the first-step-as-text rule; the "refine the plan with `/refine-verification` … then run `/verify-build`" wording and `implement-trd.md:1913`'s "passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`" kept verbatim (tests at `:584-598`, `:631-642`, `:709-711`) |
 
 ## Task Grounding
 
@@ -130,14 +129,9 @@ none
 
 ### FIX-003
 - **Touches:** `packages/core/commands/implement-trd.md`, `.claude/commands/implement-trd.md`, `packages/core/commands/verify-build.md`, `.claude/commands/verify-build.md`, `docs/reference/implement-trd.md`, `packages/core/commands/verify-command-surface.test.js`
-- **Reuse:** `implement-trd.md:1900-1918` (§9 NEXT template), `:195`, `:2047`; `verify-build.md:249-260` [read]
+- **Reuse:** `implement-trd.md:1900-1918` (§9 NEXT template); `verify-build.md:249-260` [read]
 - **Replaces:** "{the single next command, runnable as written — normally the first of:}" and "{name ONE. The others are the owner's to run when they get there.}" (`implement-trd.md:1901`, `:1910`) [read]
 - **Careful:** keep verbatim the phrases tests match: "refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`" (tests `:584-598`, `:631-642`) and "passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`" (test `:709-711`); the checkpoint commit at `implement-trd.md:1221-1222` is the command's own and stays [read]
-
-### FIX-004
-- **Touches:** `packages/core/commands/rebase-project.md`, `.claude/commands/rebase-project.md`, `packages/full/commands/plugin-only/rebase-project.md`, `packages/core/commands/init-project.md`, `.claude/commands/init-project.md`, `packages/full/commands/plugin-only/init-project.md`, `packages/core/commands/plan.md`, `.claude/commands/plan.md`, `packages/core/commands/verify-command-surface.test.js`
-- **Reuse:** `rebase-project.md:172`, `:1232`; `init-project.md:659-664`; `plan.md:840-848` [read]
-- **Careful:** `runtime-integrity.test.sh:347-348` and `:377-378` require the `packages/full/commands/plugin-only/` copies to equal the core ones [read]; `.claude/commands/init-project.md` also exists and mirrors the core copy [ran]
 
 ## Could Not Verify
 
