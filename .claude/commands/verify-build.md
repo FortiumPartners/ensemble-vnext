@@ -313,11 +313,25 @@ per O4, above: "refine the plan with `/refine-verification` (add `--auto` to let
 answer), then run `/verify-build`" — followed by `/refine-verification` and `/verify-build`,
 each in its own fenced block, in that order; never both commands inline as the only NEXT.
 
-**A sweep file's NEXT replaces the rule above (and the report's Next line says the same):**
-outcome `satisfied` → commit the sweep (`/sweep` never commits, and `/implement-trd` needs a
-clean tree), then `/implement-trd <core TRD>` — omitted when the sweep file's `**Core TRD**:` is
-`none`, where the commit is the last step; any other outcome → `/sweep` on the failed
-items, then `/verify-build`. Never `/refine-verification` or `/audit-build`.
+**A sweep file's NEXT replaces the rule above.** Its explaining line is `renderReport`'s own
+exact wording, and its steps are the same, as literal commands with the sweep file's path.
+Resolve the core TRD first, from the sweep file's `**Core TRD**:` line:
+
+```
+node .claude/lib/spec-scope.js source --file <sweep file>      # → {spec, section, coreTrd}
+```
+
+- outcome `satisfied` → "commit the swept fixes, then build the core TRD named on the sweep
+  file's `**Core TRD**:` line". Step 1 is the commit, as plain text (`/sweep` never commits,
+  and `/implement-trd` needs a clean tree); step 2 is `/implement-trd <coreTrd>` with the path
+  `source` returned, in its own fenced block. **When `coreTrd` is `none`, drop the
+  `/implement-trd` step**: the commit is the last step.
+- any other outcome → "re-run `/sweep <sweep file>` for the failed criteria, then
+  `/verify-build <sweep file>`". Step 1 is `/sweep <sweep file>`, step 2 is
+  `/verify-build <sweep file>`, each in its own fenced block, `<sweep file>` being the path
+  this run was given (e.g. `/sweep docs/plan/<slug>.sweep.md`).
+
+Never `/refine-verification` or `/audit-build`.
 
 ## `--fix [plan-path]`, `--no-fix`, and `--resume`
 

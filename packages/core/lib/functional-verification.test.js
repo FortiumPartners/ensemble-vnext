@@ -762,10 +762,10 @@ describe('renderReport', () => {
       const report = renderReport({ ...sweep, outcome });
       expect(report).not.toContain('/refine-verification');
       expect(report).not.toContain('/audit-build');
-      expect(report).toMatch(
+      expect(report).toContain(
         outcome === 'satisfied'
-          ? /\*\*Next\*\*: commit the sweep, then `\/implement-trd` on the core TRD/
-          : /\*\*Next\*\*: re-run `\/sweep` on the failed items, then `\/verify-build`/
+          ? "**Next**: commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line"
+          : '**Next**: re-run `/sweep docs/plan/onboarding.sweep.md` for the failed criteria, then `/verify-build docs/plan/onboarding.sweep.md`'
       );
     });
 

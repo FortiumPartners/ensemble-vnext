@@ -1,0 +1,234 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs1-2-5-extract-item4.txt",
+      "reason": "20 entries: AC-4.1..AC-4.18 plus RG-4.1/RG-4.2 as kind guard; 0 foreign ids.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs1-2-5-extract-item4.txt",
+      "reason": "AC-4.1 text keeps the surface label, has no Traces; traces = W-006, WM-002.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs3-wrapped-criterion.txt",
+      "reason": "Wrapped, sub-bulleted criterion returned as one single-spaced text; **RG-9.1:** and RG-4.1 parsed as guards.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs4-table-criteria.txt",
+      "reason": "Only AC-8.1/AC-8.2 from the criteria table; FIND-1 (unrelated table) and FIND-2 (list item) excluded.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs1-2-5-extract-item4.txt",
+      "reason": "AC-4.2 maps to the 1280px Web line via the range; AC-4.4 maps to the Simulator HUD line.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs6-empty-and-whole-doc.txt",
+      "reason": "No criteria heading gives criteria: [] (inside the CLI {criteria, verification} envelope); no-section read of a sweep-shaped file returns its 2 items and guard.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs7-23-source.txt",
+      "reason": "TRD and investigation record give {spec, section}; sweep file adds coreTrd (path or none); header-less and unparseable headers exit 1.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs8-render-sweep.txt",
+      "reason": "Written sweep file has Source spec, Core TRD, Acceptance criteria and Regression guards; extract reads back 4 items identical to the spec.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs9-render-objectives.txt",
+      "reason": "Diff confined to the Source spec header and Objectives table; pipe escaped as a \\| b; retained lines preserved.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs10-check-ok.txt",
+      "reason": "Clean split reports ok: true with all five lists empty.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs11-check-five-defects.txt",
+      "reason": "Five seeded defects each reported by kind and id with ok: false, rc=1.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs12-guards-outside-split.txt",
+      "reason": "Guards in both files: ok, no duplicated; RG-4.2 removed from Objectives: missing [RG-4.2].",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs13-criteria-definition.txt",
+      "reason": "Whole definition with header; rows grouped by surface in first-appearance order; AC-4.4 judge-only quoting the HUD line, AC-4.16 locator; guards added though not in --ids, blank evidence.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs14-overlap.txt",
+      "reason": "Shared path src/auth/login.ts reported; disjoint list gives shared: [].",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs15-trd-authoring-text.txt",
+      "reason": "trd-authoring.md (and byte-identical mirror) states every clause of the conditional locked-scope rule.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs16-17-plan-text.txt",
+      "reason": "plan.md 2g carries every other clause, but the owner rule is not quoted verbatim: it reads \"no auth, data or shared-contract change\" where the owner wrote \"no auth/data/shared-contract change\" (the criterion and its evidence require the literal quote; this feature exists to stop rewording).",
+      "cause": "judged-failed",
+      "provenAt": null
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs16-17-plan-text.txt",
+      "reason": "Step 6a runs render-objectives then check after audit-trd at medium and after Step 6 findings at small; a failed check stops COMMAND STUCK: /plan naming each problem.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs18-plan-live-call.txt",
+      "reason": "Live plan() and 35 passing fix-plan tests: no chain, no pointer, writeTrd follows coreTrd, NEXT ordered sweep, verify-build, commit, implement-trd (absent when coreTrd false); output states the sweep is built, verified and committed first.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs19-sweep-jest.txt",
+      "reason": "sweep.js tests pass: criterion ids used as item ids in fix and deferred; plain lists unchanged.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs20-sweep-text.txt",
+      "reason": "sweep.md Step 3a has the accounting, the literal not-a-sweep-item STUCK message, the overlap call, the none skip and the stop.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs21-23-verify-build-text.txt",
+      "reason": "verify-build.md carries every clause, and the contract template lists spec in the Source kind line, but the contract authoritative statement at line 48 still reads \"Four source kinds are valid\" with no spec row, contradicting the template.",
+      "cause": "judged-failed",
+      "provenAt": null
+    },
+    {
+      "id": "FS-22",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs22-renderReport-live.txt",
+      "reason": "renderReport emits \"commit the sweep, then /implement-trd on the core TRD when the sweep file names one\" and \"re-run /sweep on the failed items, then /verify-build\", not the criterion literal sentences (\"commit the swept fixes, then build the core TRD named on the sweep file Core TRD line\" / \"re-run /sweep <file> for the failed criteria, then /verify-build <file>\"). General next steps are correctly absent.",
+      "cause": "judged-failed",
+      "provenAt": null
+    },
+    {
+      "id": "FS-23",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs21-23-verify-build-text.txt",
+      "reason": "verify-build.md sweep NEXT rule gives /sweep and /verify-build without the sweep-file argument (\"/sweep on the failed items, then /verify-build\"), so they are not literal commands and do not match FS-22 steps; the source call and the none rule are present.",
+      "cause": "judged-failed",
+      "provenAt": null
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs24-implement-trd-text.txt",
+      "reason": "implement-trd 3.6 step 1 uses spec-scope.js source then criteria over Objectives plus sweep ids, source_kind spec, no derive agent; 8.1b reads the spec section; full-id criteria run gives 20 rows.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs25-evidence-reuse-live.txt",
+      "reason": "Sweep artifact recorded in core manifest is reused (pass, reused true) while covered files are identical, fails stale after one byte of b.ts changes, and is reused again on revert.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}

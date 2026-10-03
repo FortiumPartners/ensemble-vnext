@@ -45,9 +45,9 @@ convention exists to prevent — do not write one.
 path, no TRD excerpt, no task list. It does not know what was built; it knows only what was
 asked for.
 
-**Four source kinds are valid.** The loop needs a statement of what success looks like; a PRD
-is one way to supply that, not the only one. Whichever applies, the agent receives **that
-source alone**:
+**Five source kinds are valid.** The loop needs a statement of what success looks like; a PRD
+is one way to supply that, not the only one. Whichever of the first four applies, the agent
+receives **that source alone**; the fifth, `spec`, is never derived by an agent at all:
 
 | Source | Given to the agent as | Used when |
 |---|---|---|
@@ -55,9 +55,11 @@ source alone**:
 | **Reproduction** | the extracted `## Reproduction` text | a defect: steps, actual, expected |
 | **Intended change** | the extracted `## Intended Change` text | a small change decided in conversation |
 | **Behaviour preserved** | the extracted `## Behaviour Preserved` text | a refactor: the tests that passed before, and the surface that must not move |
+| **Spec** | not given to any agent: the criteria are copied verbatim by `spec-scope.js criteria` from the spec section, never derived | a sweep file (`.sweep.md`), or a TRD whose header has `**Source spec**: <path> § <section>` — the spec already lists the acceptance criteria |
 
-**The isolation rule is the same for all four, and it is why the last three are passed as
-EXTRACTED TEXT rather than as a TRD path.** A deriver that can see the task list writes
+**The isolation rule is the same for the four derived kinds, and it is why reproduction,
+intended change and behaviour preserved are passed as EXTRACTED TEXT rather than as a TRD
+path.** A deriver that can see the task list writes
 criteria the plan satisfies by construction, and verification becomes circular — it confirms
 the plan was followed rather than that the outcome was reached. A reproduction and a recorded
 decision are statements of *outcome*, and stay legitimate sources; the TRD file that happens

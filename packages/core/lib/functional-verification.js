@@ -866,12 +866,13 @@ function renderReport(input) {
     );
     lines.push(
       isSweep
-        ? '**Next**: re-run `/sweep` on the failed items, then `/verify-build`'
+        ? `**Next**: re-run \`/sweep ${prd.trim()}\` for the failed criteria, then \`/verify-build ${prd.trim()}\``
         : '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
     );
   } else if (outcome === 'satisfied' && isSweep) {
-    // A sweep file whose `**Core TRD**:` is `none` has no core to build: the commit is the end.
-    lines.push('**Next**: commit the sweep, then `/implement-trd` on the core TRD when the sweep file names one');
+    // A sweep file whose `**Core TRD**:` is `none` has no core to build: the commit is the end
+    // (the command's readout resolves that line and drops the build step; the report only names it).
+    lines.push("**Next**: commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line");
   } else if (outcome === 'satisfied') {
     // O4 (docs/TRD/refine-verification.md): the report's Next line follows the same rule as
     // both commands' readouts, so a satisfied run names its successor too.

@@ -306,10 +306,11 @@ as 29 objectives and four unasked consolidations, all in one 33-task TRD):
 2. **The exit test (Step 3) passes `prdWouldHaveContent: false`.** The intent is already
    settled by the spec.
 3. **Classify each criterion, sweep or core, by the owner's rule.** A criterion is swept only
-   when its fix is an independent low-risk finding: no file shared with the core, no dependency
-   on it, no auth, data or shared-contract change. Uncertain, guarded or open-question criteria
-   stay in the core, because calling a risky item sweepable is the expensive mistake. Guards are
-   outside the split: they belong to both documents and the library places them.
+   when its fix is an independent low-risk finding:
+   "no file shared with the core, no dependency on it, no auth/data/shared-contract change".
+   Uncertain, guarded or open-question criteria stay in the core, because calling a risky item
+   sweepable is the expensive mistake. Guards are outside the split: they belong to both
+   documents and the library places them.
 4. **Step 4 weighs the core only.** The swept items are not part of the weight.
 5. **The library writes the documents; you only pick ids.** The model never types criterion text:
 

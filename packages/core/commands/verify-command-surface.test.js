@@ -1009,9 +1009,9 @@ describe('plan.md spec path (plan-from-spec)', () => {
   });
 
   test('classifies by the owner\'s three conditions, in the owner\'s words', () => {
-    expect(specPath).toMatch(/no file shared with the core/);
-    expect(specPath).toMatch(/no dependency on it/);
-    expect(specPath).toMatch(/no auth, data or shared-contract change/);
+    expect(specPath).toContain(
+      '"no file shared with the core, no dependency on it, no auth/data/shared-contract change"'
+    );
     expect(specPath).toMatch(/independent low-risk finding/);
   });
 
@@ -1144,10 +1144,18 @@ describe('verify-build.md verifies spec-sourced inputs without deriving', () => 
     expect(step3a()).toMatch(/never point NEXT at `\/refine-verification` or `\/audit-build`/);
   });
 
-  test('a sweep readout NEXT is commit then /implement-trd <core TRD>, else /sweep then /verify-build', () => {
-    const readout = body().split('## Readout')[1].split("## `--fix")[0];
-    expect(readout).toMatch(/`satisfied` → commit the sweep.*then `\/implement-trd <core TRD>`/);
-    expect(readout).toMatch(/any other outcome → `\/sweep` on the failed items, then `\/verify-build`/);
+  test('a sweep readout NEXT gives renderReport\'s steps as literal commands, core TRD from spec-scope.js source', () => {
+    const readout = flat(body().split('## Readout')[1].split("## `--fix")[0]);
+    expect(readout).toContain('node .claude/lib/spec-scope.js source --file <sweep file>');
+    expect(readout).toContain(
+      "\"commit the swept fixes, then build the core TRD named on the sweep file's `**Core TRD**:` line\""
+    );
+    expect(readout).toContain('`/implement-trd <coreTrd>`');
+    expect(readout).toMatch(/When `coreTrd` is `none`, drop the `\/implement-trd` step/);
+    expect(readout).toContain(
+      '"re-run `/sweep <sweep file>` for the failed criteria, then `/verify-build <sweep file>`"'
+    );
+    expect(readout).toContain('Step 1 is `/sweep <sweep file>`, step 2 is `/verify-build <sweep file>`');
   });
 
   test('each met swept criterion is recorded in the CORE feature manifest, covering its changed files', () => {

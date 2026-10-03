@@ -1,0 +1,2 @@
+{"ts":"2026-10-03T04:20:18.585Z","kind":"risk","foundBy":"code-review","phase":1,"summary":"sweep.js does not itself check triage put every criterion id in fix or deferred; sweep.md prose carries it","blocksFeature":false,"file":"packages/core/workflows/sweep.js"}
+{"ts":"2026-10-03T04:20:18.585Z","kind":"risk","foundBy":"code-review","phase":1,"summary":"spec-scope section-name fallback is a substring match; a short name can bind to an unrelated heading","blocksFeature":false,"file":"packages/core/lib/spec-scope.js"}

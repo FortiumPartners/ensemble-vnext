@@ -1,0 +1,235 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs1-2-5-extract-item4.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs1-2-5-extract-item4.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs3-wrapped-criterion.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs4-table-criteria.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs1-2-5-extract-item4.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs6-empty-and-whole-doc.txt",
+      "reason": "criteria: [] inside the CLI's {criteria, verification} envelope; no-section read returns the sweep file's items.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs7-23-source.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs8-render-sweep.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs9-render-objectives.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs10-check-ok.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs11-check-five-defects.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs12-guards-outside-split.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs13-criteria-definition.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs14-overlap.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs15-trd-authoring-text.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/it2-fs16-plan-text.txt",
+      "reason": "plan.md §2g states every clause: prdWouldHaveContent false, owner's rule quoted verbatim, uncertain/guarded/open-question stay core, Step 4 weighs core only, render-sweep to docs/plan/<slug>.sweep.md, no TRD when all swept / no sweep file when all core, [] means carry on as before; mirror identical.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs16-17-plan-text.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs18-plan-live-call.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs19-sweep-jest.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs20-sweep-text.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/it2-fs21-23-verify-build-text.txt",
+      "reason": "verify-build.md: spec-sourced input (sweep file or Source spec TRD) writes success-definition via spec-scope.js criteria, no derive agent; sweep file runs as <slug>-sweep, cap 1, prd = sweep path, fix loop skipped; contract table lists Spec as fifth source kind; mirrors identical.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-22",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/it2-fs22-renderReport-live.txt",
+      "reason": "Live renderReport with a .sweep.md prd: satisfied gives the commit-then-core-TRD sentence, stalled gives re-run /sweep then /verify-build, neither contains /audit-build or /refine-verification; a .md PRD control still gets /refine-verification; Jest (it2-fs22-jest.txt) 4 passed.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-23",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/it2-fs23-source-none.txt",
+      "reason": "source on a rendered sweep file with Core TRD none returned coreTrd \"none\"; verify-build.md readout section resolves the core TRD with spec-scope.js source and drops the /implement-trd step when coreTrd is none.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-24",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs24-implement-trd-text.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-25",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-from-spec/evidence/fs25-evidence-reuse-live.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    4
+  ],
+  "outcome": "satisfied"
+}

@@ -4,7 +4,7 @@
   "trd_hash": "96c45492ad9076988b73cbddac2d108d6c96327c2cd04bd8d215acee58e51468",
   "branch": "feature/verification-reuses-evidence/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "New packages/core/lib/spec-scope.js with extract, source, renderObjectives, renderSweep, check, criteria, overlap and a ",
@@ -122,10 +122,19 @@
       "last_advanced": "2026-10-03T04:05:58.180Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1840cac",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-03T04:15:27.147Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "1840cac",
+    "last_checkpoint_timestamp": "2026-10-03T04:15:27.147Z",
     "interrupted": false,
     "interrupt_reason": null
   },
