@@ -5,7 +5,7 @@
 **Created**: 2026-09-26
 **Last Updated**: 2026-10-03
 **Author**: @technical-architect
-**Source PRD**: `docs/PRD/docs-as-built.md` (v1.2.2; no supersession marker). D19 departs from the PRD's §8 row "TRD whose implementation is not finished" on an owner ruling the PRD does not yet record — see D19 and OQ-3
+**Source PRD**: `docs/PRD/docs-as-built.md` (v1.2.3; no supersession marker). D19 departs from the PRD's §8 row "TRD whose implementation is not finished" on an owner ruling the PRD does not yet record — see D19 and OQ-3
 **Verification**: `/audit-trd` 2026-10-03 against PRD 1.2.2, 5 of 5 verifiers reported → 1.2.1. What that audit did not check is listed under Could Not Verify
 **Task ID Prefix**: DABS
 
@@ -647,7 +647,7 @@ Imported from PRD §3.2. Implementation agents must reject work in these categor
 
 | ID | Question | What I assumed | Why it matters | If I'm wrong |
 |----|----------|----------------|----------------|--------------|
-| OQ-1 | (Carried from the PRD.) What should a comprehensive run do? | The PRD's default: no commit window; every PRD/TRD gets at least a Sonnet once-over, Opus where the scorer rates high against a per-doc window (D6); loose docs swept; a first run is comprehensive and batched | The comprehensive column of PRD F3 is a default awaiting the owner | Routing in DABS-B004 and D6's per-doc window change |
+| OQ-1 | (Carried from the PRD.) What should a comprehensive run do? | **Ruled 2026-10-03 by the owner** (PRD 1.2.3): the stated default — no commit window; every PRD/TRD gets at least a Sonnet once-over, Opus where the scorer rates high against a per-doc window (D6); loose docs swept; a first run is comprehensive and batched | — | — |
 | OQ-2 | What are the high and medium thresholds? | **Ruled 2026-09-27 by the owner:** defaults high ≥ 70, medium ≥ 40, overridable per project; revisit after the first real runs | — | — |
 | OQ-3 | What happens to a TRD for work not yet built — a plan committed before implementation? | **Ruled 2026-09-27, revised 2026-10-03 by the owner:** skip a TRD with no implementation work or with work clearly in flight; include one whose development tasks are all done even if test, doc or infrastructure tasks are open (D19). The PRD (1.2.2 §8) still records only the 2026-09-27 ruling | The PRD and this TRD state different skip rules until the PRD is revised | `/audit-build` checks the code against the PRD's rule and reports the departure as a defect |
 | OQ-4 | Did "full audit with opus" mean the existing `/audit-prd`/`/audit-trd`? | No: an as-built audit of the same shape — independent Opus verifiers then one Opus apply agent (D7, D8) | PRD §8 leaves this to the TRD and notes the owner's words may mean otherwise | The Opus tier would call those workflows, which check a different question (D8) |
