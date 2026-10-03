@@ -10,6 +10,50 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.12.0] - 2026-10-02
+
+A finished spec plans as written, and verification stops proving things twice. Plans:
+`docs/TRD/plan-from-spec.md`, `docs/TRD/verification-reuses-evidence.md`,
+`docs/TRD/next-in-order.md`. Measured cause: in lightning-lane, a roadmap item with 18
+acceptance criteria (signup-disney-optional) became 29 objectives, with consolidations nobody
+had asked for. All 26 of its findings went through one heavy TRD, and a 40-criterion
+verification loop re-proved what the live-check tasks had already captured. A small item grew
+into a full day.
+
+### Added
+
+- **`/plan` locks a finished spec's scope.** When the source already carries acceptance
+  criteria, a new library, `packages/core/lib/spec-scope.js`, extracts them by id. It copies
+  each one verbatim into the TRD's Objectives, and then checks mechanically that nothing was
+  added, reworded, dropped or duplicated. A criterion that looks wrong becomes an owner-only
+  open question that quotes the spec line, never a silent edit.
+- **Independent low-risk criteria are swept out.** A criterion is swept when it shares no file
+  with the core, does not depend on it, and changes no auth, data or shared contract. Swept
+  criteria go to `docs/plan/<slug>.sweep.md` and are built with `/sweep`. Only the coupled core
+  gets a TRD. Every criterion must land in exactly one of the two, or the plan stops.
+- **The sweep is verified before the core is built.** `/verify-build <slug>.sweep.md` checks
+  the swept criteria verbatim, with no derive step and one round. A failure goes back through
+  `/sweep`, never into the TRD. The core's own verification then covers every criterion, core
+  and swept. It reuses the sweep's evidence for a swept criterion while the files that
+  criterion's fix changed are byte-identical.
+
+### Changed
+
+- **Verification reuses live evidence.** A live-check task records what it captured, together
+  with a content hash of every source file the evidence exercises
+  (`.trd-state/<feature>/evidence/live-manifest.jsonl`). The verification loop reuses an
+  artifact while those files are unchanged, instead of capturing it again. The checker reads
+  the hashes from the manifest itself, so no agent supplies them.
+- **A readout's NEXT lists every step in order:** one fenced block per slash command, and a
+  plain line for a step such as merging. It never gives a shell command.
+
+### Fixed (sweep 2026-10-02)
+
+- A capture problem goes back to Exercise to be re-captured, never to Debug. Capture problems
+  are missing or stale evidence, or a locator that was not found.
+- `/verify-build`'s fix-round summary uses the field names its renderer reads.
+- Stale live evidence is dropped when it is read.
+
 ## [4.11.0] - 2026-10-02
 
 `/audit-build` converges. Plan: `docs/TRD/audit-convergence.md`. Measured cause: in
