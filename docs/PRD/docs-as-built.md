@@ -171,10 +171,9 @@ the main agent's, following the owner's separate handling of loose docs (owner, 
 
 #### F3: Two runs — light and comprehensive
 **Description**: *"a light review weekly, and a comprehensive review monthly"* (owner, turn 1).
-The light run is defined by answer 3 (F2). **The owner has not redefined the comprehensive run;
-the definition below is a DEFAULT awaiting owner confirmation (OQ-1).**
+The light run is defined by answer 3 (F2). The comprehensive run below was confirmed by the owner on 2026-10-03 (OQ-1).
 
-| | Light run | Comprehensive run (default) |
+| | Light run | Comprehensive run |
 |---|---|---|
 | Commit window and impact gating | Yes — commits since last run; low score → no review | No — every PRD and TRD reviewed |
 | Depth per PRD/TRD | Opus / Sonnet / none by score | At least a Sonnet once-over; Opus audit where the scorer rates the doc high |
@@ -185,8 +184,8 @@ the definition below is a DEFAULT awaiting owner confirmation (OQ-1).**
 - [ ] AC-F3.1: A light run and a comprehensive run can each be started by an explicit invocation.
 - [ ] AC-F3.2: The fan-out workflow consumes F1's output and F2's scores; it does not re-decide
   class or depth.
-- [ ] AC-F3.3: Each run behaves as its column in the table (the comprehensive column is a
-  default — OQ-1).
+- [ ] AC-F3.3: Each run behaves as its column in the table (comprehensive column confirmed
+  2026-10-03, OQ-1).
 - [ ] AC-F3.4: A run in a repository with no last-run marker is a comprehensive run, and its
   change set is delivered as several reviewable batches (multiple-choice answer to the old OQ-9 —
   confirm). The split key is the TRD's decision.
@@ -398,7 +397,7 @@ options the owner may not have fully weighed; it stands until the owner says oth
 | What is reviewed | The checked-out tree; assume a scheduled job on a clean checkout | Owner's own words (answer 2) | NG7, §7 |
 | Light run | Commits since last run → Haiku score → Opus / Sonnet / none | Owner's own words (answer 3) | F2, F3 |
 | Old archive rules | Fixed outside this feature | Owner's own words (answer 4) | §8 |
-| Comprehensive run | See F3 | **Default, awaiting owner** | F3, OQ-1 |
+| Comprehensive run | See F3 | Owner's choice, 2026-10-03 (OQ-1: the stated default) | F3 |
 | How a file is classed | Folder proposes, structure confirms; disagreement → loose doc | Multiple-choice answer — confirm | AC-F1.2 |
 | First run | Comprehensive, delivered in batches | Multiple-choice answer — confirm | AC-F3.4 |
 | Unbuilt PRD requirement | Surfaced, not cut | Multiple-choice answer — confirm. Note: F7's rule would otherwise cut it | AC-F4.3 |
