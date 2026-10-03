@@ -1900,15 +1900,18 @@ ISSUES
 NEXT
   {the few steps to take now, in order — one fenced block per slash command, explanation on
    the line above each block, never a shell command:}
-  1. {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): "refine the plan with
-     `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`" —
-     the exact wording `renderReport` puts under its own Diagnosis line (verification-fix-loop
-     TRD §3.1), so the readout and the report never disagree on what comes next.}
-     {otherwise: verify delivery against the TRD and PRD, in a block of its own:}
-     /audit-build <trd> --prd <prd>
-  2. {in words, not a block: open the PR once the audit is clean — a passing `/audit-build`
-     opens the PR when `ensemble.openPullRequest` is `auto`; when it is `never`, say to open
-     it on GitHub, or ask for it.}
+  {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): the line "refine the plan
+   with `/refine-verification` (add `--auto` to let an agent answer), then run
+   `/verify-build`" — the exact wording `renderReport` puts under its own Diagnosis line
+   (verification-fix-loop TRD §3.1), so the readout and the report never disagree on what
+   comes next — then the two steps, each command in a block of its own:}
+  1. /refine-verification
+  2. /verify-build
+  {otherwise: verify delivery against the TRD and PRD, in a block of its own:}
+  1. /audit-build <trd> --prd <prd>
+  2. {only when `ensemble.openPullRequest` is `never`, in words, not a block: open the PR once
+     the audit is clean, on GitHub, or ask for it. A passing `/audit-build` opens the PR when
+     `ensemble.openPullRequest` is `auto`, so then this is no step of yours and NEXT omits it.}
 ```
 
 **A passing `/audit-build` opens the PR when `ensemble.openPullRequest` is `auto`; when it is

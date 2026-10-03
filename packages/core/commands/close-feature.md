@@ -107,7 +107,7 @@ The four-section readout from `.claude/rules/command-status.md`, one screen:
 - **DECISIONS** — none.
 - **ISSUES** — a record that would not parse, or a commit that failed. Otherwise none.
 - **NEXT** — on a feature branch with a PR open: a line saying to merge the PR once you
-  have reviewed it, in words, no command. On a feature branch with no PR: a line saying to open
+  have reviewed it, naming it by number and URL, in words, no command. On a feature branch with no PR: a line saying to open
   a PR for the branch. On the default branch: a line saying to commit the close record.
 
 Then the banner, as the last line:

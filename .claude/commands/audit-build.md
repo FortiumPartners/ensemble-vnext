@@ -415,8 +415,8 @@ says the feature closes with a caveat.
 **NEXT.** When `capReached` is true: a line saying the feature stays open and closing it is your
 call once you are satisfied, then `/close-feature docs/TRD/<feature>.md` alone in its fenced block;
 never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its fenced block. When the audit closed the feature and a PR is open (`action` `opened` or
-`updated`): a line saying to merge the PR once you have reviewed it (merging stays yours), in words, no
-command. Closed on a feature branch with no PR: a line saying to open a PR for the branch.
+`updated`): a line saying to merge the PR once you have reviewed it, naming it by number and URL
+(merging stays yours), in words, no command. Closed on a feature branch with no PR: a line saying to open a PR for the branch.
 Closed on the default branch (nothing was committed): a line saying to commit the report and
 close record. On `do not proceed` with nothing chained: the design work the
 readout names.

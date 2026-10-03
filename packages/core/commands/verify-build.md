@@ -257,9 +257,10 @@ first and is not a slash command (a merge, a deploy) leads as plain text, not a 
 verification-fix-loop TRD §3.1): STATE carries a Diagnosis line, counted over `criteria`'s
 non-`met` entries exactly as `renderReport` counts them for the report — descending by count,
 in words, cause-less entries as "unrecorded". Never re-derive the verdict here; this is a
-count, not a second judgement. NEXT is `renderReport`'s own exact wording per O4, above:
-"refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run
-`/verify-build`".
+count, not a second judgement. NEXT's explaining line is `renderReport`'s own exact wording
+per O4, above: "refine the plan with `/refine-verification` (add `--auto` to let an agent
+answer), then run `/verify-build`" — followed by `/refine-verification` and `/verify-build`,
+each in its own fenced block, in that order; never both commands inline as the only NEXT.
 
 ## `--fix [plan-path]`, `--no-fix`, and `--resume`
 

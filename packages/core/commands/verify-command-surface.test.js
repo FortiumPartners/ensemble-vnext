@@ -707,10 +707,15 @@ describe('the cycle-ending commands open the pull request', () => {
       expect(doc).not.toMatch(/gh pr /);
       expect(doc).toMatch(/merge the PR once you\s+have reviewed it/);
     }
-    const nextAudit = auditBuild.slice(auditBuild.indexOf('**NEXT.** When `capReached`'));
-    expect(nextAudit.slice(0, nextAudit.indexOf('---'))).not.toMatch(/git (add|commit)/);
-    const nextClose = closeFeature.slice(closeFeature.indexOf('- **NEXT**'));
-    expect(nextClose.slice(0, nextClose.indexOf('Then the banner'))).not.toMatch(/git (add|commit)/);
+    const between = (doc, start, end) => {
+      const from = doc.indexOf(start);
+      expect(from).toBeGreaterThan(-1);
+      const to = doc.indexOf(end, from);
+      expect(to).toBeGreaterThan(from);
+      return doc.slice(from, to);
+    };
+    expect(between(auditBuild, '**NEXT.** When `capReached`', ' --- ')).not.toMatch(/git (add|commit)/);
+    expect(between(closeFeature, '- **NEXT**', 'Then the banner')).not.toMatch(/git (add|commit)/);
   });
 
   test('implement-trd.md says /audit-build opens the PR when openPullRequest is auto', () => {
@@ -894,7 +899,10 @@ describe('implement-trd.md and verify-build.md NEXT list ordered steps', () => {
   const implementNext = () => {
     const text = read(CORE_IMPLEMENT);
     const at = text.indexOf('\nNEXT\n');
-    return text.slice(at, text.indexOf('**Rules this template enforces'));
+    const end = text.indexOf('**Rules this template enforces', at);
+    expect(at).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(at);
+    return text.slice(at, end);
   };
 
   test('implement-trd.md carries no gh command and no single-command wording', () => {
