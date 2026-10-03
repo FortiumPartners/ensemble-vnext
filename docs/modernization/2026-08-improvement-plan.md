@@ -3649,6 +3649,49 @@ the count.
 
 ---
 
+## Item 24 — a project-aware `/merge-feature` (owner-queued 2026-10-02)
+
+**Queued, not started. Comes after the rules in flight** (NEXT lists every step in order and
+never hands out shell commands — `docs/TRD/next-in-order.md`; locked scope and the sweep split
+in `/plan`).
+
+Owner, 2026-10-02: *"a project should have a vendored /merge-feature (or merge-build, etc) slash
+command that understands the project's environments, deployment topology, rules, branch and merge
+rules — so that the agent has a project-aware way to promote features to different environments
+that can scale to the project."*
+
+**The gap it fills.** The cycle ends at an opened PR (`ensemble.openPullRequest: auto`), and
+everything after it is left to the owner as prose: merge it, deploy it, re-verify there. The
+lightning-lane NEXT that prompted the NEXT-order fix read "Merge #1316, then re-run the live
+proof", which is exactly a promotion step with no command behind it. Once NEXT may no longer hand
+out `gh pr merge`, "merge the PR" needs a project-aware command to point at, or it stays a step the
+owner types elsewhere.
+
+**What it should know, and where that already lives:**
+- **Environments and what the loop may do in each:** `.claude/rules/verification.md` §1
+  (environments, write/deploy/restart permissions), §1a (capacity), §2 (fast refresh, full deploy).
+- **Never-unattended paths:** `verification.md` §5b.
+- **Branch and merge rules:** not recorded anywhere yet — base branch, merge style (merge, squash,
+  rebase), required checks, who may merge, release/tag conventions. Likely a new owner-governed
+  section, set by `/verification-setup` or a sibling interview, never inferred by an agent.
+- **Deployment topology:** which environment a merge reaches (preview per branch, staging on main,
+  production on tag), so the command can promote stepwise and re-verify at each stop.
+
+**Open, for the owner before planning:**
+- Name: `/merge-feature`, `/merge-build`, `/promote`?
+- Scope of one invocation: merge only, or merge-then-promote through every environment the
+  topology allows, re-verifying at each?
+- Authorization: `autonomy.md` says a merge, deploy or release needs its own authorization;
+  invoking this command would be that authorization. Does each environment step need its own
+  confirmation, or does the topology declare which promotions are automatic?
+- Owner-governed or derived: the branch/merge rules are policy, so they belong beside
+  `verification.md` (owner-governed), not in a file an agent writes.
+
+**Route when it starts:** `/create-prd` — what the command should do per environment is a
+product decision, not a defect or a contained change.
+
+---
+
 ## Deliberately not doing
 
 - **Repairing the statistical eval framework.** Answers a question you rarely ask, at high cost. Item 4 covers
