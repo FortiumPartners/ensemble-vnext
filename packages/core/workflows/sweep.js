@@ -86,11 +86,15 @@ if (!SOURCE) throw new Error('sweep: args.source is required — the issue list,
  * work, so they are cut off before looking. Without ids (an owner's walkthrough list) this is
  * empty and nothing below changes. Regex mirrors spec-scope.js's id shape; the workflow
  * sandbox cannot require() it. */
-const CRITERION_IDS = [
+const CRITERION_LINES = [
   ...SOURCE.split(/^\s*\*\*Regression guards:?\*\*/m)[0].matchAll(
-    /^\s*[-*]\s+\*\*([A-Za-z][A-Za-z0-9]*-\d+(?:\.\d+)*)\*\*/gm
+    /^\s*[-*]\s+\*\*([A-Za-z][A-Za-z0-9]*-\d+(?:\.\d+)*)\*\*.*$/gm
   ),
-].map((m) => m[1])
+]
+const CRITERION_IDS = CRITERION_LINES.map((m) => m[1])
+/* The fixer is otherwise given only triage's one-line paraphrase. A criterion's own words are
+ * the locked scope, so its fixer reads them verbatim. */
+const CRITERION_TEXT = new Map(CRITERION_LINES.map((m) => [m[1], m[0].trim()]))
 const ID_RULE = CRITERION_IDS.length
   ? `
 THE LIST CARRIES CRITERION IDS: ${CRITERION_IDS.join(', ')}. Use each one, exactly as written,
@@ -219,7 +223,7 @@ const fixPrompt = (item) =>
   `Fix ONE reported issue, grounded in the code that exists.
 ${SCOPE}
 ISSUE ${item.id}: ${item.summary}
-
+${CRITERION_TEXT.has(item.id) ? `THE CRITERION, VERBATIM (this is the scope; do not widen it): ${CRITERION_TEXT.get(item.id)}\n` : ''}
 GROUND IT FIRST. Find the code that produces this behaviour. Read it. Do not fix from the
 issue text alone — the reporter described a symptom, and the symptom is not always where the
 cause is.

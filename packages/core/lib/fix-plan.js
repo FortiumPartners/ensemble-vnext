@@ -210,7 +210,9 @@ function finishSweep({ coreTrd, kind, slug, neverUnattendedHit, neverUnattendedS
     `/verify-build ${sweep}`,
     'commit the swept fixes (/sweep never commits)',
   ];
-  if (coreTrd) steps.push(`/implement-trd docs/TRD/${slug}.md (functional verification runs by default)`);
+  // Each step is one command and nothing else: NEXT puts a slash command in its own fence for a
+  // one-tap copy, and prose inside it would be pasted as arguments.
+  if (coreTrd) steps.push(`/implement-trd docs/TRD/${slug}.md`);
 
   let policy = '';
   if (coreTrd && neverUnattendedHit.length > 0) {
@@ -228,7 +230,7 @@ function finishSweep({ coreTrd, kind, slug, neverUnattendedHit, neverUnattendedS
     chainArgs: null,
     handoffLine: null,
     banner: '═══ COMMAND COMPLETE: /plan ═══',
-    bannerBody: `${slug}: investigation complete; ${where}. The sweep is built, verified and committed first. In order: ${steps.map((t, i) => `${i + 1}. ${t}`).join('; ')}.${policy}`,
+    bannerBody: `${slug}: investigation complete; ${where}. The sweep is built, verified and committed first. In order: ${steps.map((t, i) => `${i + 1}. ${t}`).join('; ')}${coreTrd ? ' (functional verification runs by default)' : ''}.${policy}`,
     notify: true,
     nextSteps: steps,
     verificationSection: VERIFICATION_SECTION[kind] || VERIFICATION_SECTION.defect,

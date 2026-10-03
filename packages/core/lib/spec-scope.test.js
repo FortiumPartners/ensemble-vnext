@@ -262,6 +262,38 @@ describe('criteria', () => {
   });
 });
 
+describe('review fixes', () => {
+  test('criteria accepts the guard ids a TRD Objectives table carries, and duplicates, without throwing', () => {
+    const ids = [...CORE, 'RG-4.1', 'RG-4.2', CORE[0]];
+    const def = S.criteria({ specMarkdown: SPEC, specPath: SPEC_PATH, section: SECTION, ids, feature: 'demo' });
+    expect(def).toContain(`**Criteria**: ${CORE.length + 2}`);
+  });
+  test('render-objectives still rejects a guard id', () => {
+    expect(() => render([...CORE, 'RG-4.1'])).toThrow(/RG-4\.1 is not an acceptance criterion/);
+  });
+  const mini = (guardBlock) => ['# S', '', '## Sec', '', '### Acceptance criteria', '',
+    '- **AC-1** · One.', ...guardBlock, '- **RG-1:** Guard one.', ''].join('\n');
+  const kinds = (md) => S.extract(md, { section: 'Sec' }).criteria.map((c) => `${c.id}:${c.kind}`);
+  test('a sentence under the guards lead-in keeps guard mode', () => {
+    expect(kinds(mini(['', '**Regression guards:**', 'These must still hold:', ''])))
+      .toEqual(['AC-1:criterion', 'RG-1:guard']);
+  });
+  test('a plain guards line directly under a criterion is not swallowed into it', () => {
+    const c = S.extract(mini(['Regression guards:']), { section: 'Sec' }).criteria;
+    expect(c.map((x) => `${x.id}:${x.kind}`)).toEqual(['AC-1:criterion', 'RG-1:guard']);
+    expect(c[0].text).toBe('One.');
+  });
+  test('a guards sub-heading switches to guard mode', () => {
+    expect(kinds(mini(['', '#### Regression guards', '']))).toEqual(['AC-1:criterion', 'RG-1:guard']);
+  });
+  test('overlap matches absolute and ./-prefixed paths', () => {
+    const trd = '- **Touches:** `./apps/web/a.ts`, `apps/web/b.ts`\n';
+    const root = '/repo';
+    expect(S.overlap({ sweepFiles: ['/repo/apps/web/b.ts', 'apps/web/a.ts'], trdMarkdown: trd, root }).shared)
+      .toEqual(['/repo/apps/web/b.ts', 'apps/web/a.ts']);
+  });
+});
+
 describe('overlap', () => {
   const trd = '### FIX-1\n- **Touches:** `apps/web/app/login.tsx`, `apps/web/app/x.ts`\n';
   test('reports a shared file and only a whole-path match', () => {

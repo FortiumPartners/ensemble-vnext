@@ -133,8 +133,10 @@ node .claude/lib/spec-scope.js criteria --spec <spec> --section <section> --ids 
      --feature <feature> --out .trd-state/<feature>/success-definition.md
 ```
 
-For a TRD, `<ids>` are the Objectives table's ids (guards included — the library adds them
-anyway). The file carries `**Source kind**: spec`. A sweep file's ids are the criteria it
+For a TRD, `<ids>` are the Objectives table's ids (guards included — the library skips them
+and adds every guard itself), plus every id the sweep file lists when `docs/plan/<feature>.sweep.md`
+exists, exactly as `/implement-trd` §3.6 step 1 does — the two commands must write the same
+definition for the same TRD. The file carries `**Source kind**: spec`. A sweep file's ids are the criteria it
 lists under `## Acceptance criteria`. An exit 1 from `source` on a TRD means it has no
 `**Source spec**:` line, which sends you back to the ordinary derive below.
 
@@ -313,7 +315,8 @@ each in its own fenced block, in that order; never both commands inline as the o
 
 **A sweep file's NEXT replaces the rule above (and the report's Next line says the same):**
 outcome `satisfied` → commit the sweep (`/sweep` never commits, and `/implement-trd` needs a
-clean tree), then `/implement-trd <core TRD>`; any other outcome → `/sweep` on the failed
+clean tree), then `/implement-trd <core TRD>` — omitted when the sweep file's `**Core TRD**:` is
+`none`, where the commit is the last step; any other outcome → `/sweep` on the failed
 items, then `/verify-build`. Never `/refine-verification` or `/audit-build`.
 
 ## `--fix [plan-path]`, `--no-fix`, and `--resume`

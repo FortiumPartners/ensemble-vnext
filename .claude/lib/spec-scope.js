@@ -37,7 +37,8 @@
  */
 
 const fs = require('fs');
-const { findTables, splitRowCells, maskFencedLines } = require('./trd-parser');
+const path = require('path');
+const { findTables, splitRowCells, maskFencedLines, findSection } = require('./trd-parser');
 
 const ID = '[A-Za-z][A-Za-z0-9]*-\\d+(?:\\.\\d+)*';
 const ID_ANYWHERE_RE = new RegExp(ID, 'g');
@@ -84,23 +85,17 @@ function sectionSpan(lines, section) {
 
 /** The span of the first heading inside [start,end) whose text contains `phrase`. */
 function subSpan(lines, start, end, phrase) {
-  for (let i = start; i < end; i++) {
-    const t = headingOf(lines[i]);
-    if (t === null || !t.toLowerCase().includes(phrase)) continue;
-    const lvl = level(lines[i]);
-    let e = end;
-    for (let j = i + 1; j < end; j++) {
-      const l = level(lines[j]);
-      if (l && l <= lvl) { e = j; break; }
-    }
-    return { start: i + 1, end: e };
-  }
-  return null;
+  const s = findSection(lines.slice(0, end), phrase, { fromIndex: start });
+  return s ? { start: s.start, end: s.end } : null;
 }
 
 const isBlock = (line) => /^\s*([-*+]\s|\d+\.\s|\||#)/.test(line);
 // A bare bold lead-in line such as `**Regression guards:**` starts a new block, never a wrap.
-const isLeadIn = (line) => /^\s*\*\*[^*]+\*\*:?\s*$/.test(line);
+// So does a plain `Regression guards:` line: without this, one written straight under the last
+// criterion (no blank line) was swallowed into that criterion's text and every guard after it
+// was read as a criterion.
+const GUARD_LEAD_RE = /^\s*\**\s*regression guards?\b/i;
+const isLeadIn = (line) => /^\s*\*\*[^*]+\*\*:?\s*$/.test(line) || GUARD_LEAD_RE.test(line);
 
 /** Join an item's first line with its continuation lines (indented, nested bullets, wrapped). */
 function gather(lines, i, end, indent) {
@@ -182,8 +177,14 @@ function extract(markdown, { section } = {}) {
       } else if (row) {
         const cells = splitRowCells(`|${row[2]}`);
         criteria.push(finishCriterion(row[1], guardMode ? 'guard' : 'criterion', cells.join(' | '), []));
-      } else if (line.trim() && !isBlock(line) && indentOf(line) === 0) {
+      } else if (level(line)) {
+        // A sub-heading ("#### Regression guards") switches mode just as a lead-in line does.
         guardMode = /regression guard/i.test(line);
+      } else if (line.trim() && !isBlock(line) && indentOf(line) === 0) {
+        // Only a lead-in switches back out of guard mode. A plain sentence under the guards
+        // lead-in ("These must still hold:") must not turn the guards below it into criteria.
+        if (/regression guard/i.test(line)) guardMode = true;
+        else if (isLeadIn(line)) guardMode = false;
       }
     }
   }
@@ -236,15 +237,20 @@ function source(markdown) {
 const headerLine = (spec, section) => `**Source spec**: ${spec} § ${section}`;
 const cell = (s) => String(s).replace(/\|/g, '\\|');
 
-function pick(markdown, section, ids) {
-  const { criteria } = extract(markdown, { section });
+function pick(markdown, section, ids, { allowGuards = false } = {}) {
+  const extracted = extract(markdown, { section });
+  const { criteria } = extracted;
   const byId = new Map(criteria.map((c) => [c.id, c]));
-  const chosen = ids.map((id) => {
+  const chosen = [];
+  for (const id of new Set(ids)) {
     const c = byId.get(id);
+    // Callers building a success definition pass a TRD's Objectives ids and a sweep file's ids,
+    // both of which carry the guards; the guards are added below regardless, so skip them here.
+    if (c && c.kind === 'guard' && allowGuards) continue;
     if (!c || c.kind !== 'criterion') throw new Error(`${id} is not an acceptance criterion of "${section}"`);
-    return c;
-  });
-  return { chosen, guards: criteria.filter((c) => c.kind === 'guard') };
+    chosen.push(c);
+  }
+  return { chosen, guards: criteria.filter((c) => c.kind === 'guard'), verification: extracted.verification };
 }
 
 const itemLine = (c) => `- **${c.id}**${c.kind === 'guard' ? ':' : ''} ${c.kind === 'guard' ? '' : '· '}${c.text}${c.traces ? ` *(Traces: ${c.traces})*` : ''}`;
@@ -394,8 +400,7 @@ const SCREENSHOT_RE = /screenshot/i;
  * when none); Tier 1 is judge-only when that line names a screenshot, else locator.
  */
 function criteria({ specMarkdown, specPath, section, ids, feature, now = () => new Date() }) {
-  const { chosen, guards } = pick(specMarkdown, section, ids);
-  const { verification } = extract(specMarkdown, { section });
+  const { chosen, guards, verification } = pick(specMarkdown, section, ids, { allowGuards: true });
   const order = [];
   for (const c of chosen) if (!order.includes(c.surface)) order.push(c.surface);
   const grouped = order.flatMap((s) => chosen.filter((c) => c.surface === s));
@@ -424,14 +429,30 @@ function criteria({ specMarkdown, specPath, section, ids, feature, now = () => n
   ].join('\n');
 }
 
+/**
+ * A changed-file path as a TRD would write it: relative to the project root, no leading `./`.
+ * Fixers report `files_changed` as they like, and an absolute path never matches a TRD's
+ * relative one, which would report "no overlap" for a file both touch.
+ */
+function asTrdPath(file, root = process.cwd()) {
+  let f = String(file).trim();
+  if (path.isAbsolute(f)) {
+    const rel = path.relative(root, f);
+    if (rel && !rel.startsWith('..')) f = rel.split(path.sep).join('/');
+  }
+  return f.replace(/^(\.\/)+/, '');
+}
+
 /** Files named in a TRD (outside code fences) that also appear in `sweepFiles`. */
-function overlap({ sweepFiles, trdMarkdown }) {
+function overlap({ sweepFiles, trdMarkdown, root }) {
   const text = maskFencedLines(split(trdMarkdown)).join('\n');
   const shared = [];
-  for (const f of sweepFiles.map((s) => s.trim()).filter(Boolean)) {
+  for (const raw of sweepFiles.map((s) => s.trim()).filter(Boolean)) {
+    const f = asTrdPath(raw, root);
     const esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Bounded so `a/b.js` does not match inside `xa/b.js` or `a/b.jsx`.
-    if (new RegExp(`(^|[^\\w./-])${esc}(?![\\w-]|\\.\\w)`, 'm').test(text)) shared.push(f);
+    // A `./` prefix in the TRD is the same path, so it is allowed before the name.
+    if (new RegExp(`(^|[^\\w./-]|(?:^|[^\\w.])\\./)${esc}(?![\\w-]|\\.\\w)`, 'm').test(text)) shared.push(raw);
   }
   return { shared, ok: shared.length === 0 };
 }
