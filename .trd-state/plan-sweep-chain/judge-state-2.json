@@ -1,0 +1,190 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts chain true, HANDOFF line, banner null, notify false, chainSkill null and chainSteps sweep/verify/implement args.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts the four steps in order with implement false; the no-chain tests assert chain false.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts chain false for both a hit and status invalid with implement true.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts fold-back for notSweepItems/overlap with deduplicated ids.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts verify after a clean sweep.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts commit after satisfied with a clean sweep brake.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts commit after fold-back with sweepIdsLeft [] and no verification outcome.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweepChainNext-direct-run.txt",
+      "reason": "Direct run and passing Jest show stop with STUCK banner, body and notifyStatus for stalled, stuck, unbuilt and insufficient-coverage.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts stop (not commit) with auth/x.js named in bannerBody.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Passing test asserts implement after commit with coreTrdExists true and no core brake hit.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweepChainNext-direct-run.txt",
+      "reason": "After a fold-back, a core-TRD hit and an invalid core list each stop with a COMMAND STUCK banner. The after-commit branch ignores the core check's result, but by design that check runs only after a fold-back, and the fold-back stop comes before any commit. Without a fold-back, plan() itself refuses to chain when the core TRD is hit. So no reachable path reaches implement with a core hit.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweepChainNext-direct-run.txt",
+      "reason": "sweepChainNext returns fold-back only after the sweep step. The direct run, given an already-folded state with more foldable ids, returns verify and then commit, never a second fold-back.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/check-never-unattended-run.txt",
+      "reason": "Fixture runs show hits [src/auth/login.js] for 'Paths: auth' and status invalid for a malformed 5b list.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/plan-md-step7a.txt",
+      "reason": "plan.md switches to the feature branch before /sweep and lets sweepChainNext alone pick each next step. It emits nothing after the implement step's Skill() call; a stop prints the banner.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweep-md-chained.txt",
+      "reason": "sweep.md strips the flags first and defers any item whose fix would touch a never-unattended path (sweep.md line 65). It ends with the RETURN line and no banner.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweep-md-chained.txt",
+      "reason": "Under --chained, not-a-sweep-item and overlapping ids are written to sweep-result.json as notSweepItems and overlap instead of ending STUCK, and Step 4 records no _sweep discovery for them.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/verify-build-md-chained.txt",
+      "reason": "Under --chained on a sweep file, verify-build.md asks nothing (stated default), still writes the report and carries the evidence to the core, and ends with the RETURN line and no banner.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/plan-md-step7a.txt",
+      "reason": "The fold-back lists all seven steps in the specified order, never re-runs /sweep, and skips render-sweep when no sweep id remains.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/FS-19-plan-md-commit-step.txt",
+      "reason": "plan.md's commit step records git status --porcelain --untracked-files=all and git hash-object per path before /sweep and compares both after; the list adds the sweep file and .trd-state/<slug>-sweep/; the never-unattended check runs over the whole list before git add; staging is git add -- <list> then git commit -- <list>; git diff --cached --quiet -- <list> skips the commit and continues, never an empty commit. The artifact matches the source text, and the .claude mirror is identical.",
+      "cause": null,
+      "provenAt": 2
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/command-status-chaining-exception.txt",
+      "reason": "The chaining-exception paragraph in the template names /sweep --chained and /verify-build --chained emitting no banner inside /plan --implement. The vendored copy is identical.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": "satisfied"
+}

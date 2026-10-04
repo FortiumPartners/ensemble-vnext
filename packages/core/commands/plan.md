@@ -1088,11 +1088,16 @@ node -e '
    (`check-never-unattended docs/TRD/<slug>.md .claude/rules/verification.md`, passed as
    `coreNeverUnattendedHit` and `coreNeverUnattendedStatus`). Pass the sweep ids still in the
    sweep file as `sweepIdsLeft`. A failing `check` is `COMMAND STUCK: /plan`, as in Step 6a.
-5. **`commit`.** The brake already ran over the changed paths. Stage by pathspec, never
-   `git add -A`: `git add -- <list>` then `git commit -m "fix(<slug>): swept fixes" -- <list>`,
-   where the list is the changed paths, the sweep file and `.trd-state/<slug>-sweep/`. When
-   nothing is staged for that list (`git diff --cached --quiet -- <list>`), skip the commit and
-   continue; an empty commit is never attempted.
+5. **`commit`.** The list is the changed paths, the sweep file and `.trd-state/<slug>-sweep/`.
+   **Before `git add`, run the brake over that whole list**, not just the changed paths:
+   `node .claude/lib/functional-verification.js check-never-unattended --files "<changed,paths>,<sweep file>,.trd-state/<slug>-sweep/" .claude/rules/verification.md`.
+   When `hits` is non-empty or `status` is `invalid`, do not stage or commit: leave the fixes
+   uncommitted, print the readout naming the matched paths (or the invalid list), and end with
+   `COMMAND STUCK: /plan`, running `.claude/hooks/notify-complete.sh "plan" "stuck" "<summary>"`.
+   Otherwise stage by pathspec, never `git add -A`: `git add -- <list>` then
+   `git commit -m "fix(<slug>): swept fixes" -- <list>`. When nothing is staged for that list
+   (`git diff --cached --quiet -- <list>`), skip the commit and continue; an empty commit is
+   never attempted.
 6. **`stop`.** Print the readout, then the returned `banner` and `bannerBody`, and run
    `.claude/hooks/notify-complete.sh "plan" "<notifyStatus>" "<summary>"`.
 7. **`implement`.** Run the `implement` step's `Skill()` and emit nothing after it.

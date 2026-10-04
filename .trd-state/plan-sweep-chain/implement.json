@@ -4,7 +4,7 @@
   "trd_hash": "0a1b60085076b8637275ac818b7e778f408220ae0fb9d9a52bd3dd62ac56b253",
   "branch": "feature/plan-sweep-chain",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "fix-plan.js (core and .claude/lib/ mirror): finishSweep chains only when implement, no hit and status not invalid, retur",
@@ -112,10 +112,19 @@
       "last_advanced": "2026-10-04T20:09:51.481Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "8c87d3f",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-04T20:13:28.631Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "8c87d3f",
+    "last_checkpoint_timestamp": "2026-10-04T20:13:28.631Z",
     "interrupted": false,
     "interrupt_reason": null
   },
