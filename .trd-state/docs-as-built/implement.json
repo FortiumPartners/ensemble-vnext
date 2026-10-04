@@ -4,7 +4,7 @@
   "trd_hash": "6ccadc0af34b56b9c9842b40c7a0da2b2fa629275b77ec924cac29c5769b77ed",
   "branch": "feature/docs-as-built/trd",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "DABS-B001": {
       "description": "Build packages/core/lib/docs-audit-assemble.js per §3.1 (inventory, D3 classification, git status, window, marker valida",
@@ -96,38 +96,52 @@
     "DABS-B006": {
       "description": "Write packages/core/commands/audit-docs.md per §3.6, its dogfood mirror .claude/commands/audit-docs.md, and dogfood copi",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/audit-docs.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/commands/audit-docs.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/lib/docs-audit-deliver.js",
+        "/Users/james/dev/fortium/ensemble-vnext/.gitignore"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-04T23:54:49.065Z",
+      "completed_at": "2026-10-04T23:57:36.745Z",
+      "last_advanced": "2026-10-04T23:56:51.151Z"
     },
     "DABS-T001": {
       "description": "Seam test packages/core/workflows/audit-docs.seam.test.js: run the workflow through test-harness.js with stubbed agents,",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/workflows/audit-docs.seam.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-04T23:54:49.065Z",
+      "completed_at": "2026-10-04T23:57:36.751Z",
+      "last_advanced": "2026-10-04T23:56:51.151Z"
     },
     "DABS-D001": {
       "description": "Add /audit-docs to the command reference and workflow overview in packages/core/templates/process.md.template and .claud",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/rules/process.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/templates/process.md.template",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/process-doc-audit-docs.test.js"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-10-04T23:57:36.751Z",
+      "last_advanced": "2026-10-04T23:56:51.151Z"
     },
     "DABS-T002": {
       "description": "[LIVE] test/integration/tests/audit-docs.test.sh: build a fixture repo (PRD with one requirement built differently and o",
@@ -142,10 +156,19 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "9748e99",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-04T23:54:49.064Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "9748e99",
+    "last_checkpoint_timestamp": "2026-10-04T23:54:49.064Z",
     "interrupted": false,
     "interrupt_reason": null
   },

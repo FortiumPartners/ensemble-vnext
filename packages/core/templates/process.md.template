@@ -40,6 +40,8 @@ SHORTER PATHS
 MAINTENANCE
 /update-project        --> Capture learnings into CLAUDE.md; propose governance changes
 /cleanup-project       --> Prune CLAUDE.md and project artifacts
+/audit-docs            --> Bring docs/ back in line with the code as built, on a local
+                           review branch (light by default; --comprehensive for all)
 /rebase-project        --> Refresh the vendored runtime from the plugin
 /augment-trd-figma     --> Add Figma design context to a TRD
 verification-setup     --> (skill, not a command) interview to fill or update verification.md, incl. the coverage floor
@@ -205,6 +207,42 @@ task.
 ```
 /cleanup-project [--dry-run] [--auto]
 ```
+
+---
+
+### /audit-docs
+
+**Purpose**: Review the PRDs, TRDs and loose docs under `docs/` against the code as built:
+correct what the code shows to be different, cut what describes something that does not exist,
+leave what is still true. Edits land on a new local branch `docs-audit/<date>-<sha>`; nothing is
+pushed, opened as a PR or merged.
+
+**Usage**:
+```
+/audit-docs [--comprehensive]
+```
+
+**Options**:
+| Option | Description |
+|--------|-------------|
+| (none) | Light run: reviews the PRDs and TRDs touched by commits since the last run |
+| `--comprehensive` | Reviews every PRD and TRD and every loose doc. A run with no valid last-run marker is comprehensive whatever the flag |
+
+**Setting**: each PRD/TRD is scored 0-100 for drift and routed by score: at or above
+`ensemble.docsAudit.thresholds.high` to an Opus review, at or above
+`ensemble.docsAudit.thresholds.medium` to a Sonnet review, otherwise not reviewed. Defaults
+ship: **high 70, medium 40**. A project overrides either in `.claude/settings.json`. Only a
+value that is set but invalid (non-integer, outside 0-100, or `medium` above `high`) stops the
+command (COMMAND STUCK naming the setting); absent values are not an error.
+
+**Output**: the review branch, and a change set at `.trd-state/_docs-audit/runs/<run-id>.md`.
+
+**Process**:
+1. Prepares the review branch (stops if tracked files have uncommitted changes)
+2. Assembles the document set and batches in code, before any model call
+3. One workflow per batch scores and reviews its documents; edits are applied and committed per batch
+4. Writes `docs/PRD/INDEX.md`, `docs/TRD/INDEX.md`, the last-run marker and the change set,
+   then switches back and prints the push command
 
 ---
 
