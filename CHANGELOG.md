@@ -10,6 +10,37 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.12.1] - 2026-10-04
+
+`/plan --implement` finishes what a sweep list starts. Plan: `docs/TRD/plan-sweep-chain.md`.
+Before this, a plan that split a finished spec into a sweep and a core always stopped and listed
+four steps for the owner to run by hand, even with `--implement`.
+
+### Changed
+
+- **`/plan --implement` runs the sweep chain itself:** `/sweep` on the sweep file, then
+  `/verify-build` on it, then a commit of the swept fixes, then `/implement-trd` on the core.
+  It runs on a feature branch, so the sweep commit never lands on `main`. Without `--implement`
+  it still lists the four steps.
+- **The chain stops** when the sweep's verification is not `satisfied` in that run. A
+  verification state left from an earlier run never counts.
+- **Items the sweep cannot take are moved to the core automatically**, once per run, and the
+  run carries on. These are items deferred or too big, items sharing a file with the core, and
+  items touching a never-unattended path. `/plan` adds a task for each to the core TRD (or
+  writes one when none existed) and re-runs the checks that TRD's weight earns.
+- **The never-unattended brake is checked wherever work can begin.** An unreadable list stops
+  the chain. Sweep items touching a listed path are moved to the core. Folded tasks are checked
+  on the core TRD. The whole commit list is checked before anything is staged.
+  `check-never-unattended` gains a `--files` form for that last check.
+- **`/sweep --chained` and `/verify-build --chained`** end with a hand-back line instead of a
+  banner, so the run has one banner. `command-status.md` names them, and its size ceiling went
+  from 12,500 to 13,000 bytes to make room.
+- **One step decider.** `sweepChainNext` in `fix-plan.js` picks every next step and builds the
+  stop banner, so no ending is worked out in prose.
+- **The commit is by pathspec only.** It covers the files the sweep actually changed (from
+  before/after git status and content hashes, not the fixers' claims), the sweep file and its
+  state folder.
+
 ## [4.12.0] - 2026-10-02
 
 A finished spec plans as written, and verification stops proving things twice. Plans:
