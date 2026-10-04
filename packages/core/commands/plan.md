@@ -963,7 +963,14 @@ to satisfy it.
 **Every path converges here** — `trivial`, `small`, and (once its own stages finish) `medium`.
 
 **On the spec path with no core TRD** (every criterion swept) there is no TRD for the check below
-to read: skip it and pass `"neverUnattendedHit": []`.
+to read. Read §5b on its own instead, so an unreadable list still stops the run:
+
+```bash
+node .claude/lib/functional-verification.js read-never-unattended .claude/rules/verification.md
+```
+
+Pass its `status` as `neverUnattendedStatus` and `"neverUnattendedHit": []`. `invalid` stops
+here exactly as described below; `absent` gets the same one readout line.
 
 `neverUnattendedHit` comes from the owner's never-unattended path list, `.claude/rules/verification.md`
 §5b. One call gathers this run's touched files from the TRD's own grounding and matches them
@@ -994,11 +1001,13 @@ JSON
 ```
 
 **Spec path (§2g): add `"sweepList": true, "coreTrd": true` (`false` when every criterion is
-swept) to that object.** With a sweep list `plan()` never chains, even with `--implement`,
-writes no state pointer, keeps a TRD only when `coreTrd` is true, and its banner gives the
-steps in order: `/sweep`, `/verify-build` on the sweep file, commit the swept fixes, then
-`/implement-trd` (omitted without a core TRD). Print that order in the readout's NEXT, one
-fenced block per slash command and the commit as a plain line.
+swept) to that object.** With a sweep list `plan()` writes no state pointer and keeps a TRD only
+when `coreTrd` is true. Without `--implement` (or with a never-unattended hit, or an `invalid`
+list) its banner gives the steps in order: `/sweep`, `/verify-build` on the sweep file, commit
+the swept fixes, then `/implement-trd` (omitted without a core TRD). Print that order in the
+readout's NEXT, one fenced block per slash command and the commit as a plain line. With
+`--implement` and an empty brake it returns `chain: true` with `chainSkill: null` and a
+`chainSteps` lookup: run **Step 7a** instead.
 
 Then do exactly what `plan()` returns, and nothing else:
 
@@ -1006,7 +1015,7 @@ Then do exactly what `plan()` returns, and nothing else:
 |---|---|
 | `writeTrd` | whether a TRD stays on disk for this path |
 | `writePointer` | write `.trd-state/current.json` only when **work actually begins** |
-| `chain` + `chainSkill` + `chainArgs` | `Skill({ skill: chainSkill, args: chainArgs })` |
+| `chain` + `chainSkill` + `chainArgs` | when `chainSkill` is not `null`: `Skill({ skill: chainSkill, args: chainArgs })`. `chain: true` with `chainSkill: null` is the sweep chain: Step 7a |
 | `handoffLine` | emit before chaining |
 | `banner` / `bannerBody` | emit as the LAST line — **or `null`, meaning emit nothing** |
 | `notify` | run `.claude/hooks/notify-complete.sh "plan" "complete" "<summary>"` |
@@ -1015,8 +1024,75 @@ Then do exactly what `plan()` returns, and nothing else:
 **Do not re-derive any of this in prose, and do not second-guess a `null` banner.**
 `banner: null` on a chained run is correct: `command-status.md` forbids anything following
 `COMMAND COMPLETE`, and whichever command the chain lands in emits the run's terminator.
-`Skill()` loads into THIS session, so control returns here when it finishes — **when it does,
-the run is over. Emit nothing.**
+`Skill()` loads into THIS session, so control returns here when it finishes — **after the
+`implement` step's `Skill()` (the `/implement-trd` hand-off) returns, the run is over. Emit
+nothing.** This applies to that step only: the `sweep` and `verify` steps of Step 7a return to
+the loop, and a `chainSkill: null` plan has no `Skill()` of its own to wait for.
+
+### Step 7a: The sweep chain (`chain: true`, `chainSkill: null`)
+
+`chainSteps` is a lookup of skill and args per step (`sweep`, `verify`, `implement`), never an
+order. **`sweepChainNext` in `fix-plan.js` is the only sequencer**: it decides each step after
+the one that just finished, so a fold-back that creates a core TRD is followed correctly. It is
+pure and reads no file, so this command reads the disk and passes the values in. The chain runs
+because `--implement` asked for it (`autonomy.md`).
+
+1. **Branch.** Before `/sweep`, so the sweep commit never lands on the default branch:
+   `git switch feature/<slug>/impl 2>/dev/null || git switch -c feature/<slug>/impl`. Then print
+   `handoffLine`.
+2. **Loop.** Start with `/sweep` (the only step with no predecessor), then repeat: call
+   `sweepChainNext`, run the action it returns, call it again with `after` set to the step that
+   just finished.
+
+```bash
+node -e '
+  const { sweepChainNext } = require("./.claude/lib/fix-plan");
+  console.log(JSON.stringify(sweepChainNext(JSON.parse(process.argv[1]))));
+' '<payload>'
+```
+
+   The payload carries exactly the keys in `SWEEP_CHAIN_INPUTS` (exported by `fix-plan.js`) and
+   no others. **Immediately before every call, check whether `docs/TRD/<slug>.md` exists
+   (`test -e`) and pass it as `coreTrdExists`**; `fix-plan.js` never looks. Inner commands skip
+   `notify-complete.sh`, because it marks the run finished and would switch off the autonomy
+   judge for the rest of the chain.
+
+3. **`sweep` and `verify`.** Run `Skill({ skill: chainSteps.<step>.skill, args:
+   chainSteps.<step>.args })`; those args are the only calls that carry `--chained`.
+   - Before `/sweep`, record `git status --porcelain --untracked-files=all` and, for every path
+     it lists, `git hash-object <path>` (a path that no longer exists records "absent"). Before
+     `/verify-build`, record the time.
+   - After `/sweep`, read `.trd-state/<slug>-sweep/sweep-result.json` for `notSweepItems` and
+     `overlap`.
+   - After `/verify-build`, read `.trd-state/<slug>-sweep/verification-state.json` **only if it
+     is newer than the time recorded before the step**; its `outcome` is `verificationOutcome`.
+     A state file that is not newer is no outcome: pass `null`. Only exactly `satisfied` passes.
+   - **Changed files** are found by comparing content, not just status lines: run
+     `git status --porcelain --untracked-files=all` again, and a path is changed when its
+     status line is new or different, or its `git hash-object` differs from the recorded one.
+     `--untracked-files=all` stops a new file inside an untracked directory hiding behind the
+     directory's line. A changed file that was already dirty before the sweep is committed
+     whole, and the readout names it as carrying earlier uncommitted edits.
+   - **The brake over the changed paths** (before `verify`'s and `fold-back`'s next call):
+     `node .claude/lib/functional-verification.js check-never-unattended --files <changed,paths> .claude/rules/verification.md`;
+     pass `hits` as `sweepNeverUnattendedHit` and `status` as `sweepNeverUnattendedStatus`.
+4. **`fold-back`** (the action carries the `ids` to move). Happens at most once per run and
+   never re-runs `/sweep`. In Step 6a's order: `render-sweep` with the remaining sweep ids and
+   `--core-trd docs/TRD/<slug>.md` (skipped when no sweep id remains: the sweep file stays as
+   `/sweep` read it); a task row and grounding block per folded criterion, or a light core TRD
+   per Step 5a when none existed; `audit-trd` once more, at medium only; `render-objectives`;
+   §5a.1's checks; Step 6a's `check`; then the never-unattended check on the core TRD
+   (`check-never-unattended docs/TRD/<slug>.md .claude/rules/verification.md`, passed as
+   `coreNeverUnattendedHit` and `coreNeverUnattendedStatus`). Pass the sweep ids still in the
+   sweep file as `sweepIdsLeft`. A failing `check` is `COMMAND STUCK: /plan`, as in Step 6a.
+5. **`commit`.** The brake already ran over the changed paths. Stage by pathspec, never
+   `git add -A`: `git add -- <list>` then `git commit -m "fix(<slug>): swept fixes" -- <list>`,
+   where the list is the changed paths, the sweep file and `.trd-state/<slug>-sweep/`. When
+   nothing is staged for that list (`git diff --cached --quiet -- <list>`), skip the commit and
+   continue; an empty commit is never attempted.
+6. **`stop`.** Print the readout, then the returned `banner` and `bannerBody`, and run
+   `.claude/hooks/notify-complete.sh "plan" "<notifyStatus>" "<summary>"`.
+7. **`implement`.** Run the `implement` step's `Skill()` and emit nothing after it.
 
 **`--implement` is the only thing that starts work, and it is honoured at every weight.**
 There is no weight at which the flag is refused; there is no weight at which it is implied.

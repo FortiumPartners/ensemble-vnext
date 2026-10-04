@@ -1429,7 +1429,8 @@ if (require.main === module) {
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
         '  node functional-verification.js read-never-unattended <verificationPath>\n' +
-        '  node functional-verification.js check-never-unattended <trdPath> <verificationPath>'
+        '  node functional-verification.js check-never-unattended <trdPath> <verificationPath>\n' +
+        '  node functional-verification.js check-never-unattended --files <comma-separated> <verificationPath>'
     );
     process.exit(1);
   };
@@ -1626,11 +1627,22 @@ if (require.main === module) {
       console.log(JSON.stringify(readNeverUnattended(content)));
     }
   } else if (subcommand === 'check-never-unattended') {
-    const [trdPath, verificationPath] = rest;
-    if (!trdPath || !verificationPath) {
+    // `--files <list>` stands in for the TRD path: match the given files (e.g. a sweep's
+    // actual changed files) instead of a TRD's grounding. An empty list is valid -- nothing
+    // can hit nothing, but the list's status is still reported.
+    const filesForm = rest[0] === '--files';
+    const trdPath = filesForm ? null : rest[0];
+    const verificationPath = filesForm ? rest[2] : rest[1];
+    if ((!filesForm && !trdPath) || !verificationPath) {
       usage();
     } else {
       let touches;
+      if (filesForm) {
+        touches = (rest[1] || '')
+          .split(',')
+          .map((f) => f.trim())
+          .filter(Boolean);
+      } else
       try {
         const trdMarkdown = fs.readFileSync(trdPath, 'utf8');
         const { tasks, grounding } = parseTrd(trdMarkdown, { path: trdPath });

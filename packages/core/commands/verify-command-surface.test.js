@@ -623,7 +623,7 @@ describe('process docs describe the new default', () => {
 describe('verify-build.md argument-hint', () => {
   test('argument-hint carries --no-fix and --fix [plan-path]', () => {
     expect(read(CORE_VERIFY_BUILD)).toMatch(
-      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\]"/
+      /argument-hint: "\[trd-path\] \[--resume\] \[--cap N\] \[--no-fix\] \[--fix \[plan-path\]\] \[--chained\]"/
     );
   });
 });
@@ -1044,11 +1044,109 @@ describe('plan.md spec path (plan-from-spec)', () => {
     expect(specPath).toMatch(/`coreTrd`/);
     expect(step7).toMatch(/"sweepList": true/);
     expect(step7).toMatch(/"coreTrd": true/);
-    expect(step7).toMatch(/never chains[^.]*even with `--implement`/);
+    expect(step7).not.toMatch(/never chains/);
+    expect(step7).toMatch(/With `--implement` and an empty brake it returns `chain: true` with `chainSkill: null`/);
   });
 
-  test('Step 7 skips the never-unattended check when there is no core TRD', () => {
-    expect(step7).toMatch(/no core TRD[^.]*skip/i);
+  test('Step 7 reads §5b on its own when there is no core TRD, and passes its status', () => {
+    expect(step7).not.toMatch(/skip it and pass/);
+    expect(step7).toMatch(/no core TRD[\s\S]{0,120}Read §5b on its own/);
+    expect(step7).toMatch(/read-never-unattended \.claude\/rules\/verification\.md/);
+    expect(step7).toMatch(/Pass its `status` as `neverUnattendedStatus`/);
+  });
+
+  describe('Step 7a: the sweep chain', () => {
+    const chain = flat((raw.split('### Step 7a')[1] || '').split('\n## Readout')[0]);
+    const idx = (re) => chain.search(re);
+
+    test('switches to the feature branch before /sweep, then prints the handoff line', () => {
+      expect(chain).not.toBe('');
+      expect(chain).toMatch(/git switch feature\/<slug>\/impl 2>\/dev\/null \|\| git switch -c feature\/<slug>\/impl/);
+      expect(idx(/\*\*Branch\.\*\*/)).toBeLessThan(idx(/\*\*Loop\.\*\*/));
+      expect(chain).toMatch(/print `handoffLine`/);
+    });
+
+    test('sweepChainNext is the only sequencer and plan.md reads coreTrdExists, not fix-plan.js', () => {
+      expect(chain).toMatch(/`sweepChainNext` in `fix-plan\.js` is the only sequencer/);
+      expect(chain).toMatch(/Immediately before every call, check whether `docs\/TRD\/<slug>\.md` exists[^.]*`coreTrdExists`/);
+      expect(chain).toMatch(/`fix-plan\.js` never looks/);
+    });
+
+    test('the call payload carries exactly the SWEEP_CHAIN_INPUTS keys', () => {
+      const { SWEEP_CHAIN_INPUTS } = require('../lib/fix-plan');
+      expect(chain).toMatch(/exactly the keys in `SWEEP_CHAIN_INPUTS`/);
+      // Every key is named somewhere in the step, so the prose cannot drift from the list.
+      for (const key of SWEEP_CHAIN_INPUTS.filter((k) => k !== 'after')) {
+        expect(chain).toContain(key);
+      }
+      expect(chain).toContain('`after`');
+    });
+
+    test('--chained appears on the sweep and verify calls only', () => {
+      expect(chain).toMatch(/those args are the only calls that carry `--chained`/);
+      expect(chain).not.toMatch(/chainSteps\.implement[^.]*--chained/);
+      const { plan } = require('../lib/fix-plan');
+      const r = plan({ weight: 'small', route: 'plan', implement: true, kind: 'defect', slug: 's',
+        sweepList: true, coreTrd: true, neverUnattendedHit: [], neverUnattendedStatus: 'none' });
+      expect(r.chainSteps.sweep.args).toMatch(/--chained/);
+      expect(r.chainSteps.verify.args).toMatch(/--chained/);
+      expect(r.chainSteps.implement.args).not.toMatch(/--chained/);
+    });
+
+    test('state file must be newer than the step start; otherwise no outcome', () => {
+      expect(chain).toMatch(/Before `\/verify-build`, record the time/);
+      expect(chain).toMatch(/only if it is newer than the time recorded/);
+      expect(chain).toMatch(/not newer is no outcome: pass `null`/);
+      expect(chain).toMatch(/exactly `satisfied`/);
+    });
+
+    test('changed files compare status lines and content hashes with --untracked-files=all', () => {
+      expect(chain).toMatch(/git status --porcelain --untracked-files=all/);
+      expect(chain).toMatch(/git hash-object/);
+      expect(chain).toMatch(/status line is new or different, or its `git hash-object` differs/);
+      expect(chain).toMatch(/already dirty before the sweep[^.]*readout names it/);
+      expect(chain).toMatch(/check-never-unattended --files <changed,paths>/);
+    });
+
+    test('fold-back runs in Step 6a order, once, and never re-runs /sweep', () => {
+      const fold = chain.split('**`fold-back`**')[1].split('**`commit`.**')[0];
+      const order = [/render-sweep[^;]*--core-trd docs\/TRD\/<slug>\.md/, /task row and grounding block/,
+        /`audit-trd` once more, at medium only/, /`render-objectives`/, /§5a\.1's checks/,
+        /Step 6a's `check`/, /never-unattended check on the core TRD/];
+      let at = -1;
+      for (const re of order) {
+        const m = fold.search(re);
+        expect(m).toBeGreaterThan(at);
+        at = m;
+      }
+      expect(fold).toMatch(/skipped when no sweep id remains/);
+      expect(fold).toMatch(/at most once per run and never re-runs `\/sweep`/);
+    });
+
+    test('commit stages by pathspec, never git add -A, and skips when nothing is staged', () => {
+      const commit = chain.split('**`commit`.**')[1].split('**`stop`.**')[0];
+      expect(commit).toMatch(/git add -- <list>/);
+      expect(commit).toMatch(/git commit -m "[^"]*" -- <list>/);
+      expect(commit).toMatch(/never\s+`git add -A`/);
+      expect(commit).not.toMatch(/git add -A`?\s+then/);
+      expect(commit).toMatch(/git diff --cached --quiet -- <list>/);
+      expect(commit).toMatch(/skip the commit/);
+    });
+
+    test('stop prints readout and banner and notifies; implement hands off and emits nothing', () => {
+      expect(chain).toMatch(/\*\*`stop`\.\*\* Print the readout, then the returned `banner` and `bannerBody`, and run `\.claude\/hooks\/notify-complete\.sh "plan"/);
+      expect(chain).toMatch(/\*\*`implement`\.\*\* Run the `implement` step's `Skill\(\)` and emit nothing after it/);
+    });
+
+    test('the "run is over" sentence applies to the implement step only', () => {
+      expect(step7).toMatch(/after the `implement` step's `Skill\(\)`[^.]*returns, the run is over\. Emit nothing/);
+      expect(step7).toMatch(/This applies to that step only/);
+      expect(step7).not.toMatch(/when it does, the run is over/);
+    });
+
+    test('the generic chainSkill row is guarded against chainSkill: null', () => {
+      expect(step7).toMatch(/when `chainSkill` is not `null`: `Skill\(\{ skill: chainSkill, args: chainArgs \}\)`/);
+    });
   });
 
   test('Step 6a runs after audit-trd (medium) and after Step 6 (small), after the last model writer', () => {
@@ -1118,6 +1216,65 @@ describe('sweep.md criterion accounting (plan-from-spec)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// plan-sweep-chain FIX-003: /sweep --chained, called as a step of /plan --implement.
+// ---------------------------------------------------------------------------
+
+describe('sweep.md --chained (plan-sweep-chain)', () => {
+  const raw = read(path.join(path.dirname(CORE_PLAN), 'sweep.md'));
+  const step1 = flat(raw.split('## Step 1:')[1].split('\n## Step 2')[0]);
+  const step3a = flat(raw.split('## Step 3a:')[1].split('\n## Step 4')[0]);
+  const step4 = flat(raw.split('## Step 4:')[1].split('\n## Readout')[0]);
+  const completion = flat(raw.split('## Completion signal')[1].split('\n## Autonomous')[0]);
+
+  test('argument-hint lists --chained', () => {
+    expect(raw.split('\n')[3]).toMatch(/^argument-hint:.*\[--chained\]/);
+  });
+
+  test('Step 1 strips --chained and --project before reading the list', () => {
+    expect(step1).toMatch(/Strip the flags first\.\*\* Remove `--chained` and `--project <dir>`/);
+    expect(step1).toMatch(/`<file> --chained` is not a readable path/);
+  });
+
+  test('--chained reads the fragments and hands them to the workflow', () => {
+    expect(step1).toMatch(/read-never-unattended \.claude\/rules\/verification\.md/);
+    expect(raw).toMatch(/fragments: \[/);
+  });
+
+  test('Step 3a always writes notSweepItems and overlap; chained records instead of STUCK', () => {
+    expect(step3a).toMatch(/"notSweepItems": \["AC-4\.3"\]/);
+    expect(step3a).toMatch(/"overlap": \{ "AC-4\.2": \["src\/shared\.ts"\] \}/);
+    expect(step3a).toMatch(/always written, empty when there are none/);
+    expect(step3a).toMatch(/Under `--chained` it does not end the run/);
+    expect(step3a).toMatch(/Under `--chained`\*\* record each in `overlap`/);
+  });
+
+  test('the STUCK wording still applies without --chained', () => {
+    expect(step3a).toMatch(/end the run `COMMAND STUCK: \/sweep` with the reason "`<id>` is not a sweep item/);
+    expect(step3a).toMatch(/Any shared file ends the run `COMMAND STUCK: \/sweep`/);
+  });
+
+  test('Step 4 records no discovery for folded ids', () => {
+    expect(step4).toMatch(/Under `--chained`, skip the ids listed in `notSweepItems` or `overlap`/);
+  });
+
+  test('chained ends on the RETURN line with no banner and no notify-complete.sh', () => {
+    expect(completion).toMatch(/Under `--chained`\*\* there is no banner and no `notify-complete\.sh`/);
+    expect(completion).toContain(
+      '[STATUS: /sweep] RETURN → <n> fixed, <n> already fine, <n> not sweep items, <n> overlapping, <n> failed'
+    );
+    // the unchained banner and notify call are still there
+    expect(completion).toMatch(/Without `--chained`:/);
+    expect(completion).toContain('COMMAND COMPLETE: /sweep');
+    expect(completion).toContain('notify-complete.sh "sweep" "complete"');
+  });
+
+  test('workflow mirror is byte-identical', () => {
+    const core = read(path.join(REPO, 'packages/core/workflows/sweep.js'));
+    expect(read(path.join(REPO, '.claude/workflows/sweep.js'))).toBe(core);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // plan-from-spec FIX-005: a sweep file or a `**Source spec**:` TRD is verified from spec-scope
 // criteria (never derived); a sweep file runs as <slug>-sweep, one iteration, no fix loop.
 // ---------------------------------------------------------------------------
@@ -1163,6 +1320,52 @@ describe('verify-build.md verifies spec-sourced inputs without deriving', () => 
     expect(s).toMatch(/live-evidence\.js record --state-dir \.trd-state\/<core-slug>/);
     expect(s).toMatch(/--covers <that criterion's files from sweep-result\.json/);
     expect(s).toMatch(/sweep-result\.json/);
+  });
+});
+
+// plan-sweep-chain FIX-004: `/verify-build <sweep file> --chained` is one step of /plan's run.
+describe('verify-build.md --chained (sweep file only)', () => {
+  const body = () => flat(read(CORE_VERIFY_BUILD));
+  const section = () => body().split('## `--chained`')[1].split('## `--fix [plan-path]`')[0];
+
+  test('flag is stripped before the path is read and honoured only for a sweep file', () => {
+    const b = body();
+    expect(b).toMatch(/Strip it from the arguments before reading the path/);
+    expect(b).toMatch(/honoured \*\*only for a sweep file\*\*/);
+    expect(section()).toMatch(/with a TRD the flag is ignored/);
+  });
+
+  test('Step 2 asks nothing under it: the default is taken and recorded as a verification.md need', () => {
+    const step2 = body().split('### 2. Preflight')[1].split('### 3. Read')[0];
+    expect(step2).toMatch(/Under `--chained`.*that one question is NOT asked either/);
+    expect(section()).toMatch(/Asks nothing/);
+    expect(section()).toMatch(/No `AskUserQuestion` reaches the owner/);
+  });
+
+  test('ends with the RETURN line carrying the outcome and met-of-total, and no banner or notification', () => {
+    const s = section();
+    expect(s).toContain('[STATUS: /verify-build] RETURN → <outcome>, <met> of <total> met');
+    expect(s).toMatch(/No banner, no `notify-complete\.sh`, no `PushNotification`/);
+    expect(s).toMatch(/exactly `satisfied`/);
+  });
+
+  test('the report is still written and the evidence carry-over still runs', () => {
+    const s = section();
+    expect(s).toMatch(/Still does the work/);
+    expect(s).toMatch(/verification-report\.md/);
+    expect(s).toMatch(/evidence step in 3a.*still runs/);
+  });
+
+  test('output discipline and autonomy sections defer to it', () => {
+    const b = body();
+    expect(b.split('## Output discipline')[1]).toMatch(/Under `--chained` \(a sweep file\) none of the rest of this section applies/);
+    expect(b.split('## Autonomous-execution discipline')[1]).toMatch(/Under `--chained`, not even that/);
+  });
+
+  test('without the flag the banner and notify-complete.sh instructions are intact', () => {
+    const b = read(CORE_VERIFY_BUILD);
+    expect(b).toContain('═══ COMMAND COMPLETE: /verify-build ═══');
+    expect(b).toContain('.claude/hooks/notify-complete.sh "verify-build" "complete"');
   });
 });
 

@@ -2023,6 +2023,55 @@ describe('CLI: check-never-unattended', () => {
   });
 });
 
+describe('CLI: check-never-unattended --files', () => {
+  let tmpDir;
+  let verificationPath;
+  const run = (files, vp = verificationPath) =>
+    spawnSync('node', [MODULE_PATH, 'check-never-unattended', '--files', files, vp]);
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'never-unattended-files-'));
+    verificationPath = path.join(tmpDir, 'verification.md');
+    fs.writeFileSync(verificationPath, '## 5b. Never unattended\n\n- auth\n');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('a file containing a listed fragment is a hit', () => {
+    const result = JSON.parse(run('src/auth/login.ts,src/ui/button.tsx').stdout.toString());
+    expect(result.hits).toEqual(['src/auth/login.ts']);
+    expect(result.status).toBe('declared');
+    expect(result.touches).toEqual(['src/auth/login.ts', 'src/ui/button.tsx']);
+  });
+
+  test('no file matching yields no hits', () => {
+    expect(JSON.parse(run('src/ui/button.tsx').stdout.toString()).hits).toEqual([]);
+  });
+
+  test('an empty list yields no hits and still reports the list status', () => {
+    const r = run('');
+    expect(r.status).toBe(0);
+    const result = JSON.parse(r.stdout.toString());
+    expect(result.hits).toEqual([]);
+    expect(result.touches).toEqual([]);
+    expect(result.status).toBe('declared');
+  });
+
+  test('a missing verification.md reports absent', () => {
+    const result = JSON.parse(run('src/auth/x.ts', path.join(tmpDir, 'nope.md')).stdout.toString());
+    expect(result).toEqual({ hits: [], status: 'absent', raw: null, touches: ['src/auth/x.ts'] });
+  });
+
+  test('an unreadable 5b reports invalid', () => {
+    fs.writeFileSync(verificationPath, '## 5b. Never unattended\n\nPaths:\n');
+    const result = JSON.parse(run('src/auth/x.ts').stdout.toString());
+    expect(result.status).toBe('invalid');
+    expect(result.hits).toEqual([]);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // readCoverageFloor — parses verification.md §5a (D7, VSET-B001)
 // ---------------------------------------------------------------------------
