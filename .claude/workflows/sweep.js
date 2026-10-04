@@ -44,6 +44,9 @@ function readArgs() {
 const a = readArgs()
 const SOURCE = a.source || ''
 const PROJECT = a.project || ''
+/* The owner's never-unattended path fragments (verification.md §5b), passed in only by
+ * `/sweep --chained`. Empty or absent means no rule and no change to either prompt. */
+const FRAGMENTS = Array.isArray(a.fragments) ? a.fragments.filter((f) => typeof f === 'string' && f.trim()) : []
 const SCOPE = PROJECT
   ? `\nSCOPE: work only inside ${PROJECT}. Paths outside it are out of bounds.\n`
   : ''
@@ -78,6 +81,21 @@ function resolveFixAgent(item) {
   }
   return DEFAULT_FIX_AGENT
 }
+
+const NEVER_LIST = FRAGMENTS.join(', ')
+const NEVER_TRIAGE = FRAGMENTS.length
+  ? `
+NEVER-UNATTENDED PATHS: ${NEVER_LIST}. These are fragments matched anywhere in a path, and the
+owner will not have them edited without watching. Any issue whose fix would touch a path
+containing one of them MUST go in \`deferred\`, with that as the reason.
+`
+  : ''
+const NEVER_FIX = FRAGMENTS.length
+  ? `
+NEVER-UNATTENDED PATHS: ${NEVER_LIST}. Do NOT edit any path containing one of these fragments.
+If the fix would need to, change nothing and return \`status: "too-big"\` naming the path.
+`
+  : ''
 
 if (!SOURCE) throw new Error('sweep: args.source is required — the issue list, verbatim')
 
@@ -132,7 +150,7 @@ mistake: a schema change dispatched as a quick win damages a working tree.
 An issue that is unclear rather than large is also deferred: say what you would need to know.
 
 Zero deferrals is common and fine. So is deferring most of the list.
-${ID_RULE}`,
+${ID_RULE}${NEVER_TRIAGE}`,
   {
     label: 'triage',
     phase: 'Triage',
@@ -241,7 +259,7 @@ VERIFY WHAT YOU CHANGED. Run the narrowest check that covers it — the file's o
 type check, the build. Report what you ran and what it said. Do not run the whole suite.
 
 REPORT EVERY FILE YOU CHANGED, by path. It is checked against the disk afterwards: a claimed
-file that does not exist fails this issue, however good the explanation.`
+file that does not exist fails this issue, however good the explanation.${NEVER_FIX}`
 
 const fixSchema = {
   type: 'object',

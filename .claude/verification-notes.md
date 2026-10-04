@@ -813,3 +813,17 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   `source --file` on the output to get `coreTrd: "none"`.
 - [ran] `npx jest <file> -t "<describe name>"` reports skipped counts for everything else; the line
   `4 passed` is the usable locator for the sweep-file `renderReport` block.
+
+## Exercising the `/plan --implement` sweep chain (plan-sweep-chain)
+
+- [ran] `fix-plan.js` is pure: `plan()` and `sweepChainNext()` can be called directly with
+  `node -e` against `packages/core/lib/fix-plan.js`; `npx jest packages/core/lib/fix-plan.test.js
+  --verbose` lists the sweep-path and `sweepChainNext` tests by name (46 passing, 2026-10-04).
+- [ran] `check-never-unattended <trd> <verification.md>` needs a fixture TRD with a
+  `## Master Task List` heading and a `## Task Grounding` / `### <ID>` / `- **Touches:**` block;
+  without the heading it reports `status: invalid` ("No Master Task List heading") for any
+  verification.md, which looks like a brake result but is a TRD-parse failure. A missing
+  verification.md reports `absent`, not `invalid`; an empty `- ` bullet in §5b reports `invalid`.
+- [read] The sweep-chain command rules (plan.md Step 7a, sweep.md and verify-build.md
+  `--chained`, command-status.md exception) are prompt-only; they can be checked only as text,
+  and each .claude mirror is byte-identical to its packages/core source (`cmp`).

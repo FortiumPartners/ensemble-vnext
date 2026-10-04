@@ -1,0 +1,157 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/plan-sweep-chain.md",
+  "trd_hash": "0a1b60085076b8637275ac818b7e778f408220ae0fb9d9a52bd3dd62ac56b253",
+  "branch": "feature/plan-sweep-chain",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "fix-plan.js (core and .claude/lib/ mirror): finishSweep chains only when implement, no hit and status not invalid, retur",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/fix-plan.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/fix-plan.test.js",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/lib/fix-plan.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:08:27.299Z",
+      "completed_at": "2026-10-04T20:13:12.636Z",
+      "last_advanced": "2026-10-04T20:09:51.480Z"
+    },
+    "FIX-002": {
+      "description": "functional-verification.js (core and mirror): check-never-unattended --files <comma-separated> <verificationPath> matche",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/functional-verification.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/functional-verification.test.js",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/lib/functional-verification.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:08:27.299Z",
+      "completed_at": "2026-10-04T20:13:12.639Z",
+      "last_advanced": "2026-10-04T20:09:51.481Z"
+    },
+    "FIX-003": {
+      "description": "sweep.md and sweep.js (core and mirrors): Step 1 strips --chained and --project before reading the list, and argument-hi",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/sweep.md",
+        ".claude/commands/sweep.md",
+        "packages/core/workflows/sweep.js",
+        ".claude/workflows/sweep.js",
+        "packages/core/workflows/sweep.test.js",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:08:27.299Z",
+      "completed_at": "2026-10-04T20:13:12.639Z",
+      "last_advanced": "2026-10-04T20:09:51.481Z"
+    },
+    "FIX-004": {
+      "description": "verify-build.md (core and mirror): a --chained flag, honoured for a sweep file. Under it Step 2 asks nothing (an environ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:08:27.299Z",
+      "completed_at": "2026-10-04T20:13:12.639Z",
+      "last_advanced": "2026-10-04T20:09:51.481Z"
+    },
+    "FIX-005": {
+      "description": "plan.md (core and mirror) Step 7, spec path: with no core TRD, read §5b with read-never-unattended and pass its status. ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/plan.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/commands/plan.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:08:27.299Z",
+      "completed_at": "2026-10-04T20:13:12.639Z",
+      "last_advanced": "2026-10-04T20:09:51.481Z"
+    },
+    "FIX-006": {
+      "description": "command-status.md (.claude/rules/ and the template packages/core/templates/claude-directory/rules/command-status.md): th",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/rules/command-status.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/templates/claude-directory/rules/command-status.md",
+        "/Users/james/dev/fortium/ensemble-vnext/test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:08:27.299Z",
+      "completed_at": "2026-10-04T20:13:12.639Z",
+      "last_advanced": "2026-10-04T20:09:51.481Z"
+    },
+    "AMEND-001": {
+      "description": "test the commit-list never-unattended brake in plan.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:38:53.146Z",
+      "completed_at": "2026-10-04T20:40:42.889Z",
+      "last_advanced": "2026-10-04T20:40:35.207Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "8c87d3f",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-04T20:13:28.631Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "8c87d3f",
+    "last_checkpoint_timestamp": "2026-10-04T20:13:28.631Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/plan-sweep-chain.md ## Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree"
+      }
+    }
+  }
+}

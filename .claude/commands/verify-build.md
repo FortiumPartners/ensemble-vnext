@@ -2,7 +2,7 @@
 name: verify-build
 description: Run the functional verification loop on its own — does the delivered software do what the PRD says, checked with artifacts
 version: 1.0.0
-argument-hint: "[trd-path] [--resume] [--cap N] [--no-fix] [--fix [plan-path]]"
+argument-hint: "[trd-path] [--resume] [--cap N] [--no-fix] [--fix [plan-path]] [--chained]"
 category: verification
 ---
 
@@ -15,6 +15,12 @@ $ARGUMENTS
 ```
 
 If no TRD path is given, resolve from `.trd-state/current.json`'s `trd`.
+
+`--chained` is **for callers only** (`/plan --implement` on a sweep list, which runs this
+command as one step of its own run). Strip it from the arguments before reading the path, so
+it is never taken for one. It is honoured **only for a sweep file** (Step 1); on any other
+input it is stripped and ignored, and the run is an ordinary one — banner, notification and
+all. See "`--chained`" below.
 
 ---
 
@@ -64,6 +70,9 @@ never the core feature's, and a stale `success-definition.md` there cannot be re
 `1`, `prd_path` is the sweep file's path, and the fix loop is skipped (see "A sweep file" in
 step 3a and the Readout). `<slug>` is the file's name before `.sweep.md`.
 
+**`--chained` on a sweep file turns the run into one step of its caller's run** (see
+"`--chained`" below); that is the only input it changes anything for.
+
 ### 2. Preflight the environment
 
 **Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist
@@ -75,6 +84,10 @@ per-environment result exactly as §3.6a documents (`state.functional_verificati
 set in memory then saved). Report the file's shape too, exactly as §3.6a's `missingSections`-
 derived reporting does — naming `/verification-setup` and whichever sections are missing
 (D10, D11) — not a fixed sentence. Partial verification with stated gaps beats none.
+
+**Under `--chained` (a sweep file; see below) that one question is NOT asked either**: every
+environment in the needs-one-thing bucket takes the stated default and is recorded as a
+`verification.md` need, exactly as in the next paragraph.
 
 **When the fix loop runs (default whenever a plan is present, unless `--no-fix` was passed),
 that one question is NOT asked** (O3: the fix loop asks the owner nothing, start to finish).
@@ -333,6 +346,36 @@ node .claude/lib/spec-scope.js source --file <sweep file>      # → {spec, sect
 
 Never `/refine-verification` or `/audit-build`.
 
+## `--chained`
+
+**For callers, not for direct use.** `/plan --implement` on a sweep list runs
+`/verify-build <sweep file> --chained` as one step of its own run, so this command must not
+end that run. Honoured only when Step 1 resolved a sweep file; with a TRD the flag is ignored
+and none of this section applies. Under it:
+
+- **Asks nothing.** Step 2's batched question is skipped: each environment needing one thing
+  from the owner takes the stated default (unusable for this run, so its criteria resolve
+  `not_verifiable`) and the need is recorded as a `verification.md` discovery exactly as the
+  fix loop's step 2 records one. No `AskUserQuestion` reaches the owner (compare
+  `/implement-trd` §3.7).
+- **Still does the work.** Steps 1–5 run in full: the loop is dispatched, the report is
+  written to `.trd-state/<slug>-sweep/verification-report.md`, and the evidence step in 3a
+  ("After a satisfied sweep run, carry the evidence to the core") still runs, because the
+  core feature's own run reads that evidence. A published report link, if any, is stated on
+  its own line above the RETURN line.
+- **Ends with one line, not the readout:**
+
+```
+[STATUS: /verify-build] RETURN → <outcome>, <met> of <total> met
+```
+
+  `<outcome>` is the loop's outcome string exactly (`satisfied`, `unbuilt`, `stalled`,
+  `stuck`, `insufficient-coverage`, or a `not run` case), so the caller can test for exactly
+  `satisfied`. This line is a sibling of `/implement-trd`'s `RETURN → chained by …` line.
+- **No banner, no `notify-complete.sh`, no `PushNotification`.** The caller owns the run's
+  only terminator; `notify-complete.sh` would mark the run finished and switch off the
+  autonomy judge for the rest of the chain.
+
 ## `--fix [plan-path]`, `--no-fix`, and `--resume`
 
 **The build-and-reverify loop below runs by default whenever a plan is present** —
@@ -475,6 +518,9 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 
 ## Output discipline (see `.claude/rules/command-status.md`)
 
+**Under `--chained` (a sweep file) none of the rest of this section applies:** the run ends
+with the one `RETURN` line from "`--chained`", above — no banner, no `notify-complete.sh`.
+
 ### Artifact link (see `.claude/rules/command-status.md`)
 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the verification report with
@@ -512,6 +558,8 @@ On unrecoverable failure use `═══ COMMAND STUCK: /verify-build ═══` 
 Runs autonomously from invocation to the banner. `AskUserQuestion` is permitted only for the
 four cases in `autonomy.md` — and on this command the realistic one is §2's preflight batch:
 information that genuinely cannot be derived, asked ONCE, up front, with a stated default.
+
+**Under `--chained`, not even that** — it asks nothing (see "`--chained`", above).
 
 **Under the fix loop, not even that: it asks the owner no questions from start to finish** (O3).
 Step 2's question takes its stated default and becomes a recorded `verification.md` need (step

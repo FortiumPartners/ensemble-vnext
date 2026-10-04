@@ -1,0 +1,120 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "When `/plan` writes a sweep list and `--implement` is passed (and no owner never-unattended path is hit or unreadable), it runs the four steps itself, in order: `/sweep` on the sweep file, `/verify-build` on the sweep file, a commit of the swept fixes, then `/implement-trd` on the core TRD. Without `--implement` it stops and lists the same four steps, as today.",
+      "source": "Objectives",
+      "served_by": [
+        "FIX-001",
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "The chain stops, without committing or building the core, when the sweep's verification is not `satisfied` in this run.",
+      "source": "Objectives",
+      "served_by": [
+        "FIX-001",
+        "FIX-004",
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "When the sweep finds criteria that are not sweep items (deferred, too big, sharing a file with the core, or touching a never-unattended path), the chain moves them into the core plan and carries on without asking.",
+      "source": "Objectives",
+      "served_by": [
+        "FIX-003",
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "The run ends with exactly one banner. `/sweep` and `/verify-build` emit no banner of their own inside the chain; `/implement-trd` ends the run when it is reached, and `/plan` ends it on every earlier stop.",
+      "source": "Objectives",
+      "served_by": [
+        "FIX-001",
+        "FIX-003",
+        "FIX-004",
+        "FIX-005",
+        "FIX-006"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "The owner's never-unattended paths (`verification.md` §5b) are never edited unattended by the chain, and an unreadable list stops it.",
+      "source": "Objectives",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003",
+        "FIX-005"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "`fix-plan.js` (core and `.claude/lib/` mirror): `finishSweep` chains only when `implement`, no hit and status not `invalid`, returning `chain: true`, `chainSkill: null`, `chainSteps` (a lookup: `sweep` → `/sweep <file> --chained`, `verify` → `/verify-build <file> --chained`, `implement` → `/implement-trd docs/TRD/<slug>.md`), the handoff line, `banner: null`, `notify: false`; otherwise today's output, except that the owner-policy sentence for an `invalid` status no longer requires `coreTrd` (today's `coreTrd &&` guard on it is dropped, so a stop with no core TRD says the §5b list could not be read). Add and export `sweepChainNext(input)` and `SWEEP_CHAIN_INPUTS`.",
+      "touches": [
+        "packages/core/lib/fix-plan.js",
+        "packages/core/lib/fix-plan.test.js",
+        ".claude/lib/fix-plan.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "`functional-verification.js` (core and mirror): `check-never-unattended --files <comma-separated> <verificationPath>` matches the given files instead of a TRD's grounding, same output; an empty list returns `hits: []` with the list's status.",
+      "touches": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "`sweep.md` and `sweep.js` (core and mirrors): Step 1 strips `--chained` and `--project` before reading the list, and `argument-hint` lists `--chained`. Under `--chained`: triage and fixers receive the §5b fragments and defer any item whose fix would touch one; Step 3a writes `notSweepItems: [ids]` and `overlap: { id: [files] }` to `sweep-result.json` instead of ending STUCK; Step 4 records no discovery for those ids; the run ends `[STATUS: /sweep] RETURN → <n> fixed, <n> already fine, <n> not sweep items, <n> overlapping, <n> failed`, with no banner and no `notify-complete.sh`. Without `--chained`: unchanged except flag-stripping and the two fields always written.",
+      "touches": [
+        "packages/core/commands/sweep.md",
+        ".claude/commands/sweep.md",
+        "packages/core/workflows/sweep.js",
+        ".claude/workflows/sweep.js",
+        "packages/core/workflows/sweep.test.js",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "FIX-004",
+      "description": "`verify-build.md` (core and mirror): a `--chained` flag, honoured for a sweep file. Under it Step 2 asks nothing (an environment needing the owner takes the stated default and is recorded, as the fix loop does), and the run ends `[STATUS: /verify-build] RETURN → <outcome>, <met> of <total> met`, with no banner, `notify-complete.sh` or `PushNotification`; the report is still written and the evidence still carried to the core.",
+      "touches": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "FIX-005",
+      "description": "`plan.md` (core and mirror) Step 7, spec path: with no core TRD, read §5b with `read-never-unattended` and pass its status. When `plan()` chains: switch to `feature/<slug>/impl`, print the handoff line, then loop — call `sweepChainNext` with the `SWEEP_CHAIN_INPUTS` it needs, run the action, repeat. `plan.md` checks whether `docs/TRD/<slug>.md` exists before each call and passes it as `coreTrdExists`. `sweep`/`verify`: `Skill()` with the lookup's args, recording `git status --porcelain --untracked-files=all` and each listed path's `git hash-object` before `/sweep` and the time before `/verify-build`, and reading `sweep-result.json` and a `verification-state.json` newer than that time. `fold-back`: §Intended Change item 6's order (no `render-sweep` when no sweep id remains). `commit`: the brake over the changed paths (status line or hash differs), then `git add -- <list>` and `git commit -- <list>`, skipped when nothing is staged; a changed file that was dirty before the sweep is named in the readout. `stop`: print the readout and the returned banner, run notify. `implement`: hand off and emit nothing after.",
+      "touches": [
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "FIX-006",
+      "description": "`command-status.md` (`.claude/rules/` and the template `packages/core/templates/claude-directory/rules/command-status.md`): the chaining exception names `/plan --implement` on a sweep list, and `/sweep --chained` and `/verify-build --chained` as commands that emit no banner.",
+      "touches": [
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        "test/integration/tests/runtime-integrity.test.sh"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "The chain behaves as written in a live run (sweep, verify, commit, implement in one session) — Needs a real spec with sweepable criteria and a `claude` session, which this project's tests never start — Run `/plan <spec item> --implement` on a lightning-lane roadmap item with independent criteria",
+    "A folded criterion's task, written by `/plan` mid-run, is grounded as well as one written at planning time — Depends on the model's investigation at fold-back time — Inspect the first live fold-back's task block",
+    "Triage and fixers keep every §5b path out of the sweep — Model judgement; the backstop before the commit (status lines plus content hashes) catches what they miss, but only after the edit — Inspect the first live chain on a repo with a non-empty §5b"
+  ],
+  "open_questions": []
+}
