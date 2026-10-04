@@ -110,6 +110,21 @@
       "started_at": "2026-10-04T20:08:27.299Z",
       "completed_at": "2026-10-04T20:13:12.639Z",
       "last_advanced": "2026-10-04T20:09:51.481Z"
+    },
+    "AMEND-001": {
+      "description": "test the commit-list never-unattended brake in plan.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-04T20:38:53.146Z",
+      "completed_at": "2026-10-04T20:40:42.889Z",
+      "last_advanced": "2026-10-04T20:40:35.207Z"
     }
   },
   "checkpoints": [

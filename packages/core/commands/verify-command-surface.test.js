@@ -90,6 +90,16 @@ describe('plan.md Step 7 uses check-never-unattended instead of gathering touche
     expect(step7()).toMatch(/\/verification-setup/);
   });
 
+  test('with no core TRD it reads §5b alone and passes an empty neverUnattendedHit', () => {
+    expect(flat(step7())).toMatch(/Read §5b on its own instead, so an unreadable list still stops the run/);
+    expect(flat(step7())).toMatch(/Pass its `status` as `neverUnattendedStatus` and `"neverUnattendedHit": \[\]`/);
+    expect(flat(step7())).toMatch(/`invalid` stops here exactly as described below/);
+  });
+
+  test('plan() refuses to chain on invalid, so the stop does not rest on prose alone', () => {
+    expect(flat(step7())).toMatch(/`plan\(\)` itself refuses to chain on `'invalid'`/);
+  });
+
   test('describes the list as living in verification.md §5b', () => {
     expect(read(CORE_PLAN)).toMatch(/verification\.md`?\s*§5b|§5b/);
   });
@@ -1133,6 +1143,48 @@ describe('plan.md spec path (plan-from-spec)', () => {
       expect(commit).toMatch(/skip the commit/);
     });
 
+    describe('the never-unattended brake in the chain', () => {
+      const commit = chain.split('**`commit`.**')[1].split('**`stop`.**')[0];
+      const loop = chain.split('**Loop.**')[1].split('**`fold-back`**')[0];
+      const fold = chain.split('**`fold-back`**')[1].split('**`commit`.**')[0];
+
+      test('commit runs the brake over the whole list, quoted, with the sweep file and sweep directory', () => {
+        expect(commit).toMatch(/check-never-unattended --files "<changed,paths>,<sweep file>,\.trd-state\/<slug>-sweep\/" \.claude\/rules\/verification\.md/);
+        expect(commit).toMatch(/run the brake over that whole list\*\*, not just the changed paths/);
+      });
+
+      test('commit runs the brake before git add and git commit', () => {
+        const brake = commit.search(/check-never-unattended --files/);
+        expect(brake).toBeGreaterThanOrEqual(0);
+        expect(brake).toBeLessThan(commit.search(/git add --/));
+        expect(brake).toBeLessThan(commit.search(/git commit -m/));
+        expect(commit).toMatch(/\*\*Before `git add`, run the brake/);
+      });
+
+      test('a hit or an invalid status stages and commits nothing and ends COMMAND STUCK: /plan', () => {
+        expect(commit).toMatch(/When `hits` is non-empty or `status` is `invalid`, do not stage or commit/);
+        expect(commit).toMatch(/leave the fixes uncommitted/);
+        expect(commit).toMatch(/print the readout naming the matched paths \(or the invalid list\)/);
+        expect(commit).toMatch(/end with `COMMAND STUCK: \/plan`/);
+        expect(commit).toMatch(/notify-complete\.sh "plan" "stuck"/);
+        // the stop clause precedes the staging clause, so a hit never reaches git add
+        expect(commit.search(/do not stage or commit/)).toBeLessThan(commit.search(/git add --/));
+      });
+
+      test('the changed-paths brake is scoped to the loop, quoted, and feeds sweepNeverUnattended*', () => {
+        expect(loop).toMatch(/\*\*The brake over the changed paths\*\*/);
+        expect(loop).toMatch(/check-never-unattended --files "<changed,paths>" \.claude\/rules\/verification\.md/);
+        expect(loop).toMatch(/pass `hits` as `sweepNeverUnattendedHit` and `status` as `sweepNeverUnattendedStatus`/);
+        expect(loop).toMatch(/Always quote the list: when the sweep changed nothing it is `--files ""`/);
+        expect(loop).toMatch(/before `verify`'s and `fold-back`'s next call/);
+      });
+
+      test('fold-back runs the core-TRD brake and passes coreNeverUnattendedHit and Status', () => {
+        expect(fold).toMatch(/check-never-unattended docs\/TRD\/<slug>\.md \.claude\/rules\/verification\.md/);
+        expect(fold).toMatch(/passed as `coreNeverUnattendedHit` and `coreNeverUnattendedStatus`/);
+      });
+    });
+
     test('stop prints readout and banner and notifies; implement hands off and emits nothing', () => {
       expect(chain).toMatch(/\*\*`stop`\.\*\* Print the readout, then the returned `banner` and `bannerBody`, and run `\.claude\/hooks\/notify-complete\.sh "plan"/);
       expect(chain).toMatch(/\*\*`implement`\.\*\* Run the `implement` step's `Skill\(\)` and emit nothing after it/);
@@ -1238,6 +1290,13 @@ describe('sweep.md --chained (plan-sweep-chain)', () => {
   test('--chained reads the fragments and hands them to the workflow', () => {
     expect(step1).toMatch(/read-never-unattended \.claude\/rules\/verification\.md/);
     expect(raw).toMatch(/fragments: \[/);
+  });
+
+  test('--chained keeps the read paths and defers items touching them; unchained passes no fragments', () => {
+    expect(step1).toMatch(/Under `--chained`, read the owner's never-unattended fragments once/);
+    expect(step1).toMatch(/and keep its `paths`/);
+    expect(raw).toMatch(/fragments: \[<the `paths` list, under --chained only>\]/);
+    expect(flat(raw)).toMatch(/With `fragments`, triage and every fixer are told to defer any item whose fix would touch a path containing one; leave it out without `--chained`/);
   });
 
   test('Step 3a always writes notSweepItems and overlap; chained records instead of STUCK', () => {
