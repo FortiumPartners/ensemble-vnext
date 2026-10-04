@@ -1105,7 +1105,7 @@ describe('plan.md spec path (plan-from-spec)', () => {
       expect(chain).toMatch(/git hash-object/);
       expect(chain).toMatch(/status line is new or different, or its `git hash-object` differs/);
       expect(chain).toMatch(/already dirty before the sweep[^.]*readout names it/);
-      expect(chain).toMatch(/check-never-unattended --files <changed,paths>/);
+      expect(chain).toMatch(/check-never-unattended --files "<changed,paths>"/);
     });
 
     test('fold-back runs in Step 6a order, once, and never re-runs /sweep', () => {

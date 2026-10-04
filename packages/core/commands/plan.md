@@ -1074,8 +1074,11 @@ node -e '
      directory's line. A changed file that was already dirty before the sweep is committed
      whole, and the readout names it as carrying earlier uncommitted edits.
    - **The brake over the changed paths** (before `verify`'s and `fold-back`'s next call):
-     `node .claude/lib/functional-verification.js check-never-unattended --files <changed,paths> .claude/rules/verification.md`;
+     `node .claude/lib/functional-verification.js check-never-unattended --files "<changed,paths>" .claude/rules/verification.md`;
      pass `hits` as `sweepNeverUnattendedHit` and `status` as `sweepNeverUnattendedStatus`.
+     Always quote the list: when the sweep changed nothing it is `--files ""`, and an unquoted
+     empty list drops the argument, so the verification path is read as the list and the
+     call fails with usage.
 4. **`fold-back`** (the action carries the `ids` to move). Happens at most once per run and
    never re-runs `/sweep`. In Step 6a's order: `render-sweep` with the remaining sweep ids and
    `--core-trd docs/TRD/<slug>.md` (skipped when no sweep id remains: the sweep file stays as

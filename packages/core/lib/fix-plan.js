@@ -55,8 +55,10 @@ const VERIFICATION_SECTION = {
  *   'invalid' (the §5b list could not be read) suppresses the chain even with empty hits.
  * @param {boolean} [input.sweepList]   a sweep list (`docs/plan/<slug>.sweep.md`) was written
  *   (plan-from-spec). The sweep must be built, verified and committed BEFORE the core TRD is
- *   built, so this path never chains and never writes the pointer, whatever `implement` says,
- *   and its banner gives the four ordered steps. Read only when true.
+ *   built, so this path never writes the pointer. Without `implement` (or with a hit, or an
+ *   `invalid` list) it does not chain and its banner gives the four ordered steps; with
+ *   `implement` and an empty brake it returns the sweep chain (`chainSteps`, sequenced by
+ *   sweepChainNext). Read only when true.
  * @param {boolean} [input.coreTrd]      with `sweepList`: whether a core TRD exists (default
  *   true). False means every criterion was swept — no TRD is kept and no `/implement-trd` step.
  * @param {string[]} [input.neverUnattendedHit]        path fragments matched by
@@ -199,7 +201,8 @@ function finish({ writeTrd, reason, kind, slug }) {
 }
 
 /**
- * The sweep path's ending (plan-from-spec): the ordered steps, and no chain.
+ * The sweep path's ending (plan-from-spec): the sweep chain under `--implement` with an empty
+ * brake; otherwise the ordered steps, and no chain.
  * `/sweep` never commits, and `/implement-trd` needs a clean tree and commits phases with
  * `git add -A`, so the owner commits the swept fixes between the two.
  */
@@ -313,14 +316,19 @@ function sweepChainNext(input) {
     notifyStatus: done ? 'complete' : 'stuck',
   });
   const sweepFile = `docs/plan/${slug}.sweep.md`;
+  const coreTrdPath = `docs/TRD/${slug}.md`;
+  // A stop leaves the remaining steps to the owner; name all of them, in order, so the swept
+  // fixes are verified and committed before /implement-trd (whose `git add -A` phase commit
+  // would otherwise take them in unverified).
+  const thenImplement = coreTrdExists ? `, then run /implement-trd ${coreTrdPath}` : '';
 
   // Brake over the sweep's changed files, shared by every road into the commit.
   const sweepBrake = () => {
     if (sweepNeverUnattendedStatus === 'invalid') {
-      return stop('the never-unattended list in verification.md §5b could not be read, so the swept fixes in the working tree are not committed');
+      return stop(`the never-unattended list in verification.md §5b could not be read, so the swept fixes in the working tree are not committed; fix the list, commit the swept fixes${thenImplement}`);
     }
     if (sweepNeverUnattendedHit.length > 0) {
-      return stop(`the sweep edited ${sweepNeverUnattendedHit.join(', ')}, marked never-unattended in verification.md §5b; the fixes are left uncommitted in the working tree for you to review`);
+      return stop(`the sweep edited ${sweepNeverUnattendedHit.join(', ')}, marked never-unattended in verification.md §5b; the fixes are left uncommitted in the working tree for you to review, commit${thenImplement}`);
     }
     return null;
   };
@@ -331,18 +339,21 @@ function sweepChainNext(input) {
       return ids.length > 0 ? go('fold-back', { ids }) : go('verify');
     }
     case 'fold-back': {
+      // The swept fixes are still uncommitted here (and unverified when sweep ids remain), so
+      // a stop names those steps before /implement-trd, never /implement-trd alone.
+      const pending = `the swept fixes are left uncommitted: ${sweepIdsLeft.length > 0 ? `run /verify-build ${sweepFile}, then ` : ''}commit them, then run /implement-trd ${coreTrdPath} yourself when you are satisfied`;
       if (coreNeverUnattendedStatus === 'invalid') {
-        return stop('the never-unattended list in verification.md §5b could not be read, so the folded-back core TRD is not built');
+        return stop(`the never-unattended list in verification.md §5b could not be read, so the folded-back core TRD is not built; ${pending}`);
       }
       if (coreNeverUnattendedHit.length > 0) {
-        return stop(`the core TRD now touches ${coreNeverUnattendedHit.join(', ')}, marked never-unattended in verification.md §5b; run /implement-trd yourself when you are satisfied`);
+        return stop(`the core TRD now touches ${coreNeverUnattendedHit.join(', ')}, marked never-unattended in verification.md §5b; ${pending}`);
       }
       if (sweepIdsLeft.length > 0) return go('verify');
       return sweepBrake() || go('commit');
     }
     case 'verify': {
       if (verificationOutcome !== 'satisfied') {
-        return stop(`verifying ${sweepFile} ended ${verificationOutcome === null ? 'with no outcome recorded this run' : `'${verificationOutcome}'`}, not 'satisfied'; re-run /sweep ${sweepFile} then /verify-build ${sweepFile}`);
+        return stop(`verifying ${sweepFile} ended ${verificationOutcome === null ? 'with no outcome recorded this run' : `'${verificationOutcome}'`}, not 'satisfied'; re-run /sweep ${sweepFile} then /verify-build ${sweepFile}, commit the swept fixes${thenImplement}`);
       }
       return sweepBrake() || go('commit');
     }
