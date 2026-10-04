@@ -174,12 +174,15 @@ none
 
 ## Could Not Verify
 
-The 2026-10-03 audit (all 5 verifiers reported, against `docs/plan/plan-sweep-chain.investigation.md`)
-checked the design against the code and applied its findings (v1.2.0). None of the rows below was
-in its reach: each needs a live `claude` run, which an audit of the document does not start.
+The 2026-10-04 `/audit-build` (all 5 verifiers reported, against the delivered code on
+`feature/plan-sweep-chain`) traced every objective, O1 to O5, to an implementation and an
+asserting test, with one exception reported in its readout rather than here: the brake over the
+whole commit list (`plan.md` Step 7, `commit`) is built but no test pins it. The rows below were
+outside that audit's reach.
 
 | Claim | Why unchecked | How to check |
 |-------|---------------|--------------|
+| The delivered change does what the owner asked for, not only what this TRD says | No PRD exists; the source is an owner decision recorded in session and `docs/plan/plan-sweep-chain.investigation.md`. The audit checked the code against this TRD only, so fidelity to the request and anything omitted from it are unchecked | Compare O1 to O5 against the owner's 2026-10-03 quotes in the Objectives table, or re-run `/audit-build` with a source supplied |
 | The chain behaves as written in a live run (sweep, verify, commit, implement in one session) | Needs a real spec with sweepable criteria and a `claude` session, which this project's tests never start | Run `/plan <spec item> --implement` on a lightning-lane roadmap item with independent criteria |
 | A folded criterion's task, written by `/plan` mid-run, is grounded as well as one written at planning time | Depends on the model's investigation at fold-back time | Inspect the first live fold-back's task block |
 | Triage and fixers keep every §5b path out of the sweep | Model judgement; the backstop before the commit (status lines plus content hashes) catches what they miss, but only after the edit | Inspect the first live chain on a repo with a non-empty §5b |
