@@ -1068,6 +1068,12 @@ describe('plan.md spec path (plan-from-spec)', () => {
   describe('Step 7a: the sweep chain', () => {
     const chain = flat((raw.split('### Step 7a')[1] || '').split('\n## Readout')[0]);
     const idx = (re) => chain.search(re);
+    // Guarded like `chain`: a reworded marker yields '' and fails the tests that read it,
+    // instead of a TypeError at collection time that takes the whole suite down.
+    const between = (start, end) => (chain.split(start)[1] || '').split(end)[0];
+    const loop = between('**Loop.**', '**`fold-back`**');
+    const fold = between('**`fold-back`**', '**`commit`.**');
+    const commit = between('**`commit`.**', '**`stop`.**');
 
     test('switches to the feature branch before /sweep, then prints the handoff line', () => {
       expect(chain).not.toBe('');
@@ -1115,11 +1121,10 @@ describe('plan.md spec path (plan-from-spec)', () => {
       expect(chain).toMatch(/git hash-object/);
       expect(chain).toMatch(/status line is new or different, or its `git hash-object` differs/);
       expect(chain).toMatch(/already dirty before the sweep[^.]*readout names it/);
-      expect(chain).toMatch(/check-never-unattended --files "<changed,paths>"/);
     });
 
     test('fold-back runs in Step 6a order, once, and never re-runs /sweep', () => {
-      const fold = chain.split('**`fold-back`**')[1].split('**`commit`.**')[0];
+      expect(fold).not.toBe('');
       const order = [/render-sweep[^;]*--core-trd docs\/TRD\/<slug>\.md/, /task row and grounding block/,
         /`audit-trd` once more, at medium only/, /`render-objectives`/, /§5a\.1's checks/,
         /Step 6a's `check`/, /never-unattended check on the core TRD/];
@@ -1134,7 +1139,7 @@ describe('plan.md spec path (plan-from-spec)', () => {
     });
 
     test('commit stages by pathspec, never git add -A, and skips when nothing is staged', () => {
-      const commit = chain.split('**`commit`.**')[1].split('**`stop`.**')[0];
+      expect(commit).not.toBe('');
       expect(commit).toMatch(/git add -- <list>/);
       expect(commit).toMatch(/git commit -m "[^"]*" -- <list>/);
       expect(commit).toMatch(/never\s+`git add -A`/);
@@ -1144,10 +1149,6 @@ describe('plan.md spec path (plan-from-spec)', () => {
     });
 
     describe('the never-unattended brake in the chain', () => {
-      const commit = chain.split('**`commit`.**')[1].split('**`stop`.**')[0];
-      const loop = chain.split('**Loop.**')[1].split('**`fold-back`**')[0];
-      const fold = chain.split('**`fold-back`**')[1].split('**`commit`.**')[0];
-
       test('commit runs the brake over the whole list, quoted, with the sweep file and sweep directory', () => {
         expect(commit).toMatch(/check-never-unattended --files "<changed,paths>,<sweep file>,\.trd-state\/<slug>-sweep\/" \.claude\/rules\/verification\.md/);
         expect(commit).toMatch(/run the brake over that whole list\*\*, not just the changed paths/);
