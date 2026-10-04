@@ -505,11 +505,24 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
     [ "$status" -eq 0 ]
 }
 
+@test "command-status.md's chaining exception names the sweep chain, in both copies" {
+    # plan-sweep-chain FIX-006: /plan --implement on a sweep list chains
+    # /sweep and /verify-build, which emit no banner of their own.
+    for dir in "${REPO_ROOT}/.claude/rules" "${REPO_ROOT}/packages/core/templates/claude-directory/rules"; do
+        grep -q -F '/plan --implement` on a sweep list' "${dir}/command-status.md"
+        grep -q -F '/sweep --chained' "${dir}/command-status.md"
+        grep -q -F '/verify-build --chained' "${dir}/command-status.md"
+    done
+    cmp "${REPO_ROOT}/.claude/rules/command-status.md" "${REPO_ROOT}/packages/core/templates/claude-directory/rules/command-status.md"
+}
+
 @test "the rule files' and CLAUDE.md's byte ceilings hold, in both copies" {
     # O4/O5 (amended, context-model-hygiene): async-discipline.md + autonomy.md
-    # combined <= 17000 bytes, command-status.md <= 12500, CLAUDE.md <= 15000.
+    # combined <= 17000 bytes, command-status.md <= 13000, CLAUDE.md <= 15000.
     # "No rule is deleted" outranks a size target, so these are ceilings the
-    # trim must fit under, not targets to shrink toward.
+    # trim must fit under, not targets to shrink toward. command-status.md's
+    # ceiling went 12500 -> 13000 for the sweep-chain exception (plan-sweep-chain
+    # FIX-006): the chaining paragraph must name three more banner-less commands.
     for dir in "${REPO_ROOT}/.claude/rules" "${REPO_ROOT}/packages/core/templates/claude-directory/rules"; do
         async_bytes=$(wc -c < "${dir}/async-discipline.md")
         autonomy_bytes=$(wc -c < "${dir}/autonomy.md")
@@ -520,8 +533,8 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
         fi
 
         status_bytes=$(wc -c < "${dir}/command-status.md")
-        if [ "$status_bytes" -gt 12500 ]; then
-            echo "command-status.md in ${dir} = ${status_bytes} bytes, exceeds 12500" >&2
+        if [ "$status_bytes" -gt 13000 ]; then
+            echo "command-status.md in ${dir} = ${status_bytes} bytes, exceeds 13000" >&2
             false
         fi
     done

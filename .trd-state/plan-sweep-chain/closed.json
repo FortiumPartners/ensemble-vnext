@@ -1,0 +1,12 @@
+{
+  "feature": "plan-sweep-chain",
+  "trd": "docs/TRD/plan-sweep-chain.md",
+  "closedAt": "2026-10-04T20:43:17Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; the never-unattended brake run over the whole commit list (plan.md Step 7, commit step) is built but no test pins it; the chain has never run live (sweep, verify, commit, implement in one session)",
+    "report": ".trd-state/plan-sweep-chain/audit-build-report.md",
+    "auditedCommit": "bb0d022"
+  }
+}

@@ -1,0 +1,1 @@
+[{"criterion":"FS-19","artifact":".trd-state/plan-sweep-chain/evidence/FS-19-plan-md-commit-step.txt","locator":"Otherwise stage by pathspec, never `git add -A`: `git add -- <list>` then","reason":"Text-only check of plan.md lines 1062-1100.","judgeOnly":false}]

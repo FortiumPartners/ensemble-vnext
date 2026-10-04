@@ -1,5 +1,5 @@
 'use strict';
-const { plan, VERIFICATION_SECTION } = require('./fix-plan');
+const { plan, sweepChainNext, SWEEP_CHAIN_INPUTS, VERIFICATION_SECTION } = require('./fix-plan');
 
 const P = (over = {}) => plan({ weight: 'trivial', route: 'plan', kind: 'defect', slug: 'demo', ...over });
 
@@ -189,9 +189,9 @@ describe('fix-plan: the sweep path (plan-from-spec)', () => {
   const S = (over = {}) => P({ sweepList: true, coreTrd: true, ...over });
   const stepOrder = (body, needles) => needles.map((n) => body.indexOf(n));
 
-  test('with a sweep list there is no chain and no pointer, whatever implement says', () => {
+  test('with a sweep list and implement false there is no chain and no pointer', () => {
     for (const weight of ['trivial', 'small', 'medium']) {
-      for (const implement of [false, true]) {
+      for (const implement of [false]) {
         const r = S({ weight, implement });
         expect(r.chain).toBe(false);
         expect(r.chainSkill).toBeNull();
@@ -205,7 +205,7 @@ describe('fix-plan: the sweep path (plan-from-spec)', () => {
   });
 
   test('the banner lists sweep, verify the sweep, commit, then implement, in that order', () => {
-    const r = S({ implement: true, slug: 'lane' });
+    const r = S({ implement: false, slug: 'lane' });
     const at = stepOrder(r.bannerBody, [
       '/sweep docs/plan/lane.sweep.md',
       '/verify-build docs/plan/lane.sweep.md',
@@ -216,8 +216,8 @@ describe('fix-plan: the sweep path (plan-from-spec)', () => {
     expect([...at].sort((a, b) => a - b)).toEqual(at);
   });
 
-  test('the banner never says to re-run with --implement, with or without the flag', () => {
-    for (const implement of [false, true]) {
+  test('the banner never says to re-run with --implement', () => {
+    for (const implement of [false]) {
       expect(S({ implement }).bannerBody).not.toMatch(/re-run with --implement/);
     }
   });
@@ -231,7 +231,7 @@ describe('fix-plan: the sweep path (plan-from-spec)', () => {
   });
 
   test('coreTrd false: no TRD, and the banner omits /implement-trd', () => {
-    const r = S({ coreTrd: false, implement: true, slug: 'lane' });
+    const r = S({ coreTrd: false, implement: false, slug: 'lane' });
     expect(r.writeTrd).toBe(false);
     expect(r.bannerBody).not.toMatch(/implement-trd/);
     expect(r.bannerBody).not.toMatch(/docs\/TRD\//);
@@ -249,6 +249,35 @@ describe('fix-plan: the sweep path (plan-from-spec)', () => {
     expect(P({ coreTrd: false }).writeTrd).toBe(true); // coreTrd is read only with a sweep list
   });
 
+  test('with implement true the sweep path chains with a lookup of steps', () => {
+    for (const coreTrd of [true, false]) {
+      const r = S({ implement: true, slug: 'lane', coreTrd });
+      expect(r.chain).toBe(true);
+      expect(r.chainSkill).toBeNull();
+      expect(r.writePointer).toBe(false);
+      expect(r.banner).toBeNull();
+      expect(r.bannerBody).toBeNull();
+      expect(r.notify).toBe(false);
+      expect(r.handoffLine).toMatch(/^\[STATUS: \/plan\] HANDOFF/);
+      expect(r.chainSteps.sweep.args).toBe('docs/plan/lane.sweep.md --chained');
+      expect(r.chainSteps.verify.args).toBe('docs/plan/lane.sweep.md --chained');
+      expect(r.chainSteps.implement.args).toBe('docs/TRD/lane.md');
+      expect(r.chainSteps.implement.args).not.toMatch(/--chained/);
+    }
+  });
+
+  test('a hit or an invalid status returns the no-chain ending even with implement', () => {
+    const hit = S({ implement: true, neverUnattendedHit: ['auth/'] });
+    expect(hit.chain).toBe(false);
+    expect(hit.notify).toBe(true);
+    for (const coreTrd of [true, false]) {
+      const r = S({ implement: true, coreTrd, neverUnattendedStatus: 'invalid' });
+      expect(r.chain).toBe(false);
+      expect(r.banner).toBe('═══ COMMAND COMPLETE: /plan ═══');
+      expect(r.bannerBody).toMatch(/§5b could not be read/);
+    }
+  });
+
   test('an owner-policy hit still names its paths on the sweep path', () => {
     const r = S({ implement: true, neverUnattendedHit: ['auth/'] });
     expect(r.chain).toBe(false);
@@ -257,5 +286,79 @@ describe('fix-plan: the sweep path (plan-from-spec)', () => {
 
   test('route prd still wins over a sweep list', () => {
     expect(P({ route: 'prd', sweepList: true }).chainSkill).toBe('create-prd');
+  });
+});
+
+describe('fix-plan: sweepChainNext, the only sequencer', () => {
+  const N = (over = {}) => sweepChainNext({ slug: 'lane', ...over });
+
+  test('SWEEP_CHAIN_INPUTS lists the keys it reads', () => {
+    expect(SWEEP_CHAIN_INPUTS).toEqual(expect.arrayContaining(['after', 'coreTrdExists', 'verificationOutcome']));
+    expect(new Set(SWEEP_CHAIN_INPUTS).size).toBe(SWEEP_CHAIN_INPUTS.length);
+  });
+
+  test('after sweep: not-sweep items or overlap fold back, each id once; else verify', () => {
+    const r = N({ after: 'sweep', notSweepItems: ['A', 'B'], overlap: { B: ['x.js'], C: ['y.js'] } });
+    expect(r.action).toBe('fold-back');
+    expect(r.ids.sort()).toEqual(['A', 'B', 'C']);
+    expect(r.banner).toBeNull();
+    expect(N({ after: 'sweep', overlap: { Z: ['f'] } }).action).toBe('fold-back');
+    expect(N({ after: 'sweep' }).action).toBe('verify');
+  });
+
+  test('after fold-back: sweep ids left verify, none left commit', () => {
+    expect(N({ after: 'fold-back', sweepIdsLeft: ['A'] }).action).toBe('verify');
+    expect(N({ after: 'fold-back', sweepIdsLeft: [] }).action).toBe('commit');
+  });
+
+  test('after fold-back: a core hit or an invalid core status stops', () => {
+    const hit = N({ after: 'fold-back', sweepIdsLeft: ['A'], coreNeverUnattendedHit: ['auth/'] });
+    expect(hit.action).toBe('stop');
+    expect(hit.bannerBody).toMatch(/auth\//);
+    const bad = N({ after: 'fold-back', coreNeverUnattendedStatus: 'invalid' });
+    expect(bad.action).toBe('stop');
+    expect(bad.bannerBody).toMatch(/§5b could not be read/);
+  });
+
+  test('after verify: anything but exactly satisfied stops, naming the outcome', () => {
+    for (const o of ['stalled', 'stuck', 'insufficient-coverage', 'unbuilt', 'Satisfied']) {
+      const r = N({ after: 'verify', verificationOutcome: o });
+      expect(r.action).toBe('stop');
+      expect(r.bannerBody).toContain(o);
+    }
+    const none = N({ after: 'verify', verificationOutcome: null });
+    expect(none.action).toBe('stop');
+    expect(none.bannerBody).toMatch(/no outcome/);
+  });
+
+  test('after satisfied verify: a sweep hit or invalid status stops, else commit', () => {
+    const hit = N({ after: 'verify', verificationOutcome: 'satisfied', sweepNeverUnattendedHit: ['auth/x.js'] });
+    expect(hit.action).toBe('stop');
+    expect(hit.bannerBody).toMatch(/auth\/x\.js/);
+    expect(N({ after: 'verify', verificationOutcome: 'satisfied', sweepNeverUnattendedStatus: 'invalid' }).action).toBe('stop');
+    expect(N({ after: 'verify', verificationOutcome: 'satisfied' }).action).toBe('commit');
+  });
+
+  test('after commit: implement with a core TRD, else a completion stop', () => {
+    expect(N({ after: 'commit', coreTrdExists: true }).action).toBe('implement');
+    const done = N({ after: 'commit', coreTrdExists: false });
+    expect(done.action).toBe('stop');
+    expect(done.banner).toBe('═══ COMMAND COMPLETE: /plan ═══');
+    expect(done.notifyStatus).toBe('complete');
+  });
+
+  test('every stop carries banner, bannerBody, notify and notifyStatus; non-stops carry none', () => {
+    const s = N({ after: 'verify', verificationOutcome: 'stalled' });
+    expect(s.banner).toBe('═══ COMMAND STUCK: /plan ═══');
+    expect(s.bannerBody).toBeTruthy();
+    expect(s.notify).toBe(true);
+    expect(s.notifyStatus).toBe('stuck');
+    const g = N({ after: 'sweep' });
+    expect(g.notify).toBe(false);
+    expect(g.notifyStatus).toBeNull();
+  });
+
+  test('an unknown step throws', () => {
+    expect(() => N({ after: 'nope' })).toThrow(/unknown chain step/);
   });
 });

@@ -1,0 +1,189 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Passing Jest test (46/46 in fix-plan.test.js); source asserts chain true, handoffLine, banner null, notify false, chainSkill null and chainSteps.sweep/verify/implement args.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Passing tests assert chain false with implement false and the four steps in order.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: One passing test covers both a never-unattended hit and status invalid, each asserting chain false.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Passing test feeds notSweepItems and overlap and asserts action fold-back with deduplicated ids.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Same passing test asserts a clean sweep result gives verify. The direct run in sweepChainNext-direct-run.txt also shows verify after a fold-back with sweep ids left.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Passing test asserts commit after a satisfied outcome with a clean changed-files brake.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Passing test asserts after fold-back with sweepIdsLeft [] the action is commit. No verificationOutcome is passed, so it is null. Direct run in sweepChainNext-direct-run.txt shows the same.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweepChainNext-direct-run.txt",
+      "reason": "Met: Direct run for stalled, stuck, unbuilt and insufficient-coverage: each returns action stop with the STUCK banner, a body, notify true and notifyStatus stuck. The Jest tests 'after verify: anything but exactly satisfied stops' and 'every stop carries banner, bannerBody, notify and notifyStatus' also pass.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Passing test asserts stop with the hit path auth/x.js in bannerBody when the sweep brake has a hit.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/fix-plan-jest.txt",
+      "reason": "Met: Passing test asserts implement after commit with coreTrdExists true. Caveat for the judge: the after-commit branch reads no core-brake input (see FS-11).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweepChainNext-direct-run.txt",
+      "reason": "Met: the passing Jest test \"after fold-back: a core hit or an invalid core status stops\" and the direct run show stop with a COMMAND STUCK banner for a core hit and for an invalid core list. The after-commit branch ignores core-brake inputs, but by design (TRD Decision) the core check is only computed after a fold-back, which stops before commit; without a fold-back plan() itself refuses to chain on a core hit, so no reachable path yields implement with a core hit.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweepChainNext-direct-run.txt",
+      "reason": "Met: fold-back is returned only from the after-sweep case; the direct run feeding an already-folded state with further foldable ids returns verify, then commit, never fold-back.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/check-never-unattended-run.txt",
+      "reason": "Met: Run against temp fixtures: a §5b with 'Paths: auth' gives hits [src/auth/login.js]. A malformed §5b (empty '- ' bullet) gives status 'invalid'. 'Paths: none' gives status none and hits []. A missing verification.md gives 'absent', not 'invalid'.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/plan-md-step7a.txt",
+      "reason": "Met: Text check of plan.md Step 7a (mirror byte-identical, cmp): the branch step precedes /sweep, sweepChainNext is 'the only sequencer', and the implement step emits nothing after its Skill(). Text-only evidence.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweep-md-chained.txt",
+      "reason": "Met: Text check of sweep.md (mirror byte-identical): flag stripping, fragments deferral ('defer any item whose fix would touch a path containing one'), and the RETURN-line ending with no banner. Text-only evidence.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/sweep-md-chained.txt",
+      "reason": "Met: Text check: sweep.md says that under --chained notSweepItems and overlap go in sweep-result.json instead of ending STUCK, and Step 4 says to skip those ids so no _sweep entry is recorded. Text-only evidence.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/verify-build-md-chained.txt",
+      "reason": "Met: Text check of verify-build.md (mirror byte-identical): --chained on a sweep file asks nothing and takes the stated default, still writes the report and carries the evidence to the core, and ends with the RETURN line and no banner. Text-only evidence.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/plan-md-step7a.txt",
+      "reason": "Met: Text check of plan.md fold-back (item 4): render-sweep with --core-trd, task rows and grounding or a light core TRD per Step 5a, audit-trd at medium, render-objectives, §5a.1 checks, Step 6a check, then the core never-unattended check. It never re-runs /sweep and skips render-sweep when no sweep id remains. Text-only evidence.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-19",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/plan-md-step7a.txt",
+      "reason": "Not met: plan.md Step 7a item 5 builds the list from before/after status lines and hashes, adds the sweep file and .trd-state/<slug>-sweep/, commits by pathspec and skips an empty commit, but the §5b brake (item 3) runs only over the sweep changed paths; the TRD (item 7) requires the same full commit list, including the sweep file and .trd-state/<slug>-sweep/, to be matched against §5b first, and the text says the brake \"already ran over the changed paths\".",
+      "cause": "judged-failed",
+      "provenAt": null
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/plan-sweep-chain/evidence/command-status-chaining-exception.txt",
+      "reason": "Met: Text check: the chaining-exception paragraph in the template names /plan --implement on a sweep list with /sweep --chained and /verify-build --chained emitting no banner. The run ends on /plan's or /implement-trd's banner. cmp shows .claude/rules/command-status.md identical to the template. Text-only evidence.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}

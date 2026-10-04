@@ -231,6 +231,43 @@ describe('sweep', () => {
     expect(byId('3').opts.agentType).toBe('backend-implementer');
   });
 
+  describe('never-unattended fragments (plan-sweep-chain)', () => {
+    it('names the fragments to triage and requires a touching item to be deferred', async () => {
+      const { agent } = await sweep(
+        { triage: { fix: ISSUES, deferred: [] } },
+        { source: 'a list', fragments: ['auth', 'migrations'] }
+      );
+      const prompt = agent.calls[0].prompt;
+      expect(prompt).toContain('NEVER-UNATTENDED PATHS');
+      expect(prompt).toContain('auth, migrations');
+      expect(prompt).toMatch(/touch[^.]*MUST go in `deferred`/);
+    });
+
+    it('tells every fixer to stop with too-big when its fix would touch a fragment', async () => {
+      const { agent } = await sweep(
+        { triage: { fix: ISSUES, deferred: [] } },
+        { source: 'a list', fragments: ['auth'] }
+      );
+      const fixes = fixCalls(agent);
+      expect(fixes).toHaveLength(3);
+      for (const c of fixes) {
+        expect(c.prompt).toContain('NEVER-UNATTENDED PATHS');
+        expect(c.prompt).toMatch(/too-big/);
+      }
+    });
+
+    it('leaves both prompts unchanged without fragments', async () => {
+      for (const extra of [{}, { fragments: [] }]) {
+        const { agent } = await sweep(
+          { triage: { fix: ISSUES, deferred: [] } },
+          { source: 'a list', ...extra }
+        );
+        expect(agent.calls[0].prompt).not.toContain('NEVER-UNATTENDED');
+        for (const c of fixCalls(agent)) expect(c.prompt).not.toContain('NEVER-UNATTENDED');
+      }
+    });
+  });
+
   describe('criterion ids (plan-from-spec)', () => {
     const SWEEP_FILE = [
       '# Sweep: Lane', '', '**Source spec**: docs/roadmap.md § Lane', '**Core TRD**: none', '',

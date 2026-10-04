@@ -1,7 +1,7 @@
 ---
 name: sweep
 description: "Fix a list of small independent issues in parallel — grounded and attested, without a TRD"
-argument-hint: "<path-to-issue-list | the issues inline> [--project <dir>]"
+argument-hint: "<path-to-issue-list | the issues inline> [--project <dir>] [--chained]"
 ---
 
 > **Usage:** `/sweep <file>` or `/sweep <issues, inline>`
@@ -38,7 +38,19 @@ Six tasks that must land in order do not, however small each one looks.
 
 ## Step 1: Resolve the list
 
-An argument that is a readable file path is the list. Anything else is the list, verbatim.
+**Strip the flags first.** Remove `--chained` and `--project <dir>` from the arguments before
+anything else, remembering both. What is left is the list source: a readable file path is the
+list, anything else is the list, verbatim. Without stripping, `<file> --chained` is not a
+readable path and would be swept as an inline issue list.
+
+**`--chained`** means `/plan --implement` called this sweep as one step of its chain. It changes
+four things, each marked below: the never-unattended paths are kept out of the fix, ids that are
+not sweep items are recorded rather than ending the run, no discovery is recorded for them, and
+the run ends on one RETURN line with no banner. Without it, none of that applies.
+
+Under `--chained`, read the owner's never-unattended fragments once:
+`node .claude/lib/functional-verification.js read-never-unattended .claude/rules/verification.md`
+and keep its `paths`.
 
 **Pass the owner's words through unedited.** The reporter described a symptom, and a symptom
 paraphrased upstream becomes someone's guess at a cause. The workflow gives triage the raw
@@ -47,8 +59,11 @@ text for exactly this reason.
 ## Step 2: Run the sweep
 
 ```
-Workflow({ name: "sweep", args: { source: "<the list, verbatim>", project: "<dir or omit>" } })
+Workflow({ name: "sweep", args: { source: "<the list, verbatim>", project: "<dir or omit>", fragments: [<the `paths` list, under --chained only>] } })
 ```
+
+With `fragments`, triage and every fixer are told to defer any item whose fix would touch a path
+containing one; leave it out without `--chained`.
 
 Two stages, both inside the workflow: triage sorts the list into small-and-independent versus
 everything else, then one grounded agent per issue — separate areas in parallel, issues in the
@@ -80,16 +95,23 @@ without criterion ids skips this whole step and behaves exactly as above.**
 1. **Account for every id.** After Step 3's attestation, each criterion id must sit in exactly
    one of: fixed (attested), already fine, or failed. An id that was deferred at triage or came
    back too big is **not a sweep item**: end the run `COMMAND STUCK: /sweep` with the reason
-   "`<id>` is not a sweep item — re-run `/plan` to move it to the core". An id in no bucket at
-   all is a failed one. Regression guards are not items and are not counted.
+   "`<id>` is not a sweep item — re-run `/plan` to move it to the core". **Under `--chained`
+   it does not end the run:** list those ids in `notSweepItems` (item 2) and carry on, because
+   `/plan` folds them into the core itself. An id in no bucket at all is a failed one.
+   Regression guards are not items and are not counted.
 2. **Record what each fixed criterion changed.** Write
    `.trd-state/<slug>-sweep/sweep-result.json` (`<slug>` is the sweep file's name before
    `.sweep.md`), mapping criterion id to the files that criterion's fix changed, taken from
    the attested `files_changed` (a claimed file untouched on disk is dropped):
 
    ```json
-   { "sweepFile": "docs/plan/<slug>.sweep.md", "fixed": { "AC-4.1": ["src/a.ts", "src/b.ts"] } }
+   { "sweepFile": "docs/plan/<slug>.sweep.md", "fixed": { "AC-4.1": ["src/a.ts", "src/b.ts"] },
+     "notSweepItems": ["AC-4.3"], "overlap": { "AC-4.2": ["src/shared.ts"] } }
    ```
+
+   `notSweepItems` (ids deferred at triage or returned too big) and `overlap` (a fixed id
+   mapped to the core-shared files it changed) are always written, empty when there are none.
+   Nothing outside the chain reads them.
 
    `/verify-build` reads this to carry each criterion's evidence into the core's verification.
    Write it whether or not the run ends STUCK, so the fixed criteria are not lost.
@@ -98,14 +120,16 @@ without criterion ids skips this whole step and behaves exactly as above.**
    `none`, run
    `node .claude/lib/spec-scope.js overlap --sweep-files <every changed file, comma-separated> --trd <core TRD>`.
    Any shared file ends the run `COMMAND STUCK: /sweep` naming each file: the split was wrong
-   and `/plan` must move that criterion to the core.
+   and `/plan` must move that criterion to the core. **Under `--chained`** record each in
+   `overlap` (item 2) instead of ending the run, and carry on.
 
 ---
 
 ## Step 4: Record what was found but not done
 
 For anything triage deferred or a fixer returned as too big, record it so it survives the
-session:
+session. **Under `--chained`, skip the ids listed in `notSweepItems` or `overlap`:** they move
+into the core TRD, which is their record, and a `_sweep` entry would report them as lost.
 
 ```bash
 node -e '
@@ -137,6 +161,16 @@ notice (12)" means something.
 fixes is theirs to split into commits as they see fit.
 
 ## Completion signal
+
+**Under `--chained`** there is no banner and no `notify-complete.sh`: the caller's run is not
+finished, and `notify-complete.sh` marks a run finished, which would switch off the autonomy
+judge for the rest of the chain. Print the readout's STATE line, then this as the last line:
+
+```
+[STATUS: /sweep] RETURN → <n> fixed, <n> already fine, <n> not sweep items, <n> overlapping, <n> failed
+```
+
+Without `--chained`:
 
 ```
 ═══ COMMAND COMPLETE: /sweep ═══

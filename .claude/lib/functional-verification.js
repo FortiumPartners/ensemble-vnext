@@ -1429,7 +1429,8 @@ if (require.main === module) {
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
         '  node functional-verification.js read-never-unattended <verificationPath>\n' +
-        '  node functional-verification.js check-never-unattended <trdPath> <verificationPath>'
+        '  node functional-verification.js check-never-unattended <trdPath> <verificationPath>\n' +
+        '  node functional-verification.js check-never-unattended --files <comma-separated> <verificationPath>'
     );
     process.exit(1);
   };
@@ -1626,42 +1627,54 @@ if (require.main === module) {
       console.log(JSON.stringify(readNeverUnattended(content)));
     }
   } else if (subcommand === 'check-never-unattended') {
-    const [trdPath, verificationPath] = rest;
-    if (!trdPath || !verificationPath) {
+    // `--files <list>` stands in for the TRD path: match the given files (e.g. a sweep's
+    // actual changed files) instead of a TRD's grounding. An empty list is valid -- nothing
+    // can hit nothing, but the list's status is still reported.
+    const filesForm = rest[0] === '--files';
+    const trdPath = filesForm ? null : rest[0];
+    const verificationPath = filesForm ? rest[2] : rest[1];
+    if ((!filesForm && !trdPath) || !verificationPath) {
       usage();
     } else {
       let touches;
-      try {
-        const trdMarkdown = fs.readFileSync(trdPath, 'utf8');
-        const { tasks, grounding } = parseTrd(trdMarkdown, { path: trdPath });
-        // A task with no grounding block, or one with no Touches, contributes nothing to
-        // match -- so a TRD of such tasks would read "no hits" and pass the brake silently.
-        // The brake cannot be evaluated for them: report invalid, naming each task.
-        const ungrounded = tasks
-          .filter((t) => !grounding[t.id] || !(grounding[t.id].touches || []).length)
-          .map((t) => t.id);
-        if (ungrounded.length > 0) {
-          throw Object.assign(new Error(`no grounding Touches for: ${ungrounded.join(', ')}`), {
-            ungrounded: true,
-          });
+      if (filesForm) {
+        touches = (rest[1] || '')
+          .split(',')
+          .map((f) => f.trim())
+          .filter(Boolean);
+      } else {
+        try {
+          const trdMarkdown = fs.readFileSync(trdPath, 'utf8');
+          const { tasks, grounding } = parseTrd(trdMarkdown, { path: trdPath });
+          // A task with no grounding block, or one with no Touches, contributes nothing to
+          // match -- so a TRD of such tasks would read "no hits" and pass the brake silently.
+          // The brake cannot be evaluated for them: report invalid, naming each task.
+          const ungrounded = tasks
+            .filter((t) => !grounding[t.id] || !(grounding[t.id].touches || []).length)
+            .map((t) => t.id);
+          if (ungrounded.length > 0) {
+            throw Object.assign(new Error(`no grounding Touches for: ${ungrounded.join(', ')}`), {
+              ungrounded: true,
+            });
+          }
+          // Every task's grounding `touches`, flattened, in grounding-block order -- the same
+          // source `/plan --implement`'s brake reads (D: "gather touched files in code, never
+          // have the model do either").
+          touches = Object.values(grounding).flatMap((g) => g.touches || []);
+        } catch (err) {
+          // A TRD that cannot be read yields no touches to check, so the brake cannot be
+          // evaluated -- report it as `invalid` (which stops the chain), never a stack trace
+          // the caller has no instruction for.
+          console.log(
+            JSON.stringify({
+              hits: [],
+              status: 'invalid',
+              raw: err.ungrounded ? err.message : `cannot read TRD ${trdPath}: ${err.message}`,
+              touches: [],
+            })
+          );
+          process.exitCode = 1;
         }
-        // Every task's grounding `touches`, flattened, in grounding-block order -- the same
-        // source `/plan --implement`'s brake reads (D: "gather touched files in code, never
-        // have the model do either").
-        touches = Object.values(grounding).flatMap((g) => g.touches || []);
-      } catch (err) {
-        // A TRD that cannot be read yields no touches to check, so the brake cannot be
-        // evaluated -- report it as `invalid` (which stops the chain), never a stack trace
-        // the caller has no instruction for.
-        console.log(
-          JSON.stringify({
-            hits: [],
-            status: 'invalid',
-            raw: err.ungrounded ? err.message : `cannot read TRD ${trdPath}: ${err.message}`,
-            touches: [],
-          })
-        );
-        process.exitCode = 1;
       }
 
       if (touches !== undefined) {

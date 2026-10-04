@@ -55,8 +55,10 @@ const VERIFICATION_SECTION = {
  *   'invalid' (the §5b list could not be read) suppresses the chain even with empty hits.
  * @param {boolean} [input.sweepList]   a sweep list (`docs/plan/<slug>.sweep.md`) was written
  *   (plan-from-spec). The sweep must be built, verified and committed BEFORE the core TRD is
- *   built, so this path never chains and never writes the pointer, whatever `implement` says,
- *   and its banner gives the four ordered steps. Read only when true.
+ *   built, so this path never writes the pointer. Without `implement` (or with a hit, or an
+ *   `invalid` list) it does not chain and its banner gives the four ordered steps; with
+ *   `implement` and an empty brake it returns the sweep chain (`chainSteps`, sequenced by
+ *   sweepChainNext). Read only when true.
  * @param {boolean} [input.coreTrd]      with `sweepList`: whether a core TRD exists (default
  *   true). False means every criterion was swept — no TRD is kept and no `/implement-trd` step.
  * @param {string[]} [input.neverUnattendedHit]        path fragments matched by
@@ -110,7 +112,7 @@ function plan(input) {
   // --implement" and always report a TRD at docs/TRD/<slug>.md, both wrong here: the order is
   // sweep -> verify the sweep -> commit -> implement the core, and there may be no core TRD.
   if (sweepList === true) {
-    return finishSweep({ coreTrd: coreTrd !== false, kind, slug, neverUnattendedHit, neverUnattendedStatus });
+    return finishSweep({ coreTrd: coreTrd !== false, kind, slug, implement, neverUnattendedHit, neverUnattendedStatus });
   }
 
   // The owner's own policy overrides everything else: a path they have named as
@@ -199,12 +201,37 @@ function finish({ writeTrd, reason, kind, slug }) {
 }
 
 /**
- * The sweep path's ending (plan-from-spec): the ordered steps, and no chain.
+ * The sweep path's ending (plan-from-spec): the sweep chain under `--implement` with an empty
+ * brake; otherwise the ordered steps, and no chain.
  * `/sweep` never commits, and `/implement-trd` needs a clean tree and commits phases with
  * `git add -A`, so the owner commits the swept fixes between the two.
  */
-function finishSweep({ coreTrd, kind, slug, neverUnattendedHit, neverUnattendedStatus }) {
+function finishSweep({ coreTrd, kind, slug, implement, neverUnattendedHit, neverUnattendedStatus }) {
   const sweep = `docs/plan/${slug}.sweep.md`;
+
+  // With --implement, an empty brake and a readable list, the sweep ending chains: `/plan`
+  // runs the steps itself, deciding each with sweepChainNext(). chainSteps is a LOOKUP of
+  // what each step runs, never an order — a fold-back can create a core TRD mid-run, which an
+  // order fixed here could not follow. The run's banner and signal come from the last step.
+  if (implement === true && neverUnattendedHit.length === 0 && neverUnattendedStatus !== 'invalid') {
+    return {
+      writeTrd: coreTrd,
+      writePointer: false,
+      chain: true,
+      chainSkill: null,
+      chainArgs: null,
+      chainSteps: {
+        sweep: { skill: 'sweep', args: `${sweep} --chained` },
+        verify: { skill: 'verify-build', args: `${sweep} --chained` },
+        implement: { skill: 'implement-trd', args: `docs/TRD/${slug}.md` },
+      },
+      handoffLine: `[STATUS: /plan] HANDOFF → investigation record complete, chaining the sweep, its verification and its commit${coreTrd ? ', then /implement-trd' : ''}`,
+      banner: null,
+      bannerBody: null,
+      notify: false,
+      verificationSection: VERIFICATION_SECTION[kind] || VERIFICATION_SECTION.defect,
+    };
+  }
   const steps = [
     `/sweep ${sweep}`,
     `/verify-build ${sweep}`,
@@ -217,7 +244,9 @@ function finishSweep({ coreTrd, kind, slug, neverUnattendedHit, neverUnattendedS
   let policy = '';
   if (coreTrd && neverUnattendedHit.length > 0) {
     policy = ` Owner policy: ${neverUnattendedHit.join(', ')} ${neverUnattendedHit.length === 1 ? 'is' : 'are'} marked never-unattended in verification.md, so nothing is built for you.`;
-  } else if (coreTrd && neverUnattendedStatus === 'invalid') {
+  } else if (neverUnattendedStatus === 'invalid') {
+    // No `coreTrd &&` here: an unreadable list stops the chain with or without a core TRD,
+    // so the stop must say why either way.
     policy = ' Owner policy: the never-unattended list in verification.md §5b could not be read, so nothing is built for you.';
   }
 
@@ -237,4 +266,104 @@ function finishSweep({ coreTrd, kind, slug, neverUnattendedHit, neverUnattendedS
   };
 }
 
-module.exports = { plan, VERIFICATION_SECTION };
+/** The keys sweepChainNext() reads; plan.md builds its call payload from this list. */
+const SWEEP_CHAIN_INPUTS = [
+  'after', 'slug', 'notSweepItems', 'overlap', 'sweepIdsLeft', 'verificationOutcome',
+  'coreTrdExists', 'sweepNeverUnattendedHit', 'sweepNeverUnattendedStatus',
+  'coreNeverUnattendedHit', 'coreNeverUnattendedStatus',
+];
+
+/**
+ * The only sequencer of the chained sweep ending: given the step that just finished and what
+ * it left on disk (values plan.md reads and passes in; this function touches no file), say what
+ * runs next. Returns `{ action, ids? , banner, bannerBody, notify, notifyStatus }` where action
+ * is 'fold-back' | 'verify' | 'commit' | 'implement' | 'stop'. Only a stop carries a banner.
+ *
+ * @param {Object} input
+ * @param {'sweep'|'fold-back'|'verify'|'commit'} input.after   the step that just finished
+ * @param {string} [input.slug]
+ * @param {string[]} [input.notSweepItems]       sweep-result.json: ids that are not sweep items
+ * @param {Object<string,string[]>} [input.overlap]  sweep-result.json: id -> overlapping files
+ * @param {string[]} [input.sweepIdsLeft]        after a fold-back: sweep ids still in the sweep file
+ * @param {string|null} [input.verificationOutcome]  null when this run wrote none (stale state)
+ * @param {boolean} [input.coreTrdExists]        plan.md checked docs/TRD/<slug>.md just now
+ * @param {string[]} [input.sweepNeverUnattendedHit]    §5b hits over the sweep's changed files
+ * @param {string|null} [input.sweepNeverUnattendedStatus]
+ * @param {string[]} [input.coreNeverUnattendedHit]     §5b hits over the core TRD's touches
+ * @param {string|null} [input.coreNeverUnattendedStatus]
+ */
+function sweepChainNext(input) {
+  const {
+    after,
+    slug = '<slug>',
+    notSweepItems = [],
+    overlap = {},
+    sweepIdsLeft = [],
+    verificationOutcome = null,
+    coreTrdExists = false,
+    sweepNeverUnattendedHit = [],
+    sweepNeverUnattendedStatus = null,
+    coreNeverUnattendedHit = [],
+    coreNeverUnattendedStatus = null,
+  } = input || {};
+
+  const go = (action, extra = {}) => ({ action, banner: null, bannerBody: null, notify: false, notifyStatus: null, ...extra });
+  const stop = (reason, done = false) => ({
+    action: 'stop',
+    banner: done ? '═══ COMMAND COMPLETE: /plan ═══' : '═══ COMMAND STUCK: /plan ═══',
+    bannerBody: done ? `${slug}: ${reason}` : `Reason: ${reason}`,
+    notify: true,
+    notifyStatus: done ? 'complete' : 'stuck',
+  });
+  const sweepFile = `docs/plan/${slug}.sweep.md`;
+  const coreTrdPath = `docs/TRD/${slug}.md`;
+  // A stop leaves the remaining steps to the owner; name all of them, in order, so the swept
+  // fixes are verified and committed before /implement-trd (whose `git add -A` phase commit
+  // would otherwise take them in unverified).
+  const thenImplement = coreTrdExists ? `, then run /implement-trd ${coreTrdPath}` : '';
+
+  // Brake over the sweep's changed files, shared by every road into the commit.
+  const sweepBrake = () => {
+    if (sweepNeverUnattendedStatus === 'invalid') {
+      return stop(`the never-unattended list in verification.md §5b could not be read, so the swept fixes in the working tree are not committed; fix the list, commit the swept fixes${thenImplement}`);
+    }
+    if (sweepNeverUnattendedHit.length > 0) {
+      return stop(`the sweep edited ${sweepNeverUnattendedHit.join(', ')}, marked never-unattended in verification.md §5b; the fixes are left uncommitted in the working tree for you to review, commit${thenImplement}`);
+    }
+    return null;
+  };
+
+  switch (after) {
+    case 'sweep': {
+      const ids = [...new Set([...notSweepItems, ...Object.keys(overlap || {})])];
+      return ids.length > 0 ? go('fold-back', { ids }) : go('verify');
+    }
+    case 'fold-back': {
+      // The swept fixes are still uncommitted here (and unverified when sweep ids remain), so
+      // a stop names those steps before /implement-trd, never /implement-trd alone.
+      const pending = `the swept fixes are left uncommitted: ${sweepIdsLeft.length > 0 ? `run /verify-build ${sweepFile}, then ` : ''}commit them, then run /implement-trd ${coreTrdPath} yourself when you are satisfied`;
+      if (coreNeverUnattendedStatus === 'invalid') {
+        return stop(`the never-unattended list in verification.md §5b could not be read, so the folded-back core TRD is not built; ${pending}`);
+      }
+      if (coreNeverUnattendedHit.length > 0) {
+        return stop(`the core TRD now touches ${coreNeverUnattendedHit.join(', ')}, marked never-unattended in verification.md §5b; ${pending}`);
+      }
+      if (sweepIdsLeft.length > 0) return go('verify');
+      return sweepBrake() || go('commit');
+    }
+    case 'verify': {
+      if (verificationOutcome !== 'satisfied') {
+        return stop(`verifying ${sweepFile} ended ${verificationOutcome === null ? 'with no outcome recorded this run' : `'${verificationOutcome}'`}, not 'satisfied'; re-run /sweep ${sweepFile} then /verify-build ${sweepFile}, commit the swept fixes${thenImplement}`);
+      }
+      return sweepBrake() || go('commit');
+    }
+    case 'commit':
+      return coreTrdExists
+        ? go('implement')
+        : stop(`every criterion was swept, verified and committed; no core TRD to build (sweep list at ${sweepFile})`, true);
+    default:
+      throw new Error(`fix-plan: unknown chain step ${JSON.stringify(after)}`);
+  }
+}
+
+module.exports = { plan, sweepChainNext, SWEEP_CHAIN_INPUTS, VERIFICATION_SECTION };
