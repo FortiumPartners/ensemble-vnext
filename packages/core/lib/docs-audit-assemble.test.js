@@ -452,6 +452,64 @@ describe('TRD parse and D19 skip tests', () => {
     expect(entry(run(repo), TRD).skip).toBeNull();
   });
 
+  describe('PRD of a feature in flight', () => {
+    const PRD = 'docs/PRD/x.md';
+    const inFlightState = (trdFile = TRD) =>
+      implState('thing', { 'T-1': { status: 'pending' }, 'T-2': { status: 'success' } }, trdFile);
+    const citing = (prdPath) => `**Source PRD**: ${prdPath}\n\n${TRD_BODY()}`;
+    const batched = (a) => a.batches.flatMap((b) => b.docs);
+
+    test('a PRD cited by an in-flight TRD is skipped in-flight and not batched', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'docs', { [TRD]: citing(PRD), [PRD]: PRD_BODY, 'README.md': 'r' });
+      commitFiles(repo, 'work', { 'src/thing.js': 'built' });
+      commitFiles(repo, 'state', inFlightState());
+      const a = run(repo);
+      expect(entry(a, TRD).skip).toBe('in-flight');
+      expect(entry(a, PRD).skip).toBe('in-flight');
+      expect(a.skipped).toEqual(expect.arrayContaining([{ path: PRD, reason: 'in-flight' }]));
+      expect(batched(a)).not.toContain(PRD);
+    });
+
+    test('a PRD sharing the in-flight TRD basename, not cited, is skipped', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'docs', { [TRD]: TRD_BODY(), 'docs/PRD/thing.md': PRD_BODY, 'README.md': 'r' });
+      commitFiles(repo, 'work', { 'src/thing.js': 'built' });
+      commitFiles(repo, 'state', inFlightState());
+      const a = run(repo);
+      expect(entry(a, 'docs/PRD/thing.md').skip).toBe('in-flight');
+      expect(batched(a)).not.toContain('docs/PRD/thing.md');
+    });
+
+    test('an unrelated PRD stays reviewed beside an in-flight TRD', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'docs', { [TRD]: citing(PRD), [PRD]: PRD_BODY, 'docs/PRD/other.md': PRD_BODY });
+      commitFiles(repo, 'work', { 'src/thing.js': 'built' });
+      commitFiles(repo, 'state', inFlightState());
+      const a = run(repo);
+      expect(entry(a, 'docs/PRD/other.md').skip).toBeNull();
+      expect(batched(a)).toContain('docs/PRD/other.md');
+    });
+
+    test('regression: the same TRD closed -> the PRD is batched', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'docs', { [TRD]: citing(PRD), [PRD]: PRD_BODY });
+      commitFiles(repo, 'state', { ...inFlightState(), '.trd-state/thing/closed.json': '{}' });
+      const a = run(repo);
+      expect(entry(a, PRD).skip).toBeNull();
+      expect(batched(a)).toContain(PRD);
+    });
+
+    test('regression: TRD skipped no-implementation -> the PRD is batched', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'docs', { [TRD]: citing(PRD), [PRD]: PRD_BODY, 'README.md': 'r' });
+      const a = run(repo);
+      expect(entry(a, TRD).skip).toBe('no-implementation');
+      expect(entry(a, PRD).skip).toBeNull();
+      expect(batched(a)).toContain(PRD);
+    });
+  });
+
   test('a skipped TRD stays in the inventory but leaves the batches', () => {
     const repo = trdRepo();
     commitFiles(repo, 'prd', { 'docs/PRD/a.md': PRD_BODY });

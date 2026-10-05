@@ -1,0 +1,116 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/audit-docs-prd-handling.md",
+  "trd_hash": "03b555d3cb92215a9cfae7d96ad32b2ad15da95fb26621bf93c5cc3411b96139",
+  "branch": "feature/audit-docs-prd-handling/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Backend: skip a PRD whose feature is in flight in docs-audit-assemble.js — after the TRD loop, set skip: 'in-flight' on ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/docs-audit-assemble.js",
+        "packages/core/lib/docs-audit-assemble.test.js",
+        ".claude/lib/docs-audit-assemble.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T05:08:23.625Z",
+      "completed_at": "2026-10-05T05:13:12.578Z",
+      "last_advanced": "2026-10-05T05:09:39.021Z"
+    },
+    "FIX-002": {
+      "description": "Backend: contract and workflow — rewrite the contract's ## PRD procedure (mechanism vs behaviour correction; the changel",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/docs-audit.md",
+        "packages/core/contracts/docs-audit.test.js",
+        "packages/core/workflows/audit-docs.js",
+        "packages/core/workflows/audit-docs.test.js",
+        ".claude/contracts/docs-audit.md",
+        ".claude/workflows/audit-docs.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T05:08:23.625Z",
+      "completed_at": "2026-10-05T05:13:12.582Z",
+      "last_advanced": "2026-10-05T05:09:39.021Z"
+    },
+    "FIX-003": {
+      "description": "Backend: changelog check in docs-audit-apply.js — for each PRD record with an edited outcome and non-empty behaviourChan",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/docs-audit-apply.js",
+        "packages/core/lib/docs-audit-apply.test.js",
+        ".claude/lib/docs-audit-apply.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T05:08:23.625Z",
+      "completed_at": "2026-10-05T05:13:12.582Z",
+      "last_advanced": "2026-10-05T05:09:39.021Z"
+    },
+    "FIX-004": {
+      "description": "Backend: change set and commit message in docs-audit-deliver.js — add ## Requirements changed to match the code — confir",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/docs-audit-deliver.js",
+        "packages/core/lib/docs-audit-deliver.test.js",
+        ".claude/lib/docs-audit-deliver.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T05:08:23.625Z",
+      "completed_at": "2026-10-05T05:13:12.582Z",
+      "last_advanced": "2026-10-05T05:09:39.021Z"
+    },
+    "FIX-005": {
+      "description": "Backend: command readout and lib mirrors — in packages/core/commands/audit-docs.md step 7 and the Readout, name skipped ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-docs.md",
+        ".claude/commands/audit-docs.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T05:08:23.625Z",
+      "completed_at": "2026-10-05T05:13:12.582Z",
+      "last_advanced": "2026-10-05T05:09:39.021Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/audit-docs-prd-handling.md ## Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree"
+      }
+    }
+  }
+}

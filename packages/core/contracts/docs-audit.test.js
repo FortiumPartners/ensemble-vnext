@@ -65,4 +65,46 @@ describe('docs-audit contract', () => {
     const r = spawnSync('node', [LINT, CORE_PATH], { encoding: 'utf8' });
     expect(r.status).toBe(0);
   });
+  describe('PRD procedure: behaviour changes and broken non-goals', () => {
+    let prd;
+    let ret;
+    beforeAll(() => {
+      const section = (h) => {
+        const rest = text.slice(text.indexOf(`## ${h}`) + 3);
+        const next = rest.search(/\n## /);
+        return next === -1 ? rest : rest.slice(0, next);
+      };
+      prd = section('PRD procedure');
+      ret = section('What you return');
+    });
+
+    test('separates a behaviour change from a mechanism change and records it as a changelog row', () => {
+      expect(prd).toMatch(/behaviour/i);
+      expect(prd).toMatch(/mechanism/i);
+      expect(prd).toMatch(/changelog row/i);
+    });
+
+    test('appends the row in the existing table\'s columns and forbids a banner word in it', () => {
+      expect(prd).toMatch(/existing (version|changelog)?\s*table'?s? columns|columns of the existing/i);
+      expect(prd).toMatch(/superseded/i);
+      expect(prd).toMatch(/archived/i);
+      expect(prd).toMatch(/deprecated/i);
+    });
+
+    test('forbids editing a contradicted non-goal and reports it instead', () => {
+      expect(prd).toMatch(/non-goal/i);
+      expect(prd).toMatch(/do not (edit|correct|rewrite)[^.]*non-goal|non-goal[^.]*(is not|never) (edited|corrected)/i);
+      expect(prd).toContain('brokenNonGoals');
+    });
+
+    test('no longer says a contradicted requirement is simply corrected', () => {
+      expect(prd).not.toContain('| Built differently |');
+      expect(prd).not.toContain('checked as claims only where they assert');
+    });
+
+    test('What you return names both new fields', () => {
+      expect(ret).toContain('behaviourChanges');
+      expect(ret).toContain('brokenNonGoals');
+    });
+  });
 });

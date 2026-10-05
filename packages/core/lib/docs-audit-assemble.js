@@ -391,6 +391,27 @@ function trdSkip(repo, docPath, parsed, implementStates) {
   return null;
 }
 
+/**
+ * A PRD whose feature is in flight is skipped too. "In flight" is the TRD verdict already
+ * computed (trdSkip), not a second notion: a PRD is in flight when an in-flight TRD cites its
+ * path in its first 40 lines or shares its basename. Runs after the file loop because a PRD may
+ * sort before the TRD that cites it. Mutates the PRD entries' `skip`.
+ */
+function skipInFlightPrds(files, inFlightTrds) {
+  if (inFlightTrds.length === 0) return;
+  const cited = new Set();
+  const names = new Set();
+  for (const t of inFlightTrds) {
+    names.add(path.posix.basename(t.path));
+    const head = t.text.split('\n').slice(0, 40).join('\n');
+    for (const m of head.matchAll(/docs\/PRD\/[^\s`'")\]>]+?\.md/g)) cited.add(m[0]);
+  }
+  for (const f of files) {
+    if (f.class !== 'prd' || f.git !== 'tracked' || f.skip !== null) continue;
+    if (cited.has(f.path) || names.has(path.posix.basename(f.path))) f.skip = 'in-flight';
+  }
+}
+
 /** The `trd` block for a file entry plus the skip decision: { trd, skip, warnings }. */
 function analyseTrd(repo, docPath, text, implementStates) {
   let parsed;
@@ -494,6 +515,7 @@ function assemble({ repo, runDate, comprehensive = false, assemblyPath = null })
   const historyCache = new Map();
   const warnings = [];
   const files = [];
+  const inFlightTrds = [];
 
   for (const item of inventory(repo)) {
     const text = readDoc(repo, item.path);
@@ -524,11 +546,14 @@ function assemble({ repo, runDate, comprehensive = false, assemblyPath = null })
         const a = analyseTrd(repo, item.path, text, implementStates);
         entry.trd = a.trd;
         entry.skip = a.skip;
+        if (a.skip === 'in-flight') inFlightTrds.push({ path: item.path, text });
         if (a.warning) warnings.push({ path: item.path, message: a.warning });
       }
     }
     files.push(entry);
   }
+
+  skipInFlightPrds(files, inFlightTrds);
 
   // Only tracked PRD/TRD/loose docs are reviewed (OQ-6); loose docs only in a comprehensive run;
   // a skipped TRD leaves the batches; a light run with an empty window reviews nothing (D5).

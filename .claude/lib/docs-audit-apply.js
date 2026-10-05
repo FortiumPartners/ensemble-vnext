@@ -218,7 +218,7 @@ function referenceCheck(repo, candidates) {
  * Apply one batch result to the working tree.
  * @param {{repo:string, assembly:object, result:object}} input
  * @returns {{edited:string[], removed:object[], blocked:object[], reverted:object[],
- *            mapDefects:object[], notTracked:string[], hookState:string[], untracked:string[],
+ *            mapDefects:object[], changelogDefects:{path:string,id:string}[], notTracked:string[], hookState:string[], untracked:string[],
  *            rejected:string[]}}
  */
 function apply({ repo, assembly, result }) {
@@ -228,7 +228,7 @@ function apply({ repo, assembly, result }) {
   const inBatch = new Set(batch.docs);
   const files = new Map((assembly.files || []).map((f) => [f.path, f]));
 
-  const out = { edited: [], removed: [], blocked: [], reverted: [], mapDefects: [], notTracked: [], hookState: [], untracked: [], rejected: [] };
+  const out = { edited: [], removed: [], blocked: [], reverted: [], mapDefects: [], changelogDefects: [], notTracked: [], hookState: [], untracked: [], rejected: [] };
   const revertedPaths = new Set();
   const markReverted = (p, why) => {
     if (!revertedPaths.has(p)) { revertedPaths.add(p); out.reverted.push({ path: p, why }); }
@@ -296,6 +296,19 @@ function apply({ repo, assembly, result }) {
     edited.push(p);
   }
   out.edited = edited.sort();
+
+  // Changelog row for each behaviour change (reported, never reverted): the diff must add a line
+  // naming the requirement id and the run date (first 10 chars of runId, `<YYYY-MM-DD>-<sha7>`).
+  const runDate = String(assembly.runId || '').slice(0, 10);
+  for (const p of out.edited) {
+    const changes = records.get(p).behaviourChanges;
+    if (!Array.isArray(changes) || !changes.length) continue;
+    const added = addedLines(repo, p);
+    for (const c of changes) {
+      const id = String((c && c.id) || '');
+      if (!id || !added.some((l) => l.includes(id) && l.includes(runDate))) out.changelogDefects.push({ path: p, id });
+    }
+  }
 
   // Code-map presence and format on every reviewed PRD/TRD (reported, never reverted).
   const reviewed = ['edited', 'unchanged', 'kept'];

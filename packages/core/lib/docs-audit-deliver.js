@@ -160,7 +160,8 @@ function commitBatch({ repo, applied, batch }) {
   if (sibling !== applied && fs.existsSync(sibling)) {
     const editedSet = new Set(edited);
     const records = (readJson(sibling).records || []).filter((r) => editedSet.has(r.path));
-    corrected = records.reduce((n, r) => n + (r.corrections || []).length, 0);
+    // A behaviour change is a correction too; it is listed apart (FIX-004) but must still be counted.
+    corrected = records.reduce((n, r) => n + (r.corrections || []).length + (r.behaviourChanges || []).length, 0);
     cut = records.reduce((n, r) => n + (r.cuts || []).length, 0);
   }
   const message = `docs-audit(${batch}): ${corrected} corrected, ${cut} cut, ${removed.length} removed`;
@@ -313,6 +314,18 @@ function renderChangeSet({ assembly, batches, applieds, tree, originalBranch = n
   }
   out.push('');
 
+  // Only edits that landed: a doc reverted for a banner or stray edit changed nothing to confirm.
+  const landed = new Set(applieds.flatMap((a) => a.edited || []));
+  const confirmLines = [];
+  for (const r of records) {
+    if (!landed.has(r.path)) continue;
+    for (const b of r.behaviourChanges || []) confirmLines.push(`${r.path}: ${b.id} — was: ${b.was}; now: ${b.now}`);
+  }
+  out.push('## Requirements changed to match the code — confirm', '');
+  if (confirmLines.length === 0) out.push('None.');
+  for (const l of confirmLines) out.push(`- ${l}`);
+  out.push('');
+
   out.push('## Surfaced for the owner', '');
   const surfaced = [];
   for (const f of files) {
@@ -324,11 +337,13 @@ function renderChangeSet({ assembly, batches, applieds, tree, originalBranch = n
   for (const r of records) {
     for (const u of r.unbuilt || []) surfaced.push(`Unbuilt requirement in \`${r.path}\`: ${u.id} — ${u.statement}`);
     for (const c of r.crossRepo || []) surfaced.push(`Cross-repo claim in \`${r.path}\`: ${c.claim} (${c.path})`);
+    for (const g of r.brokenNonGoals || []) surfaced.push(`Broken non-goal in \`${r.path}\`: ${g.id} — ${g.statement} (${g.evidence})`);
     if (r.outcome === 'failed') surfaced.push(`Review failed: \`${r.path}\``);
   }
   for (const b of batches) for (const d of b.dead || []) surfaced.push(`Agent returned nothing: \`${d}\``);
   for (const a of applieds) {
     for (const x of a.reverted || []) surfaced.push(`Reverted (${x.why}): \`${x.path}\``);
+    for (const x of a.changelogDefects || []) surfaced.push(`Changelog line missing in \`${x.path}\` for ${x.id}`);
     for (const x of a.mapDefects || []) surfaced.push(`Code map defect (${x.why}): \`${x.path}\``);
     for (const p of a.notTracked || []) surfaced.push(`Removal dropped, not tracked by git: \`${p}\``);
   }
