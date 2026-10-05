@@ -67,7 +67,8 @@ Rules that follow from this:
 - Record every correction (section and what changed) and every cut (section and why) in
   your return. One line each.
 - If the document has a version table or changelog, it is content like any other: a row
-  describing a past revision is history and stays; do not add a row for this review.
+  describing a past revision is history and stays; do not add a row for this review, except
+  the one row per PRD behaviour change that the PRD procedure requires.
 
 ## No banners
 
@@ -158,7 +159,7 @@ outcomes against the code, using the searches Absence must exhibit its search re
 |---------|---------|-------------|
 | Built as stated | The code does what the requirement says | Leave it |
 | Built by a different mechanism | The user-visible result is the same; only how it is done differs | Correct the requirement to what is built (AC-F4.2), via Correct or cut |
-| Behaviour differs | The code gives a user a different result, a different amount, or a different rule than the requirement states | Correct the requirement, **and** record it: one entry under `behaviourChanges` (id, what it said, what it does now) and one changelog row, as below |
+| Behaviour differs | The code gives a user a different result, a different amount, or a different rule than the requirement states | Correct the requirement, **and** record it: one entry under `behaviourChanges` (id, what it said, what it does now), not also under `corrections`, and one changelog row, as below |
 | Not built | Nothing in the code implements it | **Leave it in the document** and report it under `unbuilt` with its id and statement (AC-F4.3) |
 
 The test between the middle two rows is whether a user would see a difference. A renamed
@@ -168,9 +169,12 @@ default, limit, output or rule is behaviour.
 **The changelog row.** For each behaviour change, append one row to the document's existing
 version or changelog table (or the list under a `## Version History` heading), using the
 existing table's columns: for a four-column `| Version | Date | Changes | Author |` table,
-the next version, today's date, one line saying what the requirement now says and why it
-changed, and the author column as the table already fills it. If the document has no such
-table, add none and rely on `behaviourChanges`. The row is a row, never a banner: it must
+the next version, the run date you were given (`YYYY-MM-DD`), the requirement's id followed
+by one line saying what the requirement now says and why it changed, and `/audit-docs` in
+the author column. The row must carry both the requirement id and the run date: the library
+reports a behaviour change whose added lines carry neither as a missing changelog line. Only
+when the document has neither a `## Changelog` nor a `## Version History` section, add a
+`## Changelog` section at the end with a `| Date | Change |` table and put the row there. The row is a row, never a banner: it must
 not contain "superseded", "archived" or "deprecated", or a self-referring form such as "the
 section is deprecated", because the library reverts the whole document on such a line (see
 No banners). Describe the change in plain words ("default raised from 3 to 5").
@@ -181,8 +185,8 @@ owner decides; do not remove it, and do not mark it.
 
 **Non-goals** are the owner's decision about scope; a contradicted non-goal is never edited. Where the code contradicts one (it
 does what the non-goal says must not be done), do not edit it, do not cut it and do not
-add a note beside it. Report it under `brokenNonGoals` with its statement and the evidence
-(a path), and leave the document's text as written. A non-goal that asserts nothing about
+add a note beside it. Report it under `brokenNonGoals` with its id (or a short label when it
+has none), its statement and the evidence (a path), and leave the document's text as written. A non-goal that asserts nothing about
 the code is not checked, and neither is a ruling or decision table that does not: an
 owner's decision on what to build is not contradicted by code that has not caught up.
 
@@ -265,13 +269,14 @@ empty list or null when nothing applies.
   cuts), `remove-proposed` (nothing valid remains, or a non-text file should go), `kept`
   (a non-text file stays), `not-reviewed` (a TRD skipped under D19, or no review ran),
   `failed` (you could not complete the review).
-- `corrections`: one entry per correction, the section and what changed.
+- `corrections`: one entry per correction, the section and what changed. A PRD behaviour
+  change goes under `behaviourChanges` only, never here as well.
 - `cuts`: one entry per cut, the section and why.
 - `unbuilt`: PRD only; one entry per requirement not built, its id and statement.
 - `behaviourChanges`: PRD only; one entry per requirement whose user-visible behaviour
   differs from what it said, with its `id`, what it `was` and what it is `now`.
-- `brokenNonGoals`: PRD only; one entry per non-goal the code contradicts, its `statement`
-  and the `evidence` path. The non-goal itself is left unedited.
+- `brokenNonGoals`: PRD only; one entry per non-goal the code contradicts, its `id`, its
+  `statement` and the `evidence` path. The non-goal itself is left unedited.
 - `statusCorrection`: TRD only; the Status value before and after, or null.
 - `crossRepo`: one entry per claim about another repository, the claim and the path.
 - `removeReason`: the one-line reason when the outcome is `remove-proposed`, else null.

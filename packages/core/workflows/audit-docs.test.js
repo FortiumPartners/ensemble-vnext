@@ -155,7 +155,7 @@ describe('audit-docs Opus review', () => {
 
   it('carries behaviourChanges and brokenNonGoals through for a PRD only', async () => {
     const bc = [{ id: 'R1', was: 'a', now: 'b' }];
-    const bn = [{ statement: 'NG1 text', evidence: 'src/x.js' }];
+    const bn = [{ id: 'NG1', statement: 'NG1 text', evidence: 'src/x.js' }];
     const rec = { outcome: 'edited', behaviourChanges: bc, brokenNonGoals: bn };
     const args = baseArgs({ batch: { key: 'm', chunk: 0, docs: [doc('docs/PRD/a.md', 'prd'), doc('docs/TRD/b.md', 'trd')] } });
     const { result } = await run(args, { 'docs/PRD/a.md': 95, 'docs/TRD/b.md': 95 }, { 'apply:docs/PRD/a.md': rec, 'apply:docs/TRD/b.md': rec });

@@ -37,6 +37,9 @@ if (!a.batch || !Array.isArray(a.batch.docs)) throw new Error('audit-docs: args.
 if (!a.assemblyPath) throw new Error('audit-docs: args.assemblyPath is required')
 
 const MODE = a.mode === 'comprehensive' ? 'comprehensive' : 'light'
+// The date the changelog row must carry: the first 10 characters of runId (`<YYYY-MM-DD>-<sha7>`),
+// the same value docs-audit-apply.js checks the row against.
+const RUN_DATE = String(a.runId || '').slice(0, 10)
 const REPO = a.repo || ''
 const ASSEMBLY = a.assemblyPath
 const CONTRACT = a.contractPath || '.claude/contracts/docs-audit.md'
@@ -118,7 +121,7 @@ const REVIEW_SCHEMA = {
     cuts: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['section', 'why'], properties: { section: { type: 'string' }, why: { type: 'string' } } } },
     unbuilt: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'statement'], properties: { id: { type: 'string' }, statement: { type: 'string' } } } },
     behaviourChanges: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'was', 'now'], properties: { id: { type: 'string' }, was: { type: 'string' }, now: { type: 'string' } } } },
-    brokenNonGoals: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['statement', 'evidence'], properties: { statement: { type: 'string' }, evidence: { type: 'string' } } } },
+    brokenNonGoals: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'statement', 'evidence'], properties: { id: { type: 'string' }, statement: { type: 'string' }, evidence: { type: 'string' } } } },
     statusCorrection: { anyOf: [{ type: 'null' }, { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } }] },
     crossRepo: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'path'], properties: { claim: { type: 'string' }, path: { type: 'string' } } } },
     removeReason: { type: ['string', 'null'] },
@@ -201,7 +204,7 @@ async function reviewOpus(doc) {
   const missingNote = missing.length
     ? `\nThese verifiers returned nothing: ${missing.join(', ')}. Leave the ground they covered UNCHANGED, and do not guess at it.`
     : ''
-  return agent(`You are the only writer for ${doc.path}. Three independent verifiers have checked it; their findings follow. Re-check each one against the code before acting (a finding is a claim, not a fact), then apply the contract's correct-or-cut rule to the document: correct what can be corrected, cut what has nothing valid left, surface (do not cut) unbuilt PRD requirements, and leave cross-repo claims as written. For a PRD, follow the contract's PRD procedure: a "behaviour" finding is corrected and recorded in behaviourChanges plus one changelog row (no banner word in it), and a "non-goal" finding is left unedited and returned in brokenNonGoals. Write or update the document's code map in the contract's format. If nothing valid is left in the whole document, do not edit it; propose its removal with outcome "remove-proposed" and a removeReason.
+  return agent(`You are the only writer for ${doc.path}. Three independent verifiers have checked it; their findings follow. Re-check each one against the code before acting (a finding is a claim, not a fact), then apply the contract's correct-or-cut rule to the document: correct what can be corrected, cut what has nothing valid left, surface (do not cut) unbuilt PRD requirements, and leave cross-repo claims as written. For a PRD, follow the contract's PRD procedure: a "behaviour" finding is corrected and recorded in behaviourChanges (not also in corrections) plus one changelog row naming its id and the run date ${RUN_DATE} (no banner word in it), and a "non-goal" finding is left unedited and returned in brokenNonGoals. Write or update the document's code map in the contract's format. If nothing valid is left in the whole document, do not edit it; propose its removal with outcome "remove-proposed" and a removeReason.
 ${ENTRY(doc)}
 
 ${findings}${missingNote}
@@ -224,7 +227,7 @@ function reviewSonnet(doc) {
     ? `This is a non-text file (read it with the Read tool if it is an image). Do NOT edit it. Return outcome "kept", or "remove-proposed" with a removeReason when nothing valid depends on it.`
     : loose
       ? `This is a loose document. If it describes the system, apply the contract's correct-or-cut procedure and write a code map; if it is only a report or log of past work, check it only for claims about the current system.`
-      : `Read the document, check it against the code, and apply the contract's procedure for a ${doc.class.toUpperCase()}: correct what can be corrected, cut what has nothing valid left, surface (do not cut) unbuilt PRD requirements, for a PRD record a requirement changed in a way a user would see as a behaviour change (behaviourChanges plus a changelog row) and report a contradicted non-goal in brokenNonGoals without editing it, leave cross-repo claims as written, correct a TRD Status field that disagrees with what was delivered, and write or update the code map.`
+      : `Read the document, check it against the code, and apply the contract's procedure for a ${doc.class.toUpperCase()}: correct what can be corrected, cut what has nothing valid left, surface (do not cut) unbuilt PRD requirements, for a PRD record a requirement changed in a way a user would see as a behaviour change (behaviourChanges, not also corrections, plus a changelog row naming its id and the run date ${RUN_DATE}) and report a contradicted non-goal in brokenNonGoals without editing it, leave cross-repo claims as written, correct a TRD Status field that disagrees with what was delivered, and write or update the code map.`
   return agent(`Review ${doc.path} against the code as built and apply the result yourself.
 ${ENTRY(doc)}
 ${textRule}
