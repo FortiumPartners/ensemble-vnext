@@ -827,3 +827,31 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [read] The sweep-chain command rules (plan.md Step 7a, sweep.md and verify-build.md
   `--chained`, command-status.md exception) are prompt-only; they can be checked only as text,
   and each .claude mirror is byte-identical to its packages/core source (`cmp`).
+
+## Exercising /audit-docs (docs-as-built, 2026-10-04, iteration 1)
+
+- [ran] `/audit-docs` is exercisable without a live session: the three libraries
+  (`packages/core/lib/docs-audit-{assemble,apply,deliver}.js`) are plain CLIs, and
+  `packages/core/workflows/audit-docs.js` runs under `packages/core/workflows/test-harness.js`
+  (`readScript`, `runWorkflow`, `makeAgentStub`, `makeParallelStub`) with stubbed agents. A
+  scratch node script in a temp directory can build a fixture git repo (plus a bare remote and a
+  stub `gh` on PATH that logs calls), then run prepare -> assemble -> workflow -> apply ->
+  commit-batch -> finalize exactly as `commands/audit-docs.md` orders them. Nothing touches this
+  checkout. 155 Jest tests across the six docs-audit suites pass
+  (`npx jest packages/core/lib/docs-audit packages/core/workflows/audit-docs packages/core/lib/process-doc-audit-docs`).
+- [ran] The real assembler never batches untracked or ignored files, so the "only tracked files
+  are deleted" path in `docs-audit-apply.js` (`notTracked`) is only reachable by hand-editing
+  `assembly.json` so such a file sits in a batch; the evidence file says so.
+- [ran] The assembler needs the TRD fixture to parse (Master Task List, Execution Plan with
+  `**Tasks:**` and `**Agent:**`, Task Grounding with `**Touches:**`); a `.trd-state/<f>/implement.json`
+  with `trd_file` and per-task `status` drives the in-flight/no-implementation skip.
+- [read] The contract (`packages/core/contracts/docs-audit.md`) forbids banners and merging content,
+  but contains no sentence about an in-tree archive folder or a doc's state being expressed by its
+  path (those live only in the TRD, D21/NG4). The index entries reduce each map bullet to at most two
+  leading path segments, so a file bullet shows as `src/a.js`, not a top-level directory.
+- [inferred] Anything needing a model to actually edit a real doc (FS-18, FS-20, real code-map
+  presence, model-made cross-repo flagging) needs a live `/audit-docs` run, which the owner forbids here.
+
+## Exercising docs-audit-assemble.js determinism (docs-as-built, iteration 2)
+
+- [ran] The assembly output embeds `assemblyPath` (path.resolve of `--out`, docs-audit-assemble.js:535) in every workflowArgs entry, so two runs with different `--out` files differ by sha256. To prove determinism, re-run with the SAME `--out` and `--run-date` on a fixture repo built in the scratchpad: sha256 identical.

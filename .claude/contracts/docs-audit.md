@@ -37,7 +37,7 @@ the library checks references across the whole repository and performs it.
 
 ## Correct or cut
 
-Implements AC-F7.1 and AC-F7.2.
+Implements AC-F7.1, AC-F7.2, NG2 and NG4.
 
 Go through the document one section at a time. For each section, exactly one of three things
 is true, and you do exactly that one thing:
@@ -57,6 +57,9 @@ Rules that follow from this:
   Say "nothing valid remains" and mean it: you have been through every section.
 - Never move content into another document, and never merge two documents (NG2). If a
   decision is still in force it is valid content, so its document stays.
+- Never create or use an in-tree archive folder (`docs/archive/`, `docs/completed/`,
+  `docs/cancelled/` or any other) and never move a file between folders (NG4, D21). A
+  document that already sits in such a folder is reviewed where it is.
 - Do not restyle, reflow or improve prose that is true. Each edit must trace to a claim
   the code contradicts or does not support.
 - A correction states what the code does now, in the document's own register. It does not
@@ -68,7 +71,7 @@ Rules that follow from this:
 
 ## No banners
 
-Implements AC-F7.6 and NG3.
+Implements AC-F7.6, AC-F10.1 and NG3.
 
 Never add a banner, header, status line or note that marks content as superseded, archived,
 deprecated, outdated or stale: not at the top, not on a section, not in a blockquote. A
@@ -80,6 +83,10 @@ This governs what you may **add**. A correction that says the *code* deprecates 
 code and is fine. What is forbidden is a line whose subject is the document itself or a
 section of it. The library inspects every edited document's diff for such lines and reverts
 the whole document if it finds one, so a banner costs you all your other corrections too.
+
+A document's state is expressed by its path, never by text inside it (D21, AC-F10.1): a
+document present under `docs/` is reviewed-true or not yet reviewed, and a removed one is
+gone. There is no status to write into the document, so do not write one.
 
 Existing markers already in a document are existing content: judge them like any other
 claim. Do not add, and do not rely on, the absence of a new one.
