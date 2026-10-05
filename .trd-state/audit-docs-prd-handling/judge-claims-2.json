@@ -1,0 +1,1 @@
+[{"criterion":"FS-18","artifact":".trd-state/audit-docs-prd-handling/evidence/FS18-readout.txt","locator":"- **ISSUES**: items needing the owner: PRD non-goals the code contradicts (`brokenNonGoals`)","reason":"Text capture of the readout section of packages/core/commands/audit-docs.md, with a diff showing the .claude mirror is byte-identical.","judgeOnly":false}]

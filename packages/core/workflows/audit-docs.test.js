@@ -152,6 +152,39 @@ describe('audit-docs Opus review', () => {
     expect(result.records[1].unbuilt).toEqual([]);
     expect(result.records[1].statusCorrection).toEqual({ from: 'Draft', to: 'Done' });
   });
+
+  it('carries behaviourChanges and brokenNonGoals through for a PRD only', async () => {
+    const bc = [{ id: 'R1', was: 'a', now: 'b' }];
+    const bn = [{ id: 'NG1', statement: 'NG1 text', evidence: 'src/x.js' }];
+    const rec = { outcome: 'edited', behaviourChanges: bc, brokenNonGoals: bn };
+    const args = baseArgs({ batch: { key: 'm', chunk: 0, docs: [doc('docs/PRD/a.md', 'prd'), doc('docs/TRD/b.md', 'trd')] } });
+    const { result } = await run(args, { 'docs/PRD/a.md': 95, 'docs/TRD/b.md': 95 }, { 'apply:docs/PRD/a.md': rec, 'apply:docs/TRD/b.md': rec });
+    expect(result.records[0].behaviourChanges).toEqual(bc);
+    expect(result.records[0].brokenNonGoals).toEqual(bn);
+    expect(result.records[1].behaviourChanges).toEqual([]);
+    expect(result.records[1].brokenNonGoals).toEqual([]);
+  });
+
+  it('defaults both lists to empty when the PRD review returns neither', async () => {
+    const { result } = await run(baseArgs(), { 'docs/PRD/a.md': 95 });
+    expect(result.records[0].behaviourChanges).toEqual([]);
+    expect(result.records[0].brokenNonGoals).toEqual([]);
+  });
+
+  it('accepts action "behaviour" and "non-goal" in the verifier schema and names them in the PRD prompts', async () => {
+    const { agent } = await run(baseArgs(), { 'docs/PRD/a.md': 95 });
+    const v = agent.calls.find((c) => String(c.opts.label).startsWith('verify:requirements:'));
+    const actions = v.opts.schema.properties.findings.items.properties.action.enum;
+    expect(actions).toEqual(expect.arrayContaining(['behaviour', 'non-goal']));
+    expect(v.prompt).toMatch(/behaviour/);
+    expect(v.prompt).toMatch(/non-goal/);
+    const apply = agent.calls.find((c) => c.opts.label === 'apply:docs/PRD/a.md');
+    expect(apply.prompt).toMatch(/behaviour/);
+    expect(apply.prompt).toMatch(/non-goal/);
+    const props = apply.opts.schema.properties;
+    expect(props.behaviourChanges).toBeDefined();
+    expect(props.brokenNonGoals).toBeDefined();
+  });
 });
 
 describe('audit-docs sonnet and loose docs', () => {

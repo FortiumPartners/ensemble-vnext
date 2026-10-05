@@ -1514,3 +1514,50 @@ describe('audit-docs.md NEXT carries no shell command', () => {
     expect(read(CLAUDE_AUDIT_DOCS)).toBe(read(CORE_AUDIT_DOCS));
   });
 });
+
+// audit-docs-prd-handling FIX-005: the readout names skipped PRDs, the confirm list, broken
+// non-goals and changelog defects, and the .claude/ copies of the command and libs match.
+describe('audit-docs.md readout covers PRD handling', () => {
+  const CORE_AUDIT_DOCS = path.join(REPO, 'packages/core/commands/audit-docs.md');
+  const step7 = () => flat(read(CORE_AUDIT_DOCS).split('### 7. Read the outcome')[1].split('## Stuck cases')[0]);
+  const readoutSection = (name, next) =>
+    flat(read(CORE_AUDIT_DOCS).split('\n## Readout')[1].split(name)[1].split(next)[0]);
+
+  test('step 7 collects behaviour changes, broken non-goals and changelog defects', () => {
+    const text = step7();
+    expect(text).toMatch(/behaviourChanges/);
+    expect(text).toMatch(/brokenNonGoals/);
+    expect(text).toMatch(/changelogDefects/);
+    expect(text).toMatch(/skipped TRDs and PRDs/);
+  });
+
+  test('STATE names skipped PRDs in-flight and the old TRD-only wording is gone', () => {
+    const state = readoutSection('- **STATE**', '- **DECISIONS**');
+    expect(state).toMatch(/TRDs and PRDs skipped/);
+    expect(state).toMatch(/in-flight/);
+    expect(state).not.toMatch(/; TRDs skipped, with the reason/);
+  });
+
+  test('ISSUES carries the confirm list, because confirming is the owner\'s action, and STATE does not', () => {
+    const issues = readoutSection('- **ISSUES**', '- **NEXT**');
+    expect(issues).toMatch(/listed\s+to confirm/);
+    expect(issues).toMatch(/behaviourChanges/);
+    const state = readoutSection('- **STATE**', '- **DECISIONS**');
+    expect(state).not.toMatch(/confirm/i);
+  });
+
+  test('ISSUES names broken non-goals and changelog defects', () => {
+    const issues = readoutSection('- **ISSUES**', '- **NEXT**');
+    expect(issues).toMatch(/non-goal/);
+    expect(issues).toMatch(/brokenNonGoals/);
+    expect(issues).toMatch(/changelog/);
+    expect(issues).toMatch(/changelogDefects/);
+  });
+
+  test('libs are byte-identical to their .claude/ mirrors', () => {
+    for (const f of ['assemble', 'apply', 'deliver']) {
+      const name = `docs-audit-${f}.js`;
+      expect(read(path.join(REPO, '.claude/lib', name))).toBe(read(path.join(REPO, 'packages/core/lib', name)));
+    }
+  });
+});

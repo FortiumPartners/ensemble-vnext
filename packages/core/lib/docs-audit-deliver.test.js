@@ -193,6 +193,19 @@ describe('commit-batch', () => {
     ]);
   });
 
+  it('counts behaviour changes with the corrections in the commit message', () => {
+    const { repo, work } = prepared();
+    write(repo, 'docs/PRD/a.md', PRD_WITH_MAP + 'fixed\n');
+    const applied = path.join(work, 'applied-prd-0.json');
+    fs.writeFileSync(applied, JSON.stringify({ edited: ['docs/PRD/a.md'], removed: [] }));
+    fs.writeFileSync(
+      path.join(work, 'batch-prd-0.json'),
+      JSON.stringify({ records: [{ path: 'docs/PRD/a.md', corrections: [{}, {}], behaviourChanges: [{ id: 'AC-1' }] }] })
+    );
+    cli(repo, ['commit-batch', '--applied', applied, '--batch', 'prd']);
+    expect(sh(repo, ['log', '-1', '--format=%s'])).toBe('docs-audit(prd): 3 corrected, 0 cut, 0 removed');
+  });
+
   it('falls back to counting edited docs when no batch result sits beside it', () => {
     const { repo, work } = prepared();
     write(repo, 'docs/PRD/a.md', PRD_WITH_MAP + 'fixed\n');
@@ -236,6 +249,7 @@ describe('finalize', () => {
       { path: 'docs/TRD/t.md', class: 'trd', git: 'tracked', disagreement: false, generated: false },
       { path: 'docs/TRD/gone.md', class: 'trd', git: 'tracked', disagreement: false, generated: false },
       { path: 'docs/TRD/skipped.md', class: 'trd', git: 'tracked', skip: 'in-flight', generated: false },
+      { path: 'docs/PRD/skipped-prd.md', class: 'prd', git: 'tracked', skip: 'in-flight', generated: false },
       { path: 'docs/PRD/brief.md', class: 'loose', folderClass: 'prd', structureClass: 'loose', disagreement: true, git: 'tracked', generated: false },
       { path: 'docs/PRD/INDEX.md', class: 'loose', generated: true, git: 'tracked' },
       { path: 'docs/PRD/draft.md', class: 'prd', git: 'untracked', disagreement: false, generated: false },
@@ -315,6 +329,7 @@ describe('finalize', () => {
     expect(prd).toContain('- `docs/PRD/a.md` — `packages/core`, `.claude/commands`, `test/integration`');
     expect(prd).not.toContain('brief.md');
     expect(prd).not.toContain('draft.md'); // untracked: not part of the commit
+    expect(prd).not.toContain('skipped-prd.md'); // absent from the tree
     expect(prd).not.toContain('INDEX.md`');
     const trd = show('docs/TRD/INDEX.md');
     expect(trd).toContain('- `docs/TRD/t.md` — `a/b`'); // read from the edited tree, not the assembly
@@ -339,6 +354,8 @@ describe('finalize', () => {
     expect(cs).toContain('| `docs/TRD/t.md` | trd | — | sonnet | edited |');
     expect(cs).toContain('| `docs/TRD/gone.md` | trd | 12 | sonnet | remove-proposed |');
     expect(cs).toContain('| `docs/TRD/skipped.md` | trd | — | none | skipped (in-flight) |');
+    // A PRD skipped in flight gets the same row; the row logic must not be TRD-only.
+    expect(cs).toContain('| `docs/PRD/skipped-prd.md` | prd | — | none | skipped (in-flight) |');
     expect(cs).toContain('Score reason: a | b');
     expect(cs).toContain('Status: Draft → Delivered');
     expect(cs).toContain('Corrected — 3: fixed path');
@@ -443,5 +460,53 @@ describe('CLI errors', () => {
     expect(md).not.toContain('### `docs/PRD/a.md`');
     // The document's outcome is untouched by the claim (the change set carries no drift count).
     expect(md).toContain('| `docs/PRD/a.md` | prd | 50 | sonnet | kept |');
+  });
+  describe('behaviour changes, broken non-goals and changelog defects', () => {
+    const render = (records, applieds) =>
+      deliver.renderChangeSet({
+        assembly: { runId: 'r', head: 'h', branch: 'main', mode: 'light', files: [] },
+        batches: [{ records }],
+        applieds,
+        tree: { strays: [], hookState: [], untracked: [] },
+      });
+    const prd = (extra) => ({
+      path: 'docs/PRD/a.md', class: 'prd', score: 50, depth: 'sonnet', outcome: 'edited',
+      corrections: [], cuts: [], unbuilt: [], statusCorrection: null, ...extra,
+    });
+    const confirm = (md) =>
+      md.split('## Requirements changed to match the code — confirm')[1].split('\n## ')[0];
+
+    it('lists a behaviour change whose edit landed, under the confirm heading', () => {
+      const md = render(
+        [prd({ behaviourChanges: [{ id: 'AC-F2.3', was: 'logs always', now: 'logs only in debug mode' }] })],
+        [{ edited: ['docs/PRD/a.md'] }]
+      );
+      expect(confirm(md)).toContain('- docs/PRD/a.md: AC-F2.3 — was: logs always; now: logs only in debug mode');
+      expect(md.indexOf('## Removals blocked')).toBeLessThan(md.indexOf('## Requirements changed'));
+      expect(md.indexOf('## Requirements changed')).toBeLessThan(md.indexOf('## Surfaced for the owner'));
+    });
+
+    it('does not list a behaviour change whose doc was reverted (not in edited)', () => {
+      const md = render(
+        [prd({ behaviourChanges: [{ id: 'AC-F2.3', was: 'a', now: 'b' }] })],
+        [{ edited: [], reverted: [{ path: 'docs/PRD/a.md', why: 'banner' }] }]
+      );
+      expect(confirm(md)).not.toContain('AC-F2.3');
+      expect(confirm(md)).toContain('None.');
+    });
+
+    it('reads None. when no record carries a behaviour change', () => {
+      expect(confirm(render([prd({})], [{ edited: ['docs/PRD/a.md'] }]))).toContain('None.');
+    });
+
+    it('lists a broken non-goal and a changelog defect under Surfaced for the owner', () => {
+      const md = render(
+        [prd({ brokenNonGoals: [{ id: 'NG5', statement: 'no metadata injected', evidence: 'hook.js:12' }] })],
+        [{ edited: ['docs/PRD/a.md'], changelogDefects: [{ path: 'docs/PRD/a.md', id: 'AC-F2.3' }] }]
+      );
+      const surfaced = md.split('## Surfaced for the owner')[1].split('\n## ')[0];
+      expect(surfaced).toContain('Broken non-goal in `docs/PRD/a.md`: NG5 — no metadata injected (hook.js:12)');
+      expect(surfaced).toContain('Changelog line missing in `docs/PRD/a.md` for AC-F2.3');
+    });
   });
 });

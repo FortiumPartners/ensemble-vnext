@@ -27,7 +27,7 @@ the library checks references across the whole repository and performs it.
 3. Absence must exhibit its search: a "does not exist" verdict carries the searches that were run.
 4. Missing paths: check the assembly's history table before calling a missing path drift.
 5. Other repositories: report, never correct, a claim about code that lives elsewhere.
-6. PRD procedure: per requirement, built as stated, built differently, or not built.
+6. PRD procedure: per requirement, built as stated, built by a different mechanism, behaviour differs, or not built; contradicted non-goals reported, not edited.
 7. TRD procedure: tasks, decisions and specifications against the code; the Status field against delivery.
 8. Loose-doc procedure: prose that describes the system, and files that are not text.
 9. Where this lives in the code: the coarse code map every reviewed document carries.
@@ -67,7 +67,8 @@ Rules that follow from this:
 - Record every correction (section and what changed) and every cut (section and why) in
   your return. One line each.
 - If the document has a version table or changelog, it is content like any other: a row
-  describing a past revision is history and stays; do not add a row for this review.
+  describing a past revision is history and stays; do not add a row for this review, except
+  the one row per PRD behaviour change that the PRD procedure requires.
 
 ## No banners
 
@@ -151,22 +152,43 @@ is, say why in the record; do not default to "other repository".
 
 Implements AC-F4.1, AC-F4.2 and AC-F4.3.
 
-For every requirement and every acceptance criterion in the PRD, decide one of three
+For every requirement and every acceptance criterion in the PRD, decide one of four
 outcomes against the code, using the searches Absence must exhibit its search requires:
 
 | Outcome | Meaning | What you do |
 |---------|---------|-------------|
 | Built as stated | The code does what the requirement says | Leave it |
-| Built differently | The code does something else, or a different amount | Correct the requirement to what is built (AC-F4.2), via Correct or cut |
+| Built by a different mechanism | The user-visible result is the same; only how it is done differs | Correct the requirement to what is built (AC-F4.2), via Correct or cut |
+| Behaviour differs | The code gives a user a different result, a different amount, or a different rule than the requirement states | Correct the requirement, **and** record it: one entry under `behaviourChanges` (id, what it said, what it does now), not also under `corrections`, and one changelog row, as below |
 | Not built | Nothing in the code implements it | **Leave it in the document** and report it under `unbuilt` with its id and statement (AC-F4.3) |
+
+The test between the middle two rows is whether a user would see a difference. A renamed
+internal function, a different library or a reorganised file is mechanism. A different
+default, limit, output or rule is behaviour.
+
+**The changelog row.** For each behaviour change, append one row to the document's existing
+version or changelog table (or the list under a `## Version History` heading), using the
+existing table's columns: for a four-column `| Version | Date | Changes | Author |` table,
+the next version, the run date you were given (`YYYY-MM-DD`), the requirement's id followed
+by one line saying what the requirement now says and why it changed, and `/audit-docs` in
+the author column. The row must carry both the requirement id and the run date: the library
+reports a behaviour change whose added lines carry neither as a missing changelog line. Only
+when the document has neither a `## Changelog` nor a `## Version History` section, add a
+`## Changelog` section at the end with a `| Date | Change |` table and put the row there. The row is a row, never a banner: it must
+not contain "superseded", "archived" or "deprecated", or a self-referring form such as "the
+section is deprecated", because the library reverts the whole document on such a line (see
+No banners). Describe the change in plain words ("default raised from 3 to 5").
 
 A requirement that is not built is the one place Correct or cut does not cut: a PRD
 requirement states what the owner wants, and wanting it is not stale. Surface it so the
 owner decides; do not remove it, and do not mark it.
 
-Non-goals, rulings and decision tables are checked as claims only where they assert
-something about the code; an owner's decision on what to build is not contradicted by code
-that has not caught up.
+**Non-goals** are the owner's decision about scope; a contradicted non-goal is never edited. Where the code contradicts one (it
+does what the non-goal says must not be done), do not edit it, do not cut it and do not
+add a note beside it. Report it under `brokenNonGoals` with its id (or a short label when it
+has none), its statement and the evidence (a path), and leave the document's text as written. A non-goal that asserts nothing about
+the code is not checked, and neither is a ruling or decision table that does not: an
+owner's decision on what to build is not contradicted by code that has not caught up.
 
 ## TRD procedure
 
@@ -247,9 +269,14 @@ empty list or null when nothing applies.
   cuts), `remove-proposed` (nothing valid remains, or a non-text file should go), `kept`
   (a non-text file stays), `not-reviewed` (a TRD skipped under D19, or no review ran),
   `failed` (you could not complete the review).
-- `corrections`: one entry per correction, the section and what changed.
+- `corrections`: one entry per correction, the section and what changed. A PRD behaviour
+  change goes under `behaviourChanges` only, never here as well.
 - `cuts`: one entry per cut, the section and why.
 - `unbuilt`: PRD only; one entry per requirement not built, its id and statement.
+- `behaviourChanges`: PRD only; one entry per requirement whose user-visible behaviour
+  differs from what it said, with its `id`, what it `was` and what it is `now`.
+- `brokenNonGoals`: PRD only; one entry per non-goal the code contradicts, its `id`, its
+  `statement` and the `evidence` path. The non-goal itself is left unedited.
 - `statusCorrection`: TRD only; the Status value before and after, or null.
 - `crossRepo`: one entry per claim about another repository, the claim and the path.
 - `removeReason`: the one-line reason when the outcome is `remove-proposed`, else null.

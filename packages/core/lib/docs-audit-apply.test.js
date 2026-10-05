@@ -186,6 +186,59 @@ describe('banner post-check (D12)', () => {
   });
 });
 
+describe('changelog check (behaviour changes)', () => {
+  const P = 'docs/PRD/p.md';
+  const base = `# P\n\n## Feature Requirements\n- AC-F2.3 output is always logged\n${MAP_OK}\n## Changelog\n\n| Date | Change |\n|------|--------|\n| 2026-01-01 | first |\n`;
+  const asm = () => ({ ...assemblyFor({ [P]: 'prd' }), runId: '2026-10-04-abc1234' });
+  const change = { id: 'AC-F2.3', was: 'always logged', now: 'logged only in debug mode' };
+  const runPrd = (behaviourChanges) =>
+    run(asm(), [rec(P, { class: 'prd', outcome: 'edited', behaviourChanges })]);
+
+  beforeEach(() => { write(P, base); commitAll('init'); });
+
+  it('reports a behaviour change with no changelog line and keeps the edit', () => {
+    write(P, base.replace('always logged', 'logged only in debug mode'));
+    const out = runPrd([change]);
+    expect(out.changelogDefects).toEqual([{ path: P, id: 'AC-F2.3' }]);
+    expect(out.edited).toEqual([P]);
+    expect(out.reverted).toEqual([]);
+    expect(read(P)).toContain('debug mode');
+  });
+
+  it('reports nothing when a line names the id and the run date', () => {
+    write(P, base.replace('always logged', 'logged only in debug mode') + '| 2026-10-04 | AC-F2.3 now logged only in debug mode |\n');
+    expect(runPrd([change]).changelogDefects).toEqual([]);
+  });
+
+  it('reports a line that has the id but not the run date', () => {
+    write(P, base + '| 2026-09-30 | AC-F2.3 reworded |\n');
+    expect(runPrd([change]).changelogDefects).toEqual([{ path: P, id: 'AC-F2.3' }]);
+  });
+
+  it('checks each change separately', () => {
+    write(P, base + '| 2026-10-04 | AC-F2.3 changed |\n');
+    const out = runPrd([change, { id: 'AC-F9.9', was: 'a', now: 'b' }]);
+    expect(out.changelogDefects).toEqual([{ path: P, id: 'AC-F9.9' }]);
+  });
+
+  it('is empty without behaviour changes, and for a PRD that was not edited', () => {
+    write(P, base.replace('always logged', 'logged only in debug mode'));
+    expect(runPrd([]).changelogDefects).toEqual([]);
+    expect(runPrd(undefined).changelogDefects).toEqual([]);
+    commitAll('edit');
+    const out = run(asm(), [rec(P, { class: 'prd', outcome: 'unchanged', behaviourChanges: [change] })]);
+    expect(out.changelogDefects).toEqual([]);
+  });
+
+  it('still reverts a changelog row that reads as a banner', () => {
+    write(P, base + '| 2026-10-04 | this section is superseded (AC-F2.3) |\n');
+    const out = runPrd([change]);
+    expect(out.reverted).toEqual([{ path: P, why: 'banner' }]);
+    expect(out.edited).toEqual([]);
+    expect(out.changelogDefects).toEqual([]);
+  });
+});
+
 describe('code-map check (D12)', () => {
   const prd = (extra) => `# P\n\n## Feature Requirements\ntext\n${extra}`;
 

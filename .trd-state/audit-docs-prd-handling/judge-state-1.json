@@ -1,0 +1,171 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS1-summary.json",
+      "reason": "Assembly: docs/PRD/x.md skipped in-flight, batches empty, PRD absent from workflowArgs.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS2-summary.json",
+      "reason": "PRD docs/PRD/thing.md skipped in-flight by basename match with in-flight docs/TRD/thing.md; batches empty.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS3-summary.json",
+      "reason": "PRD cited past line 40 of an in-flight TRD with a different basename is batched (batch prd), not skipped.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS4-summary.json",
+      "reason": "current.json naming the PRD does not skip it; PRD batched.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS5-summary.json",
+      "reason": "TRD skipped no-implementation; its PRD is still in batch prd.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "Documents table row for docs/PRD/x.md reads skipped (in-flight).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/jest-docs-audit.txt",
+      "reason": "Test \"carries behaviourChanges and brokenNonGoals through for a PRD only\" passes; 174/174 tests in 4 suites.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "Contract splits mechanism (correct via Correct or cut) from behaviour (behaviourChanges, not also corrections) by whether a user would see a difference; examples differ in wording from the criterion but the split is the same.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "Contract: one row per behaviour change in the existing changelog/Version History table, its own columns, run date, requirement id and change, /audit-docs in author column. Text-only.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "Contract: add ## Changelog with | Date | Change | only when neither ## Changelog nor ## Version History exists.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "Contract: contradicted non-goal is not edited, cut or annotated; returned under brokenNonGoals with id, statement, evidence.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "Confirm section lists docs/PRD/a.md and b.md behaviour changes in the <prd>: <id> — was: ...; now: ... format.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "docs/PRD/c.md, reverted for a banner, is absent from the confirm section.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS14-single.txt",
+      "reason": "commit-batch on a PRD with 2 corrections + 1 behaviour change committed docs-audit(prd): 3 corrected, 0 cut, 0 removed.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "Surfaced for the owner lists the broken non-goal NG5 by id and the missing changelog line for docs/PRD/a.md AC-F2.3.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/apply-out.json",
+      "reason": "changelogDefects names docs/PRD/a.md / AC-F2.3; a is in edited and absent from reverted.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/apply-out.json",
+      "reason": "docs/PRD/b.md (added a row with AC-F2.3 and the run date) is in edited and has no changelogDefects entry.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/readout.txt",
+      "reason": "Readout puts skipped PRDs in STATE and broken non-goals and changelog defects in ISSUES, as required, but places the requirements-changed confirm list in ISSUES rather than STATE as the criterion (TRD Intended Change lines 45-46) requires. Fix packages/core/commands/audit-docs.md and its .claude mirror, or amend the criterion if ISSUES is the intended home.",
+      "cause": "judged-failed",
+      "provenAt": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}

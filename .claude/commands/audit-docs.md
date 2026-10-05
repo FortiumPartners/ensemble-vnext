@@ -145,9 +145,12 @@ credentials by construction; if you notice one, do not publish.
 ### 7. Read the outcome
 
 From the assembly, the apply results (`$WORK/applied-*.json`) and the change set, collect what
-the readout needs: documents corrected, cut, removed and blocked; skipped TRDs and which skip
-reason applied; surfaced items (class disagreements, unbuilt PRD requirements, cross-repo
-claims, post-check reverts, map defects, failed agents or batches).
+the readout needs: documents corrected, cut, removed and blocked; skipped TRDs and PRDs and which skip
+reason applied (a PRD is skipped only `in-flight`); the change set's confirm list (each PRD
+behaviour change, from `behaviourChanges`); surfaced items (class disagreements, unbuilt PRD
+requirements, broken PRD non-goals from `brokenNonGoals`, changelog defects from
+`changelogDefects`, cross-repo claims, post-check reverts, map defects, failed agents or
+batches).
 
 ---
 
@@ -169,15 +172,18 @@ On COMMAND STUCK, keep `$WORK` for diagnosis. On COMMAND COMPLETE, delete it (st
 screen, written for someone who was not in the session. Any section may be "none".
 
 - **STATE**: the mode and why (`modeReason`); counts of documents corrected, cut and removed,
-  with a line for removals blocked by a remaining reference; TRDs skipped, with the reason
-  (`no-implementation` or `in-flight`); batches that failed; the review branch name, the
+  with a line for removals blocked by a remaining reference; TRDs and PRDs skipped, with the reason
+  (`no-implementation` or `in-flight` for a TRD; only `in-flight` for a PRD); batches that failed; the review branch name, the
   push-and-PR command text exactly as `finalize` printed it, and the change-set path (and its
   link when published). Say what proves it: the branch exists and the
   original branch is checked out again.
 - **DECISIONS**: only choices the owner did not make, such as a run made comprehensive because
   the marker was missing or not an ancestor of HEAD.
-- **ISSUES**: items needing the owner: unbuilt PRD requirements left in place, class
-  disagreements, post-check reverts, map defects, cross-repo claims, failed agents. Name each
+- **ISSUES**: items needing the owner: the PRD requirements changed to match the code, listed
+  to confirm (from `behaviourChanges`; name each requirement and what changed); PRD non-goals
+  the code contradicts (`brokenNonGoals`),
+  left as written; behaviour corrections missing their changelog line (`changelogDefects`); unbuilt PRD
+  requirements left in place, class disagreements, post-check reverts, map defects, cross-repo claims, failed agents. Name each
   thing, not just its count.
 - **NEXT**: the few steps to take now, in order, in words: review the diff on the review branch
   (name it), then push that branch and open a pull request for it. Neither step is a slash
