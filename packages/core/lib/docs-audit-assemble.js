@@ -371,10 +371,15 @@ function trdSkip(repo, docPath, parsed, implementStates) {
     if (touched.length > 0) {
       const first = git(repo, ['log', '--format=%H', '--reverse', '--', docPath]).out.split('\n')[0];
       if (first) {
-        const changedAfter = touched.some(
-          (f) => git(repo, ['rev-list', '-1', `${first}..HEAD`, '--', f], { allowFail: true }).out.trim() !== ''
+        // `first..HEAD` excludes the commit that first added the TRD, so a feature squash-merged
+        // as one commit (TRD + code) would read as untouched. Count that commit too; diff-tree
+        // --root also works when it is the repository's root commit (no parent to range from).
+        const changedAtOrAfter = touched.some(
+          (f) =>
+            git(repo, ['rev-list', '-1', `${first}..HEAD`, '--', f], { allowFail: true }).out.trim() !== '' ||
+            git(repo, ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', first, '--', f], { allowFail: true }).out.trim() !== ''
         );
-        if (!changedAfter) return 'no-implementation';
+        if (!changedAtOrAfter) return 'no-implementation';
       }
     }
   }

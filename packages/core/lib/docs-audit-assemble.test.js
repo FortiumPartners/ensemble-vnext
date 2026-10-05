@@ -406,6 +406,25 @@ describe('TRD parse and D19 skip tests', () => {
     expect(entry(run(repo), TRD).skip).toBeNull();
   });
 
+  test('TRD and a Touches file added in the same (squash) commit, no implement.json -> reviewed', () => {
+    const repo = mkRepo();
+    commitFiles(repo, 'base', { 'README.md': 'r' });
+    commitFiles(repo, 'squash: feature', { [TRD]: TRD_BODY(), 'src/thing.js': 'built' });
+    expect(entry(run(repo), TRD).skip).toBeNull();
+  });
+
+  test('the same squash commit as the ROOT commit is also reviewed', () => {
+    const repo = mkRepo();
+    commitFiles(repo, 'squash: feature', { [TRD]: TRD_BODY(), 'src/thing.js': 'built' });
+    expect(entry(run(repo), TRD).skip).toBeNull();
+  });
+
+  test('a root-commit TRD whose Touches files never changed is still skipped', () => {
+    const repo = mkRepo();
+    commitFiles(repo, 'trd only', { [TRD]: TRD_BODY(), 'README.md': 'r' });
+    expect(entry(run(repo), TRD).skip).toBe('no-implementation');
+  });
+
   test('an implement.json naming a different TRD does not count', () => {
     const repo = trdRepo();
     commitFiles(repo, 'state', implState('other', { 'T-1': { status: 'success' } }, 'docs/TRD/other.md'));

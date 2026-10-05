@@ -421,4 +421,27 @@ describe('CLI errors', () => {
     });
     expect(md).toContain('- Branch: docs-audit/r (from main)');
   });
+
+  it('lists a cross-repo claim under Surfaced for the owner, never as a correction or a cut', () => {
+    const md = deliver.renderChangeSet({
+      assembly: { runId: 'r', head: 'h', branch: 'main', mode: 'light', files: [] },
+      batches: [{ records: [{
+        path: 'docs/PRD/a.md', class: 'prd', score: 50, depth: 'sonnet', outcome: 'kept',
+        corrections: [], cuts: [], unbuilt: [], statusCorrection: null,
+        crossRepo: [{ claim: 'the billing service retries 3 times', path: 'other-repo/billing/retry.js' }],
+      }] }],
+      applieds: [],
+      tree: { strays: [], hookState: [], untracked: [] },
+    });
+    const surfaced = md.split('## Surfaced for the owner')[1].split('\n## ')[0];
+    expect(surfaced).toContain(
+      'Cross-repo claim in `docs/PRD/a.md`: the billing service retries 3 times (other-repo/billing/retry.js)',
+    );
+    // Not corrected, not cut, and no per-document detail section: the claim changed nothing.
+    expect(md).not.toContain('Corrected —');
+    expect(md).not.toContain('Cut —');
+    expect(md).not.toContain('### `docs/PRD/a.md`');
+    // The document's outcome is untouched by the claim (the change set carries no drift count).
+    expect(md).toContain('| `docs/PRD/a.md` | prd | 50 | sonnet | kept |');
+  });
 });

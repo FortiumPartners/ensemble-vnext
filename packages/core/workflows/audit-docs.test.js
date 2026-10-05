@@ -236,3 +236,23 @@ describe('audit-docs batch isolation', () => {
     for (const c of agent.calls) expect(c.prompt).toContain('/repo/.trd-state/_docs-audit/work/r/assembly.json');
   });
 });
+
+describe('audit-docs cross-repo claims (AC-F12.1)', () => {
+  const CROSS = [{ claim: 'the billing service retries 3 times', path: 'other-repo/billing/retry.js' }];
+
+  it('carries a reviewer-reported crossRepo claim through to the returned record unchanged', async () => {
+    const { result } = await run(baseArgs(), { 'docs/PRD/a.md': 50 }, {
+      'review:docs/PRD/a.md': { outcome: 'kept', corrections: [], cuts: [], crossRepo: CROSS, mapWritten: false },
+    });
+    const rec = result.records[0];
+    expect(rec.crossRepo).toEqual(CROSS);
+    // reported, not corrected and not cut
+    expect(rec.corrections).toEqual([]);
+    expect(rec.cuts).toEqual([]);
+  });
+
+  it('defaults crossRepo to an empty list when the reviewer reports none', async () => {
+    const { result } = await run(baseArgs(), { 'docs/PRD/a.md': 50 });
+    expect(result.records[0].crossRepo).toEqual([]);
+  });
+});

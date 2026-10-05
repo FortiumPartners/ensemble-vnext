@@ -72,9 +72,9 @@ node .claude/lib/docs-audit-assemble.js assemble --repo . --run-date "$RUN_DATE"
 Pass `--comprehensive` only when the user did. Exit 2 means a refusal: an invalid
 `ensemble.docsAudit.thresholds` setting (non-integer, outside 0-100, or `medium` above `high`),
 a detached HEAD, or not a git repository. **COMMAND STUCK** naming the setting or condition from
-the message. Since step 2 already created the review branch, Next must also say how to get back:
-`git switch <original branch>` (the original branch is in `$WORK/branch.json`) and that the
-empty review branch can be deleted. Absent thresholds are not an error; the library applies its
+the message. Since step 2 already created the review branch, Next must also say, in words, how to get back:
+switch back to the original branch (named in `$WORK/branch.json`) and delete the empty review
+branch. Say it in words, not as a shell command. Absent thresholds are not an error; the library applies its
 defaults (high 70, medium 40).
 
 Read `$WORK/assembly.json` for `mode`, `modeReason`, `window`, `skipped`, `warnings` and
@@ -159,7 +159,7 @@ The only early exits are these. Everything else is reported in the readout and t
 |---|---|---|
 | Invalid threshold setting (D5) | `assemble` exits 2 naming `ensemble.docsAudit.thresholds` | fix the setting in `.claude/settings.json`, switch back to the original branch, delete the empty review branch, re-run |
 | Dirty tracked tree (D15) | `prepare` exits 2 | commit or stash the tracked changes, re-run |
-| Git failure (D15) | any `prepare`, `apply`, `commit-batch` or `finalize` exit 2 | the work directory `$WORK` is kept; `$WORK/branch.json` names the original branch to `git switch` back to |
+| Git failure (D15) | any `prepare`, `apply`, `commit-batch` or `finalize` exit 2 | the work directory `$WORK` is kept; `$WORK/branch.json` names the original branch to switch back to |
 
 On COMMAND STUCK, keep `$WORK` for diagnosis. On COMMAND COMPLETE, delete it (step "Finish").
 
@@ -170,17 +170,20 @@ screen, written for someone who was not in the session. Any section may be "none
 
 - **STATE**: the mode and why (`modeReason`); counts of documents corrected, cut and removed,
   with a line for removals blocked by a remaining reference; TRDs skipped, with the reason
-  (`no-implementation` or `in-flight`); batches that failed; the review branch name and the
-  change-set path (and its link when published). Say what proves it: the branch exists and the
+  (`no-implementation` or `in-flight`); batches that failed; the review branch name, the
+  push-and-PR command text exactly as `finalize` printed it, and the change-set path (and its
+  link when published). Say what proves it: the branch exists and the
   original branch is checked out again.
 - **DECISIONS**: only choices the owner did not make, such as a run made comprehensive because
   the marker was missing or not an ancestor of HEAD.
 - **ISSUES**: items needing the owner: unbuilt PRD requirements left in place, class
   disagreements, post-check reverts, map defects, cross-repo claims, failed agents. Name each
   thing, not just its count.
-- **NEXT**: the printed hand-off, in the owner's own terms: review the branch diff, then run the
-  printed command. That command is a shell command, so give it as a plain line, not as a step
-  with a slash command. Never run it yourself.
+- **NEXT**: the few steps to take now, in order, in words: review the diff on the review branch
+  (name it), then push that branch and open a pull request for it. Neither step is a slash
+  command, so each is a line of its own with no fenced block, and NEXT never carries shell
+  command text. The exact push-and-PR command that `docs-audit-deliver.js finalize` prints
+  belongs in **STATE** (the run must print it), not in NEXT. Never run it yourself.
 
 ---
 

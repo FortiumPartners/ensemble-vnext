@@ -157,6 +157,57 @@
       "started_at": "2026-10-04T23:57:55.146Z",
       "completed_at": "2026-10-05T00:00:27.011Z",
       "last_advanced": "2026-10-05T00:00:19.601Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/docs-audit-assemble.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/docs-audit-assemble.test.js",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/lib/docs-audit-assemble.js",
+        "/Users/james/dev/fortium/ensemble-vnext/docs/TRD/docs-as-built.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T00:28:59.175Z",
+      "completed_at": "2026-10-05T00:31:42.239Z",
+      "last_advanced": "2026-10-05T00:30:54.158Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/workflows/audit-docs.test.js",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/lib/docs-audit-deliver.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T00:28:59.175Z",
+      "completed_at": "2026-10-05T00:31:42.243Z",
+      "last_advanced": "2026-10-05T00:30:54.158Z"
+    },
+    "AMEND-003": {
+      "description": "AMEND-003",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/audit-docs.md",
+        "/Users/james/dev/fortium/ensemble-vnext/.claude/commands/audit-docs.md",
+        "/Users/james/dev/fortium/ensemble-vnext/packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T00:28:59.175Z",
+      "completed_at": "2026-10-05T00:31:42.243Z",
+      "last_advanced": "2026-10-05T00:30:54.158Z"
     }
   },
   "checkpoints": [
