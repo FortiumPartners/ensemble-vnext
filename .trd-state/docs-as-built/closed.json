@@ -1,0 +1,12 @@
+{
+  "feature": "docs-as-built",
+  "trd": "docs/TRD/docs-as-built.md",
+  "closedAt": "2026-10-05T00:36:04Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: the review's model-driven behaviour (fixing a requirement that was built differently, fixing a wrong TRD Status, keeping a part-stale doc's one valid section, and the two-run marker sequence) has never run live, because the headless end-to-end cases skip by default; no executed test checks that a cross-repo claim reaches the change set; the /audit-docs readout puts the push-and-PR shell command in NEXT, which command-status.md and your \"no shell in NEXT\" rule forbid; 3 Could Not Verify rows still need a live session (Opus model dispatch, headless edit permissions, nested settings key) and 1 needs your judgement (whether docs/TRD/ensemble-vnext.md should be skipped as in-flight)",
+    "report": ".trd-state/docs-as-built/audit-build-report.md",
+    "auditedCommit": "4026024"
+  }
+}
