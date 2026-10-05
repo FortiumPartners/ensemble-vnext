@@ -1,0 +1,12 @@
+{
+  "feature": "audit-docs-prd-handling",
+  "trd": "docs/TRD/audit-docs-prd-handling.md",
+  "closedAt": "2026-10-05T05:39:43Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this change has no PRD; it was decided in session on 2026-10-04, so the code was checked against the TRD only); the change-set line that lists a skipped in-flight PRD has no test of its own (O1); nobody has checked yet whether the reviewing agent separates behaviour corrections from mechanism corrections the way the owner would; this branch has to merge after PR #26, which is still open",
+    "report": ".trd-state/audit-docs-prd-handling/audit-build-report.md",
+    "auditedCommit": "be577eb"
+  }
+}
