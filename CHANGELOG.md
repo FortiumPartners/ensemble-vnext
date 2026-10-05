@@ -10,6 +10,41 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.0] - 2026-10-05
+
+A new command, `/audit-docs`, brings `docs/` back in line with the code as built. Plans:
+`docs/TRD/docs-as-built.md` (PRD `docs/PRD/docs-as-built.md`) and
+`docs/TRD/audit-docs-prd-handling.md`.
+
+### Added
+
+- **`/audit-docs [--comprehensive]`** reviews the PRDs, TRDs and other docs under `docs/`
+  against the code: it corrects what the code shows to be different, cuts what describes
+  something that does not exist, and leaves what is still true. No banners, no archive folder,
+  nothing moved between documents. A doc with nothing valid left is removed only after a
+  reference check across the whole repository, with a recovery record.
+- **Light by default.** A light run reviews only the PRDs and TRDs touched by commits since the
+  last run; `--comprehensive`, or a missing last-run marker, reviews everything. Each PRD/TRD
+  is scored for drift by a cheap model and routed to an Opus review (score 70+), a Sonnet review
+  (40+) or none; `ensemble.docsAudit.thresholds` overrides either.
+- **Skipped while in flight.** A TRD with no implementation work, or whose development tasks
+  are still open, is skipped; so is a PRD whose TRD is skipped as in flight.
+- **PRD rewrites are surfaced, not buried.** A requirement rewritten because the product
+  behaves differently is listed under "Requirements changed to match the code — confirm" and
+  gets a dated row in the PRD's own changelog (a missing row is reported). A non-goal the code
+  contradicts is left as written and reported. Requirements never built are reported, never cut.
+- **Delivered on a local review branch** (`docs-audit/<date>-<sha>`), committed per batch, with
+  `docs/PRD/INDEX.md`, `docs/TRD/INDEX.md`, a last-run marker and a change set. Nothing is pushed
+  or merged; the command prints the push-and-PR command.
+- **Every reviewed doc carries a "Where this lives in the code" map**, which the indexes read.
+
+### Measured
+
+- A trial on 8 of this repository's own docs (2026-10-04, isolated copy) cost about 182k tokens
+  per document on Sonnet, so a comprehensive run here (about 129 docs) is roughly 23M tokens; a
+  light run is a fraction of that. The cheap scorer under-rated three stale docs (scores 5–30
+  that then took 5–13 corrections), so a light run trusts that a comprehensive run came first.
+
 ## [4.12.1] - 2026-10-04
 
 `/plan --implement` finishes what a sweep list starts. Plan: `docs/TRD/plan-sweep-chain.md`.
