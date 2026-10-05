@@ -93,6 +93,21 @@
       "started_at": "2026-10-05T05:08:23.625Z",
       "completed_at": "2026-10-05T05:13:12.582Z",
       "last_advanced": "2026-10-05T05:09:39.021Z"
+    },
+    "AMEND-001": {
+      "description": "PRD skip-row change-set test",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/docs-audit-deliver.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-05T05:35:02.729Z",
+      "completed_at": "2026-10-05T05:36:37.724Z",
+      "last_advanced": "2026-10-05T05:36:28.564Z"
     }
   },
   "checkpoints": [

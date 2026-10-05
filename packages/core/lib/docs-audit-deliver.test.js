@@ -249,6 +249,7 @@ describe('finalize', () => {
       { path: 'docs/TRD/t.md', class: 'trd', git: 'tracked', disagreement: false, generated: false },
       { path: 'docs/TRD/gone.md', class: 'trd', git: 'tracked', disagreement: false, generated: false },
       { path: 'docs/TRD/skipped.md', class: 'trd', git: 'tracked', skip: 'in-flight', generated: false },
+      { path: 'docs/PRD/skipped-prd.md', class: 'prd', git: 'tracked', skip: 'in-flight', generated: false },
       { path: 'docs/PRD/brief.md', class: 'loose', folderClass: 'prd', structureClass: 'loose', disagreement: true, git: 'tracked', generated: false },
       { path: 'docs/PRD/INDEX.md', class: 'loose', generated: true, git: 'tracked' },
       { path: 'docs/PRD/draft.md', class: 'prd', git: 'untracked', disagreement: false, generated: false },
@@ -328,6 +329,7 @@ describe('finalize', () => {
     expect(prd).toContain('- `docs/PRD/a.md` — `packages/core`, `.claude/commands`, `test/integration`');
     expect(prd).not.toContain('brief.md');
     expect(prd).not.toContain('draft.md'); // untracked: not part of the commit
+    expect(prd).not.toContain('skipped-prd.md'); // absent from the tree
     expect(prd).not.toContain('INDEX.md`');
     const trd = show('docs/TRD/INDEX.md');
     expect(trd).toContain('- `docs/TRD/t.md` — `a/b`'); // read from the edited tree, not the assembly
@@ -352,6 +354,8 @@ describe('finalize', () => {
     expect(cs).toContain('| `docs/TRD/t.md` | trd | — | sonnet | edited |');
     expect(cs).toContain('| `docs/TRD/gone.md` | trd | 12 | sonnet | remove-proposed |');
     expect(cs).toContain('| `docs/TRD/skipped.md` | trd | — | none | skipped (in-flight) |');
+    // A PRD skipped in flight gets the same row; the row logic must not be TRD-only.
+    expect(cs).toContain('| `docs/PRD/skipped-prd.md` | prd | — | none | skipped (in-flight) |');
     expect(cs).toContain('Score reason: a | b');
     expect(cs).toContain('Status: Draft → Delivered');
     expect(cs).toContain('Corrected — 3: fixed path');
