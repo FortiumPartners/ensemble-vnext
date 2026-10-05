@@ -4,7 +4,7 @@
   "trd_hash": "03b555d3cb92215a9cfae7d96ad32b2ad15da95fb26621bf93c5cc3411b96139",
   "branch": "feature/audit-docs-prd-handling/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Backend: skip a PRD whose feature is in flight in docs-audit-assemble.js — after the TRD loop, set skip: 'in-flight' on ",
@@ -95,10 +95,19 @@
       "last_advanced": "2026-10-05T05:09:39.021Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "7b182052ce22e1a6a21394fd55ce7822726833a0",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-05T05:13:12.707Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "7b182052ce22e1a6a21394fd55ce7822726833a0",
+    "last_checkpoint_timestamp": "2026-10-05T05:13:12.707Z",
     "interrupted": false,
     "interrupt_reason": null
   },
