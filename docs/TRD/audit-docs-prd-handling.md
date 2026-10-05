@@ -60,8 +60,8 @@
 5. `docs-audit-apply.js` checks every PRD record carrying `behaviourChanges`: the diff must add
    a line containing the requirement id and the run date. A missing one is a
    `changelogDefect`, reported and never reverted (same treatment as a map defect).
-6. The `/audit-docs` readout carries skipped PRDs in STATE and the confirm list, broken
-   non-goals and changelog defects in ISSUES.
+6. The `/audit-docs` readout lists skipped PRDs under STATE. Under ISSUES, because each needs
+   the owner, it lists the confirm list, broken non-goals and changelog defects.
 
 A criterion that would look the same if the fix did nothing is not one: each test below
 asserts on a fixture where the old code produces the wrong output (a mid-build PRD batched; a

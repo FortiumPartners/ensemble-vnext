@@ -1538,11 +1538,20 @@ describe('audit-docs.md readout covers PRD handling', () => {
     expect(state).not.toMatch(/; TRDs skipped, with the reason/);
   });
 
-  test('ISSUES names the confirm list, broken non-goals and changelog defects', () => {
+  test('ISSUES carries the confirm list, because confirming is the owner\'s action, and STATE does not', () => {
     const issues = readoutSection('- **ISSUES**', '- **NEXT**');
-    expect(issues).toMatch(/confirm/i);
+    expect(issues).toMatch(/listed\s+to confirm/);
+    expect(issues).toMatch(/behaviourChanges/);
+    const state = readoutSection('- **STATE**', '- **DECISIONS**');
+    expect(state).not.toMatch(/confirm/i);
+  });
+
+  test('ISSUES names broken non-goals and changelog defects', () => {
+    const issues = readoutSection('- **ISSUES**', '- **NEXT**');
     expect(issues).toMatch(/non-goal/);
+    expect(issues).toMatch(/brokenNonGoals/);
     expect(issues).toMatch(/changelog/);
+    expect(issues).toMatch(/changelogDefects/);
   });
 
   test('libs are byte-identical to their .claude/ mirrors', () => {

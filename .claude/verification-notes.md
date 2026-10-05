@@ -855,3 +855,23 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 ## Exercising docs-audit-assemble.js determinism (docs-as-built, iteration 2)
 
 - [ran] The assembly output embeds `assemblyPath` (path.resolve of `--out`, docs-audit-assemble.js:535) in every workflowArgs entry, so two runs with different `--out` files differ by sha256. To prove determinism, re-run with the SAME `--out` and `--run-date` on a fixture repo built in the scratchpad: sha256 identical.
+
+## Exercising audit-docs PRD handling (2026-10-04 run, `audit-docs-prd-handling`)
+
+- [ran] `docs-audit-assemble.js assemble`, `docs-audit-apply.js apply` and
+  `docs-audit-deliver.js commit-batch` all run directly against throwaway git repos built under
+  the session scratchpad (no `claude` session, no `gh`). In-flight fixture recipe: commit the TRD
+  and PRD, commit the TRD's `Touches` file, then commit `.trd-state/<f>/implement.json` with
+  `trd_file` set and one development task `pending` (no `closed.json`). The apply CLI takes an
+  assembly of `{files:[{path,class:'prd',git:'tracked'}], batches:[...]}` and a result of
+  `{batch, records, dead}`; the PRD must carry a `## Where this lives in the code` section or a
+  map defect is reported. `renderChangeSet` is exported from `docs-audit-deliver.js` and takes
+  `{assembly, batches:[{records}], applieds, tree}`; records without `claim`/`was` fields print
+  `Corrected — undefined: undefined`, a fixture artefact and not a defect.
+- [ran] `npx jest` over the four docs-audit suites (assemble, apply, deliver, workflows/audit-docs)
+  is 174 tests, ~10s.
+- [read] `docs-audit.md`'s PRD procedure words the mechanism/behaviour split as "a renamed
+  internal function, a different library or a reorganised file", not the criterion's list
+  "name, path, internal ordering, registration detail". `audit-docs.md`'s readout puts the
+  requirements-changed confirm list in ISSUES, not STATE.
+- [read] Correction (iteration 2): the earlier note that `audit-docs.md`'s readout puts the requirements-changed confirm list in ISSUES is stale. Lines 174-178 of `packages/core/commands/audit-docs.md` (and its `.claude` mirror, byte-identical) now put skipped TRDs and PRDs and the confirm list (`behaviourChanges`) in STATE, and broken non-goals (`brokenNonGoals`) and changelog defects (`changelogDefects`) in ISSUES (lines 184-186).

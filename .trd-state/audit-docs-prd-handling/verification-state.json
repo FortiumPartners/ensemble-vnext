@@ -1,0 +1,172 @@
+{
+  "iteration": 2,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS1-summary.json",
+      "reason": "PRD skipped in-flight, batches empty, absent from workflowArgs.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS2-summary.json",
+      "reason": "Basename match with in-flight TRD skips the PRD in-flight.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS3-summary.json",
+      "reason": "PRD cited past line 40, different basename: batched, not skipped.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS4-summary.json",
+      "reason": "current.json naming the PRD does not skip it.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS5-summary.json",
+      "reason": "TRD skipped no-implementation; PRD still batched.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "Documents row reads skipped (in-flight).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/jest-docs-audit.txt",
+      "reason": "Carry-through test passes; 174/174.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "Mechanism/behaviour split by user-visible difference; behaviour to behaviourChanges only.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "Changelog-row instruction present with Version History and /audit-docs. Text-only.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "## Changelog Date/Change added only when neither section exists.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/prd-procedure.txt",
+      "reason": "Contradicted non-goal left as written, returned in brokenNonGoals.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "Confirm section lists a and b in the required format.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "Reverted PRD c absent from confirm section.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS14-single.txt",
+      "reason": "Commit message reads 3 corrected.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/changeset.md",
+      "reason": "Broken non-goal NG5 and changelog defect both under Surfaced for the owner.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/apply-out.json",
+      "reason": "Defect reported for a/AC-F2.3; a stays edited, not reverted.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/apply-out.json",
+      "reason": "b edited, no changelog defect.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-prd-handling/evidence/FS18-readout.txt",
+      "reason": "Readout STATE names skipped PRDs (in-flight) and the behaviourChanges confirm list; ISSUES names brokenNonGoals and changelogDefects; .claude mirror byte-identical.",
+      "cause": null,
+      "provenAt": 2
+    }
+  ],
+  "gapsClosed": [
+    0,
+    1
+  ],
+  "outcome": "satisfied"
+}

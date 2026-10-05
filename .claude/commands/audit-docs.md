@@ -180,8 +180,9 @@ screen, written for someone who was not in the session. Any section may be "none
 - **DECISIONS**: only choices the owner did not make, such as a run made comprehensive because
   the marker was missing or not an ancestor of HEAD.
 - **ISSUES**: items needing the owner: the PRD requirements changed to match the code, listed
-  to confirm (name each requirement and what changed); PRD non-goals the code contradicts,
-  left as written; behaviour corrections missing their changelog line; unbuilt PRD
+  to confirm (from `behaviourChanges`; name each requirement and what changed); PRD non-goals
+  the code contradicts (`brokenNonGoals`),
+  left as written; behaviour corrections missing their changelog line (`changelogDefects`); unbuilt PRD
   requirements left in place, class disagreements, post-check reverts, map defects, cross-repo claims, failed agents. Name each
   thing, not just its count.
 - **NEXT**: the few steps to take now, in order, in words: review the diff on the review branch
