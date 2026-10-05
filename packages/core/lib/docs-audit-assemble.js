@@ -369,16 +369,19 @@ function trdSkip(repo, docPath, parsed, implementStates) {
   if (!anySuccess) {
     const touched = touchedFiles(parsed);
     if (touched.length > 0) {
-      const first = git(repo, ['log', '--format=%H', '--reverse', '--', docPath]).out.split('\n')[0];
+      // `--follow` so a TRD moved between folders (e.g. into docs/TRD/completed/) keeps the commit
+      // that first wrote it, not the move commit. `--reverse` defeats `--follow`, so the oldest
+      // commit is taken as the last line instead.
+      const history = lines(git(repo, ['log', '--follow', '--format=%H', '--', docPath]).out);
+      const first = history[history.length - 1];
       if (first) {
-        // `first..HEAD` excludes the commit that first added the TRD, so a feature squash-merged
-        // as one commit (TRD + code) would read as untouched. Count that commit too; diff-tree
-        // --root also works when it is the repository's root commit (no parent to range from).
-        const changedAtOrAfter = touched.some(
-          (f) =>
-            git(repo, ['rev-list', '-1', `${first}..HEAD`, '--', f], { allowFail: true }).out.trim() !== '' ||
-            git(repo, ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', first, '--', f], { allowFail: true }).out.trim() !== ''
-        );
+        // `HEAD --not <first>^@` is `first..HEAD` plus `first` itself: the commit that first added
+        // the TRD counts, so a feature squash-merged as one commit (TRD + code) is implementation
+        // work. A root commit has no parents, so `^@` expands to nothing and the root is included.
+        // One call covers every touched file.
+        const changedAtOrAfter =
+          git(repo, ['rev-list', '-1', 'HEAD', '--not', `${first}^@`, '--', ...touched], { allowFail: true })
+            .out.trim() !== '';
         if (!changedAtOrAfter) return 'no-implementation';
       }
     }

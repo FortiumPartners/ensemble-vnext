@@ -73,8 +73,8 @@ Pass `--comprehensive` only when the user did. Exit 2 means a refusal: an invali
 `ensemble.docsAudit.thresholds` setting (non-integer, outside 0-100, or `medium` above `high`),
 a detached HEAD, or not a git repository. **COMMAND STUCK** naming the setting or condition from
 the message. Since step 2 already created the review branch, Next must also say, in words, how to get back:
-switch back to the original branch (named in `$WORK/branch.json`) and delete the empty review
-branch. Say it in words, not as a shell command. Absent thresholds are not an error; the library applies its
+switch back to the original branch and delete the empty review branch, naming both (read them
+from `$WORK/branch.json`; the owner should not have to). Say it in words, not as a shell command. Absent thresholds are not an error; the library applies its
 defaults (high 70, medium 40).
 
 Read `$WORK/assembly.json` for `mode`, `modeReason`, `window`, `skipped`, `warnings` and

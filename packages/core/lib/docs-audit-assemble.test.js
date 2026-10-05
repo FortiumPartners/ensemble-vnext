@@ -419,6 +419,15 @@ describe('TRD parse and D19 skip tests', () => {
     expect(entry(run(repo), TRD).skip).toBeNull();
   });
 
+  test('a TRD moved to another folder after its code was built is reviewed, not skipped', () => {
+    const repo = trdRepo();
+    commitFiles(repo, 'built', { 'src/thing.js': 'built' });
+    fs.mkdirSync(path.join(repo, 'docs/TRD/completed'), { recursive: true });
+    sh(repo, ['mv', TRD, 'docs/TRD/completed/thing.md']);
+    sh(repo, ['commit', '-q', '-m', 'archive the TRD']);
+    expect(entry(run(repo), 'docs/TRD/completed/thing.md').skip).toBeNull();
+  });
+
   test('a root-commit TRD whose Touches files never changed is still skipped', () => {
     const repo = mkRepo();
     commitFiles(repo, 'trd only', { [TRD]: TRD_BODY(), 'README.md': 'r' });

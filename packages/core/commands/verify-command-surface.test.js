@@ -1496,8 +1496,8 @@ describe('audit-docs.md NEXT carries no shell command', () => {
   test('the NEXT bullet names push and PR in words and has no git push / gh pr text', () => {
     const next = nextBullet();
     expect(next).toMatch(/push that branch and open a pull request/);
-    expect(next).not.toMatch(/git push/);
-    expect(next).not.toMatch(/gh pr/);
+    expect(next).not.toMatch(/\bgit (push|switch|checkout|branch)\b/);
+    expect(next).not.toMatch(/\bgh pr\b/);
   });
 
   test('STATE carries the printed push-and-PR command text', () => {
@@ -1507,7 +1507,7 @@ describe('audit-docs.md NEXT carries no shell command', () => {
 
   test('the stuck-case Next text gives no git command', () => {
     const text = read(CORE_AUDIT_DOCS);
-    expect(text).not.toMatch(/`git switch/);
+    expect(text).not.toMatch(/\bgit (switch|checkout|branch -[dD])\b/);
   });
 
   test('mirror is byte-identical', () => {
