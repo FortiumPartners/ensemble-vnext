@@ -1,9 +1,9 @@
-# PRD: Docs As-Built Review
+# PRD: Docs As-Built Audit (`/audit-docs`)
 
-**Version**: 1.2.2
+**Version**: 1.2.3
 **Status**: Draft
 **Created**: 2026-09-25
-**Last Updated**: 2026-09-25
+**Last Updated**: 2026-10-03
 **Author**: @product-manager
 **Stakeholders**: Owner (James Simmons)
 
@@ -29,6 +29,7 @@ audit did not check is listed under Could Not Verify.
 | 1.1.1 | 2026-09-25 | OQ-17 → optional sibling-repo paths for cross-repo duplicate reporting | main agent |
 | 1.1.2 | 2026-09-25 | `/audit-prd` findings applied (ordering, citations, audit-verifier separability) | main agent |
 | 1.2.0 | 2026-09-25 | **Rewritten after an independent review** found 1.1.x had grown features the owner never asked for, mostly through multiple-choice answers, and after the owner's four typed answers (brief, second round). **Removed:** convergence of overlapping TRDs (old F12) — overlap is fine (answer 1); fetching and branching from the remote (old F13) and its risks R2/R9 — review the checkout (answer 2); correcting the framework's own archive rules (old F14) and risk R8 — done outside this feature on 2026-09-25 (answer 4); sibling-repo duplicate scanning (old AC-F15.2–F15.3, OQ-17) — never asked for in the owner's words; per-file review log, deterministic depth, and "never reviewed = maximally stale" (old F2) — replaced by answer 3, and the last one contradicted the owner's own example; carrying decisions into a replacing doc before removal (old AC-F4.4, AC-F7.2) — no "finding a home" (answer 1); fixed state-folder set (old AC-F10.2) and audit-verifier module notes (old AC-F4.6, AC-F5.5) — TRD decisions; personas; restated evidence; defaults OQ-4/5/8. **Added:** the goal restated as an accurate as-built library for agents (answer 1); the correct-or-cut test with deletion only when nothing valid remains (F7, answer 1); the light run as a Haiku impact score routing each doc to Opus / Sonnet / no review (F2, answer 3); the last-run marker; a default definition of the comprehensive run awaiting owner confirmation (F3, OQ-1); code map extended to loose docs that describe the system (F8). **Changed:** rulings table cut to rulings still in force, each labelled owner's own words or multiple-choice; "do not re-litigate" list holds only owner quotes; old F15 → F12; all NG, risk and AC IDs renumbered — 1.1.2 IDs do not carry over | main agent |
+| 1.2.3 | 2026-10-03 | Owner rulings: the command is named `/audit-docs` (it completes the `/audit-prd` → `/audit-trd` → `/audit-build` family, checking docs against code); a TRD is skipped only when it has no implementation work or its work is clearly in flight, replacing the 1.2.2 skip rule (§8). OQ-1 ruled: a comprehensive run reviews everything, as the PRD assumed. No requirement added or removed | main agent |
 | 1.2.2 | 2026-09-27 | Owner rulings: default thresholds 70/40 (AC-F2.3); a TRD whose implementation is unfinished is skipped | main agent |
 | 1.2.1 | 2026-09-25 | `/audit-prd` of 1.2.0 (3 of 3 verifiers, source: the brief): noted that the code-checking verifiers AC-F4.4 and AC-F5.3 leave to the TRD already exist (`audit-prd.js`, `audit-trd.js`), and that TRDs already carry per-task `Touches:` blocks a code map (F8) can draw on. No requirement added, removed or changed. Could Not Verify rewritten | main agent |
 
@@ -170,10 +171,9 @@ the main agent's, following the owner's separate handling of loose docs (owner, 
 
 #### F3: Two runs — light and comprehensive
 **Description**: *"a light review weekly, and a comprehensive review monthly"* (owner, turn 1).
-The light run is defined by answer 3 (F2). **The owner has not redefined the comprehensive run;
-the definition below is a DEFAULT awaiting owner confirmation (OQ-1).**
+The light run is defined by answer 3 (F2). The comprehensive run below was confirmed by the owner on 2026-10-03 (OQ-1).
 
-| | Light run | Comprehensive run (default) |
+| | Light run | Comprehensive run |
 |---|---|---|
 | Commit window and impact gating | Yes — commits since last run; low score → no review | No — every PRD and TRD reviewed |
 | Depth per PRD/TRD | Opus / Sonnet / none by score | At least a Sonnet once-over; Opus audit where the scorer rates the doc high |
@@ -184,8 +184,8 @@ the definition below is a DEFAULT awaiting owner confirmation (OQ-1).**
 - [ ] AC-F3.1: A light run and a comprehensive run can each be started by an explicit invocation.
 - [ ] AC-F3.2: The fan-out workflow consumes F1's output and F2's scores; it does not re-decide
   class or depth.
-- [ ] AC-F3.3: Each run behaves as its column in the table (the comprehensive column is a
-  default — OQ-1).
+- [ ] AC-F3.3: Each run behaves as its column in the table (comprehensive column confirmed
+  2026-10-03, OQ-1).
 - [ ] AC-F3.4: A run in a repository with no last-run marker is a comprehensive run, and its
   change set is delivered as several reviewable batches (multiple-choice answer to the old OQ-9 —
   confirm). The split key is the TRD's decision.
@@ -397,11 +397,11 @@ options the owner may not have fully weighed; it stands until the owner says oth
 | What is reviewed | The checked-out tree; assume a scheduled job on a clean checkout | Owner's own words (answer 2) | NG7, §7 |
 | Light run | Commits since last run → Haiku score → Opus / Sonnet / none | Owner's own words (answer 3) | F2, F3 |
 | Old archive rules | Fixed outside this feature | Owner's own words (answer 4) | §8 |
-| Comprehensive run | See F3 | **Default, awaiting owner** | F3, OQ-1 |
+| Comprehensive run | See F3 | Owner's choice, 2026-10-03 (OQ-1: the stated default) | F3 |
 | How a file is classed | Folder proposes, structure confirms; disagreement → loose doc | Multiple-choice answer — confirm | AC-F1.2 |
 | First run | Comprehensive, delivered in batches | Multiple-choice answer — confirm | AC-F3.4 |
 | Unbuilt PRD requirement | Surfaced, not cut | Multiple-choice answer — confirm. Note: F7's rule would otherwise cut it | AC-F4.3 |
-| TRD whose implementation is not finished | Skipped until its work ships — not reviewed, not cut | Owner ruling 2026-09-27 | AC-F7.1 |
+| TRD for work not yet built, or not finished | Skipped only when it has no implementation work, or its work is clearly in flight — not reviewed, not cut. A TRD whose development tasks are all done is reviewed even if test, doc or infrastructure tasks remain open. How the run tells these apart is the TRD's (D19) | Owner ruling 2026-09-27, revised 2026-10-03: *"Skip a TRD that has NO implementation work or that clearly is in flight. If all development tasks are done and only test, doc, infra tasks (etc) are open, include"*. The 2026-09-27 rule skipped every TRD not finished, which would leave most TRDs unreviewed | AC-F7.1 |
 | Default thresholds | High ≥ 70, medium ≥ 40, overridable per project | Owner ruling 2026-09-27 | AC-F2.3 |
 | Where the code map lives | In the doc, "Where this lives in the code"; index lists top-level directories | Multiple-choice answer — confirm | AC-F8.1, AC-F9.2 |
 | Delivery | Local branch only; push/PR command printed | Multiple-choice answer — confirm | F11 |
@@ -446,11 +446,7 @@ options the owner may not have fully weighed; it stands until the owner says oth
 
 ## Open Questions
 
-- **OQ-1: What should a comprehensive run do?** You defined the light run but not the
-  comprehensive one. This PRD assumes: it ignores the "commits since last run" window and reviews
-  every PRD and TRD — at least a Sonnet once-over for each, an Opus audit for those Haiku rates
-  high — and also sweeps the loose docs. A repo's first run is a comprehensive run, delivered in
-  batches. Is that what you want?
+None. OQ-1 (what a comprehensive run does) was ruled 2026-10-03 by the owner, who chose the stated assumption: a comprehensive run ignores the since-last-run window and reviews every PRD and TRD — at least a Sonnet once-over each, an Opus audit for those Haiku rates high — and sweeps the loose docs; a repo's first run is comprehensive and delivered in batches.
 
 ---
 

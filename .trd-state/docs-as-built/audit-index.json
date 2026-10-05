@@ -1,0 +1,516 @@
+{
+  "requirements": [
+    {
+      "id": "G1",
+      "statement": "Every passage a run reviews ends that run true of the code, or cut",
+      "source": "PRD §3.1",
+      "served_by": [
+        "DABS-B001",
+        "DABS-B002",
+        "DABS-B004",
+        "DABS-T001",
+        "DABS-T002"
+      ]
+    },
+    {
+      "id": "G2",
+      "statement": "Review effort follows the likely impact of recent commits on each doc",
+      "source": "PRD §3.1",
+      "served_by": [
+        "DABS-B001",
+        "DABS-B004"
+      ]
+    },
+    {
+      "id": "G3",
+      "statement": "PRDs, TRDs and loose docs are each reviewed by a procedure that fits their structure",
+      "source": "PRD §3.1",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "G4",
+      "statement": "A PRD index and a TRD index match the tree after every run",
+      "source": "PRD §3.1",
+      "served_by": [
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "G5",
+      "statement": "Docs are tied to the code they describe by a coarse map",
+      "source": "PRD §3.1",
+      "served_by": [
+        "DABS-B003",
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "G6",
+      "statement": "Nothing is removed that cannot be recovered",
+      "source": "PRD §3.1",
+      "served_by": [
+        "DABS-B002",
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F1.1",
+      "statement": "The file list covers every file under docs/ in the checked-out tree, of any type",
+      "source": "PRD §4 F1",
+      "served_by": [
+        "DABS-B001"
+      ]
+    },
+    {
+      "id": "AC-F1.2",
+      "statement": "Every file carries exactly one class: PRD, TRD or loose doc. Folder proposes, structure confirms; disagreement reported as loose doc",
+      "source": "PRD §4 F1",
+      "served_by": [
+        "DABS-B001"
+      ]
+    },
+    {
+      "id": "AC-F1.3",
+      "statement": "The commit list is every commit on checked-out branch after last-run marker. No marker → comprehensive run",
+      "source": "PRD §4 F1",
+      "served_by": [
+        "DABS-B001"
+      ]
+    },
+    {
+      "id": "AC-F1.4",
+      "statement": "Each file marked tracked, untracked or git-ignored",
+      "source": "PRD §4 F1",
+      "served_by": [
+        "DABS-B001"
+      ]
+    },
+    {
+      "id": "AC-F1.5",
+      "statement": "Assembly step makes no model call; identical inputs give identical output",
+      "source": "PRD §4 F1",
+      "served_by": [
+        "DABS-B001"
+      ]
+    },
+    {
+      "id": "AC-F2.1",
+      "statement": "For each PRD and TRD, Haiku produces impact score from commit list and doc",
+      "source": "PRD §4 F2",
+      "served_by": [
+        "DABS-B004"
+      ]
+    },
+    {
+      "id": "AC-F2.2",
+      "statement": "Score above high → Opus audit; medium → Sonnet once-over; low → no review",
+      "source": "PRD §4 F2",
+      "served_by": [
+        "DABS-B004"
+      ]
+    },
+    {
+      "id": "AC-F2.3",
+      "statement": "Both thresholds tunable settings. Defaults: high ≥ 70, medium ≥ 40 on 0–100 scale",
+      "source": "PRD §4 F2",
+      "served_by": [
+        "DABS-B006"
+      ]
+    },
+    {
+      "id": "AC-F2.4",
+      "statement": "Change set shows each doc's score and the depth it received",
+      "source": "PRD §4 F2",
+      "served_by": [
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F2.5",
+      "statement": "Run records where it got to (last-run marker) so next run knows which commits are new",
+      "source": "PRD §4 F2",
+      "served_by": [
+        "DABS-B001",
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F3.1",
+      "statement": "Light run and comprehensive run each started by explicit invocation",
+      "source": "PRD §4 F3",
+      "served_by": [
+        "DABS-B006"
+      ]
+    },
+    {
+      "id": "AC-F3.2",
+      "statement": "Fan-out workflow consumes F1 output and F2 scores; does not re-decide class or depth",
+      "source": "PRD §4 F3",
+      "served_by": [
+        "DABS-B004"
+      ]
+    },
+    {
+      "id": "AC-F3.3",
+      "statement": "Each run behaves as specified (light: commits + scores; comprehensive: every PRD/TRD at least Sonnet)",
+      "source": "PRD §4 F3",
+      "served_by": [
+        "DABS-B004"
+      ]
+    },
+    {
+      "id": "AC-F3.4",
+      "statement": "Run with no last-run marker is comprehensive run, delivered in batches",
+      "source": "PRD §4 F3",
+      "served_by": [
+        "DABS-B001",
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F4.1",
+      "statement": "Reports per requirement: built as stated, built differently, or not built",
+      "source": "PRD §4 F4",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F4.2",
+      "statement": "Requirement built differently is corrected to as-built",
+      "source": "PRD §4 F4",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F4.3",
+      "statement": "Requirement not built is surfaced to owner in change set rather than cut",
+      "source": "PRD §4 F4",
+      "served_by": [
+        "DABS-B003",
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F4.4",
+      "statement": "How PRD claims checked against code (reuse of /audit-prd verifier or full audit) is TRD's decision",
+      "source": "PRD §4 F4",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F5.1",
+      "statement": "Tasks and decisions identified by structure and checked against code",
+      "source": "PRD §4 F5",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F5.2",
+      "statement": "Status that does not match what was delivered is corrected",
+      "source": "PRD §4 F5",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F5.3",
+      "statement": "How TRD claims checked against code (reuse of /audit-trd verifier or full audit) is TRD's decision",
+      "source": "PRD §4 F5",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F6.1",
+      "statement": "Prose loose docs describing system checked for unsupported claims and handled by F7",
+      "source": "PRD §4 F6",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F6.2",
+      "statement": "Non-text files (images, data) kept or removed, never corrected; removed only when reference check finds no use",
+      "source": "PRD §4 F6",
+      "served_by": [
+        "DABS-B002"
+      ]
+    },
+    {
+      "id": "AC-F7.1",
+      "statement": "For each section: code-shown-different content corrected; non-existent content cut; valid content left alone",
+      "source": "PRD §4 F7",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F7.2",
+      "statement": "Doc stays with valid content remaining however little; deleted only when nothing valid remains; never merged to another doc",
+      "source": "PRD §4 F7",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F7.3",
+      "statement": "File removed only after whole-repository reference check finds no uses (CI config, tests included)",
+      "source": "PRD §4 F7",
+      "served_by": [
+        "DABS-B002"
+      ]
+    },
+    {
+      "id": "AC-F7.4",
+      "statement": "Only git-tracked files deleted; untracked and ignored files reported, never deleted",
+      "source": "PRD §4 F7",
+      "served_by": [
+        "DABS-B001",
+        "DABS-B002"
+      ]
+    },
+    {
+      "id": "AC-F7.5",
+      "statement": "Every removal writes recovery record: path, last commit, why",
+      "source": "PRD §4 F7",
+      "served_by": [
+        "DABS-B002"
+      ]
+    },
+    {
+      "id": "AC-F7.6",
+      "statement": "No superseded/archived banner, header or note added in place of correction or cut",
+      "source": "PRD §4 F7",
+      "served_by": [
+        "DABS-B002"
+      ]
+    },
+    {
+      "id": "AC-F7.7",
+      "statement": "Path doc names that no longer exists checked against git history before called drift",
+      "source": "PRD §4 F7",
+      "served_by": [
+        "DABS-B001"
+      ]
+    },
+    {
+      "id": "AC-F8.1",
+      "statement": "Each reviewed PRD, TRD and system-describing loose doc carries 'Where this lives in the code' section (directories, modules, symbols, no line numbers)",
+      "source": "PRD §4 F8",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F8.2",
+      "statement": "Review corrects code map along with rest of doc",
+      "source": "PRD §4 F8",
+      "served_by": [
+        "DABS-B005"
+      ]
+    },
+    {
+      "id": "AC-F9.1",
+      "statement": "After every run, PRD index and TRD index list every doc of its class in tree and nothing absent",
+      "source": "PRD §4 F9",
+      "served_by": [
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F9.2",
+      "statement": "Each index entry lists doc's path and top-level code directories from its map",
+      "source": "PRD §4 F9",
+      "served_by": [
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F10.1",
+      "statement": "Doc state visible expressed by file path not by text inside it",
+      "source": "PRD §4 F10",
+      "served_by": [
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F11.1",
+      "statement": "Run commits to new local branch from checked-out commit, prints push and PR command, does not push/merge",
+      "source": "PRD §4 F11",
+      "served_by": [
+        "DABS-B003",
+        "DABS-B006"
+      ]
+    },
+    {
+      "id": "AC-F11.2",
+      "statement": "Change set lists corrections, cuts, removals with recovery records, each doc's score/depth, and every surfaced item",
+      "source": "PRD §4 F11",
+      "served_by": [
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "AC-F11.3",
+      "statement": "Run does not ask for confirmation of individual deletions; branch review is checkpoint",
+      "source": "PRD §4 F11",
+      "served_by": [
+        "DABS-B006"
+      ]
+    },
+    {
+      "id": "AC-F12.1",
+      "statement": "Claims about another repository's code reported in change set; not corrected, cut, or counted as drift",
+      "source": "PRD §4 F12",
+      "served_by": [
+        "DABS-B001",
+        "DABS-B003"
+      ]
+    },
+    {
+      "id": "NFR-1",
+      "statement": "Assembly step (F1) makes no model call and is deterministic",
+      "source": "PRD §5",
+      "served_by": [
+        "DABS-B001"
+      ]
+    },
+    {
+      "id": "NFR-2",
+      "statement": "Deterministic scripts are unit-tested",
+      "source": "PRD §5",
+      "served_by": [
+        "DABS-B001",
+        "DABS-B002",
+        "DABS-B003",
+        "DABS-B004"
+      ]
+    },
+    {
+      "id": "NFR-3",
+      "statement": "Review command emits standard status banners and four-section readout",
+      "source": "PRD §5",
+      "served_by": [
+        "DABS-B006"
+      ]
+    },
+    {
+      "id": "NFR-4",
+      "statement": "No mid-run confirmation prompts, including none per deletion",
+      "source": "PRD §5",
+      "served_by": [
+        "DABS-B006"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DABS-B001",
+      "description": "Build packages/core/lib/docs-audit-assemble.js: inventory docs/, D3 classification (PRD folder + structure), git status, commit window, marker validation, per-doc windows, missing-path history via git, TRD parse via parseTrd, map detection, batching (200 doc cap), threshold read, per-batch workflow args. Jest tests on fixture trees and git repos; add packages/full/lib/ symlink.",
+      "touches": [
+        "packages/core/lib/docs-audit-assemble.js",
+        "packages/core/lib/docs-audit-assemble.test.js",
+        "packages/full/lib/docs-audit-assemble.js"
+      ]
+    },
+    {
+      "id": "DABS-B002",
+      "description": "Build packages/core/lib/docs-audit-apply.js: validate workflow records against batch doc list, revert stray edits, post-checks (banners, code maps), fixed-point reference check including CI/tests, tracked-only removal, recovery records (path, last commit, reason). Jest tests on fixture git repos; add packages/full/lib/ symlink.",
+      "touches": [
+        "packages/core/lib/docs-audit-apply.js",
+        "packages/core/lib/docs-audit-apply.test.js",
+        "packages/full/lib/docs-audit-apply.js"
+      ]
+    },
+    {
+      "id": "DABS-B003",
+      "description": "Build packages/core/lib/docs-audit-deliver.js: prepare (clean tracked tree, create branch), commit-batch (stage applied edits and removals), finalize (regenerate indexes from tree state, write marker with HEAD, render change set, commit all, revert stray edits, switch back, print push/PR command). Jest tests on fixture git repos; add packages/full/lib/ symlink.",
+      "touches": [
+        "packages/core/lib/docs-audit-deliver.js",
+        "packages/core/lib/docs-audit-deliver.test.js",
+        "packages/full/lib/docs-audit-deliver.js"
+      ]
+    },
+    {
+      "id": "DABS-B004",
+      "description": "Build packages/core/workflows/audit-docs.js: Score phase (Haiku per PRD/TRD), Route phase (by thresholds), Review phase (parallel over per-doc thunks: Opus three verifiers + apply, Sonnet once-over, or none; loose sweep in comprehensive runs). Return { batch, records: [DocRecord], dead }. Test via test-harness.js.",
+      "touches": [
+        "packages/core/workflows/audit-docs.js",
+        "packages/core/workflows/audit-docs.test.js"
+      ]
+    },
+    {
+      "id": "DABS-B005",
+      "description": "Write packages/core/contracts/docs-audit.md: ten sections read by every reviewing agent: (1) Correct or cut section-by-section procedure, (2) No banners rule, (3) Absence must exhibit search, (4) Missing paths history check, (5) Cross-repo claims, (6) PRD procedure (built/different/unbuilt), (7) TRD procedure (tasks, status, unbuilt), (8) Loose-doc procedure, (9) Code map format/rules, (10) Return shape (DocRecord fields).",
+      "touches": [
+        "packages/core/contracts/docs-audit.md"
+      ]
+    },
+    {
+      "id": "DABS-B006",
+      "description": "Write packages/core/commands/audit-docs.md per §3.6 (parse flags, prepare, assemble, loop per batch [Workflow call, apply, commit-batch, PHASE banner], finalize, publish change set artifact, readout, PushNotification, notify-complete.sh, delete work dir, COMMAND COMPLETE banner). Create dogfood copies: .claude/commands/audit-docs.md (mirror), .claude/workflows/audit-docs.js, .claude/contracts/docs-audit.md, .claude/lib/docs-audit-*.js. Add .trd-state/_docs-audit/work/ to .gitignore.",
+      "touches": [
+        "packages/core/commands/audit-docs.md",
+        ".claude/commands/audit-docs.md",
+        ".claude/workflows/audit-docs.js",
+        ".claude/contracts/docs-audit.md",
+        ".claude/lib/docs-audit-assemble.js",
+        ".claude/lib/docs-audit-apply.js",
+        ".claude/lib/docs-audit-deliver.js",
+        ".gitignore"
+      ]
+    },
+    {
+      "id": "DABS-T001",
+      "description": "Seam test packages/core/workflows/audit-docs.seam.test.js: load audit-docs.js via test-harness.js, stub agents, construct fixture assembly.json matching spec, run workflow, write result to temp file, invoke apply and deliver against fixture git repo, assert: record shape accepted without adaptation, remove-proposed → recovery record in change set, edit → batch commit, no path outside batch accepted.",
+      "touches": [
+        "packages/core/workflows/audit-docs.seam.test.js"
+      ]
+    },
+    {
+      "id": "DABS-D001",
+      "description": "Add /audit-docs to both: packages/core/templates/process.md.template and .claude/rules/process.md. Add to workflow overview diagram at top, add per-command section with Purpose, Usage, Options table (--comprehensive flag), Output, Process sections. Document ensemble.docsAudit.thresholds setting with defaults high 70/medium 40.",
+      "touches": [
+        "packages/core/templates/process.md.template",
+        ".claude/rules/process.md"
+      ]
+    },
+    {
+      "id": "DABS-T002",
+      "description": "[LIVE] test/integration/tests/audit-docs.test.sh: build fixture repo with: PRD (requirement built differently, requirement not built), TRD (wrong Status, unbuilt task), part-stale doc (one valid section survives), CI-only-referenced data file, untracked doc, cross-repo path claim, non-PRD file in docs/PRD/, runbook naming deleted component. Scaffold it. Run /audit-docs --comprehensive headless → assert COMMAND COMPLETE banner, no banners added, valid section survives, CI file listed as blocked, untracked untouched, recovery records exist, indexes match tree, marker on branch only. Run light with branch unmerged → same window re-covered. Clone after merge, run light → sees merged marker.",
+      "touches": [
+        "test/integration/tests/audit-docs.test.sh"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "agent() accepts model: 'opus' (TR1) — needs live dispatch; nothing in this repo does today",
+    "Platform caps workflow at 1000 agents and ~16 concurrent (D16 derived from it) — platform limit, read from workflow-authoring reference, not measured",
+    "Workflow agents can read .trd-state/_docs-audit/work/ and edit docs without extra prompts in headless run — needs headless run; audit-prd.js's reconcile agent already edits docs",
+    "Nested ensemble.docsAudit key in .claude/settings.json tolerated — needs run with key set; ensemble key exists with publishArtifacts but nested object not yet exercised",
+    "git grep -F searches full working tree including uncommitted edits, not only HEAD (D10 depends on it) — needs fixture repo; grounding pass ran only git rm/add sequence",
+    "git merge-base --is-ancestor <marker> HEAD behaves as D4 expects on squash-merged marker from unreachable commit — needs fixture repo with squash-merge history",
+    "D19 measurement: 1.1.0 rule skipped 9 of 33 TRDs in this repo; keying on closed.json would skip 23 — not re-run by this audit",
+    "D19's development/non-development task split classifies this repo's tasks correctly — needs library to exist; run DABS-B001's skip tests over this repo's TRDs",
+    "All E1–E5 figures (from PRD) — measured in other repositories (lightning-lane, tbd); out of scope for audit of this repo",
+    "Other repos' PRDs/TRDs carry headings D3 relies on (R2) — live in other repositories; grep -l 'Master Task List' and grep -lE 'Feature Requirements|Acceptance Criteria' against target repos",
+    "A Haiku score from commits predicts which docs went stale (R8) — nothing built to measure yet; score a sample, Opus-audit same sample, compare using scores in change sets"
+  ],
+  "open_questions": [
+    "OQ-1: What should a comprehensive run do? — RESOLVED 2026-10-03 by owner: no commit window; every PRD/TRD gets at least Sonnet, Opus where Haiku rates high; loose docs swept; first run comprehensive and batched",
+    "OQ-2: What are the high and medium thresholds? — RESOLVED 2026-09-27 by owner: defaults high ≥ 70, medium ≥ 40, overridable per project",
+    "OQ-3: What happens to a TRD for unbuilt work? — RESOLVED 2026-10-03 by owner: skip only when no implementation work or work clearly in flight; include if development tasks all done even if test/doc/infra tasks open (D19)",
+    "OQ-4: Did 'full audit with opus' mean existing /audit-prd//audit-trd? — No: as-built audit of same shape (D7, D8) — UNRESOLVED, TRD's decision per AC-F4.4/F5.3",
+    "OQ-5: How deep should loose docs be reviewed? — UNRESOLVED; assumed Sonnet once-over in comprehensive runs only, not scored",
+    "OQ-6: Should untracked or ignored docs be reviewed? — RESOLVED: No, inventoried and reported, never edited (AC-F1.4, AC-F7.4)",
+    "OQ-7: May run take over the checkout? — RESOLVED: Yes per PRD assumption of clean scheduled checkout; creates branch, switches back at end (D15)",
+    "OQ-8: What about existing archive folder like docs/TRD/completed/? — RESOLVED: reviewed in place; review never moves files between folders (D21)",
+    "OQ-9: Should references from state files (e.g. implement.json) block removal? — RESOLVED: Yes, every reference found anywhere blocks removal and is listed (D10)"
+  ]
+}

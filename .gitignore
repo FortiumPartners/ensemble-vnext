@@ -94,3 +94,6 @@ test/.env
 # feature" pointer. One tiny file per session id; nothing reaps it yet
 # (docs/TRD/autonomy-judge-command-scope.md OQ-2), so it must not be tracked.
 .trd-state/_command-runs/
+
+# /audit-docs run working files (per-run assembly and batch results; never committed)
+.trd-state/_docs-audit/work/

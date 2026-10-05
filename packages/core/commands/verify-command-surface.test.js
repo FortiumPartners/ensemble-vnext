@@ -1480,3 +1480,37 @@ describe('implement-trd.md writes a spec-sourced definition without deriving (pl
     expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
   });
 });
+
+// AMEND-003: audit-docs.md's NEXT (and its Stuck-case Next text) says what to do in words;
+// the push-and-PR command text belongs in STATE, never as a NEXT step.
+describe('audit-docs.md NEXT carries no shell command', () => {
+  const CORE_AUDIT_DOCS = path.join(REPO, 'packages/core/commands/audit-docs.md');
+  const CLAUDE_AUDIT_DOCS = path.join(REPO, '.claude/commands/audit-docs.md');
+  const nextBullet = () => {
+    const readout = read(CORE_AUDIT_DOCS).split('\n## Readout')[1].split('\n## Output discipline')[0];
+    const at = readout.indexOf('- **NEXT**');
+    expect(at).toBeGreaterThan(-1);
+    return flat(readout.slice(at));
+  };
+
+  test('the NEXT bullet names push and PR in words and has no git push / gh pr text', () => {
+    const next = nextBullet();
+    expect(next).toMatch(/push that branch and open a pull request/);
+    expect(next).not.toMatch(/\bgit (push|switch|checkout|branch)\b/);
+    expect(next).not.toMatch(/\bgh pr\b/);
+  });
+
+  test('STATE carries the printed push-and-PR command text', () => {
+    const state = flat(read(CORE_AUDIT_DOCS).split('- **STATE**')[1].split('- **DECISIONS**')[0]);
+    expect(state).toMatch(/push-and-PR command text/);
+  });
+
+  test('the stuck-case Next text gives no git command', () => {
+    const text = read(CORE_AUDIT_DOCS);
+    expect(text).not.toMatch(/\bgit (switch|checkout|branch -[dD])\b/);
+  });
+
+  test('mirror is byte-identical', () => {
+    expect(read(CLAUDE_AUDIT_DOCS)).toBe(read(CORE_AUDIT_DOCS));
+  });
+});
