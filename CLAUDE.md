@@ -315,18 +315,19 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.12.1** (2026-10-04). 21 commands, 13 subagents. Test battery: 1609 Jest,
-124 pytest, 585 BATS. **Full release history: `CHANGELOG.md`.**
+Released at **4.13.0** (2026-10-05). 21 commands, 13 subagents. Test battery: 1815 Jest,
+124 pytest, 604 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.12.1: `/plan --implement` runs, verifies and commits the sweep, then builds the core.
-4.12.0: `/plan` keeps a finished spec's criteria verbatim and sweeps independent ones out,
-verified before the core; verification reuses live evidence while its files are unchanged.
+4.13.0: `/audit-docs` corrects or cuts `docs/` against the code on a review branch;
+PRD behaviour rewrites are listed for confirmation.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.13.0: `/audit-docs` is unproven end to end live; a TRD moved to another folder can be
+  skipped as having no implementation.
 - 4.12.x: the sweep chain is unproven live; reused swept evidence ignores core edits to
   files a swept fix read but did not change.
 - 4.11.0: after the re-audit cap, a fresh audit is still a narrow re-audit; live convergence
