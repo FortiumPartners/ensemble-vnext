@@ -102,6 +102,10 @@ describe('parsePorcelain / isHookState / readMapDirs', () => {
     expect(deliver.readMapDirs(PRD_WITH_MAP)).toEqual(['packages/core', '.claude/commands', 'parseTrd']);
   });
 
+  it('ignores a map heading quoted inside fenced code', () => {
+    expect(deliver.readMapDirs('# t\n```\n## Where this lives in the code\n- `x/y`\n```\n')).toBeNull();
+  });
+
   it('returns null when the map is absent or empty', () => {
     expect(deliver.readMapDirs('# t\n')).toBeNull();
     expect(deliver.readMapDirs('## Where this lives in the code\n\nprose only\n')).toBeNull();
@@ -234,6 +238,7 @@ describe('finalize', () => {
       { path: 'docs/TRD/skipped.md', class: 'trd', git: 'tracked', skip: 'in-flight', generated: false },
       { path: 'docs/PRD/brief.md', class: 'loose', folderClass: 'prd', structureClass: 'loose', disagreement: true, git: 'tracked', generated: false },
       { path: 'docs/PRD/INDEX.md', class: 'loose', generated: true, git: 'tracked' },
+      { path: 'docs/PRD/draft.md', class: 'prd', git: 'untracked', disagreement: false, generated: false },
     ],
   });
 
@@ -242,6 +247,7 @@ describe('finalize', () => {
     const f = fixture();
     const head = sh(f.repo, ['rev-parse', 'HEAD']);
     fs.writeFileSync(path.join(f.work, 'assembly.json'), JSON.stringify(ASSEMBLY(head)));
+    write(f.repo, 'docs/PRD/draft.md', PRD_WITH_MAP); // an untracked PRD: never in a committed index
     expect(cli(f.repo, ['prepare', '--run-id', RUN_ID, '--work', f.work]).status).toBe(0);
 
     // Batch edit: the PRD's map gains a directory, t.md gains one, gone.md is removed.
@@ -308,6 +314,7 @@ describe('finalize', () => {
     const prd = show('docs/PRD/INDEX.md');
     expect(prd).toContain('- `docs/PRD/a.md` — `packages/core`, `.claude/commands`, `test/integration`');
     expect(prd).not.toContain('brief.md');
+    expect(prd).not.toContain('draft.md'); // untracked: not part of the commit
     expect(prd).not.toContain('INDEX.md`');
     const trd = show('docs/TRD/INDEX.md');
     expect(trd).toContain('- `docs/TRD/t.md` — `a/b`'); // read from the edited tree, not the assembly
@@ -401,5 +408,17 @@ describe('CLI errors', () => {
       tree: { strays: [], hookState: [], untracked: [] },
     });
     expect(md).toContain('| (none) | | | | |');
+  });
+
+  it('names the branch the review branch was cut from, not the review branch itself', () => {
+    // assemble runs after prepare has switched, so assembly.branch is the review branch.
+    const md = deliver.renderChangeSet({
+      assembly: { runId: 'r', head: 'h', branch: 'docs-audit/r', mode: 'light', files: [] },
+      batches: [],
+      applieds: [],
+      tree: { strays: [], hookState: [], untracked: [] },
+      originalBranch: 'main',
+    });
+    expect(md).toContain('- Branch: docs-audit/r (from main)');
   });
 });

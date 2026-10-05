@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { apply, git, safeDocPath, isSignpostLine, mapSection, main } = require('./docs-audit-apply');
+const { apply, git, safeDocPath, isSignpostLine, mapSection, referenceCheck, main } = require('./docs-audit-apply');
 
 const MAP_OK = '\n## Where this lives in the code\n\n- `packages/core/lib` module\n';
 
@@ -76,6 +76,13 @@ describe('mapSection', () => {
     expect(s).toContain('`a`');
     expect(s).toContain('`b`');
     expect(s).not.toContain('`c`');
+  });
+
+  it('ignores headings inside fenced code, both as a start and as an end', () => {
+    const quoted = '# T\n```\n## Where this lives in the code\n- `example`\n```\n';
+    expect(mapSection(quoted)).toBeNull();
+    const s = mapSection('# T\n## Where this lives in the code\n- `a`\n```bash\n# a comment\n```\n- `b`\n## Next\n');
+    expect(s).toContain('`b`');
   });
 });
 
@@ -271,6 +278,35 @@ describe('removals (D10)', () => {
     const out = run(assemblyFor({ 'docs/a.md': 'loose', 'docs/b.md': 'loose' }), [remove('docs/a.md'), remove('docs/b.md')]);
     expect(out.removed).toEqual([]);
     expect(out.blocked.map((b) => b.path)).toEqual(['docs/a.md', 'docs/b.md']);
+  });
+
+  it('still decides the removal when the agent also edited the doc it proposed for removal', () => {
+    write('docs/stale.md', 'x\n');
+    commitAll('init');
+    write('docs/stale.md', 'half-edited\n');
+    const out = run(assemblyFor({ 'docs/stale.md': 'loose' }), [remove('docs/stale.md')]);
+    expect(out.reverted).toEqual([]);
+    expect(out.removed.map((r) => r.path)).toEqual(['docs/stale.md']);
+  });
+
+  it('attributes a reference that sits past the reported-text limit on a long line', () => {
+    write('docs/far.md', 'x\n');
+    write('src/long.js', `// ${'y'.repeat(400)} docs/far.md\n`);
+    commitAll('init');
+    const out = run(assemblyFor({ 'docs/far.md': 'loose' }), [remove('docs/far.md')]);
+    expect(out.removed).toEqual([]);
+    expect(out.blocked.map((b) => b.path)).toEqual(['docs/far.md']);
+  });
+
+  it('blocks every candidate when git grep itself fails, rather than treating it as no references', () => {
+    const notARepo = fs.mkdtempSync(path.join(os.tmpdir(), 'dabs-norepo-'));
+    try {
+      const { removable, blocked } = referenceCheck(notARepo, ['docs/x.md']);
+      expect(removable).toEqual([]);
+      expect([...blocked.keys()]).toEqual(['docs/x.md']);
+    } finally {
+      fs.rmSync(notARepo, { recursive: true, force: true });
+    }
   });
 
   it('writes a recovery record with path, last commit and reason, and stages the deletion', () => {

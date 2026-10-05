@@ -43,8 +43,13 @@ stdout.
 RUN_DATE="$(date +%Y-%m-%d)"
 RUN_ID="${RUN_DATE}-$(git rev-parse HEAD | cut -c1-7)"
 WORK=".trd-state/_docs-audit/work/${RUN_ID}"
-mkdir -p "$WORK"
+rm -rf "$WORK" && mkdir -p "$WORK"
 ```
+
+The run id repeats for a re-run on the same day at the same HEAD (after a STUCK run whose review
+branch was deleted, say). Finalize reads every `batch-*.json` and `applied-*.json` in `$WORK`, so
+a directory left by the earlier run would fold its stale results into this run's change set;
+start from an empty one.
 
 ### 2. Prepare the review branch
 

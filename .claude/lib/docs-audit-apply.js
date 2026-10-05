@@ -32,6 +32,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { maskFencedLines } = require('./trd-parser');
 
 const GENERATED_INDEXES = new Set(['docs/PRD/INDEX.md', 'docs/TRD/INDEX.md']);
 const RUN_RECORDS_PREFIX = '.trd-state/_docs-audit/';
@@ -97,19 +98,24 @@ function addedLines(repo, p) {
     .map((l) => l.slice(1));
 }
 
-/** The text of the code-map section of a doc, or null when it has none. */
+/**
+ * The text of the code-map section of a doc, or null when it has none. Shared with
+ * docs-audit-deliver.js (the index reads the same section). Headings inside fenced code are
+ * not headings: a doc quoting the format in a fence neither gains nor ends a map there.
+ */
 function mapSection(text) {
   const lines = String(text).split(/\r?\n/);
+  const masked = maskFencedLines(lines);
   let start = -1;
   let depth = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const m = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(lines[i]);
+  for (let i = 0; i < masked.length; i++) {
+    const m = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(masked[i]);
     if (m && m[2].toLowerCase() === MAP_HEADING.toLowerCase()) { start = i; depth = m[1].length; break; }
   }
   if (start < 0) return null;
   const out = [];
   for (let i = start + 1; i < lines.length; i++) {
-    const m = /^(#{1,6})\s/.exec(lines[i]);
+    const m = /^(#{1,6})\s/.exec(masked[i]);
     if (m && m[1].length <= depth) break;
     out.push(lines[i]);
   }
@@ -119,35 +125,49 @@ function mapSection(text) {
 // A file extension followed by :digits, a GitHub-style #L12, or "line 12".
 const LINE_REF_RE = /\.[A-Za-z0-9]+:\d+|#L\d+|\blines?\s+\d+/i;
 
-/** `git status` entries: [{ x, y, path }], NUL-delimited so odd filenames survive. */
-function statusEntries(repo) {
-  const r = git(repo, ['status', '--porcelain', '-z', '--untracked-files=all']);
-  const parts = r.stdout.split('\0');
-  const out = [];
-  for (let i = 0; i < parts.length; i++) {
-    const e = parts[i];
-    if (e.length < 4) continue;
-    const x = e[0];
-    const y = e[1];
-    out.push({ x, y, path: e.slice(3) });
-    if (x === 'R' || x === 'C') i++; // the next token is the rename source
+/**
+ * Parses `git status --porcelain=v1 -z` output into `{ x, y, path }` entries. A rename or copy
+ * (in either column) carries its origin as an extra NUL field, which is consumed and ignored.
+ * Shared with docs-audit-deliver.js.
+ */
+function parsePorcelain(out) {
+  const fields = out.split('\0');
+  const entries = [];
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
+    if (f.length < 4) continue;
+    const x = f[0];
+    const y = f[1];
+    entries.push({ x, y, path: f.slice(3) });
+    if (x === 'R' || x === 'C' || y === 'R' || y === 'C') i++;
   }
-  return out;
+  return entries;
 }
 
-/** Hits of `needles` in tracked files: [{ file, text }]. */
+/** `git status` entries: [{ x, y, path }], NUL-delimited so odd filenames survive. */
+function statusEntries(repo) {
+  return parsePorcelain(git(repo, ['status', '--porcelain=v1', '-z', '--untracked-files=all']).stdout);
+}
+
+/**
+ * Hits of `needles` in tracked files: [{ file, line, text }]. Returns null when git grep itself
+ * failed (exit > 1): the caller must treat that as "references unknown", never as "none".
+ */
 function grepHits(repo, needles) {
+  if (needles.length === 0) return [];
   const args = ['grep', '-F', '-I', '-n', '-z', '--no-color'];
   for (const n of needles) args.push('-e', n);
   const r = git(repo, args);
-  if (r.status !== 0 && r.status !== 1) return [];
+  if (r.status === 1) return [];
+  if (r.status !== 0) return null;
   // -z -n output is `file \0 lineno \0 text \n`; a match's text never holds a newline.
   const hits = [];
   for (const row of r.stdout.split('\n')) {
     const i = row.indexOf('\0');
     const j = row.indexOf('\0', i + 1);
     if (i < 0 || j < 0) continue;
-    hits.push({ file: row.slice(0, i), line: row.slice(i + 1, j), text: row.slice(j + 1).trim().slice(0, MAX_HIT_TEXT) });
+    // Full line text: attribution to a candidate must see a needle wherever it sits on the line.
+    hits.push({ file: row.slice(0, i), line: row.slice(i + 1, j), text: row.slice(j + 1) });
   }
   return hits;
 }
@@ -162,7 +182,18 @@ function referenceCheck(repo, candidates) {
   const remaining = new Set(candidates);
   const blocked = new Map();
   const hitsFor = new Map();
-  for (const c of candidates) hitsFor.set(c, grepHits(repo, [c, path.posix.basename(c)]));
+  // One scan of the repo for every candidate's path and basename, then attribute each hit.
+  const needlesFor = new Map(candidates.map((c) => [c, [c, path.posix.basename(c)]]));
+  const all = grepHits(repo, [...new Set([...needlesFor.values()].flat())]);
+  if (all === null) {
+    // A failed scan proves nothing; deleting on it would fail open on the expensive mistake.
+    for (const c of candidates) blocked.set(c, ['git grep failed; references could not be checked']);
+    return { removable: [], blocked };
+  }
+  for (const c of candidates) {
+    const needles = needlesFor.get(c);
+    hitsFor.set(c, all.filter((h) => needles.some((n) => h.text.includes(n))));
+  }
   let changed = true;
   while (changed) {
     changed = false;
@@ -175,7 +206,7 @@ function referenceCheck(repo, candidates) {
       });
       if (real.length) {
         remaining.delete(c);
-        blocked.set(c, real.map((h) => `${h.file}:${h.line}:${h.text}`));
+        blocked.set(c, real.map((h) => `${h.file}:${h.line}:${h.text.trim().slice(0, MAX_HIT_TEXT)}`));
         changed = true;
       }
     }
@@ -217,6 +248,7 @@ function apply({ repo, assembly, result }) {
   const dead = new Set(((result && result.dead) || []).map(safeDocPath).filter(Boolean));
   const failed = (p) => dead.has(p) || (records.get(p) && records.get(p).outcome === 'failed');
   const claimed = (p) => records.has(p) && records.get(p).outcome === 'edited';
+  const proposedRemoval = (p) => records.has(p) && records.get(p).outcome === 'remove-proposed';
 
   // 2. Revert changes no record claims. Hook-written .trd-state is exempt and only listed.
   for (const { x, y, path: p } of statusEntries(repo)) {
@@ -227,6 +259,12 @@ function apply({ repo, assembly, result }) {
     if (p.startsWith(STATE_PREFIX) && !p.startsWith(RUN_RECORDS_PREFIX)) { out.hookState.push(p); continue; }
     if (p.startsWith(RUN_RECORDS_PREFIX)) continue;
     if (claimed(p)) continue;
+    if (proposedRemoval(p) && x !== 'A') {
+      // The doc is going away if the reference check allows it: drop the stray edit quietly so
+      // the removal is still decided in step 4, rather than mislabelled and silently dropped.
+      git(repo, ['checkout', 'HEAD', '--', p]);
+      continue;
+    }
     if (x === 'A') { // a file the agent created and staged: unstage, report as a newcomer
       git(repo, ['reset', '-q', 'HEAD', '--', p]);
       out.untracked.push(p);
@@ -327,4 +365,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { apply, git, safeDocPath, isSignpostLine, mapSection, referenceCheck, main };
+module.exports = { apply, git, safeDocPath, isSignpostLine, mapSection, parsePorcelain, referenceCheck, main };

@@ -27,6 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { mapSection, parsePorcelain } = require('./docs-audit-apply');
 
 const AUDIT_DIR = '.trd-state/_docs-audit';
 const MARKER_PATH = `${AUDIT_DIR}/last-run.json`;
@@ -53,24 +54,6 @@ function git(repo, args) {
     throw new DeliverError(`git ${args.join(' ')} failed: ${why}`);
   }
   return r.stdout;
-}
-
-/**
- * Parses `git status --porcelain=v1 -z` output into `{ x, y, path }` entries. A rename or copy
- * carries its origin as an extra NUL field, which is consumed and ignored.
- */
-function parsePorcelain(out) {
-  const fields = out.split('\0');
-  const entries = [];
-  for (let i = 0; i < fields.length; i++) {
-    const f = fields[i];
-    if (f.length < 4) continue;
-    const x = f[0];
-    const y = f[1];
-    entries.push({ x, y, path: f.slice(3) });
-    if (x === 'R' || x === 'C' || y === 'R' || y === 'C') i++;
-  }
-  return entries;
 }
 
 /**
@@ -195,13 +178,10 @@ function commitBatch({ repo, applied, batch }) {
  * Read from the doc's text as it stands now (after the model's edits), never from the assembly.
  */
 function readMapDirs(text) {
-  const lines = text.split('\n');
-  const start = lines.findIndex((l) => /^#{1,6}\s+/.test(l) && l.replace(/^#+\s+/, '').trim() === MAP_HEADING);
-  if (start === -1) return null;
+  const section = mapSection(text);
+  if (section === null) return null;
   const dirs = [];
-  for (let i = start + 1; i < lines.length; i++) {
-    const l = lines[i];
-    if (/^#{1,6}\s/.test(l)) break;
+  for (const l of section.split('\n')) {
     const m = /^\s*[-*]\s+`([^`]+)`/.exec(l);
     if (!m) continue;
     const reduced = m[1]
@@ -239,7 +219,8 @@ function writeIndexes(repo, files) {
   const written = [];
   for (const kind of ['prd', 'trd']) {
     const docs = files
-      .filter((f) => f.class === kind && !f.generated && f.path !== INDEX_PATHS[kind])
+      // Untracked and ignored docs are not part of the commit, so a committed index must not name them.
+      .filter((f) => f.class === kind && !f.generated && f.git === 'tracked' && f.path !== INDEX_PATHS[kind])
       .map((f) => f.path)
       .filter((p) => fs.existsSync(path.join(repo, p)))
       .sort();
@@ -272,7 +253,7 @@ function listWork(work, prefix) {
  * Renders the change set from the assembly, every batch result and every apply result, plus the
  * tree state `finalize` found. Pure: returns markdown.
  */
-function renderChangeSet({ assembly, batches, applieds, tree }) {
+function renderChangeSet({ assembly, batches, applieds, tree, originalBranch = null }) {
   const files = assembly.files || [];
   const records = batches.flatMap((b) => b.records || []);
   const recordByPath = new Map(records.map((r) => [r.path, r]));
@@ -280,7 +261,9 @@ function renderChangeSet({ assembly, batches, applieds, tree }) {
   out.push(`# Docs audit change set — ${assembly.runId}`, '');
   out.push(`- Mode: ${assembly.mode}${assembly.modeReason ? ` (${assembly.modeReason})` : ''}`);
   out.push(`- Reviewed HEAD: ${assembly.head}`);
-  out.push(`- Branch: docs-audit/${assembly.runId} (from ${assembly.branch})`, '');
+  // assemble runs after `prepare` has switched to the review branch, so assembly.branch names
+  // the review branch itself; the branch it was cut from is the one branch.json recorded.
+  out.push(`- Branch: docs-audit/${assembly.runId} (from ${originalBranch || assembly.branch})`, '');
 
   // Per doc: every record, and every PRD/TRD the batches did not carry (skipped TRDs).
   out.push('## Documents', '', '| Doc | Class | Score | Depth | Outcome |', '|---|---|---|---|---|');
@@ -391,7 +374,7 @@ function finalize({ repo, work }) {
   fs.mkdirSync(path.join(repo, RUNS_DIR), { recursive: true });
   fs.writeFileSync(
     path.join(repo, changeSetRel),
-    renderChangeSet({ assembly, batches, applieds, tree: { strays, hookState, untracked } })
+    renderChangeSet({ assembly, batches, applieds, tree: { strays, hookState, untracked }, originalBranch: meta.originalBranch })
   );
   writeJson(path.join(repo, MARKER_PATH), {
     sha: assembly.head,
