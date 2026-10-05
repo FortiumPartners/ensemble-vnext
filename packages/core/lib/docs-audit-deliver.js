@@ -266,7 +266,7 @@ function renderChangeSet({ assembly, batches, applieds, tree, originalBranch = n
   // the review branch itself; the branch it was cut from is the one branch.json recorded.
   out.push(`- Branch: docs-audit/${assembly.runId} (from ${originalBranch || assembly.branch})`, '');
 
-  // Per doc: every record, and every PRD/TRD the batches did not carry (skipped TRDs).
+  // Per doc: every record, and every PRD/TRD the batches did not carry (skipped TRDs and PRDs).
   out.push('## Documents', '', '| Doc | Class | Score | Depth | Outcome |', '|---|---|---|---|---|');
   const rows = [];
   for (const r of records) {
@@ -275,7 +275,7 @@ function renderChangeSet({ assembly, batches, applieds, tree, originalBranch = n
   for (const f of files) {
     if (recordByPath.has(f.path) || f.generated) continue;
     if (f.class !== 'prd' && f.class !== 'trd') continue;
-    const skip = f.skip || (f.trd && f.trd.skip) || null;
+    const skip = f.skip;
     if (!skip) continue;
     rows.push({ path: f.path, cls: f.class, score: null, depth: 'none', outcome: `skipped (${skip})` });
   }
