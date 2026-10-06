@@ -137,14 +137,18 @@
     "VMP-D001": {
       "description": "docs/reference/verification.md (outcome table, decideNext precedence, the Must pass columns, the report's Must pass line",
       "phase": 3,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/reference/verification.md",
+        "docs/reference/implement-trd.md"
+      ],
       "commit": null,
       "started_at": "2026-10-06T09:09:11.365Z",
-      "completed_at": null
+      "completed_at": "2026-10-06T09:10:48.909Z",
+      "last_advanced": "2026-10-06T09:10:42.089Z"
     },
     "VMP-T001": {
       "description": "[LIVE] Add the opt-in smoke scenario test/smoke/scenarios/verification-must-pass.sh, registered in LLM_OPT_IN_SCENARIOS,",
