@@ -117,9 +117,37 @@ describe('functional-verification contract', () => {
     expect(coreText).toMatch(/may\s+\*\*not\*\*\s+edit source, rebuild, restart, or re-deploy/);
   });
 
-  test('states insufficient-coverage in the loop exit vocabulary, alongside the other four outcomes', () => {
-    expect(coreText).toMatch(/`satisfied`, `unbuilt`, `stalled`,\s*\n?`stuck`, or `insufficient-coverage`/);
+  test('states insufficient-coverage and must-pass-unproven in the loop exit vocabulary: six outcomes', () => {
+    expect(coreText).toMatch(/one of six outcomes: `satisfied`, `unbuilt`, `stalled`,\s*\n?`stuck`, `insufficient-coverage`, or `must-pass-unproven`/);
     expect(coreText).toMatch(/never `unbuilt`/);
+    expect(coreText).not.toMatch(/one of five outcomes/);
+  });
+
+  test('defines must-pass-unproven and its precedence: the coverage re-label wins (D8, D9)', () => {
+    expect(coreText).toMatch(/`must-pass-unproven`[^\n]*\n?[\s\S]{0,600}reached only from\s*\n?a\s*\n?`satisfied`/);
+    expect(coreText).toMatch(/`insufficient-coverage` keeps\s*\n?winning/);
+    expect(coreText).toMatch(/names each unproven\s*\n?must-pass criterion/);
+  });
+
+  test('the success-definition example carries the Must pass column as the last column, with one marked row (D2)', () => {
+    expect(coreText).toMatch(/\|\s*Tier 1\s*\|\s*Parts\s*\|\s*Must pass\s*\|/);
+    expect(coreText).toMatch(/\|\s*\[read\]\s*\|\s*locator\s*\|\s*\|\s*O1\s*\|/);
+  });
+
+  test('has a Must pass section: objective ids, blank is ordinary, absent reads blank, check rows blank (D2)', () => {
+    expect(coreText).toMatch(/## Must pass — the objectives a criterion proves/);
+    expect(coreText).toMatch(/An absent\s*\n?column, or an absent cell, reads as blank/);
+    expect(coreText).toMatch(/check row leaves `Must pass` blank/);
+    expect(coreText).toMatch(/uses the same eight\s*\n?columns/);
+    expect(coreText).not.toMatch(/same seven columns/);
+  });
+
+  test('states the narrow isolation exception for must-pass objectives, id and text only (D3)', () => {
+    expect(coreText).toMatch(/stated exception to the isolation rule/);
+    expect(coreText).toMatch(/`\{id, text\}` only/);
+    expect(coreText).toMatch(/no\s*\n?Source column, no tasks, no TRD path/);
+    expect(coreText).toMatch(/never a `Cites` source/);
+    expect(coreText).toMatch(/never writes a criterion to cover/);
   });
 
   test('no longer claims every status is freshly produced by the final iteration (VCON-B004 correction)', () => {

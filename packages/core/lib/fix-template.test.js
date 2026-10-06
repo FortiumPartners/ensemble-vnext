@@ -77,6 +77,7 @@ function fill(tpl) {
     'nothing'
   );
   return out
+    .replace(/<yes, or blank>/g, 'yes')
     .replace(/`path\/to\/file\.ts`/g, '`src/export.ts`')
     .replace(/\.\.\. \[read\]/g, 'the chunking loop [read]')
     .replace(/\.\.\. \[ran\]/g, 'the old off-by-one guard [ran]')

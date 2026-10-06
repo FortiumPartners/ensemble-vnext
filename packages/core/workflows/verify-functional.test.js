@@ -525,7 +525,7 @@ describe('verify-functional: the Judge is told the exact state-file key names', 
     // null on remediate, a real outcome string otherwise -- both halves stated, now including
     // insufficient-coverage (VCON-B004, D10).
     expect(capturedPrompt).toMatch(/null when decide-next returned "remediate"/);
-    expect(capturedPrompt).toMatch(/"satisfied", "unbuilt", "stalled", "stuck" or "insufficient-coverage"/);
+    expect(capturedPrompt).toMatch(/"satisfied", "unbuilt", "stalled", "stuck", "insufficient-coverage" or "must-pass-unproven"/);
     // The consequence is spelled out, so a judge that is tempted to omit the key knows why not.
     expect(capturedPrompt).toMatch(/Omitting the key\s+entirely reads as null/);
     expect(capturedPrompt).toContain('Write it on EVERY iteration');
@@ -2639,6 +2639,314 @@ describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captu
       runWorkflow(SOURCE, { agent, args: baseArgs({ liveEvidence: [entry(), entry(over)] }) })
     ).rejects.toThrow(/liveEvidence\[1\]/);
     expect(agent.calls).toHaveLength(0);
+  });
+});
+
+// --------------------------------------------------------------------------- must-pass (VMP-B002, D7, D11, D12)
+
+describe('verify-functional: must-pass enforcement', () => {
+  // FS-1 is met; FS-2 is the must-pass criterion and is NOT proven (not_verifiable has no gap,
+  // so decide-next sees a clean base `exit-satisfied`). That is the defect this task closes.
+  const unprovenCriteria = [
+    { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, files: [] },
+    { id: 'FS-2', status: 'not_verifiable', tier1: 'skipped', artifact: null, reason: 'no environment reaches it', cause: 'environment-unreachable', files: [] },
+  ];
+
+  function run({ judge, args = {}, reconcile } = {}) {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return judge;
+      if (opts.label === 'reconcile') return reconcile === undefined ? { reconciled: true } : reconcile;
+      return null;
+    });
+    return runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'], ...args }) }).then((r) => ({ ...r, agent }));
+  }
+  const reconcileCalls = (agent) => agent.calls.filter((c) => c.opts.label === 'reconcile');
+
+  it('overrides a Judge exit-satisfied to must-pass-unproven, after exactly one reconcile dispatch', async () => {
+    const { result, agent } = await run({ judge: satisfiedJudge({ criteria: unprovenCriteria }) });
+
+    expect(result.outcome).toBe('must-pass-unproven');
+    expect(result.mustPass).toEqual({
+      criteria: ['FS-2'],
+      uncovered: [],
+      unproven: [{ id: 'FS-2', status: 'not_verifiable' }],
+      overridden: true,
+    });
+    expect(result.reason).toMatch(/FS-2/);
+    expect(result.reason).toMatch(/core was not shown to work/);
+    expect(reconcileCalls(agent)).toHaveLength(1);
+    const [call] = reconcileCalls(agent);
+    expect(call.opts.model).toBe('sonnet');
+    expect(call.opts.schema).toBeDefined();
+    // The reconcile agent is handed everything it needs directly (a Judge that forgot to copy
+    // the must-pass literals into the report input cannot starve it).
+    expect(call.prompt).toContain('.trd-state/example/judge-report-input-1.json');
+    expect(call.prompt).toContain('.trd-state/example/verification-state.json');
+    expect(call.prompt).toContain('.trd-state/example/verification-report.md');
+    expect(call.prompt).toContain('.claude/lib/functional-verification.js');
+    expect(call.prompt).toContain('.claude/lib/implement-state');
+    expect(call.prompt).toContain('must-pass-unproven');
+    expect(call.prompt).toContain('["FS-2"]');
+    expect(unpinnedLabels(agent)).toEqual([]);
+  });
+
+  it('dispatches the reconcile agent before the Render agents, so Render prints the final action', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') return satisfiedJudge({ criteria: unprovenCriteria });
+      if (opts.label === 'reconcile') return { reconciled: true };
+      if (opts.label === 'render') return { rendered: true, page: 'p', cards: 1 };
+      return null;
+    });
+    const args = baseArgs({
+      mustPassIds: ['FS-2'],
+      criteria: [criterion('FS-1'), checkCriterion('FS-2', 'design-check')],
+      checks: { 'design-check': 'CHECK SKILL TEXT' },
+      pagesDir: '.trd-state/example/pages',
+    });
+    await runWorkflow(SOURCE, { agent, args });
+    const labels = agent.calls.map((c) => c.opts.label);
+    expect(labels.indexOf('reconcile')).toBeGreaterThan(-1);
+    expect(labels.indexOf('reconcile')).toBeLessThan(labels.indexOf('render'));
+    const render = agent.calls.find((c) => c.opts.label === 'render');
+    expect(render.prompt).toContain("The Judge's action this iteration: exit-must-pass-unproven.");
+  });
+
+  it('a Judge that already returns exit-must-pass-unproven is taken as is: no override, no reconcile dispatch', async () => {
+    const { result, agent } = await run({
+      judge: satisfiedJudge({ action: 'exit-must-pass-unproven', reason: 'FS-2 not proven', criteria: unprovenCriteria }),
+    });
+    expect(result.outcome).toBe('must-pass-unproven');
+    expect(result.reason).toBe('FS-2 not proven');
+    expect(result.mustPass.overridden).toBe(false);
+    expect(reconcileCalls(agent)).toHaveLength(0);
+  });
+
+  it("with no must-pass declared the result is today's plus a quiet mustPass key, and nothing is reconciled", async () => {
+    const { result, agent } = await run({
+      args: { mustPassIds: undefined },
+      judge: satisfiedJudge({ criteria: unprovenCriteria }),
+    });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.mustPass).toEqual({ criteria: [], uncovered: [], unproven: [], overridden: false });
+    expect(reconcileCalls(agent)).toHaveLength(0);
+  });
+
+  it('a proven must-pass criterion passes through untouched', async () => {
+    const { result, agent } = await run({ args: { mustPassIds: ['FS-1'] }, judge: satisfiedJudge({ criteria: unprovenCriteria }) });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.mustPass).toEqual({ criteria: ['FS-1'], uncovered: [], unproven: [], overridden: false });
+    expect(reconcileCalls(agent)).toHaveLength(0);
+  });
+
+  it('an uncovered objective alone blocks, and the result carries its id', async () => {
+    const { result, agent } = await run({
+      args: { mustPassIds: [], mustPassUncovered: [{ id: 'O3', text: 'Users can sign in' }] },
+      judge: satisfiedJudge(),
+    });
+    expect(result.outcome).toBe('must-pass-unproven');
+    expect(result.reason).toMatch(/O3/);
+    expect(result.mustPass.uncovered).toEqual(['O3']);
+    expect(result.mustPass.overridden).toBe(true);
+    expect(reconcileCalls(agent)).toHaveLength(1);
+    expect(reconcileCalls(agent)[0].prompt).toContain('Users can sign in');
+  });
+
+  describe('against the coverage floor (D9, D11)', () => {
+    const zeroGapCoverage = (overrides) =>
+      satisfiedJudge({ action: 'exit-insufficient-coverage', reason: 'proven ratio 1/2 is below the floor', criteria: unprovenCriteria, ...overrides });
+
+    it('a Judge insufficient-coverage with zero gaps becomes must-pass-unproven when no floor is set', async () => {
+      const { result, agent } = await run({ judge: zeroGapCoverage() });
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(result.mustPass.overridden).toBe(true);
+      expect(reconcileCalls(agent)).toHaveLength(1);
+    });
+
+    it('... and when the floor is cleared (1 of 2 proven, floor 0.5)', async () => {
+      const { result } = await run({ args: { coverageFloor: 0.5 }, judge: zeroGapCoverage() });
+      expect(result.outcome).toBe('must-pass-unproven');
+      expect(result.mustPass.overridden).toBe(true);
+    });
+
+    it('is kept, with no reconcile, when the floor is really missed (floor 0.8)', async () => {
+      const { result, agent } = await run({ args: { coverageFloor: 0.8 }, judge: zeroGapCoverage() });
+      expect(result.outcome).toBe('insufficient-coverage');
+      expect(result.reason).toBe('proven ratio 1/2 is below the floor');
+      expect(result.mustPass.overridden).toBe(false);
+      expect(reconcileCalls(agent)).toHaveLength(0);
+    });
+
+    it('a Judge exit-satisfied with the floor missed becomes insufficient-coverage, naming the must-pass ids', async () => {
+      const { result, agent } = await run({ args: { coverageFloor: 0.8 }, judge: satisfiedJudge({ criteria: unprovenCriteria }) });
+      expect(result.outcome).toBe('insufficient-coverage');
+      expect(result.reason).toMatch(/FS-2/);
+      expect(result.reason).toMatch(/coverage floor 80%/);
+      expect(result.mustPass.overridden).toBe(true);
+      expect(reconcileCalls(agent)).toHaveLength(1);
+      expect(reconcileCalls(agent)[0].prompt).toContain('"insufficient-coverage"');
+    });
+  });
+
+  it('never overrides a Judge exit-stalled (a gap is present, so the base action already blocks)', async () => {
+    const { result, agent } = await run({
+      judge: satisfiedJudge({
+        action: 'exit-stalled',
+        reason: 'nothing closed',
+        criteria: [
+          { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] },
+          { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'x', files: [] },
+        ],
+        gaps: ['FS-2'],
+      }),
+    });
+    expect(result.outcome).toBe('stalled');
+    expect(result.mustPass.overridden).toBe(false);
+    expect(result.mustPass.unproven).toEqual([{ id: 'FS-2', status: 'not_met' }]);
+    expect(reconcileCalls(agent)).toHaveLength(0);
+  });
+
+  it("does not override a satisfied exit that still has a not_met criterion elsewhere (the Judge's call stands)", async () => {
+    const { result } = await run({
+      judge: satisfiedJudge({
+        criteria: [
+          { id: 'FS-1', status: 'not_met', tier1: 'fail', artifact: null, reason: 'x', files: [] },
+          { id: 'FS-2', status: 'not_verifiable', tier1: 'skipped', artifact: null, reason: 'y', cause: 'capability-absent', files: [] },
+        ],
+      }),
+    });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.mustPass.overridden).toBe(false);
+  });
+
+  it("reads the final criteria list, settled entries included, not just this iteration's returns", async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        if (judgeCalls === 1) return remediateJudge(); // FS-2 met and settled, FS-1 open
+        // Iteration 2 returns only the open criterion; FS-2 (the must-pass one) is settled met.
+        return satisfiedJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }] });
+      }
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'fixed' }] };
+      return null;
+    });
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2'] }) });
+    expect(result.outcome).toBe('satisfied');
+    expect(result.mustPass.unproven).toEqual([]);
+    expect(result.mustPass.overridden).toBe(false);
+    expect(agent.calls.filter((c) => c.opts.label === 'reconcile')).toHaveLength(0);
+  });
+
+  it('a dead reconcile agent adds the stale-report suffix to the reason and still returns the overridden outcome', async () => {
+    const { result, agent } = await run({ judge: satisfiedJudge({ criteria: unprovenCriteria }), reconcile: null });
+    expect(result.outcome).toBe('must-pass-unproven');
+    expect(result.reason).toMatch(/\(report file still shows the Judge's outcome — the reconcile agent returned nothing\)$/);
+    expect(reconcileCalls(agent)).toHaveLength(1);
+  });
+
+  it('runs the re-check on the zero-criteria branch too, reconciling against iteration 0', async () => {
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'judge') return satisfiedJudge({ criteria: [], reason: 'no criteria' });
+      if (opts.label === 'reconcile') return { reconciled: true };
+      return null;
+    });
+    const { result } = await runWorkflow(SOURCE, {
+      agent,
+      args: baseArgs({ criteria: [], mustPassIds: [], mustPassUncovered: [{ id: 'O1', text: 'The core thing works' }] }),
+    });
+    expect(result.outcome).toBe('must-pass-unproven');
+    expect(result.mustPass.uncovered).toEqual(['O1']);
+    const calls = agent.calls.filter((c) => c.opts.label === 'reconcile');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].prompt).toContain('judge-report-input-0.json');
+  });
+
+  it('carries mustPass on the resume-exhausted exit and on the cap fall-through exit', async () => {
+    const resumed = await runWorkflow(SOURCE, {
+      agent: makeAgentStub({}),
+      args: baseArgs({
+        mustPassIds: ['FS-2'],
+        resume: { iteration: 3, criteria: [{ id: 'FS-1', status: 'met' }, { id: 'FS-2', status: 'not_met' }], gapsClosed: [] },
+      }),
+    });
+    expect(resumed.result.outcome).toBe('stuck');
+    expect(resumed.result.mustPass).toEqual({ criteria: ['FS-2'], uncovered: [], unproven: [{ id: 'FS-2', status: 'not_met' }], overridden: false });
+
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }]);
+      if (opts.label === 'judge') return remediateJudge();
+      if (opts.label === 'debug') return { results: [{ criterion: 'FS-1', result: 'tried' }] };
+      return null;
+    });
+    const fell = await runWorkflow(SOURCE, { agent, args: baseArgs({ mustPassIds: ['FS-2', 'FS-9'], cap: 1 }) });
+    expect(fell.result.outcome).toBe('stuck');
+    expect(fell.result.mustPass.criteria).toEqual(['FS-2', 'FS-9']);
+    // FS-2 was proven and settled; FS-9 is named by a mark but absent from the definition:
+    // reported 'missing', never thrown on.
+    expect(fell.result.mustPass.unproven).toEqual([{ id: 'FS-9', status: 'missing' }]);
+  });
+
+  describe('arg validation, before any agent runs', () => {
+    const bad = [
+      ['mustPassIds not an array', { mustPassIds: 'FS-2' }, /args\.mustPassIds/],
+      ['mustPassIds holding a non-string', { mustPassIds: ['FS-2', 7] }, /args\.mustPassIds/],
+      ['mustPassUncovered not an array', { mustPassUncovered: { id: 'O1' } }, /args\.mustPassUncovered/],
+      ['mustPassUncovered entry without an id', { mustPassUncovered: [{ text: 'x' }] }, /args\.mustPassUncovered/],
+      ['mustPassUncovered entry with a non-string id', { mustPassUncovered: [{ id: 3 }] }, /args\.mustPassUncovered/],
+      ['mustPassUncovered holding a bare string', { mustPassUncovered: ['O1'] }, /args\.mustPassUncovered/],
+    ];
+    it.each(bad)('%s throws', async (_name, overrides, pattern) => {
+      const agent = makeAgentStub(() => satisfiedJudge());
+      await expect(runWorkflow(SOURCE, { agent, args: baseArgs(overrides) })).rejects.toThrow(pattern);
+      expect(agent.calls).toHaveLength(0);
+    });
+  });
+
+  describe('the Judge prompt', () => {
+    it('names the must-pass literals, the id-only uncovered list, the verbatim report-input list and the new outcome and action', async () => {
+      let prompt = null;
+      const agent = makeAgentStub((p, opts) => {
+        if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+        if (opts.label === 'judge') {
+          prompt = p;
+          return satisfiedJudge({ action: 'exit-must-pass-unproven', criteria: unprovenCriteria });
+        }
+        return null;
+      });
+      await runWorkflow(SOURCE, {
+        agent,
+        args: baseArgs({ mustPassIds: ['FS-2'], mustPassUncovered: [{ id: 'O3', text: 'Users can sign in' }] }),
+      });
+      expect(prompt).toContain('"mustPass":["FS-2"]');
+      expect(prompt).toContain('"mustPassUncovered":["O3"]'); // decide-next gets ids only
+      expect(prompt).toContain('"mustPassUncovered": [{"id":"O3","text":"Users can sign in"}]'); // the report gets {id,text}
+      expect(prompt).toContain('"mustPass": ["FS-2"]');
+      expect(prompt).toContain('must-pass-unproven');
+      expect(prompt).toContain('"exit-must-pass-unproven"');
+    });
+
+    it('carries both literals as [] when nothing is declared, because decideNext requires them', async () => {
+      let prompt = null;
+      const agent = makeAgentStub((p, opts) => {
+        if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }]);
+        if (opts.label === 'judge') {
+          prompt = p;
+          return satisfiedJudge();
+        }
+        return null;
+      });
+      await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1')] }) });
+      expect(prompt).toContain('"mustPass":[]');
+      expect(prompt).toContain('"mustPassUncovered":[]');
+    });
+
+    it('lists the action in JUDGE_SCHEMA and the outcome in the outcome map', () => {
+      expect(SOURCE).toMatch(/enum:\s*\[[^\]]*'exit-must-pass-unproven'[^\]]*\]/);
+      expect(SOURCE).toMatch(/'exit-must-pass-unproven': 'must-pass-unproven'/);
+    });
   });
 });
 

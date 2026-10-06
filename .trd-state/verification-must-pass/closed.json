@@ -1,0 +1,12 @@
+{
+  "feature": "verification-must-pass",
+  "trd": "docs/TRD/verification-must-pass.md",
+  "closedAt": "2026-10-06T19:23:28Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: the live end-to-end smoke test (VMP-T001, a [LIVE] task deferred by design) was never written, so the path where a must-pass criterion is \"not verifiable\" and blocks the run has been proven only by unit tests, never in a live session; one Could Not Verify row (whether every TRD lacking an Objectives table is PRD-sourced) stays open as planning context.",
+    "report": ".trd-state/verification-must-pass/audit-build-report.md",
+    "auditedCommit": "974f4da"
+  }
+}

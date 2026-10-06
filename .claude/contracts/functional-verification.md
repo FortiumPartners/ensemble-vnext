@@ -42,8 +42,9 @@ convention exists to prevent — do not write one.
 ## Deriving the success definition
 
 **Who does this:** a `product-manager` agent, given **the source and nothing else** — no TRD
-path, no TRD excerpt, no task list. It does not know what was built; it knows only what was
-asked for.
+path, no TRD excerpt, no task list — with one narrow, stated exception: the TRD's must-pass
+objectives, as `{id, text}` pairs (see "Must pass — the objectives a criterion proves,"
+below). It does not know what was built; it knows only what was asked for.
 
 **Five source kinds are valid.** The loop needs a statement of what success looks like; a PRD
 is one way to supply that, not the only one. Whichever of the first four applies, the agent
@@ -65,6 +66,17 @@ the plan was followed rather than that the outcome was reached. A reproduction a
 decision are statements of *outcome*, and stay legitimate sources; the TRD file that happens
 to contain them also contains the plan, and must never be handed over.
 
+**A stated exception to the isolation rule: must-pass objectives.** When the TRD's
+`## Objectives` table marks objectives `Must pass`, the deriver receives those objectives as
+`{id, text}` only — no
+Source column, no tasks, no TRD path. An objective statement is an
+outcome statement, not plan, which is why it may cross. It is used for one thing: the deriver
+marks, in each criterion's `Must pass` cell, the objective id(s) that criterion proves. It
+never writes a criterion to cover an objective the source does not support — the citation rule
+is unchanged and an objective is never a `Cites` source, so such an objective is simply left
+uncovered, and the run reports it rather than passing. This is a deliberate, narrow departure,
+not drift.
+
 **Output:** `.trd-state/<feature>/success-definition.md` —
 
 ```markdown
@@ -78,11 +90,11 @@ to contain them also contains the plan, and must never be handed over.
 <!-- Source kind `spec`: the rows are a spec section's acceptance criteria, copied verbatim by
      `spec-scope.js criteria`, never derived by an agent. -->
 
-| ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts |
-|----|----------------------|-------|------------------------------|------------|--------|-------|
-| FS-1 | A user can sign in with a valid password and reach the dashboard | FR-2, §4 line 51 | HTTP transcript: POST /auth/login → 200 with a session cookie; screenshot of the dashboard | [read] | locator | |
-| FS-2 | A repeated submit does not create two orders | domain-derived: payment flows must not double-charge | Two POSTs with one idempotency key → one row in `orders` | domain-derived | locator | |
-| FS-3 | Each of the 32 design frames renders pixel-for-pixel against its reference PNG | FR-9, §2 line 14 | screenshot of each frame, paired against that frame's design PNG (see "Alignment artifacts," below) | [read] | judge-only — pixel/colour comparison, no text assertion is possible | 32 |
+| ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts | Must pass |
+|----|----------------------|-------|------------------------------|------------|--------|-------|-----------|
+| FS-1 | A user can sign in with a valid password and reach the dashboard | FR-2, §4 line 51 | HTTP transcript: POST /auth/login → 200 with a session cookie; screenshot of the dashboard | [read] | locator | | O1 |
+| FS-2 | A repeated submit does not create two orders | domain-derived: payment flows must not double-charge | Two POSTs with one idempotency key → one row in `orders` | domain-derived | locator | | |
+| FS-3 | Each of the 32 design frames renders pixel-for-pixel against its reference PNG | FR-9, §2 line 14 | screenshot of each frame, paired against that frame's design PNG (see "Alignment artifacts," below) | [read] | judge-only — pixel/colour comparison, no text assertion is possible | 32 | |
 ```
 
 **The citation rule (mandatory).** Every row's `Cites` column names **a line or section of the
@@ -222,6 +234,25 @@ contract already states — so a definition written before this change still par
 
 ---
 
+## Must pass — the objectives a criterion proves
+
+The success-definition table's `Must pass` column is the **last** column, after `Parts`. A
+cell holds the objective id or ids the criterion proves (`O3` or `O3, O4`), naming objectives
+the TRD's `## Objectives` table marked `Must pass`. **Blank means ordinary.** An absent
+column, or an absent cell, reads as blank — the same convention `Tier 1` uses — so a
+definition written before this column existed, and a check row appended afterwards, parse
+unchanged. A check row leaves `Must pass` blank and never carries a mark.
+
+**Naming the objective, not a bare yes, is what makes coverage checkable:** a must-pass
+objective that no criterion names is *uncovered*, and an uncovered objective blocks
+`satisfied` exactly as an unproven must-pass criterion does. A cell naming an id that is not
+a declared must-pass objective is treated as ordinary. The marking is made by the deriver
+under the exception stated in "Deriving the success definition," or copied by
+`spec-scope.js criteria` on the spec path; it is never added later by the Judge or the
+exerciser.
+
+---
+
 ## Check criteria
 
 Check rows are appended by the orchestrator to the table above, from the TRD's selected
@@ -230,7 +261,8 @@ deriver never writes a `check:` row** — it works from the source alone, per th
 rule above, and does not know which checks a TRD selected; a deriver that started writing
 them would be reading a task list it is deliberately kept blind to.
 
-A check row uses the same seven columns as any other row, with three of them fixed by this
+A check row uses the same eight columns as any other row (it leaves `Must pass` blank, by the
+absent-cell rule), with three of them fixed by this
 convention rather than left to the writer:
 
 - **Derivation** is always `check:<skill>` — the name of the skill that produced the row
@@ -490,8 +522,8 @@ proven, not necessarily the final iteration's own reading. The report does not n
 disambiguate a carried-forward status from a fresh one; it only needs to render whichever one
 the criterion actually carries.
 
-**The loop's own exit carries one of five outcomes: `satisfied`, `unbuilt`, `stalled`,
-`stuck`, or `insufficient-coverage`.** The first four are the ordinary shape — every gap
+**The loop's own exit carries one of six outcomes: `satisfied`, `unbuilt`, `stalled`,
+`stuck`, `insufficient-coverage`, or `must-pass-unproven`.** The first four are the ordinary shape — every gap
 closed, an absent capability found, remediation not converging, or the iteration cap reached.
 `insufficient-coverage` is a re-label of `satisfied`, `stalled` or `stuck` (never `unbuilt` —
 "nothing was built" is the truer statement and wins outright): when the proportion of
@@ -500,6 +532,20 @@ this name instead, and the report carries the ratio and which criteria remain un
 is the case a "passing" run can otherwise hide: a run whose criteria mostly resolved
 `not_verifiable` has no open gaps and would otherwise exit `satisfied` having proven almost
 nothing.
+
+**`must-pass-unproven`** says the core of the feature was not shown to work: a criterion
+marked `Must pass` is not `met`, or a must-pass objective has no criterion at all, while no
+criterion is `not_met` or `unbuilt` and the run would otherwise exit `satisfied`. It is a
+distinct outcome rather than a case of `insufficient-coverage`, which is a percentage
+statement and would hide which core item failed. It is reached only from
+a
+`satisfied` base whose coverage clears the floor (or where no floor is set). **When the floor
+is also missed, `insufficient-coverage` keeps
+winning**, as it always has, and its reason appends the unproven must-pass criteria and
+uncovered objectives by id. In both cases the reason names each unproven
+must-pass criterion and each uncovered objective, so the core items are never hidden. A
+must-pass criterion that is `not_met` or `unbuilt` already prevents `satisfied`, so those
+base outcomes are unchanged.
 
 - `not_verifiable` criteria render in their own section, with the stated reason, never folded
   into failures — a project that cannot check something is not the same as a project that

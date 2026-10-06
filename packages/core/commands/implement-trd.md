@@ -25,7 +25,7 @@ category: implementation
 >   `--resume`: with BOTH set EXPLICITLY and a non-terminal (`outcome: null`)
 >   `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and
 >   the whole phase loop and re-enters that **interrupted** verification loop directly (§3.6
->   step 0) — never a `satisfied`/`stalled`/`stuck`/`unbuilt`/`insufficient-coverage` one, which
+>   step 0) — never a `satisfied`/`stalled`/`stuck`/`unbuilt`/`insufficient-coverage`/`must-pass-unproven` one, which
 >   is a finished loop, not one to re-enter. `--resume` **without** an explicit `--verify` never
 >   takes that branch, even though verification now runs by default elsewhere in the command —
 >   it keeps its existing meaning (resume the implementation checkpoint) and runs the phase loop
@@ -697,7 +697,7 @@ phase loop as usual; `--resume` without an explicit `--verify` keeps its existin
 verification pass still follows it at Step 8 unless `--no-verify` was also given.
 
 **Read `outcome` and nothing else to decide this.** A non-null `outcome` (`satisfied`,
-`unbuilt`, `stalled`, `stuck`, `insufficient-coverage`) means the loop finished and MUST NOT be
+`unbuilt`, `stalled`, `stuck`, `insufficient-coverage`, `must-pass-unproven`) means the loop finished and MUST NOT be
 re-entered; a `null` one means it stopped mid-loop and should be. A state file with no
 `outcome` key at all is a file written by a Judge that did not follow its instructions — treat
 it as terminal (do not resume) and say so in the banner, because the alternative reading
@@ -717,10 +717,11 @@ dispatch entirely** (no agent):
 
 ```
 node .claude/lib/spec-scope.js criteria --spec <spec> --section <section> --ids <ids> \
-     --feature <feature> --out .trd-state/<feature>/success-definition.md
+     --feature <feature> --trd <TRD> --out .trd-state/<feature>/success-definition.md
 ```
 
-`<ids>` are the ids in the TRD's Objectives table, plus every id the sweep file lists when
+`--trd <TRD>` copies each must-pass objective's id into its criterion's `Must pass` cell (the
+criterion ids equal the objective ids on this path). `<ids>` are the ids in the TRD's Objectives table, plus every id the sweep file lists when
 `docs/plan/<feature>.sweep.md` exists (read them with `spec-scope.js extract --file <that
 file>`). The swept criteria belong in the core's definition: the evidence checker reuses the
 artifact `/verify-build` recorded for each one (§8.3's existing `liveEvidence` read) while the
@@ -754,9 +755,9 @@ to a TRD with the `**Source spec**:` header; every other TRD resolves as follows
       nothing about the system's behaviour was meant to change.
 
    **Extract the SECTION TEXT. Never pass the TRD path.** The dispatch below is required to
-   carry the source "and nothing else — no TRD path, no TRD excerpt, no task list" (FR-1,
-   AC-1, D5), and that isolation is what stops the deriver writing criteria the plan satisfies
-   by construction. A reproduction and a recorded decision are statements of *outcome* and are
+   carry the source and the must-pass objectives (step 2a, id and text only) and nothing else —
+   no TRD path, no TRD excerpt, no task list (FR-1, AC-1, D5, D3 of the must-pass TRD), and that
+   isolation is what stops the deriver writing criteria the plan satisfies by construction. A reproduction and a recorded decision are statements of *outcome* and are
    legitimate sources; the TRD file containing them also contains the *plan*, and handing that
    over would make verification circular. Passing the extracted section honours D5 exactly.
 
@@ -818,14 +819,29 @@ plus the section name (for the report header only — Step 8 renders it, nothing
 
 ```
 Agent(subagent_type="product-manager", run_in_background: true,
-      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <output path .trd-state/<feature>/success-definition.md>")
+      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
 ```
+
+**2a. The must-pass objectives.** Read them with the library, never by parsing the table in
+prose:
+
+```
+node .claude/lib/spec-scope.js objectives --trd <TRD>      # → [{id, text, mustPass[, invalidValue]}]
+```
+
+Keep the entries with `mustPass: true` and pass each as its `id` and `text` and nothing else.
+A TRD with no `## Objectives` table, or no mark, passes an empty block. A sweep file has no
+Objectives and declares none (D19): skip this call for it.
 
 `<the source>` is whatever step 1 resolved: the **PRD path** for `source_kind: prd`, or the
 **extracted section text** for `reproduction` / `intended-change` / `behaviour-preserved`.
 
-The prompt carries the source and the output path and **nothing else** — no TRD path, no
-TRD excerpt, no task list (functional-verification TRD FR-1, AC-1, D5). `product-manager` is
+The prompt carries the source, the must-pass objectives (id and text only, read as in step 2a
+below, an empty block when none is marked) and the output path, and **nothing else** — no TRD
+path, no TRD excerpt, no task list (functional-verification TRD FR-1, AC-1, D5). The objectives
+are outcome statements, not plan: the deriver uses them only to fill each criterion's `Must pass`
+cell, never as a citable source, and an objective its source does not support is left uncovered
+rather than invented (must-pass TRD D3). `product-manager` is
 already on `constitution.md`'s 13-agent roster and its frontmatter already declares
 `background: true`; this step adds no agent, no roster edit, and no change to
 `product-manager.md` — the contract text passed in the prompt is the entire instruction set.
@@ -1518,6 +1534,26 @@ numbering is not the running order and stays as it is because other documents ci
    `outcome: 'satisfied'` with a real, rendered report — that is the correct handling for a PRD
    that yielded no functional criteria, and it is not this step's job to special-case it.
 
+   **Then read the must-pass coverage — with the library, not by reading the `Must pass` column
+   yourself (D11).** A column dropped in a prose parse would read as "nothing is must-pass" and
+   fail open; the CLI reads both files from their paths and fails closed:
+
+   ```bash
+   node .claude/lib/functional-verification.js must-pass-coverage \
+        --trd <TRD> --definition .trd-state/<feature>/success-definition.md
+   # → {"criteria": [<must-pass criterion ids>], "uncovered": [{id, text}], "unknown": [{criterion, objective}]}
+   ```
+
+   Hold `criteria` as `mustPassIds` and `uncovered` as `mustPassUncovered`, **unchanged**, for
+   §8.3 (both `[]` when the TRD marks nothing). `unknown` entries are criteria whose cell names an
+   id that is not a must-pass objective; the CLI has already left them out of `criteria`, so they
+   stay ordinary, and Step 9's ISSUES names each. Also keep the objectives' invalid cells, from
+   `node .claude/lib/spec-scope.js objectives --trd <TRD>`: each entry with an `invalidValue` is a
+   `Must pass` cell that is neither `yes` nor `no` (D17); it counts as must-pass, and ISSUES
+   names it. Check rows appended to the definition after this step carry no `Must pass` cell, which the
+   CLI reads as blank, so nothing here needs redoing once they are added. A sweep file declares no must-pass (D19) and has no
+   TRD: skip this call and pass `[]` for both.
+
 ### 8.1b Append the check criteria (verification-artifacts TRD §3.5, D7, D9, D15)
 
 Runs after §8.1's "Present" branch and before §8.2 — on the fresh path and on §8.2's
@@ -1597,7 +1633,9 @@ remains as `resume: { iteration, criteria, gapsClosed }` (D13) — `outcome` is 
 3.6's gate, not passed to the workflow, which derives its own. On a fresh run (no prior state
 file, or a terminal one), `resume` is `null`.
 
-**After resolving `criteria` here, this path runs §8.1a exactly like a fresh run does** — it
+**After resolving `criteria` here, this path also runs §8.1's `must-pass-coverage` call** (the
+resumed run's state file holds no must-pass set, and the TRD and definition are on disk), **and
+runs §8.1a exactly like a fresh run does** — it
 is not exempt from lane resolution merely because it skipped the phase loop. Read
 `.trd-state/<feature>/implement.json`'s `functional_verification.environments` (§3.6a) first;
 a resumed run that also skipped Step 3.6a (this composition can only be reached via §3.6
@@ -1773,6 +1811,8 @@ Workflow({ name: "verify-functional", args: {
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
   pagesDir,                                                       // §8.1b -- ".trd-state/<feature>/verification-artifacts"; always set, even with no checks selected
+  mustPassIds,                                                   // §8.1 -- must-pass-coverage's `criteria`, unchanged; [] when none is declared
+  mustPassUncovered,                                             // §8.1 -- must-pass-coverage's `uncovered` ([{id, text}]), unchanged; [] when none
 } })
 ```
 
@@ -1789,7 +1829,7 @@ the two `not run` short-circuits in §8.1, which never reach the workflow at all
 ### 8.4 Render the outcome
 
 The `Workflow` call returns `{ outcome, reason, iterations, reportPath, criteria, gaps,
-unbuilt, exercised, debugAttempts, notesUpdated, coverage, finalRun, pages }` (§3.3). Carry
+unbuilt, exercised, debugAttempts, notesUpdated, coverage, finalRun, mustPass, pages }` (§3.3). Carry
 `outcome` and `reportPath` into Step 9's FUNCTIONAL VERIFICATION block, along with `criteria` —
 the banner's met/not-met/not-verifiable/unbuilt counts are a tally of that array's `status`
 values, so dropping it here leaves those four counts with nothing to come from.
@@ -1801,10 +1841,16 @@ readable as a ratio a person can act on rather than a bare outcome name, and a `
 hand, or investigate why it failed; the criteria it proved before the failure are still real
 evidence, not retracted by it (D14).
 
+**Carry `mustPass`** (`{ criteria, uncovered, unproven: [{id, status}], overridden }`; always
+present) into the same block: it is what Step 9's `Must pass:` STATE line and the ISSUES entries
+for uncovered objectives read. `overridden: true` means the workflow itself blocked a `satisfied`
+the Judge had called; the report and state file are already reconciled, so say nothing more about
+it than the outcome.
+
 **Carry `pages`** (`Array<{ skill, page, rendered, iteration, reason }>`; `[]` when no check
 criteria exist) into the same block too — it is the last Render per selected check skill, and
 it is what §9's STATE line for each check and §9.0a's publish step both read; without it
-neither has anything to point at. Nothing beyond those six — no re-reading the rendered
+neither has anything to point at. Nothing beyond those seven — no re-reading the rendered
 report, no re-deriving the verdict; the report and the state file are already the durable
 record.
 
@@ -1877,9 +1923,18 @@ STATE
   {if verification ran (--no-verify not set): "The delivered software {does | does not} do
     what the PRD asked: {plain sentence}." For `insufficient-coverage`, say the ratio and
     what it means, not the outcome name — e.g. "Only 11 of 62 criteria were proven; the rest
-    were never exercised, so this is not enough checking to call it verified either way."}
+    were never exercised, so this is not enough checking to call it verified either way." For
+    `must-pass-unproven`, say the core was not shown to work and name each unproven must-pass
+    criterion by its statement in plain words, and each core objective that has no criterion —
+    e.g. "The core was not shown to work: the login flow was never proven, and nothing checks
+    the export objective at all."}
   {if --no-verify was set: "Nobody checked whether the software does what the PRD asked
     (--no-verify set)."}
+  {if verification ran: "Must pass: none declared in the TRD's Objectives" when `mustPass.criteria`
+   and `mustPass.uncovered` are both empty; otherwise "Must pass: {k} of {n} proven" ({n} =
+   `mustPass.criteria`, {k} = those proven — the same count the report's `**Must pass**:` line
+   prints), then each unproven one by its statement in plain words, from `mustPass.unproven`, and
+   each objective in `mustPass.uncovered` as having no criterion (D15).}
   {if verification ran: "Coverage floor: {N}% (from verification.md)" when §8.1a's
    `coverageFloor` is non-null; "Coverage floor: not applied — the line in verification.md
    does not parse" when `read-coverage-floor` returned `status: 'invalid'`; else
@@ -1890,7 +1945,7 @@ STATE
    their designs: 32 compared — 28 match, 2 minor, 2 deviate and are still open — <link>".}
   {if the TRD's `## Verification Artifacts` section omitted an applicable check: one line
    naming it and its stated reason.}
-  {if outcome is stalled/stuck/unbuilt/insufficient-coverage (verification-fix-loop TRD §3.1,
+  {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven (verification-fix-loop TRD §3.1,
    D3): a Diagnosis line by cause, counted over `criteria`'s non-`met` entries exactly as
    `renderReport` counts them for the report — descending by count, in words, cause-less
    entries as "unrecorded" — e.g. "**Diagnosis**: 14 open — 6 evidence missing, 5 judged
@@ -1909,6 +1964,14 @@ ISSUES
   {if finalRun.status === 'fail': "The declared full-environment run ({finalRun.command})
     failed — {who acts}. The criteria proven before it are still real evidence; this does not
     retract them."}
+  {for each entry in `mustPass.uncovered`: "The TRD marks '{objective text}' ({id}) as must-pass,
+    but the success definition has no criterion for it — the PRD or spec gave nothing to cite, so
+    none was written. Add the source it needs, or remove the mark from the TRD's Objectives
+    (you decide)."}
+  {for each Must pass cell §8.1 found invalid: "The Objectives table row {id} has `{invalidValue}`
+    in its Must pass column — it is read as must-pass; write `yes` or `no`." For each `unknown`
+    entry: "Criterion {criterion} names {objective} in its Must pass cell, which is not a
+    must-pass objective, so it is treated as ordinary."}
   {for each entry in `pages` with `rendered: false`: "{skill}'s page did not render at
     iteration {iteration} — {reason}."}
   {for each check input that did not resolve at §8.1b: name the check and the input.}
@@ -1921,7 +1984,7 @@ ISSUES
 NEXT
   {the few steps to take now, in order — one fenced block per slash command, explanation on
    the line above each block, never a shell command:}
-  {if outcome is stalled/stuck/unbuilt/insufficient-coverage (O4): the line "refine the plan
+  {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven (O4, D15): the line "refine the plan
    with `/refine-verification` (add `--auto` to let an agent answer), then run
    `/verify-build`" — the exact wording `renderReport` puts under its own Diagnosis line
    (verification-fix-loop TRD §3.1), so the readout and the report never disagree on what

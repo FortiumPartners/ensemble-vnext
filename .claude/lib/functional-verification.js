@@ -33,7 +33,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { maskFencedLines, findSection, parseTrd } = require('./trd-parser');
+const { maskFencedLines, findSection, findTables, parseTrd } = require('./trd-parser');
+const { objectiveRows } = require('./spec-scope');
 const { matchNeverUnattended } = require('./fix-sizing');
 const { hashFile, COVERS_HASH_BYTES } = require('./live-evidence');
 
@@ -307,12 +308,14 @@ function formatCoveragePercent(fraction) {
  *   unbuilt: string[],
  *   previousGaps: string[]|null,
  *   met: string[],              // NEW (D8) — settled-met membership; the reason can name the ratio
+ *   mustPass: string[],         // NEW (D10) — ids of the must-pass criteria; required, `[]` when none
+ *   mustPassUncovered: string[],// NEW (D10) — ids of must-pass objectives no criterion covers; required
  *   total?: number,             // NEW (D8) — the definition's whole criterion count
  *   coverageFloor?: number|null,// NEW (D9) — defaults to COVERAGE_FLOOR (null, unset)
  *   cap?: number,
  * }} input
  * @returns {{action: 'exit-satisfied'|'exit-unbuilt'|'exit-stalled'|'exit-stuck'|
- *   'exit-insufficient-coverage'|'remediate', reason: string, closed: string[]}}
+ *   'exit-insufficient-coverage'|'exit-must-pass-unproven'|'remediate', reason: string, closed: string[]}}
  */
 function decideNext(input) {
   const { iteration, gaps, unbuilt, previousGaps, met, total } = input;
@@ -337,6 +340,15 @@ function decideNext(input) {
   // `exit-insufficient-coverage` on a caller bug rather than on real evidence.
   if (!Array.isArray(met)) {
     throw new TypeError('decideNext: input.met is required and must be an array (an absent value would read as "nothing proven" and could re-label a healthy exit — D8)');
+  }
+  // Required, never defaulted (D10): an absent `mustPass` would read as "nothing is must-pass"
+  // and let an unproven core item through as `satisfied` -- the lenient answer.
+  const { mustPass, mustPassUncovered } = input;
+  if (!Array.isArray(mustPass)) {
+    throw new TypeError('decideNext: input.mustPass is required and must be an array (an absent value would read as "nothing is must-pass" and let an unproven core item pass as satisfied — D10)');
+  }
+  if (!Array.isArray(mustPassUncovered)) {
+    throw new TypeError('decideNext: input.mustPassUncovered is required and must be an array (an absent value would read as "every must-pass objective has a criterion" — D10)');
   }
   const cap = input.cap ?? DEFAULT_CAP;
   const coverageFloor = input.coverageFloor ?? COVERAGE_FLOOR;
@@ -419,7 +431,105 @@ function decideNext(input) {
     };
   }
 
+  // Step 5 (D8, D9): the must-pass step. It runs AFTER the re-label so that precedence falls out
+  // of the order: a missed floor keeps `exit-insufficient-coverage` (verification.md §5a says a
+  // run below the floor reports that), and only a clean base `exit-satisfied` that cleared the
+  // floor becomes `exit-must-pass-unproven`. Other base actions are untouched: an unproven
+  // must-pass criterion that is not_met/unbuilt already prevented `satisfied`.
+  const unprovenMustPass = mustPass.filter((id) => !met.includes(id));
+  if (unprovenMustPass.length > 0 || mustPassUncovered.length > 0) {
+    const named = [
+      unprovenMustPass.length > 0 ? `must-pass criteria not proven: ${unprovenMustPass.join(', ')}` : null,
+      mustPassUncovered.length > 0 ? `must-pass objectives with no criterion: ${mustPassUncovered.join(', ')}` : null,
+    ].filter(Boolean).join('; ');
+    if (result.action === 'exit-satisfied') {
+      result = { action: 'exit-must-pass-unproven', reason: `${named} — the core was not shown to work`, closed };
+    } else if (result.action === 'exit-insufficient-coverage') {
+      result = { ...result, reason: `${result.reason}; ${named}` };
+    }
+  }
+
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// mustPassCoverage — which criteria carry the must-pass marking, and which must-pass
+// objectives no criterion covers (D6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pure arithmetic over the TRD's must-pass objectives and the definition's `Must pass` cells.
+ *
+ * @param {{
+ *   objectives: Array<{id: string, text: string}>,       // the TRD's must-pass objectives
+ *   criteria: Array<{id: string, mustPass?: string|string[]}>, // the definition's rows; cell raw or split
+ * }} input
+ * @returns {{
+ *   criteria: string[],                                    // ids of criteria naming a must-pass objective
+ *   uncovered: Array<{id: string, text: string}>,          // must-pass objectives no criterion names
+ *   unknown: Array<{criterion: string, objective: string}>, // cell ids that are not declared must-pass objectives
+ * }}
+ * @example
+ * mustPassCoverage({ objectives: [{id:'O3', text:'x'}], criteria: [{id:'FS-1', mustPass:'O3, O9'}] })
+ * // => { criteria: ['FS-1'], uncovered: [], unknown: [{criterion:'FS-1', objective:'O9'}] }
+ */
+function mustPassCoverage({ objectives, criteria }) {
+  if (!Array.isArray(objectives)) throw new TypeError('mustPassCoverage: objectives must be an array');
+  if (!Array.isArray(criteria)) throw new TypeError('mustPassCoverage: criteria must be an array');
+  const declared = new Set(objectives.map((o) => o.id));
+  const covered = new Set();
+  const mustPassIds = [];
+  const unknown = [];
+  for (const c of criteria) {
+    const cell = Array.isArray(c.mustPass) ? c.mustPass.join(',') : String(c.mustPass ?? '');
+    // A placeholder (`no`, `none`, `n/a`, a dash) is blank, as the Objectives table reads `no`:
+    // reporting it as an unknown objective id would put one false ISSUES line on every row.
+    const ids = cell
+      .replace(/\*\*|`/g, '')
+      .split(/[\s,;]+/)
+      .filter((t) => t && !/^(no|none|n\/a|[-–—])$/i.test(t));
+    let marks = false;
+    for (const id of ids) {
+      if (declared.has(id)) {
+        covered.add(id);
+        marks = true;
+      } else {
+        // Treated as ordinary (D6): a typo must not turn a criterion into a must-pass one.
+        unknown.push({ criterion: c.id, objective: id });
+      }
+    }
+    if (marks) mustPassIds.push(c.id);
+  }
+  return {
+    criteria: mustPassIds,
+    uncovered: objectives.filter((o) => !covered.has(o.id)).map(({ id, text }) => ({ id, text })),
+    unknown,
+  };
+}
+
+/**
+ * Reads the TRD and the success definition from disk (D11), so the must-pass set never depends on
+ * a model parsing the table. Columns are found by header name; a definition with no `Must pass`
+ * column yields blank cells, so every declared must-pass objective comes back uncovered (fail closed).
+ */
+function mustPassCoverageFromFiles(trdPath, definitionPath) {
+  const objectives = objectiveRows(fs.readFileSync(trdPath, 'utf8'))
+    .filter((r) => r.mustPass)
+    .map(({ id, text }) => ({ id, text }));
+  const lines = maskFencedLines(fs.readFileSync(definitionPath, 'utf8').split(/\r?\n/));
+  // Hyphens and underscores fold to spaces, so a `Must-pass` header is not silently a missing column.
+  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  const table = findTables(lines, 0, lines.length).find((t) => t.headerCells.some((h) => clean(h) === 'id'));
+  const criteria = [];
+  if (table) {
+    const idCol = table.headerCells.findIndex((h) => clean(h) === 'id');
+    const mpCol = table.headerCells.findIndex((h) => clean(h) === 'must pass');
+    for (const row of table.dataRows) {
+      const id = String(row.cells[idCol] ?? '').replace(/\*\*|`/g, '').trim();
+      if (id) criteria.push({ id, mustPass: mpCol >= 0 ? row.cells[mpCol] ?? '' : '' });
+    }
+  }
+  return mustPassCoverage({ objectives, criteria });
 }
 
 // ---------------------------------------------------------------------------
@@ -689,6 +799,7 @@ const OUTCOME_LABEL = {
   stalled: 'Stalled',
   stuck: 'Stuck',
   'insufficient-coverage': 'Insufficient Coverage',
+  'must-pass-unproven': 'Must-Pass Unproven',
   'not-run': 'Not Run',
 };
 
@@ -731,10 +842,10 @@ const CAUSE_LABEL = {
   unrecorded: 'unrecorded',
 };
 
-// The four outcomes the Diagnosis/Next lines render under (§3.1). `satisfied` and `not-run`
+// The five outcomes the Diagnosis/Next lines render under (§3.1, D13). `satisfied` and `not-run`
 // are excluded deliberately: `satisfied` already has its own not-verifiable suffix above, and
 // `not-run` has no criteria to diagnose yet.
-const DIAGNOSIS_OUTCOMES = new Set(['stalled', 'stuck', 'unbuilt', 'insufficient-coverage']);
+const DIAGNOSIS_OUTCOMES = new Set(['stalled', 'stuck', 'unbuilt', 'insufficient-coverage', 'must-pass-unproven']);
 
 function escapeCell(text) {
   // Order matters: the backslash MUST be escaped before the pipe, or a statement containing
@@ -750,7 +861,7 @@ function escapeCell(text) {
 /**
  * @param {{
  *   feature: string, prd: string, definitionPath: string,
- *   outcome: 'satisfied'|'unbuilt'|'stalled'|'stuck'|'insufficient-coverage'|'not-run',
+ *   outcome: 'satisfied'|'unbuilt'|'stalled'|'stuck'|'insufficient-coverage'|'must-pass-unproven'|'not-run',
  *   reason: string,
  *   criteria: Array<{
  *     id: string, statement: string, cites: string,
@@ -765,6 +876,8 @@ function escapeCell(text) {
  *                           //     rendered on the Met table. Absent on older report inputs.
  *   }>,
  *   finalEnvironmentRun?: {command: string, status: 'pass'|'fail'|'skipped'} | null,  // NEW (D14)
+ *   mustPass?: string[],                              // NEW (D13) — must-pass criterion ids
+ *   mustPassUncovered?: Array<{id: string, text: string}>, // NEW (D13) — must-pass objectives with no criterion
  * }} input
  * @returns {string} markdown
  */
@@ -834,6 +947,26 @@ function renderReport(input) {
         ? ` — uncovered: ${uncoveredIds.map(escapeCell).join(', ')}`
         : ' — uncovered: none')
   );
+  // The must-pass line (D13): only when any must-pass is declared, so every report written
+  // before this feature stays byte-identical. The report input is hand-composed and unvalidated,
+  // so a must-pass id absent from `criteria` renders as `missing` rather than throwing.
+  const mustPassIds = Array.isArray(input.mustPass) ? input.mustPass : [];
+  const mustPassUncovered = Array.isArray(input.mustPassUncovered) ? input.mustPassUncovered : [];
+  if (mustPassIds.length > 0 || mustPassUncovered.length > 0) {
+    const statusOf = new Map(criteria.map((c) => [c.id, c.status]));
+    const unproven = mustPassIds
+      .map((id) => [id, statusOf.get(id) ?? 'missing'])
+      .filter(([, status]) => status !== 'met');
+    lines.push(
+      `**Must pass**: ${mustPassIds.length - unproven.length} of ${mustPassIds.length} proven` +
+        (unproven.length > 0
+          ? ` — unproven: ${unproven.map(([id, st]) => `${escapeCell(id)} (${String(st).replace(/_/g, ' ')})`).join(', ')}`
+          : '') +
+        (mustPassUncovered.length > 0
+          ? ` — no criterion for: ${mustPassUncovered.map((o) => escapeCell(typeof o === 'string' ? o : o.id)).join(', ')}`
+          : '')
+    );
+  }
 
   // Diagnosis + Next (D3, §3.1): only under the four outcomes a stalled/stuck/unbuilt/
   // insufficient-coverage run can end with, and never for `satisfied` (already covered by
@@ -1366,6 +1499,7 @@ function missingVerificationSections(content) {
 module.exports = {
   checkEvidence,
   decideNext,
+  mustPassCoverage,
   renderReport,
   readStopRule,
   decideFixRound,
@@ -1415,6 +1549,8 @@ module.exports = {
 //   node functional-verification.js render-fix-summary '<input-json>'
 //   node functional-verification.js render-fix-summary --file <path>
 //   node functional-verification.js render-fix-summary -
+//   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
+//       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
 
 if (require.main === module) {
   const usage = () => {
@@ -1425,6 +1561,7 @@ if (require.main === module) {
         "  node functional-verification.js render-report '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
+        '  node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
@@ -1519,6 +1656,20 @@ if (require.main === module) {
       usage();
     } else {
       console.log(renderFixSummary(JSON.parse(inputJson)));
+    }
+  } else if (subcommand === 'must-pass-coverage') {
+    // File paths, not a JSON payload (D6, D11): the command passes paths and never has to parse
+    // the definition table in prose, so a dropped column cannot fail open.
+    const flag = (name) => {
+      const i = rest.indexOf(name);
+      return i === -1 ? undefined : rest[i + 1];
+    };
+    const trdPath = flag('--trd');
+    const definitionPath = flag('--definition');
+    if (!trdPath || !definitionPath) {
+      usage();
+    } else {
+      console.log(JSON.stringify(mustPassCoverageFromFiles(trdPath, definitionPath)));
     }
   } else if (subcommand === 'check-verification-unfilled') {
     // templatePath is optional (D11): a scaffolded project has no

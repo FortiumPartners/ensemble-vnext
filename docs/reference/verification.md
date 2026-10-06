@@ -29,10 +29,10 @@ agent instructions are `packages/core/contracts/functional-verification.md` ("th
 | `/implement-trd` Step 8 | Every build, unless `--no-verify` | Derive runs in the background at the start; the loop runs once, after the end-of-run review | `implement-trd.md` §3.6, Step 8 |
 | `/verify-build [--resume]` | Built with `--no-verify`, loop was interrupted (`--resume` continues it when its state file says `outcome: null`), or you changed something by hand | Derives the definition in the foreground if it is missing | `verify-build.md` Steps 1–5, "--resume" |
 | `/verify-build` | After a run ended short and you agreed a plan (the default now, once a plan exists) | Rounds of build-then-verify, unattended | `verify-build.md` "--fix" |
-| `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
+| `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` / `must-pass-unproven` | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
 | `verification-setup` skill | New project, or a readout names a missing section | Interviews you and writes `.claude/rules/verification.md` | `packages/skills/verification-setup/SKILL.md` |
 
-Both commands dispatch the **same** workflow with the same 22 arguments
+Both commands dispatch the **same** workflow with the same 25 arguments
 (`implement-trd.md` §8.3, `verify-build.md` §4).
 
 ## 2. Files
@@ -106,6 +106,7 @@ Contract, "Deriving the success definition":
 | Derivation | `[read]`, `domain-derived`, or `check:<skill>` for check rows | `derivation` |
 | Tier 1 | `locator` (default; blank reads as this) or `judge-only — <why no text assertion is possible>` | `tier1` |
 | Parts | A count, only when the statement itself names one ("each of the 32 frames"). Blank never means 1. Nothing downstream reads it yet | not parsed |
+| Must pass | The id or ids of the TRD `## Objectives` rows (the ones marked `yes` in that table's own `Must pass` column) this criterion proves, e.g. `O3` or `O3, O4`. Blank, or an absent column, means ordinary. The deriver marks it (**model**); on the spec path `spec-scope.js criteria --trd` copies it (**code**); a sweep file's column stays blank. `must-pass-coverage` reads it by header name (**code**) | by `must-pass-coverage`, not by the criteria parser |
 
 **Tier 1** is the deterministic evidence check that runs before any agent reads the evidence
 (§8). Which kind a row gets is decided when the definition is written, never by the exerciser: `judge-only` is
@@ -336,22 +337,42 @@ next round, never built against.
 **Then the coverage re-label.** If the base action is satisfied, stalled or stuck, a floor is
 set, `total > 0`, and `met / total` is below it, the action becomes `exit-insufficient-coverage`, with the
 ratio and the base cause in the reason. It never re-labels `unbuilt` (the truer statement) or
-`remediate` (it must not stop a run that is converging). Missing `gaps`, `unbuilt` or `met`
-throws rather than defaulting.
+`remediate` (it must not stop a run that is converging). Missing `gaps`, `unbuilt`, `met`,
+`mustPass` or `mustPassUncovered` throws rather than defaulting.
+
+**Then the must-pass step** (**code**, `decideNext`). It runs after the re-label and sees its
+result. A must-pass criterion is unproven when it is not in `met`; a must-pass objective is
+uncovered when no criterion names it. If either exists:
+
+- an action still `exit-satisfied` becomes `exit-must-pass-unproven`, with a reason naming each
+  unproven criterion id and each uncovered objective id;
+- an action the re-label already turned into `exit-insufficient-coverage` stays that, and its
+  reason gains the same ids. A missed floor therefore wins over a must-pass block (the
+  coverage floor in `verification.md` §5a promises that outcome), and the owner still reads
+  which core items were unproven;
+- every other action is untouched: a must-pass criterion that is `not_met` or `unbuilt`
+  already prevented `satisfied`.
+
+The workflow repeats this check after every Judge exit with its own copy of the must-pass ids
+(from `must-pass-coverage`, so the model never parses the table), so a Judge that reports
+`satisfied` over an unproven core item is overridden. It only ever blocks, never un-blocks. On
+an override it dispatches one `reconcile-outcome` agent so the state file and the report agree
+with the returned outcome.
 
 | Outcome | Means | Where to go next |
 |---|---|---|
-| `satisfied` | Nothing open. The outcome line adds "(N of M not verifiable)" when some were never checked | `/audit-build` |
+| `satisfied` | Nothing open, and every must-pass criterion is met with no must-pass objective left without a criterion. The outcome line adds "(N of M not verifiable)" when some were never checked | `/audit-build` |
 | `unbuilt` | Something asked for was never built; the loop stopped rather than debug absent code | `/refine-verification`, then `/verify-build` |
 | `stalled` | A debug round closed nothing | same |
 | `stuck` | The cap ran out with gaps open, or a `--resume` arrived with no budget left | same |
-| `insufficient-coverage` | Too little was proven to call it either way | same |
+| `insufficient-coverage` | Too little was proven to call it either way. When must-pass items were also unproven, the reason names them | same |
+| `must-pass-unproven` | Everything judged was met and the coverage floor (if any) was cleared, but a core item the TRD marked must-pass was not proven, or has no criterion at all. The reason names each. A must-pass criterion that can only be `not verifiable` here is never accepted as such: it needs an environment that reaches it, or the marking removed from the TRD | same |
 | `not run: no success definition derivable` | No PRD and no source section | fix the source |
 | `not run: no definition produced` | The derive agent wrote nothing | re-run `/verify-build` |
 | `not run (--no-verify set)` | You opted out | `/verify-build` |
 
 The two `not run` reports are rendered by the same `render-report` with `outcome: "not-run"`,
-without calling the workflow (`implement-trd.md` §8.1). Only the four short outcomes get a
+without calling the workflow (`implement-trd.md` §8.1). Only the five short outcomes get a
 **Next** line in the report itself (§10); the rest of that column is the commands' readouts.
 
 ---
@@ -365,7 +386,8 @@ without calling the workflow (`implement-trd.md` §8.1). Only the four short out
 | Header | Feature, source, definition path |
 | **Outcome** | Label, plus "(N of M not verifiable)" on a satisfied run, and "(final full-environment run FAILED)" or "(no full-environment run declared)". A failed full deploy never retracts proven criteria |
 | **Reason**, **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
-| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt and insufficient-coverage (`DIAGNOSIS_OUTCOMES`). Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
+| **Must pass** | Only when the TRD declares any (otherwise the report is unchanged): "K of N proven", then "unproven: id (status)", then "no criterion for: objective id" for each objective nothing covers |
+| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`). Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
 | Unrecognised Status | Any status that is none of the four, so a typo cannot hide a criterion |
 | Unbuilt / Met / Not Met / Not Verifiable | One table each. Met shows *proven at* iteration; Not Met shows tier 1, reason, blocker, and the debugger's attempt per iteration |
 | `## Fix run` | Appended by `--fix` only (`renderFixSummary()`) |
@@ -433,7 +455,9 @@ and TRD and any existing plan, then:
    (scarcest resource first), **Owner rulings** (a criterion aligned with a decision the
    PRD/TRD already records, written back with a dated changelog line), **Accepted as not
    verifiable** (the two never-buildable causes, plus anything the TRD assigns to a
-   production-only task), **Extra checks** (check-role skills only), **Stop rule**
+   production-only task; never a must-pass criterion, which becomes an owner ruling naming the
+   two ways out: an environment that reaches it, or removing its marking from the TRD),
+   **Extra checks** (check-role skills only), **Stop rule**
    (`max-rounds: 3`, `stop-when-closed-below: 1`).
 3. Interactively, asks one question per item left over: a criterion change no document
    settles, a gap it cannot classify, or access only you have — one `AskUserQuestion` per

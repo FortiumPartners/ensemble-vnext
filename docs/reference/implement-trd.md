@@ -285,8 +285,8 @@ order: §8.1 (or §8.2 when resuming), then §8.1b, then §8.1a, then §8.3, the
 
 While the loop runs, the lead **must not** fix gaps itself or offer to fix them (§8.5). The
 loop's own debug stage owns fixes. The inside of the loop (Exercise, Judge and Debug; the
-evidence gate; and the stop rules `satisfied`, `stalled`, `stuck`, `unbuilt` and
-`insufficient-coverage`) is covered in [verification.md](verification.md).
+evidence gate; and the stop rules `satisfied`, `stalled`, `stuck`, `unbuilt`,
+`insufficient-coverage` and `must-pass-unproven`) is covered in [verification.md](verification.md).
 
 ---
 
@@ -294,7 +294,7 @@ evidence gate; and the stop rules `satisfied`, `stalled`, `stuck`, `unbuilt` and
 
 | Step | What happens | Kind | Where |
 |---|---|---|---|
-| Readout | Four sections: **STATE** (tasks built and not built, each with the reason; tests; the verdict as a sentence; coverage floor; one line per check; a diagnosis by cause when the outcome is not `satisfied`), **DECISIONS** (including tasks `--reconcile` reopened), **ISSUES** (each says who acts), **NEXT** (steps in order, one fenced block per slash command: `/refine-verification` then `/verify-build` after a failed verification, or else `/audit-build`; when `ensemble.openPullRequest` is `never`, opening the PR is said in words) | model | §9 |
+| Readout | Four sections: **STATE** (tasks built and not built, each with the reason; tests; the verdict as a sentence; coverage floor; one line per check; a diagnosis by cause when the outcome is not `satisfied`; one must-pass line: none declared, or K of N proven with each unproven item named), **DECISIONS** (including tasks `--reconcile` reopened), **ISSUES** (each says who acts), **NEXT** (steps in order, one fenced block per slash command: `/refine-verification` then `/verify-build` after a failed verification, or else `/audit-build`; when `ensemble.openPullRequest` is `never`, opening the PR is said in words) | model | §9 |
 | Publish | Unless `ensemble.publishArtifacts: false`, `--no-verify` or `--chained`, publishes `verification-report.md` and each check page (`<pagesDir>/<skill>/index.html`) as artifacts. The URLs are stored in `.trd-state/<feature>/artifacts.json` so the same links update in place next time. If publishing fails, the readout says so in one line and the run carries on | model | §9.0a |
 | Pull request | `/implement-trd` itself opens no pull request. `ensemble.openPullRequest` (`auto` or `never`; the shipped default is `never`, this repo sets `auto`) decides whether the closing commands do: with `auto`, a passing `/audit-build` that closes the feature opens one, and so does `/close-feature` on a feature branch. When a PR is already open it is updated instead; a closed one is ignored. A skip (setting is `never`, on the default branch, `gh` missing) or a failure is one line in the readout and never blocks. Merging is always yours | model | `/audit-build`, `/close-feature` |
 | Banner | `═══ COMMAND COMPLETE: /implement-trd ═══` plus a one-line summary, as the **last** line. Nothing may follow it | model | §9.1 |

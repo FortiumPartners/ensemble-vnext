@@ -67,8 +67,8 @@ describe('§3.3 VerifyFunctionalArgs declares exactly what the workflow reads', 
   const declared = interfaceFields(section('3.3'), 'VerifyFunctionalArgs');
   const read = sorted([...WORKFLOW.matchAll(/\ba\.([A-Za-z_]\w*)/g)].map((m) => m[1]));
 
-  it('the workflow reads 23 fields (sanity check on the extraction itself)', () => {
-    expect(read).toHaveLength(23);
+  it('the workflow reads 25 fields (sanity check on the extraction itself)', () => {
+    expect(read).toHaveLength(25);
   });
 
   it('every field the workflow reads is declared, and nothing is declared that it does not read', () => {
@@ -113,8 +113,8 @@ describe('every outcome the workflow can return is named where the TRD enumerate
     [...WORKFLOW.split('const OUTCOME_BY_ACTION = {')[1].split('}')[0].matchAll(/: '([^']+)'/g)].map((m) => m[1])
   );
 
-  it('the outcome map has five values (sanity check on the extraction itself)', () => {
-    expect(outcomes).toHaveLength(5);
+  it('the outcome map has six values (sanity check on the extraction itself)', () => {
+    expect(outcomes).toHaveLength(6);
   });
 
   it("§3.3's result `outcome` union", () => {
