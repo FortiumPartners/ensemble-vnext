@@ -2782,7 +2782,7 @@ describe('verify-functional: must-pass enforcement', () => {
       const { result, agent } = await run({ args: { coverageFloor: 0.8 }, judge: satisfiedJudge({ criteria: unprovenCriteria }) });
       expect(result.outcome).toBe('insufficient-coverage');
       expect(result.reason).toMatch(/FS-2/);
-      expect(result.reason).toMatch(/0\.8/);
+      expect(result.reason).toMatch(/coverage floor 80%/);
       expect(result.mustPass.overridden).toBe(true);
       expect(reconcileCalls(agent)).toHaveLength(1);
       expect(reconcileCalls(agent)[0].prompt).toContain('"insufficient-coverage"');

@@ -1030,12 +1030,16 @@ function applyMustPassRecheck(judgeResult, settled) {
     // A floor really missed: the Judge's own insufficient-coverage stands, and a satisfied exit
     // becomes one, because a run below the floor reports that outcome (D9).
     if (judgeResult.action === 'exit-insufficient-coverage') return unchanged
+    // Same wording as decideNext's re-label (D19): the floor as a percentage, never a bare fraction.
     const pct = ((coverage.proven / N) * 100).toFixed(1)
+    const floorPct = `${Number((FLOOR * 100).toFixed(2))}%`
     return {
       judgeResult: {
         ...judgeResult,
         action: 'exit-insufficient-coverage',
-        reason: `proven ratio ${coverage.proven}/${N} (${pct}%) is below the coverage floor ${FLOOR}; ${named}`,
+        reason:
+          `proven ratio ${coverage.proven}/${N} (${pct}%) is below the coverage floor ${floorPct} — ` +
+          `${N - coverage.proven} criterion/criteria uncovered; base cause: ${judgeResult.reason || 'no gaps remain'}; ${named}`,
       },
       overridden: true,
     }

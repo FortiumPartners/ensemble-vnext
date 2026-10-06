@@ -423,3 +423,11 @@ describe('CLI', () => {
     expect(run('extract').status).toBe(1);
   });
 });
+
+describe('objectiveRows — a hyphenated Must-pass header (review fix)', () => {
+  const { objectiveRows } = require('./spec-scope');
+  test('`Must-pass` is read as the Must pass column, not as no column', () => {
+    const md = '## Objectives\n\n| ID | Objective | Source | Must-pass |\n|----|-----------|--------|-----------|\n| O1 | a | s | yes |\n| O2 | b | s | |\n';
+    expect(objectiveRows(md).map((r) => [r.id, r.mustPass])).toEqual([['O1', true], ['O2', false]]);
+  });
+});

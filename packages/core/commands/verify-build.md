@@ -319,8 +319,9 @@ the line in verification.md does not parse" when `read-coverage-floor` returned 
 
 **State must-pass whenever this run reached step 4 (D15):** "Must pass: none declared in the
 TRD's Objectives" when `mustPass.criteria` and `mustPass.uncovered` are both empty (always the
-case for a sweep file); otherwise "Must pass: {k} of {n} proven" ({n} = `mustPass.criteria`
-plus `mustPass.uncovered`), naming each unproven one by its statement in plain words.
+case for a sweep file); otherwise "Must pass: {k} of {n} proven" ({n} = `mustPass.criteria`,
+the same count the report's `**Must pass**:` line prints), naming each unproven one by its
+statement in plain words and each objective in `mustPass.uncovered` as having no criterion.
 
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.

@@ -366,7 +366,9 @@ function readMark(raw) {
 
 /** The rows of an Objectives table; the Must pass column is found by header name, not position. */
 function parseObjectiveTable(table) {
-  const col = table.headerCells.findIndex((h) => cleanCell(h).toLowerCase() === 'must pass');
+  // Hyphens and underscores fold to spaces: a `Must-pass` header read as no column would drop
+  // every mark silently -- the fail-open reading readMark exists to prevent.
+  const col = table.headerCells.findIndex((h) => cleanCell(h).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').toLowerCase() === 'must pass');
   const rows = [];
   for (const r of table.dataRows) {
     const id = (r.cells[0] || '').replace(/\*\*|`/g, '').replace(/:$/, '').trim();

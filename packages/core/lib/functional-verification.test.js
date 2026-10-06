@@ -3131,3 +3131,20 @@ describe('renderReport: the must-pass line and outcome (D13)', () => {
     expect(out).toContain('O\\|5');
   });
 });
+
+describe('mustPassCoverage — placeholder cells and header variants (review fixes)', () => {
+  const { mustPassCoverage } = require('./functional-verification');
+  test('a `no`, `none`, `n/a` or dash cell is blank, not an unknown objective', () => {
+    const out = mustPassCoverage({
+      objectives: [{ id: 'O1', text: 'x' }],
+      criteria: [
+        { id: 'FS-1', mustPass: 'O1' },
+        { id: 'FS-2', mustPass: 'no' },
+        { id: 'FS-3', mustPass: '—' },
+        { id: 'FS-4', mustPass: 'n/a' },
+        { id: 'FS-5', mustPass: '-' },
+      ],
+    });
+    expect(out).toEqual({ criteria: ['FS-1'], uncovered: [], unknown: [] });
+  });
+});

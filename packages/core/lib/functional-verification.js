@@ -482,7 +482,12 @@ function mustPassCoverage({ objectives, criteria }) {
   const unknown = [];
   for (const c of criteria) {
     const cell = Array.isArray(c.mustPass) ? c.mustPass.join(',') : String(c.mustPass ?? '');
-    const ids = cell.replace(/\*\*|`/g, '').split(/[\s,;]+/).filter(Boolean);
+    // A placeholder (`no`, `none`, `n/a`, a dash) is blank, as the Objectives table reads `no`:
+    // reporting it as an unknown objective id would put one false ISSUES line on every row.
+    const ids = cell
+      .replace(/\*\*|`/g, '')
+      .split(/[\s,;]+/)
+      .filter((t) => t && !/^(no|none|n\/a|[-–—])$/i.test(t));
     let marks = false;
     for (const id of ids) {
       if (declared.has(id)) {
@@ -512,7 +517,8 @@ function mustPassCoverageFromFiles(trdPath, definitionPath) {
     .filter((r) => r.mustPass)
     .map(({ id, text }) => ({ id, text }));
   const lines = maskFencedLines(fs.readFileSync(definitionPath, 'utf8').split(/\r?\n/));
-  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').trim().toLowerCase();
+  // Hyphens and underscores fold to spaces, so a `Must-pass` header is not silently a missing column.
+  const clean = (h) => String(h ?? '').replace(/\*\*|`/g, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
   const table = findTables(lines, 0, lines.length).find((t) => t.headerCells.some((h) => clean(h) === 'id'));
   const criteria = [];
   if (table) {

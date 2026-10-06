@@ -78,8 +78,10 @@ identifier.
   scarcest resource first (`verification.md` §1a); a criterion with no group is its own slice.
 - **Accepted as not verifiable** — every criterion whose cause is `environment-unreachable` or
   `capability-absent` (never buildable), with the diagnosis's reason, and any criterion the TRD
-  already assigns to a later or production-only task. **Never a must-pass criterion** (one the
-  TRD's Objectives table marks `Must pass`): accepting it would let the next `/verify-build`
+  already assigns to a later or production-only task. **Never a must-pass criterion** (one whose
+  `Must pass` cell in the success definition names an objective — the ids the report's
+  `**Must pass**:` line lists; criterion ids are not objective ids, so never look for them in
+  the TRD's Objectives table): accepting it would let the next `/verify-build`
   find it not verifiable again and block again, with no owner decision on record. It goes under
   Owner rulings instead.
 - **Owner rulings** — a criterion that contradicts a decision already written in the PRD or TRD

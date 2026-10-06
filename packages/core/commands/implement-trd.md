@@ -1932,8 +1932,9 @@ STATE
     (--no-verify set)."}
   {if verification ran: "Must pass: none declared in the TRD's Objectives" when `mustPass.criteria`
    and `mustPass.uncovered` are both empty; otherwise "Must pass: {k} of {n} proven" ({n} =
-   `mustPass.criteria` plus `mustPass.uncovered`, {k} = those proven), then each unproven one
-   by its statement in plain words, from `mustPass.unproven` (D15).}
+   `mustPass.criteria`, {k} = those proven — the same count the report's `**Must pass**:` line
+   prints), then each unproven one by its statement in plain words, from `mustPass.unproven`, and
+   each objective in `mustPass.uncovered` as having no criterion (D15).}
   {if verification ran: "Coverage floor: {N}% (from verification.md)" when §8.1a's
    `coverageFloor` is non-null; "Coverage floor: not applied — the line in verification.md
    does not parse" when `read-coverage-floor` returned `status: 'invalid'`; else
