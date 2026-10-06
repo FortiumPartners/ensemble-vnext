@@ -875,3 +875,12 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   "name, path, internal ordering, registration detail". `audit-docs.md`'s readout puts the
   requirements-changed confirm list in ISSUES, not STATE.
 - [read] Correction (iteration 2): the earlier note that `audit-docs.md`'s readout puts the requirements-changed confirm list in ISSUES is stale. Lines 174-178 of `packages/core/commands/audit-docs.md` (and its `.claude` mirror, byte-identical) now put skipped TRDs and PRDs and the confirm list (`behaviourChanges`) in STATE, and broken non-goals (`brokenNonGoals`) and changelog defects (`changelogDefects`) in ISSUES (lines 184-186).
+
+## Exercising the must-pass checks (2026-10-06 run, `verification-must-pass`)
+
+- [ran] The TRD Objectives `Must pass` mark is `yes` (or `no`/blank), not the words "must-pass":
+  any other non-blank value is read as must-pass but flagged `invalidValue`. Fixture TRDs need `yes`.
+  Reader: `node .claude/lib/spec-scope.js objectives --trd <trd>`.
+- [ran] No server is needed. `node .claude/lib/functional-verification.js` subcommands `decide-next`,
+  `render-report` and `must-pass-coverage --trd <trd> --definition <def>` exercise every criterion;
+  `decide-next` requires `mustPass` and `mustPassUncovered` arrays and `coverageFloor` as a fraction (0.6).

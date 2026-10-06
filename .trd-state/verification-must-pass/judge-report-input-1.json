@@ -1,0 +1,175 @@
+{
+  "feature": "verification-must-pass",
+  "prd": "docs/TRD/verification-must-pass.md ## Intended Change",
+  "definitionPath": ".trd-state/verification-must-pass/success-definition.md",
+  "outcome": "satisfied",
+  "reason": "no gaps remain — every criterion is met or not verifiable here",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "statement": "A TRD's Objectives table can mark an individual objective must-pass, and the framework reads that marking: given a TRD with one objective marked must-pass and one unmarked, the must-pass one is recognised as must-pass and the unmarked one as ordinary",
+      "cites": "After 1, lines 16-17",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-1.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "statement": "A success definition that carries no must-pass marking at all — the pre-change seven-column format — still parses, and a run over it whose criteria are all `met` or `not_verifiable` still ends `satisfied`, exactly as before this change",
+      "cites": "After 1, line 17; domain-derived for the file format",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-2.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "statement": "The success definition records, per criterion, whether that criterion is must-pass",
+      "cites": "After 2, line 18",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-3.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "statement": "Every must-pass objective in the TRD is covered by at least one must-pass criterion in the success definition",
+      "cites": "After 2, lines 18-19",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-4.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "statement": "A must-pass objective that no criterion covers is reported by name, not silently dropped",
+      "cites": "After 2, lines 19-20",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-5.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "statement": "The decisive case: a definition whose must-pass criterion is `not_verifiable` while every other criterion is `met` does not end `satisfied`",
+      "cites": "lines 30-31; After 3, lines 21-22",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-6.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "statement": "When a run is blocked only by unproven must-pass criteria, it ends with a distinct outcome — not `satisfied`, `unbuilt`, `stalled`, `stuck` or `insufficient-coverage` — and that outcome's reason names every unproven must-pass criterion by ID",
+      "cites": "After 3, lines 22-23",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-7.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "statement": "The coverage floor still applies, separately, over all criteria: with every must-pass criterion `met`, a run whose overall proven share of all criteria is below the declared floor still ends `insufficient-coverage`, with the ratio computed over the whole definition",
+      "cites": "After 3, line 23",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-8.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-9",
+      "statement": "The must-pass block is enforced deterministically by the verification workflow after the Judge returns: if the Judge's own return says `exit-satisfied` while a must-pass criterion in its criteria list is not `met`, the workflow's final outcome is still not `satisfied`",
+      "cites": "After 4, lines 24-25",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-9.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-10",
+      "statement": "The `/implement-trd` readout names each unproven must-pass criterion when a run ends with the new outcome",
+      "cites": "After 5, line 26",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-10.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-11",
+      "statement": "The `/verify-build` readout names each unproven must-pass criterion when a run ends with the new outcome",
+      "cites": "After 5, line 26",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-11.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "statement": "The rendered verification report names each unproven must-pass criterion when the outcome is the new one",
+      "cites": "After 5, lines 26-27",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-12.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    },
+    {
+      "id": "FS-13",
+      "statement": "NEXT routes the new outcome exactly as it routes the other non-satisfied outcomes — `/refine-verification`, then `/verify-build` — in the `/implement-trd` and `/verify-build` readouts and in the report's own Next line",
+      "cites": "After 5, lines 27-28",
+      "status": "met",
+      "artifact": ".trd-state/verification-must-pass/evidence/FS-13.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "attempts": 1,
+      "blocker": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-6",
+    "FS-7",
+    "FS-9"
+  ],
+  "mustPassUncovered": []
+}
