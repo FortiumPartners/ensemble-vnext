@@ -4,7 +4,7 @@
   "trd_hash": "75d19a6c74a57791239fca2061e5f8ce6046feece4790f3ecf157cca4c0083cd",
   "branch": "feature/verification-must-pass/trd",
   "strategy": "tdd",
-  "phase_cursor": 2,
+  "phase_cursor": 3,
   "tasks": {
     "VMP-B001": {
       "description": "In functional-verification.js: the must-pass step in decideNext (§3.4); mustPassCoverage plus its must-pass-coverage --t",
@@ -137,13 +137,13 @@
     "VMP-D001": {
       "description": "docs/reference/verification.md (outcome table, decideNext precedence, the Must pass columns, the report's Must pass line",
       "phase": 3,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-10-06T09:09:11.365Z",
       "completed_at": null
     },
     "VMP-T001": {
@@ -167,11 +167,19 @@
         "findings": 0
       },
       "timestamp": "2026-10-06T09:03:33.915Z"
+    },
+    {
+      "phase": 2,
+      "commit": "869637b085023281e49fe2fe888abb2f5b602346",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-06T09:09:11.365Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "5099cb4c2d49a961ec0b4c5fd4df59d942ad57d6",
-    "last_checkpoint_timestamp": "2026-10-06T09:03:33.915Z",
+    "last_healthy_checkpoint": "869637b085023281e49fe2fe888abb2f5b602346",
+    "last_checkpoint_timestamp": "2026-10-06T09:09:11.365Z",
     "interrupted": false,
     "interrupt_reason": null
   },
