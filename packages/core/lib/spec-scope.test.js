@@ -4,6 +4,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const S = require('./spec-scope');
+const { splitRowCells } = require('./trd-parser');
 
 const SPEC = fs.readFileSync(path.join(__dirname, '__fixtures__', 'spec-scope-item4.md'), 'utf8');
 const SECTION = 'Item 4 — Sign up and get in, Disney optional';
@@ -291,6 +292,86 @@ describe('review fixes', () => {
     const root = '/repo';
     expect(S.overlap({ sweepFiles: ['/repo/apps/web/b.ts', 'apps/web/a.ts'], trdMarkdown: trd, root }).shared)
       .toEqual(['/repo/apps/web/b.ts', 'apps/web/a.ts']);
+  });
+});
+
+describe('Must pass marking (VMP-B003)', () => {
+  const trdWith = (table) => ['# T', '', '**Source PRD**: None', '', '## Objectives', '', ...table, '', '## Next', ''].join('\n');
+  const four = (rows) => ['| ID | Objective | Source | Must pass |', '|----|-----------|--------|-----------|', ...rows];
+  const now = () => new Date('2026-10-02T00:00:00Z');
+
+  test('objectiveRows: a three-column table yields mustPass false for every row', () => {
+    const rows = S.objectiveRows(TRD);
+    expect(rows).toEqual([{ id: 'O1', text: 'something the model typed', mustPass: false }]);
+  });
+  test('objectiveRows: yes, Yes and **yes** mark; blank and no do not; located by header name', () => {
+    const trd = trdWith([
+      '| ID | Must pass | Objective | Source |', '|--|--|--|--|',
+      '| O1 | yes | a | s |', '| O2 | Yes | b | s |', '| O3 | **`yes`** | c | s |', '| O4 |  | d | s |', '| O5 | no | e | s |',
+    ]);
+    expect(S.objectiveRows(trd).map((r) => [r.id, r.mustPass])).toEqual([['O1', true], ['O2', true], ['O3', true], ['O4', false], ['O5', false]]);
+  });
+  test('objectiveRows: any other value is invalid and fails closed', () => {
+    const r = S.objectiveRows(trdWith(four(['| O1 | a | s | must |'])))[0];
+    expect(r).toEqual({ id: 'O1', text: 'a', mustPass: true, invalidValue: 'must' });
+  });
+  test('renderObjectives keeps a marked id through the rewrite, check stays ok, and is idempotent', () => {
+    const marked = trdWith(four(['| AC-4.1 | old | s | yes |', '| AC-4.5 | old | s |  |']));
+    const args = { specMarkdown: SPEC, specPath: SPEC_PATH, section: SECTION, ids: CORE };
+    const once = S.renderObjectives({ trdMarkdown: marked, ...args });
+    const rows = S.objectiveRows(once);
+    expect(rows.filter((r) => r.mustPass).map((r) => r.id)).toEqual(['AC-4.1']);
+    expect(once).toContain('| ID | Objective | Source | Must pass |');
+    expect(S.renderObjectives({ trdMarkdown: once, ...args })).toBe(once);
+    expect(S.check({ specMarkdown: SPEC, section: SECTION, trdMarkdown: once }).missing).toEqual(
+      S.check({ specMarkdown: SPEC, section: SECTION, trdMarkdown: render() }).missing);
+  });
+  test('renderObjectives on a TRD with no marks writes the three-column table, dropping an all-no column', () => {
+    const noMarks = trdWith(four(['| AC-4.1 | old | s | no |']));
+    const out = S.renderObjectives({ trdMarkdown: noMarks, specMarkdown: SPEC, specPath: SPEC_PATH, section: SECTION, ids: CORE });
+    expect(out).toContain('| ID | Objective | Source |\n');
+    expect(out).not.toContain('Must pass');
+    expect(out.split('\n').filter((l) => l.startsWith('| ID |')).length).toBe(1);
+    expect(render()).not.toContain('Must pass');
+  });
+  test('criteria --trd marks by criterion id, including a marked guard; an unmarked guard stays blank', () => {
+    const trd = trdWith(four(['| AC-4.1 | a | s | yes |', '| RG-4.1 | g | s | yes |', '| AC-4.5 | b | s | no |']));
+    const def = S.criteria({ specMarkdown: SPEC, specPath: SPEC_PATH, section: SECTION, ids: CORE, feature: 'demo', trdMarkdown: trd, now });
+    const lines = def.split('\n');
+    expect(lines.find((l) => l.startsWith('| ID |'))).toMatch(/\| Parts \| Must pass \|$/);
+    const cells = (id) => splitRowCells(lines.find((l) => l.startsWith(`| ${id} |`)));
+    expect(cells('AC-4.1')).toHaveLength(8);
+    expect(cells('AC-4.1')[7]).toBe('AC-4.1');
+    expect(cells('RG-4.1')[7]).toBe('RG-4.1');
+    expect(cells('RG-4.2')[7]).toBe('');
+    expect(cells('AC-4.5')[7]).toBe('');
+  });
+  test('criteria keeps the seven-column header without --trd or without marks', () => {
+    const seven = '| ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts |';
+    const base = { specMarkdown: SPEC, specPath: SPEC_PATH, section: SECTION, ids: CORE, feature: 'demo', now };
+    const plain = S.criteria(base);
+    expect(plain).toContain(`${seven}\n`);
+    expect(S.criteria({ ...base, trdMarkdown: TRD })).toBe(plain);
+    expect(S.criteria({ ...base, trdMarkdown: trdWith(four(['| AC-4.1 | a | s | no |'])) })).toBe(plain);
+  });
+  test('CLI: objectives prints the rows; criteria --trd adds the column', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-scope-mp-'));
+    try {
+      const run = (...a) => spawnSync('node', [path.join(__dirname, 'spec-scope.js'), ...a], { cwd: dir, encoding: 'utf8' });
+      const trdFile = path.join(dir, 't.md');
+      const specFile = path.join(dir, 's.md');
+      fs.writeFileSync(trdFile, trdWith(four(['| AC-4.1 | a | s | yes |', '| O2 | b | s | maybe |'])));
+      fs.writeFileSync(specFile, SPEC);
+      const o = run('objectives', '--trd', trdFile);
+      expect(o.status).toBe(0);
+      expect(JSON.parse(o.stdout)).toEqual([
+        { id: 'AC-4.1', text: 'a', mustPass: true },
+        { id: 'O2', text: 'b', mustPass: true, invalidValue: 'maybe' },
+      ]);
+      expect(run('objectives').status).toBe(1);
+      const c = run('criteria', '--spec', specFile, '--section', SECTION, '--ids', 'AC-4.1', '--trd', trdFile);
+      expect(JSON.parse(c.stdout).markdown).toMatch(/\| Parts \| Must pass \|\n/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 

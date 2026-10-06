@@ -85,6 +85,8 @@ guards, copied verbatim with their ids, and no others. Do not add, reword, merge
 widen one. Criteria the spec's `/plan` split sent to `/sweep` are listed under Non-Goals as
 "handled by `/sweep <file>`", each by id. A criterion that looks wrong is not corrected: it
 becomes an owner-only open question quoting the spec line, and the criterion stays as written.
+A `Must pass` mark is not a reword: it is a column beside the copied criterion, and the
+criterion's text stays as the spec wrote it.
 
 This rule binds only a TRD with the header. A TRD without it, including every PRD-sourced
 TRD, is unchanged: constitution- and domain-derived objectives stay allowed under the typing
@@ -128,6 +130,23 @@ otherwise have to reconstruct. There is no diagram quota.
 |---------|------|---------|--------|
 | 1.0.0 | [Date] | Initial TRD creation | @technical-architect |
 ```
+
+### Section 1a: Objectives
+
+```markdown
+## Objectives
+
+| ID | Objective | Source | Must pass |
+|----|-----------|--------|-----------|
+| O1 | [What must be true] | [Where it comes from] | [yes, or blank] |
+```
+
+**Must pass** marks the objectives without which the feature does not exist. Write `yes` in
+that column for those and leave it blank for the rest. Mark sparingly: a plan that marks
+everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
+does today.
+
+Placed after the Changelog and before the Overview, without renumbering either.
 
 ### Section 2: Overview
 

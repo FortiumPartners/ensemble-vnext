@@ -7,6 +7,7 @@ const { execFileSync, spawnSync } = require('child_process');
 
 const {
   checkEvidence,
+  mustPassCoverage,
   decideNext,
   renderReport,
   readStopRule,
@@ -399,6 +400,8 @@ describe('decideNext', () => {
       gaps: ['FS-2'],
       unbuilt: ['FS-1'],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
     });
     expect(result.action).toBe('exit-unbuilt');
@@ -412,6 +415,8 @@ describe('decideNext', () => {
       gaps: [],
       unbuilt: ['FS-1'],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
     });
     expect(result.action).toBe('exit-unbuilt');
@@ -423,6 +428,8 @@ describe('decideNext', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: ['FS-1'],
     });
     expect(result.action).toBe('exit-satisfied');
@@ -434,6 +441,8 @@ describe('decideNext', () => {
       gaps: ['FS-1', 'FS-2'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
     });
     expect(result.action).toBe('exit-stalled');
@@ -448,6 +457,8 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
     });
     expect(result.action).toBe('remediate');
@@ -465,6 +476,8 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: [],
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       cap: 3,
     });
@@ -477,6 +490,8 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       cap: 3,
     });
@@ -491,6 +506,8 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       cap: 3,
     });
@@ -505,6 +522,8 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       cap: 1,
     });
@@ -518,6 +537,8 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
     });
     expect(remediateResult.action).toBe('remediate');
@@ -527,6 +548,8 @@ describe('decideNext', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
     });
     expect(stuckResult.action).toBe('exit-stuck');
@@ -534,11 +557,11 @@ describe('decideNext', () => {
 
   test('every result includes a non-empty reason string', () => {
     for (const input of [
-      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [] },
-      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [] },
-      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [] },
-      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [] },
-      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [] },
+      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] },
+      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] },
+      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [] },
+      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [] },
+      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] },
     ]) {
       const result = decideNext(input);
       expect(typeof result.reason).toBe('string');
@@ -561,6 +584,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: ['FS-1'],
       total: 10,
       coverageFloor: 0.5,
@@ -578,6 +603,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: ['FS-1', 'FS-2'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      mustPass: [],
+      mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
       coverageFloor: 0.9,
@@ -591,6 +618,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
+      mustPass: [],
+      mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
       coverageFloor: 0.9,
@@ -605,6 +634,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: ['FS-1'],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       total: 10,
       coverageFloor: 1, // the highest possible floor -- if anything could force a re-label, this would
@@ -618,6 +649,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: [],
       unbuilt: ['FS-1'],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       total: 10,
       coverageFloor: 1,
@@ -631,6 +664,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: ['FS-1'],
       total: 62, // the PRD's own 18% (11 of 62) shape, exaggerated further to 1/62
       // coverageFloor omitted -- defaults to COVERAGE_FLOOR (null)
@@ -644,6 +679,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       total: 10,
       coverageFloor: null,
@@ -657,6 +694,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: ['FS-1', 'FS-2', 'FS-3', 'FS-4', 'FS-5'],
       total: 10,
       coverageFloor: 0.5, // 5/10 === 0.5, not strictly below it
@@ -670,6 +709,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       coverageFloor: 0.5,
       // total omitted
@@ -683,6 +724,8 @@ describe('decideNext: the coverage re-label', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
       total: 0,
       coverageFloor: 0.5,
@@ -1096,6 +1139,8 @@ describe('CLI', () => {
       gaps: [],
       unbuilt: [],
       previousGaps: null,
+      mustPass: [],
+      mustPassUncovered: [],
       met: [],
     });
 
@@ -1226,7 +1271,7 @@ describe('CLI', () => {
     const inputFile = path.join(tmpDir, 'decide.json');
     fs.writeFileSync(
       inputFile,
-      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [] })
+      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] })
     );
 
     const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', '--file', inputFile]).toString();
@@ -2868,7 +2913,7 @@ describe('CLI: decide-fix-round and render-fix-summary', () => {
 describe('the existing functional-verification.test.js cases still pass', () => {
   test('sanity: decideNext and renderReport basics are untouched by the VFIX-B001 changes', () => {
     expect(
-      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [] })
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] })
     ).toMatchObject({ action: 'exit-satisfied' });
     expect(renderReport({
       feature: 'demo',
@@ -2881,3 +2926,208 @@ describe('the existing functional-verification.test.js cases still pass', () => 
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// Must pass (docs/TRD/verification-must-pass.md, VMP-B001): decideNext step, mustPassCoverage,
+// the must-pass-coverage CLI and the report line
+// ---------------------------------------------------------------------------
+
+describe('decideNext: the must-pass step (D8, D9, D10)', () => {
+  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2 };
+
+  test('a base exit-satisfied with an unproven must-pass criterion becomes exit-must-pass-unproven', () => {
+    const r = decideNext({ ...clean, mustPass: ['FS-2'], mustPassUncovered: [] });
+    expect(r.action).toBe('exit-must-pass-unproven');
+    expect(r.reason).toContain('FS-2');
+  });
+
+  test('without must-pass the same input is exit-satisfied', () => {
+    expect(decideNext({ ...clean, mustPass: [], mustPassUncovered: [] }).action).toBe('exit-satisfied');
+  });
+
+  test('a must-pass criterion that is met does not block', () => {
+    expect(decideNext({ ...clean, mustPass: ['FS-1'], mustPassUncovered: [] }).action).toBe('exit-satisfied');
+  });
+
+  test('an uncovered objective alone blocks and is named in the reason', () => {
+    const r = decideNext({ ...clean, mustPass: [], mustPassUncovered: ['O3'] });
+    expect(r.action).toBe('exit-must-pass-unproven');
+    expect(r.reason).toContain('O3');
+  });
+
+  test('a must-pass criterion in gaps still remediates / stalls / sticks', () => {
+    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [] };
+    expect(decideNext(base).action).toBe('remediate');
+    expect(decideNext({ ...base, iteration: 2, previousGaps: ['FS-2'] }).action).toBe('exit-stalled');
+    expect(decideNext({ ...base, iteration: 3 }).action).toBe('exit-stuck');
+  });
+
+  test('a must-pass criterion in unbuilt still exits unbuilt', () => {
+    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [] });
+    expect(r.action).toBe('exit-unbuilt');
+  });
+
+  test('a missed floor wins (D9) and its reason names the ratio, the floor and the unproven ids', () => {
+    const r = decideNext({
+      ...clean, total: 10, coverageFloor: 0.5, mustPass: ['FS-2'], mustPassUncovered: ['O3'],
+    });
+    expect(r.action).toBe('exit-insufficient-coverage');
+    expect(r.reason).toMatch(/1\/10/);
+    expect(r.reason).toMatch(/50%/);
+    expect(r.reason).toContain('FS-2');
+    expect(r.reason).toContain('O3');
+  });
+
+  test('a floor that is cleared leaves the must-pass outcome in place', () => {
+    const r = decideNext({ ...clean, total: 2, coverageFloor: 0.5, mustPass: ['FS-2'], mustPassUncovered: [] });
+    expect(r.action).toBe('exit-must-pass-unproven');
+  });
+
+  test('a missed floor with every must-pass proven adds nothing to the reason', () => {
+    const r = decideNext({ ...clean, total: 10, coverageFloor: 0.5, mustPass: ['FS-1'], mustPassUncovered: [] });
+    expect(r.action).toBe('exit-insufficient-coverage');
+    expect(r.reason).not.toMatch(/must.pass/i);
+  });
+
+  test.each([['mustPass'], ['mustPassUncovered']])('an absent %s throws TypeError (D10)', (key) => {
+    const input = { ...clean, mustPass: [], mustPassUncovered: [] };
+    delete input[key];
+    expect(() => decideNext(input)).toThrow(TypeError);
+    expect(() => decideNext(input)).toThrow(new RegExp(`input\\.${key} is required`));
+    expect(() => decideNext({ ...input, [key]: 'FS-1' })).toThrow(TypeError);
+  });
+});
+
+describe('mustPassCoverage (D6)', () => {
+  const objectives = [
+    { id: 'O3', text: 'three' },
+    { id: 'O4', text: 'four' },
+  ];
+
+  test('lists must-pass criteria, uncovered objectives and unknown ids', () => {
+    const r = mustPassCoverage({
+      objectives,
+      criteria: [
+        { id: 'FS-1', mustPass: 'O3' },
+        { id: 'FS-2', mustPass: '' },
+        { id: 'FS-3', mustPass: 'O9' },
+      ],
+    });
+    expect(r.criteria).toEqual(['FS-1']);
+    expect(r.uncovered).toEqual([{ id: 'O4', text: 'four' }]);
+    expect(r.unknown).toEqual([{ criterion: 'FS-3', objective: 'O9' }]);
+  });
+
+  test('a comma-separated cell covers two objectives', () => {
+    const r = mustPassCoverage({ objectives, criteria: [{ id: 'FS-1', mustPass: 'O3, O4' }] });
+    expect(r.criteria).toEqual(['FS-1']);
+    expect(r.uncovered).toEqual([]);
+    expect(r.unknown).toEqual([]);
+  });
+
+  test('a cell naming one known and one unknown id still counts as must-pass', () => {
+    const r = mustPassCoverage({ objectives, criteria: [{ id: 'FS-1', mustPass: 'O3, O9' }] });
+    expect(r.criteria).toEqual(['FS-1']);
+    expect(r.unknown).toEqual([{ criterion: 'FS-1', objective: 'O9' }]);
+  });
+
+  test('no criteria leaves every objective uncovered', () => {
+    expect(mustPassCoverage({ objectives, criteria: [] }).uncovered).toEqual(objectives);
+  });
+});
+
+describe('CLI: must-pass-coverage (D6, D11)', () => {
+  const run = (def) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mpc-'));
+    const trd = path.join(dir, 'trd.md');
+    const definition = path.join(dir, 'definition.md');
+    fs.writeFileSync(trd, [
+      '# T', '', '## Objectives', '',
+      '| ID | Objective | Must pass |', '|----|-----------|-----------|',
+      '| O1 | first | yes |', '| O2 | second | |', '| O3 | third | **Yes** |', '',
+    ].join('\n'));
+    fs.writeFileSync(definition, def);
+    return JSON.parse(execFileSync('node', [MODULE_PATH, 'must-pass-coverage', '--trd', trd, '--definition', definition]).toString());
+  };
+
+  test('reads both files and returns the §3.3 shape', () => {
+    const r = run([
+      '# D', '',
+      '| ID | Functional statement | Cites | Evidence | Derivation | Tier 1 | Parts | Must pass |',
+      '|----|----|----|----|----|----|----|----|',
+      '| FS-1 | a | c | e | [read] | locator | | O1 |',
+      '| FS-2 | b | c | e | [read] | locator | | |',
+      '| FS-3 | c | c | e | [read] | locator | | O7 |', '',
+    ].join('\n'));
+    expect(r.criteria).toEqual(['FS-1']);
+    expect(r.uncovered).toEqual([{ id: 'O3', text: 'third' }]);
+    expect(r.unknown).toEqual([{ criterion: 'FS-3', objective: 'O7' }]);
+  });
+
+  test('a definition with no Must pass column fails closed: every must-pass objective is uncovered', () => {
+    const r = run([
+      '# D', '',
+      '| ID | Functional statement | Cites | Evidence | Derivation | Tier 1 | Parts |',
+      '|----|----|----|----|----|----|----|',
+      '| FS-1 | a | c | e | [read] | locator | |', '',
+    ].join('\n'));
+    expect(r.criteria).toEqual([]);
+    expect(r.uncovered.map((o) => o.id)).toEqual(['O1', 'O3']);
+  });
+
+  test('missing flags print usage and exit non-zero', () => {
+    const r = spawnSync('node', [MODULE_PATH, 'must-pass-coverage'], { encoding: 'utf8' });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/must-pass-coverage/);
+  });
+});
+
+describe('renderReport: the must-pass line and outcome (D13)', () => {
+  const crit = (id, status, extra = {}) => ({
+    id, statement: `s ${id}`, cites: 'c', status, artifact: null, reason: null, attempts: [], blocker: null, ...extra,
+  });
+  const input = (over) => ({
+    feature: 'demo', prd: 'docs/PRD/demo.md', definitionPath: 'd.md',
+    outcome: 'satisfied', reason: 'r', criteria: [crit('FS-1', 'met')], ...over,
+  });
+
+  test('with both lists empty (or absent) the report has no Must pass line and is byte-identical', () => {
+    const plain = renderReport(input({}));
+    expect(plain).not.toContain('**Must pass**');
+    expect(renderReport(input({ mustPass: [], mustPassUncovered: [] }))).toBe(plain);
+  });
+
+  test('the new outcome renders its label, Diagnosis and the refine-verification Next line', () => {
+    const out = renderReport(input({
+      outcome: 'must-pass-unproven',
+      criteria: [crit('FS-1', 'met'), crit('FS-2', 'not_verifiable', { cause: 'environment-unreachable' })],
+      mustPass: ['FS-2'],
+    }));
+    expect(out).toContain('**Outcome**: Must-Pass Unproven');
+    expect(out).toContain('**Diagnosis**: 1 open');
+    expect(out).toContain('**Next**: refine the plan with `/refine-verification`');
+  });
+
+  test('the line says k of n proven, names unproven ids with status, and uncovered objectives', () => {
+    const out = renderReport(input({
+      outcome: 'must-pass-unproven',
+      criteria: [crit('FS-1', 'met'), crit('FS-2', 'not_verifiable')],
+      mustPass: ['FS-1', 'FS-2'],
+      mustPassUncovered: [{ id: 'O5', text: 'five' }],
+    }));
+    const line = out.split('\n').find((l) => l.startsWith('**Must pass**'));
+    expect(line).toBe('**Must pass**: 1 of 2 proven — unproven: FS-2 (not verifiable) — no criterion for: O5');
+    const lines = out.split('\n');
+    expect(lines.indexOf(line)).toBe(lines.findIndex((l) => l.startsWith('**Coverage**')) + 1);
+  });
+
+  test('a must-pass id absent from criteria renders as missing and does not throw', () => {
+    const out = renderReport(input({ mustPass: ['FS-9'] }));
+    expect(out).toContain('**Must pass**: 0 of 1 proven — unproven: FS-9 (missing)');
+  });
+
+  test('ids and objective text cannot break the line', () => {
+    const out = renderReport(input({ mustPass: ['FS-1'], mustPassUncovered: [{ id: 'O|5', text: 'x' }] }));
+    expect(out).toContain('O\\|5');
+  });
+});

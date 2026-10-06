@@ -31,7 +31,8 @@
  *   render-sweep      --spec P --section S --ids a,b --core-trd T|none --out F
  *   render-objectives --spec P --section S --ids a,b --trd F     (rewrites F in place)
  *   check             --spec P --section S [--sweep F] [--trd F]  -> {missing,...,ok}; exit 1 if not ok
- *   criteria          --spec P --section S --ids a,b [--feature N] [--out F]
+ *   criteria          --spec P --section S --ids a,b [--feature N] [--trd F] [--out F]
+ *   objectives        --trd F                       -> [{id, text, mustPass[, invalidValue]}]
  *   overlap           --sweep-files a,b --trd F
  * Spec paths are read relative to the working directory. JSON on stdout; errors on stderr, exit 1.
  */
@@ -282,16 +283,32 @@ function renderObjectives({ trdMarkdown, specMarkdown, specPath, section, ids })
   const masked = maskFencedLines(lines);
   const { chosen, guards } = pick(specMarkdown, section, ids);
   const src = `${specPath} § ${section}`;
-  const rows = [
-    '| ID | Objective | Source |',
-    '|----|-----------|--------|',
-    ...chosen.map((c) => `| ${c.id} | ${cell(c.text)} | ${cell(src)} |`),
-    ...guards.map((g) => `| ${g.id} | ${cell(g.text)} | ${cell(`${src} (regression guard)`)} |`),
-  ];
 
   const obj = objectivesSpan(masked);
   if (!obj) throw new Error('the TRD has no ## Objectives section');
   const table = findTables(masked, obj.start, obj.end)[0];
+
+  // The plan's must-pass marks live in this table, so a rewrite keeps each id's own cell. They
+  // are read before `rows` is built because the rows replace the table they are read from.
+  const marks = new Map(table ? parseObjectiveTable(table).filter((r) => r.mustPass).map((r) => [r.id, r.rawMark]) : []);
+  const body = [
+    ...chosen.map((c) => ({ id: c.id, text: c.text, source: src })),
+    ...guards.map((g) => ({ id: g.id, text: g.text, source: `${src} (regression guard)` })),
+  ];
+  const marked = body.some((r) => marks.has(r.id));
+  // The column is written only when something is marked, so an unmarked TRD stays byte-identical.
+  const rows = marked
+    ? [
+      '| ID | Objective | Source | Must pass |',
+      '|----|-----------|--------|-----------|',
+      ...body.map((r) => `| ${r.id} | ${cell(r.text)} | ${cell(r.source)} | ${cell(marks.get(r.id) || '')} |`),
+    ]
+    : [
+      '| ID | Objective | Source |',
+      '|----|-----------|--------|',
+      ...body.map((r) => `| ${r.id} | ${cell(r.text)} | ${cell(r.source)} |`),
+    ];
+
   if (table) {
     const last = table.dataRows.length ? table.dataRows[table.dataRows.length - 1].line : table.headerLine + 1;
     lines.splice(table.headerLine, last - table.headerLine + 1, ...rows);
@@ -332,7 +349,38 @@ function objectivesSpan(masked) {
   return { start: hit + 1, end };
 }
 
-/** id -> text for every row of the TRD's Objectives table. */
+const cleanCell = (s) => String(s).replace(/\*\*|`/g, '').trim();
+
+/**
+ * Read a `Must pass` cell. `yes` marks; blank or `no` does not; anything else fails closed:
+ * it counts as must-pass and is reported as invalid, because reading it as ordinary would
+ * silently drop a core item.
+ */
+function readMark(raw) {
+  const v = cleanCell(raw);
+  const k = v.toLowerCase();
+  if (k === '' || k === 'no') return { mustPass: false };
+  if (k === 'yes') return { mustPass: true };
+  return { mustPass: true, invalidValue: v };
+}
+
+/** The rows of an Objectives table; the Must pass column is found by header name, not position. */
+function parseObjectiveTable(table) {
+  const col = table.headerCells.findIndex((h) => cleanCell(h).toLowerCase() === 'must pass');
+  const rows = [];
+  for (const r of table.dataRows) {
+    const id = (r.cells[0] || '').replace(/\*\*|`/g, '').replace(/:$/, '').trim();
+    if (!id) continue;
+    const rawMark = col >= 0 ? (r.cells[col] || '') : '';
+    rows.push({ id, text: squash(r.cells[1] || ''), rawMark, ...readMark(rawMark) });
+  }
+  return rows;
+}
+
+/**
+ * Every row of the TRD's Objectives table: `{id, text, mustPass[, invalidValue]}`.
+ * `invalidValue` is present only for a Must pass cell that is neither blank, `no` nor `yes`.
+ */
 function objectiveRows(trdMarkdown) {
   const masked = maskFencedLines(split(trdMarkdown));
   const obj = objectivesSpan(masked);
@@ -340,11 +388,7 @@ function objectiveRows(trdMarkdown) {
   if (!obj) return rows;
   const table = findTables(masked, obj.start, obj.end)[0];
   if (!table) return rows;
-  for (const r of table.dataRows) {
-    const id = (r.cells[0] || '').replace(/\*\*|`/g, '').replace(/:$/, '').trim();
-    if (id) rows.push({ id, text: squash(r.cells[1] || '') });
-  }
-  return rows;
+  return parseObjectiveTable(table).map(({ rawMark, ...r }) => r);
 }
 
 /**
@@ -399,16 +443,19 @@ const SCREENSHOT_RE = /screenshot/i;
  * surface in order of first appearance. Evidence quotes the spec's verification line (blank
  * when none); Tier 1 is judge-only when that line names a screenshot, else locator.
  */
-function criteria({ specMarkdown, specPath, section, ids, feature, now = () => new Date() }) {
+function criteria({ specMarkdown, specPath, section, ids, feature, trdMarkdown, now = () => new Date() }) {
   const { chosen, guards, verification } = pick(specMarkdown, section, ids, { allowGuards: true });
   const order = [];
   for (const c of chosen) if (!order.includes(c.surface)) order.push(c.surface);
   const grouped = order.flatMap((s) => chosen.filter((c) => c.surface === s));
   const src = `${specPath} § ${section}`;
+  // A criterion id equals its objective id on this path, so the mark is the id itself.
+  const mustPass = new Set(trdMarkdown === undefined ? [] : objectiveRows(trdMarkdown).filter((r) => r.mustPass).map((r) => r.id));
+  const marked = [...chosen, ...guards].some((c) => mustPass.has(c.id));
   const row = (c, cites) => {
     const ev = verification[c.id] || '';
     const tier = SCREENSHOT_RE.test(ev) ? 'judge-only — screenshot comparison' : 'locator';
-    return `| ${c.id} | ${cell(c.text)} | ${cell(cites)} | ${cell(ev)} | [read] | ${tier} | |`;
+    return `| ${c.id} | ${cell(c.text)} | ${cell(cites)} | ${cell(ev)} | [read] | ${tier} | |${marked ? ` ${mustPass.has(c.id) ? `${c.id} ` : ''}|` : ''}`;
   };
   const rows = [
     ...grouped.map((c) => row(c, `${src}, ${c.id}`)),
@@ -422,8 +469,8 @@ function criteria({ specMarkdown, specPath, section, ids, feature, now = () => n
     `**Derived**: ${now().toISOString()}`,
     `**Criteria**: ${rows.length}`,
     '',
-    '| ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts |',
-    '|----|----------------------|-------|------------------------------|------------|--------|-------|',
+    `| ID | Functional statement | Cites | Evidence that would prove it | Derivation | Tier 1 | Parts |${marked ? ' Must pass |' : ''}`,
+    `|----|----------------------|-------|------------------------------|------------|--------|-------|${marked ? '-----------|' : ''}`,
     ...rows,
     '',
   ].join('\n');
@@ -506,15 +553,18 @@ function cli(argv) {
     }
     case 'criteria': {
       need(f, 'spec', 'section', 'ids');
-      const md = criteria({ specMarkdown: read(f.spec), specPath: f.spec, section: f.section, ids: idList(f.ids), feature: f.feature });
+      const md = criteria({ specMarkdown: read(f.spec), specPath: f.spec, section: f.section, ids: idList(f.ids), feature: f.feature, trdMarkdown: f.trd ? read(f.trd) : undefined });
       if (f.out) { fs.writeFileSync(f.out, md); return { ok: true, out: f.out }; }
       return { markdown: md };
     }
+    case 'objectives':
+      need(f, 'trd');
+      return objectiveRows(read(f.trd));
     case 'overlap':
       need(f, 'sweep-files', 'trd');
       return overlap({ sweepFiles: idList(f['sweep-files']), trdMarkdown: read(f.trd) });
     default:
-      throw new Error('usage: spec-scope.js extract|source|render-sweep|render-objectives|check|criteria|overlap --flag value ...');
+      throw new Error('usage: spec-scope.js extract|source|render-sweep|render-objectives|check|criteria|objectives|overlap --flag value ...');
   }
 }
 

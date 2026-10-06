@@ -1,0 +1,161 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verification-must-pass.md",
+  "trd_hash": "75d19a6c74a57791239fca2061e5f8ce6046feece4790f3ecf157cca4c0083cd",
+  "branch": "feature/verification-must-pass/trd",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "VMP-B001": {
+      "description": "In functional-verification.js: the must-pass step in decideNext (§3.4); mustPassCoverage plus its must-pass-coverage --t",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-06T08:56:29.321Z",
+      "completed_at": "2026-10-06T09:02:00.427Z",
+      "last_advanced": "2026-10-06T08:57:47.607Z"
+    },
+    "VMP-B003": {
+      "description": "In spec-scope.js: objectiveRows returns mustPass and invalidValue, located by header name (D1, D17). Add the objectives ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/spec-scope.js",
+        ".claude/lib/spec-scope.js",
+        "packages/core/lib/spec-scope.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-06T08:56:29.321Z",
+      "completed_at": "2026-10-06T09:02:00.422Z",
+      "last_advanced": "2026-10-06T08:57:47.607Z"
+    },
+    "VMP-B004": {
+      "description": "contracts/functional-verification.md: the definition format gains the Must pass column, with its rules (D2). The derivin",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/contracts/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-06T08:56:29.321Z",
+      "completed_at": "2026-10-06T09:02:00.427Z",
+      "last_advanced": "2026-10-06T08:57:47.607Z"
+    },
+    "VMP-B006": {
+      "description": "Authoring surfaces. contracts/trd-authoring.md gains an ## Objectives section in the TRD Document Structure, with the fo",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 1,
+      "files_changed": [
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/contracts/trd-authoring.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/lib/fix-template.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-06T08:56:29.321Z",
+      "completed_at": "2026-10-06T09:03:17.846Z",
+      "last_advanced": "2026-10-06T08:57:47.607Z"
+    },
+    "VMP-B002": {
+      "description": "workflows/verify-functional.js per §3.5 and D7, D11, D12: validate the mustPassIds and mustPassUncovered args and hold m",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VMP-B005": {
+      "description": "commands/implement-trd.md and commands/verify-build.md (plus mirrors). Merged rather than split: verify-build.md restate",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VMP-B007": {
+      "description": "commands/refine-verification.md (plus mirror): its Derive step never lists a must-pass criterion under ## Accepted as no",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VMP-D001": {
+      "description": "docs/reference/verification.md (outcome table, decideNext precedence, the Must pass columns, the report's Must pass line",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VMP-T001": {
+      "description": "[LIVE] Add the opt-in smoke scenario test/smoke/scenarios/verification-must-pass.sh, registered in LLM_OPT_IN_SCENARIOS,",
+      "phase": 3,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": "deferred by design: [LIVE], needs a live model session",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/verification-must-pass.md ## Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "CLI and Jest run from the working tree"
+      }
+    }
+  }
+}

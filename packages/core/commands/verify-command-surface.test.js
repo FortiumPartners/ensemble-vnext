@@ -925,6 +925,49 @@ describe('trd-authoring.md locked-scope rule (plan-from-spec)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// verification-must-pass VMP-B006: the Must pass column on every authoring surface.
+// ---------------------------------------------------------------------------
+
+describe('Must pass column on the TRD authoring surfaces (verification-must-pass)', () => {
+  const HEADER = '| ID | Objective | Source | Must pass |';
+  const contract = read(path.join(REPO, 'packages/core/contracts/trd-authoring.md'));
+  const plan = read(CORE_PLAN);
+
+  test('the contract has an Objectives section with the four-column table and the guidance', () => {
+    const section = flat(contract.split('### Section 1a: Objectives')[1].split('### Section 2:')[0]);
+    expect(section).toContain(HEADER);
+    expect(section).toMatch(/without which the feature does not exist/);
+    expect(section).toMatch(/none marked is valid/);
+  });
+
+  test('the locked-scope rule says a Must pass mark is not a reword', () => {
+    expect(flat(contract)).toMatch(/A `Must pass` mark is not a reword/);
+  });
+
+  test('all three plan.md Objectives templates carry the column and the guidance', () => {
+    expect(plan.split(HEADER).length - 1).toBe(3);
+    expect(plan).not.toMatch(/\| ID \| Objective \| Source \|\n/);
+    expect(flat(plan).split('without which the feature does not exist').length - 1).toBe(3);
+  });
+
+  test('Step 6a says render-objectives keeps existing marks', () => {
+    expect(flat(plan)).toMatch(/keeps any `Must pass` mark/);
+  });
+
+  test('create-trd.md carries the same section', () => {
+    expect(read(path.join(REPO, 'packages/core/commands/create-trd.md'))).toContain(HEADER);
+  });
+
+  test.each([
+    ['contracts/trd-authoring.md'],
+    ['commands/plan.md'],
+    ['commands/create-trd.md'],
+  ])('%s mirror is byte-identical', (rel) => {
+    expect(read(path.join(REPO, '.claude', rel))).toBe(read(path.join(REPO, 'packages/core', rel)));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // next-in-order: NEXT is the few steps to take now, in order, never shell.
 // ---------------------------------------------------------------------------
 

@@ -374,9 +374,14 @@ Before calling anything, write `docs/plan/<slug>.investigation.md` — §3.4's f
 **Route**: prd
 
 ## Objectives
-| ID | Objective | Source |
-|----|-----------|--------|
-| O1 | <what must be true> | the reproduction below / your instruction, <date> |
+| ID | Objective | Source | Must pass |
+|----|-----------|--------|-----------|
+| O1 | <what must be true> | the reproduction below / your instruction, <date> | <yes, or blank> |
+
+**Must pass** marks the objectives without which the feature does not exist. Write `yes` in
+that column for those and leave it blank for the rest. Mark sparingly: a plan that marks
+everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
+does today.
 
 ## Reproduction | ## Intended Change | ## Behaviour Preserved
 <whichever the kind calls for — Step 2's findings, not a summary of them>
@@ -524,9 +529,14 @@ parse with `trd-parser.js` and run through `/implement-trd` unmodified.
 
 ## Objectives
 
-| ID | Objective | Source |
-|----|-----------|--------|
-| O1 | <what must be true> | the reproduction below / your instruction, <date> |
+| ID | Objective | Source | Must pass |
+|----|-----------|--------|-----------|
+| O1 | <what must be true> | the reproduction below / your instruction, <date> | <yes, or blank> |
+
+**Must pass** marks the objectives without which the feature does not exist. Write `yes` in
+that column for those and leave it blank for the rest. Mark sparingly: a plan that marks
+everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
+does today.
 
 **State the objective the DEFECT implies, not the one the fix happens to satisfy.** Live run:
 the reproduction correctly said the failure was *"silent in effect — the nudge never reaches
@@ -761,9 +771,14 @@ The same §3.4 format as the `route:'prd'` record above, with `**Weight**: mediu
 **Route**: plan
 
 ## Objectives
-| ID | Objective | Source |
-|----|-----------|--------|
-| O1 | <what must be true> | the reproduction below / your instruction, <date> |
+| ID | Objective | Source | Must pass |
+|----|-----------|--------|-----------|
+| O1 | <what must be true> | the reproduction below / your instruction, <date> | <yes, or blank> |
+
+**Must pass** marks the objectives without which the feature does not exist. Write `yes` in
+that column for those and leave it blank for the rest. Mark sparingly: a plan that marks
+everything marks nothing. A TRD with none marked is valid, and verification then behaves as it
+does today.
 
 ## Reproduction | ## Intended Change | ## Behaviour Preserved
 <whichever the kind calls for>
@@ -950,7 +965,8 @@ node .claude/lib/spec-scope.js check --spec <spec> --section "<section heading>"
 ```
 
 `render-objectives` replaces the `## Objectives` table with the core criteria and the guards,
-copied from the spec, and sets the `**Source spec**:` header. `check` reads the written
+copied from the spec, and sets the `**Source spec**:` header. It keeps any `Must pass` mark an
+id already has in the TRD, so a mark survives a re-render. `check` reads the written
 documents (omit `--sweep` when no sweep file exists, `--trd` when no core TRD does) and reports
 `missing`, `duplicated`, `added`, `reworded` and `noHeader` by id. **When it is not `ok`, stop
 with `COMMAND STUCK: /plan`, naming each problem and its id.** Do not edit the documents by hand
