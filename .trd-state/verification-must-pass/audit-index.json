@@ -1,0 +1,173 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "A plan can mark objectives as 'must pass': the true core functionality of the feature",
+      "source": "User instruction 2026-10-05",
+      "served_by": [
+        "VMP-B003",
+        "VMP-B006"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "The must-pass marking is carried into the success definition, so verification knows which criteria are must-pass",
+      "source": "User instruction 2026-10-05 (/plan argument)",
+      "served_by": [
+        "VMP-B003",
+        "VMP-B005"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "Verification cannot end 'satisfied' unless every must-pass criterion is 'met', whatever the coverage-floor percentage",
+      "source": "User instruction 2026-10-05",
+      "served_by": [
+        "VMP-B001",
+        "VMP-B002",
+        "VMP-T001"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "A must-pass criterion that is 'not_verifiable' (or 'not_met', or 'unbuilt') blocks 'satisfied' exactly as a missing one would",
+      "source": "User instruction 2026-10-05 (/plan argument)",
+      "served_by": [
+        "VMP-B001",
+        "VMP-B002"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "When verification is blocked by must-pass criteria, the report and the readout name each blocking criterion, so the owner sees which core item was not proven",
+      "source": "Investigation domain-derived from O3",
+      "served_by": [
+        "VMP-B001",
+        "VMP-B005",
+        "VMP-T001"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "Every must-pass objective is covered by at least one must-pass criterion; a must-pass objective with no criterion is reported, not silently dropped",
+      "source": "Investigation Intended Change, item 2",
+      "served_by": [
+        "VMP-B001",
+        "VMP-B002",
+        "VMP-B005"
+      ]
+    },
+    {
+      "id": "O7",
+      "statement": "The coverage floor still applies, separately, over all criteria",
+      "source": "Investigation Intended Change, item 3",
+      "served_by": [
+        "VMP-B001",
+        "VMP-B002"
+      ]
+    },
+    {
+      "id": "O8",
+      "statement": "A plan that marks no objective must-pass keeps today's verification behaviour, and the readout says that none was declared",
+      "source": "Investigation Decision section",
+      "served_by": [
+        "VMP-B005",
+        "VMP-B007"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "VMP-B001",
+      "description": "functional-verification.js: must-pass step in decideNext (§3.4); mustPassCoverage CLI subcommand; renderReport new OUTCOME_LABEL entry and **Must pass**: line",
+      "touches": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ]
+    },
+    {
+      "id": "VMP-B002",
+      "description": "workflows/verify-functional.js: validate mustPassIds and mustPassUncovered args; extend Judge prompt with new action; add must-pass-unproven to OUTCOME_BY_ACTION; dispatch reconcile-outcome agent on override; return mustPass on all paths; update docs/TRD/functional-verification.md",
+      "touches": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "docs/TRD/functional-verification.md"
+      ]
+    },
+    {
+      "id": "VMP-B003",
+      "description": "spec-scope.js: objectiveRows returns mustPass field (located by header name); objectives --trd CLI subcommand; renderObjectives writes Must pass column when marked; criteria() gains optional --trd flag",
+      "touches": [
+        "packages/core/lib/spec-scope.js",
+        ".claude/lib/spec-scope.js",
+        "packages/core/lib/spec-scope.test.js"
+      ]
+    },
+    {
+      "id": "VMP-B004",
+      "description": "contracts/functional-verification.md: definition format gains Must pass column with rules; states deriver receives must-pass objectives as id+text only; defines six outcomes including must-pass-unproven",
+      "touches": [
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/contracts/functional-verification.test.js"
+      ]
+    },
+    {
+      "id": "VMP-B005",
+      "description": "commands/implement-trd.md and commands/verify-build.md: read spec-scope.js objectives --trd; add must-pass objectives block to deriver prompt; add --trd flag to criteria call; run must-pass-coverage; pass mustPassIds and mustPassUncovered to workflow; render Must pass: STATE line; route new outcome to /refine-verification; update verify-command-surface.test.js",
+      "touches": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "VMP-B006",
+      "description": "Authoring surfaces: contracts/trd-authoring.md gains ## Objectives section with four-column table and marking guidance; commands/plan.md three Objectives templates gain the column; Step 6a notes marks are preserved",
+      "touches": [
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/contracts/trd-authoring.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md"
+      ]
+    },
+    {
+      "id": "VMP-B007",
+      "description": "commands/refine-verification.md: Derive step excludes must-pass criteria from Accepted as not verifiable; records owner ruling (OWNER-CALL under --auto) instead; Diagnose step names unproven must-pass criteria first",
+      "touches": [
+        "packages/core/commands/refine-verification.md",
+        ".claude/commands/refine-verification.md"
+      ]
+    },
+    {
+      "id": "VMP-D001",
+      "description": "docs/reference/verification.md and docs/reference/implement-trd.md: update outcome tables, decideNext precedence, report shape sections to document must-pass-unproven; do NOT modify verification.md templates",
+      "touches": [
+        "docs/reference/verification.md",
+        "docs/reference/implement-trd.md"
+      ]
+    },
+    {
+      "id": "VMP-T001",
+      "description": "[LIVE] test/smoke/scenarios/verification-must-pass.sh: opt-in smoke scenario exercising the seam between Objectives reader (B003), coverage check (B001), workflow (B002) and command prose (B005); two fixture variants with must-pass marked and unmarked",
+      "touches": [
+        "test/smoke/scenarios/verification-must-pass.sh",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md"
+      ]
+    }
+  ],
+  "open_questions": [],
+  "could_not_verify": [
+    "verify-functional.test.js's harness can drive the override and reconcile path with a mocked Judge returning a chosen action — requires reading packages/core/workflows/test-harness.js and existing insufficient-coverage test around line 1295",
+    "Check-criteria rows appended at §8.1b are written with fewer cells than the header, and an absent cell parses as blank — requires reading implement-trd.md §8.1b's append template",
+    "Parity tests exist for mirrors other than functional-verification.js — requires grep over test suite for each .claude/ path",
+    "No consumer other than the commands and refine-verification reads the report's **Outcome**: line — grep found none in packages/core/lib, packages/core/workflows and audit-build.md; skills and hooks not searched",
+    "16 of 35 TRDs lack an ## Objectives table, and all 16 are PRD-sourced — 19 of 35 confirmed to have Objectives; remainder inferred as PRD-sourced, not checked one by one"
+  ]
+}

@@ -553,15 +553,26 @@ Each was put to the owner in `/refine-trd` on 2026-10-06, and each confirmed the
 
 ## Could Not Verify
 
-State after `/audit-trd` on 2026-10-06 (5 of 5 verifiers reported; source checked:
-`docs/plan/verification-must-pass.investigation.md`). The audit's findings were all internal
-contradictions between the decisions table and the body, and are resolved in 1.0.2. None of
-the claims below was the subject of a finding, so none was re-checked; they stay open.
+State after `/audit-build` on 2026-10-06 (5 of 5 verifiers reported; source checked:
+`docs/plan/verification-must-pass.investigation.md`; 8 objectives and 9 tasks indexed). The
+one gap it found, the unbuilt `[LIVE]` smoke scenario (VMP-T001), is a finding reported in the
+audit readout, not an entry here.
 
-| Claim | How I'd check it | Why the 2026-10-06 audit left it open |
-|-------|------------------|---------------------------------------|
-| `verify-functional.test.js`'s harness can drive the override and reconcile path with a mocked Judge returning a chosen action | read the harness (`packages/core/workflows/test-harness.js`) and an existing insufficient-coverage test around line 1295 | No finding touched it; it is an implementation detail VMP-B002 will meet first |
-| Check-criteria rows appended at §8.1b (VART-D15) are written with fewer cells than the header, and an absent cell parses as blank | read `implement-trd.md` §8.1b's append template | No finding touched it. After 1.0.2 the cell is read by `must-pass-coverage` (D6), which must treat an absent cell as blank either way |
-| Parity tests exist for mirrors other than `functional-verification.js` | grep the test suite for each `.claude/` path | No finding touched it; partly answered in grounding (VMP-B007 says `refine-verification.md` has none) |
-| No consumer other than the commands and `refine-verification` reads the report's `**Outcome**:` line | ran `grep` over `packages/core/lib` and `packages/core/workflows` and `audit-build.md`: none found. A reader in a skill or hook could still exist | No finding touched it; skills and hooks were not searched |
-| 16 of 35 TRDs lack an `## Objectives` table, and all 16 are PRD-sourced | ran `grep -l "^## Objectives"` over `docs/TRD/` (19 of 35 have one). That the remaining 16 are all PRD-sourced was inferred from their headers, not checked one by one | No finding touched it; D18's need for an authoring change holds whatever the exact split |
+Four claims left open by the 2026-10-06 `/audit-trd` were checked against the delivered code
+and are closed:
+
+- The test harness drives the override and reconcile path with a mocked Judge:
+  `packages/core/workflows/verify-functional.test.js` "must-pass enforcement" (from line 2645).
+- An absent `Must pass` cell reads as blank: `mustPassCoverageFromFiles` uses
+  `row.cells[mpCol] ?? ''` (`packages/core/lib/functional-verification.js`), so a short §8.1b
+  row cannot mark a criterion must-pass. No test feeds a short row specifically.
+- The `.claude/` mirrors match their sources: every file this feature changed under
+  `packages/core/` (lib, workflow, five commands, two contracts) is byte-identical to its
+  `.claude/` copy (`cmp`). Only `verify-functional.test.js` references a mirror path in a test.
+- Nothing else reads the report's `**Outcome**:` line: the only other match under
+  `packages/skills` is an unrelated C# `args.Outcome` in `building-integrations/SKILL.md`.
+
+| Claim | How I'd check it | Why the 2026-10-06 `/audit-build` left it open |
+|-------|------------------|-----------------------------------------------|
+| The TRDs without an `## Objectives` table are all PRD-sourced (now 16 of 36: 20 have one) | open each of the 16 and read its `Source PRD` header | Planning context for D18, not a delivered behaviour; out of scope for an audit of the code |
+| The end-to-end seam (Objectives reader → coverage check → workflow → command prose) behaves as VMP-T001 specifies in a throwaway project | run `/implement-trd --include-deferred`, then the opt-in smoke scenario | VMP-T001 is deferred by design (`[LIVE]`, needs a live model session). The recorded verification run on this branch reports 13 of 13 criteria met and must-pass 3 of 3 proven, which covers the same seam on this repository but not the fixture's `not verifiable` path |
