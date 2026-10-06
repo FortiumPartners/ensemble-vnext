@@ -518,11 +518,14 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
 
 @test "the rule files' and CLAUDE.md's byte ceilings hold, in both copies" {
     # O4/O5 (amended, context-model-hygiene): async-discipline.md + autonomy.md
-    # combined <= 17000 bytes, command-status.md <= 13000, CLAUDE.md <= 15000.
+    # combined <= 17000 bytes, command-status.md <= 13000, CLAUDE.md <= 15500.
     # "No rule is deleted" outranks a size target, so these are ceilings the
     # trim must fit under, not targets to shrink toward. command-status.md's
     # ceiling went 12500 -> 13000 for the sweep-chain exception (plan-sweep-chain
     # FIX-006): the chaining paragraph must name three more banner-less commands.
+    # CLAUDE.md's went 15000 -> 15500 at release 4.13.1: one trim (dropping the
+    # 4.13.0 status line) left it 11 bytes over, and the known-open list grows by
+    # a line per release; per the owner's rule, trim once, then raise with a reason.
     for dir in "${REPO_ROOT}/.claude/rules" "${REPO_ROOT}/packages/core/templates/claude-directory/rules"; do
         async_bytes=$(wc -c < "${dir}/async-discipline.md")
         autonomy_bytes=$(wc -c < "${dir}/autonomy.md")
@@ -540,8 +543,8 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
     done
 
     claude_md_bytes=$(wc -c < "${REPO_ROOT}/CLAUDE.md")
-    if [ "$claude_md_bytes" -gt 15000 ]; then
-        echo "CLAUDE.md = ${claude_md_bytes} bytes, exceeds 15000" >&2
+    if [ "$claude_md_bytes" -gt 15500 ]; then
+        echo "CLAUDE.md = ${claude_md_bytes} bytes, exceeds 15500" >&2
         false
     fi
 }

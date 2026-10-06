@@ -10,6 +10,33 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.1] - 2026-10-06
+
+Verification can no longer end `satisfied` without proving the feature's core. Plan:
+`docs/TRD/verification-must-pass.md`. Before this, a run ended `satisfied` whenever nothing was
+`not_met`, so a feature whose core criteria were all "not verifiable here" still passed, and the
+coverage floor, one percentage over all criteria, could not single out the core.
+
+### Changed
+
+- **A plan can mark objectives "must pass".** The TRD's Objectives table takes an optional
+  `Must pass` column (`yes` marks; a typo'd cell is read as must-pass and reported). `/plan`'s
+  templates and the TRD authoring contract carry it.
+- **The marking reaches the success definition.** The deriver is given the must-pass objectives
+  as id and text only (no plan), and fills a matching `Must pass` column naming the objective each
+  criterion proves; on the spec path `spec-scope.js criteria --trd` copies it. A new
+  `must-pass-coverage` check reads both files and reports any must-pass objective with no criterion.
+- **New outcome `must-pass-unproven`.** A run with any must-pass criterion not `met` — including
+  `not_verifiable` — or any uncovered must-pass objective does not end `satisfied`; the report
+  and readouts name each item, and NEXT routes it like the other non-satisfied outcomes. When the
+  coverage floor is also missed, `insufficient-coverage` still wins and names the items.
+- **Enforced in code.** `decideNext` takes the must-pass lists as required inputs, and the
+  verification workflow re-checks the Judge's verdict after every exit, only ever toward blocking.
+- **`/refine-verification` never accepts a must-pass criterion as "not verifiable".** It records
+  an owner ruling instead: declare an environment that reaches it, or remove the mark.
+- **Unmarked TRDs, definitions and reports are unchanged.** The column and the report's
+  `**Must pass**` line appear only when something is marked.
+
 ## [4.13.0] - 2026-10-05
 
 A new command, `/audit-docs`, brings `docs/` back in line with the code as built. Plans:
