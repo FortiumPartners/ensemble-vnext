@@ -4,7 +4,7 @@
   "trd_hash": "75d19a6c74a57791239fca2061e5f8ce6046feece4790f3ecf157cca4c0083cd",
   "branch": "feature/verification-must-pass/trd",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "VMP-B001": {
       "description": "In functional-verification.js: the must-pass step in decideNext (§3.4); mustPassCoverage plus its must-pass-coverage --t",
@@ -82,37 +82,37 @@
     "VMP-B002": {
       "description": "workflows/verify-functional.js per §3.5 and D7, D11, D12: validate the mustPassIds and mustPassUncovered args and hold m",
       "phase": 2,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-10-06T09:03:33.916Z",
       "completed_at": null
     },
     "VMP-B005": {
       "description": "commands/implement-trd.md and commands/verify-build.md (plus mirrors). Merged rather than split: verify-build.md restate",
       "phase": 2,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-10-06T09:03:33.916Z",
       "completed_at": null
     },
     "VMP-B007": {
       "description": "commands/refine-verification.md (plus mirror): its Derive step never lists a must-pass criterion under ## Accepted as no",
       "phase": 2,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
+      "started_at": "2026-10-06T09:03:33.916Z",
       "completed_at": null
     },
     "VMP-D001": {
@@ -140,10 +140,19 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "5099cb4c2d49a961ec0b4c5fd4df59d942ad57d6",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-06T09:03:33.915Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "5099cb4c2d49a961ec0b4c5fd4df59d942ad57d6",
+    "last_checkpoint_timestamp": "2026-10-06T09:03:33.915Z",
     "interrupted": false,
     "interrupt_reason": null
   },
