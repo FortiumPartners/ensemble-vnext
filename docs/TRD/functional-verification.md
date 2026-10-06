@@ -1,9 +1,9 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.7.0
+**Version**: 2.8.0
 **Status**: Draft
 **Created**: 2026-08-17
-**Last Updated**: 2026-10-02
+**Last Updated**: 2026-10-06
 **Author**: @technical-architect
 **Source PRD**: `docs/PRD/functional-verification.md`
 **Task ID Prefix**: FV
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.8.0 | 2026-10-06 | **Synced to `docs/TRD/verification-must-pass.md` (VMP-B002).** §3.3's `VerifyFunctionalArgs` gains two optional fields, `mustPassIds?: string[]` and `mustPassUncovered?: Array<{ id; text }>`, placed after `liveEvidence`: the `criteria` and `uncovered` of `functional-verification.js must-pass-coverage`, passed unchanged so the must-pass set never depends on a model parsing the definition. Both are validated before any agent is dispatched, or the workflow throws. The result gains `mustPass` on every return path, and a sixth `outcome`, `must-pass-unproven`. §3.4's `LoopAction` gains `exit-must-pass-unproven`. After every Judge exit, including the zero-criteria one, the workflow recomputes from the final criteria list whether a must-pass criterion is unproven or a must-pass objective has no criterion. It only ever blocks: an `exit-satisfied` or `exit-insufficient-coverage` over a clean base becomes `exit-must-pass-unproven`, unless the coverage floor is really missed, which keeps (or yields) `exit-insufficient-coverage`. On an override one `reconcile` agent rewrites the state file's `outcome` through `save()` and re-renders the report. §3.7 Step 9 names the sixth outcome. `verify-functional-trd-sync.test.js`'s counts move from 23 to 25 fields and from five to six outcomes | @backend-implementer (VMP-B002) |
 | 2.7.0 | 2026-10-02 | **Synced to `docs/TRD/verification-reuses-evidence.md` (FIX-003).** §3.3's `VerifyFunctionalArgs` gains an optional `liveEvidence?: LiveEvidenceEntry[]` field, placed directly after `coverageFloor`: the entries of `.trd-state/<feature>/evidence/live-manifest.jsonl` that `[LIVE]` tasks recorded (`live-evidence.js read`), `[]` when absent. The Exercise prompt lists them and tells the exerciser to claim an already-captured artifact rather than capture again; `reconcileClaims` is the only source of a claim's `covers`, set from the manifest by artifact path while any `covers` the exerciser sent is discarded. The Judge prompt names a `reused` tier-1 pass and a judge-only `stale: true` claim (`not_met`, cause `evidence-stale`). Validated per entry before any agent is dispatched: not an array, or an entry without a non-empty `artifact` or `covers`, throws naming the index. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 22 to 23 | @backend-implementer (FIX-003) |
 | 2.6.0 | 2026-09-27 | **Synced to `docs/TRD/verification-md-setup.md` (D8, VSET-B002).** §3.3's `VerifyFunctionalArgs` gains an optional `coverageFloor?: number \| null` field, placed directly after `fullRunCommand` — the owner's coverage floor from `verification.md` §5a, as a fraction. `null` (the default, whether omitted or explicit) leaves `decideNext`'s coverage re-label dormant, exactly as before this row. Validated null-or-finite-fraction-in-`[0, 1]` before any agent is dispatched, same standard as `since`/`cap` — a percentage (`60`), a negative fraction, a numeric string (`"0.6"`) or `NaN` all throw. The Judge's STEP 3 decide-next payload gains `"coverageFloor":${JSON.stringify(FLOOR)}` right after `"cap"` and before `"met"`. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 21 to 22 | @technical-architect (VSET-B002) |
 | 2.5.0 | 2026-09-27 | **Synced to `docs/TRD/verification-fix-loop.md` (VFIX-D002).** §3.3's `resume.criteria` and `VerifyFunctionalResult.criteria` shapes gain `cause` (D3, §3.1 of that TRD; VFIX-B002), carried through a resume verbatim and never re-derived. §3.6's `renderReport()` interface gains the same field on its report-input criteria, and its Behavior section gains the `**Diagnosis**`/`**Next**` lines (VFIX-B001) — counts by cause, descending, `unrecorded` for an absent value, rendered only under the four outcomes that can stall. §3.7 corrected in two places that had drifted from the delivered command: the "Step 3.6a" paragraph claimed lane derivation happens there, when the delivered `/implement-trd` puts it at §8.1a instead (no criterion list exists yet at §3.6a's point in the run) — split into a corrected §3.6a paragraph (environments only) and a new §8.1a paragraph (lanes, `refreshCommand`, `fullRunCommand`); and Step 8 item 2's "read `verification-state.json` if a prior run left one, and pass it as `resume`" is corrected to the explicit-flag, `outcome: null` gate the same section's opening paragraph already states, so a stale non-terminal file no longer reads as license to resume an ordinary run | @technical-architect (VFIX-D002) |
@@ -510,7 +511,7 @@ argument mid-command. `decide-next` and `render-report` take the same three payl
 **Interface**:
 
 ```typescript
-// args -- 21 fields; the workflow reads every one of them and nothing else
+// args -- 25 fields; the workflow reads every one of them and nothing else
 interface ExerciseLane {
   resource: string | null;  // the verification.md §1a resource this lane contends for; null = the
                             //   remainder lane (criteria whose evidence needs no environment)
@@ -582,6 +583,14 @@ interface VerifyFunctionalArgs {
   }>;                             //   exerciser-sent `covers` are discarded). Each entry needs a
                                   //   non-empty artifact and covers, or the workflow throws
                                   //   naming the index, before any agent is dispatched
+  mustPassIds?: string[];         // NEW (verification-must-pass D11). The `criteria` of
+                                  //   `must-pass-coverage`: ids of the criteria that carry a
+                                  //   must-pass mark. Absent = []. An array of non-empty strings,
+                                  //   or the workflow throws before any agent is dispatched
+  mustPassUncovered?: Array<{ id: string; text: string }>;  // NEW (same). The CLI's `uncovered`:
+                                  //   declared must-pass objectives no criterion names. Absent =
+                                  //   []. Each entry needs a non-empty string `id`, or it throws.
+                                  //   Any entry blocks `satisfied`, as an unproven criterion does
   checks: { [skill: string]: string };  // NEW (VART D11). Each selected verification-check
                                         //   skill's SKILL.md text, keyed by skill name; {} when
                                         //   none were selected. Every criterion whose
@@ -599,7 +608,7 @@ interface VerifyFunctionalArgs {
 
 // return
 interface VerifyFunctionalResult {
-  outcome: 'satisfied' | 'unbuilt' | 'stalled' | 'stuck' | 'insufficient-coverage';
+  outcome: 'satisfied' | 'unbuilt' | 'stalled' | 'stuck' | 'insufficient-coverage' | 'must-pass-unproven';
   reason: string;
   iterations: number;      // total across resumes, not just this invocation
   reportPath: string;
@@ -632,6 +641,13 @@ interface VerifyFunctionalResult {
   pages: Array<{             // NEW (VART D8). The last Render per check skill; [] when no check
     skill: string; page: string; rendered: boolean; iteration: number; reason: string;
   }>;
+  mustPass: {                // NEW (verification-must-pass D11). On EVERY return path, including
+    criteria: string[];      //   the resume-cap exit and the fall-through stuck exit
+    uncovered: string[];     // must-pass objective ids no criterion covers
+    unproven: Array<{ id: string; status: string }>;  // must-pass criteria not `met`; status
+                             //   'missing' when the id is absent from `criteria`
+    overridden: boolean;     // true when the workflow's re-check changed the Judge's action
+  };
 }
 ```
 
@@ -880,6 +896,7 @@ the script cannot open a file, but the agents it dispatches have `Read`, `Write`
 type LoopAction =
   | 'exit-satisfied' | 'exit-unbuilt' | 'exit-stalled' | 'exit-stuck'
   | 'exit-insufficient-coverage'
+  | 'exit-must-pass-unproven'   // NEW (verification-must-pass D8, D9): a must-pass item unproven
   | 'remediate';
 
 function decideNext(input: {
@@ -891,6 +908,8 @@ function decideNext(input: {
   total?: number;           // the whole definition's criterion count
   coverageFloor?: number | null;   // defaults to COVERAGE_FLOOR, which is null: unset (VC D9)
   cap?: number;             // default 3
+  mustPass: string[];       // NEW (verification-must-pass D10): must-pass criterion ids; required
+  mustPassUncovered: string[];  // NEW (same): uncovered must-pass objective ids; required
 }): { action: LoopAction; reason: string; closed: string[] };
 ```
 
@@ -920,6 +939,13 @@ re-label it afterwards. It is never a sixth early return ahead of the others:
    `exit-satisfied` **is** re-labelled (owner answer to VC OQ-7), and it is the case that
    actually happens: a run whose criteria mostly resolve `not_verifiable` has no gaps, and
    reaches step 2 at near-zero coverage.
+
+7. **The must-pass step** (verification-must-pass D8, D9). With `unproven` the must-pass ids not in
+   `met`: a base `exit-satisfied` that survived step 6 with `unproven` or `mustPassUncovered`
+   non-empty becomes `exit-must-pass-unproven`; a step 6 `exit-insufficient-coverage` is kept and
+   its reason names them. The workflow repeats this check over its own final criteria list and
+   only ever blocks (§3.3's `mustPass.overridden`), because the Judge's call is a model's run of
+   this function.
 
 **And with the floor unset it never fires.** `COVERAGE_FLOOR = null` (VC D9, OQ-1: the owner
 has not picked a number), and the Judge's `decide-next` payload carries no `coverageFloor`. So on
@@ -1152,7 +1178,7 @@ not a loop (D1):
 no re-parse, and therefore no insertion-point constraint and no `trd_hash` question at all.
 
 **Step 9** — the completion readout states the verification outcome — `satisfied`, `unbuilt`,
-`stalled`, `stuck` or `insufficient-coverage`, or either `not run` case — with the report path
+`stalled`, `stuck`, `insufficient-coverage` or `must-pass-unproven`, or either `not run` case — with the report path
 and the met / not met / not verifiable / unbuilt counts tallied from the returned `criteria`. It
 says the outcome **as a sentence a person can act on, never a bare outcome name or a glyph**.
 For `insufficient-coverage` that means the ratio and what it means, e.g. *"only 11 of 62

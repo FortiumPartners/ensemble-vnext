@@ -82,38 +82,57 @@
     "VMP-B002": {
       "description": "workflows/verify-functional.js per §3.5 and D7, D11, D12: validate the mustPassIds and mustPassUncovered args and hold m",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "docs/TRD/functional-verification.md"
+      ],
       "commit": null,
       "started_at": "2026-10-06T09:03:33.916Z",
-      "completed_at": null
+      "completed_at": "2026-10-06T09:08:58.023Z",
+      "last_advanced": "2026-10-06T09:08:15.923Z"
     },
     "VMP-B005": {
       "description": "commands/implement-trd.md and commands/verify-build.md (plus mirrors). Merged rather than split: verify-build.md restate",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
       "commit": null,
       "started_at": "2026-10-06T09:03:33.916Z",
-      "completed_at": null
+      "completed_at": "2026-10-06T09:08:58.030Z",
+      "last_advanced": "2026-10-06T09:08:15.923Z"
     },
     "VMP-B007": {
       "description": "commands/refine-verification.md (plus mirror): its Derive step never lists a must-pass criterion under ## Accepted as no",
       "phase": 2,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/refine-verification.md",
+        ".claude/commands/refine-verification.md",
+        "packages/core/lib/refine-verification-must-pass.test.js"
+      ],
       "commit": null,
       "started_at": "2026-10-06T09:03:33.916Z",
-      "completed_at": null
+      "completed_at": "2026-10-06T09:08:58.031Z",
+      "last_advanced": "2026-10-06T09:08:15.923Z"
     },
     "VMP-D001": {
       "description": "docs/reference/verification.md (outcome table, decideNext precedence, the Must pass columns, the report's Must pass line",

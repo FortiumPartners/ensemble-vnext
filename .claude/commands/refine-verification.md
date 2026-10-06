@@ -63,8 +63,11 @@ functional-verification loop; this command's job starts after that.
 
 ## Derive (both modes)
 
-**1. Diagnose, in plain words.** The outcome, proven/total, and the causes by name and count
-— "9 open on evidence missing, 3 on judged failed", never a bare cause identifier.
+**1. Diagnose, in plain words.** The outcome and proven/total. When the TRD marks must-pass
+objectives, name first every unproven must-pass criterion, each with its statement in plain
+words (never an id alone), and every must-pass objective no criterion covers. Then the causes
+by name and count — "9 open on evidence missing, 3 on judged failed", never a bare cause
+identifier.
 
 **2. Work out every section of `verification-plan.md` from the evidence, without asking:**
 
@@ -75,10 +78,19 @@ functional-verification loop; this command's job starts after that.
   scarcest resource first (`verification.md` §1a); a criterion with no group is its own slice.
 - **Accepted as not verifiable** — every criterion whose cause is `environment-unreachable` or
   `capability-absent` (never buildable), with the diagnosis's reason, and any criterion the TRD
-  already assigns to a later or production-only task.
+  already assigns to a later or production-only task. **Never a must-pass criterion** (one the
+  TRD's Objectives table marks `Must pass`): accepting it would let the next `/verify-build`
+  find it not verifiable again and block again, with no owner decision on record. It goes under
+  Owner rulings instead.
 - **Owner rulings** — a criterion that contradicts a decision already written in the PRD or TRD
   is aligned with that decision and recorded here as a ruling, citing it. That is not a
   question: the owner made the call when they approved the document.
+  A must-pass criterion whose cause is `environment-unreachable` or `capability-absent` is also
+  an owner ruling, never an acceptance. Interactive, ask the owner; under `--auto`, record it
+  as an `OWNER-CALL` row marked `decided by: agent (--auto)`. Either way the ruling names the
+  two ways out: declare an environment that reaches it (via `/verification-setup`, since
+  `verification.md` is owner-governed), or remove the must-pass marking from the TRD's
+  Objectives table.
 - **Extra checks** — only `check`-role rows from the framework skill list that fit a gap the
   diagnosis shows; `none` when none do.
 - **Stop rule** — `max-rounds: 3` and `stop-when-closed-below: 1`, unless an existing plan or a
@@ -125,7 +137,10 @@ three verdicts `/refine-trd --auto` uses:
 **Access only the owner has is never guessed.** An item asking for a credential, an account,
 or an approval the agent has no way to supply is marked not verifiable, and the need is named
 in the readout's ISSUES for the owner to take to `/verification-setup` — the same way the
-interactive path names one in its diagnosis. Nothing is recorded or written for it (see Never).
+interactive path names one in its diagnosis. Nothing is recorded or written for it (see Never),
+**except for a must-pass criterion**: that is recorded as an `OWNER-CALL` ruling (decided by:
+agent (--auto)) naming the two ways out, as under Owner rulings above, never marked not
+verifiable alone.
 
 ---
 

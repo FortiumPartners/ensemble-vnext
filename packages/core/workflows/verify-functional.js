@@ -1,7 +1,7 @@
 export const meta = {
   name: 'verify-functional',
   description:
-    'Run the bounded functional-verification loop: Exercise, Judge, and (when needed) Debug, once per iteration, until the criteria are satisfied, found unbuilt, stalled, found insufficiently covered, or the iteration cap is reached.',
+    'Run the bounded functional-verification loop: Exercise, Judge, and (when needed) Debug, once per iteration, until the criteria are satisfied, found unbuilt, stalled, found insufficiently covered, found with a must-pass item unproven, or the iteration cap is reached.',
   whenToUse:
     'Invoked once (not looped) by /implement-trd (unless --no-verify is set) and by /verify-build. This script owns the whole bounded loop (D1) -- the caller dispatches it a single time. Every input arrives in args: the success-definition criteria, the contract text, project notes/stack hints, evidence paths, the checker CLI path, the evidence freshness floor, the iteration cap, state/report paths, and an optional resume snapshot from a prior run\'s state file (D13).',
   phases: [
@@ -99,6 +99,27 @@ const LIVE_EVIDENCE = (() => {
       throw new Error(`verify-functional: liveEvidence[${i}] (${JSON.stringify(e.artifact)}) is missing a non-empty covers array`)
     }
   })
+  return raw
+})()
+// NEW (verification-must-pass D11). The must-pass set, passed UNCHANGED from the checker's
+// `must-pass-coverage` output so it never depends on a model parsing the definition table: `mustPassIds`
+// is its `criteria` (ids of the criteria that carry a must-pass mark) and `mustPassUncovered` is its
+// `uncovered` (declared must-pass objectives no criterion names, as {id, text}). Both default to []
+// and are validated before any agent runs, same standard as FLOOR and LIVE_EVIDENCE above.
+const MUST_PASS_IDS = (() => {
+  const raw = a.mustPassIds
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw) || raw.some((id) => typeof id !== 'string' || id === '')) {
+    throw new Error('verify-functional: args.mustPassIds must be an array of non-empty criterion id strings when supplied')
+  }
+  return raw
+})()
+const MUST_PASS_UNCOVERED = (() => {
+  const raw = a.mustPassUncovered
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw) || raw.some((o) => !o || typeof o.id !== 'string' || o.id === '')) {
+    throw new Error('verify-functional: args.mustPassUncovered must be an array of {id, text} objects, each with a non-empty string id, when supplied')
+  }
   return raw
 })()
 // Last entry per artifact wins, matching live-evidence.js `read`.
@@ -541,8 +562,13 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `{"iteration":${iteration},"gaps":<not_met ids>,"unbuilt":<unbuilt ids>,` +
     `"previousGaps":${prevGapsJson},"cap":${CAP},"coverageFloor":${JSON.stringify(FLOOR)},` +
     `"met":<the met ids, as described above>,` +
-    `"total":${N}} to ${decideFile}, then run:\n` +
-    `  node ${CHECKER} decide-next --file ${decideFile}\n\n` +
+    `"total":${N},"mustPass":${JSON.stringify(MUST_PASS_IDS)},` +
+    `"mustPassUncovered":${JSON.stringify(MUST_PASS_UNCOVERED.map((o) => o.id))}} to ${decideFile}, then run:\n` +
+    `  node ${CHECKER} decide-next --file ${decideFile}\n` +
+    `"mustPass" and "mustPassUncovered" are the must-pass criterion ids and the ids of must-pass ` +
+    `objectives no criterion covers; copy them exactly as given, empty lists included -- decide-next ` +
+    `throws without them. A must-pass criterion that is not "met", or any uncovered objective, ` +
+    `blocks "exit-satisfied": decide-next then returns "exit-must-pass-unproven".\n\n` +
     `STEP 4: persist the run's state to ${STATE_PATH}, BEFORE anything else is dispatched. ` +
     `Do NOT write it with a plain file write: ${STATE_PATH} is a .trd-state JSON file, and the ` +
     `repository's only sanctioned writer for one is the save(filePath, state) function exported ` +
@@ -570,7 +596,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `"gapsClosed": [ ` +
     `<the gaps-closed history with this iteration appended> ], ` +
     `"outcome": <null when decide-next returned "remediate"; otherwise the outcome string ` +
-    `this run exits with: "satisfied", "unbuilt", "stalled", "stuck" or "insufficient-coverage">}` +
+    `this run exits with: "satisfied", "unbuilt", "stalled", "stuck", "insufficient-coverage" or "must-pass-unproven">}` +
     `\n\n` +
     `"outcome" IS THE TERMINALITY MARKER and it is the one key that decides whether a later ` +
     `--verify --resume re-enters this loop or runs the implementation normally ` +
@@ -590,7 +616,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `${JSON.stringify(DEFINITION_PATH)} verbatim (do not invent or omit these three -- they are ` +
     `the report's header, supplied by the command that dispatched this workflow) alongside ` +
     `"outcome", "reason", "criteria" and "finalEnvironmentRun" (the object you just produced, ` +
-    `verbatim) -- "criteria" is one entry per criterion IN THE WHOLE DEFINITION, same ` +
+    `verbatim), plus "mustPass": ${JSON.stringify(MUST_PASS_IDS)} and "mustPassUncovered": ` +
+    `${JSON.stringify(MUST_PASS_UNCOVERED)} copied verbatim (empty lists included) -- "criteria" is one entry per criterion IN THE WHOLE DEFINITION, same ` +
     `completeness rule as STEP 4's state file (the already-settled ones carried verbatim with ` +
     `their "provenAt" and "cause", plus the ones you judged this iteration): id, statement, ` +
     `cites, status, artifact, reason, cause, provenAt, attempts, blocker), then run:\n` +
@@ -610,7 +637,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `iteration. Forward that value unchanged as "notesUpdated" below -- you do not read or ` +
     `write the notes file yourself, so do not re-derive this.\n\n` +
     `Return { "action": "exit-satisfied"|"exit-unbuilt"|"exit-stalled"|"exit-stuck"|` +
-    `"exit-insufficient-coverage"|"remediate", ` +
+    `"exit-insufficient-coverage"|"exit-must-pass-unproven"|"remediate", ` +
     `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files" }, ` +
     `... one entry per criterion you judged THIS iteration -- the open set above, not the ` +
     `already-settled ones ], "gaps": [<not_met ids>], "unbuilt": ` +
@@ -767,7 +794,7 @@ const JUDGE_SCHEMA = {
   properties: {
     action: {
       type: 'string',
-      enum: ['exit-satisfied', 'exit-unbuilt', 'exit-stalled', 'exit-stuck', 'exit-insufficient-coverage', 'remediate'],
+      enum: ['exit-satisfied', 'exit-unbuilt', 'exit-stalled', 'exit-stuck', 'exit-insufficient-coverage', 'exit-must-pass-unproven', 'remediate'],
     },
     reason: { type: 'string' },
     criteria: { type: 'array', items: JUDGE_CRITERION_SCHEMA },
@@ -903,6 +930,7 @@ const OUTCOME_BY_ACTION = {
   'exit-stalled': 'stalled',
   'exit-stuck': 'stuck',
   'exit-insufficient-coverage': 'insufficient-coverage',
+  'exit-must-pass-unproven': 'must-pass-unproven',
 }
 
 // D14. The two deterministic branches (nothing declared; the exit is exit-unbuilt) are computed
@@ -936,7 +964,7 @@ function coverageOf(criteria) {
   return { proven: N - uncovered.length, total: N, uncovered }
 }
 
-function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel, settled, pages) {
+function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel, settled, pages, mustPassOverridden = false) {
   const settledCriteria = settledList(settled)
   const openReturned = (judgeResult.criteria || []).filter((c) => !settled.has(c.id))
   const criteria = [...settledCriteria, ...openReturned]
@@ -954,7 +982,124 @@ function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel
     coverage: coverageOf(criteria), // §3.3 -- read by /implement-trd §8.4
     finalRun: computeFinalRun(judgeResult), // NEW (D14)
     pages: pages || [], // NEW (D8; §3.6) -- the last Render per check skill; [] when no check criteria
+    mustPass: mustPassSummary(criteria, mustPassOverridden), // NEW (verification-must-pass D11)
   }
+}
+
+// NEW (verification-must-pass D11, §3.5). What the result says about the must-pass set, from the
+// final criteria list. A must-pass id with no entry in the list is 'missing', never an error: the
+// ids arrive from the checker already validated, but a definition row can still go unreturned.
+// The same shape on every return path, empty and quiet when nothing is declared.
+function mustPassSummary(criteria, overridden) {
+  const statusById = new Map((criteria || []).map((c) => [c.id, c.status]))
+  return {
+    criteria: MUST_PASS_IDS,
+    uncovered: MUST_PASS_UNCOVERED.map((o) => o.id),
+    unproven: MUST_PASS_IDS.filter((id) => statusById.get(id) !== 'met').map((id) => ({ id, status: statusById.get(id) || 'missing' })),
+    overridden,
+  }
+}
+
+// NEW (verification-must-pass D11). The deterministic backstop for the Judge's decide-next call,
+// which is a model's run of a CLI: recompute, from the final criteria list (settled entries plus
+// this iteration's returns), whether an exit may stand. One-directional -- it only ever blocks.
+// It acts only on an `exit-satisfied` or `exit-insufficient-coverage` action over a clean base
+// (no not_met, no unbuilt), so a stalled, stuck or unbuilt exit, and a remediate, are never
+// touched. The floor then picks the target, so the precedence decideNext applies holds here too:
+// a floor really missed keeps (or becomes) insufficient-coverage, anything else becomes
+// must-pass-unproven. Returns the judge result to use from here on, and whether it changed.
+function applyMustPassRecheck(judgeResult, settled) {
+  const unchanged = { judgeResult, overridden: false }
+  if (MUST_PASS_IDS.length === 0 && MUST_PASS_UNCOVERED.length === 0) return unchanged
+  if (judgeResult.action !== 'exit-satisfied' && judgeResult.action !== 'exit-insufficient-coverage') return unchanged
+  const criteria = [...settledList(settled), ...(judgeResult.criteria || []).filter((c) => !settled.has(c.id))]
+  if (criteria.some((c) => c.status === 'not_met' || c.status === 'unbuilt')) return unchanged
+  const unproven = mustPassSummary(criteria, false).unproven.map((u) => u.id)
+  const uncoveredIds = MUST_PASS_UNCOVERED.map((o) => o.id)
+  if (unproven.length === 0 && uncoveredIds.length === 0) return unchanged
+
+  const coverage = coverageOf(criteria)
+  const floorMissed = FLOOR !== null && N > 0 && coverage.proven / N < FLOOR
+  const named = [
+    unproven.length > 0 ? `must-pass criteria not proven: ${unproven.join(', ')}` : null,
+    uncoveredIds.length > 0 ? `must-pass objectives with no criterion: ${uncoveredIds.join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join('; ')
+  if (floorMissed) {
+    // A floor really missed: the Judge's own insufficient-coverage stands, and a satisfied exit
+    // becomes one, because a run below the floor reports that outcome (D9).
+    if (judgeResult.action === 'exit-insufficient-coverage') return unchanged
+    const pct = ((coverage.proven / N) * 100).toFixed(1)
+    return {
+      judgeResult: {
+        ...judgeResult,
+        action: 'exit-insufficient-coverage',
+        reason: `proven ratio ${coverage.proven}/${N} (${pct}%) is below the coverage floor ${FLOOR}; ${named}`,
+      },
+      overridden: true,
+    }
+  }
+  return {
+    judgeResult: { ...judgeResult, action: 'exit-must-pass-unproven', reason: `${named} — the core was not shown to work` },
+    overridden: true,
+  }
+}
+
+const RECONCILE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['reconciled'],
+  properties: {
+    reconciled: { type: 'boolean' },
+    reason: { type: 'string' },
+  },
+}
+
+// NEW (verification-must-pass D12). The Judge already wrote the state file and the report with
+// ITS outcome, and this script has no filesystem, so after an override one small agent brings
+// both in step -- the same dead-agent pattern as Render: a null return is logged and reported on
+// the reason, never thrown. The report input is read straight back by `/refine-verification`,
+// so a report still reading "Satisfied" beside a blocked result is the failure this prevents.
+async function reconcileOutcome(judgeResult, iteration) {
+  const outcome = OUTCOME_BY_ACTION[judgeResult.action]
+  const reportInputFile = `${STATE_DIR}/judge-report-input-${iteration}.json`
+  const stateFile = `${STATE_DIR}/judge-state-${iteration}.json`
+  const prompt =
+    `Functional verification -- reconcile stage, iteration ${iteration}.\n${SCOPE}\n` +
+    `After the Judge wrote the run's state file and report, a deterministic re-check found a ` +
+    `must-pass item unproven and changed the run's outcome to ${JSON.stringify(outcome)}. Bring the ` +
+    `state file and the report in step with it, doing only the following:\n\n` +
+    `1. Read ${STATE_PATH} (JSON), change ONLY its "outcome" key to ${JSON.stringify(outcome)}, write the ` +
+    `whole object to ${stateFile}, then shell into node, load ${STATE_WRITER} and call ` +
+    `save(${STATE_PATH}, <the parsed contents of ${stateFile}>). Do not write ${STATE_PATH} any ` +
+    `other way: save() is the repository's only sanctioned writer for a .trd-state JSON file.\n` +
+    `2. Read ${reportInputFile} (JSON), set its "outcome" to ${JSON.stringify(outcome)} and its "reason" to ` +
+    `${JSON.stringify(judgeResult.reason)}, and set "mustPass" to ${JSON.stringify(MUST_PASS_IDS)} and ` +
+    `"mustPassUncovered" to ${JSON.stringify(MUST_PASS_UNCOVERED)} (these two even if the Judge left ` +
+    `them out). Leave every other key exactly as it is. Write it back to ${reportInputFile}.\n` +
+    `3. Run  node ${CHECKER} render-report --file ${reportInputFile}  and write its output to ${REPORT_PATH}.\n\n` +
+    `Change nothing else and read no evidence. Return { "reconciled": <true when all three steps ` +
+    `completed>, "reason": "<string, present when reconciled is false>" }.`
+  const result = await agent(prompt, { label: 'reconcile', phase: 'Judge', model: 'sonnet', schema: RECONCILE_SCHEMA })
+  if (!result) {
+    log(`iteration ${iteration}: the reconcile agent returned nothing -- the report and state files still show the Judge's outcome`)
+    return " (report file still shows the Judge's outcome — the reconcile agent returned nothing)"
+  }
+  if (!result.reconciled) {
+    log(`iteration ${iteration}: the reconcile agent could not bring the report and state in step${result.reason ? `: ${result.reason}` : ''}`)
+    return " (report file still shows the Judge's outcome — the reconcile agent reported it could not update them)"
+  }
+  return ''
+}
+
+// One call site per Judge exit, so the zero-criteria branch and the loop cannot drift apart:
+// re-check, and when the outcome changed, reconcile the files BEFORE anything prints the action.
+async function recheckAndReconcile(judgeResult, settled, iteration) {
+  const checked = applyMustPassRecheck(judgeResult, settled)
+  if (!checked.overridden) return checked
+  const suffix = await reconcileOutcome(checked.judgeResult, iteration)
+  return suffix ? { ...checked, judgeResult: { ...checked.judgeResult, reason: checked.judgeResult.reason + suffix } } : checked
 }
 
 // NEW (D8; §3.6). One Render dispatch, matching the dead-agent pattern Debug already uses
@@ -1001,7 +1146,9 @@ if (N === 0) {
     ),
     'Judge'
   )
-  return buildFinalResult(judgeResult, 0, [], '0/0', new Map(), [])
+  const noCriteria = new Map()
+  const checked = await recheckAndReconcile(judgeResult, noCriteria, 0)
+  return buildFinalResult(checked.judgeResult, 0, [], '0/0', noCriteria, [], checked.overridden)
 }
 
 // --------------------------------------------------------------------------- the loop
@@ -1078,6 +1225,7 @@ if (iteration > CAP) {
     coverage: coverageOf(RESUME_CRITERIA),
     finalRun: null, // NEW (D14) -- one of the two "not-run" cases: no Judge turn happened this invocation to run the gate at all
     pages: [], // NEW (D8) -- no iteration ran this invocation, so no Render agent was ever dispatched
+    mustPass: mustPassSummary(RESUME_CRITERIA, false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
   }
 }
 const debugAttempts = []
@@ -1272,14 +1420,17 @@ for (; iteration <= CAP; iteration++) {
   }
 
   if (judgeResult.action !== 'remediate') {
+    // NEW (verification-must-pass D11, D12). Re-check the exit against the must-pass set BEFORE
+    // the renders: buildRenderPrompt prints the action, so it must see the final one.
+    const checked = await recheckAndReconcile(judgeResult, settled, iteration)
     // NEW (D8; §3.6). An exit iteration dispatches the renders (if any) BEFORE returning -- the
     // page must reflect the verdicts this exit is reporting, not the previous iteration's.
     if (RENDER_SKILLS.length > 0) {
       phase('Render')
-      const renderResults = await parallel(RENDER_SKILLS.map((skill) => dispatchRender(skill, iteration, judgeResult)))
+      const renderResults = await parallel(RENDER_SKILLS.map((skill) => dispatchRender(skill, iteration, checked.judgeResult)))
       for (const r of renderResults) pagesBySkill.set(r.skill, r)
     }
-    return buildFinalResult(judgeResult, iteration, debugAttempts, exercisedLabel, settled, pagesList())
+    return buildFinalResult(checked.judgeResult, iteration, debugAttempts, exercisedLabel, settled, pagesList(), checked.overridden)
   }
 
   previousGaps = judgeResult.gaps || []
@@ -1371,4 +1522,5 @@ return {
   coverage: coverageOf(settledList(settled)),
   finalRun: null, // NEW (D14) -- the other "not-run" case: the loop fell through with no exit action, so no gate ran
   pages: pagesList(), // NEW (D8) -- a remediate iteration may still have dispatched renders before the cap was hit
+  mustPass: mustPassSummary(settledList(settled), false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
 }

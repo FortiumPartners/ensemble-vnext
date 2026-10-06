@@ -254,22 +254,23 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 23 fields in the same order (VSET-B002/B003, D8)', () => {
-  test('implement-trd.md §8.3 lists 23 fields ending in checks/checkComments/pagesDir', () => {
+describe('both dispatch blocks carry the same 25 fields in the same order (VSET-B002/B003, D8)', () => {
+  test('implement-trd.md §8.3 lists 25 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(23);
-    expect(fields.slice(-3)).toEqual(['checks', 'checkComments', 'pagesDir']);
+    expect(fields).toHaveLength(25);
+    expect(fields.slice(-5)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered']);
   });
 
-  test('verify-build.md §4 lists the identical 23 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 25 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 23 fields, not 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 23 fields/);
+  test('verify-build.md §4 intro says 25 fields, not 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 25 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 23 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 22 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 21 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 18 fields/);
@@ -447,10 +448,10 @@ describe('§8.4 / Step 9 readout carries coverage and finalRun', () => {
 // insufficient-coverage is plumbed through every consumer named in the task.
 // ---------------------------------------------------------------------------
 
-describe('insufficient-coverage is a fifth terminal outcome everywhere it is enumerated', () => {
-  test('implement-trd.md §3.6 terminality list names all five, still gated on non-null', () => {
+describe('must-pass-unproven is a sixth terminal outcome everywhere it is enumerated (VMP-B005)', () => {
+  test('implement-trd.md §3.6 terminality list names all six, still gated on non-null', () => {
     const src = read(CORE_IMPLEMENT);
-    expect(src).toMatch(/`satisfied`,\s*\n?`?unbuilt`,\s*\n?`?stalled`,\s*\n?`?stuck`,\s*\n?`?insufficient-coverage`/);
+    expect(src).toMatch(/`satisfied`,\s*\n?`?unbuilt`,\s*\n?`?stalled`,\s*\n?`?stuck`,\s*\n?`?insufficient-coverage`,\s*\n?`?must-pass-unproven`/);
     expect(src).toMatch(/[Rr]ead `outcome` and nothing else/);
     expect(src).toMatch(/A non-null `outcome`/);
   });
@@ -459,15 +460,15 @@ describe('insufficient-coverage is a fifth terminal outcome everywhere it is enu
     expect(read(CORE_IMPLEMENT)).toMatch(/insufficient-coverage/);
   });
 
-  test('verify-build.md §5 outcome list names all five', () => {
-    const src = read(CORE_VERIFY_BUILD);
-    expect(src).toMatch(/satisfied.*unbuilt.*stalled.*stuck.*insufficient-coverage/);
+  test('verify-build.md §5 outcome list names all six', () => {
+    const src = flat(read(CORE_VERIFY_BUILD));
+    expect(src).toMatch(/satisfied.*unbuilt.*stalled.*stuck.*insufficient-coverage.*must-pass-unproven/);
   });
 
-  test('verify-build.md --resume section says "five" outcome strings, not "four"', () => {
+  test('verify-build.md --resume section says "six" outcome strings, not "five"', () => {
     const src = read(CORE_VERIFY_BUILD);
-    expect(src).toMatch(/five outcome strings/);
-    expect(src).not.toMatch(/four outcome strings/);
+    expect(src).toMatch(/six outcome strings/);
+    expect(src).not.toMatch(/five outcome strings/);
   });
 });
 
@@ -1602,5 +1603,43 @@ describe('audit-docs.md readout covers PRD handling', () => {
       const name = `docs-audit-${f}.js`;
       expect(read(path.join(REPO, '.claude/lib', name))).toBe(read(path.join(REPO, 'packages/core/lib', name)));
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VMP-B005: the must-pass plumbing in both commands.
+// ---------------------------------------------------------------------------
+
+describe('must-pass is plumbed through both commands (VMP-B005)', () => {
+  const impl = () => read(CORE_IMPLEMENT);
+  const vb = () => read(CORE_VERIFY_BUILD);
+
+  test('implement-trd runs the objectives and must-pass-coverage CLIs and passes their output unchanged', () => {
+    expect(impl()).toMatch(/spec-scope\.js objectives --trd/);
+    expect(impl()).toMatch(/must-pass-coverage[\s\\]+--trd <TRD>[\s\\]+--definition/);
+    expect(impl()).toMatch(/spec-scope\.js criteria[^`]*--trd <TRD>/);
+  });
+
+  test('the deriver gets objectives as id plus text only, no TRD path', () => {
+    expect(impl()).toMatch(/id and text only/);
+    expect(impl()).not.toMatch(/nothing else — no TRD path, no TRD excerpt, no task list/);
+  });
+
+  test('both readouts carry the Must pass STATE line with its none-declared form', () => {
+    for (const src of [flat(impl()), flat(vb())]) {
+      expect(src).toMatch(/Must pass: none declared in the TRD's Objectives/);
+      expect(src).toMatch(/Must pass: \{?<?k\}? of \{?<?n\}? proven/);
+    }
+  });
+
+  test('NEXT routes must-pass-unproven to refine-verification then verify-build in renderReport wording', () => {
+    for (const src of [flat(impl()), flat(vb())]) {
+      expect(src).toMatch(/stalled\/stuck\/unbuilt\/insufficient-coverage\/must-pass-unproven|`insufficient-coverage`, `must-pass-unproven`|insufficient-coverage` or `must-pass-unproven/);
+      expect(src).toMatch(/refine the plan\s+with `\/refine-verification` \(add `--auto` to let an agent answer\), then run\s+`\/verify-build`/);
+    }
+  });
+
+  test('the fix loop never records must-pass-unproven as a failing row', () => {
+    expect(vb()).toMatch(/`insufficient-coverage` and `must-pass-unproven` included/);
   });
 });

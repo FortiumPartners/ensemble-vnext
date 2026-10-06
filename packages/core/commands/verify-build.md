@@ -143,8 +143,12 @@ and **skip the rest of 3a** (no source resolution, no agent, no `prd_path` table
 node .claude/lib/spec-scope.js source --file <sweep file or TRD>          # → {spec, section[, coreTrd]}
 node .claude/lib/spec-scope.js extract --file <sweep file>                # sweep: the ids it lists
 node .claude/lib/spec-scope.js criteria --spec <spec> --section <section> --ids <ids> \
-     --feature <feature> --out .trd-state/<feature>/success-definition.md
+     --feature <feature> [--trd <TRD>] --out .trd-state/<feature>/success-definition.md
 ```
+
+Pass `--trd <TRD>` for a TRD only (it copies each must-pass objective's id into its criterion's
+`Must pass` cell, exactly as `/implement-trd` §3.6 step 1 does); never for a sweep file, which
+has no Objectives and declares no must-pass (D19).
 
 For a TRD, `<ids>` are the Objectives table's ids (guards included — the library skips them
 and adds every guard itself), plus every id the sweep file lists when `docs/plan/<feature>.sweep.md`
@@ -189,8 +193,13 @@ With a source, dispatch the same agent §3.6 dispatches, with the same contract 
 
 ```
 Agent(subagent_type="product-manager",
-      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <output path .trd-state/<feature>/success-definition.md>")
+      prompt="<packages/core/contracts/functional-verification.md text> + <the source> + <must-pass objectives: id and text only> + <output path .trd-state/<feature>/success-definition.md>")
 ```
+
+The must-pass objectives are read exactly as `/implement-trd` §3.6 step 2a reads them
+(`node .claude/lib/spec-scope.js objectives --trd <TRD>`, entries with `mustPass: true`, each
+passed as its `id` and `text` and nothing else, an empty block when none is marked). The prompt
+still carries no TRD path, no TRD excerpt and no task list.
 
 **Foreground, not background — and that is the difference from Step 8.** §3.6 backgrounds the
 derive because it has a phase loop to get on with; Step 8 then cannot wait for it, since no
@@ -253,9 +262,15 @@ one question already ran at step 2), then derive `exerciseLanes`, `refreshComman
 documents — `coverageFloor` via `read-coverage-floor`, `null` on an `invalid` line, named in
 ISSUES with the same D9 wording.
 
+**Must-pass coverage — identical to `/implement-trd` §8.1; read that section and follow it.** For
+a TRD, run `node .claude/lib/functional-verification.js must-pass-coverage --trd <TRD> --definition
+.trd-state/<feature>/success-definition.md` and hold its `criteria` as `mustPassIds` and its
+`uncovered` as `mustPassUncovered`, unchanged — never read the `Must pass` column yourself. A
+sweep file has no TRD and declares no must-pass (D19): skip the call and use `[]` for both.
+
 ### 4. Dispatch
 
-All 23 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 25 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 ```javascript
@@ -283,20 +298,29 @@ Workflow({ name: "verify-functional", args: {
   checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
   checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
   pagesDir,                                                       // resolved per implement-trd.md §8.1b (step 3b here) -- ".trd-state/<feature>/verification-artifacts"; always set
+  mustPassIds,                                                   // must-pass-coverage's `criteria`, unchanged (step 3c here); [] for a sweep file or when none is declared
+  mustPassUncovered,                                             // must-pass-coverage's `uncovered` ([{id, text}]), unchanged (step 3c here); [] for a sweep file or when none
 } })
 ```
 
 ### 5. Report
 
-Render the outcome — `satisfied` / `unbuilt` / `stalled` / `stuck` / `insufficient-coverage`,
-or either `not run` case — with the per-criterion counts, the report path, and the coverage
-ratio when the outcome is `insufficient-coverage`. A failed final full-environment run appears
+Render the outcome — `satisfied` / `unbuilt` / `stalled` / `stuck` / `insufficient-coverage` /
+`must-pass-unproven`, or either `not run` case — with the per-criterion counts, the report path,
+and the coverage ratio when the outcome is `insufficient-coverage`. For `must-pass-unproven`, say
+the core was not shown to work and name each unproven must-pass criterion and each uncovered
+objective (the workflow's `mustPass` result: `criteria`, `uncovered`, `unproven`). A failed final full-environment run appears
 in ISSUES with who acts (VCON-B009); it does not retract the criteria proven before it.
 
 **State the coverage floor whenever this run reached step 4 (D19):** "Coverage floor: {N}%
 (from verification.md)" when 3c's `coverageFloor` is non-null; "Coverage floor: not applied —
 the line in verification.md does not parse" when `read-coverage-floor` returned `invalid`
 (with the ISSUES line 3c requires); else "Coverage floor: none declared".
+
+**State must-pass whenever this run reached step 4 (D15):** "Must pass: none declared in the
+TRD's Objectives" when `mustPass.criteria` and `mustPass.uncovered` are both empty (always the
+case for a sweep file); otherwise "Must pass: {k} of {n} proven" ({n} = `mustPass.criteria`
+plus `mustPass.uncovered`), naming each unproven one by its statement in plain words.
 
 **§8.5 applies here in full: while the loop is in flight, its gaps are not yours to fix.**
 Record them and let it finish.
@@ -311,13 +335,13 @@ section may be "none". No section for what was dispatched or which stages ran: t
 transcript and does not change what the owner does next.
 
 **NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`. Any
-other outcome (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage`) → `/refine-verification`,
+other outcome (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage`, `must-pass-unproven`) → `/refine-verification`,
 then `/verify-build`. The report's Next line says the same, so the readout and the report never
 disagree on what comes next.** NEXT lists those commands as numbered steps in the order to
 take them, one fenced block per slash command, never a shell command. A step that must come
 first and is not a slash command (a merge, a deploy) leads as plain text, not a block.
 
-**When the outcome is `stalled`, `stuck`, `unbuilt` or `insufficient-coverage`** (D3;
+**When the outcome is `stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`** (D3, D15;
 verification-fix-loop TRD §3.1): STATE carries a Diagnosis line, counted over `criteria`'s
 non-`met` entries exactly as `renderReport` counts them for the report — descending by count,
 in words, cause-less entries as "unrecorded". Never re-derive the verdict here; this is a
@@ -325,6 +349,15 @@ count, not a second judgement. NEXT's explaining line is `renderReport`'s own ex
 per O4, above: "refine the plan with `/refine-verification` (add `--auto` to let an agent
 answer), then run `/verify-build`" — followed by `/refine-verification` and `/verify-build`,
 each in its own fenced block, in that order; never both commands inline as the only NEXT.
+
+**STATE and ISSUES for must-pass (D15, D17).** STATE carries the line from step 5 ("Must pass:
+none declared in the TRD's Objectives", or "Must pass: {k} of {n} proven" with each unproven one
+in plain words), and the Diagnosis line above counts for `must-pass-unproven` too, because
+`renderReport` prints one for it. ISSUES names each uncovered objective ("the TRD marks '{text}'
+({id}) as must-pass but the definition has no criterion for it — add the source it needs or remove
+the mark; you decide"), each `Must pass` cell in the Objectives table that is neither `yes` nor
+`no` (read as must-pass; write `yes` or `no`), and each `unknown` mark `must-pass-coverage`
+returned.
 
 **A sweep file's NEXT replaces the rule above.** Its explaining line is `renderReport`'s own
 exact wording, and its steps are the same, as literal commands with the sweep file's path.
@@ -370,7 +403,7 @@ and none of this section applies. Under it:
 ```
 
   `<outcome>` is the loop's outcome string exactly (`satisfied`, `unbuilt`, `stalled`,
-  `stuck`, `insufficient-coverage`, or a `not run` case), so the caller can test for exactly
+  `stuck`, `insufficient-coverage`, `must-pass-unproven`, or a `not run` case), so the caller can test for exactly
   `satisfied`. This line is a sibling of `/implement-trd`'s `RETURN → chained by …` line.
 - **No banner, no `notify-complete.sh`, no `PushNotification`.** The caller owns the run's
   only terminator; `notify-complete.sh` would mark the run finished and switch off the
@@ -408,7 +441,7 @@ line. Fixing after a resumed run is a fresh `/verify-build`.
 
 Re-enters at the next iteration from `verification-state.json`, seeding `previousGaps`. The
 state file's `outcome` key decides: `null` means the run stopped mid-loop and is resumable;
-any of the five outcome strings means it finished and `--resume` starts a fresh run instead.
+any of the six outcome strings means it finished and `--resume` starts a fresh run instead.
 Only the file's `met` entries carry forward into the resumed run — `not_verifiable` and
 `unbuilt` entries do not, so they are walked again this run. The iteration cap (`--cap N`,
 default 3) is a total budget across every resume of one run, not a fresh budget each time
@@ -459,9 +492,11 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    open criterion regardless of slice, so a regression outside the active slice is still seen.
    **Never recorded as a failing row, in any round:** a `not_verifiable` criterion (its causes,
    `environment-unreachable` and `capability-absent`, are never promoted — D4), and the run's
-   outcome itself, `insufficient-coverage` included. A coverage shortfall is made of criteria
+   outcome itself, `insufficient-coverage` and `must-pass-unproven` included. A coverage shortfall is made of criteria
    nobody could check, not of code that failed; no build task can raise it, so it is reported
-   in the readout and never turned into one.
+   in the readout and never turned into one. The same holds for `must-pass-unproven`: the
+   unproven must-pass criteria are already open criteria, recorded here by their own cause when
+   buildable; the outcome itself is never a row.
    Record any `verification.md` need found this round as an ordinary discovery (D13):
    `kind: 'gap', blocksFeature: false, file: '.claude/rules/verification.md'`, summary naming
    the change — this command never edits that file itself (O6, NG7). **If nothing was recorded
@@ -508,8 +543,10 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    visible, but a blank one is a defect in this step, never an acceptable row. Emit the readout: STATE
    carries the Diagnosis counts (above, unchanged); ISSUES names each `verification.md` need
    recorded at step 2, "the owner, at the next bridge" (D13); NEXT follows O4, above:
-   `/refine-verification`, then `/verify-build`, when anything buildable or blocked remains,
-   otherwise `/audit-build`. Exactly **one** `═══
+   `/refine-verification`, then `/verify-build`, when the outcome is anything but `satisfied`
+   (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`) or anything
+   buildable or blocked remains, otherwise `/audit-build` — keyed to the outcome, so a
+   `must-pass-unproven` run with nothing buildable still routes to `/refine-verification`. Exactly **one** `═══
    COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —
    `notify-complete.sh`, and a `PushNotification` (`command-status.md` Path A for
    long-running commands).
