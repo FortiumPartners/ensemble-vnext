@@ -10,6 +10,29 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.2] - 2026-10-07
+
+`/audit-docs` no longer skips a TRD that was moved to another folder as having no
+implementation. Plan: `docs/TRD/audit-docs-moved-trd-skip.md`. Before this,
+`docs/TRD/completed/implement-trd-rework.md` was skipped although all 19 of its tasks
+succeeded, because its `implement.json` still named the path from before the move.
+
+### Fixed
+
+- **A TRD is matched to its `implement.json` by every path it has held**, read from one
+  `git log --follow` walk, and a record counts only if it was written while the TRD held that
+  path. An archived TRD and a new TRD later written under its old name no longer trade records,
+  and a TRD started as a copy of another does not inherit the original's.
+- **Touches paths outside the repository are dropped before git** (`../core/contracts`,
+  absolute paths); they made git fail for the whole check.
+- **Any git failure in the skip test sends the TRD to review**, never skips it, and never stops
+  the run. Before, a failed `git log --follow` threw and ended the whole assembly.
+
+Known open: one commit that deletes a TRD and adds a similar, unrelated one reads as a rename to
+git, so the new TRD can inherit the old one's records; a Touches entry in git pathspec syntax
+(`:!x`) changes what counts as changed; a comprehensive assembly of this repo takes 12.2s, was
+9.1s.
+
 ## [4.13.1] - 2026-10-06
 
 Verification can no longer end `satisfied` without proving the feature's core. Plan:
