@@ -428,6 +428,133 @@ describe('TRD parse and D19 skip tests', () => {
     expect(entry(run(repo), 'docs/TRD/completed/thing.md').skip).toBeNull();
   });
 
+  describe('history-aware skip test', () => {
+    const withTouches = (list) =>
+      TRD_BODY().replace('- **Touches:** `src/thing.js` (new)', `- **Touches:** ${list.map((p) => `\`${p}\``).join(', ')}`);
+    const moveTrd = (repo, to) => {
+      fs.mkdirSync(path.join(repo, path.dirname(to)), { recursive: true });
+      sh(repo, ['mv', TRD, to]);
+      sh(repo, ['commit', '-q', '-m', 'archive the TRD']);
+    };
+
+    test('implement.json naming the TRD\'s OLD path still counts after the TRD moves', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' } }));
+      moveTrd(repo, 'docs/TRD/completed/thing.md');
+      const e = entry(run(repo), 'docs/TRD/completed/thing.md');
+      expect(e.skip).toBeNull();
+      expect(e.trd.tasks[0].status).toBe('success');
+    });
+
+    test('a Touches path outside the repo does not make git fatal: the in-repo path still decides (changed -> reviewed)', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'trd', { [TRD]: withTouches(['../outside/x', 'src/thing.js']), 'README.md': 'r' });
+      commitFiles(repo, 'built', { 'src/thing.js': 'built' });
+      expect(entry(run(repo), TRD).skip).toBeNull();
+    });
+
+    test('out-of-repo Touches are dropped, not merely tolerated: in-repo path never changed -> no-implementation', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'trd', { [TRD]: withTouches(['../outside/x', 'src/thing.js']), 'README.md': 'r' });
+      commitFiles(repo, 'unrelated', { 'other.txt': 'o' });
+      expect(entry(run(repo), TRD).skip).toBe('no-implementation');
+    });
+
+    test('a Touches path git rejects is a review, not a skip', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'trd', { [TRD]: withTouches([':(bogus)src/thing.js']), 'README.md': 'r' });
+      expect(entry(run(repo), TRD).skip).toBeNull();
+    });
+
+    test('a failing `git log --follow` is a review, not a skip and not a throw', () => {
+      // In-repo Touches that never changed: with working history this TRD would be 'no-implementation'.
+      const repo = mkRepo();
+      // The TRD is the last commit so its doc window is empty: the orderFile below must break only
+      // the `--follow` call, not the unrelated `git log A..B` that builds the window.
+      commitFiles(repo, 'unrelated', { 'other.txt': 'o' });
+      commitFiles(repo, 'trd', { [TRD]: withTouches(['src/thing.js']), 'README.md': 'r' });
+      expect(entry(run(repo), TRD).skip).toBe('no-implementation');
+      // A missing diff.orderFile makes `log --follow --name-status` exit 128 while `log -1 -- <path>`
+      // still works. Set on this scratch repo only; git is real, never stubbed.
+      sh(repo, ['config', 'diff.orderFile', '/nonexistent/order']);
+      const failing = spawnSync('git', ['log', '--follow', '--name-status', '-z', '--', TRD], { cwd: repo, encoding: 'utf8' });
+      expect(failing.status).not.toBe(0);
+      let a;
+      expect(() => { a = run(repo); }).not.toThrow();
+      expect(entry(a, TRD).skip).toBeNull();
+    });
+
+    test('implement.json that is unparseable, not an object, or has no string trd_file never throws and never counts', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'bad states', {
+        '.trd-state/a/implement.json': '{not json',
+        '.trd-state/b/implement.json': 'null',
+        '.trd-state/c/implement.json': JSON.stringify({ trd_file: 42, tasks: { 'T-1': { status: 'success' } } }),
+        '.trd-state/d/implement.json': JSON.stringify({ tasks: { 'T-1': { status: 'success' } } }),
+      });
+      let a;
+      expect(() => { a = run(repo); }).not.toThrow();
+      expect(entry(a, TRD).skip).toBe('no-implementation');
+      expect(entry(a, TRD).trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
+    test('a TRD created by copying another does not inherit the original\'s implement.json', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' }, 'T-2': { status: 'success' } }));
+      commitFiles(repo, 'copy', { 'docs/TRD/copy.md': TRD_BODY('\nCopied from thing.\n') });
+      const e = entry(run(repo), 'docs/TRD/copy.md');
+      expect(e.trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
+    test('an archived TRD does not inherit the records of a new TRD written at its old path', () => {
+      const repo = trdRepo();
+      moveTrd(repo, 'docs/TRD/completed/thing.md');
+      commitFiles(repo, 'new trd at the old path', {
+        [TRD]: TRD_BODY('\nA new feature that reuses the name.\n'),
+        ...implState('thing2', { 'T-1': { status: 'in_progress' } }),
+      });
+      const e = entry(run(repo), 'docs/TRD/completed/thing.md');
+      expect(e.skip).not.toBe('in-flight');
+      expect(e.trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
+    test('an archived TRD keeps its OWN records when a new TRD reuses its old name, and the new TRD does not take them', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' }, 'T-2': { status: 'success' } }));
+      moveTrd(repo, 'docs/TRD/completed/thing.md');
+      commitFiles(repo, 'new trd at the old path', { [TRD]: TRD_BODY('\nA new feature that reuses the name.\n') });
+      const a = run(repo);
+      const archived = entry(a, 'docs/TRD/completed/thing.md');
+      expect(archived.skip).toBeNull();
+      expect(archived.trd.tasks.map((t) => t.status)).toEqual(['success', 'success']);
+      expect(entry(a, TRD).trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
+    test('a TRD written at a path a deleted TRD once held does not inherit that TRD\'s history', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'old trd', { 'docs/TRD/old.md': TRD_BODY(), 'README.md': 'r' });
+      commitFiles(repo, 'state', implState('old', { 'T-1': { status: 'success' } }, 'docs/TRD/old.md'));
+      sh(repo, ['mv', 'docs/TRD/old.md', TRD]);
+      sh(repo, ['commit', '-q', '-m', 'rename']);
+      sh(repo, ['rm', '-q', TRD]);
+      sh(repo, ['commit', '-q', '-m', 'delete']);
+      commitFiles(repo, 'new trd', { [TRD]: TRD_BODY('\nA different feature.\n') });
+      expect(entry(run(repo), TRD).trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
+    test('a moved TRD whose name git would quote still matches its old path', () => {
+      const repo = mkRepo();
+      const oldPath = 'docs/TRD/th"ing.md';
+      commitFiles(repo, 'trd', { [oldPath]: TRD_BODY(), 'README.md': 'r' });
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' } }, oldPath));
+      fs.mkdirSync(path.join(repo, 'docs/TRD/completed'), { recursive: true });
+      sh(repo, ['mv', oldPath, 'docs/TRD/completed/th"ing.md']);
+      sh(repo, ['commit', '-q', '-m', 'archive the TRD']);
+      const e = entry(run(repo), 'docs/TRD/completed/th"ing.md');
+      expect(e.trd.tasks[0].status).toBe('success');
+    });
+  });
+
   test('a root-commit TRD whose Touches files never changed is still skipped', () => {
     const repo = mkRepo();
     commitFiles(repo, 'trd only', { [TRD]: TRD_BODY(), 'README.md': 'r' });

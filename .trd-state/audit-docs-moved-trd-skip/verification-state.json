@@ -1,0 +1,54 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-moved-trd-skip/evidence/FS-1.txt",
+      "reason": "asm.json entry for docs/TRD/completed/implement-trd-rework.md shows \"skip\": null and the path is listed in trd batch chunk 1 (HEAD 7f297f7, exit 0).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-moved-trd-skip/evidence/FS-2.txt",
+      "reason": "All 19 task rows for the moved TRD show status success, none null; matches implement.json 19/19 success (unfixed code showed 19 null).",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-moved-trd-skip/evidence/FS-3.txt",
+      "reason": "Scratch repo TRD with no implement.json and Touches ../core/contracts and /verify-trd-team (git exits 128, no output): fixed code gives skip null and batches it, each kind separately; unfixed c587399 gave no-implementation.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-moved-trd-skip/evidence/FS-4.txt",
+      "reason": "Scratch repo with diff.orderFile breaking git log --follow (exit 128): fixed assemble exit 0, empty stderr, no AssembleError, TRD skip null and batched; unfixed exited 2 with the git error.",
+      "cause": null,
+      "provenAt": 1
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-docs-moved-trd-skip/evidence/FS-5.txt",
+      "reason": "Fixed run skips 4 docs, all in-flight, none no-implementation; unfixed c587399 on same repo skipped 5, the extra being the moved TRD as no-implementation; other four unchanged.",
+      "cause": null,
+      "provenAt": 1
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}

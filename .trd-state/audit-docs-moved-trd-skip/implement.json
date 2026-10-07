@@ -1,0 +1,72 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/audit-docs-moved-trd-skip.md",
+  "trd_hash": "26953c235106d84617b5e9a5bf4e76a95ce9cb5c9220368de04148cc87fcfe93",
+  "branch": "feature/audit-docs-moved-trd-skip/impl",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Match implement.json by every path the doc has had; drop out-of-repo Touches; git failure means review",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/docs-audit-assemble.js",
+        ".claude/lib/docs-audit-assemble.js",
+        "packages/core/lib/docs-audit-assemble.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-07T05:36:16.268Z",
+      "completed_at": "2026-10-07T05:40:29.433Z",
+      "last_advanced": "2026-10-07T05:38:40.360Z"
+    },
+    "AMEND-001": {
+      "description": "Test the git log --follow failure path (O2)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/docs-audit-assemble.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-07T05:58:05.861Z",
+      "completed_at": "2026-10-07T06:01:31.163Z",
+      "last_advanced": "2026-10-07T06:01:07.405Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "404052b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-07T05:40:32.539Z"
+    },
+    {
+      "phase": 1,
+      "commit": "1b7fdd3",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-07T06:01:34.874Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "1b7fdd3",
+    "last_checkpoint_timestamp": "2026-10-07T06:01:34.874Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/audit-docs-moved-trd-skip.md § Reproduction",
+    "environments": {}
+  }
+}

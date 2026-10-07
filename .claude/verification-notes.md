@@ -884,3 +884,10 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [ran] No server is needed. `node .claude/lib/functional-verification.js` subcommands `decide-next`,
   `render-report` and `must-pass-coverage --trd <trd> --definition <def>` exercise every criterion;
   `decide-next` requires `mustPass` and `mustPassUncovered` arrays and `coverageFloor` as a fraction (0.6).
+
+## Exercising docs-audit-assemble skip logic (audit-docs-moved-trd-skip, 2026-10-06, iteration 1)
+
+- [ran] `node packages/core/lib/docs-audit-assemble.js assemble --repo "$PWD" --run-date <date> --comprehensive --out <f>` runs on this repo in seconds and writes pretty-printed JSON (one key per line), so a locator like `"skip": null` is a single line; `skipped[]` and `batches[].docs` are the quickest listings.
+- [ran] The unfixed code for comparison is cheapest as `git worktree add --detach <scratch>/unfixed <sha>`; run its CLI against the CURRENT repo (`--repo "$PWD"`) for an apples-to-apples diff, then `git worktree remove --force` and delete any branch you made.
+- [ran] A faithful, real failure of ONLY `git log --follow` in a scratch repo: `git config diff.orderFile /nonexistent/order` (exit 128 "failed to read orderfile"). `git log -1 -- <path>` and `git rev-list` still work, but `git log --name-only A..B` (the comprehensive docWindow call) also fails, so make the TRD's own commit the LAST commit (empty window) or the whole run exits 2 for an unrelated reason. Set the config AFTER the last `git commit` (commit itself runs a diff and fails).
+- [ran] Out-of-repo Touches (`../x`) and absolute ones (`/x`) both make `git rev-list ... -- <path>` exit 128 ("outside repository"); the unfixed code turned that into `no-implementation`.
