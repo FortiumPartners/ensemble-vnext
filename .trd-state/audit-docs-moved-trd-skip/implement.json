@@ -22,6 +22,21 @@
       "started_at": "2026-10-07T05:36:16.268Z",
       "completed_at": "2026-10-07T05:40:29.433Z",
       "last_advanced": "2026-10-07T05:38:40.360Z"
+    },
+    "AMEND-001": {
+      "description": "Test the git log --follow failure path (O2)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/docs-audit-assemble.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-07T05:58:05.861Z",
+      "completed_at": "2026-10-07T06:01:31.163Z",
+      "last_advanced": "2026-10-07T06:01:07.405Z"
     }
   },
   "checkpoints": [

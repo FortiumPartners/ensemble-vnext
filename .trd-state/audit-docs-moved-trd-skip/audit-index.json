@@ -1,0 +1,41 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "A TRD that was moved to another folder after its work was recorded is matched to its implement.json by any path it has had, so it is reviewed (not skipped as having no implementation) and its task statuses are shown",
+      "served_by": [
+        "FIX-001"
+      ],
+      "source": "Objectives, line 11"
+    },
+    {
+      "id": "O2",
+      "statement": "When the skip test cannot get an answer from git, the TRD is reviewed, never skipped and never fatal to the run",
+      "served_by": [
+        "FIX-001"
+      ],
+      "source": "Objectives, line 12"
+    },
+    {
+      "id": "O3",
+      "statement": "A Touches entry that points outside the repository is left out of the git check instead of failing it",
+      "served_by": [
+        "FIX-001"
+      ],
+      "source": "Objectives, line 13"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Match a TRD implement.json records by every path the doc has had; drop out-of-repo Touches entries before git; treat any git failure in the skip test as review, not skip and not fatal. Add regression tests and mirror the library into its vendored runtime copy",
+      "touches": [
+        "packages/core/lib/docs-audit-assemble.js",
+        ".claude/lib/docs-audit-assemble.js",
+        "packages/core/lib/docs-audit-assemble.test.js"
+      ]
+    }
+  ],
+  "could_not_verify": [],
+  "open_questions": []
+}

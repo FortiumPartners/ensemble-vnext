@@ -466,6 +466,38 @@ describe('TRD parse and D19 skip tests', () => {
       expect(entry(run(repo), TRD).skip).toBeNull();
     });
 
+    test('a failing `git log --follow` is a review, not a skip and not a throw', () => {
+      // In-repo Touches that never changed: with working history this TRD would be 'no-implementation'.
+      const repo = mkRepo();
+      // The TRD is the last commit so its doc window is empty: the orderFile below must break only
+      // the `--follow` call, not the unrelated `git log A..B` that builds the window.
+      commitFiles(repo, 'unrelated', { 'other.txt': 'o' });
+      commitFiles(repo, 'trd', { [TRD]: withTouches(['src/thing.js']), 'README.md': 'r' });
+      expect(entry(run(repo), TRD).skip).toBe('no-implementation');
+      // A missing diff.orderFile makes `log --follow --name-status` exit 128 while `log -1 -- <path>`
+      // still works. Set on this scratch repo only; git is real, never stubbed.
+      sh(repo, ['config', 'diff.orderFile', '/nonexistent/order']);
+      const failing = spawnSync('git', ['log', '--follow', '--name-status', '-z', '--', TRD], { cwd: repo, encoding: 'utf8' });
+      expect(failing.status).not.toBe(0);
+      let a;
+      expect(() => { a = run(repo); }).not.toThrow();
+      expect(entry(a, TRD).skip).toBeNull();
+    });
+
+    test('implement.json that is unparseable, not an object, or has no string trd_file never throws and never counts', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'bad states', {
+        '.trd-state/a/implement.json': '{not json',
+        '.trd-state/b/implement.json': 'null',
+        '.trd-state/c/implement.json': JSON.stringify({ trd_file: 42, tasks: { 'T-1': { status: 'success' } } }),
+        '.trd-state/d/implement.json': JSON.stringify({ tasks: { 'T-1': { status: 'success' } } }),
+      });
+      let a;
+      expect(() => { a = run(repo); }).not.toThrow();
+      expect(entry(a, TRD).skip).toBe('no-implementation');
+      expect(entry(a, TRD).trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
     test('a TRD created by copying another does not inherit the original\'s implement.json', () => {
       const repo = trdRepo();
       commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' }, 'T-2': { status: 'success' } }));
