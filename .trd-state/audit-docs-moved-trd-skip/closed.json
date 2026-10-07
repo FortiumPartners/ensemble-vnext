@@ -1,0 +1,12 @@
+{
+  "feature": "audit-docs-moved-trd-skip",
+  "trd": "docs/TRD/audit-docs-moved-trd-skip.md",
+  "closedAt": "2026-10-07T06:09:19Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this defect has no PRD, so the fix was checked against its TRD only); no test proves that a failed `git log --follow` sends the TRD to review instead of stopping the run (the code does it, but nothing exercises it)",
+    "report": ".trd-state/audit-docs-moved-trd-skip/audit-build-report.md",
+    "auditedCommit": "1f17223"
+  }
+}
