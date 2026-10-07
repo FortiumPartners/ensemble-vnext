@@ -356,19 +356,38 @@ function touchedFiles(trdResult) {
  * `--follow`. `--follow` also follows COPIES (C), even with the original kept: a TRD started by
  * copying another would inherit that TRD's path and implement.json, so the walk stops at the
  * first C entry and takes that commit as the doc's first.
+ *
+ * `-z` so a path git would otherwise C-quote (a `"`, `\` or tab in the name — `core.quotepath`
+ * only covers non-ASCII bytes) still compares equal to `docPath`. Tokens are NUL-separated; a
+ * status token follows its commit token with a leading newline, and R/C carry two paths.
  */
 function followHistory(repo, docPath) {
-  const r = git(repo, ['-c', 'core.quotepath=off', 'log', '--follow', '--name-status', '--format=%x01%H', '--', docPath],
+  const r = git(repo, ['log', '--follow', '--name-status', '-z', '--format=%x01%H', '--', docPath],
     { allowFail: true });
   const paths = new Set([docPath]);
   if (!r.ok) return { ok: false, paths, first: null };
   let current = docPath;
   let first = null;
-  for (const line of lines(r.out)) {
-    if (line.startsWith('\x01')) { first = line.slice(1); continue; }
-    const [status, from, to] = line.split('\t');
-    if (status[0] === 'C' && to === current) break;
-    if (status[0] === 'R' && to === current) { current = from; paths.add(from); }
+  const tokens = r.out.split('\0');
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i].replace(/^\n/, '');
+    if (tok === '') continue;
+    if (tok.startsWith('\x01')) { first = tok.slice(1); continue; }
+    const kind = tok[0];
+    if (kind !== 'R' && kind !== 'C') {
+      // An add of the current path is where this doc was born. `--follow` keeps the same pathspec
+      // past it, so anything older is a predecessor deleted from that path — another document.
+      if (kind === 'A' && tokens[i + 1] === current) break;
+      i += 1;
+      continue;
+    }
+    const from = tokens[i + 1];
+    const to = tokens[i + 2];
+    i += 2;
+    if (to !== current) continue;
+    if (kind === 'C') break;
+    current = from;
+    paths.add(from);
   }
   return { ok: true, paths, first };
 }
@@ -440,7 +459,7 @@ function skipInFlightPrds(files, inFlightTrds) {
 }
 
 /** The `trd` block for a file entry plus the skip decision: { trd, skip, warnings }. */
-function analyseTrd(repo, docPath, text, implementStates) {
+function analyseTrd(repo, docPath, text, implementStates, headSet) {
   let parsed;
   try {
     parsed = parseTrd(text, { path: docPath });
@@ -448,9 +467,12 @@ function analyseTrd(repo, docPath, text, implementStates) {
     return { trd: null, skip: null, warning: `parseTrd rejected ${docPath}: ${e.message}` };
   }
   // One selection for both the status join and the skip test: an implement.json written before the
-  // TRD was moved names its old path, so match every path the doc has had.
+  // TRD was moved names its old path, so match every path the doc has had. An old path that a file
+  // occupies again at HEAD belongs to that file now (a new TRD written under the same name): its
+  // records are not this doc's, or an archived TRD would inherit a new feature's in-flight state.
   const history = followHistory(repo, docPath);
-  const mine = implementStates.filter((s) => history.paths.has(normalizeRepoPath(s.data.trd_file, repo)));
+  const ownsPath = (p) => p === docPath || (history.paths.has(p) && !headSet.has(p));
+  const mine = implementStates.filter((s) => ownsPath(normalizeRepoPath(s.data.trd_file, repo)));
   const statusOf = (id) => {
     let status = null;
     for (const s of mine) {
@@ -573,7 +595,7 @@ function assemble({ repo, runDate, comprehensive = false, assemblyPath = null })
         entry.docWindow = { from: entry.lastCommit, to: headSha, commits: commitsBetween(repo, entry.lastCommit, headSha) };
       }
       if (cls.class === 'trd') {
-        const a = analyseTrd(repo, item.path, text, implementStates);
+        const a = analyseTrd(repo, item.path, text, implementStates, headSet);
         entry.trd = a.trd;
         entry.skip = a.skip;
         if (a.skip === 'in-flight') inFlightTrds.push({ path: item.path, text });

@@ -473,6 +473,42 @@ describe('TRD parse and D19 skip tests', () => {
       const e = entry(run(repo), 'docs/TRD/copy.md');
       expect(e.trd.tasks.map((t) => t.status)).toEqual([null, null]);
     });
+
+    test('an archived TRD does not inherit the records of a new TRD written at its old path', () => {
+      const repo = trdRepo();
+      moveTrd(repo, 'docs/TRD/completed/thing.md');
+      commitFiles(repo, 'new trd at the old path', {
+        [TRD]: TRD_BODY('\nA new feature that reuses the name.\n'),
+        ...implState('thing2', { 'T-1': { status: 'in_progress' } }),
+      });
+      const e = entry(run(repo), 'docs/TRD/completed/thing.md');
+      expect(e.skip).not.toBe('in-flight');
+      expect(e.trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
+    test('a TRD written at a path a deleted TRD once held does not inherit that TRD\'s history', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'old trd', { 'docs/TRD/old.md': TRD_BODY(), 'README.md': 'r' });
+      commitFiles(repo, 'state', implState('old', { 'T-1': { status: 'success' } }, 'docs/TRD/old.md'));
+      sh(repo, ['mv', 'docs/TRD/old.md', TRD]);
+      sh(repo, ['commit', '-q', '-m', 'rename']);
+      sh(repo, ['rm', '-q', TRD]);
+      sh(repo, ['commit', '-q', '-m', 'delete']);
+      commitFiles(repo, 'new trd', { [TRD]: TRD_BODY('\nA different feature.\n') });
+      expect(entry(run(repo), TRD).trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
+    test('a moved TRD whose name git would quote still matches its old path', () => {
+      const repo = mkRepo();
+      const oldPath = 'docs/TRD/th"ing.md';
+      commitFiles(repo, 'trd', { [oldPath]: TRD_BODY(), 'README.md': 'r' });
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' } }, oldPath));
+      fs.mkdirSync(path.join(repo, 'docs/TRD/completed'), { recursive: true });
+      sh(repo, ['mv', oldPath, 'docs/TRD/completed/th"ing.md']);
+      sh(repo, ['commit', '-q', '-m', 'archive the TRD']);
+      const e = entry(run(repo), 'docs/TRD/completed/th"ing.md');
+      expect(e.trd.tasks[0].status).toBe('success');
+    });
   });
 
   test('a root-commit TRD whose Touches files never changed is still skipped', () => {

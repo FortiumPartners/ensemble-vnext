@@ -24,10 +24,19 @@
       "last_advanced": "2026-10-07T05:38:40.360Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "404052b",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-07T05:40:32.539Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "c587399d44ac85de3719dc4a881cbac982075df5",
-    "last_checkpoint_timestamp": "2026-10-07T05:36:16.268Z",
+    "last_healthy_checkpoint": "404052b",
+    "last_checkpoint_timestamp": "2026-10-07T05:40:32.539Z",
     "interrupted": false,
     "interrupt_reason": null
   },
