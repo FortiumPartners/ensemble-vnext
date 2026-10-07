@@ -349,14 +349,38 @@ function touchedFiles(trdResult) {
 }
 
 /**
+ * Every path a TRD has had, and the commit that first wrote it, from ONE `git log --follow`.
+ * Returns { ok, paths, first }. `paths` always holds `docPath`; `first` is null when the doc has
+ * no history (untracked). The log is newest first, so renames (R) walk the doc back to earlier
+ * paths, and the oldest commit is the last one seen — `--reverse` is not used because it defeats
+ * `--follow`. `--follow` also follows COPIES (C), even with the original kept: a TRD started by
+ * copying another would inherit that TRD's path and implement.json, so the walk stops at the
+ * first C entry and takes that commit as the doc's first.
+ */
+function followHistory(repo, docPath) {
+  const r = git(repo, ['-c', 'core.quotepath=off', 'log', '--follow', '--name-status', '--format=%x01%H', '--', docPath],
+    { allowFail: true });
+  const paths = new Set([docPath]);
+  if (!r.ok) return { ok: false, paths, first: null };
+  let current = docPath;
+  let first = null;
+  for (const line of lines(r.out)) {
+    if (line.startsWith('\x01')) { first = line.slice(1); continue; }
+    const [status, from, to] = line.split('\t');
+    if (status[0] === 'C' && to === current) break;
+    if (status[0] === 'R' && to === current) { current = from; paths.add(from); }
+  }
+  return { ok: true, paths, first };
+}
+
+/**
  * D19: decide whether a TRD is skipped. Returns 'no-implementation' | 'in-flight' | null.
  * A TRD is skipped only when no implementation work exists or the work is clearly in flight;
  * every other TRD is reviewed. When the evidence cannot be established (parse failure, no
  * Touches to test) the TRD is reviewed — an unreviewed doc is the failure G1 forbids.
  */
-function trdSkip(repo, docPath, parsed, implementStates) {
+function trdSkip(repo, parsed, mine, history) {
   if (!parsed) return null;
-  const mine = implementStates.filter((s) => normalizeRepoPath(s.data.trd_file, repo) === docPath);
   const taskState = (id) => {
     for (const s of mine) {
       const t = s.data.tasks && s.data.tasks[id];
@@ -367,22 +391,25 @@ function trdSkip(repo, docPath, parsed, implementStates) {
   const anySuccess = mine.some((s) => Object.values(s.data.tasks || {}).some((t) => t && t.status === 'success'));
 
   if (!anySuccess) {
-    const touched = touchedFiles(parsed);
+    // Paths outside the repo (`../x`, absolute) make git exit 128 for the whole call. Drop them
+    // rather than catch the error: a git failure means "review", so catching it would force a
+    // review for every TRD that lists one such path and hide the in-repo paths that still count.
+    const touched = touchedFiles(parsed)
+      .map((p) => normalizeRepoPath(p, repo))
+      .filter((p) => p && !path.posix.isAbsolute(p) && p !== '..' && !p.startsWith('../'));
     if (touched.length > 0) {
-      // `--follow` so a TRD moved between folders (e.g. into docs/TRD/completed/) keeps the commit
-      // that first wrote it, not the move commit. `--reverse` defeats `--follow`, so the oldest
-      // commit is taken as the last line instead.
-      const history = lines(git(repo, ['log', '--follow', '--format=%H', '--', docPath]).out);
-      const first = history[history.length - 1];
+      // Any git failure here means the evidence could not be established, so the TRD is reviewed.
+      if (!history.ok) return null;
+      const first = history.first;
       if (first) {
         // `HEAD --not <first>^@` is `first..HEAD` plus `first` itself: the commit that first added
         // the TRD counts, so a feature squash-merged as one commit (TRD + code) is implementation
         // work. A root commit has no parents, so `^@` expands to nothing and the root is included.
         // One call covers every touched file.
-        const changedAtOrAfter =
-          git(repo, ['rev-list', '-1', 'HEAD', '--not', `${first}^@`, '--', ...touched], { allowFail: true })
-            .out.trim() !== '';
-        if (!changedAtOrAfter) return 'no-implementation';
+        const r = git(repo, ['rev-list', '-1', 'HEAD', '--not', `${first}^@`, '--', ...touched], { allowFail: true });
+        // Check ok BEFORE the empty-output test: a failed call also prints nothing.
+        if (!r.ok) return null;
+        if (r.out.trim() === '') return 'no-implementation';
       }
     }
   }
@@ -420,7 +447,10 @@ function analyseTrd(repo, docPath, text, implementStates) {
   } catch (e) {
     return { trd: null, skip: null, warning: `parseTrd rejected ${docPath}: ${e.message}` };
   }
-  const mine = implementStates.filter((s) => normalizeRepoPath(s.data.trd_file, repo) === docPath);
+  // One selection for both the status join and the skip test: an implement.json written before the
+  // TRD was moved names its old path, so match every path the doc has had.
+  const history = followHistory(repo, docPath);
+  const mine = implementStates.filter((s) => history.paths.has(normalizeRepoPath(s.data.trd_file, repo)));
   const statusOf = (id) => {
     let status = null;
     for (const s of mine) {
@@ -440,7 +470,7 @@ function analyseTrd(repo, docPath, text, implementStates) {
     })),
     warnings: parsed.warnings.slice(),
   };
-  return { trd, skip: trdSkip(repo, docPath, parsed, implementStates), warning: null };
+  return { trd, skip: trdSkip(repo, parsed, mine, history), warning: null };
 }
 
 // ---------------------------------------------------------------------------

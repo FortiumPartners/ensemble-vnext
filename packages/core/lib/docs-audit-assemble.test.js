@@ -428,6 +428,53 @@ describe('TRD parse and D19 skip tests', () => {
     expect(entry(run(repo), 'docs/TRD/completed/thing.md').skip).toBeNull();
   });
 
+  describe('history-aware skip test', () => {
+    const withTouches = (list) =>
+      TRD_BODY().replace('- **Touches:** `src/thing.js` (new)', `- **Touches:** ${list.map((p) => `\`${p}\``).join(', ')}`);
+    const moveTrd = (repo, to) => {
+      fs.mkdirSync(path.join(repo, path.dirname(to)), { recursive: true });
+      sh(repo, ['mv', TRD, to]);
+      sh(repo, ['commit', '-q', '-m', 'archive the TRD']);
+    };
+
+    test('implement.json naming the TRD\'s OLD path still counts after the TRD moves', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' } }));
+      moveTrd(repo, 'docs/TRD/completed/thing.md');
+      const e = entry(run(repo), 'docs/TRD/completed/thing.md');
+      expect(e.skip).toBeNull();
+      expect(e.trd.tasks[0].status).toBe('success');
+    });
+
+    test('a Touches path outside the repo does not make git fatal: the in-repo path still decides (changed -> reviewed)', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'trd', { [TRD]: withTouches(['../outside/x', 'src/thing.js']), 'README.md': 'r' });
+      commitFiles(repo, 'built', { 'src/thing.js': 'built' });
+      expect(entry(run(repo), TRD).skip).toBeNull();
+    });
+
+    test('out-of-repo Touches are dropped, not merely tolerated: in-repo path never changed -> no-implementation', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'trd', { [TRD]: withTouches(['../outside/x', 'src/thing.js']), 'README.md': 'r' });
+      commitFiles(repo, 'unrelated', { 'other.txt': 'o' });
+      expect(entry(run(repo), TRD).skip).toBe('no-implementation');
+    });
+
+    test('a Touches path git rejects is a review, not a skip', () => {
+      const repo = mkRepo();
+      commitFiles(repo, 'trd', { [TRD]: withTouches([':(bogus)src/thing.js']), 'README.md': 'r' });
+      expect(entry(run(repo), TRD).skip).toBeNull();
+    });
+
+    test('a TRD created by copying another does not inherit the original\'s implement.json', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' }, 'T-2': { status: 'success' } }));
+      commitFiles(repo, 'copy', { 'docs/TRD/copy.md': TRD_BODY('\nCopied from thing.\n') });
+      const e = entry(run(repo), 'docs/TRD/copy.md');
+      expect(e.trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+  });
+
   test('a root-commit TRD whose Touches files never changed is still skipped', () => {
     const repo = mkRepo();
     commitFiles(repo, 'trd only', { [TRD]: TRD_BODY(), 'README.md': 'r' });
