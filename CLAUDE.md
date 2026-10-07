@@ -315,19 +315,20 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.13.1** (2026-10-06). 21 commands, 13 subagents. Test battery: 1895 Jest,
+Released at **4.13.2** (2026-10-07). 21 commands, 13 subagents. Test battery: 1906 Jest,
 124 pytest, 604 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.13.1: verification cannot end satisfied until every must-pass objective is proven.
+4.13.2: `/audit-docs` reviews a TRD moved to another folder instead of skipping it.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.13.2: one commit deleting a TRD and adding a similar one reads as a rename, so the new
+  TRD can inherit the old one's records.
 - 4.13.1: the must-pass block is unit-tested only, never run live.
-- 4.13.0: `/audit-docs` is unproven end to end live; a TRD moved to another folder can be
-  skipped as having no implementation.
+- 4.13.0: `/audit-docs` is unproven end to end live.
 - 4.12.x: the sweep chain is unproven live; reused swept evidence ignores core edits to
   files a swept fix read but did not change.
 - 4.11.0: after the re-audit cap, a fresh audit is still a narrow re-audit; live convergence
