@@ -518,6 +518,18 @@ describe('TRD parse and D19 skip tests', () => {
       expect(e.trd.tasks.map((t) => t.status)).toEqual([null, null]);
     });
 
+    test('an archived TRD keeps its OWN records when a new TRD reuses its old name, and the new TRD does not take them', () => {
+      const repo = trdRepo();
+      commitFiles(repo, 'state', implState('thing', { 'T-1': { status: 'success' }, 'T-2': { status: 'success' } }));
+      moveTrd(repo, 'docs/TRD/completed/thing.md');
+      commitFiles(repo, 'new trd at the old path', { [TRD]: TRD_BODY('\nA new feature that reuses the name.\n') });
+      const a = run(repo);
+      const archived = entry(a, 'docs/TRD/completed/thing.md');
+      expect(archived.skip).toBeNull();
+      expect(archived.trd.tasks.map((t) => t.status)).toEqual(['success', 'success']);
+      expect(entry(a, TRD).trd.tasks.map((t) => t.status)).toEqual([null, null]);
+    });
+
     test('a TRD written at a path a deleted TRD once held does not inherit that TRD\'s history', () => {
       const repo = mkRepo();
       commitFiles(repo, 'old trd', { 'docs/TRD/old.md': TRD_BODY(), 'README.md': 'r' });

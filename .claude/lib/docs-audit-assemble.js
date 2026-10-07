@@ -70,7 +70,6 @@ function git(repo, args, { allowFail = false } = {}) {
   return { ok: r.status === 0, out: r.stdout || '' };
 }
 
-const lines = (s) => s.split('\n').filter((l) => l.length > 0);
 const nulList = (s) => s.split('\0').filter((l) => l.length > 0);
 const byString = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -350,12 +349,18 @@ function touchedFiles(trdResult) {
 
 /**
  * Every path a TRD has had, and the commit that first wrote it, from ONE `git log --follow`.
- * Returns { ok, paths, first }. `paths` always holds `docPath`; `first` is null when the doc has
- * no history (untracked). The log is newest first, so renames (R) walk the doc back to earlier
- * paths, and the oldest commit is the last one seen — `--reverse` is not used because it defeats
- * `--follow`. `--follow` also follows COPIES (C), even with the original kept: a TRD started by
- * copying another would inherit that TRD's path and implement.json, so the walk stops at the
- * first C entry and takes that commit as the doc's first.
+ * Returns { ok, paths, first, segments }. `paths` always holds `docPath`; `first` is null when the
+ * doc has no history (untracked). The log is newest first, so renames (R) walk the doc back to
+ * earlier paths, and the oldest commit is the last one seen — `--reverse` is not used because it
+ * defeats `--follow`. `--follow` also follows COPIES (C), even with the original kept: a TRD
+ * started by copying another would inherit that TRD's path and implement.json, so the walk stops
+ * at the first C entry and takes that commit as the doc's first.
+ *
+ * `segments` maps each path to when the doc held it: `leave` is the commit that renamed it away
+ * (null for `docPath`), `enter` the commit that brought it there, and `shared` is true when
+ * another document may have held that path BEFORE `enter` (the doc arrived by a rename or a
+ * copy, or was added where a deleted predecessor once lived). ownsRecord uses them to tell this
+ * doc's implement.json records from those of another doc that held the same path at another time.
  *
  * `-z` so a path git would otherwise C-quote (a `"`, `\` or tab in the name — `core.quotepath`
  * only covers non-ASCII bytes) still compares equal to `docPath`. Tokens are NUL-separated; a
@@ -365,10 +370,13 @@ function followHistory(repo, docPath) {
   const r = git(repo, ['log', '--follow', '--name-status', '-z', '--format=%x01%H', '--', docPath],
     { allowFail: true });
   const paths = new Set([docPath]);
-  if (!r.ok) return { ok: false, paths, first: null };
+  const segments = new Map([[docPath, { enter: null, leave: null, shared: false }]]);
+  if (!r.ok) return { ok: false, paths, first: null, segments };
   let current = docPath;
   let first = null;
+  let ended = false;
   const tokens = r.out.split('\0');
+  const moreAfter = (j) => tokens.slice(j).some((t) => t.replace(/^\n/, '') !== '');
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i].replace(/^\n/, '');
     if (tok === '') continue;
@@ -377,7 +385,11 @@ function followHistory(repo, docPath) {
     if (kind !== 'R' && kind !== 'C') {
       // An add of the current path is where this doc was born. `--follow` keeps the same pathspec
       // past it, so anything older is a predecessor deleted from that path — another document.
-      if (kind === 'A' && tokens[i + 1] === current) break;
+      if (kind === 'A' && tokens[i + 1] === current) {
+        Object.assign(segments.get(current), { enter: first, shared: moreAfter(i + 2) });
+        ended = true;
+        break;
+      }
       i += 1;
       continue;
     }
@@ -385,11 +397,47 @@ function followHistory(repo, docPath) {
     const to = tokens[i + 2];
     i += 2;
     if (to !== current) continue;
-    if (kind === 'C') break;
+    if (kind === 'C') {
+      // A copy can land on a path an archived doc left: git then follows the copy's source back
+      // through that doc's rename, so whether the path was held before is not visible here.
+      Object.assign(segments.get(current), { enter: first, shared: true });
+      ended = true;
+      break;
+    }
+    Object.assign(segments.get(current), { enter: first, shared: true });
     current = from;
     paths.add(from);
+    segments.set(from, { enter: null, leave: first, shared: false });
   }
-  return { ok: true, paths, first };
+  if (!ended) segments.get(current).enter = first;
+  return { ok: true, paths, first, segments };
+}
+
+/** True when commit `a` is `b` or an ancestor of it; a git error reads as false. */
+function isAncestorOrSelf(repo, a, b) {
+  return git(repo, ['merge-base', '--is-ancestor', a, b], { allowFail: true }).ok;
+}
+
+/**
+ * Whether an implement.json record naming path `p` belongs to the doc whose history is `history`.
+ * A path two documents held at different times (a TRD archived, then a new TRD written under the
+ * old name) is split by WHEN the record was created: before the doc left the path, and not before
+ * it arrived when someone else may have held it first. Most TRDs never moved and were born where
+ * nothing lived before; for those the answer is `p === docPath` with no extra git call.
+ */
+function ownsRecord(repo, state, p, docPath, history) {
+  const seg = history.ok ? history.segments.get(p) : null;
+  if (!seg) return p === docPath;
+  const checkEnter = seg.shared && seg.enter;
+  if (!checkEnter && !seg.leave) return true;
+  if (state.created === undefined) {
+    state.created = git(repo, ['log', '-1', '--diff-filter=A', '--format=%H', 'HEAD', '--', state.path],
+      { allowFail: true }).out.trim() || null;
+  }
+  if (!state.created) return p === docPath;
+  if (checkEnter && !isAncestorOrSelf(repo, seg.enter, state.created)) return false;
+  if (seg.leave && isAncestorOrSelf(repo, seg.leave, state.created)) return false;
+  return true;
 }
 
 /**
@@ -459,7 +507,7 @@ function skipInFlightPrds(files, inFlightTrds) {
 }
 
 /** The `trd` block for a file entry plus the skip decision: { trd, skip, warnings }. */
-function analyseTrd(repo, docPath, text, implementStates, headSet) {
+function analyseTrd(repo, docPath, text, implementStates) {
   let parsed;
   try {
     parsed = parseTrd(text, { path: docPath });
@@ -467,12 +515,11 @@ function analyseTrd(repo, docPath, text, implementStates, headSet) {
     return { trd: null, skip: null, warning: `parseTrd rejected ${docPath}: ${e.message}` };
   }
   // One selection for both the status join and the skip test: an implement.json written before the
-  // TRD was moved names its old path, so match every path the doc has had. An old path that a file
-  // occupies again at HEAD belongs to that file now (a new TRD written under the same name): its
-  // records are not this doc's, or an archived TRD would inherit a new feature's in-flight state.
+  // TRD was moved names its old path, so match every path the doc has had. A path another doc
+  // held at another time (a new TRD written under an archived TRD's old name) is split by when
+  // each record was created, so neither doc inherits the other's statuses (ownsRecord).
   const history = followHistory(repo, docPath);
-  const ownsPath = (p) => p === docPath || (history.paths.has(p) && !headSet.has(p));
-  const mine = implementStates.filter((s) => ownsPath(normalizeRepoPath(s.data.trd_file, repo)));
+  const mine = implementStates.filter((s) => ownsRecord(repo, s, normalizeRepoPath(s.data.trd_file, repo), docPath, history));
   const statusOf = (id) => {
     let status = null;
     for (const s of mine) {
@@ -595,7 +642,7 @@ function assemble({ repo, runDate, comprehensive = false, assemblyPath = null })
         entry.docWindow = { from: entry.lastCommit, to: headSha, commits: commitsBetween(repo, entry.lastCommit, headSha) };
       }
       if (cls.class === 'trd') {
-        const a = analyseTrd(repo, item.path, text, implementStates, headSet);
+        const a = analyseTrd(repo, item.path, text, implementStates);
         entry.trd = a.trd;
         entry.skip = a.skip;
         if (a.skip === 'in-flight') inFlightTrds.push({ path: item.path, text });
