@@ -86,6 +86,41 @@ describe('functional-verification contract', () => {
     expect(coreText).toMatch(/never to\s+a guessed endpoint/);
   });
 
+  describe('image rules (RIMG-B004, D13, D14)', () => {
+    const flat = (t) => t.replace(/\s+/g, ' ');
+    const KS1 = 'An image that shows a password, token, key or other credential value is never cited as a criterion\'s image; one that cannot be cleared is recorded as excluded, with the reason.';
+    const KS2 = 'A criterion is about UI when it names a screen, element, layout or visual state, or its Tier 1 is judge-only for a visual property.';
+
+    test('S-3 heading sits after S-2 and before The report shape', () => {
+      const s2 = coreText.indexOf('## S-2');
+      const s3 = coreText.indexOf('## S-3 — the image rule');
+      const shape = coreText.indexOf('## The report shape');
+      expect(s3).toBeGreaterThan(s2);
+      expect(shape).toBeGreaterThan(s3);
+    });
+
+    test('KS-1 and KS-2 appear verbatim (whitespace-flattened)', () => {
+      expect(flat(coreText)).toContain(KS1);
+      expect(flat(coreText)).toContain(KS2);
+    });
+
+    test('S-3 has the exerciser delete a credential capture and the Judge look at every image', () => {
+      const s3 = flat(coreText.slice(coreText.indexOf('## S-3'), coreText.indexOf('## The report shape')));
+      expect(s3).toMatch(/exerciser deletes/);
+      expect(s3).toMatch(/not a source edit/);
+      expect(s3).toMatch(/Judge looks at every image before citing it/);
+    });
+
+    test('the screenshot rule names screenshot, the evidence directory, a frame grab for video, and never overwriting', () => {
+      const sec = flat(coreText.slice(coreText.indexOf('## What counts as an evidence artifact'), coreText.indexOf('## The locator rule')));
+      expect(sec).toContain('`screenshot`');
+      expect(sec).toMatch(/evidence directory/);
+      expect(sec).toMatch(/frame grab/);
+      expect(sec).toMatch(/never written over an existing file/);
+      expect(sec).toMatch(/outside the evidence directory/);
+    });
+  });
+
   test('contains no instruction to invent a criterion or a harness', () => {
     expect(coreText).not.toMatch(/invent a (criterion|harness)(?!.{0,40}(never|non-goal|does not))/i);
     expect(coreText).toMatch(/never instructs.*inventing a criterion/is);

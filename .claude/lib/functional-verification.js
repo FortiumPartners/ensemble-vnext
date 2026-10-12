@@ -858,6 +858,41 @@ function escapeCell(text) {
     .replace(/\r\n?|\n/g, ' ');
 }
 
+// The only image paths a report may embed (verification-report-images D8): `evidence/`, then
+// one or more `/`-separated segments that start with a letter, digit, `_` or `-` and otherwise
+// hold only `[A-Za-z0-9._-]`, ending in a lower-case .png/.jpg/.jpeg. That rules out `..`, a
+// leading `.`, absolute paths, spaces and the brackets a Markdown link cannot carry. The report
+// input is hand-composed and unvalidated, so the renderer -- the last point before a page is
+// published -- applies this itself. `reportPublishPlan` must use this same helper.
+const EMBEDDABLE_IMAGE_PATH = /^evidence\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:png|jpe?g)$/;
+
+/** @param {unknown} p @returns {boolean} true when `p` is a path renderReport may embed. */
+function isEmbeddableImagePath(p) {
+  return typeof p === 'string' && EMBEDDABLE_IMAGE_PATH.test(p);
+}
+
+const UI_NO_SCREENSHOT_FLAG = ' — UI criterion proven without a screenshot';
+const NOT_EMBEDDABLE_REASON = 'not an embeddable image path';
+
+// Which criteria show an image and which leave one out (D7). `imageExcluded` wins over `image`
+// (the safer reading); a non-null `image` the guard refuses is left out, never embedded.
+function classifyImages(criteria) {
+  const present = (v) => v !== undefined && v !== null;
+  const shown = [];
+  const leftOut = [];
+  for (const c of criteria) {
+    if (present(c.imageExcluded)) leftOut.push({ c, reason: c.imageExcluded });
+    else if (present(c.image)) {
+      if (isEmbeddableImagePath(c.image)) shown.push(c);
+      else leftOut.push({ c, reason: NOT_EMBEDDABLE_REASON });
+    }
+  }
+  const gate = criteria.some((c) => present(c.image) || c.ui === true || present(c.imageExcluded));
+  const shownSet = new Set(shown);
+  const flagged = criteria.filter((c) => c.status === 'met' && c.ui === true && !shownSet.has(c));
+  return { gate, shown, shownSet, leftOut, flagged };
+}
+
 /**
  * @param {{
  *   feature: string, prd: string, definitionPath: string,
@@ -874,6 +909,10 @@ function escapeCell(text) {
  *                           //     "reached and failed". Absent on older report inputs.
  *     provenAt?: number,    // NEW (D8, §3.6) — the iteration a `met` verdict was proven at,
  *                           //     rendered on the Met table. Absent on older report inputs.
+ *     image?: string|null,  // NEW (verification-report-images D7) — "evidence/<path>" of the one
+ *                           //     image cited as proof; embedded only if isEmbeddableImagePath.
+ *     ui?: boolean,         // NEW — the criterion is about UI; a met one with no shown image is flagged.
+ *     imageExcluded?: string|null, // NEW — why an image was found but not cited; wins over `image`.
  *   }>,
  *   finalEnvironmentRun?: {command: string, status: 'pass'|'fail'|'skipped'} | null,  // NEW (D14)
  *   mustPass?: string[],                              // NEW (D13) — must-pass criterion ids
@@ -899,6 +938,9 @@ function renderReport(input) {
   // for it.
   const KNOWN = ['met', 'not_met', 'not_verifiable', 'unbuilt'];
   const unrecognised = criteria.filter((c) => !KNOWN.includes(c.status));
+  // Image layout (verification-report-images D7). When no criterion carries an image field the
+  // gate is closed and every line below is skipped, so older reports stay byte-identical.
+  const images = classifyImages(criteria);
 
   const lines = [];
   lines.push(`# Functional Verification Report: ${feature}`);
@@ -964,6 +1006,19 @@ function renderReport(input) {
           : '') +
         (mustPassUncovered.length > 0
           ? ` — no criterion for: ${mustPassUncovered.map((o) => escapeCell(typeof o === 'string' ? o : o.id)).join(', ')}`
+          : '')
+    );
+  }
+
+  if (images.gate) {
+    const ids = (list) => list.map((c) => escapeCell(c.id)).join(', ');
+    lines.push(
+      `**Screenshots**: ${images.shown.length} shown` +
+        (images.flagged.length > 0
+          ? ` — ${images.flagged.length} UI criteria proven without a screenshot: ${ids(images.flagged)}`
+          : '') +
+        (images.leftOut.length > 0
+          ? ` — ${images.leftOut.length} left out: ${ids(images.leftOut.map((x) => x.c))}`
           : '')
     );
   }
@@ -1062,8 +1117,10 @@ function renderReport(input) {
     lines.push('|----|-----------|----------|-----------|');
     for (const c of met) {
       const provenAt = c.provenAt === undefined || c.provenAt === null ? '' : c.provenAt;
+      // The flag is appended after escaping: it is ours, not Judge text.
+      const flag = images.flagged.includes(c) ? UI_NO_SCREENSHOT_FLAG : '';
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)} | ${escapeCell(provenAt)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)}${flag} | ${escapeCell(provenAt)} |`
       );
     }
   }
@@ -1102,6 +1159,36 @@ function renderReport(input) {
     }
   }
   lines.push('');
+
+  if (images.gate) {
+    // The report's last section (D7c): /verify-build step 6 appends `## Fix run` after it, and
+    // report-publish-plan scans only the lines solely `![id](path)` in here (D9). Headings go
+    // through escapeCell so a statement with `|` or a newline cannot break them.
+    lines.push('## Evidence');
+    lines.push('');
+    if (images.shown.length === 0 && images.leftOut.length === 0) {
+      lines.push('_None._');
+      lines.push('');
+    }
+    for (const c of images.shown) {
+      // An id holding `]` or `(` would break the link, so it falls back to a plain word.
+      const alt = /^[A-Za-z0-9._-]+$/.test(String(c.id)) ? c.id : 'image';
+      lines.push(`### ${escapeCell(c.id)} — ${escapeCell(c.statement)} (${escapeCell(c.status)})`);
+      lines.push('');
+      lines.push(`![${alt}](${c.image})`);
+      lines.push('');
+    }
+    if (images.leftOut.length > 0) {
+      lines.push('### Images left out');
+      lines.push('');
+      lines.push('| ID | Image left out because |');
+      lines.push('|----|------------------------|');
+      for (const { c, reason } of images.leftOut) {
+        lines.push(`| ${escapeCell(c.id)} | ${escapeCell(reason)} |`);
+      }
+      lines.push('');
+    }
+  }
 
   return lines.join('\n');
 }
@@ -1501,6 +1588,7 @@ module.exports = {
   decideNext,
   mustPassCoverage,
   renderReport,
+  isEmbeddableImagePath,
   readStopRule,
   decideFixRound,
   renderFixSummary,
