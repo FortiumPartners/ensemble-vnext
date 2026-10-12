@@ -2413,11 +2413,26 @@ _status_of() { printf '%s\n' "$1" | awk -F'\t' -v n="$2" '$2==n{print $1}'; }
     [ "$status" -ne 0 ]
 }
 
-@test "FIX-002: against this repo's own agents, --agent-status reports 13 unchanged" {
+@test "FIX-002: against this repo's own agents, --agent-status reports every plugin agent unchanged" {
     [ -d "$REPO_ROOT/.claude/agents" ] || skip "no vendored agents in this checkout"
-    run bash -c "cd '$REPO_ROOT' && '$SCAFFOLD_SCRIPT' --plugin-dir '$(_get_plugin_dir)' --agent-status . 2>/dev/null"
+    local plugin_dir expected; plugin_dir="$(_get_plugin_dir)"
+    expected="$(ls "$plugin_dir/agents-lib"/*.md | wc -l | tr -d ' ')"
+    run bash -c "cd '$REPO_ROOT' && '$SCAFFOLD_SCRIPT' --plugin-dir '$plugin_dir' --agent-status . 2>/dev/null"
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | grep -c '^unchanged'$'\t')" -eq 13 ]
+    [ "$(printf '%s\n' "$output" | grep -c '^unchanged'$'\t')" -eq "$expected" ]
+}
+
+@test "FIX-002: --sync-agents --new-only adds new agents with preloads and leaves updated ones" {
+    _agent_proj
+    echo "BRAND-NEW-PLUGIN-LINE" >> "$PLUG/agents-lib/verify-app.md"
+    rm "$PROJ/.claude/agents/code-reviewer.md"
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --sync-agents --new-only '$PROJ' 2>/dev/null"
+    [ "$status" -eq 0 ]
+    [ "$(_status_of "$output" code-reviewer)" = "new" ]
+    grep -q 'ENSEMBLE:SKILLS:BEGIN' "$PROJ/.claude/agents/code-reviewer.md"
+    ! grep -q 'BRAND-NEW-PLUGIN-LINE' "$PROJ/.claude/agents/verify-app.md"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$PLUG" --agent-status --new-only "$PROJ"
+    [ "$status" -ne 0 ]
 }
 
 @test "FIX-002: rebase-project.md uses the script for the agent steps" {

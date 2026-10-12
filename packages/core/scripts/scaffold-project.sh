@@ -8,6 +8,8 @@
 # Usage:
 #   ./scaffold-project.sh [--plugin-dir DIR] [--copy-skills] [--force] [project-directory]
 #   ./scaffold-project.sh --refresh --plugin-dir DIR [project-directory]
+#   ./scaffold-project.sh --agent-status --plugin-dir DIR [project-directory]
+#   ./scaffold-project.sh --sync-agents [--new-only] --plugin-dir DIR [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
@@ -17,6 +19,11 @@
 #                       .claude/ (per docs/TRD/runtime-refresh.md §2.2/§3.2). Never
 #                       creates a component that is absent, never deletes one the
 #                       plugin no longer carries. Mutually exclusive with --force.
+#   --agent-status     Read-only: print "<state>\t<name>" per agent (new, updated,
+#                       unchanged, custom), ignoring generated skill preloads.
+#   --sync-agents      Copy new and updated agents from the plugin, then re-inject
+#                       skill preloads. Prints the --agent-status lines.
+#   --new-only         With --sync-agents: copy only new agents (--preserve-all).
 #
 # If project-directory is not provided, uses current directory.
 #
@@ -36,6 +43,7 @@ FORCE=false
 REFRESH=false
 AGENT_STATUS=false
 SYNC_AGENTS=false
+NEW_ONLY=false
 PROJECT_DIR=""
 
 # The framework-owned skills ship to EVERY project regardless of stack selection
@@ -70,6 +78,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --sync-agents)
             SYNC_AGENTS=true
+            shift
+            ;;
+        --new-only)
+            NEW_ONLY=true
             shift
             ;;
         -*)
@@ -110,6 +122,10 @@ if [[ "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" ]]; then
         echo "Error: --agent-status/--sync-agents require --plugin-dir" >&2
         exit 1
     fi
+fi
+if [[ "$NEW_ONLY" == "true" && "$SYNC_AGENTS" != "true" ]]; then
+    echo "Error: --new-only is only valid with --sync-agents" >&2
+    exit 1
 fi
 
 # Default project directory to current directory if not specified
@@ -1272,12 +1288,12 @@ for fname in sorted(os.listdir(agents_dir)):
 
     new_text = "\n".join([lines[0]] + fm + [lines[close]]) + "\n" + body
     if new_text != text:
-        mode = os.stat(path).st_mode & 0o7777
+        perm = os.stat(path).st_mode & 0o7777
         fd, tmp = tempfile.mkstemp(dir=agents_dir, suffix=".tmp")
         try:
             with os.fdopen(fd, "w") as fh:
                 fh.write(new_text)
-            os.chmod(tmp, mode)
+            os.chmod(tmp, perm)
             os.replace(tmp, path)
         except BaseException:
             os.path.exists(tmp) and os.unlink(tmp)
@@ -1342,11 +1358,11 @@ agent_status() {
     local src
     src="$(plugin_agents_src)"
     if [[ ! -d "$src" ]]; then
-        error "Plugin agents directory not found: $src" >&2
+        error "Plugin agents directory not found: $src"
         return 1
     fi
     if [[ ! -d "$target_dir" ]]; then
-        error "Target directory does not exist: $target_dir" >&2
+        error "Target directory does not exist: $target_dir"
         return 1
     fi
     python3 -c "$(agent_skills_program)" status "$src" "$target_dir/.claude/agents"
@@ -1355,8 +1371,10 @@ agent_status() {
 # Do the whole agent step for /rebase-project: classify, copy new and updated
 # agents from the plugin, then re-run inject_agent_skills so the copied files get
 # the project's skill preloads back (a bare copy strips them). Custom agents are
-# never touched. Prints the same lines as agent_status (the classification made
-# BEFORE the copy); everything else goes to stderr.
+# never touched. With --new-only (/rebase-project --preserve-all) only new agents
+# are copied; existing ones keep their bodies and only have their generated
+# preloads re-derived. Prints the same lines as agent_status (the classification
+# made BEFORE the copy); everything else goes to stderr.
 sync_agents() {
     local target_dir="$1"
     local report state name src
@@ -1364,7 +1382,7 @@ sync_agents() {
     src="$(plugin_agents_src)"
     mkdir -p "$target_dir/.claude/agents"
     while IFS=$'\t' read -r state name; do
-        if [[ "$state" == "new" || "$state" == "updated" ]]; then
+        if [[ "$state" == "new" || ( "$state" == "updated" && "${NEW_ONLY:-false}" != "true" ) ]]; then
             cp "$src/$name.md" "$target_dir/.claude/agents/$name.md"
         fi
     done <<< "$report"

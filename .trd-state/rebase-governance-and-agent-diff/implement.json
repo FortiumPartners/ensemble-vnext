@@ -4,7 +4,7 @@
   "trd_hash": "fb6c6b6ba6ec4ed523231ca890cce8d544f536b1d37b8c55676ec0b14ae54688",
   "branch": "feature/rebase-governance-and-agent-diff/impl",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Governance lists name verification.md; framework rules named explicitly",
@@ -43,10 +43,19 @@
       "last_advanced": "2026-10-12T08:13:50.264Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "9645a53",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-12T08:27:25.358Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "9645a53",
+    "last_checkpoint_timestamp": "2026-10-12T08:27:25.358Z",
     "interrupted": false,
     "interrupt_reason": null
   },

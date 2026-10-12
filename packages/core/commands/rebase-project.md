@@ -260,6 +260,10 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    the plugin file over it strips those preloads. The script compares with that generated
    content removed.
 
+   `${CLAUDE_PLUGIN_ROOT}` here and in §4.1 is the plugin root resolved in Step 1 above. If
+   the variable is unset in the shell (the fallback path applied), substitute that resolved
+   path; never run the snippet with it empty, which resolves to `/scripts/...`.
+
 2. **Categorize from those lines:**
 
    | Category | Condition | Action |
@@ -715,8 +719,11 @@ adding NEW agents — see the bottom of this section.
    - Report: "Kept custom agent: [name]"
 
 **If `agent_preserve=true` (set by `--preserve-all`):**
-- Do not run `--sync-agents` (it would replace existing agents). Copy only the `new` agents
-  from §2.1's `--agent-status` output from `@packages/full/agents-lib/` and skip step 2.
+- Run step 1 with `--new-only` added, and skip step 2. It copies only the `new` agents and
+  gives them their skill preloads; existing agents keep their bodies:
+  ```bash
+  "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --sync-agents --new-only .
+  ```
 - Report: "Existing agents preserved (preserve-all mode)"
 
 #### 4.2 Update Skills (recompute + content-diff)
