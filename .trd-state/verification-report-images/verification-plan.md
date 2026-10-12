@@ -10,12 +10,12 @@ none
 ## Slices
 | Order | Slice | Criteria |
 |-------|-------|----------|
-| 1 | live publish of a fixture report with images to a private throwaway claude.ai artifact (needs the environment declared by `/verification-setup`) | FS-6, FS-7, FS-8, FS-10 |
+| 1 | live publish of a fixture report with images to a private throwaway claude.ai artifact (environment `claude-artifacts`, declared in `verification.md` §1) | FS-6, FS-7, FS-8, FS-10 |
 
 ## Owner rulings
 | ID | Ruling | Written into |
 |----|--------|--------------|
-| R1 | FS-6, FS-7, FS-8, FS-10 (must pass, O3/O4) are proven live once the owner declares the claude.ai artifact service as a verification environment via `/verification-setup`; the must-pass markings stay | `docs/TRD/verification-report-images.md` Open Questions, changelog 1.1.3 |
+| R1 | FS-6, FS-7, FS-8, FS-10 (must pass, O3/O4) are proven live against the claude.ai artifact service, now declared (`verification.md` §1, `claude-artifacts`, always authorized); the must-pass markings stay | `docs/TRD/verification-report-images.md` Open Questions, changelog 1.1.3 |
 
 ## Accepted as not verifiable
 | Criterion | Ruling | Why |

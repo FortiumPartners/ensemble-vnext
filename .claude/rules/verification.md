@@ -32,6 +32,7 @@ environment is the one to prefer whenever the project has one.
 | dev | | shared integration checks | may write | | |
 | staging | | pre-release only | read-only | **no** | **no** |
 | production | | — | **must not be touched** | **never** | **never** |
+| claude-artifacts | the Claude `Artifact` tool (claude.ai artifact service) — `Artifact({ file_path, files, url })` publish, `action: "list"` / `"read"` | **always authorized** (owner, 2026-10-11): proving anything that is published — a report and its images, check pages, batching, one URL per feature. Publish a private throwaway page from fixture content; never content holding a credential | may write | yes — publishing a private page is the exercise | n/a |
 
 Permitted values for **Loop may WRITE data?**: `read-only`, `may write`, `must not be
 touched`. *read-only* authorises exercise that mutates nothing — no records created, no rows
@@ -57,6 +58,7 @@ resources, not another column on §1.
 | e.g. dev server on :3000 | 1 | local | — (never created; it is already up) |
 | e.g. shared Supabase project | 1 | dev | — |
 | production database | 0 | production | — |
+| claude.ai artifact (private throwaway page) | 4 | claude-artifacts | `Artifact({ file_path, files })` creates one; the owner deletes leftovers — the loop never deletes an artifact |
 
 The count is the only thing the framework reads here — never probed, never modelled, never
 inferred from any other cell in this file. The rules, not suggestions:
@@ -124,6 +126,7 @@ Not what the stack could support — what is wired up and runnable today.
 |------|-----------|--------|
 | Playwright / browser automation | | |
 | HTTP client for API checks | | |
+| Claude `Artifact` tool (publish, list files, read) | yes — always available | none; pages are private to the owner on publish |
 
 ## 5. What CANNOT be verified here
 
