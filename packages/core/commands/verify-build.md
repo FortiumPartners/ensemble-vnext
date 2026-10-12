@@ -534,7 +534,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
 
 6. **Render and close.** Build the `## Fix run` section with `node
    .claude/lib/functional-verification.js render-fix-summary` (D10) and append it to
-   `verification-report.md`, republish it under the same stored URL. Its `criteria` input is
+   `verification-report.md`, republish it under the same stored URL (the "Artifact link" section, below). Its `criteria` input is
    **every criterion not `met`** in the latest state file, each with a non-empty `stopReason`
    composed from the first of these that applies: `not verifiable here: <the Judge's reason>`
    (status `not_verifiable`); `accepted as not verifiable: <the plan's ruling>`; `not buildable
@@ -561,10 +561,11 @@ with the one `RETURN` line from "`--chained`", above — no banner, no `notify-c
 
 ### Artifact link (see `.claude/rules/command-status.md`)
 
-Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the verification report with
-`Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "check" })` — the markdown FILE, never a
-rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
-`verification-report`) when one is present, and storing it when one is not.
+Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the verification report (identical to
+`/implement-trd` §9.0a — read that section and follow it, including its fresh listing and the
+images the report embeds; the `--no-verify` clause there does not apply here) — the markdown
+FILE, never a rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json`
+(key `verification-report`) when one is present, and storing it when one is not.
 
 **Then, under the same switch, publish each selected check's page** (identical to
 `/implement-trd` §9.0a — read that section and follow it): one call per skill with a `files`

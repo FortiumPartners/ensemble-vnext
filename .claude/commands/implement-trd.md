@@ -2022,12 +2022,37 @@ listed it under NEXT STEPS.
 ### 9.0a Artifact link (see `.claude/rules/command-status.md`)
 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, and **unless this run
-used `--no-verify`** (i.e. Step 8 actually ran), publish the verification report:
+used `--no-verify`** (i.e. Step 8 actually ran), publish the verification report, with the images it embeds (verification-report-images D10).
+The report embeds each criterion's image by a path under `evidence/`; the Artifact tool serves
+a `files` map at those same paths. **Never assemble that map by hand** — `report-publish-plan`
+reads the report and returns it. Every time this sequence runs:
+
+1. **With no stored `verification-report` URL**, there is nothing to list: run the plan with no
+   `--published-file`, and publish batch 1 with the page (below) as a new artifact.
+2. **With a stored URL, list first, freshly, every time** —
+   `Artifact({ action: "list", scope: "files", url: "<stored URL>" })` — and write the listed
+   paths as a JSON array to `.trd-state/<feature>/report-published.json`, beside the Judge's
+   payload files. Never put JSON on the command line.
+3. Run `node .claude/lib/functional-verification.js report-publish-plan --report
+   .trd-state/<feature>/verification-report.md [--published-file
+   .trd-state/<feature>/report-published.json]`. It prints `{batches, remove, rejected}`:
+   `batches` are `files` maps of at most 254 entries, removals (`null`) first; `rejected` lists
+   embedded paths it would not send, with the reason.
+4. Publish each batch as its own call to the one URL; **each call still carries the page**:
 
 ```
 Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "check",
-           url: "<artifacts.json's verification-report key, if present>" })
+           files: <the batch>, url: "<artifacts.json's verification-report key, if present>" })
 ```
+
+   With no batches (a report that embeds no image and has nothing to withdraw), this is the one
+   call with no `files`.
+5. **If the listing fails**, publish the page alone — `Artifact({ file_path:
+   ".trd-state/<feature>/verification-report.md", icon: "check", url: "<stored URL>" })`, no
+   `files` — and add one line to ISSUES: `report images not updated: could not list the published
+   artifact`. The Artifact tool refuses a `files` republish that touches a path this session has
+   not listed or published, so the command never sends a `files` map to a stored URL without a
+   successful listing.
 
 Store the returned URL back into `.trd-state/<feature>/artifacts.json` under
 `verification-report`, so a later `/verify-build` updates the same link rather than minting a

@@ -871,6 +871,64 @@ function isEmbeddableImagePath(p) {
   return typeof p === 'string' && EMBEDDABLE_IMAGE_PATH.test(p);
 }
 
+// Largest `files` map one Artifact call carries. 254, not 255: every call re-sends the page as
+// `file_path`, and whether the page or a `null` counts toward the platform's 255-file limit is
+// untested, so one entry of headroom is kept.
+const PUBLISH_BATCH_MAX = 254;
+// A whole line that is only an image reference, the form renderReport writes under `## Evidence`.
+const EVIDENCE_IMAGE_LINE = /^!\[[^\]]*\]\(([^()\s]+)\)$/;
+
+/**
+ * Plans the `files` maps that publish a verification report's images (verification-report-images
+ * D9). Pure: the caller supplies `resolveRef`, which does the filesystem check.
+ *
+ * Only whole `![id](path)` lines from the `## Evidence` heading onward are collected -- never a
+ * reference in a table cell or heading, which `escapeCell` leaves intact and Judge-written free
+ * text can carry. Each collected path must pass `isEmbeddableImagePath`.
+ *
+ * @param {string} reportMarkdown
+ * @param {{
+ *   reportDir: string,
+ *   published?: string[],   // paths from a fresh listing of the published artifact
+ *   resolveRef: (ref: string) => 'ok'|'not on disk'|'resolves outside the report directory',
+ * }} opts
+ * @returns {{
+ *   batches: Array<Record<string, string|null>>,  // <= 254 entries each; removal nulls first
+ *   remove: string[],                              // published paths the report no longer references
+ *   rejected: Array<{path: string, reason: string}>,
+ * }}
+ * @example
+ *   reportPublishPlan(md, { reportDir: '.trd-state/f', published: [], resolveRef: () => 'ok' })
+ *   // => { batches: [{ 'evidence/FS-1/a.png': '.trd-state/f/evidence/FS-1/a.png' }], remove: [], rejected: [] }
+ */
+function reportPublishPlan(reportMarkdown, { reportDir, published = [], resolveRef }) {
+  const lines = String(reportMarkdown).split('\n');
+  const start = lines.findIndex((l) => l.trimEnd() === '## Evidence');
+  const referenced = [];
+  if (start !== -1) {
+    for (const line of lines.slice(start + 1)) {
+      const m = EVIDENCE_IMAGE_LINE.exec(line.trimEnd());
+      if (m && isEmbeddableImagePath(m[1]) && !referenced.includes(m[1])) referenced.push(m[1]);
+    }
+  }
+  const stillReferenced = new Set(referenced);
+  // Only guard-accepted paths are ever nulled, so `index.html` and anything outside `evidence/`
+  // survive. Removals go first: a failure on a later call must not leave a withdrawn image up.
+  const remove = published.filter((p) => isEmbeddableImagePath(p) && !stillReferenced.has(p));
+  const rejected = [];
+  const entries = remove.map((p) => [p, null]);
+  for (const ref of referenced) {
+    const verdict = resolveRef(ref);
+    if (verdict === 'ok') entries.push([ref, path.join(reportDir, ref)]);
+    else rejected.push({ path: ref, reason: verdict });
+  }
+  const batches = [];
+  for (let i = 0; i < entries.length; i += PUBLISH_BATCH_MAX) {
+    batches.push(Object.fromEntries(entries.slice(i, i + PUBLISH_BATCH_MAX)));
+  }
+  return { batches, remove, rejected };
+}
+
 const UI_NO_SCREENSHOT_FLAG = ' — UI criterion proven without a screenshot';
 const NOT_EMBEDDABLE_REASON = 'not an embeddable image path';
 
@@ -1589,6 +1647,7 @@ module.exports = {
   mustPassCoverage,
   renderReport,
   isEmbeddableImagePath,
+  reportPublishPlan,
   readStopRule,
   decideFixRound,
   renderFixSummary,
@@ -1637,6 +1696,9 @@ module.exports = {
 //   node functional-verification.js render-fix-summary '<input-json>'
 //   node functional-verification.js render-fix-summary --file <path>
 //   node functional-verification.js render-fix-summary -
+//   node functional-verification.js report-publish-plan --report <path> [--published-file <path>]
+//       (reads the report itself; --published-file is a JSON array of the paths a fresh listing
+//        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
 //       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
 
@@ -1650,6 +1712,7 @@ if (require.main === module) {
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
         '  node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>\n' +
+        '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
@@ -1758,6 +1821,40 @@ if (require.main === module) {
       usage();
     } else {
       console.log(JSON.stringify(mustPassCoverageFromFiles(trdPath, definitionPath)));
+    }
+  } else if (subcommand === 'report-publish-plan') {
+    const flag = (name) => {
+      const i = rest.indexOf(name);
+      return i === -1 ? undefined : rest[i + 1];
+    };
+    const reportPath = flag('--report');
+    const publishedPath = flag('--published-file');
+    let reportMarkdown;
+    let published = [];
+    try {
+      if (reportPath) reportMarkdown = fs.readFileSync(reportPath, 'utf8');
+      if (publishedPath) published = JSON.parse(fs.readFileSync(publishedPath, 'utf8'));
+    } catch (err) {
+      console.error(`report-publish-plan: ${err.message}`);
+      process.exit(1);
+    }
+    if (!reportPath || !Array.isArray(published) || !published.every((p) => typeof p === 'string')) {
+      usage();
+    } else {
+      const reportDir = path.dirname(reportPath);
+      // Real paths on both sides: os.tmpdir() on macOS sits under a symlink, and a symlink under
+      // evidence/ must not smuggle in a file from outside the report directory.
+      const realDir = fs.realpathSync(reportDir);
+      const resolveRef = (ref) => {
+        let real;
+        try {
+          real = fs.realpathSync(path.join(reportDir, ref));
+        } catch {
+          return 'not on disk';
+        }
+        return real.startsWith(realDir + path.sep) ? 'ok' : 'resolves outside the report directory';
+      };
+      console.log(JSON.stringify(reportPublishPlan(reportMarkdown, { reportDir, published, resolveRef })));
     }
   } else if (subcommand === 'check-verification-unfilled') {
     // templatePath is optional (D11): a scaffolded project has no

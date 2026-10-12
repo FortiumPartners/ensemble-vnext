@@ -19,6 +19,7 @@ const {
   recommendCoverageFloor,
   readNeverUnattended,
   isEmbeddableImagePath,
+  reportPublishPlan,
   CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
@@ -3402,5 +3403,207 @@ describe('mustPassCoverage — placeholder cells and header variants (review fix
       ],
     });
     expect(out).toEqual({ criteria: ['FS-1'], uncovered: [], unknown: [] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reportPublishPlan / report-publish-plan (verification-report-images D9)
+// ---------------------------------------------------------------------------
+
+describe('reportPublishPlan', () => {
+  const DIR = 'rep';
+  const imgLines = (refs) => refs.map((r, i) => `### FS-${i} — s (met)\n\n![FS-${i}](${r})\n`).join('\n');
+  const report = (refs, head = '') => `# R\n\n${head}\n## Evidence\n\n${imgLines(refs)}`;
+  const okAll = () => 'ok';
+  const refs = (n) => Array.from({ length: n }, (_, i) => `evidence/FS-${i}/shot.png`);
+  const size = (b) => Object.keys(b).length;
+
+  test.each([
+    [0, 0], [1, 0], [254, 0], [255, 0], [300, 0],
+    [0, 3], [1, 3], [254, 3], [255, 3], [300, 3],
+  ])('%i images with %i removals: batches <= 254, removals first, nothing else', (n, r) => {
+    const embedded = refs(n);
+    const gone = Array.from({ length: r }, (_, i) => `evidence/old/gone${i}.png`);
+    const plan = reportPublishPlan(report(embedded), {
+      reportDir: DIR,
+      published: [...embedded, ...gone, 'index.html'],
+      resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual(gone);
+    plan.batches.forEach((b) => expect(size(b)).toBeLessThanOrEqual(254));
+    const entries = plan.batches.flatMap((b) => Object.entries(b));
+    expect(entries.map(([k]) => k)).toEqual([...gone, ...embedded]);
+    entries.slice(0, r).forEach(([, v]) => expect(v).toBeNull());
+    entries.slice(r).forEach(([k, v]) => expect(v).toBe(path.join(DIR, k)));
+    expect(plan.rejected).toEqual([]);
+  });
+
+  test('remove never includes index.html or non-evidence paths', () => {
+    const plan = reportPublishPlan(report([]), {
+      reportDir: DIR,
+      published: ['index.html', 'notes.txt', 'evidence/x/a.png', 'evidence/../b.png'],
+      resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual(['evidence/x/a.png']);
+  });
+
+  test('a still-referenced published path is not removed and is re-sent', () => {
+    const plan = reportPublishPlan(report(['evidence/a.png']), {
+      reportDir: DIR, published: ['evidence/a.png'], resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual([]);
+    expect(plan.batches).toEqual([{ 'evidence/a.png': path.join(DIR, 'evidence/a.png') }]);
+  });
+
+  test('missing and outside references are rejected with the reason and in no batch', () => {
+    const resolveRef = (r) =>
+      r.endsWith('m.png') ? 'not on disk' : r.endsWith('o.png') ? 'resolves outside the report directory' : 'ok';
+    const plan = reportPublishPlan(report(['evidence/m.png', 'evidence/o.png', 'evidence/g.png']), {
+      reportDir: DIR, published: [], resolveRef,
+    });
+    expect(plan.rejected).toEqual([
+      { path: 'evidence/m.png', reason: 'not on disk' },
+      { path: 'evidence/o.png', reason: 'resolves outside the report directory' },
+    ]);
+    expect(plan.batches).toEqual([{ 'evidence/g.png': path.join(DIR, 'evidence/g.png') }]);
+  });
+
+  test('a hand-edited reference the guard refuses is in no batch', () => {
+    const plan = reportPublishPlan(report(['evidence/../../etc/x.png', 'evidence/A.PNG', 'evidence/ok.png']), {
+      reportDir: DIR, published: [], resolveRef: okAll,
+    });
+    expect(plan.batches).toEqual([{ 'evidence/ok.png': path.join(DIR, 'evidence/ok.png') }]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  test('duplicate references are sent once', () => {
+    const plan = reportPublishPlan(report(['evidence/a.png', 'evidence/a.png']), {
+      reportDir: DIR, published: [], resolveRef: okAll,
+    });
+    expect(plan.batches).toHaveLength(1);
+    expect(size(plan.batches[0])).toBe(1);
+  });
+
+  test('references outside whole lines under ## Evidence are never collected, and still count as removable', () => {
+    const md = [
+      '# R',
+      '| FS-2 | s | see ![x](evidence/FS-2/other.png) |',
+      '| FS-3 | s | ![x](evidence/FS-2/other.png) | 1 |',
+      '### FS-9 ![x](evidence/FS-2/other.png)',
+      '![x](evidence/FS-2/before.png)',
+      '## Evidence',
+      '',
+      '### FS-1 — ![x](evidence/FS-2/other.png) (met)',
+      '',
+      '![FS-1](evidence/FS-1/real.png)',
+      'text ![x](evidence/FS-2/other.png)',
+    ].join('\n');
+    const plan = reportPublishPlan(md, {
+      reportDir: DIR,
+      published: ['evidence/FS-2/other.png', 'evidence/FS-2/before.png'],
+      resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual(['evidence/FS-2/other.png', 'evidence/FS-2/before.png']);
+    expect(plan.batches).toHaveLength(1);
+    expect(Object.keys(plan.batches[0])).toEqual([
+      'evidence/FS-2/other.png', 'evidence/FS-2/before.png', 'evidence/FS-1/real.png',
+    ]);
+  });
+
+  test('a report with no Evidence section yields an empty plan', () => {
+    expect(reportPublishPlan('# R\n', { reportDir: DIR, resolveRef: okAll })).toEqual({
+      batches: [], remove: [], rejected: [],
+    });
+  });
+});
+
+describe('CLI report-publish-plan', () => {
+  let tmpDir;
+  const PNG = Buffer.from('89504e470d0a1a0a', 'hex');
+  const cli = (args) =>
+    spawnSync('node', [MODULE_PATH, ...args], { cwd: tmpDir, encoding: 'utf8' });
+  const crit = (id, extra = {}) => ({
+    id, statement: `s ${id}`, cites: 'c', status: 'met', artifact: null, reason: null,
+    attempts: [], blocker: null, ...extra,
+  });
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fv-plan-test-'));
+    fs.mkdirSync(path.join(tmpDir, 'run', 'evidence', 'FS-1'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'run', 'evidence', 'FS-2'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'run', 'evidence', 'FS-1', 'a.png'), PNG);
+    fs.writeFileSync(path.join(tmpDir, 'run', 'evidence', 'FS-2', 'b.png'), PNG);
+  });
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  const renderTo = (criteria) => {
+    const input = {
+      feature: 'f', prd: 'p', definitionPath: 'd', outcome: 'satisfied', reason: 'r', criteria,
+    };
+    fs.writeFileSync(path.join(tmpDir, 'input.json'), JSON.stringify(input));
+    const r = cli(['render-report', '--file', 'input.json']);
+    expect(r.status).toBe(0);
+    fs.writeFileSync(path.join(tmpDir, 'run', 'report.md'), r.stdout);
+  };
+
+  test('render-report then report-publish-plan: one entry per embedded image, excluded file in no batch', () => {
+    renderTo([
+      crit('FS-1', { ui: true, image: 'evidence/FS-1/a.png' }),
+      crit('FS-2', { ui: true, imageExcluded: 'shows a token' }),
+    ]);
+    const r = cli(['report-publish-plan', '--report', 'run/report.md']);
+    expect(r.status).toBe(0);
+    const plan = JSON.parse(r.stdout);
+    expect(plan.batches).toEqual([{ 'evidence/FS-1/a.png': path.join('run', 'evidence/FS-1/a.png') }]);
+    expect(plan.remove).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  test('--published-file drives removals, first in the batch', () => {
+    renderTo([crit('FS-1', { image: 'evidence/FS-1/a.png' })]);
+    fs.writeFileSync(
+      path.join(tmpDir, 'pub.json'),
+      JSON.stringify(['index.html', 'evidence/FS-2/b.png', 'evidence/FS-1/a.png'])
+    );
+    const plan = JSON.parse(cli(['report-publish-plan', '--report', 'run/report.md', '--published-file', 'pub.json']).stdout);
+    expect(plan.remove).toEqual(['evidence/FS-2/b.png']);
+    expect(Object.entries(plan.batches[0])).toEqual([
+      ['evidence/FS-2/b.png', null],
+      ['evidence/FS-1/a.png', path.join('run', 'evidence/FS-1/a.png')],
+    ]);
+  });
+
+  test('a missing file is rejected as not on disk', () => {
+    renderTo([crit('FS-1', { image: 'evidence/FS-1/nope.png' })]);
+    const plan = JSON.parse(cli(['report-publish-plan', '--report', 'run/report.md']).stdout);
+    expect(plan.batches).toEqual([]);
+    expect(plan.rejected).toEqual([{ path: 'evidence/FS-1/nope.png', reason: 'not on disk' }]);
+  });
+
+  test('a symlink under evidence/ pointing outside the report directory is rejected', () => {
+    const outside = path.join(tmpDir, 'secret.png');
+    fs.writeFileSync(outside, PNG);
+    fs.symlinkSync(outside, path.join(tmpDir, 'run', 'evidence', 'FS-1', 'link.png'));
+    renderTo([crit('FS-1', { image: 'evidence/FS-1/link.png' })]);
+    const plan = JSON.parse(cli(['report-publish-plan', '--report', 'run/report.md']).stdout);
+    expect(plan.batches).toEqual([]);
+    expect(plan.rejected).toEqual([
+      { path: 'evidence/FS-1/link.png', reason: 'resolves outside the report directory' },
+    ]);
+  });
+
+  test.each([
+    ['an object', '{"a":1}'],
+    ['an array with a non-string', '["a", 2]'],
+    ['not JSON', 'nope'],
+  ])('a --published-file that is %s exits 1', (_n, body) => {
+    renderTo([]);
+    fs.writeFileSync(path.join(tmpDir, 'pub.json'), body);
+    expect(cli(['report-publish-plan', '--report', 'run/report.md', '--published-file', 'pub.json']).status).toBe(1);
+  });
+
+  test('missing --report, or an unreadable report, exits 1', () => {
+    expect(cli(['report-publish-plan']).status).toBe(1);
+    expect(cli(['report-publish-plan', '--report', 'run/none.md']).status).toBe(1);
   });
 });

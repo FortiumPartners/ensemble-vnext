@@ -4,7 +4,7 @@
   "trd_hash": "0948b9258c5c26a223b2ce005d86f62245e23afd5df5443bf481b6ccc7573fbe",
   "branch": "feature/verification-report-images/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "RIMG-B001": {
       "description": "renderReport: the Screenshots line, the Met-row flag, the ## Evidence section and the left-out table (D7); the embedding guard as the exported helper isEmbeddab",
@@ -43,56 +43,85 @@
     "RIMG-B002": {
       "description": "reportPublishPlan and the report-publish-plan --report <path> [--published-file <path>] CLI (D9), using RIMG-B001's guard. Mirror to .claude/lib/. Owns the rend",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js",
+        ".claude/lib/functional-verification.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-12T00:21:18.808Z",
+      "completed_at": "2026-10-12T00:32:56.922Z",
+      "last_advanced": "2026-10-12T00:25:33.084Z"
     },
     "RIMG-B003": {
       "description": "verify-functional.js: screenshot on EXERCISE_SCHEMA and the Exercise return spec (D14); image, ui, imageExcluded on JUDGE_CRITERION_SCHEMA, the Judge return spe",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js",
+        ".claude/workflows/verify-functional.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-12T00:21:18.808Z",
+      "completed_at": "2026-10-12T00:32:56.926Z",
+      "last_advanced": "2026-10-12T00:25:33.085Z"
     },
     "RIMG-D001": {
       "description": "Sync docs/TRD/functional-verification.md §3.6: renderReport's interface gains the three fields, and the Behavior bullets gain the Screenshots line, the Met-row ",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/TRD/functional-verification.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-12T00:21:18.808Z",
+      "completed_at": "2026-10-12T00:32:56.926Z",
+      "last_advanced": "2026-10-12T00:25:33.085Z"
     },
     "RIMG-B005": {
       "description": "/implement-trd §9.0a publishes the report by the §3.5 sequence (D10): a fresh listing when a URL is stored, the page alone plus one ISSUES line when the listing",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-12T00:21:18.808Z",
+      "completed_at": "2026-10-12T00:32:56.926Z",
+      "last_advanced": "2026-10-12T00:25:33.085Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "107b6b3",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-12T00:21:18.808Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "107b6b3",
+    "last_checkpoint_timestamp": "2026-10-12T00:21:18.808Z",
     "interrupted": false,
     "interrupt_reason": null
   },

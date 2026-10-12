@@ -10,7 +10,7 @@
     <unit_coverage>60%</unit_coverage>
     <integration_coverage>50%</integration_coverage>
   </quality_gates>
-  <completed_tasks>none</completed_tasks>
+  <completed_tasks>RIMG-B001, RIMG-B004</completed_tasks>
 </context>
 
 <grounding>

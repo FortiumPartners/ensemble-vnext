@@ -1,9 +1,9 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.8.0
+**Version**: 2.9.0
 **Status**: Draft
 **Created**: 2026-08-17
-**Last Updated**: 2026-10-06
+**Last Updated**: 2026-10-11
 **Author**: @technical-architect
 **Source PRD**: `docs/PRD/functional-verification.md`
 **Task ID Prefix**: FV
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.9.0 | 2026-10-11 | **Synced to `docs/TRD/verification-report-images.md` (RIMG-D001).** §3.6's `renderReport()` interface gains three optional report-input fields on each criterion, `image`, `ui` and `imageExcluded` (RIMG-B001), and its Behavior section gains four bullets: the `**Screenshots**` line, the flag on a Met row, the `## Evidence` section and its left-out table. All four render only when at least one criterion carries one of the three fields, so an older report input renders exactly as before. §3.3 and §3.3a's claim and state-file shapes are not updated here and still omit the new fields, as they already omit `cause` | @backend-implementer (RIMG-D001) |
 | 2.8.0 | 2026-10-06 | **Synced to `docs/TRD/verification-must-pass.md` (VMP-B002).** §3.3's `VerifyFunctionalArgs` gains two optional fields, `mustPassIds?: string[]` and `mustPassUncovered?: Array<{ id; text }>`, placed after `liveEvidence`: the `criteria` and `uncovered` of `functional-verification.js must-pass-coverage`, passed unchanged so the must-pass set never depends on a model parsing the definition. Both are validated before any agent is dispatched, or the workflow throws. The result gains `mustPass` on every return path, and a sixth `outcome`, `must-pass-unproven`. §3.4's `LoopAction` gains `exit-must-pass-unproven`. After every Judge exit, including the zero-criteria one, the workflow recomputes from the final criteria list whether a must-pass criterion is unproven or a must-pass objective has no criterion. It only ever blocks: an `exit-satisfied` or `exit-insufficient-coverage` over a clean base becomes `exit-must-pass-unproven`, unless the coverage floor is really missed, which keeps (or yields) `exit-insufficient-coverage`. On an override one `reconcile` agent rewrites the state file's `outcome` through `save()` and re-renders the report. §3.7 Step 9 names the sixth outcome. `verify-functional-trd-sync.test.js`'s counts move from 23 to 25 fields and from five to six outcomes | @backend-implementer (VMP-B002) |
 | 2.7.0 | 2026-10-02 | **Synced to `docs/TRD/verification-reuses-evidence.md` (FIX-003).** §3.3's `VerifyFunctionalArgs` gains an optional `liveEvidence?: LiveEvidenceEntry[]` field, placed directly after `coverageFloor`: the entries of `.trd-state/<feature>/evidence/live-manifest.jsonl` that `[LIVE]` tasks recorded (`live-evidence.js read`), `[]` when absent. The Exercise prompt lists them and tells the exerciser to claim an already-captured artifact rather than capture again; `reconcileClaims` is the only source of a claim's `covers`, set from the manifest by artifact path while any `covers` the exerciser sent is discarded. The Judge prompt names a `reused` tier-1 pass and a judge-only `stale: true` claim (`not_met`, cause `evidence-stale`). Validated per entry before any agent is dispatched: not an array, or an entry without a non-empty `artifact` or `covers`, throws naming the index. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 22 to 23 | @backend-implementer (FIX-003) |
 | 2.6.0 | 2026-09-27 | **Synced to `docs/TRD/verification-md-setup.md` (D8, VSET-B002).** §3.3's `VerifyFunctionalArgs` gains an optional `coverageFloor?: number \| null` field, placed directly after `fullRunCommand` — the owner's coverage floor from `verification.md` §5a, as a fraction. `null` (the default, whether omitted or explicit) leaves `decideNext`'s coverage re-label dormant, exactly as before this row. Validated null-or-finite-fraction-in-`[0, 1]` before any agent is dispatched, same standard as `since`/`cap` — a percentage (`60`), a negative fraction, a numeric string (`"0.6"`) or `NaN` all throw. The Judge's STEP 3 decide-next payload gains `"coverageFloor":${JSON.stringify(FLOOR)}` right after `"cap"` and before `"met"`. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 21 to 22 | @technical-architect (VSET-B002) |
@@ -1031,6 +1032,12 @@ function renderReport(input: {
     blocker: string | null;
     tier1?: string;          // the state file's tier-1 verdict — rendered on the Not Met table
     provenAt?: number;       // the iteration a verdict was established — rendered on the Met table
+    image?: string | null;   // NEW (`docs/TRD/verification-report-images.md` D7; RIMG-B001).
+                             //   "evidence/<path>" of the one image cited as proof; embedded
+                             //   only if it matches the embeddable-path pattern, else left out
+    ui?: boolean;            // NEW — the criterion is about UI; a `met` one with no shown image
+                             //   is flagged
+    imageExcluded?: string | null;  // NEW — why an image was found but not cited; wins over `image`
   }>;
   finalEnvironmentRun?: { command: string; status: 'pass' | 'fail' | 'skipped' } | null;
 }): string;   // markdown
@@ -1066,6 +1073,22 @@ settled ones carried forward from earlier iterations**. The loop no longer re-wa
   ```
   `renderReport` takes no other action here — it counts and names the next step; it does not
   fix anything itself.
+- **`**Screenshots**` line** (NEW, `docs/TRD/verification-report-images.md` D7; RIMG-B001),
+  beside the other header lines, only when some criterion carries `image`, `ui: true` or
+  `imageExcluded`: `<n> shown`, then ` — <n> UI criteria proven without a screenshot: <ids>`
+  when any are flagged, then ` — <n> left out: <ids>` when any are. Without those fields the
+  line, and everything below, is absent and the report is unchanged.
+- **Flag on a Met row**: a `met` criterion with `ui: true` and no shown image has
+  ` — UI criterion proven without a screenshot` appended to its Artifact cell. It is a flag, not
+  a status: the criterion still counts as met.
+- **`## Evidence` section**, the report's last, so `/verify-build`'s appended `## Fix run`
+  follows it. Each shown image is a `###` heading (id, statement, status) over a line that is
+  solely `![id](evidence/<path>)`; `_None._` when nothing is shown or left out. Only a path
+  matching `evidence/<segments>.png|jpg|jpeg` (no `..`, leading `.`, spaces or brackets) is
+  embedded; the renderer applies this itself because the report input is hand-composed.
+- **`### Images left out` table** under `## Evidence`, `| ID | Image left out because |`, one row
+  per criterion whose `imageExcluded` is set (it wins over `image`) or whose `image` is not an
+  embeddable path, the latter with the reason `not an embeddable image path`.
 
 `not_verifiable` renders in its own section with the stated reason, not folded into failures.
 `unbuilt` renders in its own section too, under an outcome line that says plainly that

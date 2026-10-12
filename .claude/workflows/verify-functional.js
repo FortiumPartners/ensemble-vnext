@@ -259,6 +259,17 @@ function isJudgeOnly(criterion) {
 // copy it into the report input (STEP 5), and has no other source for them -- a criterion
 // settled in an earlier iteration (or carried in from a resume) is not in the open set.
 const CRITERION_BY_ID = new Map(CRITERIA.map((c) => [c.id, c]))
+// NEW (D15). The image keys travel with a settled entry exactly as `cause` does, but only when
+// present: an entry from a state file written before they existed stays without them.
+function imageKeys(c) {
+  const out = {}
+  for (const k of ['image', 'ui', 'imageExcluded']) if (c[k] !== undefined) out[k] = c[k]
+  return out
+}
+// KS-1 and KS-2 (D13): the Judge never sees the contract, so the two sentences are written
+// here word for word and a test checks they match the contract's.
+const KS_1 = "An image that shows a password, token, key or other credential value is never cited as a criterion's image; one that cannot be cleared is recorded as excluded, with the reason."
+const KS_2 = 'A criterion is about UI when it names a screen, element, layout or visual state, or its Tier 1 is judge-only for a visual property.'
 function settledList(settled) {
   return Array.from(settled, ([id, v]) => ({ id, ...v }))
 }
@@ -441,11 +452,15 @@ function buildExercisePrompt(iteration, slice, concurrentSlices = 1) {
     `[inferred], per the contract) before you return. ${notesConcurrency}Report whether you ` +
     `touched that file.\n\n` +
     `Return { "claims": [ { "criterion": "<id>", "artifact": "<path>" | null, "locator": ` +
-    `"<string>" | null, "reason": "<string, present when artifact is null>" }, ... ], ` +
+    `"<string>" | null, "reason": "<string, present when artifact is null>", "screenshot": "<path>" | null }, ... ], ` +
     `"notesUpdated": <true when you added or corrected a line in .claude/verification-notes.md ` +
     `this run, false otherwise> }. "locator" is a literal string you have actually SEEN inside ` +
     `the artifact (not a description of what it ought to contain) -- give none for a ` +
-    `judge-only criterion, and expect it to be discarded and re-derived for one either way.`
+    `judge-only criterion, and expect it to be discarded and re-derived for one either way. ` +
+    `"screenshot" is one image (png, jpg or jpeg) for a criterion that is about UI, per the ` +
+    `contract's "One screenshot for every UI criterion": a path under ${EVIDENCE_DIR}, never ` +
+    `written over an existing file; for a video, a frame grab, never the video; null for any ` +
+    `other criterion or where no image can be made.`
   )
 }
 
@@ -554,6 +569,17 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `  "capability-absent" -- "not_verifiable" because tooling or a capability the criterion ` +
     `needs is absent\n` +
     `Pick exactly one; never invent a cause outside this set.\n\n` +
+    `For every criterion you rule this iteration, also record its image, once, now (settled ` +
+    `criteria are never re-picked). Cite at most one image: the criterion's artifact when it is ` +
+    `itself a .png, .jpg or .jpeg, otherwise the claim's "screenshot"; never a video. Write it ` +
+    `as "image": "evidence/<path under the evidence directory>", stripping the prefix ` +
+    `"${EVIDENCE_DIR}/" (an absolute path to the same place counts as inside). An image anywhere ` +
+    `else is not cited: set "imageExcluded": "outside the evidence directory". Read the image ` +
+    `before citing it. ` +
+    `${KS_1} ` +
+    `${KS_2} ` +
+    `Set "ui" to true or false by that test. "image" and "imageExcluded" are null when there is ` +
+    `none to cite or exclude; never both set.\n\n` +
     step2a +
     `STEP 3: decide the loop's next action. "met" is every criterion currently at status "met": ` +
     `the ${settledMetIds.length} settled met id(s) carried below (${JSON.stringify(settledMetIds)}), ` +
@@ -585,7 +611,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `DEFINITION -- both the already-settled ones (copy them EXACTLY as given below, including ` +
     `their "provenAt" and "cause"; do not re-derive, re-date or otherwise change them) and the ` +
     `ones you judged this iteration: "id", "status", "tier1", "artifact", "reason", "cause", ` +
-    `"provenAt" -- "provenAt" is the iteration number a "met"/"not_verifiable"/"unbuilt" verdict ` +
+    `"provenAt", "image", "ui", "imageExcluded" (the last three carried unchanged for a settled ` +
+    `one, as given below) -- "provenAt" is the iteration number a "met"/"not_verifiable"/"unbuilt" verdict ` +
     `was proven at (this iteration's number, ${iteration}, for one you just judged; carried ` +
     `unchanged for a settled one) and is absent/null for a "not_met" criterion, which stays ` +
     `open. "reason" MUST be populated (non-null, non-empty) for every criterion whose status is ` +
@@ -619,8 +646,8 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `verbatim), plus "mustPass": ${JSON.stringify(MUST_PASS_IDS)} and "mustPassUncovered": ` +
     `${JSON.stringify(MUST_PASS_UNCOVERED)} copied verbatim (empty lists included) -- "criteria" is one entry per criterion IN THE WHOLE DEFINITION, same ` +
     `completeness rule as STEP 4's state file (the already-settled ones carried verbatim with ` +
-    `their "provenAt" and "cause", plus the ones you judged this iteration): id, statement, ` +
-    `cites, status, artifact, reason, cause, provenAt, attempts, blocker), then run:\n` +
+    `their "provenAt", "cause" and image keys, plus the ones you judged this iteration): id, statement, ` +
+    `cites, status, artifact, reason, cause, provenAt, attempts, blocker, image, ui, imageExcluded), then run:\n` +
     `  node ${CHECKER} render-report --file ${reportInputFile}\n` +
     `and write the output to ${REPORT_PATH}.\n\n` +
     `STEP 6: on "remediate", do not render a report and do not touch anything besides the state ` +
@@ -638,7 +665,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `write the notes file yourself, so do not re-derive this.\n\n` +
     `Return { "action": "exit-satisfied"|"exit-unbuilt"|"exit-stalled"|"exit-stuck"|` +
     `"exit-insufficient-coverage"|"exit-must-pass-unproven"|"remediate", ` +
-    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files" }, ` +
+    `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files","image","ui","imageExcluded" }, ` +
     `... one entry per criterion you judged THIS iteration -- the open set above, not the ` +
     `already-settled ones ], "gaps": [<not_met ids>], "unbuilt": ` +
     `[<unbuilt ids>], "closed": [<ids decide-next reported closed>], "notesUpdated": <boolean>, ` +
@@ -745,6 +772,7 @@ const EXERCISE_SCHEMA = {
           artifact: { type: ['string', 'null'] },
           locator: { type: ['string', 'null'] },
           reason: { type: 'string' },
+          screenshot: { type: ['string', 'null'] },
         },
       },
     },
@@ -784,6 +812,10 @@ const JUDGE_CRITERION_SCHEMA = {
       ],
     },
     files: { type: 'array', items: { type: 'string' } },
+    // NEW (D15): the one image cited for the criterion when it was ruled, carried like `cause`.
+    image: { type: ['string', 'null'] },
+    ui: { type: 'boolean' },
+    imageExcluded: { type: ['string', 'null'] },
   },
 }
 
@@ -1191,6 +1223,7 @@ if (RESUME_CRITERIA) {
         reason: c.reason ?? null,
         cause: c.cause ?? null,
         provenAt: c.provenAt ?? null,
+        ...imageKeys(c),
       })
     }
   }
@@ -1418,6 +1451,7 @@ for (; iteration <= CAP; iteration++) {
         reason: c.reason ?? null,
         cause: c.cause ?? null,
         provenAt: iteration,
+        ...imageKeys(c),
       })
     }
     // A `not_met` verdict stays out of the map and remains open (§3.4).
