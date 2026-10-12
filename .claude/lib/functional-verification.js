@@ -858,6 +858,102 @@ function escapeCell(text) {
     .replace(/\r\n?|\n/g, ' ');
 }
 
+// The only image paths a report may embed (verification-report-images D8): `evidence/`, then
+// one or more `/`-separated segments that start with a letter, digit, `_` or `-` and otherwise
+// hold only `[A-Za-z0-9._-]`, ending in a lower-case .png/.jpg/.jpeg. That rules out `..`, a
+// leading `.`, absolute paths, spaces and the brackets a Markdown link cannot carry. The report
+// input is hand-composed and unvalidated, so the renderer -- the last point before a page is
+// published -- applies this itself. `reportPublishPlan` must use this same helper.
+const EMBEDDABLE_IMAGE_PATH = /^evidence\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:png|jpe?g)$/;
+
+/** @param {unknown} p @returns {boolean} true when `p` is a path renderReport may embed. */
+function isEmbeddableImagePath(p) {
+  return typeof p === 'string' && EMBEDDABLE_IMAGE_PATH.test(p);
+}
+
+// Largest `files` map one Artifact call carries. 254, not 255: every call re-sends the page as
+// `file_path`, and whether the page or a `null` counts toward the platform's 255-file limit is
+// untested, so one entry of headroom is kept.
+const PUBLISH_BATCH_MAX = 254;
+// A whole line that is only an image reference, the form renderReport writes under `## Evidence`.
+const EVIDENCE_IMAGE_LINE = /^!\[[^\]]*\]\(([^()\s]+)\)$/;
+
+/**
+ * Plans the `files` maps that publish a verification report's images (verification-report-images
+ * D9). Pure: the caller supplies `resolveRef`, which does the filesystem check.
+ *
+ * Only whole `![id](path)` lines from the `## Evidence` heading onward are collected -- never a
+ * reference in a table cell or heading, which `escapeCell` leaves intact and Judge-written free
+ * text can carry. Each collected path must pass `isEmbeddableImagePath`.
+ *
+ * @param {string} reportMarkdown
+ * @param {{
+ *   reportDir: string,
+ *   published?: string[],   // paths from a fresh listing of the published artifact
+ *   resolveRef: (ref: string) => 'ok'|'not on disk'|'resolves outside the report directory',
+ * }} opts
+ * @returns {{
+ *   batches: Array<Record<string, string|null>>,  // <= 254 entries each; removal nulls first
+ *   remove: string[],                              // published paths the report no longer references
+ *   rejected: Array<{path: string, reason: string}>,
+ * }}
+ * @example
+ *   reportPublishPlan(md, { reportDir: '.trd-state/f', published: [], resolveRef: () => 'ok' })
+ *   // => { batches: [{ 'evidence/FS-1/a.png': '.trd-state/f/evidence/FS-1/a.png' }], remove: [], rejected: [] }
+ */
+function reportPublishPlan(reportMarkdown, { reportDir, published = [], resolveRef }) {
+  const lines = String(reportMarkdown).split('\n');
+  // The LAST `## Evidence` heading, and only up to the next `## ` heading (`## Fix run`): the
+  // renderer writes the section last, while the `**Reason**` line above it is unescaped Judge
+  // text that could carry its own `## Evidence` line and image lines after it.
+  const start = lines.findLastIndex((l) => l.trimEnd() === '## Evidence');
+  const referenced = new Set();
+  if (start !== -1) {
+    for (const line of lines.slice(start + 1)) {
+      if (line.startsWith('## ')) break;
+      const m = EVIDENCE_IMAGE_LINE.exec(line.trimEnd());
+      if (m && isEmbeddableImagePath(m[1])) referenced.add(m[1]);
+    }
+  }
+  // Only guard-accepted paths are ever nulled, so `index.html` and anything outside `evidence/`
+  // survive. Removals go first: a failure on a later call must not leave a withdrawn image up.
+  const remove = published.filter((p) => isEmbeddableImagePath(p) && !referenced.has(p));
+  const rejected = [];
+  const entries = remove.map((p) => [p, null]);
+  for (const ref of referenced) {
+    const verdict = resolveRef(ref);
+    if (verdict === 'ok') entries.push([ref, path.join(reportDir, ref)]);
+    else rejected.push({ path: ref, reason: verdict });
+  }
+  const batches = [];
+  for (let i = 0; i < entries.length; i += PUBLISH_BATCH_MAX) {
+    batches.push(Object.fromEntries(entries.slice(i, i + PUBLISH_BATCH_MAX)));
+  }
+  return { batches, remove, rejected };
+}
+
+const UI_NO_SCREENSHOT_FLAG = ' — UI criterion proven without a screenshot';
+const NOT_EMBEDDABLE_REASON = 'not an embeddable image path';
+
+// Which criteria show an image and which leave one out (D7). `imageExcluded` wins over `image`
+// (the safer reading); a non-null `image` the guard refuses is left out, never embedded.
+function classifyImages(criteria) {
+  const present = (v) => v !== undefined && v !== null;
+  const shown = [];
+  const leftOut = [];
+  for (const c of criteria) {
+    if (present(c.imageExcluded)) leftOut.push({ c, reason: c.imageExcluded });
+    else if (present(c.image)) {
+      if (isEmbeddableImagePath(c.image)) shown.push(c);
+      else leftOut.push({ c, reason: NOT_EMBEDDABLE_REASON });
+    }
+  }
+  const gate = criteria.some((c) => present(c.image) || c.ui === true || present(c.imageExcluded));
+  const shownSet = new Set(shown);
+  const flagged = criteria.filter((c) => c.status === 'met' && c.ui === true && !shownSet.has(c));
+  return { gate, shown, leftOut, flagged, flaggedSet: new Set(flagged) };
+}
+
 /**
  * @param {{
  *   feature: string, prd: string, definitionPath: string,
@@ -874,6 +970,10 @@ function escapeCell(text) {
  *                           //     "reached and failed". Absent on older report inputs.
  *     provenAt?: number,    // NEW (D8, §3.6) — the iteration a `met` verdict was proven at,
  *                           //     rendered on the Met table. Absent on older report inputs.
+ *     image?: string|null,  // NEW (verification-report-images D7) — "evidence/<path>" of the one
+ *                           //     image cited as proof; embedded only if isEmbeddableImagePath.
+ *     ui?: boolean,         // NEW — the criterion is about UI; a met one with no shown image is flagged.
+ *     imageExcluded?: string|null, // NEW — why an image was found but not cited; wins over `image`.
  *   }>,
  *   finalEnvironmentRun?: {command: string, status: 'pass'|'fail'|'skipped'} | null,  // NEW (D14)
  *   mustPass?: string[],                              // NEW (D13) — must-pass criterion ids
@@ -899,6 +999,9 @@ function renderReport(input) {
   // for it.
   const KNOWN = ['met', 'not_met', 'not_verifiable', 'unbuilt'];
   const unrecognised = criteria.filter((c) => !KNOWN.includes(c.status));
+  // Image layout (verification-report-images D7). When no criterion carries an image field the
+  // gate is closed and every line below is skipped, so older reports stay byte-identical.
+  const images = classifyImages(criteria);
 
   const lines = [];
   lines.push(`# Functional Verification Report: ${feature}`);
@@ -964,6 +1067,19 @@ function renderReport(input) {
           : '') +
         (mustPassUncovered.length > 0
           ? ` — no criterion for: ${mustPassUncovered.map((o) => escapeCell(typeof o === 'string' ? o : o.id)).join(', ')}`
+          : '')
+    );
+  }
+
+  if (images.gate) {
+    const ids = (list) => list.map((c) => escapeCell(c.id)).join(', ');
+    lines.push(
+      `**Screenshots**: ${images.shown.length} shown` +
+        (images.flagged.length > 0
+          ? ` — ${images.flagged.length} UI criteria proven without a screenshot: ${ids(images.flagged)}`
+          : '') +
+        (images.leftOut.length > 0
+          ? ` — ${images.leftOut.length} left out: ${ids(images.leftOut.map((x) => x.c))}`
           : '')
     );
   }
@@ -1062,8 +1178,10 @@ function renderReport(input) {
     lines.push('|----|-----------|----------|-----------|');
     for (const c of met) {
       const provenAt = c.provenAt === undefined || c.provenAt === null ? '' : c.provenAt;
+      // The flag is appended after escaping: it is ours, not Judge text.
+      const flag = images.flaggedSet.has(c) ? UI_NO_SCREENSHOT_FLAG : '';
       lines.push(
-        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)} | ${escapeCell(provenAt)} |`
+        `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)}${flag} | ${escapeCell(provenAt)} |`
       );
     }
   }
@@ -1102,6 +1220,36 @@ function renderReport(input) {
     }
   }
   lines.push('');
+
+  if (images.gate) {
+    // The report's last section (D7c): /verify-build step 6 appends `## Fix run` after it, and
+    // report-publish-plan scans only the lines solely `![id](path)` in here (D9). Headings go
+    // through escapeCell so a statement with `|` or a newline cannot break them.
+    lines.push('## Evidence');
+    lines.push('');
+    if (images.shown.length === 0 && images.leftOut.length === 0) {
+      lines.push('_None._');
+      lines.push('');
+    }
+    for (const c of images.shown) {
+      // An id holding `]` or `(` would break the link, so it falls back to a plain word.
+      const alt = /^[A-Za-z0-9._-]+$/.test(String(c.id)) ? c.id : 'image';
+      lines.push(`### ${escapeCell(c.id)} — ${escapeCell(c.statement)} (${escapeCell(c.status)})`);
+      lines.push('');
+      lines.push(`![${alt}](${c.image})`);
+      lines.push('');
+    }
+    if (images.leftOut.length > 0) {
+      lines.push('### Images left out');
+      lines.push('');
+      lines.push('| ID | Image left out because |');
+      lines.push('|----|------------------------|');
+      for (const { c, reason } of images.leftOut) {
+        lines.push(`| ${escapeCell(c.id)} | ${escapeCell(reason)} |`);
+      }
+      lines.push('');
+    }
+  }
 
   return lines.join('\n');
 }
@@ -1386,6 +1534,11 @@ const KNOWN_UNFILLED_DIGESTS = {
   // between the two changes holds exactly this copy
   // (`packages/core/lib/__fixtures__/verification.coverage-floor-v1.md`).
   'coverage-floor-v1': 'f561757a678a062e375b9678d2798e85fb97fbbfe116548490498ec393f1e69b',
+  // The never-unattended template (never-unattended-paths FIX-001), frozen the moment before
+  // the claude.ai artifact service was declared an always-authorized environment (4.13.3).
+  // Every project scaffolded between the two changes holds exactly this copy
+  // (`packages/core/lib/__fixtures__/verification.never-unattended-v1.md`).
+  'never-unattended-v1': 'bad5ae5f15732f14e98bd3989b303f097632c7e785a2d482a5821fb4570611a2',
 };
 
 /**
@@ -1501,6 +1654,8 @@ module.exports = {
   decideNext,
   mustPassCoverage,
   renderReport,
+  isEmbeddableImagePath,
+  reportPublishPlan,
   readStopRule,
   decideFixRound,
   renderFixSummary,
@@ -1549,6 +1704,9 @@ module.exports = {
 //   node functional-verification.js render-fix-summary '<input-json>'
 //   node functional-verification.js render-fix-summary --file <path>
 //   node functional-verification.js render-fix-summary -
+//   node functional-verification.js report-publish-plan --report <path> [--published-file <path>]
+//       (reads the report itself; --published-file is a JSON array of the paths a fresh listing
+//        returned; prints {batches, remove, rejected})
 //   node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>
 //       (reads both files itself — not a JSON payload; prints {criteria, uncovered, unknown})
 
@@ -1562,6 +1720,7 @@ if (require.main === module) {
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
         '  node functional-verification.js must-pass-coverage --trd <TRD path> --definition <definition path>\n' +
+        '  node functional-verification.js report-publish-plan --report <path> [--published-file <path>]\n' +
         '  node functional-verification.js check-verification-unfilled <projectPath> [templatePath]\n' +
         '  node functional-verification.js read-coverage-floor <projectPath>\n' +
         '  node functional-verification.js recommend-coverage-floor <trdStateDir>\n' +
@@ -1590,6 +1749,12 @@ if (require.main === module) {
   }
 
   const [, , subcommand, ...rest] = process.argv;
+  // `--name <value>` from `rest`; undefined when the flag is absent or has no value after it.
+  const flag = (name) => {
+    const i = rest.indexOf(name);
+    const v = i === -1 ? undefined : rest[i + 1];
+    return v === undefined || v.startsWith('--') ? undefined : v;
+  };
 
   if (subcommand === 'check-evidence') {
     // `--state-dir <dir>` (verification-reuses-evidence AMEND-001): `covers` reaches the checker
@@ -1660,16 +1825,45 @@ if (require.main === module) {
   } else if (subcommand === 'must-pass-coverage') {
     // File paths, not a JSON payload (D6, D11): the command passes paths and never has to parse
     // the definition table in prose, so a dropped column cannot fail open.
-    const flag = (name) => {
-      const i = rest.indexOf(name);
-      return i === -1 ? undefined : rest[i + 1];
-    };
     const trdPath = flag('--trd');
     const definitionPath = flag('--definition');
     if (!trdPath || !definitionPath) {
       usage();
     } else {
       console.log(JSON.stringify(mustPassCoverageFromFiles(trdPath, definitionPath)));
+    }
+  } else if (subcommand === 'report-publish-plan') {
+    const reportPath = flag('--report');
+    const publishedPath = flag('--published-file');
+    // A `--published-file` named without a value must not read as "nothing published": that
+    // would plan no removals and leave a withdrawn image up.
+    if (rest.includes('--published-file') && !publishedPath) usage();
+    let reportMarkdown;
+    let published = [];
+    try {
+      if (reportPath) reportMarkdown = fs.readFileSync(reportPath, 'utf8');
+      if (publishedPath) published = JSON.parse(fs.readFileSync(publishedPath, 'utf8'));
+    } catch (err) {
+      console.error(`report-publish-plan: ${err.message}`);
+      process.exit(1);
+    }
+    if (!reportPath || !Array.isArray(published) || !published.every((p) => typeof p === 'string')) {
+      usage();
+    } else {
+      const reportDir = path.dirname(reportPath);
+      // Real paths on both sides: os.tmpdir() on macOS sits under a symlink, and a symlink under
+      // evidence/ must not smuggle in a file from outside the report directory.
+      const realDir = fs.realpathSync(reportDir);
+      const resolveRef = (ref) => {
+        let real;
+        try {
+          real = fs.realpathSync(path.join(reportDir, ref));
+        } catch {
+          return 'not on disk';
+        }
+        return real.startsWith(realDir + path.sep) ? 'ok' : 'resolves outside the report directory';
+      };
+      console.log(JSON.stringify(reportPublishPlan(reportMarkdown, { reportDir, published, resolveRef })));
     }
   } else if (subcommand === 'check-verification-unfilled') {
     // templatePath is optional (D11): a scaffolded project has no

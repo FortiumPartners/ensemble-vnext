@@ -438,7 +438,7 @@ describe('§8.4 / Step 9 readout carries coverage and finalRun', () => {
   test('a failed final full run appears under ISSUES', () => {
     // "ISSUES" also names the readout section in the format legend above the template
     // itself, so take the LAST occurrence -- the actual template block -- not the first.
-    const occurrences = src().split('ISSUES');
+    const occurrences = src().split('### 9.0a')[0].split('ISSUES');
     const issuesSection = occurrences[occurrences.length - 1] || '';
     expect(flat(issuesSection)).toMatch(/final.*full.*run|full.*environment.*run/i);
   });
@@ -1641,5 +1641,40 @@ describe('must-pass is plumbed through both commands (VMP-B005)', () => {
 
   test('the fix loop never records must-pass-unproven as a failing row', () => {
     expect(vb()).toMatch(/`insufficient-coverage` and `must-pass-unproven` included/);
+  });
+});
+
+describe('report publish sequence (verification-report-images D10): one written sequence, in §9.0a', () => {
+  const implSection = () => flat(read(CORE_IMPLEMENT).split('### 9.0a')[1].split('### 9.1')[0]);
+  const vbLink = () => flat(read(CORE_VERIFY_BUILD).split('### Artifact link')[1]);
+  const vbReportParagraph = () => vbLink().split('Then, under the same switch')[0];
+
+  test('§9.0a names report-publish-plan, --published-file and a files listing', () => {
+    expect(implSection()).toMatch(/report-publish-plan/);
+    expect(implSection()).toMatch(/--published-file/);
+    expect(implSection()).toMatch(/scope: "files"/);
+  });
+
+  test('§9.0a writes the one ISSUES line when the listing fails', () => {
+    expect(implSection()).toMatch(/report images not updated: could not list the published artifact/);
+  });
+
+  test('§9.0a never sends a files map to a stored URL without a successful listing', () => {
+    expect(implSection()).toMatch(/never (send|sends) a `files` map[^.]*without a (successful|fresh) listing/i);
+  });
+
+  test("/verify-build's report paragraph defers to §9.0a", () => {
+    expect(vbReportParagraph()).toMatch(/identical to `\/implement-trd` §9\.0a — read that section and follow it/i);
+  });
+
+  test("/verify-build no longer carries its own bare report publish call", () => {
+    expect(read(CORE_VERIFY_BUILD)).not.toContain(
+      'Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "check" })'
+    );
+  });
+
+  test("/verify-build step 6's republish points at the Artifact link section", () => {
+    const step6 = flat(read(CORE_VERIFY_BUILD).split('6. **Render and close.**')[1].split('Its `criteria` input')[0]);
+    expect(step6).toMatch(/republish it[^.]*Artifact link/i);
   });
 });

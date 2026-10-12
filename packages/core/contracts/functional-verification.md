@@ -189,6 +189,28 @@ content:
   the exerciser only claims a listed artifact. A
   reused artifact still needs its locator, and any change to a covered file makes it `stale`.
 
+**One screenshot for every UI criterion.** Most criteria are proven by a text artifact, so a
+criterion that is about UI would otherwise have no image to show. A criterion is about UI when
+it names a screen, element, layout or visual state, or its Tier 1 is judge-only for a visual
+property. For each such criterion the exerciser attaches one `screenshot` to its claim: a path
+under the evidence directory (`<report dir>/evidence`), written in full, starting with that
+directory. Name the file so the report's embedding guard accepts it: `.png`, `.jpg` or `.jpeg`
+in lower case, and every path segment starting with a letter, digit, `_` or `-` and holding
+only letters, digits, `.`, `_` and `-` (no spaces, no brackets). A capture is never written
+over an existing file: a later pass picks a new name, because a criterion already ruled may
+still cite the old file. For a video, the exerciser also saves a frame grab (png or jpg) and
+attaches that as the `screenshot`; the video itself is never cited as an image. Where no frame
+grab can be made, attach none and say why.
+
+**Citing an image.** The Judge cites at most one image per criterion: the criterion's artifact
+when it is itself a png, jpg or jpeg, otherwise the claim's `screenshot`. An image anywhere
+other than under the evidence directory is recorded as excluded, with the reason "outside the
+evidence directory". Two sentences govern this, and the Judge's prompt carries them word for
+word:
+
+- An image that shows a password, token, key or other credential value is never cited as a criterion's image; one that cannot be cleared is recorded as excluded, with the reason.
+- A criterion is about UI when it names a screen, element, layout or visual state, or its Tier 1 is judge-only for a visual property.
+
 A claim that names no artifact — because none applies, or none could be produced — is not
 automatically a failure. It carries a stated reason instead, and the criterion can still
 resolve to `not verifiable here` on the judge's reading of that reason. What it cannot do is
@@ -508,6 +530,23 @@ reads included. A criterion needing such an environment is treated exactly like 
 target no project document authorizes at all — no artifact, a stated reason, `not_verifiable`
 on the judge's reading of it — and no amount of "only reading, nothing written" makes it an
 exception.
+
+---
+
+## S-3 — the image rule
+
+A screenshot is evidence, and it is also a page that gets published, so a credential on a
+screen is a credential in a report. The exerciser looks at each capture it saves; when one
+shows a password, token, key or other credential value, the exerciser deletes it before the
+claim is returned, and the claim carries no `screenshot` for it, with the reason stated. Deleting a capture from
+inside the evidence directory is not a source edit, so the capture-only discipline above does
+not forbid it. The Judge looks at every image before citing it, and applies this sentence:
+
+An image that shows a password, token, key or other credential value is never cited as a criterion's image; one that cannot be cleared is recorded as excluded, with the reason.
+
+The Judge, not the exerciser, records the exclusion: an image it cannot open, or cannot tell
+about, is excluded with that reason. A criterion with no image still resolves on its other
+evidence.
 
 ---
 

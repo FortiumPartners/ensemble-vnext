@@ -2513,6 +2513,133 @@ describe('verify-functional: cause', () => {
   });
 });
 
+// --------------------------------------------------------------------------- report images (RIMG-B003; D2, D3, D13, D14, D15)
+
+describe('verify-functional: report images', () => {
+  const KS1 = "An image that shows a password, token, key or other credential value is never cited as a criterion's image; one that cannot be cleared is recorded as excluded, with the reason.";
+  const KS2 = 'A criterion is about UI when it names a screen, element, layout or visual state, or its Tier 1 is judge-only for a visual property.';
+  const flat = (t) => t.replace(/\s+/g, ' ');
+
+  it("EXERCISE_SCHEMA's claim item declares screenshot and JUDGE_CRITERION_SCHEMA declares image, ui and imageExcluded", () => {
+    const ex = SOURCE.match(/const EXERCISE_SCHEMA = \{[\s\S]*?\nconst JUDGE_CRITERION_SCHEMA/)[0];
+    expect(ex).toMatch(/screenshot:\s*\{\s*type:\s*\['string',\s*'null'\]\s*\}/);
+    expect(ex.match(/additionalProperties: false/g)).toHaveLength(2);
+    const jc = SOURCE.match(/const JUDGE_CRITERION_SCHEMA = \{[\s\S]*?\nconst JUDGE_SCHEMA/)[0];
+    expect(jc).toMatch(/image:\s*\{\s*type:\s*\['string',\s*'null'\]\s*\}/);
+    expect(jc).toMatch(/ui:\s*\{\s*type:\s*'boolean'\s*\}/);
+    expect(jc).toMatch(/imageExcluded:\s*\{\s*type:\s*\['string',\s*'null'\]\s*\}/);
+    expect(jc).toMatch(/additionalProperties: false/);
+  });
+
+  it('the Exercise return spec names "screenshot"', async () => {
+    let ex = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') {
+        ex = prompt;
+        return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      }
+      return opts.label === 'judge' ? satisfiedJudge() : null;
+    });
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    expect(ex).toMatch(/"screenshot": "<path>" \| null/);
+  });
+
+  it('the Judge prompt names the image keys in its return spec, STEP 4 and STEP 5, the evidence/ form and the exclusion reason', async () => {
+    let jp = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        jp = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    expect(jp).toMatch(/"id","status","tier1","artifact","reason","cause","files","image","ui","imageExcluded"/);
+    expect(jp).toMatch(/"provenAt", "image", "ui", "imageExcluded"/);
+    expect(jp).toMatch(/artifact, reason, cause, provenAt, attempts, blocker, image, ui, imageExcluded/);
+    expect(jp).toContain('evidence/<path under the evidence directory>');
+    expect(jp).toContain('.trd-state/example/evidence/');
+    expect(jp).toContain('outside the evidence directory');
+    // existing pins still hold (append-only key lists)
+    expect(jp).toMatch(/"id", "status", "tier1", "artifact", "reason", "cause",\s+"provenAt"/);
+  });
+
+  it('KS-1 and KS-2 appear word for word in the contract and in the Judge prompt', async () => {
+    const contract = fs.readFileSync(path.join(__dirname, '..', 'contracts', 'functional-verification.md'), 'utf8');
+    let jp = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+      if (opts.label === 'judge') {
+        jp = prompt;
+        return satisfiedJudge();
+      }
+      return null;
+    });
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    for (const sentence of [KS1, KS2]) {
+      expect(flat(contract)).toContain(sentence);
+      expect(flat(jp)).toContain(sentence);
+    }
+  });
+
+  it('a criterion ruled met with an image keeps image and ui unchanged in the next iteration and the result', async () => {
+    let judgeCalls = 0;
+    const prompts = [];
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a.txt', screenshot: 'evidence/FS-1/shot.png' }, { criterion: 'FS-2', artifact: 'b.txt' }]);
+      if (opts.label === 'judge') {
+        judgeCalls += 1;
+        prompts.push(prompt);
+        if (judgeCalls === 1) {
+          return remediateJudge({
+            criteria: [
+              { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, files: [], image: 'evidence/FS-1/shot.png', ui: true, imageExcluded: null },
+              { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'x', cause: 'judged-failed', files: ['src/b.js'] },
+            ],
+            gaps: ['FS-2'],
+            debugGaps: [{ id: 'FS-2', statement: 'statement for FS-2', reason: 'x', artifact: null, files: ['src/b.js'] }],
+          });
+        }
+        return satisfiedJudge({ criteria: [{ id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, cause: null, files: [] }] });
+      }
+      return null;
+    });
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    expect(judgeCalls).toBe(2);
+    const settledJson = JSON.parse(prompts[1].match(/judgements only:\n(.*)/)[1]);
+    expect(settledJson).toContainEqual(expect.objectContaining({ id: 'FS-1', image: 'evidence/FS-1/shot.png', ui: true, imageExcluded: null }));
+    expect(result.criteria).toContainEqual(expect.objectContaining({ id: 'FS-1', image: 'evidence/FS-1/shot.png', ui: true }));
+  });
+
+  it('a resume entry carrying image, ui and imageExcluded reaches the Judge prompt settled list unchanged; one without them is not backfilled', async () => {
+    let jp = null;
+    const agent = makeAgentStub((prompt, opts) => {
+      if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-3', artifact: 'c.txt' }]);
+      if (opts.label === 'judge') {
+        jp = prompt;
+        return satisfiedJudge({ criteria: [{ id: 'FS-3', status: 'met', tier1: 'pass', artifact: 'c.txt', reason: null, cause: null, files: [] }] });
+      }
+      return null;
+    });
+    const resume = {
+      iteration: 1,
+      criteria: [
+        { id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a.txt', reason: null, cause: null, provenAt: 1, image: 'evidence/FS-1/shot.png', ui: true, imageExcluded: null },
+        { id: 'FS-2', status: 'met', tier1: 'pass', artifact: 'b.txt', reason: null, cause: null, provenAt: 1 },
+      ],
+      gapsClosed: [1],
+    };
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ criteria: [criterion('FS-1'), criterion('FS-2'), criterion('FS-3')], resume }) });
+    const settledJson = JSON.parse(jp.match(/judgements only:\n(.*)/)[1]);
+    expect(settledJson.find((e) => e.id === 'FS-1')).toEqual(expect.objectContaining({ image: 'evidence/FS-1/shot.png', ui: true, imageExcluded: null }));
+    const old = settledJson.find((e) => e.id === 'FS-2');
+    expect(old).not.toHaveProperty('image');
+    expect(old).not.toHaveProperty('ui');
+    expect(old).not.toHaveProperty('imageExcluded');
+  });
+});
+
 describe('verify-functional: liveEvidence (reuse of evidence a [LIVE] task captured)', () => {
   const entry = (over = {}) => ({
     task: 'T-9',

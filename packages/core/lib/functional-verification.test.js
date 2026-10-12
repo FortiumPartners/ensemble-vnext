@@ -18,6 +18,8 @@ const {
   readCoverageFloor,
   recommendCoverageFloor,
   readNeverUnattended,
+  isEmbeddableImagePath,
+  reportPublishPlan,
   CAUSES,
   DEFAULT_CAP,
   COVERAGE_FLOOR,
@@ -1396,6 +1398,24 @@ describe('isVerificationUnfilled', () => {
     expect(isVerificationUnfilled(priorTemplate, currentTemplate)).toEqual({
       unfilled: true,
       matchedTemplate: 'coverage-floor-v1',
+    });
+  });
+
+  test('a project file matching the never-unattended-v1 template (frozen just before the claude-artifacts row) is still reported unfilled, naming it', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.never-unattended-v1.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+
+    // Shipped live until 4.13.3 declared the claude.ai artifact service in §1; every project
+    // scaffolded before that change holds exactly this copy.
+    expect(isVerificationUnfilled(priorTemplate, currentTemplate)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'never-unattended-v1',
     });
   });
 
@@ -3132,6 +3152,261 @@ describe('renderReport: the must-pass line and outcome (D13)', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// renderReport: images, the Screenshots line, the UI flag, the Evidence section
+// (docs/TRD/verification-report-images.md D7, D8)
+describe('renderReport: report images (RIMG-B001)', () => {
+  const crit = (id, status, extra = {}) => ({
+    id, statement: `s ${id}`, cites: 'c', status, artifact: null, reason: null, attempts: [], blocker: null, ...extra,
+  });
+  const input = (criteria, over = {}) => ({
+    feature: 'demo', prd: 'docs/PRD/demo.md', definitionPath: 'd.md',
+    outcome: 'satisfied', reason: 'r', criteria, ...over,
+  });
+  const lineOf = (out, prefix) => out.split('\n').find((l) => l.startsWith(prefix));
+
+  // Golden: captured from the renderer BEFORE this change, from a fixture that reaches every
+  // section. Both the bare input and the input with every new field null/false must equal it.
+  const GOLDEN_INPUT = {
+    "feature": "demo",
+    "prd": "docs/PRD/demo.md",
+    "definitionPath": ".trd-state/demo/success-definition.md",
+    "outcome": "must-pass-unproven",
+    "reason": "one must-pass criterion is unproven",
+    "criteria": [
+      {
+        "id": "FS-1",
+        "statement": "statement FS-1 | pipe",
+        "cites": "c",
+        "status": "met",
+        "artifact": "evidence/FS-1/out.txt",
+        "reason": null,
+        "attempts": [],
+        "blocker": null,
+        "provenAt": 1
+      },
+      {
+        "id": "FS-2",
+        "statement": "statement FS-2 | pipe",
+        "cites": "c",
+        "status": "met",
+        "artifact": "evidence/FS-2/shot.png",
+        "reason": null,
+        "attempts": [],
+        "blocker": null
+      },
+      {
+        "id": "FS-3",
+        "statement": "statement FS-3 | pipe",
+        "cites": "c",
+        "status": "not_met",
+        "artifact": null,
+        "reason": "wrong",
+        "attempts": [
+          {
+            "iteration": 1,
+            "result": "nope"
+          }
+        ],
+        "blocker": "b",
+        "tier1": "failed",
+        "cause": "defect"
+      },
+      {
+        "id": "FS-4",
+        "statement": "statement FS-4 | pipe",
+        "cites": "c",
+        "status": "not_verifiable",
+        "artifact": null,
+        "reason": "no env",
+        "attempts": [],
+        "blocker": null,
+        "cause": "environment-unreachable"
+      },
+      {
+        "id": "FS-5",
+        "statement": "statement FS-5 | pipe",
+        "cites": "c",
+        "status": "unbuilt",
+        "artifact": null,
+        "reason": "absent",
+        "attempts": [],
+        "blocker": null
+      },
+      {
+        "id": "FS-6",
+        "statement": "statement FS-6 | pipe",
+        "cites": "c",
+        "status": "not-met",
+        "artifact": null,
+        "reason": "typo status",
+        "attempts": [],
+        "blocker": null
+      }
+    ],
+    "finalEnvironmentRun": {
+      "command": "make",
+      "status": "fail"
+    },
+    "mustPass": [
+      "FS-3",
+      "FS-9"
+    ],
+    "mustPassUncovered": [
+      {
+        "id": "O5",
+        "text": "five"
+      }
+    ]
+  };
+  const GOLDEN = "# Functional Verification Report: demo\n\n**Source PRD**: docs/PRD/demo.md\n**Success definition**: .trd-state/demo/success-definition.md\n**Outcome**: Must-Pass Unproven (final full-environment run FAILED)\n**Reason**: one must-pass criterion is unproven\n**Criteria**: 6 total — 2 met, 1 not met, 1 not verifiable, 1 unbuilt, 1 unrecognised status\n**Coverage**: 2 of 6 proven — uncovered: FS-3, FS-4, FS-5, FS-6\n**Must pass**: 0 of 2 proven — unproven: FS-3 (not met), FS-9 (missing) — no criterion for: O5\n**Diagnosis**: 4 open — 2 unrecorded, 1 environment not reachable, 1 defect\n**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`\n\n## Unrecognised Status\n\nThese criteria carry a status that is none of `met` / `not_met` / `not_verifiable` / `unbuilt`. No verdict has been assigned to them and none is implied here — the report renders them so they cannot go missing, and whoever composed the report input has to resolve them.\n\n| ID | Statement | Status as written | Reason |\n|----|-----------|-------------------|--------|\n| FS-6 | statement FS-6 \\| pipe | not-met | typo status |\n\n## Unbuilt\n\nImplementation did not deliver these criteria. The loop stopped rather than debugging absent code (D14).\n\n| ID | Statement | Reason |\n|----|-----------|--------|\n| FS-5 | statement FS-5 \\| pipe | absent |\n\n## Met\n\n| ID | Statement | Artifact | Proven at |\n|----|-----------|----------|-----------|\n| FS-1 | statement FS-1 \\| pipe | evidence/FS-1/out.txt | 1 |\n| FS-2 | statement FS-2 \\| pipe | evidence/FS-2/shot.png |  |\n\n## Not Met\n\n| ID | Statement | Tier 1 | Reason | Blocker | Attempts |\n|----|-----------|--------|--------|---------|----------|\n| FS-3 | statement FS-3 \\| pipe | failed | wrong | b | iter 1: nope |\n\n## Not Verifiable\n\n| ID | Statement | Reason |\n|----|-----------|--------|\n| FS-4 | statement FS-4 \\| pipe | no env |\n";
+
+  test('golden: the pre-change output is reproduced byte for byte with no new fields', () => {
+    expect(renderReport(GOLDEN_INPUT)).toBe(GOLDEN);
+  });
+
+  test('golden: still reproduced with ui:false, image:null, imageExcluded:null on every criterion', () => {
+    const withNulls = {
+      ...GOLDEN_INPUT,
+      criteria: GOLDEN_INPUT.criteria.map((c) => ({ ...c, ui: false, image: null, imageExcluded: null })),
+    };
+    expect(renderReport(withNulls)).toBe(GOLDEN);
+  });
+
+  test('no Screenshots line, Evidence section or flag when nothing carries an image field', () => {
+    const out = renderReport(input([crit('FS-1', 'met', { artifact: 'evidence/FS-1/a.txt' })]));
+    expect(out).not.toContain('**Screenshots**');
+    expect(out).not.toContain('## Evidence');
+    expect(out).not.toContain('without a screenshot');
+  });
+
+  test('a criterion with an image renders exactly one image in Evidence; a text-only one renders none', () => {
+    const out = renderReport(input([
+      crit('FS-1', 'met', { artifact: 'evidence/FS-1/a.txt', image: 'evidence/FS-1/shot.png' }),
+      crit('FS-2', 'met', { artifact: 'evidence/FS-2/a.txt' }),
+    ]));
+    expect(out.match(/!\[/g)).toHaveLength(1);
+    expect(out).toContain('![FS-1](evidence/FS-1/shot.png)');
+    expect(out).toContain('## Evidence');
+    expect(out).toContain('### FS-1 — s FS-1 (met)');
+    expect(out).not.toContain('### FS-2');
+    expect(lineOf(out, '**Screenshots**')).toBe('**Screenshots**: 1 shown');
+  });
+
+  test('Evidence is the last section, after Not Verifiable', () => {
+    const out = renderReport(input([crit('FS-1', 'met', { image: 'evidence/a.png' })]));
+    expect(out.indexOf('## Not Verifiable')).toBeLessThan(out.indexOf('## Evidence'));
+    expect(out.indexOf('## Evidence')).toBeGreaterThan(out.indexOf('## Not Met'));
+  });
+
+  test('a met ui criterion with no image is flagged in its Met row and on the Screenshots line', () => {
+    const out = renderReport(input([crit('FS-1', 'met', { ui: true, artifact: 'evidence/FS-1/a.txt' })]));
+    expect(out).toContain('| FS-1 | s FS-1 | evidence/FS-1/a.txt — UI criterion proven without a screenshot |');
+    expect(lineOf(out, '**Screenshots**')).toBe(
+      '**Screenshots**: 0 shown — 1 UI criteria proven without a screenshot: FS-1'
+    );
+  });
+
+  test('the same ui criterion with an image, and a non-ui criterion with none, are not flagged', () => {
+    const out = renderReport(input([
+      crit('FS-1', 'met', { ui: true, image: 'evidence/FS-1/s.png', artifact: 'evidence/FS-1/s.png' }),
+      crit('FS-2', 'met', { ui: false, artifact: 'evidence/FS-2/a.txt' }),
+    ]));
+    expect(out).not.toContain('without a screenshot');
+    expect(lineOf(out, '**Screenshots**')).toBe('**Screenshots**: 1 shown');
+  });
+
+  test('a ui criterion that is not met and has no image opens the gate: 0 shown, no flags', () => {
+    const out = renderReport(input([crit('FS-1', 'not_met', { ui: true })], { outcome: 'stalled' }));
+    expect(lineOf(out, '**Screenshots**')).toBe('**Screenshots**: 0 shown');
+    expect(out).not.toContain('without a screenshot');
+    expect(out).toContain('## Evidence');
+  });
+
+  test('an imageExcluded criterion renders no image and is in the left-out table with its reason', () => {
+    const out = renderReport(input([
+      crit('FS-1', 'met', { ui: true, imageExcluded: 'shows a token' }),
+    ]));
+    expect(out).not.toContain('![');
+    expect(out).toContain('| ID | Image left out because |');
+    expect(out).toContain('| FS-1 | shows a token |');
+    expect(lineOf(out, '**Screenshots**')).toBe(
+      '**Screenshots**: 0 shown — 1 UI criteria proven without a screenshot: FS-1 — 1 left out: FS-1'
+    );
+  });
+
+  test('imageExcluded wins when a criterion carries both', () => {
+    const out = renderReport(input([
+      crit('FS-1', 'met', { image: 'evidence/FS-1/s.png', imageExcluded: 'cannot clear it' }),
+    ]));
+    expect(out).not.toContain('![');
+    expect(out).toContain('| FS-1 | cannot clear it |');
+  });
+
+  test.each([
+    'evidence/../x.png', '/abs/evidence/x.png', 'report-images/x.png',
+    'evidence/a b.png', 'evidence/x.PNG', 'evidence/x.gif',
+  ])('image %s is not embedded and is listed as not an embeddable image path', (image) => {
+    const out = renderReport(input([crit('FS-1', 'met', { image })]));
+    expect(out).not.toContain('![');
+    expect(out).toContain('| FS-1 | not an embeddable image path |');
+    expect(lineOf(out, '**Screenshots**')).toBe('**Screenshots**: 0 shown — 1 left out: FS-1');
+  });
+
+  test('an unrecognised-status criterion with an embeddable image still gets an Evidence block (D12)', () => {
+    const out = renderReport(input([crit('FS-1', 'not-met', { image: 'evidence/FS-1/s.png' })]));
+    expect(out).toContain('### FS-1 — s FS-1 (not-met)');
+    expect(out).toContain('![FS-1](evidence/FS-1/s.png)');
+  });
+
+  test('a not_met criterion with an image is shown too (any status)', () => {
+    const out = renderReport(input([crit('FS-1', 'not_met', { image: 'evidence/FS-1/s.png' })], { outcome: 'stalled' }));
+    expect(out).toContain('### FS-1 — s FS-1 (not met)'.replace('not met', 'not_met'));
+  });
+
+  test('a statement with a pipe and a newline cannot break its Evidence heading', () => {
+    const out = renderReport(input([
+      crit('FS-1', 'met', { statement: 'a | b\nc\r\nd', image: 'evidence/FS-1/s.png' }),
+    ]));
+    const heading = lineOf(out, '### FS-1');
+    expect(heading).toBe('### FS-1 — a \\| b c d (met)');
+  });
+
+  test('an id that would break the link gets the alt text "image"', () => {
+    const out = renderReport(input([crit('FS]1', 'met', { image: 'evidence/FS1/s.png' })]));
+    expect(out).toContain('![image](evidence/FS1/s.png)');
+  });
+
+  test('Screenshots sits after Must pass and before Diagnosis; Must pass stays at Coverage + 1', () => {
+    const out = renderReport(input(
+      [crit('FS-1', 'met', { image: 'evidence/a.png' }), crit('FS-2', 'not_met')],
+      { outcome: 'stalled', mustPass: ['FS-1'] }
+    ));
+    const lines = out.split('\n');
+    const at = (p) => lines.findIndex((l) => l.startsWith(p));
+    expect(at('**Must pass**')).toBe(at('**Coverage**') + 1);
+    expect(at('**Screenshots**')).toBe(at('**Must pass**') + 1);
+    expect(at('**Diagnosis**')).toBe(at('**Screenshots**') + 1);
+  });
+
+  test('left-out ids and reasons are escaped', () => {
+    const out = renderReport(input([crit('FS-1', 'met', { imageExcluded: 'a | b\nc' })]));
+    expect(out).toContain('| FS-1 | a \\| b c |');
+  });
+});
+
+describe('isEmbeddableImagePath (D8)', () => {
+  test.each([
+    'evidence/FS-1/shot.png', 'evidence/a.jpg', 'evidence/a.jpeg', 'evidence/_x/-y/z.v2.png',
+  ])('accepts %s', (p) => expect(isEmbeddableImagePath(p)).toBe(true));
+
+  test.each([
+    'evidence/../x.png', '/abs/evidence/x.png', 'report-images/x.png', 'evidence/a b.png',
+    'evidence/x.PNG', 'evidence/x.gif', 'evidence/.hidden/x.png', 'evidence/.png', 'evidence/',
+    'evidence/a].png', 'evidence//x.png', 'evidence/a/', 'x.png', '', null, undefined, 42,
+  ])('rejects %p', (p) => expect(isEmbeddableImagePath(p)).toBe(false));
+});
+
 describe('mustPassCoverage — placeholder cells and header variants (review fixes)', () => {
   const { mustPassCoverage } = require('./functional-verification');
   test('a `no`, `none`, `n/a` or dash cell is blank, not an unknown objective', () => {
@@ -3146,5 +3421,227 @@ describe('mustPassCoverage — placeholder cells and header variants (review fix
       ],
     });
     expect(out).toEqual({ criteria: ['FS-1'], uncovered: [], unknown: [] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reportPublishPlan / report-publish-plan (verification-report-images D9)
+// ---------------------------------------------------------------------------
+
+describe('reportPublishPlan', () => {
+  const DIR = 'rep';
+  const imgLines = (refs) => refs.map((r, i) => `### FS-${i} — s (met)\n\n![FS-${i}](${r})\n`).join('\n');
+  const report = (refs, head = '') => `# R\n\n${head}\n## Evidence\n\n${imgLines(refs)}`;
+  const okAll = () => 'ok';
+  const refs = (n) => Array.from({ length: n }, (_, i) => `evidence/FS-${i}/shot.png`);
+  const size = (b) => Object.keys(b).length;
+
+  test.each([
+    [0, 0], [1, 0], [254, 0], [255, 0], [300, 0],
+    [0, 3], [1, 3], [254, 3], [255, 3], [300, 3],
+  ])('%i images with %i removals: batches <= 254, removals first, nothing else', (n, r) => {
+    const embedded = refs(n);
+    const gone = Array.from({ length: r }, (_, i) => `evidence/old/gone${i}.png`);
+    const plan = reportPublishPlan(report(embedded), {
+      reportDir: DIR,
+      published: [...embedded, ...gone, 'index.html'],
+      resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual(gone);
+    plan.batches.forEach((b) => expect(size(b)).toBeLessThanOrEqual(254));
+    const entries = plan.batches.flatMap((b) => Object.entries(b));
+    expect(entries.map(([k]) => k)).toEqual([...gone, ...embedded]);
+    entries.slice(0, r).forEach(([, v]) => expect(v).toBeNull());
+    entries.slice(r).forEach(([k, v]) => expect(v).toBe(path.join(DIR, k)));
+    expect(plan.rejected).toEqual([]);
+  });
+
+  test('remove never includes index.html or non-evidence paths', () => {
+    const plan = reportPublishPlan(report([]), {
+      reportDir: DIR,
+      published: ['index.html', 'notes.txt', 'evidence/x/a.png', 'evidence/../b.png'],
+      resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual(['evidence/x/a.png']);
+  });
+
+  test('a still-referenced published path is not removed and is re-sent', () => {
+    const plan = reportPublishPlan(report(['evidence/a.png']), {
+      reportDir: DIR, published: ['evidence/a.png'], resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual([]);
+    expect(plan.batches).toEqual([{ 'evidence/a.png': path.join(DIR, 'evidence/a.png') }]);
+  });
+
+  test('missing and outside references are rejected with the reason and in no batch', () => {
+    const resolveRef = (r) =>
+      r.endsWith('m.png') ? 'not on disk' : r.endsWith('o.png') ? 'resolves outside the report directory' : 'ok';
+    const plan = reportPublishPlan(report(['evidence/m.png', 'evidence/o.png', 'evidence/g.png']), {
+      reportDir: DIR, published: [], resolveRef,
+    });
+    expect(plan.rejected).toEqual([
+      { path: 'evidence/m.png', reason: 'not on disk' },
+      { path: 'evidence/o.png', reason: 'resolves outside the report directory' },
+    ]);
+    expect(plan.batches).toEqual([{ 'evidence/g.png': path.join(DIR, 'evidence/g.png') }]);
+  });
+
+  test('a hand-edited reference the guard refuses is in no batch', () => {
+    const plan = reportPublishPlan(report(['evidence/../../etc/x.png', 'evidence/A.PNG', 'evidence/ok.png']), {
+      reportDir: DIR, published: [], resolveRef: okAll,
+    });
+    expect(plan.batches).toEqual([{ 'evidence/ok.png': path.join(DIR, 'evidence/ok.png') }]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  test('duplicate references are sent once', () => {
+    const plan = reportPublishPlan(report(['evidence/a.png', 'evidence/a.png']), {
+      reportDir: DIR, published: [], resolveRef: okAll,
+    });
+    expect(plan.batches).toHaveLength(1);
+    expect(size(plan.batches[0])).toBe(1);
+  });
+
+  test('references outside whole lines under ## Evidence are never collected, and still count as removable', () => {
+    const md = [
+      '# R',
+      '| FS-2 | s | see ![x](evidence/FS-2/other.png) |',
+      '| FS-3 | s | ![x](evidence/FS-2/other.png) | 1 |',
+      '### FS-9 ![x](evidence/FS-2/other.png)',
+      '![x](evidence/FS-2/before.png)',
+      '## Evidence',
+      '',
+      '### FS-1 — ![x](evidence/FS-2/other.png) (met)',
+      '',
+      '![FS-1](evidence/FS-1/real.png)',
+      'text ![x](evidence/FS-2/other.png)',
+    ].join('\n');
+    const plan = reportPublishPlan(md, {
+      reportDir: DIR,
+      published: ['evidence/FS-2/other.png', 'evidence/FS-2/before.png'],
+      resolveRef: okAll,
+    });
+    expect(plan.remove).toEqual(['evidence/FS-2/other.png', 'evidence/FS-2/before.png']);
+    expect(plan.batches).toHaveLength(1);
+    expect(Object.keys(plan.batches[0])).toEqual([
+      'evidence/FS-2/other.png', 'evidence/FS-2/before.png', 'evidence/FS-1/real.png',
+    ]);
+  });
+
+  test('a report with no Evidence section yields an empty plan', () => {
+    expect(reportPublishPlan('# R\n', { reportDir: DIR, resolveRef: okAll })).toEqual({
+      batches: [], remove: [], rejected: [],
+    });
+  });
+
+  test('an `## Evidence` line carried in the unescaped Reason does not open the scan early', () => {
+    const head = '**Reason**: r\n## Evidence\n![FS-9](evidence/FS-9/excluded.png)\n';
+    const plan = reportPublishPlan(report(['evidence/FS-1/real.png'], head), {
+      reportDir: DIR, resolveRef: okAll,
+    });
+    expect(plan.batches.flatMap((b) => Object.keys(b))).toEqual(['evidence/FS-1/real.png']);
+  });
+
+  test('the scan stops at the next `## ` heading after `## Evidence`', () => {
+    const md = `${report(['evidence/FS-1/real.png'])}\n## Fix run\n\n![x](evidence/FS-2/later.png)\n`;
+    const plan = reportPublishPlan(md, { reportDir: DIR, resolveRef: okAll });
+    expect(plan.batches.flatMap((b) => Object.keys(b))).toEqual(['evidence/FS-1/real.png']);
+  });
+});
+
+describe('CLI report-publish-plan', () => {
+  let tmpDir;
+  const PNG = Buffer.from('89504e470d0a1a0a', 'hex');
+  const cli = (args) =>
+    spawnSync('node', [MODULE_PATH, ...args], { cwd: tmpDir, encoding: 'utf8' });
+  const crit = (id, extra = {}) => ({
+    id, statement: `s ${id}`, cites: 'c', status: 'met', artifact: null, reason: null,
+    attempts: [], blocker: null, ...extra,
+  });
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fv-plan-test-'));
+    fs.mkdirSync(path.join(tmpDir, 'run', 'evidence', 'FS-1'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'run', 'evidence', 'FS-2'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'run', 'evidence', 'FS-1', 'a.png'), PNG);
+    fs.writeFileSync(path.join(tmpDir, 'run', 'evidence', 'FS-2', 'b.png'), PNG);
+  });
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  const renderTo = (criteria) => {
+    const input = {
+      feature: 'f', prd: 'p', definitionPath: 'd', outcome: 'satisfied', reason: 'r', criteria,
+    };
+    fs.writeFileSync(path.join(tmpDir, 'input.json'), JSON.stringify(input));
+    const r = cli(['render-report', '--file', 'input.json']);
+    expect(r.status).toBe(0);
+    fs.writeFileSync(path.join(tmpDir, 'run', 'report.md'), r.stdout);
+  };
+
+  test('render-report then report-publish-plan: one entry per embedded image, excluded file in no batch', () => {
+    renderTo([
+      crit('FS-1', { ui: true, image: 'evidence/FS-1/a.png' }),
+      crit('FS-2', { ui: true, imageExcluded: 'shows a token' }),
+    ]);
+    const r = cli(['report-publish-plan', '--report', 'run/report.md']);
+    expect(r.status).toBe(0);
+    const plan = JSON.parse(r.stdout);
+    expect(plan.batches).toEqual([{ 'evidence/FS-1/a.png': path.join('run', 'evidence/FS-1/a.png') }]);
+    expect(plan.remove).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  test('--published-file drives removals, first in the batch', () => {
+    renderTo([crit('FS-1', { image: 'evidence/FS-1/a.png' })]);
+    fs.writeFileSync(
+      path.join(tmpDir, 'pub.json'),
+      JSON.stringify(['index.html', 'evidence/FS-2/b.png', 'evidence/FS-1/a.png'])
+    );
+    const plan = JSON.parse(cli(['report-publish-plan', '--report', 'run/report.md', '--published-file', 'pub.json']).stdout);
+    expect(plan.remove).toEqual(['evidence/FS-2/b.png']);
+    expect(Object.entries(plan.batches[0])).toEqual([
+      ['evidence/FS-2/b.png', null],
+      ['evidence/FS-1/a.png', path.join('run', 'evidence/FS-1/a.png')],
+    ]);
+  });
+
+  test('a missing file is rejected as not on disk', () => {
+    renderTo([crit('FS-1', { image: 'evidence/FS-1/nope.png' })]);
+    const plan = JSON.parse(cli(['report-publish-plan', '--report', 'run/report.md']).stdout);
+    expect(plan.batches).toEqual([]);
+    expect(plan.rejected).toEqual([{ path: 'evidence/FS-1/nope.png', reason: 'not on disk' }]);
+  });
+
+  test('a symlink under evidence/ pointing outside the report directory is rejected', () => {
+    const outside = path.join(tmpDir, 'secret.png');
+    fs.writeFileSync(outside, PNG);
+    fs.symlinkSync(outside, path.join(tmpDir, 'run', 'evidence', 'FS-1', 'link.png'));
+    renderTo([crit('FS-1', { image: 'evidence/FS-1/link.png' })]);
+    const plan = JSON.parse(cli(['report-publish-plan', '--report', 'run/report.md']).stdout);
+    expect(plan.batches).toEqual([]);
+    expect(plan.rejected).toEqual([
+      { path: 'evidence/FS-1/link.png', reason: 'resolves outside the report directory' },
+    ]);
+  });
+
+  test.each([
+    ['an object', '{"a":1}'],
+    ['an array with a non-string', '["a", 2]'],
+    ['not JSON', 'nope'],
+  ])('a --published-file that is %s exits 1', (_n, body) => {
+    renderTo([]);
+    fs.writeFileSync(path.join(tmpDir, 'pub.json'), body);
+    expect(cli(['report-publish-plan', '--report', 'run/report.md', '--published-file', 'pub.json']).status).toBe(1);
+  });
+
+  test('--published-file with no value after it exits 1 rather than planning no removals', () => {
+    renderTo([]);
+    expect(cli(['report-publish-plan', '--report', 'run/report.md', '--published-file']).status).toBe(1);
+    expect(cli(['report-publish-plan', '--published-file', '--report', 'run/report.md']).status).toBe(1);
+  });
+
+  test('missing --report, or an unreadable report, exits 1', () => {
+    expect(cli(['report-publish-plan']).status).toBe(1);
+    expect(cli(['report-publish-plan', '--report', 'run/none.md']).status).toBe(1);
   });
 });

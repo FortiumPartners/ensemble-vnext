@@ -1,0 +1,201 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs1-render.md",
+      "reason": "A-1's own Evidence block embeds evidence/FS-1/proof.png.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs2-render.md",
+      "reason": "Only cited.png is embedded under B-1; other1/other2 are in no embed.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs3-render.md",
+      "reason": "Frame grab embedded under V-1; clip.mp4 only as plain text in the Met table, never embedded or linked.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs4-render.md",
+      "reason": "U-1's row carries the literal flag text; the Screenshots header names U-1.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs5-compare.txt",
+      "reason": "Flagged vs unflagged: U-1 stays Met, outcome stays Satisfied, totals unchanged.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs6-fs8-fxA-publish-record.txt",
+      "reason": "A 2-image fixture report was published live by following implement-trd §9.0a; the live file listing (re-read by the Judge, version 1791774869-eb59) holds evidence/FS-1/shot.png and evidence/FS-2/shot.png, exactly the paths the report's embeds reference. /verify-build's publish step is written as 'identical to /implement-trd §9.0a — read that section and follow it' (verify-build.md:565), so one live run of the shared sequence stands for both steps; the two commands were not each run end to end.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs7-batch-publish-record.txt",
+      "reason": "A 300-image fixture was published in two calls to one URL, 254 files then 46 (limit 255 per publish, page included). The Judge re-listed the artifact live: 301 files, evidence/FS-1..FS-300/shot.png plus index.html.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs6-fs8-fxA-publish-record.txt",
+      "reason": "artifacts.json held one verification-report URL (Wd8fKvJriAzh4sfUZ8gr4p) after the first publish and after the full re-publish, which landed as a new version of that same URL; the 300-image run's second batch passed the first batch's URL. No second report URL appeared.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs9-render.md",
+      "reason": "cleared.png embedded; the uncleared image is in no embed and C-2 is listed under 'Images left out' with its reason. The table names the criterion id rather than the file name, per the owner-confirmed layout (TRD D7).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs10-publish-record.txt",
+      "reason": "FS-9-shaped fixture: the publish plan sent one file, and the Judge's live re-listing of J5tBpLxpRE3dBQGXff2eE7 shows only evidence/FS-1/shot.png and index.html; the uncleared evidence/FS-2/uncleared.png is absent.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/FS-11/render-excluded.md",
+      "reason": "Judge opened credential-shot.png: it shows an api_key= value, so it is not cleared. The render has no embed of it, lists K-1 under Images left out with the reason, and report-publish-plan over that render returns no batches, so the image is neither embedded nor published.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": "shows a credential value; not cleared"
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs12-check-skills.txt",
+      "reason": "The three check skills show 0 diff lines since a085623; the check-page publish instructions sit outside the changed hunks and still use each skill's own artifacts.json key.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs13-14-old-vs-new.txt",
+      "reason": "No-image, no-UI fixture: old and new renders have identical sha256.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs13-14-old-vs-new.txt",
+      "reason": "Identical renders for six outcomes; decideNext untouched; 728 functional-verification tests pass.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-report-images/evidence/fs15-relative.txt",
+      "reason": "Embeds are relative evidence/ paths that resolve from the report's directory; renderReport never reads publishArtifacts, so the on-disk report is the same with publishing off.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-16",
+      "status": "not_verifiable",
+      "tier1": "fail",
+      "artifact": null,
+      "reason": "Proving that nothing is published with publishing off needs a live run of an LLM-driven command (/implement-trd or /verify-build) with ensemble.publishArtifacts false; this loop cannot run one, and the verification plan accepted it as not verifiable here.",
+      "cause": "capability-absent",
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}
