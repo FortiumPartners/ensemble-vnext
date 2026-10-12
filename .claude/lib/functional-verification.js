@@ -1534,6 +1534,11 @@ const KNOWN_UNFILLED_DIGESTS = {
   // between the two changes holds exactly this copy
   // (`packages/core/lib/__fixtures__/verification.coverage-floor-v1.md`).
   'coverage-floor-v1': 'f561757a678a062e375b9678d2798e85fb97fbbfe116548490498ec393f1e69b',
+  // The never-unattended template (never-unattended-paths FIX-001), frozen the moment before
+  // the claude.ai artifact service was declared an always-authorized environment (4.13.3).
+  // Every project scaffolded between the two changes holds exactly this copy
+  // (`packages/core/lib/__fixtures__/verification.never-unattended-v1.md`).
+  'never-unattended-v1': 'bad5ae5f15732f14e98bd3989b303f097632c7e785a2d482a5821fb4570611a2',
 };
 
 /**

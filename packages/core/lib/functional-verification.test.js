@@ -1401,6 +1401,24 @@ describe('isVerificationUnfilled', () => {
     });
   });
 
+  test('a project file matching the never-unattended-v1 template (frozen just before the claude-artifacts row) is still reported unfilled, naming it', () => {
+    const priorTemplate = fs.readFileSync(
+      path.join(__dirname, '__fixtures__', 'verification.never-unattended-v1.md'),
+      'utf8'
+    );
+    const currentTemplate = fs.readFileSync(
+      path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'verification.md'),
+      'utf8'
+    );
+
+    // Shipped live until 4.13.3 declared the claude.ai artifact service in §1; every project
+    // scaffolded before that change holds exactly this copy.
+    expect(isVerificationUnfilled(priorTemplate, currentTemplate)).toEqual({
+      unfilled: true,
+      matchedTemplate: 'never-unattended-v1',
+    });
+  });
+
   test('a project file matching the pre-resource-table template, re-saved with CRLF, is still recognised', () => {
     const priorTemplate = fs.readFileSync(
       path.join(__dirname, '__fixtures__', 'verification.pre-1.5.0.md'),

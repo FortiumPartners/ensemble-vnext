@@ -32,7 +32,7 @@ environment is the one to prefer whenever the project has one.
 | dev | | shared integration checks | may write | | |
 | staging | | pre-release only | read-only | **no** | **no** |
 | production | | — | **must not be touched** | **never** | **never** |
-| claude-artifacts | the Claude `Artifact` tool (claude.ai artifact service) — `Artifact({ file_path, files, url })` publish, `action: "list"` / `"read"` | **always authorized** (owner, 2026-10-11): proving anything that is published — a report and its images, check pages, batching, one URL per feature. Publish a private throwaway page from fixture content; never content holding a credential | may write | yes — publishing a private page is the exercise | n/a |
+| claude-artifacts | the Claude `Artifact` tool (the claude.ai artifact service): publish with `Artifact({ file_path, files, url })`, inspect with `action: "list"` / `"read"` | **always authorized**: proving anything this framework publishes — a report and its images, check pages, batching, one URL per feature. Publish a private throwaway page built from fixture content, never content holding a credential | may write | yes — publishing a private page is the exercise | n/a |
 
 Permitted values for **Loop may WRITE data?**: `read-only`, `may write`, `must not be
 touched`. *read-only* authorises exercise that mutates nothing — no records created, no rows
