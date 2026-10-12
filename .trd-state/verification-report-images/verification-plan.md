@@ -1,24 +1,26 @@
 # Verification plan: verification-report-images
 
-**Written**: 2026-10-11 by the owner's ruling after `/implement-trd`
+**Written**: 2026-10-11 by /refine-verification
 **From run**: must-pass-unproven at 11/16, report `.trd-state/verification-report-images/verification-report.md`
-**Agreed with**: the owner ("Accept this", 2026-10-11), on the four publishing criteria
+**Agreed with**: the owner, on how the four unproven must-pass publishing criteria are settled (R1); everything else derived from the evidence
 
 ## Blockers
 none
 
 ## Slices
-none
+| Order | Slice | Criteria |
+|-------|-------|----------|
+| 1 | live publish of a fixture report with images to a private throwaway claude.ai artifact (needs the environment declared by `/verification-setup`) | FS-6, FS-7, FS-8, FS-10 |
 
 ## Owner rulings
 | ID | Ruling | Written into |
 |----|--------|--------------|
-| R1 | FS-6, FS-7, FS-8, FS-10 (must pass, O3/O4) accepted as covered by the publish plan's unit tests and the 2026-10-11 hand probe; no live publish required during verification | `docs/TRD/verification-report-images.md` Open Questions, changelog 1.1.3 |
+| R1 | FS-6, FS-7, FS-8, FS-10 (must pass, O3/O4) are proven live once the owner declares the claude.ai artifact service as a verification environment via `/verification-setup`; the must-pass markings stay | `docs/TRD/verification-report-images.md` Open Questions, changelog 1.1.3 |
 
 ## Accepted as not verifiable
 | Criterion | Ruling | Why |
 |-----------|--------|-----|
-| FS-16 | accepted | publishing-off needs a run of an LLM-driven command; the gating prose was inspected |
+| FS-16 | accepted | publishing-off needs a run of an LLM-driven command (/implement-trd or /verify-build) with `publishArtifacts: false`; the loop cannot run one, only inspect the gating prose (capability absent) |
 
 ## Extra checks
 | Skill | Inputs |
