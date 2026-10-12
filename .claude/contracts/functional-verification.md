@@ -193,7 +193,7 @@ content:
 criterion that is about UI would otherwise have no image to show. A criterion is about UI when
 it names a screen, element, layout or visual state, or its Tier 1 is judge-only for a visual
 property. For each such criterion the exerciser attaches one `screenshot` to its claim: a path
-under the evidence directory (`<report dir>/evidence`), written as the path under that
+under the evidence directory (`<report dir>/evidence`), written in full, starting with that
 directory. Name the file so the report's embedding guard accepts it: `.png`, `.jpg` or `.jpeg`
 in lower case, and every path segment starting with a letter, digit, `_` or `-` and holding
 only letters, digits, `.`, `_` and `-` (no spaces, no brackets). A capture is never written

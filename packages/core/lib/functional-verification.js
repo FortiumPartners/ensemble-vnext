@@ -903,18 +903,21 @@ const EVIDENCE_IMAGE_LINE = /^!\[[^\]]*\]\(([^()\s]+)\)$/;
  */
 function reportPublishPlan(reportMarkdown, { reportDir, published = [], resolveRef }) {
   const lines = String(reportMarkdown).split('\n');
-  const start = lines.findIndex((l) => l.trimEnd() === '## Evidence');
-  const referenced = [];
+  // The LAST `## Evidence` heading, and only up to the next `## ` heading (`## Fix run`): the
+  // renderer writes the section last, while the `**Reason**` line above it is unescaped Judge
+  // text that could carry its own `## Evidence` line and image lines after it.
+  const start = lines.findLastIndex((l) => l.trimEnd() === '## Evidence');
+  const referenced = new Set();
   if (start !== -1) {
     for (const line of lines.slice(start + 1)) {
+      if (line.startsWith('## ')) break;
       const m = EVIDENCE_IMAGE_LINE.exec(line.trimEnd());
-      if (m && isEmbeddableImagePath(m[1]) && !referenced.includes(m[1])) referenced.push(m[1]);
+      if (m && isEmbeddableImagePath(m[1])) referenced.add(m[1]);
     }
   }
-  const stillReferenced = new Set(referenced);
   // Only guard-accepted paths are ever nulled, so `index.html` and anything outside `evidence/`
   // survive. Removals go first: a failure on a later call must not leave a withdrawn image up.
-  const remove = published.filter((p) => isEmbeddableImagePath(p) && !stillReferenced.has(p));
+  const remove = published.filter((p) => isEmbeddableImagePath(p) && !referenced.has(p));
   const rejected = [];
   const entries = remove.map((p) => [p, null]);
   for (const ref of referenced) {
@@ -948,7 +951,7 @@ function classifyImages(criteria) {
   const gate = criteria.some((c) => present(c.image) || c.ui === true || present(c.imageExcluded));
   const shownSet = new Set(shown);
   const flagged = criteria.filter((c) => c.status === 'met' && c.ui === true && !shownSet.has(c));
-  return { gate, shown, shownSet, leftOut, flagged };
+  return { gate, shown, leftOut, flagged, flaggedSet: new Set(flagged) };
 }
 
 /**
@@ -1176,7 +1179,7 @@ function renderReport(input) {
     for (const c of met) {
       const provenAt = c.provenAt === undefined || c.provenAt === null ? '' : c.provenAt;
       // The flag is appended after escaping: it is ours, not Judge text.
-      const flag = images.flagged.includes(c) ? UI_NO_SCREENSHOT_FLAG : '';
+      const flag = images.flaggedSet.has(c) ? UI_NO_SCREENSHOT_FLAG : '';
       lines.push(
         `| ${c.id} | ${escapeCell(c.statement)} | ${escapeCell(c.artifact)}${flag} | ${escapeCell(provenAt)} |`
       );
@@ -1741,6 +1744,12 @@ if (require.main === module) {
   }
 
   const [, , subcommand, ...rest] = process.argv;
+  // `--name <value>` from `rest`; undefined when the flag is absent or has no value after it.
+  const flag = (name) => {
+    const i = rest.indexOf(name);
+    const v = i === -1 ? undefined : rest[i + 1];
+    return v === undefined || v.startsWith('--') ? undefined : v;
+  };
 
   if (subcommand === 'check-evidence') {
     // `--state-dir <dir>` (verification-reuses-evidence AMEND-001): `covers` reaches the checker
@@ -1811,10 +1820,6 @@ if (require.main === module) {
   } else if (subcommand === 'must-pass-coverage') {
     // File paths, not a JSON payload (D6, D11): the command passes paths and never has to parse
     // the definition table in prose, so a dropped column cannot fail open.
-    const flag = (name) => {
-      const i = rest.indexOf(name);
-      return i === -1 ? undefined : rest[i + 1];
-    };
     const trdPath = flag('--trd');
     const definitionPath = flag('--definition');
     if (!trdPath || !definitionPath) {
@@ -1823,12 +1828,11 @@ if (require.main === module) {
       console.log(JSON.stringify(mustPassCoverageFromFiles(trdPath, definitionPath)));
     }
   } else if (subcommand === 'report-publish-plan') {
-    const flag = (name) => {
-      const i = rest.indexOf(name);
-      return i === -1 ? undefined : rest[i + 1];
-    };
     const reportPath = flag('--report');
     const publishedPath = flag('--published-file');
+    // A `--published-file` named without a value must not read as "nothing published": that
+    // would plan no removals and leave a withdrawn image up.
+    if (rest.includes('--published-file') && !publishedPath) usage();
     let reportMarkdown;
     let published = [];
     try {

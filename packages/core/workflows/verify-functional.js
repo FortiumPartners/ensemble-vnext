@@ -458,7 +458,8 @@ function buildExercisePrompt(iteration, slice, concurrentSlices = 1) {
     `the artifact (not a description of what it ought to contain) -- give none for a ` +
     `judge-only criterion, and expect it to be discarded and re-derived for one either way. ` +
     `"screenshot" is one image (png, jpg or jpeg) for a criterion that is about UI, per the ` +
-    `contract's "One screenshot for every UI criterion": a path under ${EVIDENCE_DIR}, never ` +
+    `contract's "One screenshot for every UI criterion": a path under ${EVIDENCE_DIR}, written in full ` +
+    `(starting "${EVIDENCE_DIR}/"), never ` +
     `written over an existing file; for a video, a frame grab, never the video; null for any ` +
     `other criterion or where no image can be made.`
   )

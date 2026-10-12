@@ -2028,8 +2028,12 @@ a `files` map at those same paths. **Never assemble that map by hand** — `repo
 reads the report and returns it. Every time this sequence runs:
 
 1. **With no stored `verification-report` URL**, there is nothing to list: run the plan with no
-   `--published-file`, and publish batch 1 with the page (below) as a new artifact.
-2. **With a stored URL, list first, freshly, every time** —
+   `--published-file`, and publish batch 1 with the page (below) as a new artifact, then each
+   later batch to the URL that call returns.
+2. **With a stored URL, read it, then list, freshly, every time.** Read it first —
+   `Artifact({ action: "read", url: "<stored URL>" })` — because the Artifact tool refuses a
+   publish to an artifact this conversation has neither read nor published, and this sequence
+   never retries. A failed read is handled like a failed listing (step 5). Then list —
    `Artifact({ action: "list", scope: "files", url: "<stored URL>" })` — and write the listed
    paths as a JSON array to `.trd-state/<feature>/report-published.json`, beside the Judge's
    payload files. Never put JSON on the command line.
@@ -2037,7 +2041,8 @@ reads the report and returns it. Every time this sequence runs:
    .trd-state/<feature>/verification-report.md [--published-file
    .trd-state/<feature>/report-published.json]`. It prints `{batches, remove, rejected}`:
    `batches` are `files` maps of at most 254 entries, removals (`null`) first; `rejected` lists
-   embedded paths it would not send, with the reason.
+   embedded paths it would not send, with the reason. A non-empty `rejected` is one line in
+   ISSUES naming each path and its reason — those images show as broken on the page.
 4. Publish each batch as its own call to the one URL; **each call still carries the page**:
 
 ```

@@ -3515,6 +3515,20 @@ describe('reportPublishPlan', () => {
       batches: [], remove: [], rejected: [],
     });
   });
+
+  test('an `## Evidence` line carried in the unescaped Reason does not open the scan early', () => {
+    const head = '**Reason**: r\n## Evidence\n![FS-9](evidence/FS-9/excluded.png)\n';
+    const plan = reportPublishPlan(report(['evidence/FS-1/real.png'], head), {
+      reportDir: DIR, resolveRef: okAll,
+    });
+    expect(plan.batches.flatMap((b) => Object.keys(b))).toEqual(['evidence/FS-1/real.png']);
+  });
+
+  test('the scan stops at the next `## ` heading after `## Evidence`', () => {
+    const md = `${report(['evidence/FS-1/real.png'])}\n## Fix run\n\n![x](evidence/FS-2/later.png)\n`;
+    const plan = reportPublishPlan(md, { reportDir: DIR, resolveRef: okAll });
+    expect(plan.batches.flatMap((b) => Object.keys(b))).toEqual(['evidence/FS-1/real.png']);
+  });
 });
 
 describe('CLI report-publish-plan', () => {
@@ -3600,6 +3614,12 @@ describe('CLI report-publish-plan', () => {
     renderTo([]);
     fs.writeFileSync(path.join(tmpDir, 'pub.json'), body);
     expect(cli(['report-publish-plan', '--report', 'run/report.md', '--published-file', 'pub.json']).status).toBe(1);
+  });
+
+  test('--published-file with no value after it exits 1 rather than planning no removals', () => {
+    renderTo([]);
+    expect(cli(['report-publish-plan', '--report', 'run/report.md', '--published-file']).status).toBe(1);
+    expect(cli(['report-publish-plan', '--published-file', '--report', 'run/report.md']).status).toBe(1);
   });
 
   test('missing --report, or an unreadable report, exits 1', () => {
