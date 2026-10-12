@@ -10,6 +10,44 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.3] - 2026-10-11
+
+The published verification report now shows, inline, the screenshot that proves each
+criterion. Plan: `docs/TRD/verification-report-images.md`. Before this, a UI change could
+capture hundreds of screenshots and publish none: the report listed each one as a local file
+path nobody else could open.
+
+### Added
+
+- **One image per criterion, in the report.** Where a criterion's proof is an image (png, jpg;
+  for video, a frame grab), the report embeds that one image in a new `## Evidence` section,
+  under the criterion's id and statement. A `**Screenshots**` line in the header counts them.
+- **A UI criterion proven without a screenshot is flagged**, in its Met row and on the
+  Screenshots line. It still counts as met.
+- **The report is published with its images.** `/implement-trd` and `/verify-build` upload
+  the images the report embeds alongside the page, in batches under the 255-file limit, all to
+  the one report URL kept in `artifacts.json`. A new `report-publish-plan` CLI works out the
+  batches, so the file list is never assembled by hand.
+- **No image showing a credential is ever published.** The verification judge looks at each
+  image before citing it; one showing a password, token or key is left out and named in the
+  report with the reason.
+- **The claude.ai artifact service is a declared, always-authorized verification
+  environment** in the shipped `verification.md` template. The verification loop may publish
+  private throwaway pages to prove anything that gets published. Projects pick this up on
+  `/rebase-project`; an unfilled copy of the previous template is still reported unfilled.
+
+A report with no images and no UI criteria renders byte-for-byte as before, and run outcomes
+are unchanged.
+
+Proven: verification satisfied, 15 of 16 criteria, all 9 must-pass, the four publishing ones by
+live publishes to claude.ai (a 300-image report went up as 254 + 46 to one URL). This was also
+the first live run of the 4.13.1 must-pass block, which held the run at must-pass-unproven
+until those four were proven.
+
+Known open: that nothing is published with `publishArtifacts: false` is checked only by
+reading the commands, not by a run; the cost of the judge looking at one image per criterion
+is unmeasured.
+
 ## [4.13.2] - 2026-10-07
 
 `/audit-docs` no longer skips a TRD that was moved to another folder as having no
