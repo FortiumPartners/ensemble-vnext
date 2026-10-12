@@ -1,5 +1,5 @@
 {
-  "iteration": 2,
+  "iteration": 1,
   "criteria": [
     {
       "id": "FS-1",
@@ -63,23 +63,23 @@
     },
     {
       "id": "FS-6",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/verification-report-images/evidence/fs6-7-8-16-command-text.txt",
-      "reason": "Requires a published artifact's file listing; the claude.ai artifact service is not a declared environment in verification.md, so no publish was made. Only prose and a publish plan exist.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs6-fs8-fxA-publish-record.txt",
+      "reason": "A 2-image fixture report was published live by following implement-trd §9.0a; the live file listing (re-read by the Judge, version 1791774869-eb59) holds evidence/FS-1/shot.png and evidence/FS-2/shot.png, exactly the paths the report's embeds reference. /verify-build's publish step is written as 'identical to /implement-trd §9.0a — read that section and follow it' (verify-build.md:565), so one live run of the shared sequence stands for both steps; the two commands were not each run end to end.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
-      "ui": true,
+      "ui": false,
       "imageExcluded": null
     },
     {
       "id": "FS-7",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/verification-report-images/evidence/fs7-batches.txt",
-      "reason": "Plan splits 300 images into batches of 254 and 46 covering all embeds, but per-publish records and the final listing need a live publish to an undeclared environment.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs7-batch-publish-record.txt",
+      "reason": "A 300-image fixture was published in two calls to one URL, 254 files then 46 (limit 255 per publish, page included). The Judge re-listed the artifact live: 301 files, evidence/FS-1..FS-300/shot.png plus index.html.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -87,11 +87,11 @@
     },
     {
       "id": "FS-8",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/verification-report-images/evidence/fs6-7-8-16-command-text.txt",
-      "reason": "Needs artifacts.json after a real multi-batch publish and re-publish; none possible (undeclared environment). Command text is instruction, not a captured run.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs6-fs8-fxA-publish-record.txt",
+      "reason": "artifacts.json held one verification-report URL (Wd8fKvJriAzh4sfUZ8gr4p) after the first publish and after the full re-publish, which landed as a new version of that same URL; the 300-image run's second batch passed the first batch's URL. No second report URL appeared.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -111,11 +111,11 @@
     },
     {
       "id": "FS-10",
-      "status": "not_verifiable",
+      "status": "met",
       "tier1": "pass",
-      "artifact": ".trd-state/verification-report-images/evidence/fs10-publish-plan.txt",
-      "reason": "Plan sends only cleared.png and nulls uncleared.png if already published, but the published file listing needs a live publish to an undeclared environment.",
-      "cause": "environment-unreachable",
+      "artifact": ".trd-state/verification-report-images/evidence/live/fs10-publish-record.txt",
+      "reason": "FS-9-shaped fixture: the publish plan sent one file, and the Judge's live re-listing of J5tBpLxpRE3dBQGXff2eE7 shows only evidence/FS-1/shot.png and index.html; the uncleared evidence/FS-2/uncleared.png is absent.",
+      "cause": null,
       "provenAt": 1,
       "image": null,
       "ui": false,
@@ -184,9 +184,9 @@
     {
       "id": "FS-16",
       "status": "not_verifiable",
-      "tier1": "pass",
-      "artifact": ".trd-state/verification-report-images/evidence/fs6-7-8-16-command-text.txt",
-      "reason": "Needs a run of /implement-trd or /verify-build with publishing off. Both are LLM-driven commands this loop cannot run; only the prose gating was inspected.",
+      "tier1": "fail",
+      "artifact": null,
+      "reason": "Proving that nothing is published with publishing off needs a live run of an LLM-driven command (/implement-trd or /verify-build) with ensemble.publishArtifacts false; this loop cannot run one, and the verification plan accepted it as not verifiable here.",
       "cause": "capability-absent",
       "provenAt": 1,
       "image": null,
@@ -195,8 +195,7 @@
     }
   ],
   "gapsClosed": [
-    0,
-    1
+    0
   ],
-  "outcome": "must-pass-unproven"
+  "outcome": "satisfied"
 }

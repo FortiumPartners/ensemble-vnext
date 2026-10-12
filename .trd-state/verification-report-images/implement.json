@@ -137,6 +137,49 @@
     "prd_resolved": true,
     "source_kind": "intended-change",
     "prd_path": "docs/TRD/verification-report-images.md § Intended Change",
-    "environments": {}
+    "environments": {
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "declared in verification.md §1; always authorized (owner, 2026-10-11); Artifact tool confirmed callable from a workflow agent"
+      },
+      "preview": {
+        "status": "unusable",
+        "reason": "template row, no URL declared"
+      },
+      "local": {
+        "status": "unusable",
+        "reason": "template example row; this project runs no server"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "template row, no URL declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "template row"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    },
+    "fix": {
+      "plan": ".trd-state/verification-report-images/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": 0,
+          "criteriaClosed": 4,
+          "criteriaOpen": 1,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
+    },
+    "outcome": "satisfied"
   }
 }
