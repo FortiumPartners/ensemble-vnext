@@ -586,11 +586,11 @@ Audit of 2026-10-11 (`/audit-trd`, 5 of 5 verifiers reporting, source
 `docs/plan/verification-report-images.investigation.md`): its three findings — O8's scope, D9's
 scan, D1's sweep citation — were checked against the code and applied. None of them bore on the
 rows below, and each row needs a live run or another repository, which an audit of the document
-does not perform, so all four stay open. The cost row (former OQ-4) was added by the v1.1.2 refinement.
+does not perform. The browser-display row was closed on 2026-10-11: the owner opened a
+`/verify-build` sample page on a phone and both images rendered inline. The cost row (former OQ-4) was added by the v1.1.2 refinement.
 
 | Claim | How I'd check it | Why the 2026-10-11 audit left it open |
 |-------|------------------|----------------------------------------|
-| The 2026-10-11 probe's images display correctly in a browser: the probe established the rendered `<img src>` markup and that both files were served at those paths, but nobody viewed the page | open the probe page, or the first real report, in a browser | needs a person viewing a published page |
 | Whether `null` removal entries — and the page passed as `file_path` — count toward the 255-file per-publish limit; untested, so every batch holds at most 254 entries including removals (D9) | publish a page with 254 images plus one `null`, then 255 entries, and see which call is refused | needs live publishes against the Artifact service |
 | The Judge subagent can view png/jpg files through its Read tool | inspect a Judge transcript on a judge-only criterion | needs a live verification run's transcript |
 | What Judge clearance of one image per ruled criterion costs per run (former OQ-4, TR3) | compare Judge token use with and without image fields on the first consuming-project UI run | needs a live run on a UI feature |
