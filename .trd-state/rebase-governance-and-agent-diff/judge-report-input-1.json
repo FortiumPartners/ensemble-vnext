@@ -1,0 +1,95 @@
+{
+ "feature": "rebase-governance-and-agent-diff",
+ "prd": "docs/TRD/rebase-governance-and-agent-diff.md ## Reproduction",
+ "definitionPath": ".trd-state/rebase-governance-and-agent-diff/success-definition.md",
+ "outcome": "satisfied",
+ "reason": "no gaps remain — every criterion is met or not verifiable here",
+ "criteria": [
+  {
+   "id": "FS-1",
+   "statement": "Every list of governance files in `packages/core/commands/rebase-project.md` names all four files: `constitution.md`, `stack.md`, `process.md` and `verification.md`. No list names the first three and leaves out `verification.md`. That covers the usage header, the goals list, the end of §4.7, the \"Files Preserved\" report template and the Notes, plus any other governance list in the file",
+   "cites": "Expected 1, line 31 (\"Every governance list names four files\"); Steps 1, lines 6–8 (the five lists that name three)",
+   "status": "met",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-1.txt",
+   "reason": "Every governance list in rebase-project.md (usage header line 24, goals line 48, rules section lines 1046-1049, end of 4.7 lines 1093-1094, Files Preserved template 1148-1152, lines 1259 and 1283) names all four files; a search for a three-file list omitting verification.md returns no match.",
+   "cause": null,
+   "provenAt": 1,
+   "attempts": 1,
+   "blocker": null,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-2",
+   "statement": "`rebase-project.md` names the framework rules it replaces explicitly, as exactly `async-discipline.md`, `autonomy.md` and `command-status.md`. It no longer defines them by example (\"`async-discipline.md`, `autonomy.md`, …\") or as \"every `.md` file in the template rules directory\". So nothing in its text puts `verification.md` among the rules that get replaced when they differ",
+   "cites": "Expected 1, lines 31–32; Steps 1, lines 9–13; Actual 1, lines 20–22",
+   "status": "met",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-2.txt",
+   "reason": "Framework rules are named explicitly as async-discipline.md, autonomy.md and command-status.md at lines 25, 50, 1060 and 1261; searches for 'every .md file in the template rules directory', an ellipsis-terminated example list, and verification.md among replaced rules all return no match.",
+   "cause": null,
+   "provenAt": 1,
+   "attempts": 1,
+   "blocker": null,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-3",
+   "statement": "A rebase of a project whose owner has filled in `.claude/rules/verification.md` leaves that file byte-for-byte unchanged, even though it differs from the template copy",
+   "cites": "Actual 1, lines 20–23",
+   "status": "met",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-3.txt",
+   "reason": "Scratch project with an owner-edited verification.md that differs from the template: sha256 2f2f41f8... before and after scaffold-project.sh --refresh is identical, and the run logs 'Refusing to refresh project-authored rule: verification.md' while refreshing the 3 framework rules.",
+   "cause": null,
+   "provenAt": 1,
+   "attempts": 1,
+   "blocker": null,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-4",
+   "statement": "Run against an unmodified project, `/rebase-project` reports 0 agents as updated. This holds even though every vendored agent carries the generated `skills:` frontmatter list and the `ENSEMBLE:SKILLS:BEGIN … END` section, which the plugin's copies never carry",
+   "cites": "Expected 2, line 33; Actual 2, lines 24–27; Root cause (2), lines 37–38",
+   "status": "met",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-4.txt",
+   "reason": "scaffold-project.sh --agent-status over this repo's vendored agents (which carry the generated skills section) reports all 13 agents unchanged: updated count 0, unchanged count 13, rc=0.",
+   "cause": null,
+   "provenAt": 1,
+   "attempts": 1,
+   "blocker": null,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-5",
+   "statement": "When a plugin agent's shipped text changes outside the `skills:` list and the `ENSEMBLE:SKILLS` section, `/rebase-project` reports that agent as updated. Ignoring the generated skill content must not hide a real change",
+   "cites": "Expected 2, lines 33–34",
+   "status": "met",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-5.txt",
+   "reason": "With one sentence appended to code-reviewer.md's body in a scratch plugin copy, --agent-status reports exactly code-reviewer as updated and the other 12 agents unchanged.",
+   "cause": null,
+   "provenAt": 1,
+   "attempts": 1,
+   "blocker": null,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  }
+ ],
+ "finalEnvironmentRun": {
+  "command": "",
+  "status": "skipped"
+ },
+ "mustPass": [
+  "FS-1",
+  "FS-2",
+  "FS-4",
+  "FS-5"
+ ],
+ "mustPassUncovered": []
+}
