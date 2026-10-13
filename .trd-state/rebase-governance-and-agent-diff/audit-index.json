@@ -1,0 +1,135 @@
+{
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Name verification.md in every governance list in rebase-project.md; name framework rules (async-discipline.md, autonomy.md, command-status.md) explicitly instead of by example, etc., or every-.md-file wording; add BATS tests to scaffold-project.test.sh. Dependencies: none. Serves O1.",
+      "touches": [
+        "packages/core/commands/rebase-project.md",
+        "packages/core/scripts/scaffold-project.test.sh"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Add --agent-status and --sync-agents modes to scaffold-project.sh (lift inline Python into a function; route new modes before scaffold_project; send info() output to stderr in these modes; compare with end-of-file whitespace removed). Add a Path Resolution row to rebase-project.md and point section 2.1 step 3 and section 4.1 at the script. Add BATS tests. Dependencies: none. Serves O2, O3.",
+      "touches": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "Nothing in /rebase-project's text can be read as permitting it to replace .claude/rules/verification.md: every list of governance files names it, and framework rules are named explicitly rather than as every file in the template rules directory.",
+      "source": "TRD Objectives table, O1 (must pass: yes)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "/rebase-project reports an agent as updated only when the plugin's agent differs from the project's copy in something other than the generated skill content (the skills: frontmatter list and the ENSEMBLE:SKILLS marked section).",
+      "source": "TRD Objectives table, O2 (must pass: yes)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "The agent comparison is made by a deterministic script, not by the model reading two files.",
+      "source": "TRD Objectives table, O3 (must pass: not marked)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-001-a",
+      "statement": "Every line naming process.md as a governance file also names verification.md (line level).",
+      "source": "TRD Master Task List, FIX-001 acceptance (a)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-b",
+      "statement": "No line naming a framework rule also names verification.md as one.",
+      "source": "TRD Master Task List, FIX-001 acceptance (b)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-c",
+      "statement": "The set of framework rule names in rebase-project.md equals the template rules directory minus scaffold-project.sh AUTHORED_RULES.",
+      "source": "TRD Master Task List, FIX-001 acceptance (c)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-001-d",
+      "statement": "rebase-project.md contains none of the ellipsis or etc. next to a rule name, none of any future additions, and none of Every .md file in.",
+      "source": "TRD Master Task List, FIX-001 acceptance (d)",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-002-a",
+      "statement": "A scaffolded, injected project gives exactly one line per agents-lib/*.md file, all unchanged (count asserted).",
+      "source": "TRD Master Task List, FIX-002 acceptance (a)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-b",
+      "statement": "A one-line change to a plugin agent body reports that agent, and only it, updated.",
+      "source": "TRD Master Task List, FIX-002 acceptance (b)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-c",
+      "statement": "A missing project agent reports new; an extra project agent reports custom.",
+      "source": "TRD Master Task List, FIX-002 acceptance (c)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-d",
+      "statement": "A project agent with only its skills: list or marked section edited reports unchanged.",
+      "source": "TRD Master Task List, FIX-002 acceptance (d)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-e",
+      "statement": "After --sync-agents, an updated agent carries the plugin's new body and its skill preloads (skills: list and marked section).",
+      "source": "TRD Master Task List, FIX-002 acceptance (e)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-f",
+      "statement": "Golden test: injected output for a fixed selection, captured from today's code before the refactor, is reproduced byte for byte.",
+      "source": "TRD Master Task List, FIX-002 acceptance (f)",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-002-g",
+      "statement": "--agent-status writes nothing under the project, and combining either mode with --refresh or --force exits non-zero. Run against this repo, --agent-status reports 13 unchanged.",
+      "source": "TRD Master Task List, FIX-002 acceptance (g)",
+      "served_by": [
+        "FIX-002"
+      ]
+    }
+  ]
+}

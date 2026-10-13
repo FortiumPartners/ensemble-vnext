@@ -136,4 +136,8 @@ none
 
 ## Could Not Verify
 
-- That a model running the edited command calls the script for the agent step, rather than diffing or copying files itself. That is prompt adherence, which no test here can check.
+*Rewritten by `/audit-build`, 2026-10-12.*
+
+- **Fidelity to the source.** No PRD exists for this work. The source is a defect report from a consuming project's `/rebase-project` run, relayed by the owner, and it is not on disk. The audit checked the delivered code against this TRD only. Whether O1–O3 capture everything that report asked for, and whether anything was left out, was not checked.
+- **That a model running the edited command calls the script for the agent step**, rather than diffing or copying files itself. That is prompt adherence, and no test here can check it. Out of scope for a code audit.
+- **The Task Grounding line numbers are a pre-build snapshot.** They resolve against base commit `3f25d27`, and the delivered edits to `rebase-project.md` and `scaffold-project.sh` have moved them. This audit did not re-point them. The section is history for two finished tasks, not instructions.
