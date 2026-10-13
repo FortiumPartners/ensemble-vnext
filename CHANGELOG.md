@@ -10,6 +10,42 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.4] - 2026-10-12
+
+`/rebase-project` no longer reads as permission to overwrite a project's
+`verification.md`, and no longer flags every agent as changed on every run. Plan:
+`docs/TRD/rebase-governance-and-agent-diff.md`. Both were reported from a consuming
+project's rebase.
+
+### Fixed
+
+- **`verification.md` is named as owner-governed everywhere in `/rebase-project`.** Five
+  lists of governance files named only `constitution.md`, `stack.md` and `process.md`, and
+  the framework rules were defined as "every file in the template rules directory", which
+  includes `verification.md`. A model following the command could have replaced an owner's
+  environment policy with the blank template. The script itself always refused to. The
+  framework rules are now named outright (`async-discipline.md`, `autonomy.md`,
+  `command-status.md`), and a test keeps that list equal to the template directory.
+- **Agents are reported as updated only when they really changed.** Each vendored agent
+  carries a generated `skills:` list and a marked skills section that the plugin's copy never
+  has, so a whole-file comparison flagged all 13 agents every time. `scaffold-project.sh` has
+  two new modes that compare with the generated content removed: `--agent-status` (read-only
+  report) and `--sync-agents` (copies changed agents, then puts their skill preloads back).
+  `/rebase-project` now calls them instead of comparing and copying agents itself.
+- **A rebase no longer strips the skill preloads from every agent.** The command used to
+  copy plugin agents over the project's without re-adding the preloads; `--sync-agents` adds
+  them back. Under `--preserve-all`, new agents go through `--sync-agents --new-only`.
+
+Consuming projects get the fixed command on their next `/rebase-project`.
+
+Proven: verification satisfied, 5 of 5 criteria (4 of 4 must-pass); `/audit-build` closed it
+with every requirement implemented and tested. 16 new BATS tests, including a golden fixture
+showing the injected agent output is byte-for-byte unchanged.
+
+Known open: a skill added by a rebase appears in agents without its description until the
+next rebase, because agents sync before skills are added; `--sync-agents` prints an agent
+whose preloads were rewritten as "unchanged".
+
 ## [4.13.3] - 2026-10-11
 
 The published verification report now shows, inline, the screenshot that proves each
