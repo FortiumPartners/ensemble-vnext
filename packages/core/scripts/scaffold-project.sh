@@ -8,6 +8,8 @@
 # Usage:
 #   ./scaffold-project.sh [--plugin-dir DIR] [--copy-skills] [--force] [project-directory]
 #   ./scaffold-project.sh --refresh --plugin-dir DIR [project-directory]
+#   ./scaffold-project.sh --agent-status --plugin-dir DIR [project-directory]
+#   ./scaffold-project.sh --sync-agents [--new-only] --plugin-dir DIR [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
@@ -17,6 +19,11 @@
 #                       .claude/ (per docs/TRD/runtime-refresh.md §2.2/§3.2). Never
 #                       creates a component that is absent, never deletes one the
 #                       plugin no longer carries. Mutually exclusive with --force.
+#   --agent-status     Read-only: print "<state>\t<name>" per agent (new, updated,
+#                       unchanged, custom), ignoring generated skill preloads.
+#   --sync-agents      Copy new and updated agents from the plugin, then re-inject
+#                       skill preloads. Prints the --agent-status lines.
+#   --new-only         With --sync-agents: copy only new agents (--preserve-all).
 #
 # If project-directory is not provided, uses current directory.
 #
@@ -34,6 +41,9 @@ PLUGIN_DIR=""
 COPY_SKILLS=false
 FORCE=false
 REFRESH=false
+AGENT_STATUS=false
+SYNC_AGENTS=false
+NEW_ONLY=false
 PROJECT_DIR=""
 
 # The framework-owned skills ship to EVERY project regardless of stack selection
@@ -62,6 +72,18 @@ while [[ $# -gt 0 ]]; do
             REFRESH=true
             shift
             ;;
+        --agent-status)
+            AGENT_STATUS=true
+            shift
+            ;;
+        --sync-agents)
+            SYNC_AGENTS=true
+            shift
+            ;;
+        --new-only)
+            NEW_ONLY=true
+            shift
+            ;;
         -*)
             echo "Unknown option: $1" >&2
             exit 1
@@ -81,6 +103,28 @@ done
 # instead of guessing.
 if [[ "$REFRESH" == "true" && "$FORCE" == "true" ]]; then
     echo "Error: --refresh and --force are mutually exclusive" >&2
+    exit 1
+fi
+
+# --agent-status and --sync-agents are whole-run modes that own only the agent
+# step for /rebase-project. Each is exclusive with the other and with the modes
+# above, for the same reason: combining would have to pick one meaning.
+if [[ "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" ]]; then
+    if [[ "$AGENT_STATUS" == "true" && "$SYNC_AGENTS" == "true" ]]; then
+        echo "Error: --agent-status and --sync-agents are mutually exclusive" >&2
+        exit 1
+    fi
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" ]]; then
+        echo "Error: --agent-status/--sync-agents cannot be combined with --refresh or --force" >&2
+        exit 1
+    fi
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        echo "Error: --agent-status/--sync-agents require --plugin-dir" >&2
+        exit 1
+    fi
+fi
+if [[ "$NEW_ONLY" == "true" && "$SYNC_AGENTS" != "true" ]]; then
+    echo "Error: --new-only is only valid with --sync-agents" >&2
     exit 1
 fi
 
@@ -170,6 +214,17 @@ copy_template() {
     fi
 }
 
+# Directory holding the plugin's agent files: agents-lib/, falling back to the
+# pre-rename agents/. Prints the path (it may not exist); shared by copy_agents
+# and the --agent-status/--sync-agents modes so they cannot disagree.
+plugin_agents_src() {
+    local src="$PLUGIN_DIR/agents-lib"
+    if [[ ! -d "$src" && -d "$PLUGIN_DIR/agents" ]]; then
+        src="$PLUGIN_DIR/agents"
+    fi
+    echo "$src"
+}
+
 # Copy agents from plugin directory
 copy_agents() {
     local dest="$1/.claude/agents"
@@ -186,9 +241,9 @@ copy_agents() {
     # the same always-on cost the skills fix (8dc88ec) eliminated for the skill
     # library. Fall back to agents/ so installs predating the rename still scaffold
     # correctly.
-    local src="$PLUGIN_DIR/agents-lib"
-    if [[ ! -d "$src" && -d "$PLUGIN_DIR/agents" ]]; then
-        src="$PLUGIN_DIR/agents"
+    local src
+    src="$(plugin_agents_src)"
+    if [[ "$src" == "$PLUGIN_DIR/agents" ]]; then
         info "Using legacy agents/ source (plugin predates agents-lib)"
     fi
 
@@ -1042,53 +1097,19 @@ copy_skills() {
     info "Copied $count skills"
 }
 
-# Inject per-project skill preloads into the vendored agents.
+# The Python program behind inject_agent_skills and the --agent-status mode.
+# Printed rather than run here so both modes execute the SAME strip_skills /
+# strip_body_block code -- a second copy of the marker and frontmatter logic would
+# drift the first time the generated section changed shape, and every agent would
+# then read as "updated".
 #
-# Agents ship WITHOUT a skills: field — a hardcoded list cannot be correct across
-# projects, because skills are curated per project. The affinity manifest declares
-# which skills are plausibly relevant to each agent (CANDIDATES); this function
-# intersects each pool with the project's own selected-skills.txt and writes the
-# result as that agent's skills: frontmatter.
-#
-# This is deliberately a script and not a prompt instruction. Before 4.0.0 the
-# intersection happened only because /init-project's model chose to prune the
-# shipped pools — nothing instructed it to, so an equally valid run would have
-# preserved them verbatim and produced preloads naming skills the project never
-# selected. Determinism is the whole point.
-#
-# Idempotent: any existing skills: block is stripped before the new one is written,
-# so re-running (or --refresh) re-derives from the current selection rather than
-# accumulating. An agent whose pool shares nothing with the selection gets no
-# skills: field at all.
-inject_agent_skills() {
-    local target_dir="$1"
-    local selection_file="$target_dir/.claude/selected-skills.txt"
-    local agents_dir="$target_dir/.claude/agents"
-    local manifest=""
-
-    # agents-lib/ is the current source (see copy_agents' rationale above); fall back
-    # to the pre-rename agents/ for installs from an older plugin version.
-    manifest="$(find_plugin_json agents-lib skill-affinity.json)" || \
-        manifest="$(find_plugin_json agents skill-affinity.json)" || manifest=""
-
-    if [[ -z "$manifest" ]]; then
-        info "No skill-affinity manifest found — skipping agent skill preloads"
-        return 0
-    fi
-    if [[ ! -f "$selection_file" ]]; then
-        info "No skill selection file — skipping agent skill preloads"
-        return 0
-    fi
-    if [[ ! -d "$agents_dir" ]]; then
-        info "No agents directory — skipping agent skill preloads"
-        return 0
-    fi
-
-    python3 - "$manifest" "$selection_file" "$agents_dir" "$target_dir/.claude/skills" <<'PY'
+#   inject <manifest> <selection> <agents_dir> <skills_dir>   rewrite agents in place
+#   status <plugin_agents_dir> <project_agents_dir>           print "<state>\t<name>"
+agent_skills_program() {
+    cat <<'PY'
 import json, os, re, sys, tempfile
 
-manifest_path, selection_path, agents_dir = sys.argv[1:4]
-skills_dir = sys.argv[4] if len(sys.argv) > 4 else ""
+mode = sys.argv[1]
 
 BEGIN = "<!-- ENSEMBLE:SKILLS:BEGIN — generated by scaffold-project.sh; edits are overwritten -->"
 END = "<!-- ENSEMBLE:SKILLS:END -->"
@@ -1132,6 +1153,18 @@ def strip_body_block(text):
     )
     return pattern.sub("", text)
 
+def strip_skills(fm_lines):
+    out, i = [], 0
+    while i < len(fm_lines):
+        if re.match(r'^skills:', fm_lines[i]):
+            i += 1
+            while i < len(fm_lines) and re.match(r'^\s+-\s', fm_lines[i]):
+                i += 1
+            continue
+        out.append(fm_lines[i])
+        i += 1
+    return out
+
 def build_body_block(relevant, others):
     out = [BEGIN, "", "## Project Skills", ""]
     if relevant:
@@ -1165,6 +1198,51 @@ def build_body_block(relevant, others):
     ]
     return "\n".join(out)
 
+
+
+def normalise(text):
+    """The agent with everything this script generates removed: the skills:
+    frontmatter list and the marked body section. Only whitespace at the very end
+    of the file is dropped (inject writes it differently from the plugin source);
+    whitespace anywhere else is a real difference and is kept."""
+    lines = text.split("\n")
+    close = None
+    if lines and lines[0].strip() == "---":
+        close = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if close is None:
+        return strip_body_block(text).rstrip()
+    fm = strip_skills(lines[1:close])
+    body = strip_body_block("\n".join(lines[close + 1:]))
+    return ("\n".join([lines[0]] + fm + [lines[close]]) + "\n" + body).rstrip()
+
+def read_agents(directory):
+    out = {}
+    if os.path.isdir(directory):
+        for fname in sorted(os.listdir(directory)):
+            if fname.endswith(".md") and os.path.isfile(os.path.join(directory, fname)):
+                with open(os.path.join(directory, fname)) as fh:
+                    out[fname[:-3]] = fh.read()
+    return out
+
+if mode == "status":
+    # Read-only. Needs neither the skill selection nor the affinity manifest.
+    plugin = read_agents(sys.argv[2])
+    project = read_agents(sys.argv[3])
+    for name in sorted(set(plugin) | set(project)):
+        if name not in project:
+            state = "new"
+        elif name not in plugin:
+            state = "custom"
+        elif normalise(plugin[name]) == normalise(project[name]):
+            state = "unchanged"
+        else:
+            state = "updated"
+        print(f"{state}\t{name}")
+    sys.exit(0)
+
+manifest_path, selection_path, agents_dir = sys.argv[2:5]
+skills_dir = sys.argv[5] if len(sys.argv) > 5 else ""
+
 selected = []
 with open(selection_path) as fh:
     for line in fh:
@@ -1174,18 +1252,6 @@ with open(selection_path) as fh:
 selected_set = set(selected)
 
 pools = json.load(open(manifest_path)).get("agents", {})
-
-def strip_skills(fm_lines):
-    out, i = [], 0
-    while i < len(fm_lines):
-        if re.match(r'^skills:', fm_lines[i]):
-            i += 1
-            while i < len(fm_lines) and re.match(r'^\s+-\s', fm_lines[i]):
-                i += 1
-            continue
-        out.append(fm_lines[i])
-        i += 1
-    return out
 
 injected = 0
 for fname in sorted(os.listdir(agents_dir)):
@@ -1222,12 +1288,12 @@ for fname in sorted(os.listdir(agents_dir)):
 
     new_text = "\n".join([lines[0]] + fm + [lines[close]]) + "\n" + body
     if new_text != text:
-        mode = os.stat(path).st_mode & 0o7777
+        perm = os.stat(path).st_mode & 0o7777
         fd, tmp = tempfile.mkstemp(dir=agents_dir, suffix=".tmp")
         try:
             with os.fdopen(fd, "w") as fh:
                 fh.write(new_text)
-            os.chmod(tmp, mode)
+            os.chmod(tmp, perm)
             os.replace(tmp, path)
         except BaseException:
             os.path.exists(tmp) and os.unlink(tmp)
@@ -1237,6 +1303,92 @@ for fname in sorted(os.listdir(agents_dir)):
 
 print(f"AGENT_SKILLS_INJECTED agents={injected} selected={len(selected)}")
 PY
+}
+
+# Inject per-project skill preloads into the vendored agents.
+#
+# Agents ship WITHOUT a skills: field — a hardcoded list cannot be correct across
+# projects, because skills are curated per project. The affinity manifest declares
+# which skills are plausibly relevant to each agent (CANDIDATES); this function
+# intersects each pool with the project's own selected-skills.txt and writes the
+# result as that agent's skills: frontmatter.
+#
+# This is deliberately a script and not a prompt instruction. Before 4.0.0 the
+# intersection happened only because /init-project's model chose to prune the
+# shipped pools — nothing instructed it to, so an equally valid run would have
+# preserved them verbatim and produced preloads naming skills the project never
+# selected. Determinism is the whole point.
+#
+# Idempotent: any existing skills: block is stripped before the new one is written,
+# so re-running (or --refresh) re-derives from the current selection rather than
+# accumulating. An agent whose pool shares nothing with the selection gets no
+# skills: field at all.
+inject_agent_skills() {
+    local target_dir="$1"
+    local selection_file="$target_dir/.claude/selected-skills.txt"
+    local agents_dir="$target_dir/.claude/agents"
+    local manifest=""
+
+    # agents-lib/ is the current source (see copy_agents' rationale above); fall back
+    # to the pre-rename agents/ for installs from an older plugin version.
+    manifest="$(find_plugin_json agents-lib skill-affinity.json)" || \
+        manifest="$(find_plugin_json agents skill-affinity.json)" || manifest=""
+
+    if [[ -z "$manifest" ]]; then
+        info "No skill-affinity manifest found — skipping agent skill preloads"
+        return 0
+    fi
+    if [[ ! -f "$selection_file" ]]; then
+        info "No skill selection file — skipping agent skill preloads"
+        return 0
+    fi
+    if [[ ! -d "$agents_dir" ]]; then
+        info "No agents directory — skipping agent skill preloads"
+        return 0
+    fi
+
+    python3 -c "$(agent_skills_program)" inject "$manifest" "$selection_file" "$agents_dir" "$target_dir/.claude/skills"
+}
+
+# Print "<state>\t<name>" for every agent, comparing plugin to project with the
+# generated content (skills: list, marked body section) removed. Read-only.
+# stdout carries status lines only; anything chatty goes to stderr.
+agent_status() {
+    local target_dir="$1"
+    local src
+    src="$(plugin_agents_src)"
+    if [[ ! -d "$src" ]]; then
+        error "Plugin agents directory not found: $src"
+        return 1
+    fi
+    if [[ ! -d "$target_dir" ]]; then
+        error "Target directory does not exist: $target_dir"
+        return 1
+    fi
+    python3 -c "$(agent_skills_program)" status "$src" "$target_dir/.claude/agents"
+}
+
+# Do the whole agent step for /rebase-project: classify, copy new and updated
+# agents from the plugin, then re-run inject_agent_skills so the copied files get
+# the project's skill preloads back (a bare copy strips them). Custom agents are
+# never touched. With --new-only (/rebase-project --preserve-all) only new agents
+# are copied; existing ones keep their bodies and only have their generated
+# preloads re-derived. Prints the same lines as agent_status (the classification
+# made BEFORE the copy); everything else goes to stderr.
+sync_agents() {
+    local target_dir="$1"
+    local report state name src
+    report="$(agent_status "$target_dir")" || return 1
+    src="$(plugin_agents_src)"
+    mkdir -p "$target_dir/.claude/agents"
+    while IFS=$'\t' read -r state name; do
+        if [[ "$state" == "new" || ( "$state" == "updated" && "${NEW_ONLY:-false}" != "true" ) ]]; then
+            cp "$src/$name.md" "$target_dir/.claude/agents/$name.md"
+        fi
+    done <<< "$report"
+    inject_agent_skills "$target_dir" >&2
+    [[ -n "$report" ]] && echo "$report"
+    return 0
 }
 
 # Stamp the plugin version into the target's .claude/settings.json.
@@ -1689,7 +1841,11 @@ scaffold_project() {
 
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    if [[ "$REFRESH" == "true" ]]; then
+    if [[ "$AGENT_STATUS" == "true" ]]; then
+        agent_status "$PROJECT_DIR"
+    elif [[ "$SYNC_AGENTS" == "true" ]]; then
+        sync_agents "$PROJECT_DIR"
+    elif [[ "$REFRESH" == "true" ]]; then
         refresh_project "$PROJECT_DIR"
     else
         scaffold_project "$PROJECT_DIR"

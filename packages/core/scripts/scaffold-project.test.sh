@@ -2221,3 +2221,224 @@ print('\n'.join(names))
     sha_after="$(find "$TEST_DIR/.trd-state" -type f -exec shasum {} \; | sort | shasum | awk '{print $1}')"
     [ "$sha_before" = "$sha_after" ]
 }
+
+# ---------------------------------------------------------------------------
+# rebase-project.md governance lists (FIX-001)
+#
+# The command is prose the model follows, so a governance list that omits
+# verification.md tells it nothing protects that file, and a list of framework
+# rules that says "etc." leaves a fourth shipped rule unnamed. These tests key
+# on single lines because a governance list and a framework list can share one
+# paragraph.
+# ---------------------------------------------------------------------------
+
+rebase_cmd() { echo "$SCRIPT_DIR/../commands/rebase-project.md"; }
+
+# Rule files the script refreshes: the template directory minus AUTHORED_RULES,
+# read from scaffold-project.sh itself so the test cannot drift from it.
+framework_rules() {
+    local authored rules_dir f
+    authored="$(grep -E 'local AUTHORED_RULES=\(' "$SCAFFOLD_SCRIPT" | grep -oE '"[^"]+\.md"' | tr -d '"')"
+    rules_dir="$SCRIPT_DIR/../templates/claude-directory/rules"
+    for f in "$rules_dir"/*.md; do
+        f="$(basename "$f")"
+        printf '%s\n' "$authored" | grep -qx "$f" || echo "$f"
+    done
+}
+
+@test "rebase-project.md: every governance list naming process.md also names verification.md" {
+    local cmd missing=""
+    cmd="$(rebase_cmd)"
+    while IFS=: read -r n line; do
+        case "$line" in *verification.md*) continue ;; esac
+        # A one-file-per-bullet list: verification.md must follow within 2 lines.
+        if printf '%s' "$line" | grep -qE '^[[:space:]]*- `[^`]*process\.md`[[:space:]]*$' \
+           && sed -n "$((n+1)),$((n+2))p" "$cmd" | grep -q 'verification\.md'; then
+            continue
+        fi
+        missing="$missing $n"
+    done < <(grep -n 'process\.md' "$cmd")
+    [ -z "$missing" ] || { echo "process.md without verification.md on lines:$missing"; false; }
+}
+
+@test "rebase-project.md: no line lists verification.md as a framework rule" {
+    local rules bad="" r
+    rules="$(framework_rules)"
+    while IFS=: read -r n line; do
+        for r in $rules; do
+            case "$line" in *"$r"*) bad="$bad $n"; break ;; esac
+        done
+    done < <(grep -n 'verification\.md' "$(rebase_cmd)")
+    [ -z "$bad" ] || { echo "verification.md shares a line with a framework rule on lines:$bad"; false; }
+}
+
+@test "rebase-project.md: framework rules named equal the template rules directory minus AUTHORED_RULES" {
+    local expected named
+    expected="$(framework_rules | sort -u)"
+    [ -n "$expected" ]
+    named="$(grep -oE '[a-z][a-z-]*\.md' "$(rebase_cmd)" | sort -u \
+        | while read -r f; do [ -f "$SCRIPT_DIR/../templates/claude-directory/rules/$f" ] && echo "$f"; done \
+        | grep -vxF "$(grep -E 'local AUTHORED_RULES=\(' "$SCAFFOLD_SCRIPT" | grep -oE '"[^"]+\.md"' | tr -d '"')" || true)"
+    [ "$expected" = "$named" ]
+}
+
+@test "rebase-project.md: no open-ended rule lists" {
+    local cmd="$(rebase_cmd)" hits
+    hits="$(grep -nE '`(autonomy|async-discipline|command-status)\.md`?,? ?(…|etc\.)|any future additions|Every `\.md` file in' "$cmd" || true)"
+    [ -z "$hits" ] || { echo "$hits"; false; }
+}
+
+# ---------------------------------------------------------------------------
+# FIX-002: --agent-status / --sync-agents (rebase-governance-and-agent-diff)
+#
+# /rebase-project used to diff agents byte-for-byte, so every agent looked
+# "updated" (the project copy carries generated skills: + marked section) and
+# the hand copy then stripped those preloads. The script now owns the agent step.
+# ---------------------------------------------------------------------------
+
+_agent_proj() {
+    # Scaffolded project with injected agents, plus a private copy of the
+    # plugin's agents-lib that a test may edit freely.
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    PROJ="$TEST_DIR/proj"; PLUG="$TEST_DIR/plug"
+    mkdir -p "$PROJ/.claude" "$PLUG"
+    printf 'jest\npytest\ndeveloping-with-python\n' > "$PROJ/.claude/selected-skills.txt"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" --copy-skills "$PROJ" >/dev/null 2>&1
+    cp -R "$plugin_dir/agents-lib" "$PLUG/agents-lib"
+}
+
+_status_of() { printf '%s\n' "$1" | awk -F'\t' -v n="$2" '$2==n{print $1}'; }
+
+@test "FIX-002 (a): injected project reports one unchanged line per plugin agent" {
+    _agent_proj
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --agent-status '$PROJ' 2>/dev/null"
+    [ "$status" -eq 0 ]
+    local expected; expected="$(ls "$PLUG/agents-lib"/*.md | wc -l | tr -d ' ')"
+    [ "$expected" -ge 13 ]
+    [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq "$expected" ]
+    [ "$(printf '%s\n' "$output" | grep -c '^unchanged'$'\t')" -eq "$expected" ]
+}
+
+@test "FIX-002 (b): a one-line body change reports that agent, only it, updated" {
+    _agent_proj
+    echo "A new line." >> "$PLUG/agents-lib/verify-app.md"
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --agent-status '$PROJ' 2>/dev/null"
+    [ "$status" -eq 0 ]
+    [ "$(_status_of "$output" verify-app)" = "updated" ]
+    [ "$(printf '%s\n' "$output" | grep -vc '^unchanged'$'\t')" -eq 1 ]
+}
+
+@test "FIX-002 (c): missing project agent is new; extra project agent is custom" {
+    _agent_proj
+    rm "$PROJ/.claude/agents/verify-app.md"
+    printf -- '---\nname: mine\n---\nhi\n' > "$PROJ/.claude/agents/mine.md"
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --agent-status '$PROJ' 2>/dev/null"
+    [ "$status" -eq 0 ]
+    [ "$(_status_of "$output" verify-app)" = "new" ]
+    [ "$(_status_of "$output" mine)" = "custom" ]
+}
+
+@test "FIX-002 (d): editing only the skills: list or marked section reads unchanged" {
+    _agent_proj
+    local f="$PROJ/.claude/agents/verify-app.md"
+    grep -q '^skills:' "$f"
+    sed -i.bak -e 's/^  - jest$/  - something-else/' -e 's/^- \*\*jest\*\*.*/- **edited** — by hand/' "$f"
+    rm -f "$f.bak"
+    printf '\n\n' >> "$f"   # trailing whitespace at end of file only
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --agent-status '$PROJ' 2>/dev/null"
+    [ "$(_status_of "$output" verify-app)" = "unchanged" ]
+}
+
+@test "FIX-002: a whitespace change inside the body is not hidden" {
+    _agent_proj
+    local f="$PROJ/.claude/agents/verify-app.md"
+    # First top-level heading gains a space (portable: no GNU-only sed address).
+    perl -0pi -e 's/\n# /\n#  /' "$f"
+    ! cmp -s "$f" "$PLUG/agents-lib/verify-app.md"
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --agent-status '$PROJ' 2>/dev/null"
+    [ "$(_status_of "$output" verify-app)" = "updated" ]
+}
+
+@test "FIX-002 (e): --sync-agents gives an updated agent the new body and its preloads" {
+    _agent_proj
+    echo "BRAND-NEW-PLUGIN-LINE" >> "$PLUG/agents-lib/verify-app.md"
+    rm "$PROJ/.claude/agents/code-reviewer.md"
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --sync-agents '$PROJ' 2>/dev/null"
+    [ "$status" -eq 0 ]
+    [ "$(_status_of "$output" verify-app)" = "updated" ]
+    [ "$(_status_of "$output" code-reviewer)" = "new" ]
+    local f="$PROJ/.claude/agents/verify-app.md"
+    grep -q 'BRAND-NEW-PLUGIN-LINE' "$f"
+    grep -q '^skills:' "$f"
+    grep -q 'ENSEMBLE:SKILLS:BEGIN' "$f"
+    grep -q 'ENSEMBLE:SKILLS:BEGIN' "$PROJ/.claude/agents/code-reviewer.md"
+    # a second look finds everything unchanged
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --agent-status '$PROJ' 2>/dev/null"
+    [ "$(printf '%s\n' "$output" | grep -vc '^unchanged'$'\t')" -eq 0 ]
+}
+
+@test "FIX-002 (f): golden - inject output for a fixed selection is byte-identical" {
+    local fx="$REPO_ROOT/test/integration/fixtures/agent-inject-golden"
+    cp -R "$fx/input" "$TEST_DIR/g"
+    run bash -c "cd '$TEST_DIR/g' && source '$SCAFFOLD_SCRIPT' && PLUGIN_DIR='$fx/plugin' inject_agent_skills ."
+    [ "$status" -eq 0 ]
+    local f
+    for f in "$fx/expected"/*.md; do
+        cmp "$f" "$TEST_DIR/g/.claude/agents/$(basename "$f")"
+    done
+}
+
+@test "FIX-002 (g): --agent-status writes nothing under the project" {
+    _agent_proj
+    echo "x" >> "$PLUG/agents-lib/verify-app.md"
+    ( cd "$PROJ" && find . -type f -exec cksum {} + | sort ) > "$TEST_DIR/before"
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --agent-status '$PROJ' >/dev/null 2>&1"
+    [ "$status" -eq 0 ]
+    ( cd "$PROJ" && find . -type f -exec cksum {} + | sort ) > "$TEST_DIR/after"
+    cmp "$TEST_DIR/before" "$TEST_DIR/after"
+}
+
+@test "FIX-002 (g): combining either mode with --refresh or --force exits non-zero" {
+    _agent_proj
+    local m o
+    for m in --agent-status --sync-agents; do
+        for o in --refresh --force; do
+            run "$SCAFFOLD_SCRIPT" --plugin-dir "$PLUG" "$m" "$o" "$PROJ"
+            [ "$status" -ne 0 ]
+        done
+    done
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$PLUG" --agent-status --sync-agents "$PROJ"
+    [ "$status" -ne 0 ]
+    run "$SCAFFOLD_SCRIPT" --agent-status "$PROJ"
+    [ "$status" -ne 0 ]
+}
+
+@test "FIX-002: against this repo's own agents, --agent-status reports every plugin agent unchanged" {
+    [ -d "$REPO_ROOT/.claude/agents" ] || skip "no vendored agents in this checkout"
+    local plugin_dir expected; plugin_dir="$(_get_plugin_dir)"
+    expected="$(ls "$plugin_dir/agents-lib"/*.md | wc -l | tr -d ' ')"
+    run bash -c "cd '$REPO_ROOT' && '$SCAFFOLD_SCRIPT' --plugin-dir '$plugin_dir' --agent-status . 2>/dev/null"
+    [ "$status" -eq 0 ]
+    [ "$(printf '%s\n' "$output" | grep -c '^unchanged'$'\t')" -eq "$expected" ]
+}
+
+@test "FIX-002: --sync-agents --new-only adds new agents with preloads and leaves updated ones" {
+    _agent_proj
+    echo "BRAND-NEW-PLUGIN-LINE" >> "$PLUG/agents-lib/verify-app.md"
+    rm "$PROJ/.claude/agents/code-reviewer.md"
+    run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --sync-agents --new-only '$PROJ' 2>/dev/null"
+    [ "$status" -eq 0 ]
+    [ "$(_status_of "$output" code-reviewer)" = "new" ]
+    grep -q 'ENSEMBLE:SKILLS:BEGIN' "$PROJ/.claude/agents/code-reviewer.md"
+    ! grep -q 'BRAND-NEW-PLUGIN-LINE' "$PROJ/.claude/agents/verify-app.md"
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$PLUG" --agent-status --new-only "$PROJ"
+    [ "$status" -ne 0 ]
+}
+
+@test "FIX-002: rebase-project.md uses the script for the agent steps" {
+    local f="$SCRIPT_DIR/../commands/rebase-project.md"
+    grep -q -- '--agent-status' "$f"
+    grep -q -- '--sync-agents' "$f"
+    grep -q '@packages/core/scripts/' "$f"
+    ! grep -q 'byte-level diff of the full file' "$f"
+}

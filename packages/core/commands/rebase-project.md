@@ -21,8 +21,8 @@ disable-model-invocation: true
 > - **Git is the undo.** `.claude/` is committed (the constitution requires it), so every
 >   replacement is already recoverable with `git diff` and `git restore`. This command writes
 >   NO backup copies — see "Recovery is git" below.
-> - **User governance files** (`constitution.md`, `stack.md`, `process.md`) are NEVER modified.
-> - **Framework-shipped rules** (`async-discipline.md`, `autonomy.md`, …) are replaced when they differ.
+> - **User governance files** (`constitution.md`, `stack.md`, `process.md`, `verification.md`) are NEVER modified.
+> - **Framework-shipped rules** (`async-discipline.md`, `autonomy.md`, `command-status.md`) are replaced when they differ.
 
 ---
 
@@ -45,9 +45,9 @@ Examples:
 - Upgrade vendored runtime in `.claude/` to match the current plugin version
 - **Update any file whose content differs from the plugin** (agents, skills, commands, hooks, workflows, libs, contracts)
 - Leave recovery to git — never write parallel backup copies
-- Preserve user governance files (constitution.md, stack.md, process.md)
+- Preserve user governance files (constitution.md, stack.md, process.md, verification.md)
 - Preserve user-created files (agents/skills/commands not shipped by the plugin)
-- Update framework-shipped rules (async-discipline.md, autonomy.md, etc.) when they differ
+- Update framework-shipped rules (async-discipline.md, autonomy.md, command-status.md) when they differ
 - Merge new settings.json defaults while preserving local overrides
 - Generate comprehensive rebase report
 
@@ -124,6 +124,7 @@ Examples:
    | `@packages/core/templates/` | `templates/` |
    | `@packages/skills/` | `skills-lib/` |
    | `@packages/full/agents-lib/` | `agents-lib/` |
+   | `@packages/core/scripts/` | `scripts/` |
 
    Example: to read `@packages/core/commands/create-prd.md`, resolve
    `${CLAUDE_PLUGIN_ROOT}/commands/core/create-prd.md`.
@@ -248,13 +249,22 @@ Analyze each component category to identify changes.
 copy. The plugin is the source of truth for any agent it ships; the user's customization
 is recoverable from git. User-created agents (not shipped by the plugin) are never touched.
 
-1. **List plugin agents:**
-   Read agent files from plugin source: `@packages/full/agents-lib/`
+1. **Run the script's read-only agent classifier — do not diff files yourself:**
+   ```bash
+   "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --agent-status .
+   ```
+   It prints one `<status>\t<name>` line per agent (`new`, `updated`, `unchanged` or
+   `custom`) and nothing else on stdout. **Why not diff by hand:** every vendored agent
+   carries content the script generated (a `skills:` list and a marked "Project Skills"
+   section), so a whole-file comparison reports all 13 as updated on every run, and copying
+   the plugin file over it strips those preloads. The script compares with that generated
+   content removed.
 
-2. **List vendored agents:**
-   Read agent files from `.claude/agents/`
+   `${CLAUDE_PLUGIN_ROOT}` here and in §4.1 is the plugin root resolved in Step 1 above. If
+   the variable is unset in the shell (the fallback path applied), substitute that resolved
+   path; never run the snippet with it empty, which resolves to `/scripts/...`.
 
-3. **Categorize via content comparison (byte-level diff of the full file):**
+2. **Categorize from those lines:**
 
    | Category | Condition | Action |
    |----------|-----------|--------|
@@ -263,6 +273,9 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    | **Unchanged** | In both, content identical | No action |
    | **Stale** | In vendored, not in plugin, AND named in the retired-agent list below | Will be REMOVED |
    | **Custom** | In vendored, not in plugin, AND not on that list | Preserved (report only; not removed) |
+
+   The script reports every agent that is in vendored but not in the plugin as `custom`;
+   the command decides which of those are **Stale** by the retired-agent list below.
 
    **Why agents need an explicit list when commands do not.** A command carries
    `category:` in its frontmatter, so a retired plugin command is distinguishable from
@@ -283,7 +296,7 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    because a wrong deletion of user work is far worse than a stale file — but that
    safety costs the list its automation, so it is maintenance, not a mechanism.
 
-4. **Generate agent diff:**
+3. **Generate agent diff:**
    ```
    Agents:
    - New agents to add: [list]
@@ -680,30 +693,37 @@ Rebase preview
 **Rule:** Update any agent whose content differs from the plugin's version. Never touch
 user-created agents. Recovery is git — no backup step; see "Recovery is git" above.
 
-1. **For each NEW agent in plugin:**
-   - Copy from plugin source to `.claude/agents/`
-   - Report: "Added new agent: [name]"
+**Skip this sync entirely if `agent_preserve=true`** (set by `--preserve-all`) except for
+adding NEW agents — see the bottom of this section.
 
-2. **For each UPDATED agent (content differs):**
-   - Overwrite `.claude/agents/<agent>.md` with the plugin version
-   - Report: "Updated agent: [name]"
+1. **Add NEW and replace UPDATED agents, restoring skill preloads, in one call:**
+   ```bash
+   "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --sync-agents .
+   ```
+   It copies each `new` and `updated` agent from the plugin, then re-runs the skill-preload
+   injection so the copied files get their `skills:` list and "Project Skills" section back
+   (a bare copy strips them from every agent). It prints the same `<status>\t<name>` lines
+   as §2.1. Never copy agent files by hand. Report each line: `new` as "Added new agent:
+   [name]", `updated` as "Updated agent: [name]"; `unchanged` lines are silent (covered by
+   the summary count); `custom` lines are handled in step 3.
 
-3. **For each UNCHANGED agent:**
-   - No action; no log line (silent — covered by summary count)
-
-4. **For STALE agents (on §2.1's retired list):**
+2. **For STALE agents (on §2.1's retired list):**
    - **DELETE from `.claude/agents/`. This is not a judgement call** — the file was
      classified by the diff step, and `git restore` brings it back if that was wrong. A
      retired agent left in place stays selectable by name and re-introduces behaviour the
      framework deliberately removed.
    - Report: "Removed stale agent: [name]"
 
-5. **For CUSTOM agents (in vendored, not in plugin, not on the retired list):**
+3. **For CUSTOM agents (in vendored, not in plugin, not on the retired list):**
    - DO NOT remove
    - Report: "Kept custom agent: [name]"
 
 **If `agent_preserve=true` (set by `--preserve-all`):**
-- Skip steps 2 and 4; only add NEW agents (step 1).
+- Run step 1 with `--new-only` added, and skip step 2. It copies only the `new` agents and
+  gives them their skill preloads; existing agents keep their bodies:
+  ```bash
+  "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --sync-agents --new-only .
+  ```
 - Report: "Existing agents preserved (preserve-all mode)"
 
 #### 4.2 Update Skills (recompute + content-diff)
@@ -1037,9 +1057,9 @@ These are generated/customized at `init-project` and belong to the user. Even wi
 `--force`, they are preserved.
 
 **Framework-shipped rules (UPDATED on rebase, exactly like commands and hooks):**
-- Every `.md` file in `@packages/core/templates/claude-directory/rules/` —
-  `async-discipline.md`, `autonomy.md`, `command-status.md`, and any future additions —
-  except `verification.md`, which is user-owned (above).
+- `async-discipline.md`, `autonomy.md` and `command-status.md` — the files in
+  `@packages/core/templates/claude-directory/rules/` other than the user-owned ones above
+  (`scaffold-project.sh`'s `AUTHORED_RULES`). A test keeps this list equal to that directory.
 
 These encode behavioral guarantees enforced by hooks: the discipline guards are
 `hookType: "prompt"`, so the rule file is the ONLY place an agent can read what the guard
@@ -1070,8 +1090,8 @@ protection commands and hooks already rely on. A user who annotated a framework 
 it in `git diff` after the rebase and can `git restore` or re-apply; a user who did not —
 the overwhelming majority — silently gets the current rules for the first time.
 
-**This does not touch user-owned governance.** `constitution.md`, `stack.md` and
-`process.md` are still never modified, with or without `--force`.
+**This does not touch user-owned governance.** `process.md` and `verification.md`, with
+`constitution.md` and `stack.md`, are still never modified, with or without `--force`.
 
 Report:
 - "Governance files preserved (not modified by rebase)"
@@ -1130,6 +1150,7 @@ Report:
 - `.claude/rules/constitution.md`
 - `.claude/rules/stack.md`
 - `.claude/rules/process.md`
+- `.claude/rules/verification.md`
 - All custom rules under `.claude/rules/` that the framework does not ship
 - All custom agents
 - All local settings overrides
@@ -1235,9 +1256,9 @@ regenerates the whole vendored runtime.
 
 ## Flag Behavior Summary
 
-`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`,
-`verification.md`) is never touched by any flag; **framework-shipped** (`async-discipline.md`,
-`autonomy.md`, `command-status.md`) behaves like commands.
+`Rules` splits in two: **governance** (`constitution.md`, `stack.md`, `process.md`, `verification.md`)
+is never touched by any flag; **framework-shipped**
+(`async-discipline.md`, `autonomy.md`, `command-status.md`) behaves like commands.
 
 | Flag | Agents | Skills | Commands | Hooks | Settings | Framework rules | Governance |
 |------|--------|--------|----------|-------|----------|-----------------|------------|
@@ -1259,7 +1280,7 @@ transcript and does not change what the owner does next.
 
 - This command is safe to run multiple times
 - Destructive operations are recoverable from git (clean tree enforced up front)
-- Rules files (constitution.md, stack.md, process.md) are NEVER modified
+- Rules files (constitution.md, stack.md, process.md, verification.md) are NEVER modified
 - Custom agents/commands/hooks (not from plugin) are NEVER removed
 - Version tracking enables incremental upgrades
 - Use `--dry-run` first to preview changes before applying

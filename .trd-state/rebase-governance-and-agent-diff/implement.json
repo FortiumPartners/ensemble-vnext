@@ -1,0 +1,93 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/rebase-governance-and-agent-diff.md",
+  "trd_hash": "fb6c6b6ba6ec4ed523231ca890cce8d544f536b1d37b8c55676ec0b14ae54688",
+  "branch": "feature/rebase-governance-and-agent-diff/impl",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "Governance lists name verification.md; framework rules named explicitly",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/rebase-project.md",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        ".claude/commands/rebase-project.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-12T08:08:21.657Z",
+      "completed_at": "2026-10-12T08:27:17.087Z",
+      "last_advanced": "2026-10-12T08:13:50.264Z"
+    },
+    "FIX-002": {
+      "description": "--agent-status / --sync-agents in scaffold-project.sh; rebase uses them",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md",
+        "test/integration/fixtures/agent-inject-golden"
+      ],
+      "commit": null,
+      "started_at": "2026-10-12T08:08:21.657Z",
+      "completed_at": "2026-10-12T08:27:17.088Z",
+      "last_advanced": "2026-10-12T08:13:50.264Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "9645a53",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-12T08:27:25.358Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "9645a53",
+    "last_checkpoint_timestamp": "2026-10-12T08:27:25.358Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/rebase-governance-and-agent-diff.md ## Reproduction",
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "not declared with a URL in verification.md §1"
+      },
+      "local": {
+        "status": "usable",
+        "reason": "the working tree; this feature is a script and a command document, exercised by running the script locally"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool always available"
+      }
+    }
+  }
+}

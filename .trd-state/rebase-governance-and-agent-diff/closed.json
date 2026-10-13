@@ -1,0 +1,12 @@
+{
+  "feature": "rebase-governance-and-agent-diff",
+  "trd": "docs/TRD/rebase-governance-and-agent-diff.md",
+  "closedAt": "2026-10-13T00:49:24Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied \u2014 fidelity and omission unchecked (the work came from a relayed defect report, not a PRD); a model following /rebase-project calling the new script instead of diffing agents itself is prompt adherence and untestable here",
+    "report": ".trd-state/rebase-governance-and-agent-diff/audit-build-report.md",
+    "auditedCommit": "b04ecf6"
+  }
+}

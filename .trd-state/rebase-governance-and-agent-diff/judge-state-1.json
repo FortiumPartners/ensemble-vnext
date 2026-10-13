@@ -1,0 +1,69 @@
+{
+ "iteration": 1,
+ "criteria": [
+  {
+   "id": "FS-1",
+   "status": "met",
+   "tier1": "pass",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-1.txt",
+   "reason": "Every governance list in rebase-project.md (usage header line 24, goals line 48, rules section lines 1046-1049, end of 4.7 lines 1093-1094, Files Preserved template 1148-1152, lines 1259 and 1283) names all four files; a search for a three-file list omitting verification.md returns no match.",
+   "cause": null,
+   "provenAt": 1,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-2",
+   "status": "met",
+   "tier1": "pass",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-2.txt",
+   "reason": "Framework rules are named explicitly as async-discipline.md, autonomy.md and command-status.md at lines 25, 50, 1060 and 1261; searches for 'every .md file in the template rules directory', an ellipsis-terminated example list, and verification.md among replaced rules all return no match.",
+   "cause": null,
+   "provenAt": 1,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-3",
+   "status": "met",
+   "tier1": "pass",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-3.txt",
+   "reason": "Scratch project with an owner-edited verification.md that differs from the template: sha256 2f2f41f8... before and after scaffold-project.sh --refresh is identical, and the run logs 'Refusing to refresh project-authored rule: verification.md' while refreshing the 3 framework rules.",
+   "cause": null,
+   "provenAt": 1,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-4",
+   "status": "met",
+   "tier1": "pass",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-4.txt",
+   "reason": "scaffold-project.sh --agent-status over this repo's vendored agents (which carry the generated skills section) reports all 13 agents unchanged: updated count 0, unchanged count 13, rc=0.",
+   "cause": null,
+   "provenAt": 1,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  },
+  {
+   "id": "FS-5",
+   "status": "met",
+   "tier1": "pass",
+   "artifact": ".trd-state/rebase-governance-and-agent-diff/evidence/FS-5.txt",
+   "reason": "With one sentence appended to code-reviewer.md's body in a scratch plugin copy, --agent-status reports exactly code-reviewer as updated and the other 12 agents unchanged.",
+   "cause": null,
+   "provenAt": 1,
+   "image": null,
+   "ui": false,
+   "imageExcluded": null
+  }
+ ],
+ "gapsClosed": [
+  0
+ ],
+ "outcome": "satisfied"
+}
