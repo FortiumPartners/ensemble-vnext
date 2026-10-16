@@ -2474,13 +2474,14 @@ _recon_sync() {
     _recon_sync
     local agent="$PROJ/.claude/agents/backend-implementer.md"
     sed -n '/^skills:/,/^---/p' "$agent" | grep -q 'developing-with-python'
-    ! sed -n '/^skills:/,/^---/p' "$agent" | grep -q 'pytest'
+    # `! cmd` never fails a bats test unless it is the last line; `|| false` makes it count.
+    ! sed -n '/^skills:/,/^---/p' "$agent" | grep -q 'pytest' || false
     grep -q 'developing-with-python' <(sed -n '/ENSEMBLE:SKILLS:BEGIN/,/ENSEMBLE:SKILLS:END/p' "$agent")
     local desc; desc="$(grep -m1 '^description:' "$PLUG/skills-lib/developing-with-python/SKILL.md" | sed 's/^description: *//' | cut -c1-30)"
     grep -qF -- "$desc" <(sed -n '/ENSEMBLE:SKILLS:BEGIN/,/ENSEMBLE:SKILLS:END/p' "$agent")
     local f
     for f in "$PROJ"/.claude/agents/*.md; do
-        ! sed -n '/^skills:/,/^---/p' "$f" | grep -qE '^[[:space:]]*-?[[:space:]]*pytest[[:space:]]*$'
+        ! sed -n '/^skills:/,/^---/p' "$f" | grep -qE '^[[:space:]]*-?[[:space:]]*pytest[[:space:]]*$' || false
     done
     # Selection: drops pytest, appends the new skill after the kept lines.
     run cat "$PROJ/.claude/selected-skills.txt"
@@ -2494,7 +2495,7 @@ _recon_sync() {
     local fw; fw="$(grep -vE '^[[:space:]]*(#|$)' "$PLUG/skills-lib/framework-skills.txt" | head -1 | awk '{print $1}')"
     mkdir -p "$PROJ/.claude/skills/$fw"
     _recon_sync
-    ! grep -qx 'my-custom-skill' "$PROJ/.claude/selected-skills.txt"
+    ! grep -qx 'my-custom-skill' "$PROJ/.claude/selected-skills.txt" || false
     ! grep -qx "$fw" "$PROJ/.claude/selected-skills.txt"
 }
 
@@ -2512,6 +2513,15 @@ _recon_sync() {
     rm "$PROJ/.claude/selected-skills.txt"
     _recon_sync
     [ ! -e "$PROJ/.claude/selected-skills.txt" ]
+}
+
+@test "FIX-001: a CRLF selection line for a removed skill is still dropped" {
+    _recon_proj
+    printf 'jest\r\npytest\r\n' > "$PROJ/.claude/selected-skills.txt"
+    rm -rf "$PROJ/.claude/skills/pytest"
+    _recon_sync
+    ! grep -q 'pytest' "$PROJ/.claude/selected-skills.txt" || false
+    [ "$(grep -c 'jest' "$PROJ/.claude/selected-skills.txt")" -eq 1 ]
 }
 
 @test "FIX-001: an unchanged selection is left untouched" {
@@ -2571,12 +2581,16 @@ _agent_sums() { ( cd "$PROJ/.claude/agents" && for f in *.md; do printf '%s\t%s\
 @test "FIX-002 refreshed (d): a plugin body change still prints updated, not refreshed" {
     _agent_proj
     local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    # The private plugin copy has no skill library of its own; without one the
+    # selection is never reconciled and the preloads never move.
+    ln -s "$plugin_dir/skills-lib" "$PLUG/skills-lib"
     echo "BODY-CHANGE" >> "$PLUG/agents-lib/verify-app.md"
-    cp -R "$plugin_dir/skills-lib/jest" "$PROJ/.claude/skills/" 2>/dev/null || true
     rm -rf "$PROJ/.claude/skills/pytest"
     run bash -c "'$SCAFFOLD_SCRIPT' --plugin-dir '$PLUG' --sync-agents '$PROJ' 2>/dev/null"
     [ "$status" -eq 0 ]
     [ "$(_status_of "$output" verify-app)" = "updated" ]
+    # The preloads did move: an agent whose body matched is reported refreshed.
+    [ "$(_status_of "$output" backend-implementer)" = "refreshed" ]
 }
 
 @test "FIX-002 refreshed: a new agent stays new; header and report wording name the state" {

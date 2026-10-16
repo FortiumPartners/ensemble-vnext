@@ -1132,6 +1132,8 @@ Report:
 
 #### Agents
 - Added: [list with descriptions]
+- Updated: [list]
+- Refreshed skill preloads: [list]
 - Preserved (customized): [list]
 - Custom (not in plugin): [list if any]
 

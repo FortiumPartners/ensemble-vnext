@@ -227,6 +227,17 @@ plugin_agents_src() {
     echo "$src"
 }
 
+# Directory holding the plugin's skill library: skills-lib/, falling back to the
+# pre-rename skills/. Prints the path (it may not exist); shared by copy_skills,
+# copy_framework_skills and reconcile_selected_skills so they cannot disagree.
+plugin_skills_src() {
+    local src="$PLUGIN_DIR/skills-lib"
+    if [[ ! -d "$src" && -d "$PLUGIN_DIR/skills" ]]; then
+        src="$PLUGIN_DIR/skills"
+    fi
+    echo "$src"
+}
+
 # Copy agents from plugin directory
 copy_agents() {
     local dest="$1/.claude/agents"
@@ -955,10 +966,8 @@ copy_framework_skills() {
     fi
 
     # Same skills-lib/ (falling back to skills/) resolution copy_skills() uses.
-    local src="$PLUGIN_DIR/skills-lib"
-    if [[ ! -d "$src" && -d "$PLUGIN_DIR/skills" ]]; then
-        src="$PLUGIN_DIR/skills"
-    fi
+    local src
+    src="$(plugin_skills_src)"
 
     if [[ ! -d "$src" ]]; then
         warn "Skills directory not found: $src"
@@ -1020,9 +1029,9 @@ copy_skills() {
     # plugin.json — registering it would load all 61 skills into every session on the
     # machine (~12.4k tok always-on) and defeat /init-project's per-project curation.
     # Fall back to skills/ so installs predating the rename still scaffold correctly.
-    local src="$PLUGIN_DIR/skills-lib"
-    if [[ ! -d "$src" && -d "$PLUGIN_DIR/skills" ]]; then
-        src="$PLUGIN_DIR/skills"
+    local src
+    src="$(plugin_skills_src)"
+    if [[ "$src" == "$PLUGIN_DIR/skills" ]]; then
         info "Using legacy skills/ source (plugin predates skills-lib)"
     fi
 
@@ -1385,19 +1394,24 @@ reconcile_selected_skills() {
     local dest="$target_dir/.claude/skills"
     [[ -f "$selection_file" && -d "$dest" && -n "$PLUGIN_DIR" ]] || return 0
 
-    local src="$PLUGIN_DIR/skills-lib"
-    if [[ ! -d "$src" && -d "$PLUGIN_DIR/skills" ]]; then
-        src="$PLUGIN_DIR/skills"
-    fi
+    local src
+    src="$(plugin_skills_src)"
     [[ -d "$src" ]] || return 0
 
-    load_framework_skills "$src"
+    # warn() writes to stdout, which --sync-agents reserves for status lines.
+    load_framework_skills "$src" >&2
+    local fw_set=$'\n' fw
+    for fw in ${FRAMEWORK_SKILLS[@]+"${FRAMEWORK_SKILLS[@]}"}; do
+        fw_set+="$fw"$'\n'
+    done
 
     local -a kept=()
     local listed=$'\n'
     local line name changed=false
     while IFS= read -r line || [[ -n "$line" ]]; do
-        name="${line// /}"
+        # Strip ALL whitespace (tabs, CR too), matching the Python reader in
+        # inject_agent_skills -- otherwise a CRLF line is never dropped.
+        name="${line//[[:space:]]/}"
         if [[ -n "$name" && ! "$name" =~ ^# ]]; then
             if [[ -d "$src/$name" && ! -d "$dest/$name" ]]; then
                 echo "Selection: dropped $name (no longer installed)" >&2
@@ -1409,15 +1423,11 @@ reconcile_selected_skills() {
         kept+=("$line")
     done < "$selection_file"
 
-    local d fw is_fw
+    local d
     local -a added=()
     while IFS= read -r name; do
         [[ -n "$name" && -d "$src/$name" && "$listed" != *$'\n'"$name"$'\n'* ]] || continue
-        is_fw=false
-        for fw in ${FRAMEWORK_SKILLS[@]+"${FRAMEWORK_SKILLS[@]}"}; do
-            [[ "$fw" == "$name" ]] && is_fw=true
-        done
-        [[ "$is_fw" == "true" ]] && continue
+        [[ "$fw_set" == *$'\n'"$name"$'\n'* ]] && continue
         added+=("$name")
         echo "Selection: added $name (installed)" >&2
         changed=true
