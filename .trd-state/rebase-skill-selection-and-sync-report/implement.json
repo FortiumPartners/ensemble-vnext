@@ -4,39 +4,57 @@
   "trd_hash": "be3ea233d65528106d8a8bb80827202cbdd897057222fd7a2e27f03d16a365bf",
   "branch": "feature/rebase-skill-selection-and-sync-report/impl",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Script reconciles selected-skills.txt in sync_agents; rebase-project skill step before agent step",
       "phase": 1,
-      "status": "in_progress",
+      "status": "success",
       "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
-      "commit": null,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md",
+        "test/integration/tests/runtime-integrity.test.sh"
+      ],
+      "commit": "b32d826",
       "started_at": "2026-10-16T23:05:54.417Z",
-      "completed_at": null,
+      "completed_at": "2026-10-16T23:21:26.369Z",
       "last_advanced": "2026-10-16T23:07:01.231Z"
     },
     "FIX-002": {
       "description": "sync_agents reports preload-only rewrites as refreshed",
       "phase": 1,
-      "status": "in_progress",
+      "status": "success",
       "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
-      "commit": null,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md"
+      ],
+      "commit": "b32d826",
       "started_at": "2026-10-16T23:05:54.417Z",
-      "completed_at": null,
+      "completed_at": "2026-10-16T23:21:26.369Z",
       "last_advanced": "2026-10-16T23:07:01.232Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "b32d826",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-16T23:21:26.369Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "b32d826",
+    "last_checkpoint_timestamp": "2026-10-16T23:21:26.369Z",
     "interrupted": false,
     "interrupt_reason": null
   },
