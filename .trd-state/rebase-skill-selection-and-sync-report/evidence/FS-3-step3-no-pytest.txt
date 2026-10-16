@@ -1,0 +1,61 @@
+# step 3 (pytest removed) sync-agents stdout
+refreshed	agent-implementer
+refreshed	app-debugger
+refreshed	backend-implementer
+refreshed	cicd-specialist
+refreshed	code-reviewer
+refreshed	code-simplifier
+refreshed	devops-engineer
+refreshed	frontend-implementer
+refreshed	mobile-implementer
+refreshed	product-manager
+refreshed	spec-planner
+refreshed	technical-architect
+refreshed	verify-app
+# stderr
+Selection: dropped pytest (no longer installed)
+AGENT_SKILLS_INJECTED agents=8 selected=2
+# selected-skills.txt
+jest
+developing-with-python
+# ls .claude/skills
+developing-with-python
+framework-skills.txt
+jest
+verification-setup
+verify-data-fidelity
+verify-design-comparison
+verify-flow-as-built
+# grep -n pytest over .claude/agents/*.md (skills: lists and Project Skills sections)
+# (end of hits: count below)
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/agent-implementer.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/app-debugger.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/backend-implementer.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/cicd-specialist.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/code-reviewer.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/code-simplifier.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/devops-engineer.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/frontend-implementer.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/mobile-implementer.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/product-manager.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/spec-planner.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/technical-architect.md: 0
+/private/tmp/claude-501/-Users-james-dev-fortium-ensemble-vnext/e58063a1-11f2-4fc8-9a74-e9f8828c203d/scratchpad/fv2-exercise/proj/.claude/agents/verify-app.md: 0
+# plain grep for sanity
+app-debugger.md:1
+agent-implementer.md:1
+cicd-specialist.md:0
+backend-implementer.md:1
+code-simplifier.md:0
+code-reviewer.md:0
+frontend-implementer.md:0
+product-manager.md:0
+mobile-implementer.md:0
+devops-engineer.md:0
+technical-architect.md:0
+verify-app.md:3
+spec-planner.md:0
+# remaining plain-text 'pytest' mentions (agent body prose, not preloads)
+app-debugger.md:119:| pytest test failures | `pytest` |
+agent-implementer.md:177:- `pytest` / `jest` — for traditional unit/integration tests (eval datasets live alongside, not
+backend-implementer.md:182:- `pytest`: Python test execution, fixtures, parametrization, mocking

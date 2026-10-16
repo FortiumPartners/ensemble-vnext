@@ -1,0 +1,93 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-skill-selection-and-sync-report/evidence/FS-1-2-step2-backend-implementer.txt",
+      "reason": "After step 2 the scratch backend-implementer skills: frontmatter lists pytest, jest, developing-with-python (lines 33-35); stderr shows the selection gained developing-with-python.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-skill-selection-and-sync-report/evidence/FS-1-2-step2-backend-implementer.txt",
+      "reason": "The ENSEMBLE:SKILLS block lists developing-with-python with the same description text as the installed SKILL.md (which differs only by a trailing period).",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-skill-selection-and-sync-report/evidence/FS-3-step3-no-pytest.txt",
+      "reason": "After step 3 all 13 agents show 0 pytest hits in skills: lists and Project Skills sections; .claude/skills/pytest is gone; the remaining plain-text mentions are shipped agent body prose, not preloads.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-skill-selection-and-sync-report/evidence/FS-4-step2-affinity-vs-preload.txt",
+      "reason": "All 5 agents whose pool names developing-with-python (agent-implementer, app-debugger, backend-implementer, code-reviewer, code-simplifier) carry it in skills:; the 8 whose pool does not, do not.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-skill-selection-and-sync-report/evidence/FS-5-6-step4-sync-and-hashes.txt",
+      "reason": "All 13 agent files changed hash in step 4 and all 13 were printed refreshed; none printed unchanged.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-skill-selection-and-sync-report/evidence/FS-6-step4-diffs.txt",
+      "reason": "backend-implementer's before/after diff touches only the skills: list (line 35) and the Project Skills entry (line 255), and it was printed refreshed in the step 4 stdout.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/rebase-skill-selection-and-sync-report/evidence/FS-7-step-updated.txt",
+      "reason": "With the plugin copy of spec-planner given an extra body section, --sync-agents printed updated for spec-planner (unchanged for the other 12) and the project file afterwards equals the plugin body once generated skill content is stripped.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}

@@ -1,0 +1,59 @@
+# step 4: sync-agents stdout
+refreshed	agent-implementer
+refreshed	app-debugger
+refreshed	backend-implementer
+refreshed	cicd-specialist
+refreshed	code-reviewer
+refreshed	code-simplifier
+refreshed	devops-engineer
+refreshed	frontend-implementer
+refreshed	mobile-implementer
+refreshed	product-manager
+refreshed	spec-planner
+refreshed	technical-architect
+refreshed	verify-app
+# stderr
+Selection: added developing-with-python (installed)
+AGENT_SKILLS_INJECTED agents=8 selected=3
+# per-agent: status | hash changed?
+agent-implementer | printed=refreshed | file CHANGED-hash
+app-debugger | printed=refreshed | file CHANGED-hash
+backend-implementer | printed=refreshed | file CHANGED-hash
+cicd-specialist | printed=refreshed | file CHANGED-hash
+code-reviewer | printed=refreshed | file CHANGED-hash
+code-simplifier | printed=refreshed | file CHANGED-hash
+devops-engineer | printed=refreshed | file CHANGED-hash
+frontend-implementer | printed=refreshed | file CHANGED-hash
+mobile-implementer | printed=refreshed | file CHANGED-hash
+product-manager | printed=refreshed | file CHANGED-hash
+spec-planner | printed=refreshed | file CHANGED-hash
+technical-architect | printed=refreshed | file CHANGED-hash
+verify-app | printed=refreshed | file CHANGED-hash
+# before hashes
+211ce4f230ff33919e6fb82cc1113a938ff5064c4d7f37a524df00a6ec79985a  agent-implementer.md
+bf2e9d7fe385dc2ea103950828378b3a809278b49a2fd8fc42b54fe09f298d2a  app-debugger.md
+491524e93808a7f9afede9e0d993b552f4a49e941b3f44e43be4a0b5c516e666  backend-implementer.md
+933aad5c23a6b1a0fa2d73f4a2ee7253bc377ebc9905eaea71daaffe6d42cffe  cicd-specialist.md
+efa44ac57839eeed066e1e11255556be8c84bd9eee944aa4a3b47a4f2160b5be  code-reviewer.md
+7638bb04c9487f39a18c705e5bd74b131539e61cfc434bfc1615bea4d8f7b722  code-simplifier.md
+73bf79d0ee84fb43aeeb880f909efdbd14f98d48ccfb69154557a9dc5b73f2f9  devops-engineer.md
+99993d753b69f5ff6756abe24e5c84df475cbf462fe6d70245c4bebbf0e74fd8  frontend-implementer.md
+52da7726210aa6641894ba86f383221f08beebae7c440f62c2a9ecec66563bc5  mobile-implementer.md
+ca8e7a83175f2e3e0169a25f98d1c18ac77a82d2ec69adf86a8e9f9a19c272c2  product-manager.md
+acbd3cde49af0ed850b180645e547063eca24f64f7ec94bfbfb892a3894cf4d1  spec-planner.md
+03495236b39612104df5cdbbae8995955bd720f319c97ffef0eea9db15774035  technical-architect.md
+7d41660e9add105c1dd946bec509940715d542a0ff1f6c2e083eefeb4dfb0ebf  verify-app.md
+# after hashes
+16b53818df67058ccd6ddece39cfb365fa022bf5f3263d51b138819d5a196715  agent-implementer.md
+78e93e2872bb06b4a09c0751097a7e842b7f998149292abbb0ecca4a3fb05644  app-debugger.md
+b7f01b5ff1bdd2377aabfbc61c67f8506478d13aa237ae099fe6c6ebd30684bf  backend-implementer.md
+d46b4290e0bb4e74770c16b609870f625ec1d76821633b1bdf1cb95e56f84413  cicd-specialist.md
+82162cff2bdaa58a3d688efbb24892e12b83dcbe3f86ec7db88435e610399944  code-reviewer.md
+44898602b99571e545b05b314f7c7b3b644c10ac58770f437be621940e077457  code-simplifier.md
+ae833a04465c556c9ca4ae9b188c2374f0f16f4a7e31e8ebce4395aa0d1b8b01  devops-engineer.md
+35cf21208628df9011a8e65076674fec55307e419537a91bc3fa4f99ca2ecd60  frontend-implementer.md
+e84b5bcd4f24e9307377ad8a5f894f175d26630334d2626c4aaa9dd91929e533  mobile-implementer.md
+721924f5aa5b5c5b4f5cf4fb69f78856580b8948129f4eb43db2c24cc72de88c  product-manager.md
+1ee0942301d1c3728cc6ad068fa4102580abba1026ebe463168cdc59a1da9b1c  spec-planner.md
+0237f2d04a298fb821e124740d300cc44acf26e9efe606ef3bb6b6c022a9f847  technical-architect.md
+ac11222076a41cc2597e328439f7b7aeba7a0de825afc40f049fdce9bb15c11a  verify-app.md
