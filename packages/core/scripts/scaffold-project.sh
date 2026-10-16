@@ -22,7 +22,9 @@
 #   --agent-status     Read-only: print "<state>\t<name>" per agent (new, updated,
 #                       unchanged, custom), ignoring generated skill preloads.
 #   --sync-agents      Copy new and updated agents from the plugin, then re-inject
-#                       skill preloads. Prints the --agent-status lines.
+#                       skill preloads. Prints the --agent-status lines, except
+#                       that an unchanged agent whose preloads were rewritten
+#                       prints `refreshed`.
 #   --new-only         With --sync-agents: copy only new agents (--preserve-all).
 #
 # If project-directory is not provided, uses current directory.
@@ -1368,26 +1370,113 @@ agent_status() {
     python3 -c "$(agent_skills_program)" status "$src" "$target_dir/.claude/agents"
 }
 
+# Keep .claude/selected-skills.txt in step with the skill folders actually
+# installed under .claude/skills/, so the preload step (inject_agent_skills)
+# reads the outcome of /rebase-project's skill step instead of a stale list.
+# Rule: drop a line naming a plugin-library skill whose folder is gone; append
+# each installed plugin-library skill not listed yet (sorted, after the existing
+# lines); keep comments, blanks, line order and any name not in the library.
+# Framework skills (framework-skills.txt) are never appended -- no affinity pool
+# names one. Does nothing without a selection file or a skills directory.
+# Messages go to stderr: --sync-agents stdout carries status lines only.
+reconcile_selected_skills() {
+    local target_dir="$1"
+    local selection_file="$target_dir/.claude/selected-skills.txt"
+    local dest="$target_dir/.claude/skills"
+    [[ -f "$selection_file" && -d "$dest" && -n "$PLUGIN_DIR" ]] || return 0
+
+    local src="$PLUGIN_DIR/skills-lib"
+    if [[ ! -d "$src" && -d "$PLUGIN_DIR/skills" ]]; then
+        src="$PLUGIN_DIR/skills"
+    fi
+    [[ -d "$src" ]] || return 0
+
+    load_framework_skills "$src"
+
+    local -a kept=()
+    local listed=$'\n'
+    local line name changed=false
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        name="${line// /}"
+        if [[ -n "$name" && ! "$name" =~ ^# ]]; then
+            if [[ -d "$src/$name" && ! -d "$dest/$name" ]]; then
+                echo "Selection: dropped $name (no longer installed)" >&2
+                changed=true
+                continue
+            fi
+            listed+="$name"$'\n'
+        fi
+        kept+=("$line")
+    done < "$selection_file"
+
+    local d fw is_fw
+    local -a added=()
+    while IFS= read -r name; do
+        [[ -n "$name" && -d "$src/$name" && "$listed" != *$'\n'"$name"$'\n'* ]] || continue
+        is_fw=false
+        for fw in ${FRAMEWORK_SKILLS[@]+"${FRAMEWORK_SKILLS[@]}"}; do
+            [[ "$fw" == "$name" ]] && is_fw=true
+        done
+        [[ "$is_fw" == "true" ]] && continue
+        added+=("$name")
+        echo "Selection: added $name (installed)" >&2
+        changed=true
+    done < <(for d in "$dest"/*/; do [[ -d "$d" ]] && basename "$d"; done | LC_ALL=C sort)
+
+    [[ "$changed" == "true" ]] || return 0
+
+    # Atomic: a half-written selection file would lose the project's skills.
+    local tmp="$selection_file.tmp.$$"
+    {
+        # Quoted loops: a comment line holds spaces and must stay one line.
+        for line in ${kept[@]+"${kept[@]}"}; do printf '%s\n' "$line"; done
+        for line in ${added[@]+"${added[@]}"}; do printf '%s\n' "$line"; done
+    } > "$tmp"
+    mv "$tmp" "$selection_file"
+}
+
 # Do the whole agent step for /rebase-project: classify, copy new and updated
 # agents from the plugin, then re-run inject_agent_skills so the copied files get
 # the project's skill preloads back (a bare copy strips them). Custom agents are
 # never touched. With --new-only (/rebase-project --preserve-all) only new agents
 # are copied; existing ones keep their bodies and only have their generated
-# preloads re-derived. Prints the same lines as agent_status (the classification
-# made BEFORE the copy); everything else goes to stderr.
+# preloads re-derived.
+# Prints "<state>\t<name>" per agent, the --agent-status classification made
+# BEFORE the copy, with one change: a line that classification calls `unchanged`
+# prints `refreshed` when the file's bytes differ after the preload step. The
+# body matched the plugin, so `updated` would be wrong; only the generated
+# preloads moved (e.g. a skill was added to or removed from the selection).
+# Bytes are hashed (cksum) before the copy loop -- the preload step rewrites every
+# agent, so a hash taken later would see nothing. A `new` agent has no
+# before-state and stays `new`. `--agent-status` itself never prints `refreshed`.
+# Everything else goes to stderr.
 sync_agents() {
     local target_dir="$1"
-    local report state name src
+    local report state name src f
+    local before=$'\n' after
     report="$(agent_status "$target_dir")" || return 1
     src="$(plugin_agents_src)"
     mkdir -p "$target_dir/.claude/agents"
+    while IFS=$'\t' read -r state name; do
+        f="$target_dir/.claude/agents/$name.md"
+        [[ "$state" == "unchanged" && -f "$f" ]] && before+="$name $(cksum < "$f")"$'\n'
+    done <<< "$report"
+    reconcile_selected_skills "$target_dir"
     while IFS=$'\t' read -r state name; do
         if [[ "$state" == "new" || ( "$state" == "updated" && "${NEW_ONLY:-false}" != "true" ) ]]; then
             cp "$src/$name.md" "$target_dir/.claude/agents/$name.md"
         fi
     done <<< "$report"
     inject_agent_skills "$target_dir" >&2
-    [[ -n "$report" ]] && echo "$report"
+    while IFS=$'\t' read -r state name; do
+        [[ -n "$state" ]] || continue
+        f="$target_dir/.claude/agents/$name.md"
+        if [[ "$state" == "unchanged" && -f "$f" ]]; then
+            after="$name $(cksum < "$f")"
+            [[ "$before" == *$'\n'"$after"$'\n'* ]] || state="refreshed"
+        fi
+        printf '%s\t%s\n' "$state" "$name"
+    done <<< "$report"
     return 0
 }
 

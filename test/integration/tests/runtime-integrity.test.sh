@@ -311,7 +311,7 @@ PY
     grep -q 'does not exist in the plugin.s skill library at all' "$RP"
 
     # The APPLY step must check it before deleting — a table row nothing reads is not a guard.
-    APPLY="$(sed -n '/^#### 4.2 Update Skills/,/^#### 4.3/p' "$RP")"
+    APPLY="$(sed -n '/^#### 4.1 Update Skills/,/^#### 4.2 Update Agents/p' "$RP")"
     grep -q 'Check the Custom guard FIRST' <<<"$APPLY"
     grep -q 'Do not delete it' <<<"$APPLY"
 
@@ -337,8 +337,8 @@ PY
     grep -q '\*\*Framework\*\*' <<<"$DIFF"
     grep -q 'never classified Stale' <<<"$DIFF"
 
-    # The APPLY step (§4.2) must guard against removal AND add it when missing.
-    APPLY="$(sed -n '/^#### 4.2 Update Skills/,/^#### 4.3/p' "$RP")"
+    # The APPLY step (§4.1) must guard against removal AND add it when missing.
+    APPLY="$(sed -n '/^#### 4.1 Update Skills/,/^#### 4.2 Update Agents/p' "$RP")"
     grep -q 'Check the Framework guard' <<<"$APPLY"
     grep -q 'never remove it' <<<"$APPLY"
     grep -q 'Added framework skill' <<<"$APPLY"
@@ -361,7 +361,7 @@ PY
     grep -q 'framework-skills.txt' <<<"$DIFF"
     refute grep -q 'verify-design-comparison' <<<"$DIFF"
 
-    APPLY="$(sed -n '/^#### 4.2 Update Skills/,/^#### 4.3/p' "$RP")"
+    APPLY="$(sed -n '/^#### 4.1 Update Skills/,/^#### 4.2 Update Agents/p' "$RP")"
     grep -q 'framework-skills.txt' <<<"$APPLY"
     refute grep -q 'verify-design-comparison' <<<"$APPLY"
 

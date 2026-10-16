@@ -260,7 +260,7 @@ is recoverable from git. User-created agents (not shipped by the plugin) are nev
    the plugin file over it strips those preloads. The script compares with that generated
    content removed.
 
-   `${CLAUDE_PLUGIN_ROOT}` here and in §4.1 is the plugin root resolved in Step 1 above. If
+   `${CLAUDE_PLUGIN_ROOT}` here and in §4.2 is the plugin root resolved in Step 1 above. If
    the variable is unset in the shell (the fallback path applied), substitute that resolved
    path; never run the snippet with it empty, which resolves to `/scripts/...`.
 
@@ -688,45 +688,7 @@ Rebase preview
 
 **TRD-C604: Implement selective update**
 
-#### 4.1 Update Agents (content-diff)
-
-**Rule:** Update any agent whose content differs from the plugin's version. Never touch
-user-created agents. Recovery is git — no backup step; see "Recovery is git" above.
-
-**Skip this sync entirely if `agent_preserve=true`** (set by `--preserve-all`) except for
-adding NEW agents — see the bottom of this section.
-
-1. **Add NEW and replace UPDATED agents, restoring skill preloads, in one call:**
-   ```bash
-   "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --sync-agents .
-   ```
-   It copies each `new` and `updated` agent from the plugin, then re-runs the skill-preload
-   injection so the copied files get their `skills:` list and "Project Skills" section back
-   (a bare copy strips them from every agent). It prints the same `<status>\t<name>` lines
-   as §2.1. Never copy agent files by hand. Report each line: `new` as "Added new agent:
-   [name]", `updated` as "Updated agent: [name]"; `unchanged` lines are silent (covered by
-   the summary count); `custom` lines are handled in step 3.
-
-2. **For STALE agents (on §2.1's retired list):**
-   - **DELETE from `.claude/agents/`. This is not a judgement call** — the file was
-     classified by the diff step, and `git restore` brings it back if that was wrong. A
-     retired agent left in place stays selectable by name and re-introduces behaviour the
-     framework deliberately removed.
-   - Report: "Removed stale agent: [name]"
-
-3. **For CUSTOM agents (in vendored, not in plugin, not on the retired list):**
-   - DO NOT remove
-   - Report: "Kept custom agent: [name]"
-
-**If `agent_preserve=true` (set by `--preserve-all`):**
-- Run step 1 with `--new-only` added, and skip step 2. It copies only the `new` agents and
-  gives them their skill preloads; existing agents keep their bodies:
-  ```bash
-  "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --sync-agents --new-only .
-  ```
-- Report: "Existing agents preserved (preserve-all mode)"
-
-#### 4.2 Update Skills (recompute + content-diff)
+#### 4.1 Update Skills (recompute + content-diff)
 
 **Rule:** Two-phase update. (a) Recompute the set of installed skills against the current
 `stack.md`. (b) For skills retained, replace folder content whenever any file differs from
@@ -772,6 +734,52 @@ the plugin's version. Recovery is git — no backup step; see "Recovery is git" 
 - Skip steps 1 and 3 (no removals or content updates)
 - Step 2 still runs (newly-required skills are added)
 - Report: "Existing skills preserved (preserve-all mode)"
+
+#### 4.2 Update Agents (content-diff)
+
+**Rule:** Update any agent whose content differs from the plugin's version. Never touch
+user-created agents. Recovery is git — no backup step; see "Recovery is git" above.
+
+**Skip this sync entirely if `agent_preserve=true`** (set by `--preserve-all`) except for
+adding NEW agents — see the bottom of this section.
+
+1. **Add NEW and replace UPDATED agents, restoring skill preloads, in one call:**
+   ```bash
+   "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --sync-agents .
+   ```
+   It copies each `new` and `updated` agent from the plugin, then re-runs the skill-preload
+   injection so the copied files get their `skills:` list and "Project Skills" section back
+   (a bare copy strips them from every agent). Before either, it reconciles
+   `.claude/selected-skills.txt` with the skill folders §4.1 left installed — dropping a
+   plugin-library skill that was removed, appending one that was added — so the preloads
+   follow the skills on disk; reconciliation notes go to stderr. Never edit the selection
+   file by hand. It prints the same `<status>\t<name>` lines
+   as §2.1, with one addition: `refreshed` marks an agent whose body already matched the
+   plugin but whose file changed because its skill preloads were rewritten (a skill was added
+   to or removed from the selection). Adding or removing any one skill rewrites every agent,
+   so these are reported as a single line. Never copy agent files by hand. Report each line:
+   `new` as "Added new agent: [name]", `updated` as "Updated agent: [name]"; all `refreshed`
+   agents together as one line, "Refreshed skill preloads: [names]"; `unchanged` lines are
+   silent (covered by the summary count); `custom` lines are handled in step 3.
+
+2. **For STALE agents (on §2.1's retired list):**
+   - **DELETE from `.claude/agents/`. This is not a judgement call** — the file was
+     classified by the diff step, and `git restore` brings it back if that was wrong. A
+     retired agent left in place stays selectable by name and re-introduces behaviour the
+     framework deliberately removed.
+   - Report: "Removed stale agent: [name]"
+
+3. **For CUSTOM agents (in vendored, not in plugin, not on the retired list):**
+   - DO NOT remove
+   - Report: "Kept custom agent: [name]"
+
+**If `agent_preserve=true` (set by `--preserve-all`):**
+- Run step 1 with `--new-only` added, and skip step 2. It copies only the `new` agents and
+  gives them their skill preloads; existing agents keep their bodies:
+  ```bash
+  "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --sync-agents --new-only .
+  ```
+- Report: "Existing agents preserved (preserve-all mode)"
 
 #### 4.3 Update Commands (Replace)
 
