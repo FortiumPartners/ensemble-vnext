@@ -129,13 +129,11 @@ rephrase, re-punctuate or shorten it on the way to the terminal: a printed VERDI
 differs from the report's first line is two verdicts. The only thing the printed readout adds
 is STATE lines about the report itself (where it was written), which do not exist in the file.
 
-Then read any stored URL for this kind, and record the report. These reports are not
-published, so there is no `--url`; `record` without `--url` keeps a URL already stored,
-and a non-empty `get` is one STATE line naming that link (empty output means none):
+Then record the report. These reports are never published, so record passes `--url ""`:
+that clears any link a past version left behind, which would otherwise point at an old page:
 
 ```bash
-node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind audit-trd
-node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-trd --path .trd-state/<feature>/audit-trd-report.md --command /audit-trd
+node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-trd --path .trd-state/<feature>/audit-trd-report.md --command /audit-trd --url ""
 ```
 
 There is no commit step. A failed write or record is one line in STATE; it never turns the run STUCK.

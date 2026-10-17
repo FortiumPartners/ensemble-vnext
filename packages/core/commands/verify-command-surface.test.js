@@ -1790,12 +1790,15 @@ describe.each([
     expect(text).toContain('One text, written once, printed as written.');
   });
 
-  test(`records through artifacts.js with --kind ${cmd}, the command, and no --url`, () => {
+  test(`records through artifacts.js with --kind ${cmd}, the command, and --url "" (never published)`, () => {
     expect(text).toContain(
-      `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ${cmd} --path .trd-state/<feature>/${cmd}-report.md --command /${cmd}`,
+      `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ${cmd} --path .trd-state/<feature>/${cmd}-report.md --command /${cmd} --url ""`,
     );
-    expect(text).toMatch(/not published/);
-    expect(text).not.toMatch(new RegExp(`--command /${cmd} --url`));
+    expect(text).toMatch(/never published/);
+    // A stored link would point at an old page: the report is never published, so it is
+    // cleared, not kept and named in STATE.
+    expect(text).not.toContain(`artifacts.js get --state-dir .trd-state/<feature> --kind ${cmd}`);
+    expect(text).not.toMatch(/keeps a URL already stored/);
   });
 
   test('a failed write or record is one line in STATE, never STUCK; no commit step', () => {
@@ -1835,8 +1838,10 @@ describe('verification commands record and read through artifacts.js', () => {
     expect(verify).toMatch(/\*\*Record the success definition\.\*\* Once the file exists, whether found present at step 3, written by the spec-scope path or just derived/);
   });
 
-  test('/refine-verification records the plan after writing it', () => {
-    expect(refine).toContain(`${REC} --kind verification-plan --path .trd-state/<feature>/verification-plan.md --command /refine-verification`);
+  test('/refine-verification records the plan after writing it, clearing any stale link', () => {
+    expect(refine).toContain(`${REC} --kind verification-plan --path .trd-state/<feature>/verification-plan.md --command /refine-verification --url ""`);
+    expect(refine).not.toContain(`${GET} --kind verification-plan`);
+    expect(refine).not.toMatch(/keeps a stored URL/);
   });
 
   test('/implement-trd §9.0a reads the report URL via get and records the report outside the publish switch', () => {
