@@ -1,0 +1,12 @@
+{
+  "feature": "rebase-skill-selection-and-sync-report",
+  "trd": "docs/TRD/rebase-skill-selection-and-sync-report.md",
+  "closedAt": "2026-10-17T00:41:26Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied \u2014 fidelity and omission unchecked; whether a model running /rebase-project actually copies and deletes the right skill folders is unproven without a live run; four line citations in the TRD's Task Grounding section are out of date (the functions they name exist)",
+    "report": ".trd-state/rebase-skill-selection-and-sync-report/audit-build-report.md",
+    "auditedCommit": "a5ffe26"
+  }
+}

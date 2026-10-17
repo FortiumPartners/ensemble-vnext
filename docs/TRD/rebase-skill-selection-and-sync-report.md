@@ -168,4 +168,6 @@ none
 
 ## Could Not Verify
 
-- That a model running the edited command runs the skill step before the agent step and copies and deletes the right skill folders. That is prompt adherence for the skill step's folder copies and deletes. The selection file and the agent preloads no longer depend on it, because `--sync-agents` reconciles from what is on disk.
+- That a model running the edited command runs the skill step before the agent step and copies and deletes the right skill folders. That is prompt adherence for the skill step's folder copies and deletes. The selection file and the agent preloads no longer depend on it, because `--sync-agents` reconciles from what is on disk. Out of scope for `/audit-build` (audit 2026-10-16), which reads code and tests; it needs a live `/rebase-project` run.
+- Fidelity to product requirements: this TRD has no PRD (a defect planned on the owner's instruction, 2026-10-16), so the 2026-10-16 `/audit-build` checked the TRD against the delivered code only. Whether O1 and O2 are the right objectives was not checked against any source document.
+- Line citations in Task Grounding (`scaffold-project.sh:915`, `:1378`, lines 1018–1023; `scaffold-project.test.sh:2391`) were written against the tree before this feature's own commit `b32d826` and no longer resolve as cited; the named functions exist (`load_framework_skills` at 928, `sync_agents` at 1463, the skills-library lookup in `plugin_skills_src` at 230–234, `cksum` at 2394). That section was not edited by the audit.
