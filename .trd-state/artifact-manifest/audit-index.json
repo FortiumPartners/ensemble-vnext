@@ -1,0 +1,202 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "Every command that produces a document records it in .trd-state/<feature>/artifacts.json under its kind as {path, url, updated_at, command}, beside a top-level \"version\": 2, through one lib helper. No command writes the JSON itself.",
+      "source": "TRD Objectives O1",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003",
+        "FIX-004",
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "The recorded path names a file that exists on disk, for each kind: prd, trd, audit-prd, audit-trd, success-definition, verification-plan, verification-report, audit-build.",
+      "source": "TRD Objectives O2",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-003",
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "An old manifest (one claude.ai URL string per kind) is read as {url} and upgraded to the version-2 shape in place on the next write, keeping every URL it held.",
+      "source": "TRD Objectives O3",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "With ensemble.publishArtifacts: false the path is still recorded and url is left empty.",
+      "source": "TRD Objectives O4",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "/audit-prd and /audit-trd write .trd-state/<feature>/audit-prd-report.md / audit-trd-report.md the way /audit-build writes its report: VERDICT line first, then a header (date, audited commit, document path), then the readout word for word.",
+      "source": "TRD Objectives O5",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "After /init-project and after /rebase-project (every mode, --preserve-all included), .claude/settings.json has ensemble.version set to the plugin version.",
+      "source": "TRD Objectives O6",
+      "served_by": [
+        "FIX-006"
+      ]
+    },
+    {
+      "id": "O7",
+      "statement": "packages/core and the vendored .claude copy stay byte-identical for every file this change touches.",
+      "source": "TRD Objectives O7",
+      "served_by": [
+        "FIX-001",
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "FIX-001-AC",
+      "statement": "Jest on artifacts.js: each of the eight document kinds records a path that exists with version 2; URL-only file reads as {url} (audit-build-report read as audit-build) and is rewritten as version 2 on record keeping other URLs; record without URL stores url \"\" for new kind and keeps existing URL; repeated identical record leaves bytes unchanged; record throws on missing file, absolute path, ../ escape and kind version, leaving manifest unchanged; CLI get prints only URL, or nothing when absent or \"\".",
+      "source": "TRD Master Task List FIX-001 acceptance criteria",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-002-AC",
+      "statement": "No artifacts.json write instruction remains in the six prompts (create-prd, refine-prd, create-trd, refine-trd, plan, audit-build); each names artifacts.js record with its kind and command, outside the publish switch; a Jest surface test fails if any command prompt tells the model to store or read a URL in artifacts.json directly, and is shown failing on today's prompts before edits.",
+      "source": "TRD Master Task List FIX-002 acceptance criteria",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-003-AC",
+      "statement": "Both audit prompts specify the report path, the three-part order, the header fields, and the record call; the surface test checks each.",
+      "source": "TRD Master Task List FIX-003 acceptance criteria",
+      "served_by": [
+        "FIX-003"
+      ]
+    },
+    {
+      "id": "FIX-004-AC",
+      "statement": "Each named step calls artifacts.js record with the right kind and path (success-definition, verification-plan, verification-report, check pages); verification-report recorded outside the publish switch; implement-trd 8.1b step 5 and verify-build fix-loop step 4 read through get; surface test checks each.",
+      "source": "TRD Master Task List FIX-004 acceptance criteria",
+      "served_by": [
+        "FIX-004"
+      ]
+    },
+    {
+      "id": "FIX-005-AC",
+      "statement": "command-status.md Artifact links section (template and vendored copy) names artifacts.js, the {path, url, updated_at, command} shape, \"version\": 2, and recording with publishing off; existing check-skill-keys test still passes; both copies byte-identical.",
+      "source": "TRD Master Task List FIX-005 acceptance criteria",
+      "served_by": [
+        "FIX-005"
+      ]
+    },
+    {
+      "id": "FIX-006-AC",
+      "statement": "BATS: scaffold-project.sh --stamp-version on a settings file without a version sets it to the plugin version; on an older version updates it, records previous_version and keeps owner keys; with no readable plugin manifest or no settings.json exits non-zero and leaves files unchanged; --refresh writes no rebased_at or previous_version; rebase prompt runs --stamp-version as last step of Step 4 and its dry-run path still skips Step 4; init prompt re-runs --stamp-version and ends STUCK when still missing.",
+      "source": "TRD Master Task List FIX-006 acceptance criteria",
+      "served_by": [
+        "FIX-006"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "Add packages/core/lib/artifacts.js (read, get, record, CLI read/get/record), its Jest tests, the packages/full/lib/artifacts.js symlink and the vendored .claude/lib/artifacts.js copy.",
+      "touches": [
+        "packages/core/lib/artifacts.js",
+        "packages/core/lib/artifacts.test.js",
+        "packages/full/lib/artifacts.js",
+        ".claude/lib/artifacts.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "Wire prd, trd and audit-build recording into create-prd, refine-prd, create-trd, refine-trd, plan and audit-build. Each reads its stored URL with artifacts.js get, publishes as before, then records with artifacts.js record, publishing on or off. audit-build uses kind audit-build and always commits artifacts.json on a close.",
+      "touches": [
+        "packages/core/commands/create-prd.md",
+        "packages/core/commands/refine-prd.md",
+        "packages/core/commands/create-trd.md",
+        "packages/core/commands/refine-trd.md",
+        "packages/core/commands/plan.md",
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        ".claude/commands/create-prd.md",
+        ".claude/commands/refine-prd.md",
+        ".claude/commands/create-trd.md",
+        ".claude/commands/refine-trd.md",
+        ".claude/commands/plan.md",
+        ".claude/commands/audit-build.md"
+      ]
+    },
+    {
+      "id": "FIX-003",
+      "description": "/audit-prd and /audit-trd write .trd-state/<feature>/audit-prd-report.md and audit-trd-report.md (VERDICT line, then header, then readout verbatim) and record kinds audit-prd and audit-trd.",
+      "touches": [
+        "packages/core/commands/audit-prd.md",
+        "packages/core/commands/audit-trd.md",
+        ".claude/commands/audit-prd.md",
+        ".claude/commands/audit-trd.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "FIX-004",
+      "description": "Record success-definition (implement-trd 8.1, verify-build steps 3/3a), verification-plan (refine-verification Writes) and verification-report plus check pages (implement-trd 9.0a, verify-build Artifact link), publishing on or off. Switch the readers (implement-trd 8.1b step 5, check-page comments; verify-build fix-loop step 4) to artifacts.js get.",
+      "touches": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/refine-verification.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md",
+        ".claude/commands/refine-verification.md"
+      ]
+    },
+    {
+      "id": "FIX-005",
+      "description": "Update command-status.md Artifact links section (template and vendored .claude/rules copy) to describe the version-2 manifest and the helper.",
+      "touches": [
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/command-status.md"
+      ]
+    },
+    {
+      "id": "FIX-006",
+      "description": "Add scaffold-project.sh --stamp-version (strict mode, writes version, refreshed_at, and in this mode only rebased_at and previous_version on change). Add a final step to rebase-project Step 4 running it, with all three copies identical. Make init-project (all three copies) re-run it when ensemble.version is missing and go STUCK if still missing.",
+      "touches": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "packages/core/commands/init-project.md",
+        ".claude/commands/init-project.md",
+        "packages/full/commands/plugin-only/init-project.md"
+      ]
+    }
+  ],
+  "open_questions": [
+    "TRD states Open Questions: none (no rows)."
+  ],
+  "could_not_verify": [
+    "Whether a model running these prompts calls artifacts.js record at every step is not checked by any automated test. The surface tests prove the prompts say so; only a live run proves a model does.",
+    "Forge's own reading of the manifest is outside this repository."
+  ]
+}

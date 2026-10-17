@@ -208,9 +208,8 @@ once at the start, not a mid-loop request for permission to continue.
 
 2. **Detect available plugin version:**
 
-   Read version from plugin manifest. The current plugin version is defined in the plugin package.
-
-   For this comparison, use the version in the command frontmatter or a known plugin version source.
+   Read `version` from `<plugin-root>/.claude-plugin/plugin.json` (the plugin root is
+   `${CLAUDE_PLUGIN_ROOT}`). That file is the source of truth for the available version.
 
 3. **Compare versions:**
 
@@ -1029,16 +1028,8 @@ registration count for the pre-write check in §4.6.
    merged block has fewer registrations or fewer prompt entries than the plugin default, the
    merge dropped framework hooks — stop and report rather than writing.
 
-5. **Update version metadata:**
-   ```json
-   {
-     "ensemble": {
-       "version": "[new plugin version]",
-       "rebased_at": "[current timestamp ISO8601]",
-       "previous_version": "[old version]"
-     }
-   }
-   ```
+5. **Update version metadata:** done by Step 4.8, which always runs last; do not write
+   `version`, `rebased_at` or `previous_version` by hand here.
 
 6. **Write merged settings.json**
 
@@ -1104,6 +1095,20 @@ the overwhelming majority — silently gets the current rules for the first time
 Report:
 - "Governance files preserved (not modified by rebase)"
 - "Framework rules: N installed, M updated, K unchanged"
+
+#### 4.8 Stamp the version (always)
+
+Runs last in Step 4, in every mode that applies changes (default, `--preserve-all`, `--force`),
+whatever `settings_preserve` says: the stamp is what the next rebase's version detection reads,
+and it is not a settings merge. It writes `ensemble.version`, `refreshed_at`, `rebased_at` and,
+when the version changed, `previous_version`, leaving every other key alone.
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-project.sh" --plugin-dir "${CLAUDE_PLUGIN_ROOT}" --stamp-version .
+```
+
+A non-zero exit means the project is not stamped. Do not ignore it: report it under ISSUES in
+the rebase report, with the stderr line, and list re-running this command as a next step.
 
 </selective-update>
 

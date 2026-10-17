@@ -146,6 +146,8 @@ node .claude/lib/spec-scope.js criteria --spec <spec> --section <section> --ids 
      --feature <feature> [--trd <TRD>] --out .trd-state/<feature>/success-definition.md
 ```
 
+Once `criteria` has written the file, record it (see "Record the success definition", below).
+
 Pass `--trd <TRD>` for a TRD only (it copies each must-pass objective's id into its criterion's
 `Must pass` cell, exactly as `/implement-trd` §3.6 step 1 does); never for a sweep file, which
 has no Objectives and declares no must-pass (D19).
@@ -238,6 +240,12 @@ you should read. It no longer means "nobody ever asked".
 followed by `/verify-build`, which stopped at `no definition produced` and declined to derive,
 citing Step 8's reasoning. The reasoning was inherited without checking whether its premises
 held here. They did not.
+
+**Record the success definition.** Once the file exists, whether found present at step 3,
+written by the spec-scope path or just derived here, record it in the manifest:
+`node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind success-definition --path .trd-state/<feature>/success-definition.md --command /verify-build`
+(no `--url`: it is not published). A failed record is one line in ISSUES, never STUCK. For a
+sweep file (chained or not) the feature is `<slug>-sweep`.
 
 ### 3b. Append the check criteria
 
@@ -518,7 +526,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    read as an already-exhausted budget and return `stuck` at once. Because those `met` entries
    arrive as settled, **this round re-verifies only criteria still open**: a criterion already
    `met` is carried forward with its original `provenAt` and is not exercised again. Publish the report and each
-   selected check's page to their stored `artifacts.json` URLs (the "Artifact link" section,
+   selected check's page to their stored URLs (read with `artifacts.js get`; the "Artifact link" section,
    below — the same mechanism, run again each round, not a second one), then read comments on
    each published check page (§8.1b step 5) so the next round's step 3b selection carries them
    and this step's filter un-settles any criterion they comment on.
@@ -564,14 +572,17 @@ with the one `RETURN` line from "`--chained`", above — no banner, no `notify-c
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the verification report (identical to
 `/implement-trd` §9.0a — read that section and follow it, including its fresh listing and the
 images the report embeds; the `--no-verify` clause there does not apply here) — the markdown
-FILE, never a rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json`
-(key `verification-report`) when one is present, and storing it when one is not.
+FILE, never a rendering of it — passing the stored URL (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind verification-report`; empty output means none) as `url:` when there is one.
 
 **Then, under the same switch, publish each selected check's page** (identical to
 `/implement-trd` §9.0a — read that section and follow it): one call per skill with a `files`
-map for its images, reusing the stored URL under the skill's own name in `artifacts.json` when
-present and storing it when not. A page over 255 files goes up in several calls to the same
+map for its images, passing its stored URL (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`) as `url:` when there is one. A page over 255 files goes up in several calls to the same
 URL (TR4). With publishing off, name each page's local path instead.
+
+**Then ALWAYS record the report and each page on disk, whether or not publishing is on** (outside
+the publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /verify-build`
+and, per page, `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind <skill> --path <pagesDir>/<skill>/index.html --command /verify-build`,
+adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
 
 Emit the link ABOVE the banner. A failed publish — the report's or any check page's — is one
 line of prose and nothing more; it never blocks the banner.

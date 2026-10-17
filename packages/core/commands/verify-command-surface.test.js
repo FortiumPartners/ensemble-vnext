@@ -375,7 +375,8 @@ describe('implement-trd.md §8.1b appends check criteria in the right place, doi
     const section = flat(src().split('### 9.0a')[1].split('### 9.1')[0]);
     expect(section).toMatch(/publish each selected check's page/);
     expect(section).toMatch(/files:/);
-    expect(section).toMatch(/Store the returned URL back under the skill's own name/);
+    expect(section).toMatch(/ALWAYS record each page that is on disk/);
+    expect(section).toContain('--kind <skill> --path <pagesDir>/<skill>/index.html');
   });
 });
 
@@ -421,6 +422,36 @@ describe("command-status.md's artifacts.json keys sentence names the check-skill
     expect(read(path.join(REPO, '.claude/rules/command-status.md'))).toMatch(
       /one key per verification-check skill/
     );
+  });
+});
+
+describe('command-status.md Artifact links rule names the manifest helper (FIX-005)', () => {
+  const copies = {
+    'packages/core template': 'packages/core/templates/claude-directory/rules/command-status.md',
+    '.claude/rules': '.claude/rules/command-status.md',
+  };
+  describe.each(Object.entries(copies))('%s', (_label, rel) => {
+    const text = () => flat(read(path.join(REPO, rel)));
+
+    test('names artifacts.js as the one helper (record|get|read)', () => {
+      expect(text()).toMatch(/the one lib helper, `node \.claude\/lib\/artifacts\.js record\|get\|read`/);
+    });
+
+    test('says no command writes the JSON by hand', () => {
+      expect(text()).toMatch(/no command writes the JSON by hand/);
+    });
+
+    test('states the {path, url, updated_at, command} entry shape', () => {
+      expect(text()).toMatch(/\{path, url, updated_at, command\}/);
+    });
+
+    test('states "version": 2', () => {
+      expect(text()).toMatch(/"version": 2/);
+    });
+
+    test('with publishing off, still records the path and leaves url empty', () => {
+      expect(text()).toMatch(/With publishing off, still `record` the path and leave `url` empty/);
+    });
   });
 });
 
@@ -1676,5 +1707,175 @@ describe('report publish sequence (verification-report-images D10): one written 
   test("/verify-build step 6's republish points at the Artifact link section", () => {
     const step6 = flat(read(CORE_VERIFY_BUILD).split('6. **Render and close.**')[1].split('Its `criteria` input')[0]);
     expect(step6).toMatch(/republish it[^.]*Artifact link/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// artifact-manifest FIX-002: commands record through artifacts.js, never by hand.
+// ---------------------------------------------------------------------------
+describe('no command tells the model to edit artifacts.json by hand', () => {
+  const COMMANDS_DIR = path.join(REPO, 'packages/core/commands');
+  const HAND_EDIT = [
+    /Store the returned URL back into/,
+    /artifacts\.json's .* key/,
+    /reusing the stored URL from `\.trd-state\/<feature>\/artifacts\.json`/,
+    /under its own name in `artifacts\.json`/,
+    /under the skill's own name in `artifacts\.json`/,
+  ];
+  const files = fs.readdirSync(COMMANDS_DIR).filter((f) => f.endsWith('.md'));
+
+  test.each(files)('%s has no hand-edit instruction', (f) => {
+    const text = flat(read(path.join(COMMANDS_DIR, f)));
+    for (const re of HAND_EDIT) expect(text).not.toMatch(re);
+  });
+});
+
+describe('prd/trd/audit-build commands record through artifacts.js', () => {
+  const cases = [
+    ['create-prd', 'prd', '/create-prd'],
+    ['refine-prd', 'prd', '/refine-prd'],
+    ['create-trd', 'trd', '/create-trd'],
+    ['refine-trd', 'trd', '/refine-trd'],
+    ['plan', 'trd', '/plan'],
+    ['audit-build', 'audit-build', '/audit-build'],
+  ];
+  test.each(cases)('%s names record, --kind %s and --command %s', (cmd, kind, command) => {
+    const text = flat(read(path.join(REPO, 'packages/core/commands', `${cmd}.md`)));
+    expect(text).toContain('artifacts.js record');
+    expect(text).toContain('artifacts.js get');
+    expect(text).toContain(`--kind ${kind}`);
+    expect(text).toContain(`--command ${command}`);
+    expect(text).toMatch(/no command writes `artifacts\.json` by hand/i);
+  });
+
+  test('audit-build no longer uses the audit-build-report key and commits artifacts.json unconditionally', () => {
+    const text = flat(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
+    expect(text).not.toMatch(/audit-build-report` key|under\s+`audit-build-report`/);
+    expect(text).not.toMatch(/When "Publish it" just changed `artifacts\.json`/);
+    expect(text).toMatch(/Commit the manifest right after recording, on every run that records/);
+    expect(text).toMatch(/git add \.trd-state\/<feature>\/artifacts\.json && git commit/);
+  });
+});
+
+// artifact-manifest FIX-003: /audit-prd and /audit-trd write a report file, then record it.
+describe.each([
+  ['audit-prd', 'PRD'],
+  ['audit-trd', 'TRD'],
+])('%s writes and records its report', (cmd, doc) => {
+  const text = flat(read(path.join(REPO, 'packages/core/commands', `${cmd}.md`)));
+
+  test('names the report path under .trd-state/<feature>/', () => {
+    expect(text).toContain(`.trd-state/<feature>/${cmd}-report.md`);
+    expect(text).toMatch(/basename without (its )?extension/);
+  });
+
+  test('writes right after the workflow returns, before the readout', () => {
+    expect(text).toMatch(/Right after the workflow call above returns[^.]*before printing the readout/);
+  });
+
+  test('report order: VERDICT line, header with date, commit, document path, source, then the readout verbatim', () => {
+    expect(text).toContain("<the readout's VERDICT: line, copied");
+    expect(text).toContain('# Audit report: <feature>');
+    expect(text).toContain('- Date: <YYYY-MM-DD>');
+    expect(text).toContain('git rev-parse --short HEAD');
+    expect(text).toContain(`- ${doc}: <${doc.toLowerCase()} path>`);
+    expect(text).toContain('- Source: <source path, or "none">');
+    const i = (s) => text.indexOf(s);
+    expect(i('VERDICT: line, copied')).toBeLessThan(i('# Audit report: <feature>'));
+    expect(i('# Audit report: <feature>')).toBeLessThan(i('- Source: <source path'));
+    expect(i('- Source: <source path')).toBeLessThan(i('the readout, verbatim'));
+  });
+
+  test('one text, written once, printed as written', () => {
+    expect(text).toContain('One text, written once, printed as written.');
+  });
+
+  test(`records through artifacts.js with --kind ${cmd}, the command, and --url "" (never published)`, () => {
+    expect(text).toContain(
+      `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind ${cmd} --path .trd-state/<feature>/${cmd}-report.md --command /${cmd} --url ""`,
+    );
+    expect(text).toMatch(/never published/);
+    // A stored link would point at an old page: the report is never published, so it is
+    // cleared, not kept and named in STATE.
+    expect(text).not.toContain(`artifacts.js get --state-dir .trd-state/<feature> --kind ${cmd}`);
+    expect(text).not.toMatch(/keeps a URL already stored/);
+  });
+
+  test('a failed write or record is one line in STATE, never STUCK; no commit step', () => {
+    expect(text).toMatch(/failed write or record is one line in STATE; it never turns the run STUCK/);
+  });
+
+  test('both copies are byte-identical', () => {
+    expect(read(path.join(REPO, '.claude/commands', `${cmd}.md`))).toBe(read(path.join(REPO, 'packages/core/commands', `${cmd}.md`)));
+  });
+});
+
+// artifact-manifest FIX-004: success-definition, verification-plan, verification-report and
+// check pages are recorded through artifacts.js; stored URLs are read through `get`.
+describe('verification commands record and read through artifacts.js', () => {
+  const REC = 'node .claude/lib/artifacts.js record --state-dir .trd-state/<feature>';
+  const GET = 'node .claude/lib/artifacts.js get --state-dir .trd-state/<feature>';
+  const implement = flat(read(CORE_IMPLEMENT));
+  const verify = flat(read(CORE_VERIFY_BUILD));
+  const refine = flat(read(path.join(REPO, 'packages/core/commands/refine-verification.md')));
+  const between = (t, a, b) => t.split(a)[1].split(b)[0];
+
+  test('/implement-trd §8.1 Present branch records the success definition', () => {
+    const sec = between(implement, 'Present → first record the file', '### 8.1b');
+    expect(sec).toContain(`${REC} --kind success-definition --path .trd-state/<feature>/success-definition.md --command /implement-trd`);
+  });
+
+  test('/verify-build records the success definition (present or derived)', () => {
+    expect(verify).toContain(`${REC} --kind success-definition --path .trd-state/<feature>/success-definition.md --command /verify-build`);
+    // The record call sits in the "Record the success definition" paragraph, not elsewhere.
+    const para = between(verify, '**Record the success definition.**', '### 3b.');
+    expect(para).toContain('--kind success-definition');
+  });
+
+  test('/verify-build records it on the spec-scope path too', () => {
+    const spec = between(verify, '**A spec-sourced input is never derived.**', '**A sweep file runs as its own feature');
+    expect(spec).toContain('Record the success definition');
+    expect(verify).toMatch(/\*\*Record the success definition\.\*\* Once the file exists, whether found present at step 3, written by the spec-scope path or just derived/);
+  });
+
+  test('/refine-verification records the plan after writing it, clearing any stale link', () => {
+    expect(refine).toContain(`${REC} --kind verification-plan --path .trd-state/<feature>/verification-plan.md --command /refine-verification --url ""`);
+    expect(refine).not.toContain(`${GET} --kind verification-plan`);
+    expect(refine).not.toMatch(/keeps a stored URL/);
+  });
+
+  test('/implement-trd §9.0a reads the report URL via get and records the report outside the publish switch', () => {
+    const sec = between(implement, '### 9.0a Artifact link', '### 9.1');
+    expect(sec).toContain(`${GET} --kind verification-report`);
+    expect(sec).toContain(`${REC} --kind verification-report --path .trd-state/<feature>/verification-report.md --command /implement-trd`);
+    expect(sec).toMatch(/whether or not publishing is on|publishing is off/i);
+    expect(sec).toMatch(/--url <returned URL>/);
+    expect(sec).toContain('--kind <skill> --path <pagesDir>/<skill>/index.html --command /implement-trd');
+    expect(sec).toContain(`${GET} --kind <skill>`);
+    expect(sec).toMatch(/empty output means no stored URL|With no stored `verification-report` URL/);
+  });
+
+  test('/verify-build Artifact link records report and pages with --command /verify-build', () => {
+    const sec = between(verify, '### Artifact link', 'Emit the link ABOVE the banner');
+    expect(sec).toContain(`${GET} --kind verification-report`);
+    expect(sec).toContain(`${REC} --kind verification-report --path .trd-state/<feature>/verification-report.md --command /verify-build`);
+    expect(sec).toContain('--kind <skill> --path <pagesDir>/<skill>/index.html --command /verify-build');
+  });
+
+  test('/implement-trd §8.1b step 5 reads each skill URL through get', () => {
+    const sec = between(implement, '5. **Collect the texts and comments.**', '6. **Add the rows');
+    expect(sec).toContain('artifacts.js get');
+    expect(sec).toContain('--kind <skill>');
+    expect(sec).not.toContain('artifacts.json');
+  });
+
+  test('/verify-build fix-loop step 4 reads stored URLs through get', () => {
+    const sec = between(verify, '4. **Verify.**', '5. **Close the round.**');
+    expect(sec).toContain('artifacts.js get');
+    expect(sec).not.toMatch(/artifacts\.json/);
+  });
+
+  test.each(['implement-trd', 'verify-build', 'refine-verification'])('%s copies are byte-identical', (cmd) => {
+    expect(read(path.join(REPO, '.claude/commands', `${cmd}.md`))).toBe(read(path.join(REPO, 'packages/core/commands', `${cmd}.md`)));
   });
 });

@@ -1523,7 +1523,10 @@ numbering is not the running order and stays as it is because other documents ci
    display string only. Skip the rest of this step — no `Workflow` call. Record `not-run-no-definition`
    for Step 9 and continue.
 
-   Present → parse its table into `criteria` (§3.1's format; column → field: `ID` → `id`,
+   Present → first record the file in the manifest, whether or not publishing is on:
+   `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind success-definition --path .trd-state/<feature>/success-definition.md --command /implement-trd`
+   (no `--url`: it is not published). A failed record is one line in ISSUES, never STUCK. Then
+   parse its table into `criteria` (§3.1's format; column → field: `ID` → `id`,
    `Functional statement` → `statement`, `Cites` → `cites`, `Evidence that would prove it` →
    `evidence`, `Derivation` → `derivation`, `Tier 1` → `tier1`, valued `locator` or
    `judge-only` — an absent column, or an absent cell, reads as `locator` (verification-convergence
@@ -1598,8 +1601,8 @@ straight to Step 9 exactly as §8.1 already sends them.
    written into a table with no `Tier 1` column at all would silently read as `locator` and fail
    tier 1, so the column must exist even when nothing else in the table needed it yet.
 5. **Collect the texts and comments.** `checks[<name>]` = the selected skill's `SKILL.md` text,
-   `{}` when none are selected. For each selected skill that has a URL recorded under its own
-   name in `.trd-state/<feature>/artifacts.json`, read its open threads (D18) — load
+   `{}` when none are selected. For each selected skill that has a stored URL
+   (`node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`; empty output means none), read its open threads (D18) — load
    `ArtifactComments` by name (a deferred tool; it may not be resolved yet in this session) and
    call `ArtifactComments({ action: "read", url })`. Map each thread to a criterion ID when the
    comment names the card carrying that ID as its visible label; a thread naming no card maps
@@ -2027,6 +2030,8 @@ The report embeds each criterion's image by a path under `evidence/`; the Artifa
 a `files` map at those same paths. **Never assemble that map by hand** — `report-publish-plan`
 reads the report and returns it. Every time this sequence runs:
 
+0. **Read the stored URL first:** `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind verification-report`. Empty output means no
+   stored URL.
 1. **With no stored `verification-report` URL**, there is nothing to list: run the plan with no
    `--published-file`, and publish batch 1 with the page (below) as a new artifact, then each
    later batch to the URL that call returns.
@@ -2047,7 +2052,7 @@ reads the report and returns it. Every time this sequence runs:
 
 ```
 Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "check",
-           files: <the batch>, url: "<artifacts.json's verification-report key, if present>" })
+           files: <the batch>, url: "<the stored URL from get, if any>" })
 ```
 
    With no batches (a report that embeds no image and has nothing to withdraw), this is the one
@@ -2059,22 +2064,27 @@ Artifact({ file_path: ".trd-state/<feature>/verification-report.md", icon: "chec
    not listed or published, so the command never sends a `files` map to a stored URL without a
    successful listing.
 
-Store the returned URL back into `.trd-state/<feature>/artifacts.json` under
-`verification-report`, so a later `/verify-build` updates the same link rather than minting a
-second one that competes with it.
+**Then ALWAYS record the report, whether or not publishing is on** (this sits outside the
+publish switch, but inside the `--no-verify` gate: no Step 8, no report, nothing to record):
+`node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-report --path .trd-state/<feature>/verification-report.md --command /implement-trd`,
+adding `--url <returned URL>` only when a publish returned one. That is what lets a later
+`/verify-build` update the same link rather than minting a second one that competes with it.
+No command writes `artifacts.json` by hand.
 
 **Then, still under the same switch and the same `--no-verify` gate, publish each selected
 check's page** (verification-artifacts TRD §3.8, D8) that `pages` (§8.4) shows on disk — one
-call per skill, in the same call shape as the report above, plus a `files` map for its images:
+call per skill, in the same call shape as the report above, plus a `files` map for its images
+(read its stored URL first: `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind <skill>`, empty output meaning none):
 
 ```
 Artifact({ file_path: "<pagesDir>/<skill>/index.html", files: { "img/…": "<pagesDir>/<skill>/img/…" },
-           icon: "image", url: "<artifacts.json's <skill> key, if present>" })
+           icon: "image", url: "<the stored URL from get, if any>" })
 ```
 
-Store the returned URL back under the skill's own name in `artifacts.json` (beside `prd`,
-`trd` and `verification-report`), so the next run's §8.1b reads comments from the same link
-and a later `/verify-build` updates it in place. A page with more than 255 files (the Artifact
+**Then ALWAYS record each page that is on disk, whether or not publishing is on** (same
+placement as the report's record): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind <skill> --path <pagesDir>/<skill>/index.html --command /implement-trd`,
+adding `--url <returned URL>` only when a publish returned one, so the next run's §8.1b reads
+comments from the same link and a later `/verify-build` updates it in place. A page with more than 255 files (the Artifact
 tool's per-publish limit) is published in several calls to the same URL (TR4) — the page on
 disk is the deliverable either way. With publishing off, STATE names each page's local path
 instead of a link.
