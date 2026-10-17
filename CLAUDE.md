@@ -315,18 +315,19 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.13.5** (2026-10-16). 21 commands, 13 subagents. Test battery: 1994 Jest,
-124 pytest, 630 BATS. **Full release history: `CHANGELOG.md`.**
+Released at **4.13.6** (2026-10-17). 21 commands, 13 subagents. Test battery: 2097 Jest,
+124 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.13.5: a rebase's agent sync rebuilds `selected-skills.txt` from the installed skill
-folders, so skills it adds or removes reach the agents' preloads, and `--sync-agents` prints
-`refreshed` for an agent whose generated skill content it rewrote.
+4.13.6: every document a command writes is recorded in a version-2 `artifacts.json`
+through `lib/artifacts.js`, path included with publishing off; init and rebase always stamp
+`ensemble.version`.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.13.6: the version stamp is proven on fixtures only, not a live init or rebase.
 - 4.13.5: `--refresh` and initial scaffolding still build agent preloads from
   `selected-skills.txt` as written; only the rebase's agent sync reconciles it.
 - 4.13.3: nothing-published-with-publishing-off is checked by reading only; the judge's

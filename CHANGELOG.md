@@ -10,6 +10,54 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.6] - 2026-10-17
+
+Every command that produces a document now records where it lives, so a tool like Forge can
+find and serve the files itself. Plan: `docs/TRD/artifact-manifest.md`.
+
+### Added
+
+- **A version-2 artifact manifest, written through one helper.** `.trd-state/<feature>/artifacts.json`
+  now holds `"version": 2` beside one `{path, url, updated_at, command}` entry per kind:
+  `prd`, `trd`, `audit-prd`, `audit-trd`, `success-definition`, `verification-plan`,
+  `verification-report`, `audit-build`, and one per verification-check skill. Every command
+  reads and writes it through `lib/artifacts.js` (`record`, `get`, `read`); no command writes
+  the JSON itself.
+  - The path is recorded whether or not publishing is on. With
+    `ensemble.publishArtifacts: false` the entry still carries `path` and leaves `url` empty.
+  - `record` refuses a path that is not a file inside the project, and an unchanged entry
+    writes nothing.
+  - Documents that are never published (the audit-prd and audit-trd reports, the
+    verification plan) record `url: ""`, which clears any link a past version left behind.
+- **`/audit-prd` and `/audit-trd` write report files**, `.trd-state/<feature>/audit-prd-report.md`
+  and `audit-trd-report.md`, the way `/audit-build` does: VERDICT line first, then a header
+  (date, audited commit, document path), then the readout word for word.
+- **`scaffold-project.sh --stamp-version`** sets `ensemble.version` in `.claude/settings.json`
+  to the plugin's version, and exits 1 when it cannot.
+
+### Changed
+
+- **Old manifests upgrade on their next write.** A file holding one claude.ai URL string per
+  kind is read as `{url}` per kind and rewritten as version 2, keeping every URL. The old
+  `audit-build-report` key is read as `audit-build`, so `/audit-build` records and reads its
+  report under one name.
+- **`/rebase-project` and `/init-project` always leave `ensemble.version` set.** A rebase
+  stamps it as the last step of every mode that changes files; `--preserve-all` used to leave
+  the old version. `/init-project` re-runs the stamp when it is missing after scaffolding and
+  stops with `COMMAND STUCK` if it is still missing. A project with no stamp is treated as out
+  of date by Forge.
+- **`/audit-build` commits the manifest after every run that records,** so a re-audit no
+  longer leaves the tree dirty.
+
+Consuming projects get this on their next `/rebase-project`.
+
+Proven: verification satisfied, 18 of 18 criteria (14 of 14 must-pass). `/audit-build` closed
+it with every requirement implemented and tested, after its fix run added the one missing
+test. 103 new Jest tests, 8 new BATS tests.
+
+Known open: no live `/init-project` or `/rebase-project` session was run; their behaviour was
+proven by running the scripts and the blocks those prompts contain on fixtures.
+
 ## [4.13.5] - 2026-10-16
 
 Fixes the two problems 4.13.4 left open in `/rebase-project`. Plan:
