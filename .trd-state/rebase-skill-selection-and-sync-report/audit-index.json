@@ -1,0 +1,67 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "After /rebase-project, every agent's skill preloads (the skills: list and the generated Project Skills section) match the skills the rebase left installed: a skill the rebase added is preloaded, with its description, by every agent whose affinity pool names it, and a skill the rebase removed is preloaded by none. Must pass.",
+      "source": "TRD Objectives O1",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "--sync-agents never reports an agent it rewrote as unchanged: a body replaced from the plugin reads updated, and a rewrite of only the generated preloads reads refreshed. Must pass.",
+      "source": "TRD Objectives O2",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "FIX-001-AC",
+      "statement": "Tests that fail today and pass after, on a scratch project with selection jest, pytest: (a) after copying developing-with-python in, deleting pytest and running --sync-agents, backend-implementer's skills: list contains developing-with-python and not pytest, its Project Skills section has a developing-with-python line with that skill's description, and no agent preloads pytest; (b) the selection file then lists developing-with-python and not pytest, keeps a comment line and the original order of kept lines; (c) a framework skill folder and a custom skill folder (absent from the plugin library) are not added to the selection; (d) a selection file with no trailing newline gets the new skill on its own line; (e) with no selection file, --sync-agents creates none; (f) in rebase-project.md the #### 4.1 heading is the skill step, #### 4.2 is the agent step, and the first --sync-agents in Step 4 comes after the skill step's heading. The runtime-integrity suite passes.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-002-AC",
+      "statement": "(a) On an injected project, after adding a skill that backend-implementer's pool names to selected-skills.txt and .claude/skills/ and running --sync-agents, every agent whose bytes changed (hash before and after) prints refreshed, every agent whose bytes did not change prints unchanged, and backend-implementer is refreshed. (b) A second --sync-agents prints every agent unchanged. (c) --agent-status on that project still prints backend-implementer unchanged. (d) An agent whose plugin body changed still prints updated, not refreshed. (e) The existing FIX-002 (a)-(g) tests of rebase-governance-and-agent-diff and the golden fixture still pass.",
+      "source": "TRD Master Task List, FIX-002 acceptance criteria",
+      "served_by": [
+        "FIX-002"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "In scaffold-project.sh, add selection reconciliation (drop lines for uninstalled plugin-library skills, append installed unlisted ones sorted, keep comments/order/non-library names, never add framework skills, no-op without a selection file, handle missing trailing newline) and call it at the start of sync_agents. In rebase-project.md swap \u00a74.1 (agents) and \u00a74.2 (skills) so skills come first and update every reference to either number. Keep the three copies of the command identical. Re-point the three runtime-integrity slices at the new heading. Add BATS tests to scaffold-project.test.sh. Depends on: none. Serves O1.",
+      "touches": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "test/integration/tests/runtime-integrity.test.sh"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "In sync_agents, hash each project agent file before the copy loop and after the preload step; print refreshed in place of unchanged for an agent whose bytes changed. Update the function's header comment, the script's usage text if it lists the states, and \u00a74.2's report wording (one line, Refreshed skill preloads: [names]). Add BATS tests. Depends on: FIX-001. Serves O2.",
+      "touches": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "That a model running the edited command runs the skill step before the agent step and copies and deletes the right skill folders. That is prompt adherence for the skill step's folder copies and deletes. The selection file and the agent preloads no longer depend on it, because --sync-agents reconciles from what is on disk."
+  ],
+  "open_questions": [
+    "none"
+  ]
+}

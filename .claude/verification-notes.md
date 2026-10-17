@@ -906,3 +906,9 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 
 - [ran] FS-3 and FS-4/FS-5 need no claude session: scaffold a scratch project with `scaffold-project.sh --plugin-dir "$(pwd)/packages/full" <scratch>`, commit, edit its `.claude/rules/verification.md`, then `--refresh`; the log prints `[WARN] Refusing to refresh project-authored rule: verification.md` and the sha256 is unchanged. `--agent-status` run from the repo root with `.` prints 13 `unchanged` lines.
 - [ran] For FS-5, `cp -R packages/full <scratch>/plug` yields real files (not symlinks), so appending to `<scratch>/plug/agents-lib/<agent>.md` and passing `--plugin-dir <scratch>/plug` flips exactly that one agent to `updated`, leaving the repo's packages/ untouched.
+
+## Exercising rebase-skill-selection-and-sync-report (2026-10-16 run, iteration 1)
+
+- [ran] `scaffold-project.sh --plugin-dir` must be an ABSOLUTE path when the script is invoked from the repo root with a relative one — a relative `packages/full` produced "Agents directory not found: packages/full/agents-lib" and scaffolded 0 agents, silently (exit 0). Use `--plugin-dir "$PWD/packages/full"`.
+- [ran] `--sync-agents` prints its `Selection: added|dropped <skill>` and `AGENT_SKILLS_INJECTED` lines on stderr and only `<status>\t<agent>` lines on stdout, so capture the two streams separately. Adding `developing-with-python` to a `jest`/`pytest` scaffold printed `refreshed` for all 13 agents (the Project Skills block is regenerated in every agent, including those with no `skills:` list), and `selected-skills.txt` was updated by the script itself.
+- [ran] For a body-differs (`updated`) scenario, a private plugin dir built from `cp -R packages/full/agents-lib` plus symlinks to every other `packages/full` entry (including `skills-lib`) works; appending to the copied `agents-lib/<agent>.md` flipped only that agent to `updated`, the other 12 printed `unchanged`.
