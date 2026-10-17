@@ -315,20 +315,20 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.13.4** (2026-10-12). 21 commands, 13 subagents. Test battery: 1994 Jest,
-124 pytest, 620 BATS. **Full release history: `CHANGELOG.md`.**
+Released at **4.13.5** (2026-10-16). 21 commands, 13 subagents. Test battery: 1994 Jest,
+124 pytest, 630 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.13.4: `/rebase-project` names `verification.md` as owner-governed everywhere, and compares
-and copies agents through `scaffold-project.sh --agent-status`/`--sync-agents`, which ignore
-the generated skill content and keep the preloads.
+4.13.5: a rebase's agent sync rebuilds `selected-skills.txt` from the installed skill
+folders, so skills it adds or removes reach the agents' preloads, and `--sync-agents` prints
+`refreshed` for an agent whose generated skill content it rewrote.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
-- 4.13.4: a skill added by a rebase reaches agents without its description until the next
-  rebase; `--sync-agents` prints agents whose preloads it rewrote as "unchanged".
+- 4.13.5: `--refresh` and initial scaffolding still build agent preloads from
+  `selected-skills.txt` as written; only the rebase's agent sync reconciles it.
 - 4.13.3: nothing-published-with-publishing-off is checked by reading only; the judge's
   per-image cost is unmeasured.
 - 4.13.2: one commit deleting a TRD and adding a similar one reads as a rename, so the new

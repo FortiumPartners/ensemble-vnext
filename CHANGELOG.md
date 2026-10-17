@@ -10,6 +10,44 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.5] - 2026-10-16
+
+Fixes the two problems 4.13.4 left open in `/rebase-project`. Plan:
+`docs/TRD/rebase-skill-selection-and-sync-report.md`.
+
+### Fixed
+
+- **Skills a rebase adds or removes now reach the agents.** Agent skill preloads are built
+  from `.claude/selected-skills.txt`, which `/rebase-project` never updated. A skill the rebase
+  installed was never preloaded, and a skill it removed stayed preloaded by every agent whose
+  pool named it (4 agents for `pytest`). `--sync-agents` now rebuilds the list from the skill
+  folders actually installed before it writes preloads:
+  - lines for removed library skills are dropped;
+  - new library skills are appended;
+  - comments, order and custom names are kept;
+  - framework skills are never added.
+  The rebase's skill step now also runs before its agent step (they swap places: §4.1 skills,
+  §4.2 agents), so each skill's description is on disk when agents are synced.
+- **Correction to 4.13.4's "Known open":** it blamed the order of those two steps. That was
+  not the cause; reordering alone changed nothing until the selection was kept current.
+- **`--sync-agents` no longer reports a rewritten agent as `unchanged`.** It printed the
+  classification made before it copied anything, so preload rewrites it made itself never
+  showed. It now prints a new state, `refreshed`, for an agent where only the generated skill
+  content changed. `updated` still means the agent's body was replaced from the plugin. A
+  skill change rewrites every agent, so reporting those as `updated` would have brought back
+  the "every agent changed" report 4.13.4 fixed. `--agent-status` is unchanged.
+
+Consuming projects get this on their next `/rebase-project`.
+
+Proven: verification satisfied, 7 of 7 criteria (all must-pass), in a scratch project; the
+released 4.13.4 script printed `unchanged` for all 13 agents it rewrote, this one prints
+`refreshed`. `/audit-build` closed it with every requirement implemented and tested. 10 new
+BATS tests.
+
+Known open: `--refresh` and initial scaffolding still build preloads from
+`selected-skills.txt` as written; only the rebase's agent sync reconciles it with what is
+installed.
+
 ## [4.13.4] - 2026-10-12
 
 `/rebase-project` no longer reads as permission to overwrite a project's
