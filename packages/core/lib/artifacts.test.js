@@ -225,3 +225,22 @@ describe('CLI', () => {
     expect(run('bogus', '--state-dir', stateDir).status).toBe(1);
   });
 });
+
+describe('record: path normalisation and prototype-named kinds', () => {
+  it('stores ./ and ../ forms of a path as the one normalised path', () => {
+    rec('prd', { path: './docs/a.md' });
+    expect(JSON.parse(raw()).prd.path).toBe('docs/a.md');
+    const before = raw();
+    rec('prd', { path: 'docs/../docs/a.md' });
+    expect(raw()).toBe(before);
+  });
+
+  it('treats a kind named like an Object.prototype member as a new kind', () => {
+    rec('constructor', { path: 'docs/a.md', url: 'https://c' });
+    expect(JSON.parse(raw()).constructor).toEqual({
+      path: 'docs/a.md', url: 'https://c', updated_at: '2026-10-17T10:00:00.000Z', command: '/create-prd',
+    });
+    expect(artifacts.get(stateDir, 'constructor')).toBe('https://c');
+    expect(artifacts.get(stateDir, 'tostring')).toBe('');
+  });
+});

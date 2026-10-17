@@ -334,15 +334,20 @@ Artifact({ file_path: ".trd-state/<feature>/audit-build-report.md",
 `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-build --path .trd-state/<feature>/audit-build-report.md --command /audit-build`,
 adding `--url <returned URL>` only when a publish returned one. This keeps the next audit
 updating the same link instead of minting a second one. No command writes `artifacts.json` by hand.
+**Commit the manifest right after recording, on every run that records** (a re-audit, a capped
+audit and `--report-only` included), on any branch other than the default one, so a run never
+leaves it modified in the tree. Stage it first, because `record` may just have created it and
+`git commit -- <path>` refuses a path git does not yet track:
+`git add .trd-state/<feature>/artifacts.json && git commit -m "chore(<feature>): store audit
+report link" -- .trd-state/<feature>/artifacts.json`. Nothing to commit (an unchanged manifest)
+is not an error; on the default branch, NEXT names it with the report.
 **With publishing off (`ensemble.publishArtifacts: false`) or a failed
 publish, STATE names the local report path instead of a link — one line, never STUCK, never
 retried.** STATE always names the report path; add the link above it only when one was made.
 
 **Open the pull request.** Only when the audit closed the feature (a re-audit included), the
-run is not `--report-only`, and the audit commit above succeeded. Always commit
-`.trd-state/<feature>/artifacts.json` first (`record` always changes it the first time; a failed commit of an unchanged file is not an error) with `git commit -m "chore(<feature>): store audit
-report link" -- .trd-state/<feature>/artifacts.json`, so the stored link is on the branch the
-PR carries. Write a short PR body (the VERDICT line and the report link, or its path) to a
+run is not `--report-only`, and the audit commit above succeeded. The manifest was committed
+right after recording (above), so the stored link is on the branch the PR carries. Write a short PR body (the VERDICT line and the report link, or its path) to a
 temp file, then run:
 
 ```bash

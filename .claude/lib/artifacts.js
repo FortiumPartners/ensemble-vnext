@@ -43,15 +43,19 @@ const KINDS = [
 
 const manifestPath = (stateDir) => path.join(stateDir, FILE);
 
-/** Parse the file as stored; null when absent. Malformed JSON throws -- never silently replaced. */
-function readRaw(stateDir) {
-  let text;
+/** The file's text, or null when absent. */
+function readText(stateDir) {
   try {
-    text = fs.readFileSync(manifestPath(stateDir), 'utf8');
+    return fs.readFileSync(manifestPath(stateDir), 'utf8');
   } catch (e) {
     if (e.code === 'ENOENT') return null;
     throw e;
   }
+}
+
+/** Parse the file's text; null when absent. Malformed JSON throws -- never silently replaced. */
+function parseRaw(stateDir, text) {
+  if (text === null) return null;
   let data;
   try {
     data = JSON.parse(text);
@@ -75,11 +79,14 @@ function normaliseEntry(v) {
   };
 }
 
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
 function normalise(data) {
   const out = { version: VERSION };
   for (const [key, value] of Object.entries(data || {})) {
     if (key === 'version' || key === 'audit-build-report') continue;
-    out[key] = normaliseEntry(value);
+    // defineProperty, not assignment: a stored "__proto__" key stays an ordinary entry.
+    Object.defineProperty(out, key, { value: normaliseEntry(value), enumerable: true, writable: true, configurable: true });
   }
   // The old key is the same kind under its former name; the new key wins when both exist.
   if (data && 'audit-build-report' in data && !('audit-build' in data)) {
@@ -90,12 +97,13 @@ function normalise(data) {
 
 /** The manifest, normalised to version 2. `{version: 2}` when the file is absent. */
 function read(stateDir) {
-  return normalise(readRaw(stateDir));
+  return normalise(parseRaw(stateDir, readText(stateDir)));
 }
 
 /** The stored URL for a kind, or '' when there is no entry or it was never published. */
 function get(stateDir, kind) {
-  const entry = read(stateDir)[kind];
+  const data = read(stateDir);
+  const entry = own(data, kind) ? data[kind] : undefined;
   return entry && typeof entry === 'object' ? entry.url : '';
 }
 
@@ -105,7 +113,10 @@ function checkPath(p, root) {
   if (path.isAbsolute(p)) throw new Error(`path must be project-relative, got absolute: ${p}`);
   const base = path.resolve(root);
   const abs = path.resolve(base, p);
-  if (!abs.startsWith(base + path.sep)) throw new Error(`path escapes the project root: ${p}`);
+  const rel = path.relative(base, abs);
+  if (rel === '' || rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
+    throw new Error(`path escapes the project root: ${p}`);
+  }
   let st;
   try {
     st = fs.statSync(abs);
@@ -113,7 +124,8 @@ function checkPath(p, root) {
     throw new Error(`no file at ${p}`);
   }
   if (!st.isFile()) throw new Error(`not a file: ${p}`);
-  return p.split(path.sep).join('/');
+  // Store the normalised form, so `./docs/x.md` and `docs/x.md` are one path.
+  return rel.split(path.sep).join('/');
 }
 
 /**
@@ -132,11 +144,9 @@ function record(stateDir, kind, entry, { root = process.cwd(), now = () => new D
   if (url !== undefined && typeof url !== 'string') throw new Error('url must be a string');
   const storedPath = checkPath(p, root);
 
-  const existingText = (() => {
-    try { return fs.readFileSync(manifestPath(stateDir), 'utf8'); } catch (e) { return null; }
-  })();
-  const data = read(stateDir); // throws on malformed JSON
-  const prev = data[kind];
+  const existingText = readText(stateDir);
+  const data = normalise(parseRaw(stateDir, existingText)); // throws on malformed JSON
+  const prev = own(data, kind) ? data[kind] : undefined;
   const next = {
     path: storedPath,
     url: url !== undefined ? url : (prev ? prev.url : ''),

@@ -2626,6 +2626,15 @@ _stamp_json() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); pri
     [ "$(_stamp_json "d['ensemble']['version']")" = "9.8.7" ]
 }
 
+@test "FIX-006 stamp: a first stamp (no prior version) writes no rebased_at or previous_version" {
+    _stamp_setup
+    echo '{"ensemble":{"publishArtifacts":false}}' > "$SPROJ/.claude/settings.json"
+    run "$SCAFFOLD_SCRIPT" --stamp-version --plugin-dir "$SPLUG" "$SPROJ"
+    [ "$status" -eq 0 ]
+    [ "$(_stamp_json "d['ensemble']['version']")" = "9.8.7" ]
+    [ "$(_stamp_json "'rebased_at' in d['ensemble'] or 'previous_version' in d['ensemble']")" = "False" ]
+}
+
 @test "FIX-006 stamp: older version is updated, previous_version and rebased_at recorded, owner keys kept" {
     _stamp_setup
     cat > "$SPROJ/.claude/settings.json" <<'JSON'

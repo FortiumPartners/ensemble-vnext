@@ -1581,10 +1581,13 @@ now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 ensemble["refreshed_at"] = now
 if strict:
     # Rebase fields belong to --stamp-version only; --refresh and the initial
-    # scaffold must not claim a rebase happened.
-    ensemble["rebased_at"] = now
-    if old_version and old_version != version:
-        ensemble["previous_version"] = old_version
+    # scaffold must not claim a rebase happened. Nor does strict mode when no
+    # version was stamped before: that is /init-project recovering a missing
+    # first stamp, not a rebase.
+    if old_version:
+        ensemble["rebased_at"] = now
+        if old_version != version:
+            ensemble["previous_version"] = old_version
 ensemble.setdefault("agents_dir", ".claude/agents")
 # Backfill for projects scaffolded before the key existed, matching the
 # shipped default. setdefault, never assignment: an owner who turned this

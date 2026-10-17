@@ -85,8 +85,9 @@ the CLI (`node .claude/lib/artifacts.js record|get|read`) and never edit the JSO
   record once**, with `--url` only when a publish returned one.
 - **Version stamping is a script mode, not prose.** `--stamp-version` reuses
   `stamp_ensemble_version` in a strict form that exits 1 when the plugin version cannot be read
-  or written, or when `settings.json` is absent. Only that strict mode also writes `rebased_at`,
-  and `previous_version` when the version changes; `--refresh` and the initial scaffold write
+  or written, or when `settings.json` is absent. Only that strict mode also writes `rebased_at` when a version was
+  already stamped (a first stamp is init recovering, not a rebase), and `previous_version` when the
+  version changes; `--refresh` and the initial scaffold write
   exactly what they write today. `/rebase-project` runs it as the last step of Step 4, so it
   runs in every mode that applies changes (`--preserve-all` included) and never in `--dry-run`,
   which skips Step 4 and writes nothing. §4.6 step 5's prose is replaced by a pointer to that

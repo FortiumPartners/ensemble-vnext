@@ -244,8 +244,8 @@ held here. They did not.
 **Record the success definition.** Once the file exists, whether found present at step 3,
 written by the spec-scope path or just derived here, record it in the manifest:
 `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind success-definition --path .trd-state/<feature>/success-definition.md --command /verify-build`
-(no `--url`: it is not published). A failed record is one line in ISSUES, never STUCK. Under
-`--chained` (a sweep file) the feature is `<slug>-sweep`.
+(no `--url`: it is not published). A failed record is one line in ISSUES, never STUCK. For a
+sweep file (chained or not) the feature is `<slug>-sweep`.
 
 ### 3b. Append the check criteria
 

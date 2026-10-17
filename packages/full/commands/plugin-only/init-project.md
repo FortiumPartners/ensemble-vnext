@@ -621,11 +621,15 @@ Only act if the file is missing (it should not be):
 
 Verify the stamp survived before continuing:
 
+`python3`, not `jq`: jq is optional, and a check that fails for want of jq would end the run
+STUCK on a project that is stamped.
+
 ```bash
-if ! jq -e '.ensemble.version' .claude/settings.json >/dev/null; then
+has_version() { python3 -c 'import json,sys; sys.exit(0 if (json.load(open(".claude/settings.json")).get("ensemble") or {}).get("version") else 1)' 2>/dev/null; }
+if ! has_version; then
   "${PLUGIN_DIR}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" --stamp-version .
 fi
-jq -e '.ensemble.version' .claude/settings.json >/dev/null \
+has_version \
   && echo "settings.json OK — ensemble.version present" \
   || echo "ensemble.version STILL missing"
 ```

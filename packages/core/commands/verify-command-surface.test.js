@@ -1722,7 +1722,8 @@ describe('prd/trd/audit-build commands record through artifacts.js', () => {
     const text = flat(read(path.join(REPO, 'packages/core/commands/audit-build.md')));
     expect(text).not.toMatch(/audit-build-report` key|under\s+`audit-build-report`/);
     expect(text).not.toMatch(/When "Publish it" just changed `artifacts\.json`/);
-    expect(text).toMatch(/always commit `\.trd-state\/<feature>\/artifacts\.json` first/i);
+    expect(text).toMatch(/Commit the manifest right after recording, on every run that records/);
+    expect(text).toMatch(/git add \.trd-state\/<feature>\/artifacts\.json && git commit/);
   });
 });
 
@@ -1793,8 +1794,9 @@ describe('verification commands record and read through artifacts.js', () => {
 
   test('/verify-build records the success definition (present or derived)', () => {
     expect(verify).toContain(`${REC} --kind success-definition --path .trd-state/<feature>/success-definition.md --command /verify-build`);
-    const i = verify.indexOf('--kind success-definition');
-    expect(i).toBeGreaterThan(verify.indexOf('### 3a.') - 4000);
+    // The record call sits in the "Record the success definition" paragraph, not elsewhere.
+    const para = between(verify, '**Record the success definition.**', '### 3b.');
+    expect(para).toContain('--kind success-definition');
   });
 
   test('/verify-build records it on the spec-scope path too', () => {
