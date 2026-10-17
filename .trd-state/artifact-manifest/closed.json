@@ -1,0 +1,12 @@
+{
+  "feature": "artifact-manifest",
+  "trd": "docs/TRD/artifact-manifest.md",
+  "closedAt": "2026-10-17T20:47:53Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; the rewritten \"Artifact links\" rule in command-status.md (FIX-005) has no test guarding its new content",
+    "report": ".trd-state/artifact-manifest/audit-build-report.md",
+    "auditedCommit": "43ca5c0"
+  }
+}
