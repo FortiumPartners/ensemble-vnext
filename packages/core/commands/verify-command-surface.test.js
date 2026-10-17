@@ -425,6 +425,36 @@ describe("command-status.md's artifacts.json keys sentence names the check-skill
   });
 });
 
+describe('command-status.md Artifact links rule names the manifest helper (FIX-005)', () => {
+  const copies = {
+    'packages/core template': 'packages/core/templates/claude-directory/rules/command-status.md',
+    '.claude/rules': '.claude/rules/command-status.md',
+  };
+  describe.each(Object.entries(copies))('%s', (_label, rel) => {
+    const text = () => flat(read(path.join(REPO, rel)));
+
+    test('names artifacts.js as the one helper (record|get|read)', () => {
+      expect(text()).toMatch(/the one lib helper, `node \.claude\/lib\/artifacts\.js record\|get\|read`/);
+    });
+
+    test('says no command writes the JSON by hand', () => {
+      expect(text()).toMatch(/no command writes the JSON by hand/);
+    });
+
+    test('states the {path, url, updated_at, command} entry shape', () => {
+      expect(text()).toMatch(/\{path, url, updated_at, command\}/);
+    });
+
+    test('states "version": 2', () => {
+      expect(text()).toMatch(/"version": 2/);
+    });
+
+    test('with publishing off, still records the path and leaves url empty', () => {
+      expect(text()).toMatch(/With publishing off, still `record` the path and leave `url` empty/);
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // §8.4 carries coverage + finalRun; ISSUES gets a failed full run.
 // ---------------------------------------------------------------------------

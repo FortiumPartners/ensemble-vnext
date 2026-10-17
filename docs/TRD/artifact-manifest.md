@@ -131,6 +131,8 @@ none
 | FIX-004 | Record `success-definition` (`/implement-trd` §8.1 once the file exists; `/verify-build` step 3/3a), `verification-plan` (`/refine-verification` Writes) and `verification-report` plus check pages (`/implement-trd` §9.0a, `/verify-build` Artifact link), publishing on or off. Switch the two places that READ stored URLs (`/implement-trd` §8.1b step 5, check-page comments; `/verify-build` fix-loop step 4) to `artifacts.js get` | O1, O2, O4 | FIX-001 | Each named step calls `artifacts.js record` with the right kind and path; `verification-report` is recorded outside the publish switch; §8.1b step 5 and verify-build step 4 read through `get`; the surface test checks each |
 | FIX-005 | Update `command-status.md` "Artifact links" (template and the vendored `.claude/rules` copy) to describe the version-2 manifest and the helper | O1, O7 | FIX-001 | The rule names `artifacts.js`, the `{path, url, updated_at, command}` shape, `"version": 2`, and recording with publishing off; the existing check-skill-keys test still passes; both copies are byte-identical |
 | FIX-006 | Add `scaffold-project.sh --stamp-version` (strict: exit 1 when it cannot stamp, including no `settings.json`; writes `version`, `refreshed_at`, and, in this mode only, `rebased_at` and `previous_version` on change). Add a step at the end of `/rebase-project`'s Step 4 that runs it in every mode that applies changes, with all three copies kept identical. Make `/init-project` (all three copies) re-run it when `ensemble.version` is missing after scaffolding, and go STUCK if it is still missing | O6, O7 | None | BATS: `--stamp-version` on a settings file without a version sets it to the plugin version; on an older version it updates it, records `previous_version` and keeps owner keys (`publishArtifacts: false`, permissions); with no readable plugin manifest, or no settings.json, it exits non-zero and leaves files unchanged; `--refresh` writes no `rebased_at`/`previous_version`; the rebase prompt runs `--stamp-version` as the last step of Step 4, not under the `settings_preserve` rule, and its dry-run path still skips Step 4; the init prompt re-runs `--stamp-version` and ends STUCK when the stamp is still missing |
+| AMEND-001 | [test-gap] command-status.md's rewritten Artifact links paragraph (template and .claude/rules copy) has no test asserting it names artifacts.js, the {path, url, updated_at, command} shape, "version": 2, or recording with publishing off — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/templates/claude-directory/rules/command-status.md:190-195 has the text; the only content test is packages/core/commands/verify-command-surface.test.js:415-424, which matches 'one key per verification-check skill'; test/integration/tests/runtime-integrity.test.sh:516 and notify-on-complete.test.sh:310 check byte parity only) | amendment — no objective recorded | None | [test-gap] command-status.md's rewritten Artifact links paragraph (template and .claude/rules copy) has no test asserting it names artifacts.js, the {path, url, updated_at, command} shape, "version": 2, or recording with publishing off is met |
+| AMEND-002 | [test-gap] Same gap as FIX-005-AC, seen from test quality: FIX-005's acceptance criteria name four strings the rule must carry, and no test asserts any of them — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: grep for artifacts.js / version": 2 / publishing off across *.test.js and *.test.sh finds no assertion on command-status.md; the copies are identical under cmp) | amendment — no objective recorded | None | [test-gap] Same gap as FIX-005-AC, seen from test quality: FIX-005's acceptance criteria name four strings the rule must carry, and no test asserts any of them is met |
 
 ## Task Grounding
 
@@ -176,9 +178,25 @@ none
 - **Follow:** `--stamp-version` is exclusive with `--refresh`, `--force`, `--agent-status` and `--sync-agents`, and needs `--plugin-dir`. Keep the `setdefault` backfills exactly as they are. Strictness is opt-in through a parameter, so `--refresh` and the initial scaffold keep warning and returning 0 [read].
 - **Careful:** zsh arrays are 1-indexed when tests are run by hand; BATS runs bash. `--refresh` must still print `REFRESH_SUMMARY` as its last line (`scaffold-project.sh:1756`) [read]. All three copies of rebase-project.md must stay byte-identical (`runtime-integrity.test.sh:347-348`) [read], and so must the three copies of init-project.md (`scaffold-project.test.sh:1934`) [read by reviewer]. `--dry-run` skips Step 4 and promises no writes (`rebase-project.md:680`, `:1276`) [read by reviewer]. The rebase-project.md headings sliced by runtime-integrity tests (`#### 4.1 Update Skills`) must not be renumbered [read].
 
+### AMEND-001
+
+- **Touches:** `packages/core/commands/verify-command-surface.test.js`
+- **Careful:** `Touches` was filled in by the reconcile run (the discovery recorded no file). Both promoted tasks name the same one gap, seen by two verifiers; AMEND-002 runs after AMEND-001 and only confirms its assertions cover all four strings.
+
+### AMEND-002
+
+- **Touches:** `packages/core/commands/verify-command-surface.test.js`
+- **Careful:** `Touches` was filled in by the reconcile run (the discovery recorded no file). Both promoted tasks name the same one gap, seen by two verifiers; AMEND-002 runs after AMEND-001 and only confirms its assertions cover all four strings.
+
 ## Could Not Verify
 
-- Whether a model running these prompts calls `artifacts.js record` at every step is not checked
-  by any automated test. The surface tests prove the prompts say so; only a live run proves a
-  model does.
-- Forge's own reading of the manifest is outside this repository.
+After `/audit-build`, 2026-10-17 (five of five verifiers reported):
+
+- Whether a model running these prompts calls `artifacts.js record` at every step. Out of
+  scope for the audit, which reads code and tests: the surface tests prove the prompts say so,
+  and only a live run proves a model does.
+- Forge's own reading of the manifest. Out of scope: it lives outside this repository.
+- Fidelity to the original request. This TRD has no PRD (its source is an owner instruction
+  given in session on 2026-10-17), so the audit checked the delivered code against this TRD's
+  objectives and tasks only. Whether those objectives capture everything that was asked, and
+  nothing that was not, was not checked.
