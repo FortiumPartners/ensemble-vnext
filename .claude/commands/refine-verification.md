@@ -198,6 +198,10 @@ verifiable alone.
   owner's own decisions. An owner ruling from interactive mode is written into the PRD or TRD,
   with a dated changelog line, the same as any other ruling in this framework.
 
+- **Then record the plan in the manifest**, after writing it:
+  `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind verification-plan --path .trd-state/<feature>/verification-plan.md --command /refine-verification`
+  (no `--url`: it is not published). A failed record is one line in the readout, never STUCK.
+
 - The PRD or TRD, only for an owner ruling made in interactive mode (above). Nothing else —
   no other file, and never `.claude/rules/verification.md`.
 

@@ -2601,3 +2601,109 @@ _agent_sums() { ( cd "$PROJ/.claude/agents" && for f in *.md; do printf '%s\t%s\
     grep -q 'prints `refreshed`' "$SCAFFOLD_SCRIPT"
     grep -qF 'Refreshed skill preloads: [names]' "$(rebase_cmd)"
 }
+
+# ---------------------------------------------------------------------------
+# FIX-006: --stamp-version (artifact-manifest)
+#
+# A strict whole-run mode that stamps ensemble.version (plus rebased_at and
+# previous_version) and fails loudly. /rebase-project and /init-project rely on it.
+# ---------------------------------------------------------------------------
+
+_stamp_setup() {
+    SPLUG="$TEST_DIR/splug"; SPROJ="$TEST_DIR/sproj"
+    mkdir -p "$SPLUG/.claude-plugin" "$SPROJ/.claude"
+    echo '{"name":"x","version":"9.8.7"}' > "$SPLUG/.claude-plugin/plugin.json"
+}
+
+_stamp_json() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))" "$SPROJ/.claude/settings.json" "$1"; }
+
+@test "FIX-006 stamp: sets ensemble.version from the plugin manifest when absent" {
+    _stamp_setup
+    echo '{"permissions":{"allow":["Bash(ls)"]}}' > "$SPROJ/.claude/settings.json"
+    run "$SCAFFOLD_SCRIPT" --stamp-version --plugin-dir "$SPLUG" "$SPROJ"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Stamped ensemble.version = 9.8.7"* ]]
+    [ "$(_stamp_json "d['ensemble']['version']")" = "9.8.7" ]
+}
+
+@test "FIX-006 stamp: older version is updated, previous_version and rebased_at recorded, owner keys kept" {
+    _stamp_setup
+    cat > "$SPROJ/.claude/settings.json" <<'JSON'
+{"permissions":{"allow":["Bash(ls)"]},"ensemble":{"version":"1.0.0","publishArtifacts":false,"custom":"keep"}}
+JSON
+    run "$SCAFFOLD_SCRIPT" --stamp-version --plugin-dir "$SPLUG" "$SPROJ"
+    [ "$status" -eq 0 ]
+    [ "$(_stamp_json "d['ensemble']['version']")" = "9.8.7" ]
+    [ "$(_stamp_json "d['ensemble']['previous_version']")" = "1.0.0" ]
+    [ -n "$(_stamp_json "d['ensemble']['rebased_at']")" ]
+    [ "$(_stamp_json "d['ensemble']['publishArtifacts']")" = "False" ]
+    [ "$(_stamp_json "d['ensemble']['custom']")" = "keep" ]
+    [ "$(_stamp_json "d['permissions']['allow'][0]")" = "Bash(ls)" ]
+}
+
+@test "FIX-006 stamp: no readable manifest, or no settings.json, exits non-zero and changes nothing" {
+    _stamp_setup
+    echo '{"ensemble":{"version":"1.0.0"}}' > "$SPROJ/.claude/settings.json"
+    local before; before="$(cksum < "$SPROJ/.claude/settings.json")"
+    rm "$SPLUG/.claude-plugin/plugin.json"
+    run "$SCAFFOLD_SCRIPT" --stamp-version --plugin-dir "$SPLUG" "$SPROJ"
+    [ "$status" -ne 0 ]
+    [ "$(cksum < "$SPROJ/.claude/settings.json")" = "$before" ]
+    echo '{"version":"9.8.7"}' > "$SPLUG/.claude-plugin/plugin.json"
+    rm "$SPROJ/.claude/settings.json"
+    run "$SCAFFOLD_SCRIPT" --stamp-version --plugin-dir "$SPLUG" "$SPROJ"
+    [ "$status" -ne 0 ]
+    [ ! -e "$SPROJ/.claude/settings.json" ]
+}
+
+@test "FIX-006 stamp: exclusive with --refresh/--force/--agent-status/--sync-agents and needs --plugin-dir" {
+    _stamp_setup
+    echo '{}' > "$SPROJ/.claude/settings.json"
+    local flag
+    for flag in --refresh --force --agent-status --sync-agents; do
+        run "$SCAFFOLD_SCRIPT" --stamp-version "$flag" --plugin-dir "$SPLUG" "$SPROJ"
+        [ "$status" -eq 1 ]
+        [[ "$output" == *"cannot be combined"* ]]
+    done
+    run "$SCAFFOLD_SCRIPT" --stamp-version "$SPROJ"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"requires --plugin-dir"* ]]
+}
+
+@test "FIX-006 stamp: --refresh still writes no rebased_at or previous_version" {
+    local plugin_dir; plugin_dir="$(_get_plugin_dir)"
+    SPROJ="$TEST_DIR/sproj"; mkdir -p "$SPROJ"
+    "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$SPROJ" >/dev/null 2>&1
+    python3 - "$SPROJ/.claude/settings.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["ensemble"]["version"]="0.0.1"; json.dump(d,open(p,"w"))
+PY
+    run bash -c "cd '$SPROJ' && '$SCAFFOLD_SCRIPT' --refresh --plugin-dir '$plugin_dir' '$SPROJ' >/dev/null 2>&1"
+    [ "$(_stamp_json "d['ensemble']['version']")" != "0.0.1" ]
+    [ "$(_stamp_json "'rebased_at' in d['ensemble'] or 'previous_version' in d['ensemble']")" = "False" ]
+}
+
+@test "FIX-006 stamp: rebase-project.md runs --stamp-version as the last subsection of Step 4, unconditionally" {
+    local f; f="$(rebase_cmd)"
+    local sec; sec="$(awk '/^#### 4\.8 /{p=1} /^### Step 5/{p=0} p' "$f")"
+    [ -n "$sec" ]
+    grep -q '^#### 4\.7 ' "$f"
+    [ "$(grep -n '^#### 4\.7 ' "$f" | cut -d: -f1)" -lt "$(grep -n '^#### 4\.8 ' "$f" | cut -d: -f1)" ]
+    [ "$(grep -n '^#### 4\.8 ' "$f" | cut -d: -f1)" -lt "$(grep -n '^### Step 5' "$f" | cut -d: -f1)" ]
+    [[ "$sec" == *"scaffold-project.sh"*"--stamp-version"* ]]
+    [[ "$sec" == *"whatever"*"settings_preserve"* ]]
+    # dry-run still skips Step 4
+    grep -q 'skip Step 4' "$f"
+    # the hand-written JSON block in 4.6 is gone
+    ! grep -q '"previous_version": "\[old version\]"' "$f"
+    diff -q "$f" "$REPO_ROOT/.claude/commands/rebase-project.md"
+    diff -q "$f" "$REPO_ROOT/packages/full/commands/plugin-only/rebase-project.md"
+}
+
+@test "FIX-006 stamp: init-project.md re-runs --stamp-version when the version is missing and ends STUCK if still missing" {
+    local f="$SCRIPT_DIR/../commands/init-project.md"
+    grep -q -- '--stamp-version' "$f"
+    grep -q 'COMMAND STUCK: /init-project' "$f"
+    diff -q "$f" "$REPO_ROOT/.claude/commands/init-project.md"
+    diff -q "$f" "$REPO_ROOT/packages/full/commands/plugin-only/init-project.md"
+}

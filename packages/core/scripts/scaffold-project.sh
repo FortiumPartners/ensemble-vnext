@@ -10,6 +10,7 @@
 #   ./scaffold-project.sh --refresh --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --agent-status --plugin-dir DIR [project-directory]
 #   ./scaffold-project.sh --sync-agents [--new-only] --plugin-dir DIR [project-directory]
+#   ./scaffold-project.sh --stamp-version --plugin-dir DIR [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
@@ -25,6 +26,10 @@
 #                       skill preloads. Prints the --agent-status lines, except
 #                       that an unchanged agent whose preloads were rewritten
 #                       prints `refreshed`.
+#   --stamp-version    Strict whole-run mode: write ensemble.version (plus refreshed_at,
+#                       rebased_at, and previous_version when it changed) into
+#                       .claude/settings.json. Exits 1 if it cannot stamp. Exclusive with
+#                       --refresh, --force, --agent-status, --sync-agents.
 #   --new-only         With --sync-agents: copy only new agents (--preserve-all).
 #
 # If project-directory is not provided, uses current directory.
@@ -45,6 +50,7 @@ FORCE=false
 REFRESH=false
 AGENT_STATUS=false
 SYNC_AGENTS=false
+STAMP_VERSION=false
 NEW_ONLY=false
 PROJECT_DIR=""
 
@@ -80,6 +86,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --sync-agents)
             SYNC_AGENTS=true
+            shift
+            ;;
+        --stamp-version)
+            STAMP_VERSION=true
             shift
             ;;
         --new-only)
@@ -122,6 +132,18 @@ if [[ "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" ]]; then
     fi
     if [[ -z "$PLUGIN_DIR" ]]; then
         echo "Error: --agent-status/--sync-agents require --plugin-dir" >&2
+        exit 1
+    fi
+fi
+# --stamp-version is a strict whole-run mode that owns only the version stamp
+# (used by /rebase-project Step 4.8 and /init-project).
+if [[ "$STAMP_VERSION" == "true" ]]; then
+    if [[ "$REFRESH" == "true" || "$FORCE" == "true" || "$AGENT_STATUS" == "true" || "$SYNC_AGENTS" == "true" ]]; then
+        echo "Error: --stamp-version cannot be combined with --refresh, --force, --agent-status or --sync-agents" >&2
+        exit 1
+    fi
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        echo "Error: --stamp-version requires --plugin-dir" >&2
         exit 1
     fi
 fi
@@ -1503,17 +1525,25 @@ sync_agents() {
 # sub-keys (skills_dir, rules_dir, state_dir, docs_dir, prd_dir, trd_dir shipped
 # by the settings template; rebased_at / previous_version written by
 # /rebase-project). Only version + refreshed_at are (re)written.
+#
+# Second argument "strict" (--stamp-version only): every condition that would
+# otherwise warn-and-skip becomes an error on stderr and return 1, and the
+# stamp also records rebased_at and, when an older version existed,
+# previous_version. Without it, behaviour is unchanged (warn, return 0).
 stamp_ensemble_version() {
     local target_dir="$1"
+    local strict="${2:-}"
     local settings="$target_dir/.claude/settings.json"
 
     if [[ ! -f "$settings" ]]; then
+        if [[ "$strict" == "strict" ]]; then error "No settings.json to stamp: $settings"; return 1; fi
         warn "No settings.json to stamp: $settings"
         return 0
     fi
 
     local plugin_manifest="$PLUGIN_DIR/.claude-plugin/plugin.json"
     if [[ -z "$PLUGIN_DIR" || ! -f "$plugin_manifest" ]]; then
+        if [[ "$strict" == "strict" ]]; then error "No readable plugin manifest: $plugin_manifest"; return 1; fi
         info "No plugin manifest available — skipping version stamp"
         return 0
     fi
@@ -1525,16 +1555,17 @@ print(json.load(open('$plugin_manifest')).get('version', ''))
 " 2>/dev/null)" || version=""
 
     if [[ -z "$version" ]]; then
+        if [[ "$strict" == "strict" ]]; then error "Could not read plugin version from $plugin_manifest"; return 1; fi
         warn "Could not read plugin version — skipping version stamp"
         return 0
     fi
 
     # Rewrite atomically: a half-written settings.json breaks every hook.
-    if python3 - "$settings" "$version" <<'PY'
+    if python3 - "$settings" "$version" "$strict" <<'PY'
 import json, os, sys, tempfile, collections
 from datetime import datetime, timezone
 
-path, version = sys.argv[1], sys.argv[2]
+path, version, strict = sys.argv[1], sys.argv[2], sys.argv[3] == "strict"
 with open(path) as fh:
     data = json.load(fh, object_pairs_hook=collections.OrderedDict)
 
@@ -1544,8 +1575,16 @@ with open(path) as fh:
 ensemble = data.get("ensemble")
 if not isinstance(ensemble, dict):
     ensemble = collections.OrderedDict()
+old_version = ensemble.get("version")
 ensemble["version"] = version
-ensemble["refreshed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+ensemble["refreshed_at"] = now
+if strict:
+    # Rebase fields belong to --stamp-version only; --refresh and the initial
+    # scaffold must not claim a rebase happened.
+    ensemble["rebased_at"] = now
+    if old_version and old_version != version:
+        ensemble["previous_version"] = old_version
 ensemble.setdefault("agents_dir", ".claude/agents")
 # Backfill for projects scaffolded before the key existed, matching the
 # shipped default. setdefault, never assignment: an owner who turned this
@@ -1586,6 +1625,7 @@ PY
     then
         info "Stamped ensemble.version = $version"
     else
+        if [[ "$strict" == "strict" ]]; then error "Failed to stamp version into $settings (left unchanged)"; return 1; fi
         warn "Failed to stamp version into $settings (left unchanged)"
     fi
 }
@@ -1940,7 +1980,9 @@ scaffold_project() {
 
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    if [[ "$AGENT_STATUS" == "true" ]]; then
+    if [[ "$STAMP_VERSION" == "true" ]]; then
+        stamp_ensemble_version "$PROJECT_DIR" strict
+    elif [[ "$AGENT_STATUS" == "true" ]]; then
         agent_status "$PROJECT_DIR"
     elif [[ "$SYNC_AGENTS" == "true" ]]; then
         sync_agents "$PROJECT_DIR"

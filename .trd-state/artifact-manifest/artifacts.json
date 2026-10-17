@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/artifact-manifest.md",
+    "url": "https://claude.ai/artifact/Dk17vBJrZZQxMjKtAm7qdp",
+    "updated_at": "2026-10-17T19:15:30.842Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/artifact-manifest/success-definition.md",
+    "url": "",
+    "updated_at": "2026-10-17T19:15:30.884Z",
+    "command": "/implement-trd"
+  }
+}

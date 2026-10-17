@@ -622,9 +622,20 @@ Only act if the file is missing (it should not be):
 Verify the stamp survived before continuing:
 
 ```bash
+if ! jq -e '.ensemble.version' .claude/settings.json >/dev/null; then
+  "${PLUGIN_DIR}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" --stamp-version .
+fi
 jq -e '.ensemble.version' .claude/settings.json >/dev/null \
   && echo "settings.json OK — ensemble.version present" \
-  || echo "WARNING: ensemble.version missing; re-run Step 3's scaffold"
+  || echo "ensemble.version STILL missing"
+```
+
+If `ensemble.version` is still missing after the re-run, stop with:
+
+```
+═══ COMMAND STUCK: /init-project ═══
+Reason: ensemble.version could not be stamped into .claude/settings.json
+Next:   check that "${PLUGIN_DIR}/.claude-plugin/plugin.json" is readable and has a version, then re-run /init-project
 ```
 
 **Initialize current.json:**

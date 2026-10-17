@@ -186,12 +186,14 @@ Markdown publishes directly — one tool call regardless of document size, Merma
 render as diagrams natively, and the artifact stays the document rather than a paraphrase
 that drifts from it.
 
-**Store the URL and redeploy to it.** Write the returned URL to
-`.trd-state/<feature>/artifacts.json` keyed by artifact kind (`prd`, `trd`,
-`verification-report`, and one key per verification-check skill); on a later `/refine-prd`,
-`/refine-trd` or re-verify, pass it back as `url:` so the same link updates in place. Without
-this the link goes stale silently — someone clicks a URL from three refinements ago and reads
-a superseded plan that looks current.
+**Store the URL and redeploy to it.** Record each artifact with the one lib helper, `node
+.claude/lib/artifacts.js record|get|read`; no command writes the JSON by hand. The manifest,
+`.trd-state/<feature>/artifacts.json`, holds `"version": 2` beside one `{path, url, updated_at,
+command}` entry per kind: `prd`, `trd`, `audit-prd`, `audit-trd`, `success-definition`,
+`verification-plan`, `verification-report`, `audit-build`, and
+one key per verification-check skill. On a later refine or re-verify, `get` the entry and pass its url as `url:` so the same
+link updates in place; otherwise it goes stale silently. With publishing off, still `record`
+the path and leave `url` empty.
 
 **The link goes above the `COMMAND COMPLETE` banner, never after it** (the banner is the last
 line of the turn):

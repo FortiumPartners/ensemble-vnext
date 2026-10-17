@@ -1,0 +1,150 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/artifact-manifest.md",
+  "trd_hash": "5f1b5a03d069108b3dc3b1b3be0b7ae9607eed44d1aeea1096074dfa9f662cd0",
+  "branch": "feature/artifact-manifest/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "FIX-001",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/artifacts.js",
+        "packages/core/lib/artifacts.test.js",
+        "packages/full/lib/artifacts.js",
+        ".claude/lib/artifacts.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-17T19:00:15.292Z",
+      "completed_at": "2026-10-17T19:15:39.485Z",
+      "last_advanced": "2026-10-17T19:01:32.355Z"
+    },
+    "FIX-002": {
+      "description": "FIX-002",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-prd.md",
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-17T19:00:15.292Z",
+      "completed_at": "2026-10-17T19:15:39.486Z",
+      "last_advanced": "2026-10-17T19:01:32.356Z"
+    },
+    "FIX-003": {
+      "description": "FIX-003",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-prd.md",
+        "packages/core/commands/audit-trd.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-17T19:00:15.292Z",
+      "completed_at": "2026-10-17T19:15:39.486Z",
+      "last_advanced": "2026-10-17T19:01:32.356Z"
+    },
+    "FIX-004": {
+      "description": "FIX-004",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/refine-verification.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-17T19:00:15.292Z",
+      "completed_at": "2026-10-17T19:15:39.486Z",
+      "last_advanced": "2026-10-17T19:01:32.356Z"
+    },
+    "FIX-005": {
+      "description": "FIX-005",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/command-status.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-17T19:00:15.292Z",
+      "completed_at": "2026-10-17T19:15:39.486Z",
+      "last_advanced": "2026-10-17T19:01:32.356Z"
+    },
+    "FIX-006": {
+      "description": "FIX-006",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md",
+        "packages/core/commands/init-project.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-17T19:00:15.292Z",
+      "completed_at": "2026-10-17T19:15:39.486Z",
+      "last_advanced": "2026-10-17T19:01:32.356Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/artifact-manifest.md ## Intended Change",
+    "environments": {
+      "local": {
+        "status": "usable",
+        "reason": "working tree; criteria are files, scripts and tests"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available"
+      },
+      "preview": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "read-only, no URL"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    }
+  }
+}

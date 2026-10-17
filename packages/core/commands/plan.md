@@ -1155,11 +1155,15 @@ transcript and does not change what the owner does next.
 
 ### Artifact link (see `.claude/rules/command-status.md`)
 
-Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the TRD with
+First read any stored URL: `node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind trd`
+(empty output means none). Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the TRD with
 `Artifact({ file_path: "docs/TRD/<slug>.md", icon: "document" })` — the markdown FILE, never a
-rendering of it — reusing the stored URL from `.trd-state/<feature>/artifacts.json` (key
-`trd`) when one is present, and storing it when one is not. Emit the link ABOVE the
+rendering of it — passing the stored URL as `url:` when there is one. Emit the link ABOVE the
 banner. A failed publish is one line of prose and nothing more; it never blocks the banner.
+
+**Then ALWAYS record the document, whether or not publishing is on** (this sits outside the
+publish switch): `node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind trd --path docs/TRD/<slug>.md --command /plan`,
+adding `--url <returned URL>` only when a publish returned one. No command writes `artifacts.json` by hand.
 
 The banner is the LAST line of the final turn, nothing after it. **Step 7's plan decides
 whether you emit one at all** — `banner: null` means emit nothing. On unrecoverable failure use
