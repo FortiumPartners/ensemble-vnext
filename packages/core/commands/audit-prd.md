@@ -141,9 +141,12 @@ rephrase, re-punctuate or shorten it on the way to the terminal: a printed VERDI
 differs from the report's first line is two verdicts. The only thing the printed readout adds
 is STATE lines about the report itself (where it was written), which do not exist in the file.
 
-Then record it. These reports are not published, so there is no `--url`:
+Then read any stored URL for this kind, and record the report. These reports are not
+published, so there is no `--url`; `record` without `--url` keeps a URL already stored,
+and a non-empty `get` is one STATE line naming that link (empty output means none):
 
 ```bash
+node .claude/lib/artifacts.js get --state-dir .trd-state/<feature> --kind audit-prd
 node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-prd --path .trd-state/<feature>/audit-prd-report.md --command /audit-prd
 ```
 

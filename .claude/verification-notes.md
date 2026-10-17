@@ -912,3 +912,23 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [ran] `scaffold-project.sh --plugin-dir` must be an ABSOLUTE path when the script is invoked from the repo root with a relative one — a relative `packages/full` produced "Agents directory not found: packages/full/agents-lib" and scaffolded 0 agents, silently (exit 0). Use `--plugin-dir "$PWD/packages/full"`.
 - [ran] `--sync-agents` prints its `Selection: added|dropped <skill>` and `AGENT_SKILLS_INJECTED` lines on stderr and only `<status>\t<agent>` lines on stdout, so capture the two streams separately. Adding `developing-with-python` to a `jest`/`pytest` scaffold printed `refreshed` for all 13 agents (the Project Skills block is regenerated in every agent, including those with no `skills:` list), and `selected-skills.txt` was updated by the script itself.
 - [ran] For a body-differs (`updated`) scenario, a private plugin dir built from `cp -R packages/full/agents-lib` plus symlinks to every other `packages/full` entry (including `skills-lib`) works; appending to the copied `agents-lib/<agent>.md` flipped only that agent to `updated`, the other 12 printed `unchanged`.
+
+## Exercising the artifact manifest (`artifacts.js`, 2026-10-17 run, `artifact-manifest`)
+
+- [ran] The manifest CLI is exercisable with no model run: in a temp dir with the report files present, `node .claude/lib/artifacts.js record --state-dir D --kind K --path P --command C` then `read` / `cat artifacts.json`. `record` throws if the `--path` file does not exist, so create the report fixtures first.
+- [ran] `artifacts.js get` prints only the stored URL (empty output when `url` is ""), never the whole entry; a success-criterion saying "get prints an entry whose path names X" is only satisfiable via `read` / `cat artifacts.json`.
+
+## Exercising `artifacts.js` (artifact-manifest, 2026-10-17)
+
+- [ran] The CLI takes flags, not positionals: `node packages/core/lib/artifacts.js record --state-dir D --kind K --path P --command C [--url U]`; `get`/`read` take `--state-dir` (and `--kind`). `record` exits 1 with "no file at <P>" unless P exists relative to the cwd, so fixtures must point `--path` at a real file (e.g. `CLAUDE.md`) and run from the repo root. `get` prints only the URL, not the whole entry.
+- [ran] A flat `{kind: url}` file is upgraded on the next `record`; the legacy key `audit-build-report` is renamed `audit-build`, and old entries get `path/updated_at/command: null`.
+
+## Exercising `--stamp-version` / stamp behaviour (artifact-manifest run, 2026-10-17)
+
+- [ran] `scaffold-project.sh --plugin-dir packages/full --stamp-version .` can be run in a temp
+  fixture dir containing `.claude/settings.json`; point `--plugin-dir` at a dir whose
+  `.claude-plugin/plugin.json` lacks `version` to get exit 1 with an `[ERROR]` line. A plain
+  `scaffold-project.sh --plugin-dir packages/full .` in an empty `git init` dir stamps the plugin
+  version. macOS has no `timeout` binary: do not prefix with it (it silently skips the command).
+- [inferred] `/init-project` and `/rebase-project` cannot be run as live model sessions here; their
+  evidence is prompt excerpts plus running the literal bash blocks they contain on fixtures.
