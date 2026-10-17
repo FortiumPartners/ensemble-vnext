@@ -115,6 +115,41 @@ than not running: a fidelity pass that cannot fail is a false assurance.
 `/create-prd` runs it as its final step, in the session that holds the conversation. What
 reaches this command is the RESULT, recorded in the PRD's verification header.
 
+## Writing the audit report
+
+**Right after the workflow call above returns** and before printing the readout, write
+`.trd-state/<feature>/audit-prd-report.md` (`<feature>` is the audited PRD's basename without
+its extension), overwriting any report from a previous run:
+
+```markdown
+<the readout's VERDICT: line, copied - the report's first line>
+
+# Audit report: <feature>
+
+- Date: <YYYY-MM-DD>
+- Audited commit: <output of `git rev-parse --short HEAD`, or "unknown" if it fails>
+- PRD: <prd path>
+- Source: <source path, or "none">
+
+<the readout, verbatim as printed below - it opens with the AUDIT:/SOURCE: header>
+```
+
+**One text, written once, printed as written.** Settle the readout's final wording, the
+`AUDIT:`/`SOURCE:` header, the `VERDICT:` line and every finding line, BEFORE writing this
+file, then print that same text in the terminal, copied character for character. Do not
+rephrase, re-punctuate or shorten it on the way to the terminal: a printed VERDICT that
+differs from the report's first line is two verdicts. The only thing the printed readout adds
+is STATE lines about the report itself (where it was written), which do not exist in the file.
+
+Then record the report. These reports are never published, so record passes `--url ""`:
+that clears any link a past version left behind, which would otherwise point at an old page:
+
+```bash
+node .claude/lib/artifacts.js record --state-dir .trd-state/<feature> --kind audit-prd --path .trd-state/<feature>/audit-prd-report.md --command /audit-prd --url ""
+```
+
+There is no commit step. A failed write or record is one line in STATE; it never turns the run STUCK.
+
 ## Readout
 
 

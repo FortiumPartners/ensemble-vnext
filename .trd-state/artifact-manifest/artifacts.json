@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/artifact-manifest.md",
+    "url": "https://claude.ai/artifact/Dk17vBJrZZQxMjKtAm7qdp",
+    "updated_at": "2026-10-17T19:15:30.842Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/artifact-manifest/success-definition.md",
+    "url": "",
+    "updated_at": "2026-10-17T19:15:30.884Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/artifact-manifest/verification-report.md",
+    "url": "https://claude.ai/artifact/9bHi5pbSm2pZ4Wjoy9oyTh",
+    "updated_at": "2026-10-17T19:33:52.393Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/artifact-manifest/audit-build-report.md",
+    "url": "https://claude.ai/artifact/DgVm25mMnYxKQTC7WSxC4H",
+    "updated_at": "2026-10-17T20:48:09.378Z",
+    "command": "/audit-build"
+  }
+}
