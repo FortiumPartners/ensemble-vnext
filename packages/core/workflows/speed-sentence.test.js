@@ -53,7 +53,6 @@ describe('speed sentence: implement-phase', () => {
     });
     const tasks = byLabel(agent, (l) => l.startsWith('task:'));
     expect(tasks).toHaveLength(2);
-    tasks.forEach((c) => expect(c.prompt).toBe(`${c.prompt.slice(0, -ENDING.length)}${ENDING}`));
     expect(tasks.map((c) => c.prompt)).toEqual([`do A${ENDING}`, `do B${ENDING}`]);
     const gate = byLabel(agent, (l) => l === 'gate:verify-app');
     expect(gate).toHaveLength(1);

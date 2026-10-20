@@ -75,5 +75,6 @@ function main(argv) {
   return 0;
 }
 
-if (require.main === module) process.exit(main(process.argv.slice(2)));
+// exitCode, not exit(): process.exit() can cut off stdout still flushing to a pipe.
+if (require.main === module) process.exitCode = main(process.argv.slice(2));
 module.exports = { summarize, formatText, median };

@@ -2,7 +2,7 @@
 
 **Verdict: no measurable difference.** Implementer time fell 19% and gate time rose 13%. Both are inside the 20% band that the TRD set in advance, so neither counts as a change. Nothing broke on any after-run. Under the TRD's rule only a **remove** verdict reverts the change, so the sentence stays in place.
 
-The sentence, verbatim, at the six dispatch sites (commit `aa5efd6`):
+The baseline runs ran on commit `f733465` (FIX-001, before the sentence); the after runs ran on commit `34b7ae7` (FIX-003), which adds the sentence, verbatim, at the six dispatch sites:
 
 > Time matters here: do not spend time that can be avoided, and the earlier a correct result is obtained, the better.
 
@@ -28,7 +28,7 @@ Each run's values, in seconds (implementer / gate):
 
 Within each side the spread (12.6–37.8s for the implementer after the change) is larger than the gap between the medians.
 
-The end-of-run review never received the sentence, yet it slowed by 23%. That points to model latency drifting between the two batches (baseline 11:01–11:16, after 11:57–12:26) by about as much as any effect being measured.
+The end-of-run review never received the sentence, yet it slowed by 23%. That points to model latency drifting between the two batches (baseline 11:01–11:16, after 11:37–12:06, Pacific, from each side's `runs.tsv`) by about as much as any effect being measured.
 
 ## The zero counts
 
