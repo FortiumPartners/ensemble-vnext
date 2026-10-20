@@ -1,0 +1,155 @@
+{
+  "iteration": 3,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/prompt-tails-34b7ae7.txt",
+      "reason": "Assembled prompts at 34b7ae7 for frontend, backend, mobile and agent implementer types all end with the sentence verbatim.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/prompt-tails-34b7ae7.txt",
+      "reason": "Assembled phase-gate verify-app prompt ends with the sentence verbatim.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/prompt-tails-34b7ae7.txt",
+      "reason": "Assembled sweep fix prompt ends with the sentence verbatim; triage does not carry it.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/prompt-tails-34b7ae7.txt",
+      "reason": "Assembled render prompt ends with the sentence verbatim.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/prompt-tails-34b7ae7.txt",
+      "reason": "Assembled reconcile prompt ends with the sentence verbatim.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/prompt-tails-34b7ae7.txt",
+      "reason": "Only ground:merge of all create-trd dispatches carries the sentence, as its last line.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/grep-measured-and-before.txt",
+      "reason": "Hits at 34b7ae7 are only the TIME_MATTERS constants for the six sites and the test file; judge/exercise/triage prompts are clean; current tree has zero hits.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/grep-measured-and-before.txt",
+      "reason": "Grep at before-runs commit f733465 returns no hits.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/measurement-rederived-iter2.txt",
+      "reason": "10 run rows (5 baseline on f733465, 5 after on 34b7ae7) each give implementer and gate time and the dispatch.jsonl it was read from; fixed task named once; medians recompute correctly (baseline 17.149s/12.141s, after 13.895s/13.728s).",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "unbuilt",
+      "tier1": "skipped",
+      "artifact": null,
+      "reason": "The measurement record has no per-after-run /audit-build result: only after-run 1 was audited, after-runs 2-5 have none, and the reopened-by-reconcile count was never read from a reconcile output (the runs used --no-verify). The Debug stage reported this as missing capability, not broken behaviour, and producing it would mean re-running four after-runs with audits.",
+      "cause": "not-built",
+      "provenAt": 3,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/verdict-iter2.txt",
+      "reason": "Verdict 'no measurable difference' sits beside figures recomputing to -19.0% implementer and +13.1% gate; neither fell more than 20%, so the verdict correctly does not claim success.",
+      "cause": null,
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/speed-sentence/evidence/grep-current.txt",
+      "reason": "Current tree adc1192 has zero hits, matching the removal verdict.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0,
+    2,
+    1
+  ],
+  "outcome": "unbuilt"
+}

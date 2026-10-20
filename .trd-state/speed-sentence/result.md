@@ -1,6 +1,6 @@
 # Result: speed-sentence
 
-**Verdict: no measurable difference.** Implementer time fell 19% and gate time rose 13%. Both are inside the 20% band that the TRD set in advance, so neither counts as a change. Nothing broke on any after-run.
+**Verdict: no measurable difference.** Implementer time fell 19% and gate time rose 13%. Both are inside the 20% band that the TRD set in advance, so neither counts as a change. No task failed, retried or was reopened by reconcile on any after-run. The one after-run that was audited (run 1) had no audit gap the baseline lacked; after-runs 2–5 were not audited.
 
 **The sentence has been removed.** The TRD's must-pass objective O3 says the change "is kept only if time falls", and it did not measurably fall. The narrower reading in the FIX-004 task text, "revert only on a remove verdict", contradicted O3, and the objective outranks the task text (decided 2026-10-20 and recorded in the TRD's Decision section). The revert restores the four workflow files to `main` and deletes `speed-sentence.test.js`. To put it back, cherry-pick `34b7ae7` (the sentence) and `fcb64cb` (the code-review fixes to it).
 
@@ -34,14 +34,29 @@ The end-of-run review never received the sentence, yet it slowed by 23%. That po
 
 ## The zero counts
 
-| Count | After-runs 1–5 | Required |
-|---|---|---|
-| Failed tasks | 0, 0, 0, 0, 0 | 0 |
-| Retries (`retry_count`) | 0, 0, 0, 0, 0 | 0 |
-| Tasks reopened by `reconcile()` | 0, 0, 0, 0, 0 | 0 |
-| `/audit-build` gaps not in the baseline audit | 0 (after-run 1; the baseline also had 0) | 0 |
+| Count | After-runs 1–5 | Required | Read from |
+|---|---|---|---|
+| Failed tasks | 0, 0, 0, 0, 0 | 0 | tasks with `status: "failed"` in each `after/run-N/implement.json` |
+| Retries (`retry_count`) | 0, 0, 0, 0, 0 | 0 | the sum of `retry_count` over the tasks in each `after/run-N/implement.json` |
+| Tasks reopened by `reconcile()` | 0, 0, 0, 0, 0 | 0 | `reconcile()` from `.claude/lib/implement-state.js` (unchanged since `34b7ae7`), run over each `after/run-N/implement.json` against that run's kept project (`after/run-N/project.txt`); output in `after/reconcile-reopens.txt`. Each run had one success claim (SMOKE-001) and all of its files were present |
+| `/audit-build` gaps not in the baseline audit | after-run 1: 0; after-runs 2–5: **not audited** | 0 | see "Audit coverage", below |
 
-Both audits returned the same verdict: proceed with one caveat, that no source PRD was supplied, because the fixture TRD names none.
+The runs used `--no-verify`, so `/implement-trd` itself never ran a reconcile. The reconcile counts come from the separate run described above, not from the runs themselves.
+
+### Audit coverage, per after-run
+
+| Run | `/audit-build` report | Gaps | Gaps not in the baseline |
+|---|---|---|---|
+| Baseline (run-1 project) | `baseline/audit-build-report.md` (rc 0) | 0 (`baseline/audit-gaps.txt`) | — |
+| After-run 1 | `after/audit-build-report.md` (rc 143: killed at the 1500s timeout after the report was written) | 0 | none |
+| After-run 2 | none | unknown | unknown |
+| After-run 3 | none | unknown | unknown |
+| After-run 4 | none | unknown | unknown |
+| After-run 5 | none | unknown | unknown |
+
+The TRD's FIX-004 task asked for one audit, on after-run 1. The success rule says "every after-run … `/audit-build` reports no gap that the baseline audit did not also report", which reads as one audit per after-run. Only after-run 1 was audited, so for after-runs 2–5 the audit condition is **unproven, not zero**. Closing that needs four more live `/audit-build` runs, on the kept projects listed in `after/run-2..5/project.txt`. The verdict does not depend on it: it is "no measurable difference" on the timing figures alone, and a non-zero count could only change it to "remove", which has the same effect.
+
+Both audits that were run returned the same verdict: proceed with one caveat, that no source PRD was supplied, because the fixture TRD names none.
 
 ## Anomalies, neither caused by the sentence
 
@@ -54,4 +69,4 @@ Both audits returned the same verdict: proceed with one caveat, that no source P
 - The result does not show that the sentence is useless. It shows that this fixture cannot detect a 20% effect against this much noise.
 - **Recommended next measurement:** a fixture where the implementer takes minutes, for example a three-to-five-task TRD of real substance, or a past feature's TRD replayed on a scratch copy. Real implementers in this repo have a median of 139s (n=253), and the slowest tenth take over 468s. Run both sides interleaved (A, B, A, B, …) rather than in two batches, so latency drift falls on both equally.
 
-Raw data: `baseline/` and `after/`, each holding `runs.tsv`, `summary.txt`/`summary.json`, `run-N/{dispatch.jsonl, implement.json, smoke.out, smoke.err}` and `audit-build-report.md`.
+Raw data: `baseline/` and `after/`, each holding `runs.tsv`, `summary.txt`/`summary.json`, `run-N/{dispatch.jsonl, implement.json, smoke.out, smoke.err, project.txt}` and `audit-build-report.md`; `after/reconcile-reopens.txt` holds the per-after-run reconcile output.

@@ -1,0 +1,11 @@
+reconcile() from .claude/lib/implement-state.js (unchanged since 34b7ae7), run 2026-10-20T19:42:34.530Z
+over each after-run's saved implement.json, with projectRoot = that run's kept project (project.txt).
+reconcile() mutates only the in-memory copy; nothing on disk was changed.
+
+| After-run | Project root | Failed tasks | Retries (retry_count) | Success claims checked | Reopened by reconcile() |
+|---|---|---|---|---|---|
+| 1 | /tmp/ensemble-smoke-impltask.efZX5V | 0 | 0 | 1 | 0 |
+| 2 | /tmp/ensemble-smoke-impltask.EZBSiP | 0 | 0 | 1 | 0 |
+| 3 | /tmp/ensemble-smoke-impltask.9lmkld | 0 | 0 | 1 | 0 |
+| 4 | /tmp/ensemble-smoke-impltask.GZeOod | 0 | 0 | 1 | 0 |
+| 5 | /tmp/ensemble-smoke-impltask.4XHema | 0 | 0 | 1 | 0 |
