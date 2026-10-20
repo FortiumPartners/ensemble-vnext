@@ -1,0 +1,85 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/speed-sentence.md",
+  "trd_hash": "4fc88aee421a7e310ca3257234e5bb2bf3f039f8471f2f36d895b3aea9a2367a",
+  "branch": "feature/speed-sentence/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "ledger-timing.js + SMOKE_IMPL_ARGS hook",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/ledger-timing.js",
+        "test/smoke/ledger-timing.test.js",
+        "test/smoke/scenarios/implement-one-task.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-10-20T17:59:46.320Z",
+      "completed_at": "2026-10-20T18:01:14.680Z",
+      "last_advanced": "2026-10-20T18:00:47.207Z"
+    },
+    "FIX-002": {
+      "description": "BEFORE runs (5) + baseline audit [LIVE]",
+      "phase": 1,
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-10-20T18:01:14.681Z",
+      "completed_at": null
+    },
+    "FIX-003": {
+      "description": "append TIME_MATTERS at dispatch sites + test",
+      "phase": 1,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "FIX-004": {
+      "description": "AFTER runs (5) + verdict [LIVE]",
+      "phase": 1,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/speed-sentence.md ## Intended Change",
+    "environments": {
+      "local": {
+        "status": "unusable",
+        "reason": "no service in this repo listens on :3000; not needed — every criterion is a file or script on disk"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "Artifact tool available in this session"
+      }
+    }
+  }
+}

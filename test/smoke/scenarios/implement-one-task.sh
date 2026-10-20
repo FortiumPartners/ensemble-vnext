@@ -67,7 +67,7 @@ git -C "$PROJECT_DIR" commit -q -m "smoke: add fixture TRD" --no-verify
 assert_pass_raw "fixture TRD written ($TRD_REL)"
 
 SESSION_FILE="${PROJECT_DIR}/.session.jsonl"
-PROMPT="/implement-trd ${TRD_REL}"
+PROMPT="/implement-trd ${TRD_REL}${SMOKE_IMPL_ARGS:+ $SMOKE_IMPL_ARGS}"
 
 # NOTE: this internal timeout must stay BELOW the runner's per-scenario cap in
 # run-smoke.sh (currently 900s) and ABOVE what the shipped models actually take.
