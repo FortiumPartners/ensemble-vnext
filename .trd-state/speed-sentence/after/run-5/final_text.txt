@@ -1,0 +1,28 @@
+**STATE**
+- The one task is built: `src/greet.js` exports `greet()`, which returns `'hello'`. The Jest test `src/greet.test.js` checks it and passes (1 of 1). The phase check, run by an agent that verifies each task against its acceptance criteria, also passed.
+- The work is in 3 commits on `feature/smoke-greet/842713a1`, ending at c4ff312. They are not pushed because the repo has no git remote.
+- Nobody checked whether the software does what the requirements asked, because `--no-verify` was set.
+- The test only runs with `npx --yes jest --rootDir . --config '{}' src/greet.test.js`. A plain `npx jest` or `npm test` fails because the project has no `package.json` and no Jest config.
+- I deleted a `coverage/` folder that a check agent created, before committing.
+
+**DECISIONS**
+- **Implementer:** I gave the task to `backend-implementer`, not the router's pick of `frontend-implementer`. The router matches the keyword "ui" as a plain substring, so it fired on the "ui" inside "eq**ui**valent" in the task text. This is a plain Node module with no UI.
+- **Branch base:** I used `master` at 798907c, because this repo has no `main` branch.
+- **Review fixes:** the end-of-run code review raised six points. It fixed one (the state file now records the task's commit) and left five alone. Those five sit in the scaffold or the framework, outside this TRD.
+
+**ISSUES** (all for whoever maintains the framework or scaffold; none block this feature)
+1. **Router bug:** keyword matching in `.claude/lib/agent-routing.js` checks plain substrings, so "ui" matches inside ordinary words like "equivalent". It needs word boundaries.
+2. **No standard test command:** the scaffold ships no `package.json` or Jest config.
+3. **Session files committed to git:** the scaffold has no `.gitignore`. As a result:
+   - `.trd-state/current.json` and `dispatch.jsonl` are committed. The pointer file should be untracked, and the ledger contains absolute local paths.
+   - `.session.jsonl`, the `_command-runs/` folder and later ledger rows are left in the working tree, so it is never clean after a run.
+4. **Task commit not recorded:** `implement-state.js` never fills in a task's `commit` field, so the review set it by hand for this run.
+
+**NEXT**
+1. Check the delivered code against the TRD:
+```
+/audit-build docs/TRD/smoke-greet.md
+```
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+1 of 1 tasks built (greet() and its Jest test, which passes), 3 commits on feature/smoke-greet/842713a1, not pushed (no remote), requirements check skipped (--no-verify)

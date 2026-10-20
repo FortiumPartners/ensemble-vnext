@@ -1,0 +1,2 @@
+  [12:02:47] FAIL: claude --print exits 0 (expected exit=0, got exit=143)
+  [kept for diagnosis] /tmp/ensemble-smoke-impltask.GZeOod

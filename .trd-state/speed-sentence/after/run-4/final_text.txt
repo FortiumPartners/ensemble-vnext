@@ -1,0 +1,25 @@
+**STATE**
+- The single task is built and committed on branch `feature/smoke-greet/c862599d`. That task, SMOKE-001, is `src/greet.js`, which exports `greet()` returning `'hello'`, plus its Jest test `src/greet.test.js`. It is in commit 6f74684.
+- The test passes: 1 of 1. Running Jest only works with an inline config: `npx jest --config '{"testMatch":["<rootDir>/src/**/*.test.js"]}'`.
+- Nobody checked whether the software does what was asked: the functional check was skipped because you passed `--no-verify`.
+- There was no project-wide test command to run, since the project has no `package.json` or test script. The end-of-phase check rests on the verify-app agent, which passed.
+- Nothing was pushed: the repository has no git remote configured.
+
+**DECISIONS**
+- I sent the task to `backend-implementer`, not `frontend-implementer`, which the keyword router picked. The router matches substrings, so it found the UI keyword "ui" inside the word "equivalent". This task is a plain Node module.
+- I left the end-of-run code review's 4 findings unfixed. Two are in the framework's own runtime files: one is the keyword-routing bug above, and the other is that `.trd-state/current.json` (the file pointing at the active feature) is tracked in git. Editing that runtime locally would be overwritten by `/rebase-project`. The third would add a Jest config, which the TRD's scope excludes, and the fourth is cosmetic.
+
+**ISSUES**
+- **Keyword routing bug (framework maintainer):** `.claude/lib/agent-routing.js:64` matches keywords as substrings, so tasks can be sent to the wrong kind of agent. It should match whole words. Recorded in `.trd-state/smoke-greet/discovered.jsonl`.
+- **Framework skill tests fail here (framework maintainer):** a plain `npx jest --config '{}'` also runs the framework's own skill tests under `.claude/skills/*/__tests__`. Three of those test files fail because the `js-yaml` package is not installed in this project. Also recorded as a discovery.
+- **No standard way to run the tests (you, if it matters):** without a `package.json` or Jest config, a bare `npx jest` errors out.
+
+**NEXT**
+1. Check the delivered code against the TRD. There is no PRD for this feature.
+```
+/audit-build docs/TRD/smoke-greet.md
+```
+2. Once the audit is clean, open the PR yourself on GitHub. The project setting `openPullRequest` is `never`, so the audit won't open one, and you'll first need to add a remote and push the branch.
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+1 of 1 tasks built: greet() returns 'hello', its test passes, committed on feature/smoke-greet/c862599d (not pushed, no remote); functional check skipped by --no-verify

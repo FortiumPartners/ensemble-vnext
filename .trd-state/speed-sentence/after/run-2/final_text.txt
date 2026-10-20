@@ -1,0 +1,29 @@
+The one task is built: `greet()` in `src/greet.js` returns `'hello'`, and its Jest test passes (1 of 1). It's committed on a new branch but not pushed, because this repo has no git remote.
+
+STATE
+  1 of 1 tasks built on branch `feature/smoke-greet/868ae843`: the greeting module and its test (SMOKE-001). Committed as `4ae58b8`, with the state record in `d17c066`.
+  Tests: green. 1 of 1 passed, 100% unit coverage. There are no integration tests, and the project sets no coverage floor.
+  Nobody checked whether the software does what the requirements asked (`--no-verify` set).
+  The branch is not pushed: `git push` failed because the repo has no remote.
+
+DECISIONS
+  - The task went to `backend-implementer` instead of the router's pick, `frontend-implementer`. The router matched the keyword "ui" inside the word "equivalent" in the task text. This is a plain Node module, and the override isn't saved in any state file.
+  - No project-wide test command runs at the phase gate: there is no `package.json` and no test config. The gate relied on the phase-end verification agent (verify-app), which ran the test and passed it.
+
+ISSUES
+  - **The test can't be run the normal way.** With no `package.json` or Jest config, a plain `npx jest` fails with "could not find a config file". It only runs as `npx jest --config '{}' src/greet.test.js`, using a cached Jest download. You decide whether this throwaway project should get a real `package.json` with Jest. The code review left it for you, since the TRD says no other modules.
+  - **The router matches keywords inside other words, and that affects every project.** "ui" matches in "equivalent" and "build", "rag" in "storage", "ios" in "scenarios". The fix (match whole words) belongs in the plugin source, because a local edit to `.claude/lib/agent-routing.js` gets overwritten by `/rebase-project`. It's recorded as a discovery (a note that doesn't block this feature).
+  - **Smaller items from the code review, all in files the framework's own tools write:**
+    - the committed dispatch log contains absolute home-directory paths;
+    - `.trd-state/current.json` is written in different JSON formats by different writers.
+    Fixing them by hand would be undone on the next run, so they're framework issues, not this feature's.
+
+NEXT
+  1. Check the delivered code against the TRD (there's no PRD for this fixture):
+  ```
+  /audit-build docs/TRD/smoke-greet.md
+  ```
+  2. If you want the branch on a remote, add one and push `feature/smoke-greet/868ae843`.
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+Phase 1/1 complete: 1/1 task built (greet() returns 'hello', Jest test passes), 2 commits on feature/smoke-greet/868ae843, not pushed (no git remote)

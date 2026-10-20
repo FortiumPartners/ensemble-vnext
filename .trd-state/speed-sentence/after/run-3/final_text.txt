@@ -1,0 +1,25 @@
+The one task in this TRD is built and its test passes. The branch couldn't be pushed because the repo has no git remote.
+
+**STATE**
+- 1 of 1 tasks built on branch `feature/smoke-greet/a4407b0d`, 0 not built. The task is the greet module (SMOKE-001): `src/greet.js` exports `greet()`, which returns `'hello'`, and `src/greet.test.js` checks it.
+- Tests: `npm test` passes 1 of 1. Unit-only verification, as `constitution.md` requires; it sets no coverage floor.
+- `npx jest` run across the whole repo finds 3 more test files, in the framework's own vendored skills under `.claude/skills/`. All 3 fail to load. They are not part of this feature, and `package.json` now limits Jest to `src/`.
+- Nobody checked whether the software does what was asked, because you ran with `--no-verify`. There is no PRD for this feature anyway.
+
+**DECISIONS**
+- **Implementer:** I gave the task to `backend-implementer` instead of the `frontend-implementer` the router picked. The router matched "ui" inside the word "equivalent" in the task text, and this is a plain Node module.
+- **`package.json`:** the end-of-run code review added one, with `"test": "npx jest"` and Jest limited to `src/`. Before that, the project had no test command at all, so per-phase test runs were skipped. I changed the script from `jest` to `npx jest` because Jest isn't installed locally. This goes slightly past the task's "no extra files" boundary; I kept it so the acceptance check can be repeated with one command.
+
+**ISSUES**
+- **Push failed:** the repo has no `origin` remote, so the branch was not pushed. You'd need to add a remote to share it.
+- **Routing bug:** the router that picks an implementer matches keywords as raw substrings (`.claude/lib/agent-routing.js:64`). So "storage" routes to the AI-feature agent and "scenarios" to the mobile agent. It's recorded as a discovery for this feature. The fix belongs in the upstream plugin, since a local edit is overwritten by `/rebase-project`.
+- **Session files in git:** the scaffold writes no `.gitignore`. As a result, `.trd-state/current.json` (the pointer naming the feature in progress) and `dispatch.jsonl` are committed. The dispatch log holds absolute paths from your home directory and session ids. The fix belongs in `scaffold-project.sh`.
+
+**NEXT**
+1. Check the delivered code against the TRD. No PRD exists, so there is nothing to pass with `--prd`:
+```
+/audit-build docs/TRD/smoke-greet.md
+```
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+1 of 1 tasks built: greet() returns 'hello' and its Jest test passes; 4 commits on feature/smoke-greet/a4407b0d, not pushed (no remote)

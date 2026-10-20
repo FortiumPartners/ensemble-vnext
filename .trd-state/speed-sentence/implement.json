@@ -43,26 +43,40 @@
     "FIX-003": {
       "description": "append TIME_MATTERS at dispatch sites + test",
       "phase": 1,
-      "status": "in_progress",
-      "cycle_position": "implement",
-      "current_problem": "built and gated in worktree ../ensemble-vnext-fix003 at 97f1b5e; merges after the baseline runs finish",
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/implement-phase.js",
+        "packages/core/workflows/sweep.js",
+        "packages/core/workflows/verify-functional.js",
+        "packages/core/workflows/create-trd.js",
+        "packages/core/workflows/speed-sentence.test.js",
+        ".claude/workflows/implement-phase.js",
+        ".claude/workflows/sweep.js",
+        ".claude/workflows/verify-functional.js",
+        ".claude/workflows/create-trd.js"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-10-20T18:37:43.130Z"
     },
     "FIX-004": {
       "description": "AFTER runs (5) + verdict [LIVE]",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".trd-state/speed-sentence/result.md",
+        ".trd-state/speed-sentence/after/summary.txt"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-20T18:37:43.131Z",
+      "completed_at": "2026-10-20T19:32:45.853Z",
+      "last_advanced": "2026-10-20T19:04:50.282Z"
     }
   },
   "checkpoints": [],
