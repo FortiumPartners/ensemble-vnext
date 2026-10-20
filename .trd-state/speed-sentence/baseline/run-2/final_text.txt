@@ -1,0 +1,24 @@
+**STATE**
+- 1 of 1 tasks built on branch `feature/smoke-greet/c792ef98`. The greet module task (SMOKE-001) added `src/greet.js`, where `greet()` returns `'hello'`, and its test `src/greet.test.js`.
+- Tests: Jest passes, 1 of 1 (run with `npx --yes jest --config '{}' src/`). The phase checker agent also passed it. There is no coverage floor: the constitution sets it to 0%.
+- Nobody checked whether the software does what the TRD's acceptance criterion asks, because `--no-verify` was set. There is no PRD for this feature.
+- Commits: `4111c91` (feature) and a checkpoint commit after it. Nothing was pushed because the repo has no git remote.
+
+**DECISIONS**
+- I sent the task to `backend-implementer`, not the `frontend-implementer` the parser chose. The parser matched "ui" inside the word "equivalent". This is the defect recorded under ISSUES.
+- The project has no `package.json` and no declared test command, so the project-wide test run was skipped by rule. I ran Jest directly instead. It needs `--config '{}'` because Jest can't find a config here otherwise.
+
+**ISSUES**
+- **Task routing matches keywords anywhere inside a word** (`.claude/lib/agent-routing.js:64`). "ui", "rag", "gpt", "aws" and "ios" all match inside longer words, so a task can go to the wrong specialist. It's recorded in `.trd-state/smoke-greet/discovered.jsonl`. It's a framework bug, not part of this feature, so whoever maintains the framework should fix it.
+- **The end-of-run code review applied none of its 5 findings.**
+  - Its main finding says the Jest test can't run in this project. That's partly wrong: the test does run and pass through `npx` with an inline config. What's true is that no `npm test` exists, and adding one is outside this fixture's scope.
+  - The other four are housekeeping in the framework's state files: a missing trailing newline, `current.json` rewritten onto one line, and run state committed together with the feature code. The fix belongs in the code that writes those files, not in this branch.
+
+**NEXT**
+1. Check delivery against the TRD:
+```
+/audit-build docs/TRD/smoke-greet.md
+```
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+1/1 tasks built: greet() returns 'hello' and its Jest test passes; verification skipped (--no-verify); 2 commits on feature/smoke-greet/c792ef98, not pushed (no remote)

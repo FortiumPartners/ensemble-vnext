@@ -1,0 +1,2 @@
+  [11:12:53] FAIL: output ends with a COMMAND COMPLETE/STUCK banner (glyph line + one-line summary) (last 12 non-blank line(s): )
+  [kept for diagnosis] /tmp/ensemble-smoke-impltask.VHM9I5

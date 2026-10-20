@@ -1,0 +1,45 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/smoke-greet.md",
+  "trd_hash": "6b7da9147ce327e459a3721668266520f98457ea0adb1d04906b37677d5d57c3",
+  "branch": "feature/smoke-greet/4da3cd2f",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "SMOKE-001": {
+      "description": "Create src/greet.js exporting greet() returning hello, plus Jest test",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "src/greet.js",
+        "src/greet.test.js",
+        "package.json",
+        "package-lock.json",
+        ".gitignore"
+      ],
+      "commit": "c844ef2d0b0a9d3233607c57fdc8b259092b70d3",
+      "started_at": "2026-10-20T18:10:20.066Z",
+      "completed_at": "2026-10-20T18:11:29.086Z",
+      "last_advanced": "2026-10-20T18:11:07.356Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "c844ef2d0b0a9d3233607c57fdc8b259092b70d3",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-20T18:11:29.160Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "c844ef2d0b0a9d3233607c57fdc8b259092b70d3",
+    "last_checkpoint_timestamp": "2026-10-20T18:11:29.160Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

@@ -1,0 +1,26 @@
+**STATE**
+- The one task is done: `src/greet.js` exports `greet()`, which returns `'hello'` (SMOKE-001). It is committed on branch `feature/smoke-greet/105bca16`, with its test in `src/greet.test.js`.
+- The test passes (1 of 1) when run as `npx jest --config '{}' src/`. Plain `npx jest` fails because the project has no Jest config or `package.json`.
+- Unit coverage of `greet.js` is 100%. The project sets no coverage floor.
+- Nobody checked whether the software does what the requirements asked, because `--no-verify` was set. No requirements document exists anyway.
+- Nothing was pushed: the repo has no git remote.
+
+**DECISIONS**
+- **Implementer:** I gave the task to backend-implementer, not frontend-implementer. The TRD's parser picked frontend because "ui" appears inside the word "equivalent", which is a false match.
+- **Test approach:** strategy was test-first, the default, since the TRD names no strategy.
+- **Final test run skipped:** the project declares no test command, so the end-of-phase test run was skipped. The phase passed on the verify agent's check alone.
+- **Review fix:** the end-of-run code review recorded the task's commit in the build state file (`.trd-state/smoke-greet/implement.json`). That fix is committed.
+
+**ISSUES**
+- **Tests can't run with a standard command (you decide).** There is no `package.json` or Jest config. Plain `npx jest` errors out. Forcing an empty config also picks up framework test files under `.claude/skills/`, and 3 of those 4 suites fail. Fixing this means adding a config file, and the TRD rules out anything beyond the `greet()` export.
+- **Framework bug (fix upstream).** If the build state file is lost, the step that rebuilds it from git history only searches commit messages for `TRD-`. It would not find this feature's `SMOKE-` commits and would rebuild the task.
+- **No remote.** Add one before a pull request can be opened.
+
+**NEXT**
+1. Check the delivered code against the TRD. No requirements document exists, so leave out `--prd`:
+```
+/audit-build docs/TRD/smoke-greet.md
+```
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+1 of 1 task built on feature/smoke-greet/105bca16: greet() returns 'hello' and its test passes; not pushed (no remote).

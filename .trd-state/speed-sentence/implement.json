@@ -26,21 +26,26 @@
     "FIX-002": {
       "description": "BEFORE runs (5) + baseline audit [LIVE]",
       "phase": 1,
-      "status": "in_progress",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".trd-state/speed-sentence/baseline/summary.txt",
+        ".trd-state/speed-sentence/baseline/audit-gaps.txt",
+        ".trd-state/speed-sentence/baseline/run-1/dispatch.jsonl"
+      ],
       "commit": null,
       "started_at": "2026-10-20T18:01:14.681Z",
-      "completed_at": null
+      "completed_at": "2026-10-20T18:37:29.362Z",
+      "last_advanced": "2026-10-20T18:04:05.653Z"
     },
     "FIX-003": {
       "description": "append TIME_MATTERS at dispatch sites + test",
       "phase": 1,
-      "status": "pending",
+      "status": "in_progress",
       "cycle_position": "implement",
-      "current_problem": null,
+      "current_problem": "built and gated in worktree ../ensemble-vnext-fix003 at 97f1b5e; merges after the baseline runs finish",
       "retry_count": 0,
       "files_changed": [],
       "commit": null,

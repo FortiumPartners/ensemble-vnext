@@ -1,0 +1,11 @@
+  [11:07:14] PASS: scaffold throwaway project
+  [11:07:14] PASS: fixture TRD written (docs/TRD/smoke-greet.md)
+  [11:09:55] PASS: claude --print exits 0 (exit=0)
+  [11:09:55] PASS: output ends with a COMMAND COMPLETE/STUCK banner (glyph line + one-line summary)
+  [11:09:55] PASS: src/greet.js was created
+  [11:09:55] PASS: implement.json exists for feature 'smoke-greet'
+  [11:09:55] PASS: task SMOKE-001 status is success (got: success)
+  [11:09:55] PASS: task SMOKE-001 cycle_position is complete (got: complete)
+  [11:09:55] PASS: implementer agent invoked (backend-implementer)
+  [11:09:55] PASS: git is on a feature branch (not detached/empty) (branch: feature/smoke-greet/105bca16)
+ASSERTIONS: 10 passed, 0 failed

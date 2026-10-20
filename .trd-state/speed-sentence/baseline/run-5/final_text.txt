@@ -1,0 +1,29 @@
+**STATE**
+
+- The one task in the plan, adding `greet()` (SMOKE-001), is built on branch `feature/smoke-greet/s1`. Nothing is left unbuilt.
+- `src/greet.js` exports a `greet()` that returns `'hello'`. `src/greet.test.js` checks it.
+- Tests: 1 of 1 pass, and `greet.js` has 100% unit coverage. The project's coverage floors are 0%. The test only runs as `npx --yes jest --config '{}' --roots src`.
+- `--no-verify` was set, so nobody checked whether the software does what the feature asked. The only source for that check is the TRD itself, since there is no PRD. No verification report was produced, so there was nothing to publish.
+- Nothing was pushed: the repo has no git remote.
+
+**DECISIONS**
+
+- **Implementer:** the task went to `backend-implementer`, not the `frontend-implementer` that automatic routing picked. Routing matches keywords as substrings, so "ui" inside "eq**ui**valent" looked like a UI task. This is recorded as a bug in the framework's routing code (`.claude/lib/agent-routing.js:64`).
+- **Agent log:** I stopped git tracking the log of which helper agents ran (`.trd-state/smoke-greet/dispatch.jsonl`). The end-of-run code review found it holds absolute local paths, including your username and session IDs. It is still in two earlier local commits, which is harmless while nothing has been pushed.
+- **Bare `npx jest`:** I didn't add a `package.json` or Jest config to make it work. The TRD's Non-Goals section rules out anything beyond the `greet()` export.
+
+**ISSUES**
+
+- **The test can't run the normal way (you decide):** `npx jest` fails with "Could not find a config file", and `npm test` has no `package.json` to read. If you force a config, Jest also picks up the framework's own tests under `.claude/skills/*/__tests__`, and 3 of those test files fail. A one-line Jest config limited to `src/` would fix this, but it's outside this TRD's scope.
+- **No ignore rule for runtime files (the framework owner acts):** the scaffold doesn't ignore `.session.jsonl`, `.trd-state/_command-runs/` or `dispatch.jsonl`, so the working tree shows them as untracked right after every commit.
+- **Routing bug (the framework owner acts):** the substring-matching bug above is recorded in `.trd-state/smoke-greet/discovered.jsonl`. It didn't block this feature.
+
+**NEXT**
+
+1. Check what was delivered against the TRD:
+```
+/audit-build docs/TRD/smoke-greet.md
+```
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+1 of 1 tasks built: greet() returns 'hello', its Jest test passes, 3 commits on feature/smoke-greet/s1 (not pushed, no remote)

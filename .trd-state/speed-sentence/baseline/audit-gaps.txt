@@ -1,0 +1,3 @@
+Baseline /audit-build (run-1 project, --report-only): 0 gaps.
+Verdict: proceed with these caveats — no source PRD supplied (fixture TRD names none).
+Caveat (not a gap): validation against a PRD unchecked.
