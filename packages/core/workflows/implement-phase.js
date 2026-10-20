@@ -8,6 +8,11 @@ export const meta = {
   ],
 }
 
+// The owner's time-matters sentence, appended (after a blank line) at this workflow's mechanical
+// dispatch sites only -- never to a verifier or judge. Workflow bodies are self-contained, so
+// each file that needs it holds its own copy; speed-sentence.test.js pins the exact text.
+const TIME_MATTERS = 'Time matters here: do not spend time that can be avoided, and the earlier a correct result is obtained, the better.'
+
 // ---------------------------------------------------------------------------
 // implement-phase is deliberately NOT pipeline(). pipeline() runs every item through the
 // same ordered stages -- fine for a flat batch, but this workflow has a wave partition with
@@ -186,7 +191,7 @@ for (let w = 0; w < WAVES.length; w++) {
       // backend-implementer costs a competent implementer on the wrong specialism, while an
       // unset type silently escalates the model tier for every unrouted task in the run.
       opts.agentType = rec.agentType || 'backend-implementer'
-      return agent(rec.prompt, opts).then((r) => ({ id, result: r }))
+      return agent(rec.prompt + '\n\n' + TIME_MATTERS, opts).then((r) => ({ id, result: r }))
     })
   )
 
@@ -226,7 +231,7 @@ phase('Gate')
 // verify-app runs as a named agent dispatched from inside this workflow, in the foreground
 // (attested: agent() accepts opts.agentType). Its frontmatter permits fan-out (constitution
 // Principle 1); the one thing it must not do is spawn another verify-app on this same task.
-const verifyResult = await agent(GATE.verifyPrompt, {
+const verifyResult = await agent(GATE.verifyPrompt + '\n\n' + TIME_MATTERS, {
   label: 'gate:verify-app',
   phase: `Phase ${PHASE}`,
   agentType: 'verify-app',
