@@ -10,11 +10,6 @@ export const meta = {
   ],
 }
 
-// The owner's time-matters sentence, appended (after a blank line) at this workflow's mechanical
-// dispatch site only (ground:merge) -- never to the author or any verifier. Workflow bodies are
-// self-contained, so the constant is held here; speed-sentence.test.js pins the exact text.
-const TIME_MATTERS = 'Time matters here: do not spend time that can be avoided, and the earlier a correct result is obtained, the better.'
-
 // ---------------------------------------------------------------------------
 // args: { prd, trd, feature, stack, constitution, transcript }
 //   prd          path to the source PRD (or the plan item / transcript when there is none)
@@ -809,7 +804,7 @@ so report CONTRADICTIONS BETWEEN blocks as findings:
 Report them; fix nothing. Zero contradictions is a legitimate and common result.
 
 BLOCKS:
-${liveGround.map((g, i) => `--- agent ${i + 1} ---\n${g.blocks_markdown || '(none returned)'}`).join('\n\n')}` + '\n\n' + TIME_MATTERS,
+${liveGround.map((g, i) => `--- agent ${i + 1} ---\n${g.blocks_markdown || '(none returned)'}`).join('\n\n')}`,
     {
       label: 'ground:merge',
       phase: 'Ground',

@@ -12,11 +12,6 @@ export const meta = {
   ],
 }
 
-// The owner's time-matters sentence, appended (after a blank line) at this workflow's mechanical
-// dispatch sites only -- never to a verifier or judge. Workflow bodies are self-contained, so
-// each file that needs it holds its own copy; speed-sentence.test.js pins the exact text.
-const TIME_MATTERS = 'Time matters here: do not spend time that can be avoided, and the earlier a correct result is obtained, the better.'
-
 // ---------------------------------------------------------------------------
 // This script owns the entire bounded functional-verification loop (D1). It has no
 // filesystem, no shell and no require -- everything that touches disk (the checker CLI, state
@@ -1123,7 +1118,7 @@ async function reconcileOutcome(judgeResult, iteration) {
     `3. Run  node ${CHECKER} render-report --file ${reportInputFile}  and write its output to ${REPORT_PATH}.\n\n` +
     `Change nothing else and read no evidence. Return { "reconciled": <true when all three steps ` +
     `completed>, "reason": "<string, present when reconciled is false>" }.`
-  const result = await agent(prompt + '\n\n' + TIME_MATTERS, { label: 'reconcile', phase: 'Judge', model: 'sonnet', schema: RECONCILE_SCHEMA })
+  const result = await agent(prompt, { label: 'reconcile', phase: 'Judge', model: 'sonnet', schema: RECONCILE_SCHEMA })
   if (!result) {
     log(`iteration ${iteration}: the reconcile agent returned nothing -- the report and state files still show the Judge's outcome`)
     return " (report file still shows the Judge's outcome — the reconcile agent returned nothing)"
@@ -1150,7 +1145,7 @@ async function recheckAndReconcile(judgeResult, settled, iteration) {
 function dispatchRender(skill, iteration, judgeResult) {
   return async () => {
     const ids = CHECK_CRITERIA_IDS_BY_SKILL.get(skill)
-    const renderResult = await agent(buildRenderPrompt(skill, ids, iteration, judgeResult) + '\n\n' + TIME_MATTERS, {
+    const renderResult = await agent(buildRenderPrompt(skill, ids, iteration, judgeResult), {
       label: 'render',
       phase: 'Render',
       // Sonnet: filling a fixed page template from already-judged results is mechanical, not a

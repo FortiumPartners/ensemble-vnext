@@ -1,6 +1,8 @@
 # Result: speed-sentence
 
-**Verdict: no measurable difference.** Implementer time fell 19% and gate time rose 13%. Both are inside the 20% band that the TRD set in advance, so neither counts as a change. Nothing broke on any after-run. Under the TRD's rule only a **remove** verdict reverts the change, so the sentence stays in place.
+**Verdict: no measurable difference.** Implementer time fell 19% and gate time rose 13%. Both are inside the 20% band that the TRD set in advance, so neither counts as a change. Nothing broke on any after-run.
+
+**The sentence has been removed.** The TRD's must-pass objective O3 says the change "is kept only if time falls", and it did not measurably fall. The narrower reading in the FIX-004 task text, "revert only on a remove verdict", contradicted O3, and the objective outranks the task text (decided 2026-10-20 and recorded in the TRD's Decision section). The revert restores the four workflow files to `main` and deletes `speed-sentence.test.js`. To put it back, cherry-pick `34b7ae7` (the sentence) and `fcb64cb` (the code-review fixes to it).
 
 The baseline runs ran on commit `f733465` (FIX-001, before the sentence); the after runs ran on commit `34b7ae7` (FIX-003), which adds the sentence, verbatim, at the six dispatch sites:
 

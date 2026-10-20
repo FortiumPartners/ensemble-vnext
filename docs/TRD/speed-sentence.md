@@ -57,6 +57,13 @@ sweep fix prompt or create-trd's grounding merge, and with `--no-verify` it neve
 render or reconcile. Those four sites get the sentence on the strength of the implementer
 result, and their effect is unmeasured (see Could Not Verify).
 
+**2026-10-20, after the measurement:** O3 (keep only if time falls) and FIX-004's
+acceptance text (revert only on a "remove" verdict) disagreed on the "no measurable
+difference" outcome, which is what the measurement returned. O3 is the must-pass objective
+and wins: the sentence was reverted. It can be re-applied by cherry-picking the FIX-003
+commit once a fixture large enough to show a difference is measured
+(`.trd-state/speed-sentence/result.md`).
+
 ## Non-Goals
 
 - No change to agent definition files, command files, or any audit-*.js, create-prd.js, or the

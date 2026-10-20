@@ -7,11 +7,6 @@ export const meta = {
   ],
 }
 
-// The owner's time-matters sentence, appended (after a blank line) at this workflow's mechanical
-// dispatch sites only -- never to a verifier or judge. Workflow bodies are self-contained, so
-// each file that needs it holds its own copy; speed-sentence.test.js pins the exact text.
-const TIME_MATTERS = 'Time matters here: do not spend time that can be avoided, and the earlier a correct result is obtained, the better.'
-
 /*
  * sweep.js — the missing shape.
  *
@@ -283,7 +278,7 @@ const fixSchema = {
 const runRegion = ([region, items]) => async () => {
     const out = []
     for (const item of items) {
-      const r = await agent(fixPrompt(item) + '\n\n' + TIME_MATTERS, {
+      const r = await agent(fixPrompt(item), {
         label: `fix:${item.id}`,
         phase: 'Fix',
         agentType: resolveFixAgent(item),
