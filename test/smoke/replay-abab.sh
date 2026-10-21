@@ -186,7 +186,7 @@ audit_one() {
         export PLUGIN_DIR="$plugin" npm_config_offline=true
         shim_dir="$(dirname "$project")/shims"
         export PATH="${shim_dir}:${PATH}"
-        smoke_claude "/audit-build docs/TRD/${FEATURE}.md --prd docs/PRD/${FEATURE}.md --report-only" \
+        smoke_claude_watched "/audit-build docs/TRD/${FEATURE}.md --prd docs/PRD/${FEATURE}.md --report-only" \
             "$AUDIT_CAP" "$project" "${dest}/session.jsonl"
     )
     rc=$?
@@ -223,6 +223,16 @@ cmd_run() {
     for step in before:1 after:1 before:2 after:2; do
         side="${step%%:*}"; k="${step##*:}"
         run_one "$side" "$k" "$sides" "$out" || echo "replay-abab: ${side}-${k} did not pass; continuing so the block stays balanced" >&2
+        # FIX-008: check extraction on the first run before spending hours on the rest.
+        if [[ "$step" == "before:1" && "${REPLAY_PREPARE_ONLY:-0}" != "1" ]]; then
+            local pt ntask ngate
+            pt="$(node "${HERE}/ledger-timing.js" --per-task "${out}/before/run-1/dispatch.jsonl" 2>&1)"
+            printf '%s\n' "$pt" >"${out}/before/run-1/per-task.txt"
+            ntask="$(printf '%s\n' "$pt" | awk '$1 ~ /^task:/ {print $1}' | sort -u | wc -l | tr -d ' ')"
+            ngate="$(printf '%s\n' "$pt" | awk '$1 ~ /^gate:/ {print $2, $3}' | sort -u | wc -l | tr -d ' ')"
+            [[ "$ntask" -ge 10 && "$ngate" -ge 3 ]] \
+                || die "run: extraction on before-1 found ${ntask} task keys and ${ngate} gate phases (need 10 and 3); stopping (see ${out}/before/run-1/per-task.txt)"
+        fi
     done
 
     [[ "${REPLAY_PREPARE_ONLY:-0}" == "1" ]] && return 0

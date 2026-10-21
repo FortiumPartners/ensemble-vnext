@@ -333,7 +333,8 @@ PLUGIN_DIR="$PLUGIN"
 export PLUGIN_DIR
 
 STATE_DIR="${PROJECT_DIR}/.trd-state/${FEATURE}"
-smoke_claude "$PROMPT" "$RUN_TIMEOUT" "$PROJECT_DIR" "$SESSION_FILE"
+
+smoke_claude_watched "$PROMPT" "$RUN_TIMEOUT" "$PROJECT_DIR" "$SESSION_FILE"
 RC=$?
 
 FINAL_TEXT="$(smoke_final_text "$SESSION_FILE")"
@@ -358,6 +359,8 @@ every_start_has_stop() {
     ' "$LEDGER" >/dev/null 2>&1
 }
 
+# A timeout surfaces as 124 (timeout, or the perl fallback) or 143 (TERM reached the subshell).
+[[ "$RC" -eq 143 ]] && RC=124
 if [[ "$RC" -eq 0 ]]; then
     COMPLETION="completed"
 elif [[ "$RC" -eq 124 ]] && { grep -q '═══ COMMAND COMPLETE' "${OUT_DIR}/final_text.txt" \

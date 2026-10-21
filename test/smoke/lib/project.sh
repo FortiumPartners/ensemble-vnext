@@ -125,6 +125,40 @@ smoke_claude() {
     return $?
 }
 
+# smoke_claude_watched <prompt> <timeout_s> <project_dir> <session_file>
+# smoke_claude, plus a watchdog: a headless session can stay alive after its final turn (twice
+# in the speed-sentence measurement), costing up to <timeout_s>. Once the LAST assistant text
+# carries the COMMAND COMPLETE banner and the session file has been quiet for
+# SMOKE_IDLE_KILL seconds (default 180), the process tree is stopped and 124 is returned, the
+# same code a timeout gives, so callers' "completed (process hung)" rule applies unchanged.
+_smoke_kill_tree() {
+    local p="$1" c
+    for c in $(pgrep -P "$p" 2>/dev/null); do _smoke_kill_tree "$c"; done
+    kill -TERM "$p" 2>/dev/null || true
+}
+smoke_claude_watched() {
+    local session_file="$4" idle_kill="${SMOKE_IDLE_KILL:-180}" pid idle killed=0 rc
+    smoke_claude "$@" &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 30
+        [[ -f "$session_file" ]] || continue
+        if smoke_final_text "$session_file" | grep -q '═══ COMMAND COMPLETE'; then
+            idle=$(( $(date +%s) - $(stat -f %m "$session_file" 2>/dev/null || stat -c %Y "$session_file") ))
+            if [[ "$idle" -ge "$idle_kill" ]] && kill -0 "$pid" 2>/dev/null; then
+                echo "  [watchdog] banner written and session idle ${idle}s; stopping the process" >&2
+                killed=1
+                _smoke_kill_tree "$pid"
+                break
+            fi
+        fi
+    done
+    wait "$pid"
+    rc=$?
+    [[ "$killed" -eq 1 ]] && rc=124
+    return "$rc"
+}
+
 # smoke_final_text <session_file>
 # Text of the LAST assistant message — the banner, when the command followed
 # the command-status contract.
