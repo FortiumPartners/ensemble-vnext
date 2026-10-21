@@ -42,7 +42,9 @@ After:
 
 - **One step between runs, one place the planning rules live.** `/refine-verification` is the only plan writer. `/verify-build` never plans. That supersedes this TRD's earlier draft, in which `--fix` derived its own plan from a shared contract (owner, 2026-09-29: "keeps us from having to put the same work in two places"). The rules live in the command itself, with no separate contract file.
 - **A refine command, not a skill.** It follows `/refine-prd` and `/refine-trd`: interactive by default, `--auto` for unattended runs, and the same `--auto` verdicts. An `OWNER-CALL` is decided anyway and recorded for review.
-  - It keeps `disable-model-invocation: true`, because nothing chains it.
+  - It kept `disable-model-invocation: true` at first, because nothing chained it. Since 4.13.7
+    (owner request, 2026-10-21) it is model-invocable, with a description that opens on its place
+    in the pipeline rather than on how a user would phrase the task.
   - Its frontmatter carries `category: verification`.
   - It supersedes decision D12 of `docs/TRD/verification-fix-loop.md` ("a skill conducts the chat"). D12 is amended in that TRD inline.
 - **`--fix` becomes the default, symmetric with `/implement-trd`'s `--verify`** (4.8.0, VCON O6).

@@ -315,8 +315,11 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.13.6** (2026-10-17). 21 commands, 13 subagents. Test battery: 2097 Jest,
+Released at **4.13.7** (2026-10-21). 21 commands, 13 subagents. Test battery: 2097 Jest,
 124 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
+
+4.13.7: `/audit-build`, `/audit-prd`, `/audit-trd`, `/audit-docs` and `/refine-verification`
+are model-invocable; their descriptions open on their place in the pipeline.
 
 4.13.6: every document a command writes is recorded in a version-2 `artifacts.json`
 through `lib/artifacts.js`, path included with publishing off; init and rebase always stamp
@@ -327,6 +330,8 @@ marked `check` or `support`, and `/rebase-project` reads that list rather than a
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.13.7: no live run has yet had an agent start an audit or `/refine-verification` by
+  `Skill()`, nor checked that the new descriptions avoid accidental selection.
 - 4.13.6: the version stamp is proven on fixtures only, not a live init or rebase.
 - 4.13.5: `--refresh` and initial scaffolding still build agent preloads from
   `selected-skills.txt` as written; only the rebase's agent sync reconciles it.

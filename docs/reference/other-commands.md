@@ -186,8 +186,9 @@ stop (`amend.md` "What this command must not do").
 
 ## `/audit-build` — check the delivered code against the TRD and PRD
 
-Source: `commands/audit-build.md`; workflow `workflows/audit-build.js`. Model-invocation is
-disabled (`disable-model-invocation: true`): it runs only when you type it.
+Source: `commands/audit-build.md`; workflow `workflows/audit-build.js`. Model-invocable since
+4.13.7: an agent may run it with `Skill()`, and its description opens on where it sits in the
+pipeline so it is not picked up by a description match.
 
 It answers three questions — does the code match the TRD's tasks (verification), the PRD's
 requirements (validation), and does every requirement have both an implementation **and** a

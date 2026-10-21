@@ -10,6 +10,31 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.7] - 2026-10-21
+
+The audit and verification-planning commands can now be started by an agent, not only typed by
+you. Owner request: "verify and audit steps need to be model invocable."
+
+### Changed
+
+- **`/audit-build`, `/audit-prd`, `/audit-trd`, `/audit-docs` and `/refine-verification` are
+  model-invocable.** Each carried `disable-model-invocation: true` for one reason: its
+  description read like a user's request, so a message could match it and start an expensive
+  run nobody asked for. That remedy now lives in the description, as it did for `/plan` on
+  2026-09-26. Each opens on where the command sits and what it runs ("Pipeline stage after
+  /implement-trd. Runs the delivered-code audit wave…"), not on the task as a user would
+  phrase it. `/verify-build` was already invocable.
+  - Scope authorization is unchanged and stays with `autonomy.md`: each command still runs to
+    its own banner, and nothing here makes one command start the next.
+  - `/refine-verification` keeps its interactive default; an agent that calls it unattended
+    should pass `--auto`.
+  - `docs/reference/other-commands.md` and `docs/TRD/refine-verification.md` updated to match.
+
+### Not yet proven
+
+- No live run has yet had an agent start one of these by `Skill()`, nor checked that the new
+  descriptions avoid accidental selection.
+
 ## [4.13.6] - 2026-10-17
 
 Every command that produces a document now records where it lives, so a tool like Forge can
