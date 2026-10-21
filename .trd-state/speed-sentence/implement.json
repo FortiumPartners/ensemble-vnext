@@ -164,17 +164,27 @@
       "description": "AMEND-001",
       "phase": 1,
       "retry_count": 0,
-      "files_changed": [],
-      "status": "in_progress",
-      "cycle_position": "implement"
+      "files_changed": [
+        "test/smoke/implement-one-task-prompt.test.js"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-10-21T07:52:38.601Z",
+      "current_problem": null,
+      "completed_at": "2026-10-21T07:52:50.457Z"
     },
     "AMEND-002": {
       "description": "AMEND-002",
       "phase": 1,
       "retry_count": 0,
-      "files_changed": [],
-      "status": "in_progress",
-      "cycle_position": "implement"
+      "files_changed": [
+        ".claude/verification-notes.md"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "last_advanced": "2026-10-21T07:52:38.602Z",
+      "current_problem": null,
+      "completed_at": "2026-10-21T07:52:50.457Z"
     }
   },
   "checkpoints": [
