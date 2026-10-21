@@ -190,11 +190,14 @@ assert_pass_raw "config edits applied (constitution, stack, CLAUDE.md, PATH shim
 
 # --- 5. fixture documents, dependencies, commit ---------------------------------------
 docs_ok=true
+# Read the list first: a jq failure inside `< <(...)` is invisible and would copy nothing.
+DOC_LIST="$(jq -r '.docs | to_entries[] | [.key, .value] | @tsv' "$FIXTURE_JSON")" || docs_ok=false
 while IFS=$'\t' read -r src dest; do
+    [[ -n "$src" ]] || continue
     mkdir -p "$(dirname "${PROJECT_DIR}/${dest}")"
     cp "${FIXTURE_DIR}/${src}" "${PROJECT_DIR}/${dest}" || docs_ok=false
-done < <(jq -r '.docs | to_entries[] | [.key, .value] | @tsv' "$FIXTURE_JSON")
-if [[ "$docs_ok" == "true" ]]; then
+done <<<"$DOC_LIST"
+if [[ "$docs_ok" == "true" && -f "${PROJECT_DIR}/${TRD_REL}" ]]; then
     assert_pass_raw "fixture documents copied in"
 else
     assert_fail_raw "copy the fixture documents in"
@@ -361,7 +364,11 @@ every_start_has_stop() {
 
 # A timeout surfaces as 124 (timeout, or the perl fallback) or 143 (TERM reached the subshell).
 [[ "$RC" -eq 143 ]] && RC=124
-if [[ "$RC" -eq 0 ]]; then
+# A clean exit that ended on COMMAND STUCK is not a completed run: its timings would be
+# compared as if the command had finished.
+if [[ "$RC" -eq 0 ]] && grep -q '═══ COMMAND STUCK' "${OUT_DIR}/final_text.txt"; then
+    COMPLETION="stuck"
+elif [[ "$RC" -eq 0 ]]; then
     COMPLETION="completed"
 elif [[ "$RC" -eq 124 ]] && { grep -q '═══ COMMAND COMPLETE' "${OUT_DIR}/final_text.txt" \
         || { all_tasks_terminal && every_start_has_stop; }; }; then

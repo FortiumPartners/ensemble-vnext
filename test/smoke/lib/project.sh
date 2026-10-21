@@ -148,9 +148,13 @@ smoke_claude_watched() {
     while kill -0 "$pid" 2>/dev/null; do
         sleep 30
         [[ -f "$session_file" ]] || continue
+        # GNU stat first: GNU `stat -f %m` prints "?" and exits 0, so it must not be tried first.
+        # The idle check is a stat; the transcript parse (a slurp of the whole file) runs only
+        # once the file has been quiet long enough to matter.
+        idle=$(( $(date +%s) - $(stat -c %Y "$session_file" 2>/dev/null || stat -f %m "$session_file") ))
+        [[ "$idle" -ge "$idle_kill" ]] || continue
         if smoke_final_text "$session_file" | grep -q '═══ COMMAND COMPLETE'; then
-            idle=$(( $(date +%s) - $(stat -f %m "$session_file" 2>/dev/null || stat -c %Y "$session_file") ))
-            if [[ "$idle" -ge "$idle_kill" ]] && kill -0 "$pid" 2>/dev/null; then
+            if kill -0 "$pid" 2>/dev/null; then
                 echo "  [watchdog] banner written and session idle ${idle}s; stopping the process" >&2
                 killed=1
                 _smoke_kill_tree "$pid"

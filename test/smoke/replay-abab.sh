@@ -7,9 +7,9 @@
 #       Builds the two framework checkouts the replay compares, from ONE commit of this repo.
 #       before = a clone at REF (default HEAD). after = the same clone plus
 #       `cherry-pick 34b7ae7` and `cherry-pick fcb64cb` (the time-matters sentence), where
-#       fcb64cb's only expected conflict, .trd-state/speed-sentence/result.md, is resolved to
-#       the tree's copy. Makes NO model call. Both are clones in a temp dir - never a worktree
-#       of, or a checkout in, this repo, so its working tree is never touched.
+#       fcb64cb's only expected conflicts, .trd-state/speed-sentence/result.md and
+#       test/smoke/ledger-timing.js, are resolved to the tree's copy. Makes NO model call.
+#       Both are clones in a temp dir - never a worktree of, or a checkout in, this repo.
 #       Checks: after differs from before in exactly nine files (the four workflows under both
 #       packages/core/workflows/ and .claude/workflows/, plus speed-sentence.test.js); the
 #       after side's speed-sentence.test.js passes; the before side has no "Time matters".
@@ -174,7 +174,7 @@ run_one() {
     return $rc
 }
 
-# audit_one <label> <project_dir> <out_dir>: /audit-build --report-only on a kept clone.
+# audit_one <label> <project_dir> <out_dir> <plugin_dir>: /audit-build --report-only on a kept clone.
 audit_one() {
     local label="$1" project="$2" out="$3" plugin="$4"
     local dest="${out}/audit/${label}" start end rc
@@ -193,9 +193,8 @@ audit_one() {
     end="$(date -u +%FT%TZ)"
     smoke_final_text "${dest}/session.jsonl" >"${dest}/final_text.txt"
     # The report is the audit command's own file when it wrote one; otherwise its final text.
-    local report
-    report="$(find "${project}/.trd-state/${FEATURE}" -maxdepth 1 -iname '*audit*build*' -type f 2>/dev/null | head -1)"
-    if [[ -n "$report" ]]; then cp "$report" "${dest}/audit-build-report.md"; else cp "${dest}/final_text.txt" "${dest}/audit-build-report.md"; fi
+    local report="${project}/.trd-state/${FEATURE}/audit-build-report.md"
+    if [[ -f "$report" ]]; then cp "$report" "${dest}/audit-build-report.md"; else cp "${dest}/final_text.txt" "${dest}/audit-build-report.md"; fi
     printf 'exit_code=%s\n' "$rc" >"${dest}/result.env"
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "audit-${label}" "audit" "$start" "$end" "$rc" "-" "$project" >>"${out}/runs.tsv"
     echo "audit ${label}: exit ${rc}"
@@ -238,9 +237,16 @@ cmd_run() {
     [[ "${REPLAY_PREPARE_ONLY:-0}" == "1" ]] && return 0
 
     # Audits: before-1 is the single baseline; each after-run gets its own.
-    local label dirname
+    local label dirname completion
     for label in baseline:before/run-1 after-1:after/run-1 after-2:after/run-2; do
         dirname="${label##*:}"
+        # An audit of a clone whose run never happened (or failed) measures nothing but the
+        # fixture's base, and costs up to AUDIT_CAP. Redo it with `rerun` once the run is good.
+        completion="$(sed -n 's/^completion=//p' "${out}/${dirname}/result.env" 2>/dev/null)"
+        if [[ "$completion" != completed* ]]; then
+            echo "audit ${label%%:*}: skipped - ${dirname} did not complete (${completion:-no result.env})" >&2
+            continue
+        fi
         audit_one "${label%%:*}" "$(cat "${out}/${dirname}/project.txt" 2>/dev/null)" "$out" \
             "${sides}/${dirname%%/*}/packages/full" || true
     done
@@ -248,10 +254,12 @@ cmd_run() {
 
 # rerun <side> <k> --sides DIR [--out DIR]: redo ONE run (after a pre-run failure such as a
 # fixture test flake), moving the failed attempt aside, then redo that run's audit when it has
-# one (after-k). The block's order is broken by this; runs.tsv's timestamps record by how much.
+# one (after-k, or the baseline for before-1). The block's order is broken by this; runs.tsv's
+# timestamps record by how much.
 cmd_rerun() {
+    [[ $# -ge 2 ]] || die "rerun: usage: rerun <before|after> <k> --sides DIR [--out DIR]"
     local side="$1" k="$2" sides="" out="${REPO_ROOT}/.trd-state/speed-sentence/replay"
-    shift 2 || die "rerun: usage: rerun <before|after> <k> --sides DIR [--out DIR]"
+    shift 2
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --sides) sides="$2"; shift 2 ;;
@@ -262,18 +270,22 @@ cmd_rerun() {
     [[ "$side" == before || "$side" == after ]] || die "rerun: side must be before or after"
     [[ -d "${sides}/${side}" ]] || die "rerun: --sides must hold ${side}/"
     sides="$(cd "$sides" && pwd)"
-    local dest="${out}/${side}/run-${k}" stamp
+    local dest="${out}/${side}/run-${k}" stamp audit_label=""
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    # The run's audit, when it has one: each after-run's own, and before-1's (the baseline).
+    if [[ "$side" == after ]]; then audit_label="after-${k}"
+    elif [[ "$k" == 1 ]]; then audit_label="baseline"
+    fi
+    mkdir -p "${out}/aborted"
     if [[ -d "$dest" ]]; then
-        mkdir -p "${out}/aborted"
         mv "$dest" "${out}/aborted/${side}-run-${k}-${stamp}"
     fi
-    if [[ "$side" == after && -d "${out}/audit/after-${k}" ]]; then
-        mv "${out}/audit/after-${k}" "${out}/aborted/audit-after-${k}-${stamp}"
+    if [[ -n "$audit_label" && -d "${out}/audit/${audit_label}" ]]; then
+        mv "${out}/audit/${audit_label}" "${out}/aborted/audit-${audit_label}-${stamp}"
     fi
     run_one "$side" "$k" "$sides" "$out" || return 1
-    if [[ "$side" == after ]]; then
-        audit_one "after-${k}" "$(cat "${dest}/project.txt" 2>/dev/null)" "$out" "${sides}/after/packages/full"
+    if [[ -n "$audit_label" ]]; then
+        audit_one "$audit_label" "$(cat "${dest}/project.txt" 2>/dev/null)" "$out" "${sides}/${side}/packages/full"
     fi
 }
 

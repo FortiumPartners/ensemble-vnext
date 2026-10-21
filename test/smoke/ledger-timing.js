@@ -17,6 +17,7 @@
  * A start with no stop is counted as unfinished, never as a duration.
  */
 const fs = require('fs');
+const path = require('path');
 
 function median(values) {
   const s = [...values].sort((a, b) => a - b);
@@ -108,9 +109,9 @@ function transcriptStats(text) {
  */
 function perTask(lines, readFile, opts = {}) {
   const read = (p) => {
-    try { return readFile(p); } catch (err) {
+    try { return readFile(p); } catch {
       if (!opts.ledgerDir) return null;
-      try { return readFile(require('path').join(opts.ledgerDir, 'transcripts', require('path').basename(p))); } catch { return null; }
+      try { return readFile(path.join(opts.ledgerDir, 'transcripts', path.basename(p))); } catch { return null; }
     }
   };
   const out = [];
@@ -129,7 +130,10 @@ function perTask(lines, readFile, opts = {}) {
   return out;
 }
 
-const change = (before, after) => (before ? (after - before) / before : null);
+const change = (before, after) => (before && after !== null ? (after - before) / before : null);
+// A count is unknown (null) once any dispatch summed into it had no readable transcript, so a
+// missing transcript reads as n/a rather than as zero tool calls (a false -100%).
+const addCount = (sum, v) => (sum === null || v === null ? null : sum + v);
 
 /** Group one run's perTask rows by comparison key (task:<id> for implementers, the
  *  workflowPhase for gates), summing a key dispatched more than once. */
@@ -141,7 +145,8 @@ function groupRun(rows) {
     else if (r.label && r.label.startsWith('gate:') && r.phase) { key = r.phase; kind = 'gate'; }
     else continue;
     const cur = g.get(key) || { kind, seconds: 0, toolCalls: 0, outputTokens: 0, dispatches: 0 };
-    cur.seconds += r.seconds; cur.toolCalls += r.toolCalls || 0; cur.outputTokens += r.outputTokens || 0; cur.dispatches++;
+    cur.seconds += r.seconds; cur.toolCalls = addCount(cur.toolCalls, r.toolCalls);
+    cur.outputTokens = addCount(cur.outputTokens, r.outputTokens); cur.dispatches++;
     g.set(key, cur);
   }
   return g;
@@ -198,7 +203,7 @@ function readLines(files) {
 }
 
 function perTaskFor(file) {
-  return perTask(readLines([file]), (p) => fs.readFileSync(p, 'utf8'), { ledgerDir: require('path').dirname(file) });
+  return perTask(readLines([file]), (p) => fs.readFileSync(p, 'utf8'), { ledgerDir: path.dirname(file) });
 }
 
 const pct = (c) => (c === null ? 'n/a' : `${(c * 100).toFixed(1)}%`);

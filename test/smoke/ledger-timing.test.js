@@ -134,6 +134,17 @@ describe('pairing, per-task and compare', () => {
     expect(r.pairs[0].unmatched).toEqual({ before: ['task:B'], after: ['task:C'] });
   });
 
+  test('compareRuns: a missing transcript makes counts unknown, not zero', () => {
+    const before = perTask(agent('p', 'x', 0, 10, 'task:A', 'Phase 1', asst('m', [{ type: 'tool_use' }], 9)), readFile);
+    const after = perTask(agent('s', 'x', 0, 8, 'task:A', 'Phase 1', asst('m', [{ type: 'tool_use' }], 9)), readFile);
+    const afterMissing = perTask(agent('s2', 'x', 0, 8, 'task:A', 'Phase 1'), (p) => { if (p === '/t/s2.jsonl') throw new Error('ENOENT'); return readFile(p); });
+    expect(compareRuns([before], [after]).pairs[0].keys[0].toolCalls.change).toBe(0);
+    const k = compareRuns([before], [afterMissing]).pairs[0].keys[0];
+    expect(k.toolCalls).toEqual({ before: 1, after: null, change: null });
+    expect(k.outputTokens.change).toBeNull();
+    expect(k.seconds.change).toBe(-0.2);
+  });
+
   test('CLI --per-task and --compare; bad usage exits 2', () => {
     const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'lt-'));
     try {
