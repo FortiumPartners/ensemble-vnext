@@ -1,0 +1,242 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/availability-consolidation.md",
+  "trd_hash": "68fc6dcf54676423ae68089a150264bda112e396ce0347edb07a5b6a95ec967e",
+  "branch": "feature/availability-consolidation/impl",
+  "strategy": "tdd",
+  "phase_cursor": 4,
+  "tasks": {
+    "AVAIL-B001": {
+      "description": "Build @ll/shared/availability per §3.1: reader, readTipboards (one MGET), availabilityOf (with caller), logAbsentFromFresh, llPassTypeFromMetadata, tipboardKey, TipboardEntry (moved from DiscoverySwee",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/shared/src/availability/tipboardReader.ts",
+        "packages/shared/src/availability/index.ts",
+        "packages/shared/src/availability/__tests__/tipboardReader.test.ts",
+        "packages/shared/package.json",
+        "packages/workers/src/disney/DiscoverySweep.ts",
+        "packages/workers/vitest.alias.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T02:57:26.935Z",
+      "completed_at": "2026-10-21T03:04:02.905Z",
+      "last_advanced": "2026-10-21T03:03:09.374Z",
+      "files_deleted": []
+    },
+    "AVAIL-B002": {
+      "description": "Engine context per §3.3 and D14/D15/D16: DecisionContextSchema.tipboardBoards; observe() on readBoards; DecisioningPipeline binding at :2887; level-tick dispatch-on-unknown, including a want a fresh b",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/shared/src/reactiveEngine.ts",
+        "packages/workers/src/decisioning/engine/observe.ts",
+        "packages/workers/src/decisioning/DecisioningPipeline.ts",
+        "packages/workers/src/redis/RedisKeyStore.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:04:03.111Z",
+      "completed_at": "2026-10-21T03:15:56.467Z",
+      "last_advanced": "2026-10-21T03:07:37.746Z",
+      "files_deleted": []
+    },
+    "AVAIL-B003": {
+      "description": "MatchingEngine._readTipboardCache → reader (caller:'matching-engine'); evaluateAvailabilityEvent and evaluateConfig proceed when the experience is unknown, whether the board is not fresh or a fresh bo",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/workers/src/decisioning/MatchingEngine.ts",
+        "packages/workers/src/decisioning/engine/informClassifier.ts",
+        "packages/workers/src/decisioning/HeldLLReconciler.ts",
+        "packages/workers/src/decisioning/ReconcileStep.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:04:03.111Z",
+      "completed_at": "2026-10-21T03:15:56.467Z",
+      "last_advanced": "2026-10-21T03:07:37.747Z",
+      "files_deleted": [
+        "packages/workers/src/decisioning/__tests__/tipboardSecondReader.test.ts"
+      ]
+    },
+    "AVAIL-B004": {
+      "description": "Rewrite availability.ts per §3.2 (D8–D13): same-day via the reader with no Disney client; future-day bundle with party guest ids; tier and name from ExperienceMetadata; delete everything §3.2 lists. E",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/workers/src/http/handlers/availability.ts",
+        "packages/workers/src/http/partyGuestIds.ts",
+        "packages/workers/src/http/handlers/reconcile.ts",
+        "packages/shared/src/disney-api/types.ts",
+        "apps/web/app/api/disney/availability/route.ts",
+        "packages/workers/src/__tests__/http/availability.test.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:04:03.111Z",
+      "completed_at": "2026-10-21T03:15:56.467Z",
+      "last_advanced": "2026-10-21T03:07:37.747Z",
+      "files_deleted": []
+    },
+    "AVAIL-B005": {
+      "description": "Web readers → reader. (a) apps/web/app/api/agent/chat/route.ts resolveLlTipboardExperiences (:438-535): fresh → rows plus sweptAt; stale/missing → experiences: undefined (the ll-tipboard block's exist",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "apps/web/app/api/agent/chat/route.ts",
+        "apps/web/app/api/agent/chat/llTipboardRead.ts",
+        "apps/web/app/api/agent/tools/attractions/route.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:04:03.111Z",
+      "completed_at": "2026-10-21T03:15:56.467Z",
+      "last_advanced": "2026-10-21T03:07:37.747Z",
+      "files_deleted": []
+    },
+    "AVAIL-B006": {
+      "description": "Admin readers → reader. apps/admin/src/lib/readers/healthReader.ts (D21: reader status replaces STALE_MS and its private quiet-hours constant), llMatrixReader.ts and app/api/admin/drilldown/ll/route.t",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "apps/admin/src/lib/readers/healthReader.ts",
+        "apps/admin/src/lib/readers/llMatrixReader.ts",
+        "apps/admin/app/api/admin/drilldown/ll/route.ts",
+        "apps/admin/src/lib/contracts/index.ts",
+        "apps/admin/app/(queue-monitor)/_lib/viewModel.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:04:03.111Z",
+      "completed_at": "2026-10-21T03:15:56.467Z",
+      "last_advanced": "2026-10-21T03:07:37.747Z",
+      "files_deleted": []
+    },
+    "AVAIL-B007": {
+      "description": "Chat consumers of the route contract. llBookingDeepPrefetch.ts: drop fresh; widen the inline availResp.attractions type to availability / llBookable: boolean | null; add, before the existing gate at :",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/chat/src/llBookingDeepPrefetch.ts",
+        "packages/chat/src/agent.ts",
+        "packages/chat/evals/mockAdapter.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:15:56.665Z",
+      "completed_at": "2026-10-21T03:22:11.030Z",
+      "last_advanced": "2026-10-21T03:17:13.731Z",
+      "files_deleted": []
+    },
+    "AVAIL-B008": {
+      "description": "Decider three states per §3.4 / D17 in buildDeciderContext.ts, including the Unknown (not listed on <park> board) line for wants a fresh board does not list (OQ-8); rewrite the REW-B035 block comment ",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/chat/src/engineDecider/buildDeciderContext.ts",
+        "packages/chat/evals/deciderRunner.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:15:56.665Z",
+      "completed_at": "2026-10-21T03:22:11.030Z",
+      "last_advanced": "2026-10-21T03:17:13.731Z",
+      "files_deleted": []
+    },
+    "AVAIL-B009": {
+      "description": "Delete AvailabilityStore per D19: the file, AvailabilityStore.test.ts, STSR_B004_avint_fidelity.test.ts, the AVINT describe in STSR_T011_characterization.test.ts, and in MatchingEngine.test.ts both th",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/workers/src/decisioning/MatchingEngine.ts",
+        "packages/workers/src/decisioning/createMatchingEngine.ts",
+        "packages/workers/src/decisioning/DecisioningPipeline.ts",
+        "packages/workers/src/decisioning/stageOfferTimeFetcher.ts",
+        "packages/workers/src/decisioning/EntitlementMonitor.ts",
+        "packages/workers/src/decisioning/HeldLLReconciler.ts",
+        "packages/workers/src/decisioning/ReconcileStep.ts"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:15:56.665Z",
+      "completed_at": "2026-10-21T03:22:11.030Z",
+      "last_advanced": "2026-10-21T03:17:13.731Z",
+      "files_deleted": [
+        "packages/workers/src/decisioning/AvailabilityStore.ts",
+        "packages/workers/src/decisioning/__tests__/AvailabilityStore.test.ts",
+        "packages/workers/src/decisioning/__tests__/STSR_B004_avint_fidelity.test.ts"
+      ]
+    },
+    "AVAIL-P001": {
+      "description": "CI gate per §3.5 / D6 / D7: scripts/check-tipboard-reader.ts, scripts/__tests__/check-tipboard-reader.test.ts with the three fixture trees, the two root package.json scripts, and the named ci.yml step",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "scripts/check-tipboard-reader.ts",
+        "scripts/__tests__/check-tipboard-reader.test.ts",
+        "package.json",
+        ".github/workflows/ci.yml"
+      ],
+      "commit": null,
+      "started_at": "2026-10-21T03:15:56.665Z",
+      "completed_at": "2026-10-21T03:22:11.030Z",
+      "last_advanced": "2026-10-21T03:17:13.731Z",
+      "files_deleted": []
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "4f180c2ed8da46334fa8601df294d73698b0cd38",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-21T03:04:03.110Z"
+    },
+    {
+      "phase": 2,
+      "commit": "23af2ff19b3d52d1ff924bf49f3d27d5c4f9ca33",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-21T03:15:56.664Z"
+    },
+    {
+      "phase": 3,
+      "commit": "17954741dd23d4845443e525a19e6c1c14a0efa1",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-21T03:22:11.316Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "17954741dd23d4845443e525a19e6c1c14a0efa1",
+    "last_checkpoint_timestamp": "2026-10-21T03:22:11.316Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

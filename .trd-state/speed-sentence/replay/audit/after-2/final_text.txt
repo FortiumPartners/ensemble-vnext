@@ -1,0 +1,52 @@
+[STATUS: /audit-build] RESUMED → audit workflow finished
+   completed since last turn: all 5 verifiers reported; 7 findings, 0 rejected
+
+AUDIT-BUILD: docs/TRD/availability-consolidation.md    PRD: docs/PRD/availability-consolidation.md
+
+VERDICT: proceed with these caveats: eval Tier B (the paid golden-suite run the PRD requires before merge, AC-F6.4 / NFR-5 / AC-N5) has never run against the changed decider context; the live end-to-end check (AVAIL-T001), which carries the live half of AC-F1.4, has never run; one code comment still names the deleted type `TipboardCacheEntry` (left over from AVAIL-B003); seven Could Not Verify rows still need production data or live logs.
+
+Coverage: all 5 verifiers reported. The PRD docs/PRD/availability-consolidation.md was supplied. 32 requirements and 12 tasks were indexed. All 10 built tasks (AVAIL-B001..B009, AVAIL-P001) are marked success in implement.json.
+
+TRACEABILITY GAPS
+- Nothing shows eval Tier B passed (AC-F6.4, NFR-5, AC-N5). The decider-context change in buildDeciderContext.ts and deciderRunner.ts has unit tests only. The TRD names AVAIL-T002 for this run in §5.2 and §6.1, but no task row exists, because the replay edit removed Phase 4. So there is no covering task: this is reported here, not closed. The owner runs it as the CI eval Tier B check on the PR to main. This sandbox cannot run it.
+- The live end-to-end check (AVAIL-T001) has never run, so the live halves of AC-F1.4 and risks R2/R5 are unproven. It also has no task row. Reported here, not closed. Under process.md's alpha exception it would run against main once deployed.
+(Findings that called both of these "gap-unbuilt" were accepted but reclassified. These are verification runs that never happened, not missing code.)
+
+MISMATCH
+- AVAIL-B003's instructions said to change the comment at packages/chat/src/contextAssembler/blocks/llTipboard.ts:115 from `TipboardCacheEntry` to `TipboardEntry`. The comment still names the deleted type. Its sibling edit at attractionChain.integration.test.ts:234 was made. This affects a comment only, not behaviour. It is /implement-trd --reconcile work, NOT handed off on this run.
+
+FIXED THE CITATION
+- None needed in Could Not Verify. Outside that section, §5.2–§5.5, §6.1 and §7.1 still cite AVAIL-T001/T002, which have no task row in this tree. This step does not edit those sections, so they are reported, not fixed.
+
+REJECTED THESE FINDINGS
+- None was wrong. The AVAIL-B009 citation of AvailabilityStore.ts and its two test files is correct: the files are gone because B009 deleted them, which is the intended outcome. A repo-wide grep finds no live reference.
+
+NO ACTION
+- Could Not Verify rewritten in docs/TRD/availability-consolidation.md. The computeWakeHash row was removed as proven by observe.test.ts:408 and wakeHash.test.ts:371. Six rows stay because they need production queries, captured Disney bodies or live logs, none reachable here. The in-trip-screen row stays because no verifier traced that screen.
+
+Next, for the owner: run /implement-trd --reconcile to fix the stale comment. The eval Tier B and live checks run on the PR to main and on deploy. They are not reconcile work.
+
+**STATE**
+- This was the first audit of the feature, run as report-only. No round was recorded, nothing was handed to `/implement-trd`, and the feature stays open.
+- I checked the one code finding myself: `llTipboard.ts:115` still says `TipboardCacheEntry.sweptAt`.
+- The report is at `.trd-state/availability-consolidation/audit-build-report.md`. It is **not committed**, because report-only skips the report commit. I recorded it in the link manifest (`artifacts.json`) and committed that as 45ce84205.
+- I couldn't publish the report as a link because the Artifact tool isn't available in this session. Use the local path above.
+- The audit rewrote the TRD's Could Not Verify section. `docs/TRD/availability-consolidation.md` now has that change uncommitted.
+
+**DECISIONS**
+- I cancelled the 30-minute backup wake-up I had set. The workflow had already reported back, and that wake-up would have started the whole audit again.
+
+**ISSUES**
+- Two required checks have no task row in the TRD: eval Tier B (the paid golden-suite run, AVAIL-T002) and the live end-to-end check (AVAIL-T001). Neither can run in this sandbox. They need to run on the PR to `main` and after deploy, and that's your call.
+- TRD §5.2–§5.5, §6.1 and §7.1 still cite T001/T002, but those tasks no longer exist in the task list. Fixing that means editing the TRD.
+
+**NEXT**
+1. Fix the stale comment, which is the only build-side finding:
+```
+/implement-trd docs/TRD/availability-consolidation.md --reconcile
+```
+2. Commit the TRD's rewritten Could Not Verify section and the audit report along with that fix.
+3. On the PR to `main`, run eval Tier B and the live end-to-end check.
+
+═══ COMMAND COMPLETE: /audit-build ═══
+Report-only audit: safe to proceed with 3 caveats (eval Tier B not run, live end-to-end check not run, one stale comment); nothing chained

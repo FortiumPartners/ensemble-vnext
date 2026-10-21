@@ -1,0 +1,28 @@
+pair 1 task:AVAIL-B001 209.971s -> 217.472s 3.6% tools -11.1% tokens -14.3% dispatches 1/1
+pair 1 Phase 1 108.357s -> 58.481s -46.0% tools 80.0% tokens 26.3% dispatches 1/1
+pair 1 task:AVAIL-B003 307.37s -> 236.437s -23.1% tools -40.4% tokens -24.7% dispatches 1/1
+pair 1 task:AVAIL-B005 115.274s -> 93.777s -18.6% tools -56.4% tokens -36.1% dispatches 1/1
+pair 1 task:AVAIL-B006 167.827s -> 100.197s -40.3% tools -40.5% tokens -39.0% dispatches 1/1
+pair 1 task:AVAIL-B004 208.523s -> 256.49s 23.0% tools -37.8% tokens -20.4% dispatches 1/1
+pair 1 task:AVAIL-B002 462.496s -> 470.328s 1.7% tools -29.9% tokens 1.4% dispatches 1/1
+pair 1 Phase 2 54.729s -> 63.869s 16.7% tools 9.1% tokens -18.4% dispatches 1/1
+pair 1 task:AVAIL-B007 69.045s -> 40.789s -40.9% tools -61.1% tokens -36.3% dispatches 1/1
+pair 1 task:AVAIL-P001 44.223s -> 45.251s 2.3% tools 120.0% tokens -8.0% dispatches 1/1
+pair 1 task:AVAIL-B008 61.977s -> 65.783s 6.1% tools -41.2% tokens -13.1% dispatches 1/1
+pair 1 task:AVAIL-B009 215.466s -> 135.494s -37.1% tools -40.4% tokens -35.7% dispatches 1/1
+pair 1 Phase 3 41.353s -> 32.482s -21.5% tools -26.7% tokens -34.9% dispatches 1/1
+pair 2 task:AVAIL-B001 177.351s -> 420.008s 136.8% tools -17.1% tokens 25.7% dispatches 1/1
+pair 2 Phase 1 53.16s -> 71.05s 33.7% tools 0.0% tokens -19.5% dispatches 1/1
+pair 2 task:AVAIL-B005 116.535s -> 101.784s -12.7% tools -24.0% tokens -37.2% dispatches 1/1
+pair 2 task:AVAIL-B002 422.344s -> 429.475s 1.7% tools 21.3% tokens -5.4% dispatches 1/1
+pair 2 task:AVAIL-B006 195.163s -> 146.834s -24.8% tools -29.5% tokens -20.0% dispatches 1/1
+pair 2 task:AVAIL-B004 198.571s -> 214.035s 7.8% tools 4.4% tokens -11.1% dispatches 1/1
+pair 2 task:AVAIL-B003 301.441s -> 433.762s 43.9% tools -18.0% tokens -16.9% dispatches 1/1
+pair 2 Phase 2 107.152s -> 34.219s -68.1% tools -50.0% tokens -53.9% dispatches 1/1
+pair 2 task:AVAIL-B007 39.889s -> 61.023s 53.0% tools 57.1% tokens 3.7% dispatches 1/1
+pair 2 task:AVAIL-P001 44.107s -> 63.585s 44.2% tools 27.3% tokens 28.4% dispatches 1/1
+pair 2 task:AVAIL-B008 81.428s -> 60.061s -26.2% tools -16.7% tokens -19.3% dispatches 1/1
+pair 2 task:AVAIL-B009 174.52s -> 175.586s 0.6% tools 26.3% tokens 19.0% dispatches 1/1
+pair 2 Phase 3 118.962s -> 37.164s -68.8% tools -47.1% tokens -29.1% dispatches 1/1
+median implementer 1.7%
+median gate -33.7%

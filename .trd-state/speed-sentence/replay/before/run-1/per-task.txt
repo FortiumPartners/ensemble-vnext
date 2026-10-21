@@ -1,0 +1,14 @@
+task:AVAIL-B001 Phase 1 209.971s tools 27 tokens 15210
+gate:verify-app Phase 1 108.357s tools 5 tokens 2099
+task:AVAIL-B003 Phase 2 307.37s tools 52 tokens 25692
+task:AVAIL-B005 Phase 2 115.274s tools 39 tokens 12578
+task:AVAIL-B006 Phase 2 167.827s tools 37 tokens 20976
+task:AVAIL-B004 Phase 2 208.523s tools 45 tokens 24554
+task:AVAIL-B002 Phase 2 462.496s tools 117 tokens 48462
+gate:verify-app Phase 2 54.729s tools 11 tokens 3979
+task:AVAIL-B007 Phase 3 69.045s tools 18 tokens 7998
+task:AVAIL-P001 Phase 3 44.223s tools 5 tokens 6855
+task:AVAIL-B008 Phase 3 61.977s tools 17 tokens 7800
+task:AVAIL-B009 Phase 3 215.466s tools 47 tokens 19895
+gate:verify-app Phase 3 41.353s tools 15 tokens 3629
+a6d6e752f3c38c2b9 - 519.575s tools 121 tokens 38325

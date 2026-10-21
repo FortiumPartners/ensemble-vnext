@@ -1,0 +1,48 @@
+STATE
+- All 10 tasks are built on branch `feature/availability-consolidation/impl`, in 7 commits above the base commit `1935fc197`. Every task appears in that branch's diff.
+- What's built:
+  - One shared reader in `@ll/shared/availability`. It reports each park's board (the live availability record the background sweep writes to Redis every ~30 s) as fresh, stale or missing. A board is stale once it is older than 240 s.
+  - Every consumer now reads through it: the decisioning engine, the matching engine, the reconciler, the availability route, the web routes, the admin dashboards, the chat deep-prefetch and the decider text.
+  - The dead `AvailabilityStore` layer is deleted.
+  - A new CI gate, `check:tipboard-reader`, fails the build on any raw read of the board.
+- Tests are green across the full battery from `stack.md`:
+  - 17 of 17 package test runs; data 1705 tests; workers 9921 tests.
+  - `tsc` is clean for shared, workers, web, admin and chat.
+  - The gate exits 0 on the real tree, and its own test (a planted raw read must fail the gate) passes 5 of 5.
+  - Coverage % was not measured.
+- Nobody checked whether the software does what the PRD asked (`--no-verify` set).
+- These were not run because the sandbox has no network and no stack:
+  - the live checks (AVAIL-T001 and AVAIL-T002, removed from this replay TRD);
+  - eval Tier B, the eval run required before merge (AC-F6.4);
+  - the push. There is no git remote, so the branch is local only.
+
+DECISIONS
+- **Agent choice:** I followed the TRD's own assignments, `backend-implementer` for every task and `cicd-specialist` for the CI gate. The parser missed those and guessed from keywords; for example, it picked `cicd-specialist` for the engine-context task.
+- **Decision table not inlined:** the D1–D22 table (about 24k characters) was not pasted into each task prompt. Instead, each prompt told the implementer to read TRD §1.2 in full before writing code. This kept the prompts at about 15k characters each.
+- **Three stale tests fixed:** after phase 2 I updated three tests the new contract had broken:
+  - two web proxy tests still expected `fresh` and `Cache-Control` to be forwarded, which D13 removed;
+  - one workers integration test was pinned to 2026-07-04, which is no longer "today", so its board now counts as no live board (D15).
+- **Review range:** there is no local `main`, so the end-of-run review covered `1935fc197...HEAD`. It applied 4 fixes:
+  - the matching engine now uses the pipeline's injected clock;
+  - the route no longer logs an "absent from fresh board" line for wrong-park ids it omits;
+  - the gate joins the root `pnpm lint` chain;
+  - stale comments are gone.
+
+ISSUES
+- **You decide whether Stage-2 runs on unknown.** When availability is unknown, the matching engine goes ahead with no time window, so its Stage-2 offer-time window check is skipped. The TRD's D16 says Disney's offer call is the authority but does not say whether Stage-2 must still run. It is recorded as a discovery.
+- **Duplicate "absent from fresh board" lines:** one omission is logged by both the level tick and the matching engine, which inflates the omission count. The TRD asks for both callers to log, so this is also your call.
+- **Accepted, not acted on:**
+  - The decider's wake hash does not change when a board listing something as unavailable goes stale.
+  - A stale board's pass type is no longer used, per D18.
+  - The scenario test kit derives "today" from UTC.
+  - The matching engine re-reads the board once per want.
+- **Tool description, Tier B gated:** the agent's `get_availability` description slightly misstates where a future-day "unavailable" comes from. Any change to it needs eval Tier B.
+
+NEXT
+1. Check the delivery against the TRD and PRD:
+```
+/audit-build docs/TRD/availability-consolidation.md --prd docs/PRD/availability-consolidation.md
+```
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+availability-consolidation: 10/10 tasks built and tests green on feature/availability-consolidation/impl; not pushed (no remote); functional verification not run (--no-verify)

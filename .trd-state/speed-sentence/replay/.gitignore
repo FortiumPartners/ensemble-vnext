@@ -1,0 +1,7 @@
+# Raw session logs and transcripts (~14 MB per run) stay on disk only, as in the first
+# measurement; the ledgers, state files, per-task output and comparison are tracked.
+transcripts/
+session.jsonl
+battery.log
+pnpm-install.log
+scaffold-*.log

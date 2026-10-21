@@ -1,0 +1,46 @@
+**STATE**
+- All 10 tasks are built on branch `feature/availability-consolidation/impl`, in 3 phase commits plus one commit of fixes from the code review. Nothing was left unbuilt.
+  - One shared tipboard reader now replaces the scattered direct Redis reads. (The tipboard is the per-park Lightning Lane availability board the sweep writes to Redis.)
+  - Same-day availability reads that board and no longer calls Disney. Future days use Disney's planning bundle.
+  - The engine, decider, web, admin and chat code now carry an explicit "unknown" state.
+  - `AvailabilityStore` is deleted.
+  - A CI check (`pnpm check:tipboard-reader`) fails any new raw tipboard read outside the reader.
+- Tests: the full suite in `stack.md` passed on 17 packages (workers 9,920, chat 5,387, web 4,429, shared and admin also green). Typechecks are clean. Coverage % was not measured.
+- Nobody checked whether the software does what the PRD asked (`--no-verify` set). The PRD's two live checks were removed from this replay TRD: the local-stack end-to-end run and the paid eval run.
+- Not pushed: this checkout has no git remote.
+
+**DECISIONS**
+- **Agents:** I used the TRD's own assignments (`backend-implementer` for everything, `cicd-specialist` for the CI gate). The parser's keyword routing had sent the engine task to `cicd-specialist` because the code is called `DecisioningPipeline`, which matched the keyword "pipeline".
+- **Full suite timing:** I ran the full suite once, at the final phase, not after every phase. The check after phases 1 and 2 ran each touched package's tests instead.
+- **Design decisions in task prompts:** each prompt pointed to the TRD's design-decisions table (§1.2, decisions D1–D22) and named the rows most relevant to that task, rather than pasting the whole table in.
+- **Review fixes applied:**
+  - The matching engine now reads boards on the injected clock instead of the wall clock.
+  - Stale references to `AvailabilityStore` and `fresh=true` are removed from `apps/web/CLAUDE.md` and `scripts/check-single-call-site.ts`.
+
+**ISSUES**
+- **Needs your decision:**
+  - When a board is unknown, the matching engine gets no window start for the candidate. It treats a missing time as passing, so it skips the Stage-2 slot search even for alerts that have a time window (`MatchingEngine.ts:1202`). The review tried forcing Stage-2 and backed it out, because it breaks an existing test that deliberately passes on missing time.
+- **Found during the build, not fixed:**
+  - The wake hash, which decides when the engine re-runs, ignores whether a board is stale. A board going stale therefore only wakes the decider on its regular scheduled check (`wakeHash.ts`, found while building the engine context, AVAIL-B002). This contradicts the TRD's unchecked claim that the hash needs no change.
+- **Review findings left open (minor):**
+  - A want missing from a fresh board is logged twice per tick.
+  - The decider's "listed" set merges every park's board. The engine has the same pre-existing behaviour.
+  - The freed-pass-type lookup reads each park's board with its own Redis read instead of one batched read.
+  - The same-day route handler does redundant lookups and doesn't de-duplicate requested ids.
+  - The agent system prompt and the seed scripts still mention `fresh=true`. Changing the prompt alters agent behaviour, so it needs an eval Tier B run.
+- **Could not run offline:**
+  - The check that reverting a reader turns the CI gate red. A planted-read test covers the same mechanism.
+  - The CI run itself.
+
+**NEXT**
+1. Decide the Stage-2-on-unknown-board question above. If it should change, record it with:
+```
+/amend
+```
+2. Audit what was delivered against the TRD and PRD:
+```
+/audit-build docs/TRD/availability-consolidation.md --prd docs/PRD/availability-consolidation.md
+```
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+Availability consolidation: 10 of 10 tasks built across 3 phases, full suite green, 1 review finding needs your decision

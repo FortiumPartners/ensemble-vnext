@@ -1,0 +1,48 @@
+STATE
+- All 10 tasks are built and committed on branch `feature/availability-consolidation/impl`: 3 phase checkpoints plus 1 commit of review fixes, ending at 4cfaa54a. Every `tipboard:` read now goes through one shared reader in `@ll/shared/availability`. A board up to 240 s old counts as fresh; anything older is stale, and a missing board is missing.
+- What changed for each consumer:
+  - **Engine:** the decision context now carries each park's board status.
+  - **Level tick and matcher:** an unknown availability no longer stops a booking attempt.
+  - **Availability route:** a same-day request makes no Disney call. A future-day request makes one planning-bundle call, using guest ids from the party table.
+  - **Decider:** it now lists available, unavailable and unknown attractions separately.
+  - **Web and admin:** both now use the shared reader.
+  - **Deletions:** `AvailabilityStore` and the reconciler's tipboard tie-break are gone.
+  - **CI gate:** a new check, `check:tipboard-reader`, fails the build on any raw tipboard read. It is shown failing on a planted read in `packages/workers`.
+- Tests: the full battery from `stack.md` passes.
+  - All 17 turbo packages pass.
+  - `@ll/data`: 1705 tests pass.
+  - `@ll/workers`: 9919 tests pass.
+  - Typecheck is clean for shared, workers, web, admin, chat and agents.
+  - The new gate exits 0 on the real tree, and its own test passes 4 of 4.
+- Nobody checked whether the software does what the PRD asked (`--no-verify` was set).
+- Not done in this sandbox:
+  - The branch was not pushed, because the repo has no git remote.
+  - Two TRD criteria can only be checked on a pull request: the CI step's result in `gh run view`, and eval Tier B.
+
+DECISIONS
+- **Agent per task:** I used the agents the TRD's Execution Plan assigns: backend-implementer for B001–B009 and cicd-specialist for P001. The parser couldn't read those lines and its keyword fallback picked unsuitable agents, for example cicd-specialist for the engine task.
+- **Phase gates:** phases 1 and 2 were checked with every test suite and typecheck of the packages they changed. The full `stack.md` battery ran once, at the final gate.
+- **Fix at the phase 2 gate:** two web proxy tests still expected `fresh` and `Cache-Control` to be forwarded. The design (D13) removed both, so I rewrote the tests to assert neither is forwarded instead of re-running the whole phase. I also fixed the matching guidance in `apps/web/CLAUDE.md`.
+- **Review fixes applied:**
+  - The matcher now uses the pipeline's clock when reading the board.
+  - `tools/attractions` now returns real names and tiers, not raw ids.
+  - The agent system prompt now says "unknown" means go to offers.
+  - Stale comments were removed.
+  - The three new error codes are documented in `apps/web/CLAUDE.md`.
+- **Pointer file:** I repointed `.trd-state/current.json` from `ll-state-authority` to this feature.
+
+ISSUES
+- **Overnight dispatch (you decide).** Between midnight and 06:04 ET, the sweep's overnight board is always older than 240 s, so it reads as stale. The level tick then sends every same-day want to Disney's offer call on every poll, which is Disney traffic during the hours the sweep deliberately pauses. The TRD only made the logging quiet in that window. Choose whether to suppress dispatch during quiet hours or accept the calls. It is recorded as a finding in `.trd-state/availability-consolidation/`.
+- **Eval Tier B before merge (owner / CI).** Run it before merging: the decider rendering, the `get_availability` tool description and the system prompt all changed, so this diff alters agent behaviour.
+- **Gate blind spot, left as is.** The comment stripper in the new CI gate does not understand regex literals. A quote character inside a regex could hide a raw read from it. Fixing that needs a real tokenizer, which is more than this change warrants.
+
+NEXT
+1. Decide the overnight-dispatch question above. A one-line ruling is enough; if it means a change, record it with `/amend`.
+2. Verify delivery against the TRD and PRD:
+```
+/audit-build docs/TRD/availability-consolidation.md --prd docs/PRD/availability-consolidation.md
+```
+3. Push the branch to a remote and open the PR once the audit is clean, then confirm CI's new `check:tipboard-reader` step and eval Tier B both pass.
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+availability-consolidation: 10 of 10 tasks built on feature/availability-consolidation/impl, full test battery green; overnight-dispatch decision and eval Tier B outstanding

@@ -1,0 +1,159 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/availability-consolidation.md",
+  "trd_hash": "68fc6dcf54676423ae68089a150264bda112e396ce0347edb07a5b6a95ec967e",
+  "branch": "feature/availability-consolidation/impl",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "AVAIL-B001": {
+      "description": "Build @ll/shared/availability per §3.1: reader, readTipboards (one MGET), availabilityOf (with caller), logAbsentFromFresh, llPassTypeFromMetadata, tipboardKey, TipboardEntry (moved from DiscoverySweep), TIPBOARD_STALE_AFTER_SECONDS, SWEEP_QUIET_HOURS_END_ET, loud/quiet logging with caller label; add the package exports entry. Switch DiscoverySweep.writeTipboardCache to tipboardKey() and the shared TipboardEntry, and isWithinSweepQuietHours to the shared constant; no change to what the sweep writes. Keep DiscoverySweep's TipboardCacheEntry name as a one-line type alias of the shared TipboardEntry so its two importers still compile; AVAIL-B003 migrates them and deletes the alias.",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/shared/src/availability/tipboardReader.ts",
+        "packages/shared/src/availability/index.ts",
+        "packages/shared/src/availability/__tests__/tipboardReader.test.ts",
+        "packages/shared/package.json",
+        "packages/workers/src/disney/DiscoverySweep.ts",
+        "packages/workers/vitest.alias.ts"
+      ],
+      "commit": "887f3b2671dc6c950c22534f68f9568f0aa907d5",
+      "started_at": "2026-10-21T02:33:13.193Z",
+      "completed_at": "2026-10-21T02:40:52.825Z",
+      "last_advanced": "2026-10-21T02:40:41.563Z"
+    },
+    "AVAIL-B002": {
+      "description": "Engine context per §3.3 and D14/D15/D16: DecisionContextSchema.tipboardBoards; observe() on readBoards; DecisioningPipeline binding at :2887; level-tick dispatch-on-unknown, including a want a fresh board does not list (OQ-8); history call-site guard; _readFreedPassTypes on the reader with the ExperienceMetadata.llType fallback for unknown freed experiences (D18, OQ-4), and the at-cap heldAvailability read on the reader; replace RedisKeyStore.getCachedTipboard with the reader and delete it; update every hand-built DecisionContext in workers and shared to carry tipboardBoards: the __testkit__/reactiveScenario.ts builder, packages/shared/src/__tests__/reactiveEngine.test.ts's validFixture, observe.test.ts's deps, and the makeContext helpers in wakeGate.test.ts, wakeMetricsWiring.test.ts and engine/__tests__/wakeHash.test.ts. The chat-side fixtures are AVAIL-B008's.",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-10-21T02:41:47.224Z",
+      "completed_at": null,
+      "last_advanced": "2026-10-21T02:45:30.057Z"
+    },
+    "AVAIL-B003": {
+      "description": "MatchingEngine._readTipboardCache → reader (caller:'matching-engine'); evaluateAvailabilityEvent and evaluateConfig proceed when the experience is unknown, whether the board is not fresh or a fresh board does not list it (§3.3, OQ-8), with the candidate's pass type from llPassTypeFromMetadata(ExperienceMetadata.llType) (D16, D18, OQ-4); rename the tipboard_cache_miss exit to tipboard_not_swept_date and update informClassifier's pattern. Migrate the two TipboardCacheEntry importers (MatchingEngine.ts:79, MatchingEngine.test.ts:48, plus that test's cache-entry fixtures) to the shared TipboardEntry, then delete AVAIL-B001's alias in DiscoverySweep.ts. HeldLLReconciler.readTipboard (:740-761, with its comment) and the same-title tie-break branch that calls it (:836-849) are DELETED, not moved onto the reader (OQ-12, owner 2026-09-24; constitution ledger rule). With the branch gone, an ambiguous title falls straight to the existing final fallback, which already refuses (ambiguous experienceId resolution REFUSED, pass left unresolved and counted toward the cap). That is today's effective outcome, since the tie-break always threw into its bare catch {}. resolveFastpassExperienceIds's redis parameter is then unused: remove it and the this.redis argument at its three call sites (ReconcileStep.ts:664, :693, HeldLLReconciler.ts:1265), and rewrite its stale doc steps 3b/3c and the \"tipboard disambiguates\" id notes. The constructor-level redis on HeldLLReconciler and ReconcileStep, unused after this, is deleted by AVAIL-B009. The rest of the title path (refuse on ambiguity, record via) stays issue #1286.",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-10-21T02:41:47.224Z",
+      "completed_at": null,
+      "last_advanced": "2026-10-21T02:45:30.058Z"
+    },
+    "AVAIL-B004": {
+      "description": "Rewrite availability.ts per §3.2 (D8–D13): same-day via the reader with no Disney client; future-day bundle with party guest ids; tier and name from ExperienceMetadata; delete everything §3.2 lists. Extract resolvePartyEaVasIds from reconcile.ts into packages/workers/src/http/partyGuestIds.ts (throwing core; reconcile keeps its non-fatal wrapper). Update packages/shared/src/disney-api/types.ts (AvailabilityQuery loses fresh; AttractionsItem, AvailabilityResponse per D9; EligibilityItem deleted if nothing else imports it). The web proxy apps/web/app/api/disney/availability/route.ts stops forwarding fresh and Cache-Control.",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-10-21T02:41:47.224Z",
+      "completed_at": null,
+      "last_advanced": "2026-10-21T02:45:30.058Z"
+    },
+    "AVAIL-B005": {
+      "description": "Web readers → reader. (a) apps/web/app/api/agent/chat/route.ts resolveLlTipboardExperiences (:438-535): fresh → rows plus sweptAt; stale/missing → experiences: undefined (the ll-tipboard block's existing unknown line) with caller:'chat-ll-tipboard'. (b) apps/web/app/api/agent/tools/attractions/route.ts per D20.",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-10-21T02:41:47.224Z",
+      "completed_at": null,
+      "last_advanced": "2026-10-21T02:45:30.058Z"
+    },
+    "AVAIL-B006": {
+      "description": "Admin readers → reader. apps/admin/src/lib/readers/healthReader.ts (D21: reader status replaces STALE_MS and its private quiet-hours constant), llMatrixReader.ts and app/api/admin/drilldown/ll/route.ts, all via readTipboards (one MGET, caller:'admin-…'). Add D22's status field and nullable available to LLCell and LLDrillDownPayload (apps/admin/src/lib/contracts/index.ts), and render them in apps/admin/app/(queue-monitor)/_lib/viewModel.ts. The drill-down's not-found payload stops reporting available:false: an experience on no fresh board, or on a stale/missing board, carries status: 'unknown' (D15, OQ-8).",
+      "phase": 2,
+      "status": "in_progress",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": "2026-10-21T02:41:47.224Z",
+      "completed_at": null,
+      "last_advanced": "2026-10-21T02:45:30.058Z"
+    },
+    "AVAIL-B007": {
+      "description": "Chat consumers of the route contract. llBookingDeepPrefetch.ts: drop fresh; widen the inline availResp.attractions type to availability / llBookable: boolean | null; add, before the existing gate at :756, \"availability === 'unknown' → proceed to offers\". The llBookable || preArrivalSelectable test is otherwise unchanged (AC-F3.3). agent.ts get_availability: remove fresh from the schema and the forced fresh=true (:1148); the description states that board.status other than fresh and availability:'unknown' mean \"not known\", never \"none available\". packages/chat/evals/mockAdapter.ts availability handler: emit the D9 shape (board, availability; no partyEligibility / cachedAt).",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AVAIL-B008": {
+      "description": "Decider three states per §3.4 / D17 in buildDeciderContext.ts, including the Unknown (not listed on <park> board) line for wants a fresh board does not list (OQ-8); rewrite the REW-B035 block comment to record the reversal. Update packages/chat/evals/deciderRunner.ts's context builder to emit tipboardBoards (fresh for existing goldens, so their meaning is unchanged). Update the chat-side hand-built contexts so they carry tipboardBoards: buildDeciderContext.test.ts's baseContext (:17-29) and tierLimitPrompt.test.ts's two inline base literals (:81-86, :128-133). The latter are cast as never, so tsc will not flag them; they would fail at run time when the renderer reads tipboardBoards.",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AVAIL-B009": {
+      "description": "Delete AvailabilityStore per D19: the file, AvailabilityStore.test.ts, STSR_B004_avint_fidelity.test.ts, the AVINT describe in STSR_T011_characterization.test.ts, and in MatchingEngine.test.ts both the OFFER-004 describe (:1272-1412) and the AVINT scaffolding outside it: the AvailabilityStore/AvailabilityGrid import (:49), the avintStore option of makeEngine with its destructure and pass-through (:185-186, :195, :208), and makeAvintStore (:213-222). Remove the optional plumbing in EntitlementMonitor, MatchingEngine, createMatchingEngine, DecisioningPipeline and stageOfferTimeFetcher, with the avint_no_qualifying_slot exit and its informClassifier pattern, and CandidateMatch.avintOfferSetId. Rewrite the DecisioningPipeline.ts:6169 OFFER-001 comment so it no longer names avintOfferSetId, and drop AvailabilityStore from the tracer-scope comments at TravelTime.ts:49 and DecisionLedgerWriter.ts:55. Also delete the redis plumbing AVAIL-B003 leaves unreachable once the reconciler stops reading the board: HeldLLReconciler's redis option (doc :205-216, field :969, assignment :1007) with its one production pass-through and REC-B015 comment (EntitlementMonitor.ts:841-843), and ReconcileStep's positional redis constructor parameter (:543, :550-557, :577) with its call sites (DecisioningPipeline.ts:7941, index.ts:2681, confirmBookingViaPlanFetch.ts:51, BookingLoopWorker.ts:239, and the ~60 test constructions that pass undefined in that slot). It lands here rather than in B003 because DecisioningPipeline.ts is AVAIL-B002's in Phase 2, and its proof is the same grep-zero-plus-typecheck. Not merged with B002/B003 even though it touches MatchingEngine.ts, MatchingEngine.test.ts, informClassifier.ts and DecisioningPipeline.ts. Reason: verifiability. Its proof is grep-zero plus a clean typecheck, a different acceptance from those tasks' behaviour tests, and a merged failure could not be attributed. Ownership in the shared files is split by symbol (see its grounding block) and serialised by its dependency on both.",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AVAIL-P001": {
+      "description": "CI gate per §3.5 / D6 / D7: scripts/check-tipboard-reader.ts, scripts/__tests__/check-tipboard-reader.test.ts with the three fixture trees, the two root package.json scripts, and the named ci.yml step.",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "887f3b2671dc6c950c22534f68f9568f0aa907d5",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-21T02:41:47.089Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "887f3b2671dc6c950c22534f68f9568f0aa907d5",
+    "last_checkpoint_timestamp": "2026-10-21T02:41:47.089Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  }
+}

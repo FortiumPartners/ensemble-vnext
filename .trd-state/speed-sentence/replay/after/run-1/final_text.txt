@@ -1,0 +1,50 @@
+The availability-consolidation TRD is built: all 10 tasks are done on `feature/availability-consolidation/impl` and every test suite passes. The branch is not pushed because this sandbox has no git remote.
+
+**STATE**
+- **What's built:**
+  - One shared reader for the availability board, which marks each read as fresh, stale or missing.
+  - Every consumer moved onto it: the engine, the matching engine and reconciler, the availability route, the web routes and the admin dashboards.
+  - The chat and decider changes, so "unknown" is shown as unknown rather than as "nothing available".
+  - The unused old availability store is deleted.
+  - A CI check that fails on any raw board read outside the shared reader.
+- **Tests** (offline, against the final tree):
+
+  | Package | Tests passed |
+  |---|---|
+  | workers | 9,922 |
+  | chat | 5,385 |
+  | web | 4,426 |
+  | shared | 1,909 |
+  | agents | 741 |
+  | admin | 346 |
+
+  The typecheck is clean in all of them. The new CI check exits 0 on the real tree, and its test proving it catches a planted raw read passes.
+- **Coverage** was not measured.
+- **The two original Phase 4 tasks,** a live end-to-end check and the paid eval run (Tier B), were removed from this replay's TRD, so neither ran.
+- **Functional verification** did not run, because you passed `--no-verify`. Nobody has checked the running software against the PRD.
+
+**DECISIONS**
+- **Agents:** each task went to the agent the TRD's execution plan names, `backend-implementer` (and `cicd-specialist` for the CI check). The parser had missed those assignments and would have defaulted to `frontend-implementer`.
+- **Shorter decision text per task:** each task's prompt carries only the TRD decisions it serves, plus the shared definition of "unknown", with a pointer to the full table. Sending the whole table to every task would have meant about 24,000 extra characters each.
+- **Prompts passed via a generated script:** the prompts went to the phase runner inside a generated copy of the runner script instead of inline. The runner's logic is unchanged.
+- **Gate failures repaired directly:** in Phases 1 and 2 the gate failed only on stale tests and one type, so I fixed those myself and reran everything rather than re-running all five agents. The fixes:
+  - **Pass-type field narrowed** to its three allowed values in the shared stored-board type.
+  - **Two tests removed:** one tested the deleted bare-array reader, and the other was an old availability-store test pinned to a fixed past date.
+  - **Two tests updated** to today's date and to the `fresh` parameter no longer being forwarded.
+- **Review fixes applied:** the end-of-run review (`/code-review high --fix`) made six fixes. The most important: a board going stale now wakes the engine, instead of looking unchanged until the next 30-minute heartbeat. Stale board times are no longer treated as real offer times.
+
+**ISSUES**
+- **Branch not pushed:** there is no git remote in this sandbox, so you need to push it from a real checkout.
+- **Test harness date bug:** the decisioning test harness seeds the board under the UTC date. The reader now expects the Eastern-time date, so between 20:00 and 24:00 ET the harness books nothing. It is recorded as a discovery and not fixed; someone needs to fix it.
+- **Prompt wording changed:** the review changed wording in the agent's system prompt. Under the eval rules the merge needs the paid eval run (Tier B), which is the merge gate anyway.
+- **Not run without a network:** the GitHub run-status check on the new CI step.
+
+**NEXT**
+1. Push the branch, then check delivery against the TRD and PRD:
+```
+/audit-build docs/TRD/availability-consolidation.md --prd docs/PRD/availability-consolidation.md
+```
+2. Once the audit is clean, open the PR.
+
+═══ COMMAND COMPLETE: /implement-trd ═══
+availability-consolidation: 10 of 10 tasks built and committed on feature/availability-consolidation/impl, all suites green; not pushed (no remote in sandbox).

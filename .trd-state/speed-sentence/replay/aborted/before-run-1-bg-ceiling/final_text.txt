@@ -1,0 +1,3 @@
+[STATUS: /implement-trd] DISPATCHED → 1 workflow in flight: implement-phase (Phase 2/3, 5 parallel tasks: engine context B002, MatchingEngine B003, availability route B004, web readers B005, admin readers B006)
+   waiting on: workflow wmm1sdyts to return
+   next wake: auto-deliver on workflow completion
