@@ -3,8 +3,8 @@
   "trd": {
     "path": "docs/TRD/speed-sentence.md",
     "url": "https://claude.ai/artifact/Qgk3uNG2sZGQdurQafS4ph",
-    "updated_at": "2026-10-20T16:59:29.363Z",
-    "command": "/plan"
+    "updated_at": "2026-10-21T00:12:30.329Z",
+    "command": "/refine-trd"
   },
   "success-definition": {
     "path": ".trd-state/speed-sentence/success-definition.md",
@@ -17,5 +17,11 @@
     "url": "https://claude.ai/artifact/Gnsgo2bH9ujD7u6YQqQuqi",
     "updated_at": "2026-10-20T19:44:05.238Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/speed-sentence/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-10-20T22:31:13.806Z",
+    "command": "/refine-verification"
   }
 }
