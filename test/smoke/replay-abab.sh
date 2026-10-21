@@ -246,8 +246,40 @@ cmd_run() {
     done
 }
 
+# rerun <side> <k> --sides DIR [--out DIR]: redo ONE run (after a pre-run failure such as a
+# fixture test flake), moving the failed attempt aside, then redo that run's audit when it has
+# one (after-k). The block's order is broken by this; runs.tsv's timestamps record by how much.
+cmd_rerun() {
+    local side="$1" k="$2" sides="" out="${REPO_ROOT}/.trd-state/speed-sentence/replay"
+    shift 2 || die "rerun: usage: rerun <before|after> <k> --sides DIR [--out DIR]"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --sides) sides="$2"; shift 2 ;;
+            --out) out="$2"; shift 2 ;;
+            *) die "rerun: unknown argument '$1'" ;;
+        esac
+    done
+    [[ "$side" == before || "$side" == after ]] || die "rerun: side must be before or after"
+    [[ -d "${sides}/${side}" ]] || die "rerun: --sides must hold ${side}/"
+    sides="$(cd "$sides" && pwd)"
+    local dest="${out}/${side}/run-${k}" stamp
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    if [[ -d "$dest" ]]; then
+        mkdir -p "${out}/aborted"
+        mv "$dest" "${out}/aborted/${side}-run-${k}-${stamp}"
+    fi
+    if [[ "$side" == after && -d "${out}/audit/after-${k}" ]]; then
+        mv "${out}/audit/after-${k}" "${out}/aborted/audit-after-${k}-${stamp}"
+    fi
+    run_one "$side" "$k" "$sides" "$out" || return 1
+    if [[ "$side" == after ]]; then
+        audit_one "after-${k}" "$(cat "${dest}/project.txt" 2>/dev/null)" "$out" "${sides}/after/packages/full"
+    fi
+}
+
 case "${1:-}" in
     sides) shift; cmd_sides "$@" ;;
     run) shift; cmd_run "$@" ;;
+    rerun) shift; cmd_rerun "$@" ;;
     *) sed -n '3,26p' "${BASH_SOURCE[0]}" >&2; exit 2 ;;
 esac
