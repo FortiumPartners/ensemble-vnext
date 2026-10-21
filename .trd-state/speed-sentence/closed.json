@@ -1,0 +1,12 @@
+{
+  "feature": "speed-sentence",
+  "trd": "docs/TRD/speed-sentence.md",
+  "closedAt": "2026-10-21T07:57:08Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this TRD has no PRD; docs/PRD/speed-sentence.md does not exist); the time-matters objective (O1) still reads as unconditional although the replay's verdict was remove, and only you can reword it; the FIX-001 grounding still cites implement-one-task.sh:69 for the PROMPT= line, which is now line 70; this was a narrow re-audit of round 1's defects and the files changed since e316da0, not a fresh sample",
+    "report": ".trd-state/speed-sentence/audit-build-report.md",
+    "auditedCommit": "bfd5942"
+  }
+}
