@@ -159,6 +159,22 @@
       ],
       "current_problem": null,
       "completed_at": "2026-10-21T06:14:05.541Z"
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [],
+      "status": "in_progress",
+      "cycle_position": "implement"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 1,
+      "retry_count": 0,
+      "files_changed": [],
+      "status": "in_progress",
+      "cycle_position": "implement"
     }
   },
   "checkpoints": [
