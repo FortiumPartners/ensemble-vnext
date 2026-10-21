@@ -77,12 +77,84 @@
       "started_at": "2026-10-20T18:37:43.131Z",
       "completed_at": "2026-10-20T19:32:45.853Z",
       "last_advanced": "2026-10-20T19:04:50.282Z"
+    },
+    "FIX-005": {
+      "description": "FIX-005",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/fixtures/speed-replay/availability-consolidation/trd.md",
+        "test/smoke/fixtures/speed-replay/availability-consolidation/prd.md",
+        "test/smoke/fixtures/speed-replay/availability-consolidation/prd.brief.md",
+        "test/smoke/fixtures/speed-replay/availability-consolidation/proposal.md",
+        "test/smoke/fixtures/speed-replay/availability-consolidation/fixture.json",
+        "test/smoke/speed-replay-fixture.test.js"
+      ],
+      "last_advanced": "2026-10-21T02:01:59.540Z",
+      "current_problem": null,
+      "completed_at": "2026-10-21T02:22:53.513Z"
+    },
+    "FIX-006": {
+      "description": "FIX-006",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/scenarios/replay-fixture.sh",
+        "test/smoke/replay-abab.sh",
+        "test/smoke/README.md"
+      ],
+      "last_advanced": "2026-10-21T02:01:59.541Z",
+      "current_problem": null,
+      "completed_at": "2026-10-21T02:22:53.514Z"
+    },
+    "FIX-007": {
+      "description": "FIX-007",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "retry_count": 0,
+      "files_changed": [
+        "test/smoke/ledger-timing.js",
+        "test/smoke/ledger-timing.test.js"
+      ],
+      "last_advanced": "2026-10-21T02:01:59.541Z",
+      "current_problem": null,
+      "completed_at": "2026-10-21T02:22:53.514Z"
+    },
+    "FIX-008": {
+      "description": "FIX-008",
+      "phase": 1,
+      "status": "pending",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": []
+    },
+    "FIX-009": {
+      "description": "FIX-009",
+      "phase": 1,
+      "status": "pending",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": []
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "c610743",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-21T02:22:53.514Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "c610743",
+    "last_checkpoint_timestamp": "2026-10-21T02:22:53.514Z",
     "interrupted": false,
     "interrupt_reason": null
   },
