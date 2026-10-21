@@ -315,18 +315,18 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.13.6** (2026-10-17). 21 commands, 13 subagents. Test battery: 2097 Jest,
+Released at **4.13.7** (2026-10-21). 21 commands, 13 subagents. Test battery: 2097 Jest,
 124 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.13.6: every document a command writes is recorded in a version-2 `artifacts.json`
-through `lib/artifacts.js`, path included with publishing off; init and rebase always stamp
-`ensemble.version`.
+4.13.7: the four `/audit-*` commands and `/refine-verification` are model-invocable; each
+description opens on its place in the pipeline.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.13.7: no agent has yet started an audit or `/refine-verification` live.
 - 4.13.6: the version stamp is proven on fixtures only, not a live init or rebase.
 - 4.13.5: `--refresh` and initial scaffolding still build agent preloads from
   `selected-skills.txt` as written; only the rebase's agent sync reconciles it.

@@ -1,11 +1,15 @@
 ---
 name: refine-verification
-description: Plan the next verification-and-fix round from a stalled functional-verification run — the one place that writes verification-plan.md
+description: Pipeline bridge between a functional-verification run that fell short and the next /verify-build. Reads the latest verification report and writes verification-plan.md, the only place any command writes it; --auto answers open items with an agent instead of asking.
 version: 1.0.0
 argument-hint: "[feature-or-trd] [--auto]"
-# Expensive, and its description matches how a user would phrase the task —
-# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
-disable-model-invocation: true
+# MODEL-INVOCABLE as of 2026-10-21, owner-requested ("verify and audit steps need to be model
+# invocable"), the same change /plan received on 2026-09-26. The flag guarded one thing,
+# accidental selection by description match, and the remedy is now in the description: it
+# opens on the MECHANISM (where the command sits and what it runs) rather than echoing how a
+# user phrases the task. Scope authorization is unchanged and stays autonomy.md's: a command
+# runs to its own banner, and a Skill() call by an agent that has decided to run it is a
+# different act from a description match.
 category: verification
 ---
 

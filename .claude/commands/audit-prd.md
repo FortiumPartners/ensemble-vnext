@@ -1,11 +1,15 @@
 ---
 name: audit-prd
-description: Verify an existing PRD against its source, the design corpus and the code
+description: Pipeline stage after /create-prd. Runs the verification wave over an existing PRD against its source, the design corpus and the code, applies the findings that survive checking, and writes the audit report.
 version: 1.0.0
 argument-hint: "[path-to-prd] [--source <path>] [--project <dir>]"
-# Expensive, and its description matches how a user would phrase the task —
-# so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
-disable-model-invocation: true
+# MODEL-INVOCABLE as of 2026-10-21, owner-requested ("verify and audit steps need to be model
+# invocable"), the same change /plan received on 2026-09-26. The flag guarded one thing,
+# accidental selection by description match, and the remedy is now in the description: it
+# opens on the MECHANISM (where the command sits and what it runs) rather than echoing how a
+# user phrases the task. Scope authorization is unchanged and stays autonomy.md's: a command
+# runs to its own banner, and a Skill() call by an agent that has decided to run it is a
+# different act from a description match.
 ---
 
 Run the verification wave over a PRD and apply what survives checking.
