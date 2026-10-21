@@ -39,6 +39,7 @@ source "${HERE}/lib/project.sh"
 
 SENTENCE_COMMITS=(34b7ae7 fcb64cb)
 SENTENCE_RESULT_FILE=".trd-state/speed-sentence/result.md"
+SENTENCE_TIMING_FILE="test/smoke/ledger-timing.js"
 FEATURE="availability-consolidation"
 AUDIT_CAP="${REPLAY_AUDIT_TIMEOUT:-2700}"
 
@@ -87,12 +88,20 @@ cmd_sides() {
     for c in "${SENTENCE_COMMITS[@]}"; do
         if ! git -C "$after" cherry-pick "$c" >"${out}/cherry-pick-${c}.log" 2>&1; then
             conflicts="$(git -C "$after" diff --name-only --diff-filter=U)"
-            if [[ "$conflicts" == "$SENTENCE_RESULT_FILE" ]]; then
-                # Keep the tree's copy (the "ours" side of a cherry-pick is HEAD).
-                git -C "$after" checkout --ours -- "$SENTENCE_RESULT_FILE" || die "sides: could not take the tree's ${SENTENCE_RESULT_FILE} for $c"
-                git -C "$after" add "$SENTENCE_RESULT_FILE"
+            # Only files outside the sentence may conflict, and each keeps the tree's copy (the
+            # "ours" side of a cherry-pick is HEAD): fcb64cb also fixed result.md and
+            # ledger-timing.js, both rewritten since. The nine-file check below catches any drift.
+            local f unexpected=""
+            for f in $conflicts; do
+                [[ "$f" == "$SENTENCE_RESULT_FILE" || "$f" == "$SENTENCE_TIMING_FILE" ]] || unexpected+="$f "
+            done
+            if [[ -n "$conflicts" && -z "$unexpected" ]]; then
+                for f in $conflicts; do
+                    git -C "$after" checkout --ours -- "$f" || die "sides: could not take the tree's $f for $c"
+                    git -C "$after" add "$f"
+                done
                 GIT_EDITOR=true git -C "$after" cherry-pick --continue >>"${out}/cherry-pick-${c}.log" 2>&1 \
-                    || die "sides: could not finish the cherry-pick of $c after resolving ${SENTENCE_RESULT_FILE}"
+                    || die "sides: could not finish the cherry-pick of $c after resolving: ${conflicts//$'\n'/ }"
             else
                 die "sides: cherry-pick $c failed with unexpected conflicts: ${conflicts:-none} (see ${out}/cherry-pick-${c}.log)"
             fi
