@@ -128,18 +128,37 @@
     "FIX-008": {
       "description": "FIX-008",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "retry_count": 0,
-      "files_changed": []
+      "files_changed": [
+        ".trd-state/speed-sentence/replay/runs.tsv",
+        ".trd-state/speed-sentence/replay/reconcile-reopens.txt",
+        ".trd-state/speed-sentence/replay/audit/baseline/audit-build-report.md",
+        ".trd-state/speed-sentence/replay/audit/after-1/audit-build-report.md",
+        ".trd-state/speed-sentence/replay/audit/after-2/audit-build-report.md",
+        ".trd-state/speed-sentence/replay/before/run-1/dispatch.jsonl",
+        ".trd-state/speed-sentence/replay/after/run-1/dispatch.jsonl",
+        ".trd-state/speed-sentence/replay/before/run-2/dispatch.jsonl",
+        ".trd-state/speed-sentence/replay/after/run-2/dispatch.jsonl"
+      ],
+      "started_at": "2026-10-21T02:30:10.638Z",
+      "current_problem": null,
+      "completed_at": "2026-10-21T06:14:05.541Z"
     },
     "FIX-009": {
       "description": "FIX-009",
       "phase": 1,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "retry_count": 0,
-      "files_changed": []
+      "files_changed": [
+        ".trd-state/speed-sentence/replay/result.md",
+        ".trd-state/speed-sentence/replay/compare.json",
+        ".trd-state/speed-sentence/replay/compare.txt"
+      ],
+      "current_problem": null,
+      "completed_at": "2026-10-21T06:14:05.541Z"
     }
   },
   "checkpoints": [
