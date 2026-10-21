@@ -410,19 +410,24 @@ FIX-001 to FIX-004 are done history: the first measurement, commits `f733465`..`
 
 ## Could Not Verify
 
-*Rewritten by `/audit-build` on 2026-10-21, after the replay's verdict (remove). Rows the replay
-settled were removed: run time (each run took 34 to 45 minutes, `replay/runs.tsv`), phase retries
-(0 on all four runs), the offline install (all four runs completed), and the platform-prompt path
-(moot while the sentence is out of the tree).*
+*Rewritten by `/audit-build` round 2 on 2026-10-21. This round was a re-audit limited to whether
+round 1's defects are fixed and to the files changed since `e316da0`; it took no fresh sample.
+It confirmed the two round-1 amendments: the `SMOKE_IMPL_ARGS` prompt test (AMEND-001,
+`test/smoke/implement-one-task-prompt.test.js`, 4 tests passing) and the grep that no longer
+matches its own note (AMEND-002: `grep -rn "Time matters" packages/ .claude/` now prints
+nothing). Every row below was carried over from round 1 and was NOT re-checked by this round,
+because it lies outside that scope.*
 
-- **No PRD, so validation against product intent is unchecked.** This TRD has no source PRD, so
-  the audit checked the delivered tree against the TRD only. Whether the work matches what the
-  owner wanted, beyond what O1 to O3 record, was not checked.
+- **No PRD, so validation against product intent is unchecked.** This TRD has no source PRD
+  (`docs/PRD/speed-sentence.md` does not exist), so both audit rounds checked the delivered tree
+  against the TRD only. Whether the work matches what the owner wanted, beyond what O1 to O3
+  record, was not checked.
 - **How often the sentence drops required work.** One after-run of two dropped two pieces of
   required work (a flag and a test); neither before-run did. Two runs per side show a signal, not a
-  rate (`replay/result.md`, "What this does and does not show").
+  rate (`replay/result.md`, "What this does and does not show"). Not re-checked: replay evidence,
+  unchanged since `e316da0`.
 - **Whether the gate's 33.7% fall is real.** It rests on 6 phase pairs, and single gates varied by
-  up to 69% between runs.
+  up to 69% between runs. Not re-checked: replay evidence.
 - **The sweep fix, grounding merge, render and reconcile prompts were never measured.** The
   replay's `--no-verify` run does not reach them. Moot while the verdict is remove: the sentence is
   in none of them.
