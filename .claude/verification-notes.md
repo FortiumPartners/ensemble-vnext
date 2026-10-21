@@ -930,3 +930,20 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   plugin version. macOS has no `timeout` binary: do not prefix with it.
 - [inferred] `/init-project` and `/rebase-project` cannot be run as live model sessions here; their
   evidence is prompt excerpts plus running the literal bash blocks they contain on fixtures.
+
+## Exercising speed-sentence (2026-10-20 run, iteration 1)
+
+- [ran] Prompt tails at an old commit need no live run: `git worktree add --detach <scratch>/wt 34b7ae7`, symlink the main tree's `node_modules` into it, drop a jest file next to `packages/core/workflows/test-harness.js` that calls `runWorkflow(readScript(f), {agent: makeAgentStub(...), parallel: makeParallelStub(), args})` and records `agent.calls[].prompt`; it ran in 0.3s. Remove the worktree after (`git worktree remove --force`).
+- [ran] Per-run agent times recompute from `run-N/dispatch.jsonl` (pair `start`/`stop` by `agent_id`, filter `agent_type`); at one-decimal rounding the implementer change reads -18.7%, the record's -19.0% comes from unrounded medians (17.149 -> 13.895).
+- [read] `.trd-state/speed-sentence/` holds only ONE after-audit (`after/audit-build-report.md`, run 1) and no reconcile output in any `run-N/` file; counts of reopened-by-reconcile are asserted in `result.md` but have no raw source there.
+
+## Exercising speed-sentence (2026-10-20 run, iteration 2)
+
+- [ran] `result.md` and other committed measurement files fail tier 1 as stale whenever they predate HEAD's commit time (here the revert commit adc1192, 12:36:44). Cite a freshly generated file under `.trd-state/speed-sentence/evidence/` instead, derived from the raw `{baseline,after}/run-N/dispatch.jsonl` and `implement.json` (a small `node` script; stop ts minus start ts per agent_id).
+- [ran] Unrounded medians: implementer 17.149s to 13.895s (-19.0%), gate 12.141s to 13.728s (+13.1%). The earlier `recompute-medians.txt` showed -18.7% only because it rounded to 0.1s before dividing.
+- [ran] Nothing on disk records reconcile reopenings (runs used `--no-verify`; `implement.json` has no reopen field) and only after-run 1 has an `/audit-build` report; after-runs 2-5 have none. Reported as a content gap, not fabricated.
+
+## Exercising speed-sentence (second-measurement replay run, 2026-10-20, iteration 1)
+
+- [ran] The after-side build is a plain clone at `<scratchpad>/replay/sides/after` (HEAD 257f334); `grep -rn "Time matters" packages .claude` there lists the four workflow constants (`TIME_MATTERS`), their `.claude/workflows` copies and `speed-sentence.test.js`; the before side (2601e3f) and the current tree print nothing. Appending sites: `withTimeMatters(...)` in implement-phase.js:198/238, `+ TIME_MATTERS` in sweep.js:286, verify-functional.js:1126/1153, create-trd.js:812.
+- [ran] `runs.tsv` has a voided first after-2 row (exit 1, "not run") before the real after-2 (05:22); the order before-1, after-1, before-2, after-2 holds for the non-voided rows. Each run's dispatch.jsonl shows 10 backend-implementer/cicd-specialist starts.
