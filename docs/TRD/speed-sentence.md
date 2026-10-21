@@ -398,18 +398,40 @@ FIX-001 to FIX-004 are done history: the first measurement, commits `f733465`..`
 
 ## Could Not Verify
 
-- Whether workflow agents dispatched with an `agentType` also receive the sentence through any other path (for example a platform-level system prompt): assumed not, since no prompt in `packages/` or `.claude/` mentions time today.
-- The effect of the sentence on the sweep fix, grounding merge, render and reconcile prompts: the fixed-task run never reaches them, so they are covered only by FIX-003's prompt test and inherit the implementer verdict (a remove verdict removes them too).
-- Whether a gain on one trivial task carries over to real multi-task features: the measurement is deliberately small; the dispatch ledgers of later real runs (implementer median 139s, slowest 10% over 468s, n=253) are the wider check.
-- **Which copy of a named workflow wins** when both the project's `.claude/workflows/` and the plugin dir carry one. Not checked. The replay makes it irrelevant by supplying both from the same side.
-- **Whether the PATH shim reaches subagents' Bash calls.** Inferred, not checked: subagents run inside the same `claude` process and inherit its environment. FIX-008's pre-flight probes it before any timed run.
-- **Run time on today's runtime.** The 75-minute estimate is inferred from a run on runtime 4.6.0 under `live-required`, not measured.
-- **Whether today's runtime retries phases on this fixture.** The original run needed two repair passes that its runtime did not count as retries (OQ-2).
-- **Whether the offline install keeps working.** It relies on the local pnpm store holding every package in the base's lockfile, which it does today [ran]. A `pnpm store prune` before the runs would break it.
-- **Why `diningAlertSimulation.replay.test.ts` fails offline at the base** was not diagnosed. It is excluded from the battery either way.
-- **Gap matching between audits** is a reading of two model-written reports (FIX-008 grounding), not a machine diff.
-- **Latency drift** between the four runs is limited by pairing adjacent runs, not removed. The end-of-run review, which never gets the sentence, is reported as a control.
-- **The fixture's own text is not fully verbatim.** Its Q-2 objective and §6.1 still say `live-required` while the clone runs `unit-only`, and §5 still describes the dropped phase 4. Both audits read the same text, so any gap it causes appears in the baseline too.
+*Rewritten by `/audit-build` on 2026-10-21, after the replay's verdict (remove). Rows the replay
+settled were removed: run time (each run took 34 to 45 minutes, `replay/runs.tsv`), phase retries
+(0 on all four runs), the offline install (all four runs completed), and the platform-prompt path
+(moot while the sentence is out of the tree).*
+
+- **No PRD, so validation against product intent is unchecked.** This TRD has no source PRD, so
+  the audit checked the delivered tree against the TRD only. Whether the work matches what the
+  owner wanted, beyond what O1 to O3 record, was not checked.
+- **How often the sentence drops required work.** One after-run of two dropped two pieces of
+  required work (a flag and a test); neither before-run did. Two runs per side show a signal, not a
+  rate (`replay/result.md`, "What this does and does not show").
+- **Whether the gate's 33.7% fall is real.** It rests on 6 phase pairs, and single gates varied by
+  up to 69% between runs.
+- **The sweep fix, grounding merge, render and reconcile prompts were never measured.** The
+  replay's `--no-verify` run does not reach them. Moot while the verdict is remove: the sentence is
+  in none of them.
+- **Whether the result holds for features of other sizes.** The replay used one ten-task fixture.
+- **Which copy of a named workflow wins** when both the project's `.claude/workflows/` and the
+  plugin dir carry one. Not checked. The replay made it irrelevant by supplying both from the same
+  side.
+- **Whether the PATH shim reaches subagents' Bash calls.** The pre-flight probed the lead session
+  only (`replay/docker-probe.txt`: `docker` refused, exit 1). Subagents are inferred to inherit the
+  same environment, not checked.
+- **Why `diningAlertSimulation.replay.test.ts` fails offline at the base** was not diagnosed. It
+  is excluded from the battery either way.
+- **Audit findings the audits did not raise were not searched for.** Gap matching is a reading of
+  model-written reports. Each finding absent from the baseline audit was then checked by grep in
+  all four kept clones (`replay/result.md`), but nothing was checked that no audit flagged.
+- **Latency drift** between the four runs is limited by pairing adjacent runs, not removed. The
+  control (the end-of-run review, which never gets the sentence) took 664s and 498s on the two
+  after-runs, against 520s and 514s on the before-runs.
+- **The fixture's own text is not fully verbatim.** Its Q-2 objective and section 6.1 still say
+  `live-required` while the clone runs `unit-only`, and section 5 still describes the dropped
+  phase 4. All three audits read the same text, so any gap it causes appears in the baseline too.
 
 ## Changelog
 
