@@ -1,0 +1,13 @@
+{
+  "sourceRepo": "~/dev/lightning-lane",
+  "base": "e04cfe0edfffbe3a11e2332f362ca4d571e72c17",
+  "prCommit": "9fac17fbbb023b39a7ad6f7d1eb3cf2bfffaa723",
+  "trdCommit": "0356413bf",
+  "docs": {
+    "trd.md": "docs/TRD/availability-consolidation.md",
+    "prd.md": "docs/PRD/availability-consolidation.md",
+    "prd.brief.md": "docs/PRD/availability-consolidation.brief.md",
+    "proposal.md": "docs/proposals/availability-consolidation.md"
+  },
+  "battery": "pnpm turbo test --filter='!@ll/mobile' --filter='!@ll/data' --filter='!@ll/workers' --continue && pnpm --filter @ll/data exec vitest run --exclude '**/{bookingEntitlementsMigration.test,facilityMealPeriodsMigration.test,perGuestBookingEntitlementsMigration.test,mealWindows.integration.test}.ts' && pnpm --filter @ll/workers exec vitest run --exclude '{**/__tests__/live/**,**/diningAlertSimulation.replay.test.ts}'"
+}
