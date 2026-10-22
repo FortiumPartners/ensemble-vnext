@@ -112,6 +112,9 @@ smoke_claude() {
         cd "$project_dir" || exit 90
         export CLAUDE_CODE_ENABLE_TELEMETRY=0
         export ENSEMBLE_RUNTIME_REFRESH_DISABLE=1
+        # --print stops background tasks still running 10 minutes after the lead's last turn,
+        # which kills a phase workflow mid-gate on any long run. The outer timeout is the bound.
+        export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}"
         smoke_timeout "$timeout_s" claude \
             --print \
             --verbose \
