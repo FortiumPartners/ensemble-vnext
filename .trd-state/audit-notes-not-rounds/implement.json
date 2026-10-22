@@ -4,7 +4,7 @@
   "trd_hash": "2a72fa2d05649283403f31bfa356b067fc040d13026cf01483ddf5b5df149356",
   "branch": "feature/audit-notes-not-rounds/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "audit-rounds.js: add classes note and deferred (rules in Intended Change); classify, tally and decide take deferred ids and an optional index; tally returns notes and deferred counts; the CLI passes deferred and index through its classify, tally and decide cases. Tests in audit-rounds.test.js. Mirror to .claude/lib/",
@@ -58,10 +58,19 @@
       "last_advanced": "2026-10-22T05:16:57.498Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "db16104",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-22T05:19:33.235Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "db16104",
+    "last_checkpoint_timestamp": "2026-10-22T05:19:33.235Z",
     "interrupted": false,
     "interrupt_reason": null
   },
