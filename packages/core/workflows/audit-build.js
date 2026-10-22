@@ -106,7 +106,10 @@ const CHAIN = REPORT_ONLY
 // Tasks the TRD itself sets aside by design (the parser's {id, why} shape). A gap whose only
 // covering task is one of these is planned, not missing -- the lib (audit-rounds.js) decides
 // it does not count; this block lets the reconcile agent name it correctly.
-const DEFERRED = Array.isArray(a.deferred) ? a.deferred.filter((d) => d && d.id) : []
+// Bare ids are accepted too: dropping them would leave the agent no PLANNED list at all.
+const DEFERRED = (Array.isArray(a.deferred) ? a.deferred : [])
+  .map((d) => (typeof d === 'string' ? { id: d, why: '' } : d))
+  .filter((d) => d && d.id)
 const DEFERRED_NOTE = DEFERRED.length
   ? `
 DEFERRED BY THE TRD ITSELF (set aside by design; this audit does not build, schedule or run them):
@@ -673,7 +676,9 @@ ones:
 ${CHAIN_NOTE}
 ALSO return \`handoff\`: one item per finding you ACCEPTED that /implement-trd --reconcile would
 act on (id, action, check, summary, evidence, covered), plus every requirement with no covering
-task as covered: false. Do not classify them; the caller does. Empty when none.
+task as covered: false, plus every FIXED THE CITATION item (action "fix-citation") and every
+PLANNED, NOT BUILT YET gap -- the caller counts those as notes, never as work. Do not classify
+them; the caller does. Empty when none.
 
 One screen. If there are 40 clean requirements, print the COUNT as one line, not forty.`,
   {

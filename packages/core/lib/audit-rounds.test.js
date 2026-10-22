@@ -152,6 +152,18 @@ describe('tally', () => {
     ];
     expect(A.tally(handoff, { deferred: ['T3'] })).toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 2, deferred: 2 });
   });
+  test('a fixed citation marked covered:false is a note, not uncovered', () => {
+    expect(A.tally([{ action: 'fix-citation', check: 'citation', covered: false }]))
+      .toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 1, deferred: 0 });
+  });
+  test('deferred accepts the parser {id, why} shape as well as bare ids', () => {
+    expect(A.classify({ id: 'T3', action: 'gap-unbuilt' }, { deferred: [{ id: 'T3', why: 'live' }] })).toBe('deferred');
+  });
+  test('test-quality does not override a deferral or a fixed citation', () => {
+    expect(A.classify({ id: 'T3', action: 'untested', check: 'test-quality' }, { deferred: ['T3'] })).toBe('deferred');
+    expect(A.classify({ action: 'fix-citation', check: 'test-quality' })).toBe('note');
+    expect(A.classify({ id: 'T4', action: 'untested', check: 'test-quality' }, { deferred: ['T3'] })).toBe('test-gap');
+  });
   test('covered:false stays uncovered-only even for a deferred id', () => {
     expect(A.tally([{ id: 'T3', action: 'gap-unbuilt', covered: false }], { deferred: ['T3'] }))
       .toEqual({ defects: 0, testGaps: 0, uncovered: 1, notes: 0, deferred: 0 });

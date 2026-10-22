@@ -851,8 +851,8 @@ describe('audit-build owns the fix run and the round decision', () => {
   });
 
   test('the audit commit names the TRD so in-place fixes travel with the branch', () => {
-    expect(auditBuild).toMatch(/git add docs\/TRD\/<feature>\.md \.trd-state/);
-    expect(auditBuild).toMatch(/-- docs\/TRD\/<feature>\.md \.trd-state/);
+    expect(auditBuild).toMatch(/git add <trd-path> \.trd-state/);
+    expect(auditBuild).toMatch(/-- <trd-path> \.trd-state/);
   });
 
   test('every fallback wake-up carries the run id and re-entry checks stale-wake by run id', () => {

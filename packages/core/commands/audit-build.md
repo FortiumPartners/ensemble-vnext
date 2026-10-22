@@ -192,7 +192,8 @@ false-completion signal the destination wording exists to remove.
 
 **`deferred`** is the TRD's deferred-by-design list, `[{id, why}]`: tasks the TRD itself says cannot
 complete in a normal run (`/implement-trd` §4.1a sets them aside the same way). Read it with
-the TRD parser, and pass the same list on every call below:
+the TRD parser. Pass the full list to the workflow and its ids to every `audit-rounds.js` call
+below (the lib also accepts the full `{id, why}` list):
 
 ```
 node -e 'const {parseTrd}=require("./.claude/lib/trd-parser");console.log(JSON.stringify(parseTrd(require("fs").readFileSync(process.argv[1],"utf8")).deferred.map(d=>({id:d.id,why:d.why}))))' <trd-path>
@@ -332,8 +333,8 @@ when it masks a real defect, and then it is reported as that defect by its own c
 the report, and the close record when one was written, in one commit and nothing else:
 
 ```bash
-git add docs/TRD/<feature>.md .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
-git commit -m "docs(audit): audit-build report for <feature>" -- docs/TRD/<feature>.md .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+git add <trd-path> .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+git commit -m "docs(audit): audit-build report for <feature>" -- <trd-path> .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
 ```
 
 (Drop `closed.json` from both lines when the audit did not close the feature; drop the TRD when

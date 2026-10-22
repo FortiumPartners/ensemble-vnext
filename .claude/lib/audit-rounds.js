@@ -42,9 +42,14 @@ function servedBy(index, id) {
   return req && Array.isArray(req.served_by) ? req.served_by : null;
 }
 
-/** True when the item's id is a deferred task, or a requirement served ONLY by deferred tasks. */
+/**
+ * True when the item's id is a deferred task, or a requirement served ONLY by deferred tasks.
+ * `deferred` may be bare ids or the parser's {id, why} entries: the command passes the same list
+ * to the workflow and here, and a Set of objects would match nothing, silently.
+ */
 function isDeferredId(id, { deferred = [], index } = {}) {
-  const set = new Set(Array.isArray(deferred) ? deferred : []);
+  const ids = (Array.isArray(deferred) ? deferred : []).map((d) => (d && typeof d === 'object' ? d.id : d));
+  const set = new Set(ids.filter((d) => typeof d === 'string' && d));
   if (id === undefined || !set.size) return false;
   if (set.has(id)) return true;
   const servers = servedBy(index, id);
@@ -60,13 +65,16 @@ function isDeferredId(id, { deferred = [], index } = {}) {
  * @returns {'defect'|'test-gap'|'note'|'deferred'|'other'}
  */
 function classify({ id, action, check } = {}, ctx = {}) {
+  // A citation already fixed in place, or a gap on a task deferred by design, is not work for
+  // the fix run whatever check reported it -- test-quality included, or a deferred task (which
+  // has no tests by design) would be chained to the fix run as a test gap.
+  if (action === 'fix-citation') return 'note';
+  const gap = action === 'gap-unbuilt' || action === 'gap-untested' || action === 'untested';
+  if (gap && isDeferredId(id, ctx)) return 'deferred';
   // Tests are not the product: a test-quality finding is a test gap whatever its action. A weak
   // test that masks a real defect is reported by its own check (verification/traceability).
   if (check === 'test-quality') return 'test-gap';
-  const gap = action === 'gap-unbuilt' || action === 'gap-untested' || action === 'untested';
-  if (gap && isDeferredId(id, ctx)) return 'deferred';
   if (action === 'gap-unbuilt') return 'defect';
-  if (action === 'fix-citation') return 'note';
   if (action === 'mismatch') return check === 'citation' || check === 'consistency' ? 'note' : 'defect';
   if (action === 'gap-untested' || action === 'untested') return 'test-gap';
   return 'other';
@@ -82,7 +90,9 @@ function tally(handoff = [], ctx = {}) {
   const out = { defects: 0, testGaps: 0, uncovered: 0, notes: 0, deferred: 0 };
   for (const item of Array.isArray(handoff) ? handoff : []) {
     if (!item) continue;
-    if (item.covered === false) { out.uncovered += 1; continue; }
+    // A fixed citation is already done: no task covers a descriptive sentence, so the agent may
+    // well mark it covered:false, and counting it uncovered would hold the feature open forever.
+    if (item.covered === false && item.action !== 'fix-citation') { out.uncovered += 1; continue; }
     const cls = classify(item, ctx);
     if (cls === 'defect') out.defects += 1;
     else if (cls === 'test-gap') out.testGaps += 1;
