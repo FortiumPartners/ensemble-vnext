@@ -273,7 +273,7 @@ item's class — `defect`, `test-gap`, `note`, `deferred` or `other` — for ste
 **2. Record and decide.** Record the round (skipped on `--report-only`):
 `node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<the trdHash above>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"notes":<n>,"deferred":<n>,"ts":"<ISO time>"}}'`,
 then write the workflow's returned `index` to `.trd-state/<feature>/audit-index.json`
-(overwritten each round). Then run `node .claude/lib/audit-rounds.js decide '{"stateDir":".trd-state/<feature>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"reportOnly":false,"deferred":[<the deferred ids>]}'`;
+(overwritten each round). Then run `node .claude/lib/audit-rounds.js decide '{"stateDir":".trd-state/<feature>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"reportOnly":false,"deferred":[<the deferred ids>],"index":<the workflow's returned index>}'`;
 it returns `{ chain, reaudit, close, capReached, caveats }`. `round` is the number of ledger lines
 since the last close, counting this one. The cap is two re-audits after defects, so at most three
 audits (a first audit and two re-audits).

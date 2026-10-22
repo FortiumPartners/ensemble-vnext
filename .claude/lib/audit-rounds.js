@@ -14,9 +14,11 @@
  *
  * CLI (JSON in on stdin or as argv[3], JSON out):
  *   tally       {handoff, deferred?, index?} -> {defects, testGaps, uncovered, notes, deferred}
- *   decide      {stateDir?|rounds, verdict, defects, testGaps, uncovered, reportOnly}
- *               (or {..., handoff, deferred?, index?} in place of the counts; notes and
- *               deferred items never count, so only they remaining closes)
+ *   decide      {stateDir?|rounds, verdict, defects, testGaps, uncovered, reportOnly,
+ *               deferred?, index?} (or {..., handoff, deferred?, index?} in place of the
+ *               counts; notes and deferred items never count, so only they remaining closes).
+ *               With counts, deferred and index are accepted and ignored: the counts already
+ *               came from tally, which applied them. With a handoff they go to tally.
  *   classify    {id?, action, check, deferred?, index?} -> {class: defect|test-gap|note|deferred|other}
  *               deferred: task ids; index: {requirements: [{id, served_by}]} (or keyed by id)
  *   stale-wake  {stateDir?|rounds, runId}
@@ -150,6 +152,8 @@ function isDoNotProceed(verdict) {
   return String(verdict || '').replace(/^\s*VERDICT:\s*/i, '').trim().toLowerCase().startsWith('do not proceed');
 }
 
+// deferred/index may be passed (audit-build.md passes them on every call); decide ignores them
+// because its counts come from tally, which already applied both.
 function decide({ rounds = [], verdict, defects = 0, testGaps = 0, uncovered = 0, reportOnly = false } = {}) {
   const out = { chain: false, reaudit: false, close: false, capReached: false, caveats: [] };
   if (reportOnly) return out;

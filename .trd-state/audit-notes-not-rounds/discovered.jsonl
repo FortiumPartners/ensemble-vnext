@@ -1,0 +1,1 @@
+{"ts":"2026-10-22T05:22:28.233Z","kind":"risk","foundBy":"code-review","phase":1,"summary":"the deferred list must be passed on four separate audit-rounds.js calls; dropping it on any one silently restores the old loop — let the lib read deferred ids from the TRD path itself","blocksFeature":false,"file":"packages/core/commands/audit-build.md"}

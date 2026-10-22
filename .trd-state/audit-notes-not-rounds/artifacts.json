@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/AKHXkNySAgNuacsQEhneQS",
     "updated_at": "2026-10-22T05:08:35.662Z",
     "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/audit-notes-not-rounds/success-definition.md",
+    "url": "",
+    "updated_at": "2026-10-22T05:22:34.175Z",
+    "command": "/implement-trd"
   }
 }

@@ -930,3 +930,20 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
   plugin version. macOS has no `timeout` binary: do not prefix with it.
 - [inferred] `/init-project` and `/rebase-project` cannot be run as live model sessions here; their
   evidence is prompt excerpts plus running the literal bash blocks they contain on fixtures.
+
+## Exercising the audit-notes-not-rounds criteria (2026-10-21)
+
+- [ran] FS-7/FS-8 (tally/decide) need no live run: `npx jest packages/core/lib/audit-rounds.test.js --verbose` (69 pass) plus a `node -e` call to `tally(handoff, {deferred:[ids]})` and `decide({rounds, verdict, ...counts})` from `packages/core/lib/audit-rounds.js`. FS-9 to FS-12 are proven from the reconcile prompt text in `packages/core/workflows/audit-build.js` (~lines 590-680, byte-identical to `.claude/workflows/`); a live `/audit-build` run is not_verifiable here.
+
+## Exercising audit-build notes/deferrals (audit-notes-not-rounds)
+
+- [ran] `/audit-build` itself needs a live model run, so it cannot be exercised here; the workflow prompt text (`packages/core/workflows/audit-build.js` ~105-120, 628-700) and command text (`packages/core/commands/audit-build.md` ~175-340) carry the PLANNED, NOT BUILT YET / deferred-args / classify / commit-TRD claims, and `node .claude/lib/audit-rounds.js tally|classify|decide '<json>'` runs deterministically. Gap actions must be `gap-unbuilt`/`gap-untested`/`untested` (not arbitrary names) to be reclassified as deferred; `fix-citation` gives `note`.
+
+## Exercising audit-notes-not-rounds, iteration 2 recapture (2026-10-21)
+
+- [ran] The `audit-rounds.js` CLI (`tally|classify|decide|record`) is the faithful way to run the command's step 1-3 calls on a fixture; calling the module's functions directly with one merged object returns zeros/strings because the CLI wraps `(item, ctx)`. `decide` takes no `deferred`/`index` (signature at `audit-rounds.js:153`) and `audit-build.md:276` passes `deferred` but not `index` to it; tally and classify do take both.
+- [ran] The reconcile stage's returned text/handoff, the readout's STATE/ISSUES split and a real audit commit all need a live model run (`/audit-build`), which this loop forbids; a locator for a plain excerpt of `audit-build.js` must sit on one physical line (the prompt wraps at ~100 columns), and a diff artifact's `+` prefixes break multi-line locators.
+
+## Exercising audit-notes-not-rounds, iteration 3 (2026-10-21)
+
+- [ran] Correction: the iteration-2 note that `audit-build.md:276` passes `deferred` but not `index` to `decide` is stale. As of this pass `.claude/commands/audit-build.md` (byte-identical to the packages/core copy) passes both `deferred` and `index` to `tally` (l.267), `classify` (l.270) and `decide` (l.276); the CLI accepts and ignores them for `decide` with counts and forwards them to `tally` with a handoff. Evidence is regenerated in `.trd-state/audit-notes-not-rounds/evidence/FS-16-recapture-iter3.txt` (the older FS-16-fix-run-input.txt quotes the pre-fix l.276).

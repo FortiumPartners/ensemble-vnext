@@ -1,0 +1,213 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs1-6-classify-decide-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs1-6-classify-decide-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs1-6-classify-decide-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs1-6-classify-decide-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs1-6-classify-decide-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs1-6-classify-decide-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs7-8-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-8",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs7-8-transcript.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-9",
+      "status": "not_met",
+      "tier1": "fail",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs9-12-reconcile-prompt.txt",
+      "reason": "Tier 1 failed: locator-not-found. The locator spans a line break, but the artifact quotes the source as a diff, so the second line begins with \"+\" and the text never matches. The diff in the artifact does appear to show the restriction lifted; re-capture the excerpt from packages/core/workflows/audit-build.js without diff prefixes, or use a single-line locator.",
+      "cause": "locator-not-found",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-10",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs9-12-reconcile-prompt.txt",
+      "reason": "Artifact is the reconcile prompt text, not the reconcile stage returned text; the success definition accepts only output from a live audit run for this criterion, and none was captured; the prompt text instructs the behaviour but does not show it happening. A fixture /audit-build run is needed.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-11",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs9-12-reconcile-prompt.txt",
+      "reason": "Artifact is the reconcile prompt text, not a returned handoff JSON; the success definition accepts only output from a live audit run for this criterion, and none was captured; the prompt text instructs the behaviour but does not show it happening. A fixture /audit-build run is needed.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/fs9-12-reconcile-prompt.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-13",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/FS-13-14-workflow-text.txt",
+      "reason": "Artifact is the reconcile prompt text, not returned text plus a handoff whose id is the deferred task id; the success definition accepts only output from a live audit run for this criterion, and none was captured; the prompt text instructs the behaviour but does not show it happening. A fixture /audit-build run is needed.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-14",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/FS-13-14-workflow-text.txt",
+      "reason": "Artifact is the prompt rule excluding deferrals and fixed citations from \"do not proceed\", not a VERDICT line from a fixture run; the success definition accepts only output from a live audit run for this criterion, and none was captured; the prompt text instructs the behaviour but does not show it happening. A fixture /audit-build run is needed.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/FS-15-16-17-command-text.txt",
+      "reason": null,
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-16",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/FS-15-16-17-command-text.txt",
+      "reason": "Command text half proven: tally, decide and step-3 classify all carry the deferred ids and index. The run half is not: the lib fixture shows classify labelling the deferred gap deferred and the citation fix a note, but no fix-run input from a fixture run was captured to show neither reaches it.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-17",
+      "status": "not_met",
+      "tier1": "pass",
+      "artifact": ".trd-state/audit-notes-not-rounds/evidence/FS-15-16-17-command-text.txt",
+      "reason": "Command text only. The criterion asks for a round record with note and deferred counts, a readout with them under STATE and not ISSUES, and git show --stat of the audit commit listing the TRD; none was captured. the success definition accepts only output from a live audit run for this criterion, and none was captured; the prompt text instructs the behaviour but does not show it happening. A fixture /audit-build run is needed.",
+      "cause": "evidence-missing",
+      "provenAt": null,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": null
+}
