@@ -103,6 +103,18 @@ const REPORT_ONLY = a.report_only === true || a.report_only === 'true'
 const CHAIN = REPORT_ONLY
   ? 'is /implement-trd --reconcile work, NOT handed off on this run'
   : 'chains to /implement-trd --reconcile'
+// Tasks the TRD itself sets aside by design (the parser's {id, why} shape). A gap whose only
+// covering task is one of these is planned, not missing -- the lib (audit-rounds.js) decides
+// it does not count; this block lets the reconcile agent name it correctly.
+const DEFERRED = Array.isArray(a.deferred) ? a.deferred.filter((d) => d && d.id) : []
+const DEFERRED_NOTE = DEFERRED.length
+  ? `
+DEFERRED BY THE TRD ITSELF (set aside by design; this audit does not build, schedule or run them):
+${DEFERRED.map((d) => `  - ${d.id}: ${d.why || '(no reason stated)'}`).join('\n')}
+A gap whose ONLY covering task is one of these is reported under PLANNED, NOT BUILT YET, not
+under MISSING IMPLEMENTATION. A deferral is NOT a reason to choose "do not proceed".
+`
+  : ''
 const CHAIN_NOTE = REPORT_ONLY
   ? `
 --report-only WAS PASSED, so nothing chains from this run. Every line above that names
@@ -575,8 +587,11 @@ ${COVERAGE}${CNV}`,
 const readout = await agent(
   `Weigh these audit-build findings against the delivered code${PRD ? ` and ${PRD}` : ''}, then
 draft the readout. Where a finding warrants a fix that is small and mechanical (a missing test
-file stub is NOT small; a citation that resolves elsewhere IS), you may correct the TRD's
-## Could Not Verify section, but do NOT write application code or tests yourself -- this
+file stub is NOT small; a citation that resolves elsewhere IS), you may correct that text in
+the TRD, anywhere in it -- but only text that DESCRIBES (line numbers, file paths, ids, or a
+sentence about the code that the code contradicts while the code is what is required). You
+never edit what an objective, acceptance criterion or task requires: a change to that is a
+MISMATCH or an owner question, not an in-place edit. Do NOT write application code or tests yourself -- this
 command reports gaps, it does not close them. Closing a GAP is implementation work for the
 next /implement-trd pass, not this reconcile step.
 
@@ -606,8 +621,7 @@ Where a finding is WRONG — the verifier missed an implementation or a test tha
 resolved a path against the wrong repository — do not apply it as a gap, and say so in the
 readout naming the file that refutes it. Rejecting a bad finding is as valuable as reporting a
 good one.
-${COVERAGE}${CNV}
-
+${COVERAGE}${CNV}${DEFERRED_NOTE}
 FIRST LINE OF THE READOUT, before any heading below: a VERDICT line about the DELIVERED CODE,
 one of exactly these three forms, with every caveat or blocker NAMED inline -- never merely
 counted. This command writes no application code or tests, so the verdict says whether the
@@ -618,7 +632,10 @@ delivered code is safe to act on, not that anything here was fixed:
   VERDICT: do not proceed until <blocker>
 
 Choose "do not proceed until" when a MISSING IMPLEMENTATION or MISMATCH finding leaves the
-delivered code not doing what was required. Choose "proceed with these caveats" when
+delivered code not doing what was required -- EXCEPT a gap whose only covering task is deferred
+(see PLANNED, NOT BUILT YET), and a fixed citation: neither is a reason to choose "do not
+proceed". Name each deferred gap once as a caveat: "planned, not built yet: <task> -- <the
+TRD's reason>". Choose "proceed with these caveats" when
 TRACEABILITY GAPS, UNTESTED-IN-PRACTICE, or an unresolved Could Not Verify row remain.
 Otherwise "safe to proceed".
 
@@ -643,9 +660,14 @@ ones:
   MISMATCH — built, but does something other than what was required. The task that produced
     it exists in the TRD, so this always ${CHAIN}.
   UNTESTED-IN-PRACTICE — a test exists but does not prove the requirement (test-quality-audit)
-  FIXED THE CITATION — a referenced ID or path did not resolve AND the fix was inside this
-    run's own rewrite of the TRD's Could Not Verify section. A citation that does not resolve
-    anywhere ELSE in the TRD is reported, not fixed: this step edits no other section.
+  PLANNED, NOT BUILT YET — a gap whose only covering task is deferred by the TRD (listed
+    above, when any). Name the task and the TRD's reason. In \`handoff\` its \`id\` is the deferred
+    task's id.
+  FIXED THE CITATION — a referenced ID, path, line number or descriptive sentence anywhere in
+    the TRD was wrong and you corrected it in place (descriptive text only; never edit what an
+    objective, acceptance criterion or task requires). Return each fixed item in \`handoff\`
+    with action: "fix-citation". One that cannot be fixed without changing a requirement is a
+    MISMATCH or an owner question, not a fix.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
 ${CHAIN_NOTE}

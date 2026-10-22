@@ -13,10 +13,12 @@
  * decides), so "re-audits used" = rounds.length - 1.
  *
  * CLI (JSON in on stdin or as argv[3], JSON out):
- *   tally       {handoff}  -> {defects, testGaps, uncovered}
+ *   tally       {handoff, deferred?, index?} -> {defects, testGaps, uncovered, notes, deferred}
  *   decide      {stateDir?|rounds, verdict, defects, testGaps, uncovered, reportOnly}
- *               (or {..., handoff} in place of the three counts)
- *   classify    {action, check}
+ *               (or {..., handoff, deferred?, index?} in place of the counts; notes and
+ *               deferred items never count, so only they remaining closes)
+ *   classify    {id?, action, check, deferred?, index?} -> {class: defect|test-gap|note|deferred|other}
+ *               deferred: task ids; index: {requirements: [{id, served_by}]} (or keyed by id)
  *   stale-wake  {stateDir?|rounds, runId}
  *   record      {stateDir, round}
  *   trd-hash    {trd}      -> {trdHash}
@@ -30,15 +32,42 @@ const LEDGER = 'audit-rounds.jsonl';
 const MAX_REAUDITS = 2;
 
 /**
- * Class of a finding, a pure function of what the verifier said.
- * @returns {'defect'|'test-gap'|'other'}
+ * The task ids that serve requirement `id` in `index.requirements`, or null when the index does
+ * not list it. Accepts an array of {id, served_by} or an object keyed by requirement id.
  */
-function classify({ action, check } = {}) {
+function servedBy(index, id) {
+  const reqs = index && index.requirements;
+  if (!reqs || id === undefined) return null;
+  const req = Array.isArray(reqs) ? reqs.find((r) => r && r.id === id) : reqs[id];
+  return req && Array.isArray(req.served_by) ? req.served_by : null;
+}
+
+/** True when the item's id is a deferred task, or a requirement served ONLY by deferred tasks. */
+function isDeferredId(id, { deferred = [], index } = {}) {
+  const set = new Set(Array.isArray(deferred) ? deferred : []);
+  if (id === undefined || !set.size) return false;
+  if (set.has(id)) return true;
+  const servers = servedBy(index, id);
+  return Boolean(servers && servers.length > 0 && servers.every((t) => set.has(t)));
+}
+
+/**
+ * Class of a finding, a pure function of what the verifier said and which tasks are deferred.
+ * A deferred task is "not built yet" by design, so only the GAP actions on it are reclassified;
+ * a mismatch on a deferred id is code that exists and is wrong, so it stays a defect.
+ * @param {{id?:string, action?:string, check?:string}} item
+ * @param {{deferred?:string[], index?:object}} [ctx]
+ * @returns {'defect'|'test-gap'|'note'|'deferred'|'other'}
+ */
+function classify({ id, action, check } = {}, ctx = {}) {
   // Tests are not the product: a test-quality finding is a test gap whatever its action. A weak
   // test that masks a real defect is reported by its own check (verification/traceability).
   if (check === 'test-quality') return 'test-gap';
+  const gap = action === 'gap-unbuilt' || action === 'gap-untested' || action === 'untested';
+  if (gap && isDeferredId(id, ctx)) return 'deferred';
   if (action === 'gap-unbuilt') return 'defect';
-  if (action === 'mismatch' && check !== 'citation' && check !== 'consistency') return 'defect';
+  if (action === 'fix-citation') return 'note';
+  if (action === 'mismatch') return check === 'citation' || check === 'consistency' ? 'note' : 'defect';
   if (action === 'gap-untested' || action === 'untested') return 'test-gap';
   return 'other';
 }
@@ -46,16 +75,19 @@ function classify({ action, check } = {}) {
 /**
  * Count a reconcile handoff. Uncovered items (no covering task) stop for design and are never
  * handed to the fix run, so they count ONLY as uncovered -- never as defects or test gaps, or
- * a run with nothing but uncovered items would chain an empty fix run.
+ * a run with nothing but uncovered items would chain an empty fix run. Notes and deferred items
+ * are counted for the report but never toward defects/testGaps, so decide() can close on them.
  */
-function tally(handoff = []) {
-  const out = { defects: 0, testGaps: 0, uncovered: 0 };
+function tally(handoff = [], ctx = {}) {
+  const out = { defects: 0, testGaps: 0, uncovered: 0, notes: 0, deferred: 0 };
   for (const item of Array.isArray(handoff) ? handoff : []) {
     if (!item) continue;
     if (item.covered === false) { out.uncovered += 1; continue; }
-    const cls = classify(item);
+    const cls = classify(item, ctx);
     if (cls === 'defect') out.defects += 1;
     else if (cls === 'test-gap') out.testGaps += 1;
+    else if (cls === 'note') out.notes += 1;
+    else if (cls === 'deferred') out.deferred += 1;
   }
   return out;
 }
@@ -159,10 +191,11 @@ function cli(argv) {
   const raw = arg !== undefined ? arg : fs.readFileSync(0, 'utf8');
   if (raw && raw.trim()) input = JSON.parse(raw);
   const ledger = (opts) => input.rounds || (input.stateDir ? readRounds(input.stateDir, opts) : []);
+  const ctx = { deferred: input.deferred, index: input.index };
   switch (cmd) {
-    case 'tally': return tally(input.handoff);
-    case 'decide': return decide({ ...input, ...(input.handoff ? tally(input.handoff) : {}), rounds: ledger() });
-    case 'classify': return { class: classify(input) };
+    case 'tally': return tally(input.handoff, ctx);
+    case 'decide': return decide({ ...input, ...(input.handoff ? tally(input.handoff, ctx) : {}), rounds: ledger() });
+    case 'classify': return { class: classify(input, ctx) };
     case 'stale-wake': return { stale: staleWake({ ...input, rounds: ledger({ all: true }) }) };
     case 'trd-hash':
       if (!input.trd) throw new Error('trd-hash needs trd (a path)');

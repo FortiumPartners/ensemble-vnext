@@ -828,6 +828,33 @@ describe('audit-build owns the fix run and the round decision', () => {
     expect(auditBuild).toMatch(/write the workflow's returned `index` to `\.trd-state\/<feature>\/audit-index\.json` \(overwritten each round\)/);
   });
 
+  // audit-notes-not-rounds FIX-003: deferred tasks and notes never reach the fix run or ISSUES.
+  test('passes deferred to the workflow, tally, decide and every classify', () => {
+    expect(auditBuild).toMatch(/parseTrd\(.*\)\.deferred/);
+    expect(auditBuild).toMatch(/index, trdHash \}>, deferred: <the TRD/);
+    expect(auditBuild).toMatch(/audit-rounds\.js tally '\{"handoff":<[^>]*>,"deferred":\[[^\]]*\],"index":/);
+    expect(auditBuild).toMatch(/audit-rounds\.js decide '\{[^']*"reportOnly":false,"deferred":/);
+    expect(auditBuild).toMatch(/classify '\{"action":"<action>","check":"<check>","id":"<id>","deferred":.*"index":/);
+    expect(auditBuild).toMatch(/\{ defects, testGaps, uncovered, notes, deferred \}/);
+  });
+
+  test('records notes and deferred in the round and keeps them out of ISSUES and NEXT', () => {
+    expect(auditBuild).toMatch(/"uncovered":<n>,"notes":<n>,"deferred":<n>,"ts":/);
+    expect(auditBuild).toMatch(/Notes and deferrals go in STATE, never ISSUES/);
+    expect(auditBuild).toMatch(/never a reason for NEXT `\/audit-build`/);
+    expect(auditBuild).not.toMatch(/an `other` item — a citation to fix/);
+  });
+
+  test('heading block: citation fix covers the whole TRD and PLANNED, NOT BUILT YET exists', () => {
+    expect(auditBuild).toMatch(/PLANNED, NOT BUILT YET/);
+    expect(auditBuild).not.toMatch(/this step edits no other section/);
+  });
+
+  test('the audit commit names the TRD so in-place fixes travel with the branch', () => {
+    expect(auditBuild).toMatch(/git add docs\/TRD\/<feature>\.md \.trd-state/);
+    expect(auditBuild).toMatch(/-- docs\/TRD\/<feature>\.md \.trd-state/);
+  });
+
   test('every fallback wake-up carries the run id and re-entry checks stale-wake by run id', () => {
     expect(auditBuild).toMatch(/Every fallback `ScheduleWakeup` this command schedules carries the workflow run id in its prompt/);
     expect(auditBuild).toMatch(/stale-wake '\{"stateDir":"\.trd-state\/<feature>","runId":"<run id>"\}'/);
