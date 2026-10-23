@@ -10,6 +10,44 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.13.8] - 2026-10-23
+
+`/audit-build` no longer opens another round over things nobody has to fix. A wrong line
+number in the TRD and a gap on a task the TRD deliberately defers are now notes, and the
+audit's own edits to the TRD can no longer delete part of it.
+
+### Changed
+
+- **Stale citations are fixed in place, anywhere in the TRD, and recorded as notes.** The
+  reconcile stage used to correct citations only inside `## Could Not Verify`; a wrong line
+  number elsewhere counted as a defect and cost a whole re-audit. It now fixes descriptive
+  text in any section (never what an objective, acceptance criterion or task requires), lists
+  each fix under `FIXED THE CITATION`, and hands it back as `fix-citation`.
+- **A gap only a deferred task covers is reported as `PLANNED, NOT BUILT YET`**, not as a
+  missing implementation. `/audit-build` reads the TRD's `## Deferred by design` list and
+  passes it to the workflow and to every `classify`, `tally` and `decide` call.
+- **`audit-rounds.js` gains two classes, `note` and `deferred`.** Neither counts as a defect
+  or test gap, neither reaches the fix run, and neither is a reason for another round or for
+  a "do not proceed" verdict. Rounds record both counts; the readout lists them under STATE,
+  not ISSUES.
+- The audit commit now includes the TRD, so in-place fixes travel with the branch.
+
+### Fixed
+
+- **The audit's in-place TRD edit could delete content.** Its first live run searched for
+  "## Could Not Verify", matched a quotation of that phrase mid-paragraph, and replaced
+  everything from there to the end of the file. The prompts now find that section only by a
+  heading at the start of a line, and `/audit-build` brackets the workflow with two new
+  `audit-rounds.js` commands: `trd-snapshot` saves the TRD, and `trd-guard` restores it and
+  ends the run STUCK if any heading is gone (headings inside fenced examples are ignored).
+
+### Not yet proven
+
+- The guard has not yet caught a real truncation live; it is proven on a replay of the one
+  that happened. It compares headings only, so text deleted under a surviving heading passes.
+- No live audit has yet had a deferred task, so `PLANNED, NOT BUILT YET` is proven by tests
+  and prompt text only.
+
 ## [4.13.7] - 2026-10-21
 
 The audit and verification-planning commands can now be started by an agent, not only typed by
