@@ -96,34 +96,49 @@ suites and the replayed pm-interface decision, not a published page or UI.
 
 ### FIX-001
 - **Touches:** `packages/core/lib/audit-rounds.js`, `packages/core/lib/audit-rounds.test.js`, `.claude/lib/audit-rounds.js`
-- **Reuse:** `classify({action, check})` at `audit-rounds.js:36` and `tally(handoff)` at `:51` — extend their signatures (`classify({action, check, id}, deferredSet)`), keep return shapes additive [read]
-- **Replaces:** the rule at `:40` that makes every `gap-unbuilt` a defect regardless of task; the `'other'` return for citation/consistency mismatches at `:41` becomes `'note'` [read]
-- **Follow:** `decide` already takes counts; `cli` `decide` spreads `tally(input.handoff)` at `:164` — pass `input.deferred` to that `tally` call. The 51 existing tests pass today [ran]
-- **Careful:** `covered: false` items stay uncovered-only, checked before classification (`:55`); do not let a deferred id bypass that. Keep the gap-before-check order at `:40` so a non-deferred `gap-unbuilt` under `citation` stays a defect. Other callers: `verify-command-surface.test.js:776-828` pins the `tally`/`record` wording by prefix — additive fields are safe [read by reviewer]
+- **Reuse:** `classify` (as built: `classify({id, action, check}, ctx)` at `audit-rounds.js:69`) and `tally(handoff, ctx)` at `:91` — extended signatures, return shapes additive [read]
+- **Replaces:** the rule that made every `gap-unbuilt` a defect regardless of task (as built, deferred gaps return `'deferred'` at `:75` before the `gap-unbuilt` rule at `:79`); the `'other'` return for citation/consistency mismatches became `'note'` (`:80`) [read]
+- **Follow:** `decide` already takes counts; `cli` (`:202`) builds `ctx` from `input.deferred` and `input.index` at `:208`, and its `decide` case spreads `tally(input.handoff, ctx)` at `:211`. The 51 pre-change tests passed [ran]
+- **Careful:** `covered: false` items stay uncovered-only, checked in `tally` before classification (`:97`); do not let a deferred id bypass that. Keep the gap-before-check order (`:79` before the `mismatch` rule at `:80`) so a non-deferred `gap-unbuilt` under `citation` stays a defect. Other callers: `verify-command-surface.test.js:776-828` pins the `tally`/`record` wording by prefix — additive fields are safe [read by reviewer]
 
 ### FIX-002
 - **Touches:** `packages/core/workflows/audit-build.js`, `packages/core/workflows/audit-build.test.js`, `.claude/workflows/audit-build.js`
-- **Reuse:** the readout heading block in the reconcile prompt (`audit-build.js` ~630-655, "FIXED THE CITATION ...") and `ACTIONS`/`CHECKS` at `:152-153` [read]
-- **Replaces:** "A citation that does not resolve anywhere ELSE in the TRD is reported, not fixed: this step edits no other section." (~:648) and the opening's "you may correct the TRD's ## Could Not Verify section" (~:577-581); amends the verdict rule at ~:620 [read]
-- **Follow:** args are read from `a` (`a.report_only` at `:93`); add `a.deferred` the same way, defaulting to `[]`. Prompt fragments are built as consts (`PREV_COVERAGE`, `CHAIN_NOTE`) [read]
+- **Reuse:** the readout heading block in the reconcile prompt (`audit-build.js` ~656-675 as built, "FIXED THE CITATION ...") and `ACTIONS`/`CHECKS` at `:167-168` [read]
+- **Replaces:** "A citation that does not resolve anywhere ELSE in the TRD is reported, not fixed: this step edits no other section." and the opening's "you may correct the TRD's Could Not Verify section" (both removed; the widened opening is at ~:590-596); amends the verdict rule at ~:637-641 [read]
+- **Follow:** args are read from `a` (`a.report_only` at `:102`); `a.deferred` is read the same way at `:110`, defaulting to `[]`. Prompt fragments are built as consts (`PREV_COVERAGE`, `CHAIN_NOTE`) [read]
 - **Careful:** the reconcile stage is the Opus `technical-architect` stage; keep its schema unchanged (`applied` already lists what it changed)
 
 ### FIX-003
 - **Touches:** `packages/core/commands/audit-build.md`, `.claude/commands/audit-build.md`
-- **Reuse:** "After the workflow returns" section (`audit-build.md` ~238-310): the `tally`, `classify`, `record` and `decide` CLI examples; the workflow call at `:171`; the commit block at ~313-314; the heading block at ~403-405 [read]
-- **Follow:** `parseTrd` returns `deferred[]` with ids (`trd-parser.js:700`, `:875-890`), as `/implement-trd` §4.1a already uses [read]
+- **Reuse:** "After the workflow returns" section (`audit-build.md` ~252-385): the `tally`, `classify`, `record` and `decide` CLI examples; the workflow call at `:175`; the commit block at `:336-337`; the heading block at ~419-433, with the two new headings at `:427-429` [read]
+- **Follow:** `parseTrd` returns `deferred[]` with ids (`trd-parser.js:875-890`), as `/implement-trd` §4.1a already uses [read]
 - **Careful:** the readout rule "never NEXT `/audit-build` when `capReached`" stays; notes must not appear as ISSUES, which the owner reads as "who has to act"
 
 ## Could Not Verify
 
-- The in-place TRD edits are made by a model; the tests prove the prompt asks for them and forbids
-  requirement edits, not that every run obeys. A live `/audit-build` on a TRD with a stale
-  citation is the real check.
-- The pm-interface "before" shape is reconstructed from the round counts and report text
-  (`{id:"PMI-T003", action:"gap-unbuilt"}`), not replayed from a stored handoff; the ledger keeps
-  counts only.
-- Kind is declared `change`; the reviewer notes O1 is closer to a defect (the parser's own intent
-  is that deferrals are reported, not discovered as failures). Left as `change`.
-- The web-chat-parity "six stale line numbers" loop cited in the analysis did not reproduce: on
-  4.13.6 its round 2 closed with zero defects, the citations carried as a caveat. Stale
-  citations already do not block; this change makes them get fixed rather than carried.
+Rewritten by `/audit-build` on 2026-10-22. The three tasks (FIX-001, FIX-002, FIX-003) were
+checked against the delivered code and tests and are not listed here; the three Jest suites
+named in their acceptance criteria pass (387 tests).
+
+- **No PRD exists for this change** (it was decided in session, 2026-10-21), so the audit could
+  not check the objectives against product requirements — only that the code does what this
+  TRD says. Whether O1-O3 capture the owner's intent fully is unchecked.
+- **The pm-interface evidence behind O1 and O2 lives in another repository.** PMI-T003 and
+  PMI-P002 are ids in forge-vnext's pm-interface TRD, which is not checked out here, so neither
+  the evidence nor the reconstructed "before" shape (`{id:"PMI-T003", action:"gap-unbuilt"}`,
+  rebuilt from round counts and report text, not a stored handoff) was checked.
+- **In-place TRD edits are made by a model.** The tests prove the prompt asks for them and
+  forbids requirement edits, not that every run obeys. This audit is the first live instance:
+  it corrected the stale line citations in all three Task Grounding blocks in place, touching no objective,
+  criterion or task requirement. One run is not a rate.
+- **Kind is declared `change`;** the reviewer noted O1 is closer to a defect (the parser's own
+  intent is that deferrals are reported, not discovered as failures). A classification for the
+  owner, not a delivery claim; not checked.
+- **The web-chat-parity "six stale line numbers" loop did not reproduce:** on 4.13.6 its round 2
+  closed with zero defects, the citations carried as a caveat. Not re-run by this audit.
+- **This audit's own rewrite truncated the TRD, and was repaired by hand.** The reconcile agent
+  looked for the section by grepping "## Could Not Verify", matched a quote of that phrase inside
+  FIX-002's grounding, and replaced everything from there to the end of the file. The rest of
+  FIX-002's grounding, all of FIX-003's grounding and this heading were lost, then restored from
+  the previous commit with the agent's citation fixes kept. The quote no longer contains "##".
+  Nothing in the workflow checks that an edit leaves the other headings in place.
