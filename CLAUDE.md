@@ -173,10 +173,8 @@ and usage patterns: `docs/reference/hooks.md` §7.1. Unit tests: `packages/core/
 
 ## Eval Framework Usage
 
-The eval framework at `test/evals/framework/` (`run-eval.js`, `run-session.sh`,
-`collect-results.sh`, `judge.js`, `aggregate.js`, `schema.js`) enables A/B testing of skills
-and agents. **Use `dev-loop/` specs by default** — 3 variants (baseline, framework,
-full-workflow) — not `skills/`, `agents/` or `commands/`, which are for narrower isolation
+The eval framework at `test/evals/framework/` enables A/B testing of skills and agents.
+**Use `dev-loop/` specs by default** — 3 variants (baseline, framework, full-workflow) — not `skills/`, `agents/` or `commands/`, which are for narrower isolation
 testing. Session execution supports `--local` (uses `--print`) and remote (default, needs a
 GitHub-pushed repo); the judge (`judge.js`) always runs locally and synchronously, on Opus 4.5.
 
@@ -315,17 +313,18 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.13.7** (2026-10-21). 21 commands, 13 subagents. Test battery: 2097 Jest,
+Released at **4.13.8** (2026-10-23). 21 commands, 13 subagents. Test battery: 2133 Jest,
 124 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.13.7: the four `/audit-*` commands and `/refine-verification` are model-invocable; each
-description opens on its place in the pipeline.
+4.13.8: `/audit-build` treats stale citations and deferred-task gaps as notes, and guards
+its own TRD edits.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.13.8: the TRD-edit guard is unproven live and checks headings only.
 - 4.13.7: no agent has yet started an audit or `/refine-verification` live.
 - 4.13.6: the version stamp is proven on fixtures only, not a live init or rebase.
 - 4.13.5: `--refresh` and initial scaffolding still build agent preloads from
