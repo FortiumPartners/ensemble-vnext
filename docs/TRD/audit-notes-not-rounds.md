@@ -97,49 +97,50 @@ suites and the replayed pm-interface decision, not a published page or UI.
 
 ### FIX-001
 - **Touches:** `packages/core/lib/audit-rounds.js`, `packages/core/lib/audit-rounds.test.js`, `.claude/lib/audit-rounds.js`
-- **Reuse:** `classify` (as built: `classify({id, action, check}, ctx)` at `audit-rounds.js:69`) and `tally(handoff, ctx)` at `:91` — extended signatures, return shapes additive [read]
-- **Replaces:** the rule that made every `gap-unbuilt` a defect regardless of task (as built, deferred gaps return `'deferred'` at `:75` before the `gap-unbuilt` rule at `:79`); the `'other'` return for citation/consistency mismatches became `'note'` (`:80`) [read]
-- **Follow:** `decide` already takes counts; `cli` (`:202`) builds `ctx` from `input.deferred` and `input.index` at `:208`, and its `decide` case spreads `tally(input.handoff, ctx)` at `:211`. The 51 pre-change tests passed [ran]
-- **Careful:** `covered: false` items stay uncovered-only, checked in `tally` before classification (`:97`); do not let a deferred id bypass that. Keep the gap-before-check order (`:79` before the `mismatch` rule at `:80`) so a non-deferred `gap-unbuilt` under `citation` stays a defect. Other callers: `verify-command-surface.test.js:776-828` pins the `tally`/`record` wording by prefix — additive fields are safe [read by reviewer]
+- **Reuse:** `classify` (as built: `classify({id, action, check}, ctx)` at `audit-rounds.js:72`) and `tally(handoff, ctx)` at `:94` — extended signatures, return shapes additive [read]
+- **Replaces:** the rule that made every `gap-unbuilt` a defect regardless of task (as built, deferred gaps return `'deferred'` at `:78` before the `gap-unbuilt` rule at `:82`); the `'other'` return for citation/consistency mismatches became `'note'` (`:83`) [read]
+- **Follow:** `decide` already takes counts; `cli` (`:229`) builds `ctx` from `input.deferred` and `input.index` at `:235`, and its `decide` case spreads `tally(input.handoff, ctx)` at `:238`. The 51 pre-change tests passed [ran]
+- **Careful:** `covered: false` items stay uncovered-only, checked in `tally` before classification (`:100`); do not let a deferred id bypass that. Keep the gap-before-check order (`:82` before the `mismatch` rule at `:83`) so a non-deferred `gap-unbuilt` under `citation` stays a defect. Other callers: `verify-command-surface.test.js:776-828` pins the `tally`/`record` wording by prefix — additive fields are safe [read by reviewer]
 
 ### FIX-002
 - **Touches:** `packages/core/workflows/audit-build.js`, `packages/core/workflows/audit-build.test.js`, `.claude/workflows/audit-build.js`
-- **Reuse:** the readout heading block in the reconcile prompt (`audit-build.js` ~656-675 as built, "FIXED THE CITATION ...") and `ACTIONS`/`CHECKS` at `:167-168` [read]
-- **Replaces:** "A citation that does not resolve anywhere ELSE in the TRD is reported, not fixed: this step edits no other section." and the opening's "you may correct the TRD's Could Not Verify section" (both removed; the widened opening is at ~:590-596); amends the verdict rule at ~:637-641 [read]
+- **Reuse:** the readout heading block in the reconcile prompt (`audit-build.js` ~661-680 as built, "FIXED THE CITATION ...") and `ACTIONS`/`CHECKS` at `:167-168` [read]
+- **Replaces:** "A citation that does not resolve anywhere ELSE in the TRD is reported, not fixed: this step edits no other section." and the opening's "you may correct the TRD's Could Not Verify section" (both removed; the widened opening is at ~:595-601); amends the verdict rule at ~:642-646 [read]
 - **Follow:** args are read from `a` (`a.report_only` at `:102`); `a.deferred` is read the same way at `:110`, defaulting to `[]`. Prompt fragments are built as consts (`PREV_COVERAGE`, `CHAIN_NOTE`) [read]
 - **Careful:** the reconcile stage is the Opus `technical-architect` stage; keep its schema unchanged (`applied` already lists what it changed)
 
 ### FIX-003
 - **Touches:** `packages/core/commands/audit-build.md`, `.claude/commands/audit-build.md`
-- **Reuse:** "After the workflow returns" section (`audit-build.md` ~252-385): the `tally`, `classify`, `record` and `decide` CLI examples; the workflow call at `:175`; the commit block at `:336-337`; the heading block at ~419-433, with the two new headings at `:427-429` [read]
+- **Reuse:** "After the workflow returns" section (`audit-build.md` ~276-409): the `tally`, `classify`, `record` and `decide` CLI examples; the workflow call at `:183`; the commit block at `:360-361`; the heading block at ~443-457, with the two new headings at `:451-453` [read]
 - **Follow:** `parseTrd` returns `deferred[]` with ids (`trd-parser.js:875-890`), as `/implement-trd` §4.1a already uses [read]
 - **Careful:** the readout rule "never NEXT `/audit-build` when `capReached`" stays; notes must not appear as ISSUES, which the owner reads as "who has to act"
 
 ## Could Not Verify
 
-Rewritten by `/audit-build` on 2026-10-22. The three tasks (FIX-001, FIX-002, FIX-003) were
-checked against the delivered code and tests and are not listed here; the three Jest suites
-named in their acceptance criteria pass (387 tests).
+Rewritten by `/audit-build` on 2026-10-23 (round 2, a re-audit). This round checked only
+whether round 1's defects were fixed and the files changed since `c8111f7` (the AMEND-001
+guard in `audit-rounds.js`, `audit-build.js`, `audit-build.md` and their tests). It took no
+fresh sample: FIX-001 to FIX-003 were checked against the code in round 1 and are not
+re-checked here. The three Jest suites named in the acceptance criteria pass at `5723bf8`
+(395 tests, was 387).
 
-- **No PRD exists for this change** (it was decided in session, 2026-10-21), so the audit could
-  not check the objectives against product requirements — only that the code does what this
+- **No PRD exists for this change** (it was decided in session, 2026-10-21), so neither round
+  could check the objectives against product requirements, only that the code does what this
   TRD says. Whether O1-O3 capture the owner's intent fully is unchecked.
 - **The pm-interface evidence behind O1 and O2 lives in another repository.** PMI-T003 and
   PMI-P002 are ids in forge-vnext's pm-interface TRD, which is not checked out here, so neither
   the evidence nor the reconstructed "before" shape (`{id:"PMI-T003", action:"gap-unbuilt"}`,
   rebuilt from round counts and report text, not a stored handoff) was checked.
 - **In-place TRD edits are made by a model.** The tests prove the prompt asks for them and
-  forbids requirement edits, not that every run obeys. This audit is the first live instance:
-  it corrected the stale line citations in all three Task Grounding blocks in place, touching no objective,
-  criterion or task requirement. One run is not a rate.
+  forbids requirement edits, not that every run obeys. Two live runs so far: both corrected
+  only line citations in the Task Grounding blocks (round 2 re-fixed lines that AMEND-001's
+  additions had moved) and touched no objective, criterion or task requirement. Two runs are
+  not a rate.
+- **The truncation guard (AMEND-001) is proven on fixtures only.** `trd-guard` restoring a TRD
+  truncated the way round 1 truncated this one is tested in `audit-rounds.test.js`; it has not
+  yet caught a real truncation in a live run, because none has happened since it shipped.
 - **Kind is declared `change`;** the reviewer noted O1 is closer to a defect (the parser's own
   intent is that deferrals are reported, not discovered as failures). A classification for the
   owner, not a delivery claim; not checked.
 - **The web-chat-parity "six stale line numbers" loop did not reproduce:** on 4.13.6 its round 2
   closed with zero defects, the citations carried as a caveat. Not re-run by this audit.
-- **This audit's own rewrite truncated the TRD, and was repaired by hand.** The reconcile agent
-  looked for the section by grepping "## Could Not Verify", matched a quote of that phrase inside
-  FIX-002's grounding, and replaced everything from there to the end of the file. The rest of
-  FIX-002's grounding, all of FIX-003's grounding and this heading were lost, then restored from
-  the previous commit with the agent's citation fixes kept. The quote no longer contains "##".
-  Nothing in the workflow checks that an edit leaves the other headings in place.

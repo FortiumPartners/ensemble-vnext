@@ -1,0 +1,12 @@
+{
+  "feature": "audit-notes-not-rounds",
+  "trd": "docs/TRD/audit-notes-not-rounds.md",
+  "closedAt": "2026-10-23T08:41:40Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; this was a re-audit limited to round 1's defects and the files changed since c8111f7, so FIX-001 to FIX-003 were not re-sampled; the truncation guard (AMEND-001) is proven on test fixtures only and has not yet caught a real truncation live; the forge-vnext evidence behind O1 and O2 (PMI-T003, PMI-P002) was not checked",
+    "report": ".trd-state/audit-notes-not-rounds/audit-build-report.md",
+    "auditedCommit": "5723bf8"
+  }
+}
