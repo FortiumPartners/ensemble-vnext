@@ -12,16 +12,43 @@ describe('classify', () => {
   test.each([
     [{ action: 'gap-unbuilt', check: 'traceability' }, 'defect'],
     [{ action: 'mismatch', check: 'verification' }, 'defect'],
-    [{ action: 'mismatch', check: 'citation' }, 'other'],
-    [{ action: 'mismatch', check: 'consistency' }, 'other'],
+    [{ action: 'mismatch', check: 'citation' }, 'note'],
+    [{ action: 'mismatch', check: 'consistency' }, 'note'],
     [{ action: 'gap-untested', check: 'traceability' }, 'test-gap'],
     [{ action: 'untested', check: 'test-quality' }, 'test-gap'],
     [{ action: 'mismatch', check: 'test-quality' }, 'test-gap'],
     [{ action: 'gap-unbuilt', check: 'test-quality' }, 'test-gap'],
-    [{ action: 'fix-citation', check: 'citation' }, 'other'],
+    [{ action: 'fix-citation', check: 'citation' }, 'note'],
+    [{ action: 'fix-citation', check: 'traceability' }, 'note'],
+    [{ action: 'gap-unbuilt', check: 'citation' }, 'defect'],
     [{ action: 'confirm-wanted', check: 'x' }, 'other'],
     [{ action: 'whatever' }, 'other'],
   ])('%j -> %s', (input, cls) => expect(A.classify(input)).toBe(cls));
+});
+
+describe('classify with deferrals', () => {
+  const item = (o) => ({ id: 'PMI-T003', action: 'gap-unbuilt', check: 'traceability', ...o });
+  const ctx = { deferred: ['PMI-T003'] };
+  test('gap actions on a deferred id are deferred', () => {
+    for (const action of ['gap-unbuilt', 'gap-untested', 'untested']) {
+      expect(A.classify(item({ action }), ctx)).toBe('deferred');
+    }
+  });
+  test('without deferred ids the same item is a defect', () => expect(A.classify(item())).toBe('defect'));
+  test('a mismatch on a deferred id stays a defect', () => expect(A.classify(item({ action: 'mismatch', check: 'verification' }), ctx)).toBe('defect'));
+  test('a requirement served only by deferred tasks is deferred (array index)', () => {
+    const index = { requirements: [{ id: 'R1', served_by: ['PMI-T003', 'PMI-T004'] }] };
+    expect(A.classify(item({ id: 'R1' }), { deferred: ['PMI-T003', 'PMI-T004'], index })).toBe('deferred');
+  });
+  test('a requirement served only by deferred tasks is deferred (keyed index)', () => {
+    const index = { requirements: { R1: { served_by: ['PMI-T003'] } } };
+    expect(A.classify(item({ id: 'R1' }), { deferred: ['PMI-T003'], index })).toBe('deferred');
+  });
+  test('a requirement with one non-deferred server, or none, is a defect', () => {
+    const mixed = { requirements: [{ id: 'R1', served_by: ['PMI-T003', 'T9'] }, { id: 'R2', served_by: [] }] };
+    expect(A.classify(item({ id: 'R1' }), { deferred: ['PMI-T003'], index: mixed })).toBe('defect');
+    expect(A.classify(item({ id: 'R2' }), { deferred: ['PMI-T003'], index: mixed })).toBe('defect');
+  });
 });
 
 describe('decide', () => {
@@ -99,6 +126,14 @@ describe('decide', () => {
   });
 });
 
+describe('decide with deferrals', () => {
+  test('a deferred-only handoff closes with no chain and no reaudit', () => {
+    const handoff = [{ id: 'PMI-T003', action: 'gap-unbuilt', check: 'traceability', covered: true }];
+    const counts = A.tally(handoff, { deferred: ['PMI-T003'] });
+    expect(A.decide({ rounds: rounds(1), verdict: 'proceed', ...counts })).toMatchObject({ close: true, chain: false, reaudit: false });
+  });
+});
+
 describe('tally', () => {
   test('uncovered items count only as uncovered, never as defects or test gaps', () => {
     expect(A.tally([
@@ -106,7 +141,32 @@ describe('tally', () => {
       { action: 'gap-unbuilt', check: 'traceability', covered: true },
       { action: 'gap-untested', check: 'traceability', covered: true },
       { action: 'fix-citation', check: 'citation', covered: true },
-    ])).toEqual({ defects: 1, testGaps: 1, uncovered: 1 });
+    ])).toEqual({ defects: 1, testGaps: 1, uncovered: 1, notes: 1, deferred: 0 });
+  });
+  test('notes and deferred never count as defects or test gaps', () => {
+    const handoff = [
+      { id: 'T3', action: 'gap-unbuilt', check: 'traceability', covered: true },
+      { id: 'T3', action: 'gap-untested', check: 'traceability', covered: true },
+      { action: 'fix-citation', check: 'citation', covered: true },
+      { action: 'mismatch', check: 'consistency', covered: true },
+    ];
+    expect(A.tally(handoff, { deferred: ['T3'] })).toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 2, deferred: 2 });
+  });
+  test('a fixed citation marked covered:false is a note, not uncovered', () => {
+    expect(A.tally([{ action: 'fix-citation', check: 'citation', covered: false }]))
+      .toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 1, deferred: 0 });
+  });
+  test('deferred accepts the parser {id, why} shape as well as bare ids', () => {
+    expect(A.classify({ id: 'T3', action: 'gap-unbuilt' }, { deferred: [{ id: 'T3', why: 'live' }] })).toBe('deferred');
+  });
+  test('test-quality does not override a deferral or a fixed citation', () => {
+    expect(A.classify({ id: 'T3', action: 'untested', check: 'test-quality' }, { deferred: ['T3'] })).toBe('deferred');
+    expect(A.classify({ action: 'fix-citation', check: 'test-quality' })).toBe('note');
+    expect(A.classify({ id: 'T4', action: 'untested', check: 'test-quality' }, { deferred: ['T3'] })).toBe('test-gap');
+  });
+  test('covered:false stays uncovered-only even for a deferred id', () => {
+    expect(A.tally([{ id: 'T3', action: 'gap-unbuilt', covered: false }], { deferred: ['T3'] }))
+      .toEqual({ defects: 0, testGaps: 0, uncovered: 1, notes: 0, deferred: 0 });
   });
   test('only uncovered items never chain', () => {
     const counts = A.tally([{ action: 'gap-unbuilt', check: 'traceability', covered: false }]);
@@ -173,6 +233,49 @@ describe('CLI', () => {
     const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), cmd], { input: JSON.stringify(input), encoding: 'utf8' });
     return { status: r.status, out: r.stdout ? JSON.parse(r.stdout) : null, err: r.stderr };
   };
+  describe('trd-snapshot / trd-guard', () => {
+    const ORIGINAL = [
+      '# TRD', '', '## Task Grounding', '', '### FIX-002',
+      '- Edits may land: you may correct the TRD\'s ## Could Not Verify section (cite :36)', '',
+      '### FIX-003', '- body', '', '## Could Not Verify', '- old row', ''].join('\n');
+    let d, trd;
+    beforeEach(() => {
+      d = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-rounds-guard-'));
+      trd = path.join(d, 'trd.md');
+      fs.writeFileSync(trd, ORIGINAL);
+    });
+    afterEach(() => fs.rmSync(d, { recursive: true, force: true }));
+    const snap = () => path.join(d, 'state', 'trd-before-audit.md');
+
+    test('snapshot reports the heading count and copies the file', () => {
+      expect(run('trd-snapshot', { trd, stateDir: path.join(d, 'state') }).out).toEqual({ ok: true, headings: 5 });
+      expect(fs.readFileSync(snap(), 'utf8')).toBe(ORIGINAL);
+    });
+    test('a mid-line quote truncation is caught and the TRD restored byte-for-byte', () => {
+      const stateDir = path.join(d, 'state');
+      run('trd-snapshot', { trd, stateDir });
+      const cut = ORIGINAL.slice(0, ORIGINAL.indexOf('## Could Not Verify section') + 3) + '\n- new row\n';
+      fs.writeFileSync(trd, cut);
+      const r = run('trd-guard', { trd, stateDir });
+      expect(r.status).toBe(0);
+      expect(r.out.ok).toBe(false);
+      expect(r.out.restored).toBe(true);
+      expect(r.out.missing).toEqual(expect.arrayContaining(['### FIX-003', '## Could Not Verify']));
+      expect(fs.readFileSync(trd, 'utf8')).toBe(ORIGINAL);
+      expect(fs.existsSync(snap())).toBe(false);
+    });
+    test('a citation-only edit is kept', () => {
+      const stateDir = path.join(d, 'state');
+      run('trd-snapshot', { trd, stateDir });
+      fs.writeFileSync(trd, ORIGINAL.replace(':36', ':69'));
+      expect(run('trd-guard', { trd, stateDir }).out).toEqual({ ok: true, checked: true });
+      expect(fs.readFileSync(trd, 'utf8')).toContain(':69');
+      expect(fs.existsSync(snap())).toBe(false);
+    });
+    test('no snapshot means nothing checked', () => {
+      expect(run('trd-guard', { trd, stateDir: path.join(d, 'state') }).out).toEqual({ ok: true, checked: false });
+    });
+  });
   test('classify', () => expect(run('classify', { action: 'gap-untested' }).out).toEqual({ class: 'test-gap' }));
   test('decide', () => expect(run('decide', { rounds: rounds(1), verdict: 'proceed', defects: 1 }).out.reaudit).toBe(true));
   test('stale-wake', () => expect(run('stale-wake', { rounds: rounds(1), runId: 'r1', head: 'x' }).out).toEqual({ stale: true }));
@@ -186,6 +289,23 @@ describe('CLI', () => {
   test('decide accepts the handoff and tallies it', () => {
     const handoff = [{ action: 'gap-unbuilt', check: 'traceability', covered: false }];
     expect(run('decide', { rounds: rounds(1), verdict: 'proceed', handoff }).out).toMatchObject({ chain: false, close: false });
+  });
+  test('classify passes deferred through', () => {
+    expect(run('classify', { id: 'T3', action: 'gap-unbuilt', deferred: ['T3'] }).out).toEqual({ class: 'deferred' });
+  });
+  test('classify passes index through', () => {
+    const index = { requirements: [{ id: 'R1', served_by: ['T3'] }] };
+    expect(run('classify', { id: 'R1', action: 'gap-unbuilt', deferred: ['T3'], index }).out).toEqual({ class: 'deferred' });
+  });
+  test('tally reports notes and deferred', () => {
+    const handoff = [{ id: 'T3', action: 'gap-unbuilt', covered: true }, { action: 'fix-citation', covered: true }];
+    expect(run('tally', { handoff, deferred: ['T3'] }).out).toEqual({ defects: 0, testGaps: 0, uncovered: 0, notes: 1, deferred: 1 });
+  });
+  test('decide closes when only deferred and notes remain, and reaudits without deferred', () => {
+    const handoff = [{ id: 'PMI-T003', action: 'gap-unbuilt', check: 'traceability', covered: true }];
+    expect(run('decide', { rounds: rounds(1), verdict: 'proceed', handoff, deferred: ['PMI-T003'] }).out)
+      .toMatchObject({ close: true, chain: false, reaudit: false });
+    expect(run('decide', { rounds: rounds(1), verdict: 'proceed', handoff }).out).toMatchObject({ reaudit: true });
   });
   test('stale-wake from stateDir ignores the close', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-rounds-cli-'));
@@ -213,5 +333,19 @@ describe('trdHash', () => {
     const t = '## Objectives\no\n```\n## Master Task List\n```\n## Master Task List\nm\n## CNV\nc';
     expect(A.trdHash(t)).not.toBe(A.trdHash(t.replace('\nm\n', '\nn\n')));
     expect(A.trdHash(t)).toBe(A.trdHash(t.replace(/c$/, 'd')));
+  });
+});
+
+describe('trdHeadings / missingHeadings', () => {
+  test('a heading only inside a fenced example is not counted or reported missing', () => {
+    const before = '# A\n\n```\n## Example\n```\n';
+    expect(A.trdHeadings(before)).toEqual(['# A']);
+    expect(A.missingHeadings(before, '# A\n')).toEqual([]);
+  });
+  test('a duplicate heading reduced from two to one is reported missing once', () => {
+    expect(A.missingHeadings('## X\n## X\n', '## X\n')).toEqual(['## X']);
+  });
+  test('a mid-line mention is not a heading', () => {
+    expect(A.trdHeadings('see the ## Could Not Verify section\n')).toEqual([]);
   });
 });

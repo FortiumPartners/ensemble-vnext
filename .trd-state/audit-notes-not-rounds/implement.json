@@ -1,0 +1,127 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/audit-notes-not-rounds.md",
+  "trd_hash": "2a72fa2d05649283403f31bfa356b067fc040d13026cf01483ddf5b5df149356",
+  "branch": "feature/audit-notes-not-rounds/impl",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "audit-rounds.js: add classes note and deferred (rules in Intended Change); classify, tally and decide take deferred ids and an optional index; tally returns notes and deferred counts; the CLI passes deferred and index through its classify, tally and decide cases. Tests in audit-rounds.test.js. Mirror to .claude/lib/",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/audit-rounds.js",
+        "packages/core/lib/audit-rounds.test.js",
+        ".claude/lib/audit-rounds.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-22T05:15:16.756Z",
+      "completed_at": "2026-10-22T05:18:31.229Z",
+      "last_advanced": "2026-10-22T05:16:57.497Z"
+    },
+    "FIX-002": {
+      "description": "audit-build.js reconcile stage: accept args.deferred ([{id, why}], the parser's shape); widen FIXED THE CITATION from Could Not Verify to the whole TRD (descriptive text only), in both the prompt's opening and its heading block; each fixed item goes back in handoff as action: \"fix-citation\"; add heading PLANNED, NOT BUILT YET, handoff id = the deferred task's id; add a deferred exception to the \"choose do not proceed when a MISSING IMPLEMENTATION…\" rule; never edit what an objective, criterion or task requires. Tests in audit-build.test.js. Mirror to .claude/workflows/",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-build.js",
+        "packages/core/workflows/audit-build.test.js",
+        ".claude/workflows/audit-build.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-22T05:15:16.756Z",
+      "completed_at": "2026-10-22T05:18:31.230Z",
+      "last_advanced": "2026-10-22T05:16:57.498Z"
+    },
+    "FIX-003": {
+      "description": "/audit-build command: read parseTrd().deferred; pass the list to the workflow and pass the ids plus the returned index to step 1's tally, step 2's decide, and step 3's per-item classify; record notes and deferred in the round line; list notes and deferrals in STATE, never ISSUES, and never as a reason for NEXT /audit-build; reword step 3's \"an other item — a citation to fix…\"; mirror the heading-block change at ~403-405; add the TRD path to the audit commit's git add and pathspec. Mirror to .claude/commands/",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-22T05:15:16.756Z",
+      "completed_at": "2026-10-22T05:18:31.230Z",
+      "last_advanced": "2026-10-22T05:16:57.498Z"
+    },
+    "AMEND-001": {
+      "status": "success",
+      "cycle_position": "implement",
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/audit-rounds.js",
+        ".claude/lib/audit-rounds.js",
+        "packages/core/lib/audit-rounds.test.js",
+        "packages/core/workflows/audit-build.js",
+        ".claude/workflows/audit-build.js",
+        "packages/core/workflows/audit-build.test.js",
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "docs/TRD/audit-notes-not-rounds.md"
+      ],
+      "files_deleted": [],
+      "current_problem": null,
+      "completed_at": "2026-10-23T05:23:51.679Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "db16104",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-22T05:19:33.235Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "db16104",
+    "last_checkpoint_timestamp": "2026-10-22T05:19:33.235Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/audit-notes-not-rounds.md § Intended Change",
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "template row, no URL declared"
+      },
+      "local": {
+        "status": "unusable",
+        "reason": "template row; this plugin repo has no dev server on :3000"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "template row, no URL declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "read-only template row, no URL"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized; Artifact tool available"
+      }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+{"round":1,"runId":"wf_05b10a26-22c","auditedCommit":"c8111f7","trdHash":"9fa23a1b5f419a47bdd008636a0b1ed1f21d5ecb675737e4334013f6ede93846","verdict":"do not proceed","defects":0,"testGaps":0,"uncovered":1,"notes":9,"deferred":0,"ts":"2026-10-23T05:18:07Z"}
+{"round":2,"runId":"wf_3339b6a3-47d","auditedCommit":"5723bf8","trdHash":"8c204fd92503b94e7582178a4dc3d688237b2f59f1484b1a41dfd47992d42004","verdict":"proceed with these caveats","defects":0,"testGaps":0,"uncovered":0,"notes":3,"deferred":0,"ts":"2026-10-23T08:41:25Z"}

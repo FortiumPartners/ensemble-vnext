@@ -13,13 +13,20 @@
  * decides), so "re-audits used" = rounds.length - 1.
  *
  * CLI (JSON in on stdin or as argv[3], JSON out):
- *   tally       {handoff}  -> {defects, testGaps, uncovered}
- *   decide      {stateDir?|rounds, verdict, defects, testGaps, uncovered, reportOnly}
- *               (or {..., handoff} in place of the three counts)
- *   classify    {action, check}
+ *   tally       {handoff, deferred?, index?} -> {defects, testGaps, uncovered, notes, deferred}
+ *   decide      {stateDir?|rounds, verdict, defects, testGaps, uncovered, reportOnly,
+ *               deferred?, index?} (or {..., handoff, deferred?, index?} in place of the
+ *               counts; notes and deferred items never count, so only they remaining closes).
+ *               With counts, deferred and index are accepted and ignored: the counts already
+ *               came from tally, which applied them. With a handoff they go to tally.
+ *   classify    {id?, action, check, deferred?, index?} -> {class: defect|test-gap|note|deferred|other}
+ *               deferred: task ids; index: {requirements: [{id, served_by}]} (or keyed by id)
  *   stale-wake  {stateDir?|rounds, runId}
  *   record      {stateDir, round}
  *   trd-hash    {trd}      -> {trdHash}
+ *   trd-snapshot {trd, stateDir} -> {ok, headings}; copies the TRD to <stateDir>/trd-before-audit.md
+ *   trd-guard    {trd, stateDir} -> {ok:true, checked} or {ok:false, missing, restored:true};
+ *               restores the TRD from the snapshot when the audit's edit deleted a heading
  */
 const fs = require('fs');
 const path = require('path');
@@ -30,15 +37,50 @@ const LEDGER = 'audit-rounds.jsonl';
 const MAX_REAUDITS = 2;
 
 /**
- * Class of a finding, a pure function of what the verifier said.
- * @returns {'defect'|'test-gap'|'other'}
+ * The task ids that serve requirement `id` in `index.requirements`, or null when the index does
+ * not list it. Accepts an array of {id, served_by} or an object keyed by requirement id.
  */
-function classify({ action, check } = {}) {
+function servedBy(index, id) {
+  const reqs = index && index.requirements;
+  if (!reqs || id === undefined) return null;
+  const req = Array.isArray(reqs) ? reqs.find((r) => r && r.id === id) : reqs[id];
+  return req && Array.isArray(req.served_by) ? req.served_by : null;
+}
+
+/**
+ * True when the item's id is a deferred task, or a requirement served ONLY by deferred tasks.
+ * `deferred` may be bare ids or the parser's {id, why} entries: the command passes the same list
+ * to the workflow and here, and a Set of objects would match nothing, silently.
+ */
+function isDeferredId(id, { deferred = [], index } = {}) {
+  const ids = (Array.isArray(deferred) ? deferred : []).map((d) => (d && typeof d === 'object' ? d.id : d));
+  const set = new Set(ids.filter((d) => typeof d === 'string' && d));
+  if (id === undefined || !set.size) return false;
+  if (set.has(id)) return true;
+  const servers = servedBy(index, id);
+  return Boolean(servers && servers.length > 0 && servers.every((t) => set.has(t)));
+}
+
+/**
+ * Class of a finding, a pure function of what the verifier said and which tasks are deferred.
+ * A deferred task is "not built yet" by design, so only the GAP actions on it are reclassified;
+ * a mismatch on a deferred id is code that exists and is wrong, so it stays a defect.
+ * @param {{id?:string, action?:string, check?:string}} item
+ * @param {{deferred?:string[], index?:object}} [ctx]
+ * @returns {'defect'|'test-gap'|'note'|'deferred'|'other'}
+ */
+function classify({ id, action, check } = {}, ctx = {}) {
+  // A citation already fixed in place, or a gap on a task deferred by design, is not work for
+  // the fix run whatever check reported it -- test-quality included, or a deferred task (which
+  // has no tests by design) would be chained to the fix run as a test gap.
+  if (action === 'fix-citation') return 'note';
+  const gap = action === 'gap-unbuilt' || action === 'gap-untested' || action === 'untested';
+  if (gap && isDeferredId(id, ctx)) return 'deferred';
   // Tests are not the product: a test-quality finding is a test gap whatever its action. A weak
   // test that masks a real defect is reported by its own check (verification/traceability).
   if (check === 'test-quality') return 'test-gap';
   if (action === 'gap-unbuilt') return 'defect';
-  if (action === 'mismatch' && check !== 'citation' && check !== 'consistency') return 'defect';
+  if (action === 'mismatch') return check === 'citation' || check === 'consistency' ? 'note' : 'defect';
   if (action === 'gap-untested' || action === 'untested') return 'test-gap';
   return 'other';
 }
@@ -46,16 +88,21 @@ function classify({ action, check } = {}) {
 /**
  * Count a reconcile handoff. Uncovered items (no covering task) stop for design and are never
  * handed to the fix run, so they count ONLY as uncovered -- never as defects or test gaps, or
- * a run with nothing but uncovered items would chain an empty fix run.
+ * a run with nothing but uncovered items would chain an empty fix run. Notes and deferred items
+ * are counted for the report but never toward defects/testGaps, so decide() can close on them.
  */
-function tally(handoff = []) {
-  const out = { defects: 0, testGaps: 0, uncovered: 0 };
+function tally(handoff = [], ctx = {}) {
+  const out = { defects: 0, testGaps: 0, uncovered: 0, notes: 0, deferred: 0 };
   for (const item of Array.isArray(handoff) ? handoff : []) {
     if (!item) continue;
-    if (item.covered === false) { out.uncovered += 1; continue; }
-    const cls = classify(item);
+    // A fixed citation is already done: no task covers a descriptive sentence, so the agent may
+    // well mark it covered:false, and counting it uncovered would hold the feature open forever.
+    if (item.covered === false && item.action !== 'fix-citation') { out.uncovered += 1; continue; }
+    const cls = classify(item, ctx);
     if (cls === 'defect') out.defects += 1;
     else if (cls === 'test-gap') out.testGaps += 1;
+    else if (cls === 'note') out.notes += 1;
+    else if (cls === 'deferred') out.deferred += 1;
   }
   return out;
 }
@@ -108,6 +155,8 @@ function isDoNotProceed(verdict) {
   return String(verdict || '').replace(/^\s*VERDICT:\s*/i, '').trim().toLowerCase().startsWith('do not proceed');
 }
 
+// deferred/index may be passed (audit-build.md passes them on every call); decide ignores them
+// because its counts come from tally, which already applied both.
 function decide({ rounds = [], verdict, defects = 0, testGaps = 0, uncovered = 0, reportOnly = false } = {}) {
   const out = { chain: false, reaudit: false, close: false, capReached: false, caveats: [] };
   if (reportOnly) return out;
@@ -153,29 +202,69 @@ function trdHash(text) {
   return crypto.createHash('sha256').update(body).digest('hex');
 }
 
+/**
+ * The heading lines of a TRD, trimmed, in order. A heading inside a fenced block is an example,
+ * not structure, so fenced lines are masked first.
+ */
+function trdHeadings(text) {
+  const lines = normalizeLineEndings(String(text || '')).split('\n');
+  const masked = maskFencedLines(lines);
+  return lines.filter((_, i) => /^#{1,6}\s+\S/.test(masked[i])).map((l) => l.trim());
+}
+
+/** Headings in `before` with no matching line in `after`; multiset-aware (two before, one after: one missing). */
+function missingHeadings(before, after) {
+  const left = new Map();
+  for (const h of trdHeadings(after)) left.set(h, (left.get(h) || 0) + 1);
+  const missing = [];
+  for (const h of trdHeadings(before)) {
+    if (left.get(h) > 0) left.set(h, left.get(h) - 1);
+    else missing.push(h);
+  }
+  return missing;
+}
+
+const SNAPSHOT = 'trd-before-audit.md';
+
 function cli(argv) {
   const [cmd, arg] = argv;
   let input = {};
   const raw = arg !== undefined ? arg : fs.readFileSync(0, 'utf8');
   if (raw && raw.trim()) input = JSON.parse(raw);
   const ledger = (opts) => input.rounds || (input.stateDir ? readRounds(input.stateDir, opts) : []);
+  const ctx = { deferred: input.deferred, index: input.index };
   switch (cmd) {
-    case 'tally': return tally(input.handoff);
-    case 'decide': return decide({ ...input, ...(input.handoff ? tally(input.handoff) : {}), rounds: ledger() });
-    case 'classify': return { class: classify(input) };
+    case 'tally': return tally(input.handoff, ctx);
+    case 'decide': return decide({ ...input, ...(input.handoff ? tally(input.handoff, ctx) : {}), rounds: ledger() });
+    case 'classify': return { class: classify(input, ctx) };
     case 'stale-wake': return { stale: staleWake({ ...input, rounds: ledger({ all: true }) }) };
     case 'trd-hash':
       if (!input.trd) throw new Error('trd-hash needs trd (a path)');
       return { trdHash: trdHash(fs.readFileSync(input.trd, 'utf8')) };
+    case 'trd-snapshot':
+      if (!input.trd || !input.stateDir) throw new Error('trd-snapshot needs trd and stateDir');
+      fs.mkdirSync(input.stateDir, { recursive: true });
+      fs.copyFileSync(input.trd, path.join(input.stateDir, SNAPSHOT));
+      return { ok: true, headings: trdHeadings(fs.readFileSync(input.trd, 'utf8')).length };
+    case 'trd-guard': {
+      if (!input.trd || !input.stateDir) throw new Error('trd-guard needs trd and stateDir');
+      const snap = path.join(input.stateDir, SNAPSHOT);
+      if (!fs.existsSync(snap)) return { ok: true, checked: false };
+      const before = fs.readFileSync(snap);
+      const missing = missingHeadings(before.toString('utf8'), fs.readFileSync(input.trd, 'utf8'));
+      if (missing.length) fs.writeFileSync(input.trd, before); // byte-identical restore
+      fs.unlinkSync(snap);
+      return missing.length ? { ok: false, missing, restored: true } : { ok: true, checked: true };
+    }
     case 'record':
       if (!input.stateDir || !input.round) throw new Error('record needs stateDir and round');
       record(input.stateDir, input.round);
       return { ok: true };
-    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash [json]');
+    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash|trd-snapshot|trd-guard [json]');
   }
 }
 
-module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake, trdHash };
+module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake, trdHash, trdHeadings, missingHeadings };
 
 if (require.main === module) {
   try {

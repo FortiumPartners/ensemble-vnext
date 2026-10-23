@@ -171,8 +171,16 @@ reason, new coverage gaps are added.
 
 ## Execution: the workflow is the orchestrator
 
+**Snapshot the TRD first, on every run including `--report-only`.** The reconcile step edits the
+TRD in place, and an edit that removes a heading destroys content; the snapshot lets a
+deterministic check undo that:
+
 ```
-Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false>, trdHash: "<the trdHash, computed as below>", previous: <on a re-audit only: { reportPath, auditedCommit, index, trdHash }> } })
+node .claude/lib/audit-rounds.js trd-snapshot '{"trd":"<trd-path>","stateDir":".trd-state/<feature>"}'
+```
+
+```
+Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false>, trdHash: "<the trdHash, computed as below>", previous: <on a re-audit only: { reportPath, auditedCommit, index, trdHash }>, deferred: <the TRD's deferred list, read as below> } })
 ```
 
 **`trdHash` covers only the TRD's `## Objectives` and `## Master Task List` sections**, never the
@@ -190,6 +198,18 @@ node .claude/lib/audit-rounds.js trd-hash '{"trd":"<trd-path>"}'
 `--report-only` run and the printed readout announces a handoff that was suppressed — the
 false-completion signal the destination wording exists to remove.
 
+**`deferred`** is the TRD's deferred-by-design list, `[{id, why}]`: tasks the TRD itself says cannot
+complete in a normal run (`/implement-trd` §4.1a sets them aside the same way). Read it with
+the TRD parser. Pass the full list to the workflow and its ids to every `audit-rounds.js` call
+below (the lib also accepts the full `{id, why}` list):
+
+```
+node -e 'const {parseTrd}=require("./.claude/lib/trd-parser");console.log(JSON.stringify(parseTrd(require("fs").readFileSync(process.argv[1],"utf8")).deferred.map(d=>({id:d.id,why:d.why}))))' <trd-path>
+```
+
+The audit never builds, schedules or runs a deferred task; a gap only a deferred task covers is
+reported as PLANNED, NOT BUILT YET.
+
 The workflow returns a readout, plus `handoff` (the findings the fix run can act on) and `index`
 (the requirement list). Print the readout — **as written into the report (next section), not
 reworded.** Findings live in script variables and never enter this context, so a large finding
@@ -198,6 +218,22 @@ set costs nothing here.
 **If the workflow is unavailable**, fall back to running the verifiers as parallel subagents
 from this context and reconciling their findings yourself — the checks above are the
 contract, the workflow is only the execution vehicle.
+
+## Guarding the TRD edit
+
+**Right after the workflow returns, before writing the report**, run:
+
+```
+node .claude/lib/audit-rounds.js trd-guard '{"trd":"<trd-path>","stateDir":".trd-state/<feature>"}'
+```
+
+It compares the TRD's headings (fenced examples ignored) with the snapshot. When it prints
+`ok:false`, the audit's edit deleted a heading, which destroys content the audit must never hand
+on: the TRD has been restored to its pre-audit text (so this run's citation fixes are discarded
+too). Still write the report, with a first finding line naming the missing headings. Record no
+round, chain nothing, close nothing and do not commit the TRD. End with
+`═══ COMMAND STUCK: /audit-build ═══`, `Reason: the audit's TRD edit deleted <headings>; the TRD was restored`,
+`Next:   /audit-build <trd-path>` (and `notify-complete.sh` with "stuck"). On `ok:true` carry on.
 
 ## Writing the audit report (D1, D2, D12)
 
@@ -252,22 +288,25 @@ When it prints `{"stale":true}`, print one line (this audit run already recorded
 no workflow, no report, no banner.
 
 **1. Count.** Tally the whole `handoff` in one call:
-`node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>}'` returns
-`{ defects, testGaps, uncovered }`. An item with `covered: false` counts only as uncovered, never
-as a defect or test gap. (`classify '{"action":"<action>","check":"<check>"}'` gives one item's
-class — `defect`, `test-gap` or `other` — for step 3.)
+`node .claude/lib/audit-rounds.js tally '{"handoff":<the workflow's handoff array>,"deferred":[<the deferred ids>],"index":<the workflow's returned index>}'` returns
+`{ defects, testGaps, uncovered, notes, deferred }`. An item with `covered: false` counts only as
+uncovered, never as a defect or test gap. A citation fix is a `note`; a gap only a deferred task
+covers is `deferred`. Neither counts toward a defect or test gap. (`classify '{"action":"<action>","check":"<check>","id":"<id>","deferred":[<the deferred ids>],"index":<the workflow's returned index>}'` gives one
+item's class — `defect`, `test-gap`, `note`, `deferred` or `other` — for step 3.)
 
 **2. Record and decide.** Record the round (skipped on `--report-only`):
-`node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<the trdHash above>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"ts":"<ISO time>"}}'`,
+`node .claude/lib/audit-rounds.js record '{"stateDir":".trd-state/<feature>","round":{"round":<n>,"runId":"<run id>","auditedCommit":"<the report header's commit>","trdHash":"<the trdHash above>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"notes":<n>,"deferred":<n>,"ts":"<ISO time>"}}'`,
 then write the workflow's returned `index` to `.trd-state/<feature>/audit-index.json`
-(overwritten each round). Then run `node .claude/lib/audit-rounds.js decide '{"stateDir":".trd-state/<feature>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"reportOnly":false}'`;
+(overwritten each round). Then run `node .claude/lib/audit-rounds.js decide '{"stateDir":".trd-state/<feature>","verdict":"<verdict>","defects":<n>,"testGaps":<n>,"uncovered":<n>,"reportOnly":false,"deferred":[<the deferred ids>],"index":<the workflow's returned index>}'`;
 it returns `{ chain, reaudit, close, capReached, caveats }`. `round` is the number of ledger lines
 since the last close, counting this one. The cap is two re-audits after defects, so at most three
 audits (a first audit and two re-audits).
 
 **3. Chain the fix.** When `chain` is true, record each COVERED handoff item whose class is
-`defect` or `test-gap` as a discovery (an `other` item — a citation to fix, a question for the
-owner — is reported, never turned into a build task):
+`defect` or `test-gap` as a discovery, classifying each item with `classify` (passing the deferred
+ids and the `index`) so a deferred task never reaches the fix run. A `note` (a fixed citation), a
+`deferred` item or an `other` item (a question for the owner) is reported, never turned into a
+build task:
 `require("./.claude/lib/discovered").record(".trd-state/<feature>", { kind: "gap", foundBy: "audit-build", blocksFeature: true, phase: 1, summary: "[<class>] <item summary>", evidence: "<item evidence>" })`,
 then run `Skill({ skill: "implement-trd", args: "<trd-path> --reconcile --chained" })`. The fix
 run ends with a `[STATUS: /implement-trd] RETURN →` line; anything it reports as not built is a
@@ -300,6 +339,10 @@ taking `auditedCommit` and `trdHash` from the last ledger round and `index` from
 hashes match the workflow reuses the index. **A re-audit does not resample.** Every verifier checks
 only whether the previous round's defects are fixed and the files changed since that audited commit.
 
+**Notes and deferrals.** Notes and deferrals go in STATE, never ISSUES: ISSUES means "who has to
+act", and nobody does. List each note (what was corrected) and each deferral (the task and the
+TRD's reason) there, and they are never a reason for NEXT `/audit-build`.
+
 **Out-of-scope items.** The workflow also returns an `outOfScope` list: things a re-audit noticed
 beyond that scope. Record each as a non-blocking discovery, never a finding and never chained:
 `require("./.claude/lib/discovered").record(".trd-state/<feature>", { kind: "gap", foundBy: "audit-build", blocksFeature: false, phase: 1, summary: "[out-of-scope] <why>", evidence: "<evidence>" })`,
@@ -314,11 +357,12 @@ when it masks a real defect, and then it is reported as that defect by its own c
 the report, and the close record when one was written, in one commit and nothing else:
 
 ```bash
-git add .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
-git commit -m "docs(audit): audit-build report for <feature>" -- .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+git add <trd-path> .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
+git commit -m "docs(audit): audit-build report for <feature>" -- <trd-path> .trd-state/<feature>/audit-build-report.md .trd-state/<feature>/closed.json
 ```
 
-(Drop `closed.json` from both lines when the audit did not close the feature.) On a close, this commit comes after the chained fix run, so the fix run's own commits are already on the branch. The pathspec
+(Drop `closed.json` from both lines when the audit did not close the feature; drop the TRD when
+the audit fixed no citation in it, so the commit holds the TRD's in-place fixes and nothing else.) On a close, this commit comes after the chained fix run, so the fix run's own commits are already on the branch. The pathspec
 keeps the commit to those files whatever else is staged. **On the default branch, do not
 commit**: the owner decides what lands there, so NEXT tells them to commit the report and close
 record. A failed
@@ -404,9 +448,11 @@ VERDICT: <one of the three forms above>
   MISMATCH — built, but does something other than what was required. The task that produced
     it exists in the TRD, so this always chains to /implement-trd --reconcile.
   UNTESTED-IN-PRACTICE — a test exists but does not prove the requirement
-  FIXED THE CITATION — a referenced ID or path did not resolve AND the fix was inside this
-    run's own rewrite of the TRD's Could Not Verify section. A citation that does not resolve
-    anywhere else in the TRD is reported, not fixed: this step edits no other section.
+  PLANNED, NOT BUILT YET — a gap whose only covering task is deferred by the TRD. Names the
+    task and the TRD's reason. Not a defect; the audit does not build it.
+  FIXED THE CITATION — a referenced ID, path, line number or descriptive sentence anywhere in
+    the TRD was wrong and was corrected in place (descriptive text only; never what an
+    objective, acceptance criterion or task requires). A note, not a defect.
   REJECTED THESE FINDINGS — and the file that refutes each
   NO ACTION — implemented, tested, sourced
 ```

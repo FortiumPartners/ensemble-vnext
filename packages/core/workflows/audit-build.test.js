@@ -415,3 +415,63 @@ describe('audit-build: re-audit scope, masked defects, outOfScope', () => {
     verifierCalls(agent).forEach((c) => expect(c.prompt).toMatch(/This scope OVERRIDES any instruction above/));
   });
 });
+
+describe('audit-build: notes and deferrals in the reconcile prompt', () => {
+  const DEFERRED = [{ id: 'T-9', why: 'needs a live account, set aside by design' }];
+  const FINDING = { 'verify:traceability-audit': [{ id: 'AC-1', action: 'gap-unbuilt', check: 'traceability', summary: 's', evidence: 'e' }] };
+  const reconcilePrompt = async (args) => {
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX, FINDING));
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs(args) });
+    return agent.calls.find((c) => c.opts.label === 'reconcile').prompt;
+  };
+
+  it('renders each deferred id and its why, under PLANNED, NOT BUILT YET', async () => {
+    const p = await reconcilePrompt({ deferred: DEFERRED });
+    expect(p).toContain('T-9');
+    expect(p).toContain('needs a live account, set aside by design');
+    expect(p).toMatch(/PLANNED, NOT BUILT YET/);
+    expect(p).toMatch(/`id`\s+is\s+the\s+deferred\s+task's\s+id/);
+  });
+
+  it('renders no deferred block when none are passed', async () => {
+    const p = await reconcilePrompt({});
+    expect(p).not.toContain('T-9');
+  });
+
+  it('no longer restricts correction to Could Not Verify', async () => {
+    const p = await reconcilePrompt({});
+    expect(p).not.toMatch(/this step edits no other section/);
+    expect(p).not.toMatch(/you may correct the TRD's\s+## Could Not Verify section/);
+  });
+
+  it('finds Could Not Verify and Open Questions only by a heading at the start of a line', async () => {
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX, FINDING));
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs({}) });
+    const index = agent.calls.find((c) => c.opts.label === 'index').prompt;
+    const recon = agent.calls.find((c) => c.opts.label === 'reconcile').prompt;
+    for (const p of [index, recon]) {
+      expect(p).toMatch(/starts with one or more '#' then a space/);
+      expect(p).toMatch(/mid-line mention of the phrase is not the section/);
+    }
+    expect(index).not.toContain('headings CONTAINING');
+    expect(recon).not.toContain('for "## Could Not Verify"');
+    expect(recon).toMatch(/never delete or\s+rewrite any other heading/);
+  });
+
+  it('requires fix-citation for in-place fixes, over the whole TRD, descriptive text only', async () => {
+    const p = await reconcilePrompt({});
+    expect(p).toMatch(/action: "fix-citation"/);
+    expect(p).toMatch(/anywhere\s+in\s+the\s+TRD/);
+    expect(p).toMatch(/descriptive text/i);
+  });
+
+  it('names the deferred exception to the do-not-proceed rule', async () => {
+    const p = await reconcilePrompt({ deferred: DEFERRED });
+    expect(p).toMatch(/neither\s+is\s+a\s+reason\s+to\s+choose\s+"do\s+not\s+proceed"/);
+  });
+
+  it('forbids edits to what an objective, criterion or task requires', async () => {
+    const p = await reconcilePrompt({});
+    expect(p).toMatch(/never edit what an objective, acceptance criterion or task requires/i);
+  });
+});

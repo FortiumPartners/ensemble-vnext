@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/audit-notes-not-rounds.md",
+    "url": "https://claude.ai/artifact/AKHXkNySAgNuacsQEhneQS",
+    "updated_at": "2026-10-22T05:08:35.662Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/audit-notes-not-rounds/success-definition.md",
+    "url": "",
+    "updated_at": "2026-10-22T05:22:34.175Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/audit-notes-not-rounds/verification-report.md",
+    "url": "https://claude.ai/artifact/CAzR3RDYvkduRts4HkP88V",
+    "updated_at": "2026-10-22T05:31:32.516Z",
+    "command": "/implement-trd"
+  },
+  "audit-build": {
+    "path": ".trd-state/audit-notes-not-rounds/audit-build-report.md",
+    "url": "https://claude.ai/artifact/61KxaL4rbZPNxm23dCCmao",
+    "updated_at": "2026-10-23T05:18:36.188Z",
+    "command": "/audit-build"
+  }
+}
