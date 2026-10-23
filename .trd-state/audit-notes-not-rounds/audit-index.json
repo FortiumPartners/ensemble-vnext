@@ -1,0 +1,61 @@
+{
+ "requirements": [
+  {
+   "id": "O1",
+   "statement": "A gap on a task the TRD lists under '## Deferred by design' is recorded as a note ('planned, not built yet'), never counted as a defect or test gap, never chained to a fix run, and never the reason for another audit round. Must pass: yes.",
+   "source": "TRD Objectives table, row O1",
+   "served_by": [
+    "FIX-001",
+    "FIX-002",
+    "FIX-003"
+   ]
+  },
+  {
+   "id": "O2",
+   "statement": "A stale citation (wrong line number, path or id) or descriptive wording that the code contradicts, anywhere in the TRD, is fixed in place in the same audit run and recorded as a note; it is never counted, chained or re-audited. Must pass: yes.",
+   "source": "TRD Objectives table, row O2",
+   "served_by": [
+    "FIX-001",
+    "FIX-002",
+    "FIX-003"
+   ]
+  },
+  {
+   "id": "O3",
+   "statement": "Only a product defect (code that is missing or does something other than required, on a task that is not deferred) opens another round; the round cap, the 'do not proceed' rule and test-gap handling are unchanged otherwise. Must pass: not marked.",
+   "source": "TRD Objectives table, row O3",
+   "served_by": [
+    "FIX-001",
+    "FIX-003"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "FIX-001",
+   "description": "audit-rounds.js: add classes note and deferred; classify, tally and decide take deferred ids and an optional index; tally returns notes and deferred counts; CLI passes deferred and index through classify, tally and decide. Tests in audit-rounds.test.js. Mirror to .claude/lib/. Dependencies: none. Serves O1, O2, O3.",
+   "touches": [
+    "packages/core/lib/audit-rounds.js",
+    "packages/core/lib/audit-rounds.test.js",
+    ".claude/lib/audit-rounds.js"
+   ]
+  },
+  {
+   "id": "FIX-002",
+   "description": "audit-build.js reconcile stage: accept args.deferred ([{id, why}]); widen the FIXED THE CITATION rule from Could Not Verify to the whole TRD (descriptive text only); fixed items return as handoff action fix-citation; add PLANNED, NOT BUILT YET heading; add deferred exception to the do-not-proceed rule; forbid edits to requirements. Tests in audit-build.test.js. Mirror to .claude/workflows/. Dependencies: none. Serves O1, O2.",
+   "touches": [
+    "packages/core/workflows/audit-build.js",
+    "packages/core/workflows/audit-build.test.js",
+    ".claude/workflows/audit-build.js"
+   ]
+  },
+  {
+   "id": "FIX-003",
+   "description": "/audit-build command: read parseTrd().deferred and pass it to the workflow and to tally, decide and classify calls with the returned index; record notes and deferred in the round line; list notes and deferrals in STATE, never ISSUES or NEXT; reword step 3 citation wording; mirror heading-block change; add TRD path to audit commit git add. Mirror to .claude/commands/. Dependencies: FIX-001, FIX-002. Serves O1, O2, O3.",
+   "touches": [
+    "packages/core/commands/audit-build.md",
+    ".claude/commands/audit-build.md"
+   ]
+  }
+ ]
+}
