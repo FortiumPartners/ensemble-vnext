@@ -444,6 +444,20 @@ describe('audit-build: notes and deferrals in the reconcile prompt', () => {
     expect(p).not.toMatch(/you may correct the TRD's\s+## Could Not Verify section/);
   });
 
+  it('finds Could Not Verify and Open Questions only by a heading at the start of a line', async () => {
+    const agent = makeAgentStub(planWithIndex(NONEMPTY_INDEX, FINDING));
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs({}) });
+    const index = agent.calls.find((c) => c.opts.label === 'index').prompt;
+    const recon = agent.calls.find((c) => c.opts.label === 'reconcile').prompt;
+    for (const p of [index, recon]) {
+      expect(p).toMatch(/starts with one or more '#' then a space/);
+      expect(p).toMatch(/mid-line mention of the phrase is not the section/);
+    }
+    expect(index).not.toContain('headings CONTAINING');
+    expect(recon).not.toContain('for "## Could Not Verify"');
+    expect(recon).toMatch(/never delete or\s+rewrite any other heading/);
+  });
+
   it('requires fix-citation for in-place fixes, over the whole TRD, descriptive text only', async () => {
     const p = await reconcilePrompt({});
     expect(p).toMatch(/action: "fix-citation"/);

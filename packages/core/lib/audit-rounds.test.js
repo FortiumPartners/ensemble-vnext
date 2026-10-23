@@ -233,6 +233,49 @@ describe('CLI', () => {
     const r = spawnSync('node', [path.join(__dirname, 'audit-rounds.js'), cmd], { input: JSON.stringify(input), encoding: 'utf8' });
     return { status: r.status, out: r.stdout ? JSON.parse(r.stdout) : null, err: r.stderr };
   };
+  describe('trd-snapshot / trd-guard', () => {
+    const ORIGINAL = [
+      '# TRD', '', '## Task Grounding', '', '### FIX-002',
+      '- Edits may land: you may correct the TRD\'s ## Could Not Verify section (cite :36)', '',
+      '### FIX-003', '- body', '', '## Could Not Verify', '- old row', ''].join('\n');
+    let d, trd;
+    beforeEach(() => {
+      d = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-rounds-guard-'));
+      trd = path.join(d, 'trd.md');
+      fs.writeFileSync(trd, ORIGINAL);
+    });
+    afterEach(() => fs.rmSync(d, { recursive: true, force: true }));
+    const snap = () => path.join(d, 'state', 'trd-before-audit.md');
+
+    test('snapshot reports the heading count and copies the file', () => {
+      expect(run('trd-snapshot', { trd, stateDir: path.join(d, 'state') }).out).toEqual({ ok: true, headings: 5 });
+      expect(fs.readFileSync(snap(), 'utf8')).toBe(ORIGINAL);
+    });
+    test('a mid-line quote truncation is caught and the TRD restored byte-for-byte', () => {
+      const stateDir = path.join(d, 'state');
+      run('trd-snapshot', { trd, stateDir });
+      const cut = ORIGINAL.slice(0, ORIGINAL.indexOf('## Could Not Verify section') + 3) + '\n- new row\n';
+      fs.writeFileSync(trd, cut);
+      const r = run('trd-guard', { trd, stateDir });
+      expect(r.status).toBe(0);
+      expect(r.out.ok).toBe(false);
+      expect(r.out.restored).toBe(true);
+      expect(r.out.missing).toEqual(expect.arrayContaining(['### FIX-003', '## Could Not Verify']));
+      expect(fs.readFileSync(trd, 'utf8')).toBe(ORIGINAL);
+      expect(fs.existsSync(snap())).toBe(false);
+    });
+    test('a citation-only edit is kept', () => {
+      const stateDir = path.join(d, 'state');
+      run('trd-snapshot', { trd, stateDir });
+      fs.writeFileSync(trd, ORIGINAL.replace(':36', ':69'));
+      expect(run('trd-guard', { trd, stateDir }).out).toEqual({ ok: true, checked: true });
+      expect(fs.readFileSync(trd, 'utf8')).toContain(':69');
+      expect(fs.existsSync(snap())).toBe(false);
+    });
+    test('no snapshot means nothing checked', () => {
+      expect(run('trd-guard', { trd, stateDir: path.join(d, 'state') }).out).toEqual({ ok: true, checked: false });
+    });
+  });
   test('classify', () => expect(run('classify', { action: 'gap-untested' }).out).toEqual({ class: 'test-gap' }));
   test('decide', () => expect(run('decide', { rounds: rounds(1), verdict: 'proceed', defects: 1 }).out.reaudit).toBe(true));
   test('stale-wake', () => expect(run('stale-wake', { rounds: rounds(1), runId: 'r1', head: 'x' }).out).toEqual({ stale: true }));
@@ -290,5 +333,19 @@ describe('trdHash', () => {
     const t = '## Objectives\no\n```\n## Master Task List\n```\n## Master Task List\nm\n## CNV\nc';
     expect(A.trdHash(t)).not.toBe(A.trdHash(t.replace('\nm\n', '\nn\n')));
     expect(A.trdHash(t)).toBe(A.trdHash(t.replace(/c$/, 'd')));
+  });
+});
+
+describe('trdHeadings / missingHeadings', () => {
+  test('a heading only inside a fenced example is not counted or reported missing', () => {
+    const before = '# A\n\n```\n## Example\n```\n';
+    expect(A.trdHeadings(before)).toEqual(['# A']);
+    expect(A.missingHeadings(before, '# A\n')).toEqual([]);
+  });
+  test('a duplicate heading reduced from two to one is reported missing once', () => {
+    expect(A.missingHeadings('## X\n## X\n', '## X\n')).toEqual(['## X']);
+  });
+  test('a mid-line mention is not a heading', () => {
+    expect(A.trdHeadings('see the ## Could Not Verify section\n')).toEqual([]);
   });
 });

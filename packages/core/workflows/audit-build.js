@@ -305,9 +305,11 @@ From the TRD${PRD ? ' and the PRD' : ''}, capture every REQUIREMENT -- acceptanc
 functional requirements, NFRs, anything phrased as a measurable or checkable promise. For each,
 capture its ID, its statement, and which task(s) claim to serve it.
 
-MANDATORY -- grep the TRD for headings CONTAINING "Could Not Verify" and "Open Questions" --
-match loosely, authors number them into the document's own scheme. Capture EVERY row of each,
-verbatim. Both may be absent.
+MANDATORY -- find the "Could Not Verify" and "Open Questions" sections by grepping the TRD for
+a HEADING LINE: a line that starts with one or more '#' then a space (e.g. the regex
+^#+\\s.*Could Not Verify). Match the heading TEXT loosely -- authors number them into the
+document's own scheme. A mid-line mention of the phrase is not the section. Capture EVERY row
+of each, verbatim. Both may be absent.
 
 BATCH YOUR READS. Grep for tables and headings; do not read either document linearly.`,
   {
@@ -478,8 +480,11 @@ REWRITE THE ## Could Not Verify SECTION in ${TRD}. This is what makes the artifa
 own delivery state, and it is the reason audit-build exists as a separate command from
 audit-trd.
 
-READ THE SECTION FROM THE DOCUMENT YOURSELF -- grep ${TRD} for "## Could Not Verify" and read
-what is actually there. Do NOT rely on the index for this; the index is a cheap pass and can be
+READ THE SECTION FROM THE DOCUMENT YOURSELF -- find the section by grepping ${TRD} for a
+HEADING LINE that starts with one or more '#' then a space (e.g. the regex ^#+\\s.*Could Not
+Verify); a mid-line mention of the phrase is not the section. The section runs from that heading
+to the next heading of the same or higher level; replace only that span, and never delete or
+rewrite any other heading or the text under it. Read what is actually there. Do NOT rely on the index for this; the index is a cheap pass and can be
 wrong.
 
 For reference only, the index reported (which may be wrong, and may be empty):

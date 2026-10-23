@@ -24,6 +24,9 @@
  *   stale-wake  {stateDir?|rounds, runId}
  *   record      {stateDir, round}
  *   trd-hash    {trd}      -> {trdHash}
+ *   trd-snapshot {trd, stateDir} -> {ok, headings}; copies the TRD to <stateDir>/trd-before-audit.md
+ *   trd-guard    {trd, stateDir} -> {ok:true, checked} or {ok:false, missing, restored:true};
+ *               restores the TRD from the snapshot when the audit's edit deleted a heading
  */
 const fs = require('fs');
 const path = require('path');
@@ -199,6 +202,30 @@ function trdHash(text) {
   return crypto.createHash('sha256').update(body).digest('hex');
 }
 
+/**
+ * The heading lines of a TRD, trimmed, in order. A heading inside a fenced block is an example,
+ * not structure, so fenced lines are masked first.
+ */
+function trdHeadings(text) {
+  const lines = normalizeLineEndings(String(text || '')).split('\n');
+  const masked = maskFencedLines(lines);
+  return lines.filter((_, i) => /^#{1,6}\s+\S/.test(masked[i])).map((l) => l.trim());
+}
+
+/** Headings in `before` with no matching line in `after`; multiset-aware (two before, one after: one missing). */
+function missingHeadings(before, after) {
+  const left = new Map();
+  for (const h of trdHeadings(after)) left.set(h, (left.get(h) || 0) + 1);
+  const missing = [];
+  for (const h of trdHeadings(before)) {
+    if (left.get(h) > 0) left.set(h, left.get(h) - 1);
+    else missing.push(h);
+  }
+  return missing;
+}
+
+const SNAPSHOT = 'trd-before-audit.md';
+
 function cli(argv) {
   const [cmd, arg] = argv;
   let input = {};
@@ -214,15 +241,30 @@ function cli(argv) {
     case 'trd-hash':
       if (!input.trd) throw new Error('trd-hash needs trd (a path)');
       return { trdHash: trdHash(fs.readFileSync(input.trd, 'utf8')) };
+    case 'trd-snapshot':
+      if (!input.trd || !input.stateDir) throw new Error('trd-snapshot needs trd and stateDir');
+      fs.mkdirSync(input.stateDir, { recursive: true });
+      fs.copyFileSync(input.trd, path.join(input.stateDir, SNAPSHOT));
+      return { ok: true, headings: trdHeadings(fs.readFileSync(input.trd, 'utf8')).length };
+    case 'trd-guard': {
+      if (!input.trd || !input.stateDir) throw new Error('trd-guard needs trd and stateDir');
+      const snap = path.join(input.stateDir, SNAPSHOT);
+      if (!fs.existsSync(snap)) return { ok: true, checked: false };
+      const before = fs.readFileSync(snap);
+      const missing = missingHeadings(before.toString('utf8'), fs.readFileSync(input.trd, 'utf8'));
+      if (missing.length) fs.writeFileSync(input.trd, before); // byte-identical restore
+      fs.unlinkSync(snap);
+      return missing.length ? { ok: false, missing, restored: true } : { ok: true, checked: true };
+    }
     case 'record':
       if (!input.stateDir || !input.round) throw new Error('record needs stateDir and round');
       record(input.stateDir, input.round);
       return { ok: true };
-    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash [json]');
+    default: throw new Error('usage: audit-rounds.js tally|decide|classify|stale-wake|record|trd-hash|trd-snapshot|trd-guard [json]');
   }
 }
 
-module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake, trdHash };
+module.exports = { classify, tally, record, readRounds, decide, isDoNotProceed, staleWake, trdHash, trdHeadings, missingHeadings };
 
 if (require.main === module) {
   try {

@@ -171,6 +171,14 @@ reason, new coverage gaps are added.
 
 ## Execution: the workflow is the orchestrator
 
+**Snapshot the TRD first, on every run including `--report-only`.** The reconcile step edits the
+TRD in place, and an edit that removes a heading destroys content; the snapshot lets a
+deterministic check undo that:
+
+```
+node .claude/lib/audit-rounds.js trd-snapshot '{"trd":"<trd-path>","stateDir":".trd-state/<feature>"}'
+```
+
 ```
 Workflow({ name: "audit-build", args: { trd: "<path>", prd: "<source PRD path or empty>", project: "<dir or empty>", report_only: <true if --report-only was parsed, else false>, trdHash: "<the trdHash, computed as below>", previous: <on a re-audit only: { reportPath, auditedCommit, index, trdHash }>, deferred: <the TRD's deferred list, read as below> } })
 ```
@@ -210,6 +218,22 @@ set costs nothing here.
 **If the workflow is unavailable**, fall back to running the verifiers as parallel subagents
 from this context and reconciling their findings yourself — the checks above are the
 contract, the workflow is only the execution vehicle.
+
+## Guarding the TRD edit
+
+**Right after the workflow returns, before writing the report**, run:
+
+```
+node .claude/lib/audit-rounds.js trd-guard '{"trd":"<trd-path>","stateDir":".trd-state/<feature>"}'
+```
+
+It compares the TRD's headings (fenced examples ignored) with the snapshot. When it prints
+`ok:false`, the audit's edit deleted a heading, which destroys content the audit must never hand
+on: the TRD has been restored to its pre-audit text (so this run's citation fixes are discarded
+too). Still write the report, with a first finding line naming the missing headings. Record no
+round, chain nothing, close nothing and do not commit the TRD. End with
+`═══ COMMAND STUCK: /audit-build ═══`, `Reason: the audit's TRD edit deleted <headings>; the TRD was restored`,
+`Next:   /audit-build <trd-path>` (and `notify-complete.sh` with "stuck"). On `ok:true` carry on.
 
 ## Writing the audit report (D1, D2, D12)
 
