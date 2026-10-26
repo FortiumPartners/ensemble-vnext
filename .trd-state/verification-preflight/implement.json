@@ -205,6 +205,24 @@
         "status": "usable",
         "reason": "always authorized; the Artifact tool is available"
       }
+    },
+    "fix": {
+      "plan": ".trd-state/verification-preflight/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1,
+        "errors": []
+      },
+      "rounds": [
+        {
+          "round": 1,
+          "tasksPromoted": 0,
+          "criteriaClosed": 1,
+          "criteriaOpen": 0,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
     }
   }
 }
