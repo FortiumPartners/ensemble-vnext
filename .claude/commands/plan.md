@@ -578,6 +578,14 @@ Omitted: <skill> — <reason>
 
 None apply — <reason>
 
+## Verification Environment
+<!-- optional: delete this whole section when verification.md declares nothing for this work.
+     Absence is valid and is reported, never fatal. verification.md stays authoritative; fill
+     the three lines from its sections 1, 2 and 5 (trd-authoring.md Section 9b). -->
+**Environment**: <the verification.md section 1 environment the loop should exercise>
+**Refresh**: <the verification.md section 2 fast refresh for it, or none declared>
+**Cannot be checked there**: <what verification.md section 5 says that environment cannot show, or nothing known>
+
 ## Open Questions
 
 | ID | Question | What I assumed | Owner-only |
@@ -1080,9 +1088,18 @@ node -e '
      `/verify-build`, record the time.
    - After `/sweep`, read `.trd-state/<slug>-sweep/sweep-result.json` for `notSweepItems` and
      `overlap`.
-   - After `/verify-build`, read `.trd-state/<slug>-sweep/verification-state.json` **only if it
-     is newer than the time recorded before the step**; its `outcome` is `verificationOutcome`.
-     A state file that is not newer is no outcome: pass `null`. Only exactly `satisfied` passes.
+   - After `/verify-build`, take `verificationOutcome` from the outcome word on its
+     `[STATUS: /verify-build] RETURN →` line first. Failing that, read
+     `.trd-state/<slug>-sweep/verification-state.json` **only if it is newer than the time
+     recorded before the step**; its `outcome` is `verificationOutcome`. A state file that is
+     not newer is no outcome: pass `null`. Also set two booleans: `verifyEndedBySetup` is true
+     when the workflow return `/verify-build` received had `setup.problems` non-empty, and
+     `coverageShortByEnvironmentOnly` is true when, in that newer state file, every criterion
+     that is not `met` is `not_verifiable` with cause `environment-unreachable` or
+     `capability-absent`. Only exactly `satisfied` passes unflagged; three cases pass flagged instead of
+     stopping: `setup-failure`, `null` with `verifyEndedBySetup`, and `insufficient-coverage`
+     with `coverageShortByEnvironmentOnly`. That `verify` action carries a `flag`; keep it and
+     pass it back as `carriedFlag` on the `commit` call. Any other outcome stops.
    - **Changed files** are found by comparing content, not just status lines: run
      `git status --porcelain --untracked-files=all` again, and a path is changed when its
      status line is new or different, or its `git hash-object` differs from the recorded one.
@@ -1115,8 +1132,11 @@ node -e '
    (`git diff --cached --quiet -- <list>`), skip the commit and continue; an empty commit is
    never attempted.
 6. **`stop`.** Print the readout, then the returned `banner` and `bannerBody`, and run
-   `.claude/hooks/notify-complete.sh "plan" "<notifyStatus>" "<summary>"`.
-7. **`implement`.** Run the `implement` step's `Skill()` and emit nothing after it.
+   `.claude/hooks/notify-complete.sh "plan" "<notifyStatus>" "<summary>"`. A flag, whether
+   returned by the action or passed back as `carriedFlag`, goes in the readout's ISSUES.
+7. **`implement`.** Run the `implement` step's `Skill()` and emit nothing after it. When the
+   action carries a `flag`, append `--sweep-flag "<flag>"` to the args of that `Skill()` call, so
+   `/implement-trd` can show the owner that the swept fixes went in unverified.
 
 **`--implement` is the only thing that starts work, and it is honoured at every weight.**
 There is no weight at which the flag is refused; there is no weight at which it is implied.

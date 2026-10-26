@@ -947,3 +947,15 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 ## Exercising audit-notes-not-rounds, iteration 3 (2026-10-21)
 
 - [ran] Correction: the iteration-2 note that `audit-build.md:276` passes `deferred` but not `index` to `decide` is stale. As of this pass `.claude/commands/audit-build.md` (byte-identical to the packages/core copy) passes both `deferred` and `index` to `tally` (l.267), `classify` (l.270) and `decide` (l.276); the CLI accepts and ignores them for `decide` with counts and forwards them to `tally` with a handoff. Evidence is regenerated in `.trd-state/audit-notes-not-rounds/evidence/FS-16-recapture-iter3.txt` (the older FS-16-fix-run-input.txt quotes the pre-fix l.276).
+
+## Exercising verification-preflight (2026-10-25 run)
+
+- [ran] The preflight criteria (no AskUserQuestion at §3.6a / verify-build step 2, `needs-owner` record, setup check) are provable with no service: `npx jest packages/core/workflows/verify-functional.test.js packages/core/lib/functional-verification.test.js --verbose` (562 pass, ~19s) plus `node -e` calling `decideSetup` from `packages/core/lib/functional-verification.js` with `{head, checkout, facts:[...], refreshCommand, refreshCount, refreshExitCode, debugRefresh}`; `.claude/commands/{implement-trd,verify-build}.md` are byte-identical to `packages/core/commands/` (`diff -q`).
+- [ran] FS-8 (holder check) can be exercised with real listeners: start `node -e` http servers on two free ports, one with `cwd` outside the checkout (a throwaway `git init` dir) and one with `cwd` inside it; read each pid's cwd with `lsof -a -p <pid> -d cwd -Fn` and its toplevel with `git -C <cwd> rev-parse --show-toplevel`, then feed `decideSetup`. Outside reads `other-checkout` (setup-failure naming the dir), inside reads `this-checkout` (proceed). `decideSetup` checks listening PORTS only; it has no code path for a non-port "declared resource".
+- [read] `renderReport` for `setup-failure` prints `**Outcome**: Setup Failure`; the "environment, not the code" wording comes from the caller-supplied Reason and the Next line (`fix the environment named above`), not from fixed renderer text.
+
+## Exercising verification-preflight FS-8, re-run (2026-10-25)
+
+- [ran] An earlier FS-8 capture (`exerciser1-fs8-listener-fixture.txt`, 19:33) predated HEAD's commit time (19:56) and would fail the tier-1 freshness gate; re-ran the same listener fixture into `exerciser2-fs8-listener-fixture.txt`. Check `git log -1 --format=%cI` against the artifact mtime before reusing a prior capture.
+- [ran] The fixture also covers the R1 resource-without-port half: `holderCheck: 'not-applicable'` reads holder `not-applicable` and `'unavailable'` reads `unknown` (a flag), both `proceed`, never `this-checkout`. A scratch script outside the repo (the session scratchpad) keeps the capture free of source edits.
+- [ran] `/tmp/x` on this machine is a directory; redirect captures to the scratchpad, not `/tmp/<short name>`.

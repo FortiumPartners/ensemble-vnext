@@ -627,6 +627,22 @@ Omitted: verify-data-fidelity — [reason]
 None apply — [one reason covering every check]
 ```
 
+### Section 9b: Verification Environment
+
+**Optional. Absence is valid.** Placed after Section 9a and before `## 9. Task Grounding`. Three
+bold lines naming the `verification.md` environment the loop should exercise, its fast refresh
+from section 2 (or `none declared`), and what section 5 says cannot be checked there (or
+`nothing known`). `verification.md` stays authoritative. The full rule is Section 9b of
+`packages/core/contracts/trd-authoring.md`.
+
+```markdown
+## Verification Environment
+
+**Environment**: [name from verification.md section 1]
+**Refresh**: [fast refresh from section 2, or none declared]
+**Cannot be checked there**: [section 5 items, or nothing known]
+```
+
 ### Section 10: Task Grounding
 
 > **Not written by the authoring stage.** A dedicated grounding pass emits this section

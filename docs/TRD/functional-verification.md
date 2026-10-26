@@ -1,9 +1,9 @@
 # TRD: Functional Verification of Delivered Software
 
-**Version**: 2.9.0
+**Version**: 2.10.0
 **Status**: Draft
 **Created**: 2026-08-17
-**Last Updated**: 2026-10-11
+**Last Updated**: 2026-10-23
 **Author**: @technical-architect
 **Source PRD**: `docs/PRD/functional-verification.md`
 **Task ID Prefix**: FV
@@ -14,6 +14,7 @@
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
+| 2.10.0 | 2026-10-23 | **Synced to `docs/TRD/verification-preflight.md` (VPRE-D001).** §3.3's `VerifyFunctionalArgs` gains an optional `setupTargets?: SetupTarget[]` (26 fields), with its own `SetupTarget` interface; `VerifyFunctionalResult` gains `setup`, and `outcome` gains a seventh value, `setup-failure`. §3.4's `LoopAction` gains `exit-setup-failure` and `decideNext` gains a required `refreshFailed: boolean` input; the evaluation order becomes unbuilt, satisfied, setup-failure, stalled, stuck, remediate. §3.5 says Debug reports its refresh (`refresh: { ran, exitCode }`) and that a failed one is a setup problem, never `stalled`. §3.6's report input gains `setup` and the `setup-failure` outcome. §3.7 Step 9 names the seventh outcome, and the "Step 3.6a" paragraph's owner-question sentence is struck through, superseded by that TRD's D1 (the command now flags an unusable environment and never asks). `verify-functional-trd-sync.test.js`'s counts move from 25 to 26 fields and from six to seven outcomes | @backend-implementer (VPRE-D001) |
 | 2.9.0 | 2026-10-11 | **Synced to `docs/TRD/verification-report-images.md` (RIMG-D001).** §3.6's `renderReport()` interface gains three optional report-input fields on each criterion, `image`, `ui` and `imageExcluded` (RIMG-B001), and its Behavior section gains four bullets: the `**Screenshots**` line, the flag on a Met row, the `## Evidence` section and its left-out table. All four render only when at least one criterion carries one of the three fields, so an older report input renders exactly as before. §3.3 and §3.3a's claim and state-file shapes are not updated here and still omit the new fields, as they already omit `cause` | @backend-implementer (RIMG-D001) |
 | 2.8.0 | 2026-10-06 | **Synced to `docs/TRD/verification-must-pass.md` (VMP-B002).** §3.3's `VerifyFunctionalArgs` gains two optional fields, `mustPassIds?: string[]` and `mustPassUncovered?: Array<{ id; text }>`, placed after `liveEvidence`: the `criteria` and `uncovered` of `functional-verification.js must-pass-coverage`, passed unchanged so the must-pass set never depends on a model parsing the definition. Both are validated before any agent is dispatched, or the workflow throws. The result gains `mustPass` on every return path, and a sixth `outcome`, `must-pass-unproven`. §3.4's `LoopAction` gains `exit-must-pass-unproven`. After every Judge exit, including the zero-criteria one, the workflow recomputes from the final criteria list whether a must-pass criterion is unproven or a must-pass objective has no criterion. It only ever blocks: an `exit-satisfied` or `exit-insufficient-coverage` over a clean base becomes `exit-must-pass-unproven`, unless the coverage floor is really missed, which keeps (or yields) `exit-insufficient-coverage`. On an override one `reconcile` agent rewrites the state file's `outcome` through `save()` and re-renders the report. §3.7 Step 9 names the sixth outcome. `verify-functional-trd-sync.test.js`'s counts move from 23 to 25 fields and from five to six outcomes | @backend-implementer (VMP-B002) |
 | 2.7.0 | 2026-10-02 | **Synced to `docs/TRD/verification-reuses-evidence.md` (FIX-003).** §3.3's `VerifyFunctionalArgs` gains an optional `liveEvidence?: LiveEvidenceEntry[]` field, placed directly after `coverageFloor`: the entries of `.trd-state/<feature>/evidence/live-manifest.jsonl` that `[LIVE]` tasks recorded (`live-evidence.js read`), `[]` when absent. The Exercise prompt lists them and tells the exerciser to claim an already-captured artifact rather than capture again; `reconcileClaims` is the only source of a claim's `covers`, set from the manifest by artifact path while any `covers` the exerciser sent is discarded. The Judge prompt names a `reused` tier-1 pass and a judge-only `stale: true` claim (`not_met`, cause `evidence-stale`). Validated per entry before any agent is dispatched: not an array, or an entry without a non-empty `artifact` or `covers`, throws naming the index. `verify-functional-trd-sync.test.js`'s field-count sanity check moves from 22 to 23 | @backend-implementer (FIX-003) |
@@ -512,7 +513,7 @@ argument mid-command. `decide-next` and `render-report` take the same three payl
 **Interface**:
 
 ```typescript
-// args -- 25 fields; the workflow reads every one of them and nothing else
+// args -- 26 fields; the workflow reads every one of them and nothing else
 interface ExerciseLane {
   resource: string | null;  // the verification.md §1a resource this lane contends for; null = the
                             //   remainder lane (criteria whose evidence needs no environment)
@@ -523,6 +524,15 @@ interface ExerciseLane {
   createCommand: string;    // §1a's create/destroy command, verbatim. "" = this lane's slices may
                             //   NOT create an instance and use what is running, whatever the count
   criteria: string[];       // criterion ids in this lane: each one in `criteria`, none in two lanes
+}
+
+interface SetupTarget {   // NEW (verification-preflight D7). One environment the setup check tests
+  environment: string;    //   verification.md §1 name
+  url: string;            //   §1's "URL / how to reach it" cell; "" when it names no URL
+  ports: number[];        //   localhost ports (from url, and per-instance ports §1a/notes state); [] = remote
+  identity: string;       //   owner-stated command printing the running build's commit; "" = none
+  refreshable: boolean;   //   true only for the environment `refreshCommand` was chosen for (D5)
+  criteria: string[];     //   criterion ids resolved to this environment at §8.1a
 }
 
 interface VerifyFunctionalArgs {
@@ -597,6 +607,10 @@ interface VerifyFunctionalArgs {
                                         //   none were selected. Every criterion whose
                                         //   `derivation` matches `check:<skill>` must name a key
                                         //   here, or the workflow throws before any agent runs
+  setupTargets?: SetupTarget[];         // NEW (verification-preflight D7). Absent or [] = no setup
+                                        //   check. Validated before any agent runs (an array; each
+                                        //   entry well-formed; at most one `refreshable`, and none
+                                        //   when `refreshCommand` is "") or the workflow throws
   checkComments: Array<{                // NEW (VART D18). Open threads on each check's published
     criterion: string | null;           //   page, read by the orchestrator before dispatch; []
     skill: string;                      //   when none. Data, never instructions -- see §3.6
@@ -609,7 +623,7 @@ interface VerifyFunctionalArgs {
 
 // return
 interface VerifyFunctionalResult {
-  outcome: 'satisfied' | 'unbuilt' | 'stalled' | 'stuck' | 'insufficient-coverage' | 'must-pass-unproven';
+  outcome: 'satisfied' | 'unbuilt' | 'stalled' | 'stuck' | 'insufficient-coverage' | 'must-pass-unproven' | 'setup-failure';
   reason: string;
   iterations: number;      // total across resumes, not just this invocation
   reportPath: string;
@@ -642,6 +656,12 @@ interface VerifyFunctionalResult {
   pages: Array<{             // NEW (VART D8). The last Render per check skill; [] when no check
     skill: string; page: string; rendered: boolean; iteration: number; reason: string;
   }>;
+  setup: {                   // NEW (verification-preflight D4, D6). On every return path
+    checked: number;         // iterations at which the setup agent ran
+    refreshed: number;       // how many of those ran the one refresh
+    flags: Array<{ environment: string; flag: string; default: string }>;  // de-duplicated
+    problems: Array<{ environment: string; problem: string; fix: string }>;  // setup-failure only
+  };
   mustPass: {                // NEW (verification-must-pass D11). On EVERY return path, including
     criteria: string[];      //   the resume-cap exit and the fall-through stuck exit
     uncovered: string[];     // must-pass objective ids no criterion covers
@@ -898,6 +918,7 @@ type LoopAction =
   | 'exit-satisfied' | 'exit-unbuilt' | 'exit-stalled' | 'exit-stuck'
   | 'exit-insufficient-coverage'
   | 'exit-must-pass-unproven'   // NEW (verification-must-pass D8, D9): a must-pass item unproven
+  | 'exit-setup-failure'        // NEW (verification-preflight D16): refresh failed in the last Debug pass
   | 'remediate';
 
 function decideNext(input: {
@@ -911,17 +932,25 @@ function decideNext(input: {
   cap?: number;             // default 3
   mustPass: string[];       // NEW (verification-must-pass D10): must-pass criterion ids; required
   mustPassUncovered: string[];  // NEW (same): uncovered must-pass objective ids; required
+  refreshFailed: boolean;   // NEW (verification-preflight D16): the last Debug pass reported its
+                            //   refresh ran and exited non-zero, and no setup check consumed that
+                            //   fact this iteration; required (missing/non-boolean throws)
 }): { action: LoopAction; reason: string; closed: string[] };
 ```
 
-**Behavior**, evaluated in this order. Steps 1–5 produce a **base** action, and step 6 may
+**Behavior**, evaluated in this order. Steps 1–5 (with 3a) produce a **base** action, and step 6 may
 re-label it afterwards. It is never a sixth early return ahead of the others:
 1. `unbuilt.length > 0` → `exit-unbuilt`. This wins even when there are ordinary gaps as well:
    a report that iterates on the fixable half while withholding "this was never built" is the more
    misleading of the two outputs, and the debugger's own boundary forbids the other half anyway
    (D14).
 2. `gaps.length === 0` → `exit-satisfied`.
-3. `previousGaps` is non-null **and non-empty**, and `closed.length === 0` → `exit-stalled`.
+3. *(verification-preflight D16)* `refreshFailed` is true (and a gap is open, since step 2
+   did not fire) → `exit-setup-failure`: the last Debug pass's refresh failed, so this attempt
+   measured a build without its fixes, which is the environment, not the code. It sits ahead of
+   the stall rule so a failed refresh is never reported as `stalled`. It is never re-labelled
+   by steps 6 and 7. With `refreshFailed: false` every other step behaves as before.
+3a. `previousGaps` is non-null **and non-empty**, and `closed.length === 0` → `exit-stalled`.
    `closed` is `previousGaps \ gaps`. An iteration that closes nothing is repeating itself. The
    non-empty clause is load-bearing, and it was missing from this section until v2.2.0,
    although the lib has had it since 2026-08-19. A resume seeded from a run that exited
@@ -998,7 +1027,11 @@ Exercise it would also be N racing rebuilds. It does **not** re-verify: the next
 Exercise and Judge are the check, seconds later, which is also why no phase gate is needed.
 **That check now covers only the criteria still open.** A criterion already settled `met` is not
 re-walked, so a fix that regresses one goes unobserved by this loop, and the report can only show
-how old that `met` is (§3.3, VC TR1). It returns, per gap, what it changed or why it could not.
+how old that `met` is (§3.3, VC TR1). It returns, per gap, what it changed or why it could not, and **reports its refresh**
+(verification-preflight D16): `refresh: { ran: boolean, exitCode: integer | null }`, with
+`{ ran: false, exitCode: null }` when no command is declared. The script carries it to the next
+Setup check and to `decideNext` as `refreshFailed`; a refresh that ran and exited non-zero is a
+setup problem (`setup-failure`), never a reason to read the next attempt as `stalled`.
 
 **The boundary it must respect** (D14): a gap that turns out to be absent capability rather than
 broken behaviour is reported back as `unbuilt`, not implemented. That is `app-debugger`'s own
@@ -1018,7 +1051,8 @@ function renderReport(input: {
   feature: string;
   prd: string;
   definitionPath: string;
-  outcome: 'satisfied' | 'unbuilt' | 'stalled' | 'stuck' | 'insufficient-coverage' | 'not-run';
+  outcome: 'satisfied' | 'unbuilt' | 'stalled' | 'stuck' | 'insufficient-coverage' | 'setup-failure' | 'not-run';
+  setup?: { problems: Array<{ environment: string; problem: string; fix: string }> };  // NEW (verification-preflight §3.3); rendered as `**Setup**:` lines under `setup-failure` only
   reason: string;
   criteria: Array<{
     id: string; statement: string; cites: string;
@@ -1128,9 +1162,9 @@ environment is usable at all** (reachable, and any tooling or credentials §3/§
 present). It resolves environments only — nothing per criterion, because no criterion exists
 yet at this point in the run: the derive pass dispatched at Step 3.6 is still running in the
 background, and its output is not read until §8.1a, hundreds of tool calls later. An unusable
-environment, or one §1 declares `must not be touched`, is recorded as such; the one legitimate
+environment, or one §1 declares `must not be touched`, is recorded as such; ~~the one legitimate
 `AskUserQuestion` on this path is a single batched question naming every affected environment,
-asked once, here. `/implement-trd` §3.6a is the rule's only statement, and `/verify-build` §2
+asked once, here.~~ *Superseded 2026-10-23 by `docs/TRD/verification-preflight.md` D1: the command flags an environment it cannot use and never asks; the criteria that needed it resolve `not_verifiable`.* `/implement-trd` §3.6a is the rule's only statement, and `/verify-build` §2
 points at it rather than restating it.
 
 **§8.1a (moved here from §3.6a; VC D5, D15 as amended)** — *Corrected 2026-09-27: an earlier
@@ -1201,7 +1235,7 @@ not a loop (D1):
 no re-parse, and therefore no insertion-point constraint and no `trd_hash` question at all.
 
 **Step 9** — the completion readout states the verification outcome — `satisfied`, `unbuilt`,
-`stalled`, `stuck`, `insufficient-coverage` or `must-pass-unproven`, or either `not run` case — with the report path
+`stalled`, `stuck`, `insufficient-coverage`, `must-pass-unproven` or `setup-failure`, or either `not run` case — with the report path
 and the met / not met / not verifiable / unbuilt counts tallied from the returned `criteria`. It
 says the outcome **as a sentence a person can act on, never a bare outcome name or a glyph**.
 For `insufficient-coverage` that means the ratio and what it means, e.g. *"only 11 of 62

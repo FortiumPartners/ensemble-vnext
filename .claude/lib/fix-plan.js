@@ -271,6 +271,7 @@ const SWEEP_CHAIN_INPUTS = [
   'after', 'slug', 'notSweepItems', 'overlap', 'sweepIdsLeft', 'verificationOutcome',
   'coreTrdExists', 'sweepNeverUnattendedHit', 'sweepNeverUnattendedStatus',
   'coreNeverUnattendedHit', 'coreNeverUnattendedStatus',
+  'verifyEndedBySetup', 'coverageShortByEnvironmentOnly', 'carriedFlag',
 ];
 
 /**
@@ -291,6 +292,10 @@ const SWEEP_CHAIN_INPUTS = [
  * @param {string|null} [input.sweepNeverUnattendedStatus]
  * @param {string[]} [input.coreNeverUnattendedHit]     §5b hits over the core TRD's touches
  * @param {string|null} [input.coreNeverUnattendedStatus]
+ * @param {boolean} [input.verifyEndedBySetup]   the chained /verify-build's workflow return had setup problems
+ * @param {boolean} [input.coverageShortByEnvironmentOnly]  every non-met criterion is not_verifiable
+ *   for environment-unreachable / capability-absent
+ * @param {string|null} [input.carriedFlag]      the flag a 'verify' action returned, passed back after 'commit'
  */
 function sweepChainNext(input) {
   const {
@@ -305,6 +310,9 @@ function sweepChainNext(input) {
     sweepNeverUnattendedStatus = null,
     coreNeverUnattendedHit = [],
     coreNeverUnattendedStatus = null,
+    verifyEndedBySetup = false,
+    coverageShortByEnvironmentOnly = false,
+    carriedFlag = null,
   } = input || {};
 
   const go = (action, extra = {}) => ({ action, banner: null, bannerBody: null, notify: false, notifyStatus: null, ...extra });
@@ -352,12 +360,27 @@ function sweepChainNext(input) {
       return sweepBrake() || go('commit');
     }
     case 'verify': {
+      // D14: when the environment, not the code, kept the fixes from being verified, commit them
+      // carrying a flag the owner sees, rather than stopping with the fixes uncommitted.
+      const setupEnded = verificationOutcome === 'setup-failure' || (verificationOutcome === null && verifyEndedBySetup);
+      const envShort = verificationOutcome === 'insufficient-coverage' && coverageShortByEnvironmentOnly;
+      if (setupEnded || envShort) {
+        const why = setupEnded
+          ? 'verification could not run: the environment, not the code'
+          : 'coverage fell short only because the environment could not be reached: the environment, not the code';
+        return sweepBrake() || go('commit', { flag: `the swept fixes in ${sweepFile} were committed unverified; ${why}` });
+      }
       if (verificationOutcome !== 'satisfied') {
         return stop(`verifying ${sweepFile} ended ${verificationOutcome === null ? 'with no outcome recorded this run' : `'${verificationOutcome}'`}, not 'satisfied'; re-run /sweep ${sweepFile} then /verify-build ${sweepFile}, commit the swept fixes${thenImplement}`);
       }
       return sweepBrake() || go('commit');
     }
     case 'commit':
+      if (carriedFlag) {
+        return coreTrdExists
+          ? go('implement', { flag: carriedFlag })
+          : stop(`every criterion was swept and committed but not verified (${carriedFlag}); no core TRD to build (sweep list at ${sweepFile})`, true);
+      }
       return coreTrdExists
         ? go('implement')
         : stop(`every criterion was swept, verified and committed; no core TRD to build (sweep list at ${sweepFile})`, true);

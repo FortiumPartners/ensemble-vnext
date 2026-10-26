@@ -45,7 +45,7 @@ file and section where each one is defined.
 | 3 | Parse the TRD and build the task graph | code | §3.1, `trd-parser.js` `parseTrd()`, `task-graph.js` `buildGraph()` |
 | 4 | Assemble one prompt per task | model (the lead fills in a fixed template) | §3.5, `packages/core/contracts/task-delegation.md` |
 | 5 | Start the success-definition derive pass in the background: an agent that writes, from the PRD alone, the checklist verification will later judge the software against | model (`product-manager`) | §3.6 |
-| 6 | Check that each environment in `verification.md` can be reached | model (lead); one batched question to **you** if a credential or approval is missing | §3.6a |
+| 6 | Classify each environment in `verification.md` from what the file says (no probing, no question) | model (lead); a need only you can meet is recorded and shown in the ISSUES section | §3.6a |
 | 7 | Phase loop: dispatch, gate, record, test battery, checkpoint, commit | code (workflow, libs) + model (implementers, `verify-app`) | §4–§5, `implement-phase.js` |
 | 8 | Review the whole branch once, applying fixes | model (built-in `code-review` skill) | §7.2 |
 | 9 | Functional verification: does the software do what the PRD asked? | code (loop) + model (agents inside it) | §8, see [verification.md](verification.md) |
@@ -174,10 +174,13 @@ time is spent building against them.
 
 1. `functional-verification.js check-verification-unfilled` reports whether
    `verification.md` is still the unmodified template, or is missing sections.
-2. Each environment declared in `verification.md` §1 is marked `usable`, `unusable`, or needs
-   something from you (an expired credential, a deploy approval). All of the environments that
-   need you go into **one** batched question. If you don't answer, the stated default applies:
-   `needs-owner-declined`.
+2. Each environment declared in `verification.md` §1 is classified from the policy the file
+   states, nothing more: `usable`, `unusable`, or `needs-owner` (something only you can supply,
+   such as an expired credential or a deploy approval). A `needs-owner` environment is recorded
+   with its `need` and its `default` (its criteria resolve `not verifiable`). Nothing is asked
+   and nothing stops; the run's ISSUES section names the environment and the need. Whether a
+   declared stack is actually running is not decided here: the verification loop's own setup
+   check does that, and ends the run `setup-failure` when the environment is broken.
 3. The result is saved as `functional_verification.environments`. At this point it covers
    environments only. Criteria don't exist yet, so assigning each one to an environment and a
    lane waits until §8.1a.
@@ -286,7 +289,7 @@ order: §8.1 (or §8.2 when resuming), then §8.1b, then §8.1a, then §8.3, the
 While the loop runs, the lead **must not** fix gaps itself or offer to fix them (§8.5). The
 loop's own debug stage owns fixes. The inside of the loop (Exercise, Judge and Debug; the
 evidence gate; and the stop rules `satisfied`, `stalled`, `stuck`, `unbuilt`,
-`insufficient-coverage` and `must-pass-unproven`) is covered in [verification.md](verification.md).
+`insufficient-coverage`, `must-pass-unproven` and `setup-failure`) is covered in [verification.md](verification.md).
 
 ---
 
@@ -319,7 +322,6 @@ its memory of what it dispatched ("Output discipline" 2).
 | `--resume` finds the checkpoint commit missing | Options pull, ignore or reset | §2.2 |
 | The state file fails validation | Git-history reconstruction is attempted, then options accept, checkpoint or fresh | §2.3, §2.4 |
 | `git push` fails | Retried 3 times with backoff, then the run pauses | Error Handling |
-| An environment needs a credential or approval | One batched question before the phase loop | §3.6a |
 | `--reset-state` | A progress summary, then a request to type `confirm` | §2.1 |
 | Workflow has not returned after 30 minutes | Options wait, restart or skip | "Task Timeout" |
 
