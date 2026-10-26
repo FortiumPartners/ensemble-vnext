@@ -1,0 +1,475 @@
+{
+  "feature": "verification-preflight",
+  "prd": "docs/plan/verification-preflight.investigation.md",
+  "definitionPath": ".trd-state/verification-preflight/success-definition.md",
+  "outcome": "unbuilt",
+  "reason": "20 of 21 criteria are met. One must-pass criterion (FS-8, detecting a checkout that holds a declared non-port resource) is unbuilt: the port half works, the resource half does not exist, so the loop stopped rather than debug missing code.",
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/fs1-3-implement-trd-3.6a.txt",
+      "reason": "Both copies of §3.6a say 'Nothing is asked and nothing stops (D1)': a needs-owner environment is a flag and the build carries on. The AskUserQuestion grep shows no use tied to an environment.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "When an environment needs something from the owner (an expired credential, a deploy approval, a service to start by hand), `/implement-trd`'s pre-phase environment check asks no question: no `AskUserQuestion` is issued and the phase loop starts without waiting",
+      "cites": "After-1, lines 40-43: \"§3.6a ... no longer call `AskUserQuestion` for an environment ... The build proceeds with no wait\"; line 11, owner: \"it can't block implementation from starting\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/fs2-verify-build-step2.txt",
+      "reason": "verify-build step 2 says 'Nothing is asked in any mode (D1)'. An environment that needs the owner takes the default, and ISSUES names it.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "`/verify-build`'s environment step, reached as its own entry point, asks no question of the owner for an environment that needs one; it records the environment and proceeds",
+      "cites": "After-1, line 40: \"§3.6a and `/verify-build` step 2 no longer call `AskUserQuestion` for an environment\"; line 90-91: \"`/verify-build` step 2's copy of the same question ... it is the same step reached from a different entry point\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/fs1-3-implement-trd-3.6a.txt",
+      "reason": "The persisted state shape documents status needs-owner with reason, need and default 'criteria needing it resolve not_verifiable'. §8.1a (implement-trd.md around line 1697) resolves those criteria not_verifiable.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "An environment that needs the owner is recorded with the status `needs-owner`, the reason it needs the owner, and the default applied — criteria needing that environment resolve `not_verifiable`",
+      "cites": "After-1, lines 41-42: \"recorded with a new status (`needs-owner`), the reason, and the default applied (criteria needing it resolve `not_verifiable`)\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/fs1-3-implement-trd-3.6a.txt",
+      "reason": "The readout ISSUES template adds one line per needs-owner environment: '{environment} needs you: {need}', with 'You act' as the owner's action.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "The command's readout ISSUES section names each environment recorded `needs-owner` and says what the owner must do for it",
+      "cites": "After-1, lines 42-43: \"the readout's ISSUES names each such environment and what the owner must do\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/fs1-2-askuserquestion-grep.txt",
+      "reason": "The grep of the changed command files shows no environment-tied AskUserQuestion. A judge-side grep of the changed lib and workflow files found no AskUserQuestion at all. The only STUCK added in the diff is the 'COMMAND COMPLETE (not STUCK)' wording. §3.6a records status plus default for each check.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "No environment or setup check added or changed by this work calls `AskUserQuestion`, ends a run STUCK, or withholds the build; each records a status and a default instead",
+      "cites": "Decision, lines 70-72: \"Every new or changed check records a status and a default. None calls `AskUserQuestion`, ends a run STUCK, or withholds the build\"; line 11, owner: \"It can flag problems but can't lead to stopping implementation\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/fs6-7-jest-setup.txt",
+      "reason": "Jest passed 562/562. One test asserts the call order setup, exercise, judge, with Setup before Exercise. The 'checks only targets that hold an open criterion' test shows two setup calls across two iterations. decideSetup's per-environment result carries reachable, build and holder.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "Each verification iteration begins with a setup check that runs before Exercise and reports, for every environment that iteration will touch, three facts: whether it is reachable, whether its running build matches HEAD, and whether another checkout holds it",
+      "cites": "After-2, lines 44-46: \"Each verification iteration starts with a setup check, before Exercise. It reports, per environment the iteration will touch, three things\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/fs7-decidesetup-unknown.json",
+      "reason": "With no identity method declared, decideSetup returns build 'unknown', action proceed, no problems, and a flag. The matching Jest test passes.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "\"Matches HEAD\" is decided only by the build-identity method the project declares in `verification.md`; when the project declares none, the result is `unknown`, which is recorded as a flag and does not by itself produce a setup failure",
+      "cites": "After-2, lines 47-48: \"uses the identity method the project declares in `verification.md`. With none declared, the check records `unknown`: a flag, not a failure\"; Decision, lines 86-88",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-8",
+      "status": "unbuilt",
+      "tier1": "skipped",
+      "artifact": ".trd-state/verification-preflight/evidence/exerciser1-fs8-listener-fixture.txt",
+      "reason": "The Debug stage reported this as unbuilt: the setup check decides 'held by another checkout' only from processes listening on declared ports. Nothing detects a process holding a declared non-port resource, because the setup targets carry ports and no resource field. The port half works (iteration 1: a listener outside the checkout was reported held, naming its directory; one inside was not).",
+      "cause": "not-built",
+      "provenAt": 2,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "The setup check reports an environment as held by another checkout when a process listening on a declared port, or holding a declared resource, has a working directory outside this checkout; a process whose working directory is inside this checkout is not reported as held",
+      "cites": "After-2, lines 49-50: \"a process listening on a declared port, or holding a declared resource, whose working directory is outside this checkout\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "not_met"
+        },
+        {
+          "iteration": 2,
+          "result": "unbuilt"
+        }
+      ],
+      "blocker": "Detecting a process that holds a declared non-port resource is not built; setup targets declare only ports."
+    },
+    {
+      "id": "FS-9",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exerciser1-jest-workflow-setup.txt",
+      "reason": "Jest passes: 'dispatches exactly one setup-refresh on a refresh return', 'a setup-refresh that still fails ends setup-failure', and 'ends setup-failure on a setup-refresh that asks for a second refresh'. The loop refreshes once and never a second time.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "When the setup check fails, the loop runs the environment's declared fast refresh (`verification.md` §2) exactly once and then re-checks; it does not refresh a second time",
+      "cites": "After-3, lines 51-52: \"the loop runs the declared fast refresh (verification.md §2) once and re-checks\"; Decision, lines 78-81: \"Retrying beyond once would re-create the burned-iteration problem\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-10",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exerciser1-jest-workflow-setup.txt",
+      "reason": "Jest 'dispatches one Record agent and no Judge, Debug or Render' passes for the setup-failure exit.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "When the re-check still fails, that attempt is recorded as a setup failure and neither Judge nor Debug runs for it: no criterion is judged from that attempt and nothing is sent to the debugger",
+      "cites": "After-3, lines 52-53: \"the iteration is recorded as a setup failure: Judge and Debug are skipped\"; line 12 (O2 source, owner fix list item 2)",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-11",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exerciser1-decide-next-setup-failure.txt",
+      "reason": "With a setup-failure history, decide-next returns exit-setup-failure at iterations 2 to 5 where the same ordinary input returns exit-stalled.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "A setup-failure attempt never counts toward `stalled`: the loop's decision, given a history that includes setup-failure attempts, never returns `stalled` on account of them",
+      "cites": "After-3, line 53: \"the attempt does not count toward `stalled`\"; line 13, owner: \"a broken setup should report as a setup failure, not 'stalled'\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-12",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exerciser1-decide-next-setup-failure.txt",
+      "reason": "On the final permitted iteration (5 of 5), decide-next returns exit-setup-failure; the ordinary case returns exit-stuck. On the workflow side, Jest shows a setup failure ending the run with no Judge or Debug.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "A setup failure ends the verification run with the outcome `setup-failure` rather than skipping one iteration and continuing, and that outcome is returned instead of `stalled` or `stuck` — including when the failing attempt is the last one the iteration cap allows",
+      "cites": "After-3, lines 53-54: \"the run ends with outcome `setup-failure`\"; Decision, lines 82-83: \"A setup failure ends the run rather than skipping one iteration\"; line 13 (O3 source)",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-13",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exerciser1-render-setup-failure.txt",
+      "reason": "The rendered report has one Setup line per problem, each naming the problem and its fix: build not HEAD, and port held by another checkout at a named path.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "The verification report for a `setup-failure` run names what is wrong with the environment (for example: unreachable, running build not HEAD, held by another checkout at a named path) and what would fix it",
+      "cites": "After-3, line 54: \"The report names what is wrong and what would fix it\"; line 12, O2 source: setup failure \"naming the problem\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-14",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exerciser1-render-setup-failure.txt",
+      "reason": "The outcome line reads 'Setup Failure', a label distinct from Stalled and Stuck. The report's Reason line says 'the environment, not the code' and its Next line says 'fix the environment named above'.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "`setup-failure` is a distinct outcome beside satisfied, stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven, with its own label, and it is rendered wherever outcomes are rendered; its rendering says the environment, not the code, is at fault",
+      "cites": "After-4, lines 55-56: \"`setup-failure` is a new outcome ... It is labelled and rendered everywhere outcomes are rendered\"; line 13 (O3 source)",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-15",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exercise-1-fs15-implement-trd-banner.txt",
+      "reason": "Both identical copies of implement-trd.md: the banner is COMMAND COMPLETE, not STUCK, and names setup-failure and the first problem. §3.6a never stops the run.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "When verification ends `setup-failure` inside `/implement-trd`, every phase is still built, the build is not stopped or retried, and the command's final banner reports the verification outcome `setup-failure` with the named problem",
+      "cites": "After-5, lines 59-60: \"A setup failure never stops or retries the build. `/implement-trd` completes every phase, and its banner reports the verification outcome `setup-failure` with the named problem\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-16",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exercise-1-fs16-verify-build.txt",
+      "reason": "verify-build step 5 renders setup-failure as 'not checked because the environment is broken, not the code', and its NEXT carve-out tells the owner to fix the environment.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "`/verify-build`'s outcome rendering and closing readout recognise `setup-failure` and present it as an environment problem rather than a code problem",
+      "cites": "After-4, line 56: \"rendered everywhere outcomes are rendered\"; line 13 (O3 source: \"the run's banner and report say it is the environment\")",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-17",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exercise-1-fs17-refine-verification.txt",
+      "reason": "refine-verification leads with 'the environment, not the code' and turns no open criterion into a Blocker or fix task. fix-plan.js answers setup-failure by committing with a flag, and its Jest test passes.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "`/refine-verification` treats a `setup-failure` run as an environment problem, not a code gap, and nothing in the fix path promotes a setup failure to a fix task",
+      "cites": "After-4, lines 57-58: \"`/refine-verification` treats it as an environment problem, not a code gap, and nothing promotes it to a fix task\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-18",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exercise-1-fs18-19-template-and-contract.txt",
+      "reason": "The plan.md light template has the '## Verification Environment' heading with its three lines: Environment, Refresh, Cannot be checked there.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "The light TRD template in `/plan` contains a `## Verification Environment` section that records the environment verification runs against, whether the loop can refresh it and with what command, and what cannot be checked there",
+      "cites": "After-6, lines 61-63",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-19",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exercise-1-fs18-19-template-and-contract.txt",
+      "reason": "trd-authoring.md Section 9b has the same three lines, and its mirror copy is byte-identical.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "The TRD authoring contract contains the same `## Verification Environment` section with the same three items",
+      "cites": "After-6, lines 61-63: \"and the TRD authoring contract gain a section, `## Verification Environment`\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-20",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exercise-1-fs20-21-reading-step.txt",
+      "reason": "§3.6a treats absence as valid: target source none, a DECISIONS line, no error. No code parser reads the section (checked in lib, workflows and hooks), so the text reading step is the whole check.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "A TRD with no `## Verification Environment` section is valid: its absence is reported, and nothing fails or stops because of it",
+      "cites": "After-6, line 64: \"Absence is valid and is reported, never fatal\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    },
+    {
+      "id": "FS-21",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/verification-preflight/evidence/exercise-1-fs20-21-reading-step.txt",
+      "reason": "§3.6a takes the section's named environment as the run's target with source trd, and §8.1a reads the section for setupTargets.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null,
+      "statement": "When a TRD has a `## Verification Environment` section, `/implement-trd`'s pre-phase environment check reads it as that feature's declared verification target",
+      "cites": "After-6, lines 65-66: \"`/implement-trd` §3.6a reads the section, when present, as the declared target for that feature\"",
+      "attempts": [
+        {
+          "iteration": 1,
+          "result": "met"
+        }
+      ],
+      "blocker": null
+    }
+  ],
+  "finalEnvironmentRun": {
+    "command": "",
+    "status": "skipped"
+  },
+  "mustPass": [
+    "FS-1",
+    "FS-2",
+    "FS-3",
+    "FS-4",
+    "FS-5",
+    "FS-6",
+    "FS-8",
+    "FS-10",
+    "FS-11",
+    "FS-12",
+    "FS-13",
+    "FS-14",
+    "FS-15",
+    "FS-16"
+  ],
+  "mustPassUncovered": []
+}
