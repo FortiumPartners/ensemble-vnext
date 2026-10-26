@@ -1,0 +1,178 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "No environment or setup check stops, pauses or asks before implementation starts or continues. Every problem is recorded as a flag with a stated default, the build runs in full, and the flag appears in the readout. (Source: investigation doc, owner instruction 2026-10-23; the TRD's Source PRD is the investigation doc, no separate PRD file exists.)",
+      "source": "TRD Objectives O1; docs/plan/verification-preflight.investigation.md",
+      "served_by": [
+        "VPRE-B001",
+        "VPRE-B003",
+        "VPRE-B004",
+        "VPRE-B005",
+        "VPRE-B006",
+        "VPRE-D001",
+        "VPRE-D002",
+        "VPRE-T001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "Before each verification attempt, the loop checks that the running build is the current HEAD and that no other checkout holds the dev stack. A failed check is reported as a setup failure naming the problem: the attempt is not judged, nothing is sent to the debugger, and it never counts toward stalled.",
+      "source": "TRD Objectives O2",
+      "served_by": [
+        "VPRE-B001",
+        "VPRE-B003",
+        "VPRE-B005",
+        "VPRE-B006",
+        "VPRE-D001",
+        "VPRE-D002",
+        "VPRE-T001"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "A verification run whose environment stays broken ends with a distinct outcome, setup-failure, that names what is wrong and what would fix it. It is never reported as stalled or stuck, and the run's banner and report say it is the environment, not the code.",
+      "source": "TRD Objectives O3",
+      "served_by": [
+        "VPRE-B001",
+        "VPRE-B003",
+        "VPRE-B005",
+        "VPRE-B006",
+        "VPRE-D001",
+        "VPRE-D002",
+        "VPRE-T001"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "At plan time, the TRD records which environment verification runs against, whether the loop can refresh it, and what cannot be checked there.",
+      "source": "TRD Objectives O4",
+      "served_by": [
+        "VPRE-B002",
+        "VPRE-B005"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "The setup check never runs a refresh against a stack another checkout holds.",
+      "source": "TRD Objectives O5 (owner ruling 2026-10-25, OQ-2)",
+      "served_by": [
+        "VPRE-B001",
+        "VPRE-B003"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "Code changed by this work ships with unit tests at the constitution floor: unit >= 60%, integration >= 50% where applicable.",
+      "source": "TRD Objectives O6; .claude/rules/constitution.md Quality Gates",
+      "served_by": [
+        "VPRE-B001",
+        "VPRE-B003",
+        "VPRE-B004"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "VPRE-B001",
+      "description": "functional-verification.js (+mirror): decideSetup() and decide-setup CLI; decideNext refreshFailed input and exit-setup-failure action; OUTCOME_LABEL setup-failure; renderReport Setup lines and Next line. Unit tests.",
+      "touches": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ]
+    },
+    {
+      "id": "VPRE-B002",
+      "description": "Add ## Verification Environment section to plan.md light TRD template, contracts/trd-authoring.md, and create-trd.md structure copy (+ mirrors). Extend fix-template and verify-command-surface tests.",
+      "touches": [
+        "packages/core/commands/plan.md",
+        "packages/core/contracts/trd-authoring.md",
+        "packages/core/commands/create-trd.md",
+        "their three .claude/ mirrors",
+        "packages/core/lib/fix-template.test.js",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "VPRE-B003",
+      "description": "verify-functional.js (+mirror): setupTargets arg and validation, Setup phase, refresh-once decided by script, DEBUG_SCHEMA refresh carried as debugRefresh and refreshFailed, exit-setup-failure in JUDGE_SCHEMA and OUTCOME_BY_ACTION, setup-failure exit with Record agent, setup on every return path, meta text.",
+      "touches": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ]
+    },
+    {
+      "id": "VPRE-B004",
+      "description": "fix-plan.js (+mirror): sweepChainNext after verify goes through sweepBrake to commit with a flag on setup-failure, null with verifyEndedBySetup, and insufficient-coverage with coverageShortByEnvironmentOnly; after commit carries carriedFlag onto implement. plan.md (+mirror) Step 7a changes.",
+      "touches": [
+        "packages/core/lib/fix-plan.js",
+        ".claude/lib/fix-plan.js",
+        "packages/core/lib/fix-plan.test.js",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md"
+      ]
+    },
+    {
+      "id": "VPRE-D001",
+      "description": "Bring parent design docs/TRD/functional-verification.md in step (setupTargets, SetupTarget, setup result, outcome union, refreshFailed, exit-setup-failure, Debug refresh report, Step 9 list, struck owner-question sentence, changelog and version bump). Contract functional-verification.md (+mirror) gains seven outcomes. Update sync and contract tests.",
+      "touches": [
+        "docs/TRD/functional-verification.md",
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "packages/core/contracts/functional-verification.test.js"
+      ]
+    },
+    {
+      "id": "VPRE-B005",
+      "description": "implement-trd.md (+mirror): section 3.6a policy-only classification, argument parse and argument-hint for --sweep-flag, state schema, 3.7, 8.1a, 8.3, 8.4, Step 9 and 9.1 banner summary. Update surface test.",
+      "touches": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "VPRE-B006",
+      "description": "verify-build.md and refine-verification.md (+mirrors) per sections 3.5, D12, D13. Update surface test, and refine-verification-must-pass test only if a pinned sentence moves.",
+      "touches": [
+        "packages/core/commands/verify-build.md",
+        ".claude/commands/verify-build.md",
+        "packages/core/commands/refine-verification.md",
+        ".claude/commands/refine-verification.md",
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/lib/refine-verification-must-pass.test.js (only if a pinned sentence moves)"
+      ]
+    },
+    {
+      "id": "VPRE-D002",
+      "description": "Bring docs/reference/implement-trd.md and docs/reference/verification.md in step with D1 and D17: policy-only classification, needs-owner recorded with need and default, no batched question, add setup-failure to outcome lists.",
+      "touches": [
+        "docs/reference/implement-trd.md",
+        "docs/reference/verification.md"
+      ]
+    },
+    {
+      "id": "VPRE-T001",
+      "description": "[LIVE] New smoke scenario test/smoke/scenarios/verification-preflight.sh registered in run-smoke.sh opt-in list: fixture project with a local environment on a dead port, run /verify-build headlessly once, record transcript and report as evidence.",
+      "touches": [
+        "test/smoke/scenarios/verification-preflight.sh (new)",
+        "test/smoke/run-smoke.sh",
+        "test/smoke/README.md"
+      ]
+    }
+  ],
+  "open_questions": [
+    "None open. Section reads: 'None open. All six were answered on 2026-10-25; see Owner Rulings below.' The six answered items (OQ-1 to OQ-6) are in the Owner Rulings table: OQ-1 setup check reads commit only via a declared method, unknown as flag; OQ-2 held-by-another-checkout does not spend the refresh, goes to setup-failure; OQ-3 sweep chain commits and builds core on setup failure, flagged committed unverified; OQ-4 never-judged criteria labelled not_verifiable with cause never-exercised; OQ-5 verification.md wins over Verification Environment section, disagreement is a flag; OQ-6 dead setup agent yields a flag and Exercise still runs."
+  ],
+  "could_not_verify": [
+    "Claim: lsof -nP -iTCP:<port> -sTCP:LISTEN and lsof -a -p <pid> -d cwd -Fn behave the same on macOS and the Linux images smoke runs use. Check: run both on each platform with a known listener. Out of audit scope: needs a live listener on each platform.",
+    "Claim: No existing reader of implement.json depends on the literal needs-owner-declined, other than implement-trd.md (+mirror), which VPRE-B005 rewrites. Check: audit ran grep -rln needs-owner-declined over the repo (hits: implement-trd.md +mirror, docs/reference/implement-trd.md and docs/reference/verification.md prose now VPRE-D002, this TRD and investigation). Still unchecked: .trd-state/*/implement.json files on other machines and in consuming projects.",
+    "Claim: A process listening on a declared port has a working directory inside the checkout that started it (true for npm run dev; unknown for task runners that cd elsewhere). Check: start the fixture's dev server via each declared command and read its cwd.",
+    "Claim: The identity check cannot see Debug's uncommitted edits (TR1). Check: reasoned from since's per-run floor and Debug's no-commit behaviour; confirm on a live run with a declared identity command.",
+    "Claim: A simulator target has no URL, no port and usually no identity command, so its setup facts read unknown (reach, build) or not-applicable (holder) and the check can only flag. One of the three cited rig failures (a simulator running a stale build) is not caught unless the project declares an identity method, except where staleness follows a Debug pass whose refresh failed (D16); an undeclared refresh is flagged only. Check: run the setup check against a fixture simulator target with and without a declared identity command.",
+    "Claim: Exercise crashing mid-run against a stack that died after the setup check passed is still judged not_met and sent to Debug (PRD not absorbed; Non-Goals). Check: kill the fixture stack between Setup and Exercise phases of a live run and read the report."
+  ]
+}
