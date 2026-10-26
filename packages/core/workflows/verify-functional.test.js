@@ -3236,6 +3236,7 @@ describe('verify-functional: refresh-once is decided by the script', () => {
   it.each([
     ['a setup return that reports a refresh it ran', { setup: setupResult({ refreshesRun: 1 }) }, /none is allowed/],
     ['a setup-refresh that reports two refreshes', { setup: setupResult({ action: 'refresh', problems: [BROKEN] }), 'setup-refresh': setupResult({ refreshesRun: 2 }) }, /ran 2 refreshes; one is allowed/],
+    ['a setup-refresh that reports it ran no refresh', { setup: setupResult({ action: 'refresh', problems: [BROKEN] }), 'setup-refresh': setupResult({ refreshesRun: 0 }) }, /ran it 0 times/],
     ['a setup-refresh that asks for a second refresh', { setup: setupResult({ action: 'refresh', problems: [BROKEN] }), 'setup-refresh': setupResult({ action: 'refresh', problems: [BROKEN], refreshesRun: 1 }) }, /asked for a second refresh/],
   ])('ends setup-failure on %s', async (_name, plan, reason) => {
     const agent = makeAgentStub(setupPlan({ ...plan, record: { recorded: true } }));

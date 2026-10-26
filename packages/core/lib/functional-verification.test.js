@@ -3818,6 +3818,13 @@ describe('decideSetup (§3.1)', () => {
     test('a date beside the matching commit still matches', () => {
       expect(build('abc1234 built 20261023').environments[0].build).toBe('matches');
     });
+
+    test('git describe output reads matches when its g-prefixed SHA prefixes HEAD, differs when not', () => {
+      expect(build('v4.13.8-3-gabc1234').environments[0].build).toBe('matches');
+      const r = build('v4.13.8-3-gdef9999');
+      expect(r.environments[0].build).toBe('differs');
+      expect(r.problems[0].problem).toBe('running build is from def9999, not HEAD abc1234');
+    });
   });
 
   describe('holder (D9)', () => {
@@ -3869,6 +3876,15 @@ describe('decideSetup (§3.1)', () => {
       expect(withCmd.action).toBe('refresh');
       expect(withCmd.problems[0].problem).toMatch(/last Debug pass's refresh .*exited 1/);
       expect(dbg({ ran: true, exitCode: 1 }).action).toBe('setup-failure');
+    });
+
+    test('a failed refresh counts only against the refreshable target, so the run can refresh', () => {
+      const r = dbg(
+        { ran: true, exitCode: 1 },
+        { refreshCommand: 'make up', facts: [fact({ environment: 'local', refreshable: true }), fact({ environment: 'staging', refreshable: false })] }
+      );
+      expect(r.action).toBe('refresh');
+      expect(r.problems.map((p) => p.environment)).toEqual(['local']);
     });
 
     test('{ ran: false } is a flag and proceeds', () => {

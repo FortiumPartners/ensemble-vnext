@@ -1464,6 +1464,12 @@ async function runSetupCheck(iteration, targets) {
     return problemsOf(first, 'the setup check found problems and its refresh agent returned nothing')
   }
   addSetupFlags(second.flags)
+  if (second.refreshesRun === 0) {
+    // The authorized repair never ran. A clean re-gather proves nothing here: at refreshCount 1
+    // decide-setup no longer reads the Debug pass's failed refresh, and an unreported exit code is
+    // only a flag, so a "proceed" would send Exercise to measure the same stale build.
+    return rejected('the setup check was authorized to run the declared refresh once and ran it 0 times', first.problems)
+  }
   if (second.refreshesRun > 1) {
     return rejected(`the setup check ran ${second.refreshesRun} refreshes; one is allowed`, second.problems)
   }

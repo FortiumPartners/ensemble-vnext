@@ -478,8 +478,10 @@ function decideNext(input) {
 // decideSetup — the setup check's decision (docs/TRD/verification-preflight.md §3.1, D3-D9, D16)
 // ---------------------------------------------------------------------------
 
-// A word-delimited token of 7-40 lowercase hex characters: the shape of a (short) git SHA.
-const BUILD_TOKEN = /\b[0-9a-f]{7,40}\b/g;
+// A word-delimited token of 7-40 lowercase hex characters: the shape of a (short) git SHA. The
+// lookbehind also takes the SHA out of `git describe` output (`v4.13.8-3-gabc1234`), where the
+// `g` prefix leaves no word boundary in front of it.
+const BUILD_TOKEN = /(?:\b|(?<=\bg))[0-9a-f]{7,40}\b/g;
 
 function trimSlashes(p) {
   return String(p).replace(/\/+$/, '');
@@ -559,6 +561,7 @@ function decideSetup(input) {
   const { head, checkout, facts, refreshCommand, refreshCount, refreshExitCode } = inp;
   const head7 = head.slice(0, 7);
   const cmdText = refreshCommand === '' ? 'the declared refresh' : `the declared refresh (\`${refreshCommand}\`)`;
+  const refreshFix = refreshCommand ? `run \`${refreshCommand}\` by hand and fix what stops it` : 'run the declared refresh by hand and fix what stops it';
   const problems = [];
   const flags = [];
   const addProblem = (environment, problem, fix) => problems.push({ environment, problem, fix });
@@ -635,10 +638,15 @@ function decideSetup(input) {
     return { environment: env, reachable, build, holder };
   });
 
+  // The one refreshCommand serves the refreshable target, so a refresh's outcome is that
+  // target's fact only. Charging it to a target the loop cannot refresh would turn a repairable
+  // problem into a setup-failure.
+  const refreshTargets = facts.some((f) => f.refreshable) ? facts.filter((f) => f.refreshable) : facts;
+
   // The last Debug pass's refresh (D16), read only before the setup check's own refresh: at
   // refreshCount >= 1 that refresh supersedes it.
   if (refreshCount === 0 && dr !== null) {
-    for (const f of facts) {
+    for (const f of refreshTargets) {
       if (dr.ran === false) {
         addFlag(f.environment, 'Debug changed code and no fast refresh is declared, so the running build may not include its fixes');
       } else if (dr.exitCode === null || dr.exitCode === undefined) {
@@ -647,7 +655,7 @@ function decideSetup(input) {
         addProblem(
           f.environment,
           `the last Debug pass's refresh${refreshCommand ? ` (\`${refreshCommand}\`)` : ''} exited ${dr.exitCode}, so the running build may not include its fixes`,
-          refreshCommand ? `run \`${refreshCommand}\` by hand and fix what stops it` : 'run the declared refresh by hand and fix what stops it'
+          refreshFix
         );
       }
     }
@@ -655,11 +663,10 @@ function decideSetup(input) {
 
   // The setup check's own refresh (D5).
   if (refreshCount >= 1) {
-    const targets = facts.some((f) => f.refreshable) ? facts.filter((f) => f.refreshable) : facts;
-    for (const f of targets) {
+    for (const f of refreshTargets) {
       if (refreshExitCode === null) addFlag(f.environment, `the exit code of ${cmdText} was not reported`);
       else if (refreshExitCode !== 0) {
-        addProblem(f.environment, `${cmdText} exited ${refreshExitCode}`, refreshCommand ? `run \`${refreshCommand}\` by hand and fix what stops it` : 'run the declared refresh by hand and fix what stops it');
+        addProblem(f.environment, `${cmdText} exited ${refreshExitCode}`, refreshFix);
       }
     }
   }

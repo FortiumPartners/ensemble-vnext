@@ -4,7 +4,7 @@
   "trd_hash": "9f22dd44a12b558054d6ff9e96b392b20b3a2dacafd38143b706ea026bc3e919",
   "branch": "feature/verification-preflight/impl",
   "strategy": "tdd",
-  "phase_cursor": 3,
+  "phase_cursor": 4,
   "tasks": {
     "VPRE-B001": {
       "description": "packages/core/lib/functional-verification.js (+ mirror): decideSetup() and the decide-setup --file CLI (§3.1); decideNext()'s required refreshFailed input and exit-setup-failure action (§3.1a); OUTCOM",
@@ -180,13 +180,21 @@
         "findings": 0
       },
       "timestamp": "2026-10-26T02:10:22.410Z"
+    },
+    {
+      "phase": 3,
+      "commit": "e878494",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-26T02:21:39.717Z"
     }
   ],
   "recovery": {
-    "last_healthy_checkpoint": "4d434de",
+    "last_healthy_checkpoint": "e878494",
     "interrupted": false,
     "interrupt_reason": null,
-    "last_checkpoint_timestamp": "2026-10-26T02:10:22.410Z"
+    "last_checkpoint_timestamp": "2026-10-26T02:21:39.717Z"
   },
   "functional_verification": {
     "prd_resolved": true,
