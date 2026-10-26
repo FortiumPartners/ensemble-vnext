@@ -254,22 +254,24 @@ function extractDispatchFields(source) {
     .map((m) => m[1]);
 }
 
-describe('both dispatch blocks carry the same 25 fields in the same order (VSET-B002/B003, D8)', () => {
-  test('implement-trd.md §8.3 lists 25 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered', () => {
+describe('both dispatch blocks carry the same 26 fields in the same order (VSET-B002/B003, D8; VPRE-B005 setupTargets)', () => {
+  test('implement-trd.md §8.3 lists 26 fields ending in checks/checkComments/pagesDir/mustPassIds/mustPassUncovered, with setupTargets after coverageFloor', () => {
     const fields = extractDispatchFields(read(CORE_IMPLEMENT));
     expect(fields).not.toBeNull();
-    expect(fields).toHaveLength(25);
+    expect(fields).toHaveLength(26);
+    expect(fields.indexOf('setupTargets')).toBe(fields.indexOf('coverageFloor') + 1);
     expect(fields.slice(-5)).toEqual(['checks', 'checkComments', 'pagesDir', 'mustPassIds', 'mustPassUncovered']);
   });
 
-  test('verify-build.md §4 lists the identical 25 fields in the identical order', () => {
+  test('verify-build.md §4 lists the identical 26 fields in the identical order', () => {
     const implFields = extractDispatchFields(read(CORE_IMPLEMENT));
     const vbFields = extractDispatchFields(read(CORE_VERIFY_BUILD));
     expect(vbFields).toEqual(implFields);
   });
 
-  test('verify-build.md §4 intro says 25 fields, not 23, 22, 21 or 18', () => {
-    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 25 fields/);
+  test('verify-build.md §4 intro says 26 fields, not 25, 23, 22, 21 or 18', () => {
+    expect(read(CORE_VERIFY_BUILD)).toMatch(/All 26 fields/);
+    expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 25 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 23 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 22 fields/);
     expect(read(CORE_VERIFY_BUILD)).not.toMatch(/All 21 fields/);
@@ -362,7 +364,7 @@ describe('implement-trd.md §8.1b appends check criteria in the right place, doi
   });
 
   test('§8.4 carries `pages` from the workflow return', () => {
-    expect(src()).toMatch(/pages\s*\}/);
+    expect(src()).toMatch(/pages(, setup)?\s*\}/);
     expect(flat(src())).toMatch(/Carry `pages`/);
   });
 
@@ -494,12 +496,13 @@ describe('must-pass-unproven is a sixth terminal outcome everywhere it is enumer
   test('verify-build.md §5 outcome list names all six', () => {
     const src = flat(read(CORE_VERIFY_BUILD));
     expect(src).toMatch(/satisfied.*unbuilt.*stalled.*stuck.*insufficient-coverage.*must-pass-unproven/);
+    expect(src).toMatch(/`must-pass-unproven` \/ `setup-failure`, or either `not run` case/);
   });
 
-  test('verify-build.md --resume section says "six" outcome strings, not "five"', () => {
-    const src = read(CORE_VERIFY_BUILD);
-    expect(src).toMatch(/six outcome strings/);
-    expect(src).not.toMatch(/five outcome strings/);
+  test('verify-build.md --resume section says "seven" outcome strings and lists setup-failure last', () => {
+    const src = flat(read(CORE_VERIFY_BUILD));
+    expect(src).toMatch(/seven outcome strings \(`satisfied`, `unbuilt`, `stalled`, `stuck`, `insufficient-coverage`, `must-pass-unproven`, `setup-failure`\)/);
+    expect(src).not.toMatch(/six outcome strings/);
   });
 });
 
@@ -1543,10 +1546,12 @@ describe('verify-build.md --chained (sweep file only)', () => {
     expect(section()).toMatch(/with a TRD the flag is ignored/);
   });
 
-  test('Step 2 asks nothing under it: the default is taken and recorded as a verification.md need', () => {
+  test('Step 2 asks nothing in any mode: the default is taken and recorded as a verification.md need', () => {
     const step2 = body().split('### 2. Preflight')[1].split('### 3. Read')[0];
-    expect(step2).toMatch(/Under `--chained`.*that one question is NOT asked either/);
-    expect(section()).toMatch(/Asks nothing/);
+    expect(step2).toMatch(/Nothing is asked in any mode \(D1\)/);
+    expect(step2).toMatch(/under `--chained`/);
+    expect(step2).toMatch(/kind: 'gap', blocksFeature: false, file: '\.claude\/rules\/verification\.md'/);
+    expect(section()).toMatch(/Asks nothing, as in every mode/);
     expect(section()).toMatch(/No `AskUserQuestion` reaches the owner/);
   });
 
@@ -1567,7 +1572,7 @@ describe('verify-build.md --chained (sweep file only)', () => {
   test('output discipline and autonomy sections defer to it', () => {
     const b = body();
     expect(b.split('## Output discipline')[1]).toMatch(/Under `--chained` \(a sweep file\) none of the rest of this section applies/);
-    expect(b.split('## Autonomous-execution discipline')[1]).toMatch(/Under `--chained`, not even that/);
+    expect(b.split('## Autonomous-execution discipline')[1]).toMatch(/Under `--chained` and under the fix loop it asks the owner no questions from start to finish/);
   });
 
   test('without the flag the banner and notify-complete.sh instructions are intact', () => {
@@ -1950,5 +1955,151 @@ describe('verification commands record and read through artifacts.js', () => {
 
   test.each(['implement-trd', 'verify-build', 'refine-verification'])('%s copies are byte-identical', (cmd) => {
     expect(read(path.join(REPO, '.claude/commands', `${cmd}.md`))).toBe(read(path.join(REPO, 'packages/core/commands', `${cmd}.md`)));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VPRE-B005 (verification-preflight D1, D11, D14, D15, D17): §3.6a classifies policy only and
+// asks nothing; --sweep-flag is parsed; the loop's setup result reaches Step 9.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md verification-preflight surface (VPRE-B005)', () => {
+  const src = () => read(CORE_IMPLEMENT);
+  const s36a = () => src().split('### 3.6a Preflight the environment')[1].split('### 3.7')[0];
+  const s81a = () => src().split('### 8.1a Resolve criteria to environments and lanes')[1].split('### 8.3')[0];
+  const step9 = () => src().split('## Step 9: Completion')[1].split('## Step 10:')[0];
+
+  test('needs-owner-declined appears nowhere, and no AskUserQuestion is reachable from §3.6a or §8.1a', () => {
+    expect(src()).not.toMatch(/needs-owner-declined/);
+    expect(s36a()).not.toMatch(/AskUserQuestion/);
+    expect(flat(s36a())).not.toMatch(/ONLY legitimate/);
+    expect(s81a()).not.toMatch(/AskUserQuestion\`? (here|is)/);
+    expect(flat(s81a())).not.toMatch(/already asked/);
+    expect(flat(read(CORE_IMPLEMENT))).not.toMatch(/ask its one batched question a second time/);
+  });
+
+  test('§3.6a classifies policy only: no reachability probe and no hand-started service in a bucket', () => {
+    const t = flat(s36a());
+    expect(t).toMatch(/\*\*usable\*\* — §1 declares it and lets the loop exercise it, and the tooling and credentials/);
+    expect(t).toMatch(/does not mean "it is up"/);
+    expect(t).not.toMatch(/started by hand/);
+    expect(t).not.toMatch(/it is reachable/);
+    expect(t).not.toMatch(/resolve whether it can be reached/);
+    expect(t).not.toMatch(/caught before the phase loop/);
+  });
+
+  test('§3.6a persists needs-owner with need and default, and the target', () => {
+    const t = s36a();
+    expect(t).toMatch(/"usable" \| "unusable" \| "needs-owner"/);
+    expect(t).toMatch(/need: "<what the owner must do>"/);
+    expect(t).toMatch(/default: "criteria needing it resolve not_verifiable"/);
+    expect(t).toMatch(/target: \{ environment: "<name>" \| null, source: "trd" \| "none" \}/);
+    expect(t).toMatch(/## Verification Environment/);
+    expect(t).toMatch(/implement-state\.save\(\)/);
+  });
+
+  test('the state-schema block carries needs-owner, need, default and target', () => {
+    const block = src().split('"functional_verification": {')[1].split('```')[0];
+    expect(block).toMatch(/"usable \| unusable \| needs-owner"/);
+    expect(block).toMatch(/"need":/);
+    expect(block).toMatch(/"default":/);
+    expect(block).toMatch(/"target":/);
+  });
+
+  test('--sweep-flag is in the argument-hint, the usage list and the parse line, for callers only', () => {
+    const t = src();
+    expect(t.split('\n')[3]).toMatch(/\[--sweep-flag <text>\]/);
+    expect(flat(t)).toMatch(/`--sweep-flag "<text>"` - \*\*For callers only\*\*/);
+    expect(flat(t.split('## User Input')[1].split('## Execution Model')[0])).toMatch(/`--chained`, `--sweep-flag "<text>"`/);
+  });
+
+  test('outcome lists name setup-failure', () => {
+    expect(flat(src())).toMatch(/`must-pass-unproven`\/`setup-failure` one/);
+    expect(flat(src())).toMatch(/`must-pass-unproven`, `setup-failure`\) means the loop finished/);
+  });
+
+  test('§8.1a: needs-owner resolves not_verifiable; step 4 prefers the TRD target; step 7 resolves setupTargets', () => {
+    const t = flat(s81a());
+    expect(t).toMatch(/resolved `unusable` or `needs-owner` at §3\.6a/);
+    expect(t).toMatch(/prefer the TRD's `target`/);
+    expect(t).toMatch(/7\. \*\*Resolve `setupTargets`/);
+    expect(t).toMatch(/refreshable: <true only for the environment step 4 took refreshCommand from/);
+    expect(t).toMatch(/"none declared"/);
+    expect(t).toMatch(/At most one entry is `refreshable`/);
+  });
+
+  test('§8.3 passes setupTargets and §8.4 carries setup', () => {
+    expect(src()).toMatch(/\n\s+setupTargets,\s+\/\/ §8\.1a step 7/);
+    const s84 = src().split('### 8.4 Render the outcome')[1].split('### 8.5')[0];
+    expect(s84).toMatch(/pages, setup \}/);
+    expect(flat(s84)).toMatch(/\*\*Carry `setup`\*\*/);
+  });
+
+  test('Step 9 has the setup-failure STATE, ISSUES, NEXT and banner lines, kept off the refine-verification branch', () => {
+    const t = flat(step9());
+    expect(t).toMatch(/if outcome is setup-failure \(preflight D11\): "The software was not checked: the environment it needs is broken, not the code\."/);
+    expect(t).toMatch(/never setup-failure \(verification-fix-loop TRD §3\.1, D3\): a Diagnosis line/);
+    expect(t).toMatch(/for each entry in `setup\.flags`/);
+    expect(t).toMatch(/for each entry in `setup\.problems`/);
+    expect(t).toMatch(/for each environment §3\.6a recorded `needs-owner`/);
+    expect(t).toMatch(/`--sweep-flag "<text>"`: the text, verbatim/);
+    expect(t).toMatch(/if outcome is setup-failure \(D11\) — this replaces both branches below/);
+    expect(t).toMatch(/\(any other outcome, `setup-failure` excepted\)/);
+    expect(t).toMatch(/summary line names the outcome and its problem when the loop ended `setup-failure`/);
+    expect(t).toMatch(/`COMMAND COMPLETE` \(not STUCK/);
+  });
+
+  test('the mirror matches', () => {
+    expect(read(CLAUDE_IMPLEMENT)).toBe(read(CORE_IMPLEMENT));
+  });
+});
+
+// VPRE-B006 (preflight D1, D11, D12, D13, D17): /verify-build and /refine-verification on a setup failure.
+describe('verify-build.md and refine-verification.md handle setup-failure (VPRE-B006)', () => {
+  const vb = () => flat(read(CORE_VERIFY_BUILD));
+  const rv = () => flat(read(path.join(REPO, 'packages/core/commands/refine-verification.md')));
+
+  test('step 2 classifies policy only and delegates to §3.6a; the old question paragraphs are gone', () => {
+    const step2 = vb().split('### 2. Preflight')[1].split('### 3. Read')[0];
+    expect(step2).toMatch(/Identical to `\/implement-trd` §3\.6a/);
+    expect(step2).toMatch(/by policy \(D17\)/);
+    expect(step2).toMatch(/`usable`, `unusable` or `needs-owner`/);
+    expect(step2).not.toMatch(/batch that last bucket|that one question|needs-one-thing/);
+    expect(vb()).not.toMatch(/the realistic one is §2's preflight batch|Step 2's question takes its stated default/);
+    expect(vb()).not.toMatch(/the one question already ran at step 2/);
+  });
+
+  test('args block carries setupTargets right after coverageFloor', () => {
+    expect(vb()).toMatch(/coverageFloor,[^\n]*\/\/[^/]*?setupTargets,/);
+  });
+
+  test('NEXT: setup-failure is carved out before the other-outcomes rule, and the sweep NEXT never says /sweep', () => {
+    const t = vb();
+    expect(t).toMatch(/Outcome `setup-failure` is the one exception \(D11\)/);
+    expect(t.indexOf('`setup-failure` is the one exception')).toBeLessThan(t.indexOf('Any other outcome (`stalled`'));
+    expect(t).toMatch(/refine the plan with `\/refine-verification`/);
+    expect(t).toMatch(/`setup-failure` → "fix the environment named above, then `\/verify-build <sweep file>`"/);
+    expect(t).toMatch(/Never `\/sweep`/);
+  });
+
+  test('--chained RETURN carries setup-failure in the exact string /plan consumes', () => {
+    expect(vb()).toContain('`RETURN → setup-failure, <met> of <total> met`');
+  });
+
+  test('fix loop: no setup-failure branch; step 6 lists "setup failure: <problem>" ahead of "not verifiable here"', () => {
+    const t = vb();
+    const i = t.indexOf('`setup failure: <problem>`');
+    expect(i).toBeGreaterThan(-1);
+    expect(i).toBeLessThan(t.indexOf('`not verifiable here: <the Judge\'s reason>`'));
+    expect(t).toMatch(/no other branch exists for a setup failure, and steps 4 and 5 run as for any outcome/);
+  });
+
+  test('refine-verification diagnoses a setup failure as the environment and builds nothing from never-exercised criteria', () => {
+    const t = rv();
+    expect(t).toMatch(/lead with "the environment, not the code" \(D13\)/);
+    expect(t).toMatch(/its `\*\*Setup\*\*:` lines are the diagnosis/);
+    expect(t).toMatch(/none is a Blocker/);
+    expect(t).toMatch(/none is Accepted as not verifiable/);
+    expect(t).toMatch(/re-verified by the next `\/verify-build`/);
   });
 });
