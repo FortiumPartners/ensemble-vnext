@@ -4,7 +4,7 @@
   "trd_hash": "9f22dd44a12b558054d6ff9e96b392b20b3a2dacafd38143b706ea026bc3e919",
   "branch": "feature/verification-preflight/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "VPRE-B001": {
       "description": "packages/core/lib/functional-verification.js (+ mirror): decideSetup() and the decide-setup --file CLI (§3.1); decideNext()'s required refreshFailed input and exit-setup-failure action (§3.1a); OUTCOM",
@@ -48,38 +48,56 @@
     "VPRE-B003": {
       "description": "packages/core/workflows/verify-functional.js (+ mirror): setupTargets arg and validation, Setup phase, refresh-once decided by the script (the setup-refresh dispatch and the rejection of extra refresh",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/verify-functional.js",
+        ".claude/workflows/verify-functional.js",
+        "packages/core/workflows/verify-functional.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-26T02:00:46.227Z",
+      "completed_at": "2026-10-26T02:09:52.231Z",
+      "last_advanced": "2026-10-26T02:08:41.573Z"
     },
     "VPRE-B004": {
       "description": "packages/core/lib/fix-plan.js (+ mirror): sweepChainNext after: 'verify' goes through sweepBrake() to commit carrying a flag, instead of stopping, when the outcome is setup-failure, when it is null an",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/fix-plan.js",
+        ".claude/lib/fix-plan.js",
+        "packages/core/lib/fix-plan.test.js",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-10-26T02:00:46.227Z",
+      "completed_at": "2026-10-26T02:09:52.233Z",
+      "last_advanced": "2026-10-26T02:08:41.573Z"
     },
     "VPRE-D001": {
       "description": "Bring the parent design in step: docs/TRD/functional-verification.md §3.3 (setupTargets, SetupTarget, result setup, outcome union), §3.4 (decideNext's refreshFailed input and exit-setup-failure in Loo",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "docs/TRD/functional-verification.md",
+        "packages/core/contracts/functional-verification.md",
+        ".claude/contracts/functional-verification.md",
+        "packages/core/workflows/verify-functional-trd-sync.test.js",
+        "packages/core/contracts/functional-verification.test.js"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-10-26T02:09:52.233Z"
     },
     "VPRE-B005": {
       "description": "packages/core/commands/implement-trd.md (+ mirror): §3.6a (policy-only classification, D17; no question, D1), the argument parse and argument-hint (--sweep-flag, D14), the state schema block, §3.7, §8",
@@ -130,11 +148,21 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "fce9529",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-26T02:00:46.224Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "847c407",
+    "last_healthy_checkpoint": "fce9529",
     "interrupted": false,
-    "interrupt_reason": null
+    "interrupt_reason": null,
+    "last_checkpoint_timestamp": "2026-10-26T02:00:46.224Z"
   },
   "functional_verification": {
     "prd_resolved": true,

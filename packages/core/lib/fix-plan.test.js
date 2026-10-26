@@ -339,6 +339,52 @@ describe('fix-plan: sweepChainNext, the only sequencer', () => {
     expect(N({ after: 'verify', verificationOutcome: 'satisfied' }).action).toBe('commit');
   });
 
+  test('after verify: setup failures commit carrying a flag instead of stopping', () => {
+    const cases = [
+      { verificationOutcome: 'setup-failure' },
+      { verificationOutcome: null, verifyEndedBySetup: true },
+      { verificationOutcome: 'insufficient-coverage', coverageShortByEnvironmentOnly: true },
+    ];
+    for (const c of cases) {
+      const r = N({ after: 'verify', ...c });
+      expect(r.action).toBe('commit');
+      expect(r.flag).toContain('docs/plan/lane.sweep.md');
+      expect(r.flag).toContain('committed unverified');
+    }
+    expect(N({ after: 'verify', verificationOutcome: 'setup-failure' }).flag).toContain('the environment, not the code');
+    expect(N({ after: 'verify', verificationOutcome: null, verifyEndedBySetup: true }).flag).toContain('the environment, not the code');
+  });
+
+  test('after verify: the booleans are inert unless their outcome matches', () => {
+    expect(N({ after: 'verify', verificationOutcome: null }).action).toBe('stop');
+    expect(N({ after: 'verify', verificationOutcome: 'insufficient-coverage' }).action).toBe('stop');
+    expect(N({ after: 'verify', verificationOutcome: 'stalled', verifyEndedBySetup: true, coverageShortByEnvironmentOnly: true }).action).toBe('stop');
+    expect(N({ after: 'verify', verificationOutcome: 'satisfied' }).flag).toBeUndefined();
+  });
+
+  test('after verify: a flagged commit still goes through the never-unattended brake', () => {
+    const hit = N({ after: 'verify', verificationOutcome: 'setup-failure', sweepNeverUnattendedHit: ['auth/x.js'] });
+    expect(hit.action).toBe('stop');
+    expect(hit.bannerBody).toMatch(/auth\/x\.js/);
+  });
+
+  test('after commit: a carried flag rides onto implement, or onto the done text without a core TRD', () => {
+    const flag = 'swept fixes committed unverified';
+    const imp = N({ after: 'commit', coreTrdExists: true, carriedFlag: flag });
+    expect(imp.action).toBe('implement');
+    expect(imp.flag).toBe(flag);
+    expect(N({ after: 'commit', coreTrdExists: true }).flag).toBeUndefined();
+    const done = N({ after: 'commit', coreTrdExists: false, carriedFlag: flag });
+    expect(done.action).toBe('stop');
+    expect(done.bannerBody).toMatch(/not verified/);
+    expect(done.bannerBody).not.toMatch(/swept, verified and committed/);
+    expect(N({ after: 'commit', coreTrdExists: false }).bannerBody).toMatch(/swept, verified and committed/);
+  });
+
+  test('SWEEP_CHAIN_INPUTS carries the three setup-aware keys', () => {
+    expect(SWEEP_CHAIN_INPUTS).toEqual(expect.arrayContaining(['verifyEndedBySetup', 'coverageShortByEnvironmentOnly', 'carriedFlag']));
+  });
+
   test('after commit: implement with a core TRD, else a completion stop', () => {
     expect(N({ after: 'commit', coreTrdExists: true }).action).toBe('implement');
     const done = N({ after: 'commit', coreTrdExists: false });

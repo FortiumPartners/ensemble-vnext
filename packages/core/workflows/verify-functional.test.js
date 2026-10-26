@@ -525,7 +525,7 @@ describe('verify-functional: the Judge is told the exact state-file key names', 
     // null on remediate, a real outcome string otherwise -- both halves stated, now including
     // insufficient-coverage (VCON-B004, D10).
     expect(capturedPrompt).toMatch(/null when decide-next returned "remediate"/);
-    expect(capturedPrompt).toMatch(/"satisfied", "unbuilt", "stalled", "stuck", "insufficient-coverage" or "must-pass-unproven"/);
+    expect(capturedPrompt).toMatch(/"satisfied", "unbuilt", "stalled", "stuck", "insufficient-coverage", "must-pass-unproven" or "setup-failure"/);
     // The consequence is spelled out, so a judge that is tempted to omit the key knows why not.
     expect(capturedPrompt).toMatch(/Omitting the key\s+entirely reads as null/);
     expect(capturedPrompt).toContain('Write it on EVERY iteration');
@@ -3074,6 +3074,377 @@ describe('verify-functional: must-pass enforcement', () => {
       expect(SOURCE).toMatch(/enum:\s*\[[^\]]*'exit-must-pass-unproven'[^\]]*\]/);
       expect(SOURCE).toMatch(/'exit-must-pass-unproven': 'must-pass-unproven'/);
     });
+  });
+});
+
+// --------------------------------------------------------------------------- setup check (preflight B003)
+
+function setupTarget(overrides = {}) {
+  return { environment: 'local', url: 'http://localhost:3000', ports: [3000], identity: '', refreshable: false, criteria: ['FS-1', 'FS-2'], ...overrides };
+}
+
+function setupResult(overrides = {}) {
+  return { action: 'proceed', reason: 'all setup checks passed', problems: [], flags: [], refreshesRun: 0, ...overrides };
+}
+
+const BROKEN = { environment: 'local', problem: 'nothing answers at http://localhost:3000', fix: 'start local' };
+
+// A stub plan: label-keyed overrides on top of an Exercise that claims everything and a Judge
+// that is satisfied. `judge` may be an array (one entry per call).
+function setupPlan(over = {}) {
+  const counts = {};
+  return (prompt, opts) => {
+    counts[opts.label] = (counts[opts.label] || 0) + 1;
+    const planned = over[opts.label];
+    if (planned !== undefined) return typeof planned === 'function' ? planned(counts[opts.label], prompt) : planned;
+    if (opts.label === 'exercise') return exercisePlanClaims([{ criterion: 'FS-1', artifact: 'a' }, { criterion: 'FS-2', artifact: 'b' }]);
+    if (opts.label === 'judge') return satisfiedJudge();
+    return null;
+  };
+}
+
+const labelsOf = (agent) => agent.calls.map((c) => c.opts.label);
+
+describe('verify-functional: setupTargets validation, before any agent runs', () => {
+  const rejects = async (setupTargets, pattern, extra = {}) => {
+    const agent = makeAgentStub(setupPlan());
+    await expect(runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets, ...extra }) })).rejects.toThrow(pattern);
+    expect(agent.calls).toHaveLength(0);
+  };
+
+  it('rejects a non-array', () => rejects('local', /setupTargets must be an array/));
+  it('rejects an entry with no environment name', () => rejects([setupTarget({ environment: '' })], /non-empty environment/));
+  it('rejects a non-string url or identity', async () => {
+    await rejects([setupTarget({ url: null })], /string url/);
+    await rejects([setupTarget({ identity: 3 })], /string identity/);
+  });
+  it('rejects non-integer ports and a non-boolean refreshable', async () => {
+    await rejects([setupTarget({ ports: ['3000'] })], /ports array of integers/);
+    await rejects([setupTarget({ refreshable: 'yes' })], /boolean refreshable/);
+  });
+  it('rejects a criterion id the definition does not have', () => rejects([setupTarget({ criteria: ['FS-9'] })], /unknown criterion id "FS-9"/));
+  it('rejects two refreshable entries', () =>
+    rejects([setupTarget({ refreshable: true }), setupTarget({ environment: 'dev', refreshable: true })], /at most one setupTargets entry may be refreshable/, { refreshCommand: 'npm run refresh' }));
+  it('rejects a refreshable entry when no refresh command is declared', () => rejects([setupTarget({ refreshable: true })], /no refreshCommand is declared/));
+});
+
+describe('verify-functional: the Setup phase', () => {
+  it('dispatches no setup agent without setupTargets, and carries a Debug result without refresh as null', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [{ criterion: 'FS-1', result: 'x' }] } }));
+    const { result, phases } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    expect(labelsOf(agent).filter((l) => l.startsWith('setup') || l === 'record')).toEqual([]);
+    expect(phases).not.toContain('Setup');
+    expect(result.setup).toEqual({ checked: 0, refreshed: 0, flags: [], problems: [] });
+    const judgePrompts = agent.calls.filter((c) => c.opts.label === 'judge').map((c) => c.prompt);
+    expect(judgePrompts[1]).toContain('"refreshFailed":false');
+  });
+
+  it('dispatches setup before Exercise, pinned to sonnet with no agentType, and proceeds', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: setupResult({ flags: [{ environment: 'local', flag: 'no identity declared', default: 'treated as fine for this attempt' }] }) }));
+    const { result, phases } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(labelsOf(agent)).toEqual(['setup', 'exercise', 'judge']);
+    expect(phases.indexOf('Setup')).toBeLessThan(phases.indexOf('Exercise'));
+    const call = agent.calls[0];
+    expect(call.opts.model).toBe('sonnet');
+    expect(call.opts.agentType).toBeUndefined();
+    expect(call.prompt).toContain('decide-setup --file');
+    expect(call.prompt).toContain('"refreshCount": 0');
+    expect(unpinnedLabels(agent)).toEqual([]);
+    expect(result.outcome).toBe('satisfied');
+    expect(result.setup).toEqual({
+      checked: 1,
+      refreshed: 0,
+      flags: [{ environment: 'local', flag: 'no identity declared', default: 'treated as fine for this attempt' }],
+      problems: [],
+    });
+  });
+
+  it('checks only targets that hold an open criterion, and not at all once they are settled', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub(
+      setupPlan({
+        judge: () =>
+          ++judgeCalls === 1
+            ? remediateJudge({ criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, files: [] }, { id: 'FS-2', status: 'not_met', tier1: 'fail', artifact: null, reason: 'no', files: [] }], gaps: ['FS-2'], debugGaps: [{ id: 'FS-2' }] })
+            : satisfiedJudge(),
+        debug: { results: [{ criterion: 'FS-2', result: 'ok' }], refresh: { ran: false, exitCode: null } },
+        setup: setupResult(),
+      })
+    );
+    const targets = [setupTarget({ environment: 'one', criteria: ['FS-1'] }), setupTarget({ environment: 'two', criteria: ['FS-2'] })];
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: targets }) });
+    const setupCalls = agent.calls.filter((c) => c.opts.label === 'setup');
+    expect(setupCalls).toHaveLength(2);
+    expect(setupCalls[0].prompt).toContain('"environment":"one"');
+    expect(setupCalls[0].prompt).toContain('"environment":"two"');
+    expect(setupCalls[1].prompt).not.toContain('"environment":"one"');
+    expect(setupCalls[1].prompt).toContain('"environment":"two"');
+  });
+
+  it('is not dispatched when Exercise is skipped', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub(
+      setupPlan({
+        judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()),
+        debug: { results: [{ criterion: 'FS-1', result: 'absent', unbuilt: true }], refresh: { ran: false, exitCode: null } },
+        setup: setupResult(),
+      })
+    );
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(labelsOf(agent)).toEqual(['setup', 'exercise', 'judge', 'debug', 'judge']);
+  });
+
+  it('copies each target\'s refreshable into the prompt', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: setupResult() }));
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh', setupTargets: [setupTarget({ refreshable: true })] }) });
+    expect(agent.calls[0].prompt).toContain('"refreshable":true');
+    expect(agent.calls[0].prompt).toContain('npm run dev:refresh');
+  });
+
+  it('a dead setup agent yields a flag and Exercise still runs', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: null }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(labelsOf(agent)).toEqual(['setup', 'exercise', 'judge']);
+    expect(result.outcome).toBe('satisfied');
+    expect(result.setup.checked).toBe(1);
+    expect(result.setup.flags).toHaveLength(1);
+    expect(result.setup.flags[0].flag).toMatch(/returned nothing/);
+  });
+});
+
+describe('verify-functional: refresh-once is decided by the script', () => {
+  const refreshArgs = () => baseArgs({ refreshCommand: 'npm run dev:refresh', setupTargets: [setupTarget({ refreshable: true })] });
+
+  it('dispatches exactly one setup-refresh on a refresh return, then proceeds', async () => {
+    const agent = makeAgentStub(
+      setupPlan({
+        setup: setupResult({ action: 'refresh', problems: [BROKEN] }),
+        'setup-refresh': setupResult({ refreshesRun: 1 }),
+      })
+    );
+    const { result } = await runWorkflow(SOURCE, { agent, args: refreshArgs() });
+    expect(labelsOf(agent)).toEqual(['setup', 'setup-refresh', 'exercise', 'judge']);
+    const refreshCall = agent.calls[1];
+    expect(refreshCall.opts.model).toBe('sonnet');
+    expect(refreshCall.prompt).toContain('EXACTLY ONCE');
+    expect(refreshCall.prompt).toContain('"refreshCount": 1');
+    expect(result.outcome).toBe('satisfied');
+    expect(result.setup).toMatchObject({ checked: 1, refreshed: 1, problems: [] });
+  });
+
+  it.each([
+    ['a setup return that reports a refresh it ran', { setup: setupResult({ refreshesRun: 1 }) }, /none is allowed/],
+    ['a setup-refresh that reports two refreshes', { setup: setupResult({ action: 'refresh', problems: [BROKEN] }), 'setup-refresh': setupResult({ refreshesRun: 2 }) }, /ran 2 refreshes; one is allowed/],
+    ['a setup-refresh that asks for a second refresh', { setup: setupResult({ action: 'refresh', problems: [BROKEN] }), 'setup-refresh': setupResult({ action: 'refresh', problems: [BROKEN], refreshesRun: 1 }) }, /asked for a second refresh/],
+  ])('ends setup-failure on %s', async (_name, plan, reason) => {
+    const agent = makeAgentStub(setupPlan({ ...plan, record: { recorded: true } }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: refreshArgs() });
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.setup.problems[0].problem).toMatch(reason);
+    expect(labelsOf(agent)).not.toContain('exercise');
+    expect(labelsOf(agent).filter((l) => l === 'setup-refresh').length).toBeLessThanOrEqual(1);
+  });
+
+  it('a dead setup-refresh ends setup-failure with the problems setup found', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: setupResult({ action: 'refresh', problems: [BROKEN] }), 'setup-refresh': null, record: { recorded: true } }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: refreshArgs() });
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.setup.problems).toEqual([BROKEN]);
+  });
+
+  it('a setup-refresh that still fails ends setup-failure with its problems', async () => {
+    const still = { environment: 'local', problem: 'the declared refresh exited 1', fix: 'run it by hand' };
+    const agent = makeAgentStub(setupPlan({ setup: setupResult({ action: 'refresh', problems: [BROKEN] }), 'setup-refresh': setupResult({ action: 'setup-failure', problems: [still], refreshesRun: 1 }), record: { recorded: true } }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: refreshArgs() });
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.setup.problems).toEqual([still]);
+    expect(result.setup.refreshed).toBe(1);
+  });
+});
+
+describe('verify-functional: the setup-failure exit', () => {
+  it('dispatches one Record agent and no Judge, Debug or Render, and rewrites only open criteria', async () => {
+    const agent = makeAgentStub(
+      setupPlan({
+        setup: setupResult({ action: 'setup-failure', problems: [BROKEN], reason: 'broken' }),
+        record: { recorded: true },
+      })
+    );
+    const resume = { iteration: 1, criteria: [{ id: 'FS-1', status: 'met', tier1: 'pass', artifact: 'a', reason: null, provenAt: 1 }], gapsClosed: [2] };
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume, setupTargets: [setupTarget()], fullRunCommand: 'make all' }) });
+
+    expect(labelsOf(agent)).toEqual(['setup', 'record']);
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.iterations).toBe(1); // iteration 2 failed; 2 - 1 completed
+    expect(result.finalRun).toBeNull();
+    expect(result.gaps).toEqual([]);
+    expect(result.setup.problems).toEqual([BROKEN]);
+    expect(result.criteria.find((c) => c.id === 'FS-1')).toMatchObject({ status: 'met', artifact: 'a' });
+    expect(result.criteria.find((c) => c.id === 'FS-2')).toMatchObject({
+      status: 'not_verifiable',
+      cause: 'never-exercised',
+      artifact: null,
+      tier1: null,
+      provenAt: null,
+    });
+    expect(result.criteria.find((c) => c.id === 'FS-2').reason).toBe('not exercised: the setup check failed — local: nothing answers at http://localhost:3000');
+
+    const recordCall = agent.calls[1];
+    expect(recordCall.opts.model).toBe('sonnet');
+    expect(recordCall.prompt).toContain('render-report --file');
+    expect(recordCall.prompt).toContain('save(');
+    const stateJson = JSON.parse(recordCall.prompt.match(/to [^\n]*record-state-2\.json:\n(.*)\n/)[1]);
+    expect(stateJson).toMatchObject({ iteration: 1, outcome: 'setup-failure', gapsClosed: [2] });
+    expect(stateJson.criteria).toHaveLength(2);
+    const reportJson = JSON.parse(recordCall.prompt.match(/to [^\n]*record-report-input-2\.json:\n(.*)\n/)[1]);
+    expect(reportJson).toMatchObject({ outcome: 'setup-failure', finalEnvironmentRun: null, setup: { problems: [BROKEN] }, feature: 'example' });
+    expect(reportJson.criteria[1]).toMatchObject({ id: 'FS-2', statement: 'statement for FS-2' });
+  });
+
+  it('records one gapsClosed entry per completed iteration, seeded from the resume', async () => {
+    let judgeCalls = 0;
+    let setupCalls = 0;
+    const agent = makeAgentStub(
+      setupPlan({
+        judge: () => (++judgeCalls === 1 ? remediateJudge({ closed: ['FS-2'] }) : satisfiedJudge()),
+        debug: { results: [{ criterion: 'FS-1', result: 'ok' }], refresh: { ran: false, exitCode: null } },
+        setup: () => (++setupCalls === 1 ? setupResult() : setupResult({ action: 'setup-failure', problems: [BROKEN] })),
+        record: { recorded: true },
+      })
+    );
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ resume: { iteration: 0, criteria: [], gapsClosed: [5] }, setupTargets: [setupTarget()] }) });
+    expect(result.outcome).toBe('setup-failure');
+    const recordCall = agent.calls.find((c) => c.opts.label === 'record');
+    const stateJson = JSON.parse(recordCall.prompt.match(/record-state-2\.json:\n(.*)\n/)[1]);
+    expect(stateJson.gapsClosed).toEqual([5, 1]);
+    expect(stateJson.iteration).toBe(1);
+  });
+
+  it('a dead Record agent is logged and the result still returns', async () => {
+    const agent = makeAgentStub(setupPlan({ setup: setupResult({ action: 'setup-failure', problems: [BROKEN] }), record: null }));
+    const { result, logs } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(result.outcome).toBe('setup-failure');
+    expect(logs.some((l) => /record agent returned nothing/.test(l))).toBe(true);
+  });
+
+  it('every other return path carries setup', async () => {
+    const empty = await runWorkflow(SOURCE, { agent: makeAgentStub(setupPlan({ judge: satisfiedJudge({ criteria: [] }) })), args: baseArgs({ criteria: [] }) });
+    expect(empty.result.setup).toEqual({ checked: 0, refreshed: 0, flags: [], problems: [] });
+    const atCap = await runWorkflow(SOURCE, { agent: makeAgentStub(setupPlan()), args: baseArgs({ cap: 3, resume: { iteration: 3, criteria: [], gapsClosed: [] } }) });
+    expect(atCap.result.setup).toEqual({ checked: 0, refreshed: 0, flags: [], problems: [] });
+    const fallThrough = await runWorkflow(SOURCE, { agent: makeAgentStub(setupPlan({ judge: remediateJudge(), debug: { results: [], refresh: { ran: false, exitCode: null } } })), args: baseArgs({ cap: 1 }) });
+    expect(fallThrough.result.outcome).toBe('stuck');
+    expect(fallThrough.result.setup).toEqual({ checked: 0, refreshed: 0, flags: [], problems: [] });
+  });
+
+  it('de-duplicates flags across iterations', async () => {
+    let judgeCalls = 0;
+    const flag = { environment: 'local', flag: 'no identity declared', default: 'treated as fine for this attempt' };
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: { results: [], refresh: { ran: false, exitCode: null } }, setup: setupResult({ flags: [flag] }) }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ setupTargets: [setupTarget()] }) });
+    expect(result.setup.checked).toBe(2);
+    expect(result.setup.flags).toEqual([flag]);
+  });
+});
+
+describe('verify-functional: Debug\'s refresh report (D16)', () => {
+  const failedRefresh = { results: [{ criterion: 'FS-1', result: 'fixed' }], refresh: { ran: true, exitCode: 1 } };
+
+  it('DEBUG_SCHEMA requires refresh and the prompt asks for it', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 1 ? remediateJudge() : satisfiedJudge()), debug: failedRefresh }));
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh' }) });
+    const debugCall = agent.calls.find((c) => c.opts.label === 'debug');
+    expect(debugCall.opts.schema.required).toEqual(['results', 'refresh']);
+    expect(debugCall.opts.schema.properties.refresh.required).toEqual(['ran', 'exitCode']);
+    expect(debugCall.prompt).toMatch(/"refresh": \{"ran": true, "exitCode": <its exit code>\}/);
+    const noRefresh = makeAgentStub(setupPlan({ judge: () => (++judgeCalls === 3 ? remediateJudge() : satisfiedJudge()), debug: failedRefresh }));
+    await runWorkflow(SOURCE, { agent: noRefresh, args: baseArgs() });
+    expect(noRefresh.calls.find((c) => c.opts.label === 'debug').prompt).toMatch(/"refresh": \{"ran": false, "exitCode": null\}/);
+  });
+
+  it('carries a failed refresh into the next setup prompt as debugRefresh, and clears it once consumed', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls < 3 ? remediateJudge() : satisfiedJudge()), debug: failedRefresh, setup: setupResult() }));
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 4, refreshCommand: 'npm run dev:refresh', setupTargets: [setupTarget()] }) });
+    const setupPrompts = agent.calls.filter((c) => c.opts.label === 'setup').map((c) => c.prompt);
+    expect(setupPrompts[0]).toContain('null when none since the last check): null');
+    expect(setupPrompts[1]).toContain('): {"ran":true,"exitCode":1}');
+    // Consumed by the second check; the third sees the second Debug pass's report, again failed.
+    const judgePrompts = agent.calls.filter((c) => c.opts.label === 'judge').map((c) => c.prompt);
+    expect(judgePrompts[1]).toContain('"refreshFailed":false'); // consumed by Setup this iteration
+  });
+
+  it('injects refreshFailed:true into decide-next when no Setup check consumed the fact, and false after exitCode 0', async () => {
+    let judgeCalls = 0;
+    let debugCalls = 0;
+    const agent = makeAgentStub(
+      setupPlan({
+        judge: () => (++judgeCalls < 3 ? remediateJudge() : satisfiedJudge()),
+        debug: () => (++debugCalls === 1 ? failedRefresh : { results: [{ criterion: 'FS-1', result: 'ok' }], refresh: { ran: true, exitCode: 0 } }),
+      })
+    );
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 4, refreshCommand: 'npm run dev:refresh' }) });
+    const judgePrompts = agent.calls.filter((c) => c.opts.label === 'judge').map((c) => c.prompt);
+    expect(judgePrompts[0]).toContain('"refreshFailed":false');
+    expect(judgePrompts[1]).toContain('"refreshFailed":true');
+    expect(judgePrompts[2]).toContain('"refreshFailed":false');
+  });
+
+  it('a dead Debug agent resets the carried refresh to null', async () => {
+    let judgeCalls = 0;
+    let debugCalls = 0;
+    const agent = makeAgentStub(setupPlan({ judge: () => (++judgeCalls < 3 ? remediateJudge() : satisfiedJudge()), debug: () => (++debugCalls === 1 ? failedRefresh : null) }));
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ cap: 4 }) });
+    const judgePrompts = agent.calls.filter((c) => c.opts.label === 'judge').map((c) => c.prompt);
+    expect(judgePrompts[1]).toContain('"refreshFailed":true');
+    expect(judgePrompts[2]).toContain('"refreshFailed":false');
+  });
+});
+
+describe('verify-functional: exit-setup-failure from the Judge', () => {
+  const exitJudge = () => remediateJudge({ action: 'exit-setup-failure', reason: 'the last Debug pass\'s refresh failed', debugGaps: undefined });
+
+  it('maps to outcome setup-failure with finalRun null, even with a fullRunCommand declared, and one problem', async () => {
+    let judgeCalls = 0;
+    const agent = makeAgentStub(
+      setupPlan({
+        judge: () => (++judgeCalls === 1 ? remediateJudge() : exitJudge()),
+        debug: { results: [{ criterion: 'FS-1', result: 'x' }], refresh: { ran: true, exitCode: 2 } },
+      })
+    );
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs({ refreshCommand: 'npm run dev:refresh', fullRunCommand: 'make all' }) });
+    expect(result.outcome).toBe('setup-failure');
+    expect(result.finalRun).toBeNull();
+    expect(result.setup.problems).toEqual([
+      { environment: 'running build', problem: 'the last Debug pass\'s refresh failed', fix: 'make the declared fast refresh (npm run dev:refresh) succeed, then run /verify-build' },
+    ]);
+  });
+
+  it('is also null with no fullRunCommand declared', async () => {
+    const agent = makeAgentStub(setupPlan({ judge: exitJudge() }));
+    const { result } = await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    expect(result.finalRun).toBeNull();
+  });
+
+  it('the Judge prompt names the new value in its gate, outcome list and action list', async () => {
+    const agent = makeAgentStub(setupPlan({ judge: satisfiedJudge() }));
+    await runWorkflow(SOURCE, { agent, args: baseArgs({ fullRunCommand: 'make all' }) });
+    const prompt = agent.calls.find((c) => c.opts.label === 'judge').prompt;
+    expect(prompt).toMatch(/unless the action above is "exit-unbuilt" or "exit-setup-failure"/);
+    expect(prompt).toMatch(/"must-pass-unproven" or "setup-failure"/);
+    expect(prompt).toMatch(/"exit-must-pass-unproven"\|"exit-setup-failure"\|"remediate"/);
+  });
+
+  it('JUDGE_SCHEMA and OUTCOME_BY_ACTION each gain exactly exit-setup-failure', async () => {
+    const agent = makeAgentStub(setupPlan());
+    await runWorkflow(SOURCE, { agent, args: baseArgs() });
+    const schema = agent.calls.find((c) => c.opts.label === 'judge').opts.schema;
+    expect(schema.properties.action.enum).toEqual(['exit-satisfied', 'exit-unbuilt', 'exit-stalled', 'exit-stuck', 'exit-insufficient-coverage', 'exit-must-pass-unproven', 'exit-setup-failure', 'remediate']);
+    const map = SOURCE.match(/const OUTCOME_BY_ACTION = \{([^}]*)\}/)[1];
+    expect(map.match(/'exit-[a-z-]+':/g)).toHaveLength(7);
+    expect(map).toContain("'exit-setup-failure': 'setup-failure'");
   });
 });
 
