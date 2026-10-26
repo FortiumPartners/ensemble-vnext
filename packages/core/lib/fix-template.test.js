@@ -76,6 +76,17 @@ function fill(tpl) {
     '<anything asserted but not checked — empty is fine and honest>',
     'nothing'
   );
+  out = literal(
+    out,
+    '<the verification.md section 1 environment the loop should exercise>',
+    'local'
+  );
+  out = literal(out, '<the verification.md section 2 fast refresh for it, or none declared>', 'none declared');
+  out = literal(
+    out,
+    '<what verification.md section 5 says that environment cannot show, or nothing known>',
+    'nothing known'
+  );
   return out
     .replace(/<yes, or blank>/g, 'yes')
     .replace(/`path\/to\/file\.ts`/g, '`src/export.ts`')
@@ -164,6 +175,27 @@ describe('the /plan TRD template', () => {
     const result = audit(parsed, { root: REPO, markdown: filled });
     const vaFindings = result.findings.filter((f) => f.check === 'verification-artifacts');
     expect(vaFindings).toEqual([]);
+  });
+});
+
+describe('the /plan TRD template: Verification Environment (VPRE-B002, D15)', () => {
+  const filled = fill(extractTemplate());
+
+  test('carries the three bold lines, between Verification Artifacts and Open Questions', () => {
+    const at = (h) => filled.indexOf(`\n## ${h}`);
+    expect(at('Verification Environment')).toBeGreaterThan(at('Verification Artifacts'));
+    expect(at('Verification Environment')).toBeLessThan(at('Open Questions'));
+    const section = filled.split(/\n## /).find((s) => s.startsWith('Verification Environment'));
+    expect(section).toMatch(/^\*\*Environment\*\*: local$/m);
+    expect(section).toMatch(/^\*\*Refresh\*\*: none declared$/m);
+    expect(section).toMatch(/^\*\*Cannot be checked there\*\*: nothing known$/m);
+  });
+
+  test('the filled template still parses and audits with the section present', () => {
+    const parsed = parseTrd(filled, { path: 'sample-fix.md' });
+    expect(parsed.tasks.length).toBeGreaterThan(0);
+    const result = audit(parsed, { root: REPO, markdown: filled });
+    expect(result.findings.filter((f) => /environment/i.test(f.check))).toEqual([]);
   });
 });
 

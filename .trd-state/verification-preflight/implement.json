@@ -1,0 +1,150 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/verification-preflight.md",
+  "trd_hash": "9f22dd44a12b558054d6ff9e96b392b20b3a2dacafd38143b706ea026bc3e919",
+  "branch": "feature/verification-preflight/impl",
+  "strategy": "tdd",
+  "phase_cursor": 1,
+  "tasks": {
+    "VPRE-B001": {
+      "description": "packages/core/lib/functional-verification.js (+ mirror): decideSetup() and the decide-setup --file CLI (§3.1); decideNext()'s required refreshFailed input and exit-setup-failure action (§3.1a); OUTCOM",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/functional-verification.js",
+        ".claude/lib/functional-verification.js",
+        "packages/core/lib/functional-verification.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-26T01:50:48.989Z",
+      "completed_at": "2026-10-26T01:59:53.214Z",
+      "last_advanced": "2026-10-26T01:56:30.548Z"
+    },
+    "VPRE-B002": {
+      "description": "Add ## Verification Environment (D15) to packages/core/commands/plan.md's light TRD template, packages/core/contracts/trd-authoring.md (after Section 9a, with how to fill it from verification.md §1/§2",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/plan.md",
+        "packages/core/contracts/trd-authoring.md",
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/plan.md",
+        ".claude/contracts/trd-authoring.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/lib/fix-template.test.js",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-26T01:50:48.991Z",
+      "completed_at": "2026-10-26T01:59:53.218Z",
+      "last_advanced": "2026-10-26T01:56:30.549Z"
+    },
+    "VPRE-B003": {
+      "description": "packages/core/workflows/verify-functional.js (+ mirror): setupTargets arg and validation, Setup phase, refresh-once decided by the script (the setup-refresh dispatch and the rejection of extra refresh",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VPRE-B004": {
+      "description": "packages/core/lib/fix-plan.js (+ mirror): sweepChainNext after: 'verify' goes through sweepBrake() to commit carrying a flag, instead of stopping, when the outcome is setup-failure, when it is null an",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VPRE-D001": {
+      "description": "Bring the parent design in step: docs/TRD/functional-verification.md §3.3 (setupTargets, SetupTarget, result setup, outcome union), §3.4 (decideNext's refreshFailed input and exit-setup-failure in Loo",
+      "phase": 2,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VPRE-B005": {
+      "description": "packages/core/commands/implement-trd.md (+ mirror): §3.6a (policy-only classification, D17; no question, D1), the argument parse and argument-hint (--sweep-flag, D14), the state schema block, §3.7, §8",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VPRE-B006": {
+      "description": "packages/core/commands/verify-build.md and packages/core/commands/refine-verification.md (+ mirrors) per §3.5, D12, D13. Update verify-command-surface.test.js (and refine-verification-must-pass.test.j",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VPRE-D002": {
+      "description": "Bring the owner-facing reference docs in step with D1 and D17: docs/reference/implement-trd.md (the steps-table row 6 at ~:48, \"Check that each environment … can be reached … one batched question to y",
+      "phase": 3,
+      "status": "pending",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "VPRE-T001": {
+      "description": "[LIVE] New smoke scenario test/smoke/scenarios/verification-preflight.sh, registered in test/smoke/run-smoke.sh's opt-in list: a throwaway fixture project whose verification.md declares a local enviro",
+      "phase": 4,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": "847c407",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/verification-preflight.investigation.md",
+    "environments": {
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized; the Artifact tool is available"
+      }
+    }
+  }
+}

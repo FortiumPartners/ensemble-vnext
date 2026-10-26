@@ -578,6 +578,14 @@ Omitted: <skill> — <reason>
 
 None apply — <reason>
 
+## Verification Environment
+<!-- optional: delete this whole section when verification.md declares nothing for this work.
+     Absence is valid and is reported, never fatal. verification.md stays authoritative; fill
+     the three lines from its sections 1, 2 and 5 (trd-authoring.md Section 9b). -->
+**Environment**: <the verification.md section 1 environment the loop should exercise>
+**Refresh**: <the verification.md section 2 fast refresh for it, or none declared>
+**Cannot be checked there**: <what verification.md section 5 says that environment cannot show, or nothing known>
+
 ## Open Questions
 
 | ID | Question | What I assumed | Owner-only |

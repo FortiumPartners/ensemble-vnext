@@ -9,6 +9,7 @@ const {
   checkEvidence,
   mustPassCoverage,
   decideNext,
+  decideSetup,
   renderReport,
   readStopRule,
   decideFixRound,
@@ -403,6 +404,7 @@ describe('decideNext', () => {
       unbuilt: ['FS-1'],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
     });
@@ -418,6 +420,7 @@ describe('decideNext', () => {
       unbuilt: ['FS-1'],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
     });
@@ -431,6 +434,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: ['FS-1'],
     });
@@ -444,6 +448,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
     });
@@ -460,6 +465,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
     });
@@ -479,6 +485,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: [],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -493,6 +500,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -509,6 +517,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       cap: 3,
@@ -525,6 +534,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       cap: 1,
@@ -540,6 +550,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
     });
@@ -551,6 +562,7 @@ describe('decideNext', () => {
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
     });
@@ -559,11 +571,11 @@ describe('decideNext', () => {
 
   test('every result includes a non-empty reason string', () => {
     for (const input of [
-      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] },
-      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] },
-      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [] },
-      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [] },
-      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] },
+      { iteration: 1, gaps: [], unbuilt: ['FS-1'], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
+      { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
+      { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
+      { iteration: 3, gaps: ['FS-1'], unbuilt: [], previousGaps: [], met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
+      { iteration: 1, gaps: ['FS-1'], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false },
     ]) {
       const result = decideNext(input);
       expect(typeof result.reason).toBe('string');
@@ -587,6 +599,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 10,
@@ -606,6 +619,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -621,6 +635,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: ['FS-1', 'FS-2'],
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: ['FS-3'],
       total: 10,
@@ -637,6 +652,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -652,6 +668,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: ['FS-1'],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -667,6 +684,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: ['FS-1'],
       total: 62, // the PRD's own 18% (11 of 62) shape, exaggerated further to 1/62
@@ -682,6 +700,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       total: 10,
@@ -697,6 +716,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: ['FS-1', 'FS-2', 'FS-3', 'FS-4', 'FS-5'],
       total: 10,
@@ -712,6 +732,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       coverageFloor: 0.5,
@@ -727,6 +748,7 @@ describe('decideNext: the coverage re-label', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
       total: 0,
@@ -1142,6 +1164,7 @@ describe('CLI', () => {
       unbuilt: [],
       previousGaps: null,
       mustPass: [],
+      refreshFailed: false,
       mustPassUncovered: [],
       met: [],
     });
@@ -1273,7 +1296,7 @@ describe('CLI', () => {
     const inputFile = path.join(tmpDir, 'decide.json');
     fs.writeFileSync(
       inputFile,
-      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] })
+      JSON.stringify({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false })
     );
 
     const stdout = execFileSync('node', [MODULE_PATH, 'decide-next', '--file', inputFile]).toString();
@@ -2933,7 +2956,7 @@ describe('CLI: decide-fix-round and render-fix-summary', () => {
 describe('the existing functional-verification.test.js cases still pass', () => {
   test('sanity: decideNext and renderReport basics are untouched by the VFIX-B001 changes', () => {
     expect(
-      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [] })
+      decideNext({ iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: [], mustPass: [], mustPassUncovered: [], refreshFailed: false })
     ).toMatchObject({ action: 'exit-satisfied' });
     expect(renderReport({
       feature: 'demo',
@@ -2953,7 +2976,7 @@ describe('the existing functional-verification.test.js cases still pass', () => 
 // ---------------------------------------------------------------------------
 
 describe('decideNext: the must-pass step (D8, D9, D10)', () => {
-  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2 };
+  const clean = { iteration: 1, gaps: [], unbuilt: [], previousGaps: null, met: ['FS-1'], total: 2, refreshFailed: false };
 
   test('a base exit-satisfied with an unproven must-pass criterion becomes exit-must-pass-unproven', () => {
     const r = decideNext({ ...clean, mustPass: ['FS-2'], mustPassUncovered: [] });
@@ -2976,14 +2999,14 @@ describe('decideNext: the must-pass step (D8, D9, D10)', () => {
   });
 
   test('a must-pass criterion in gaps still remediates / stalls / sticks', () => {
-    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [] };
+    const base = { iteration: 1, gaps: ['FS-2'], unbuilt: [], previousGaps: null, met: ['FS-1'], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false };
     expect(decideNext(base).action).toBe('remediate');
     expect(decideNext({ ...base, iteration: 2, previousGaps: ['FS-2'] }).action).toBe('exit-stalled');
     expect(decideNext({ ...base, iteration: 3 }).action).toBe('exit-stuck');
   });
 
   test('a must-pass criterion in unbuilt still exits unbuilt', () => {
-    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [] });
+    const r = decideNext({ iteration: 1, gaps: [], unbuilt: ['FS-2'], previousGaps: null, met: [], mustPass: ['FS-2'], mustPassUncovered: [], refreshFailed: false });
     expect(r.action).toBe('exit-unbuilt');
   });
 
@@ -3643,5 +3666,364 @@ describe('CLI report-publish-plan', () => {
   test('missing --report, or an unreadable report, exits 1', () => {
     expect(cli(['report-publish-plan']).status).toBe(1);
     expect(cli(['report-publish-plan', '--report', 'run/none.md']).status).toBe(1);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Verification preflight (docs/TRD/verification-preflight.md, VPRE-B001):
+// decideSetup, decideNext's refreshFailed guard, the setup-failure report
+// ---------------------------------------------------------------------------
+
+describe('decideSetup (§3.1)', () => {
+  const HEAD = 'abc1234def5678abc1234def5678abc1234def56';
+  const CHECKOUT = '/work/repo';
+  const fact = (over = {}) => ({
+    environment: 'local',
+    refreshable: true,
+    reach: { ok: true, detail: '' },
+    identity: { command: '', output: null, exitCode: null },
+    holderCheck: 'not-applicable',
+    listeners: [],
+    ...over,
+  });
+  const input = (over = {}) => ({
+    head: HEAD,
+    checkout: CHECKOUT,
+    facts: [fact()],
+    refreshCommand: '',
+    refreshCount: 0,
+    refreshExitCode: null,
+    debugRefresh: null,
+    ...over,
+  });
+  const identity = (output, exitCode = 0) => ({ command: 'cat build.txt', output, exitCode });
+
+  test('no facts proceeds with "no environment to check"', () => {
+    const r = decideSetup(input({ facts: [] }));
+    expect(r).toMatchObject({ action: 'proceed', reason: 'no environment to check' });
+  });
+
+  test('a clean environment proceeds, reason "all setup checks passed" when nothing is unknown', () => {
+    const r = decideSetup(input({
+      facts: [fact({ identity: identity(HEAD.slice(0, 9)), holderCheck: 'ran', listeners: [{ port: 3000, pid: 1, toplevel: CHECKOUT }] })],
+    }));
+    expect(r.action).toBe('proceed');
+    expect(r.reason).toBe('all setup checks passed');
+    expect(r.environments[0]).toEqual({ environment: 'local', reachable: 'yes', build: 'matches', holder: 'this-checkout' });
+  });
+
+  test('flags alone return proceed, and the reason counts them', () => {
+    const r = decideSetup(input({ facts: [fact({ reach: { ok: null, detail: '' } })] }));
+    expect(r.action).toBe('proceed');
+    expect(r.problems).toEqual([]);
+    expect(r.flags.length).toBeGreaterThan(0);
+    expect(r.reason).toMatch(/\d+ flags?, no problems/);
+    expect(r.environments[0].reachable).toBe('unknown');
+  });
+
+  test('unreachable with no refresh declared is a setup-failure with a fix', () => {
+    const r = decideSetup(input({ facts: [fact({ reach: { ok: false, detail: 'connection refused' } })] }));
+    expect(r.action).toBe('setup-failure');
+    expect(r.problems[0]).toMatchObject({ environment: 'local', fix: 'start local' });
+    expect(r.problems[0].problem).toContain('connection refused');
+  });
+
+  test('unreachable with a declared refresh on a refreshable environment returns refresh', () => {
+    const r = decideSetup(input({ refreshCommand: 'make up', facts: [fact({ reach: { ok: false, detail: '' } })] }));
+    expect(r.action).toBe('refresh');
+  });
+
+  test('refreshCount 1 with problems returns setup-failure, never refresh', () => {
+    const r = decideSetup(input({
+      refreshCommand: 'make up', refreshCount: 1, refreshExitCode: 0,
+      facts: [fact({ reach: { ok: false, detail: '' } })],
+    }));
+    expect(r.action).toBe('setup-failure');
+    expect(r.problems[0].fix).toContain('did not bring it up');
+  });
+
+  test('refreshCount 1 with no problems proceeds', () => {
+    const r = decideSetup(input({ refreshCommand: 'make up', refreshCount: 1, refreshExitCode: 0 }));
+    expect(r.action).toBe('proceed');
+  });
+
+  test('a refresh that exited non-zero is a problem; a null exit code is a flag', () => {
+    const bad = decideSetup(input({ refreshCommand: 'make up', refreshCount: 1, refreshExitCode: 2 }));
+    expect(bad.action).toBe('setup-failure');
+    expect(bad.problems[0].problem).toContain('exited 2');
+    const unknown = decideSetup(input({ refreshCommand: 'make up', refreshCount: 1, refreshExitCode: null }));
+    expect(unknown.action).toBe('proceed');
+    expect(unknown.flags.length).toBeGreaterThan(0);
+  });
+
+  test('a problem on a non-refreshable environment is setup-failure even with a declared refresh', () => {
+    const r = decideSetup(input({
+      refreshCommand: 'make up',
+      facts: [fact(), fact({ environment: 'dev', refreshable: false, reach: { ok: false, detail: '' } })],
+    }));
+    expect(r.action).toBe('setup-failure');
+  });
+
+  test('a mixed set (one refreshable problem, one not) is setup-failure', () => {
+    const r = decideSetup(input({
+      refreshCommand: 'make up',
+      facts: [fact({ reach: { ok: false, detail: '' } }), fact({ environment: 'dev', refreshable: false, reach: { ok: false, detail: '' } })],
+    }));
+    expect(r.action).toBe('setup-failure');
+  });
+
+  describe('build identity (D8)', () => {
+    const build = (output, exitCode = 0) =>
+      decideSetup(input({ facts: [fact({ identity: identity(output, exitCode) })] }));
+
+    test('no command declared reads unknown with a flag', () => {
+      const r = decideSetup(input());
+      expect(r.environments[0].build).toBe('unknown');
+      expect(r.flags[0].flag).toMatch(/no way to read the running build's commit is declared for local/);
+    });
+
+    test('a non-zero exit or empty output reads unknown with a flag, not a problem', () => {
+      expect(build('abc1234', 1).environments[0].build).toBe('unknown');
+      expect(build('   ', 0).environments[0].build).toBe('unknown');
+      expect(build('abc1234', 1).problems).toEqual([]);
+    });
+
+    test('a token that prefixes HEAD matches', () => {
+      expect(build('built from abc1234').environments[0].build).toBe('matches');
+    });
+
+    test('a non-matching token with a letter a-f differs and is a problem', () => {
+      const r = build('deadbeef');
+      expect(r.environments[0].build).toBe('differs');
+      expect(r.problems[0].problem).toBe('running build is from deadbeef, not HEAD abc1234');
+      expect(r.problems[0].fix).toBe('rebuild or restart local from this checkout');
+    });
+
+    test('a build date alone (20261023) reads unknown, not differs', () => {
+      const r = build('built 20261023');
+      expect(r.environments[0].build).toBe('unknown');
+      expect(r.problems).toEqual([]);
+    });
+
+    test('an all-digit token that prefixes HEAD matches', () => {
+      const r = decideSetup(input({ head: '1234567890abcdef1234567890abcdef12345678', facts: [fact({ identity: identity('1234567') })] }));
+      expect(r.environments[0].build).toBe('matches');
+    });
+
+    test('an all-digit token that does not prefix HEAD reads unknown', () => {
+      expect(build('7654321').environments[0].build).toBe('unknown');
+    });
+
+    test('a date beside the matching commit still matches', () => {
+      expect(build('abc1234 built 20261023').environments[0].build).toBe('matches');
+    });
+  });
+
+  describe('holder (D9)', () => {
+    const held = (listeners, holderCheck = 'ran', checkout = CHECKOUT) =>
+      decideSetup(input({ checkout, facts: [fact({ holderCheck, listeners })] }));
+
+    test('no listener reads none', () => {
+      expect(held([]).environments[0].holder).toBe('none');
+    });
+
+    test('lsof unavailable reads unknown with a flag', () => {
+      const r = held([], 'unavailable');
+      expect(r.environments[0].holder).toBe('unknown');
+      expect(r.flags.some((f) => /lsof unavailable/.test(f.flag))).toBe(true);
+    });
+
+    test('a listener with no git top-level reads unknown with a flag', () => {
+      const r = held([{ port: 3000, pid: 9, toplevel: null }]);
+      expect(r.environments[0].holder).toBe('unknown');
+      expect(r.action).toBe('proceed');
+    });
+
+    test('a worktree under <checkout>/.claude/worktrees/x reads other-checkout', () => {
+      const r = held([{ port: 3000, pid: 9, toplevel: `${CHECKOUT}/.claude/worktrees/x` }]);
+      expect(r.environments[0].holder).toBe('other-checkout');
+      expect(r.problems[0].problem).toBe(`port 3000 is held by a process in another checkout (${CHECKOUT}/.claude/worktrees/x)`);
+      expect(r.problems[0].fix).toContain('stop the stack in');
+    });
+
+    test('trailing slashes do not make the same checkout read as another', () => {
+      expect(held([{ port: 3000, pid: 9, toplevel: `${CHECKOUT}/` }]).environments[0].holder).toBe('this-checkout');
+      expect(held([{ port: 3000, pid: 9, toplevel: CHECKOUT }], 'ran', `${CHECKOUT}/`).environments[0].holder).toBe('this-checkout');
+    });
+
+    test('held-elsewhere with a declared refresh returns setup-failure, not refresh', () => {
+      const r = decideSetup(input({
+        refreshCommand: 'make up',
+        facts: [fact({ holderCheck: 'ran', listeners: [{ port: 3000, pid: 9, toplevel: '/other/repo' }] })],
+      }));
+      expect(r.action).toBe('setup-failure');
+    });
+  });
+
+  describe('debugRefresh (D16)', () => {
+    const dbg = (debugRefresh, over = {}) => decideSetup(input({ debugRefresh, ...over }));
+
+    test('{ ran: true, exitCode: 1 } is a problem: refresh when one is declared, else setup-failure', () => {
+      const withCmd = dbg({ ran: true, exitCode: 1 }, { refreshCommand: 'make up' });
+      expect(withCmd.action).toBe('refresh');
+      expect(withCmd.problems[0].problem).toMatch(/last Debug pass's refresh .*exited 1/);
+      expect(dbg({ ran: true, exitCode: 1 }).action).toBe('setup-failure');
+    });
+
+    test('{ ran: false } is a flag and proceeds', () => {
+      const r = dbg({ ran: false, exitCode: null });
+      expect(r.action).toBe('proceed');
+      expect(r.problems).toEqual([]);
+      expect(r.flags.some((f) => /no fast refresh is declared/.test(f.flag))).toBe(true);
+    });
+
+    test('null and { ran: true, exitCode: 0 } yield neither a flag nor a problem', () => {
+      for (const d of [null, { ran: true, exitCode: 0 }]) {
+        const r = dbg(d, { facts: [fact({ reach: { ok: true, detail: '' }, identity: identity(HEAD.slice(0, 8)), holderCheck: 'ran', listeners: [] })] });
+        expect(r.problems).toEqual([]);
+        expect(r.flags).toEqual([]);
+      }
+    });
+
+    test('{ ran: true, exitCode: null } is a flag', () => {
+      const r = dbg({ ran: true, exitCode: null });
+      expect(r.action).toBe('proceed');
+      expect(r.flags.length).toBeGreaterThan(0);
+    });
+
+    test('is ignored at refreshCount >= 1 (the setup check\'s own refresh supersedes it)', () => {
+      const r = dbg({ ran: true, exitCode: 1 }, { refreshCommand: 'make up', refreshCount: 1, refreshExitCode: 0 });
+      expect(r.problems).toEqual([]);
+      expect(r.action).toBe('proceed');
+    });
+  });
+
+  describe('missing fields throw naming the field', () => {
+    test.each(['head', 'checkout', 'facts', 'refreshCommand', 'refreshCount', 'refreshExitCode', 'debugRefresh'])('%s', (key) => {
+      const bad = input();
+      delete bad[key];
+      expect(() => decideSetup(bad)).toThrow(TypeError);
+      expect(() => decideSetup(bad)).toThrow(new RegExp(`input\\.${key}`));
+    });
+
+    test('a fact without a boolean refreshable throws naming it', () => {
+      const f = fact();
+      delete f.refreshable;
+      expect(() => decideSetup(input({ facts: [f] }))).toThrow(/facts\[0\]\.refreshable/);
+    });
+
+    test('a negative or fractional refreshCount throws', () => {
+      expect(() => decideSetup(input({ refreshCount: -1 }))).toThrow(/refreshCount/);
+      expect(() => decideSetup(input({ refreshCount: 0.5 }))).toThrow(/refreshCount/);
+    });
+
+    test('debugRefresh without a boolean ran throws', () => {
+      expect(() => decideSetup(input({ debugRefresh: { exitCode: 1 } }))).toThrow(/debugRefresh/);
+    });
+  });
+});
+
+describe('CLI: decide-setup (§3.1)', () => {
+  test('decide-setup --file prints the result as JSON', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'decide-setup-'));
+    try {
+      const file = path.join(dir, 'in.json');
+      fs.writeFileSync(file, JSON.stringify({
+        head: 'abc1234def', checkout: '/r', facts: [], refreshCommand: '', refreshCount: 0,
+        refreshExitCode: null, debugRefresh: null,
+      }));
+      const out = JSON.parse(execFileSync('node', [MODULE_PATH, 'decide-setup', '--file', file]).toString());
+      expect(out).toMatchObject({ action: 'proceed', reason: 'no environment to check' });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('decide-setup with no payload prints usage and exits 1', () => {
+    const r = spawnSync('node', [MODULE_PATH, 'decide-setup'], { encoding: 'utf8' });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('decide-setup');
+  });
+});
+
+describe('decideNext: the failed-refresh guard (D16, §3.1a)', () => {
+  const open = { iteration: 2, gaps: ['FS-1'], unbuilt: [], previousGaps: ['FS-1'], met: [], mustPass: [], mustPassUncovered: [] };
+
+  test('refreshFailed with open gaps and nothing closed returns exit-setup-failure, not exit-stalled', () => {
+    const r = decideNext({ ...open, refreshFailed: true });
+    expect(r.action).toBe('exit-setup-failure');
+    expect(r.reason).toMatch(/the environment, not the code/);
+  });
+
+  test('the same input with refreshFailed false still returns exit-stalled', () => {
+    expect(decideNext({ ...open, refreshFailed: false }).action).toBe('exit-stalled');
+  });
+
+  test('refreshFailed also pre-empts exit-stuck and remediate', () => {
+    expect(decideNext({ ...open, iteration: 3, previousGaps: null, refreshFailed: true }).action).toBe('exit-setup-failure');
+    expect(decideNext({ ...open, iteration: 1, previousGaps: null, refreshFailed: true }).action).toBe('exit-setup-failure');
+  });
+
+  test('unbuilt and satisfied still win over refreshFailed', () => {
+    expect(decideNext({ ...open, gaps: [], unbuilt: ['FS-2'], refreshFailed: true }).action).toBe('exit-unbuilt');
+    expect(decideNext({ ...open, gaps: [], previousGaps: null, refreshFailed: true }).action).toBe('exit-satisfied');
+  });
+
+  test('exit-setup-failure is never re-labelled by the coverage floor', () => {
+    const r = decideNext({ ...open, total: 10, coverageFloor: 0.9, met: ['FS-2'], refreshFailed: true });
+    expect(r.action).toBe('exit-setup-failure');
+  });
+
+  test('a missing or non-boolean refreshFailed throws naming it', () => {
+    expect(() => decideNext(open)).toThrow(TypeError);
+    expect(() => decideNext(open)).toThrow(/input\.refreshFailed is required/);
+    expect(() => decideNext({ ...open, refreshFailed: 'yes' })).toThrow(/input\.refreshFailed/);
+  });
+});
+
+describe('renderReport: setup-failure (§3.3, D11)', () => {
+  const base = {
+    feature: 'demo', prd: 'docs/PRD/demo.md', definitionPath: '.trd-state/demo/success-definition.md',
+    outcome: 'setup-failure', reason: 'local is not reachable',
+    criteria: [{ id: 'FS-1', statement: 's', cites: 'c', status: 'not_verifiable', cause: 'never-exercised', artifact: null, reason: 'not exercised: the setup check failed', attempts: [], blocker: null }],
+    setup: { problems: [
+      { environment: 'local', problem: 'local is not reachable', fix: 'start local' },
+      { environment: 'dev', problem: 'port 3000 is held by a process in another checkout (/o)', fix: 'stop the stack in /o' },
+    ] },
+  };
+
+  test('shows the label, one Setup line per problem after Reason, no Diagnosis, and D11\'s Next', () => {
+    const md = renderReport(base);
+    expect(md).toContain('**Outcome**: Setup Failure\n');
+    const lines = md.split('\n');
+    const reasonAt = lines.findIndex((l) => l.startsWith('**Reason**'));
+    expect(lines[reasonAt + 1]).toBe('**Setup**: local — local is not reachable; fix: start local');
+    expect(lines[reasonAt + 2]).toBe('**Setup**: dev — port 3000 is held by a process in another checkout (/o); fix: stop the stack in /o');
+    expect(lines[reasonAt + 3]).toMatch(/^\*\*Criteria\*\*/);
+    expect(md).not.toContain('**Diagnosis**');
+    expect(md).toContain('**Next**: fix the environment named above, then run `/verify-build`');
+    expect(md).not.toContain('/refine-verification');
+  });
+
+  test('a sweep file gets the sweep variant', () => {
+    const md = renderReport({ ...base, prd: 'docs/sweeps/x.sweep.md' });
+    expect(md).toContain('**Next**: fix the environment named above, then run `/verify-build docs/sweeps/x.sweep.md`');
+  });
+
+  test('a cell-breaking character in a fact cannot split the line', () => {
+    const md = renderReport({ ...base, setup: { problems: [{ environment: 'a|b', problem: 'x\ny', fix: 'z' }] } });
+    expect(md).toContain('**Setup**: a\\|b — x y; fix: z');
+  });
+
+  test('without setup, the report renders with no Setup line', () => {
+    const { setup, ...noSetup } = base;
+    expect(renderReport(noSetup)).not.toContain('**Setup**');
+  });
+
+  test('setup is ignored under every other outcome (byte-identical)', () => {
+    const other = { ...base, outcome: 'stalled' };
+    const { setup, ...withoutSetup } = other;
+    expect(renderReport(other)).toBe(renderReport(withoutSetup));
   });
 });

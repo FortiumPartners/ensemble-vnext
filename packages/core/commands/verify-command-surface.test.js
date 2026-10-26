@@ -1027,6 +1027,52 @@ describe('Must pass column on the TRD authoring surfaces (verification-must-pass
 });
 
 // ---------------------------------------------------------------------------
+// verification-preflight VPRE-B002 (D15): the optional Verification Environment section.
+// ---------------------------------------------------------------------------
+
+describe('Verification Environment on the TRD authoring surfaces (verification-preflight D15)', () => {
+  const LINES = ['**Environment**', '**Refresh**', '**Cannot be checked there**'];
+  const surfaces = {
+    contract: read(path.join(REPO, 'packages/core/contracts/trd-authoring.md')),
+    plan: read(CORE_PLAN),
+    createTrd: read(path.join(REPO, 'packages/core/commands/create-trd.md')),
+  };
+
+  test.each(Object.entries(surfaces))('%s has the heading and the same three lines', (_name, text) => {
+    expect(text).toContain('## Verification Environment');
+    for (const line of LINES) expect(text).toContain(line);
+  });
+
+  test('each surface says absence is valid', () => {
+    for (const text of Object.values(surfaces)) expect(flat(text)).toMatch(/[Aa]bsence is valid/);
+  });
+
+  test('the contract says how to fill it from verification.md and that verification.md wins', () => {
+    const section = flat(surfaces.contract.split('### Section 9b: Verification Environment')[1].split('### Section 10:')[0]);
+    expect(section).toMatch(/section 1/);
+    expect(section).toMatch(/section 2/);
+    expect(section).toMatch(/section 5/);
+    expect(section).toMatch(/`verification\.md` always wins/);
+  });
+
+  test('the section sits after Verification Artifacts in the contract and plan template', () => {
+    const c = surfaces.contract;
+    expect(c.indexOf('### Section 9b:')).toBeGreaterThan(c.indexOf('### Section 9a:'));
+    expect(c.indexOf('### Section 9b:')).toBeLessThan(c.indexOf('### Section 10:'));
+    const p = surfaces.plan;
+    expect(p.indexOf('## Verification Environment')).toBeGreaterThan(p.indexOf('## Verification Artifacts'));
+  });
+
+  test.each([
+    ['contracts/trd-authoring.md'],
+    ['commands/plan.md'],
+    ['commands/create-trd.md'],
+  ])('%s mirror is byte-identical', (rel) => {
+    expect(read(path.join(REPO, '.claude', rel))).toBe(read(path.join(REPO, 'packages/core', rel)));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // next-in-order: NEXT is the few steps to take now, in order, never shell.
 // ---------------------------------------------------------------------------
 
