@@ -17,5 +17,11 @@
     "url": "",
     "updated_at": "2026-10-26T02:39:16.946Z",
     "command": "/implement-trd"
+  },
+  "verification-plan": {
+    "path": ".trd-state/verification-preflight/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-10-26T02:56:08.992Z",
+    "command": "/refine-verification"
   }
 }
