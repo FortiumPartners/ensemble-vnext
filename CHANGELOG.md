@@ -10,6 +10,68 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.14.0] - 2026-10-31
+
+A job that produces findings or a report, not code, now has its own command, `/task`, and a
+clean end state. Verification no longer stops, pauses or asks when an environment is broken:
+it flags the problem and ends with a new outcome, `setup-failure`, that blames the
+environment, not the code. `/create-trd` writes its grounding section with code instead of
+trusting an agent to paste it.
+
+### Added
+
+- **`/task <prompt | brief>`** (#52) — for reports, checkpoints, spikes, audits and dry runs.
+  It creates `.trd-state/task-<slug>/`, tracks its steps in `implement.json`, runs each step
+  once, records a step it cannot do as `deferred` with its reason (never retried), records
+  outputs as `report` artifacts, and closes with `closed.json` holding `outputs` and
+  `followups`. It points `current.json` at itself only when no feature is in flight, and
+  `/task --resume` finds an unclosed task by scanning. A task where nothing could be done ends
+  `COMMAND STUCK`. It never changes product code, pushes or opens a PR unless the prompt asks.
+- **`report` artifact kind** in `artifacts.js`; further outputs record as `report-2`, `report-3`.
+- **Verification setup checks** (#50). Before each verification attempt the loop checks that
+  each environment is reachable, that the running build is HEAD, and that no other checkout
+  holds a declared port, refreshing at most once. TRDs gain an optional
+  `## Verification Environment` section naming the environment to exercise.
+- **`setup-failure` outcome.** A broken environment ends the verification run as
+  `setup-failure`: never `stalled`, never handed to the debugger, and every report and readout
+  says "the environment, not the code".
+- **`trd-grounding.js`** (#49) — `assemble` writes a TRD's `## 9. Task Grounding` section and
+  `## Deferred by design` table from per-agent files; `report` parses them back.
+
+### Changed
+
+- **`/implement-trd` §3.6a and `/verify-build` step 2 ask nothing.** An environment that needs
+  the owner is recorded `needs-owner` with its default and named in ISSUES.
+- **`/plan`'s sweep chain commits with a flag on a setup failure** instead of stopping.
+- **`/create-trd` grounding** (#49): grounding agents write their blocks to their own files,
+  the merge agent only reports contradictions, the `defer:write` agent is gone, tasks no agent
+  returned get one retry, and the readout's grounded count comes from parsing the TRD on disk.
+  An ungrounded task is reported, never STUCK.
+- **`/implement-trd`'s TRD selection skips task directories** (`trd_file` null or
+  `"kind": "task"`), so an interrupted `/task` is never resolved as a TRD.
+
+### Fixed
+
+- **`/plan`'s here-documents never terminated** (#54). Three shell blocks quoted their
+  delimiter in a way that only works inside single quotes, so each failed before running. A
+  new test syntax-checks every here-document block in the command files under bash and zsh.
+- **Audit gaps promoted into the "Deferred by design" table with empty descriptions** (#46):
+  `promoteToTrd` now adds them only to a table with a Description column.
+- **A promoted gap's acceptance criterion asserted the gap** ("<gap> is met"); it now reads
+  "<gap> no longer holds".
+- **False cycles from transitive dependencies** (#47): the task graph orients a file-conflict
+  edge along any chain of declared dependencies.
+- **`[LIVE]` in the Task ID cell changed the ID** (#48); it is now stripped and marks the task live.
+- **`trd-parser`** reads the first `Task Grounding` heading that holds task blocks (a prose
+  heading no longer hides the real section) and the `What I assumed` Open Questions column.
+
+### Not yet proven
+
+- No live `/task` run has happened; it is verified on fixtures that run the real libraries.
+- No live setup check has run; the live smoke scenario (VPRE-T001) is deferred by design. The
+  "another checkout" check covers declared ports, not non-port resources (decision D9).
+- No live `/create-trd` run has exercised the new grounding path on a fanned-out TRD.
+
 ## [4.13.8] - 2026-10-23
 
 `/audit-build` no longer opens another round over things nobody has to fix. A wrong line
