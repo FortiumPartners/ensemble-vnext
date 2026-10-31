@@ -80,6 +80,8 @@ FRAMEWORK_HINT = """ENSEMBLE — orient before answering:
   One change to the feature ALREADY in flight -> /amend <what>: grounded, recorded as a
   TRD row before the work, verified against disk. No new TRD. It is the middle weight
   between /plan (which forks a second TRD) and raw prompting.
+  A job whose output is findings or a report, not code (a re-check, a spike, a data
+  capture) -> /task <prompt|brief>: steps run once, outputs recorded, closed. No TRD.
   New feature -> /create-prd -> /create-trd -> /implement-trd (review, hardening
   and verification run INSIDE it; the functional loop runs by default, --no-verify
   skips it) -> /audit-build, which closes the feature when it passes; /close-feature

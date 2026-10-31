@@ -30,6 +30,8 @@ SHORTER PATHS
                            recorded as a TRD row before the work, verified. No new TRD.
 /sweep <issues>        --> A list of small, unrelated issues from a walkthrough — each
                            fixed in parallel, grounded and attested. No TRD.
+/task <prompt|brief>   --> A job whose output is findings or a report, not code: steps
+                           run once, outputs recorded, closed with a closed.json. No TRD.
 /refine-verification   --> Between a verification run that fell short and the next one:
                            agrees a recovery plan, interactively or with --auto. The only
                            step /implement-trd and /verify-build both point at.
@@ -198,6 +200,21 @@ task.
 3. Proposes Constitution changes (requires confirmation)
 4. Proposes stack.md updates (requires confirmation)
 5. Regenerates router-rules if stack changes
+
+### /task
+
+**Purpose**: Run a job whose output is findings or a report, not merged code (a spike, a
+re-check, a data capture) with the standard end state: `implement.json`, recorded outputs and
+`closed.json`. Each step runs once; one that cannot be done is deferred, never retried.
+
+**Usage**:
+```
+/task <prompt | path-to-brief.md>
+/task --resume
+```
+
+**Output**: `.trd-state/task-<slug>/` (`implement.json`, `closed.json` with `outputs` and
+`followups`). Nothing is committed and follow-ups are listed, never acted on.
 
 ### /cleanup-project
 

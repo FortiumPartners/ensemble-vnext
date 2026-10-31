@@ -1,6 +1,6 @@
 # Reference: the other commands
 
-What happens inside `/plan`, `/sweep`, `/amend`, `/audit-build` and `/close-feature`, step by
+What happens inside `/plan`, `/sweep`, `/amend`, `/task`, `/audit-build` and `/close-feature`, step by
 step, and briefly inside the maintenance commands. For *when* to reach for each one, see
 [`docs/guides/PROCESS.md`](../guides/PROCESS.md) §1 and §4; this page does not repeat it.
 
@@ -295,6 +295,22 @@ tests rather than the lead's reading of the findings. It keeps a ledger, one lin
   Task List sections are unchanged (the command passes a `trdHash` over just those two sections).
 - **A stale wake-up does nothing.** A fallback wake-up for an audit run that already recorded its
   round (matched by run id, not commit) prints one line and stops: no workflow, no report, no banner.
+
+---
+
+## `/task` — a job that produces findings, not code
+
+Source: `commands/task.md`; libs `implement-state.js` (`save()`, `recordResult()`),
+`artifacts.js` `record`. No workflow script; it runs inline like `/amend`.
+
+| # | Step | Kind | Where | What it does |
+|---|---|---|---|---|
+| 1 | Create the task directory | code | Step 1 | `.trd-state/task-<slug>/`, suffixed `-2`, `-3` on a clash. Points `current.json` at it only when no feature is in flight. |
+| 2 | Run each step once | model | Step 2 | Writes the step list as `implement.json` (`"kind": "task"`, `trd_file` null). A step that cannot be done is `deferred` with its reason, never retried. |
+| 3 | Record the outputs | code | Step 3 | `artifacts.js record`: first output as `report`, further ones `report-2`, `report-3`; published when publishing is on. |
+| 4 | Close | code | Step 4 | `closed.json` with `reason`, `outputs` and `followups`; findings that need work are listed, never acted on. |
+
+`/task --resume` continues the most recent unclosed task from its first unfinished step.
 
 ---
 

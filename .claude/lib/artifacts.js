@@ -14,7 +14,7 @@
  * File shape (version 2). Kinds sit at the top level beside `version`:
  *   { "version": 2,
  *     "prd": { "path": "docs/PRD/x.md", "url": "https://...", "updated_at": "<ISO>", "command": "/create-prd" } }
- * A kind is any lower-case slug (check-skill page names are kinds too); `KINDS` lists the eight
+ * A kind is any lower-case slug (check-skill page names are kinds too); `KINDS` lists the nine
  * document kinds, for documentation only. `version` is reserved.
  *
  * Old files (a bare URL string per kind, and the key `audit-build-report`) are upgraded on READ
@@ -35,10 +35,10 @@ const VERSION = 2;
 const FILE = 'artifacts.json';
 const KIND_RE = /^[a-z0-9][a-z0-9_-]*$/;
 
-/** The eight document kinds. Documentation only: any valid slug is accepted. */
+/** The nine document kinds. Documentation only: any valid slug is accepted. */
 const KINDS = [
   'prd', 'trd', 'audit-prd', 'audit-trd', 'success-definition',
-  'verification-plan', 'verification-report', 'audit-build',
+  'verification-plan', 'verification-report', 'audit-build', 'report',
 ];
 
 const manifestPath = (stateDir) => path.join(stateDir, FILE);

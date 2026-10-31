@@ -14,7 +14,7 @@ is a bug.
 | [authoring.md](authoring.md) | `/create-prd`, `/audit-prd`, `/refine-prd`, `/create-trd`, `/audit-trd`, `/refine-trd`, `/augment-trd-figma` |
 | [implement-trd.md](implement-trd.md) | `/implement-trd`, step by step |
 | [verification.md](verification.md) | the functional-verification loop, `/verify-build` (fixes by default; `--no-fix` for report-only), `/refine-verification`, the check and support skills |
-| [other-commands.md](other-commands.md) | `/plan`, `/sweep`, `/amend`, `/audit-build`, `/close-feature`, and the maintenance commands |
+| [other-commands.md](other-commands.md) | `/plan`, `/sweep`, `/amend`, `/task`, `/audit-build`, `/close-feature`, and the maintenance commands |
 | [hooks.md](hooks.md) | every hook: when it fires, what it reads, what it can block |
 | [agents.md](agents.md) | the 13 subagents, who dispatches each, and how dispatch works |
 
@@ -77,6 +77,7 @@ The other shorter paths:
 
 | Command | Steps | Where it lives |
 |---|---|---|
+| `/task` | 1. Create `.trd-state/task-<slug>/` and write the step list as `implement.json` (**model** + **code**). 2. Run each step once; an undoable step is recorded `deferred` (**model**). 3. Record outputs with `artifacts.js record` (**code**). 4. Write `closed.json` with `outputs` and `followups` (**code**). | `task.md` Steps 1–4 |
 | `/sweep` | 1. Resolve the list verbatim (**model**). 2. The sweep workflow triages, then dispatches one fixer per issue — different areas in parallel, one area in sequence (**code** + **model**). 3. The lead confirms every claimed file shows up in `git status`; an issue whose claimed files are untouched is reported failed (**code**). 4. Deferred items are recorded (**code**). | `sweep.md` Steps 1–4; `workflows/sweep.js` |
 | `/amend` | 1. Is this one task — no ordering between parts, one specialism, no undecided product question? File count is deliberately not a signal (**model**). 2. Ground it (**model**). 3. Write the `AMEND-<nnn>` row into the TRD's Master Task List and a discovery row **before** the work (**code**). 4. One implementer, chosen by `lib/agent-routing.js` (**model** does the work). 5. Run the check battery and attest through `implement-state.js` `recordResult()`, which fails a success claim whose files do not exist (**code**). | `amend.md` Steps 1–5 |
 | `/verify-build` | With a plan, rounds of: record buildable failures, chain `/implement-trd --reconcile --chained` once, re-verify open criteria, then `lib/functional-verification.js decide-fix-round` (code) says continue or stop. This is now the default; `--no-fix` runs one verify pass and builds nothing. When it stops with work left, or with no plan at all, NEXT points you to `/refine-verification` (add `--auto` for an unattended answer), which writes `.trd-state/<feature>/verification-plan.md` for the next run. | `verify-build.md` "`--fix [plan-path]`", "`--no-fix`"; see [verification.md](verification.md) |
@@ -122,6 +123,7 @@ does all the work itself.
 | `/plan` | a light or phased TRD; `docs/plan/<slug>.investigation.md` on the medium and PRD routes | `create-trd.js` + `audit-trd.js` (medium), `create-prd.js` (PRD route) | code-reviewer (small, medium); chains `/implement-trd` with `--implement` | [other-commands](other-commands.md) |
 | `/amend` | an `AMEND-<nnn>` TRD row, a discovery row, the change | none | one implementer, chosen by `lib/agent-routing.js` | [other-commands](other-commands.md) |
 | `/sweep` | fixes; `.trd-state/_sweep/discovered.jsonl` for what was deferred | `sweep.js` | technical-architect (triage), backend-implementer (one per issue) | [other-commands](other-commands.md) |
+| `/task` | `.trd-state/task-<slug>/implement.json` and `closed.json`; recorded report artifacts | none | lead only | [other-commands](other-commands.md) |
 | `/update-project` | `CLAUDE.md` edits; proposed governance changes | none | lead only | [other-commands](other-commands.md) |
 | `/cleanup-project` | pruned `CLAUDE.md`, plus a backup | none | lead only | [other-commands](other-commands.md) |
 | `/fold-prompt` | optimised context files | none | lead only | [other-commands](other-commands.md) |

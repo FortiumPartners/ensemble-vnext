@@ -26,11 +26,19 @@ const rec = (kind, entry, opts) =>
   artifacts.record(stateDir, kind, { command: '/create-prd', ...entry }, { root, now: NOW, ...opts });
 
 describe('KINDS', () => {
-  it('lists the eight document kinds', () => {
+  it('lists the nine document kinds', () => {
     expect(artifacts.KINDS).toEqual([
       'prd', 'trd', 'audit-prd', 'audit-trd', 'success-definition',
-      'verification-plan', 'verification-report', 'audit-build',
+      'verification-plan', 'verification-report', 'audit-build', 'report',
     ]);
+  });
+
+  it('round-trips kind report through record and get', () => {
+    rec('report', { path: 'docs/a.md', url: 'https://x/report', command: '/task' });
+    expect(artifacts.get(stateDir, 'report')).toBe('https://x/report');
+    expect(artifacts.read(stateDir).report).toEqual(expect.objectContaining({
+      path: 'docs/a.md', command: '/task',
+    }));
   });
 
   it.each(artifacts.KINDS)('records %s with a path and version 2', (kind) => {
