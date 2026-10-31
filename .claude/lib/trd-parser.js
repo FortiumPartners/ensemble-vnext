@@ -262,8 +262,9 @@ function mapOpenQuestionColumns(headerCells) {
     if (roles.id === undefined && isIdHeader(raw)) roles.id = idx;
     else if (roles.question === undefined && headerHasWord(raw, 'question')) roles.question = idx;
   });
-  // "assumed" column: prefer an explicit default/ships column, then a bare answer, then a verdict.
-  const priorities = ['default', 'answer', 'verdict'];
+  // "assumed" column: prefer the template's own "What I assumed" header, then an explicit
+  // default/ships column, then a bare answer, then a verdict.
+  const priorities = ['assum', 'default', 'answer', 'verdict'];
   for (const p of priorities) {
     const idx = headerCells.findIndex((c) => headerHasWord(c, p));
     if (idx !== -1) {
@@ -397,7 +398,9 @@ function parseMasterTaskList(lines, warnings, filePath) {
         const rawId = row.cells[roles.id];
         if (isStruckThrough(rawId)) continue; // retirement record, not a live task
 
-        const id = stripMarkup(rawId);
+        // A [LIVE] marker written in the ID cell is a marker, not part of the ID.
+        const idHasLive = LIVE_MARKER_RE.test(rawId);
+        const id = stripMarkup(rawId.replace(/\[LIVE\]/g, ''));
         if (!id) continue;
 
         if (seenIds.has(id)) {
@@ -428,7 +431,7 @@ function parseMasterTaskList(lines, warnings, filePath) {
             roles.dependencies !== undefined ? parseDependencies(row.cells[roles.dependencies]) : [],
           acceptance: roles.acceptance !== undefined ? stripMarkup(row.cells[roles.acceptance]) : '',
           phase: span.num,
-          live: LIVE_MARKER_RE.test(rawDescriptionForLiveCheck),
+          live: idHasLive || LIVE_MARKER_RE.test(rawDescriptionForLiveCheck),
         });
       }
     }
@@ -494,14 +497,9 @@ function splitGroundingFieldBody(label, body) {
   return [trimmed];
 }
 
-function parseGrounding(lines, tasks, warnings) {
-  const grounding = {};
-  const section = findSection(lines, 'Task Grounding');
-  if (!section) return grounding;
-
+function collectGroundingBlocks(lines, section, blocks) {
   // Per-task grounding blocks are subheadings within the section, one per task ID, e.g.
   // "### ITR-B001 — `packages/core/lib/trd-parser.js`".
-  const blocks = [];
   for (let i = section.start; i < section.end; i++) {
     const lvl = headingLevel(lines[i]);
     if (lvl == null) continue;
@@ -518,6 +516,19 @@ function parseGrounding(lines, tasks, warnings) {
       }
     }
     blocks.push({ id: m[1], start: i + 1, end });
+  }
+}
+
+function parseGrounding(lines, tasks, warnings) {
+  const grounding = {};
+  // The FIRST heading containing "Task Grounding" is not necessarily the real section: an
+  // earlier prose heading (e.g. "How Task Grounding works") would hide it. Take the first
+  // matching section that actually holds task-id blocks.
+  const blocks = [];
+  let section = findSection(lines, 'Task Grounding');
+  while (section && blocks.length === 0) {
+    collectGroundingBlocks(lines, section, blocks);
+    section = findSection(lines, 'Task Grounding', { fromIndex: section.start });
   }
 
   for (const block of blocks) {

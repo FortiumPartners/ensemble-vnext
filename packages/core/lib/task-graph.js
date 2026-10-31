@@ -165,9 +165,29 @@ function buildGraph(tasks, grounding) {
   //    was never covered -- test_task_graph's own comment at the neighbouring case promised
   //    "the interesting case is tested separately below (conflicting-direction)" and no such
   //    test existed.
-  const declaredPairs = new Set(
-    edges.filter((e) => e.kind === 'dependency').map((e) => `${e.from}\u0000${e.to}`)
-  );
+  //
+  //    The override follows the declared graph TRANSITIVELY: B004 -> X -> P001 (with X
+  //    touching nothing shared) is the same backwards pull as a direct B004 -> P001, and
+  //    orienting by the alphabet there cycles the pair through X just the same.
+  const declaredForward = new Map(nodes.map((id) => [id, []]));
+  for (const e of edges) {
+    if (e.kind === 'dependency') declaredForward.get(e.from).push(e.to);
+  }
+  const reachCache = new Map(); // from -> Set of ids reachable via declared edges
+  const declaredReaches = (from, to) => {
+    if (!reachCache.has(from)) {
+      const seen = new Set();
+      const stack = [...declaredForward.get(from)];
+      while (stack.length) {
+        const n = stack.pop();
+        if (seen.has(n)) continue;
+        seen.add(n);
+        stack.push(...declaredForward.get(n));
+      }
+      reachCache.set(from, seen);
+    }
+    return reachCache.get(from).has(to);
+  };
   for (const file of Object.keys(partition).sort()) {
     const owners = partition[file]; // already sorted by computeFilePartition
     for (let i = 0; i < owners.length; i++) {
@@ -178,7 +198,7 @@ function buildGraph(tasks, grounding) {
         // emitted -- it is the honest record that these two share a file, and the union of
         // both edge sources is this module's whole design -- but it is oriented by the
         // declaration rather than by the alphabet.
-        if (declaredPairs.has(`${to}\u0000${from}`)) {
+        if (declaredReaches(to, from)) {
           const swap = from; from = to; to = swap;
         }
         edges.push({ from, to, kind: 'file-conflict', file });
