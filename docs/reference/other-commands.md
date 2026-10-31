@@ -305,8 +305,8 @@ Source: `commands/task.md`; libs `implement-state.js` (`save()`, `recordResult()
 
 | # | Step | Kind | Where | What it does |
 |---|---|---|---|---|
-| 1 | Create the task directory | code | Step 1 | `.trd-state/task-<slug>/`, suffixed `-2`, `-3` on a clash. Points `current.json` at it only when no feature is in flight. |
-| 2 | Run each step once | model | Step 2 | Writes the step list as `implement.json` (`"kind": "task"`, `trd_file` null). A step that cannot be done is `deferred` with its reason, never retried. |
+| 1 | Create the task directory | code | Step 1 | `.trd-state/task-<slug>/`, suffixed `-2`, `-3` on a clash, with the step list written as `implement.json` (`"kind": "task"`, `trd_file` null). Points `current.json` at it only when no feature (no TRD and no PRD) is in flight. |
+| 2 | Run each step once | model | Step 2 | Each step's result is attested through `recordResult()`. A step that cannot be done is `deferred` with its reason, never retried. |
 | 3 | Record the outputs | code | Step 3 | `artifacts.js record`: first output as `report`, further ones `report-2`, `report-3`; published when publishing is on. |
 | 4 | Close | code | Step 4 | `closed.json` with `reason`, `outputs` and `followups`; findings that need work are listed, never acted on. |
 

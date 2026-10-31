@@ -78,7 +78,7 @@ describe('a /task state directory', () => {
     expect(files).toEqual([path.join(dir, 'implement.json')]);
     const parsed = status.readImplementJson(files[0]);
     expect(parsed.tasks['STEP-002'].status).toBe('deferred');
-    status.wasModifiedRecently(files[0], 5);
+    expect(status.advanceCyclePosition(files[0], parsed)).toBe(false);
 
     expect(fs.readFileSync(path.join(dir, 'implement.json'), 'utf8')).toBe(before.impl);
     expect(fs.readFileSync(path.join(dir, 'closed.json'), 'utf8')).toBe(before.closed);

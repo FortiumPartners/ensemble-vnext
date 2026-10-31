@@ -553,6 +553,7 @@ Check that these commands exist in `.claude/commands/`:
 - `plan.md`
 - `amend.md`
 - `sweep.md`
+- `task.md`
 - `fold-prompt.md`
 - `update-project.md`
 - `cleanup-project.md`
@@ -922,6 +923,7 @@ Commands Available:
   /plan            - Defect / small change / refactor: sizes the work, writes a TRD to match
   /amend           - ONE change to the feature already in flight, without a new TRD
   /sweep           - A list of small unrelated fixes, in parallel, without a TRD
+  /task            - A job whose output is findings or a report, not code; no TRD
   /verify-build    - Re-run functional verification alone
   /fold-prompt     - Optimize context for continued work
 

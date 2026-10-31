@@ -4,7 +4,7 @@
   "trd_hash": "e272268c7d1d9d7d66e3788e3020077baba973e150dab700039589b969f8dbc8",
   "branch": "feature/task-command/impl",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "TASK-001": {
       "description": "Write the /task command (task.md + mirror)",
@@ -97,10 +97,19 @@
       "last_advanced": "2026-10-31T08:53:32.123Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1367c7099e48dba086e00da9496ef7a2392de469",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-31T08:57:17.441Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "1367c7099e48dba086e00da9496ef7a2392de469",
+    "last_checkpoint_timestamp": "2026-10-31T08:57:17.441Z",
     "interrupted": false,
     "interrupt_reason": null
   },

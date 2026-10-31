@@ -62,9 +62,11 @@ rule from `/plan`): a slug derived from free text, interpolated into a single-qu
 lets one apostrophe close the quote and hand the rest to the shell.
 
 The slug is the brief's basename without extension, or the first few words of the prompt;
-lower-case, `[a-z0-9-]`, at most 40 characters. A clash with an existing `.trd-state/*/`
-directory (including `.trd-state/task-<slug>/`) or with `docs/TRD/<slug>.md` gets a `-2`, `-3`
-suffix. Create `.trd-state/task-<slug>/` (call it `<dir>`).
+lower-case, `[a-z0-9-]`, at most 40 characters. The directory name is `task-<slug>`, so the
+clash check is on that name: an existing `.trd-state/task-<slug>/` directory, or a
+`docs/TRD/task-<slug>.md` or `docs/TRD/<slug>.md` (a TRD named `task-<slug>.md` would own
+`.trd-state/task-<slug>/` as its state directory), gets a `-2`, `-3` suffix. Create
+`.trd-state/task-<slug>/` (call it `<dir>`).
 
 Break the spec into a short step list, 2 to 8 steps, each one checkable. Seed
 `<dir>/implement.json` through `implement-state.js` `save(`:
@@ -73,6 +75,7 @@ Break the spec into a short step list, 2 to 8 steps, each one checkable. Seed
 node -e '
   const { save } = require("./.claude/lib/implement-state");
   const spec = JSON.parse(process.argv[1]);
+  require("fs").mkdirSync(spec.dir, { recursive: true });
   const now = new Date().toISOString();
   const tasks = {};
   spec.steps.forEach((d, i) => {
@@ -85,7 +88,7 @@ node -e '
     version: 1, kind: "task", trd_file: null, brief: spec.brief,
     phase_cursor: 1, tasks, checkpoints: [], created_at: now,
   });
-' "$(cat <<'"'"'JSON'"'"'
+' "$(cat <<'JSON'
 { "dir": ".trd-state/task-<slug>", "brief": "<brief path or null>", "steps": ["<step 1>", "<step 2>"] }
 JSON
 )"
@@ -94,8 +97,10 @@ JSON
 `trd_file` is null and `"kind": "task"` together are what identify a task directory. Never
 identify one by the `task-` name prefix: a real TRD can start with `task-`.
 
-**Point `.trd-state/current.json` at the task only when no feature is in flight** (`trd` null
-or absent): set `trd` to null and `status` to `.trd-state/task-<slug>/implement.json`. **When a
+**Point `.trd-state/current.json` at the task only when no feature is in flight** (`trd` and
+`prd` both null or absent; a PRD awaiting `/create-trd` is a feature in flight, and clearing the
+pointer at the end would lose it): set `trd` to null and `status` to
+`.trd-state/task-<slug>/implement.json`. **When a
 feature is in flight, leave `current.json` alone** and say so in the readout. Never save and
 restore it: an interrupted task would strand the owner's feature, and `/amend` and
 `/close-feature` both stop on a null `trd`. `--resume` finds tasks by scanning, so the pointer
@@ -115,7 +120,7 @@ node -e '
   recordResult(s, r.id, r);
   save(p, s);
   console.log(r.id, s.tasks[r.id].status, s.tasks[r.id].current_problem || "");
-' "$(cat <<'"'"'JSON'"'"'
+' "$(cat <<'JSON'
 { "id": "STEP-001", "status": "success", "filesChanged": ["<output paths that now exist>"] }
 JSON
 )"
@@ -153,7 +158,7 @@ kind, so the first output uses kind `report` and further ones `report-2`, `repor
 
 ```bash
 node .claude/lib/artifacts.js record --state-dir .trd-state/task-<slug> --kind report \
-  --path <output path> --command /task
+  --path "<output path>" --command /task
 ```
 
 Unless `.claude/settings.json` sets `ensemble.publishArtifacts: false`, publish the file with
@@ -161,8 +166,10 @@ the `Artifact` tool and pass the returned URL back with `--url`. With publishing
 `record` the path. **A failed publish is never fatal**: one line in ISSUES, carry on. Never
 publish a document that holds a credential.
 
-An output `record` rejects (a directory, a path outside the project) is listed only in
-`closed.json`'s `outputs`.
+An output path comes from the prompt, so it is free text: quote it, and if it contains a quote
+character, a `$` or a backtick, list it only in `closed.json`'s `outputs` rather than putting it
+on a command line. An output `record` rejects (a directory, a path outside the project) is
+listed only in `closed.json`'s `outputs`.
 
 ## Step 4: Write closed.json
 
@@ -195,7 +202,9 @@ anything.
 "task"` and no `closed.json` beside it. It never needs `current.json`. With none found, end
 `COMMAND STUCK` with the reason "no unfinished task to resume". Otherwise load it, continue from
 the first step whose status is neither `success` nor `deferred` (a step left `in_progress` is
-run once, as pending), and carry on from Step 2. Do not touch `current.json` on a resume.
+run once, as pending), and carry on from Step 2. A step left `failed` already ran: record it
+`deferred` with its `current_problem` as the reason, never re-run it. When every step has
+already ended, go straight to the checkpoint and Step 3. Do not touch `current.json` on a resume.
 
 ## Readout
 
@@ -212,8 +221,9 @@ someone who was not in the session:
 
 ## Completion signal
 
-**Order matters.** `notify-complete.sh` derives its feature from `current.json`, so run it
-BEFORE clearing the pointer, and name the task in the summary:
+**Run it before clearing the pointer, and name the task in the summary.** `notify-complete.sh`
+derives `NOTIFY_FEATURE` from `current.json`'s `trd`, which is null during a task, so
+`NOTIFY_FEATURE` is empty and the summary is the only place the task's name reaches a listener:
 
 ```bash
 .claude/hooks/notify-complete.sh "task" "<complete or stuck>" "task-<slug>: <n> done, <n> deferred"
