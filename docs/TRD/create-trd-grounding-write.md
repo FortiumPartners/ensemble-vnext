@@ -38,7 +38,7 @@ Either the section is on disk with all 8 blocks, or the readout names the tasks 
 
 ### Root cause `[ran]`
 
-Two things together, both in `packages/core/workflows/create-trd.js`:
+Two things together, both in `packages/core/workflows/create-trd.js` (line numbers in this section are the code before this fix, the parent of commit `b9e1df0`):
 
 1. **The write is delegated to a model that has no way to report it.** In the fan-out path the
    `ground:merge` agent is told to "Write the section with Write/Edit" (`create-trd.js:790-818`),
@@ -106,9 +106,9 @@ recovered by hand. Its format is internal to the platform and unversioned, so a 
 breaks silently on the next platform change.
 
 absorbed:     none — every task is the fix itself; the review's findings changed how the three tasks are written, not how many there are
-not absorbed: fanned-out grounding agents all write the same `.trd-state/<feature>/findings/grounding.json` (`create-trd.js:595`) — a pre-existing lost update; the grounding write works without fixing it
+not absorbed: fanned-out grounding agents all write the same `.trd-state/<feature>/findings/grounding.json` (`create-trd.js:620`) — a pre-existing lost update; the grounding write works without fixing it
 not absorbed: #46, audit gaps promoted into `Deferred by design` with empty descriptions — `discovered.promoteToTrd` appends to the last `| Task ID |` table; this fix keeps the Deferred table's placement, so it neither causes nor fixes #46
-not absorbed: `create-trd.md:918-921` still says grounding runs "sequentially and alone", which has been stale since the 2026-09-21 fan-out — documentation drift, unrelated to the write
+not absorbed: `create-trd.md:926` still says grounding runs "sequentially and alone", which has been stale since the 2026-09-21 fan-out — documentation drift, unrelated to the write
 
 ## Non-Goals
 
@@ -138,13 +138,16 @@ produced.
 | FIX-001 | New deterministic helper `packages/core/lib/trd-grounding.js` (+ `.test.js`) with two CLI modes. `assemble --trd <path> --dir <grounding_dir>`: build the Task Grounding section from the `blocks-*.md` files, write the Deferred-by-design table from `sizing.json`, parse back, print JSON. `report --trd <path>`: parse only, print the same JSON. Deliver it: `packages/full/lib/` symlink, `.claude/lib/` copy, and add it to the scaffold-delivery test's module list. | O1, O2, O4 | None | (1) A TRD with no grounding section plus two block files gives a TRD whose `parseTrd().grounding` has every block's task id, each with its `touches`. (2) A TRD carrying an unnumbered `## Task Grounding` section with an old block for `F-B001`, plus new block files, gives exactly one heading containing "Task Grounding", the old block's text gone and the new one present. (3) A task in the Master Task List with no block is listed in `ungrounded`, exit 0. (4) A block for a task id not in the Master Task List is dropped and listed in `unknown`. (5) `sizing.json` with 2 deferred items gives a `parseTrd().deferred` with both ids and reasons. `sizing.json` with none writes no Deferred section and reports `sizing: "ok"`. No `sizing.json` reports `sizing: "missing"`. (6) Running `assemble` twice gives a byte-identical TRD. (7) A `--dir` with no block files leaves the TRD unchanged and reports `blocksFound: 0`. (8) A TRD that quotes `## 9. Task Grounding` inside a code fence leaves the fenced text untouched. (9) `report` on a TRD that `assemble` wrote returns the same grounded/ungrounded lists as `assemble`. (10) `scaffold-delivery.test.sh`'s module list includes `trd-grounding`, and the test passes. |
 | FIX-002 | Change `packages/core/workflows/create-trd.js` (+ `create-trd.test.js`). Accept optional `args.grounding_dir`, defaulting with a warning. Every grounding agent writes its blocks to its own file there, including the single-agent path, and no agent edits the TRD. The sizing agent also writes `sizing.json` there. One `ground:retry` agent covers task ids no agent returned, or every task if all agents died, writing `blocks-retry.md` and no findings file. The merge agent becomes read-only. Remove `defer:write`. Rename the return field `grounded_tasks` to `grounded_claimed`, and take the agent-claimed count out of the readout. Mirror to `.claude/workflows/`. | O1, O3, O4, O5 | FIX-001 | (1) Every `ground:brownfield*` and `ground:retry` prompt names a distinct file under `grounding_dir`, and none says `Write/Edit` against the TRD path. (2) Ground stubs returning ids for all but `F-B002` give exactly one `ground:retry` call whose prompt grounds only `F-B002` and does not mention `findings/grounding.json`. When all ids are returned there is no retry call. (3) When every `ground:brownfield*` stub returns null, the workflow does not throw, and one `ground:retry` call covers every task id. (4) The `ground:merge` prompt contains neither `Write/Edit` nor the TRD path as a write target. (5) With the `SIZE_TOO_BIG` fixture (which has deferred items) no call is labelled `defer:write`, and the `size` prompt names `sizing.json` under `grounding_dir`. (6) The `readout` string contains no `grounded <n> tasks` figure. (7) Without `grounding_dir`, the workflow logs the default-path warning and still runs. |
 | FIX-003 | Update `packages/core/commands/create-trd.md` (workflow path AND fallback path) and `packages/core/commands/plan.md` (medium path). Pass `grounding_dir: ".trd-state/<feature>/findings/grounding/<UTC stamp>"`, run `trd-grounding.js assemble` right after `Workflow(create-trd)` returns, and run `trd-grounding.js report` just before the readout, taking the grounded count, the ungrounded list and the deferred check from it. Rewrite the Ground-stage descriptions that say a merge step assembles Section 10. Mirror to `.claude/commands/`. | O1, O2, O3, O4 | FIX-001, FIX-002 | (1) Both files contain `trd-grounding.js assemble` after their `Workflow({ name: "create-trd"` block, and `trd-grounding.js report` before their readout section. (2) Both pass `grounding_dir` under `findings/grounding/`. (3) `create-trd.md`'s fallback path names the same `assemble` step. (4) `create-trd.md`'s readout instructions name `report`'s `ungrounded` list and `sizing` status as their source, and say a non-empty list is reported, not STUCK. (5) `grep -n "merge agent assembles\|ONE merge agent\|assembles one Section 10\|a merge step assembles"` over both files returns nothing. |
+| AMEND-001 | [test-gap] FIX-003: command-prose changes in create-trd.md and plan.md (assemble after Workflow, report before Readout, grounding_dir under findings/grounding/, not-STUCK wording, retired merge-assembles phrases) have no test asserting them — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/commands/create-trd.md:801,1039,1047,1054; packages/core/commands/plan.md:856,882,1168; verify-command-surface.test.js has no grounding assertion) | amendment — no objective recorded | None | [test-gap] FIX-003: command-prose changes in create-trd.md and plan.md (assemble after Workflow, report before Readout, grounding_dir under findings/grounding/, not-STUCK wording, retired merge-assembles phrases) have no test asserting them is met |
 
 ## Task Grounding
+
+Line numbers cited for `create-trd.js` and `create-trd.test.js` under FIX-002 are the code before this fix (parent of commit `b9e1df0`); the code they name as replaced is now deleted.
 
 ### FIX-001
 - **Touches:** `packages/core/lib/trd-grounding.js`, `packages/core/lib/trd-grounding.test.js`, `packages/full/lib/trd-grounding.js`, `.claude/lib/trd-grounding.js`, `test/integration/tests/scaffold-delivery.test.sh`
 - **Reuse:** `parseTrd()` from `packages/core/lib/trd-parser.js` for the parse-back; its `grounding` object and `deferred` array are what the report needs [read]. `findSection`, `maskFencedLines` and `headingContains` are already exported (`trd-parser.js:897-905`). Mask fenced lines before locating sections, as `parseTrd` does at `:833,843` [read]
-- **Follow:** the CLI-plus-pure-function shape of `packages/core/lib/spec-scope.js`, whose `render-objectives` rewrites one TRD section in place and is called from `plan.md` [read]. Heading `## 9. Task Grounding` and blocks `### <TASK-ID>` with bold field labels, per `packages/core/contracts/trd-authoring.md` "Section 10: Task Grounding" [read]. The Deferred table is `| Task ID | Why it cannot run now |`, placed immediately after the Master Task List as `create-trd.js:832-840` writes it today; the parser reads it with `strategy: 'last'` (`trd-parser.js:701`) [read]. The `packages/full/lib/*.js -> ../../core/lib/*.js` per-file symlink convention [ran: `ls -la packages/full/lib`]
+- **Follow:** the CLI-plus-pure-function shape of `packages/core/lib/spec-scope.js`, whose `render-objectives` rewrites one TRD section in place and is called from `plan.md` [read]. Heading `## 9. Task Grounding` and blocks `### <TASK-ID>` with bold field labels, per `packages/core/contracts/trd-authoring.md` "Section 10: Task Grounding" [read]. The Deferred table is `| Task ID | Why it cannot run now |`, placed immediately after the Master Task List, where the retired `defer:write` agent put it (`create-trd.js:832-840` before this fix) and where `trd-grounding.js` `writeDeferred` now writes it (header at `trd-grounding.js:223`); the parser reads it with `strategy: 'last'` (`trd-parser.js:701`) [read]. The `packages/full/lib/*.js -> ../../core/lib/*.js` per-file symlink convention [ran: `ls -la packages/full/lib`]
 - **Careful:** Insertion point when no grounding section exists: before the first of `## Open Questions` / `## Could Not Verify` / `## Appendices` that comes after the Master Task List, else end of document. Phased TRDs put grounding before Open Questions (`docs/TRD/functional-verification.md`) [read by reviewer]. Delivery: `scaffold-project.sh` `copy_libs` reads `$PLUGIN_DIR/lib` and adds new files on refresh (`scaffold-project.sh:403-421`), so the `packages/full/lib` symlink is what ships it. `scaffold-delivery.test.sh:82-85` records this same gap once before, for `plan-weight` [ran]. The Deferred table's `| Task ID |` header is what `discovered.promoteToTrd` appends to (#46), so keep its placement unchanged
 
 ### FIX-002
@@ -158,14 +161,26 @@ produced.
 - **Touches:** `packages/core/commands/create-trd.md`, `packages/core/commands/plan.md`, `.claude/commands/create-trd.md`, `.claude/commands/plan.md`
 - **Reuse:** the existing "Wave profile — run this before the readout" block in `create-trd.md` (~line 1000), which already parses the TRD after the workflow returns. Put `assemble` before it and `report` just before the readout [read]
 - **Follow:** `plan.md`'s `node .claude/lib/spec-scope.js render-objectives …` style for calling a lib CLI from a command [read]
-- **Careful:** On `plan.md`'s medium path, Step 6 (the code-reviewer pass) and `audit-trd` rewrite sections after `assemble` (`plan.md` §5b, "rewrite whole sections"), so `report` must run at the readout, not at `assemble` [read by reviewer]. The `create-trd.md` fallback path ("run the stages below directly", ~`:835-838`) needs the same `assemble` step [read by reviewer]. Rewrite the merge-assembles wording at `create-trd.md:866-867` and `:886-895` [read]
+- **Careful:** On `plan.md`'s medium path, Step 6 (the code-reviewer pass) and `audit-trd` rewrite sections after `assemble` (`plan.md` §5b, "rewrite whole sections"), so `report` must run at the readout, not at `assemble` [read by reviewer]. The `create-trd.md` fallback path ("run the stages below directly", now `:836-842`) needs the same `assemble` step [read by reviewer]. Rewrite the merge-assembles wording in the GROUND stage and the "Grounding runs inside create" paragraph (now `create-trd.md:869-874` and `:894-902`) [read]
+
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
 
 ## Could Not Verify
 
+Rewritten by `/audit-build` on 2026-10-31. Delivery state after that audit: FIX-001, FIX-002 and
+FIX-003 are built and FIX-001 and FIX-002 are tested; FIX-003's command-prose changes have no
+test (reported in the audit readout, not here).
+
+- **No PRD was supplied**, so delivered code was checked only against this TRD's own objectives
+  and tasks, never against product requirements. Whether the TRD faithfully captures what was
+  asked, or omits something, is unchecked.
 - A live `/create-trd` run on a TRD large enough to fan out has not been done. The reproduction
   uses the workflow harness with stubbed agents, which proves the wiring but not that real agents
   follow the "write your own file" instruction. An agent that returns blocks but writes no file is
-  caught by the helper's `ungrounded` list (O3), not prevented.
+  caught by the helper's `ungrounded` list (O3), not prevented. Out of scope for a code audit: it
+  needs a live run.
 - Forge, or any other caller of `Workflow(create-trd)` outside this repo, has not been checked.
   Making `grounding_dir` optional with a default is what keeps such a caller working. Its stale-run
-  risk is logged, not prevented.
+  risk is logged, not prevented. Out of scope: those callers live outside this repository.

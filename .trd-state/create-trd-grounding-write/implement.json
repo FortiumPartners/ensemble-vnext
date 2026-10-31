@@ -59,6 +59,21 @@
       "started_at": "2026-10-31T06:53:21.163Z",
       "completed_at": "2026-10-31T06:59:16.974Z",
       "last_advanced": "2026-10-31T06:57:22.548Z"
+    },
+    "AMEND-001": {
+      "description": "Test the command-prose changes from FIX-003",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-trd-grounding-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T07:22:55.629Z",
+      "completed_at": "2026-10-31T07:24:12.932Z",
+      "last_advanced": "2026-10-31T07:24:04.280Z"
     }
   },
   "checkpoints": [
