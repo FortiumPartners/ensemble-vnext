@@ -697,4 +697,20 @@ describe('a declared dependency overrides the lexical file-conflict orientation'
     expect(g.waves).toEqual([['PLAN-B004'], ['PLAN-P001']]);
     expect(g.edges.some((e) => e.kind === 'file-conflict')).toBe(true);
   });
+
+  it('follows the declared dependency transitively (Z-LATE -> M-MID -> A-EARLY vs the shared file)', () => {
+    // A-EARLY depends on M-MID depends on Z-LATE; A-EARLY and Z-LATE share a file, M-MID
+    // touches nothing. 'A-EARLY' < 'Z-LATE' lexically, against the declared chain.
+    const chain = [
+      { id: 'A-EARLY', phase: 1, dependencies: ['M-MID'] },
+      { id: 'M-MID', phase: 1, dependencies: ['Z-LATE'] },
+      { id: 'Z-LATE', phase: 1, dependencies: [] },
+    ];
+    const g = buildGraph(chain, {
+      'A-EARLY': { touches: ['shared.md'] },
+      'Z-LATE': { touches: ['shared.md'] },
+    });
+    expect(g.cycles).toEqual([]);
+    expect(g.waves).toEqual([['Z-LATE'], ['M-MID'], ['A-EARLY']]);
+  });
 });

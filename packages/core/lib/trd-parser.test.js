@@ -310,6 +310,22 @@ describe('parseTrd — column schemas and phase-heading formats', () => {
     expect(notLive.live).toBe(false);
   });
 
+  it('keeps the task id clean and sets live when [LIVE] is written in the ID cell', () => {
+    const trd = [
+      '## 4. Master Task List',
+      '',
+      '### 4.1 Phase 1: Test',
+      '',
+      '| Task ID | Description | Dependencies |',
+      '|---------|-------------|--------------|',
+      '| EX-L001 [LIVE] | Do a thing | None |',
+      '',
+    ].join('\n');
+    const result = parseTrd(trd);
+    expect(result.tasks.map((t) => t.id)).toEqual(['EX-L001']);
+    expect(result.tasks[0].live).toBe(true);
+  });
+
   it('extracts dependency ids from a cell with parenthetical annotation', () => {
     const result = parseTrd(SIX_COLUMN_TRD);
     const consumer = result.tasks.find((t) => t.id === 'EX-B002');
@@ -439,6 +455,31 @@ describe('parseTrd — Task Grounding', () => {
     expect(r.grounding['EX-B001'].touches).toEqual([]);
     expect(r.warnings.some((w) => /missing the mandatory Touches field/.test(w))).toBe(true);
   });
+
+  it('finds the real Task Grounding section when an earlier prose heading also names it', () => {
+    const trd = `# TRD
+
+## 2. How Task Grounding works
+
+Prose only, no per-task blocks.
+
+## 4. Master Task List
+
+### 4.2 Phase 1: Only Phase
+
+| Task ID | Description | Serves | Skills | Dependencies | Acceptance Criteria |
+|---------|-------------|--------|--------|--------------|---------------------|
+| EX-B001 | Build the thing | AC-1 | | None | Fine |
+
+## 9. Task Grounding
+
+### EX-B001 — the thing
+
+- **Touches:** \`src/a.js\`
+`;
+    const r = parseTrd(trd);
+    expect(r.grounding['EX-B001'].touches).toEqual(['src/a.js']);
+  });
 });
 
 describe('parseTrd — Open Questions', () => {
@@ -451,6 +492,24 @@ describe('parseTrd — Open Questions', () => {
       question: 'Should we do X?',
       assumed: 'Default: no',
     });
+  });
+
+  it('reads the assumed value from a "What I assumed" header', () => {
+    const trd = `## Open Questions
+
+| ID | Question | What I assumed | Owner-only |
+|----|----------|----------------|------------|
+| OQ-9 | Which store? | Postgres | no |
+
+## Master Task List
+
+### Phase 1
+
+| ID | Task | Description | Serves | Skills | Dependencies | Acceptance |
+|----|------|-------------|--------|--------|--------------|------------|
+| EX-001 | a | b | c | d | none | e |
+`;
+    expect(parseTrd(trd).openQuestions[0]).toMatchObject({ id: 'OQ-9', assumed: 'Postgres' });
   });
 
   it('marks ownerOnly true when the row text carries an "Owner-only" marker', () => {
