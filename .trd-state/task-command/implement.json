@@ -1,0 +1,151 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/task-command.md",
+  "trd_hash": "e272268c7d1d9d7d66e3788e3020077baba973e150dab700039589b969f8dbc8",
+  "branch": "feature/task-command/impl",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "TASK-001": {
+      "description": "Write the /task command (task.md + mirror)",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/task.md",
+        ".claude/commands/task.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T08:52:06.231Z",
+      "completed_at": "2026-10-31T08:56:35.930Z",
+      "last_advanced": "2026-10-31T08:53:32.122Z"
+    },
+    "TASK-002": {
+      "description": "Add report to artifacts.js KINDS + test + command-status.md",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/artifacts.js",
+        ".claude/lib/artifacts.js",
+        "packages/core/lib/artifacts.test.js",
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T08:52:06.231Z",
+      "completed_at": "2026-10-31T08:56:35.929Z",
+      "last_advanced": "2026-10-31T08:53:32.123Z"
+    },
+    "TASK-003": {
+      "description": "implement-trd TRD selection skips task dirs",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/implement-trd.md",
+        ".claude/commands/implement-trd.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T08:52:06.231Z",
+      "completed_at": "2026-10-31T08:56:35.930Z",
+      "last_advanced": "2026-10-31T08:53:32.123Z"
+    },
+    "TASK-004": {
+      "description": "Register /task in docs and the router hint",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "CLAUDE.md",
+        "packages/router/hooks/router.py",
+        "packages/router/tests/test_router.py",
+        "docs/reference/README.md",
+        "docs/reference/other-commands.md",
+        "packages/core/templates/process.md.template",
+        ".claude/rules/process.md",
+        ".claude/hooks/router.py"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T08:52:06.231Z",
+      "completed_at": "2026-10-31T08:56:35.930Z",
+      "last_advanced": "2026-10-31T08:53:32.123Z"
+    },
+    "TASK-005": {
+      "description": "Pin task.md contract and task-dir reader fixture test",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/verify-command-surface.test.js",
+        "packages/core/lib/task-dir.fixture.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T08:52:06.231Z",
+      "completed_at": "2026-10-31T08:56:35.930Z",
+      "last_advanced": "2026-10-31T08:53:32.123Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1367c7099e48dba086e00da9496ef7a2392de469",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-31T08:57:17.441Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "1367c7099e48dba086e00da9496ef7a2392de469",
+    "last_checkpoint_timestamp": "2026-10-31T08:57:17.441Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/task-command.md § Intended Change",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no preview declared"
+      },
+      "local": {
+        "status": "unusable",
+        "reason": "unfilled template row; this repo has no dev server"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "read-only, no URL declared"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      }
+    }
+  }
+}
