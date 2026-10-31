@@ -961,3 +961,7 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [ran] `/tmp/x` on this machine is a directory; redirect captures to the scratchpad, not `/tmp/<short name>`.
 
 - [ran] create-trd-grounding-write: the create-trd workflow's own `readout` no longer carries any grounded count; the grounded count and ungrounded ids come from `node packages/core/lib/trd-grounding.js report --trd <path>` run by the command, so a "readout line" criterion is evidenced by that report JSON plus the command prose (create-trd.md "Grounding report"), not by a workflow return. Driver: `.trd-state/create-trd-grounding-write/evidence/drive-fs.js` (run from packages/core/workflows; stubs write blocks-N.md to a grounding_dir, the CLI assembles).
+
+- [ran] `/task` fixtures: run `node <abs>/.claude/lib/artifacts.js record ...` with cwd set to a temp project root (artifacts.js resolves `--path` against cwd; absolute paths and `..` escapes are rejected, a directory gives `not a file`, all exit 1 with artifacts.json untouched). `recordResult(s, id, {status:'deferred', error})` stores `current_problem` and leaves `retry_count` at 0.
+
+- [ran] `/task` state fixture (prompt-form and brief-form): `.trd-state/task-command/evidence/fs19/run.js` builds a temp dir with `save`, `recordResult` (success + deferred), `checkpoint`, `artifacts.js record --state-dir ... --kind report`, then closed.json; read back consistent in `readback.txt`. Run with `node` from any cwd (it chdirs into the fixture).
