@@ -5,5 +5,17 @@
     "url": "https://claude.ai/artifact/7fhrwDnAMqB6CffFMp9RSx",
     "updated_at": "2026-10-31T08:51:22.751Z",
     "command": "/plan"
+  },
+  "verification-report": {
+    "path": ".trd-state/task-command/verification-report.md",
+    "url": "https://claude.ai/artifact/UstNrqTQfX4YTMFC64kFZR",
+    "updated_at": "2026-10-31T09:06:10.602Z",
+    "command": "/implement-trd"
+  },
+  "success-definition": {
+    "path": ".trd-state/task-command/success-definition.md",
+    "url": "",
+    "updated_at": "2026-10-31T09:06:10.656Z",
+    "command": "/implement-trd"
   }
 }
