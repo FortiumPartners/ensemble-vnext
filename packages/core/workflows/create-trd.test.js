@@ -26,6 +26,7 @@ function baseArgs(overrides = {}) {
     trd: 'docs/TRD/f.md',
     prd: 'docs/PRD/f.md',
     feature: 'f',
+    grounding_dir: '.trd-state/f/findings/grounding/T1',
     ...overrides,
   };
 }
@@ -125,7 +126,8 @@ describe('create-trd wiring', () => {
 
   it('carries grounding results into the return and the readout', async () => {
     const { result } = await run();
-    expect(result.grounded_tasks).toBe(2);
+    expect(result.grounded_claimed).toBe(2);
+    expect(result.grounded_tasks).toBeUndefined();
     expect(result.replaces_found).toBe(1);
     expect(result.readout).toContain('docs/TRD/f.md');
   });
@@ -201,7 +203,8 @@ describe('create-trd wiring', () => {
     // agent() returns null when a subagent dies. Every stage is wrapped in required()
     // so the run stops rather than writing a TRD built on a hole.
     await expect(run({ 'author:technical-architect': undefined })).rejects.toThrow(/Author/i);
-    await expect(run({ 'ground:brownfield': undefined })).rejects.toThrow(/Ground/i);
+    // Ground no longer throws when every agent dies: one ground:retry covers every task and
+    // the command reports what is missing from disk (see the fan-out describe block).
   });
 
   it('refuses to run with no source at all', async () => {
@@ -257,7 +260,7 @@ describe('create-trd grounding fan-out', () => {
     return { result, logs, agent, parallel, grounders, merges, tasks };
   }
 
-  it('stays a single writing agent below the fan-out threshold', async () => {
+  it('stays a single grounding agent below the fan-out threshold', async () => {
     // A 3-task TRD must not pay for a merge step it does not need.
     const { grounders, merges } = await runWith(3);
     expect(grounders).toHaveLength(1);
@@ -309,6 +312,118 @@ describe('create-trd grounding fan-out', () => {
     const { logs } = await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
     expect(logs.join('\n')).toMatch(/returned nothing|no grounding block/i);
   });
+
+  // GitHub #49: grounding blocks are written to per-agent files; nobody edits the TRD.
+  const DIR = '.trd-state/f/findings/grounding/T1';
+
+  it('gives every grounding agent its own block file and tells none to edit the TRD', async () => {
+    for (const n of [3, 17]) {
+      const { grounders } = await runWith(n);
+      const files = grounders.map((c) => {
+        const m = new RegExp(`${DIR}/(blocks-[^\\s]+\\.md)`).exec(c.prompt);
+        expect(m).not.toBeNull();
+        expect(c.prompt).not.toContain('Write/Edit');
+        return m[1];
+      });
+      expect(new Set(files).size).toBe(files.length);
+    }
+    const single = (await runWith(3)).grounders[0].prompt;
+    expect(single).toContain(`${DIR}/blocks-1.md`);
+  });
+
+  it('runs exactly one ground:retry for a task no agent returned, without the findings file', async () => {
+    const tasks = manyTasks(17);
+    const base = groundingPlan(tasks);
+    const agent = makeAgentStub((prompt, opts) => {
+      const r = base(prompt, opts);
+      if (r && r.grounded_task_ids) {
+        return { ...r, grounded_task_ids: r.grounded_task_ids.filter((id) => id !== 'F-B002') };
+      }
+      if (opts.label === 'ground:retry') return { ...base(prompt, { label: 'ground:brownfield' }) };
+      return r;
+    });
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    const retries = agent.calls.filter((c) => c.opts.label === 'ground:retry');
+    expect(retries).toHaveLength(1);
+    const m = /GROUND EXACTLY THESE, AND NO OTHERS: ([^\n]+)/.exec(retries[0].prompt);
+    expect(m[1].trim()).toBe('F-B002');
+    expect(retries[0].prompt).toContain(`${DIR}/blocks-retry.md`);
+    expect(retries[0].prompt).not.toContain('findings/grounding.json');
+    expect(retries[0].prompt).not.toContain('Write/Edit');
+  });
+
+  it('does not retry when every task is returned', async () => {
+    const { agent } = await runWith(17);
+    expect(agent.calls.filter((c) => c.opts.label === 'ground:retry')).toHaveLength(0);
+  });
+
+  it('counts a greenfield task as accounted for', async () => {
+    const tasks = manyTasks(3);
+    const base = groundingPlan(tasks);
+    const agent = makeAgentStub((prompt, opts) => {
+      const r = base(prompt, opts);
+      if (r && r.grounded_task_ids) {
+        return { ...r, grounded_task_ids: ['F-B001', 'F-B002'], greenfield_task_ids: ['F-B003'] };
+      }
+      return r;
+    });
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    expect(agent.calls.filter((c) => c.opts.label === 'ground:retry')).toHaveLength(0);
+  });
+
+  it('retries every task, instead of throwing, when every grounding agent dies', async () => {
+    const tasks = manyTasks(17);
+    const base = groundingPlan(tasks);
+    const agent = makeAgentStub((prompt, opts) => {
+      if (String(opts.label).startsWith('ground:brownfield')) return undefined;
+      if (opts.label === 'ground:retry') {
+        return { blocks_markdown: '', grounded_task_ids: tasks.map((t) => t.id), replaces_found: [], findings: [] };
+      }
+      return base(prompt, opts);
+    });
+    const { result } = await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    const retries = agent.calls.filter((c) => c.opts.label === 'ground:retry');
+    expect(retries).toHaveLength(1);
+    for (const t of tasks) expect(retries[0].prompt).toContain(t.id);
+    const m = /GROUND EXACTLY THESE, AND NO OTHERS: ([^\n]+)/.exec(retries[0].prompt);
+    expect(m[1].split(',')).toHaveLength(17);
+    expect(result.trd).toBe('docs/TRD/f.md');
+  });
+
+  it('does not throw when the retry dies too', async () => {
+    const tasks = manyTasks(3);
+    const base = groundingPlan(tasks);
+    const agent = makeAgentStub((prompt, opts) =>
+      String(opts.label).startsWith('ground:') ? undefined : base(prompt, opts));
+    const { result, logs } = await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() });
+    expect(result.grounded_claimed).toBe(0);
+    expect(logs.join('\n')).toMatch(/UNGROUNDED/);
+  });
+
+  it('makes the merge agent read-only', async () => {
+    const { merges } = await runWith(17);
+    expect(merges).toHaveLength(1);
+    expect(merges[0].prompt).not.toContain('Write/Edit');
+    expect(merges[0].prompt).not.toContain('docs/TRD/f.md');
+    expect(merges[0].prompt).toMatch(/READ-ONLY/);
+  });
+
+  it('keeps the agent-claimed grounded count out of the readout', async () => {
+    const { result } = await runWith(17);
+    expect(result.readout).not.toMatch(/grounded\s+\d+\s+tasks/);
+  });
+
+  it('logs a warning and still runs when grounding_dir is not passed', async () => {
+    const tasks = manyTasks(3);
+    const agent = makeAgentStub(groundingPlan(tasks));
+    const args = baseArgs();
+    delete args.grounding_dir;
+    const { logs } = await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args });
+    expect(logs.join('\n')).toContain('.trd-state/f/findings/grounding/default');
+    expect(logs.join('\n')).toMatch(/no grounding_dir/);
+    expect(agent.calls.find((c) => c.opts.label === 'ground:brownfield').prompt)
+      .toContain('.trd-state/f/findings/grounding/default/blocks-1.md');
+  });
 });
 
 /* Sizing, added 2026-09-21. The PRD->TRD path had no size judgement at all, and an owner's
@@ -334,7 +449,6 @@ describe('create-trd sizing', () => {
     if (opts.label === 'corpus-index') return CORPUS;
     if (opts.label === 'author:technical-architect') return AUTHORED;
     if (opts.label === 'size') return size;
-    if (opts.label === 'defer:write') return { written: true };
     if (String(opts.label).startsWith('ground')) return { ...GROUNDED, blocks_markdown: '### F-B001' };
     return undefined;
   };
@@ -378,19 +492,19 @@ describe('create-trd sizing', () => {
     expect(result.readout).toContain('ledger identity');
   });
 
-  it('writes deferred tasks INTO the TRD, because implement-trd parses the document', async () => {
+  it('has the sizing agent write sizing.json, and no agent write the deferred table', async () => {
+    // The calling command writes the TRD's table from sizing.json; a model agent no longer does.
     const { agent, result } = await sized(SIZE_TOO_BIG);
-    const w = call(agent, 'defer:write');
-    expect(w).toBeDefined();
-    expect(w.prompt).toContain('## Deferred by design');
-    expect(w.prompt).toContain('F-B016');
+    expect(agent.calls.map((c) => c.opts.label)).not.toContain('defer:write');
+    const prompt = call(agent, 'size').prompt;
+    expect(prompt).toContain('.trd-state/f/findings/grounding/T1/sizing.json');
     expect(result.deferred).toEqual(['F-B016']);
     expect(result.readout).toContain('DEFERRED BY DESIGN');
   });
 
-  it('does not write a deferred section when nothing is deferred', async () => {
+  it('shows no deferred section when nothing is deferred', async () => {
     const { agent, result } = await sized(SIZE_CLEAN);
-    expect(call(agent, 'defer:write')).toBeUndefined();
+    expect(agent.calls.map((c) => c.opts.label)).not.toContain('defer:write');
     expect(result.readout).not.toContain('DEFERRED BY DESIGN');
   });
 

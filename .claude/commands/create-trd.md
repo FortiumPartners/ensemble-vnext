@@ -783,10 +783,26 @@ Workflow({ name: "create-trd", args: {
                                             // in-session: it is the only channel that
                                             // carries them. The script hard-fails when
                                             // neither prd nor transcript is given.
-  project: "<dir>"                          // REQUIRED when the TRD designs a codebase
+  project: "<dir>",                         // REQUIRED when the TRD designs a codebase
                                             // other than the repo this session runs in.
+  grounding_dir: ".trd-state/<feature>/findings/grounding/<UTC stamp>"
+                                            // a FRESH directory per run (stamp like
+                                            // 20261030T101500Z). Grounding agents write their
+                                            // blocks here; a reused directory lets an earlier
+                                            // run's blocks into this TRD.
 } })
 ```
+
+**Right after the workflow returns, put the grounding into the TRD.** The workflow's agents do
+not write Section 10 or the Deferred-by-design table; they write block files and a sizing file
+into `grounding_dir`, and one deterministic helper does the write:
+
+```bash
+node .claude/lib/trd-grounding.js assemble --trd "<trd-path>" --dir "<grounding_dir>"
+```
+
+It prints one JSON object (`written`, `blocksFound`, `grounded`, `ungrounded`, `unknown`,
+`deferred`, `sizing`). Run it before the wave profile below, which parses the TRD.
 
 **`project` is not optional decoration.** The Ground stage's entire job is reading real code;
 unscoped, it greps the authoring repo and every grounding block it writes is confidently,
@@ -818,7 +834,11 @@ Three things the script gives you that this prose cannot:
   where grounding a decision nobody has made yet is meaningless.
 
 **Fallback.** If the workflow is unavailable, run the stages below directly as described —
-the content rules, mandates and readout format are identical either way. Say which path you
+the content rules, mandates and readout format are identical either way. Grounding agents
+still write their `### <TASK-ID>` blocks to `blocks-*.md` files (and sizing to `sizing.json`)
+under a fresh `.trd-state/<feature>/findings/grounding/<UTC stamp>` directory rather than into
+the TRD, and you then run the same `trd-grounding.js assemble --trd <trd> --dir <that dir>`
+step before the wave profile. Say which path you
 took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
 
 ---
@@ -848,7 +868,10 @@ took in the COMMAND COMPLETE summary, so a surprising result can be attributed.
 
 4. GROUND                1 subagent when the task list is small; fans out to up to 6
      agents in parallel on a larger one (4 tasks per agent), each grounding a disjoint
-     set of tasks, then ONE merge agent assembles their blocks into a single Section 10.
+     set of tasks and writing its blocks to its own file under grounding_dir. A sizing
+     agent writes sizing.json beside them. No agent writes the TRD: after the workflow
+     returns, `trd-grounding.js assemble` puts Section 10 (and the Deferred-by-design
+     table) into it.
      GENERATIVE — reconciles the decisions against the codebase: consistency, reuse,
      what becomes unreachable, per-task context.
 
@@ -873,8 +896,9 @@ faults — so the rule that independent fan-out is for verification never applie
 single grounding agent's OWN set of tasks; each agent still decides its assigned tasks
 alone. What fan-out buys here is throughput on a large task list, not a second opinion:
 above 4 tasks the work is split into disjoint chunks (never more than 6 agents; parallel()
-caps higher anyway) so no two agents ground the same task, and a merge step assembles one
-Section 10 from their blocks. It runs *after* decisions exist, because grounding a
+caps higher anyway) so no two agents ground the same task, and each writes its blocks to its own file. The
+command then assembles Section 10 from those files with `trd-grounding.js assemble` — code,
+not an agent. It runs *after* decisions exist, because grounding a
 decision that has not been made is meaningless.
 
 **Fan out for verification; never for generation.** Independent agents demonstrably
@@ -1005,6 +1029,27 @@ were cut and which files each one touches — both settled in this command. By t
 `/implement-trd` runs, the only remaining option is to pay for it. A real 17-task TRD came
 out at 1.70 tasks per wave and ran below serial speed; printing that here is the owner's
 chance to send it back to `/refine-trd` for a nine-minute fix instead of a six-hour run.
+
+## Grounding report — run this just before the readout
+
+The TRD on disk is the only truth about grounding, so read it back after `assemble` (and after
+any edit since):
+
+```bash
+node .claude/lib/trd-grounding.js report --trd "<trd-path>"
+```
+
+Take three things from its JSON, not from the workflow's own return:
+
+- **Grounded count** — `grounded` over the Master Task List, for `STATE`.
+- **Ungrounded list** — `ungrounded`, the tasks with no grounding block in the TRD. A
+  non-empty list goes in `ISSUES`, one line naming the tasks (an agent that returned blocks
+  but wrote no file shows up here). It is reported, never STUCK: `/implement-trd` warns again
+  about each one when it parses the TRD.
+- **Deferred check** — compare `report`'s `deferred` ids with the workflow's returned
+  `deferred` ids. A difference goes in `ISSUES`. `sizing` of `missing` or `invalid` means the
+  sizing result never reached the TRD: report that in `ISSUES`, and never read it as "nothing
+  was deferred".
 
 ## Readout
 

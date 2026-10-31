@@ -1,0 +1,106 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/create-trd-grounding-write.md",
+  "trd_hash": "58cdc96a2c3092208658afbe1d9c138d34a796f61232c96f30c3192af2c7249e",
+  "branch": "feature/create-trd-grounding-write/impl",
+  "strategy": "bug-fix",
+  "phase_cursor": 1,
+  "tasks": {
+    "FIX-001": {
+      "description": "Deterministic helper trd-grounding.js (assemble/report CLI) + delivery",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/trd-grounding.js",
+        "packages/core/lib/trd-grounding.test.js",
+        "packages/full/lib/trd-grounding.js",
+        ".claude/lib/trd-grounding.js",
+        "test/integration/tests/scaffold-delivery.test.sh"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T06:53:21.163Z",
+      "completed_at": "2026-10-31T06:59:16.972Z",
+      "last_advanced": "2026-10-31T06:57:22.548Z"
+    },
+    "FIX-002": {
+      "description": "create-trd.js: agents write own block files; retry; read-only merge; drop defer:write",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/create-trd.js",
+        "packages/core/workflows/create-trd.test.js",
+        ".claude/workflows/create-trd.js"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T06:53:21.163Z",
+      "completed_at": "2026-10-31T06:59:16.974Z",
+      "last_advanced": "2026-10-31T06:57:22.548Z"
+    },
+    "FIX-003": {
+      "description": "create-trd.md + plan.md: run assemble/report, readout from disk",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-trd.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/create-trd.md",
+        ".claude/commands/plan.md"
+      ],
+      "commit": null,
+      "started_at": "2026-10-31T06:53:21.163Z",
+      "completed_at": "2026-10-31T06:59:16.974Z",
+      "last_advanced": "2026-10-31T06:57:22.548Z"
+    }
+  },
+  "checkpoints": [],
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/create-trd-grounding-write.md § Reproduction",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; no preview URL declared"
+      },
+      "local": {
+        "status": "unusable",
+        "reason": "verification.md is the unfilled template; its localhost:3000 dev-server row is template text — this repo has no dev server"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "read-only, no URL declared"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized; Artifact tool available"
+      }
+    }
+  }
+}

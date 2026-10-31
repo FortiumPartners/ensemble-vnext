@@ -459,10 +459,24 @@ const FINDING_ITEMS = {
 // reported-not-applied. Prevention would need a reconcile pass, which costs the wall time
 // this change exists to reclaim.
 //
-// Below the fan-out threshold a single agent still writes the section directly, exactly as
-// before -- a 2-task TRD must not pay for a merge step it does not need.
+// Nobody edits the TRD from here (GitHub #49). Every grounding agent writes its blocks to
+// its OWN file under `grounding_dir`; the calling command assembles them into the TRD with
+// `node .claude/lib/trd-grounding.js assemble` and reports counts from disk. The previous
+// design had an agent paste the blocks in, and the readout counted what agents CLAIMED: an
+// agent that wrote nothing looked identical to one that did.
+//
+// Below the fan-out threshold a single agent still does the work alone (writing
+// blocks-1.md) -- a 2-task TRD must not pay for a merge step it does not need.
 
 phase('Ground')
+
+// Where block files and sizing.json go. The command passes a stamped path; the default exists
+// so a caller that predates the argument still runs, at the cost that blocks left by an
+// earlier run in that directory could be picked up by `assemble`.
+const GROUNDING_DIR = (a.grounding_dir || `.trd-state/${FEATURE}/findings/grounding/default`).replace(/\/+$/, '')
+if (!a.grounding_dir) {
+  log(`WARNING: no grounding_dir arg; using ${GROUNDING_DIR}. Blocks left there by an earlier run could be picked up when the command assembles the TRD.`)
+}
 
 /* Every task, with its description and declared order -- given to EVERY grounding agent,
  * including for tasks it is not grounding.
@@ -496,7 +510,10 @@ const groundChunks = (() => {
 
 const FANNED_OUT = groundChunks.length > 1
 
-const groundPrompt = (mine) =>
+/* `file`   the one block file this agent may write.
+ * `persistFindings`  false for the retry agent: it returns findings only, so a re-run cannot
+ *                    overwrite the first wave's findings/grounding.json. */
+const groundPrompt = (mine, file, persistFindings = true) =>
   `You are grounding an already-authored TRD against the code that actually exists.
 
 TRD: ${TRD}
@@ -529,13 +546,14 @@ carries orchestration detail you do not need and would re-cache on every turn):
   Follow    an existing pattern in this repo it should match
   Careful   contracts, callers, constraints
 
-${FANNED_OUT
-  ? `RETURN your blocks as markdown in \`blocks_markdown\` -- do NOT write them into the TRD.
-Other agents are writing their own blocks concurrently and two writers on one file is a lost
-update that raises no error. A merge stage assembles every agent's blocks into the single
-"## Task Grounding" section.`
-  : `Emit them as a "## Task Grounding" section into the TRD (Write/Edit). Also return the
-same markdown in \`blocks_markdown\`.`}
+WRITE YOUR BLOCKS TO THIS FILE, and no other (mkdir -p its directory first):
+
+  ${file}
+
+The file holds one \`### <TASK-ID>\` block per task in YOUR SET and nothing else. Do NOT edit
+${TRD}: other agents are writing their own files at the same time, and the calling command
+assembles every file into the single "## Task Grounding" section. Also return the same
+markdown in \`blocks_markdown\`.
 
 MARK HOW YOU KNOW. Every factual claim in a grounding block carries one of:
   [read]     -- you opened the file and saw it
@@ -590,7 +608,7 @@ severity, source that assertion or drop it. Zero findings is legitimate.
 BATCH YOUR READS. Prefer one grep over five; prefer reading a file once over returning to
 it. Each tool call re-caches your whole context, so turn count is a real cost.
 
-WRITE YOUR FINDINGS TO DISK before returning, in addition to returning them:
+${persistFindings ? `WRITE YOUR FINDINGS TO DISK before returning, in addition to returning them:
 
   .trd-state/${FEATURE}/findings/grounding.json     (mkdir -p as needed)
 
@@ -604,7 +622,8 @@ Had that session ended, all 20 would have been gone and /audit-trd would have ha
 rediscover them by re-reading the same code. The command already mandates this contract and
 gives the reason -- "findings summarised through an intermediate agent cannot be re-read,
 diffed, or cited" -- but scoped it to the FALLBACK path, leaving the path that actually runs
-exempt from it.`
+exempt from it.` : `RETURN YOUR FINDINGS ONLY. Do not write a findings file: this is a retry for tasks the
+first wave left ungrounded, and the first wave's file must not be overwritten.`}`
 
 const GROUND_OPTS = {
     label: 'ground:brownfield',
@@ -660,9 +679,8 @@ const GROUND_OPTS = {
  * block forbids gating on AskUserQuestion, and a gate that refuses is the same overreach as
  * a guard that compels. The owner reads a split proposal and decides.
  *
- * It does not WRITE: grounding is writing the TRD at the same moment, and two writers on
- * one file is a lost update that raises no error. A conditional writer below persists the
- * deferred list once grounding has finished. */
+ * It writes ONLY its own sizing.json under the grounding dir, never the TRD; the calling
+ * command turns the deferred list into the TRD's table with trd-grounding.js. */
 const SIZING = () =>
   agent(
     `Judge whether this TRD is ONE change, and whether one unattended run can finish it.
@@ -712,7 +730,15 @@ Name each one by ID and say what it should split into. This is NOT a timing esti
 never predict minutes or hours; judge the text, not a clock.
 
 Zero deferrals and "one change" is the common, correct answer for most TRDs. Do not
-manufacture concern to look thorough.`,
+manufacture concern to look thorough.
+
+WRITE YOUR RESULT TO DISK before returning, in addition to returning it (mkdir -p as needed):
+
+  ${GROUNDING_DIR}/sizing.json
+
+The file holds the same object you return, including \`deferred\` (an empty array when
+nothing is deferred). The calling command reads it to write the "## Deferred by design" table
+into the TRD; do not edit ${TRD} yourself.`,
     {
       label: 'size',
       phase: 'Ground',
@@ -760,12 +786,12 @@ manufacture concern to look thorough.`,
     }
   )
 
-/* One agent per chunk, in parallel, each returning its blocks; then ONE writer assembles
- * them. The writer exists because workflow scripts have no filesystem access -- only an
- * agent can write the TRD -- and because letting N agents Write/Edit one file concurrently
- * is a lost update that raises no error. Sizing rides in the same wave. */
+/* One agent per chunk, in parallel, each writing its blocks to its OWN file (blocks-<n>.md)
+ * and returning them. Workflow scripts have no filesystem access, so only an agent can write
+ * the file; the TRD itself is assembled by the calling command. Sizing rides in the same
+ * wave. */
 const groundThunks = groundChunks.map((mine, i) => () =>
-  agent(groundPrompt(mine), {
+  agent(groundPrompt(mine, `${GROUNDING_DIR}/blocks-${i + 1}.md`), {
     ...GROUND_OPTS,
     label: FANNED_OUT ? `ground:brownfield:${i + 1}` : 'ground:brownfield',
   })
@@ -773,30 +799,49 @@ const groundThunks = groundChunks.map((mine, i) => () =>
 const [sizing, ...groundResults] = await parallel([SIZING, ...groundThunks])
 
 const liveGround = groundResults.filter(Boolean)
-if (!liveGround.length) required(null, 'Ground')
 if (liveGround.length < groundResults.length) {
-  log(`WARNING: ${groundResults.length - liveGround.length} of ${groundResults.length} grounding agents returned nothing -- those tasks are UNGROUNDED`)
+  log(`WARNING: ${groundResults.length - liveGround.length} of ${groundResults.length} grounding agents returned nothing`)
 }
 
+/* RETRY what no agent accounted for. A task is accounted for when some agent listed it as
+ * grounded or as greenfield. When EVERY agent died that is every task -- previously a throw,
+ * which discarded the TRD's whole authoring run; one retry is cheaper than that. The retry
+ * writes blocks-retry.md and returns findings only, so it cannot clobber the first wave's
+ * findings/grounding.json. Whether a block really landed on disk is the helper's question
+ * (`trd-grounding.js report`), not this script's. */
+const accounted = new Set(
+  liveGround.flatMap((g) => [...(g.grounded_task_ids || []), ...(g.greenfield_task_ids || [])])
+)
+const missing = authored.tasks.map((t) => t.id).filter((id) => !accounted.has(id))
+let retried = null
+if (missing.length) {
+  log(`WARNING: ${missing.length} task(s) not returned by any grounding agent; retrying once: ${missing.join(', ')}`)
+  retried = await agent(
+    groundPrompt(missing, `${GROUNDING_DIR}/blocks-retry.md`, false),
+    { ...GROUND_OPTS, label: 'ground:retry' }
+  )
+  if (!retried) log(`WARNING: the grounding retry returned nothing -- ${missing.join(', ')} are UNGROUNDED`)
+}
+const blockSources = retried ? [...liveGround, retried] : liveGround
+
+// What agents CLAIMED. Not evidence a block exists; the command counts from disk.
 const grounded = {
-  grounded_task_ids: liveGround.flatMap((g) => g.grounded_task_ids || []),
-  replaces_found: liveGround.flatMap((g) => g.replaces_found || []),
-  greenfield_task_ids: liveGround.flatMap((g) => g.greenfield_task_ids || []),
-  findings: liveGround.flatMap((g) => g.findings || []),
+  grounded_task_ids: blockSources.flatMap((g) => g.grounded_task_ids || []),
+  replaces_found: blockSources.flatMap((g) => g.replaces_found || []),
+  greenfield_task_ids: blockSources.flatMap((g) => g.greenfield_task_ids || []),
+  findings: blockSources.flatMap((g) => g.findings || []),
 }
 
-if (FANNED_OUT) {
-  log(`grounding fanned out over ${groundChunks.length} agents; merging blocks`)
+if (FANNED_OUT && blockSources.length > 1) {
+  log(`grounding fanned out over ${groundChunks.length} agents; checking blocks against each other`)
   const merged = await agent(
-    `Assemble one "## Task Grounding" section in ${TRD} from blocks produced by
-${liveGround.length} grounding agents working on disjoint task sets.
+    `Read the grounding blocks produced by ${blockSources.length} agents working on disjoint
+task sets. You are READ-ONLY: write no file and do not edit the TRD. The
+calling command assembles the "## Task Grounding" section from the agents' files. Do not
+rewrite, summarise or re-judge any block -- you have not read the code and they have.
 
-Write the section with Write/Edit, blocks in task-ID order, exactly the format each agent
-already used. Do not rewrite, summarise or re-judge any block -- you have not read the code
-and they have. Copy them.
-
-THEN DO THE ONE THING ONLY YOU CAN DO. You are the first reader to see every block at once,
-so report CONTRADICTIONS BETWEEN blocks as findings:
+THE ONE THING ONLY YOU CAN DO. You are the first reader to see every block at once, so
+report CONTRADICTIONS BETWEEN blocks as findings:
   - one block reuses a helper another block names in \`Replaces\`
   - two blocks claim to create the same new module
   - two blocks name the same file in \`Touches\` without either naming the other in \`Careful\`
@@ -804,7 +849,7 @@ so report CONTRADICTIONS BETWEEN blocks as findings:
 Report them; fix nothing. Zero contradictions is a legitimate and common result.
 
 BLOCKS:
-${liveGround.map((g, i) => `--- agent ${i + 1} ---\n${g.blocks_markdown || '(none returned)'}`).join('\n\n')}`,
+${blockSources.map((g, i) => `--- agent ${i + 1} ---\n${g.blocks_markdown || '(none returned)'}`).join('\n\n')}`,
     {
       label: 'ground:merge',
       phase: 'Ground',
@@ -817,42 +862,20 @@ ${liveGround.map((g, i) => `--- agent ${i + 1} ---\n${g.blocks_markdown || '(non
     }
   )
   if (merged) grounded.findings = grounded.findings.concat(merged.findings || [])
-  else log('WARNING: the merge agent returned nothing -- the Task Grounding section may be unwritten')
+  else log('WARNING: the merge agent returned nothing -- contradictions between blocks were not checked')
 }
 
-/* Persist deferred-by-design tasks INTO the TRD, after grounding has finished writing.
- *
- * It has to be in the document, not just the readout: /implement-trd parses the TRD, and a
- * deferral that lives only in a terminal message is one nobody acts on. The section follows
- * the same shape as `## Open Questions` and `## Could Not Verify`, which trd-parser.js
- * already reads. Only runs when there is something to write. */
+/* Deferred-by-design tasks are written into the TRD by the calling command, from sizing.json
+ * (trd-grounding.js assemble). /implement-trd parses the TRD, and a deferral that lives only
+ * in a terminal message is one nobody acts on, so the readout below is not the only record. */
 const deferred = (sizing && sizing.deferred) || []
-if (deferred.length) {
-  const wrote = await agent(
-    `Add a "## Deferred by design" section to ${TRD}, immediately after the Master Task List.
 
-These tasks cannot complete in a normal implementation run, by their own text. Record them
-so the run reports them as PLANNED deferrals instead of discovering them as failures:
-
-| Task ID | Why it cannot run now |
-|---------|----------------------|
-${deferred.map((d) => `| ${d.id} | ${d.why} |`).join('\n')}
-
-Write exactly that table under that heading. Change nothing else in the document.`,
-    { label: 'defer:write', phase: 'Ground', agentType: 'backend-implementer', effort: 'low',
-      schema: { type: 'object', additionalProperties: false, required: ['written'],
-                properties: { written: { type: 'boolean' } } } }
-  )
-  if (!wrote) log('WARNING: the deferred-by-design section may be unwritten -- it is in the readout only')
-}
-
-// `grounded` is assembled from surviving agents above, so required() has already fired if
-// every one of them died. What is worth saying out loud is partial coverage.
+// Agent claims only; the command reports the real figure from disk.
 const ungrounded = authored.tasks
   .map((t) => t.id)
   .filter((id) => !grounded.grounded_task_ids.includes(id))
 if (ungrounded.length) log(`WARNING: ${ungrounded.length} task(s) came back with no grounding block: ${ungrounded.join(', ')}`)
-log(`grounded ${grounded.grounded_task_ids.length}/${authored.tasks.length} tasks; ${grounded.replaces_found.length} named for deletion; ${(grounded.findings || []).length} design findings`)
+log(`agents claimed ${grounded.grounded_task_ids.length}/${authored.tasks.length} tasks grounded; ${grounded.replaces_found.length} named for deletion; ${(grounded.findings || []).length} design findings`)
 
 // ---------------------------------------------------------------------------
 // create stops here. The verification wave lives in /audit-trd, which runs against ANY
@@ -909,7 +932,7 @@ return {
   feature: FEATURE,
   tasks: authored.tasks.length,
   objectives: (authored.objectives || []).length,
-  grounded_tasks: grounded.grounded_task_ids.length,
+  grounded_claimed: grounded.grounded_task_ids.length,
   replaces_found: grounded.replaces_found.length,
   grounding_findings: gf.length,
   one_change: sizing ? sizing.one_change : null,
@@ -922,8 +945,7 @@ return {
   readout:
     `TRD: ${TRD}    SOURCE: ${PRD}${EXTRA ? ' + session transcript' : ''}\n` +
     `  ${authored.tasks.length} tasks, ${(authored.objectives || []).length} objectives\n` +
-    `  grounded ${grounded.grounded_task_ids.length} tasks; ` +
-    `${grounded.replaces_found.length} things named for deletion\n` +
+    `  ${grounded.replaces_found.length} things named for deletion\n` +
     sizeLines +
     deferLines +
     longTaskLines +

@@ -844,7 +844,16 @@ Workflow({ name: "create-trd", args: {
   trd: "docs/TRD/<slug>.md",
   feature: "<slug>",
   project: "<PROJECT_ROOT, or '' for this repo>",
+  grounding_dir: ".trd-state/<slug>/findings/grounding/<UTC stamp>",
 } })
+```
+
+`grounding_dir` is a fresh directory per run (stamp like `20261030T101500Z`): the grounding
+agents write their blocks there and the workflow never writes them into the TRD. Right after
+the call returns, put them in with:
+
+```bash
+node .claude/lib/trd-grounding.js assemble --trd docs/TRD/<slug>.md --dir .trd-state/<slug>/findings/grounding/<UTC stamp>
 ```
 
 `args.prd` is read generically as "the source path" (`create-trd.js`'s `SOURCES` template) —
@@ -865,6 +874,19 @@ here as written** — the same code-reviewer pass that judges a `small` TRD now 
 phased TRD `Workflow(create-trd)` just wrote, plus the investigation record beside it. Nothing
 new to build: Step 6 already reads "the TRD" generically and does not care which format it is.
 Apply its clearly-correct findings before continuing.
+
+Step 6 and `audit-trd` rewrite whole sections, so read the grounding back only now, just
+before the readout, not at `assemble`:
+
+```bash
+node .claude/lib/trd-grounding.js report --trd docs/TRD/<slug>.md
+```
+
+Take the grounded count, the `ungrounded` list and the deferred check from it, as
+`create-trd.md`'s "Grounding report" section describes: compare its `deferred` ids with the
+workflow's returned `deferred` ids; `sizing` of `missing` or `invalid` is reported in the
+readout's ISSUES, never read as nothing deferred; a non-empty `ungrounded` list is reported in
+ISSUES, never STUCK.
 
 #### Verify: `Workflow(audit-trd)`
 
