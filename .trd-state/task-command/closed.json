@@ -1,0 +1,12 @@
+{
+  "feature": "task-command",
+  "trd": "docs/TRD/task-command.md",
+  "closedAt": "2026-10-31T16:44:19Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (no PRD was handed to this audit, so the delivered /task command was checked against its TRD only, never against what #52 asked for); no live /task run has been checked by this audit (the command is a prompt, so whether a model following it runs each step once and writes every record rests on the earlier functional-verification pass and the owner's first use)",
+    "report": ".trd-state/task-command/audit-build-report.md",
+    "auditedCommit": "c06eda6"
+  }
+}

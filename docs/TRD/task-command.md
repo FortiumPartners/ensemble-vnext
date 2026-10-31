@@ -66,8 +66,11 @@ existing libraries:
 - `artifacts.js`: `record`.
 
 **`closed.json` extends the existing shape; it does not replace it.** It keeps `feature`,
-`closedAt` and `closedBy`, which `session-context.js`, `audit-rounds.js` and `implement-trd.md`
-read, and adds `reason`, `outputs` and `followups`. No reader rejects unknown keys `[read]`.
+`closedAt` and `closedBy`, which the existing readers use — `session-context.js` reads `closedAt`
+and `closedBy` (`session-context.js:112-125`), `audit-rounds.js` reads `closedAt`
+(`audit-rounds.js:130-132`), and `implement-trd.md` checks the file exists and quotes `closedAt`
+(`implement-trd.md:172-180`) — and adds `reason`, `outputs` and `followups`. No reader rejects
+unknown keys `[read]`.
 
 **Point `current.json` at the task only when no feature is in flight — never save and restore
 it.** This narrows #52 Proposal 1, deliberately. The adversarial review showed that saving and
@@ -185,4 +188,9 @@ UI, journey or data view exists to compare against.
 - No live `/task` run. The command is a prompt, so whether a model following it really runs each
   step once and writes every record is checked only by the functional-verification pass and the
   owner's first use. O1 and O2 are pinned by text and by library behaviour, not by a live run.
-- The dart-repo observation in #52 is quoted from the issue, not re-checked.
+- The dart-repo observation in #52 is quoted from the issue, not re-checked; it is background to
+  the design, not something the delivered code can show.
+- Fidelity to product requirements (audit-build, 2026-10-31). No PRD was supplied to the
+  audit, so the delivered command was checked only against this TRD's own objectives and tasks
+  (all 24 requirements and 5 tasks traced), never against a source of product intent. Whether
+  this TRD dropped or narrowed anything the owner asked for in #52 is unchecked.
