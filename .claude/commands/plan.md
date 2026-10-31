@@ -411,7 +411,7 @@ pattern as Step 7:
 node -e '
   const { plan } = require("./.claude/lib/fix-plan");
   console.log(JSON.stringify(plan(JSON.parse(process.argv[1])), null, 2));
-' "$(cat <<'"'"'JSON'"'"'
+' "$(cat <<'JSON'
 { "weight": "trivial", "route": "prd", "kind": "<kind>", "slug": "<slug>" }
 JSON
 )"
@@ -722,7 +722,7 @@ node -e '
   const md = fs.readFileSync(process.argv[1], "utf8");
   const parsed = parseTrd(md, { path: process.argv[1] });
   console.log(JSON.stringify(audit(parsed, { ...opts, markdown: md }), null, 2));
-' "docs/TRD/<slug>.md" "$(cat <<'"'"'JSON'"'"'
+' "docs/TRD/<slug>.md" "$(cat <<'JSON'
 { "objectiveIds": ["O1"], "kind": "defect",
   "expectedNew": ["path/this/TRD/creates.ts"] }
 JSON
@@ -1032,7 +1032,7 @@ refuses to chain on `'invalid'`, so the stop above does not rest on this prose a
 node -e '
   const { plan } = require("./.claude/lib/fix-plan");
   console.log(JSON.stringify(plan(JSON.parse(process.argv[1])), null, 2));
-' "$(cat <<'"'"'JSON'"'"'
+' "$(cat <<'JSON'
 { "weight": "small", "route": "plan", "implement": false, "kind": "defect", "slug": "<slug>",
   "neverUnattendedHit": [], "neverUnattendedStatus": "none" }
 JSON
