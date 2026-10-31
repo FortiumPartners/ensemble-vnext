@@ -68,7 +68,9 @@
       "current_problem": null,
       "retry_count": 0,
       "files_changed": [
-        "packages/core/commands/create-trd-grounding-prose.test.js"
+        "packages/core/commands/create-trd-grounding-prose.test.js",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md"
       ],
       "commit": null,
       "started_at": "2026-10-31T07:22:55.629Z",

@@ -6,6 +6,7 @@
 // (same standing as verify-command-surface.test.js): they prove the command TELLS the model
 // to assemble after the workflow and report before the readout, not that a run obeyed.
 // Order is asserted with indexOf comparisons, so moving a step is caught, not only deleting it.
+// Mirror parity for both files is already pinned in verify-command-surface.test.js.
 
 const fs = require('fs');
 const path = require('path');
@@ -15,14 +16,8 @@ const read = (p) => fs.readFileSync(p, 'utf8');
 const flat = (s) => s.replace(/\s+/g, ' ');
 
 const FILES = {
-  'create-trd.md': {
-    core: path.join(REPO, 'packages/core/commands/create-trd.md'),
-    mirror: path.join(REPO, '.claude/commands/create-trd.md'),
-  },
-  'plan.md': {
-    core: path.join(REPO, 'packages/core/commands/plan.md'),
-    mirror: path.join(REPO, '.claude/commands/plan.md'),
-  },
+  'create-trd.md': path.join(REPO, 'packages/core/commands/create-trd.md'),
+  'plan.md': path.join(REPO, 'packages/core/commands/plan.md'),
 };
 
 const WORKFLOW = 'Workflow({ name: "create-trd"';
@@ -31,17 +26,19 @@ const REPORT = 'trd-grounding.js report';
 const READOUT = '\n## Readout';
 const RETIRED = [
   'merge agent assembles',
-  'ONE merge agent',
-  'assembles one Section 10',
+  'one merge agent',
+  'assembles one section 10',
   'a merge step assembles',
 ];
 
-describe.each(Object.keys(FILES))('%s grounding prose (FIX-003)', (name) => {
-  const text = read(FILES[name].core);
+// The paragraph that starts at `from` ends at the next blank line (or end of file).
+const paragraphAt = (text, from) => {
+  const end = text.indexOf('\n\n', from);
+  return text.slice(from, end === -1 ? text.length : end);
+};
 
-  test('mirror under .claude/commands is byte-identical', () => {
-    expect(read(FILES[name].mirror)).toBe(text);
-  });
+describe.each(Object.keys(FILES))('%s grounding prose (FIX-003)', (name) => {
+  const text = read(FILES[name]);
 
   test('assemble appears after the Workflow(create-trd) block', () => {
     const wf = text.indexOf(WORKFLOW);
@@ -54,6 +51,7 @@ describe.each(Object.keys(FILES))('%s grounding prose (FIX-003)', (name) => {
     const asm = text.indexOf(ASSEMBLE, text.indexOf(WORKFLOW));
     const rep = text.indexOf(REPORT);
     const readout = text.indexOf(READOUT);
+    expect(asm).toBeGreaterThanOrEqual(0);
     expect(rep).toBeGreaterThan(asm);
     expect(readout).toBeGreaterThan(rep);
   });
@@ -65,20 +63,26 @@ describe.each(Object.keys(FILES))('%s grounding prose (FIX-003)', (name) => {
     expect(m[1]).toMatch(/findings\/grounding\//);
   });
 
+  // Case-insensitive: a retired phrase at the start of a sentence is still the retired claim.
   test.each(RETIRED)('retired phrase "%s" is gone', (phrase) => {
-    expect(flat(text)).not.toContain(phrase);
+    expect(flat(text).toLowerCase()).not.toContain(phrase);
   });
 });
 
-describe('create-trd.md only: fallback path and readout wording', () => {
-  const text = read(FILES['create-trd.md'].core);
+describe('create-trd.md only: ordering, fallback path and readout wording', () => {
+  const text = read(FILES['create-trd.md']);
+
+  test('assemble runs before the wave profile, which parses the TRD', () => {
+    const asm = text.indexOf(ASSEMBLE, text.indexOf(WORKFLOW));
+    const wave = text.indexOf('\n## Wave profile');
+    expect(asm).toBeGreaterThanOrEqual(0);
+    expect(wave).toBeGreaterThan(asm);
+  });
 
   test('fallback path names the same assemble step', () => {
     const fb = text.indexOf('**Fallback.**');
     expect(fb).toBeGreaterThanOrEqual(0);
-    // The fallback paragraph ends at the next blank line.
-    const end = text.indexOf('\n\n', fb);
-    expect(flat(text.slice(fb, end))).toContain(ASSEMBLE);
+    expect(flat(paragraphAt(text, fb))).toContain(ASSEMBLE);
   });
 
   test('Grounding report section names ungrounded and sizing, and says reported, never STUCK', () => {
@@ -93,13 +97,24 @@ describe('create-trd.md only: fallback path and readout wording', () => {
   });
 });
 
-describe('plan.md only: readout wording', () => {
-  test('names ungrounded list and sizing, reported never STUCK', () => {
-    const text = read(FILES['plan.md'].core);
+describe('plan.md only: report ordering and readout wording', () => {
+  const text = read(FILES['plan.md']);
+
+  // Step 6 and audit-trd both rewrite whole sections, so a report read before the audit can
+  // describe grounding the audit then changed.
+  test('report runs after Workflow(audit-trd), not before it', () => {
+    const audit = text.indexOf('Workflow({ name: "audit-trd"');
+    expect(audit).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf(REPORT)).toBeGreaterThan(audit);
+  });
+
+  test('the paragraph after the report call names ungrounded and sizing, reported never STUCK', () => {
     const rep = text.indexOf(REPORT);
-    const section = flat(text.slice(rep, text.indexOf(READOUT, rep)));
-    expect(section).toContain('`ungrounded`');
-    expect(section).toContain('`sizing`');
-    expect(section).toMatch(/never STUCK/);
+    const fenceEnd = text.indexOf('```', rep);
+    expect(fenceEnd).toBeGreaterThan(rep);
+    const para = flat(paragraphAt(text, text.indexOf('\n\n', fenceEnd) + 2));
+    expect(para).toContain('`ungrounded`');
+    expect(para).toContain('`sizing`');
+    expect(para).toMatch(/never STUCK/);
   });
 });

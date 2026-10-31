@@ -875,19 +875,6 @@ phased TRD `Workflow(create-trd)` just wrote, plus the investigation record besi
 new to build: Step 6 already reads "the TRD" generically and does not care which format it is.
 Apply its clearly-correct findings before continuing.
 
-Step 6 and `audit-trd` rewrite whole sections, so read the grounding back only now, just
-before the readout, not at `assemble`:
-
-```bash
-node .claude/lib/trd-grounding.js report --trd docs/TRD/<slug>.md
-```
-
-Take the grounded count, the `ungrounded` list and the deferred check from it, as
-`create-trd.md`'s "Grounding report" section describes: compare its `deferred` ids with the
-workflow's returned `deferred` ids; `sizing` of `missing` or `invalid` is reported in the
-readout's ISSUES, never read as nothing deferred; a non-empty `ungrounded` list is reported in
-ISSUES, never STUCK.
-
 #### Verify: `Workflow(audit-trd)`
 
 Once Step 6's findings are applied, run the one stage the grid grants to no other weight
@@ -932,8 +919,22 @@ answers it, which is the same reason it is the one command `autonomy.md` exempts
 On the spec path (§2g), run **Step 6a** before Step 7: the TRD's Objectives are written by the
 library after `audit-trd`, never by the model.
 
-Once `Workflow(audit-trd)` returns, this weight's own work is done. Converge to **Step 7**
-below like every other path, with its `plan()` call now carrying `weight: "medium"`.
+Once `Workflow(audit-trd)` returns, read the grounding back. Step 6 and `audit-trd` both
+rewrite whole sections, so this — not `assemble`, and not before the audit — is the first point
+the TRD's grounding is final:
+
+```bash
+node .claude/lib/trd-grounding.js report --trd docs/TRD/<slug>.md
+```
+
+Take the grounded count, the `ungrounded` list and the deferred check from it, as
+`create-trd.md`'s "Grounding report" section describes: compare its `deferred` ids with the
+workflow's returned `deferred` ids; `sizing` of `missing` or `invalid` is reported in the
+readout's ISSUES, never read as nothing deferred; a non-empty `ungrounded` list is reported in
+ISSUES, never STUCK.
+
+That done, this weight's own work is done. Converge to **Step 7** below like every other path,
+with its `plan()` call now carrying `weight: "medium"`.
 
 ---
 
