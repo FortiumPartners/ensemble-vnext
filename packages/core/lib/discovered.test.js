@@ -253,6 +253,19 @@ describe('promoteToTrd', () => {
     expect(other).not.toMatch(/every instance/);
   });
 
+  it('never appends to the Deferred by design table, which has no Description column', () => {
+    const f = mk(SIX + [
+      '## Deferred by design', '',
+      '| Task ID | Why it cannot run now |',
+      '|---------|----------------------|',
+      '| EX-B001 | Tagged [LIVE] |', '',
+    ].join('\n'));
+    expect(promoteToTrd(f, [disc('real gap')]).added).toEqual(['AMEND-001']);
+    const lines = fs.readFileSync(f, 'utf8').split('\n');
+    const row = lines.findIndex((l) => l.includes('real gap'));
+    expect(lines.findIndex((l) => l.startsWith('## Deferred by design'))).toBeGreaterThan(row);
+  });
+
   it('numbers from the highest existing id, so a second discovery is not lost', () => {
     const f = mk(SIX);
     expect(promoteToTrd(f, [disc('first thing')]).added).toEqual(['AMEND-001']);
@@ -398,7 +411,7 @@ describe('promoteToTrd', () => {
     const row = fs.readFileSync(f, 'utf-8').split('\n').find((l) => l.startsWith('| AMEND-001'));
     const cells = row.split('|').slice(1, -1).map((c) => c.trim());
     expect(cells[2]).toBe('O3');
-    expect(cells[5]).toBe('export is missing (O3) is met');
+    expect(cells[5]).toBe('export is missing (O3) no longer holds');
     expect(cells[1]).toContain('(observed: no export route exists)');
   });
 });

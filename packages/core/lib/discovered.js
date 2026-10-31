@@ -143,7 +143,13 @@ function promoteToTrd(trdPath, rows, opts = {}) {
    * table is the right default: an amendment is found during or after the work it
    * follows. */
   const headIdxs = [];
-  lines.forEach((l, i) => { if (/^\|\s*Task ID\s*\|/i.test(l)) headIdxs.push(i); });
+  /* Only a table with a Description column is a task table. The `## Deferred by design`
+   * table is `| Task ID | Why it cannot run now |`; it matches the Task ID test, and as the
+   * last such table in a TRD it received every amendment as an id with every other cell
+   * empty -- a row no one could act on, parked in a section the parser sets aside. */
+  lines.forEach((l, i) => {
+    if (/^\|\s*Task ID\s*\|/i.test(l) && /\bdescription\b/i.test(l)) headIdxs.push(i);
+  });
   if (!headIdxs.length) return { added, skipped: promo.length };
   const headIdx = headIdxs[headIdxs.length - 1];
 
@@ -313,7 +319,7 @@ function promoteToTrd(trdPath, rows, opts = {}) {
       if (r.kind === 'gap') {
         // A gap's evidence is what was observed MISSING, so it is not a check that can pass:
         // the pass condition is the gap closing; the observation belongs in the description.
-        cells[col.ac] = `${escapedSummary} is met`;
+        cells[col.ac] = `${escapedSummary} no longer holds`;
         if (evidence && col.desc >= 0) cells[col.desc] += ` (observed: ${evidence})`;
       } else {
         cells[col.ac] = evidence

@@ -313,7 +313,7 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.13.8** (2026-10-23). 21 commands, 13 subagents. Test battery: 2133 Jest,
+Released at **4.13.8** (2026-10-23). 22 commands, 13 subagents. Test battery: 2133 Jest,
 124 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
 
 4.13.8: `/audit-build` treats stale citations and deferred-task gaps as notes, and guards

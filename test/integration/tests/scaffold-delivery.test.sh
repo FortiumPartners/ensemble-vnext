@@ -82,7 +82,7 @@ teardown_file() {
     # plan-weight is the one /plan cannot run without — it is delivered only through
     # packages/full/lib's per-file symlink, which is exactly the delivery that was
     # missing when the module was first added.
-    for m in trd-parser task-graph implement-state fix-sizing fix-plan fix-audit plan-weight pull-request; do
+    for m in trd-parser task-graph implement-state fix-sizing fix-plan fix-audit plan-weight pull-request trd-grounding; do
         [ -f "$TREE/.claude/lib/${m}.js" ]
         [ ! -L "$TREE/.claude/lib/${m}.js" ]
         run node -e 'require(process.argv[1])' "$TREE/.claude/lib/${m}.js"

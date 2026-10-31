@@ -154,9 +154,13 @@ stopping at the first hit:**
 2. **Branch-derived** — read the current branch (`git branch --show-current`) and parse it
    against the two documented patterns from `.claude/rules/process.md`'s "## Branch Naming"
    (`<issue-id>-<session>`, `feature/<trd-name>/<session>`); match the derived slug against
-   `docs/TRD/*.md` filenames and `.trd-state/*/` directory names.
+   `docs/TRD/*.md` filenames and `.trd-state/*/` directory names. Skip any state directory
+   whose `implement.json` has `trd_file` null or `"kind": "task"` — that is an interrupted
+   `/task` run, never a TRD.
 3. **Single in-progress** — exactly one `.trd-state/*/implement.json` exists with
-   uncompleted tasks and no `closed.json` beside it; use its `trd_file`.
+   uncompleted tasks and no `closed.json` beside it; use its `trd_file`. Do not count an
+   `implement.json` whose `trd_file` is null or whose `kind` is `"task"` (an interrupted
+   `/task` run).
 4. **STUCK** — emit `═══ COMMAND STUCK ═══` naming the current branch and every candidate
    TRD/state-dir found in steps 2–3. This is a legitimate `AskUserQuestion` case under
    `autonomy.md` case 2 (information that cannot be derived), but STUCK with the candidates

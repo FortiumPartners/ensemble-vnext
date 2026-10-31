@@ -1,0 +1,93 @@
+{
+  "iteration": 1,
+  "criteria": [
+    {
+      "id": "FS-1",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/create-trd-grounding-write/evidence/fs1-fs2-full-run.txt",
+      "reason": "Scenario A (8 tasks, 2 ground agents, merge stub writing nothing): the TRD read back from disk holds a Task Grounding section with all 8 blocks, and the grounded count the command takes from trd-grounding.js report is 8, matching the on-disk block count. The workflow readout no longer carries an agent-claimed grounded line.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-2",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/create-trd-grounding-write/evidence/fs1-fs2-full-run.txt",
+      "reason": "The section was absent before assemble; deterministic trd-grounding.js assemble wrote it (written: true, blocksFound: 8) while the merge stub wrote nothing, and the read-back lists F-B001..F-B008 inside the section.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-3",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/create-trd-grounding-write/evidence/fs3-grep.txt",
+      "reason": "Grep for the Write/Edit-the-section instruction in create-trd.js and create-trd.md returns no match (the only hit of the broader grep is a code comment describing the old design). Recorded prompts show ground:merge told it is READ-ONLY and must not edit the TRD, ground agents told to write only their own blocks-N.md and not edit the TRD, size told not to edit the TRD, and author told not to write Task Grounding.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-4",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/create-trd-grounding-write/evidence/fs4-fs5-fs6-partial-on-disk.txt",
+      "reason": "Scenario B: agents claim 8 of 8 but only 5 blocks are on disk; the report JSON the command is instructed to take the grounded count from gives 5 grounded, and the workflow readout no longer holds a grounded count. The final readout is model prose built from that report and was not itself executed.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-5",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/create-trd-grounding-write/evidence/fs4-fs5-fs6-partial-on-disk.txt",
+      "reason": "The report names F-B006, F-B007, F-B008 as ungrounded, exactly the ids absent from the on-disk section; create-trd.md instructs the readout to list that ungrounded set in ISSUES.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-6",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/create-trd-grounding-write/evidence/fs4-fs5-fs6-partial-on-disk.txt",
+      "reason": "fs6-command-step-order.txt shows create-trd.md orders assemble (line 801), wave profile (1008), report (1039), then readout (1054), and says to take counts from report not the workflow return. Removing the F-B002 block after assemble and re-running report moved grounded 5 to 4 with F-B002 now ungrounded, so the report follows the file as it stands.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    },
+    {
+      "id": "FS-7",
+      "status": "met",
+      "tier1": "pass",
+      "artifact": ".trd-state/create-trd-grounding-write/evidence/fs7-deferred.txt",
+      "reason": "No defer:write agent is dispatched any more. With sizing.json absent (scenario C) the table is not on disk and assemble/report return sizing=missing, deferred=[], which create-trd.md routes to ISSUES as never-reached-the-TRD; with sizing.json present (scenario D) code writes the table and it reads back. Residual, not a failure of this criterion: the workflow's internal readout string still lists a DEFERRED BY DESIGN section from the sizing return in scenario C; the command composes its own readout and does not surface that string.",
+      "cause": null,
+      "provenAt": 1,
+      "image": null,
+      "ui": false,
+      "imageExcluded": null
+    }
+  ],
+  "gapsClosed": [
+    0
+  ],
+  "outcome": "satisfied"
+}

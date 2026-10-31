@@ -1075,3 +1075,6 @@ class TestFrameworkHintNamesCloseFeature:
         idx_audit = FRAMEWORK_HINT.index("/audit-build")
         idx_close = FRAMEWORK_HINT.index("/close-feature")
         assert idx_close > idx_audit
+
+    def test_flow_names_task_for_findings_jobs(self):
+        assert "/task" in FRAMEWORK_HINT

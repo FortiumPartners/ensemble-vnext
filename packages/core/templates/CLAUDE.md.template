@@ -55,6 +55,8 @@ SHORTER PATHS
                            grounded and attested in parallel, no TRD.
 /amend <what>          --> ONE change to the feature already in flight. Grounded,
                            recorded as a TRD row before the work, verified. No new TRD.
+/task <prompt|brief>   --> A job whose output is findings or a report, not code: steps
+                           run once, outputs recorded, closed with a closed.json. No TRD.
 /verify-build          --> Re-run functional verification alone
 /fold-prompt           --> Optimize context for continued work
 

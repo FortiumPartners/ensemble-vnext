@@ -411,7 +411,7 @@ pattern as Step 7:
 node -e '
   const { plan } = require("./.claude/lib/fix-plan");
   console.log(JSON.stringify(plan(JSON.parse(process.argv[1])), null, 2));
-' "$(cat <<'"'"'JSON'"'"'
+' "$(cat <<'JSON'
 { "weight": "trivial", "route": "prd", "kind": "<kind>", "slug": "<slug>" }
 JSON
 )"
@@ -730,7 +730,7 @@ node -e '
   const md = fs.readFileSync(process.argv[1], "utf8");
   const parsed = parseTrd(md, { path: process.argv[1] });
   console.log(JSON.stringify(audit(parsed, { ...opts, markdown: md }), null, 2));
-' "docs/TRD/<slug>.md" "$(cat <<'"'"'JSON'"'"'
+' "docs/TRD/<slug>.md" "$(cat <<'JSON'
 { "objectiveIds": ["O1"], "kind": "defect",
   "expectedNew": ["path/this/TRD/creates.ts"] }
 JSON
@@ -852,7 +852,16 @@ Workflow({ name: "create-trd", args: {
   trd: "docs/TRD/<slug>.md",
   feature: "<slug>",
   project: "<PROJECT_ROOT, or '' for this repo>",
+  grounding_dir: ".trd-state/<slug>/findings/grounding/<UTC stamp>",
 } })
+```
+
+`grounding_dir` is a fresh directory per run (stamp like `20261030T101500Z`): the grounding
+agents write their blocks there and the workflow never writes them into the TRD. Right after
+the call returns, put them in with:
+
+```bash
+node .claude/lib/trd-grounding.js assemble --trd docs/TRD/<slug>.md --dir .trd-state/<slug>/findings/grounding/<UTC stamp>
 ```
 
 `args.prd` is read generically as "the source path" (`create-trd.js`'s `SOURCES` template) —
@@ -918,8 +927,22 @@ answers it, which is the same reason it is the one command `autonomy.md` exempts
 On the spec path (§2g), run **Step 6a** before Step 7: the TRD's Objectives are written by the
 library after `audit-trd`, never by the model.
 
-Once `Workflow(audit-trd)` returns, this weight's own work is done. Converge to **Step 7**
-below like every other path, with its `plan()` call now carrying `weight: "medium"`.
+Once `Workflow(audit-trd)` returns, read the grounding back. Step 6 and `audit-trd` both
+rewrite whole sections, so this — not `assemble`, and not before the audit — is the first point
+the TRD's grounding is final:
+
+```bash
+node .claude/lib/trd-grounding.js report --trd docs/TRD/<slug>.md
+```
+
+Take the grounded count, the `ungrounded` list and the deferred check from it, as
+`create-trd.md`'s "Grounding report" section describes: compare its `deferred` ids with the
+workflow's returned `deferred` ids; `sizing` of `missing` or `invalid` is reported in the
+readout's ISSUES, never read as nothing deferred; a non-empty `ungrounded` list is reported in
+ISSUES, never STUCK.
+
+That done, this weight's own work is done. Converge to **Step 7** below like every other path,
+with its `plan()` call now carrying `weight: "medium"`.
 
 ---
 
@@ -1017,7 +1040,7 @@ refuses to chain on `'invalid'`, so the stop above does not rest on this prose a
 node -e '
   const { plan } = require("./.claude/lib/fix-plan");
   console.log(JSON.stringify(plan(JSON.parse(process.argv[1])), null, 2));
-' "$(cat <<'"'"'JSON'"'"'
+' "$(cat <<'JSON'
 { "weight": "small", "route": "plan", "implement": false, "kind": "defect", "slug": "<slug>",
   "neverUnattendedHit": [], "neverUnattendedStatus": "none" }
 JSON

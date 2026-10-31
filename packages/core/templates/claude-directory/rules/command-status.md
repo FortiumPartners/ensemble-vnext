@@ -190,7 +190,7 @@ that drifts from it.
 .claude/lib/artifacts.js record|get|read`; no command writes the JSON by hand. The manifest,
 `.trd-state/<feature>/artifacts.json`, holds `"version": 2` beside one `{path, url, updated_at,
 command}` entry per kind: `prd`, `trd`, `audit-prd`, `audit-trd`, `success-definition`,
-`verification-plan`, `verification-report`, `audit-build`, and
+`verification-plan`, `verification-report`, `audit-build`, `report`, and
 one key per verification-check skill. On a later refine or re-verify, `get` the entry and pass its url as `url:` so the same
 link updates in place; otherwise it goes stale silently. With publishing off, still `record`
 the path and leave `url` empty.

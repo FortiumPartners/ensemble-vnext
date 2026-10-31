@@ -33,6 +33,8 @@ const CORE_AMEND = path.join(REPO, 'packages/core/commands/amend.md');
 const CLAUDE_AMEND = path.join(REPO, '.claude/commands/amend.md');
 const CORE_PLAN = path.join(REPO, 'packages/core/commands/plan.md');
 const CLAUDE_PLAN = path.join(REPO, '.claude/commands/plan.md');
+const CORE_TASK = path.join(REPO, 'packages/core/commands/task.md');
+const CLAUDE_TASK = path.join(REPO, '.claude/commands/task.md');
 
 const read = (p) => fs.readFileSync(p, 'utf8');
 // Prose wraps at ~80 columns, so a phrase that reads as one sentence to a human can straddle
@@ -59,6 +61,10 @@ describe('packages/core <-> .claude mirror parity', () => {
 
   test('plan.md is byte-identical to its mirror', () => {
     expect(read(CLAUDE_PLAN)).toBe(read(CORE_PLAN));
+  });
+
+  test('task.md is byte-identical to its mirror', () => {
+    expect(read(CLAUDE_TASK)).toBe(read(CORE_TASK));
   });
 });
 
@@ -2101,5 +2107,73 @@ describe('verify-build.md and refine-verification.md handle setup-failure (VPRE-
     expect(t).toMatch(/none is a Blocker/);
     expect(t).toMatch(/none is Accepted as not verifiable/);
     expect(t).toMatch(/re-verified by the next `\/verify-build`/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// task-command TASK-003: TRD selection must never resolve an interrupted /task run as a TRD.
+// Keyed on trd_file null / kind "task", never on the `task-` directory prefix.
+// ---------------------------------------------------------------------------
+
+describe('implement-trd.md step 1.2 skips /task state directories', () => {
+  const doc = flat(read(CORE_IMPLEMENT));
+  const sec = doc.slice(doc.indexOf('**Branch-derived**'), doc.indexOf('**STUCK** — emit'));
+  const branch = sec.slice(0, sec.indexOf('**Single in-progress**'));
+  const single = sec.slice(sec.indexOf('**Single in-progress**'));
+
+  test('both Branch-derived and Single in-progress carry the skip rule', () => {
+    for (const part of [branch, single]) {
+      expect(part).toMatch(/`trd_file` (is )?null/);
+      expect(part).toContain('"task"');
+    }
+  });
+
+  test('the rule is not keyed on a task- name prefix', () => {
+    expect(sec).not.toMatch(/task-/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// task-command TASK-005: pins task.md's contract (TASK-001 acceptance criteria 2-7).
+// TASK_MD_PATH lets the failure demonstration point the block at an altered copy.
+// ---------------------------------------------------------------------------
+
+describe('task.md contract (task-command TASK-001 criteria 2-7)', () => {
+  const doc = flat(read(process.env.TASK_MD_PATH || CORE_TASK));
+
+  test('(2) names each state write by the library call that performs it', () => {
+    expect(doc).toContain('`implement-state.js` `save(`');
+    expect(doc).toMatch(/`recordResult\(` with `"success"`/);
+    expect(doc).toContain('"status": "deferred"');
+    expect(doc).toContain('`checkpoint(`');
+    expect(doc).toMatch(/artifacts\.js record --state-dir \S+ --kind report/);
+  });
+
+  test('(3) states the closed.json keys closedBy, reason, outputs and followups', () => {
+    expect(doc).toContain('"closedBy": "task"');
+    expect(doc).toContain('"reason": "task-complete"');
+    expect(doc).toContain('"outputs":');
+    expect(doc).toContain('"followups":');
+  });
+
+  test('(4) a failed step is recorded deferred, not retried; zero completed steps is STUCK', () => {
+    expect(doc).toMatch(/recorded `deferred` with its reason and is not retried/);
+    expect(doc).toMatch(/Zero completed steps ends `COMMAND STUCK`/);
+  });
+
+  test('(5) current.json is written only with no feature in flight, cleared after notify-complete and only if it still points at the task', () => {
+    expect(doc).toMatch(/Point `\.trd-state\/current\.json` at the task only when no feature is in flight/);
+    expect(doc).toMatch(/Only after that, clear `current\.json`\*\*, and only if its `status` still points at this task's `implement\.json`/);
+    expect(doc.indexOf('notify-complete.sh "task"')).toBeLessThan(doc.indexOf('clear `current.json`'));
+  });
+
+  test('(6) states the report-only default', () => {
+    expect(doc).toMatch(/Report-only by default\.\*\* No product-code change, branch push or PR unless the prompt explicitly asks/);
+  });
+
+  test('(7) carries the notify call, PushNotification and the COMPLETE banner', () => {
+    expect(doc).toContain('notify-complete.sh "task"');
+    expect(doc).toContain('PushNotification');
+    expect(doc).toContain('═══ COMMAND COMPLETE: /task ═══');
   });
 });
