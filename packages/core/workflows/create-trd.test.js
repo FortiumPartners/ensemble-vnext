@@ -352,6 +352,19 @@ describe('create-trd grounding fan-out', () => {
     expect(retries[0].prompt).not.toContain('Write/Edit');
   });
 
+  it('anchors the block and sizing files to this session, not to args.project', async () => {
+    // SCOPE says every path resolves against the project; assemble runs from the session's
+    // directory, so a block file written under the project would never be found.
+    const agent = makeAgentStub(plan());
+    await runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs({ project: '/elsewhere/app' }) });
+    const ground = agent.calls.find((c) => String(c.opts.label).startsWith('ground:brownfield'));
+    expect(ground.prompt).toMatch(/blocks-1\.md\nThat path is relative to the directory this session runs in/);
+    expect(call(agent, 'size').prompt).toMatch(/sizing\.json\nThat path is relative to the directory this session runs in/);
+    const plain = makeAgentStub(plan());
+    await runWorkflow(SOURCE, { agent: plain, parallel: makeParallelStub(), args: baseArgs() });
+    expect(call(plain, 'size').prompt).not.toContain('That path is relative');
+  });
+
   it('does not retry when every task is returned', async () => {
     const { agent } = await runWith(17);
     expect(agent.calls.filter((c) => c.opts.label === 'ground:retry')).toHaveLength(0);

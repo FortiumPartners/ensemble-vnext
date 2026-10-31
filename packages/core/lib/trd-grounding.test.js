@@ -194,6 +194,42 @@ describe('trd-grounding assemble', () => {
   });
 });
 
+describe('trd-grounding assemble: section boundaries', () => {
+  test('a nested Master Task List gets a Deferred section at its own level; siblings survive', () => {
+    const nested =
+      '# TRD: n\n\n## 3. Implementation\n\n### 3.1 Master Task List\n\n' +
+      '| Task ID | Description |\n|---|---|\n| F-B001 | one |\n| F-B002 | two |\n\n' +
+      '### 3.2 Execution Plan\n\n| Phase | Tasks |\n|---|---|\n| 1 | F-B001, F-B002 |\n\n' + TAIL;
+    fs.writeFileSync(trd, nested);
+    write('blocks-1.md', block('F-B001', 'a.js'));
+    write('sizing.json', JSON.stringify({ deferred: [{ id: 'F-B002', why: 'live' }] }));
+    const r = G.assemble(trd, dir);
+    expect(r.deferred).toEqual(['F-B002']);
+    expect(read()).toContain('### Deferred by design');
+    const first = read();
+    G.assemble(trd, dir);
+    expect(read()).toBe(first);
+    expect(read()).toContain('### 3.2 Execution Plan');
+  });
+
+  test('a prose heading that merely mentions Task Grounding is not deleted', () => {
+    fs.writeFileSync(trd, '## Decision\n\n### Why Task Grounding moves to code\n\nKEEP ME\n\n' + MASTER + TAIL);
+    write('blocks-1.md', block('F-B001', 'a.js'));
+    G.assemble(trd, dir);
+    const t = read();
+    expect(t).toContain('### Why Task Grounding moves to code\n\nKEEP ME');
+    expect(t.indexOf('## 9. Task Grounding')).toBeGreaterThan(t.indexOf('F-B003 | three'));
+  });
+
+  test('nothing to write leaves a CRLF TRD byte-identical', () => {
+    const crlf = (MASTER + TAIL).replace(/\n/g, '\r\n');
+    fs.writeFileSync(trd, crlf);
+    const r = G.assemble(trd, dir);
+    expect(r.written).toBe(false);
+    expect(read()).toBe(crlf);
+  });
+});
+
 describe('trd-grounding report', () => {
   test('9: report matches what assemble wrote and does not write', () => {
     fs.writeFileSync(trd, MASTER + TAIL);

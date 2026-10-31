@@ -46,7 +46,7 @@ const {
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_BLOCK_FILES = 1000;
 const GROUNDING_HEADING = '## 9. Task Grounding';
-const DEFERRED_HEADING = '## Deferred by design';
+const DEFERRED_TITLE = 'Deferred by design';
 // Same id shape trd-parser's parseGrounding accepts for a block heading.
 const BLOCK_HEADING_RE = /^(#{1,6})\s+`?([A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]+)`?/;
 const ANY_HEADING_RE = /^(#{1,6})\s+\S/;
@@ -119,7 +119,7 @@ function readSizing(dir) {
   const file = path.join(dir, 'sizing.json');
   let raw;
   try {
-    const st = fs.statSync(file);
+    const st = fs.lstatSync(file);
     if (!st.isFile()) return { status: 'missing', deferred: [] };
     if (st.size > MAX_FILE_BYTES) return { status: 'invalid', deferred: [] };
     raw = fs.readFileSync(file, 'utf8');
@@ -146,12 +146,44 @@ function readSizing(dir) {
   return { status: 'ok', deferred };
 }
 
-/** Remove every section whose heading contains `phrase` (outside fences). */
+/**
+ * First section (outside fences) whose heading TITLE starts with `phrase`, ignoring a leading
+ * section number and markup: "## 9. Task Grounding" matches "Task Grounding", while
+ * "### Why Task Grounding moves to code" does not. Deliberately narrower than findSection's
+ * contains-match: this is used to DELETE sections, and deleting a prose section that merely
+ * mentions the phrase loses the owner's text.
+ */
+function findOwnSection(lines, phrase) {
+  const want = phrase.toLowerCase();
+  for (let i = 0; i < lines.length; i++) {
+    const lvl = level(lines[i]);
+    if (lvl == null) continue;
+    const title = lines[i]
+      .replace(/^#+\s*/, '')
+      .replace(/[*`_]/g, '')
+      .replace(/^[\d.]+\s*/, '')
+      .trim()
+      .toLowerCase();
+    if (!title.startsWith(want)) continue;
+    let end = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = level(lines[j]);
+      if (l != null && l <= lvl) {
+        end = j;
+        break;
+      }
+    }
+    return { headingIndex: i, level: lvl, end };
+  }
+  return null;
+}
+
+/** Remove every section whose heading title is `phrase` (outside fences). */
 function removeSections(lines, phrase) {
   let out = lines;
   let firstIndex = null;
   for (;;) {
-    const sec = findSection(maskFencedLines(out), phrase);
+    const sec = findOwnSection(maskFencedLines(out), phrase);
     if (!sec) return { lines: out, index: firstIndex };
     if (firstIndex == null) firstIndex = sec.headingIndex;
     out = out.slice(0, sec.headingIndex).concat(out.slice(sec.end));
@@ -171,18 +203,22 @@ function insertSection(lines, idx, section) {
   return out;
 }
 
-/** Index just past the Master Task List section, plus its heading level. */
+/** Index just past the Master Task List section, plus its heading level. With no Master Task
+ * List the end of the document, never index 0 (which would land above the title). */
 function afterMasterList(lines) {
   const sec = findSection(maskFencedLines(lines), 'Master Task List');
-  return sec ? { end: sec.end, level: sec.level } : { end: 0, level: 2 };
+  return sec ? { end: sec.end, level: sec.level } : { end: lines.length, level: 2 };
 }
 
 function writeDeferred(lines, deferred) {
   const removed = removeSections(lines, 'Deferred by design');
   const master = afterMasterList(removed.lines);
   const cell = (s) => String(s).replace(/\s*\n\s*/g, ' ').replace(/\|/g, '\\|').trim();
+  // A sibling of the Master Task List, at ITS level. A fixed `##` under a nested
+  // `### Master Task List` would own every later `###` sibling: the parser then reads their
+  // tables as deferred rows, and the next assemble deletes them with this section.
   const section = [
-    DEFERRED_HEADING,
+    `${'#'.repeat(master.level)} ${DEFERRED_TITLE}`,
     '',
     '| Task ID | Why it cannot run now |',
     '|---------|-----------------------|',
@@ -243,14 +279,21 @@ function assemble(trdPath, dir) {
   const dropped = [...byId.keys()].filter((id) => !known.has(id));
   const sizing = readSizing(dir);
 
+  let touched = false;
   if (sizing.status === 'ok' && sizing.deferred.length > 0) {
     lines = writeDeferred(lines, sizing.deferred);
+    touched = true;
   }
   // Task order follows the Master Task List so the output does not depend on file order.
   const kept = taskIds.filter((id) => byId.has(id)).map((id) => byId.get(id));
-  if (kept.length > 0) lines = writeGrounding(lines, kept);
+  if (kept.length > 0) {
+    lines = writeGrounding(lines, kept);
+    touched = true;
+  }
 
-  const next = lines.join('\n');
+  // Nothing to write leaves the file's bytes alone -- including its line endings, which the
+  // split above normalised to LF.
+  const next = touched ? lines.join('\n') : original;
   const changed = next !== original;
   if (changed) {
     const tmp = `${trdPath}.${process.pid}.tmp`;

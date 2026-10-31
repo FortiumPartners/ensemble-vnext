@@ -477,6 +477,13 @@ const GROUNDING_DIR = (a.grounding_dir || `.trd-state/${FEATURE}/findings/ground
 if (!a.grounding_dir) {
   log(`WARNING: no grounding_dir arg; using ${GROUNDING_DIR}. Blocks left there by an earlier run could be picked up when the command assembles the TRD.`)
 }
+// SCOPE tells agents every path resolves against PROJECT. The grounding dir must not: the
+// command runs `assemble` from THIS session's directory, so a file written under PROJECT is
+// never found and every task reads as ungrounded.
+const DIR_ROOT_NOTE = PROJECT
+  ? `\nThat path is relative to the directory this session runs in (where ${TRD} lives), NOT to
+${PROJECT} -- the PATH SCOPING rule above is for code you read, not for this file.`
+  : ''
 
 /* Every task, with its description and declared order -- given to EVERY grounding agent,
  * including for tasks it is not grounding.
@@ -548,7 +555,7 @@ carries orchestration detail you do not need and would re-cache on every turn):
 
 WRITE YOUR BLOCKS TO THIS FILE, and no other (mkdir -p its directory first):
 
-  ${file}
+  ${file}${DIR_ROOT_NOTE}
 
 The file holds one \`### <TASK-ID>\` block per task in YOUR SET and nothing else. Do NOT edit
 ${TRD}: other agents are writing their own files at the same time, and the calling command
@@ -734,7 +741,7 @@ manufacture concern to look thorough.
 
 WRITE YOUR RESULT TO DISK before returning, in addition to returning it (mkdir -p as needed):
 
-  ${GROUNDING_DIR}/sizing.json
+  ${GROUNDING_DIR}/sizing.json${DIR_ROOT_NOTE}
 
 The file holds the same object you return, including \`deferred\` (an empty array when
 nothing is deferred). The calling command reads it to write the "## Deferred by design" table

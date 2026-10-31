@@ -4,7 +4,7 @@
   "trd_hash": "58cdc96a2c3092208658afbe1d9c138d34a796f61232c96f30c3192af2c7249e",
   "branch": "feature/create-trd-grounding-write/impl",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "Deterministic helper trd-grounding.js (assemble/report CLI) + delivery",
@@ -61,10 +61,19 @@
       "last_advanced": "2026-10-31T06:57:22.548Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "b9e1df036a662863eb5f0cc33cbf973499cb1f02",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-10-31T07:00:21.305Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "b9e1df036a662863eb5f0cc33cbf973499cb1f02",
+    "last_checkpoint_timestamp": "2026-10-31T07:00:21.305Z",
     "interrupted": false,
     "interrupt_reason": null
   },
