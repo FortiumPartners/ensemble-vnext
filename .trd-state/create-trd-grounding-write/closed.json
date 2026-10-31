@@ -1,0 +1,12 @@
+{
+  "feature": "create-trd-grounding-write",
+  "trd": "docs/TRD/create-trd-grounding-write.md",
+  "closedAt": "2026-10-31T07:28:15Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked; the command-prose changes (FIX-003) are correct but no test would catch them if reverted; Could Not Verify keeps two open items (no live fan-out /create-trd run, outside callers such as Forge not checked)",
+    "report": ".trd-state/create-trd-grounding-write/audit-build-report.md",
+    "auditedCommit": "a1771c9"
+  }
+}
