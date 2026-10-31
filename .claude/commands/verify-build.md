@@ -76,24 +76,21 @@ step 3a and the Readout). `<slug>` is the file's name before `.sweep.md`.
 ### 2. Preflight the environment
 
 **Identical to `/implement-trd` §3.6a — read that section and follow it.** No criteria exist
-yet at this point (that only changes at step 3/3a, below), so this step resolves
-ENVIRONMENTS only: read `.claude/rules/verification.md`'s §1 and resolve each DECLARED
-ENVIRONMENT as usable / unusable / needs-one-thing-from-the-owner, batch that last bucket into
-ONE question — naming the environments, not criteria — with a stated default, then persist the
-per-environment result exactly as §3.6a documents (`state.functional_verification.environments`,
-set in memory then saved). Report the file's shape too, exactly as §3.6a's `missingSections`-
-derived reporting does — naming `/verification-setup` and whichever sections are missing
-(D10, D11) — not a fixed sentence. Partial verification with stated gaps beats none.
+yet at this point (that only changes at step 3/3a, below), so this step classifies
+ENVIRONMENTS only, by policy (D17): read `.claude/rules/verification.md`'s §1 and mark each
+declared environment `usable`, `unusable` or `needs-owner`, as §3.6a defines those. It never
+asks whether anything is up; the loop's setup check decides that before every attempt. Persist
+the per-environment result and the `target` exactly as §3.6a documents
+(`state.functional_verification.environments`, set in memory then saved). Report the file's
+shape too, exactly as §3.6a's `missingSections`-derived reporting does — naming
+`/verification-setup` and whichever sections are missing (D10, D11) — not a fixed sentence.
+Partial verification with stated gaps beats none.
 
-**Under `--chained` (a sweep file; see below) that one question is NOT asked either**: every
-environment in the needs-one-thing bucket takes the stated default and is recorded as a
-`verification.md` need, exactly as in the next paragraph.
-
-**When the fix loop runs (default whenever a plan is present, unless `--no-fix` was passed),
-that one question is NOT asked** (O3: the fix loop asks the owner nothing, start to finish).
-Every environment in the needs-one-thing bucket takes the question's stated default — unusable
-for this run, so its criteria resolve `not_verifiable` — and the thing it needs is recorded as
-a `verification.md` need exactly as the fix loop's step 2 records one (D13: `kind: 'gap',
+**Nothing is asked in any mode (D1).** An environment that needs the owner takes the default —
+its criteria resolve `not_verifiable` — and ISSUES names it and the one thing the owner must
+supply. **Under the fix loop (the default whenever a plan is present, unless `--no-fix` was
+passed) and under `--chained` (a sweep file; see below),** the need is also recorded as a
+`verification.md` discovery exactly as the fix loop's step 2 records one (D13: `kind: 'gap',
 blocksFeature: false, file: '.claude/rules/verification.md'`), named in ISSUES for "the owner,
 at the next bridge". The owner answers it in `/refine-verification`, not mid-run.
 
@@ -264,8 +261,8 @@ out of the selection and reported in ISSUES (D11).
 **Identical to `/implement-trd` §8.1a — read that section and follow it.** `criteria` now
 includes the check rows appended at step 3b, and step 2's per-environment results are on disk
 (`.trd-state/<feature>/implement.json`'s `functional_verification.environments`) — bucket each
-criterion exercisable / not-verifiable against those results (no new `AskUserQuestion`; the
-one question already ran at step 2), then derive `exerciseLanes`, `refreshCommand`,
+criterion exercisable / not-verifiable against those results (nothing is asked here
+either; step 2 asked nothing), then derive `exerciseLanes`, `refreshCommand`,
 `fullRunCommand` and `coverageFloor` from `verification.md` §1a/§2/§5a exactly as §8.1a
 documents — `coverageFloor` via `read-coverage-floor`, `null` on an `invalid` line, named in
 ISSUES with the same D9 wording.
@@ -278,7 +275,7 @@ sweep file has no TRD and declares no must-pass (D19): skip the call and use `[]
 
 ### 4. Dispatch
 
-All 25 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
+All 26 fields §3.3 of `docs/TRD/functional-verification.md` declares — values from THIS
 command's own resolution (Steps 1–3c), not copied from `/implement-trd`:
 
 ```javascript
@@ -302,6 +299,7 @@ Workflow({ name: "verify-functional", args: {
   refreshCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's fast refresh, or "" when none is declared
   fullRunCommand,                                                // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §2's full deploy, or "" when none is declared
   coverageFloor,                                                 // resolved per implement-trd.md §8.1a (step 3c here) -- verification.md §5a as a fraction, or null when none is declared
+  setupTargets,                                                  // resolved per implement-trd.md §8.1a step 7 (step 3c here) -- the environments the setup check looks at; [] when none (no setup check runs)
   liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
   checks,                                                        // resolved per implement-trd.md §8.1b (step 3b here) -- { "<skill>": "<SKILL.md text>" }; {} when none
   checkComments,                                                 // resolved per implement-trd.md §8.1b (step 3b here) -- open threads on each check's published page; [] when none
@@ -314,10 +312,12 @@ Workflow({ name: "verify-functional", args: {
 ### 5. Report
 
 Render the outcome — `satisfied` / `unbuilt` / `stalled` / `stuck` / `insufficient-coverage` /
-`must-pass-unproven`, or either `not run` case — with the per-criterion counts, the report path,
+`must-pass-unproven` / `setup-failure`, or either `not run` case — with the per-criterion counts, the report path,
 and the coverage ratio when the outcome is `insufficient-coverage`. For `must-pass-unproven`, say
 the core was not shown to work and name each unproven must-pass criterion and each uncovered
-objective (the workflow's `mustPass` result: `criteria`, `uncovered`, `unproven`). A failed final full-environment run appears
+objective (the workflow's `mustPass` result: `criteria`, `uncovered`, `unproven`). For `setup-failure`, say the software was not checked because the environment is broken, not
+the code, and name each problem and its fix (the workflow's `setup.problems`); put the
+workflow's `setup.flags` under DECISIONS as defaults applied. A failed final full-environment run appears
 in ISSUES with who acts (VCON-B009); it does not retract the criteria proven before it.
 
 **State the coverage floor whenever this run reached step 4 (D19):** "Coverage floor: {N}%
@@ -343,14 +343,18 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 section may be "none". No section for what was dispatched or which stages ran: that is in the
 transcript and does not change what the owner does next.
 
-**NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`. Any
-other outcome (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage`, `must-pass-unproven`) → `/refine-verification`,
+**NEXT follows one rule, stated once here (O4): outcome `satisfied` → `/audit-build`. Outcome
+`setup-failure` is the one exception (D11): the environment, not the code, is broken, and
+`/refine-verification` writes a build plan with nothing to build, so NEXT is (1) the fix for
+each problem, as plain text, (2) `/verify-build`. Any other outcome (`stalled`, `stuck`,
+`unbuilt`, `insufficient-coverage`, `must-pass-unproven`) → `/refine-verification`,
 then `/verify-build`. The report's Next line says the same, so the readout and the report never
 disagree on what comes next.** NEXT lists those commands as numbered steps in the order to
 take them, one fenced block per slash command, never a shell command. A step that must come
 first and is not a slash command (a merge, a deploy) leads as plain text, not a block.
 
-**When the outcome is `stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`** (D3, D15;
+**When the outcome is `stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven` — never `setup-failure`,
+whose report carries no Diagnosis line** (D3, D15;
 verification-fix-loop TRD §3.1): STATE carries a Diagnosis line, counted over `criteria`'s
 non-`met` entries exactly as `renderReport` counts them for the report — descending by count,
 in words, cause-less entries as "unrecorded". Never re-derive the verdict here; this is a
@@ -381,6 +385,9 @@ node .claude/lib/spec-scope.js source --file <sweep file>      # → {spec, sect
   and `/implement-trd` needs a clean tree); step 2 is `/implement-trd <coreTrd>` with the path
   `source` returned, in its own fenced block. **When `coreTrd` is `none`, drop the
   `/implement-trd` step**: the commit is the last step.
+- `setup-failure` → "fix the environment named above, then `/verify-build <sweep file>`" (D11).
+  Step 1 is the fix, as plain text; step 2 is `/verify-build <sweep file>` in its own fenced
+  block. Never `/sweep`: the swept fixes were not judged.
 - any other outcome → "re-run `/sweep <sweep file>` for the failed criteria, then
   `/verify-build <sweep file>`". Step 1 is `/sweep <sweep file>`, step 2 is
   `/verify-build <sweep file>`, each in its own fenced block, `<sweep file>` being the path
@@ -395,11 +402,10 @@ Never `/refine-verification` or `/audit-build`.
 end that run. Honoured only when Step 1 resolved a sweep file; with a TRD the flag is ignored
 and none of this section applies. Under it:
 
-- **Asks nothing.** Step 2's batched question is skipped: each environment needing one thing
-  from the owner takes the stated default (unusable for this run, so its criteria resolve
-  `not_verifiable`) and the need is recorded as a `verification.md` discovery exactly as the
-  fix loop's step 2 records one. No `AskUserQuestion` reaches the owner (compare
-  `/implement-trd` §3.7).
+- **Asks nothing, as in every mode.** Each environment needing one thing from the owner takes
+  the default (its criteria resolve `not_verifiable`) and the need is recorded as a
+  `verification.md` discovery exactly as the fix loop's step 2 records one. No
+  `AskUserQuestion` reaches the owner (compare `/implement-trd` §3.7).
 - **Still does the work.** Steps 1–5 run in full: the loop is dispatched, the report is
   written to `.trd-state/<slug>-sweep/verification-report.md`, and the evidence step in 3a
   ("After a satisfied sweep run, carry the evidence to the core") still runs, because the
@@ -412,8 +418,9 @@ and none of this section applies. Under it:
 ```
 
   `<outcome>` is the loop's outcome string exactly (`satisfied`, `unbuilt`, `stalled`,
-  `stuck`, `insufficient-coverage`, `must-pass-unproven`, or a `not run` case), so the caller can test for exactly
-  `satisfied`. This line is a sibling of `/implement-trd`'s `RETURN → chained by …` line.
+  `stuck`, `insufficient-coverage`, `must-pass-unproven`, `setup-failure`, or a `not run` case), so the caller can test for exactly
+  `satisfied`. For a setup failure the line is `RETURN → setup-failure, <met> of <total> met`;
+  `/plan`'s sweep chain reads that exact string. This line is a sibling of `/implement-trd`'s `RETURN → chained by …` line.
 - **No banner, no `notify-complete.sh`, no `PushNotification`.** The caller owns the run's
   only terminator; `notify-complete.sh` would mark the run finished and switch off the
   autonomy judge for the rest of the chain.
@@ -450,7 +457,8 @@ line. Fixing after a resumed run is a fresh `/verify-build`.
 
 Re-enters at the next iteration from `verification-state.json`, seeding `previousGaps`. The
 state file's `outcome` key decides: `null` means the run stopped mid-loop and is resumable;
-any of the six outcome strings means it finished and `--resume` starts a fresh run instead.
+any of the seven outcome strings (`satisfied`, `unbuilt`, `stalled`, `stuck`,
+`insufficient-coverage`, `must-pass-unproven`, `setup-failure`) means it finished and `--resume` starts a fresh run instead.
 Only the file's `met` entries carry forward into the resumed run — `not_verifiable` and
 `unbuilt` entries do not, so they are walked again this run. The iteration cap (`--cap N`,
 default 3) is a total budget across every resume of one run, not a fresh budget each time
@@ -501,7 +509,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    open criterion regardless of slice, so a regression outside the active slice is still seen.
    **Never recorded as a failing row, in any round:** a `not_verifiable` criterion (its causes,
    `environment-unreachable` and `capability-absent`, are never promoted — D4), and the run's
-   outcome itself, `insufficient-coverage` and `must-pass-unproven` included. A coverage shortfall is made of criteria
+   outcome itself, `insufficient-coverage` and `must-pass-unproven` included, and `setup-failure` too. A coverage shortfall is made of criteria
    nobody could check, not of code that failed; no build task can raise it, so it is reported
    in the readout and never turned into one. The same holds for `must-pass-unproven`: the
    unproven must-pass criteria are already open criteria, recorded here by their own cause when
@@ -544,8 +552,11 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    .claude/lib/functional-verification.js render-fix-summary` (D10) and append it to
    `verification-report.md`, republish it under the same stored URL (the "Artifact link" section, below). Its `criteria` input is
    **every criterion not `met`** in the latest state file, each with a non-empty `stopReason`
-   composed from the first of these that applies: `not verifiable here: <the Judge's reason>`
-   (status `not_verifiable`); `accepted as not verifiable: <the plan's ruling>`; `not buildable
+   composed from the first of these that applies: `setup failure: <problem>` (this round's
+   verify outcome was `setup-failure` and the criterion is still open; `<problem>` is the
+   workflow's `setup.problems` entry for its environment, with its fix; D12 — no other branch
+   exists for a setup failure, and steps 4 and 5 run as for any outcome); `not verifiable
+   here: <the Judge's reason>` (status `not_verifiable`); `accepted as not verifiable: <the plan's ruling>`; `not buildable
    by cause: <cause in words> — re-verified each round, never built` (a cause other than
    `judged-failed`/`not-built`); `outside the active slice`; `stop rule reached: <decide-fix-round's
    reason>`. The renderer prints `no stop reason recorded` for a blank one so an omission is
@@ -554,7 +565,8 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    recorded at step 2, "the owner, at the next bridge" (D13); NEXT follows O4, above:
    `/refine-verification`, then `/verify-build`, when the outcome is anything but `satisfied`
    (`stalled`, `stuck`, `unbuilt`, `insufficient-coverage` or `must-pass-unproven`) or anything
-   buildable or blocked remains, otherwise `/audit-build` — keyed to the outcome, so a
+   buildable or blocked remains, otherwise `/audit-build`; a `setup-failure` outcome is the
+   exception and routes to the fix then `/verify-build` (above) — keyed to the outcome, so a
    `must-pass-unproven` run with nothing buildable still routes to `/refine-verification`. Exactly **one** `═══
    COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —
    `notify-complete.sh`, and a `PushNotification` (`command-status.md` Path A for
@@ -606,14 +618,12 @@ On unrecoverable failure use `═══ COMMAND STUCK: /verify-build ═══` 
 ## Autonomous-execution discipline (see `.claude/rules/autonomy.md`)
 
 Runs autonomously from invocation to the banner. `AskUserQuestion` is permitted only for the
-four cases in `autonomy.md` — and on this command the realistic one is §2's preflight batch:
-information that genuinely cannot be derived, asked ONCE, up front, with a stated default.
+four cases in `autonomy.md`, but no question remains on this path: step 2 asks nothing in any
+mode (D1), and an environment that needs the owner takes its default and is named in ISSUES.
 
-**Under `--chained`, not even that** — it asks nothing (see "`--chained`", above).
-
-**Under the fix loop, not even that: it asks the owner no questions from start to finish** (O3).
-Step 2's question takes its stated default and becomes a recorded `verification.md` need (step
-2, above); the chained build runs under `--chained`, where no `AskUserQuestion` reaches the
+**Under `--chained` and under the fix loop it asks the owner no questions from start to
+finish** (O3). Step 2's need becomes a recorded `verification.md` need (step 2, above); the
+chained build runs under `--chained`, where no `AskUserQuestion` reaches the
 owner (`/implement-trd` §3.7); and every decision the run needs comes from the plan the owner
 already agreed in `/refine-verification`.
 

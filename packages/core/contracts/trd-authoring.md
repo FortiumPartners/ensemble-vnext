@@ -691,6 +691,34 @@ applicable check left out, with its reason; a single `None apply — <reason>` l
 every check with one stated reason and is only valid when it does. A backticked Inputs span
 is a repository path (checked for existence) or a URL (advisory only, never checked).
 
+### Section 9b: Verification Environment
+
+**Optional. Absence is valid** — a TRD with no such section is reported as having none, never
+failed, and `/audit-trd` does not require it. Placed directly after Section 9a and before
+`## 9. Task Grounding`, without renumbering either.
+
+It records, in three bold lines, where the functional-verification loop should exercise this
+feature, so `/implement-trd` need not guess among the environments `verification.md` lists.
+Fill it from `.claude/rules/verification.md`, never from what you would like to be true:
+
+- **Environment** — a name from the table in `verification.md` section 1. An environment that
+  table does not list is not authorized; do not invent one.
+- **Refresh** — the fast-refresh command for that environment from section 2, or `none
+  declared` where the cell is blank.
+- **Cannot be checked there** — what section 5 says that environment cannot show, plus anything
+  this feature adds. Write `nothing known` when there is none.
+
+`verification.md` always wins: if this section disagrees with it, the implementer flags the
+disagreement and follows `verification.md`. Nothing parses this section; a model reads it.
+
+```markdown
+## Verification Environment
+
+**Environment**: local
+**Refresh**: none declared
+**Cannot be checked there**: email delivery — no inbox we can read from local
+```
+
 ### Section 10: Task Grounding
 
 > **Not written by the authoring stage.** A dedicated grounding pass emits this section

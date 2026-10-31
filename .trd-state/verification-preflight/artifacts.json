@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/verification-preflight.md",
+    "url": "https://claude.ai/artifact/23Mpcw2czu6wvhBSEDqm9o",
+    "updated_at": "2026-10-26T01:47:36.841Z",
+    "command": "/refine-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/verification-preflight/verification-report.md",
+    "url": "https://claude.ai/artifact/EBe2DRJQb56YD8fqA9cDua",
+    "updated_at": "2026-10-26T03:00:13.775Z",
+    "command": "/verify-build"
+  },
+  "success-definition": {
+    "path": ".trd-state/verification-preflight/success-definition.md",
+    "url": "",
+    "updated_at": "2026-10-26T03:00:13.820Z",
+    "command": "/verify-build"
+  },
+  "verification-plan": {
+    "path": ".trd-state/verification-preflight/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-10-26T02:56:08.992Z",
+    "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/verification-preflight/audit-build-report.md",
+    "url": "https://claude.ai/artifact/GCWsiYpcpFCVUjtSrcq5jX",
+    "updated_at": "2026-10-26T05:26:01.265Z",
+    "command": "/audit-build"
+  }
+}

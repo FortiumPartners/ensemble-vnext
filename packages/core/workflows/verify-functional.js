@@ -1,10 +1,11 @@
 export const meta = {
   name: 'verify-functional',
   description:
-    'Run the bounded functional-verification loop: Exercise, Judge, and (when needed) Debug, once per iteration, until the criteria are satisfied, found unbuilt, stalled, found insufficiently covered, found with a must-pass item unproven, or the iteration cap is reached.',
+    'Run the bounded functional-verification loop: Exercise, Judge, and (when needed) Debug, once per iteration, until the criteria are satisfied, found unbuilt, stalled, found insufficiently covered, found with a must-pass item unproven, found unverifiable because the environment is broken (setup-failure), or the iteration cap is reached. When setupTargets are supplied, a Setup check runs before each Exercise pass.',
   whenToUse:
-    'Invoked once (not looped) by /implement-trd (unless --no-verify is set) and by /verify-build. This script owns the whole bounded loop (D1) -- the caller dispatches it a single time. Every input arrives in args: the success-definition criteria, the contract text, project notes/stack hints, evidence paths, the checker CLI path, the evidence freshness floor, the iteration cap, state/report paths, and an optional resume snapshot from a prior run\'s state file (D13).',
+    'Invoked once (not looped) by /implement-trd (unless --no-verify is set) and by /verify-build. This script owns the whole bounded loop (D1) -- the caller dispatches it a single time. Every input arrives in args: the success-definition criteria, the contract text, project notes/stack hints, evidence paths, the checker CLI path, the evidence freshness floor, the iteration cap, state/report paths, an optional resume snapshot from a prior run\'s state file (D13), and an optional setupTargets list (the environments to check before Exercise; absent or empty means no setup check).',
   phases: [
+    { title: 'Setup', detail: 'one sonnet agent per iteration gathers environment facts for the targets that hold an open criterion and runs the checker\'s decide-setup; the script dispatches the one allowed refresh itself and ends the run as setup-failure when the environment is broken (not the code)' },
     { title: 'Exercise', detail: 'verify-app agents walk the OPEN criteria, one per slice, fanned out per resource lane (capture only -- no edits, rebuilds or restarts)' },
     { title: 'Judge', detail: 'one untyped agent runs the checker CLI first, reads content only for tier-1 passes, decides next, and writes state/report (D4, D7, §3.3a)' },
     { title: 'Debug', detail: 'one app-debugger agent, dispatched only on remediate, fixes gaps in place (D8)' },
@@ -59,10 +60,12 @@ if (!Array.isArray(CRITERIA)) {
 const CONTRACT = a.contract || ''
 const NOTES = a.notes || ''
 const STACK_HINTS = a.stackHints || ''
-// NEW (D11, §3.3). The FAST per-iteration refresh, run by Debug as its last act after applying
-// fixes -- never by Exercise, and nowhere else in this loop. "" (the default, same idiom as
-// NOTES/STACK_HINTS above) means the declared environment cannot be refreshed by the loop, and
-// that is not an error: Debug simply skips the step and returns.
+// NEW (D11, §3.3). The FAST per-iteration refresh. Two places run it, each at most once per
+// iteration: Debug, as its last act after applying fixes, and the `setup-refresh` agent the
+// script dispatches when the Setup check asks for a repair. Never Exercise, never the Judge. One
+// run-wide string serves every setup target, so at most one target may be `refreshable`. ""
+// (the default, same idiom as NOTES/STACK_HINTS above) means the declared environment cannot be
+// refreshed by the loop, and that is not an error: Debug simply skips the step and returns.
 const REFRESH_COMMAND = a.refreshCommand || ''
 // NEW (D14, §3.3). The FULL end-of-run gate, run by the Judge once on any exit action other
 // than "exit-unbuilt" (never on "remediate" -- STEP 6 renders no report and runs no gate) --
@@ -315,6 +318,55 @@ const EXERCISE_LANES = (() => {
     criteria: lane.criteria,
   }))
 })()
+// NEW (preflight D5, D7; §3.2). The environments the Setup check looks at before each Exercise
+// pass. The command resolves them from the owner's environment declarations; this script only
+// validates them (before any agent runs, the exerciseLanes standard) and picks, each iteration,
+// the ones that hold an open criterion. Absent or empty means no setup check at all.
+const SETUP_TARGETS = (() => {
+  const raw = a.setupTargets
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) {
+    throw new Error('verify-functional: args.setupTargets must be an array when supplied')
+  }
+  const idSet = new Set(CRITERIA.map((c) => c.id))
+  raw.forEach((t, i) => {
+    const at = `setupTargets[${i}]`
+    if (!t || typeof t !== 'object' || Array.isArray(t)) {
+      throw new Error(`verify-functional: ${at} must be an object`)
+    }
+    if (typeof t.environment !== 'string' || t.environment === '') {
+      throw new Error(`verify-functional: ${at} is missing a non-empty environment name`)
+    }
+    if (typeof t.url !== 'string') {
+      throw new Error(`verify-functional: ${at} (${JSON.stringify(t.environment)}) needs a string url ("" when it names none)`)
+    }
+    if (typeof t.identity !== 'string') {
+      throw new Error(`verify-functional: ${at} (${JSON.stringify(t.environment)}) needs a string identity ("" when no build-identity command is declared)`)
+    }
+    if (!Array.isArray(t.ports) || t.ports.some((p) => !Number.isInteger(p))) {
+      throw new Error(`verify-functional: ${at} (${JSON.stringify(t.environment)}) needs a ports array of integers ([] for a remote environment)`)
+    }
+    if (typeof t.refreshable !== 'boolean') {
+      throw new Error(`verify-functional: ${at} (${JSON.stringify(t.environment)}) needs a boolean refreshable`)
+    }
+    if (!Array.isArray(t.criteria)) {
+      throw new Error(`verify-functional: ${at} (${JSON.stringify(t.environment)}) is missing a criteria array`)
+    }
+    for (const id of t.criteria) {
+      if (!idSet.has(id)) {
+        throw new Error(`verify-functional: ${at} (${JSON.stringify(t.environment)}) names unknown criterion id ${JSON.stringify(id)}`)
+      }
+    }
+  })
+  const refreshable = raw.filter((t) => t.refreshable)
+  if (refreshable.length > 1) {
+    throw new Error(`verify-functional: at most one setupTargets entry may be refreshable (the one refreshCommand serves a single environment); got ${refreshable.map((t) => JSON.stringify(t.environment)).join(', ')}`)
+  }
+  if (refreshable.length === 1 && REFRESH_COMMAND === '') {
+    throw new Error(`verify-functional: setupTargets entry ${JSON.stringify(refreshable[0].environment)} is refreshable but no refreshCommand is declared`)
+  }
+  return raw
+})()
 // 8 is the brief's figure for "criteria with a stated scenario, not 62 and explore" (D4,
 // OQ-4 -- a partition parameter, not a measured optimum). The formula deliberately does NOT
 // pre-cap the resulting slice count -- see MAX_PARALLEL_SLICES and the batching below instead.
@@ -492,16 +544,18 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
   // Only the "declared" branch needs to condition on the action the agent is about to return
   // (skip on exit-unbuilt, run otherwise), because only there does it matter.
   const fullRunGate = FULL_RUN_COMMAND
-    ? `unless the action above is "exit-unbuilt", run the declared full-environment command via ` +
+    ? `unless the action above is "exit-unbuilt" or "exit-setup-failure", run the declared full-environment command via ` +
       `Bash, exactly once:\n  ${FULL_RUN_COMMAND}\nand record {"command": ` +
       `${JSON.stringify(FULL_RUN_COMMAND)}, "status": "pass"} on a zero exit, or "status": ` +
       `"fail" on any other exit. A failed run does NOT change the "action" you already decided ` +
       `in STEP 3 above -- the criteria were proven against a running system, and what failed is ` +
       `this rebuild, not the evidence. On "exit-unbuilt", skip the run entirely (there is ` +
       `nothing built to gate) and record {"command": ${JSON.stringify(FULL_RUN_COMMAND)}, ` +
-      `"status": "skipped"} instead`
+      `"status": "skipped"} instead. On "exit-setup-failure", skip it too and record null ` +
+      `instead (the environment was broken, so no gate ran)`
     : `no fullRunCommand is declared for this run, so record {"command": "", "status": ` +
-      `"skipped"} -- meaning nobody declared one, never that one passed`
+      `"skipped"} -- meaning nobody declared one, never that one passed (on ` +
+      `"exit-setup-failure" record null instead: no gate ran)`
   // NEW (D11, D18; §3.6). STEP 2a, present only when the OPEN set (this iteration's, not the
   // whole definition's) holds check rows -- a run whose check criteria are all already settled
   // gets no STEP 2a text on later iterations, same "only where its rows are" rule buildExercisePrompt
@@ -588,6 +642,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `definition's count, ${N}, not just this iteration's open-set size. Write ` +
     `{"iteration":${iteration},"gaps":<not_met ids>,"unbuilt":<unbuilt ids>,` +
     `"previousGaps":${prevGapsJson},"cap":${CAP},"coverageFloor":${JSON.stringify(FLOOR)},` +
+    `"refreshFailed":${refreshFailed()},` +
     `"met":<the met ids, as described above>,` +
     `"total":${N},"mustPass":${JSON.stringify(MUST_PASS_IDS)},` +
     `"mustPassUncovered":${JSON.stringify(MUST_PASS_UNCOVERED.map((o) => o.id))}} to ${decideFile}, then run:\n` +
@@ -595,7 +650,10 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `"mustPass" and "mustPassUncovered" are the must-pass criterion ids and the ids of must-pass ` +
     `objectives no criterion covers; copy them exactly as given, empty lists included -- decide-next ` +
     `throws without them. A must-pass criterion that is not "met", or any uncovered objective, ` +
-    `blocks "exit-satisfied": decide-next then returns "exit-must-pass-unproven".\n\n` +
+    `blocks "exit-satisfied": decide-next then returns "exit-must-pass-unproven". ` +
+    `"refreshFailed" is true when the last Debug pass reported that its refresh ran and exited ` +
+    `non-zero, so this attempt measured a build without Debug's fixes; copy it exactly as given -- ` +
+    `decide-next throws without it, and then returns "exit-setup-failure" instead of a stall.\n\n` +
     `STEP 4: persist the run's state to ${STATE_PATH}, BEFORE anything else is dispatched. ` +
     `Do NOT write it with a plain file write: ${STATE_PATH} is a .trd-state JSON file, and the ` +
     `repository's only sanctioned writer for one is the save(filePath, state) function exported ` +
@@ -624,7 +682,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `"gapsClosed": [ ` +
     `<the gaps-closed history with this iteration appended> ], ` +
     `"outcome": <null when decide-next returned "remediate"; otherwise the outcome string ` +
-    `this run exits with: "satisfied", "unbuilt", "stalled", "stuck", "insufficient-coverage" or "must-pass-unproven">}` +
+    `this run exits with: "satisfied", "unbuilt", "stalled", "stuck", "insufficient-coverage", "must-pass-unproven" or "setup-failure">}` +
     `\n\n` +
     `"outcome" IS THE TERMINALITY MARKER and it is the one key that decides whether a later ` +
     `--verify --resume re-enters this loop or runs the implementation normally ` +
@@ -650,7 +708,10 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `their "provenAt", "cause" and image keys, plus the ones you judged this iteration): id, statement, ` +
     `cites, status, artifact, reason, cause, provenAt, attempts, blocker, image, ui, imageExcluded), then run:\n` +
     `  node ${CHECKER} render-report --file ${reportInputFile}\n` +
-    `and write the output to ${REPORT_PATH}.\n\n` +
+    `and write the output to ${REPORT_PATH}.\n` +
+    `On "exit-setup-failure" the report input also carries "setup": {"problems": [ {"environment": ` +
+    `"running build", "problem": <decide-next's reason, verbatim>, "fix": ${JSON.stringify(setupFailureFix())} } ]} ` +
+    `and "finalEnvironmentRun": null; the criteria keep the verdicts you gave them.\n\n` +
     `STEP 6: on "remediate", do not render a report and do not touch anything besides the state ` +
     `file already written in STEP 4 -- just return the gap set.\n\n` +
     `Already-settled criteria from a prior iteration (status met/not_verifiable/unbuilt) -- do ` +
@@ -665,7 +726,7 @@ function buildJudgePrompt({ iteration, openCriteria, settledEntries, claims, pre
     `iteration. Forward that value unchanged as "notesUpdated" below -- you do not read or ` +
     `write the notes file yourself, so do not re-derive this.\n\n` +
     `Return { "action": "exit-satisfied"|"exit-unbuilt"|"exit-stalled"|"exit-stuck"|` +
-    `"exit-insufficient-coverage"|"exit-must-pass-unproven"|"remediate", ` +
+    `"exit-insufficient-coverage"|"exit-must-pass-unproven"|"exit-setup-failure"|"remediate", ` +
     `"reason": "<string>", "criteria": [ { "id","status","tier1","artifact","reason","cause","files","image","ui","imageExcluded" }, ` +
     `... one entry per criterion you judged THIS iteration -- the open set above, not the ` +
     `already-settled ones ], "gaps": [<not_met ids>], "unbuilt": ` +
@@ -694,9 +755,12 @@ function buildDebugPrompt(debugGaps) {
       `running system so the next Exercise pass sees your change, by running:\n` +
       `  ${REFRESH_COMMAND}\n` +
       `Run it once, at the end, not before any fix and not once per gap -- a rebuild that lands ` +
-      `between a capture and its judgement is the exact defect this ordering exists to close.`
+      `between a capture and its judgement is the exact defect this ordering exists to close. ` +
+      `Report what happened in "refresh": {"ran": true, "exitCode": <its exit code>}; if you could ` +
+      `not run it at all, {"ran": false, "exitCode": null}.`
     : `\n\nNo refresh command is declared for this environment (D11) -- that is not an error. Do ` +
-      `not rebuild or restart anything yourself; just return your results.`
+      `not rebuild or restart anything yourself; just return your results, with "refresh": ` +
+      `{"ran": false, "exitCode": null}.`
   return (
     `Functional verification -- Debug stage.\n${SCOPE}\n` +
     `The Judge found the following gap(s) still open. Fix the code in place, one gap at a time. ` +
@@ -712,7 +776,92 @@ function buildDebugPrompt(debugGaps) {
     refreshStep +
     `\n\nReturn { "results": [ { "criterion": "<id>", "result": "<what you changed, or why you ` +
     `could not>", "unbuilt": <true when this gap is absent capability, omit or false otherwise> ` +
-    `}, ... ] }.`
+    `}, ... ], "refresh": {"ran": <boolean>, "exitCode": <integer, or null when it did not run>} }.`
+  )
+}
+
+// NEW (preflight D16). True when the last Debug pass reported that its refresh ran and exited
+// non-zero and no Setup check has consumed that fact since: the running build then lacks Debug's
+// fixes, so a gap that stays open is the environment's doing, not the code's.
+function refreshFailed() {
+  return Boolean(lastDebugRefresh && lastDebugRefresh.ran === true && lastDebugRefresh.exitCode !== null && lastDebugRefresh.exitCode !== 0)
+}
+
+// The fix the owner is told when the Judge ends the run on a failed refresh (the decide-next route).
+function setupFailureFix() {
+  return REFRESH_COMMAND
+    ? `make the declared fast refresh (${REFRESH_COMMAND}) succeed, then run /verify-build`
+    : 'make the environment\'s refresh succeed, then run /verify-build'
+}
+
+// NEW (preflight D2, D3, D5; §3.2). The Setup check's agent prompts. The agent only gathers facts
+// and runs the checker's decide-setup; it decides nothing and, at stage "setup", runs no refresh.
+// "setup-refresh" is the one repair the script authorizes: it runs the declared refresh exactly
+// once, then re-gathers and decides again with refreshCount 1.
+function buildSetupPrompt(iteration, stage, targets, debugRefresh, firstResult) {
+  const refreshing = stage === 'setup-refresh'
+  const payloadFile = `${STATE_DIR}/setup-decide-${iteration}${refreshing ? '-refresh' : ''}.json`
+  const targetsJson = JSON.stringify(targets.map((t) => ({ environment: t.environment, url: t.url, ports: t.ports, identity: t.identity, refreshable: t.refreshable })))
+  const refreshInstruction = refreshing
+    ? `The first check found problems that a refresh may repair: ${JSON.stringify(firstResult.problems)}. ` +
+      `Run the declared fast refresh EXACTLY ONCE, from this checkout, and record its exit code:\n  ${REFRESH_COMMAND}\n` +
+      `Never run it a second time, whatever happens. Then gather the facts again, as below.\n\n`
+    : `Run NO refresh, rebuild or restart yourself: the refresh command below is a fact for the ` +
+      `payload, not a command for you.\n\n`
+  return (
+    `Functional verification -- Setup stage (${stage}), iteration ${iteration}.\n${SCOPE}\n` +
+    `You are a fact-gatherer. The checker CLI decides; you supply the shell the script does not ` +
+    `have. Do not edit source, do not stop or kill any process, and do not decide anything yourself.\n\n` +
+    refreshInstruction +
+    `Targets (environments that hold an open criterion):\n${targetsJson}\n\n` +
+    `Declared fast refresh (verification.md section 2; "" means none): ${JSON.stringify(REFRESH_COMMAND)}\n` +
+    `The last Debug pass's reported refresh (null when none since the last check): ${JSON.stringify(debugRefresh)}\n\n` +
+    `Do the following IN THIS ORDER:\n` +
+    `1. Run \`git rev-parse HEAD\` (this is "head") and \`git rev-parse --show-toplevel\` (this is "checkout").\n` +
+    `2. For EACH target, gather one facts entry: {"environment": <name>, "refreshable": <copied ` +
+    `unchanged from the target>, "reach": {"ok": true|false|null, "detail": "<one line>"}, ` +
+    `"identity": {"command": <the target's identity command, "" if none>, "output": <its stdout, or ` +
+    `null when it was not run or failed>, "exitCode": <number, or null when not run>}, ` +
+    `"holderCheck": "ran"|"unavailable"|"not-applicable", "listeners": [ {"port": <number>, ` +
+    `"pid": <number|null>, "toplevel": <string|null>} ]}.\n` +
+    `   - reach: probe the target's url (for example \`curl -s -o /dev/null --max-time 5 -w '%{http_code}' <url>\`); ` +
+    `ok is true when something answers, false when nothing does, null when the target names no url or ` +
+    `there is no way to test it.\n` +
+    `   - identity: when the target's identity command is not "", run it exactly as given and record ` +
+    `its stdout and exit code; do not invent a method when none is declared.\n` +
+    `   - listeners: for each port of the target run \`lsof -nP -iTCP:<port> -sTCP:LISTEN\`. For each ` +
+    `listening process read its working directory and run \`git -C <cwd> rev-parse --show-toplevel\`; ` +
+    `"toplevel" is that path, or null when the directory is not in a git checkout. "holderCheck" is ` +
+    `"ran" when lsof worked, "unavailable" when it is absent or failed, and "not-applicable" when the ` +
+    `target has no ports.\n` +
+    `3. Write this payload to ${payloadFile} (a plain file write -- never put the JSON on the command ` +
+    `line): {"head": <head>, "checkout": <checkout>, "facts": [ ...one entry per target ], ` +
+    `"refreshCommand": ${JSON.stringify(REFRESH_COMMAND)}, "refreshCount": ${refreshing ? 1 : 0}, ` +
+    `"refreshExitCode": ${refreshing ? '<the exit code of the refresh you ran, or null if it did not run>' : 'null'}, ` +
+    `"debugRefresh": ${JSON.stringify(debugRefresh)}}. Then run:\n` +
+    `  node ${CHECKER} decide-setup --file ${payloadFile}\n\n` +
+    `Return the CLI's result unchanged -- { "action", "reason", "problems", "flags" } -- plus ` +
+    `"refreshesRun": <how many times YOU ran the refresh command in this stage>.`
+  )
+}
+
+// NEW (preflight D6; §3.2). The Record agent's prompt: the script assembled both JSON documents,
+// the agent only writes them (state through the sanctioned writer) and renders the report.
+function buildRecordPrompt(iteration, stateJson, reportInputJson) {
+  const stateFile = `${STATE_DIR}/record-state-${iteration}.json`
+  const reportInputFile = `${STATE_DIR}/record-report-input-${iteration}.json`
+  return (
+    `Functional verification -- Record stage, iteration ${iteration}.\n${SCOPE}\n` +
+    `The setup check failed, so this iteration was not exercised or judged and the run ends here. ` +
+    `Record that, doing only the following:\n\n` +
+    `1. Write this JSON, exactly as given, to ${stateFile}:\n${stateJson}\n` +
+    `Then shell into node, load ${STATE_WRITER} and call save(${STATE_PATH}, <the parsed contents of ` +
+    `${stateFile}>). Do not write ${STATE_PATH} any other way: save() is the repository's only ` +
+    `sanctioned writer for a .trd-state JSON file.\n` +
+    `2. Write this JSON, exactly as given, to ${reportInputFile}:\n${reportInputJson}\n` +
+    `Then run  node ${CHECKER} render-report --file ${reportInputFile}  and write its output to ${REPORT_PATH}.\n\n` +
+    `Change nothing else and read no evidence. Return { "recorded": <true when both steps ` +
+    `completed>, "reason": "<string, present when recorded is false>" }.`
   )
 }
 
@@ -827,7 +976,7 @@ const JUDGE_SCHEMA = {
   properties: {
     action: {
       type: 'string',
-      enum: ['exit-satisfied', 'exit-unbuilt', 'exit-stalled', 'exit-stuck', 'exit-insufficient-coverage', 'exit-must-pass-unproven', 'remediate'],
+      enum: ['exit-satisfied', 'exit-unbuilt', 'exit-stalled', 'exit-stuck', 'exit-insufficient-coverage', 'exit-must-pass-unproven', 'exit-setup-failure', 'remediate'],
     },
     reason: { type: 'string' },
     criteria: { type: 'array', items: JUDGE_CRITERION_SCHEMA },
@@ -867,8 +1016,20 @@ const JUDGE_SCHEMA = {
 const DEBUG_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['results'],
+  required: ['results', 'refresh'],
   properties: {
+    // NEW (preflight D16). What the fast refresh did after Debug's fixes: the script carries it to
+    // the next Setup check and the Judge, so a fix that never reached the running build is told
+    // apart from a fix that did not work.
+    refresh: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['ran', 'exitCode'],
+      properties: {
+        ran: { type: 'boolean' },
+        exitCode: { type: ['integer', 'null'] },
+      },
+    },
     results: {
       type: 'array',
       items: {
@@ -882,6 +1043,49 @@ const DEBUG_SCHEMA = {
         },
       },
     },
+  },
+}
+
+// NEW (preflight D5; §3.2). The Setup agents' return: decide-setup's result as the CLI printed it
+// plus the number of refreshes the agent itself ran, which the script checks against what it
+// authorized (0 for `setup`, 1 for `setup-refresh`).
+const SETUP_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['action', 'reason', 'problems', 'flags', 'refreshesRun'],
+  properties: {
+    action: { type: 'string', enum: ['proceed', 'refresh', 'setup-failure'] },
+    reason: { type: 'string' },
+    environments: { type: 'array', items: { type: 'object' } },
+    problems: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['environment', 'problem', 'fix'],
+        properties: { environment: { type: 'string' }, problem: { type: 'string' }, fix: { type: 'string' } },
+      },
+    },
+    flags: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['environment', 'flag', 'default'],
+        properties: { environment: { type: 'string' }, flag: { type: 'string' }, default: { type: 'string' } },
+      },
+    },
+    refreshesRun: { type: 'integer', minimum: 0 },
+  },
+}
+
+const RECORD_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['recorded'],
+  properties: {
+    recorded: { type: 'boolean' },
+    reason: { type: 'string' },
   },
 }
 
@@ -964,6 +1168,7 @@ const OUTCOME_BY_ACTION = {
   'exit-stuck': 'stuck',
   'exit-insufficient-coverage': 'insufficient-coverage',
   'exit-must-pass-unproven': 'must-pass-unproven',
+  'exit-setup-failure': 'setup-failure',
 }
 
 // D14. The two deterministic branches (nothing declared; the exit is exit-unbuilt) are computed
@@ -975,6 +1180,9 @@ const OUTCOME_BY_ACTION = {
 // rather than a silently skipped one, since "skipped" would misrepresent "never actually ran" as
 // "nobody declared one".
 function computeFinalRun(judgeResult) {
+  // The environment was broken, so no gate ran -- reporting one (or "skipped", which reads as
+  // "nobody declared a run") would misdescribe the attempt, whatever is declared.
+  if (judgeResult.action === 'exit-setup-failure') return null
   if (!FULL_RUN_COMMAND) return { command: '', status: 'skipped' }
   if (judgeResult.action === 'exit-unbuilt') return { command: FULL_RUN_COMMAND, status: 'skipped' }
   // Only a pass/fail status is meaningful here, and the command is the declared one: a Judge
@@ -1016,6 +1224,13 @@ function buildFinalResult(judgeResult, iterations, debugAttempts, exercisedLabel
     finalRun: computeFinalRun(judgeResult), // NEW (D14)
     pages: pages || [], // NEW (D8; §3.6) -- the last Render per check skill; [] when no check criteria
     mustPass: mustPassSummary(criteria, mustPassOverridden), // NEW (verification-must-pass D11)
+    // NEW (preflight D10). A Judge exit on a failed refresh carries its one problem here; every
+    // other exit carries whatever the Setup check accumulated (problems only on a setup failure).
+    setup: setupSummary(
+      judgeResult.action === 'exit-setup-failure'
+        ? [{ environment: 'running build', problem: judgeResult.reason || 'the last Debug pass\'s refresh failed', fix: setupFailureFix() }]
+        : undefined
+    ),
   }
 }
 
@@ -1139,6 +1354,133 @@ async function recheckAndReconcile(judgeResult, settled, iteration) {
   return suffix ? { ...checked, judgeResult: { ...checked.judgeResult, reason: checked.judgeResult.reason + suffix } } : checked
 }
 
+// NEW (preflight D6; §3.2). End the run because the Setup check found the environment broken.
+// Nothing is judged and nothing reaches Debug: criteria settled earlier keep their verdicts and
+// every still-open one is recorded as not verifiable, "never exercised". One small Record agent
+// writes the state file and the report from JSON assembled here; a dead one is logged and the
+// result still returns.
+async function endOnSetupFailure(problems, iteration, openCriteria, settled, debugAttempts) {
+  setupState.problems = problems
+  const problemText = problems.map((p) => `${p.environment}: ${p.problem}`).join('; ')
+  const reason = `the setup check failed before Exercise -- ${problemText}`
+  const openReason = `not exercised: the setup check failed — ${problemText}`
+  const criteria = CRITERIA.map((c) =>
+    settled.has(c.id)
+      ? { id: c.id, ...settled.get(c.id) }
+      : { id: c.id, status: 'not_verifiable', tier1: null, artifact: null, reason: openReason, cause: 'never-exercised', provenAt: null }
+  )
+  const stateJson = JSON.stringify({ iteration: iteration - 1, criteria, gapsClosed: gapsClosedHistory, outcome: 'setup-failure' })
+  const reportInputJson = JSON.stringify({
+    feature: FEATURE,
+    prd: PRD,
+    definitionPath: DEFINITION_PATH,
+    outcome: 'setup-failure',
+    reason,
+    criteria: criteria.map((c) => {
+      const def = CRITERION_BY_ID.get(c.id) || {}
+      return { ...c, statement: def.statement ?? null, cites: def.cites ?? null }
+    }),
+    finalEnvironmentRun: null,
+    mustPass: MUST_PASS_IDS,
+    mustPassUncovered: MUST_PASS_UNCOVERED,
+    setup: { problems },
+  })
+  const recorded = await agent(buildRecordPrompt(iteration, stateJson, reportInputJson), {
+    label: 'record',
+    phase: 'Setup',
+    model: 'sonnet',
+    schema: RECORD_SCHEMA,
+  })
+  if (!recorded) {
+    log(`iteration ${iteration}: the record agent returned nothing -- the state and report files were not written for this setup failure`)
+  } else if (!recorded.recorded) {
+    log(`iteration ${iteration}: the record agent could not write the setup-failure state and report${recorded.reason ? `: ${recorded.reason}` : ''}`)
+  }
+  return {
+    outcome: 'setup-failure',
+    reason,
+    iterations: iteration - 1,
+    reportPath: REPORT_PATH,
+    criteria,
+    gaps: [],
+    unbuilt: [],
+    exercised: `0/${openCriteria.length}`,
+    debugAttempts,
+    notesUpdated: false,
+    coverage: coverageOf(criteria),
+    finalRun: null,
+    pages: pagesList(),
+    mustPass: mustPassSummary(criteria, false),
+    setup: setupSummary(problems),
+  }
+}
+
+// NEW (preflight D2, D5; §3.2). One iteration's Setup check. Returns null to go on to Exercise, or
+// the problems that end the run. The refresh-once rule lives HERE, not in a prompt: `setup` runs
+// none, this function dispatches the single `setup-refresh`, and any return that reports more
+// refreshes than were authorized, or asks for a second one, ends the run.
+async function runSetupCheck(iteration, targets) {
+  phase('Setup')
+  setupState.checked += 1
+  const debugRefresh = lastDebugRefresh
+  const first = await agent(buildSetupPrompt(iteration, 'setup', targets, debugRefresh, null), {
+    label: 'setup',
+    phase: 'Setup',
+    model: 'sonnet',
+    schema: SETUP_SCHEMA,
+  })
+  if (!first) {
+    // The check is a guard; its absence is today's behaviour, so say so and carry on.
+    log(`iteration ${iteration}: the setup agent returned nothing -- continuing to Exercise without a setup check`)
+    addSetupFlags([{ environment: targets.map((t) => t.environment).join(', '), flag: 'the setup check returned nothing; this attempt ran without it', default: 'treated as fine for this attempt' }])
+    return null
+  }
+  addSetupFlags(first.flags)
+  const problemsOf = (r, fallback) =>
+    r.problems.length > 0 ? r.problems : [{ environment: targets.map((t) => t.environment).join(', '), problem: r.reason || fallback, fix: 'fix the environment named above, then run /verify-build' }]
+  const rejected = (reason, found) => [
+    { environment: 'setup check', problem: reason, fix: 'run /verify-build again; the setup check may run the declared refresh only once' },
+    ...found,
+  ]
+  if (first.refreshesRun > 0) {
+    return rejected(`the setup check ran ${first.refreshesRun} refreshes; none is allowed at this step`, first.problems)
+  }
+  if (first.action === 'setup-failure') return problemsOf(first, 'the setup check failed')
+  if (first.action === 'proceed') {
+    lastDebugRefresh = null // the check consumed the Debug pass's refresh report
+    return null
+  }
+
+  // first.action === 'refresh': the one authorized repair.
+  setupState.refreshed += 1
+  const second = await agent(buildSetupPrompt(iteration, 'setup-refresh', targets, debugRefresh, first), {
+    label: 'setup-refresh',
+    phase: 'Setup',
+    model: 'sonnet',
+    schema: SETUP_SCHEMA,
+  })
+  if (!second) {
+    // The problems were found and not shown repaired.
+    return problemsOf(first, 'the setup check found problems and its refresh agent returned nothing')
+  }
+  addSetupFlags(second.flags)
+  if (second.refreshesRun === 0) {
+    // The authorized repair never ran. A clean re-gather proves nothing here: at refreshCount 1
+    // decide-setup no longer reads the Debug pass's failed refresh, and an unreported exit code is
+    // only a flag, so a "proceed" would send Exercise to measure the same stale build.
+    return rejected('the setup check was authorized to run the declared refresh once and ran it 0 times', first.problems)
+  }
+  if (second.refreshesRun > 1) {
+    return rejected(`the setup check ran ${second.refreshesRun} refreshes; one is allowed`, second.problems)
+  }
+  if (second.action === 'refresh') {
+    return rejected('the setup check asked for a second refresh', second.problems)
+  }
+  if (second.action === 'setup-failure') return problemsOf(second, 'the setup check failed after the refresh')
+  lastDebugRefresh = null
+  return null
+}
+
 // NEW (D8; §3.6). One Render dispatch, matching the dead-agent pattern Debug already uses
 // (never letting `parallel()` see a thrown failure): a dead Render agent is recorded as
 // `{ rendered: false, reason: 'render agent returned nothing' }` and the loop continues.
@@ -1164,6 +1506,38 @@ function dispatchRender(skill, iteration, judgeResult) {
       iteration,
       reason: renderResult.reason || '',
     }
+  }
+}
+
+// --------------------------------------------------------------------------- setup state
+
+// NEW (preflight D10, D16; §3.2). State the return paths read, declared ABOVE the zero-criteria
+// branch because that branch calls buildFinalResult before any later `const` exists.
+const setupState = { checked: 0, refreshed: 0, flags: [], problems: [] }
+const setupFlagKeys = new Set()
+// The last Debug pass's reported refresh, `{ ran, exitCode }`; null before any Debug pass, after a
+// dead Debug agent, and for a result without one (only a test stub can produce that).
+let lastDebugRefresh = null
+// How many gaps each completed iteration closed, one integer per Judge turn. Seeded from a resume
+// snapshot, so the Record agent's state file carries the whole run's history.
+const gapsClosedHistory = RESUME && Array.isArray(RESUME.gapsClosed) && RESUME.gapsClosed.every((n) => Number.isInteger(n)) ? [...RESUME.gapsClosed] : []
+
+function addSetupFlags(flags) {
+  for (const f of flags || []) {
+    const key = JSON.stringify([f.environment, f.flag])
+    if (setupFlagKeys.has(key)) continue
+    setupFlagKeys.add(key)
+    setupState.flags.push({ environment: f.environment, flag: f.flag, default: f.default })
+  }
+}
+
+// Every return path carries this (D10). `problems` is non-empty only on a setup failure.
+function setupSummary(problems) {
+  return {
+    checked: setupState.checked,
+    refreshed: setupState.refreshed,
+    flags: [...setupState.flags],
+    problems: problems === undefined ? [...setupState.problems] : problems,
   }
 }
 
@@ -1264,8 +1638,10 @@ if (iteration > CAP) {
     finalRun: null, // NEW (D14) -- one of the two "not-run" cases: no Judge turn happened this invocation to run the gate at all
     pages: [], // NEW (D8) -- no iteration ran this invocation, so no Render agent was ever dispatched
     mustPass: mustPassSummary(RESUME_CRITERIA, false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
+    setup: setupSummary(), // NEW (preflight D10) -- nothing was checked this invocation
   }
 }
+if (SETUP_TARGETS.length === 0) log('no setupTargets supplied -- the setup check is off')
 const debugAttempts = []
 let exercisedLabel = `0/${N}`
 let debugHasRun = false // read by buildExercisePrompt: live evidence is offered only before the first Debug
@@ -1295,6 +1671,14 @@ for (; iteration <= CAP; iteration++) {
     exercisedLabel = `0/${openCriteria.length}`
     log(`iteration ${iteration}: skipping Exercise -- Debug reported unbuilt gaps last iteration`)
   } else {
+    // NEW (preflight D2, D7). Check the environment before spending an Exercise pass on it, only
+    // for the targets that still hold an open criterion. Not run when Exercise is skipped.
+    const setupNow = SETUP_TARGETS.filter((t) => t.criteria.some((id) => !settled.has(id)))
+    if (setupNow.length > 0) {
+      const setupProblems = await runSetupCheck(iteration, setupNow)
+      if (setupProblems) return await endOnSetupFailure(setupProblems, iteration, openCriteria, settled, debugAttempts)
+    }
+
     phase('Exercise')
 
     // Slice each lane against the open set (D4, §3.5): `openInLane = lane.criteria ∩ openSet`,
@@ -1432,6 +1816,7 @@ for (; iteration <= CAP; iteration++) {
   skipExercise = false
   forcedUnbuilt = null
   evidenceRetries = []
+  gapsClosedHistory.push(Array.isArray(judgeResult.closed) ? judgeResult.closed.length : 0)
 
   // Fold this iteration's newly-settled verdicts into the map (§3.4, D2). The Judge's own
   // structured return is the only channel back to the script -- it has no filesystem, so it
@@ -1525,10 +1910,16 @@ for (; iteration <= CAP; iteration++) {
     // to introduce a new one.
     log(`iteration ${iteration}: Debug returned nothing -- gaps stay open`)
     debugAttempts.push({ iteration, gaps: previousGaps, result: 'agent returned nothing' })
+    lastDebugRefresh = null
     continue
   }
 
   const results = debugResult.results || []
+  const reportedRefresh = debugResult.refresh
+  lastDebugRefresh =
+    reportedRefresh && typeof reportedRefresh.ran === 'boolean'
+      ? { ran: reportedRefresh.ran, exitCode: Number.isInteger(reportedRefresh.exitCode) ? reportedRefresh.exitCode : null }
+      : null
   debugAttempts.push({
     iteration,
     gaps: previousGaps,
@@ -1562,4 +1953,5 @@ return {
   finalRun: null, // NEW (D14) -- the other "not-run" case: the loop fell through with no exit action, so no gate ran
   pages: pagesList(), // NEW (D8) -- a remediate iteration may still have dispatched renders before the cap was hit
   mustPass: mustPassSummary(settledList(settled), false), // NEW (verification-must-pass D11) -- no Judge exit, so nothing to override
+  setup: setupSummary(), // NEW (preflight D10)
 }

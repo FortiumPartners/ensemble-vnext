@@ -3,8 +3,10 @@
 /**
  * functional-verification.js — the deterministic half of functional verification (D3).
  *
- * Exports `checkEvidence()`, `decideNext()` and `renderReport()`, plus a CLI entry point
- * exposing all three as subcommands. See `docs/TRD/functional-verification.md` §3.2, §3.4
+ * Exports `checkEvidence()`, `decideNext()`, `decideSetup()` and `renderReport()`, plus a CLI
+ * entry point exposing them as subcommands. `decideSetup()` (docs/TRD/verification-preflight.md
+ * §3.1) turns the facts a setup agent gathered about each environment into proceed / refresh /
+ * setup-failure, the way `decideNext()` turns the Judge's facts into a loop action. See `docs/TRD/functional-verification.md` §3.2, §3.4
  * and §3.6 for the binding interface specs, and its `### FV-B001` grounding block in §9.
  *
  * The `--fix` loop (`docs/TRD/verification-fix-loop.md` §3.1, §3.5, D10) adds `CAUSES`,
@@ -310,12 +312,15 @@ function formatCoveragePercent(fraction) {
  *   met: string[],              // NEW (D8) — settled-met membership; the reason can name the ratio
  *   mustPass: string[],         // NEW (D10) — ids of the must-pass criteria; required, `[]` when none
  *   mustPassUncovered: string[],// NEW (D10) — ids of must-pass objectives no criterion covers; required
+ *   refreshFailed: boolean,     // NEW (preflight D16) — the last Debug pass's refresh ran and exited
+ *                               //     non-zero, and no Setup check consumed that fact; required
  *   total?: number,             // NEW (D8) — the definition's whole criterion count
  *   coverageFloor?: number|null,// NEW (D9) — defaults to COVERAGE_FLOOR (null, unset)
  *   cap?: number,
  * }} input
  * @returns {{action: 'exit-satisfied'|'exit-unbuilt'|'exit-stalled'|'exit-stuck'|
- *   'exit-insufficient-coverage'|'exit-must-pass-unproven'|'remediate', reason: string, closed: string[]}}
+ *   'exit-insufficient-coverage'|'exit-must-pass-unproven'|'exit-setup-failure'|'remediate',
+ *   reason: string, closed: string[]}}
  */
 function decideNext(input) {
   const { iteration, gaps, unbuilt, previousGaps, met, total } = input;
@@ -350,6 +355,13 @@ function decideNext(input) {
   if (!Array.isArray(mustPassUncovered)) {
     throw new TypeError('decideNext: input.mustPassUncovered is required and must be an array (an absent value would read as "every must-pass objective has a criterion" — D10)');
   }
+  // Required, never defaulted (preflight D16): an absent `refreshFailed` would read as "the last
+  // fix reached the running build", so a gap that is really a stale build would fall through to
+  // `exit-stalled` and blame the code.
+  const { refreshFailed } = input;
+  if (typeof refreshFailed !== 'boolean') {
+    throw new TypeError('decideNext: input.refreshFailed is required and must be a boolean (an absent value would read as "the last Debug refresh succeeded" and blame the code for a stale build — D16)');
+  }
   const cap = input.cap ?? DEFAULT_CAP;
   const coverageFloor = input.coverageFloor ?? COVERAGE_FLOOR;
 
@@ -357,7 +369,8 @@ function decideNext(input) {
   // the returned object, regardless of which branch below fires.
   const closed = previousGaps == null ? [] : previousGaps.filter((id) => !gaps.includes(id));
 
-  // Evaluation order is the specification (D14): unbuilt wins even over a clean gap set,
+  // Evaluation order is the specification (D14; preflight D16): unbuilt, satisfied, setup-failure,
+  // stalled, stuck, remediate. Unbuilt wins even over a clean gap set,
   // because a report that iterates on the fixable half while withholding "this was never
   // built" is the more misleading of the two outputs. This chain captures a BASE action —
   // the coverage re-label (step 4, below) is applied to it afterward, never inserted as a
@@ -373,6 +386,15 @@ function decideNext(input) {
     result = {
       action: 'exit-satisfied',
       reason: 'no gaps remain — every criterion is met or not verifiable here',
+      closed,
+    };
+  } else if (refreshFailed) {
+    // After the satisfied branch (no gap, nothing to blame) and before the stall branch: a gap
+    // that survived Debug because its refresh failed is the environment, not the code. Not in
+    // COVERAGE_RELABELABLE_ACTIONS, so the coverage re-label never rewrites it.
+    result = {
+      action: 'exit-setup-failure',
+      reason: "the last Debug pass's refresh failed, so this attempt measured a build without its fixes — the environment, not the code",
       closed,
     };
   } else if (
@@ -450,6 +472,222 @@ function decideNext(input) {
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// decideSetup — the setup check's decision (docs/TRD/verification-preflight.md §3.1, D3-D9, D16)
+// ---------------------------------------------------------------------------
+
+// A word-delimited token of 7-40 lowercase hex characters: the shape of a (short) git SHA. The
+// lookbehind also takes the SHA out of `git describe` output (`v4.13.8-3-gabc1234`), where the
+// `g` prefix leaves no word boundary in front of it.
+const BUILD_TOKEN = /(?:\b|(?<=\bg))[0-9a-f]{7,40}\b/g;
+
+function trimSlashes(p) {
+  return String(p).replace(/\/+$/, '');
+}
+
+/**
+ * Classifies the facts a setup agent gathered about each environment into one of three
+ * actions, the way `decideNext` classifies the Judge's facts. Pure: no git, no lsof, no clock.
+ *
+ * Unknown facts (no identity method declared, no `lsof`, a listener outside any git checkout,
+ * nothing to probe) are flags, never problems (D4): failing on them would make the check a
+ * new rig failure. `refresh` is returned only at `refreshCount: 0`, so refresh-once is
+ * arithmetic here, not an instruction an agent can exceed (D5).
+ *
+ * @param {{
+ *   head: string, checkout: string,
+ *   facts: Array<{
+ *     environment: string, refreshable: boolean,
+ *     reach: {ok: boolean|null, detail: string},
+ *     identity: {command: string, output: string|null, exitCode: number|null},
+ *     holderCheck: 'ran'|'unavailable'|'not-applicable',
+ *     listeners: Array<{port: number, pid: number|null, toplevel: string|null}>,
+ *   }>,
+ *   refreshCommand: string, refreshCount: number, refreshExitCode: number|null,
+ *   debugRefresh: {ran: boolean, exitCode: number|null}|null,
+ * }} input
+ * @returns {{
+ *   action: 'proceed'|'refresh'|'setup-failure', reason: string,
+ *   environments: Array<{environment: string, reachable: string, build: string, holder: string}>,
+ *   problems: Array<{environment: string, problem: string, fix: string}>,
+ *   flags: Array<{environment: string, flag: string, default: string}>,
+ * }}
+ * @example
+ *   decideSetup({ head: 'abc1234def', checkout: '/r', facts: [], refreshCommand: '',
+ *                 refreshCount: 0, refreshExitCode: null, debugRefresh: null }).action // 'proceed'
+ */
+function decideSetup(input) {
+  const inp = input ?? {};
+  // Validate rather than default (the decideNext discipline). A defaulted `refreshCount` would
+  // authorize a second refresh; a defaulted `debugRefresh` would read as "the last fix reached
+  // the running build".
+  if (typeof inp.head !== 'string' || inp.head === '') {
+    throw new TypeError('decideSetup: input.head is required and must be a non-empty string');
+  }
+  if (typeof inp.checkout !== 'string' || inp.checkout === '') {
+    throw new TypeError('decideSetup: input.checkout is required and must be a non-empty string');
+  }
+  if (!Array.isArray(inp.facts)) {
+    throw new TypeError('decideSetup: input.facts is required and must be an array');
+  }
+  inp.facts.forEach((f, i) => {
+    const at = `input.facts[${i}]`;
+    if (f === null || typeof f !== 'object') throw new TypeError(`decideSetup: ${at} must be an object`);
+    if (typeof f.environment !== 'string') throw new TypeError(`decideSetup: ${at}.environment is required and must be a string`);
+    if (typeof f.refreshable !== 'boolean') throw new TypeError(`decideSetup: ${at}.refreshable is required and must be a boolean (D5)`);
+    if (f.reach === null || typeof f.reach !== 'object') throw new TypeError(`decideSetup: ${at}.reach is required and must be an object`);
+    if (f.identity === null || typeof f.identity !== 'object') throw new TypeError(`decideSetup: ${at}.identity is required and must be an object`);
+    if (!['ran', 'unavailable', 'not-applicable'].includes(f.holderCheck)) {
+      throw new TypeError(`decideSetup: ${at}.holderCheck is required and must be 'ran', 'unavailable' or 'not-applicable'`);
+    }
+    if (!Array.isArray(f.listeners)) throw new TypeError(`decideSetup: ${at}.listeners is required and must be an array`);
+  });
+  if (typeof inp.refreshCommand !== 'string') {
+    throw new TypeError('decideSetup: input.refreshCommand is required and must be a string ("" when none is declared)');
+  }
+  if (!Number.isInteger(inp.refreshCount) || inp.refreshCount < 0) {
+    throw new TypeError('decideSetup: input.refreshCount is required and must be a non-negative integer (a defaulted value would allow a second refresh — D5)');
+  }
+  if (!('refreshExitCode' in inp) || (inp.refreshExitCode !== null && typeof inp.refreshExitCode !== 'number')) {
+    throw new TypeError('decideSetup: input.refreshExitCode is required and must be a number or null');
+  }
+  const dr = inp.debugRefresh;
+  if (!('debugRefresh' in inp) || (dr !== null && (typeof dr !== 'object' || typeof dr.ran !== 'boolean'))) {
+    throw new TypeError('decideSetup: input.debugRefresh is required and must be null or {ran: boolean, exitCode} (a defaulted value would read as "the last fix reached the build" — D16)');
+  }
+
+  const { head, checkout, facts, refreshCommand, refreshCount, refreshExitCode } = inp;
+  const head7 = head.slice(0, 7);
+  const cmdText = refreshCommand === '' ? 'the declared refresh' : `the declared refresh (\`${refreshCommand}\`)`;
+  const refreshFix = refreshCommand ? `run \`${refreshCommand}\` by hand and fix what stops it` : 'run the declared refresh by hand and fix what stops it';
+  const problems = [];
+  const flags = [];
+  const addProblem = (environment, problem, fix) => problems.push({ environment, problem, fix });
+  const addFlag = (environment, flag) => flags.push({ environment, flag, default: 'treated as fine for this attempt' });
+  const refreshableEnv = new Map(facts.map((f) => [f.environment, f.refreshable]));
+  let heldElsewhere = false;
+
+  const environments = facts.map((f) => {
+    const env = f.environment;
+
+    // reachable
+    let reachable;
+    if (f.reach.ok === true) reachable = 'yes';
+    else if (f.reach.ok === false) {
+      reachable = 'no';
+      addProblem(
+        env,
+        `${env} is not reachable${f.reach.detail ? ` (${f.reach.detail})` : ''}`,
+        refreshCount >= 1 && f.refreshable ? `start ${env}; ${cmdText} did not bring it up` : `start ${env}`
+      );
+    } else {
+      reachable = 'unknown';
+      addFlag(env, `no way to test whether ${env} is reachable`);
+    }
+
+    // build identity (D8)
+    let build = 'unknown';
+    const { command, output, exitCode } = f.identity;
+    if (!command) {
+      addFlag(env, `no way to read the running build's commit is declared for ${env}`);
+    } else if (exitCode !== 0 || typeof output !== 'string' || output.trim() === '') {
+      addFlag(env, `the build-identity command for ${env} (\`${command}\`) gave no usable output`);
+    } else {
+      const tokens = output.match(BUILD_TOKEN) ?? [];
+      const headLower = head.toLowerCase();
+      const hit = tokens.find((t) => headLower.startsWith(t));
+      const wrong = tokens.find((t) => /[a-f]/.test(t));
+      if (hit) build = 'matches';
+      else if (wrong) {
+        build = 'differs';
+        addProblem(env, `running build is from ${wrong}, not HEAD ${head7}`, `rebuild or restart ${env} from this checkout`);
+      } else {
+        addFlag(env, `the build-identity output for ${env} names no commit`);
+      }
+    }
+
+    // holder (D9)
+    let holder;
+    if (f.holderCheck === 'not-applicable') holder = 'not-applicable';
+    else if (f.holderCheck === 'unavailable') {
+      holder = 'unknown';
+      addFlag(env, `could not list the processes holding ${env}'s port (lsof unavailable)`);
+    } else if (f.listeners.length === 0) holder = 'none';
+    else {
+      const here = trimSlashes(checkout);
+      const known = f.listeners.filter((l) => typeof l.toplevel === 'string' && l.toplevel !== '');
+      const others = known.filter((l) => trimSlashes(l.toplevel) !== here);
+      if (others.length > 0) {
+        holder = 'other-checkout';
+        heldElsewhere = true;
+        for (const l of others) {
+          addProblem(
+            env,
+            `port ${l.port} is held by a process in another checkout (${l.toplevel})`,
+            `stop the stack in ${l.toplevel}, or run verification from that checkout`
+          );
+        }
+      } else if (known.length > 0) holder = 'this-checkout';
+      else {
+        holder = 'unknown';
+        addFlag(env, `the process holding ${env}'s port is not in a git checkout`);
+      }
+    }
+    return { environment: env, reachable, build, holder };
+  });
+
+  // The one refreshCommand serves the refreshable target, so a refresh's outcome is that
+  // target's fact only. Charging it to a target the loop cannot refresh would turn a repairable
+  // problem into a setup-failure.
+  const refreshTargets = facts.some((f) => f.refreshable) ? facts.filter((f) => f.refreshable) : facts;
+
+  // The last Debug pass's refresh (D16), read only before the setup check's own refresh: at
+  // refreshCount >= 1 that refresh supersedes it.
+  if (refreshCount === 0 && dr !== null) {
+    for (const f of refreshTargets) {
+      if (dr.ran === false) {
+        addFlag(f.environment, 'Debug changed code and no fast refresh is declared, so the running build may not include its fixes');
+      } else if (dr.exitCode === null || dr.exitCode === undefined) {
+        addFlag(f.environment, "the last Debug pass's refresh reported no exit code");
+      } else if (dr.exitCode !== 0) {
+        addProblem(
+          f.environment,
+          `the last Debug pass's refresh${refreshCommand ? ` (\`${refreshCommand}\`)` : ''} exited ${dr.exitCode}, so the running build may not include its fixes`,
+          refreshFix
+        );
+      }
+    }
+  }
+
+  // The setup check's own refresh (D5).
+  if (refreshCount >= 1) {
+    for (const f of refreshTargets) {
+      if (refreshExitCode === null) addFlag(f.environment, `the exit code of ${cmdText} was not reported`);
+      else if (refreshExitCode !== 0) {
+        addProblem(f.environment, `${cmdText} exited ${refreshExitCode}`, refreshFix);
+      }
+    }
+  }
+
+  let action;
+  if (problems.length === 0) action = 'proceed';
+  else if (
+    refreshCount === 0 &&
+    refreshCommand !== '' &&
+    !heldElsewhere &&
+    problems.every((p) => refreshableEnv.get(p.environment) === true)
+  ) action = 'refresh';
+  else action = 'setup-failure';
+
+  let reason;
+  if (facts.length === 0) reason = 'no environment to check';
+  else if (problems.length > 0) reason = problems.map((p) => `${p.environment}: ${p.problem}`).join('; ');
+  else if (flags.length > 0) reason = `${flags.length} flag${flags.length === 1 ? '' : 's'}, no problems`;
+  else reason = 'all setup checks passed';
+
+  return { action, reason, environments, problems, flags };
 }
 
 // ---------------------------------------------------------------------------
@@ -801,6 +1039,7 @@ const OUTCOME_LABEL = {
   'insufficient-coverage': 'Insufficient Coverage',
   'must-pass-unproven': 'Must-Pass Unproven',
   'not-run': 'Not Run',
+  'setup-failure': 'Setup Failure',
 };
 
 // The cause vocabulary (D3, §3.1), exported as `CAUSES` so `JUDGE_CRITERION_SCHEMA`'s `cause`
@@ -957,7 +1196,7 @@ function classifyImages(criteria) {
 /**
  * @param {{
  *   feature: string, prd: string, definitionPath: string,
- *   outcome: 'satisfied'|'unbuilt'|'stalled'|'stuck'|'insufficient-coverage'|'must-pass-unproven'|'not-run',
+ *   outcome: 'satisfied'|'unbuilt'|'stalled'|'stuck'|'insufficient-coverage'|'must-pass-unproven'|'not-run'|'setup-failure',
  *   reason: string,
  *   criteria: Array<{
  *     id: string, statement: string, cites: string,
@@ -978,6 +1217,7 @@ function classifyImages(criteria) {
  *   finalEnvironmentRun?: {command: string, status: 'pass'|'fail'|'skipped'} | null,  // NEW (D14)
  *   mustPass?: string[],                              // NEW (D13) — must-pass criterion ids
  *   mustPassUncovered?: Array<{id: string, text: string}>, // NEW (D13) — must-pass objectives with no criterion
+ *   setup?: {problems: Array<{environment: string, problem: string, fix: string}>}, // NEW (preflight §3.3) — rendered only under `setup-failure`
  * }} input
  * @returns {string} markdown
  */
@@ -1036,6 +1276,13 @@ function renderReport(input) {
   }
   lines.push(`**Outcome**: ${OUTCOME_LABEL[outcome] ?? outcome}${outcomeSuffix}${finalRunSuffix}`);
   lines.push(`**Reason**: ${reason}`);
+  // One line per setup problem (preflight §3.3), only under `setup-failure`, so every other
+  // report stays byte-identical. Facts are free text (git top-levels, command output), hence escapeCell.
+  if (outcome === 'setup-failure' && input.setup && Array.isArray(input.setup.problems)) {
+    for (const p of input.setup.problems) {
+      lines.push(`**Setup**: ${escapeCell(p.environment)} — ${escapeCell(p.problem)}; fix: ${escapeCell(p.fix)}`);
+    }
+  }
   lines.push(
     `**Criteria**: ${criteria.length} total — ${met.length} met, ${notMet.length} not met, ${notVerifiable.length} not verifiable, ${unbuilt.length} unbuilt` +
       (unrecognised.length > 0 ? `, ${unrecognised.length} unrecognised status` : '')
@@ -1117,6 +1364,14 @@ function renderReport(input) {
       isSweep
         ? `**Next**: re-run \`/sweep ${prd.trim()}\` for the failed criteria, then \`/verify-build ${prd.trim()}\``
         : '**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`'
+    );
+  } else if (outcome === 'setup-failure') {
+    // D11: no Diagnosis line and not `/refine-verification` -- that writes a build plan and there
+    // is nothing to build. The wording is quoted by verify-command-surface.test.js; keep it exact.
+    lines.push(
+      isSweep
+        ? `**Next**: fix the environment named above, then run \`/verify-build ${prd.trim()}\``
+        : '**Next**: fix the environment named above, then run `/verify-build`'
     );
   } else if (outcome === 'satisfied' && isSweep) {
     // A sweep file whose `**Core TRD**:` is `none` has no core to build: the commit is the end
@@ -1652,6 +1907,7 @@ function missingVerificationSections(content) {
 module.exports = {
   checkEvidence,
   decideNext,
+  decideSetup,
   mustPassCoverage,
   renderReport,
   isEmbeddableImagePath,
@@ -1695,6 +1951,9 @@ module.exports = {
 //   node functional-verification.js decide-next '<input-json>'
 //   node functional-verification.js decide-next --file <path>
 //   node functional-verification.js decide-next -
+//   node functional-verification.js decide-setup '<input-json>'
+//   node functional-verification.js decide-setup --file <path>
+//   node functional-verification.js decide-setup -
 //   node functional-verification.js render-report '<input-json>'
 //   node functional-verification.js render-report --file <path>
 //   node functional-verification.js render-report -
@@ -1716,6 +1975,7 @@ if (require.main === module) {
       'Usage (JSON payload arg accepts inline JSON, `--file <path>`, or `-` for stdin):\n' +
         "  node functional-verification.js check-evidence [--state-dir <dir>] '<claims-json>'|--file <path>|- <sinceSec>\n" +
         "  node functional-verification.js decide-next '<input-json>'|--file <path>|-\n" +
+        "  node functional-verification.js decide-setup '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-report '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js decide-fix-round '<input-json>'|--file <path>|-\n" +
         "  node functional-verification.js render-fix-summary '<input-json>'|--file <path>|-\n" +
@@ -1800,6 +2060,13 @@ if (require.main === module) {
       usage();
     } else {
       console.log(JSON.stringify(decideNext(JSON.parse(inputJson))));
+    }
+  } else if (subcommand === 'decide-setup') {
+    const [inputJson] = resolveJsonPayload(rest);
+    if (!inputJson) {
+      usage();
+    } else {
+      console.log(JSON.stringify(decideSetup(JSON.parse(inputJson))));
     }
   } else if (subcommand === 'render-report') {
     const [inputJson] = resolveJsonPayload(rest);

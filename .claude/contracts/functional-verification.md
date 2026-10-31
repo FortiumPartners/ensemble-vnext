@@ -561,8 +561,8 @@ proven, not necessarily the final iteration's own reading. The report does not n
 disambiguate a carried-forward status from a fresh one; it only needs to render whichever one
 the criterion actually carries.
 
-**The loop's own exit carries one of six outcomes: `satisfied`, `unbuilt`, `stalled`,
-`stuck`, `insufficient-coverage`, or `must-pass-unproven`.** The first four are the ordinary shape — every gap
+**The loop's own exit carries one of seven outcomes: `satisfied`, `unbuilt`, `stalled`,
+`stuck`, `insufficient-coverage`, `must-pass-unproven`, or `setup-failure`.** The first four are the ordinary shape — every gap
 closed, an absent capability found, remediation not converging, or the iteration cap reached.
 `insufficient-coverage` is a re-label of `satisfied`, `stalled` or `stuck` (never `unbuilt` —
 "nothing was built" is the truer statement and wins outright): when the proportion of
@@ -585,6 +585,16 @@ uncovered objectives by id. In both cases the reason names each unproven
 must-pass criterion and each uncovered objective, so the core items are never hidden. A
 must-pass criterion that is `not_met` or `unbuilt` already prevents `satisfied`, so those
 base outcomes are unchanged.
+
+**`setup-failure`** says the environment, not the code, was broken, so the run did not
+measure the software: a declared environment was unreachable, the running build differed
+from HEAD, or the stack was held by another checkout, and the one declared refresh did not
+repair it. It is reached from the setup check, which runs before Exercise, or from
+decide-next's `exit-setup-failure` when the last Debug pass's refresh ran and exited
+non-zero and no setup check ran that iteration. Either way it is never read as `stalled`,
+because a fix measured against a build that does not contain it proves nothing about the
+code. The criteria that were open are recorded `not_verifiable` with cause `never-exercised`,
+the report names each problem and its fix, and no Debug stage runs.
 
 - `not_verifiable` criteria render in their own section, with the stated reason, never folded
   into failures — a project that cannot check something is not the same as a project that

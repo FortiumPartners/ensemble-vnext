@@ -29,7 +29,7 @@ agent instructions are `packages/core/contracts/functional-verification.md` ("th
 | `/implement-trd` Step 8 | Every build, unless `--no-verify` | Derive runs in the background at the start; the loop runs once, after the end-of-run review | `implement-trd.md` §3.6, Step 8 |
 | `/verify-build [--resume]` | Built with `--no-verify`, loop was interrupted (`--resume` continues it when its state file says `outcome: null`), or you changed something by hand | Derives the definition in the foreground if it is missing | `verify-build.md` Steps 1–5, "--resume" |
 | `/verify-build` | After a run ended short and you agreed a plan (the default now, once a plan exists) | Rounds of build-then-verify, unattended | `verify-build.md` "--fix" |
-| `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` / `must-pass-unproven` | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
+| `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` / `must-pass-unproven` (not `setup-failure`: fix the environment instead) | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
 | `verification-setup` skill | New project, or a readout names a missing section | Interviews you and writes `.claude/rules/verification.md` | `packages/skills/verification-setup/SKILL.md` |
 
 Both commands dispatch the **same** workflow with the same 25 arguments
@@ -62,13 +62,12 @@ iteration 1.
 |---|---|---|---|
 | 1 | Check whether `verification.md` was ever filled in: compare it to the shipped template and to the SHA-256 of three older templates; list missing sections | code | `functional-verification.js` `check-verification-unfilled` → `isVerificationUnfilled()`, `missingVerificationSections()` |
 | 2 | Report the file's shape: never filled / unfilled older template / filled but older shape missing *these* sections / fine. Each names `/verification-setup` | code + model | §3.6a report list |
-| 3 | For each environment in §1, decide **usable**, **unusable** (marked `must not be touched`, tooling absent, or listed in §5), or **needs one thing from you** (expired credential, a service to start) | model | §3.6a |
-| 4 | Ask **one** batched question naming every environment in the third bucket, with a default: unanswered means `needs-owner-declined` | you | §3.6a; `autonomy.md` case 2 |
+| 3 | For each environment in §1, classify from the policy the file states: **usable**, **unusable** (marked `must not be touched`, tooling absent, or listed in §5), or **needs-owner** (something only you can supply, such as an expired credential or a deploy approval). Nothing is probed: whether a stack is running is the loop's setup check, not this step | model | §3.6a |
+| 4 | Record each `needs-owner` environment with its need and its default (its criteria resolve `not verifiable`). No question is asked and nothing stops; ISSUES names it | model | §3.6a |
 | 5 | Save the result to `implement.json` → `functional_verification.environments` | code | `implement-state.save()` |
 
-Under `/verify-build --fix` step 4 is **not asked**: the default applies and the need is
-recorded as a discovery against `verification.md` for you to handle later
-(`verify-build.md` Step 2). Under `/implement-trd --chained` the preflight is skipped entirely
+Under `/verify-build --fix` the need is also recorded as a discovery against
+`verification.md` for you to handle later (`verify-build.md` Step 2). Under `/implement-trd --chained` the preflight is skipped entirely
 (`implement-trd.md` §3.7).
 
 ## 4. The success definition: what gets checked
@@ -165,7 +164,7 @@ exercisers may use it at once; a **slice** is the share of a lane one exerciser 
 
 | # | Step | Kind |
 |---|---|---|
-| 1 | Per criterion: **exercisable** (its environment came back `usable` at §3.6a) or **not verifiable here** (`unusable`, `needs-owner-declined`, covered by no listed environment, or named in §5). Record which environment each landed on. No question is asked here | model |
+| 1 | Per criterion: **exercisable** (its environment came back `usable` at §3.6a) or **not verifiable here** (`unusable`, `needs-owner`, covered by no listed environment, or named in §5). Record which environment each landed on. No question is asked here | model |
 | 2 | Per resource in §1a: count `N > 1` → a **pool** lane, `concurrency: N`, create command copied from the row (blank cell = may not create). Count `1` → a **queue**, concurrency 1, never created. Count `0` or `must not be touched` → no lane; its criteria are not verifiable | model, applying fixed rules |
 | 3 | An environment in §1 with no §1a row counts as a queue of 1. Silence is never a pool | model, fixed rule |
 | 4 | Criteria that need two singular resources together share one lane. Criteria that need no environment (evidence already on disk) join a **remainder lane**, `resource: null`, concurrency = its own criterion count | model, fixed rule |
@@ -367,6 +366,7 @@ with the returned outcome.
 | `stuck` | The cap ran out with gaps open, or a `--resume` arrived with no budget left | same |
 | `insufficient-coverage` | Too little was proven to call it either way. When must-pass items were also unproven, the reason names them | same |
 | `must-pass-unproven` | Everything judged was met and the coverage floor (if any) was cleared, but a core item the TRD marked must-pass was not proven, or has no criterion at all. The reason names each. A must-pass criterion that can only be `not verifiable` here is never accepted as such: it needs an environment that reaches it, or the marking removed from the TRD | same |
+| `setup-failure` | The environment, not the code, is broken: the setup check before Exercise found a declared stack down or unreachable. The software was not checked, no criterion is judged, and the reason names each problem | fix the environment, then `/verify-build` |
 | `not run: no success definition derivable` | No PRD and no source section | fix the source |
 | `not run: no definition produced` | The derive agent wrote nothing | re-run `/verify-build` |
 | `not run (--no-verify set)` | You opted out | `/verify-build` |
@@ -387,7 +387,7 @@ without calling the workflow (`implement-trd.md` §8.1). Only the five short out
 | **Outcome** | Label, plus "(N of M not verifiable)" on a satisfied run, and "(final full-environment run FAILED)" or "(no full-environment run declared)". A failed full deploy never retracts proven criteria |
 | **Reason**, **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
 | **Must pass** | Only when the TRD declares any (otherwise the report is unchanged): "K of N proven", then "unproven: id (status)", then "no criterion for: objective id" for each objective nothing covers |
-| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`). Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
+| **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`); never on `setup-failure`, which has no cause counts because nothing was judged. Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
 | Unrecognised Status | Any status that is none of the four, so a typo cannot hide a criterion |
 | Unbuilt / Met / Not Met / Not Verifiable | One table each. Met shows *proven at* iteration; Not Met shows tier 1, reason, blocker, and the debugger's attempt per iteration |
 | `## Fix run` | Appended by `--fix` only (`renderFixSummary()`) |

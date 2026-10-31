@@ -1,7 +1,7 @@
 ---
 name: implement-trd
 description: Execute TRD implementation with staged specialist delegation, dependency-tracked tasks, risk-aware debugging, and quality gates
-argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained]"
+argument-hint: "[trd-path] [--resume] [--reconcile] [--include-deferred] [--reset-state] [--verify] [--no-verify] [--chained] [--sweep-flag <text>]"
 version: 4.0.0
 category: implementation
 ---
@@ -25,7 +25,7 @@ category: implementation
 >   `--resume`: with BOTH set EXPLICITLY and a non-terminal (`outcome: null`)
 >   `.trd-state/<feature>/verification-state.json` on disk, the run skips the derive pass and
 >   the whole phase loop and re-enters that **interrupted** verification loop directly (§3.6
->   step 0) — never a `satisfied`/`stalled`/`stuck`/`unbuilt`/`insufficient-coverage`/`must-pass-unproven` one, which
+>   step 0) — never a `satisfied`/`stalled`/`stuck`/`unbuilt`/`insufficient-coverage`/`must-pass-unproven`/`setup-failure` one, which
 >   is a finished loop, not one to re-enter. `--resume` **without** an explicit `--verify` never
 >   takes that branch, even though verification now runs by default elsewhere in the command —
 >   it keeps its existing meaning (resume the implementation checkpoint) and runs the phase loop
@@ -38,6 +38,10 @@ category: implementation
 >   §9.0a's publishing; emits no banner, no `notify-complete.sh`, no `PushNotification`. Ends
 >   with one handoff line, `[STATUS: /implement-trd] RETURN → …`, reporting the build back to
 >   its caller instead of the usual four-section readout (§3.7).
+> - `--sweep-flag "<text>"` - **For callers only** (`/plan`'s sweep chain, preflight D14), never
+>   typed by hand: the one-line flag `/plan` carries when a sweep file's swept fixes were
+>   committed without being verified because the environment, not the code, was broken. Step 9's
+>   ISSUES prints the text verbatim. It changes nothing else about the run.
 >
 > **Examples:** `/implement-trd`, `/implement-trd --resume`, `/implement-trd --reconcile`, `/implement-trd docs/TRD/user-auth.md`, `/implement-trd --no-verify`, `/implement-trd --resume --verify`, `/implement-trd docs/TRD/user-auth.md --reconcile --chained`
 
@@ -50,10 +54,11 @@ $ARGUMENTS
 ```
 
 Parse: TRD path, `--resume`/`--continue`, `--reconcile`, `--include-deferred`,
-`--reset-state`, `--verify`, `--no-verify`, `--chained`. Verification runs by default; `--no-verify` opts out;
+`--reset-state`, `--verify`, `--no-verify`, `--chained`, `--sweep-flag "<text>"`. Verification runs by default; `--no-verify` opts out;
 `--verify` is still parsed explicitly, and doing so alongside `--resume` is exactly what §3.6
 step 0 checks for. `--chained` (§3.7) is for callers only — `/verify-build`'s fix loop is the one
-thing that passes it.
+thing that passes it. `--sweep-flag` is likewise for callers only — `/plan`'s sweep chain is the
+one thing that passes it — and its text is carried to Step 9's ISSUES unchanged.
 
 ---
 
@@ -701,7 +706,7 @@ phase loop as usual; `--resume` without an explicit `--verify` keeps its existin
 verification pass still follows it at Step 8 unless `--no-verify` was also given.
 
 **Read `outcome` and nothing else to decide this.** A non-null `outcome` (`satisfied`,
-`unbuilt`, `stalled`, `stuck`, `insufficient-coverage`, `must-pass-unproven`) means the loop finished and MUST NOT be
+`unbuilt`, `stalled`, `stuck`, `insufficient-coverage`, `must-pass-unproven`, `setup-failure`) means the loop finished and MUST NOT be
 re-entered; a `null` one means it stopped mid-loop and should be. A state file with no
 `outcome` key at all is a file written by a Judge that did not follow its instructions — treat
 it as terminal (do not resume) and say so in the banner, because the alternative reading
@@ -860,17 +865,20 @@ the agent never wrote one).
 
 ### 3.6a Preflight the environment BEFORE spending iterations
 
-**Moved here from the tail of the run (formerly §8.4a) — the whole point is to catch an
-unusable environment before the phase loop spends hours implementing against it, not after.**
+**Moved here from the tail of the run (formerly §8.4a). It classifies POLICY only (preflight
+D17): whether each environment `verification.md` declares may be exercised and has what it
+needs. It never asks whether anything is up — that is the setup check's job, inside the
+verification loop, before every attempt — and it never stops the run or asks the owner a
+question (D1).**
 
 **This step resolves ENVIRONMENTS only — nothing per criterion.** No success definition
 exists yet at this point in the run: the derive agent dispatched at §3.6 is running in the
 background, and its output is not read until Step 8.1a, hundreds of tool calls later. Any
 check that needs a criterion id — which bucket a criterion falls into, which lane it joins,
 `refreshCommand`/`fullRunCommand` for the run — belongs at §8.1a, not here (moved there; see
-that section). What this step CAN do now, and should, is find out whether the environments
-`.claude/rules/verification.md` declares are actually usable, so a dead environment is caught
-before the phase loop spends hours implementing against it rather than discovered mid-loop.
+that section). What this step CAN do now, and should, is classify the environments
+`.claude/rules/verification.md` declares by what the file and the installed tooling say about
+them, so §8.1a can look each one up.
 
 **First, check whether `.claude/rules/verification.md` was ever filled in at all:**
 
@@ -885,45 +893,59 @@ environment quietly resolve to unusable as if it had been declared and simply di
 this project. Then continue: an unfilled file is not a reason to skip the loop, it is a
 reason to name the gap.
 
-Read `.claude/rules/verification.md`'s §1 and, **for each environment it declares**, resolve
-whether it can be reached at all — before the `Workflow` call at §8.3, not four criteria into
-iteration 1. For each declared environment, one of:
+Read `.claude/rules/verification.md`'s §1 and, **for each environment it declares**, classify
+it by policy, before the `Workflow` call at §8.3. This reads the file and checks what is
+installed; it runs nothing against the environment. For each declared environment, one of:
 
-- **usable** — it is reachable, and any tooling/credentials §3/§4 name for it are present.
+- **usable** — §1 declares it and lets the loop exercise it, and the tooling and credentials
+  §3/§4 name for it are present. This does not mean "it is up": whether a declared stack is
+  running is decided only by the loop's setup check (D17).
 - **unusable** — §1 marks it `must not be touched`, the tooling it needs is not installed, or
   §5 already names it as unverifiable outright. Record the reason; any criterion that turns
   out to need this environment resolves `not_verifiable` at §8.1a, and is never handed to the
   debugger.
-- **needs one thing from the owner** — a credential that has expired, an approval to deploy to
-  a shared environment, a service that must be started by hand.
+- **needs-owner** — something only the owner can supply: a credential that has expired, an
+  approval to deploy to a shared environment. Record `reason`, `need` (what the owner must
+  do, one line) and `default` (`criteria needing it resolve not_verifiable`).
 
-**That third bucket is the ONLY legitimate `AskUserQuestion` on this path, and it is asked
-ONCE, here, as a single batched question** naming every ENVIRONMENT affected (not every
-criterion — none exist yet to name) and the default you will apply if unanswered (mark that
-environment `needs-owner-declined` and treat any criterion needing it as `not_verifiable`).
-This is `autonomy.md` case 2 — information that genuinely cannot be derived — and asking it up
-front, once, is the difference between one question before the run and a discovery mid-loop
-that strands however many criteria turn out to need that environment.
+**Nothing is asked and nothing stops (D1).** A `needs-owner` environment is a flag: its
+criteria resolve `not_verifiable` at §8.1a, the build and the rest of the verification run
+carry on, and Step 9's ISSUES names the environment and its `need`. (Under `--chained` this
+step is skipped, §3.7; the caller recorded the need as a `verification.md` discovery in its
+own step 2.)
 
-**Persist the per-environment result — this is what §8.1a reads back, hundreds of tool calls
-later, to resolve criteria without re-deriving reachability or asking the question twice.**
-Set it on the in-memory state object first, then persist with `implement-state.save()` —
-follow EXACTLY the pattern §3.6 ("Set it on the in-memory state object first…", above) already documents for `functional_verification`:
-never a bare `writeFileSync`, never a read-modify-write of the file on disk.
+**Then read the TRD's `## Verification Environment` section, when it has one (D15)** — three
+bold lines: `**Environment**:`, `**Refresh**:`, `**Cannot be checked there**:`. When it names
+an environment `verification.md` declares, that is the run's `target`: `{ environment:
+"<name>", source: "trd" }`. `verification.md` stays authoritative: a named environment it
+does not declare is not authorized (S-2), so the target is `{ environment: null, source:
+"none" }` and ISSUES says the TRD named an environment `verification.md` does not declare; a
+`Refresh` line that differs from §2 is a DECISIONS line saying §2 wins. With no such section
+(absence is valid) the target is `{ environment: null, source: "none" }` and DECISIONS says
+the environment was chosen without a plan-time record. §8.1a reads `Cannot be checked there`
+items like `verification.md`'s §5 entries.
+
+**Persist the result — this is what §8.1a reads back, hundreds of tool calls later.** Set it
+on the in-memory state object first, then persist with `implement-state.save()` — follow
+EXACTLY the pattern §3.6 ("Set it on the in-memory state object first…", above) already
+documents for `functional_verification`: never a bare `writeFileSync`, never a read-modify-write
+of the file on disk.
 
 ```javascript
 state.functional_verification = {
   ...state.functional_verification,   // keep source_kind / prd_path / prd_resolved from §3.6
+  target: { environment: "<name>" | null, source: "trd" | "none" },
   environments: {
     // one entry per environment declared in verification.md §1
-    "<environment name>": { status: "usable" | "unusable" | "needs-owner-declined", reason: "<one line>" },
+    "<environment name>": {
+      status: "usable" | "unusable" | "needs-owner",
+      reason: "<one line>",
+      need: "<what the owner must do>",                          // needs-owner only
+      default: "criteria needing it resolve not_verifiable",     // needs-owner only
+    },
   },
 };
 ```
-
-`needs-owner-declined` is distinct from `unusable`: it means the owner did not answer the
-batched question and the stated default applied, which §8.1a's report says plainly rather
-than folding into an ordinary "unusable" reason.
 
 **Report what the file's shape actually is, derived from `missingSections` (D10) — not a
 fixed sentence.** The `check-verification-unfilled` call already run at the top of this step
@@ -990,8 +1012,8 @@ Parsed alongside the other flags (User Input, above). Under it:
   exists from whichever earlier run produced the criteria `/verify-build` is re-verifying.
 - **§3.6a's environment preflight is skipped.** The caller — `/verify-build` step 2 — already
   ran it this same run and persisted `functional_verification.environments`; running it again
-  would ask its one batched question a second time, and that question must never fire at all
-  inside an unattended chained build (no `AskUserQuestion` reaches the owner under `--chained`).
+  would only repeat that classification, and nothing under `--chained` asks the owner anything
+  (no `AskUserQuestion` reaches the owner under `--chained`).
 - **Step 8 is skipped entirely** — no verification loop, so §8.1a's lane resolution and §8.2's
   "run §3.6a now if none recorded" fallback are never reached; there is nothing here for them to
   resolve. `/verify-build` runs its own verify pass, over the caller's own criteria, after
@@ -1361,10 +1383,13 @@ the durable companion to `implement.json` — state records *what* happened, the
     "prd_resolved": true,
     "source_kind": "prd | reproduction | intended-change | behaviour-preserved | none",
     "prd_path": "docs/PRD/<feature>.md or null",
+    "target": { "environment": "<name> | null", "source": "trd | none" },
     "environments": {
       "<environment name from verification.md §1>": {
-        "status": "usable | unusable | needs-owner-declined",
-        "reason": "<one line>"
+        "status": "usable | unusable | needs-owner",
+        "reason": "<one line>",
+        "need": "<what the owner must do — needs-owner only>",
+        "default": "criteria needing it resolve not_verifiable — needs-owner only"
       }
     }
   }
@@ -1390,7 +1415,7 @@ three outcomes §3.1 requires distinct: `prd_resolved: false` → `not run: no s
 (the derive agent died); `prd_resolved: true` and the file present with zero rows → AC-3's
 legitimate empty definition, which Step 8 does NOT report as either `not run` case.
 
-`environments` is written by §3.6a, added to the same object the same way — set in memory,
+`environments` and `target` are written by §3.6a, added to the same object the same way — set in memory,
 then persisted, never a bare `writeFileSync` — and read back at §8.1a (and, on the
 `--verify --resume` path, by §8.2 first, to decide whether §3.6a needs to run at all). Its
 keys are the environment names declared in `.claude/rules/verification.md`'s §1; a name
@@ -1664,19 +1689,18 @@ which runs this section too) reach here with `criteria` resolved and with
 
 Read `.claude/rules/verification.md` and resolve, per criterion, whether it can be exercised
 at all, using the per-environment results §3.6a already recorded — this step does not
-re-derive reachability, it looks it up. For each criterion, one of:
+re-derive an environment's classification, it looks it up. For each criterion, one of:
 
 - **exercisable** — the environment it needs resolved `usable` at §3.6a, and (if the loop will
   need to correct) has a refresh command in §2.
 - **not verifiable here** — the environment it needs resolved `unusable` or
-  `needs-owner-declined` at §3.6a, no environment listed covers it, or §5 already names it as
+  `needs-owner` at §3.6a, no environment listed covers it, or §5 already names it as
   unverifiable. Mark it now. It goes into the report as `not_verifiable` with the reason, and
   it is never handed to the debugger.
 
-**There is no `AskUserQuestion` here.** The one legitimate question on this path was already
-asked, once, at §3.6a, before any criterion existed to name — a criterion whose environment
-came back `needs-owner-declined` resolves `not_verifiable` with that reason, silently, exactly
-as the default stated at §3.6a promised.
+A criterion whose environment came back `needs-owner` resolves `not_verifiable` with that
+environment's recorded `reason` and `need`, silently — the default §3.6a recorded. Nothing is
+asked here either; Step 9's ISSUES tells the owner what to do.
 
 **Record, per criterion, which environment it resolved to.** This is half of a lane (the
 other half is §1a's counts, below) and it is what makes a wrong mapping readable in the
@@ -1721,9 +1745,10 @@ no environment; every "exercisable" criterion resolves to exactly one.
 4. **`refreshCommand` and `fullRunCommand` are two single strings for the whole run, not one
    per lane** (D15) — read from §2's Fast-refresh / Full-deploy columns for the environment
    actually being exercised. When every exercisable criterion resolves to one environment, its
-   row is the answer. When criteria span more than one environment, prefer whichever of the
-   environments actually in use is marked "prefer this" in §1 (the `preview` row, taught as
-   the default target — TRD change 5), else the first such environment listed in §1 — never a
+   row is the answer. When criteria span more than one environment, prefer the TRD's `target` (§3.6a, D15) when it
+   is one of the environments in use, then whichever of the environments actually in use is
+   marked "prefer this" in §1 (the `preview` row, taught as the default target — TRD change
+   5), else the first such environment listed in §1 — never a
    rule keyed on an environment's NAME otherwise (NG6). Record which environment's row was
    used. A `must not be touched` environment contributes neither string, whatever this
    tie-break would otherwise land on (§3.7).
@@ -1741,6 +1766,26 @@ no environment; every "exercisable" criterion resolves to exactly one.
    — `coverageFloor` stays `null` (no floor is applied), and Step 9's ISSUES names the raw
    text and says to fix it with `/verification-setup`. This never makes the run STUCK: an
    unreadable floor is a gap to report, not a reason to stop verifying (D9).
+7. **Resolve `setupTargets` (preflight D7, D8, D9)** — the environments the loop's setup check
+   looks at before each Exercise pass. One entry per environment at least one exercisable
+   criterion resolved to in step 2 above, read from `verification.md` §1/§2, then
+   `.claude/verification-notes.md`, then the TRD's `## Verification Environment` section:
+
+   ```javascript
+   { environment: "<name>", url: "<its address, or \"\">", ports: [<localhost ports it
+     declares, integers; [] for a remote environment>], identity: "<the command the owner
+     already stated that prints the commit the running build was made from, or \"\">",
+     refreshable: <true only for the environment step 4 took refreshCommand from, and only
+     when that string is non-empty>, criteria: ["<ids of its exercisable criteria>"] }
+   ```
+
+   `identity` is copied from what the owner wrote, never invented or inferred from the stack
+   (D8). At most one entry is `refreshable`, because `refreshCommand` is one string for the
+   whole run (D5). With no exercisable criteria, `setupTargets` is `[]` and the loop runs no
+   setup check, exactly as before. **State what was READ**, the same habit as step 5: for each
+   target, its url, its ports, its identity method (or "none declared" when `""`) and whether
+   the loop can refresh it (or "none declared" when it cannot). Step 9's DECISIONS carries
+   that line.
 
 **When no environment resolves any lane at all** — no criteria are exercisable, or the file is
 still unfilled — pass no `exerciseLanes` to §8.3 and let the workflow's own default apply: one
@@ -1756,7 +1801,7 @@ Read `.claude/verification-notes.md` (or `""` when it does not exist), `.claude/
 `CLAUDE.md` (repo root) and `.claude/rules/verification.md` (or `""` when it does not exist) as
 `stackHints`, and `packages/core/contracts/functional-verification.md` as `contract`. Without it,
 the Exercise/Judge/Debug agents inside the loop never see the owner's environment declarations —
-only this command's own preflight (§3.6a for environment reachability, §8.1a for the
+only this command's own preflight (§3.6a for environment classification, §8.1a for the
 per-criterion bucket and lane derivation) reads the file, both run well before the `Workflow`
 call at §8.3.
 
@@ -1814,6 +1859,7 @@ Workflow({ name: "verify-functional", args: {
   refreshCommand,                                                // §8.1a -- the per-iteration refresh from verification.md §2, or "" when none is declared
   fullRunCommand,                                                // §8.1a -- the end-of-run full deploy from verification.md §2, or "" when none is declared
   coverageFloor,                                                 // §8.1a -- verification.md §5a as a fraction, or null when none is declared
+  setupTargets,                                                  // §8.1a step 7 -- the environments the setup check looks at; [] when none (no setup check runs)
   liveEvidence,                                                  // `node .claude/lib/live-evidence.js read --state-dir .trd-state/<feature>` -- what [LIVE] tasks recorded; [] when none
   checks,                                                        // §8.1b -- { "<skill>": "<SKILL.md text>" } for each selected check; {} when none
   checkComments,                                                 // §8.1b -- open threads on each check's published page (D18); [] when none
@@ -1836,7 +1882,7 @@ the two `not run` short-circuits in §8.1, which never reach the workflow at all
 ### 8.4 Render the outcome
 
 The `Workflow` call returns `{ outcome, reason, iterations, reportPath, criteria, gaps,
-unbuilt, exercised, debugAttempts, notesUpdated, coverage, finalRun, mustPass, pages }` (§3.3). Carry
+unbuilt, exercised, debugAttempts, notesUpdated, coverage, finalRun, mustPass, pages, setup }` (§3.3). Carry
 `outcome` and `reportPath` into Step 9's FUNCTIONAL VERIFICATION block, along with `criteria` —
 the banner's met/not-met/not-verifiable/unbuilt counts are a tally of that array's `status`
 values, so dropping it here leaves those four counts with nothing to come from.
@@ -1854,10 +1900,15 @@ for uncovered objectives read. `overridden: true` means the workflow itself bloc
 the Judge had called; the report and state file are already reconciled, so say nothing more about
 it than the outcome.
 
+**Carry `setup`** (`{ checked, refreshed, flags: [{ environment, flag, default }], problems:
+[{ environment, problem, fix }] }`; present on every return) into the same block (D10): `flags`
+are defaults the setup check applied, and `problems` is non-empty only when `outcome` is
+`setup-failure`. It is what Step 9's DECISIONS, ISSUES and NEXT lines for the environment read.
+
 **Carry `pages`** (`Array<{ skill, page, rendered, iteration, reason }>`; `[]` when no check
 criteria exist) into the same block too — it is the last Render per selected check skill, and
 it is what §9's STATE line for each check and §9.0a's publish step both read; without it
-neither has anything to point at. Nothing beyond those seven — no re-reading the rendered
+neither has anything to point at. Nothing beyond those eight — no re-reading the rendered
 report, no re-deriving the verdict; the report and the state file are already the durable
 record.
 
@@ -1935,6 +1986,10 @@ STATE
     criterion by its statement in plain words, and each core objective that has no criterion —
     e.g. "The core was not shown to work: the login flow was never proven, and nothing checks
     the export objective at all."}
+  {if outcome is setup-failure (preflight D11): "The software was not checked: the environment
+    it needs is broken, not the code." — this replaces the sentence above, and there is no
+    Diagnosis line, because a setup-failure report has none. Never say the software does or
+    does not do what the PRD asked.}
   {if --no-verify was set: "Nobody checked whether the software does what the PRD asked
     (--no-verify set)."}
   {if verification ran: "Must pass: none declared in the TRD's Objectives" when `mustPass.criteria`
@@ -1952,8 +2007,8 @@ STATE
    their designs: 32 compared — 28 match, 2 minor, 2 deviate and are still open — <link>".}
   {if the TRD's `## Verification Artifacts` section omitted an applicable check: one line
    naming it and its stated reason.}
-  {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven (verification-fix-loop TRD §3.1,
-   D3): a Diagnosis line by cause, counted over `criteria`'s non-`met` entries exactly as
+  {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven — never
+   setup-failure (verification-fix-loop TRD §3.1, D3): a Diagnosis line by cause, counted over `criteria`'s non-`met` entries exactly as
    `renderReport` counts them for the report — descending by count, in words, cause-less
    entries as "unrecorded" — e.g. "**Diagnosis**: 14 open — 6 evidence missing, 5 judged
    failed, 3 not built." Never re-derive the verdict itself here; this is a count, not a
@@ -1964,6 +2019,10 @@ DECISIONS
    an approach taken over an alternative, a documented decision overridden. One line each,
    with the reason. If a task was reopened by --reconcile because its files did not exist,
    that goes HERE and says so plainly.}
+  {if verification ran: §8.1a step 7's line per setup target (url, ports, identity method,
+   whether the loop can refresh it, "none declared" where it is) and §3.6a's target decision
+   (the TRD's `## Verification Environment` target, or "none" and why).}
+  {for each entry in `setup.flags`: "{environment}: {flag} — default applied: {default}."}
   {if none: "none"}
 
 ISSUES
@@ -1986,11 +2045,21 @@ ISSUES
     floor reads `{raw}`, which is not a percentage or `none`, so no floor was applied — fix it
     with `/verification-setup`." (D9)}
   {blocking discoveries this run found and did not do — promoted or not, and which}
+  {if the run was given `--sweep-flag "<text>"`: the text, verbatim, with you as the one who
+   acts — it says a sweep file's fixes were committed without being verified.}
+  {for each environment §3.6a recorded `needs-owner`: "{environment} needs you: {need}. Until
+   then the criteria that need it are not verifiable ({default})." You act.}
+  {if outcome is setup-failure, for each entry in `setup.problems`: "{environment}: {problem}
+   — fix: {fix}." You act; the run did not judge the code.}
   {if none: "none"}
 
 NEXT
   {the few steps to take now, in order — one fenced block per slash command, explanation on
    the line above each block, never a shell command:}
+  {if outcome is setup-failure (D11) — this replaces both branches below: (1) the fix for each
+   problem, as plain text, not a block; (2) re-run the check once the environment is fixed:}
+  1. fix the environment named above
+  2. /verify-build
   {if outcome is stalled/stuck/unbuilt/insufficient-coverage/must-pass-unproven (O4, D15): the line "refine the plan
    with `/refine-verification` (add `--auto` to let an agent answer), then run
    `/verify-build`" — the exact wording `renderReport` puts under its own Diagnosis line
@@ -1998,7 +2067,7 @@ NEXT
    comes next — then the two steps, each command in a block of its own:}
   1. /refine-verification
   2. /verify-build
-  {otherwise: verify delivery against the TRD and PRD, in a block of its own:}
+  {otherwise (any other outcome, `setup-failure` excepted): verify delivery against the TRD and PRD, in a block of its own:}
   1. /audit-build <trd> --prd <prd>
   2. {only when `ensemble.openPullRequest` is `never`, in words, not a block: open the PR once
      the audit is clean, on GitHub, or ask for it. A passing `/audit-build` opens the PR when
@@ -2102,6 +2171,13 @@ banner. The report and the pages on disk are the deliverable.
 **Emit `═══ COMMAND COMPLETE: /implement-trd ═══` plus its one-line summary as the LAST
 lines of the turn, immediately after the readout above.**
 The readout is not the end of the output; the banner is.
+
+**The summary line names the outcome and its problem when the loop ended `setup-failure`
+(D11):** a `COMMAND COMPLETE` (not STUCK — the command did its whole job), whose one line says
+the software was not verified because the environment is broken, naming `setup-failure` and
+the first problem, e.g. `built 8/8 tasks; verification ended setup-failure: local was not
+running (start it with npm run dev), so the code was not checked`. The same line goes to
+`notify-complete.sh` and `PushNotification` ("Output discipline", items 5 and 6).
 
 **Nothing may follow it** — not a caveat, not a finding, not a recommendation, not an
 explanation of something the run noticed. Anything worth saying goes ABOVE the report block

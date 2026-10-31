@@ -152,10 +152,15 @@ describe('functional-verification contract', () => {
     expect(coreText).toMatch(/may\s+\*\*not\*\*\s+edit source, rebuild, restart, or re-deploy/);
   });
 
-  test('states insufficient-coverage and must-pass-unproven in the loop exit vocabulary: six outcomes', () => {
-    expect(coreText).toMatch(/one of six outcomes: `satisfied`, `unbuilt`, `stalled`,\s*\n?`stuck`, `insufficient-coverage`, or `must-pass-unproven`/);
+  test('states insufficient-coverage and must-pass-unproven in the loop exit vocabulary: seven outcomes', () => {
+    expect(coreText).toMatch(/one of seven outcomes: `satisfied`, `unbuilt`, `stalled`,\s*\n?`stuck`, `insufficient-coverage`, `must-pass-unproven`, or `setup-failure`/);
     expect(coreText).toMatch(/never `unbuilt`/);
-    expect(coreText).not.toMatch(/one of five outcomes/);
+    expect(coreText).not.toMatch(/one of (five|six) outcomes/);
+  });
+
+  test('defines setup-failure and both ways to reach it (preflight D6, D16)', () => {
+    expect(coreText).toMatch(/\*\*`setup-failure`\*\*/);
+    expect(coreText).toMatch(/reached from the setup check[\s\S]{0,200}decide-next's `exit-setup-failure`[\s\S]{0,200}no setup check ran that iteration/);
   });
 
   test('defines must-pass-unproven and its precedence: the coverage re-label wins (D8, D9)', () => {

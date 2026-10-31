@@ -51,7 +51,7 @@ command and asks nothing.
 
 | Input | Where it comes from | Required / optional |
 |---|---|---|
-| Latest verification report, with its Diagnosis block | `.trd-state/<feature>/verification-report.md` | required |
+| Latest verification report, with its Diagnosis block (a `setup-failure` report has none; its `**Setup**:` lines are the diagnosis) | `.trd-state/<feature>/verification-report.md` | required |
 | Verification state file | `.trd-state/<feature>/verification-state.json` | required |
 | Discovery ledger | `.trd-state/<feature>/discovered.jsonl` — including any `verification.md` need a prior `--fix` run recorded | required |
 | Existing plan, if any | `.trd-state/<feature>/verification-plan.md` | optional — revise rather than start over when present |
@@ -67,7 +67,13 @@ functional-verification loop; this command's job starts after that.
 
 ## Derive (both modes)
 
-**1. Diagnose, in plain words.** The outcome and proven/total. When the TRD marks must-pass
+**1. Diagnose, in plain words.** **When the outcome is `setup-failure`, lead with "the
+environment, not the code" (D13):** the report has no Diagnosis line, so its `**Setup**:`
+lines are the diagnosis — name each problem and its fix, and say the software was not
+checked. Every criterion that run left open is `never-exercised`; none is a Blocker (nothing
+failed) and none is Accepted as not verifiable (that rule takes only `environment-unreachable`
+and `capability-absent`). The plan says they are re-verified by the next `/verify-build`, and
+NEXT also tells the owner to fix the environment first. Otherwise: the outcome and proven/total. When the TRD marks must-pass
 objectives, name first every unproven must-pass criterion, each with its statement in plain
 words (never an id alone), and every must-pass objective no criterion covers. Then the causes
 by name and count — "9 open on evidence missing, 3 on judged failed", never a bare cause
@@ -81,7 +87,8 @@ identifier.
 - **Slices** — the open, buildable criteria grouped by the resource or surface they need,
   scarcest resource first (`verification.md` §1a); a criterion with no group is its own slice.
 - **Accepted as not verifiable** — every criterion whose cause is `environment-unreachable` or
-  `capability-absent` (never buildable), with the diagnosis's reason, and any criterion the TRD
+  `capability-absent` (never buildable; a `never-exercised` criterion left open by a
+  `setup-failure` is neither), with the diagnosis's reason, and any criterion the TRD
   already assigns to a later or production-only task. **Never a must-pass criterion** (one whose
   `Must pass` cell in the success definition names an objective — the ids the report's
   `**Must pass**:` line lists; criterion ids are not objective ids, so never look for them in
@@ -233,7 +240,8 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 verifiable` row — before anything else, so the owner sees the whole plan without opening the
 file. Then the rest of STATE: the plan's path, the blocker and slice counts.
 
-**NEXT** is `/verify-build`, naming the plan path.
+**NEXT** is `/verify-build`, naming the plan path. After a `setup-failure` run, the step before it
+is the environment fix, as plain text.
 
 ```
 ═══ COMMAND COMPLETE: /refine-verification ═══
