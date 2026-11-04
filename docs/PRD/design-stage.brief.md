@@ -22,6 +22,20 @@ is beside it.
 | Spike (a): partly settled. Both boards drew on the hosted page and could be commented on; no board was reported with errors; no screenshot of the drawn components yet. The bundles were linked from `project/lib/`, not installed as a design system, so the design-system install path on the hosted page is unproven | findings.md §(a), with its 2026-11-04 update |
 | The issue says `skills/frontend-design` has a "confirm with the client" step to drop. This repository's `packages/skills/frontend-design/SKILL.md` has no client, stakeholder or approval step (searched for `client`, `stakeholder`, `approval`: no match). The edit is either already done or aimed at a different skill (the plugin `frontend-design:frontend-design`) | a grep in this session, 2026-11-03 |
 
+### Owner rulings, `/refine-prd` 2026-11-04
+
+| Question | Answer |
+|---|---|
+| OQ-2 `/sync-design` acceptance (2026-11-04, `/refine-prd`) | (chose: "Owner ruling only (Recommended)") — only an owner ruling accepts a build that differs from its board; a TRD decision does not. Keeps `verification-artifacts` D14 |
+| OQ-7 `refine-design.js` (2026-11-04, `/refine-prd`) | (chose: "No workflow (Recommended)") — `/refine-design` runs like `/refine-prd`: in the main session, interactive by default, `--auto` unattended |
+| Scope and priority, OQ-1 (2026-11-04, `/refine-prd`) | (chose: "Phases 1-4 P0, sync P1") — issue phases 1 to 4 (rules and libraries, `/design-system`, create/refine, `/audit-design`, design as TRD/plan input, the design checks) are P0; phase 5 (`/sync-design`, `--drift`) is P1 |
+| OQ-5 publishing off (2026-11-04, `/refine-prd`) | (chose: "Write files, end STUCK (Recommended)") — with `ensemble.publishArtifacts: false` a design command writes the repository copy and renders, then ends STUCK naming the publish step |
+| OQ-3 stale design system (2026-11-04, `/refine-prd`) | (chose: "Carry on, record drift (Recommended)") — draw against the installed system, record the drift in the map and ISSUES, `/design-system --sync` first in NEXT |
+| OQ-4 `/audit-docs` scope (2026-11-04, `/refine-prd`) | (chose: "Exclude docs/ui/ (Recommended)") — `/audit-docs` skips `docs/ui/`; `/audit-design --drift` is the design's own drift check |
+| OQ-6 accessibility floor (2026-11-04, `/refine-prd`) | (chose: "Offered default (Recommended)") — `/design-setup` offers 4.5:1 and 44 px; the owner's answer is what `design.md` records |
+| OQ-8 as-is mismatch mark (2026-11-04, `/refine-prd`) | (chose: "Leave to the TRD (Recommended)") — the PRD requires the mark exist and be readable by the checks; the TRD names the field |
+| Challenge-pass findings B1–B14 on PRD 1.1.0 (2026-11-04, `/refine-prd`) | Accepted all fourteen. B7 (chose: "design-map.json only (Recommended)"): `design.md` stays owner-only; the system's version and code commit live in each `design-map.json`. On B2 the owner asked about wall-clock cost ("I like B2 but worry it would add a lot of wall clock time") and accepted it as a cheap check: compare the canvas version with the last sync, read boards only when it changed. On B6/B8/B10 the owner asked to "balance a logical flow with not overengineering" and accepted all three as removing contradictions without adding machinery |
+
 ## Superseded
 
 | Earlier position | Replaced by | Why |
