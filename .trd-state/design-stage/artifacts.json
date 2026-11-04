@@ -15,7 +15,7 @@
   "trd": {
     "path": "docs/TRD/design-stage.md",
     "url": "https://claude.ai/artifact/HPb7UbpqVm41yx8uhMz3f7",
-    "updated_at": "2026-11-04T18:02:59.054Z",
-    "command": "/create-trd"
+    "updated_at": "2026-11-04T22:06:44.598Z",
+    "command": "/refine-trd"
   }
 }
