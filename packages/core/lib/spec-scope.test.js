@@ -311,6 +311,10 @@ describe('Must pass marking (VMP-B003)', () => {
     ]);
     expect(S.objectiveRows(trd).map((r) => [r.id, r.mustPass])).toEqual([['O1', true], ['O2', true], ['O3', true], ['O4', false], ['O5', false]]);
   });
+  test('objectiveRows: reads every table in the Objectives span, not only the first', () => {
+    const trd = trdWith([...four(['| O1 | a | s | no |']), '', 'Second group:', '', ...four(['| O2 | b | s | yes |'])]);
+    expect(S.objectiveRows(trd).map((r) => [r.id, r.mustPass])).toEqual([['O1', false], ['O2', true]]);
+  });
   test('objectiveRows: any other value is invalid and fails closed', () => {
     const r = S.objectiveRows(trdWith(four(['| O1 | a | s | must |'])))[0];
     expect(r).toEqual({ id: 'O1', text: 'a', mustPass: true, invalidValue: 'must' });

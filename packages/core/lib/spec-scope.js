@@ -386,11 +386,9 @@ function parseObjectiveTable(table) {
 function objectiveRows(trdMarkdown) {
   const masked = maskFencedLines(split(trdMarkdown));
   const obj = objectivesSpan(masked);
-  const rows = [];
-  if (!obj) return rows;
-  const table = findTables(masked, obj.start, obj.end)[0];
-  if (!table) return rows;
-  return parseObjectiveTable(table).map(({ rawMark, ...r }) => r);
+  if (!obj) return [];
+  // Every table in the span, in document order: a TRD may split its objectives across several.
+  return findTables(masked, obj.start, obj.end).flatMap(parseObjectiveTable).map(({ rawMark, ...r }) => r);
 }
 
 /**
