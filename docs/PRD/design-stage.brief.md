@@ -36,6 +36,29 @@ is beside it.
 | OQ-8 as-is mismatch mark (2026-11-04, `/refine-prd`) | (chose: "Leave to the TRD (Recommended)") — the PRD requires the mark exist and be readable by the checks; the TRD names the field |
 | Challenge-pass findings B1–B14 on PRD 1.1.0 (2026-11-04, `/refine-prd`) | Accepted all fourteen. B7 (chose: "design-map.json only (Recommended)"): `design.md` stays owner-only; the system's version and code commit live in each `design-map.json`. On B2 the owner asked about wall-clock cost ("I like B2 but worry it would add a lot of wall clock time") and accepted it as a cheap check: compare the canvas version with the last sync, read boards only when it changed. On B6/B8/B10 the owner asked to "balance a logical flow with not overengineering" and accepted all three as removing contradictions without adding machinery |
 
+### Challenge-pass findings B1–B14, as the owner accepted them (2026-11-04)
+
+The text of each finding the row above accepts, copied verbatim from the challenge-pass table
+of the `/refine-prd` session (transcript `7348a86a-641c-4089-9f06-0c4cf6808534`), so that
+"ruling Bn" in the PRD resolves here. Added by `/audit-prd`, 2026-11-04; no wording changed.
+
+| Action | ID | Line as written, or the issue text it misses | Citation |
+|---|---|---|---|
+| add-back | B1 | The stale-system check sits only in AC-F8.1 (`/create-design`). | Issue, "Code and design system": "Every design command runs `git log <code_commit>..HEAD -- <paths>`". |
+| add-back | B2 | F5's description says the sync runs "at the start and end of every design command", but no acceptance criterion carries it. | Issue, "Canvas and repository: `design-mirror.js`, run at the start and end of every design command". |
+| add-back | B3 | No criterion covers `/design-system` installing the system on the product's canvases. AC-F6.5 covers only the `--sync` reinstall. | Issue, Commands: "installs it on the product's canvases". |
+| record-rejection | B4 | Wrappers for Vue, Svelte, Angular and Web Components are neither a requirement nor a Non-Goal. AC-F4.4 says "no bundle, so parts are used". | Issue stack table: "React wrapper per component" and "real, through a thin React wrapper". The issue's Libraries row says "Others: none". Revisit if a product on one of those stacks needs the structure check. |
+| record-rejection | B5 | Nothing records that the downstream orchestrator fixes its own stale `create-design` references. | Issue, Decisions: "which it fixes on its own side". |
+| merge | B6 | AC-F12.1: "Only `approved` and `shipped` to-be boards are requirements". But AC-F11.3 moves boards to `building` at TRD time, so during `/implement-trd` no board qualifies. Fix: include `building`. | Issue Edits row (verify-design-comparison) vs "From design to code", first bullet. |
+| merge | B7 | AC-F6.2: `/design-system` "Records the system's version and code commit in `design.md`". That contradicts F1, where only the owner changes `design.md`. Fix: keep the version in `design-map.json` only, or state this as the one exception. | Issue, "Owner-governed rules" vs Commands row; `verification.md` says "No autonomous run edits this file". |
+| merge | B8 | NFR-3 says every canvas is "listed in each `design-map.json`", but the AC-F2.1 schema has a single `canvas` object. | Issue, Open risks vs issue schema. |
+| merge | B9 | AC-F5.5: "The fourth case (neither changed) changes nothing". The issue's four sync cases are canvas changed, repository changed, both changed, and publish refused. Fix: fold this criterion into AC-F5.6. | Issue, "Keeping things in sync", the four bullets; phase 1 "all four sync cases". |
+| merge | B10 | AC-F3.3 renders "at the commit the board was approved", but the schema has no approval commit, only `shipped_commit`. Fix: leave where it comes from to the TRD, as OQ-8 did. | Issue schema vs issue "How the frames are made". |
+| merge | B11 | NG12 ("Machinery beyond what each criterion needs") repeats NFR-1 and is not a specific exclusion. | The PRD quality standard: non-goals must be specific. |
+| merge | B12 | AC-F1.7 has `design.md` record credential locations. The issue has sign-in point at `verification.md`, which already holds them. Fix: fold into AC-F1.3 as "points at `verification.md` §3; holds no credential". | Issue, "How to reach a screen ... pointing at `verification.md` environments". |
+| lower | B13 | AC-N3: "A design past 512 files is split per epic flow ... Unit test". This is automatic split machinery; the issue states a convention. Fix: lower to "the map can list more than one canvas". | Issue, Open risks: "Past 512 files, one canvas per epic flow, all listed in each `design-map.json`"; owner: "don't over engineer this". |
+| lower | B14 | AC-F9.6: "May let a single agent publish a single board". A permission cannot be tested, and under OQ-7 the main session publishes. Fix: move it to a note in F9's description and keep the permission. | Issue: "`/refine-design` may let a single agent publish a single board"; ruling OQ-7. |
+
 ## Superseded
 
 | Earlier position | Replaced by | Why |

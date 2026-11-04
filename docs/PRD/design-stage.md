@@ -1,6 +1,6 @@
 # PRD: Design stage on the Claude canvas
 
-**Version**: 1.2.0
+**Version**: 1.2.1
 **Status**: Draft
 **Created**: 2026-11-03
 **Last Updated**: 2026-11-04
@@ -11,9 +11,11 @@
 `docs/plan/design-stage.issue-58.md` (cited below as "the issue", with its section name). What
 this session added is in `docs/PRD/design-stage.brief.md` ("the brief"); its table "Owner
 rulings, `/refine-prd` 2026-11-04" holds the owner's eight answers, which win over the issue
-where they differ (cited below as "ruling OQ-n"). The phase-0 spike
-record is `.trd-state/task-issue-58-phase-0-spike/findings.md` ("findings"), with its evidence
-beside it.
+where they differ (cited below as "ruling OQ-n"); the fourteen challenge-pass findings the owner
+accepted are in its table "Challenge-pass findings B1–B14, as the owner accepted them" (cited
+below as "ruling Bn"). The phase-0 spike record is
+`.trd-state/task-issue-58-phase-0-spike/findings.md` ("findings"), with its evidence in the
+`evidence/` directory beside it.
 
 **The owner's instruction for this PRD, verbatim:** "Build per our design but don't over
 engineer this. Use our existing patterns". Read as the brief records it: the issue's scope is
@@ -28,7 +30,8 @@ parts exist. Every part of the issue is either a feature below or a stated Non-G
 |---------|------|---------|--------|
 | 1.0.0 | 2026-11-03 | Initial PRD from issue #58, the session brief and the phase-0 spike findings | @product-manager |
 | 1.1.0 | 2026-11-04 | The owner's eight rulings applied (`/refine-prd`, interactive). **Changed:** AC-F13.4 — only an owner ruling accepts a build that differs from its board; a TRD decision does not, so the PRD now agrees with `verification-artifacts` D14 (OQ-2). F9 — runs in the main session like `/refine-prd`, no workflow; AC-F9 verification method no longer says "Workflow test" (OQ-7). Priorities — issue phases 1–4 are P0, phase 5 is P1: F10, F11, F12 and F14 move to P0, F13 stays P1, F13 moved below F14 so the P0 and P1 sections are contiguous; G4 and G5 move from P1 to P0 (OQ-1). NFR-2 and AC-N2 — `ensemble.publishArtifacts: false` ends the same way as no artifact access: write the repository copy and renders, end STUCK naming the publish step (OQ-5). AC-F8.1 — on a stale design system, draw against the installed one, record the drift in `design-map.json` and ISSUES, put `/design-system --sync` first in NEXT, no mid-run question (OQ-3). AC-F1.4 and AC-F1.6 — the 4.5:1 and 44 px values move out of what `design.md` must record and into what `/design-setup` offers as a default; `design.md` records the owner's answer (OQ-6). AC-F8.5 — a still-differing as-is board carries a mark downstream checks can read; the TRD names the field (OQ-8). R5 mitigation now points at AC-F14.3. **Added:** AC-F14.3 — `/audit-docs` skips `docs/ui/` (OQ-4); NG13 (no `refine-design.js`); Decisions rows for the `refine-design.js` workflow and for a TRD decision accepting a difference; a "Resolved by the owner, 2026-11-04" table. **Removed:** the Supersedes row that overrode D14 and the Decisions row "Superseded for `/sync-design`"; all eight Open Questions rows (OQ-1 to OQ-8), now in the resolved table; the "my assignment, not the source's" priority note; the R5 contingency. F15 (phase-0 remainder) stays P1: the scope ruling covers phases 1–5 only | @product-manager |
-| 1.2.0 | 2026-11-04 | The owner accepted all fourteen challenge-pass findings on 1.1.0 (B1–B14; the brief, "Owner rulings", row dated 2026-11-04, cited below as "ruling Bn"). **Added:** AC-F6.9 — every design command, not only `/create-design`, checks whether the design system is older than the code it was built from, with OQ-3's carry-on behaviour; `/audit-design` reports the drift rather than writing the map, as it is report only (B1). AC-F5.9 — every design command starts with a cheap check: the canvas version against the last synced version in the map, reading boards only when it changed; the end-of-command half is the publish each command already does (B2); a Could Not Verify row for that version lookup. AC-F6.8 — `/design-system` installs the system on the product's canvases on its first build, not only on `--sync` (B3). NG14 — no React wrappers for Vue, Svelte, Angular or Web Components (B4). NG15 — Forge's stale `/create-design` references are Forge's to fix (B5). **Changed:** AC-F12.1 — `building` boards are requirements alongside `approved` and `shipped` (B6). AC-F6.2 — the system's version and code commit go in each `design-map.json` only, never in `design.md`, which stays owner-only (B7). AC-F2.1 and AC-F5.1 — the map holds a `canvases` list, each entry with `url`, `version`, `synced_at` (B8). AC-F5.6 — now also states the unit tests cover the issue's four sync cases: canvas changed, repository changed, both changed, publish refused (B9). AC-F3.3 — the approval commit stays; where it is recorded is the TRD's choice (B10). AC-F1.3 — sign-in points at `verification.md` §3 and `design.md` holds no credential (B12). NFR-3 and AC-N3 — the map can list more than one canvas, one per epic flow; no automatic 512-file split (B13). F9 description — carries the single-agent publish permission as a note (B14). AC-F8.1 points at AC-F6.9. **Removed:** AC-F5.5 "neither changed" (B9); NG12 (B11); AC-F1.7, folded into AC-F1.3 (B12); AC-F9.6, now a note (B14); the matching rows in the acceptance-criteria summary. Removed IDs are not reused | @product-manager |
+| 1.2.0 | 2026-11-04 | The owner accepted all fourteen challenge-pass findings on 1.1.0 (B1–B14; the brief, "Challenge-pass findings B1–B14, as the owner accepted them", cited below as "ruling Bn"; the acceptance itself is the brief's "Owner rulings" row dated 2026-11-04). **Added:** AC-F6.9 — every design command, not only `/create-design`, checks whether the design system is older than the code it was built from, with OQ-3's carry-on behaviour; `/audit-design` reports the drift rather than writing the map, as it is report only (B1). AC-F5.9 — every design command starts with a cheap check: the canvas version against the last synced version in the map, reading boards only when it changed; the end-of-command half is the publish each command already does (B2); a Could Not Verify row for that version lookup. AC-F6.8 — `/design-system` installs the system on the product's canvases on its first build, not only on `--sync` (B3). NG14 — no React wrappers for Vue, Svelte, Angular or Web Components (B4). NG15 — Forge's stale `/create-design` references are Forge's to fix (B5). **Changed:** AC-F12.1 — `building` boards are requirements alongside `approved` and `shipped` (B6). AC-F6.2 — the system's version and code commit go in each `design-map.json` only, never in `design.md`, which stays owner-only (B7). AC-F2.1 and AC-F5.1 — the map holds a `canvases` list, each entry with `url`, `version`, `synced_at` (B8). AC-F5.6 — now also states the unit tests cover the issue's four sync cases: canvas changed, repository changed, both changed, publish refused (B9). AC-F3.3 — the approval commit stays; where it is recorded is the TRD's choice (B10). AC-F1.3 — sign-in points at `verification.md` §3 and `design.md` holds no credential (B12). NFR-3 and AC-N3 — the map can list more than one canvas, one per epic flow; no automatic 512-file split (B13). F9 description — carries the single-agent publish permission as a note (B14). AC-F8.1 points at AC-F6.9. **Removed:** AC-F5.5 "neither changed" (B9); NG12 (B11); AC-F1.7, folded into AC-F1.3 (B12); AC-F9.6, now a note (B14); the matching rows in the acceptance-criteria summary. Removed IDs are not reused | @product-manager |
+| 1.2.1 | 2026-11-04 | `/audit-prd` against the issue. **Fixed citations:** "ruling Bn" now resolves to the brief's table "Challenge-pass findings B1–B14, as the owner accepted them", added to the brief verbatim from the `/refine-prd` session (the "Owner rulings" row records only the acceptance); NG5 names `packages/core/commands/augment-trd-figma.md`; the spike evidence is in `evidence/` beside findings.md. **Changed:** AC-F8.3 — the brief round asks only about open decisions with no reasonable default (`autonomy.md` case 1), never under `--auto`, so it agrees with NFR-4 and AC-N4. NFR-7 names the `flutter-widget` fixture's path. **Removed:** the Could Not Verify row for the `flutter-widget` fixture (checked: it exists). Could Not Verify now says, per row, why it is still open | @product-manager |
 
 ---
 
@@ -166,7 +169,7 @@ phase 0 brought up to date by findings. Priorities are the owner's (ruling OQ-1)
 | NG2 | An implement-design command | The issue, Decisions: `/create-trd` and `/plan` take a design as their source |
 | NG3 | A separate command for modifying existing screens | The issue, Decisions: it is `/create-design`'s default mode (as-is boards) |
 | NG4 | Vendoring the Design type's canvas rules into a skill | The issue, Decisions: read live on every run, because they change release to release |
-| NG5 | Changes to `commands/augment-trd-figma.md` | The issue, Edits: "Unchanged" |
+| NG5 | Changes to `packages/core/commands/augment-trd-figma.md` (and its vendored copy, `.claude/commands/augment-trd-figma.md`) | The issue, Edits: "Unchanged" |
 | NG6 | Changes to `verify-data-fidelity` | The issue, Testing against the design: "(unchanged)"; it is selected, not edited |
 | NG7 | PPTX, "Send to app" or "Handoff to Claude Code" export | Not on this canvas surface (the issue, Evidence: Export) |
 | NG8 | Removing a "confirm with the client" step from `packages/skills/frontend-design` | No such step exists in this repository's skill (see F14 and Supersedes). The plugin skill `frontend-design:frontend-design` is not this repository's to edit |
@@ -307,7 +310,7 @@ Workflow `create-design.js` (the issue, "Workflow: what `/create-design` does").
 **Acceptance Criteria**:
 - [ ] AC-F8.1: **Resolve.** Reads `design.md`; if missing, STUCK with "run `/design-setup`". Reads the Design type's `SKILL.md` and references. Checks that the recorded `code_commit` still matches the component and token paths (`git log <code_commit>..HEAD -- <paths>`, AC-F6.9); on a mismatch it carries on and draws against the installed system, records the drift in `design-map.json` and under ISSUES, and puts `/design-system --sync` first in NEXT. It asks no mid-run question (ruling OQ-3).
 - [ ] AC-F8.2: **Ground.** Read-only agents in parallel write `grounding/`: `screens.md` (with screenshot paths, captured if missing), `components.md` (props and where each is used), `flows.md`, `data.md` (fields the backend actually returns), `standards.md`; competitor patterns optionally.
-- [ ] AC-F8.3: **Brief.** One agent writes `brief.md`: screens and their states (empty, loading, error); per board the existing components and views it reuses, and anything new with its reason; open decisions. With a person present it asks one round of at most four questions written from the material; otherwise it decides and records the assumptions.
+- [ ] AC-F8.3: **Brief.** One agent writes `brief.md`: screens and their states (empty, loading, error); per board the existing components and views it reuses, and anything new with its reason; open decisions. With a person present it asks one round of at most four questions written from the material (the issue, step 3), each about an open decision the material leaves with no reasonable default — `autonomy.md` case 1, so the round is not a checkpoint; a decision that has a default is decided, not asked. Under `--auto`, or with no person present, it asks nothing and records every assumption in `brief.md`.
 - [ ] AC-F8.4: Every board cites its `brief_items`, and every brief item cites its PRD or issue source.
 - [ ] AC-F8.5: **As-is boards** (default; skipped with `--new` for screens with no predecessor). Each screen in scope gets an as-is board rebuilt from real components or parts, rendered, and compared with the current screenshot; a board that still differs carries a mark in the map that the downstream checks (F12, F13) can read, and is never silently kept. Which field holds the mark is the TRD's choice (ruling OQ-8).
 - [ ] AC-F8.6: **Parts first.** One agent writes the shared parts the design system lacks.
@@ -428,7 +431,7 @@ design, all inside the existing functional-verification loop (`/implement-trd`,
 | NFR-4 | Design commands run autonomously per `autonomy.md`; `/refine-design` is interactive by default and obeys the rule under `--auto` | constitution.md Prohibited Pattern 8; `autonomy.md`; the issue, Commands |
 | NFR-5 | Every design command ends with the four-section readout and a COMMAND COMPLETE/STUCK banner, the canvas link above it | constitution.md Prohibited Pattern 7; `command-status.md`; the issue, step 8 |
 | NFR-6 | No published board or design-system page contains a credential | `command-status.md`, "Never publish a document that contains a credential" |
-| NFR-7 | Libraries have unit tests (bundle, render, mirror, map as listed in F2–F5); workflows have tests on `test-harness.js`; live runs on fixtures — one React web, one React Native, the `flutter-widget` variant (parts only) — plus the 44-board flow as the real case | The issue, "Testing this work"; stack.md (Jest, Node 18+) |
+| NFR-7 | Libraries have unit tests (bundle, render, mirror, map as listed in F2–F5); workflows have tests on `test-harness.js`; live runs on fixtures — one React web, one React Native, the `flutter-widget` variant (parts only; `ensemble-vnext-test-fixtures/variants/<variant>/flutter-widget/`, the `fixture_path` in `test/evals/specs/dev-loop/dev-loop-flutter.yaml`) — plus the 44-board flow as the real case | The issue, "Testing this work"; stack.md (Jest, Node 18+) |
 
 ---
 
@@ -562,17 +565,22 @@ Answered in `/refine-prd`; the answers are verbatim in the brief, "Owner rulings
 
 ## Could Not Verify
 
-| Claim | How I'd check it |
-|-------|------------------|
-| The Design type's `SKILL.md`, `format.md`, `design-system-components.md`, `view-state.md`, `print.md`, `make-from-this.md` and the Design System type's `from-code.md`, `from-design-tool.md` exist and can be read live by a command | `Artifact` `action: "list", scope: "types"`, then `read` with the Design type's `type_url` |
-| The type ships `artifact-type/dc-runtime.js`, usable as `support.js` for a local render | Read the Design type's files listing |
-| A canvas holds 512 files and up to 4 design systems; it has no version history; a canvas's copy of a design system never updates by itself | The Design type's references |
-| The installed design system (`project/ds/` plus a `designSystems` record) draws on the hosted canvas | AC-F6.7 live run |
-| The NativeWind board's components visibly draw on the hosted page (owner comments suggest it) | AC-F15.1 screenshot |
-| The james account can publish from an orchestrator-started session | AC-F15.2 |
-| Standalone claude.ai/design and `DesignSync` close on Dec 14, 2026 | The issue's own claim; check the platform announcement |
-| A `flutter-widget` fixture exists to run on — only a log line `[2/5] flutter-widget... PASS` in `test/evals/scripts/prepare-all-fixtures.sh` was seen | `ls` the eval fixtures directory that script prepares |
-| The plugin skill `frontend-design:frontend-design` has the "confirm with the client" step the issue meant | Read that plugin's `SKILL.md` |
-| `verify-design-comparison` today takes a route manifest that `design-map.json` can replace — its `SKILL.md` names "a routes file, or a manifest mapping frame stem to the navigation path" | Read the skill's Inputs and Capture sections end to end |
-| A canvas's current version can be read without reading its boards (AC-F5.9's cheap check). Belief, not fact | `Artifact` `action: "list"` shows last-updated per artifact; check whether it, or a `read` header, carries the version `design-map.json` records |
-| Spike results (findings §(b), §(c), §(d)) — read from findings.md, not re-run | The evidence files beside findings.md: `local-render-probe.json`, `workflow-agent-publish.json`, `accounts/*.json` |
+Rewritten by `/audit-prd`, 2026-11-04. That audit checked this PRD against the issue, the
+brief, findings and this repository's files. It did not read the live Design types, run
+anything on a canvas or open plugin files outside this repository, so the rows below stay open.
+Checked and confirmed, so removed: the `flutter-widget` fixture exists
+(`ensemble-vnext-test-fixtures/variants/baseline/flutter-widget/`, plus five other variants).
+
+| Claim | How I'd check it | Why still open |
+|-------|------------------|----------------|
+| The Design type's `SKILL.md`, `format.md`, `design-system-components.md`, `view-state.md`, `print.md`, `make-from-this.md` and the Design System type's `from-code.md`, `from-design-tool.md` exist and can be read live by a command | `Artifact` `action: "list", scope: "types"`, then `read` with the Design type's `type_url` | Live Artifact types were outside this audit, which read files only |
+| The type ships `artifact-type/dc-runtime.js`, usable as `support.js` for a local render | Read the Design type's files listing | Same: needs a live read of the Design type |
+| A canvas holds 512 files and up to 4 design systems; it has no version history; a canvas's copy of a design system never updates by itself | The Design type's references | Same: needs a live read of the Design type |
+| The installed design system (`project/ds/` plus a `designSystems` record) draws on the hosted canvas | AC-F6.7 live run | Needs a live canvas run; the spike did not prove it (findings §(a)) |
+| The NativeWind board's components visibly draw on the hosted page (owner comments suggest it) | AC-F15.1 screenshot | Needs the owner's screenshot of the hosted canvas |
+| The james account can publish from an orchestrator-started session | AC-F15.2 | Needs a run under that account |
+| Standalone claude.ai/design and `DesignSync` close on Dec 14, 2026 | The issue's own claim; check the platform announcement | An external announcement; this audit read only repository files |
+| The plugin skill `frontend-design:frontend-design` has the "confirm with the client" step the issue meant | Read that plugin's `SKILL.md` | The plugin is installed outside this repository and was not opened |
+| `verify-design-comparison` today takes a route manifest that `design-map.json` can replace — its `SKILL.md` names "a routes file, or a manifest mapping frame stem to the navigation path" | Read the skill's Inputs and Capture sections end to end | No verifier raised it and this audit did not read the skill end to end |
+| A canvas's current version can be read without reading its boards (AC-F5.9's cheap check). Belief, not fact | `Artifact` `action: "list"` shows last-updated per artifact; check whether it, or a `read` header, carries the version `design-map.json` records | Needs a live Artifact call against a canvas |
+| Spike results (findings §(b), §(c), §(d)) — read from findings.md, not re-run | The evidence files in `.trd-state/task-issue-58-phase-0-spike/evidence/`: `local-render-probe.json`, `workflow-agent-publish.json`, `accounts/*.json` (all present) | The files exist; nobody re-ran the spike or compared each result with findings.md |

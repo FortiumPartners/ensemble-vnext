@@ -5,5 +5,11 @@
     "url": "https://claude.ai/artifact/AmxTYwxnuWarFT6iVyvrbL",
     "updated_at": "2026-11-04T16:37:06.482Z",
     "command": "/refine-prd"
+  },
+  "audit-prd": {
+    "path": ".trd-state/design-stage/audit-prd-report.md",
+    "url": "",
+    "updated_at": "2026-11-04T17:22:17.419Z",
+    "command": "/audit-prd"
   }
 }
