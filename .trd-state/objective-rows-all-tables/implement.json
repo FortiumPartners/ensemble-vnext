@@ -1,0 +1,53 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/objective-rows-all-tables.md",
+  "branch": "feature/objective-rows-all-tables/impl",
+  "strategy": "bug-fix",
+  "phase_cursor": 2,
+  "tasks": {
+    "FIX-001": {
+      "description": "objectiveRows() reads every table under ## Objectives",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/spec-scope.js",
+        ".claude/lib/spec-scope.js",
+        "packages/core/lib/spec-scope.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:08:50.185Z",
+      "completed_at": "2026-11-04T23:11:26.994Z",
+      "last_advanced": "2026-11-04T23:10:15.841Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "a54f93a",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-04T23:11:27.276Z"
+    }
+  ],
+  "recovery": {
+    "interrupted": false,
+    "last_healthy_checkpoint": "a54f93a",
+    "last_checkpoint_timestamp": "2026-11-04T23:11:27.276Z",
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "reproduction",
+    "prd_path": "docs/TRD/objective-rows-all-tables.md § Reproduction",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {}
+  },
+  "created_at": "2026-11-04T23:08:50.185Z"
+}

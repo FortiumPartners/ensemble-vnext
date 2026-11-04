@@ -1,0 +1,12 @@
+{
+  "feature": "objective-rows-all-tables",
+  "trd": "docs/TRD/objective-rows-all-tables.md",
+  "closedAt": "2026-11-04T23:17:15Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this is a defect TRD with no PRD, so the audit checked only that the code does what the TRD asks)",
+    "report": ".trd-state/objective-rows-all-tables/audit-build-report.md",
+    "auditedCommit": "5248df2"
+  }
+}
