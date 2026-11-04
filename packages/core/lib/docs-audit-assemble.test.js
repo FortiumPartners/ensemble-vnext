@@ -139,6 +139,13 @@ describe('inventory and git state (AC-F1.1, AC-F1.4)', () => {
     expect(a.batches.flatMap((b) => b.docs)).toEqual(['docs/PRD/a.md']);
   });
 
+  test('files under docs/ui/ are not inventoried (D21, AC-F14.3)', () => {
+    const repo = mkRepo();
+    commitFiles(repo, 'seed', { 'docs/PRD/a.md': PRD_BODY, 'docs/ui/x/brief.md': '# brief\n' });
+    put(repo, 'docs/ui/x/untracked.md', '# u\n');
+    expect(run(repo).files.map((f) => f.path)).toEqual(['docs/PRD/a.md']);
+  });
+
   test('a tracked file deleted from the working tree is not inventoried', () => {
     const repo = mkRepo();
     commitFiles(repo, 'seed', { 'docs/PRD/a.md': PRD_BODY, 'docs/PRD/b.md': PRD_BODY });

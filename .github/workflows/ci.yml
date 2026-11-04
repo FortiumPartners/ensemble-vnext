@@ -47,6 +47,11 @@ jobs:
       # lockfile pins, so a broken lockfile would pass CI silently. `npm ci`
       # was verified clean against this lockfile on 2026-09-25; no fallback.
       - run: npm ci
+      # design-render.test.js and design-bundle.test.js drive a real headless Chromium. `npm ci`
+      # installs Playwright as a library only, so without this step those suites fail (they do not
+      # skip) with "run `npx playwright install chromium`" (DSGN-B003, D13).
+      - name: Install Chromium for the design render tests
+        run: npx playwright install --with-deps chromium
       # No suite is currently excluded from CI as "known-failing". The three
       # that were (status.test.js, judge.test.js, run-eval.test.js) all
       # actually passed — 67, 60 and 42 tests respectively — verified

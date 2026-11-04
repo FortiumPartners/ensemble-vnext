@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stateful board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width: 320px; height: 200px; box-sizing: border-box; padding: 24px; background: #f8fafc; color: #0f172a; font-family: monospace">
+<sc-if value="{{isEmpty}}"><p>EMPTY STATE</p></sc-if>
+<sc-if value="{{!isEmpty}}"><p>FILLED STATE</p></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":200},"empty":{"type":"boolean","default":false}}'>
+class Component extends DCLogic {
+renderVals() {
+return { isEmpty: this.props.empty === true };
+}
+}
+</script>
+</body>
+</html>

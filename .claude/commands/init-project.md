@@ -385,6 +385,9 @@ files generated above. Currently:
 - `verification.md` — copied unfilled; it describes the environments, resource
   capacity and coverage floor a functional-verification run needs and none of this
   project's own. It is owner-governed: run `/verification-setup` to fill it in.
+- `design.md` — copied unfilled; it describes the design system, per-platform
+  settings, how to reach a screen and the design rules the design commands need. It is
+  owner-governed: run `/design-setup` to fill it in.
 
 Verify each framework rule landed under `.claude/rules/`. If `async-discipline.md` is
 missing, copy it manually from the template path above — the Stop hook will block

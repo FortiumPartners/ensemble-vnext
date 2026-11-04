@@ -26,10 +26,11 @@ const rec = (kind, entry, opts) =>
   artifacts.record(stateDir, kind, { command: '/create-prd', ...entry }, { root, now: NOW, ...opts });
 
 describe('KINDS', () => {
-  it('lists the nine document kinds', () => {
+  it('lists the eleven document kinds', () => {
     expect(artifacts.KINDS).toEqual([
       'prd', 'trd', 'audit-prd', 'audit-trd', 'success-definition',
       'verification-plan', 'verification-report', 'audit-build', 'report',
+      'design', 'audit-design',
     ]);
   });
 
