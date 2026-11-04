@@ -38,9 +38,11 @@ rest. Every must-pass consumer goes through this one function: the CLI `objectiv
 
 ## Decision
 
-Read every table in the Objectives span: `findTables(...).flatMap(parseObjectiveTable)`, in
-document order. Nothing filters tables by header. The section is the TRD's objectives by
-definition, and inventing a header test would be a new rule nobody asked for.
+Read every table in the Objectives span, in document order: the first table as today, and a
+later table only when its first column is `ID`. Revised during implementation, 2026-11-04: the
+first version read every table unfiltered, and the end-of-run review showed that a metrics or
+glossary table under a `###` subsection of `## Objectives` would then be read as objectives,
+breaking O2. The `ID` test is the one `trd-parser.js` already uses to find an id column.
 
 `renderObjectives()` keeps editing only the first table. It serves the spec path, which always
 writes a single table, so it is not in this defect's path.
