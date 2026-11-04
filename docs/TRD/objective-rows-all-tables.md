@@ -17,6 +17,10 @@
 
 `node .claude/lib/spec-scope.js objectives --trd docs/TRD/design-stage.md`
 
+`docs/TRD/design-stage.md` lives on branch `58-design-prd` (last changed in commit 2978849), not on
+this feature's branch; to run the step here, check it out from that branch first
+(`git show 58-design-prd:docs/TRD/design-stage.md`).
+
 ### Actual
 
 It returns 6 rows, the Goals table only, and none is marked must-pass [ran]. The section holds
@@ -81,4 +85,7 @@ None.
 
 ## Could Not Verify
 
-None.
+- **Fidelity to a product requirement: not checked.** This is a defect TRD with no PRD
+  (`Source PRD: None`), so `/audit-build` (2026-11-04) checked only that the delivered code
+  does what this TRD's objectives and task require. O1 and O2 trace to the reproduction and to
+  the owner's `/plan` instruction, not to a product document.
