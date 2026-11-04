@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "prd": {
+    "path": "docs/PRD/design-stage.md",
+    "url": "https://claude.ai/artifact/AmxTYwxnuWarFT6iVyvrbL",
+    "updated_at": "2026-11-04T07:32:59.007Z",
+    "command": "/create-prd"
+  }
+}
