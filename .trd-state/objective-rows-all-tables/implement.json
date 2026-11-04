@@ -3,7 +3,7 @@
   "trd_file": "docs/TRD/objective-rows-all-tables.md",
   "branch": "feature/objective-rows-all-tables/impl",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "objectiveRows() reads every table under ## Objectives",
@@ -23,9 +23,21 @@
       "last_advanced": "2026-11-04T23:10:15.841Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "a54f93a",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-04T23:11:27.276Z"
+    }
+  ],
   "recovery": {
-    "interrupted": false
+    "interrupted": false,
+    "last_healthy_checkpoint": "a54f93a",
+    "last_checkpoint_timestamp": "2026-11-04T23:11:27.276Z",
+    "interrupt_reason": null
   },
   "functional_verification": {
     "prd_resolved": true,

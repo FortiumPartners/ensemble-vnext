@@ -380,7 +380,9 @@ function parseObjectiveTable(table) {
 }
 
 /**
- * Every row of the TRD's Objectives table: `{id, text, mustPass[, invalidValue]}`.
+ * Every row of the TRD's Objectives tables, in document order: the first table in the section,
+ * then each later one whose first column is `ID`.
+ * `{id, text, mustPass[, invalidValue]}`. Ids are not de-duplicated across tables.
  * `invalidValue` is present only for a Must pass cell that is neither blank, `no` nor `yes`.
  */
 function objectiveRows(trdMarkdown) {
@@ -388,7 +390,12 @@ function objectiveRows(trdMarkdown) {
   const obj = objectivesSpan(masked);
   if (!obj) return [];
   // Every table in the span, in document order: a TRD may split its objectives across several.
-  return findTables(masked, obj.start, obj.end).flatMap(parseObjectiveTable).map(({ rawMark, ...r }) => r);
+  // The first is read as today; a later one only when its first column is `ID`, so a table of
+  // something else under a `###` subsection (metrics, a glossary) is not read as objectives.
+  return findTables(masked, obj.start, obj.end)
+    .filter((t, i) => i === 0 || /^id$/i.test(cleanCell(t.headerCells[0] || '')))
+    .flatMap(parseObjectiveTable)
+    .map(({ rawMark, ...r }) => r);
 }
 
 /**

@@ -965,3 +965,8 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [ran] `/task` fixtures: run `node <abs>/.claude/lib/artifacts.js record ...` with cwd set to a temp project root (artifacts.js resolves `--path` against cwd; absolute paths and `..` escapes are rejected, a directory gives `not a file`, all exit 1 with artifacts.json untouched). `recordResult(s, id, {status:'deferred', error})` stores `current_problem` and leaves `retry_count` at 0.
 
 - [ran] `/task` state fixture (prompt-form and brief-form): `.trd-state/task-command/evidence/fs19/run.js` builds a temp dir with `save`, `recordResult` (success + deferred), `checkpoint`, `artifacts.js record --state-dir ... --kind report`, then closed.json; read back consistent in `readback.txt`. Run with `node` from any cwd (it chdirs into the fixture).
+
+## Exercising spec-scope.js objectives / must-pass-coverage (2026-11-04, `objective-rows-all-tables`)
+
+- [ran] `node .claude/lib/spec-scope.js objectives --trd <trd>` prints JSON `[{id,text,mustPass}]`; `node .claude/lib/functional-verification.js must-pass-coverage --trd <trd> --definition <sd.md>` prints `{criteria,uncovered,unknown}` and lists only UNCOVERED objectives, so a must-pass id appears in its output only when the definition does not mark it. Use a definition with an empty `Must pass` column to see all declared must-pass ids.
+- [ran] `functional-verification.js` exports no `mustPassCoverageFromFiles`; use the `must-pass-coverage` CLI subcommand. `criteria`/`check` need a spec file with a `### Acceptance criteria` section plus a TRD with `**Source spec**: <path> § <section>`.
