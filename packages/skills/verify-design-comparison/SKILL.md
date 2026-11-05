@@ -72,8 +72,9 @@ render as their own card in Page, below).
 - An **as-is board** not replaced by an in-scope to-be board is a **regression baseline**: a
   screen the design did not mean to change must still match it, and it yields a `DC-` row too,
   except a board with `screenshot_match: false`, which yields none (its `mismatch_note` says why).
-- A **parts** or **flow** board has no screen route, so it yields no `DC-` row here; a parts
-  board's components are checked by `verify-design-structure`.
+- A **parts** or **flow** board has no screen route, so it yields no `DC-` row here. A parts
+  board has no components to walk either: `verify-design-structure` gives it a row reported "not
+  verifiable here" (AC-F12.5), so it is visible in the report rather than silently unchecked.
 - The verdict stays model judgement per frame, as in Rubric below; the map decides which frames
   are checked, never whether they match.
 

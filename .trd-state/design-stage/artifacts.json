@@ -27,8 +27,8 @@
   "verification-report": {
     "path": ".trd-state/design-stage/verification-report.md",
     "url": "https://claude.ai/artifact/7s2fXpXjAw3Jb6zQcBNa4S",
-    "updated_at": "2026-11-05T00:48:33.455Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-05T06:48:07.006Z",
+    "command": "/verify-build"
   },
   "success-definition": {
     "path": ".trd-state/design-stage/success-definition.md",

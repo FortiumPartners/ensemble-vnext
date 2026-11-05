@@ -53,6 +53,16 @@ The viewport must be the page's real layout width, not a window size:
 - Before saving, read `window.innerWidth` in the page. If it is not the viewport width, the
   capture is wrong: fix the method and capture again; do not keep the image.
 
+A right width is not enough: after saving, look at the image. One that shows anything the page
+does not render is a capture error too: a repeated nav or card (a second copy of the top of the
+page further down), a blank or black band, content cut off or shifted. The source decides what
+the page renders; a screenshot that disagrees with it is wrong, not the board. Capture it again
+in a fresh browser context (a new context and page, wait for the network to go idle, then
+screenshot the viewport) and look again. If the recapture is still wrong, delete the file: never
+keep it, and never commit it. Record the screen's screenshot as unavailable in `screens.md`
+with the reason ("capture error: <what the image showed>"). A note that a screenshot is "worth
+recapturing" is never the outcome: recapture it.
+
 If the screen cannot be reached (environment not listed in `verification.md`, credentials
 unavailable), keep any earlier screenshot only if you say how old it is, otherwise record
 `screenshot_match: false` and the reason rather than inventing an image.

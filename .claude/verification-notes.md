@@ -1042,3 +1042,35 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] `/create-design --auto <brief>` in the react-native trusted folder completed in 13.5 min (4 boards, canvas published, 11 PNGs). The implementer subagent transcript lives at `.../<session>/subagents/workflows/wf_*/agent-*.jsonl`; a Read of `canvas/project/part-toggle.dc.html` is visible there.
 - [ran] The settings-screen fixture map has `links: []` and no data fields, so `/create-trd` omits verify-flow-as-built and verify-data-fidelity; FS-55 and FS-56 need a fixture design with links and data. No board of each status and no flutter-widget fixture exist (FS-53/54/71 flutter part).
 - [ran] Canvas comments cannot be created by any tool here; FS-42 and the "approved" comment channel of FS-43 stay owner-attended.
+
+## Design-stage fix round 1 (2026-11-05)
+
+- [ran] Editing a hosted canvas from here: `Artifact` `read` of the page (`page: true`) is NOT what unlocks a publish; publish with `url`, `root: <folder holding project/>`, `file_path: <abs path of one changed board>` and the other boards in `files` (`"project/x.dc.html": "project/x.dc.html"`), after `read`ing the boards. Sending `files` with absolute sources and no `root` was refused as "not viewed latest".
+- [ran] Live `/refine-design settings-screen --auto` with a canvas-only edit (part-toggle) and a both-changed board (01-settings) now commits `design: adopt canvas edits (part-toggle, 01-settings)`, keeps `01-settings.repo.dc.html`, and lists the conflict under ISSUES; the map's `canvases[].files` hashes are NOT re-derived (the run says the last-synced version advances only on a publish).
+- [ran] In `/refine-design` NEXT, the conflict step came before `/design-system --sync`; FS-27 asks for the sync first.
+- [ran] `/audit-design` with a stale design system put the drift under STATE (not ISSUES) and omitted `/design-system --sync` from NEXT; `/sync-design` ran `/design-system --sync` itself and cleared the drift rather than recording it.
+- [ran] `/create-design --auto` with `publishArtifacts: false` now ends STUCK "publish step not run: ensemble.publishArtifacts is false" after writing and committing docs/ui/<slug>/ (12 min).
+- [ran] `/create-trd <prd> --design <dir>` took under 10 min; with one approved and one draft to-be board it built only from the approved board and named `grounding/data.md` and the map `links` in its Verification Artifacts rows once the fixture app read data from `public/api/trips.json` and the map had links.
+- [ran] `/implement-trd` on that TRD took about 25 min; `/verify-build --no-fix` after widening the TRD's design-comparison row to every board took 12 min and judged requirements (building, approved, shipped) and the as-is baseline per frame.
+- [ran] Fixture additions in react-web (committed in its own git): `public/api/trips.json` and a data-reading TripsPage, docs/PRD/home-trips.md, docs/ui/home-trips, boards 03-trips-approved and 04-trips-shipped (copies of 02-trips). Start its server with `npm run web` (port 3110) and stop it by PID.
+- [ran] `docs/ui/_current/home-390x844.png` captured by the ground stage shows a stray second nav at y~780 (capture artefact); the Trips pair matches the as-is board.
+
+## Design-stage fix round 1, iteration 2 (2026-11-05)
+
+- [ran] FS-24 first-build setup in react-web: strip a canvas's `project/ds/` files by publishing with `files: {path: null}` (after a whole-artifact `read` without `path`), then reset the system (`git rm docs/ui/_design-system/fixture-web`, empty `design_system` in every map, drop the `design-system` key in `.trd-state/design-system/artifacts.json`, commit). `/design-system` then builds anew (7.5 min) and reinstalls on every canvas the maps record. A `--sync` with no code change still republishes and reinstalls (4.5 min); change a component first for a new version. Use `sed -i ''` on macOS.
+- [ran] The repo's flutter-widget fixture (`ensemble-vnext-test-fixtures/variants/*/flutter-widget`) holds only story.md, CLAUDE.md and expected-skills.json. Stand-in for a parts-only run: in the trusted react-native folder set design.md's platform to `flutter` with kind `parts`, run `/create-design --auto <counter brief>` (COMPLETE, 4 boards all with empty components), then restore design.md from git.
+- [ran] `/sync-design` on a design with no building board reads recorded drift from the map and does not re-check or record it; on a building board it re-checks and records drift (FS-27).
+- [ran] Dev server on :3110 can be gone between runs; start `npm run web` in react-web and stop it by PID.
+- [ran] home-trips' as-is Home board still has a 24 px nav against the build's 44 px (fresh 390 px capture differs); the trips-sort as-is pair matches exactly.
+
+## Design-stage fix round 1, iteration 2 debug (2026-11-05)
+
+- [ran] FS-34, home-trips Home: the as-is board `01-home--as-is` was drawn at react-web commit 78f1a7e (20:35). The fixture's own build of the to-be board 01-home then changed the nav to 44 px targets at 519cbf0 (`feat(HOMETRIPS-F001)`, 20:46, `src/main.jsx`). So the board correctly shows the pre-build Home, and no fresh capture of today's build can match it. That is the lifecycle working as designed: `/sync-design` makes the shipped to-be the new as-is (DSGN-T004, accepted as not verifiable). It is not a `/create-design` defect. Prove FS-34 against an as-is board whose screen has not been rebuilt since it was drawn. trips-sort's as-is Trips pair matches exactly. For home-trips Home, capture the build at c4c668d, the commit before 519cbf0.
+- [ran] An as-is board's "current screenshot" must be an independent capture of the running app, never the board's own render: `r2/fs34-current-trips-390x844.png` is byte-identical to the board PNG. `r2/fs54/ST-01-trips--as-is.png` is an independent capture and matches.
+- [read] `verify-design-structure` now gives each parts board, and every board on a non-React stack, a row reported "not verifiable here". With no board in scope (for example all `draft`), it gives one `ST-<design slug>` row. Re-exercise FS-54 on the flutter stand-in (react-native folder, design.md platform `flutter`, kind `parts`); the real flutter-widget fixture lives in another repository.
+
+## Design-stage fix round 1, iteration 3 (2026-11-05)
+
+- [ran] FS-34: a fresh `/create-design --auto` (trips-search) in react-web captured `docs/ui/_current/trips-390x844.png` at the 390 px viewport; an independent Playwright capture of :3110/trips with `innerWidth` 390 (`r2/fs54/scratch/shot.js`) is byte-identical (sha256 2573d36c...) to the ground-stage capture and to the as-is board PNG. The AMEND-001 capture fix works.
+- [ran] FS-54: a design whose boards are all `draft` gives one `ST-<design slug>` row, reported "not verifiable here" (checked with `claude -p` on the react-native `counter-widget` stand-in, platform flutter). The real flutter-widget fixture is in another repository.
+- [ran] A trusted folder's `/create-design` leaves `docs/ui/_current/*.png` modified and uncommitted; harmless but it dirties `git status` there.

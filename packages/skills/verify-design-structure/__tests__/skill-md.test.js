@@ -100,13 +100,37 @@ describe('packages/skills/verify-design-structure/SKILL.md', () => {
     expect(s.toLowerCase()).toMatch(/route/);
   });
 
-  test('Criteria: one per real board, ST- ID, locator tier; parts boards get none (AC-F12.5)', () => {
+  test('Criteria: one per board in scope, ST- ID, locator tier (AC-F12.2)', () => {
     const s = sectionBody(parsed.body, 'Criteria');
     expect(s).toMatch(/ST-<board id>/);
     expect(s).toMatch(/check:verify-design-structure/);
     expect(s).toMatch(/`locator`/);
+  });
+
+  // FS-54: a parts board and a non-React stack must each be REPORTED "not verifiable here",
+  // never left silent by giving them no row (the 2026-11-05 flutter parts-only run produced
+  // "no criteria are created" and no report at all).
+  test('Criteria: a parts board gets a row reported not verifiable here, never silence (AC-F12.5)', () => {
+    const s = sectionBody(parsed.body, 'Criteria');
     expect(s.toLowerCase()).toMatch(/parts board/);
-    expect(s.toLowerCase()).toMatch(/no criterion/);
+    expect(s.toLowerCase()).not.toMatch(/no criterion/);
+    const partsBullet = s.split('\n- ').find((b) => /\*\*parts board\*\*/i.test(b)) || '';
+    expect(partsBullet).toMatch(/`not_verifiable`/);
+    expect(partsBullet).toMatch(/artifact: null/);
+    expect(s).toMatch(/verify-design-comparison/);
+  });
+
+  test('Criteria: a stack other than React or react-native-web gets rows reported not verifiable here', () => {
+    const s = sectionBody(parsed.body, 'Criteria');
+    expect(s).toMatch(/other than React or react-native-web/);
+    expect(s).toMatch(/ST-<design slug>/);
+    expect(s.toLowerCase()).toMatch(/never silent/);
+  });
+
+  test('when_to_use selects it for every design; it never deselects itself for parts or non-React', () => {
+    const w = String(parsed.data.when_to_use);
+    expect(w).not.toMatch(/Not selected/);
+    expect(w).toMatch(/not verifiable here/);
   });
 
   test('Capture: fiber walk, namespace prefix removed, screenshot, no source edits, no self-spawn', () => {
@@ -126,6 +150,7 @@ describe('packages/skills/verify-design-structure/SKILL.md', () => {
     expect(s.toLowerCase()).toMatch(/minif/);
     expect(s.toLowerCase()).toMatch(/non-react|not react/);
     expect(s.toLowerCase()).toMatch(/playwright/);
+    expect(s.toLowerCase()).toMatch(/parts board/);
   });
 
   test('framework-skills.txt carries a check row for it', () => {

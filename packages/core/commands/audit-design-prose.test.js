@@ -33,6 +33,14 @@ describe('audit-design command prose', () => {
     expect(text).toContain('--url ""');
   });
 
+  test('stale system: an ISSUES line however small the change, and /design-system --sync first in NEXT (FS-27)', () => {
+    expect(text).toMatch(/On `"stale": true`/);
+    expect(text).toMatch(/\*\*ISSUES\*\* line/);
+    expect(text).toMatch(/never only a STATE line/);
+    expect(text).toMatch(/however small the change looks/);
+    expect(text).toMatch(/step 1 of NEXT is `\/design-system --sync`/);
+  });
+
   test('the report carries ## Could Not Verify and reads the previous one first', () => {
     expect(text).toContain('## Could Not Verify');
     expect(text).toMatch(/previous report's `## Could Not Verify` rows/);

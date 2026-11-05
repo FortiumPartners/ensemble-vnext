@@ -85,6 +85,16 @@ describe('packages/skills/design-grounding/SKILL.md', () => {
     expect(capture).toMatch(/every in-scope screen/i);
   });
 
+  // FS-34 round 1: a 390x844 home capture showed a second nav and card from y~760; the source
+  // renders one main. Width was right, so the innerWidth check alone let it through.
+  test('capture looks at the image and recaptures one that shows what the page does not render (FS-34)', () => {
+    const capture = parsed.body.split(/^## Capture\s*$/m)[1].split(/^## /m)[0].replace(/\s+/g, ' ');
+    expect(capture).toMatch(/look at the image/);
+    expect(capture).toMatch(/a repeated nav or card/);
+    expect(capture).toMatch(/fresh browser context/);
+    expect(capture).toMatch(/never keep it, and never commit it/);
+  });
+
   test('names the five grounding files', () => {
     for (const f of ['screens.md', 'components.md', 'flows.md', 'data.md', 'standards.md']) {
       expect(parsed.body).toContain(f);

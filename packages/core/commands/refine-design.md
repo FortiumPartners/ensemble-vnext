@@ -52,7 +52,8 @@ option "(Recommended)" and says why. `--auto` asks nothing.
      `<board>.repo.dc.html` copy on disk and commit it; never `rm` it, and never decide the
      conflict yourself. Report each one under **ISSUES** (not DECISIONS) with the copy's path.
    - **Run the stale-system check** (`design-map.js stale --dir docs/ui/<slug> --record`). On
-     drift, list it under ISSUES and put `/design-system --sync` first in NEXT.
+     drift, list it under ISSUES and put `/design-system --sync` first in NEXT. Commit the
+     recorded drift with this run's own commit (contract section 1 step 6).
 2. **Gather feedback** (AC-F9.2) from the argument, the chat, the canvas comment threads and
    the viewer's selected elements. `ArtifactComments` is a deferred tool: load it by name (it
    may not be resolved yet in this session), then `ArtifactComments({ action: "read", url })`.
@@ -102,7 +103,10 @@ applies. STATE counts boards by status and says which were approved this run and
 source. ISSUES lists conflicts (each with its `.repo.dc.html` path), design-system drift,
 boards edited after approval, open review findings, unanswered comments and a failed reply.
 NEXT names `/design-system --sync` first when the system is stale, then `/audit-design <slug>`,
-then `/refine-design <slug>` for boards still in `draft`. The canvas link goes **above** the banner.
+then `/refine-design <slug>` for boards still in `draft`. When stale, step 1 of NEXT is
+`/design-system --sync`, ahead of a conflict hand-merge or any other step: the hand-merge is
+step 2, because a merge made against an out-of-date system has to be redone after the sync.
+The canvas link goes **above** the banner.
 
 ---
 

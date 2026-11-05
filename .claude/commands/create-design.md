@@ -67,7 +67,9 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    as-is boards (rendered and compared with the screenshot, AC-F8.5; the screenshot is captured
    fresh at the board's viewport by the `design-grounding` skill's Capture section, never a stored
    screenshot, and a `window.innerWidth` differing from the board's width is a capture error, not
-   a board difference: recapture, do not mark the board mismatched), one parts agent (AC-F8.6),
+   a board difference: recapture, do not mark the board mismatched; so is a screenshot that
+   shows anything the page does not render (a repeated nav or card, a blank band, cut-off
+   content): the as-is agent recaptures it), one parts agent (AC-F8.6),
    one agent per to-be board in parallel (AC-F8.7), then a render, five read-only reviewers and
    one fix round (AC-F8.8). It returns `boards`, `findings_open`, `failed` and `render_missing_tool`.
 5. **Write the map once.** Parallel agents never edit it. Seed `design-map.json` from the
@@ -97,7 +99,14 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <saved runtime path> --out docs/ui/<slug>/screens/png
    ```
    Exit 2 means Playwright or its Chromium is missing: list that under ISSUES with the install step.
-9. **Commit `docs/ui/<slug>/`** (brief, grounding, canvas, map, screens) and nothing else, then
+9. **Before committing, check every as-is board's `mismatch_note`.** A note that says the
+   current screenshot is wrong (an artefact, stitching, a stray copy, "worth recapturing")
+   means it shows anything the page does not render: recapture it before the commit; never commit a screenshot any agent's note calls wrong.
+   Capture it per the `design-grounding` skill's Capture section, look at it, then re-render
+   that as-is board against it and update its `screenshot_match` and `mismatch_note`. If the
+   recapture is still wrong, delete it, set `screenshot_match` false with "not compared:
+   capture error", and list it under ISSUES.
+   **Commit `docs/ui/<slug>/`** (brief, grounding, canvas, map, screens) and nothing else, then
    **record** it. Kind `design` names a file, so record the map:
    ```bash
    node .claude/lib/artifacts.js record --state-dir .trd-state/<slug> --kind design --path docs/ui/<slug>/design-map.json --command /create-design --url "<canvas url, or empty when nothing was published>"

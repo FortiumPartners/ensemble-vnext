@@ -50,6 +50,7 @@ async function run(args, overrides = {}) {
   return { result, phases, logs, agent, parallel };
 }
 
+const flatP = (t) => t.replace(/\s+/g, ' ');
 const byLabel = (agent, label) => agent.calls.find((c) => c.opts.label === label);
 const withPrefix = (agent, p) => agent.calls.filter((c) => String(c.opts.label).startsWith(p));
 
@@ -152,6 +153,17 @@ describe('create-design stage draw', () => {
     expect(asIs.screenshot_match).toBe(false);
     expect(asIs.mismatch_note).toBe('header is 8px lower');
     expect(byLabel(agent, 'asis:01-screen-1').prompt).toMatch(/Do NOT edit design-map\.json/);
+  });
+
+  // FS-34: an as-is agent saw a repeated nav and card in the stored home screenshot, called it a
+  // "stitching artefact, worth recapturing", returned screenshot_match true and kept the image.
+  it('treats a screenshot showing what the page does not render as a capture error to recapture now (FS-34)', async () => {
+    const { agent } = await run(drawArgs(1));
+    const p = flatP(byLabel(agent, 'asis:01-screen-1').prompt);
+    expect(p).toMatch(/shows anything the page does not render/);
+    expect(p).toMatch(/a repeated nav or card/);
+    expect(p).toMatch(/recapture it now/);
+    expect(p).toMatch(/Never return screenshot_match true while saying the screenshot is wrong/);
   });
 
   it('puts the board tweak shape (one object per tweak) in every drawing prompt', async () => {

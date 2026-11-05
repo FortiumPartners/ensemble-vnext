@@ -50,6 +50,12 @@ describe('create-design command prose', () => {
     expect(text).toMatch(/`window\.innerWidth` differing from the board's width is a capture error, not a board difference/);
   });
 
+  // FS-34 round 1: a home screenshot with a repeated nav and card was flagged, kept and committed.
+  test('a screenshot showing what the page does not render is recaptured, never committed (FS-34)', () => {
+    expect(text).toMatch(/shows anything the page does not render \(a repeated nav or card/);
+    expect(text).toMatch(/recapture it before the commit; never commit a screenshot any agent's note calls wrong/);
+  });
+
   test('asks at most four questions, only with a person present and not --auto, each with a recommended option', () => {
     expect(text).toContain('at most four questions');
     expect(text).toMatch(/Only with a person present and not `--auto`/);

@@ -252,6 +252,12 @@ A screenshot is valid only if it was taken at the board's viewport: when you cap
 browser context (never headless Chrome --window-size) and check window.innerWidth before saving. If the
 screenshot's width or its captured window.innerWidth differs from the board's width, that is a capture error,
 not a board difference: recapture it at the board's viewport, and never mark the board mismatched over it.
+The same holds when the screenshot shows anything the page does not render (the source decides what it
+renders): a repeated nav or card, a second copy of the top of the page further down, a blank band, content
+cut off or shifted. That is a capture error: recapture it now, in a fresh browser context at the board's
+viewport, over the same path, and compare against the new image. If the recapture is still wrong, delete
+the file and return screenshot_match false with mismatch_note "not compared: capture error: <what it
+showed>". Never return screenshot_match true while saying the screenshot is wrong or worth recapturing.
 design-map.json does not exist yet, so write this scratch map to a file in a fresh scratch folder under
 the system temp directory and pass it with --map:
   ${scratchMap([{ id: `${s.n}-${s.key}--as-is`, file: `${s.n}-${s.key}--as-is.dc.html`, kind: 'as-is', platform: s.platform, viewport: viewportOf(s.viewport), states: {} }])}

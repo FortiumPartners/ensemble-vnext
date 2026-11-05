@@ -533,9 +533,16 @@
           "criteriaClosed": 26,
           "criteriaOpen": 25,
           "buildable": 4
+        },
+        {
+          "round": 1,
+          "tasksPromoted": 1,
+          "criteriaClosed": 12,
+          "criteriaOpen": 13,
+          "buildable": 0
         }
       ],
-      "stopped": false
+      "stopped": true
     }
   },
   "created_at": "2026-11-04T23:35:19.223Z"

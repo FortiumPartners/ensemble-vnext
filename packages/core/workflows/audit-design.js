@@ -321,7 +321,10 @@ phase('Reconcile')
 
 const staleText = STALE
   ? (STALE.stale
-      ? `The installed design system is STALE: ${STALE.changed_paths ? STALE.changed_paths.length + ' component file(s) changed since it was built' : STALE.reason || 'drift could not be measured'}.`
+      ? `The installed design system is STALE: ${STALE.changed_paths ? STALE.changed_paths.length + ' component file(s) changed since it was built (' + STALE.changed_paths.join(', ') + ')' : STALE.reason || 'drift could not be measured'}.
+  Write a SYSTEM OUT OF DATE line in the readout naming those paths, however small the change
+  looks (a comment-only edit included): whether it matters is /design-system --sync's call, not
+  this audit's. The command puts it under ISSUES with /design-system --sync first in NEXT.`
       : 'The installed design system is current.')
   : 'The stale check was not supplied: system drift is UNCHECKED.'
 
@@ -363,7 +366,7 @@ build from; "proceed with these caveats" for anything else surviving or any Coul
 
 Then list, omitting empty headings, one line per finding naming the board and line:
   BOARDS WITH NO SOURCE / BRIEF ITEMS WITH NO BOARD / BREAKS A CONVENTION / DRAWN BY HAND
-  INSTEAD OF REUSED / RENDER ERRORS / REJECTED THESE FINDINGS (and the file that refutes each)${DRIFT ? `
+  INSTEAD OF REUSED / RENDER ERRORS / SYSTEM OUT OF DATE / REJECTED THESE FINDINGS (and the file that refutes each)${DRIFT ? `
   BOARDS THAT NO LONGER MATCH THE BUILD / SYSTEM DRIFT / CODE CHANGED OUTSIDE ANY DESIGN /
   SCREENS NEVER DESIGNED (one line per route; each is listed for /create-design to draw as an as-is board)` : ''}
   CAVEAT (what this run did NOT check)

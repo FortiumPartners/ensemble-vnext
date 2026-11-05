@@ -156,6 +156,9 @@ describe('audit-design findings and result', () => {
   it('states system drift and an unrun stale check in coverage', async () => {
     const stale = await audit({}, baseArgs({ stale: { stale: true, changed_paths: ['a.tsx', 'b.tsx'] } }));
     expect(byLabel(stale.agent, 'reconcile').prompt).toContain('STALE: 2 component file(s)');
+    // FS-27: the changed paths are named and drift is a finding line, never weighed away.
+    expect(byLabel(stale.agent, 'reconcile').prompt).toContain('a.tsx, b.tsx');
+    expect(byLabel(stale.agent, 'reconcile').prompt).toMatch(/SYSTEM OUT OF DATE/);
     const none = await audit();
     expect(byLabel(none.agent, 'reconcile').prompt).toContain('UNCHECKED');
   });

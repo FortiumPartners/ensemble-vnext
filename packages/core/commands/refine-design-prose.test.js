@@ -32,6 +32,8 @@ describe('refine-design command prose', () => {
     expect(text).toMatch(/Report each one under \*\*ISSUES\*\* \(not DECISIONS\)/);
     expect(text).toContain('design-map.js stale --dir docs/ui/<slug> --record');
     expect(text).toMatch(/NEXT names `\/design-system --sync` first when the system is stale/);
+    // FS-27: --sync is step 1, ahead of a conflict hand-merge or any other step.
+    expect(text).toMatch(/step 1 of NEXT is `\/design-system --sync`, ahead of a conflict hand-merge/);
   });
 
   test('cites the shared contract for start, publish and readout', () => {
