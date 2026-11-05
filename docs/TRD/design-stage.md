@@ -518,7 +518,9 @@ interface DesignMap {
   an empty `design_system.paths` (D6).
 - `setup(projectDir)` returns `missing`, `unfilled` or `filled` for `.claude/rules/design.md`;
   `unfilled` is content identical, after normalising line endings and trimming, to
-  `.claude/skills/design-setup/template.md` (the comparison `isVerificationUnfilled` makes) (D9).
+  `<projectDir>/.claude/skills/design-setup/template.md`, the copy `scaffold-project.sh` vendors
+  from `packages/skills/design-setup/template.md` (`design-map.js` `DESIGN_TEMPLATE`; the
+  comparison `isVerificationUnfilled` makes) (D9).
 - `derive(source, fileToId)` reads one board's source: `components` from every
   `x-import[component-from-global-scope]`, `parts` from every `dc-import` target's file stem,
   `links` from every `<a href="X.dc.html">` mapped to its board id. Order is first appearance;
@@ -790,6 +792,7 @@ the account already trusts (findings §(d), R4), and record their artifacts unde
 | DSGN-T005 | [LIVE] The phase-0 remainder and the hosted-draw check: the owner opens the canvas DSGN-T002's phase-1 proof installed the system on, and the spike canvas, and screenshots the installed-system board and the NativeWind board on the hosted page; one orchestrator-started session as james creates and publishes an artifact (the spike's `launch.sh`). Results appended to `.trd-state/task-issue-58-phase-0-spike/findings.md` | AC-F6.7, AC-F15.1, AC-F15.2, R1 | | DSGN-T002 | findings.md records the two screenshots' paths (components drawn, no board errors) and the james publish url, or what failed. On a failed hosted draw, the R1 contingency is recorded |
 | DSGN-T006 | [LIVE] The real case: the owner's 44-board flow redone with `/create-design` and `/refine-design` on its product, with the owner's own canvas edits and comments | G2, NFR-7 | | DSGN-T002 | `docs/ui/<slug>/` committed in that product; as-is boards' `screenshot_match` recorded; to-be boards use `x-import`; links playable; the owner's edits adopted and comments answered |
 | AMEND-001 | [judged-failed] /create-design as-is board does not match the current screenshot of its screen: the 390px screenshot was captured from a wider layout (content shifted ~26px right, Trips card cut off), so the as-is comparison is against the wrong capture. Fix the screenshot capture / as-is comparison so each screenshot is taken at the board viewport (FS-34, slice 2). — promoted from a gap discovery found by verify-build --fix [FS-34 @ 2026-11-05T04:12:32.066Z] (observed: judged-failed: The 390px as-is board does not match current-screenshot-390.png: the screenshot is shifted about 26px right and the Trips card is cut off at the right edge (captured from a wider layout), while the board fits the 390px viewport. The 1280px pair matches. The capture method in the trusted folders is still the old one.) | criterion FS-34 |  | None | [judged-failed] /create-design as-is board does not match the current screenshot of its screen: the 390px screenshot was captured from a wider layout (content shifted ~26px right, Trips card cut off), so the as-is comparison is against the wrong capture. Fix the screenshot capture / as-is comparison so each screenshot is taken at the board viewport (FS-34, slice 2). no longer holds |
+| AMEND-002 | [test-gap] The NativeWind recipe (jsxImportSource: nativewind, CSS from the app Tailwind config, no Babel step) has no unit test, though DSGN-B003 acceptance text requires one (AC-F4.3) — promoted from a gap discovery found by audit-build — find and fix every instance of this weakness across the feature's touched files, and list each one fixed (observed: packages/core/lib/design-bundle.js:112; grep -ci nativewind packages/core/lib/design-bundle.test.js returns 0; live proof only, FS-12) | amendment — no objective recorded |  | None | [test-gap] The NativeWind recipe (jsxImportSource: nativewind, CSS from the app Tailwind config, no Babel step) has no unit test, though DSGN-B003 acceptance text requires one (AC-F4.3) no longer holds |
 
 ## Deferred by design
 
@@ -1401,6 +1404,10 @@ by DSGN-T003 against the React web fixture's own design.
 - **Reuse:** [read] the capture rule the verification loop's debug stage already wrote into `design-grounding/SKILL.md` (commit 3819920): capture fresh at each `design.md` viewport, set the viewport in the browser context, check `window.innerWidth` before saving.
 - **Careful:** [read] the trusted fixture folders under `.trd-state/design-stage/evidence/live/work/` carry an older vendored copy of the skill; refreshing them is verification setup, not this task.
 
+### AMEND-002
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+
 ## Open Questions
 
 None open; all ten were resolved by the owner in 1.1.0. See Resolved Questions below.
@@ -1425,26 +1432,30 @@ which the Objectives cite as "ruling OQ-n". Each ruling below is now the decisio
 
 ## Could Not Verify
 
-State after `/audit-trd` on 2026-11-04 (5 of 5 verifiers reported). Two claims carried from
-1.1.0 were checked and removed: the runtime reading `data-props` from board source (confirmed by
-the runtime read from a canvas, function `Ot`), and `process.md` being owner-authored with no
-test requiring it to match the template (`scaffold-project.sh` `AUTHORED_RULES`;
-`verify-command-surface.test.js` lines 652-662 only check `--no-verify` in each). Every row
-below was not checked by this audit, because checking it needs the Artifact tool against a live
-canvas or type, a hosted browser, a live run, or a clone. This audit checked the document
-against the PRD and the repository only.
+State after `/audit-build` on 2026-11-05 (5 of 5 verifiers reported; PRD 1.2.2 supplied; 48
+requirements and 22 tasks indexed). This audit read the delivered code, its tests and the
+functional-verification evidence under `.trd-state/design-stage/evidence/`; it made no Artifact
+call and ran nothing live.
 
-| Claim | How I'd check it |
-|-------|------------------|
-| The Design type ships `SKILL.md`, `format.md`, `design-system-components.md`, `view-state.md`, `print.md`, `make-from-this.md`, `artifact-type/dc-runtime.js`; the Design System type ships `from-code.md` and `from-design-tool.md` (carried from the PRD) | `Artifact` `read` with the type's `type_url` for `SKILL.md`; the rest with `read`, an artifact of that type's `url` and `path` (a `type_url` read takes no `path`, D12) |
-| A Design System artifact created empty (`type_url` and `title`, no files) already exposes its type's references, so `/design-system` can read `from-code.md` from it (D12) | The first `/design-system` run in DSGN-T002 |
-| A canvas holds 512 files and up to 4 design systems; a canvas's copy of a design system never updates by itself (carried from the PRD) | The Design type's references |
-| The installed design system draws on the hosted canvas (carried from the PRD) | DSGN-T005 |
-| A whole-artifact `read` of a canvas, plus `read` with `paths`, returns every board file to disk | First publish in DSGN-T002 (its phase-1 proof) |
-| Publishing with `files: { path: { artifact, path } }` copies a Design System artifact's files into a canvas's `project/ds/<folder>/` | DSGN-T002 (its phase-1 proof); the issue says the spike copied the system across on the server |
-| `sc-if` branches follow props, so overriding a state's tweak values renders that branch (D7) | Render a fixture board with two `props` sets in DSGN-B003 |
-| The `react@18.3.1` and `react-dom@18.3.1` npm UMD files are byte-identical to what the runtime fetches from jsdelivr, so the runtime's SRI check passes when they are routed locally (D14) | DSGN-B003's first pinned-runtime render test |
-| React fiber keys (`__reactFiber$*`) are present on host nodes under react-native-web and the product's React version (D17) | DSGN-B013's structure-check capture on the React Native fixture |
-| The canvas version token returned by a publish (findings §(c): "published as version `1793773596-7b8f`") is also returned by a read or a listing | DSGN-T002 |
-| `ArtifactComments` can reply on a canvas thread from the main session (AC-F9.3) | DSGN-T002 |
-| The fixtures repository holds no React app (`kanban-board` and `wordle-game` hold only `story.md`, listed through the GitHub API on 2026-11-04) | Clone it and list each variant |
+**Checked and removed** (proven by the verification loop's live runs or by unit tests):
+the Design type's and Design System type's reference files are read live by the commands (every
+named file, `dc-runtime.js` included, appears in the iter3 to iter5 run transcripts); an empty
+Design System artifact exposes `from-code.md` (iter3 `/design-system` runs); a whole-artifact read
+precedes every publish (FS-20); a design system is copied into a canvas's `project/ds/` with a
+`designSystems` record (FS-24, `iter4/fs24-design-system-sync-pane.txt`); the canvas version is
+read without reading the boards (FS-22, `iter4/fs22-create-design-unchanged-canvas-pane.txt`);
+`sc-if` branches follow props (`design-render.test.js:71`); the locally routed React 18.3.1 files
+pass the runtime's check with the network off (`design-render.test.js:93`).
+
+**Moved to the audit readout as findings, not kept here:** the installed design system drawing on
+the hosted canvas (AC-F6.7) and the other owner-attended checks, planned in DSGN-T005.
+
+The rows below were not checked by this audit, because each needs a live Artifact call, a person
+creating a canvas comment, or a clone of the fixtures repository.
+
+| Claim | Why still open | How I'd check it |
+|-------|----------------|------------------|
+| A canvas holds 512 files and up to 4 design systems; a canvas's copy of a design system never updates by itself (carried from the PRD) | No run filled a canvas to the limit or watched a system's copy after a re-publish of the system | The Design type's references, read live |
+| React fiber keys (`__reactFiber$*`) are present on host nodes under react-native-web (D17) | The structure walk appears in the React web build's transcripts; no record shows it returning components on the React Native fixture | Run `verify-design-structure` against the React Native fixture's served build |
+| `/refine-design` driven by a canvas comment changes only the affected boards and answers the comment through `ArtifactComments` (AC-F9.2, AC-F9.3; FS-42) | No tool here can create a canvas comment, so the comment-driven path never started; only `ArtifactComments` reads were recorded | A person leaves a comment on a fixture canvas, then `/refine-design <slug>` |
+| The fixtures repository's `flutter-widget` variant can host a parts-only design run (NFR-7) | The run reported as FS-71 used a stand-in folder; the variant holds only `CLAUDE.md`, `story.md` and `expected-skills.json` (`evidence/r2/fs71-summary.txt`) | Clone `ensemble-vnext-test-fixtures`, trust a copy of the variant, run `/create-design` there |

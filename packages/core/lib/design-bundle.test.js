@@ -54,6 +54,45 @@ describe('esbuild options per recipe (AC-F4.1 to AC-F4.3)', () => {
     }
   });
 
+  it('react-native (plain): the native alias, extensions and defines, with no NativeWind setting (AC-F4.2)', () => {
+    const o = opts('react-native');
+    expect(o.jsxImportSource).toBeUndefined();
+    expect(o.alias).toEqual({ 'react-native': 'react-native-web' });
+    expect(o.mainFields).toEqual(['browser', 'module', 'main']);
+    expect(o.resolveExtensions.slice(0, 3)).toEqual(['.web.tsx', '.web.ts', '.web.js']);
+    expect(o.define).toMatchObject({ __DEV__: 'false', 'process.env.NODE_ENV': '"production"', global: 'window' });
+    expect(pluginNames(o)).toEqual(['react-globals', 'node-stubs']);
+  });
+
+  it('react-native-nativewind: jsxImportSource nativewind on the native recipe, node stubs kept, no Babel (AC-F4.3)', () => {
+    const o = opts('react-native-nativewind');
+    expect(o.jsxImportSource).toBe('nativewind');
+    expect(o.jsx).toBe('automatic');
+    expect(o.alias).toEqual({ 'react-native': 'react-native-web' });
+    expect(o.define).toMatchObject({ __DEV__: 'false' });
+    expect(pluginNames(o)).toEqual(['react-globals', 'node-stubs']);
+    expect(pluginNames(o).some((n) => /babel/i.test(n))).toBe(false);
+  });
+
+  it('react-native-nativewind: JSX is compiled through nativewind/jsx-runtime, and its CSS needs the product Tailwind (D13)', async () => {
+    const p = fs.mkdtempSync(path.join(FIX, 'nw-product-'));
+    try {
+      fs.mkdirSync(path.join(p, 'node_modules', 'nativewind'), { recursive: true });
+      fs.writeFileSync(path.join(p, 'node_modules', 'nativewind', 'jsx-runtime.js'),
+        'exports.Fragment = "F"; exports.jsx = function (t, props) { return { via: "NW_RUNTIME", t, props }; }; exports.jsxs = exports.jsx;');
+      fs.writeFileSync(path.join(p, 'entry.jsx'), 'export const el = <div className="p-4" />;');
+      const ok = await bundle.build({ projectDir: p, entry: 'entry.jsx', namespace: 'Nw', stack: 'react-native-nativewind' });
+      expect(ok.js).toContain('NW_RUNTIME');
+      expect(ok.css).toBe('');
+      // The CSS comes from the product's own Tailwind; this repository has none, so the answer is exit 2.
+      const noTailwind = await bundle.build({ projectDir: p, entry: 'entry.jsx', namespace: 'Nw', stack: 'react-native-nativewind', tailwindConfig: 'tailwind.config.js' }).catch((e) => e);
+      expect(noTailwind.exitCode).toBe(2);
+      expect(noTailwind.message).toMatch(/tailwindcss is not installed/);
+    } finally {
+      fs.rmSync(p, { recursive: true, force: true });
+    }
+  });
+
   it('returns an esbuild error with its message instead of swallowing it', async () => {
     const p = tmp();
     fs.writeFileSync(path.join(p, 'e.js'), "import './missing-module';");

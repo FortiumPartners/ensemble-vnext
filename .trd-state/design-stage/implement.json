@@ -272,14 +272,19 @@
     "DSGN-T002": {
       "description": "[LIVE] One fixture run, in order. First, the phase-1 proof on both fixtures: /design-system builds a system from the React web fixture's component package and t",
       "phase": 2,
-      "status": "deferred",
+      "status": "success",
       "cycle_position": "complete",
-      "current_problem": "ENVIRONMENT: the first interactive launch (tmux ... claude --dangerously-skip-permissions --session-id <id> \"/design-system\", cwd .trd-state/design-stage/evidence/live/DSGN-T002/work/react-web) stopped at \"Quick safety check: Is this a project you created or one you trust? ... This folder pre-approves 40 tool permissions in .claude/settings.json / No, exit / Yes, I trust this folder\". ~/.claude.json has hasTrustDialogAccepted=true for /Users/james/dev/fortium/ensemble-vnext but trust is keyed by exact path and does not cover the fixture copy beneath it, so the TRD's assumption that a copy \"inside this already-trusted repository\" is trusted is wrong. I did not answer the dialog (trust is the owner's decision) and did not use another task's trusted folder. Nothing past scaffolding was exercised. Owner action: trust the work/react-web and work/react-native folders, or name an already-trusted folder to copy the fixtures into, then re-run. The tmux session was killed. No canvas urls exist. Other findings, recorded as one discovery with blocksFeature=false: scaffold-project.sh --refresh with a relative --plugin-dir exits 0 but installs nothing, and refresh does not install agents.",
+      "current_problem": "re-attested 2026-11-05 from verification evidence (FS-20 to FS-57 met); the comment-driven refine (FS-42) is still unproven: no tool here creates a canvas comment",
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".trd-state/design-stage/evidence/iter3/design-system-react-native-pane.txt",
+        ".trd-state/design-stage/evidence/iter4/fs22-create-design-unchanged-canvas-pane.txt",
+        ".trd-state/design-stage/evidence/r1/fs15-17-27-43-refine-design-pane.txt",
+        ".trd-state/design-stage/evidence/r2/fs71-summary.txt"
+      ],
       "commit": null,
       "started_at": "2026-11-04T23:55:57.372Z",
-      "completed_at": null,
+      "completed_at": "2026-11-05T12:59:24.988Z",
       "last_advanced": "2026-11-04T23:59:38.341Z"
     },
     "DSGN-B011": {
@@ -331,14 +336,17 @@
     "DSGN-T003": {
       "description": "[LIVE] Build from the approved fixture design: /create-trd --design docs/ui/<slug> on DSGN-T002's approved board, then /implement-trd on the fixture, and one /p",
       "phase": 3,
-      "status": "deferred",
-      "cycle_position": "implement",
-      "current_problem": "depends on DSGN-T002 (deferred: folder-trust prompt blocks the live run)",
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": "re-attested 2026-11-05 from verification evidence (iter5 report, FS-43 live run)",
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        ".trd-state/design-stage/evidence/iter5/verification-report.md",
+        ".trd-state/design-stage/evidence/r4/fs43-summary.txt"
+      ],
       "commit": null,
       "started_at": null,
-      "completed_at": null
+      "completed_at": "2026-11-05T12:59:24.989Z"
     },
     "DSGN-B015": {
       "description": "The P1 after-build work: sync-design.js workflow and /sync-design command per §3.11 and D26, with sync-design.test.js, mirrors and full symlink; audit-build.md ",
@@ -435,6 +443,21 @@
       "last_advanced": "2026-11-05T04:13:58.744Z",
       "current_problem": null,
       "completed_at": "2026-11-05T04:14:03.927Z"
+    },
+    "AMEND-002": {
+      "description": "NativeWind recipe unit test (AC-F4.3), from /audit-build",
+      "phase": 5,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-bundle.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T12:59:17.427Z",
+      "completed_at": "2026-11-05T13:00:21.943Z",
+      "last_advanced": "2026-11-05T13:00:14.223Z"
     }
   },
   "checkpoints": [
