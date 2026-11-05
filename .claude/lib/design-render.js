@@ -21,7 +21,11 @@
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1, or 2 for a missing tool):
  *   node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <dc-runtime.js> --out <dir>
- *     [--boards a,b] [--at <sha> | --approved]
+ *     [--boards a,b] [--at <sha> | --approved] [--map <file>]
+ *
+ * `--map` reads the boards from that JSON file instead of `<dir>/design-map.json`: a drawing
+ * agent renders before the command has written the map (only the command writes it), so it
+ * passes a scratch map holding just the boards it drew. Board files still resolve under `--dir`.
  *
  * `--at` renders from `git archive <sha>`; `--approved` renders each approved, building or shipped
  * board at its `approved_commit` and the rest at HEAD (D4). The design system's committed files in
@@ -262,7 +266,7 @@ async function launch(projectRoot) {
  * @returns {Promise<{frames: {board, state, png}[], errors: Object<string, string[]>}>}
  */
 async function render(o) {
-  const map = designMap.read(o.dir);
+  const map = o.map ? readMapFile(o.map) : designMap.read(o.dir);
   const repo = path.resolve(o.repo || '.');
   const ids = o.boards && o.boards.length ? o.boards : null;
   const boards = map.boards.filter((b) => (ids ? ids.includes(b.id) : b.status !== 'superseded'));
@@ -273,14 +277,18 @@ async function render(o) {
     if (o.approved) return BUILT_STATUSES.includes(b.status) && b.approved_commit ? b.approved_commit : 'HEAD';
     return null; // working tree
   };
+  // A board's mirror folder is its own canvas's `dir` (D8), not the first canvas's.
+  const canvases = Array.isArray(map.canvases) ? map.canvases : [];
+  const canvasDirOf = (b) => ((canvases.find((c) => c.url === b.canvas) || canvases[0] || {}).dir) || 'canvas/project';
   const groups = new Map();
   for (const b of boards) {
-    const c = commitOf(b);
-    if (!groups.has(c)) groups.set(c, []);
-    groups.get(c).push(b);
+    const commit = commitOf(b);
+    const canvasDir = canvasDirOf(b);
+    const key = `${commit}\0${canvasDir}`;
+    if (!groups.has(key)) groups.set(key, { commit, canvasDir, group: [] });
+    groups.get(key).group.push(b);
   }
 
-  const canvasDir = (map.canvases && map.canvases[0] && map.canvases[0].dir) || 'canvas/project';
   const dirAbs = path.resolve(o.dir);
   const runtime = path.resolve(o.runtime);
   if (!fs.existsSync(runtime)) throw new Error(`runtime not found: ${runtime}`);
@@ -290,7 +298,7 @@ async function render(o) {
   const result = { frames: [], errors: {} };
   const cleanup = [];
   try {
-    for (const [commit, group] of groups) {
+    for (const { commit, canvasDir, group } of groups.values()) {
       let mirror = path.join(dirAbs, canvasDir);
       let dsDir = path.join(dirAbs, '..', '_design-system');
       if (commit) {
@@ -334,6 +342,18 @@ async function render(o) {
   return result;
 }
 
+/** A scratch map given with `--map`: only `boards` (and optionally `canvases`) are read. */
+function readMapFile(file) {
+  let map;
+  try {
+    map = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    throw new Error(`${file} is not a readable JSON map: ${e.message}`);
+  }
+  if (!map || !Array.isArray(map.boards)) throw new Error(`${file} has no boards array`);
+  return map;
+}
+
 function parseArgs(argv) {
   const [verb, ...rest] = argv;
   const opts = {};
@@ -349,7 +369,7 @@ function parseArgs(argv) {
 
 async function main(argv) {
   const { verb, opts } = parseArgs(argv);
-  if (verb !== 'render') throw new Error('usage: design-render.js render --dir D --runtime R --out O [--boards a,b] [--at SHA | --approved]');
+  if (verb !== 'render') throw new Error('usage: design-render.js render --dir D --runtime R --out O [--boards a,b] [--at SHA | --approved] [--map F]');
   for (const f of ['dir', 'runtime', 'out']) if (!opts[f]) throw new Error(`--${f} is required`);
   if (opts.at && opts.approved) throw new Error('--at and --approved are exclusive');
   return render({ ...opts, boards: opts.boards ? opts.boards.split(',') : null });

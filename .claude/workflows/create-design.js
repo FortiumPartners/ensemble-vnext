@@ -96,6 +96,25 @@ THE OWNER'S DESIGN RULES (design.md):
 ${DESIGN_RULES || '(none supplied)'}`
 
 const pad = (n) => String(n).padStart(2, '0')
+// The map's shape (design-map.js, design-render.js): viewport is [width, height] in pixels and
+// states is { <name>: { setup, props } }. The brief returns "1280x800" and agents return a list,
+// so both are normalised here, once, before any board leaves this script.
+function viewportOf(v) {
+  if (Array.isArray(v)) return v.map(Number)
+  const m = /^\s*(\d+)\s*[x\u00d7,]\s*(\d+)\s*$/i.exec(String(v || ''))
+  return m ? [Number(m[1]), Number(m[2])] : v
+}
+function statesOf(list) {
+  if (!Array.isArray(list)) return list && typeof list === 'object' ? list : {}
+  const out = {}
+  for (const st of list) {
+    if (st && st.name) out[st.name] = { setup: st.setup || '', ...(st.props ? { props: st.props } : {}) }
+  }
+  return out
+}
+// design-render.js reads the boards from a map; the command writes the real one only after this
+// stage, so a render here is given a scratch map holding just the boards drawn so far.
+const scratchMap = (entries) => JSON.stringify({ canvases: [], boards: entries.map((b) => ({ ...b, status: 'draft' })) })
 const slugOf = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
 async function inBatches(items, fn) {
@@ -216,7 +235,7 @@ const BOARD_SCHEMA = {
   properties: {
     id: { type: 'string' }, file: { type: 'string' },
     brief_items: { type: 'array', items: { type: 'string' } },
-    states: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, props: { type: 'object' } } } },
+    states: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, setup: { type: 'string' }, props: { type: 'object' } } } },
     screenshot_match: { type: 'boolean' }, mismatch_note: { type: 'string' },
   },
 }
@@ -228,8 +247,11 @@ const asIs = await inBatches(asIsScreens, (s) => agent(
   `Rebuild the CURRENT screen "${s.name}" (${s.route}, ${s.platform} ${s.viewport}) as an as-is board.
 Write ${DIR}/canvas/project/${s.n}-${s.key}--as-is.dc.html from the real components and parts the product
 already has (never a hand copy of one). Then render it and compare the frame with the current screenshot
-${s.screenshot ? `at ${s.screenshot}` : '(none recorded: capture one from the running build if environment allows, else say so)'}:
-  node .claude/lib/design-render.js render --dir ${DIR} --runtime ${RUNTIME || '<none supplied: skip rendering and set screenshot_match false with a note>'} --out <a fresh scratch folder under the system temp directory> --boards ${s.n}-${s.key}--as-is
+${s.screenshot ? `at ${s.screenshot}` : '(none recorded: capture one from the running build if environment allows, else say so)'}.
+design-map.json does not exist yet, so write this scratch map to a file in a fresh scratch folder under
+the system temp directory and pass it with --map:
+  ${scratchMap([{ id: `${s.n}-${s.key}--as-is`, file: `${s.n}-${s.key}--as-is.dc.html`, kind: 'as-is', platform: s.platform, viewport: viewportOf(s.viewport), states: {} }])}
+  node .claude/lib/design-render.js render --dir ${DIR} --map <that scratch map> --runtime ${RUNTIME || '<none supplied: skip rendering and set screenshot_match false with a note>'} --out <a fresh scratch folder under the system temp directory> --boards ${s.n}-${s.key}--as-is
 Return screenshot_match true only if the frame matches; otherwise false with a mismatch_note saying what
 differs. Do NOT edit design-map.json: return the values.
 ${BOARD_RULES}
@@ -244,8 +266,8 @@ ${BATCH}`,
 asIs.forEach((r, i) => {
   if (!r) { failed.push(`asis:${asIsScreens[i].n}-${asIsScreens[i].key}`); return }
   boards.push({
-    id: r.id, file: r.file, kind: 'as-is', platform: r.screen.platform, viewport: r.screen.viewport,
-    route: r.screen.route, brief_items: r.brief_items || [], states: r.states || [],
+    id: r.id, file: r.file, kind: 'as-is', platform: r.screen.platform, viewport: viewportOf(r.screen.viewport),
+    route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states),
     screenshot_match: r.screenshot_match === true, mismatch_note: r.mismatch_note || '',
   })
 })
@@ -271,7 +293,7 @@ ${BATCH}`,
 if (!parts) failed.push('parts')
 const partList = parts ? parts.parts : []
 for (const p of partList) {
-  boards.push({ id: p.id, file: p.file, kind: 'part', platform: draws[0].platform, viewport: draws[0].viewport, brief_items: [], states: [] })
+  boards.push({ id: p.id, file: p.file, kind: 'part', platform: draws[0].platform, viewport: viewportOf(draws[0].viewport), brief_items: [], states: {} })
 }
 
 phase('ToBe')
@@ -295,8 +317,8 @@ ${BATCH}`,
 toBe.forEach((r, i) => {
   if (!r) { failed.push(`tobe:${draws[i].n}-${draws[i].key}`); return }
   boards.push({
-    id: r.id, file: r.file, kind: 'to-be', platform: r.screen.platform, viewport: r.screen.viewport,
-    route: r.screen.route, brief_items: r.brief_items || [], states: r.states || [],
+    id: r.id, file: r.file, kind: 'to-be', platform: r.screen.platform, viewport: viewportOf(r.screen.viewport),
+    route: r.screen.route, brief_items: r.brief_items || [], states: statesOf(r.states),
   })
 })
 
@@ -304,8 +326,11 @@ phase('Render')
 
 const render = await agent(
   RUNTIME
-    ? `Render every board of the design at ${DIR} and report the render errors. Run, from the project root:
-  node .claude/lib/design-render.js render --dir ${DIR} --runtime ${RUNTIME} --out <a fresh scratch folder under the system temp directory>
+    ? `Render every board of the design at ${DIR} and report the render errors. design-map.json does not
+exist yet, so write this scratch map to a file in a fresh scratch folder under the system temp directory:
+  ${scratchMap(boards.map(({ id, file, kind, platform, viewport, states }) => ({ id, file, kind, platform, viewport, states })))}
+Then run, from the project root:
+  node .claude/lib/design-render.js render --dir ${DIR} --map <that scratch map> --runtime ${RUNTIME} --out <a fresh scratch folder under the system temp directory>
 Report each board whose render reported an error (board, the error text). A clean board is not a finding.
 If the command exits 2, return missing_tool with its message (the product lacks Playwright or its Chromium).
 ${SCOPE}

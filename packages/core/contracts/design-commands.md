@@ -54,7 +54,9 @@ Implements AC-F6.8. Used by `/design-system` (first build and `--sync`), `/creat
 
 Implements AC-F5.6. Read the whole artifact first, then publish. When the canvas refuses
 because it holds a newer save, re-read and redo the change, asking
-`design-mirror.js refused` what to do next. The third refusal ends the command STUCK. After a successful publish, record `base`
+`design-mirror.js refused --dir docs/ui/<slug> --work-dir <this run's scratch folder>` what to
+do next (the count lives in that folder, so each run starts from zero). The third refusal ends
+the command STUCK. After a successful publish, record `base`
 and write the canvas entry.
 
 ## 5. No artifact access, or publishing off

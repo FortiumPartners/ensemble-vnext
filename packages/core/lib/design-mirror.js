@@ -18,7 +18,7 @@
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
  *   node .claude/lib/design-mirror.js <check|plan|apply|refused|base> --dir docs/ui/<slug>
- *     [--canvas-dir <path>] [--version <v>] [--canvas <url>] [--work-dir <path>]
+ *     [--canvas-dir <path>] [--version <v>] [--canvas <url>] [--work-dir <path>, required by refused]
  *
  * Example: node .claude/lib/design-mirror.js plan --dir docs/ui/checkout --canvas-dir /tmp/read/project
  */
@@ -35,8 +35,9 @@ const MAX_REFUSALS = 3;
 const HASH_MAX_BYTES = 100 * 1024 * 1024;
 const REFUSAL_FILE = 'mirror-refusals.json';
 
-/** True for paths the mirror ignores: anything under `ds/`, and `*.repo.dc.html` conflict copies. */
-const excluded = (rel) => rel.split('/')[0] === 'ds' || rel.endsWith(CONFLICT_SUFFIX);
+/** True for paths the mirror ignores: anything under `ds/`, and conflict copies (`*.repo.dc.html`
+ *  for a board, `*.repo` for any other file -- see `conflictName`). */
+const excluded = (rel) => rel.split('/')[0] === 'ds' || rel.endsWith(CONFLICT_SUFFIX) || rel.endsWith('.repo');
 
 /** Mirrored file paths (posix, relative to `dir`) under `dir`; empty when `dir` does not exist. */
 function listFiles(dir) {
@@ -191,7 +192,11 @@ function main(argv) {
       return check(map, entry.url, opts.version);
     case 'plan': return plan(need());
     case 'apply': return apply(plan(need()), need());
-    case 'refused': return refused(opts['work-dir'] || path.resolve(canvasDir || opts.dir, '..'));
+    case 'refused':
+      // No default: a guessed folder (docs/ui/, or the canvas read's parent) is committed or
+      // reused across runs, so the count would never start from zero.
+      if (!opts['work-dir']) throw new Error("refused needs --work-dir (the run's scratch folder)");
+      return refused(opts['work-dir']);
     case 'base': return base(repoDir);
     default: throw new Error(`unknown verb ${verb}`);
   }

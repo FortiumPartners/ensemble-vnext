@@ -229,7 +229,9 @@ the first board naming the missing tool.`
 
 // --drift (AC-F13.7): extra read-only verifiers. Fresh captures go to a scratch folder, never
 // under DIR, so the run still changes no board.
-const BUILT_BOARDS = BOARDS.filter((b) => b.status === 'shipped' || b.kind === 'as-is')
+// A superseded as-is board is the screen BEFORE a shipped to-be replaced it (/sync-design): it
+// differs from the build by definition, so comparing it would report drift on every run.
+const BUILT_BOARDS = BOARDS.filter((b) => b.status !== 'superseded' && (b.status === 'shipped' || b.kind === 'as-is'))
 if (DRIFT) {
   const builtChunks = []
   for (let i = 0; i < BUILT_BOARDS.length; i += CHUNK) builtChunks.push(BUILT_BOARDS.slice(i, i + CHUNK))
@@ -300,7 +302,13 @@ const dispatch = (v) => agent(
   },
 ).then((r) => (r ? { verifier: v.key, findings: r.findings || [] } : null))
 
-const waves = await parallel(VERIFIERS.map((v) => () => dispatch(v)))
+// The 20-slot pool counts the whole tree (constitution.md): 16 default verifiers plus up to 8
+// drift verifiers can exceed it, so a larger set runs in a second wave after the first.
+const MAX_PARALLEL = 20
+const waves = []
+for (let i = 0; i < VERIFIERS.length; i += MAX_PARALLEL) {
+  waves.push(...await parallel(VERIFIERS.slice(i, i + MAX_PARALLEL).map((v) => () => dispatch(v))))
+}
 const alive = waves.filter(Boolean)
 const findings = alive.flatMap((w) => w.findings.map((f) => ({ ...f, verifier: w.verifier })))
 const deadKeys = VERIFIERS.filter((v) => !alive.some((w) => w.verifier === v.key)).map((v) => v.key)
@@ -369,7 +377,8 @@ One screen: count sourced boards on one line.`,
         accepted: {
           type: 'array',
           items: {
-            type: 'object', additionalProperties: false, required: ['board', 'why'],
+            // check is required: the drift result's undesigned_screens is read from it.
+            type: 'object', additionalProperties: false, required: ['board', 'why', 'check'],
             properties: { board: { type: 'string' }, line: { type: 'string' }, check: { type: 'string' }, why: { type: 'string' } },
           },
         },

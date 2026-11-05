@@ -79,6 +79,13 @@ function validate(map) {
       if (!b || b[f] === undefined || b[f] === null) errors.push(`board ${name}: missing ${f}`);
     }
     if (b && b.kind && !KINDS.includes(b.kind)) errors.push(`board ${name}: unknown kind ${b.kind}`);
+    // design-render.js reads viewport[0]/[1] as pixels and states as { <name>: { setup, props } }.
+    if (b && b.viewport != null && !(Array.isArray(b.viewport) && b.viewport.length === 2 && b.viewport.every(Number.isFinite))) {
+      errors.push(`board ${name}: viewport must be [width, height] in pixels`);
+    }
+    if (b && b.states != null && (typeof b.states !== 'object' || Array.isArray(b.states))) {
+      errors.push(`board ${name}: states must be an object keyed by state name`);
+    }
     if (b && b.status && !STATUSES.includes(b.status)) errors.push(`board ${name}: unknown status ${b.status}`);
     if (b && b.canvas !== undefined && !urls.has(b.canvas)) {
       errors.push(`board ${name}: canvas ${b.canvas} names no listed canvas`);
@@ -175,17 +182,22 @@ function git(repo, args) {
 function stale(map, repo, { record = false, dir } = {}) {
   const ds = map.design_system;
   const head = git(repo, ['rev-parse', 'HEAD']).stdout.trim();
-  const r = git(repo, ['log', '--name-only', '--format=', `${ds.code_commit}..HEAD`, '--', ...ds.paths]);
   let result;
-  if (r.status !== 0) {
-    result = { stale: true, head, changed_paths: null, reason: `code_commit ${ds.code_commit} not found: ${(r.stderr || '').trim()}` };
+  if (!ds || !ds.code_commit || !Array.isArray(ds.paths) || ds.paths.length === 0) {
+    // With no paths, `git log A..HEAD --` would match every commit; with no system, nothing to compare.
+    result = { stale: true, head, changed_paths: null, reason: 'design_system.code_commit or design_system.paths is missing' };
   } else {
-    const changed = unique(r.stdout.split('\n').map((s) => s.trim()).filter(Boolean));
-    result = { stale: changed.length > 0, head, changed_paths: changed };
+    const r = git(repo, ['log', '--name-only', '--format=', `${ds.code_commit}..HEAD`, '--', ...ds.paths]);
+    if (r.status !== 0) {
+      result = { stale: true, head, changed_paths: null, reason: `code_commit ${ds.code_commit} not found: ${(r.stderr || '').trim()}` };
+    } else {
+      const changed = unique(r.stdout.split('\n').map((s) => s.trim()).filter(Boolean));
+      result = { stale: changed.length > 0, head, changed_paths: changed };
+    }
   }
   if (record && dir) {
     const m = read(dir);
-    m.design_system.drift = { checked_at: new Date().toISOString(), head, changed_paths: result.changed_paths };
+    m.design_system = { ...(m.design_system || {}), drift: { checked_at: new Date().toISOString(), head, changed_paths: result.changed_paths } };
     write(dir, m);
   }
   return result;
