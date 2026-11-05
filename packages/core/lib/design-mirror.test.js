@@ -43,6 +43,13 @@ describe('check', () => {
   });
 });
 
+describe('check with a legacy synced_version', () => {
+  it('reads synced_version when version is absent', () => {
+    const map = { canvases: [{ url: 'u', synced_version: '5' }] };
+    expect(mirror.check(map, 'u', '5')).toBe('unchanged');
+  });
+});
+
 describe('plan + apply: the four sync cases', () => {
   it('canvas changed: the edit is adopted into the repository', () => {
     const base = synced();
@@ -192,6 +199,8 @@ describe('CLI', () => {
     expect(JSON.parse(run(['plan', ...d, '--canvas-dir', canvas], proj).stdout).files['A.dc.html']).toBe('canvas');
     expect(JSON.parse(run(['apply', ...d, '--canvas-dir', canvas], proj).stdout).adopted).toEqual(['A.dc.html']);
     expect(Object.keys(JSON.parse(run(['base', ...d], proj).stdout))).toContain('A.dc.html');
+    expect(JSON.parse(run(['record', ...d, '--version', '4'], proj).stdout).version).toBe('4');
+    expect(JSON.parse(run(['check', ...d, '--version', '4'], proj).stdout)).toBe('unchanged');
     expect(JSON.parse(run(['refused', ...d, '--work-dir', path.join(root, 'w')], proj).stdout)).toBe('retry');
   });
 

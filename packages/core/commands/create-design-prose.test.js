@@ -53,7 +53,15 @@ describe('create-design command prose', () => {
   // FS-34 round 1: a home screenshot with a repeated nav and card was flagged, kept and committed.
   test('a screenshot showing what the page does not render is recaptured, never committed (FS-34)', () => {
     expect(text).toMatch(/shows anything the page does not render \(a repeated nav or card/);
-    expect(text).toMatch(/recapture it before the commit; never commit a screenshot any agent's note calls wrong/);
+    expect(text).toMatch(/recapture it now, so the canvas never\s+keeps it, and never commit a screenshot any agent's note calls wrong/);
+  });
+
+  // DSGN-T004 follow-up: the recapture ran after the publish, so the canvas kept the wrong screenshot.
+  test('the mismatched as-is recapture runs before any publish call, publishing on or off', () => {
+    const recapture = text.indexOf("Before any publish call, check every as-is board's `mismatch_note`");
+    expect(recapture).toBeGreaterThan(0);
+    expect(recapture).toBeLessThan(text.indexOf('publish `canvas.json` and the parts, then the boards in order'));
+    expect(text).toMatch(/This runs even with publishing off/);
   });
 
   test('asks at most four questions, only with a person present and not --auto, each with a recommended option', () => {

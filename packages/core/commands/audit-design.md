@@ -69,6 +69,11 @@ zero findings is a legitimate result.
    reports that), and the previous report's `## Could Not Verify` rows if
    `.trd-state/<slug>/audit-design-report.md` exists, so the section is **maintained** (AC-F10.1)
    and not lost when the report is overwritten.
+   **Save the render runtime to a working path** (the render check runs only when the workflow
+   is given one). Read `artifact-type/dc-runtime.js` through the map's canvas url (contract
+   section 1 step 3, a read, not a sync) and write it to a scratch file; pass that path as
+   `runtime`. With publishing off, take it from another canvas under `docs/ui/`; pass an empty
+   `runtime` only when neither exists, and list "render check not run" under ISSUES.
 3. **Run the workflow once:**
    ```
    Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], runtime: "<pinned dc-runtime path or empty>" } })

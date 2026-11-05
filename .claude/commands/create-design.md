@@ -86,7 +86,15 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    `docs/ui/<slug>/` and before anything below (AC-F8.9). Never make that commit here, after
    steps 2-5: it would sweep the new boards, grounding and map into it. Conflict copies
    (`<board>.repo.dc.html`) stay on disk and are committed with it, never deleted.
-7. **Publish**, only when step 1 read `publish: on` and the Artifact tool is present. Per
+7. **Before any publish call, check every as-is board's `mismatch_note`.** A note that says the
+   current screenshot is wrong (an artefact, stitching, a stray copy, "worth recapturing")
+   means it shows anything the page does not render: recapture it now, so the canvas never
+   keeps it, and never commit a screenshot any agent's note calls wrong.
+   Capture it per the `design-grounding` skill's Capture section, look at it, then re-render
+   that as-is board against it and update its `screenshot_match` and `mismatch_note`. If the
+   recapture is still wrong, delete it, set `screenshot_match` false with "not compared:
+   capture error", and list it under ISSUES. This runs even with publishing off.
+   **Publish**, only when step 1 read `publish: on` and the Artifact tool is present. Per
    contract section 4: a whole-artifact read of the canvas first, then publish `canvas.json`
    and the parts, then the boards in order. **Install the design system** per contract
    section 3 if the canvas lacks it or holds an older version. **With `publish: off` or no
@@ -99,14 +107,7 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <saved runtime path> --out docs/ui/<slug>/screens/png
    ```
    Exit 2 means Playwright or its Chromium is missing: list that under ISSUES with the install step.
-9. **Before committing, check every as-is board's `mismatch_note`.** A note that says the
-   current screenshot is wrong (an artefact, stitching, a stray copy, "worth recapturing")
-   means it shows anything the page does not render: recapture it before the commit; never commit a screenshot any agent's note calls wrong.
-   Capture it per the `design-grounding` skill's Capture section, look at it, then re-render
-   that as-is board against it and update its `screenshot_match` and `mismatch_note`. If the
-   recapture is still wrong, delete it, set `screenshot_match` false with "not compared:
-   capture error", and list it under ISSUES.
-   **Commit `docs/ui/<slug>/`** (brief, grounding, canvas, map, screens) and nothing else, then
+9. **Commit `docs/ui/<slug>/`** (brief, grounding, canvas, map, screens) and nothing else, then
    **record** it. Kind `design` names a file, so record the map:
    ```bash
    node .claude/lib/artifacts.js record --state-dir .trd-state/<slug> --kind design --path docs/ui/<slug>/design-map.json --command /create-design --url "<canvas url, or empty when nothing was published>"

@@ -39,7 +39,9 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    When it says `unchanged` there is no full read. When it says `changed`, read the whole
    artifact into this run's scratch folder and run
    `node .claude/lib/design-mirror.js apply --dir docs/ui/<slug> --canvas <url> --canvas-dir <scratch>/project`
-   (it returns `adopted`, `toPublish`, `conflicts`). Then, in this order and before any other
+   (it returns `adopted`, `toPublish`, `conflicts`), then record the version just synced:
+   `node .claude/lib/design-mirror.js record --dir docs/ui/<slug> --canvas <url> --version <live version>`.
+   Then, in this order and before any other
    change to `docs/ui/<slug>/`:
    - **Canvas changed, repository did not (`adopted`).** Run `design-map.js refresh` and
      commit the adopted files and the map **alone**, with exactly this message, listing the
@@ -95,8 +97,10 @@ Implements AC-F5.6. Read the whole artifact first, then publish. When the canvas
 because it holds a newer save, re-read and redo the change, asking
 `design-mirror.js refused --dir docs/ui/<slug> --work-dir <this run's scratch folder>` what to
 do next (the count lives in that folder, so each run starts from zero). The third refusal ends
-the command STUCK. After a successful publish, record `base`
-and write the canvas entry.
+the command STUCK. After a successful publish, run
+`design-mirror.js record --dir docs/ui/<slug> --canvas <url> --version <the canvas's new version>`,
+which writes the canvas entry's `version`, `synced_at` and `files` base; the next `check` compares
+against it.
 
 ## 5. No artifact access, or publishing off
 
