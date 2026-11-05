@@ -2,6 +2,7 @@
 verify-design-comparison    check
 verify-flow-as-built        check
 verify-data-fidelity        check
+verify-design-structure     check
 verification-setup          support
 design-setup                support
 designing-on-canvas         support

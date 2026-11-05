@@ -235,6 +235,38 @@ describe('packages/skills/verify-design-comparison/SKILL.md', () => {
     });
   });
 
+  describe('design-map.json input (DSGN-B013, AC-F12.1, D5)', () => {
+    test('When it applies names design-map.json', () => {
+      expect(sectionBody(parsed.body, 'When it applies')).toMatch(/design-map\.json/);
+    });
+
+    test('Inputs take design-map.json as the route-and-state manifest, keeping the routes file', () => {
+      const section = sectionBody(parsed.body, 'Inputs');
+      expect(section).toMatch(/design-map\.json/);
+      expect(section.toLowerCase()).toMatch(/routes file/);
+    });
+
+    test('Criteria: only approved, building and shipped to-be boards are requirements', () => {
+      const section = sectionBody(parsed.body, 'Criteria');
+      expect(section).toMatch(/`approved`/);
+      expect(section).toMatch(/`building`/);
+      expect(section).toMatch(/`shipped`/);
+    });
+
+    test('Criteria: as-is boards are regression baselines, excluding screenshot_match: false', () => {
+      const section = sectionBody(parsed.body, 'Criteria');
+      expect(section.toLowerCase()).toMatch(/regression baseline/);
+      expect(section).toMatch(/screenshot_match: false/);
+    });
+
+    test('Criteria: parts and flow boards yield no DC- criterion; verdict stays model judgement', () => {
+      const section = sectionBody(parsed.body, 'Criteria');
+      expect(section.toLowerCase()).toMatch(/parts/);
+      expect(section.toLowerCase()).toMatch(/no route|no `dc-`|no criterion/);
+      expect(section.toLowerCase()).toMatch(/model judgement/);
+    });
+  });
+
   describe('directory hygiene', () => {
     test('no script, template or image file ships alongside SKILL.md', () => {
       const entries = fs.readdirSync(SKILL_DIR, { withFileTypes: true })

@@ -2,7 +2,7 @@
 name: plan
 description: Pipeline entry point for work below the PRD threshold. Investigates, decides how much verification the work earns, and writes a TRD sized to match — light, phased, or a handoff to /create-prd when the intent is not settled. Implements only with --implement.
 version: 1.1.0
-argument-hint: "[description | source path | issue ref] [--implement]"
+argument-hint: "[description | source path | issue ref] [--implement] [--design docs/ui/<slug> --boards <ids>]"
 category: implementation
 # MODEL-INVOCABLE as of 2026-09-26, owner-requested. It carried
 # `disable-model-invocation: true` for one stated reason -- not authorization, which the
@@ -36,6 +36,8 @@ category: implementation
 > - `--implement` — after the last stage the work earns, chain into `/implement-trd`
 >   (functional verification runs by default). Honoured at every weight — this flag alone
 >   decides whether work begins; see "Implement, or stop", below.
+> - `--design docs/ui/<slug> --boards <ids>` — build one board (or a small set, comma-separated)
+>   from an approved design; only the named boards are used
 
 ---
 
@@ -85,7 +87,9 @@ decision. The exit test, below, detects that and sends you to `/create-prd`.
 
 ## Step 1: Establish the subject
 
-**Strip the flags from the argument first.** `--implement` is not part of the subject.
+**Strip the flags from the argument first.** `--implement` is not part of the subject. Neither
+is `--design <dir> --boards <ids>`: remove the flag **and its value**, or the path ends up in the
+subject and the slug.
 `/plan the login copy is wrong --implement` has the subject *"the login copy is wrong"*;
 leaving the flag in puts it into the stated subject line and into the TRD's slug.
 
@@ -515,6 +519,18 @@ reduction in verification depth, not an oversight.
 
 ## Step 5: Write the TRD
 
+### Design input (`--design`)
+
+With `--design docs/ui/<slug> --boards <ids>`, the TRD is built from those boards and no others.
+Check each named board is `approved`: `node .claude/lib/design-map.js approved --dir docs/ui/<slug>`
+(a board not listed there is STUCK, naming it and its status). The rules for turning a board into
+tasks are "Design as a source" in `.claude/contracts/trd-authoring.md`; the 5a path does not read
+that file otherwise, so **read that section before writing a light TRD**, and write the board ids
+and the `docs/ui/<slug>` path into the TRD's `## Intended Change` and task text. At medium weight
+pass the boards to the `create-trd` workflow as `design` (below). After the TRD is written, move
+the named boards: `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <ids> --to building --trd docs/TRD/<slug>.md`,
+then commit the map.
+
 ### 5a. Light TRD (`trivial`, `small`)
 
 `docs/TRD/<slug>.md` — the **same format** every other TRD uses, with fewer sections. It must
@@ -851,6 +867,7 @@ Workflow({ name: "create-trd", args: {
   prd: "docs/plan/<slug>.investigation.md",
   trd: "docs/TRD/<slug>.md",
   feature: "<slug>",
+  design: { dir: "docs/ui/<slug>", boards: [...], data: "docs/ui/<slug>/grounding/data.md" },  // only with --design
   project: "<PROJECT_ROOT, or '' for this repo>",
   grounding_dir: ".trd-state/<slug>/findings/grounding/<UTC stamp>",
 } })

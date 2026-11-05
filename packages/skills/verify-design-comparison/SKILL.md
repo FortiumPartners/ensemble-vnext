@@ -26,13 +26,17 @@ design tool's own export. This check is for a **design comparison**, not a funct
 answers "does this screen look like its frame," never "does the feature work" (that is a
 functional criterion, or `verify-flow-as-built`/`verify-data-fidelity`).
 
+When the feature is built from a design made by `/create-design`, the design's
+`design-map.json` (in `docs/ui/<slug>/`) names the frames, their routes and their states, and
+this check reads it (see Inputs and Criteria).
+
 ## Inputs
 
 | Input | Where it usually comes from | Required / optional | Default |
 |---|---|---|---|
 | Design frames directory | the TRD's Verification Artifacts row, or the PRD's design-handoff reference | required | — |
 | Spec-page list | frames in the directory that document behaviour rather than depict a screen (a different aspect ratio from the rest is a strong signal, never a substitute for reading the frame) | required | — |
-| Route per frame | a routes file, or a manifest mapping frame stem to the navigation path that reaches its state | required | — |
+| Route per frame | a routes file, or a manifest mapping frame stem to the navigation path that reaches its state; for a `/create-design` design, `design-map.json` is that manifest — each board's `route` and its states (a routes file is still accepted where there is no map) | required | — |
 | Capture method and commands | how to reach a screenshot of the running build — simulator, device, or browser, with the exact command | required | — |
 | Bezel crop box | the pixels to crop out of the design export before comparison (phone chrome around the design canvas) | required for phone-frame designs | none (no crop) |
 | Frame size | the width × height each design frame and each build screenshot is normalised to before diffing | required | — |
@@ -59,6 +63,19 @@ render as their own card in Page, below).
 | Derivation | `check:verify-design-comparison` |
 | Tier 1 | `judge-only — a pictorial comparison against the design frame; no text assertion is possible` |
 | Parts | blank |
+
+**With a `design-map.json`**, which frames get a row follows the board's `status` and `kind`:
+
+- A **to-be board** with status `approved`, `building` or `shipped` is a requirement: each of
+  its frames (`NN-name--state.png` in `screens/png/`; every state is its own frame stem) yields
+  a `DC-` row. A to-be board in any other status is not a requirement and yields none.
+- An **as-is board** not replaced by an in-scope to-be board is a **regression baseline**: a
+  screen the design did not mean to change must still match it, and it yields a `DC-` row too,
+  except a board with `screenshot_match: false`, which yields none (its `mismatch_note` says why).
+- A **parts** or **flow** board has no screen route, so it yields no `DC-` row here; a parts
+  board's components are checked by `verify-design-structure`.
+- The verdict stays model judgement per frame, as in Rubric below; the map decides which frames
+  are checked, never whether they match.
 
 IDs are stable across runs (derived from the frame's file stem), so a resumed run's settled
 `met` verdicts stay attached to the same frame.

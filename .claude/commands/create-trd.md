@@ -2,7 +2,7 @@
 name: create-trd
 description: Take an existing PRD and create Technical Requirements Document with architecture, task breakdown, and execution plan
 version: 2.0.0
-argument-hint: "[path-to-prd]"
+argument-hint: "[path-to-prd] [--design docs/ui/<slug>]"
 # Expensive, and its description matches how a user would phrase the task —
 # so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
@@ -20,6 +20,24 @@ $ARGUMENTS
 
 If no path provided, resolve from `.trd-state/current.json` field `prd`.
 Error if neither available.
+
+### Design input (`--design docs/ui/<slug>`)
+
+A TRD may be built from an approved design. The design is `--design docs/ui/<slug>`, or a
+`docs/ui/<slug>` path the PRD names. The flag and its value are not part of the PRD path.
+`--design` alone is not a source: the PRD (or transcript) is still required.
+
+1. List the boards to build: `node .claude/lib/design-map.js approved --dir docs/ui/<slug>`.
+   Pass them to the workflow as `design: { dir, boards, data }`, where `data` is
+   `docs/ui/<slug>/grounding/data.md` when that file exists. The rules for turning boards into
+   tasks are the contract's "Design as a source" (`.claude/contracts/trd-authoring.md`).
+2. **Zero approved boards is STUCK**, naming the cause: either nothing is approved yet, or this
+   design's boards already moved to `building` (a re-run after `/refine-trd`). Do not run the
+   workflow with an empty design.
+3. After the TRD is written, move exactly those boards:
+   `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <id,id> --to building --trd docs/TRD/<feature>.md`,
+   then commit the map (`git add docs/ui/<slug>/design-map.json`, commit message
+   `chore(design): <slug> boards to building`).
 
 ---
 
@@ -799,6 +817,8 @@ Workflow({ name: "create-trd", args: {
                                             // in-session: it is the only channel that
                                             // carries them. The script hard-fails when
                                             // neither prd nor transcript is given.
+  design: { dir: "docs/ui/<slug>", boards: [...], data: "docs/ui/<slug>/grounding/data.md" },
+                                            // only with --design (see "Design input")
   project: "<dir>",                         // REQUIRED when the TRD designs a codebase
                                             // other than the repo this session runs in.
   grounding_dir: ".trd-state/<feature>/findings/grounding/<UTC stamp>"

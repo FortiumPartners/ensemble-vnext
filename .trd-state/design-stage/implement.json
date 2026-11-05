@@ -285,33 +285,55 @@
     "DSGN-B011": {
       "description": "Design input for /create-trd and /plan per D15: create-trd.md (and mirror) resolves the design and moves boards to building; create-trd.js (and copies) passes a",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/create-trd.js",
+        ".claude/workflows/create-trd.js",
+        "packages/core/workflows/create-trd.test.js",
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/contracts/trd-authoring.md",
+        "packages/core/commands/create-trd-design-prose.test.js",
+        "packages/core/commands/plan-design-prose.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-05T00:12:10.244Z",
+      "completed_at": "2026-11-05T00:15:48.246Z",
+      "last_advanced": "2026-11-05T00:14:51.866Z"
     },
     "DSGN-B013": {
       "description": "The design checks: the two check edits, verify-design-comparison/SKILL.md per §3.10 and verify-flow-as-built/SKILL.md per §3.10, each with its skill-md.test.js ",
       "phase": 3,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/skills/verify-design-comparison/SKILL.md",
+        "packages/skills/verify-design-comparison/__tests__/skill-md.test.js",
+        "packages/skills/verify-flow-as-built/SKILL.md",
+        "packages/skills/verify-flow-as-built/__tests__/skill-md.test.js",
+        "packages/skills/verify-design-structure/SKILL.md",
+        "packages/skills/verify-design-structure/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-05T00:12:10.244Z",
+      "completed_at": "2026-11-05T00:15:48.247Z",
+      "last_advanced": "2026-11-05T00:14:51.866Z"
     },
     "DSGN-T003": {
       "description": "[LIVE] Build from the approved fixture design: /create-trd --design docs/ui/<slug> on DSGN-T002's approved board, then /implement-trd on the fixture, and one /p",
       "phase": 3,
-      "status": "pending",
+      "status": "deferred",
       "cycle_position": "implement",
-      "current_problem": null,
+      "current_problem": "depends on DSGN-T002 (deferred: folder-trust prompt blocks the live run)",
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
@@ -390,17 +412,17 @@
     },
     {
       "phase": 2,
-      "commit": "8e9daff",
+      "commit": "63f25f5",
       "review": {
         "findings": 0
       },
-      "timestamp": "2026-11-05T00:11:48.380Z"
+      "timestamp": "2026-11-05T00:12:10.243Z"
     }
   ],
   "recovery": {
     "interrupted": false,
-    "last_healthy_checkpoint": "8e9daff",
-    "last_checkpoint_timestamp": "2026-11-05T00:11:48.380Z",
+    "last_healthy_checkpoint": "63f25f5",
+    "last_checkpoint_timestamp": "2026-11-05T00:12:10.243Z",
     "interrupt_reason": null
   },
   "functional_verification": {
