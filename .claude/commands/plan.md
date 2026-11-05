@@ -1182,18 +1182,21 @@ node -e '
    §5a.1's checks; Step 6a's `check`; then the never-unattended check on the core TRD
    (`check-never-unattended docs/TRD/<slug>.md .claude/rules/verification.md`, passed as
    `coreNeverUnattendedHit` and `coreNeverUnattendedStatus`). Pass the sweep ids still in the
-   sweep file as `sweepIdsLeft`. A failing `check` is `COMMAND STUCK: /plan`, as in Step 6a.
+   sweep file as `sweepIdsLeft`. A failing `check` is `COMMAND STUCK: /plan`, as in Step 6a, with `ScheduleWakeup({ stop: true })`
+   called first (before the readout and banner).
 5. **`commit`.** The list is the changed paths, the sweep file and `.trd-state/<slug>-sweep/`.
    **Before `git add`, run the brake over that whole list**, not just the changed paths:
    `node .claude/lib/functional-verification.js check-never-unattended --files "<changed,paths>,<sweep file>,.trd-state/<slug>-sweep/" .claude/rules/verification.md`.
    When `hits` is non-empty or `status` is `invalid`, do not stage or commit: leave the fixes
-   uncommitted, print the readout naming the matched paths (or the invalid list), and end with
+   uncommitted, print the readout naming the matched paths (or the invalid list), and call
+   `ScheduleWakeup({ stop: true })`, then end with
    `COMMAND STUCK: /plan`, running `.claude/hooks/notify-complete.sh "plan" "stuck" "<summary>"`.
    Otherwise stage by pathspec, never `git add -A`: `git add -- <list>` then
    `git commit -m "fix(<slug>): swept fixes" -- <list>`. When nothing is staged for that list
    (`git diff --cached --quiet -- <list>`), skip the commit and continue; an empty commit is
    never attempted.
-6. **`stop`.** Print the readout, then the returned `banner` and `bannerBody`, and run
+6. **`stop`.** Call `ScheduleWakeup({ stop: true })` (the `/verify-build --chained` and `/sweep --chained`
+   steps it follows did not cancel), then print the readout, then the returned `banner` and `bannerBody`, and run
    `.claude/hooks/notify-complete.sh "plan" "<notifyStatus>" "<summary>"`. A flag, whether
    returned by the action or passed back as `carriedFlag`, goes in the readout's ISSUES.
 7. **`implement`.** Run the `implement` step's `Skill()` and emit nothing after it. When the
@@ -1255,12 +1258,18 @@ whether you emit one at all** — `banner: null` means emit nothing. On unrecove
 .claude/hooks/notify-complete.sh "plan" "complete" "<one-line summary>"
 ```
 
-**Never on a chained run.** This helper signals completion to webhooks, queues and tmux
-panes, and `command-status.md` Path B requires it fire **exactly once, at the actual
-completion moment, never during dispatch**. On a chained run the work is just *beginning* at
-handoff — the command it chains into fires its own. Call this only on the paths that
-genuinely end here: the Step 1.1 early reject, and any Step 7 path that stops without
-chaining.
+**Cancel the fallback wake-up.** On the turn that prints this run's `COMMAND COMPLETE` or
+`COMMAND STUCK` banner, call `ScheduleWakeup({ stop: true })` BEFORE the readout and banner, beside
+`notify-complete.sh` (rule and risk: `command-status.md` §3). Skipped under `--chained` and on a
+handoff to a chained command that prints its own banner; that command cancels.
+
+**Never on a handoff to a chained command.** This helper signals completion to webhooks, queues
+and tmux panes, and `command-status.md` Path B requires it fire **exactly once, at the actual
+completion moment, never during dispatch**. When the run hands off to a chained command that
+prints its own banner (`/implement-trd`), the work is just *beginning* at handoff and that
+command fires its own, and cancels the wake-up. Call it, and the cancel, on the turn that prints
+*this* run's banner: the Step 1.1 early reject, any Step 7 path that stops, and the sweep chain's
+`stop` step (7a.6), which ends the run with `/plan`'s own banner.
 
 Call it on the Step 1.1 early reject too. That path ends the command as surely as the others,
 and skipping it there makes the completion signal depend on *which* way the command finished.

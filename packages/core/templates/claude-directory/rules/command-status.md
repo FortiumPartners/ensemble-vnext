@@ -58,6 +58,11 @@ it, not even a final reminder; use it only when the command itself is done, not 
 boundaries or teammate handoffs (those get a PHASE banner, below); for commands spanning many
 ScheduleWakeup cycles, it fires only on the turn that completes the entire command.
 
+**Cancel the fallback wake-up on that final turn**, always: call `ScheduleWakeup({ stop: true })`
+beside `notify-complete.sh`, before printing its readout and banner (its result asks for more
+text). A `--chained` step (a `RETURN` line) does not cancel; its caller's final turn does. It clears
+every pending wake-up in the session and ends a `/loop`. Why: issue #63, 22 minutes busy.
+
 ## The readout: four sections, always, in this order
 
 **Every command that finishes work emits a readout immediately before its

@@ -129,6 +129,8 @@ correlate on `agent_id`, not `prompt_id` (unstable across an agent's lifetime). 
 keeps running without progressing never stops, so this pattern — not a stop-time check — is
 the only thing that catches it.
 
+Cancel the wake on the final turn (`command-status.md` §3).
+
 ---
 
 History and measurements: `FortiumPartners/ensemble-vnext`,

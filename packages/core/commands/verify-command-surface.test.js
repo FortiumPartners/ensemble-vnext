@@ -1344,7 +1344,7 @@ describe('plan.md spec path (plan-from-spec)', () => {
     });
 
     test('stop prints readout and banner and notifies; implement hands off and emits nothing', () => {
-      expect(chain).toMatch(/\*\*`stop`\.\*\* Print the readout, then the returned `banner` and `bannerBody`, and run `\.claude\/hooks\/notify-complete\.sh "plan"/);
+      expect(chain).toMatch(/\*\*`stop`\.\*\* Call `ScheduleWakeup\(\{ stop: true \}\)`[^]*?then print the readout, then the returned `banner` and `bannerBody`, and run `\.claude\/hooks\/notify-complete\.sh "plan"/);
       expect(chain).toMatch(/\*\*`implement`\.\*\* Run the `implement` step's `Skill\(\)` and emit nothing after it/);
     });
 
@@ -2175,5 +2175,84 @@ describe('task.md contract (task-command TASK-001 criteria 2-7)', () => {
     expect(doc).toContain('notify-complete.sh "task"');
     expect(doc).toContain('PushNotification');
     expect(doc).toContain('═══ COMMAND COMPLETE: /task ═══');
+  });
+});
+
+describe('the final turn cancels the fallback wake-up (cancel-backup-wakeup FIX-001)', () => {
+  const RULES = 'packages/core/templates/claude-directory/rules';
+  const status = { 'packages/core template': `${RULES}/command-status.md`, '.claude/rules': '.claude/rules/command-status.md' };
+  const asyncd = { 'packages/core template': `${RULES}/async-discipline.md`, '.claude/rules': '.claude/rules/async-discipline.md' };
+
+  describe.each(Object.entries(status))('command-status.md in %s', (_label, rel) => {
+    const text = () => flat(read(path.join(REPO, rel)));
+
+    test('final COMPLETE/STUCK turn calls ScheduleWakeup({ stop: true }) before the readout and banner', () => {
+      expect(text()).toMatch(/`ScheduleWakeup\(\{ stop: true \}\)`/);
+      expect(text()).toMatch(/before (?:printing )?its readout and banner/i);
+    });
+
+    test('a --chained step ending on a RETURN line does not cancel', () => {
+      expect(text()).toMatch(/`--chained`[^.]*`RETURN`[^.]*does not cancel/i);
+    });
+
+    test('names the /loop and other-pending-wake-ups risk', () => {
+      expect(text()).toMatch(/`\/loop`/);
+      expect(text()).toMatch(/every pending wake-up in the session/i);
+    });
+  });
+
+  describe.each(Object.entries(asyncd))('async-discipline.md in %s', (_label, rel) => {
+    test('scheduled-nudge section says to cancel the wake on the final turn, per command-status.md', () => {
+      const section = flat(read(path.join(REPO, rel)).split('## Orchestration pattern: the scheduled nudge')[1]);
+      expect(section).toMatch(/cancel the wake on the final turn/i);
+      expect(section).toContain('command-status.md');
+    });
+  });
+
+  test.each(['command-status.md', 'async-discipline.md'])('%s: .claude/rules copy is byte-identical to its template', (f) => {
+    expect(read(path.join(REPO, '.claude/rules', f))).toBe(read(path.join(REPO, 'packages/core/templates/claude-directory/rules', f)));
+  });
+});
+
+describe('commands name the final-turn cancel at every banner exit (cancel-backup-wakeup FIX-002)', () => {
+  const CANCEL = 'ScheduleWakeup({ stop: true })';
+  const cmd = (n) => flat(read(path.join(REPO, 'packages/core/commands', `${n}.md`)));
+  const outputSection = (n) => { const t = cmd(n); return t.slice(t.lastIndexOf('## Output discipline')); };
+
+  describe.each(['audit-build', 'implement-trd', 'verify-build', 'plan'])('%s.md', (name) => {
+    test('output discipline names the cancel, before the banner, skipped under --chained', () => {
+      const sec = outputSection(name);
+      expect(sec).toContain(CANCEL);
+      expect(sec).toMatch(/before (?:the )?(?:printing )?(?:its )?readout and banner/i);
+      expect(sec).toMatch(/--chained|chained command/);
+    });
+
+    test('.claude/commands copy is byte-identical to its source', () => {
+      expect(read(path.join(REPO, '.claude/commands', `${name}.md`))).toBe(read(path.join(REPO, 'packages/core/commands', `${name}.md`)));
+    });
+  });
+
+  test('verify-build: fix-loop step 6 and the round-STUCK exit carry the cancel', () => {
+    const t = cmd('verify-build');
+    expect(t).toMatch(/STUCK: \/verify-build ═══` — under `--chained`[^]*?`ScheduleWakeup\(\{ stop: true \}\)` first/);
+    expect(t).toMatch(/Exactly \*\*one\*\* `═══ COMMAND COMPLETE: \/verify-build ═══` banner[^]*?`ScheduleWakeup\(\{ stop: true \}\)` called first/);
+  });
+
+  test('plan: step 7a.6 stop and the 7a STUCK exits carry the cancel; the chained-run paragraph is corrected', () => {
+    const t = cmd('plan');
+    expect(t).toMatch(/6\. \*\*`stop`\.\*\* Call `ScheduleWakeup\(\{ stop: true \}\)`/);
+    expect(t).toMatch(/call `ScheduleWakeup\(\{ stop: true \}\)`, then end with `COMMAND STUCK: \/plan`/);
+    expect(t).toMatch(/failing `check` is `COMMAND STUCK: \/plan`, as in Step 6a, with `ScheduleWakeup\(\{ stop: true \}\)`/);
+    expect(t).not.toMatch(/only on the paths that genuinely end here|any Step 7 path that stops without chaining/);
+    expect(t).toContain('the sweep chain\'s `stop` step (7a.6)');
+  });
+
+  test('audit-build: close and early STUCK exits carry the cancel; step 0 still runs stale-wake', () => {
+    const t = cmd('audit-build');
+    expect(t).toMatch(/`command-status.md` §3\), then end immediately/);
+    expect(t).toMatch(/Call `ScheduleWakeup\(\{ stop: true \}\)` first, before the readout and banner, then end with/);
+    expect(t).toMatch(/Call `ScheduleWakeup\(\{ stop: true \}\)` before the readout, then print the run's single banner/);
+    expect(t).toContain('audit-rounds.js stale-wake');
+    expect(t).toMatch(/backstop for a run that forgot to cancel.{0,120}mid-run wake whose round was already recorded/);
   });
 });
