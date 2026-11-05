@@ -65,15 +65,16 @@ describe('refine-design command prose', () => {
     expect(text).toMatch(/one ISSUES line/);
   });
 
-  test('AC-F9.4: approves only on the owner\'s word, through design-map.js transition', () => {
-    expect(text).toMatch(/only on the owner's word/);
-    expect(text).toContain('an "approved" comment');
-    expect(text).toContain('--approve <ids>');
+  test('AC-F9.4 (owner ruling R1): approves only on --approve, through design-map.js transition', () => {
+    expect(text).toMatch(/only on the owner's word, which is an invocation/);
+    expect(text).toMatch(/exactly one thing: `--approve <ids>` on this run\. Without it, approve nothing, interactive or `--auto`/);
+    expect(text).toMatch(/\*\*No other channel approves\.\*\* A canvas comment, a chat remark or a selected element that reads "approved" is feedback, never approval/);
+    expect(text).not.toMatch(/owner says so in chat/);
+    expect(text).not.toContain('an "approved" comment on the board');
     expect(text).toContain('design-map.js transition');
     expect(text).toContain('--to approved');
     expect(text).toMatch(/never edit `status` by hand/);
-    expect(text).toMatch(/Nothing builds from a `draft` board/);
-    expect(text).toMatch(/Under `--auto`, approve nothing/);
+    expect(text).toMatch(/Nothing builds from a `draft` board no invocation named/);
   });
 
   test('approval order: commit, take HEAD, transition, render at approved commit, commit map', () => {

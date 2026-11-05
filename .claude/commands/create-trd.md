@@ -23,25 +23,45 @@ Error if neither available.
 
 ### Design input (`--design docs/ui/<slug>`)
 
-A TRD may be built from an approved design. The design is `--design docs/ui/<slug>`, or a
+A TRD may be built from a design. The design is `--design docs/ui/<slug>`, or a
 `docs/ui/<slug>` path the PRD names. The flag and its value are not part of the PRD path.
 `--design` alone is not a source: the PRD (or transcript) is still required.
 
-1. List the boards to build: `node .claude/lib/design-map.js approved --dir docs/ui/<slug>`.
-   Pass them to the workflow as `design: { dir, boards, data }`, where `data` is
-   `docs/ui/<slug>/grounding/data.md` when that file exists. The rules for turning boards into
-   tasks are the contract's "Design as a source" (`.claude/contracts/trd-authoring.md`).
-   **Nothing builds from a draft board, including a draft part an approved board embeds.** Run
-   `node .claude/lib/design-map.js held --dir docs/ui/<slug>`: each board it lists embeds a part
-   board still in `draft`. Drop those boards from `boards` before calling the workflow, and
-   list each under ISSUES as "held: <board> embeds draft part <part>; approve it with
-   `/refine-design <slug> --approve <part>`". Never pass, cite or build a draft board, and
-   never justify one in an open question: a TRD task drawn from a draft board is the defect.
-2. **Zero approved boards is STUCK**, naming the cause: either nothing is approved yet, this
-   design's boards already moved to `building` (a re-run after `/refine-trd`), or every
-   approved board is held by a draft part (name the parts). Do not run the workflow with an
-   empty design.
-3. After the TRD is written, move exactly those boards:
+**Invocation is approval (AC-F9.4, D18).** Running this command with a design is the owner's
+approval of the to-be boards it builds: every to-be board of that design still in `draft` or
+`approved`. Nothing else approves a board here (no canvas comment, no chat remark), and no board
+outside that set is built.
+
+1. List the boards to build: `node .claude/lib/design-map.js buildable --dir docs/ui/<slug>`
+   (to-be boards in `draft` or `approved`; a board already `building` or `shipped` is not
+   listed). **Nothing builds from a draft part a board embeds**: parts are not approved by this
+   command. Run `node .claude/lib/design-map.js held --dir docs/ui/<slug> --ids <the listed ids>`:
+   each board it lists embeds a part board still in `draft`. Drop those boards, and list each
+   under ISSUES as "held: <board> embeds draft part <part>; approve it with
+   `/refine-design <slug> --approve <part>`". Never approve, pass, cite or build a held board,
+   and never justify one in an open question.
+2. **Zero boards left is STUCK**, naming the cause: either the design has no to-be board in
+   `draft` or `approved`, this design's boards already moved to `building` (a re-run after
+   `/refine-trd`), or every one is held by a draft part (name the parts). Do not run the
+   workflow with an empty design.
+3. **Approve the remaining boards that are still `draft`**, the same path `/refine-design
+   --approve` uses (D18). A board already `approved` keeps its `approved_commit`; do not move it
+   again.
+   - Commit any uncommitted change under `docs/ui/<slug>/` first, so it is in the approved
+     commit, then take `git rev-parse HEAD` as the commit.
+   - `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <draft ids> --to approved --commit <sha>`
+     (never edit `status` by hand, AC-F2.3).
+   - Render their frames at that commit:
+     `node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <runtime path> --out docs/ui/<slug>/screens/png --approved`.
+     Take the runtime as `.claude/contracts/design-commands.md` section 1 step 3 says (read-only:
+     this command creates no canvas). With no runtime, or exit 2 (Playwright or its Chromium
+     missing), skip the render and list it under ISSUES; approval still stands.
+   - Commit the map and frames: `chore(design): <slug> boards approved by /create-trd`.
+4. Pass the boards to the workflow as `design: { dir, boards, data }`, where `boards` is
+   `node .claude/lib/design-map.js approved --dir docs/ui/<slug>` limited to the ids from step 1,
+   and `data` is `docs/ui/<slug>/grounding/data.md` when that file exists. The rules for turning
+   boards into tasks are the contract's "Design as a source" (`.claude/contracts/trd-authoring.md`).
+5. After the TRD is written, move exactly those boards:
    `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <id,id> --to building --trd docs/TRD/<feature>.md`,
    then commit the map (`git add docs/ui/<slug>/design-map.json`, commit message
    `chore(design): <slug> boards to building`).

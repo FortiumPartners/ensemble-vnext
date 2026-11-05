@@ -1074,3 +1074,15 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] FS-34: a fresh `/create-design --auto` (trips-search) in react-web captured `docs/ui/_current/trips-390x844.png` at the 390 px viewport; an independent Playwright capture of :3110/trips with `innerWidth` 390 (`r2/fs54/scratch/shot.js`) is byte-identical (sha256 2573d36c...) to the ground-stage capture and to the as-is board PNG. The AMEND-001 capture fix works.
 - [ran] FS-54: a design whose boards are all `draft` gives one `ST-<design slug>` row, reported "not verifiable here" (checked with `claude -p` on the react-native `counter-widget` stand-in, platform flutter). The real flutter-widget fixture is in another repository.
 - [ran] A trusted folder's `/create-design` leaves `docs/ui/_current/*.png` modified and uncommitted; harmless but it dirties `git status` there.
+
+## Design-stage fix round 1, iteration 3 exercise (2026-11-05)
+
+- [read] Owner ruling R1 (invocation is approval) landed in PRD 1.2.2 / TRD 1.1.2 only (commit 339be41). `packages/core/commands/refine-design.md` step 5 still lists three approval channels (chat, "approved" comment, `--approve`), and `create-trd.md` / `plan.md` contain no `approved_commit` or `transition` step, so FS-43 reads as unbuilt against the amended statement. Evidence: `.trd-state/design-stage/evidence/r3/fs43-static.txt`.
+- [inferred] FS-58..63, FS-25, 42, 67, 68, 72 are accepted-not-verifiable in verification-plan.md; no live run was attempted for them.
+
+## Exercising FS-43 approval by invocation (design-stage round 4, 2026-11-05)
+
+- [ran] Slash commands run headless in the trusted react-web folder with `claude -p --permission-mode bypassPermissions "<slash command>"` (no tmux needed): `/create-trd <prd> --design docs/ui/trips-search` took ~8 min, `/refine-design ... --approve` ~2.5 min, a no-op `/refine-design --auto` ~30 s. Run `scaffold-project.sh --refresh --plugin-dir <abs packages/full> .` in the folder first or the vendored commands are stale.
+- [ran] A headless `-p` session has no Artifact tool, so `/refine-design` ends `COMMAND STUCK: publish step not run` even when the approval itself succeeded (the map shows `approved` with `approved_commit` set); judge the map, not the banner. `/create-trd` still completes.
+- [ran] `/create-trd --design` needs a PRD that names the design; fixture PRD `docs/PRD/trips-search.md` was added in the react-web folder (branch `fs43-round4`).
+- [ran] Evidence: `.trd-state/design-stage/evidence/r4/fs43-summary.txt` and the per-run maps beside it.

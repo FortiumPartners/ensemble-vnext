@@ -37,7 +37,7 @@ category: implementation
 >   (functional verification runs by default). Honoured at every weight — this flag alone
 >   decides whether work begins; see "Implement, or stop", below.
 > - `--design docs/ui/<slug> --boards <ids>` — build one board (or a small set, comma-separated)
->   from an approved design; only the named boards are used
+>   of a design; only the named boards are used, and naming them approves any still in `draft`
 
 ---
 
@@ -522,12 +522,24 @@ reduction in verification depth, not an oversight.
 ### Design input (`--design`)
 
 With `--design docs/ui/<slug> --boards <ids>`, the TRD is built from those boards and no others.
-Check each named board is `approved`: `node .claude/lib/design-map.js approved --dir docs/ui/<slug>`
-(a board not listed there is STUCK, naming it and its status). Nothing builds from a draft
-board, including a draft part a named board embeds: `node .claude/lib/design-map.js held --dir docs/ui/<slug>`
-lists each approved board that embeds a part still in `draft`, and a named board it lists is
-STUCK too, naming the part and `/refine-design <slug> --approve <part>`. No task cites or builds a
-draft board. The rules for turning a board into
+**Invocation is approval (AC-F9.4, D18):** naming a board here is the owner's approval of it, so
+a named to-be board still in `draft` is approved by this run; nothing else approves one (no
+canvas comment, no chat remark), and nothing builds from a board `--boards` did not name.
+Check each named board can be built: `node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --ids <ids>`
+lists the named to-be boards in `draft` or `approved`; a named board it does not list (already
+`building` or `shipped`, not a to-be board, or not in the map) is STUCK, naming it and its status.
+Nothing builds from a draft part a named board embeds, and this run does not approve parts:
+`node .claude/lib/design-map.js held --dir docs/ui/<slug> --ids <ids>` lists each named board that
+embeds a part still in `draft`, and a named board it lists is STUCK too, naming the part and
+`/refine-design <slug> --approve <part>`. No task cites or builds a draft board.
+Then **approve the named boards still in `draft`**, the same path `/refine-design --approve` uses
+(a board already `approved` keeps its `approved_commit`): commit any uncommitted change under
+`docs/ui/<slug>/`, take `git rev-parse HEAD` as the commit, run
+`node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <draft ids> --to approved --commit <sha>`,
+render their frames with `node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <runtime path> --out docs/ui/<slug>/screens/png --approved`
+(runtime per `.claude/contracts/design-commands.md` section 1 step 3, read-only; with no runtime
+or exit 2, skip the render and say so in the readout's ISSUES), and commit the map and frames.
+The rules for turning a board into
 tasks are "Design as a source" in `.claude/contracts/trd-authoring.md`; the 5a path does not read
 that file otherwise, so **read that section before writing a light TRD**, and write the board ids
 and the `docs/ui/<slug>` path into the TRD's `## Intended Change` and task text. At medium weight

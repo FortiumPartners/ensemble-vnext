@@ -122,6 +122,40 @@ describe('held', () => {
     ]);
     expect(dm.held(m, dir)).toEqual([{ id: '01-a', draft_parts: ['badge'] }]);
   });
+  it('with ids, checks the named boards whatever their status (a draft board before approval)', () => {
+    const dir = tmp();
+    const m = mapOf([
+      board({ id: '01-a', status: 'draft', parts: ['nav'] }),
+      board({ id: '02-b', file: '02-b.dc.html', status: 'draft' }),
+      board({ id: 'nav', file: 'nav.dc.html', kind: 'part', status: 'draft' }),
+    ]);
+    expect(dm.held(m, dir)).toEqual([]);
+    expect(dm.held(m, dir, ['01-a', '02-b'])).toEqual([{ id: '01-a', draft_parts: ['nav'] }]);
+  });
+});
+
+describe('buildable (AC-F9.4: invocation is approval)', () => {
+  const m = () => mapOf([
+    board({ id: '01-a', status: 'draft' }),
+    board({ id: '02-b', file: '02-b.dc.html', status: 'approved' }),
+    board({ id: '03-c', file: '03-c.dc.html', status: 'building' }),
+    board({ id: '04-d', file: '04-d.dc.html', status: 'shipped' }),
+    board({ id: '05-e', file: '05-e.dc.html', kind: 'as-is', status: 'draft' }),
+    board({ id: 'p', file: 'p.dc.html', kind: 'part', status: 'draft' }),
+  ]);
+  it('lists draft and approved to-be boards only', () => {
+    expect(dm.buildable(m()).map((b) => b.id)).toEqual(['01-a', '02-b']);
+  });
+  it('limits to the named ids, dropping a named board that is not buildable', () => {
+    expect(dm.buildable(m(), ['01-a', '03-c', '05-e']).map((b) => b.id)).toEqual(['01-a']);
+  });
+  it('a draft board an invocation names can be approved (recording the commit) and then moved to building', () => {
+    const approved = dm.transition(m(), ['01-a'], 'approved', { commit: 'abc123' });
+    const b = approved.boards.find((x) => x.id === '01-a');
+    expect(b).toMatchObject({ status: 'approved', approved_commit: 'abc123' });
+    const building = dm.transition(approved, ['01-a'], 'building', { trd: 'docs/TRD/x.md' });
+    expect(building.boards.find((x) => x.id === '01-a')).toMatchObject({ status: 'building', approved_commit: 'abc123', trd: 'docs/TRD/x.md' });
+  });
 });
 
 describe('read / refresh / write', () => {

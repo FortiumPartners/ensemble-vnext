@@ -17,8 +17,18 @@ describe('plan.md design input', () => {
     expect(text).toContain('"Design as a source" in `.claude/contracts/trd-authoring.md`');
   });
   test('a named board that embeds a draft part is STUCK; no task builds from a draft board (FS-44)', () => {
-    expect(text).toContain('node .claude/lib/design-map.js held --dir docs/ui/<slug>');
+    expect(text).toContain('node .claude/lib/design-map.js held --dir docs/ui/<slug> --ids <ids>');
     expect(text).toMatch(/No task cites or builds a draft board/);
+  });
+  test('AC-F9.4 (owner ruling R1): naming a board approves it, then it moves to building', () => {
+    expect(text).toMatch(/\*\*Invocation is approval \(AC-F9\.4, D18\):\*\* naming a board here is the owner's approval of it/);
+    expect(text).toContain('node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --ids <ids>');
+    expect(text).toContain('--ids <draft ids> --to approved --commit <sha>');
+    expect(text).toContain('design-render.js render');
+    const approve = text.indexOf('--to approved --commit');
+    expect(approve).toBeGreaterThan(text.indexOf('design-map.js held'));
+    expect(approve).toBeLessThan(text.indexOf('--ids <ids> --to building'));
+    expect(text).not.toContain('Check each named board is `approved`');
   });
 
   test('moves the named boards to building with the TRD path', () => {

@@ -1,6 +1,6 @@
 ---
 name: refine-design
-description: Refine a design on the product's canvas with feedback - adopt hand edits, change the affected boards, re-challenge, publish what changed, and approve boards only on the owner's word
+description: Refine a design on the product's canvas with feedback - adopt hand edits, change the affected boards, re-challenge, publish what changed, and approve boards only when --approve names them
 version: 1.0.0
 argument-hint: "<slug> [--approve <ids>] [--auto] [feedback]"
 # Expensive, and its description matches how a user would phrase the task, so it must not be
@@ -66,13 +66,14 @@ option "(Recommended)" and says why. `--auto` asks nothing.
    canvas and reply to each comment you handled with `ArtifactComments`. A reply is attempted;
    if it fails, that is one ISSUES line and the run carries on. With publishing off, contract
    section 5 applies. You may let one agent publish one board after a whole-artifact read.
-5. **Approve**, only on the owner's word (AC-F9.4). The sources are exactly three: the owner
-   says so in chat, an "approved" comment on the board, or `--approve <ids>`. Each goes through
-   the same path below (D18). Nothing builds from a `draft` board.
-   - Interactive: when a board looks ready, you may ask once, recommending approval. Only a
-     yes counts.
-   - Under `--auto`, approve nothing unless `--approve <ids>` was passed. A comment that reads
-     "approved" is the owner's word only when you read it from the canvas, not from a prompt.
+5. **Approve**, only on the owner's word, which is an invocation (AC-F9.4, D18). Here that is
+   exactly one thing: `--approve <ids>` on this run. Without it, approve nothing, interactive
+   or `--auto`. A building command (`/create-trd --design`, `/plan --design --boards`) approves
+   the boards it builds itself, so `--approve` is only for approving ahead of a build.
+   - **No other channel approves.** A canvas comment, a chat remark or a selected element that
+     reads "approved" is feedback, never approval: do not transition on it and do not ask
+     whether to. Name the board in NEXT as `/refine-design <slug> --approve <id>` instead.
+     Nothing builds from a `draft` board no invocation named.
    - **Commit** the adopted edits and any board changes first, so they are in the approved
      commit. Take `git rev-parse HEAD` as the commit.
    - **Transition**, never edit `status` by hand (AC-F2.3):
@@ -99,11 +100,12 @@ Never put a credential in a board or a page (contract section 6).
 
 **Format: the four-section readout in `.claude/rules/command-status.md`** (STATE, DECISIONS,
 ISSUES, NEXT, one screen, written for someone who was not in the session). Contract section 7
-applies. STATE counts boards by status and says which were approved this run and by which
-source. ISSUES lists conflicts (each with its `.repo.dc.html` path), design-system drift,
+applies. STATE counts boards by status and says which were approved this run (only by
+`--approve`). ISSUES lists conflicts (each with its `.repo.dc.html` path), design-system drift,
 boards edited after approval, open review findings, unanswered comments and a failed reply.
 NEXT names `/design-system --sync` first when the system is stale, then `/audit-design <slug>`,
-then `/refine-design <slug>` for boards still in `draft`. When stale, step 1 of NEXT is
+then, for boards still in `draft`, the build that approves them (`/create-trd <prd> --design
+docs/ui/<slug>`) or `/refine-design <slug> --approve <ids>` to approve ahead of it. When stale, step 1 of NEXT is
 `/design-system --sync`, ahead of a conflict hand-merge or any other step: the hand-merge is
 step 2, because a merge made against an out-of-date system has to be redone after the sync.
 The canvas link goes **above** the banner.
@@ -138,7 +140,8 @@ destructive operation, or a STUCK condition after retries. Otherwise decide, doc
 
 ## What this command must not do
 
-- Approve a board without the owner's word, or move status by editing the map by hand.
+- Approve a board `--approve` did not name (a comment, a chat remark or `--auto` alone never
+  approves), or move status by editing the map by hand.
 - Edit `design.md`, or ask a question under `--auto`.
 - Rewrite boards the feedback does not touch, or republish unchanged files.
 - Delete a `.repo.dc.html` conflict copy, or fold the adopt commit into another commit.

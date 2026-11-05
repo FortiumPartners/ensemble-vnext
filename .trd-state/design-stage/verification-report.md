@@ -2,14 +2,13 @@
 
 **Source PRD**: docs/PRD/design-stage.md
 **Success definition**: .trd-state/design-stage/success-definition.md
-**Outcome**: Stuck (no full-environment run declared)
-**Reason**: iteration cap (3) reached with 1 gap(s) still open
-**Criteria**: 72 total — 59 met, 1 not met, 12 not verifiable, 0 unbuilt
-**Coverage**: 59 of 72 proven — uncovered: FS-25, FS-42, FS-43, FS-54, FS-58, FS-59, FS-60, FS-61, FS-62, FS-63, FS-67, FS-68, FS-72
-**Must pass**: 10 of 11 proven — unproven: FS-43 (not verifiable)
-**Screenshots**: 2 shown
-**Diagnosis**: 13 open — 8 environment not reachable, 4 capability absent, 1 evidence missing
-**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`
+**Outcome**: Satisfied (11 of 72 not verifiable) (no full-environment run declared)
+**Reason**: no gaps remain — every criterion is met or not verifiable here
+**Criteria**: 72 total — 61 met, 0 not met, 11 not verifiable, 0 unbuilt
+**Coverage**: 61 of 72 proven — uncovered: FS-25, FS-42, FS-58, FS-59, FS-60, FS-61, FS-62, FS-63, FS-67, FS-68, FS-72
+**Must pass**: 11 of 11 proven
+**Screenshots**: 1 shown
+**Next**: `/audit-build`
 
 ## Met
 
@@ -55,6 +54,7 @@
 | FS-39 | `/create-design` ends with the four-section readout and a COMMAND COMPLETE or STUCK banner, with the canvas link above the banner | .trd-state/design-stage/evidence/iter3/create-design-auto-pane.txt | 1 |
 | FS-40 | A second `/create-design` run leaves `grounding/` unchanged when the code it covers has not changed | .trd-state/design-stage/evidence/iter4/fs40-grounding-diff.txt | 2 |
 | FS-41 | `/refine-design` reads the live canvas first and adopts hand edits through the mirror before applying feedback | .trd-state/design-stage/evidence/iter4/fs15-41-45-refine-design-auto-pane.txt | 2 |
+| FS-43 | A to-be board is approved by the owner's invocation, never by a separate approval act: `/create-trd --design` and `/plan --design --boards <ids>` approve the to-be boards they build (recording `approved_commit`), and `/refine-design --approve <ids>` approves boards ahead of a build. No canvas comment, chat remark or `--auto` run approves a board. Nothing builds from a board no invocation named | .trd-state/design-stage/evidence/r4/fs43-summary.txt | 2 |
 | FS-44 | Nothing builds from a `draft` board: `/create-trd` or `/plan` given a design whose boards are `draft` produces no tasks from them | .trd-state/design-stage/evidence/r1/fs44-55-56-trd-home-trips.md | 1 |
 | FS-45 | `/refine-design` runs in the main session with no workflow script, interactive by default, and under `--auto` asks nothing | .trd-state/design-stage/evidence/iter4/fs45-no-workflow-and-auto-asks.txt | 2 |
 | FS-46 | `/audit-design` writes `audit-design-report.md` with a `## Could Not Verify` section, its findings name a board and line, rejected findings name the file that refutes them, it reports any board with no source and any brief item with no board, and it changes no board | .trd-state/design-stage/evidence/iter4/audit-design-report-seeded.md | 2 |
@@ -65,6 +65,7 @@
 | FS-51 | A TRD written from a design selects the design checks in its `## Verification Artifacts` section automatically | .trd-state/design-stage/evidence/iter4/trd-settings-notifications.md | 2 |
 | FS-52 | `verify-design-comparison` accepts `design-map.json` as the route-and-state manifest for each frame | .trd-state/design-stage/evidence/r1/fs52-manifest-03-trips-approved.json | 1 |
 | FS-53 | `verify-design-comparison` treats only `approved`, `building` and `shipped` to-be boards as requirements and as-is boards as regression baselines, and its verdict stays model judgement per frame | .trd-state/design-stage/evidence/r1/fs53-design-comparison-verdicts.json | 1 |
+| FS-54 | `verify-design-structure` walks the React tree in Playwright and compares the components rendered at a board's route with the board's `components`; on a stack other than React or react-native-web, and for parts boards, it does not run the structure check and reports "not verifiable here" | .trd-state/design-stage/evidence/r3/fs54-skill.txt | 1 |
 | FS-55 | `verify-flow-as-built` takes the designed screen-to-screen edges from the board links in `design-map.json` | .trd-state/design-stage/evidence/r1/fs55-flow-see-trips.txt | 1 |
 | FS-56 | `verify-data-fidelity` is selected with `grounding/data.md` as its input and its skill file is unchanged | .trd-state/design-stage/evidence/r1/fs44-55-56-trd-home-trips.md | 1 |
 | FS-57 | A TRD built from approved boards is verified against them inside `/implement-trd`'s functional-verification loop | .trd-state/design-stage/evidence/iter5/verification-report.md | 3 |
@@ -77,26 +78,23 @@
 
 ## Not Met
 
-| ID | Statement | Tier 1 | Reason | Blocker | Attempts |
-|----|-----------|--------|--------|---------|----------|
-| FS-54 | `verify-design-structure` walks the React tree in Playwright and compares the components rendered at a board's route with the board's `components`; on a stack other than React or react-native-web, and for parts boards, it does not run the structure check and reports "not verifiable here" | pass | The React half is proven: SKILL.md states the rule and the live walk of /trips found Card and Chip for board 01-trips--as-is. The non-React and parts-board half is not: the only Flutter run was a stand-in whose four boards are all draft, so the skill answered through its no-board-in-scope rule, and the stack and parts-board rules were only described hypothetically ("if the boards were approved"), never applied. The flutter-widget fixture itself was not run. | the flutter-widget fixture is in another repository; a stand-in with approved parts boards on a non-React stack is needed | iter 2: not_met; iter 3: not_met |
+_None._
 
 ## Not Verifiable
 
 | ID | Statement | Reason |
 |----|-----------|--------|
-| FS-25 | A board drawn with the installed design system renders its real components on the hosted canvas | Accepted (DSGN-T005, owner-attended): needs a screenshot of the hosted canvas. |
-| FS-42 | `/refine-design` takes feedback from the argument, chat, canvas comments and the viewer's selected elements; changes only the affected boards, re-challenges them, publishes only what changed, posts a before/after, and answers each comment it handled | No tool here can create a canvas comment, so a comment-driven run cannot start. |
-| FS-43 | `/refine-design` sets a board to `approved` only on the owner's word, through each of three channels — in chat, by an "approved" comment on the board, or with `--approve <ids>` — and a run with none of them leaves every board `draft` | Chat and --approve channels proven (iter4), --auto with no approval approved nothing; the 'approved' comment channel cannot be exercised without a tool that creates canvas comments. |
-| FS-58 | `/audit-build`'s NEXT names `/sync-design <slug>` when the closed feature has a design, and does not run it | Accepted (DSGN-T004, deferred until the fixture build merges). |
-| FS-59 | `/sync-design` captures, for each `building` board, the built screen at its route and states into `as-built/png/` | Accepted (DSGN-T004, deferred until the fixture build merges). |
-| FS-60 | When the build matches its board, `/sync-design` sets the board `shipped` with `shipped_commit`, makes the to-be board the new as-is for that screen, and moves the old as-is to a "History" page on the canvas | Accepted (DSGN-T004, deferred until the fixture build merges). |
-| FS-61 | When the build differs from its board, `/sync-design` rebuilds the board from the shipped components only when an owner ruling accepts the difference, citing that ruling in a canvas note; a TRD decision the architect wrote does not count, and with no owner ruling the board stays `building` and the difference is reported under ISSUES | Accepted (DSGN-T004, deferred until the fixture build merges). |
-| FS-62 | When component or token paths changed, `/sync-design` runs `/design-system --sync`, then publishes, commits and updates the map | Accepted (DSGN-T004, deferred until the fixture build merges). |
-| FS-63 | `/audit-design --drift` compares every `shipped` and as-is board with a fresh screenshot of the current build and the installed design system's version with the current one, reports code changes made outside any design and screens never designed, and lists each screen with no board for `/create-design` to rebuild | Accepted (DSGN-T004, deferred until the fixture build merges). |
-| FS-67 | The NativeWind board, drawn on the hosted canvas, shows its chips | Accepted (DSGN-T005, owner-attended): needs the NativeWind board seen on the hosted canvas. |
-| FS-68 | A session started by an orchestrator under the james account creates and publishes an artifact | Accepted (DSGN-T005, owner-attended): needs a session under the james account. |
-| FS-72 | The 44-board flow redone with these commands has to-be boards that use `x-import`, links that are playable, and hand edits and comments that round-trip between canvas and repository | Accepted (DSGN-T006): the owner's own 44-board flow is not available here. |
+| FS-25 | A board drawn with the installed design system renders its real components on the hosted canvas | Judge-only; no artifact claimed. Needs a screenshot of the hosted claude.ai canvas, which no tool here can capture (owner-attended, DSGN-T005); accepted in verification-plan.md. |
+| FS-42 | `/refine-design` takes feedback from the argument, chat, canvas comments and the viewer's selected elements; changes only the affected boards, re-challenges them, publishes only what changed, posts a before/after, and answers each comment it handled | No artifact. Needs a /refine-design run driven by a canvas comment; no tool here can create a canvas comment (ArtifactComments only reads, replies and resolves). Accepted in verification-plan.md. |
+| FS-58 | `/audit-build`'s NEXT names `/sync-design <slug>` when the closed feature has a design, and does not run it | No artifact. Needs an /audit-build run on a closed feature with a design; deferred until the fixture build merges (DSGN-T004). Accepted in verification-plan.md. |
+| FS-59 | `/sync-design` captures, for each `building` board, the built screen at its route and states into `as-built/png/` | No artifact. Needs a /sync-design fixture run on a merged fixture build capturing as-built/png/ (DSGN-T004). Accepted in verification-plan.md. |
+| FS-60 | When the build matches its board, `/sync-design` sets the board `shipped` with `shipped_commit`, makes the to-be board the new as-is for that screen, and moves the old as-is to a "History" page on the canvas | No artifact. Needs a /sync-design run on a merged fixture build moving boards to shipped and creating the History page (DSGN-T004). Accepted in verification-plan.md. |
+| FS-61 | When the build differs from its board, `/sync-design` rebuilds the board from the shipped components only when an owner ruling accepts the difference, citing that ruling in a canvas note; a TRD decision the architect wrote does not count, and with no owner ruling the board stays `building` and the difference is reported under ISSUES | No artifact. Needs three /sync-design fixture runs (owner ruling, architect-only decision, nothing) on a merged fixture build (DSGN-T004). Accepted in verification-plan.md. |
+| FS-62 | When component or token paths changed, `/sync-design` runs `/design-system --sync`, then publishes, commits and updates the map | No artifact. Needs a /sync-design run after a component-path change on a merged fixture build (DSGN-T004). Accepted in verification-plan.md. |
+| FS-63 | `/audit-design --drift` compares every `shipped` and as-is board with a fresh screenshot of the current build and the installed design system's version with the current one, reports code changes made outside any design and screens never designed, and lists each screen with no board for `/create-design` to rebuild | No artifact. Needs an /audit-design --drift run against a shipped build seeded with an undesigned screen (DSGN-T004). Accepted in verification-plan.md. |
+| FS-67 | The NativeWind board, drawn on the hosted canvas, shows its chips | Judge-only; no artifact claimed. Needs a screenshot of the NativeWind board on the hosted canvas, which no tool here can capture (owner-attended, DSGN-T005). Accepted in verification-plan.md. |
+| FS-68 | A session started by an orchestrator under the james account creates and publishes an artifact | No artifact. Needs a session started by an orchestrator under the james account; that account is not available here (DSGN-T005, owner-attended). Accepted in verification-plan.md. |
+| FS-72 | The 44-board flow redone with these commands has to-be boards that use `x-import`, links that are playable, and hand edits and comments that round-trip between canvas and repository | No artifact. Needs the owner's own 44-board flow redone with these commands (DSGN-T006, owner-attended); not available here. Accepted in verification-plan.md. |
 
 ## Evidence
 
@@ -104,24 +102,17 @@
 
 ![FS-34](evidence/iter3/fs34/board-01-trips--as-is.png)
 
-### FS-54 — `verify-design-structure` walks the React tree in Playwright and compares the components rendered at a board's route with the board's `components`; on a stack other than React or react-native-web, and for parts boards, it does not run the structure check and reports "not verifiable here" (not_met)
-
-![FS-54](evidence/iter3/fs54/ST-01-trips--as-is.png)
-
 
 ## Fix run
 
 | Round | Tasks promoted | Criteria closed | Still open |
 |-------|-----------------|------------------|-------------|
-| 0 | 0 | 26 | 25 |
-| 1 | 1 | 12 | 13 |
+| 0 | 0 | 2 | 11 |
 
 | ID | Statement | Status | Cause | Stop reason |
 |----|-----------|--------|-------|-------------|
 | FS-25 | A board drawn with the installed design system renders its real components on the hosted canvas | not_verifiable | capability absent | accepted as not verifiable: DSGN-T005, owner-attended |
-| FS-42 | `/refine-design` takes feedback from the argument, chat, canvas comments and the viewer's selected elements; changes only the affected boards, re-challenges them, publishes only what changed, posts a before/after, and answers each comment it handled | not_verifiable | capability absent | not verifiable here: No tool here can create a canvas comment, so a comment-driven run cannot start. |
-| FS-43 | `/refine-design` sets a board to `approved` only on the owner's word, through each of three channels — in chat, by an "approved" comment on the board, or with `--approve <ids>` — and a run with none of them leaves every board `draft` | not_verifiable | capability absent | not verifiable here: Chat and --approve channels proven (iter4), --auto with no approval approved nothing; the 'approved' comment channel cannot be exercised without a tool that creates canvas comments. |
-| FS-54 | `verify-design-structure` walks the React tree in Playwright and compares the components rendered at a board's route with the board's `components`; on a stack other than React or react-native-web, and for parts boards, it does not run the structure check and reports "not verifiable here" | not_met | evidence missing | not buildable by cause: evidence missing — re-verified each round, never built |
+| FS-42 | `/refine-design` takes feedback from the argument, chat, canvas comments and the viewer's selected elements; changes only the affected boards, re-challenges them, publishes only what changed, posts a before/after, and answers each comment it handled | not_verifiable | capability absent | not verifiable here: no tool here can create a canvas comment, so a comment-driven run cannot start |
 | FS-58 | `/audit-build`'s NEXT names `/sync-design <slug>` when the closed feature has a design, and does not run it | not_verifiable | environment not reachable | accepted as not verifiable: DSGN-T004, deferred until the fixture build merges |
 | FS-59 | `/sync-design` captures, for each `building` board, the built screen at its route and states into `as-built/png/` | not_verifiable | environment not reachable | accepted as not verifiable: DSGN-T004, deferred until the fixture build merges |
 | FS-60 | When the build matches its board, `/sync-design` sets the board `shipped` with `shipped_commit`, makes the to-be board the new as-is for that screen, and moves the old as-is to a "History" page on the canvas | not_verifiable | environment not reachable | accepted as not verifiable: DSGN-T004, deferred until the fixture build merges |

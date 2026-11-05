@@ -13,7 +13,7 @@
  * argument array, never a shell string.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
- *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|held|setup>
+ *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|setup>
  *     --dir docs/ui/<slug> [--ids a,b] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
  *
  * Example: node .claude/lib/design-map.js transition --dir docs/ui/checkout --ids 01-cart --to approved
@@ -211,6 +211,14 @@ function stale(map, repo, { record = false, dir } = {}) {
 const approved = (map) => map.boards.filter((b) => b.kind === 'to-be' && b.status === 'approved');
 
 /**
+ * To-be boards an invocation may approve and build (AC-F9.4, invocation is approval): `draft` or
+ * `approved`, limited to `ids` when given. A board already `building`, `shipped` or `superseded`
+ * is not listed, and neither is an as-is, part or flow board.
+ */
+const buildable = (map, ids) => map.boards.filter((b) => b.kind === 'to-be' && ['draft', 'approved'].includes(b.status)
+  && (!ids || ids.includes(b.id)));
+
+/**
  * Approved to-be boards that embed a `draft` part board, so nothing may build from them yet
  * (AC-F2.3: nothing builds from a draft board, and a part reached through an approved board is
  * still a draft board). A board embeds a part when its derived `parts` name it (by id or file
@@ -218,9 +226,11 @@ const approved = (map) => map.boards.filter((b) => b.kind === 'to-be' && b.statu
  * from `dc-import` tags only and a board may reference a part another way. The file name must
  * stand alone (`toggle.dc.html` does not match inside `part-toggle.dc.html`), and parts are
  * followed transitively: an approved part that embeds a draft part also holds its board.
+ * With `ids`, the named boards are checked whatever their status, so a command can test a
+ * `draft` board it is about to approve before approving it.
  * @returns {{ id: string, draft_parts: string[] }[]} only the held boards
  */
-function held(map, dir) {
+function held(map, dir, ids) {
   const partBoards = map.boards.filter((b) => b.kind === 'part');
   if (!partBoards.some((p) => p.status === 'draft')) return [];
   const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -236,7 +246,8 @@ function held(map, dir) {
     return hit;
   };
   const out = [];
-  for (const b of approved(map)) {
+  const roots = ids ? map.boards.filter((b) => ids.includes(b.id)) : approved(map);
+  for (const b of roots) {
     const seen = new Set();
     const stack = embeds(b);
     while (stack.length) {
@@ -296,7 +307,8 @@ function main(argv) {
     case 'validate': return validate(read(opts.dir));
     case 'refresh': return refresh(opts.dir);
     case 'approved': return approved(read(opts.dir));
-    case 'held': return held(read(opts.dir), opts.dir);
+    case 'buildable': return buildable(read(opts.dir), opts.ids ? opts.ids.split(',') : undefined);
+    case 'held': return held(read(opts.dir), opts.dir, opts.ids ? opts.ids.split(',') : undefined);
     case 'stale': return stale(read(opts.dir), '.', { record: opts.record, dir: opts.dir });
     case 'transition': {
       if (!opts.ids || !opts.to) throw new Error('transition needs --ids and --to');
@@ -310,7 +322,7 @@ function main(argv) {
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, held, setup, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, held, setup, parseArgs, KINDS, STATUSES };
 
 if (require.main === module) {
   try {

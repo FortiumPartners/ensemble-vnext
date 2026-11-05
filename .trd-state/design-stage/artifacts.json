@@ -33,8 +33,8 @@
   "success-definition": {
     "path": ".trd-state/design-stage/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-05T00:48:33.499Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-05T12:48:21.478Z",
+    "command": "/verify-build"
   },
   "verification-plan": {
     "path": ".trd-state/design-stage/verification-plan.md",

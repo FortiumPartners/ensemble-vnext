@@ -530,15 +530,8 @@
         {
           "round": 0,
           "tasksPromoted": 0,
-          "criteriaClosed": 26,
-          "criteriaOpen": 25,
-          "buildable": 4
-        },
-        {
-          "round": 1,
-          "tasksPromoted": 1,
-          "criteriaClosed": 12,
-          "criteriaOpen": 13,
+          "criteriaClosed": 2,
+          "criteriaOpen": 11,
           "buildable": 0
         }
       ],
