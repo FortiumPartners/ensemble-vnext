@@ -501,12 +501,20 @@
         "findings": 0
       },
       "timestamp": "2026-11-05T04:14:51.344Z"
+    },
+    {
+      "phase": 5,
+      "commit": "66f3378",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T13:00:42.989Z"
     }
   ],
   "recovery": {
     "interrupted": false,
-    "last_healthy_checkpoint": "pending",
-    "last_checkpoint_timestamp": "2026-11-05T04:14:51.344Z",
+    "last_healthy_checkpoint": "66f3378",
+    "last_checkpoint_timestamp": "2026-11-05T13:00:42.989Z",
     "interrupt_reason": null
   },
   "functional_verification": {
