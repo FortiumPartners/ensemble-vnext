@@ -128,6 +128,8 @@ None apply — the change is a library verb and command prose; no screens, journ
 
 none
 
+Owner ruling (2026-11-05, `/refine-verification`, R1): the command-order criteria (`/create-trd --design` and `/plan --design --boards` approving only after the TRD, and `/refine-design --approve`) are proven by live headless sessions in the react-web fixture, as the design-stage checks were; verification may start `claude` sessions there for them.
+
 ## Master Task List
 
 | Task ID | Description | Serves | Dependencies | Acceptance Criteria |
