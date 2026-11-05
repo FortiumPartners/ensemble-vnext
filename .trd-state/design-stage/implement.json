@@ -4,7 +4,7 @@
   "trd_hash": "456643b5259cb2968af66dd1a9220b5288e8e78610a2f00113d801ced5c7f5ce",
   "branch": "58-design-prd",
   "strategy": "tdd",
-  "phase_cursor": 3,
+  "phase_cursor": 4,
   "tasks": {
     "DSGN-P001": {
       "description": "design.md template in packages/core/templates/claude-directory/rules/ with sections for the design system, per-platform, how to reach a screen and design rules;",
@@ -343,26 +343,46 @@
     "DSGN-B015": {
       "description": "The P1 after-build work: sync-design.js workflow and /sync-design command per §3.11 and D26, with sync-design.test.js, mirrors and full symlink; audit-build.md ",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/sync-design.js",
+        "packages/core/workflows/sync-design.test.js",
+        "packages/core/commands/sync-design.md",
+        "packages/core/commands/sync-design-prose.test.js",
+        "packages/core/commands/audit-build.md",
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js",
+        "packages/core/commands/sync-design-prose.test.js",
+        ".claude/workflows/sync-design.js",
+        ".claude/commands/sync-design.md",
+        ".claude/commands/audit-build.md",
+        ".claude/workflows/audit-design.js",
+        ".claude/commands/audit-design.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-05T00:15:48.557Z",
+      "completed_at": "2026-11-05T00:23:33.744Z",
+      "last_advanced": "2026-11-05T00:23:26.630Z"
     },
     "DSGN-D001": {
       "description": "packages/core/templates/process.md.template: the five design commands and design-setup in the Workflow Overview and Command Reference",
       "phase": 4,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/templates/process.md.template"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-05T00:15:48.557Z",
+      "completed_at": "2026-11-05T00:23:33.746Z",
+      "last_advanced": "2026-11-05T00:23:26.631Z"
     },
     "DSGN-T004": {
       "description": "[LIVE] After the fixture build from DSGN-T003 merges to the fixture's branch: /sync-design <slug> and /audit-design <slug> --drift",
@@ -417,12 +437,21 @@
         "findings": 0
       },
       "timestamp": "2026-11-05T00:12:10.243Z"
+    },
+    {
+      "phase": 3,
+      "commit": "5b7729a",
+      "review": {
+        "findings": 1,
+        "applied": 1
+      },
+      "timestamp": "2026-11-05T00:15:48.557Z"
     }
   ],
   "recovery": {
     "interrupted": false,
-    "last_healthy_checkpoint": "63f25f5",
-    "last_checkpoint_timestamp": "2026-11-05T00:12:10.243Z",
+    "last_healthy_checkpoint": "5b7729a",
+    "last_checkpoint_timestamp": "2026-11-05T00:15:48.557Z",
     "interrupt_reason": null
   },
   "functional_verification": {

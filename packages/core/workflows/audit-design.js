@@ -14,13 +14,19 @@ export const meta = {
 // report the command writes, not in a board. Everything that needs the canvas (Artifact tool)
 // or `stale` arrives in args, because only the command's main session can run those (D2, D12).
 //
-// args: { slug, dir, brief, sources, project, map, conventions, stale, priorCnv, runtime }
+// args: { slug, dir, brief, sources, project, map, conventions, stale, priorCnv, runtime,
+//         drift, routes, systemVersions, capture, rubric, environment }
 //   dir         docs/ui/<slug>
 //   map         design-map.json text (the command ran `design-map.js read`)
 //   conventions the designing-on-canvas rules, as text
 //   stale       result of `design-map.js stale` WITHOUT --record, or empty
 //   priorCnv    the previous report's ## Could Not Verify rows, or empty
 //   runtime     path of the pinned dc-runtime for the render check, or empty
+//   drift       true for `/audit-design --drift` (DSGN-B015): adds the drift verifiers below.
+//               Absent, the verifier set is exactly the default one.
+//   routes      the product's routes from design.md, for "screens never designed"
+//   systemVersions { installed, current }  read from the hosted artifact by the command (D12)
+//   capture, rubric  verify-design-comparison's Capture and Rubric text; environment: `local`
 
 function readArgs(raw) {
   if (typeof raw === 'string') {
@@ -48,6 +54,10 @@ const CONVENTIONS = a.conventions || ''
 const STALE = a.stale || null
 const PRIOR_CNV = a.priorCnv || []
 const RUNTIME = a.runtime || ''
+const DRIFT = a.drift === true || a.drift === 'true'
+const ROUTES = Array.isArray(a.routes) ? a.routes : []
+const SYSTEM_VERSIONS = a.systemVersions || null
+const ENVIRONMENT = a.environment || 'local'
 if (!DIR) throw new Error('audit-design: args.dir (docs/ui/<slug>) is required')
 if (!a.map) throw new Error('audit-design: args.map (the design-map.json text) is required')
 
@@ -90,7 +100,7 @@ const FINDING_SCHEMA = {
         type: 'object', additionalProperties: false,
         required: ['check', 'board', 'why', 'confidence'],
         properties: {
-          check: { type: 'string', enum: ['no-source', 'no-board', 'convention', 'reuse', 'render'] },
+          check: { type: 'string', enum: ['no-source', 'no-board', 'convention', 'reuse', 'render', 'board-drift', 'system-drift', 'out-of-design', 'undesigned'] },
           board: { type: 'string' },
           line: { type: 'string' },
           why: { type: 'string' },
@@ -217,6 +227,71 @@ the first board naming the missing tool.`
   })),
 ]
 
+// --drift (AC-F13.7): extra read-only verifiers. Fresh captures go to a scratch folder, never
+// under DIR, so the run still changes no board.
+const BUILT_BOARDS = BOARDS.filter((b) => b.status === 'shipped' || b.kind === 'as-is')
+if (DRIFT) {
+  const builtChunks = []
+  for (let i = 0; i < BUILT_BOARDS.length; i += CHUNK) builtChunks.push(BUILT_BOARDS.slice(i, i + CHUNK))
+  VERIFIERS.push(
+    ...builtChunks.map((c, i) => ({
+      key: `drift-boards-${i + 1}`, effort: 'medium',
+      prompt: `Compare each SHIPPED or AS-IS board below with a FRESH screenshot of the current build. Capture
+against the "${ENVIRONMENT}" environment only (never staging or production), into a fresh scratch
+folder under the system temp directory. The scratch folder MUST NOT be under ${DIR}: this audit
+changes no tracked file. Report a board whose screen no longer matches (check board-drift, the
+difference quoted in why). An as-is board with screenshot_match false is already marked: name it
+once, do not report it as new drift. A screen you cannot reach is not a finding.
+
+CAPTURE:
+${a.capture || '(not supplied: report one board-drift finding on the first board saying drift capture was not run, and stop)'}
+
+RUBRIC:
+${a.rubric || ''}
+
+BOARDS:
+${JSON.stringify(c.map((b) => ({ id: b.id, file: b.file, kind: b.kind, status: b.status, shipped_commit: b.shipped_commit })), null, 1)}`,
+    })),
+    {
+      key: 'drift-system', effort: 'low', model: 'haiku',
+      prompt: SYSTEM_VERSIONS
+        ? `Compare the design system version installed on the canvas with the current one.
+INSTALLED: ${JSON.stringify(SYSTEM_VERSIONS.installed)}
+CURRENT: ${JSON.stringify(SYSTEM_VERSIONS.current)}
+If they differ, report one system-drift finding on the first board saying what changed. If they
+match, report nothing.`
+        : 'No system versions were supplied. Report one system-drift finding on the first board: "system version not compared: no versions supplied". Do nothing else.',
+    },
+    {
+      key: 'drift-code', effort: 'medium',
+      prompt: `Find code changes made OUTSIDE any design. For each shipped board below, list the files its screen
+is built from (its route and x-import components) and run, from the project root,
+  git log --name-only --format=%h <shipped_commit>..HEAD -- <those files>
+A commit that touched them and is not named by any board's trd or in ${DIR}/design-map.json is an
+out-of-design change: report it (check out-of-design) with the commit and file in why. A change
+the map accounts for is not a finding.
+
+BOARDS:
+${JSON.stringify(BOARDS.filter((b) => b.status === 'shipped').map((b) => ({ id: b.id, file: b.file, trd: b.trd, shipped_commit: b.shipped_commit })), null, 1)}`,
+    },
+    {
+      key: 'drift-undesigned', effort: 'low', model: 'haiku',
+      prompt: ROUTES.length
+        ? `These are the product's routes. A route that no board in the map covers is a screen never designed.
+
+ROUTES:
+${JSON.stringify(ROUTES, null, 1)}
+
+BOARDS (read each board file in ${DIR} for its route):
+${JSON.stringify(BOARDS.map((b) => ({ id: b.id, file: b.file, kind: b.kind })), null, 1)}
+
+Report each such route as one undesigned finding. The board field is the route itself, why says
+"no board covers this route". /create-design will draw each as an as-is board.`
+        : 'No route list was supplied (design.md names none). Report one undesigned finding with board "(routes)": "screens never designed not checked: no route list supplied". Do nothing else.',
+    },
+  )
+}
+
 const dispatch = (v) => agent(
   `${v.prompt}\n${READ_ONLY}\n${SCOPE}\n${BATCH}\n${FINDABLE_ONLY}`,
   {
@@ -280,7 +355,9 @@ build from; "proceed with these caveats" for anything else surviving or any Coul
 
 Then list, omitting empty headings, one line per finding naming the board and line:
   BOARDS WITH NO SOURCE / BRIEF ITEMS WITH NO BOARD / BREAKS A CONVENTION / DRAWN BY HAND
-  INSTEAD OF REUSED / RENDER ERRORS / REJECTED THESE FINDINGS (and the file that refutes each)
+  INSTEAD OF REUSED / RENDER ERRORS / REJECTED THESE FINDINGS (and the file that refutes each)${DRIFT ? `
+  BOARDS THAT NO LONGER MATCH THE BUILD / SYSTEM DRIFT / CODE CHANGED OUTSIDE ANY DESIGN /
+  SCREENS NEVER DESIGNED (one line per route; each is listed for /create-design to draw as an as-is board)` : ''}
   CAVEAT (what this run did NOT check)
 One screen: count sourced boards on one line.`,
   {
@@ -310,7 +387,11 @@ One screen: count sourced boards on one line.`,
 ), 'Reconcile')
 
 // No board edits are returned: the command reads these fields and writes the report.
+const drift = DRIFT
+  ? { undesigned_screens: reconciled.accepted.filter((f) => f.check === 'undesigned').map((f) => f.board) }
+  : {}
 return {
+  ...drift,
   slug: SLUG,
   dir: DIR,
   findings: findings.length,

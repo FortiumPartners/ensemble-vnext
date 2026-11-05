@@ -47,6 +47,14 @@ MAINTENANCE
 /rebase-project        --> Refresh the vendored runtime from the plugin
 /augment-trd-figma     --> Add Figma design context to a TRD
 verification-setup     --> (skill, not a command) interview to fill or update verification.md, incl. the coverage floor
+design-setup           --> (skill, not a command) interview to fill or update design.md: design system, platforms, how to reach a screen
+
+DESIGN (screens drawn on the product's canvas before they are built)
+/design-system         --> Build the design system from the code (or Figma); --sync rebuilds
+/create-design <brief> --> Ground in the code, draw as-is, parts and to-be boards, publish
+/refine-design <slug>  --> Change a design on feedback; boards are approved only on your word
+/audit-design <slug>   --> Read-only check of a design against its brief and the code; --drift
+/sync-design <slug>    --> After a build: capture the built screens, compare, mark shipped
 ```
 
 **Choosing between `/plan`, `/amend` and the full pipeline.** The question is not
@@ -260,6 +268,64 @@ command (COMMAND STUCK naming the setting); absent values are not an error.
 3. One workflow per batch scores and reviews its documents; edits are applied and committed per batch
 4. Writes `docs/PRD/INDEX.md`, `docs/TRD/INDEX.md`, the last-run marker and the change set,
    then switches back and prints the push command
+
+---
+
+### Design commands
+
+All five read `.claude/rules/design.md` (written by the `design-setup` skill) and keep a
+design under `docs/ui/<slug>/`.
+
+### /design-system
+
+**Purpose**: Build the product's design system from its code (or Figma), publish it as a
+Design System artifact, install it on the product's canvases and commit the built files.
+
+**Usage**:
+```
+/design-system [--sync] [--chained]
+```
+
+### /create-design
+
+**Purpose**: Draw a design for one piece of work: ground it in the code, write the brief, draw
+as-is, parts and to-be boards, challenge them, publish, render and commit.
+
+**Usage**:
+```
+/create-design <brief | PRD path | issue ref> [--new] [--auto]
+```
+
+### /refine-design
+
+**Purpose**: Refine a design already drawn: adopt hand edits, change the affected boards,
+re-challenge, publish what changed. Boards are approved only on the owner's word.
+
+**Usage**:
+```
+/refine-design <slug> [--approve <ids>] [--auto] [feedback]
+```
+
+### /audit-design
+
+**Purpose**: Read-only verifiers over a design's boards against its brief, sources, canvas
+conventions and the codebase; writes the audit report and changes no board. `--drift` checks
+the design against the code as it now stands.
+
+**Usage**:
+```
+/audit-design <slug> [--project <dir>] [--drift]
+```
+
+### /sync-design
+
+**Purpose**: After a build, capture each building board's screen from the build, compare, mark
+matches shipped, rebuild boards an owner ruling accepts, and keep the canvas in step.
+
+**Usage**:
+```
+/sync-design <slug> [--project <dir>]
+```
 
 ---
 

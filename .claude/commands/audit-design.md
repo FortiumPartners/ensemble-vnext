@@ -2,7 +2,7 @@
 name: audit-design
 description: Pipeline stage after /create-design. Runs read-only verifiers over a design's boards against its brief and sources, the canvas conventions and the codebase, and writes the audit report; changes no board.
 version: 1.0.0
-argument-hint: "<slug> [--project <dir>]"
+argument-hint: "<slug> [--project <dir>] [--drift]"
 # MODEL-INVOCABLE, like /audit-prd and /audit-trd (owner-requested 2026-10-21, "verify and
 # audit steps need to be model invocable"). Scope authorization is unchanged and stays
 # autonomy.md's: a command runs to its own banner.
@@ -34,6 +34,17 @@ and never publishes. Findings are for the owner to act on with `/refine-design`.
 | `reuse` | A component drawn by hand when the design system or codebase already has one. |
 | `render` | Render errors, using `design-render.js` into a scratch folder, never `screens/png/`. |
 
+**`--drift`** (AC-F13.7, runnable at any time, usually after `/sync-design`) adds verifiers:
+
+| Verifier | Checks |
+|---|---|
+| `drift-boards` | Every `shipped` and as-is board against a fresh screenshot of the current build, captured into a scratch folder, never under `docs/ui/<slug>/`. |
+| `drift-system` | The design system version installed on the canvas against the current one. |
+| `drift-code` | Code changes since each board shipped that no design accounts for. |
+| `drift-undesigned` | Routes with no board. The result lists each undesigned screen for `/create-design` to draw as an as-is board. |
+
+Without the flag none of these run. With it, the run still changes no board, map or canvas.
+
 Every finding names a **board** and a **line**. A finding the reconcile step finds wrong is
 rejected and **names the file that refutes it**. Findable only: no opinions about taste, and
 zero findings is a legitimate result.
@@ -58,6 +69,13 @@ zero findings is a legitimate result.
    ```
    Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], runtime: "<pinned dc-runtime path or empty>" } })
    ```
+   **With `--drift`**, add `"drift": true` and four more inputs only this session can supply:
+   `routes` (the product's routes from `.claude/rules/design.md`, or empty), `systemVersions`
+   (`{ installed, current }`, read from the hosted Design System artifact and the canvas, D12),
+   `capture` and `rubric` (the `## Capture` and `## Rubric` text of `verify-design-comparison`'s
+   `SKILL.md`), and `"environment": "local"` (an environment `verification.md` section 1 lists;
+   never `staging` or `production`). The result then also carries `undesigned_screens`; print
+   them under ISSUES with `/create-design` to draw each as an as-is board.
    It returns `readout`, `accepted`, `rejected` and `could_not_verify`, and no board edits.
    **If the workflow is unavailable**, run the verifiers above as parallel read-only subagents
    and reconcile their findings yourself.

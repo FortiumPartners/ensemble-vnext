@@ -189,3 +189,79 @@ describe('audit-design findings and result', () => {
     await expect(runWorkflow(SOURCE, { agent, parallel: makeParallelStub(), args: baseArgs() })).rejects.toThrow(/Index stage/);
   });
 });
+
+describe('audit-design --drift (DSGN-B015)', () => {
+  const shipped = { id: '09-s', file: 's.dc.html', kind: 'to-be', platform: 'web', viewport: '1280x800', status: 'shipped', shipped_commit: 'abc1234' };
+  const asIs = { id: '10-a', file: 'a.dc.html', kind: 'as-is', platform: 'web', viewport: '1280x800', status: 'approved' };
+  const driftArgs = (o = {}) => baseArgs({
+    map: JSON.stringify({ boards: [board(1), shipped, asIs] }), drift: true,
+    routes: ['/cart', '/orders'], capture: 'CAPTURE-TEXT', rubric: 'RUBRIC-TEXT',
+    systemVersions: { installed: 'v1', current: 'v2' }, ...o,
+  });
+
+  it('without drift the verifier set and count are unchanged', async () => {
+    const { agent, result } = await audit({}, baseArgs({ map: JSON.stringify({ boards: [board(1), shipped, asIs] }) }));
+    expect(verifiers(agent).filter((c) => c.opts.label.includes('drift'))).toEqual([]);
+    expect(result.verifiers_reporting).toBe(`${verifiers(agent).length}/${verifiers(agent).length}`);
+    expect(result).not.toHaveProperty('undesigned_screens');
+  });
+
+  it('drift: true adds the four drift verifiers to the one parallel wave', async () => {
+    const base = await audit({}, baseArgs());
+    const { agent, parallel } = await audit({}, driftArgs());
+    const labels = verifiers(agent).map((c) => c.opts.label);
+    expect(labels).toEqual(expect.arrayContaining(['verify:drift-boards-1', 'verify:drift-system', 'verify:drift-code', 'verify:drift-undesigned']));
+    expect(parallel.waves).toHaveLength(1);
+    expect(parallel.waves[0].size).toBe(labels.length);
+    expect(labels.length).toBeGreaterThan(verifiers(base.agent).length);
+  });
+
+  it('compares only shipped and as-is boards, with fresh captures sent outside the design dir', async () => {
+    const { agent } = await audit({}, driftArgs());
+    const p = byLabel(agent, 'verify:drift-boards-1').prompt;
+    expect(p).toContain('09-s');
+    expect(p).toContain('10-a');
+    expect(p).not.toContain('"01-b"');
+    expect(p).toMatch(/MUST NOT be under docs\/ui\/checkout/);
+    expect(p).toContain('CAPTURE-TEXT');
+    expect(p).toMatch(/never staging or production/);
+  });
+
+  it('gives the system verifier both versions, and reports a missing comparison rather than skipping it', async () => {
+    const { agent } = await audit({}, driftArgs());
+    const p = byLabel(agent, 'verify:drift-system').prompt;
+    expect(p).toContain('v1');
+    expect(p).toContain('v2');
+    const none = await audit({}, driftArgs({ systemVersions: null }));
+    expect(byLabel(none.agent, 'verify:drift-system').prompt).toMatch(/not compared: no versions supplied/);
+  });
+
+  it('checks code changed since each shipped commit, and routes with no board', async () => {
+    const { agent } = await audit({}, driftArgs());
+    expect(byLabel(agent, 'verify:drift-code').prompt).toContain('abc1234');
+    const u = byLabel(agent, 'verify:drift-undesigned').prompt;
+    expect(u).toContain('/orders');
+    const none = await audit({}, driftArgs({ routes: [] }));
+    expect(byLabel(none.agent, 'verify:drift-undesigned').prompt).toMatch(/not checked: no route list supplied/);
+  });
+
+  it('keeps every drift agent read-only and pinned, and carries them into reconcile', async () => {
+    const { agent } = await audit({
+      'verify:drift-undesigned': { findings: [{ check: 'undesigned', board: '/orders', why: 'no board covers this route', confidence: 'high' }] },
+    }, driftArgs());
+    expect(unpinnedLabels(agent)).toEqual([]);
+    for (const c of verifiers(agent).filter((c) => c.opts.label.includes('drift'))) expect(c.prompt).toMatch(/READ ONLY/);
+    expect(byLabel(agent, 'reconcile').prompt).toContain('no board covers this route');
+    expect(byLabel(agent, 'reconcile').prompt).toContain('SCREENS NEVER DESIGNED');
+    expect(byLabel(agent, 'reconcile').prompt).toMatch(/EDIT NOTHING/);
+  });
+
+  it('lists each accepted undesigned screen for an as-is rebuild, and still returns no board edits', async () => {
+    const { result } = await audit({
+      'verify:drift-undesigned': { findings: [{ check: 'undesigned', board: '/orders', why: 'no board', confidence: 'high' }] },
+      reconcile: { ...RECONCILED, accepted: [{ board: '/orders', check: 'undesigned', why: 'no board' }, { board: '09-s', check: 'board-drift', why: 'x' }] },
+    }, driftArgs());
+    expect(result.undesigned_screens).toEqual(['/orders']);
+    expect(Object.keys(result)).not.toEqual(expect.arrayContaining(['edits', 'boards']));
+  });
+});
