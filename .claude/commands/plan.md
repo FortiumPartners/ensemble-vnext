@@ -523,7 +523,11 @@ reduction in verification depth, not an oversight.
 
 With `--design docs/ui/<slug> --boards <ids>`, the TRD is built from those boards and no others.
 Check each named board is `approved`: `node .claude/lib/design-map.js approved --dir docs/ui/<slug>`
-(a board not listed there is STUCK, naming it and its status). The rules for turning a board into
+(a board not listed there is STUCK, naming it and its status). Nothing builds from a draft
+board, including a draft part a named board embeds: `node .claude/lib/design-map.js held --dir docs/ui/<slug>`
+lists each approved board that embeds a part still in `draft`, and a named board it lists is
+STUCK too, naming the part and `/refine-design <slug> --approve <part>`. No task cites or builds a
+draft board. The rules for turning a board into
 tasks are "Design as a source" in `.claude/contracts/trd-authoring.md`; the 5a path does not read
 that file otherwise, so **read that section before writing a light TRD**, and write the board ids
 and the `docs/ui/<slug>` path into the TRD's `## Intended Change` and task text. At medium weight

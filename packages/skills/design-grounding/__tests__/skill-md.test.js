@@ -75,6 +75,16 @@ describe('packages/skills/design-grounding/SKILL.md', () => {
     expect(parsed.body).toContain('verification.md');
   });
 
+  // FS-34: a capture at 390 via headless Chromium's --window-size was laid out ~500px wide and
+  // cropped, so the as-is board (correct at 390) could never match its "current" screenshot.
+  test('capture sets a true layout viewport, checks it, and refreshes in-scope screens (FS-34)', () => {
+    const capture = parsed.body.split(/^## Capture\s*$/m)[1].split(/^## /m)[0];
+    expect(capture).toMatch(/--window-size/);
+    expect(capture).toMatch(/viewport: \{ width/);
+    expect(capture).toMatch(/innerWidth/);
+    expect(capture).toMatch(/every in-scope screen/i);
+  });
+
   test('names the five grounding files', () => {
     for (const f of ['screens.md', 'components.md', 'flows.md', 'data.md', 'standards.md']) {
       expect(parsed.body).toContain(f);

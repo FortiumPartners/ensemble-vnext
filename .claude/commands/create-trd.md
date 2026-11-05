@@ -31,9 +31,16 @@ A TRD may be built from an approved design. The design is `--design docs/ui/<slu
    Pass them to the workflow as `design: { dir, boards, data }`, where `data` is
    `docs/ui/<slug>/grounding/data.md` when that file exists. The rules for turning boards into
    tasks are the contract's "Design as a source" (`.claude/contracts/trd-authoring.md`).
-2. **Zero approved boards is STUCK**, naming the cause: either nothing is approved yet, or this
-   design's boards already moved to `building` (a re-run after `/refine-trd`). Do not run the
-   workflow with an empty design.
+   **Nothing builds from a draft board, including a draft part an approved board embeds.** Run
+   `node .claude/lib/design-map.js held --dir docs/ui/<slug>`: each board it lists embeds a part
+   board still in `draft`. Drop those boards from `boards` before calling the workflow, and
+   list each under ISSUES as "held: <board> embeds draft part <part>; approve it with
+   `/refine-design <slug> --approve <part>`". Never pass, cite or build a draft board, and
+   never justify one in an open question: a TRD task drawn from a draft board is the defect.
+2. **Zero approved boards is STUCK**, naming the cause: either nothing is approved yet, this
+   design's boards already moved to `building` (a re-run after `/refine-trd`), or every
+   approved board is held by a draft part (name the parts). Do not run the workflow with an
+   empty design.
 3. After the TRD is written, move exactly those boards:
    `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <id,id> --to building --trd docs/TRD/<feature>.md`,
    then commit the map (`git add docs/ui/<slug>/design-map.json`, commit message

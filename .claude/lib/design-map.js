@@ -13,7 +13,7 @@
  * argument array, never a shell string.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
- *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|setup>
+ *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|held|setup>
  *     --dir docs/ui/<slug> [--ids a,b] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
  *
  * Example: node .claude/lib/design-map.js transition --dir docs/ui/checkout --ids 01-cart --to approved
@@ -206,6 +206,29 @@ function stale(map, repo, { record = false, dir } = {}) {
 /** To-be boards awaiting build. */
 const approved = (map) => map.boards.filter((b) => b.kind === 'to-be' && b.status === 'approved');
 
+/**
+ * Approved to-be boards that embed a `draft` part board, so nothing may build from them yet
+ * (AC-F2.3: nothing builds from a draft board, and a part reached through an approved board is
+ * still a draft board). A board embeds a part when its derived `parts` name it (by id or file
+ * stem) or its source names the part's file -- the source is read because `parts` is derived
+ * from `dc-import` tags only and a board may reference a part another way.
+ * @returns {{ id: string, draft_parts: string[] }[]} only the held boards
+ */
+function held(map, dir) {
+  const drafts = map.boards.filter((b) => b.kind === 'part' && b.status === 'draft');
+  if (drafts.length === 0) return [];
+  const out = [];
+  for (const b of approved(map)) {
+    const canvas = (map.canvases || []).find((c) => c.url === b.canvas) || (map.canvases || [])[0] || {};
+    const file = path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR, b.file);
+    const source = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    const named = new Set(b.parts || []);
+    const hits = drafts.filter((p) => named.has(p.id) || named.has(path.basename(p.file, '.dc.html')) || source.includes(p.file));
+    if (hits.length) out.push({ id: b.id, draft_parts: hits.map((p) => p.id) });
+  }
+  return out;
+}
+
 /** 'missing' | 'unfilled' | 'filled' for the project's design.md (D9). */
 function setup(projectDir) {
   const norm = (s) => s.replace(/\r\n/g, '\n').trim();
@@ -251,6 +274,7 @@ function main(argv) {
     case 'validate': return validate(read(opts.dir));
     case 'refresh': return refresh(opts.dir);
     case 'approved': return approved(read(opts.dir));
+    case 'held': return held(read(opts.dir), opts.dir);
     case 'stale': return stale(read(opts.dir), '.', { record: opts.record, dir: opts.dir });
     case 'transition': {
       if (!opts.ids || !opts.to) throw new Error('transition needs --ids and --to');
@@ -264,7 +288,7 @@ function main(argv) {
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, setup, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, held, setup, parseArgs, KINDS, STATUSES };
 
 if (require.main === module) {
   try {

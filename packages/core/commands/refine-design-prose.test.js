@@ -25,6 +25,15 @@ describe('refine-design command prose', () => {
     expect(fm).toContain('--auto');
   });
 
+  test('commits adopted canvas edits alone, keeps conflict copies, and checks drift every run', () => {
+    expect(text).toMatch(/every one of its six steps, on every run \(including `--auto` and a run with no feedback\)/);
+    expect(text).toMatch(/Adopted canvas edits get their own commit first\*\*, `design: adopt canvas edits \(<boards>\)`/);
+    expect(text).toMatch(/leave every `<board>\.repo\.dc\.html` copy on disk and commit it; never `rm` it/);
+    expect(text).toMatch(/Report each one under \*\*ISSUES\*\* \(not DECISIONS\)/);
+    expect(text).toContain('design-map.js stale --dir docs/ui/<slug> --record');
+    expect(text).toMatch(/NEXT names `\/design-system --sync` first when the system is stale/);
+  });
+
   test('cites the shared contract for start, publish and readout', () => {
     expect(text).toContain('design-commands.md');
     expect(text).toMatch(/contract section 1/);

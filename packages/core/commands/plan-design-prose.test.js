@@ -16,6 +16,11 @@ describe('plan.md design input', () => {
     expect(text).toContain('built from those boards and no others');
     expect(text).toContain('"Design as a source" in `.claude/contracts/trd-authoring.md`');
   });
+  test('a named board that embeds a draft part is STUCK; no task builds from a draft board (FS-44)', () => {
+    expect(text).toContain('node .claude/lib/design-map.js held --dir docs/ui/<slug>');
+    expect(text).toMatch(/No task cites or builds a draft board/);
+  });
+
   test('moves the named boards to building with the TRD path', () => {
     expect(text).toContain('--ids <ids> --to building --trd docs/TRD/<slug>.md');
   });

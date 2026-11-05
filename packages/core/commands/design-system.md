@@ -36,6 +36,10 @@ $ARGUMENTS
    remedy, so it skips the stale check. Run `node .claude/lib/design-map.js setup`; a `design.md`
    that is `missing` or `unfilled` ends the command STUCK with "run `/design-setup`". The product
    build is gated on `design.md`: read its section 1 and run nothing before it is filled.
+   **Read the publishing switch next** (contract section 1 step 2) and hold the answer. With
+   `publish: off` or no Artifact tool, steps 6 and 7 make no publish call at all (no Design
+   System artifact created or updated, nothing installed on a canvas), and the run ends
+   STUCK naming the publish step (contract section 5), never COMPLETE.
 2. **Choose the route from `design.md`.**
    - Source of truth `figma`: use the Figma connector route, the Design System type's
      `from-design-tool.md`. The Figma MCP is reachable from this main session only, so do this
@@ -61,9 +65,11 @@ $ARGUMENTS
    first, then publish; third refusal ends STUCK). Create it with `type_url` and `title` and no
    files, then publish to its `url`. `project/design-system.json` (with `createdOnFiles`) goes in
    the LAST call, `project/README.md` is mandatory, and `components/Cover/preview.html` is
-   written last. One call holds at most 255 paths. If the Artifact tool is unavailable or
-   `ensemble.publishArtifacts` is `false`, contract section 5 applies: files are written and
-   committed, then end STUCK naming the publish step.
+   written last. One call holds at most 255 paths. **With `publish: off` (step 1) or no
+   Artifact tool, skip this step and step 7 entirely**: contract section 5 applies. Steps 3-5
+   and 8 still run on disk (record `url` empty or as already recorded), then end with
+   `COMMAND STUCK: /design-system`, Reason "publish step not run: ensemble.publishArtifacts is
+   false". Under `--chained`, the RETURN line says `not published` instead.
 7. **Install on every canvas the product's maps record**, on the first build and on `--sync`
    (AC-F6.5, AC-F6.8), per contract section 3: `files` mapping each system file into
    `project/ds/<folder>/`, plus the `designSystems` record in `canvas.json`. At most four

@@ -37,12 +37,25 @@ Find each by reading code, not by guessing from names.
 
 ## Capture
 
-For a screen with no screenshot, capture it with the capture command in `design.md` and write
-it to the screenshots path named there. Browser capture steps are in the `playwright-automation`
-skill; the capture and state-reaching approach is in `verify-design-comparison/SKILL.md`'s
-Capture section. Do not restate either. If the screen cannot be reached (environment not listed
-in `verification.md`, credentials unavailable), record `screenshot_match: false` and the reason
-rather than inventing an image.
+Capture every in-scope screen fresh, at each viewport `design.md` lists, with the capture
+command in `design.md`, and write it to the screenshots path named there, replacing any earlier
+file. A stored screenshot may predate the code or have been captured wrong, and the as-is board
+is judged against it. Browser capture steps are in the `playwright-automation` skill; the
+capture and state-reaching approach is in `verify-design-comparison/SKILL.md`'s Capture
+section. Do not restate either.
+
+The viewport must be the page's real layout width, not a window size:
+
+- Set it in the browser context, for example Playwright's `viewport: { width, height }`, or
+  device emulation. Do not use headless Chrome's `--window-size` flag. Below about 500 px it
+  lays the page out wider than asked and crops the image, so a 390 px capture of a centred
+  column comes out shifted right and clipped.
+- Before saving, read `window.innerWidth` in the page. If it is not the viewport width, the
+  capture is wrong: fix the method and capture again; do not keep the image.
+
+If the screen cannot be reached (environment not listed in `verification.md`, credentials
+unavailable), keep any earlier screenshot only if you say how old it is, otherwise record
+`screenshot_match: false` and the reason rather than inventing an image.
 
 ## Output
 

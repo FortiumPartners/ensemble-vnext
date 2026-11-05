@@ -29,7 +29,9 @@ describe('create-design command prose', () => {
   });
 
   test('carries on past a stale system and puts /design-system --sync first in NEXT, asking nothing', () => {
-    expect(text).toMatch(/carry on against the installed system, record the drift, and put `\/design-system --sync` first in NEXT\. Ask nothing/);
+    expect(text).toContain('design-map.js stale --dir docs/ui/<slug> --record');
+    expect(text).toMatch(/carry on against the installed system, list the drift\s+under \*\*ISSUES\*\* \(not only STATE\), and put `\/design-system --sync` first in NEXT\. Ask nothing/);
+    expect(text).toMatch(/on every run\s+\(including a re-run that draws nothing\)/);
   });
 
   test('runs ground, then the question round, then draw', () => {
@@ -68,7 +70,9 @@ describe('create-design command prose', () => {
   });
 
   test('with publishing off or no artifact access, finishes disk work then ends STUCK naming the publish step', () => {
-    expect(text).toMatch(/contract section 5 applies: finish steps 8 and 9 on disk, then end STUCK naming the publish step/);
+    expect(text).toMatch(/Read the publishing switch\s+next\*\*/);
+    expect(text).toMatch(/With `publish: off` or no\s+Artifact tool, skip this step entirely\*\*/);
+    expect(text).toMatch(/contract section 5 applies, so finish steps 8 and 9 on disk \(url recorded\s+empty\), then end with `COMMAND STUCK` naming the publish step, never `COMMAND COMPLETE`/);
   });
 
   test('records kind design against a file, with the canvas link above the banner', () => {

@@ -788,6 +788,7 @@ the account already trusts (findings §(d), R4), and record their artifacts unde
 |---------|-------------|--------|--------|--------------|---------------------|
 | DSGN-T005 | [LIVE] The phase-0 remainder and the hosted-draw check: the owner opens the canvas DSGN-T002's phase-1 proof installed the system on, and the spike canvas, and screenshots the installed-system board and the NativeWind board on the hosted page; one orchestrator-started session as james creates and publishes an artifact (the spike's `launch.sh`). Results appended to `.trd-state/task-issue-58-phase-0-spike/findings.md` | AC-F6.7, AC-F15.1, AC-F15.2, R1 | | DSGN-T002 | findings.md records the two screenshots' paths (components drawn, no board errors) and the james publish url, or what failed. On a failed hosted draw, the R1 contingency is recorded |
 | DSGN-T006 | [LIVE] The real case: the owner's 44-board flow redone with `/create-design` and `/refine-design` on its product, with the owner's own canvas edits and comments | G2, NFR-7 | | DSGN-T002 | `docs/ui/<slug>/` committed in that product; as-is boards' `screenshot_match` recorded; to-be boards use `x-import`; links playable; the owner's edits adopted and comments answered |
+| AMEND-001 | [judged-failed] /create-design as-is board does not match the current screenshot of its screen: the 390px screenshot was captured from a wider layout (content shifted ~26px right, Trips card cut off), so the as-is comparison is against the wrong capture. Fix the screenshot capture / as-is comparison so each screenshot is taken at the board viewport (FS-34, slice 2). — promoted from a gap discovery found by verify-build --fix [FS-34 @ 2026-11-05T04:12:32.066Z] (observed: judged-failed: The 390px as-is board does not match current-screenshot-390.png: the screenshot is shifted about 26px right and the Trips card is cut off at the right edge (captured from a wider layout), while the board fits the 390px viewport. The 1280px pair matches. The capture method in the trusted folders is still the old one.) | criterion FS-34 |  | None | [judged-failed] /create-design as-is board does not match the current screenshot of its screen: the 390px screenshot was captured from a wider layout (content shifted ~26px right, Trips card cut off), so the as-is comparison is against the wrong capture. Fix the screenshot capture / as-is comparison so each screenshot is taken at the board viewport (FS-34, slice 2). no longer holds |
 
 ## Deferred by design
 
@@ -1392,6 +1393,10 @@ by DSGN-T003 against the React web fixture's own design.
   - `--covers` for T006 evidence can name product files by absolute path (`coverEntry()` hashes `realpath`) but each must exist at record time [read].
   - The owner's canvas edits and comments are made by a person on the hosted canvas; `/refine-design` must be run only after them, and `--approve` only on the owner's word (AC-F9). Do not approve boards autonomously.
   - File collision: shares `live-manifest.jsonl` with T005 and the other live tasks (append-only, so parallel appends would be safe; Touches lists it, so they serialize on it, which is intended). No other task touches the product repo.
+
+### AMEND-001
+
+- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
 
 ## Open Questions
 

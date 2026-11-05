@@ -38,11 +38,21 @@ option "(Recommended)" and says why. `--auto` asks nothing.
 
 ## Steps
 
-1. **Start** per contract section 1 (AC-F9.1): `design-map.js setup` returning `missing` or
-   `unfilled` ends STUCK with "run `/design-setup`"; read the live canvas, and adopt hand edits
-   through the sync. An edit adopted onto an `approved` or `building` board keeps its status;
-   `approved_commit` is unchanged and verification frames stay at it (OQ-6). List that board
-   under ISSUES as **edited after approval** so the owner can re-approve.
+1. **Start** per contract section 1 (AC-F9.1), every one of its six steps, on every run
+   (including `--auto` and a run with no feedback): `design-map.js setup` returning `missing`
+   or `unfilled` ends STUCK with "run `/design-setup`"; read the publishing switch; read the
+   live canvas, and adopt hand edits through the sync. An edit adopted onto an `approved` or
+   `building` board keeps its status; `approved_commit` is unchanged and verification frames
+   stay at it (OQ-6). List that board under ISSUES as **edited after approval** so the owner
+   can re-approve.
+   - **Adopted canvas edits get their own commit first**, `design: adopt canvas edits
+     (<boards>)` (contract section 1 step 4), before you touch any board for the feedback.
+     Your feedback changes go in a later commit. Never fold the two together.
+   - **A conflict keeps both files.** When the sync returns `conflicts`, leave every
+     `<board>.repo.dc.html` copy on disk and commit it; never `rm` it, and never decide the
+     conflict yourself. Report each one under **ISSUES** (not DECISIONS) with the copy's path.
+   - **Run the stale-system check** (`design-map.js stale --dir docs/ui/<slug> --record`). On
+     drift, list it under ISSUES and put `/design-system --sync` first in NEXT.
 2. **Gather feedback** (AC-F9.2) from the argument, the chat, the canvas comment threads and
    the viewer's selected elements. `ArtifactComments` is a deferred tool: load it by name (it
    may not be resolved yet in this session), then `ArtifactComments({ action: "read", url })`.
@@ -89,9 +99,10 @@ Never put a credential in a board or a page (contract section 6).
 **Format: the four-section readout in `.claude/rules/command-status.md`** (STATE, DECISIONS,
 ISSUES, NEXT, one screen, written for someone who was not in the session). Contract section 7
 applies. STATE counts boards by status and says which were approved this run and by which
-source. ISSUES lists boards edited after approval, open review findings, unanswered comments
-and a failed reply. NEXT names `/audit-design <slug>`, then `/refine-design <slug>` for boards
-still in `draft`. The canvas link goes **above** the banner.
+source. ISSUES lists conflicts (each with its `.repo.dc.html` path), design-system drift,
+boards edited after approval, open review findings, unanswered comments and a failed reply.
+NEXT names `/design-system --sync` first when the system is stale, then `/audit-design <slug>`,
+then `/refine-design <slug>` for boards still in `draft`. The canvas link goes **above** the banner.
 
 ---
 
@@ -126,4 +137,5 @@ destructive operation, or a STUCK condition after retries. Otherwise decide, doc
 - Approve a board without the owner's word, or move status by editing the map by hand.
 - Edit `design.md`, or ask a question under `--auto`.
 - Rewrite boards the feedback does not touch, or republish unchanged files.
+- Delete a `.repo.dc.html` conflict copy, or fold the adopt commit into another commit.
 - Chain into another command; NEXT names them.

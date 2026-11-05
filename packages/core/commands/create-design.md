@@ -31,14 +31,19 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
 
 ## Steps
 
-1. **Resolve** per contract section 1 (AC-F8.1). `design-map.js setup` returning `missing` or
-   `unfilled` ends the command STUCK with "run `/design-setup`". Read the Design type's live
+1. **Resolve** per contract section 1 (AC-F8.1), every one of its six steps, on every run
+   (including a re-run that draws nothing). `design-map.js setup` returning `missing` or
+   `unfilled` ends the command STUCK with "run `/design-setup`". **Read the publishing switch
+   next** (contract section 1 step 2) and hold the answer: with `publish: off` this run makes
+   no publish call at all and ends STUCK at step 7. Read the Design type's live
    `SKILL.md`, references and `artifact-type/dc-runtime.js` through the product's canvas url; when
    the map records no canvas, create it first from the Design type (`type_url` and `title`, no
    files) and record it in `canvases[]` (D12). Save the runtime to a working path. Read
    `design.md`, the `designing-on-canvas` skill and the grounding skill, if installed, as text.
-   If the recorded `code_commit` no longer matches the component paths, carry on against the
-   installed system, record the drift, and put `/design-system --sync` first in NEXT. Ask nothing.
+   Run the stale-system check, `node .claude/lib/design-map.js stale --dir docs/ui/<slug> --record`
+   (for a new design, compare `docs/ui/_design-system/<folder>/system.json` the same way once the
+   map is seeded at step 5). On drift, carry on against the installed system, list the drift
+   under **ISSUES** (not only STATE), and put `/design-system --sync` first in NEXT. Ask nothing.
 2. **Ground and brief.** Call the workflow with `stage: "ground"`:
    ```
    Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
@@ -66,13 +71,17 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    and links, and `validate`. A board that still differs from its screenshot stays marked and
    is listed under ISSUES.
 6. **Commit adopted canvas edits first.** If section 1 found the canvas changed, the edits
-   already adopted to the repository are committed alone, before anything below (AC-F8.9).
-7. **Publish**, per contract section 4: a whole-artifact read of the canvas first, then
-   publish `canvas.json` and the parts, then the boards in order. **Install the design system**
-   per contract section 3 if the canvas lacks it or holds an older version. If the Artifact tool
-   is unavailable or `ensemble.publishArtifacts` is `false`, contract section 5 applies: finish
-   steps 8 and 9 on disk, then end STUCK naming the publish step. This is the one place a
-   command ends STUCK over a link, and the contract is the reason.
+   already adopted to the repository are committed alone, as
+   `design: adopt canvas edits (<boards>)`, before anything below (AC-F8.9). Conflict copies
+   (`<board>.repo.dc.html`) stay on disk and are committed with it, never deleted.
+7. **Publish**, only when step 1 read `publish: on` and the Artifact tool is present. Per
+   contract section 4: a whole-artifact read of the canvas first, then publish `canvas.json`
+   and the parts, then the boards in order. **Install the design system** per contract
+   section 3 if the canvas lacks it or holds an older version. **With `publish: off` or no
+   Artifact tool, skip this step entirely** (no publish call, no canvas created, no system
+   installed): contract section 5 applies, so finish steps 8 and 9 on disk (url recorded
+   empty), then end with `COMMAND STUCK` naming the publish step, never `COMMAND COMPLETE`.
+   This is the one place a command ends STUCK over a link, and the contract is the reason.
 8. **Render and export.** Per contract section 2, once the final boards are in place:
    ```bash
    node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <saved runtime path> --out docs/ui/<slug>/screens/png
@@ -93,8 +102,9 @@ step above. Never put a credential in a board or a page (contract section 6).
 
 **Format: the four-section readout in `.claude/rules/command-status.md`** (STATE, DECISIONS,
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session).
-Contract section 7 applies. STATE counts boards by kind. ISSUES lists open review findings, render
-errors, failed agents, and every as-is board that still differs from its screenshot. NEXT puts
+Contract section 7 applies. STATE counts boards by kind. ISSUES lists design-system drift,
+canvas conflicts, open review findings, render errors, failed agents, and every as-is board that
+still differs from its screenshot. NEXT puts
 `/design-system --sync` first when the system is stale, then `/audit-design <slug>`, then
 `/refine-design <slug>`.
 

@@ -73,6 +73,32 @@ describe('design-commands contract', () => {
     expect(section(7)).toContain('edited after approval');
   });
 
+  test('canvas-only edits get their own adopt commit with the fixed message (AC-F5.2)', () => {
+    const s1 = section(1).replace(/\s+/g, ' ');
+    expect(s1).toContain('git commit -m "design: adopt canvas edits (<board>, <board>)"');
+    expect(s1).toMatch(/never folded into the command's own commit/);
+  });
+
+  test('a both-changed conflict keeps both files and is an ISSUES line (AC-F5.4)', () => {
+    const s1 = section(1).replace(/\s+/g, ' ');
+    expect(s1).toMatch(/\*\*Keep both files\.\*\* Never delete, rename or merge the `\.repo\.dc\.html` copy/);
+    expect(s1).toMatch(/Each conflict is an \*\*ISSUES\*\* line \(never DECISIONS\)/);
+  });
+
+  test('the stale check runs every run, and drift is an ISSUES line with --sync first in NEXT', () => {
+    const s1 = section(1).replace(/\s+/g, ' ');
+    expect(s1).toMatch(/Stale-system check, every run, including a run that changes no board/);
+    expect(s1).toContain('design-map.js stale --dir docs/ui/<slug> --record');
+    expect(s1).toMatch(/The drift is an \*\*ISSUES\*\* line, never only a STATE line/);
+  });
+
+  test('the publishing switch is read before any Artifact call and governs the whole run (NFR-2)', () => {
+    const s1 = section(1).replace(/\s+/g, ' ');
+    expect(s1).toMatch(/Read the publishing switch, before any Artifact call, every run/);
+    expect(s1).toContain('publishArtifacts===false');
+    expect(section(5)).toMatch(/Make no publish call at all/);
+  });
+
   test('stale check is report-only for /audit-design', () => {
     expect(section(1)).toMatch(/\/audit-design[^.]*without `--record`|report-only/i);
   });

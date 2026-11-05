@@ -21,6 +21,12 @@ describe('design-system command prose', () => {
     expect(raw.split('---')[1]).toContain('[--sync] [--chained]');
   });
 
+  test('reads the publishing switch at start; with it off, publishes nothing and ends STUCK (NFR-2)', () => {
+    expect(text).toMatch(/Read the publishing switch next\*\* \(contract section 1 step 2\)/);
+    expect(text).toMatch(/skip this step and step 7 entirely\*\*: contract section 5 applies/);
+    expect(text).toMatch(/end with `COMMAND STUCK: \/design-system`/);
+  });
+
   test('cites the contract sections for start, install and publish', () => {
     expect(text).toContain('design-commands.md');
     expect(text).toMatch(/contract section 1/);

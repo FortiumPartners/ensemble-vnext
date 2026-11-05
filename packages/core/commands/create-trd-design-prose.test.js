@@ -20,6 +20,13 @@ describe('create-trd.md design input', () => {
     expect(cmd.indexOf('design-map.js approved')).toBeGreaterThan(-1);
     expect(cmd.indexOf('design-map.js approved')).toBeLessThan(cmd.indexOf('Workflow({ name: "create-trd"'));
   });
+  test('nothing builds from a draft board: approved boards embedding a draft part are held (FS-44)', () => {
+    expect(cmd).toContain('node .claude/lib/design-map.js held --dir docs/ui/<slug>');
+    expect(cmd).toMatch(/Drop those boards from `boards` before calling the workflow/);
+    expect(cmd).toMatch(/never justify one in an open question/);
+    expect(flat(contract)).toMatch(/\*\*Nothing builds from a draft board\.\*\* A part board is a design source only when its own status is `approved` or later/);
+  });
+
   test('zero approved boards is STUCK', () => {
     expect(cmd).toMatch(/Zero approved boards is STUCK/);
   });

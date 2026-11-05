@@ -82,6 +82,28 @@ describe('approved', () => {
   });
 });
 
+describe('held', () => {
+  it('holds an approved board whose source embeds a draft part, even with no derived parts', () => {
+    const dir = tmp();
+    const m = mapOf([
+      board({ id: '01-settings', file: '01-settings.dc.html', status: 'approved' }),
+      board({ id: 'toggle', file: 'part-toggle.dc.html', kind: 'part', status: 'draft' }),
+      board({ id: '02-home', file: '02-home.dc.html', status: 'approved' }),
+    ]);
+    fs.mkdirSync(path.join(dir, 'canvas/project'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'canvas/project/01-settings.dc.html'), '<x-part src="part-toggle.dc.html"></x-part>');
+    fs.writeFileSync(path.join(dir, 'canvas/project/02-home.dc.html'), '<div></div>');
+    expect(dm.held(m, dir)).toEqual([{ id: '01-settings', draft_parts: ['toggle'] }]);
+  });
+  it('holds nothing once the part is approved, and matches derived parts by file stem', () => {
+    const dir = tmp();
+    const parts = [board({ id: 'nav', file: 'nav-bar.dc.html', kind: 'part', status: 'draft' })];
+    expect(dm.held(mapOf([board({ status: 'approved', parts: ['nav-bar'] }), ...parts]), dir)).toEqual([{ id: '01-a', draft_parts: ['nav'] }]);
+    parts[0].status = 'approved';
+    expect(dm.held(mapOf([board({ status: 'approved', parts: ['nav-bar'] }), ...parts]), dir)).toEqual([]);
+  });
+});
+
 describe('read / refresh / write', () => {
   it('reads back a two-canvas map and refresh only touches derived fields', () => {
     const dir = tmp();

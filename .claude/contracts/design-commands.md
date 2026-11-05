@@ -19,19 +19,53 @@ Implements AC-F5.9 and AC-F6.9. In this order:
 1. Run `design-map.js setup`. A `design.md` that is `missing` or `unfilled` (identical to the
    `design-setup` template, which ships to every project) ends the command STUCK with "run
    `/design-setup`".
-2. Read the Design type's live material through the canvas url. When the map records no
-   canvas, create it first.
-3. Cheap canvas check: compare the live canvas version with the last synced version in
-   `design-map.json`. Run the full sync (read the boards; the canvas-changed,
-   repository-changed and both-changed cases) only when the version changed. When nothing
-   changed there is no full read.
-4. A canvas edit adopted onto an `approved` or `building` board leaves its status and
+2. **Read the publishing switch, before any Artifact call, every run:**
+   ```bash
+   node -e 'let on=true;try{const s=JSON.parse(require("fs").readFileSync(".claude/settings.json","utf8"));on=!(s.ensemble&&s.ensemble.publishArtifacts===false)}catch(e){}console.log(on?"publish: on":"publish: off")'
+   ```
+   `publish: off`, or no Artifact tool in this session, means §5 governs the whole run: no
+   publish call of any kind (no new canvas, no board, no `canvas.json`, no system install, no
+   Design System artifact). Reads (`read`, `list`) are still allowed. Hold this answer for the
+   run; never re-decide it at the publish step.
+3. Read the Design type's live material through the canvas url. When the map records no
+   canvas, create it first (with publishing off, do not create one: take the runtime from any
+   canvas another map under `docs/ui/` records, and record no canvas).
+4. **Canvas sync.** Compare the live canvas version with the last synced version:
+   `node .claude/lib/design-mirror.js check --dir docs/ui/<slug> --version <live version>`.
+   When it says `unchanged` there is no full read. When it says `changed`, read the whole
+   artifact into this run's scratch folder and run
+   `node .claude/lib/design-mirror.js apply --dir docs/ui/<slug> --canvas-dir <scratch>/project`
+   (it returns `adopted`, `toPublish`, `conflicts`). Then, in this order and before any other
+   change to `docs/ui/<slug>/`:
+   - **Canvas changed, repository did not (`adopted`).** Run `design-map.js refresh` and
+     commit the adopted files and the map **alone**, with exactly this message, listing the
+     adopted board ids:
+     ```bash
+     git add docs/ui/<slug> && git commit -m "design: adopt canvas edits (<board>, <board>)"
+     ```
+     This commit is never folded into the command's own commit, even when the command then
+     changes the same board.
+   - **Both changed on the same board (`conflicts`).** The library has kept the canvas version
+     as the board and written the repository version beside it as `<board>.repo.dc.html`.
+     **Keep both files.** Never delete, rename or merge the `.repo.dc.html` copy, and never
+     overwrite either side; it is committed with the adopt commit and stays until the owner
+     resolves it. Each conflict is an **ISSUES** line (never DECISIONS): "conflict on
+     <board>: canvas version kept; the repository version is at
+     `docs/ui/<slug>/canvas/project/<board>.repo.dc.html`; merge by hand and delete the copy".
+   - **Repository changed (`toPublish`).** Those files go out at the publish step (§4).
+5. A canvas edit adopted onto an `approved` or `building` board leaves its status and
    `approved_commit` unchanged, so verification frames stay at the approved commit. Approval
    is kept and the edit is flagged (see §7).
-5. Stale-system check: `design-map.js stale`. On drift, carry on against the installed
-   system, record the drift in the map, and put `/design-system --sync` first in NEXT; ask
-   nothing. `/audit-design` is report-only: it runs `stale` without `--record` and writes no
-   map.
+6. **Stale-system check, every run, including a run that changes no board:**
+   ```bash
+   node .claude/lib/design-map.js stale --dir docs/ui/<slug> --record
+   ```
+   (once per design the command touches; `/audit-design` is report-only: it drops `--record` and writes no map;
+   `/design-system` skips the check, being the remedy). On `"stale": true`, carry on against
+   the installed system and ask nothing. The drift is an **ISSUES** line, never only a STATE
+   line: "the design system is out of date: <changed paths> changed since it was built", and
+   `/design-system --sync` is the **first** step in NEXT. Commit the recorded drift with the
+   command's own commit.
 
 ## 2. Render pass
 
@@ -62,8 +96,18 @@ and write the canvas entry.
 ## 5. No artifact access, or publishing off
 
 Implements NFR-2. When the Artifact tool is unavailable (no artifact access: `claude -p`,
-the Agent SDK, CI) or `ensemble.publishArtifacts` is `false`: write the repository copy and
-renders, commit, record the path with an empty url, and end STUCK naming the publish step.
+the Agent SDK, CI) or `ensemble.publishArtifacts` is `false` (read at §1 step 2, never
+assumed): write the repository copy and renders, commit, record the path with an empty url,
+and end STUCK naming the publish step:
+
+```
+═══ COMMAND STUCK: /<command> ═══
+Reason: publish step not run: ensemble.publishArtifacts is false (or: no Artifact tool in this session)
+Next:   set ensemble.publishArtifacts to true in .claude/settings.json, or run from an interactive session, then re-run /<command>
+```
+
+Make no publish call at all in such a run: a run that published anything with the switch off,
+or ended COMPLETE, is the defect this section exists to prevent.
 
 This supersedes the "failure is never fatal" rule in `command-status.md` for design commands
 only: there, a failed publish is a one-line note; here, the design is the canvas, so a run
@@ -82,8 +126,10 @@ Implements NFR-5. The four sections, in order, as `command-status.md` defines th
 
 - STATE
 - DECISIONS
-- ISSUES: conflicts, drift, mismatching as-is boards, and boards edited after approval, each
-  listed as "edited after approval" so the owner can re-approve
+- ISSUES: conflicts (with the `.repo.dc.html` path), drift, mismatching as-is boards, and
+  boards edited after approval, each listed as "edited after approval" so the owner can
+  re-approve. Conflicts and drift belong here even when STATE also mentions them; DECISIONS
+  never holds them
 - NEXT: `/design-system --sync` first when the system is stale
 
 The canvas link goes above the COMMAND COMPLETE (or COMMAND STUCK) banner, never after it.

@@ -132,7 +132,7 @@ if (STAGE === 'ground') {
   phase('Ground')
 
   const FILES = [
-    ['screens', 'screens.md: every screen with its route, platform, viewport, states (empty, loading, error) and screenshot path; capture a screenshot if one is missing'],
+    ['screens', 'screens.md: every screen with its route, platform, viewport, states (empty, loading, error) and screenshot path; capture every in-scope screen fresh at each viewport, with the layout viewport set in the browser context and checked by window.innerWidth (never headless Chrome --window-size), per the grounding skill\'s Capture section'],
     ['components', 'components.md: the existing components and views, their props and where each is used'],
     ['flows', 'flows.md: how a user moves between the screens, with the code that routes them'],
     ['data', 'data.md: the fields the backend actually returns for these screens, from the code, not guessed'],
