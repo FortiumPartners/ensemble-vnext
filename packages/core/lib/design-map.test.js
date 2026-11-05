@@ -345,6 +345,9 @@ describe('approve', () => {
     fs.writeFileSync(path.join(dir, 'design-map.json'), JSON.stringify(mapOf(boards)));
     fs.writeFileSync(path.join(repo, 'other.txt'), 'x');
     sh(repo, 'init', '-q'); sh(repo, 'add', '-A'); sh(repo, 'commit', '-qm', 'init');
+    // approve() commits through its own git calls, which do not see this file's ENV; give the
+    // repo an identity so those commits work where no global git identity exists (CI).
+    sh(repo, 'config', 'user.name', 't'); sh(repo, 'config', 'user.email', 't@t');
     return { repo, dir, rel: 'docs/ui/d', ids };
   };
   const head = (repo) => sh(repo, 'rev-parse', 'HEAD').stdout.trim();
