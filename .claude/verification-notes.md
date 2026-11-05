@@ -1001,3 +1001,16 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 - [ran] `design-bundle.js build` needs `--project .` plus `--stack`, `--entry`, `--namespace`, `--out`.
 - [ran] No workflow test (create/sync/audit-design) covers publishing-off STUCK; only `create-design-prose.test.js` does (prose match).
 - [read] verify-design-comparison SKILL.md bolds `**regression baseline**`; use "The verdict stays model judgement per frame" as a locator.
+
+## Design-stage live runs: trusted fixture folders (2026-11-04)
+
+Live design-command runs (DSGN-T002/T003) must run in these two folders, which the fortium
+account now trusts (trust is keyed by exact path; a new copy elsewhere stops at the trust
+prompt again). Each is a copy of `test/fixtures/design/<name>/` with its own `git init` and the
+framework scaffolded with an absolute `--plugin-dir packages/full`:
+
+- `.trd-state/design-stage/evidence/live/work/react-web`
+- `.trd-state/design-stage/evidence/live/work/react-native`
+
+Reuse them; do not delete and recreate them. To pick up framework changes, re-run
+`scaffold-project.sh --refresh --plugin-dir <absolute path to packages/full>` into them.
