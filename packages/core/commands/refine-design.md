@@ -79,16 +79,16 @@ option "(Recommended)" and says why. `--auto` asks nothing.
      whether to. Name the board in NEXT as `/refine-design <slug> --approve <id>` instead.
      Nothing builds from a `draft` board no invocation named.
    - **Commit** the adopted edits and any board changes first, so they are in the approved
-    commit, then run the one verb (never edit `status` by hand, AC-F2.3). It takes `HEAD` as the commit, moves the boards to
-    `approved`, renders their frames at that commit and commits the map and frames:
-    ```bash
-    node .claude/lib/design-map.js approve --dir docs/ui/<slug> --ids <ids> --runtime <saved runtime path> --reapprove
-    ```
-    `--reapprove` records the new commit on a board already `approved` that was refined since
-    (approved to approved). An illegal move (for example from `shipped`) fails the whole call
-    naming the board: that is one ISSUES line and approves nothing (all or nothing). Frames
-    render only for the boards approved this run. A `renderSkipped` or a render error in the
-    printed result is an ISSUES line (a missing Playwright or Chromium: list the install step).
+     commit, then run the one verb (never edit `status` by hand, AC-F2.3). It takes `HEAD` as the commit, moves the boards to
+     `approved`, renders their frames at that commit and commits the map and frames:
+     ```bash
+     node .claude/lib/design-map.js approve --dir docs/ui/<slug> --ids <ids> --runtime <saved runtime path> --reapprove
+     ```
+     `--reapprove` records the new commit on a board already `approved` that was refined since
+     (approved to approved). An illegal move (for example from `shipped`) fails the whole call
+     naming the board: that is one ISSUES line and approves nothing (all or nothing). Frames
+     render only for the boards approved this run. A `renderSkipped` or a render error in the
+     printed result is an ISSUES line (a missing Playwright or Chromium: list the install step).
 6. **Commit** the rest of `docs/ui/<slug>/` and **record** the map:
    ```bash
    node .claude/lib/artifacts.js record --state-dir .trd-state/<slug> --kind design --path docs/ui/<slug>/design-map.json --command /refine-design --url "<canvas url, or empty when nothing was published>"

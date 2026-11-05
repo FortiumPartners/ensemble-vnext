@@ -1095,9 +1095,10 @@ node .claude/lib/design-map.js approve --dir docs/ui/<slug> --ids <kept ids> --c
 
 Never edit `status` by hand (AC-F2.3). Take the runtime as `.claude/contracts/design-commands.md`
 section 1 step 3 says (read-only: this command creates no canvas). A `renderSkipped` or render
-`errors` in the result is an ISSUES line, never STUCK; approval still stands. If `--commit`
-fails because the design folder changed during the run, report it under ISSUES, leave the boards
-unapproved and do not move them to `building`. Otherwise move the same boards:
+`errors` in the result is an ISSUES line, never STUCK; approval still stands. If the call
+fails (the design folder changed during the run, or a board moved to `building` or out of the
+map meanwhile), it changes nothing: report its error under ISSUES, never STUCK, leave the boards
+unapproved and do not move them to `building`; the TRD stays written. Otherwise move the same boards:
 
 ```bash
 node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <id,id> --to building --trd docs/TRD/<feature>.md

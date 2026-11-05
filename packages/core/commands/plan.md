@@ -546,9 +546,10 @@ pass the boards to the `create-trd` workflow as `design` (below), taking the ids
 (runtime per `.claude/contracts/design-commands.md` section 1 step 3, read-only). It moves the
 named `draft` boards to `approved` (an already `approved` board keeps its commit), renders their
 frames, and commits the map and frames, printing `{ commit, approved, kept, rendered, renderSkipped }`.
-A `renderSkipped` or render `errors` is an ISSUES line; the approval stands. A `--commit`
-mismatch (the design folder changed after the source commit) fails with nothing changed: say so
-in ISSUES and leave the boards unapproved, not moved to `building`. Otherwise move them:
+A `renderSkipped` or render `errors` is an ISSUES line; the approval stands. If the call
+fails (a `--commit` mismatch because the design folder changed after the source commit, or a
+board moved to `building` or out of the map meanwhile), it changes nothing: say so in ISSUES,
+never STUCK, and leave the boards unapproved, not moved to `building`. Otherwise move them:
 `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <ids> --to building --trd docs/TRD/<slug>.md`,
 then commit the map.
 

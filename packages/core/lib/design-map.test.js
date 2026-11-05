@@ -390,6 +390,25 @@ describe('approve', () => {
     expect(status(f.dir, f.ids.draft).status).toBe('draft');
   });
 
+  it('rejects an unknown --commit and records a symbolic one as its full sha', async () => {
+    const { repo, dir, rel, ids } = fixture();
+    await expect(dm.approve(rel, { ids: [ids.draft], commit: 'deadbeef', repo })).rejects.toThrow(/not a commit/);
+    expect(status(dir, ids.draft).status).toBe('draft');
+    const r = await dm.approve(rel, { ids: [ids.draft], commit: 'HEAD', repo });
+    expect(r.commit).toBe(sh(repo, 'rev-parse', 'HEAD~1').stdout.trim());
+    expect(status(dir, ids.draft).approved_commit).toBe(r.commit);
+  });
+
+  it('a failed approval commit restores the map and leaves nothing staged', async () => {
+    const { repo, dir, rel, ids } = fixture();
+    const hook = path.join(repo, '.git', 'hooks', 'pre-commit');
+    fs.writeFileSync(hook, '#!/bin/sh\nexit 1\n');
+    fs.chmodSync(hook, 0o755);
+    await expect(dm.approve(rel, { ids: [ids.draft], commit: head(repo), repo })).rejects.toThrow(/could not commit approval/);
+    expect(status(dir, ids.draft).status).toBe('draft');
+    expect(sh(repo, 'diff', '--cached', '--name-only').stdout.trim()).toBe('');
+  });
+
   it.each(['c-build', 'd-ship', 'nope'])('fails on %s and changes nothing', async (id) => {
     const { repo, dir, rel, ids } = fixture();
     fs.writeFileSync(path.join(dir, fileOf(ids.draft)), '<div>2</div>');

@@ -342,7 +342,14 @@ async function approve(dir, { ids, commit, runtime, reapprove = false, message, 
   }
   const dirty = () => git(repo, ['status', '--porcelain', '-u', '--', rel]).stdout.split('\n').filter(Boolean).map((l) => l.slice(3));
   if (commit) {
-    const changed = [...new Set([...git(repo, ['diff', '--name-only', commit, '--', rel]).stdout.split('\n').filter(Boolean), ...dirty()])];
+    // Resolve to a full sha: an unknown ref must fail, not read as "nothing changed", and a
+    // symbolic ref (HEAD, a branch) must never be recorded as approved_commit.
+    const v = git(repo, ['rev-parse', '--verify', '--quiet', `${commit}^{commit}`]);
+    if (v.status !== 0) throw new Error(`--commit ${commit} is not a commit`);
+    commit = v.stdout.trim();
+    const d = git(repo, ['diff', '--name-only', commit, '--', rel]);
+    if (d.status !== 0) throw new Error(`could not compare ${rel} with ${commit}: ${(d.stderr || '').trim()}`);
+    const changed = [...new Set([...d.stdout.split('\n').filter(Boolean), ...dirty()])];
     if (changed.length) throw new Error(`${rel} changed after ${commit}: ${changed.join(', ')}`);
   } else {
     if (dirty().length) {
@@ -370,10 +377,18 @@ async function approve(dir, { ids, commit, runtime, reapprove = false, message, 
       renderSkipped = e.message;
     }
   }
-  git(repo, ['add', '--', rel]);
-  if (git(repo, ['diff', '--cached', '--quiet', '--', rel]).status !== 0) {
-    const c = git(repo, ['commit', '-m', message || `chore(design): ${slug} boards approved`, '--', rel]);
-    if (c.status !== 0) throw new Error(`could not commit approval: ${(c.stderr || '').trim()}`);
+  let failed = git(repo, ['add', '--', rel]);
+  if (failed.status === 0) {
+    failed = git(repo, ['diff', '--cached', '--quiet', '--', rel]).status === 0
+      ? null
+      : git(repo, ['commit', '-m', message || `chore(design): ${slug} boards approved`, '--', rel]);
+    if (failed && failed.status === 0) failed = null;
+  }
+  if (failed) {
+    // All or nothing: an uncommitted approval must not stay on disk reading as approved.
+    git(repo, ['reset', '-q', '--', rel]);
+    write(dirAbs, map);
+    throw new Error(`could not commit approval: ${(failed.stderr || '').trim()}`);
   }
   return { commit, approved: moved, kept, rendered, renderSkipped, errors };
 }
