@@ -1396,7 +1396,9 @@ by DSGN-T003 against the React web fixture's own design.
 
 ### AMEND-001
 
-- **Careful:** no `file` was recorded for this discovery, so no `Touches` field is written here — the file-conflict guard in `task-graph.js` cannot protect this task from a concurrent one until an owner fills in `Touches` by hand. Until then this task has no inferred conflict edges and may be scheduled alongside anything.
+- **Touches:** `packages/skills/design-grounding/SKILL.md`, `packages/skills/design-grounding/__tests__/skill-md.test.js`, `packages/core/commands/create-design.md`, `.claude/commands/create-design.md`
+- **Reuse:** [read] the capture rule the verification loop's debug stage already wrote into `design-grounding/SKILL.md` (commit 3819920): capture fresh at each `design.md` viewport, set the viewport in the browser context, check `window.innerWidth` before saving.
+- **Careful:** [read] the trusted fixture folders under `.trd-state/design-stage/evidence/live/work/` carry an older vendored copy of the skill; refreshing them is verification setup, not this task.
 
 ## Open Questions
 

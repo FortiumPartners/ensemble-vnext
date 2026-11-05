@@ -419,6 +419,15 @@
       "commit": null,
       "started_at": null,
       "completed_at": null
+    },
+    "AMEND-001": {
+      "description": "FS-34: as-is screenshot captured at the board viewport",
+      "phase": 5,
+      "retry_count": 0,
+      "files_changed": [],
+      "status": "in_progress",
+      "cycle_position": "implement",
+      "started_at": "2026-11-05T04:13:14.105Z"
     }
   },
   "checkpoints": [
