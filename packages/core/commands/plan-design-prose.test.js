@@ -23,11 +23,19 @@ describe('plan.md design input', () => {
   test('AC-F9.4 (owner ruling R1): naming a board approves it, then it moves to building', () => {
     expect(text).toMatch(/\*\*Invocation is approval \(AC-F9\.4, D18\):\*\* naming a board here is the owner's approval of it/);
     expect(text).toContain('node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --ids <ids>');
-    expect(text).toContain('--ids <draft ids> --to approved --commit <sha>');
-    expect(text).toContain('design-render.js render');
-    const approve = text.indexOf('--to approved --commit');
-    expect(approve).toBeGreaterThan(text.indexOf('design-map.js held'));
+    expect(text).toContain('node .claude/lib/design-map.js approve --dir docs/ui/<slug> --ids');
+    expect(text).not.toContain('--to approved');
+    expect(text).not.toContain('design-render.js render --dir docs/ui/<slug> --runtime');
+    const held = text.indexOf('design-map.js held');
+    const written = text.indexOf('the TRD is written', held);
+    const approve = text.indexOf('design-map.js approve --dir docs/ui/<slug> --ids');
+    expect(written).toBeGreaterThan(held);
+    expect(approve).toBeGreaterThan(held);
+    expect(approve).toBeGreaterThan(written);
     expect(approve).toBeLessThan(text.indexOf('--ids <ids> --to building'));
+    expect(text).toContain('git rev-parse HEAD');
+    expect(text).toContain('--commit <source commit>');
+    expect(text).toContain('boards approved by /plan');
     expect(text).not.toContain('Check each named board is `approved`');
   });
 

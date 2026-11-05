@@ -15,8 +15,8 @@ export const meta = {
 //   prd          path to the source PRD (or the plan item / transcript when there is none)
 //   trd          path the TRD should be written to
 //   feature      short slug, used only for labels
-//   design       optional { dir, boards: [<design-map board>], data } -- the approved to-be boards
-//                the TRD is built from (docs/ui/<slug>); see trd-authoring.md "Design as a source"
+//   design       optional { dir, boards: [<design-map board>], data } -- the to-be boards this run
+//                builds (approved by it once the TRD is written) (docs/ui/<slug>); see trd-authoring.md "Design as a source"
 // ---------------------------------------------------------------------------
 
 // `args` may arrive as a JSON-encoded STRING rather than an object when a caller passes it
@@ -92,11 +92,11 @@ function required(value, stage) {
 
 // A design is plain optional input, spliced in only when set: without args.design the prompt is
 // unchanged. It rides in SOURCES so Author and Ground both see it. The boards are the
-// design-map.js `approved` output verbatim; the rules for turning them into tasks live in
+// design-map.js `buildable` output verbatim (draft ones carry status "draft"); the rules for turning them into tasks live in
 // trd-authoring.md "Design as a source", the only file the author reads.
 const DESIGN = a.design && Array.isArray(a.design.boards) && a.design.boards.length
   ? `
-DESIGN SOURCE: ${a.design.dir}. Build from these approved to-be boards, following "Design as a
+DESIGN SOURCE: ${a.design.dir}. Build from these to-be boards (this run approves them once the TRD is written), following "Design as a
 source" in the contract. Board source is under ${a.design.dir}/canvas/project/.${a.design.data ? `
 Data fields: ${a.design.data}` : ''}
 ${JSON.stringify(a.design.boards, null, 2)}

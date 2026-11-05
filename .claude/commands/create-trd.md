@@ -29,7 +29,7 @@ A TRD may be built from a design. The design is `--design docs/ui/<slug>`, or a
 
 **Invocation is approval (AC-F9.4, D18).** Running this command with a design is the owner's
 approval of the to-be boards it builds: every to-be board of that design still in `draft` or
-`approved`. Nothing else approves a board here (no canvas comment, no chat remark), and no board
+`approved`, recorded once the TRD is written. Nothing else approves a board here (no canvas comment, no chat remark), and no board
 outside that set is built.
 
 1. List the boards to build: `node .claude/lib/design-map.js buildable --dir docs/ui/<slug>`
@@ -44,28 +44,18 @@ outside that set is built.
    `draft` or `approved`, this design's boards already moved to `building` (a re-run after
    `/refine-trd`), or every one is held by a draft part (name the parts). Do not run the
    workflow with an empty design.
-3. **Approve the remaining boards that are still `draft`**, the same path `/refine-design
-   --approve` uses (D18). A board already `approved` keeps its `approved_commit`; do not move it
-   again.
-   - Commit any uncommitted change under `docs/ui/<slug>/` first, so it is in the approved
-     commit, then take `git rev-parse HEAD` as the commit.
-   - `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <draft ids> --to approved --commit <sha>`
-     (never edit `status` by hand, AC-F2.3).
-   - Render their frames at that commit:
-     `node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <runtime path> --out docs/ui/<slug>/screens/png --boards <draft ids> --approved`.
-     Take the runtime as `.claude/contracts/design-commands.md` section 1 step 3 says (read-only:
-     this command creates no canvas). With no runtime, or exit 2 (Playwright or its Chromium
-     missing), skip the render and list it under ISSUES; approval still stands.
-   - Commit the map and frames: `chore(design): <slug> boards approved by /create-trd`.
-4. Pass the boards to the workflow as `design: { dir, boards, data }`, where `boards` is
-   `node .claude/lib/design-map.js approved --dir docs/ui/<slug>` limited to the ids step 1 kept
-   (never a board `held` listed, even one already `approved`),
-   and `data` is `docs/ui/<slug>/grounding/data.md` when that file exists. The rules for turning
-   boards into tasks are the contract's "Design as a source" (`.claude/contracts/trd-authoring.md`).
-5. After the TRD is written, move exactly those boards:
-   `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <id,id> --to building --trd docs/TRD/<feature>.md`,
-   then commit the map (`git add docs/ui/<slug>/design-map.json`, commit message
-   `chore(design): <slug> boards to building`).
+3. **Record the source commit, before the workflow.** Commit any uncommitted change under
+   `docs/ui/<slug>/` first, then take `git rev-parse HEAD` as the source commit. The TRD author
+   reads the design at that commit, and step 5 approves against it.
+4. Run the create-trd workflow (the call under "Execution: the workflow is the orchestrator" below) with
+   `design: { dir, boards, data }`, where `boards` is the `buildable` output limited to the ids
+   step 1 kept (never a board `held` listed; draft boards carry `"status": "draft"`), and `data`
+   is `docs/ui/<slug>/grounding/data.md` when that file exists. The listed boards are the to-be
+   boards this run builds and approves once the TRD is written. The rules for turning boards
+   into tasks are the contract's "Design as a source" (`.claude/contracts/trd-authoring.md`).
+5. **After the TRD is written, approve, then move** (see "Design approval" below, just before
+   the grounding report). A run that stops before the TRD is written (STUCK, a failed workflow)
+   approves nothing.
 
 ---
 
@@ -1093,6 +1083,29 @@ were cut and which files each one touches — both settled in this command. By t
 `/implement-trd` runs, the only remaining option is to pay for it. A real 17-task TRD came
 out at 1.70 tasks per wave and ran below serial speed; printing that here is the owner's
 chance to send it back to `/refine-trd` for a nine-minute fix instead of a six-hour run.
+
+## Design approval — after the TRD is written (only with `--design`)
+
+Approve exactly the boards step 1 kept, against the source commit step 3 recorded, the same
+path `/refine-design --approve` uses (D18):
+
+```bash
+node .claude/lib/design-map.js approve --dir docs/ui/<slug> --ids <kept ids> --commit <source commit> --runtime <runtime path> --message "chore(design): <slug> boards approved by /create-trd"
+```
+
+Never edit `status` by hand (AC-F2.3). Take the runtime as `.claude/contracts/design-commands.md`
+section 1 step 3 says (read-only: this command creates no canvas). A `renderSkipped` or render
+`errors` in the result is an ISSUES line, never STUCK; approval still stands. If the call
+fails (the design folder changed during the run, or a board moved to `building` or out of the
+map meanwhile), it changes nothing: report its error under ISSUES, never STUCK, leave the boards
+unapproved and do not move them to `building`; the TRD stays written. Otherwise move the same boards:
+
+```bash
+node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <id,id> --to building --trd docs/TRD/<feature>.md
+```
+
+then commit the map (`git add docs/ui/<slug>/design-map.json`, commit message
+`chore(design): <slug> boards to building`).
 
 ## Grounding report — run this just before the readout
 

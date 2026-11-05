@@ -1,0 +1,66 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "source": "TRD Objectives O1 (owner instruction 2026-11-05); must pass",
+      "served_by": [
+        "DAV-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "source": "TRD Objectives O2 (owner instruction 2026-11-05)",
+      "served_by": [
+        "DAV-002",
+        "DAV-003",
+        "DAV-004"
+      ]
+    },
+    {
+      "id": "O3",
+      "source": "TRD Objectives O3 (owner instruction 2026-11-05); must pass",
+      "served_by": [
+        "DAV-003",
+        "DAV-004"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DAV-001",
+      "touches": [
+        "packages/core/lib/design-map.js",
+        "packages/core/lib/design-map.test.js",
+        ".claude/lib/design-map.js"
+      ]
+    },
+    {
+      "id": "DAV-002",
+      "touches": [
+        "packages/core/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js",
+        ".claude/commands/refine-design.md"
+      ]
+    },
+    {
+      "id": "DAV-003",
+      "touches": [
+        "packages/core/commands/create-trd.md",
+        "packages/core/commands/create-trd-design-prose.test.js",
+        "packages/core/workflows/create-trd.js",
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/commands/create-trd.md",
+        ".claude/contracts/trd-authoring.md",
+        ".claude/workflows/create-trd.js"
+      ]
+    },
+    {
+      "id": "DAV-004",
+      "touches": [
+        "packages/core/commands/plan.md",
+        "packages/core/commands/plan-design-prose.test.js",
+        ".claude/commands/plan.md"
+      ]
+    }
+  ]
+}

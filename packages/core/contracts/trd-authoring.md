@@ -722,7 +722,7 @@ disagreement and follows `verification.md`. Nothing parses this section; a model
 ### Design as a source
 
 **Only when the prompt carries a `DESIGN SOURCE`.** Without one, ignore this section. Each board
-listed is an approved to-be board from `docs/ui/<slug>`; its fields come from the design map
+listed is a to-be board from `docs/ui/<slug>` that this run builds, approved by it once the TRD is written; its fields come from the design map
 (`id`, `file`, `kind`, `route`, `components`, `parts`, `links`, `states`, `trd`).
 
 - **Tasks cite the board id.** Each board becomes one or more tasks, and each task names the
@@ -736,10 +736,10 @@ listed is an approved to-be board from `docs/ui/<slug>`; its fields come from th
 - **New shared components first.** A part the brief marks as new is its own task, listed in
   `Depends` of every screen task that uses it.
 - **Nothing builds from a draft board.** A part board is a design source only when its own
-  status is `approved` or later. A board that is not in the `DESIGN SOURCE` list (a `draft`
-  part, a `draft` to-be board) produces no task, is not cited as a task's reference, and is
-  not argued into scope in an open question. The command has already held back any approved
-  board that embeds a draft part; if you still find one, write no task for it and say so in
+  status is `approved` or later. A to-be board in the list that still reads `"status": "draft"`
+  is not a draft board in this sense: this run approves it once the TRD is written, so build it.
+  A board that is not in the `DESIGN SOURCE` list (a `draft` part) produces no task, is not cited as a task's reference, and is
+  not argued into scope in an open question. The command has already held back any board that embeds a draft part; if you still find one, write no task for it and say so in
   the readout.
 - **Select the four design checks** in `## Verification Artifacts`, citing real repository paths
   as Inputs: `verify-design-comparison` (`docs/ui/<slug>/design-map.json`,

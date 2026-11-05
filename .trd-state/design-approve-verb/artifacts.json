@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "trd": {
+    "path": "docs/TRD/design-approve-verb.md",
+    "url": "https://claude.ai/artifact/NDgiXrPesHDYVhqujvdCR2",
+    "updated_at": "2026-11-05T20:19:49.991Z",
+    "command": "/plan"
+  },
+  "success-definition": {
+    "path": ".trd-state/design-approve-verb/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-05T21:06:08.404Z",
+    "command": "/implement-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/design-approve-verb/verification-report.md",
+    "url": "https://claude.ai/artifact/FsmcRgt4Ar7Dh6FnjhL6S2",
+    "updated_at": "2026-11-05T22:06:48.917Z",
+    "command": "/verify-build"
+  },
+  "verification-plan": {
+    "path": ".trd-state/design-approve-verb/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-05T21:24:00.087Z",
+    "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/design-approve-verb/audit-build-report.md",
+    "url": "https://claude.ai/artifact/CtTxeEe3BXtisHch4nC5oB",
+    "updated_at": "2026-11-05T22:26:43.240Z",
+    "command": "/audit-build"
+  }
+}

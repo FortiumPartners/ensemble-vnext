@@ -325,3 +325,135 @@ describe('installed copy', () => {
     expect(fs.readFileSync(path.join(root, '.claude/lib/design-map.js'))).toEqual(fs.readFileSync(path.join(root, 'packages/core/lib/design-map.js')));
   });
 });
+
+describe('approve', () => {
+  const render = require('./design-render');
+  const fileOf = (id) => `${id}.dc.html`;
+  const fixture = () => {
+    const repo = tmp();
+    const dir = path.join(repo, 'docs', 'ui', 'd');
+    fs.mkdirSync(dir, { recursive: true });
+    const ids = { draft: 'a-draft', appr: 'b-appr', build: 'c-build', ship: 'd-ship', part: 'p-part' };
+    const boards = [
+      board({ id: ids.draft, file: fileOf(ids.draft) }),
+      board({ id: ids.appr, file: fileOf(ids.appr), status: 'approved', approved_commit: 'old1' }),
+      board({ id: ids.build, file: fileOf(ids.build), status: 'building' }),
+      board({ id: ids.ship, file: fileOf(ids.ship), status: 'shipped' }),
+      board({ id: ids.part, file: fileOf(ids.part), kind: 'part' }),
+    ];
+    for (const b of boards) fs.writeFileSync(path.join(dir, b.file), '<div>1</div>');
+    fs.writeFileSync(path.join(dir, 'design-map.json'), JSON.stringify(mapOf(boards)));
+    fs.writeFileSync(path.join(repo, 'other.txt'), 'x');
+    sh(repo, 'init', '-q'); sh(repo, 'add', '-A'); sh(repo, 'commit', '-qm', 'init');
+    // approve() commits through its own git calls, which do not see this file's ENV; give the
+    // repo an identity so those commits work where no global git identity exists (CI).
+    sh(repo, 'config', 'user.name', 't'); sh(repo, 'config', 'user.email', 't@t');
+    return { repo, dir, rel: 'docs/ui/d', ids };
+  };
+  const head = (repo) => sh(repo, 'rev-parse', 'HEAD').stdout.trim();
+  const status = (dir, id) => dm.read(dir).boards.find((b) => b.id === id);
+  let spy;
+  afterEach(() => { if (spy) spy.mockRestore(); spy = null; });
+
+  it('commits an uncommitted board edit first and approves drafts, part included, at that commit', async () => {
+    const { repo, dir, rel, ids } = fixture();
+    fs.writeFileSync(path.join(dir, fileOf(ids.draft)), '<div>2</div>');
+    spy = jest.spyOn(render, 'render').mockResolvedValue({ frames: [{ board: ids.draft }], errors: { x: ['e'] } });
+    const r = await dm.approve(rel, { ids: [ids.draft, ids.part], runtime: path.join(repo, 'rt.js'), repo });
+    const approvalCommit = sh(repo, 'rev-parse', 'HEAD~1').stdout.trim();
+    expect(sh(repo, 'log', '-2', '--format=%s').stdout).toMatch(/boards approved\nchore\(design\): d board changes before approval/);
+    expect(r).toMatchObject({ commit: approvalCommit, approved: [ids.draft, ids.part], kept: [], renderSkipped: null, errors: { x: ['e'] } });
+    expect(spy.mock.calls[0][0]).toMatchObject({ boards: [ids.draft, ids.part], approved: true });
+    expect(status(dir, ids.draft)).toMatchObject({ status: 'approved', approved_commit: approvalCommit });
+    expect(status(dir, ids.part).status).toBe('approved');
+  });
+
+  it('keeps an approved board unless --reapprove', async () => {
+    const { repo, dir, rel, ids } = fixture();
+    const r = await dm.approve(rel, { ids: [ids.appr], repo });
+    expect(r).toMatchObject({ approved: [], kept: [ids.appr] });
+    expect(status(dir, ids.appr).approved_commit).toBe('old1');
+    const r2 = await dm.approve(rel, { ids: [ids.appr], reapprove: true, repo });
+    expect(r2.approved).toEqual([ids.appr]);
+    expect(status(dir, ids.appr).approved_commit).toBe(r2.commit);
+    expect(r2.commit).not.toBe('old1');
+  });
+
+  it('uses --commit verbatim and fails naming the file when the folder changed after it', async () => {
+    const { repo, dir, rel, ids } = fixture();
+    const sha = head(repo);
+    const ok = await dm.approve(rel, { ids: [ids.draft], commit: sha, repo });
+    expect(ok.commit).toBe(sha);
+    expect(status(dir, ids.draft).approved_commit).toBe(sha);
+    const f = fixture();
+    const sha2 = head(f.repo);
+    fs.writeFileSync(path.join(f.dir, fileOf(f.ids.draft)), '<div>changed</div>');
+    sh(f.repo, 'commit', '-aqm', 'later');
+    await expect(dm.approve(f.rel, { ids: [f.ids.draft], commit: sha2, repo: f.repo })).rejects.toThrow(fileOf(f.ids.draft));
+    expect(status(f.dir, f.ids.draft).status).toBe('draft');
+  });
+
+  it('rejects an unknown --commit and records a symbolic one as its full sha', async () => {
+    const { repo, dir, rel, ids } = fixture();
+    await expect(dm.approve(rel, { ids: [ids.draft], commit: 'deadbeef', repo })).rejects.toThrow(/not a commit/);
+    expect(status(dir, ids.draft).status).toBe('draft');
+    const r = await dm.approve(rel, { ids: [ids.draft], commit: 'HEAD', repo });
+    expect(r.commit).toBe(sh(repo, 'rev-parse', 'HEAD~1').stdout.trim());
+    expect(status(dir, ids.draft).approved_commit).toBe(r.commit);
+  });
+
+  it('a failed approval commit restores the map and leaves nothing staged', async () => {
+    const { repo, dir, rel, ids } = fixture();
+    const hook = path.join(repo, '.git', 'hooks', 'pre-commit');
+    fs.writeFileSync(hook, '#!/bin/sh\nexit 1\n');
+    fs.chmodSync(hook, 0o755);
+    await expect(dm.approve(rel, { ids: [ids.draft], commit: head(repo), repo })).rejects.toThrow(/could not commit approval/);
+    expect(status(dir, ids.draft).status).toBe('draft');
+    expect(sh(repo, 'diff', '--cached', '--name-only').stdout.trim()).toBe('');
+  });
+
+  it.each(['c-build', 'd-ship', 'nope'])('fails on %s and changes nothing', async (id) => {
+    const { repo, dir, rel, ids } = fixture();
+    fs.writeFileSync(path.join(dir, fileOf(ids.draft)), '<div>2</div>');
+    const before = head(repo);
+    await expect(dm.approve(rel, { ids: [ids.draft, id], repo })).rejects.toThrow(id);
+    expect(head(repo)).toBe(before);
+    expect(status(dir, ids.draft).status).toBe('draft');
+  });
+
+  it('with no runtime reports renderSkipped and still commits the map', async () => {
+    const { repo, rel, ids } = fixture();
+    const r = await dm.approve(rel, { ids: [ids.draft], repo });
+    expect(r.renderSkipped).toMatch(/runtime/);
+    expect(sh(repo, 'status', '--porcelain').stdout).toBe('');
+    expect(sh(repo, 'log', '-1', '--format=%s').stdout.trim()).toBe('chore(design): d boards approved');
+  });
+
+  it.each([['ToolError', () => new render.ToolError('no playwright')], ['plain Error', () => new Error('git archive failed')]])('a render throwing %s is skipped, map committed', async (_n, mk) => {
+    const { repo, dir, rel, ids } = fixture();
+    spy = jest.spyOn(render, 'render').mockRejectedValue(mk());
+    const r = await dm.approve(rel, { ids: [ids.draft], runtime: 'rt.js', repo });
+    expect(r.renderSkipped).toMatch(/playwright|git archive/);
+    expect(status(dir, ids.draft).status).toBe('approved');
+    expect(sh(repo, 'status', '--porcelain').stdout).toBe('');
+  });
+
+  it('leaves a file staged outside the design folder out of the commit; --message is used', async () => {
+    const { repo, rel, ids } = fixture();
+    fs.writeFileSync(path.join(repo, 'other.txt'), 'staged');
+    sh(repo, 'add', 'other.txt');
+    await dm.approve(rel, { ids: [ids.draft], message: 'custom msg', repo });
+    expect(sh(repo, 'log', '-1', '--format=%s').stdout.trim()).toBe('custom msg');
+    expect(sh(repo, 'show', '--name-only', '--format=', 'HEAD').stdout).not.toMatch(/other\.txt/);
+    expect(sh(repo, 'diff', '--cached', '--name-only').stdout.trim()).toBe('other.txt');
+  });
+
+  it('CLI awaits approve and prints its result', () => {
+    const { repo, rel, ids } = fixture();
+    const o = spawnSync('node', [path.join(__dirname, 'design-map.js'), 'approve', '--dir', rel, '--ids', ids.draft, '--reapprove'], { cwd: repo, env: ENV, encoding: 'utf8' });
+    expect(o.status).toBe(0);
+    expect(JSON.parse(o.stdout)).toMatchObject({ approved: [ids.draft], renderSkipped: expect.any(String) });
+    const bad = spawnSync('node', [path.join(__dirname, 'design-map.js'), 'approve', '--dir', rel, '--ids', 'nope'], { cwd: repo, env: ENV, encoding: 'utf8' });
+    expect(bad.status).toBe(1);
+  });
+});

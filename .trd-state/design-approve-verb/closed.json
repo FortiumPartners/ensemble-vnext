@@ -1,0 +1,12 @@
+{
+  "feature": "design-approve-verb",
+  "trd": "docs/TRD/design-approve-verb.md",
+  "closedAt": "2026-11-05T22:26:27Z",
+  "closedBy": "audit",
+  "note": null,
+  "audit": {
+    "verdict": "VERDICT: proceed with these caveats: no source supplied — fidelity and omission unchecked (this change has no PRD, so the audit could only check that the code matches the TRD)",
+    "report": ".trd-state/design-approve-verb/audit-build-report.md",
+    "auditedCommit": "90d4307"
+  }
+}

@@ -13,8 +13,9 @@
  * argument array, never a shell string.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
- *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup>
+ *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup|approve>
  *     --dir docs/ui/<slug> [--ids a,b] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
+ *     approve: --ids a,b [--commit <sha>] [--runtime <path>] [--reapprove] [--message <text>]
  *   node .claude/lib/design-map.js unsynced --all [--trd <path>]   (scans every design under docs/ui)
  *
  * Example: node .claude/lib/design-map.js transition --dir docs/ui/checkout --ids 01-cart --to approved
@@ -319,13 +320,86 @@ function setup(projectDir) {
   return 'filled';
 }
 
+/**
+ * The one approve sequence the design commands share. Fails (changing nothing) on an unknown or
+ * building/shipped/superseded id, or when `commit` is given and the design folder differs from it.
+ * Moves named `draft` boards to `approved` (an `approved` board only with `reapprove`, else it is
+ * listed in `kept`), writes the map BEFORE rendering (render reads it from disk), renders exactly
+ * the moved boards, then commits map + frames by pathspec. Every render failure lands in
+ * `renderSkipped`; the approval stands.
+ * @returns {Promise<{commit, approved, kept, rendered, renderSkipped, errors}>}
+ */
+async function approve(dir, { ids, commit, runtime, reapprove = false, message, repo = '.' } = {}) {
+  if (!ids || ids.length === 0) throw new Error('approve needs --ids');
+  const dirAbs = path.resolve(repo, dir);
+  const rel = path.relative(path.resolve(repo), dirAbs);
+  const slug = path.basename(dirAbs);
+  const map = read(dirAbs);
+  for (const id of ids) {
+    const b = map.boards.find((x) => x.id === id);
+    if (!b) throw new Error(`no board ${id}`);
+    if (!['draft', 'approved'].includes(b.status)) throw new Error(`board ${id} is ${b.status}; only draft or approved boards can be approved`);
+  }
+  const dirty = () => git(repo, ['status', '--porcelain', '-u', '--', rel]).stdout.split('\n').filter(Boolean).map((l) => l.slice(3));
+  if (commit) {
+    // Resolve to a full sha: an unknown ref must fail, not read as "nothing changed", and a
+    // symbolic ref (HEAD, a branch) must never be recorded as approved_commit.
+    const v = git(repo, ['rev-parse', '--verify', '--quiet', `${commit}^{commit}`]);
+    if (v.status !== 0) throw new Error(`--commit ${commit} is not a commit`);
+    commit = v.stdout.trim();
+    const d = git(repo, ['diff', '--name-only', commit, '--', rel]);
+    if (d.status !== 0) throw new Error(`could not compare ${rel} with ${commit}: ${(d.stderr || '').trim()}`);
+    const changed = [...new Set([...d.stdout.split('\n').filter(Boolean), ...dirty()])];
+    if (changed.length) throw new Error(`${rel} changed after ${commit}: ${changed.join(', ')}`);
+  } else {
+    if (dirty().length) {
+      const a = git(repo, ['add', '--', rel]);
+      const c = git(repo, ['commit', '-m', `chore(design): ${slug} board changes before approval`, '--', rel]);
+      if (a.status !== 0 || c.status !== 0) throw new Error(`could not commit board changes: ${(c.stderr || a.stderr || '').trim()}`);
+    }
+    commit = headCommit(repo);
+  }
+  const moved = ids.filter((id) => reapprove || map.boards.find((x) => x.id === id).status === 'draft');
+  const kept = ids.filter((id) => !moved.includes(id));
+  if (moved.length) write(dirAbs, transition(map, moved, 'approved', { commit }));
+  let rendered = [];
+  let renderSkipped = null;
+  let errors = {};
+  if (moved.length) {
+    try {
+      if (!runtime) throw new Error('no --runtime given: frames not rendered');
+      // Lazy: design-render requires this module at top level.
+      const r = await require('./design-render').render({
+        dir: dirAbs, runtime, out: path.join(dirAbs, 'screens', 'png'), boards: moved, approved: true, repo,
+      });
+      rendered = r.frames; errors = r.errors || {};
+    } catch (e) {
+      renderSkipped = e.message;
+    }
+  }
+  let failed = git(repo, ['add', '--', rel]);
+  if (failed.status === 0) {
+    failed = git(repo, ['diff', '--cached', '--quiet', '--', rel]).status === 0
+      ? null
+      : git(repo, ['commit', '-m', message || `chore(design): ${slug} boards approved`, '--', rel]);
+    if (failed && failed.status === 0) failed = null;
+  }
+  if (failed) {
+    // All or nothing: an uncommitted approval must not stay on disk reading as approved.
+    git(repo, ['reset', '-q', '--', rel]);
+    write(dirAbs, map);
+    throw new Error(`could not commit approval: ${(failed.stderr || '').trim()}`);
+  }
+  return { commit, approved: moved, kept, rendered, renderSkipped, errors };
+}
+
 function parseArgs(argv) {
   const [verb, ...rest] = argv;
   const opts = {};
   for (let i = 0; i < rest.length; i++) {
     if (!rest[i].startsWith('--')) throw new Error(`unexpected argument ${rest[i]}`);
     const key = rest[i].slice(2);
-    if (key === 'record' || key === 'all') opts[key] = true;
+    if (key === 'record' || key === 'all' || key === 'reapprove') opts[key] = true;
     else if (rest[i + 1] === undefined || rest[i + 1].startsWith('--')) throw new Error(`--${key} needs a value`);
     else opts[key] = rest[++i];
   }
@@ -339,7 +413,7 @@ function headCommit(repo) {
   return git(repo, ['rev-parse', 'HEAD']).stdout.trim();
 }
 
-function main(argv) {
+async function main(argv) {
   const { verb, opts } = parseArgs(argv);
   if (verb === 'setup') return setup(opts.dir || '.');
   if (verb === 'unsynced' && opts.all) return unsyncedAll('.', { trd: opts.trd });
@@ -361,17 +435,21 @@ function main(argv) {
       write(opts.dir, next);
       return next;
     }
+    case 'approve': return approve(opts.dir, {
+      ids: idList(opts.ids), commit: opts.commit, runtime: opts.runtime, reapprove: !!opts.reapprove, message: opts.message,
+    });
     default: throw new Error(`unknown verb ${verb}`);
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, held, unsynced, unsyncedAll, setup, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, held, unsynced, unsyncedAll, setup, approve, parseArgs, KINDS, STATUSES };
 
 if (require.main === module) {
-  try {
-    process.stdout.write(JSON.stringify(main(process.argv.slice(2))) + '\n');
-  } catch (e) {
-    process.stderr.write('design-map.js: ' + e.message + '\n');
-    process.exit(1);
-  }
+  main(process.argv.slice(2)).then(
+    (r) => process.stdout.write(JSON.stringify(r) + '\n'),
+    (e) => {
+      process.stderr.write('design-map.js: ' + e.message + '\n');
+      process.exit(1);
+    },
+  );
 }
