@@ -109,6 +109,7 @@ The four-section readout from `.claude/rules/command-status.md`, one screen:
 - **NEXT** — on a feature branch with a PR open: a line saying to merge the PR once you
   have reviewed it, naming it by number and URL, in words, no command. On a feature branch with no PR: a line saying to open
   a PR for the branch. On the default branch: a line saying to commit the close record.
+  **Unsynced boards.** After `closed.json` is written, run `node .claude/lib/design-map.js unsynced --all --trd <trd-path>` (JSON `[{ design, id, trd }]`). For each design it lists, add one numbered step per design: a line naming that design's boards and saying to check them against the build with `/sync-design` once the PR has merged (or now, when the feature closed on the default branch, where there is no PR), then `/sync-design <slug>` alone in its fenced block. With none, say nothing about syncing. A failing check is one ISSUES line, never STUCK. It is named, never chained: this command never runs `/sync-design` (a separate command, the owner's call).
 
 Then the banner, as the last line:
 

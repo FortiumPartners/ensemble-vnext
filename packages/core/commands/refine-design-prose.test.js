@@ -36,6 +36,11 @@ describe('refine-design command prose', () => {
     expect(text).toMatch(/step 1 of NEXT is `\/design-system --sync`, ahead of a conflict hand-merge/);
   });
 
+  test('unsynced boards: runs the check and names /sync-design <slug> in NEXT (USB-003)', () => {
+    expect(text).toContain('design-map.js unsynced --dir docs/ui/<slug>');
+    expect(text).toMatch(/then `\/sync-design <slug>` when\s+boards are unsynced/);
+  });
+
   test('cites the shared contract for start, publish and readout', () => {
     expect(text).toContain('design-commands.md');
     expect(text).toMatch(/contract section 1/);

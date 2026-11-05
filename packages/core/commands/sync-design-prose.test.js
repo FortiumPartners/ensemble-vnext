@@ -16,7 +16,7 @@ const auditDesign = flat(read('packages/core/commands/audit-design.md'));
 
 describe('sync-design command prose', () => {
   test('command, workflow and the edited commands are byte-identical in .claude/', () => {
-    for (const f of ['commands/sync-design.md', 'commands/audit-build.md', 'commands/audit-design.md', 'workflows/sync-design.js', 'workflows/audit-design.js']) {
+    for (const f of ['commands/sync-design.md', 'commands/audit-build.md', 'commands/close-feature.md', 'commands/audit-design.md', 'workflows/sync-design.js', 'workflows/audit-design.js']) {
       expect(read(`.claude/${f}`)).toBe(read(`packages/core/${f}`));
     }
   });
@@ -44,13 +44,44 @@ describe('sync-design command prose', () => {
   });
 });
 
-describe('audit-build NEXT names /sync-design without chaining it', () => {
-  test('names /sync-design <slug> when the closed feature cites a design, as a line and not a Skill call', () => {
-    expect(auditBuild).toContain('/sync-design <slug>');
-    expect(auditBuild).toMatch(/design-map\.json.*`trd`/);
-    expect(auditBuild).not.toMatch(/Skill\(\{ skill: "sync-design"/);
-  });
-});
+const closeFeature = flat(read('packages/core/commands/close-feature.md'));
+
+describe.each([['audit-build', auditBuild], ['close-feature', closeFeature]])(
+  '%s readout names unsynced boards without chaining /sync-design',
+  (_name, text) => {
+    test('runs unsynced --all --trd after the close record is written', () => {
+      expect(text).toContain('design-map.js unsynced --all --trd <trd-path>');
+      expect(text).toMatch(/After `closed\.json` is written, run `node \.claude\/lib\/design-map\.js unsynced/);
+    });
+
+    test('merged-PR and default-branch wordings', () => {
+      expect(text).toMatch(/once the PR has merged/);
+      expect(text).toMatch(/or now, when the feature closed on the default branch/);
+    });
+
+    test('one numbered step per design with /sync-design <slug> alone in a fenced block', () => {
+      expect(text).toMatch(/one numbered step per design/);
+      expect(text).toContain('`/sync-design <slug>` alone in its fenced block');
+    });
+
+    test('with none, says nothing about syncing', () => {
+      expect(text).toMatch(/With none, (NEXT )?say(s)? nothing about syncing/);
+    });
+
+    test('a failed check is an ISSUES line, never STUCK', () => {
+      expect(text).toMatch(/failing check is one ISSUES line, never STUCK/);
+    });
+
+    test('names /sync-design but never runs it as a Skill call', () => {
+      expect(text).toContain('/sync-design');
+      expect(text).not.toMatch(/Skill\(\{ skill: "sync-design"/);
+    });
+
+    test('no longer names /sync-design unconditionally by a design-map trd scan', () => {
+      expect(text).not.toMatch(/design-map\.json.*`trd`/);
+    });
+  },
+);
 
 describe('audit-design --drift prose', () => {
   test('documents the flag, scratch captures and that no board changes', () => {

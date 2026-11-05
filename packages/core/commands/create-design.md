@@ -48,7 +48,11 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    `node .claude/lib/design-map.js stale --dir docs/ui/<slug> --record` (a new design has no
    map yet: run it right after step 5 seeds the map). On drift, carry on against the installed
    system, list the drift under **ISSUES** (not only STATE), and put `/design-system --sync`
-   first in NEXT. Ask nothing.
+   first in NEXT. Ask nothing. Also run the unsynced-board check,
+   `node .claude/lib/design-map.js unsynced --dir docs/ui/<slug>` (an existing design only; a new
+   one has no building board). On a non-empty result, add the ISSUES line "boards <ids> are still
+   building although their feature closed: check them against the build" and put
+   `/sync-design <slug>` in NEXT, after `/design-system --sync` when that is also due.
 2. **Ground and brief.** Call the workflow with `stage: "ground"`:
    ```
    Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
@@ -125,8 +129,8 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Contract section 7 applies. STATE counts boards by kind. ISSUES lists design-system drift,
 canvas conflicts, open review findings, render errors, failed agents, and every as-is board that
 still differs from its screenshot. NEXT puts
-`/design-system --sync` first when the system is stale, then `/audit-design <slug>`, then
-`/refine-design <slug>`.
+`/design-system --sync` first when the system is stale, then `/sync-design <slug>` when boards are
+unsynced, then `/audit-design <slug>`, then `/refine-design <slug>`.
 
 The canvas link goes **above** the banner, never after it.
 

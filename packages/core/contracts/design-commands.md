@@ -74,6 +74,17 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    `/design-system --sync` is the **first** step in NEXT. Commit the recorded drift with the
    command's own commit.
 
+   Then, in the same step, the **unsynced-board check**:
+   ```bash
+   node .claude/lib/design-map.js unsynced --dir docs/ui/<slug>
+   ```
+   (once per design, read-only; `/sync-design` skips it, being the remedy, and `/design-system`
+   skips it, touching no design's boards). A to-be board is unsynced when its map status is still
+   `building` although its feature's `closed.json` exists. On a non-empty result (`[{ design, id,
+   trd }]`) add an **ISSUES** line: "boards <ids> are still building although their feature
+   closed: check them against the build", and put `/sync-design <slug>` in NEXT, after
+   `/design-system --sync` when that is also due. Nothing runs `/sync-design` automatically.
+
 ## 2. Render pass
 
 Implements AC-F3.6. The Design type tells an agent never to render or verify unless asked.
@@ -139,6 +150,8 @@ Implements NFR-5. The four sections, in order, as `command-status.md` defines th
   boards edited after approval, each listed as "edited after approval" so the owner can
   re-approve. Conflicts and drift belong here even when STATE also mentions them; DECISIONS
   never holds them
-- NEXT: `/design-system --sync` first when the system is stale
+- NEXT: `/design-system --sync` first when the system is stale, then `/sync-design <slug>` when
+  boards are unsynced (ISSUES carries "boards <ids> are still building although their feature
+  closed: check them against the build")
 
 The canvas link goes above the COMMAND COMPLETE (or COMMAND STUCK) banner, never after it.

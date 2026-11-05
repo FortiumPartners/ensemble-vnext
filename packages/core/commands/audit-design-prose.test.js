@@ -33,6 +33,11 @@ describe('audit-design command prose', () => {
     expect(text).toContain('--url ""');
   });
 
+  test('unsynced boards: runs the check and names /sync-design <slug> in NEXT (USB-003)', () => {
+    expect(text).toContain('design-map.js unsynced --dir docs/ui/<slug>');
+    expect(text).toMatch(/then `\/sync-design <slug>` when boards are unsynced/);
+  });
+
   test('stale system: an ISSUES line however small the change, and /design-system --sync first in NEXT (FS-27)', () => {
     expect(text).toMatch(/On `"stale": true`/);
     expect(text).toMatch(/\*\*ISSUES\*\* line/);

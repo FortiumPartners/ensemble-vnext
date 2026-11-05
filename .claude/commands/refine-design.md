@@ -54,6 +54,10 @@ option "(Recommended)" and says why. `--auto` asks nothing.
    - **Run the stale-system check** (`design-map.js stale --dir docs/ui/<slug> --record`). On
      drift, list it under ISSUES and put `/design-system --sync` first in NEXT. Commit the
      recorded drift with this run's own commit (contract section 1 step 6).
+   - **Run the unsynced-board check** (`design-map.js unsynced --dir docs/ui/<slug>`). On a
+     non-empty result, list "boards <ids> are still building although their feature closed: check
+     them against the build" under ISSUES and put `/sync-design <slug>` in NEXT, after
+     `/design-system --sync` when that is also due.
 2. **Gather feedback** (AC-F9.2) from the argument, the chat, the canvas comment threads and
    the viewer's selected elements. `ArtifactComments` is a deferred tool: load it by name (it
    may not be resolved yet in this session), then `ArtifactComments({ action: "read", url })`.
@@ -103,7 +107,8 @@ ISSUES, NEXT, one screen, written for someone who was not in the session). Contr
 applies. STATE counts boards by status and says which were approved this run (only by
 `--approve`). ISSUES lists conflicts (each with its `.repo.dc.html` path), design-system drift,
 boards edited after approval, open review findings, unanswered comments and a failed reply.
-NEXT names `/design-system --sync` first when the system is stale, then `/audit-design <slug>`,
+NEXT names `/design-system --sync` first when the system is stale, then `/sync-design <slug>` when
+boards are unsynced, then `/audit-design <slug>`,
 then, for boards still in `draft`, the build that approves them (`/create-trd <prd> --design
 docs/ui/<slug>`) or `/refine-design <slug> --approve <ids>` to approve ahead of it. When stale, step 1 of NEXT is
 `/design-system --sync`, ahead of a conflict hand-merge or any other step: the hand-merge is

@@ -28,6 +28,11 @@ describe('create-design command prose', () => {
     expect(text).toMatch(/`missing` or `unfilled` ends the command STUCK with "run `\/design-setup`"/);
   });
 
+  test('unsynced boards: runs the check and names /sync-design <slug> in NEXT (USB-003)', () => {
+    expect(text).toContain('design-map.js unsynced --dir docs/ui/<slug>');
+    expect(text).toMatch(/then `\/sync-design <slug>` when boards are\s+unsynced/);
+  });
+
   test('carries on past a stale system and puts /design-system --sync first in NEXT, asking nothing', () => {
     expect(text).toContain('design-map.js stale --dir docs/ui/<slug> --record');
     expect(text).toMatch(/carry on against the installed system, list the drift\s+under \*\*ISSUES\*\* \(not only STATE\), and put `\/design-system --sync` first in NEXT\. Ask nothing/);
