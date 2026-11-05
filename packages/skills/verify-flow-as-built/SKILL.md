@@ -18,14 +18,15 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 
 The PRD carries an interaction diagram or a list of screen-to-screen journeys — the shape a
 user is meant to move through the build, screen by screen, with the data each step is meant to
-change. This check does not apply to a PRD that describes only single screens with no
+change. When the feature is built from a design made by `/create-design`, the board `links`
+in the design's `design-map.json` are that diagram. This check does not apply to a PRD that describes only single screens with no
 between-screen journey.
 
 ## Inputs
 
 | Input | Where it usually comes from | Required or optional | Default |
 |-------|------------------------------|------------------------|---------|
-| Designed flow | The PRD's interaction diagram (a Mermaid graph, or equivalent), or a named list of journeys (each an ordered list of screens/steps) | Required | None — without a designed flow there is nothing to compare against |
+| Designed flow | The PRD's interaction diagram (a Mermaid graph, or equivalent), or a named list of journeys (each an ordered list of screens/steps); or the board `links` in `design-map.json`, each link a screen-to-screen edge taken as one of the designed edges (journeys are the paths through them) | Required | None — without a designed flow there is nothing to compare against |
 | Source root | `stack.md` / `CLAUDE.md` (where the app's routes, navigation calls and API handlers live) | Required | The project root |
 | How to run a journey | The project's own docs (`CLAUDE.md`, `stack.md`, existing suites) — how to start the build and drive it through a screen | Required | The stack-hint table in the verification contract (`functional-verification.md`, "The four stack hint rows"), used only when the project's own docs are silent |
 | Data store to read before/after each step | `verification.md` (which store, and whether reading — or writing — it is authorised) | Optional | None — a journey with no stated data store is walked for navigation only, and its statement omits the data-change clause |

@@ -1,0 +1,573 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/design-stage.md",
+  "trd_hash": "456643b5259cb2968af66dd1a9220b5288e8e78610a2f00113d801ced5c7f5ce",
+  "branch": "58-design-prd",
+  "strategy": "tdd",
+  "phase_cursor": 5,
+  "tasks": {
+    "DSGN-P001": {
+      "description": "design.md template in packages/core/templates/claude-directory/rules/ with sections for the design system, per-platform, how to reach a screen and design rules;",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/claude-directory/rules/design.md",
+        "packages/skills/design-setup/SKILL.md",
+        "packages/skills/design-setup/template.md",
+        "packages/skills/design-setup/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt",
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "packages/core/commands/init-project.md",
+        ".claude/commands/init-project.md",
+        "packages/full/commands/plugin-only/init-project.md",
+        ".claude/rules/design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:35:32.698Z",
+      "completed_at": "2026-11-04T23:55:29.230Z",
+      "last_advanced": "2026-11-04T23:37:31.594Z"
+    },
+    "DSGN-P002": {
+      "description": "packages/core/contracts/design-commands.md and its .claude/contracts/ mirror, with the seven sections of §3.5",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/design-commands.md",
+        ".claude/contracts/design-commands.md",
+        "packages/core/contracts/design-commands.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:35:32.698Z",
+      "completed_at": "2026-11-04T23:55:29.231Z",
+      "last_advanced": "2026-11-04T23:37:31.595Z"
+    },
+    "DSGN-P003": {
+      "description": "Live fixture apps test/fixtures/design/react-web/ and test/fixtures/design/react-native/ per D23, each with a README.md saying how to install and start it and a",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "test/fixtures/design/react-web/package.json",
+        "test/fixtures/design/react-web/README.md",
+        "test/fixtures/design/react-web/design.md",
+        "test/fixtures/design/react-web/serve.mjs",
+        "test/fixtures/design/react-web/tailwind.config.js",
+        "test/fixtures/design/react-web/.gitignore",
+        "test/fixtures/design/react-web/components/index.jsx",
+        "test/fixtures/design/react-web/src/main.jsx",
+        "test/fixtures/design/react-web/src/styles.css",
+        "test/fixtures/design/react-web/public/index.html",
+        "test/fixtures/design/react-native/package.json",
+        "test/fixtures/design/react-native/README.md",
+        "test/fixtures/design/react-native/design.md",
+        "test/fixtures/design/react-native/serve.mjs",
+        "test/fixtures/design/react-native/tailwind.config.js",
+        "test/fixtures/design/react-native/.gitignore",
+        "test/fixtures/design/react-native/src/components.jsx",
+        "test/fixtures/design/react-native/src/main.jsx",
+        "test/fixtures/design/react-native/src/global.css",
+        "test/fixtures/design/react-native/public/index.html"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:35:32.698Z",
+      "completed_at": "2026-11-04T23:55:29.231Z",
+      "last_advanced": "2026-11-04T23:37:31.595Z"
+    },
+    "DSGN-B001": {
+      "description": "design-map.js per §3.1, with design-map.test.js and its full/.claude copies",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-map.js",
+        "packages/core/lib/design-map.test.js",
+        "packages/full/lib/design-map.js",
+        ".claude/lib/design-map.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:35:32.698Z",
+      "completed_at": "2026-11-04T23:55:29.229Z",
+      "last_advanced": "2026-11-04T23:37:31.595Z"
+    },
+    "DSGN-B002": {
+      "description": "design-mirror.js per §3.2, with design-mirror.test.js and its full/.claude copies",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-mirror.js",
+        "packages/core/lib/design-mirror.test.js",
+        "packages/full/lib/design-mirror.js",
+        ".claude/lib/design-mirror.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:35:32.698Z",
+      "completed_at": "2026-11-04T23:55:29.231Z",
+      "last_advanced": "2026-11-04T23:37:31.595Z"
+    },
+    "DSGN-B003": {
+      "description": "The render and bundle libraries: design-render.js per §3.3 and design-bundle.js per §3.4; pinned dc-runtime.js and fixture boards (one with a tweak state) in pa",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-render.js",
+        "packages/core/lib/design-render.test.js",
+        "packages/core/lib/design-bundle.js",
+        "packages/core/lib/design-bundle.test.js",
+        "packages/core/lib/__fixtures__/design/dc-runtime.js",
+        "packages/core/lib/__fixtures__/design/plain.dc.html",
+        "packages/core/lib/__fixtures__/design/stateful.dc.html",
+        "packages/core/lib/__fixtures__/design/broken.dc.html",
+        "packages/core/lib/__fixtures__/design/react-lib/index.jsx",
+        ".claude/lib/design-render.js",
+        ".claude/lib/design-bundle.js",
+        "packages/full/lib/design-render.js",
+        "packages/full/lib/design-bundle.js",
+        "package.json",
+        "package-lock.json",
+        ".github/workflows/ci.yml"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:35:32.698Z",
+      "completed_at": "2026-11-04T23:55:29.231Z",
+      "last_advanced": "2026-11-04T23:37:31.595Z"
+    },
+    "DSGN-B005": {
+      "description": "The three F14 edits: artifacts.js KINDS documents design and audit-design (and its test's expected list); frontend-design/SKILL.md gains the line that in an exi",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/artifacts.js",
+        ".claude/lib/artifacts.js",
+        "packages/core/lib/artifacts.test.js",
+        "packages/core/lib/docs-audit-assemble.js",
+        ".claude/lib/docs-audit-assemble.js",
+        "packages/core/lib/docs-audit-assemble.test.js",
+        "packages/skills/frontend-design/SKILL.md",
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:35:32.698Z",
+      "completed_at": "2026-11-04T23:55:29.230Z",
+      "last_advanced": "2026-11-04T23:37:31.595Z"
+    },
+    "DSGN-P004": {
+      "description": "Skills designing-on-canvas and design-grounding in packages/skills/, each with __tests__/skill-md.test.js; two support rows in framework-skills.txt",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/designing-on-canvas/SKILL.md",
+        "packages/skills/designing-on-canvas/__tests__/skill-md.test.js",
+        "packages/skills/design-grounding/SKILL.md",
+        "packages/skills/design-grounding/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
+    },
+    "DSGN-B006": {
+      "description": "/design-system command per §3.6 (packages/core/commands/design-system.md and mirror)",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/design-system.md",
+        "packages/core/commands/design-system-prose.test.js",
+        ".claude/commands/design-system.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
+    },
+    "DSGN-B007": {
+      "description": "create-design.js workflow per §3.7 with create-design.test.js on test-harness.js and its full/.claude copies, and the /create-design command per §3.7 (create-de",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        ".claude/workflows/create-design.js",
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
+    },
+    "DSGN-B009": {
+      "description": "/refine-design command per §3.8 (refine-design.md and mirror); autonomy.md template and .claude/rules/autonomy.md name /refine-design and design-setup in the by",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js",
+        "packages/core/templates/claude-directory/rules/autonomy.md",
+        ".claude/rules/autonomy.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
+    },
+    "DSGN-B010": {
+      "description": "audit-design.js workflow and /audit-design command per §3.9 (P0 part, without --drift), with audit-design.test.js, mirrors and full symlink",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js",
+        ".claude/workflows/audit-design.js",
+        ".claude/commands/audit-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.483Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
+    },
+    "DSGN-T002": {
+      "description": "[LIVE] One fixture run, in order. First, the phase-1 proof on both fixtures: /design-system builds a system from the React web fixture's component package and t",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": "re-attested 2026-11-05 from verification evidence (FS-20 to FS-57 met); the comment-driven refine (FS-42) is still unproven: no tool here creates a canvas comment",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/design-stage/evidence/iter3/design-system-react-native-pane.txt",
+        ".trd-state/design-stage/evidence/iter4/fs22-create-design-unchanged-canvas-pane.txt",
+        ".trd-state/design-stage/evidence/r1/fs15-17-27-43-refine-design-pane.txt",
+        ".trd-state/design-stage/evidence/r2/fs71-summary.txt"
+      ],
+      "commit": null,
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T12:59:24.988Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
+    },
+    "DSGN-B011": {
+      "description": "Design input for /create-trd and /plan per D15: create-trd.md (and mirror) resolves the design and moves boards to building; create-trd.js (and copies) passes a",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/create-trd.js",
+        ".claude/workflows/create-trd.js",
+        "packages/core/workflows/create-trd.test.js",
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/contracts/trd-authoring.md",
+        "packages/core/commands/create-trd-design-prose.test.js",
+        "packages/core/commands/plan-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T00:12:10.244Z",
+      "completed_at": "2026-11-05T00:15:48.246Z",
+      "last_advanced": "2026-11-05T00:14:51.866Z"
+    },
+    "DSGN-B013": {
+      "description": "The design checks: the two check edits, verify-design-comparison/SKILL.md per §3.10 and verify-flow-as-built/SKILL.md per §3.10, each with its skill-md.test.js ",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/skills/verify-design-comparison/SKILL.md",
+        "packages/skills/verify-design-comparison/__tests__/skill-md.test.js",
+        "packages/skills/verify-flow-as-built/SKILL.md",
+        "packages/skills/verify-flow-as-built/__tests__/skill-md.test.js",
+        "packages/skills/verify-design-structure/SKILL.md",
+        "packages/skills/verify-design-structure/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T00:12:10.244Z",
+      "completed_at": "2026-11-05T00:15:48.247Z",
+      "last_advanced": "2026-11-05T00:14:51.866Z"
+    },
+    "DSGN-T003": {
+      "description": "[LIVE] Build from the approved fixture design: /create-trd --design docs/ui/<slug> on DSGN-T002's approved board, then /implement-trd on the fixture, and one /p",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": "re-attested 2026-11-05 from verification evidence (iter5 report, FS-43 live run)",
+      "retry_count": 0,
+      "files_changed": [
+        ".trd-state/design-stage/evidence/iter5/verification-report.md",
+        ".trd-state/design-stage/evidence/r4/fs43-summary.txt"
+      ],
+      "commit": null,
+      "started_at": null,
+      "completed_at": "2026-11-05T12:59:24.989Z"
+    },
+    "DSGN-B015": {
+      "description": "The P1 after-build work: sync-design.js workflow and /sync-design command per §3.11 and D26, with sync-design.test.js, mirrors and full symlink; audit-build.md ",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/sync-design.js",
+        "packages/core/workflows/sync-design.test.js",
+        "packages/core/commands/sync-design.md",
+        "packages/core/commands/sync-design-prose.test.js",
+        "packages/core/commands/audit-build.md",
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js",
+        "packages/core/commands/sync-design-prose.test.js",
+        ".claude/workflows/sync-design.js",
+        ".claude/commands/sync-design.md",
+        ".claude/commands/audit-build.md",
+        ".claude/workflows/audit-design.js",
+        ".claude/commands/audit-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T00:15:48.557Z",
+      "completed_at": "2026-11-05T00:23:33.744Z",
+      "last_advanced": "2026-11-05T00:23:26.630Z"
+    },
+    "DSGN-D001": {
+      "description": "packages/core/templates/process.md.template: the five design commands and design-setup in the Workflow Overview and Command Reference",
+      "phase": 4,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/templates/process.md.template"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T00:15:48.557Z",
+      "completed_at": "2026-11-05T00:23:33.746Z",
+      "last_advanced": "2026-11-05T00:23:26.631Z"
+    },
+    "DSGN-T004": {
+      "description": "[LIVE] After the fixture build from DSGN-T003 merges to the fixture's branch: /sync-design <slug> and /audit-design <slug> --drift",
+      "phase": 4,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": "deferred by design in the TRD",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "DSGN-T005": {
+      "description": "[LIVE] The phase-0 remainder and the hosted-draw check: the owner opens the canvas DSGN-T002's phase-1 proof installed the system on, and the spike canvas, and ",
+      "phase": 5,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": "deferred by design in the TRD",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "DSGN-T006": {
+      "description": "[LIVE] The real case: the owner's 44-board flow redone with /create-design and /refine-design on its product, with the owner's own canvas edits and comments",
+      "phase": 5,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": "deferred by design in the TRD",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AMEND-001": {
+      "description": "FS-34: as-is screenshot captured at the board viewport",
+      "phase": 5,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ],
+      "status": "success",
+      "cycle_position": "complete",
+      "started_at": "2026-11-05T04:13:14.105Z",
+      "last_advanced": "2026-11-05T04:13:58.744Z",
+      "current_problem": null,
+      "completed_at": "2026-11-05T04:14:03.927Z"
+    },
+    "AMEND-002": {
+      "description": "NativeWind recipe unit test (AC-F4.3), from /audit-build",
+      "phase": 5,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-bundle.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T12:59:17.427Z",
+      "completed_at": "2026-11-05T13:00:21.943Z",
+      "last_advanced": "2026-11-05T13:00:14.223Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "8e9daff",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-04T23:55:44.693Z"
+    },
+    {
+      "phase": 2,
+      "commit": "63f25f5",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T00:12:10.243Z"
+    },
+    {
+      "phase": 3,
+      "commit": "5b7729a",
+      "review": {
+        "findings": 1,
+        "applied": 1
+      },
+      "timestamp": "2026-11-05T00:15:48.557Z"
+    },
+    {
+      "phase": 4,
+      "commit": "2e73403",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T00:23:47.157Z"
+    },
+    {
+      "phase": 5,
+      "commit": "ac8d0a0",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T04:14:51.344Z"
+    },
+    {
+      "phase": 5,
+      "commit": "66f3378",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T13:00:42.989Z"
+    }
+  ],
+  "recovery": {
+    "interrupted": false,
+    "last_healthy_checkpoint": "66f3378",
+    "last_checkpoint_timestamp": "2026-11-05T13:00:42.989Z",
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/PRD/design-stage.md",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized; Artifact tool available"
+      },
+      "local": {
+        "status": "usable",
+        "reason": "declared; runs from the working tree"
+      },
+      "preview": {
+        "status": "unusable",
+        "reason": "no URL declared in verification.md §1"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared in verification.md §1"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "read-only, no URL declared"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      }
+    },
+    "fix": {
+      "plan": ".trd-state/design-stage/verification-plan.md",
+      "stopRule": {
+        "maxRounds": 3,
+        "closedBelow": 1
+      },
+      "rounds": [
+        {
+          "round": 0,
+          "tasksPromoted": 0,
+          "criteriaClosed": 2,
+          "criteriaOpen": 11,
+          "buildable": 0
+        }
+      ],
+      "stopped": true
+    }
+  },
+  "created_at": "2026-11-04T23:35:19.223Z"
+}

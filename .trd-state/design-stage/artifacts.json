@@ -1,0 +1,51 @@
+{
+  "version": 2,
+  "prd": {
+    "path": "docs/PRD/design-stage.md",
+    "url": "https://claude.ai/artifact/AmxTYwxnuWarFT6iVyvrbL",
+    "updated_at": "2026-11-04T16:37:06.482Z",
+    "command": "/refine-prd"
+  },
+  "audit-prd": {
+    "path": ".trd-state/design-stage/audit-prd-report.md",
+    "url": "",
+    "updated_at": "2026-11-04T17:22:17.419Z",
+    "command": "/audit-prd"
+  },
+  "trd": {
+    "path": "docs/TRD/design-stage.md",
+    "url": "https://claude.ai/artifact/HPb7UbpqVm41yx8uhMz3f7",
+    "updated_at": "2026-11-04T22:06:44.598Z",
+    "command": "/refine-trd"
+  },
+  "audit-trd": {
+    "path": ".trd-state/design-stage/audit-trd-report.md",
+    "url": "",
+    "updated_at": "2026-11-04T22:41:18.389Z",
+    "command": "/audit-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/design-stage/verification-report.md",
+    "url": "https://claude.ai/artifact/7s2fXpXjAw3Jb6zQcBNa4S",
+    "updated_at": "2026-11-05T06:48:07.006Z",
+    "command": "/verify-build"
+  },
+  "success-definition": {
+    "path": ".trd-state/design-stage/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-05T12:48:21.478Z",
+    "command": "/verify-build"
+  },
+  "verification-plan": {
+    "path": ".trd-state/design-stage/verification-plan.md",
+    "url": "",
+    "updated_at": "2026-11-05T01:20:24.063Z",
+    "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/design-stage/audit-build-report.md",
+    "url": "https://claude.ai/artifact/JXAJXaEH6aqseRpUq8P5kA",
+    "updated_at": "2026-11-05T13:05:03.354Z",
+    "command": "/audit-build"
+  }
+}

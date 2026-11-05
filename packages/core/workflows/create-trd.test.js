@@ -608,3 +608,32 @@ describe('create-trd pre-authoring triage', () => {
     expect(result.trd).toBe('docs/TRD/f.md');
   });
 });
+
+describe('create-trd design input (DSGN-B011)', () => {
+  const DESIGN = {
+    dir: 'docs/ui/checkout',
+    data: 'docs/ui/checkout/grounding/data.md',
+    boards: [{ id: '01-cart', route: '/cart', components: ['CartRow'], parts: ['PriceTag'], links: ['02-pay'], states: ['empty'] }],
+  };
+
+  it('puts each board and the data path in the author prompt', async () => {
+    const { agent } = await run({}, baseArgs({ design: DESIGN }));
+    const p = call(agent, 'author:technical-architect').prompt;
+    expect(p).toContain('01-cart');
+    expect(p).toContain('/cart');
+    expect(p).toContain('CartRow');
+    expect(p).toContain('PriceTag');
+    expect(p).toContain('02-pay');
+    expect(p).toContain('docs/ui/checkout/grounding/data.md');
+  });
+
+  it('leaves the prompt unchanged without args.design', async () => {
+    const { agent } = await run({}, baseArgs());
+    expect(call(agent, 'author:technical-architect').prompt).not.toContain('DESIGN SOURCE');
+  });
+
+  it('ignores an empty board list', async () => {
+    const { agent } = await run({}, baseArgs({ design: { dir: 'docs/ui/x', boards: [] } }));
+    expect(call(agent, 'author:technical-architect').prompt).not.toContain('DESIGN SOURCE');
+  });
+});

@@ -719,6 +719,35 @@ disagreement and follows `verification.md`. Nothing parses this section; a model
 **Cannot be checked there**: email delivery — no inbox we can read from local
 ```
 
+### Design as a source
+
+**Only when the prompt carries a `DESIGN SOURCE`.** Without one, ignore this section. Each board
+listed is an approved to-be board from `docs/ui/<slug>`; its fields come from the design map
+(`id`, `file`, `kind`, `route`, `components`, `parts`, `links`, `states`, `trd`).
+
+- **Tasks cite the board id.** Each board becomes one or more tasks, and each task names the
+  board id and its route. A task gives the components and props from the board's `x-import`
+  lines, the states from its `sc-if` blocks and tweaks, the interactions from its `links`, and
+  the data fields from `grounding/data.md`.
+- **Real-component boards** say which components and props go at which route. **Parts boards**
+  carry the board's PNG and source path as the reference.
+- **Read the source.** Every task points the implementer at
+  `docs/ui/<slug>/canvas/project/<file>`; a screenshot alone is never the reference.
+- **New shared components first.** A part the brief marks as new is its own task, listed in
+  `Depends` of every screen task that uses it.
+- **Nothing builds from a draft board.** A part board is a design source only when its own
+  status is `approved` or later. A board that is not in the `DESIGN SOURCE` list (a `draft`
+  part, a `draft` to-be board) produces no task, is not cited as a task's reference, and is
+  not argued into scope in an open question. The command has already held back any approved
+  board that embeds a draft part; if you still find one, write no task for it and say so in
+  the readout.
+- **Select the four design checks** in `## Verification Artifacts`, citing real repository paths
+  as Inputs: `verify-design-comparison` (`docs/ui/<slug>/design-map.json`,
+  `docs/ui/<slug>/screens/png/`), `verify-flow-as-built` (`docs/ui/<slug>/design-map.json`),
+  `verify-data-fidelity` (`docs/ui/<slug>/grounding/data.md`) and `verify-design-structure`
+  (`docs/ui/<slug>/design-map.json`). A check whose skill is not installed yet is an `Omitted:`
+  line with that reason.
+
 ### Section 10: Task Grounding
 
 > **Not written by the authoring stage.** A dedicated grounding pass emits this section

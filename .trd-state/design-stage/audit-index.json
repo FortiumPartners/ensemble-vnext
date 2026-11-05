@@ -1,0 +1,685 @@
+{
+  "requirements": [
+    {
+      "id": "AC-F1.1-1.4",
+      "source": "PRD §6 / TRD §4.2 DSGN-P001",
+      "statement": "design.md records system, per-platform, reach-a-screen and design-rule fields",
+      "served_by": [
+        "DSGN-P001"
+      ]
+    },
+    {
+      "id": "AC-F1.5",
+      "source": "PRD §6",
+      "statement": "Template added under templates/claude-directory/rules/ (unit test: file present)",
+      "served_by": [
+        "DSGN-P001"
+      ]
+    },
+    {
+      "id": "AC-F1.6",
+      "source": "PRD §6",
+      "statement": "design-setup interviews one topic at a time with detected defaults, offers the accessibility floor as a default, never chained",
+      "served_by": [
+        "DSGN-P001"
+      ]
+    },
+    {
+      "id": "AC-F2.1-2.3",
+      "source": "PRD §6",
+      "statement": "Map schema, kinds and status transitions",
+      "served_by": [
+        "DSGN-B001"
+      ]
+    },
+    {
+      "id": "AC-F2.4",
+      "source": "PRD §6",
+      "statement": "Derived fields (components, parts, links) computed from board source",
+      "served_by": [
+        "DSGN-B001"
+      ]
+    },
+    {
+      "id": "AC-F3.1-3.3",
+      "source": "PRD §6",
+      "statement": "PNG per viewport and state, render errors reported, rendered from approved commit",
+      "served_by": [
+        "DSGN-B003",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F3.4",
+      "source": "PRD §6",
+      "statement": "A known board gives a stable PNG",
+      "served_by": [
+        "DSGN-B003"
+      ]
+    },
+    {
+      "id": "AC-F3.5",
+      "source": "PRD §6",
+      "statement": "Release-change test runs against the current dc-runtime.js",
+      "served_by": [
+        "DSGN-B003"
+      ]
+    },
+    {
+      "id": "AC-F3.6",
+      "source": "PRD §6",
+      "statement": "Render pass stated in command contracts",
+      "served_by": [
+        "DSGN-P002",
+        "DSGN-B007",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F4.1-4.4",
+      "source": "PRD §6",
+      "statement": "Per-stack bundle recipes; NativeWind recipe without a Babel plugin",
+      "served_by": [
+        "DSGN-B003",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F4.5",
+      "source": "PRD §6",
+      "statement": "Every stub reported",
+      "served_by": [
+        "DSGN-B003"
+      ]
+    },
+    {
+      "id": "AC-F4.6",
+      "source": "PRD §6",
+      "statement": "Fixture React library mounts under dc-runtime",
+      "served_by": [
+        "DSGN-B003"
+      ]
+    },
+    {
+      "id": "AC-F5.1-5.4",
+      "source": "PRD §6",
+      "statement": "Base version; canvas-changed, repository-changed and both-changed sync cases",
+      "served_by": [
+        "DSGN-B002"
+      ]
+    },
+    {
+      "id": "AC-F5.2",
+      "source": "PRD §6 (also cited under T002)",
+      "statement": "Sync case coverage; also exercised in the fixture create/refine/audit run",
+      "served_by": [
+        "DSGN-B002",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F5.6",
+      "source": "PRD §6",
+      "statement": "STUCK after a third refused publish; the four sync cases covered",
+      "served_by": [
+        "DSGN-B002"
+      ]
+    },
+    {
+      "id": "AC-F5.7",
+      "source": "PRD §6",
+      "statement": "Whole-artifact read before any publish (live run)",
+      "served_by": [
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F5.8",
+      "source": "PRD §6",
+      "statement": "project/ds/ left out of the board comparison; version recorded",
+      "served_by": [
+        "DSGN-B002"
+      ]
+    },
+    {
+      "id": "AC-F5.9",
+      "source": "PRD §6",
+      "statement": "Version check first; no board read when the canvas version is unchanged",
+      "served_by": [
+        "DSGN-B002",
+        "DSGN-P002"
+      ]
+    },
+    {
+      "id": "AC-F6.1-6.5",
+      "source": "PRD §6",
+      "statement": "Design system built, recorded, gated by design.md, stubs listed, --sync reinstalls",
+      "served_by": [
+        "DSGN-B006",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F6.6",
+      "source": "PRD §6",
+      "statement": "Figma route when Figma is the source",
+      "served_by": [
+        "DSGN-B006"
+      ]
+    },
+    {
+      "id": "AC-F6.7",
+      "source": "PRD §6",
+      "statement": "Installed design system draws on the hosted canvas (owner looks)",
+      "served_by": [
+        "DSGN-T005"
+      ]
+    },
+    {
+      "id": "AC-F6.8",
+      "source": "PRD §6",
+      "statement": "First build installs the system on the product's canvases",
+      "served_by": [
+        "DSGN-B006",
+        "DSGN-P002",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F6.9",
+      "source": "PRD §6",
+      "statement": "Every design command checks for a stale system and carries on",
+      "served_by": [
+        "DSGN-P002",
+        "DSGN-B010"
+      ]
+    },
+    {
+      "id": "AC-F7.1-7.3",
+      "source": "PRD §6",
+      "statement": "Skill content; canvas rules read live from the Design type",
+      "served_by": [
+        "DSGN-P004"
+      ]
+    },
+    {
+      "id": "AC-F8.1-8.10",
+      "source": "PRD §6",
+      "statement": "/create-design: resolve, ground, brief, as-is, parts, to-be, challenge, publish",
+      "served_by": [
+        "DSGN-B007",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F9.1-9.5",
+      "source": "PRD §6",
+      "statement": "/refine-design: adopt edits, feedback sources, targeted changes, owner-only approval, modes, main session",
+      "served_by": [
+        "DSGN-B009",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F10.1-10.4",
+      "source": "PRD §6",
+      "statement": "/audit-design: report, Could Not Verify, board-and-line findings, refuting file for rejected findings",
+      "served_by": [
+        "DSGN-B010",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-F11.1-11.7",
+      "source": "PRD §6",
+      "statement": "Design as input to /create-trd and /plan: tasks per board, status building, checks selected",
+      "served_by": [
+        "DSGN-B011",
+        "DSGN-T003"
+      ]
+    },
+    {
+      "id": "AC-F12.1-12.5",
+      "source": "PRD §6",
+      "statement": "Four design checks inside the verification loop",
+      "served_by": [
+        "DSGN-B013",
+        "DSGN-T003"
+      ]
+    },
+    {
+      "id": "AC-F13.1-13.7",
+      "source": "PRD §6",
+      "statement": "Sync outcomes (difference accepted only by owner ruling), History page, drift report",
+      "served_by": [
+        "DSGN-B015",
+        "DSGN-T004"
+      ]
+    },
+    {
+      "id": "AC-F14.1",
+      "source": "PRD §6",
+      "statement": "Artifact kinds documented (artifacts.test.js)",
+      "served_by": [
+        "DSGN-B005"
+      ]
+    },
+    {
+      "id": "AC-F14.2",
+      "source": "PRD §6",
+      "statement": "Reuse line in frontend-design",
+      "served_by": [
+        "DSGN-B005"
+      ]
+    },
+    {
+      "id": "AC-F14.3",
+      "source": "PRD §6",
+      "statement": "/audit-docs leaves docs/ui/ out of its document set",
+      "served_by": [
+        "DSGN-B005"
+      ]
+    },
+    {
+      "id": "AC-F15.1-15.2",
+      "source": "PRD §6",
+      "statement": "Hosted screenshot of the NativeWind board; james account publish run",
+      "served_by": [
+        "DSGN-T005"
+      ]
+    },
+    {
+      "id": "NFR-1",
+      "source": "PRD §5",
+      "statement": "Each part gets the least machinery that meets its criteria, reusing existing patterns",
+      "served_by": []
+    },
+    {
+      "id": "NFR-2",
+      "source": "PRD §5",
+      "statement": "With no artifact access or ensemble.publishArtifacts false, a design command writes the repository copy and renders, then ends STUCK naming the publish step",
+      "served_by": [
+        "DSGN-P002",
+        "DSGN-B007",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "NFR-3",
+      "source": "PRD §5",
+      "statement": "A design too big for one canvas uses one canvas per epic flow; the map can list more than one canvas",
+      "served_by": [
+        "DSGN-B001"
+      ]
+    },
+    {
+      "id": "NFR-4",
+      "source": "PRD §5",
+      "statement": "Design commands run autonomously per autonomy.md; /refine-design is interactive by default",
+      "served_by": [
+        "DSGN-B007",
+        "DSGN-B009",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "NFR-5",
+      "source": "PRD §5",
+      "statement": "Every design command ends with the four-section readout and a COMMAND COMPLETE/STUCK banner, the canvas link above it",
+      "served_by": [
+        "DSGN-P002",
+        "DSGN-B007",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "NFR-6",
+      "source": "PRD §5",
+      "statement": "No published board or design-system page contains a credential",
+      "served_by": [
+        "DSGN-P002"
+      ]
+    },
+    {
+      "id": "NFR-7",
+      "source": "PRD §5",
+      "statement": "Libraries have unit tests; workflows have harness tests; live runs on the React web, React Native and flutter-widget fixtures plus the 44-board flow",
+      "served_by": [
+        "DSGN-P003",
+        "DSGN-T006"
+      ]
+    },
+    {
+      "id": "AC-N1",
+      "source": "PRD §6",
+      "statement": "Each new command, skill, workflow and library maps to an existing pattern named in NFR-1, or the TRD states why not (TRD review)",
+      "served_by": []
+    },
+    {
+      "id": "AC-N2",
+      "source": "PRD §6",
+      "statement": "With artifacts unavailable or publishing off, repository copy and renders exist and the run ends STUCK naming the publish step (workflow test)",
+      "served_by": [
+        "DSGN-B007",
+        "DSGN-T002"
+      ]
+    },
+    {
+      "id": "AC-N3",
+      "source": "PRD §6",
+      "statement": "The map accepts and reads back more than one canvas (unit test)",
+      "served_by": [
+        "DSGN-B001"
+      ]
+    },
+    {
+      "id": "AC-N4",
+      "source": "PRD §6",
+      "statement": "No mid-run pause outside the four cases; --auto asks nothing (session log)",
+      "served_by": []
+    },
+    {
+      "id": "AC-N5",
+      "source": "PRD §6",
+      "statement": "Readout and banner present; canvas link above the banner (session log)",
+      "served_by": []
+    },
+    {
+      "id": "AC-N6",
+      "source": "PRD §6",
+      "statement": "No credential in published content (manual)",
+      "served_by": []
+    },
+    {
+      "id": "AC-N7",
+      "source": "PRD §6",
+      "statement": "Listed unit, workflow and live fixture runs exist and pass (test run)",
+      "served_by": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DSGN-P001",
+      "description": "design.md template, design-setup skill, framework-skills row, AUTHORED_RULES and rebase/init user-owned list edits (Serves AC-F1.1 to AC-F1.6)",
+      "touches": [
+        "packages/core/templates/claude-directory/rules/design.md",
+        "packages/skills/design-setup/SKILL.md",
+        "packages/skills/design-setup/template.md",
+        "packages/skills/design-setup/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt",
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/commands/rebase-project.md",
+        ".claude/commands/rebase-project.md",
+        "packages/full/commands/plugin-only/rebase-project.md",
+        "packages/core/commands/init-project.md",
+        ".claude/commands/init-project.md",
+        "packages/full/commands/plugin-only/init-project.md"
+      ]
+    },
+    {
+      "id": "DSGN-P002",
+      "description": "packages/core/contracts/design-commands.md with the seven sections of TRD §3.5, plus mirror and prose test (D9)",
+      "touches": [
+        "packages/core/contracts/design-commands.md",
+        ".claude/contracts/design-commands.md",
+        "packages/core/contracts/design-commands.test.js"
+      ]
+    },
+    {
+      "id": "DSGN-P003",
+      "description": "Live fixture apps test/fixtures/design/react-web and react-native with README and filled design.md (D23)",
+      "touches": [
+        "test/fixtures/design/react-web/package.json",
+        "test/fixtures/design/react-web/README.md",
+        "test/fixtures/design/react-web/design.md",
+        "test/fixtures/design/react-native/package.json",
+        "test/fixtures/design/react-native/README.md",
+        "test/fixtures/design/react-native/design.md"
+      ]
+    },
+    {
+      "id": "DSGN-B001",
+      "description": "design-map.js library with tests and copies (Serves AC-F2.1 to AC-F2.4, NFR-3, D3 to D8)",
+      "touches": [
+        "packages/core/lib/design-map.js",
+        "packages/core/lib/design-map.test.js",
+        "packages/full/lib/design-map.js",
+        ".claude/lib/design-map.js"
+      ]
+    },
+    {
+      "id": "DSGN-B002",
+      "description": "design-mirror.js library with tests and copies (Serves AC-F5.1 to AC-F5.9, G3)",
+      "touches": [
+        "packages/core/lib/design-mirror.js",
+        "packages/core/lib/design-mirror.test.js",
+        "packages/full/lib/design-mirror.js",
+        ".claude/lib/design-mirror.js"
+      ]
+    },
+    {
+      "id": "DSGN-B003",
+      "description": "design-render.js and design-bundle.js libraries, pinned dc-runtime fixture, react-lib fixture, playwright/esbuild/react devDependencies, CI Chromium step (Serves AC-F3.1 to AC-F3.5, AC-F4.1 to AC-F4.6, D7, D13, D14)",
+      "touches": [
+        "packages/core/lib/design-render.js",
+        "packages/core/lib/design-render.test.js",
+        "packages/core/lib/design-bundle.js",
+        "packages/core/lib/design-bundle.test.js",
+        "packages/core/lib/__fixtures__/design/dc-runtime.js",
+        ".claude/lib/design-render.js",
+        ".claude/lib/design-bundle.js",
+        "packages/full/lib/design-render.js",
+        "packages/full/lib/design-bundle.js",
+        "package.json",
+        "package-lock.json",
+        ".github/workflows/ci.yml"
+      ]
+    },
+    {
+      "id": "DSGN-B005",
+      "description": "Three F14 edits: artifacts.js KINDS, frontend-design reuse line, docs-audit-assemble drops docs/ui/, command-status kinds list (Serves AC-F14.1 to AC-F14.3, R5)",
+      "touches": [
+        "packages/core/lib/artifacts.js",
+        ".claude/lib/artifacts.js",
+        "packages/core/lib/artifacts.test.js",
+        "packages/skills/frontend-design/SKILL.md",
+        "packages/core/lib/docs-audit-assemble.js",
+        ".claude/lib/docs-audit-assemble.js",
+        "packages/core/lib/docs-audit-assemble.test.js",
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md"
+      ]
+    },
+    {
+      "id": "DSGN-P004",
+      "description": "Skills designing-on-canvas and design-grounding with skill-md tests and framework-skills rows (Serves AC-F7.1 to AC-F7.3, NG4)",
+      "touches": [
+        "packages/skills/designing-on-canvas/SKILL.md",
+        "packages/skills/designing-on-canvas/__tests__/skill-md.test.js",
+        "packages/skills/design-grounding/SKILL.md",
+        "packages/skills/design-grounding/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt"
+      ]
+    },
+    {
+      "id": "DSGN-B006",
+      "description": "/design-system command per TRD §3.6 with prose test and mirror (Serves AC-F6.1 to AC-F6.6, AC-F6.8, D20)",
+      "touches": [
+        "packages/core/commands/design-system.md",
+        ".claude/commands/design-system.md",
+        "packages/core/commands/design-system-prose.test.js"
+      ]
+    },
+    {
+      "id": "DSGN-B007",
+      "description": "create-design.js workflow with harness tests and /create-design command with prose test and mirror (Serves AC-F8.1 to AC-F8.10, AC-F3.6, NFR-2, NFR-4, NFR-5, D11, D22, D25, O-SEC3)",
+      "touches": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        ".claude/workflows/create-design.js",
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "DSGN-B009",
+      "description": "/refine-design command with prose test and mirror; autonomy.md template and rules copy name the command and design-setup; byte-ceiling test (Serves AC-F9.1 to AC-F9.5, D18, D19)",
+      "touches": [
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-design.md",
+        "packages/core/templates/claude-directory/rules/autonomy.md",
+        ".claude/rules/autonomy.md",
+        "packages/core/commands/refine-design-prose.test.js",
+        "test/integration/tests/runtime-integrity.test.sh"
+      ]
+    },
+    {
+      "id": "DSGN-B010",
+      "description": "audit-design.js workflow and /audit-design command, P0 part without --drift (Serves AC-F10.1 to AC-F10.4, AC-F6.9, G5)",
+      "touches": [
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        ".claude/workflows/audit-design.js",
+        "packages/core/commands/audit-design.md",
+        ".claude/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "DSGN-T002",
+      "description": "[LIVE] Fixture run: phase-1 proof on both fixtures (design system build, local render, publish, install on a throwaway canvas), then create, refine, audit on the React web fixture, publishing-off run and --auto run (Serves G1, G2, AC-F4.1 to 4.3, AC-F5.2, AC-F5.7, AC-F6.1, AC-F6.8, AC-F8.1 to 8.10, AC-F9.1 to 9.5, AC-F10.1 to 10.4, NFR-2, NFR-4, NFR-5)",
+      "touches": [
+        ".trd-state/design-stage/evidence/live-manifest.jsonl"
+      ]
+    },
+    {
+      "id": "DSGN-B011",
+      "description": "Design input for /create-trd and /plan per D15: create-trd command, workflow, trd-authoring contract, plan command, with prose tests (Serves AC-F11.1 to AC-F11.7)",
+      "touches": [
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/workflows/create-trd.js",
+        ".claude/workflows/create-trd.js",
+        "packages/core/contracts/trd-authoring.md",
+        ".claude/contracts/trd-authoring.md",
+        "packages/core/workflows/create-trd.test.js",
+        "packages/core/commands/create-trd-design-prose.test.js",
+        "packages/core/commands/plan.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/plan-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "DSGN-B013",
+      "description": "Design checks: edits to verify-design-comparison and verify-flow-as-built, new verify-design-structure skill with check row (Serves AC-F12.1, 12.2, 12.3, 12.5, D5, D16, D17)",
+      "touches": [
+        "packages/skills/verify-design-comparison/SKILL.md",
+        "packages/skills/verify-design-comparison/__tests__/skill-md.test.js",
+        "packages/skills/verify-flow-as-built/SKILL.md",
+        "packages/skills/verify-flow-as-built/__tests__/skill-md.test.js",
+        "packages/skills/verify-design-structure/SKILL.md",
+        "packages/skills/verify-design-structure/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt"
+      ]
+    },
+    {
+      "id": "DSGN-T003",
+      "description": "[LIVE] Build from the approved fixture design: /create-trd --design on an approved board, /implement-trd on the fixture, one /plan --design --boards (Serves G4, AC-F11.1 to AC-F11.7, AC-F12.1 to AC-F12.5)",
+      "touches": [
+        ".trd-state/design-stage/evidence/live-manifest.jsonl"
+      ]
+    },
+    {
+      "id": "DSGN-B015",
+      "description": "P1 after-build work: sync-design.js workflow and command, audit-build NEXT line, /audit-design --drift (Serves AC-F13.1 to AC-F13.7, D20, D26)",
+      "touches": [
+        "packages/core/workflows/sync-design.js",
+        "packages/core/workflows/sync-design.test.js",
+        ".claude/workflows/sync-design.js",
+        "packages/core/commands/sync-design.md",
+        ".claude/commands/sync-design.md",
+        "packages/core/commands/sync-design-prose.test.js",
+        "packages/core/commands/audit-build.md",
+        ".claude/commands/audit-build.md",
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        ".claude/workflows/audit-design.js",
+        "packages/core/commands/audit-design.md",
+        ".claude/commands/audit-design.md"
+      ]
+    },
+    {
+      "id": "DSGN-D001",
+      "description": "process.md.template: the five design commands and design-setup added to Workflow Overview and Command Reference (Serves O-DOC)",
+      "touches": [
+        "packages/core/templates/process.md.template"
+      ]
+    },
+    {
+      "id": "DSGN-T004",
+      "description": "[LIVE] After the fixture build from DSGN-T003 merges: /sync-design <slug> and /audit-design <slug> --drift (Serves G6, AC-F13.1 to AC-F13.7)",
+      "touches": [
+        ".trd-state/design-stage/evidence/live-manifest.jsonl"
+      ]
+    },
+    {
+      "id": "DSGN-T005",
+      "description": "[LIVE, deferred by design] Hosted-draw check of installed system and NativeWind board; james-account publish run; results appended to findings.md (Serves AC-F6.7, AC-F15.1, AC-F15.2, R1)",
+      "touches": [
+        ".trd-state/task-issue-58-phase-0-spike/findings.md",
+        ".trd-state/design-stage/evidence/live-manifest.jsonl"
+      ]
+    },
+    {
+      "id": "DSGN-T006",
+      "description": "[LIVE, deferred by design] The owner's 44-board flow redone with /create-design and /refine-design (Serves G2, NFR-7)",
+      "touches": [
+        ".trd-state/design-stage/evidence/live-manifest.jsonl"
+      ]
+    },
+    {
+      "id": "AMEND-001",
+      "description": "[judged-failed, promoted from verify-build --fix gap FS-34] /create-design as-is board must match its screenshot at the board viewport; fix screenshot capture so it is taken at the board viewport (criterion FS-34)",
+      "touches": [
+        "packages/skills/design-grounding/SKILL.md",
+        "packages/skills/design-grounding/__tests__/skill-md.test.js",
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md"
+      ]
+    }
+  ],
+  "could_not_verify": [
+    "TRD (docs/TRD/design-stage.md) Could Not Verify, preamble: State after /audit-trd on 2026-11-04 (5 of 5 verifiers reported). Two claims carried from 1.1.0 were checked and removed: the runtime reading data-props from board source (confirmed by the runtime read from a canvas, function Ot), and process.md being owner-authored with no test requiring it to match the template. Every row below was not checked by this audit, because checking it needs the Artifact tool against a live canvas or type, a hosted browser, a live run, or a clone. This audit checked the document against the PRD and the repository only.",
+    "TRD row 1 | Claim: The Design type ships SKILL.md, format.md, design-system-components.md, view-state.md, print.md, make-from-this.md, artifact-type/dc-runtime.js; the Design System type ships from-code.md and from-design-tool.md (carried from the PRD) | How I'd check it: Artifact read with the type's type_url for SKILL.md; the rest with read, an artifact of that type's url and path (a type_url read takes no path, D12)",
+    "TRD row 2 | Claim: A Design System artifact created empty (type_url and title, no files) already exposes its type's references, so /design-system can read from-code.md from it (D12) | How I'd check it: The first /design-system run in DSGN-T002",
+    "TRD row 3 | Claim: A canvas holds 512 files and up to 4 design systems; a canvas's copy of a design system never updates by itself (carried from the PRD) | How I'd check it: The Design type's references",
+    "TRD row 4 | Claim: The installed design system draws on the hosted canvas (carried from the PRD) | How I'd check it: DSGN-T005",
+    "TRD row 5 | Claim: A whole-artifact read of a canvas, plus read with paths, returns every board file to disk | How I'd check it: First publish in DSGN-T002 (its phase-1 proof)",
+    "TRD row 6 | Claim: Publishing with files: { path: { artifact, path } } copies a Design System artifact's files into a canvas's project/ds/<folder>/ | How I'd check it: DSGN-T002 (its phase-1 proof); the issue says the spike copied the system across on the server",
+    "TRD row 7 | Claim: sc-if branches follow props, so overriding a state's tweak values renders that branch (D7) | How I'd check it: Render a fixture board with two props sets in DSGN-B003",
+    "TRD row 8 | Claim: The react@18.3.1 and react-dom@18.3.1 npm UMD files are byte-identical to what the runtime fetches from jsdelivr, so the runtime's SRI check passes when they are routed locally (D14) | How I'd check it: DSGN-B003's first pinned-runtime render test",
+    "TRD row 9 | Claim: React fiber keys (__reactFiber$*) are present on host nodes under react-native-web and the product's React version (D17) | How I'd check it: DSGN-B013's structure-check capture on the React Native fixture",
+    "TRD row 10 | Claim: The canvas version token returned by a publish (findings §(c): published as version 1793773596-7b8f) is also returned by a read or a listing | How I'd check it: DSGN-T002",
+    "TRD row 11 | Claim: ArtifactComments can reply on a canvas thread from the main session (AC-F9.3) | How I'd check it: DSGN-T002",
+    "TRD row 12 | Claim: The fixtures repository holds no React app (kanban-board and wordle-game hold only story.md, listed through the GitHub API on 2026-11-04) | How I'd check it: Clone it and list each variant",
+    "PRD (docs/PRD/design-stage.md) Could Not Verify, preamble: Rewritten by /audit-prd, 2026-11-04. That audit checked this PRD against the issue, the brief, findings and this repository's files. It did not read the live Design types, run anything on a canvas or open plugin files outside this repository, so the rows below stay open. Checked and confirmed, so removed: the flutter-widget fixture exists (ensemble-vnext-test-fixtures/variants/baseline/flutter-widget/, plus five other variants).",
+    "PRD row 1 | Claim: The Design type's SKILL.md, format.md, design-system-components.md, view-state.md, print.md, make-from-this.md and the Design System type's from-code.md, from-design-tool.md exist and can be read live by a command | How I'd check it: Artifact action list scope types, then read with the Design type's type_url | Why still open: Live Artifact types were outside this audit, which read files only",
+    "PRD row 2 | Claim: The type ships artifact-type/dc-runtime.js, usable as support.js for a local render | How I'd check it: Read the Design type's files listing | Why still open: Same, needs a live read of the Design type",
+    "PRD row 3 | Claim: A canvas holds 512 files and up to 4 design systems; it has no version history; a canvas's copy of a design system never updates by itself | How I'd check it: The Design type's references | Why still open: Same, needs a live read of the Design type",
+    "PRD row 4 | Claim: The installed design system (project/ds/ plus a designSystems record) draws on the hosted canvas | How I'd check it: AC-F6.7 live run | Why still open: Needs a live canvas run; the spike did not prove it (findings §(a))",
+    "PRD row 5 | Claim: The NativeWind board's components visibly draw on the hosted page (owner comments suggest it) | How I'd check it: AC-F15.1 screenshot | Why still open: Needs the owner's screenshot of the hosted canvas",
+    "PRD row 6 | Claim: The james account can publish from an orchestrator-started session | How I'd check it: AC-F15.2 | Why still open: Needs a run under that account",
+    "PRD row 7 | Claim: Standalone claude.ai/design and DesignSync close on Dec 14, 2026 | How I'd check it: The issue's own claim; check the platform announcement | Why still open: An external announcement; this audit read only repository files",
+    "PRD row 8 | Claim: The plugin skill frontend-design:frontend-design has the confirm-with-the-client step the issue meant | How I'd check it: Read that plugin's SKILL.md | Why still open: The plugin is installed outside this repository and was not opened",
+    "PRD row 9 | Claim: verify-design-comparison today takes a route manifest that design-map.json can replace (its SKILL.md names a routes file, or a manifest mapping frame stem to the navigation path) | How I'd check it: Read the skill's Inputs and Capture sections end to end | Why still open: No verifier raised it and this audit did not read the skill end to end",
+    "PRD row 10 | Claim: A canvas's current version can be read without reading its boards (AC-F5.9's cheap check). Belief, not fact | How I'd check it: Artifact action list shows last-updated per artifact; check whether it, or a read header, carries the version design-map.json records | Why still open: Needs a live Artifact call against a canvas",
+    "PRD row 11 | Claim: Spike results (findings §(b), §(c), §(d)) read from findings.md, not re-run | How I'd check it: The evidence files in .trd-state/task-issue-58-phase-0-spike/evidence/ (local-render-probe.json, workflow-agent-publish.json, accounts/*.json, all present) | Why still open: The files exist; nobody re-ran the spike or compared each result with findings.md"
+  ],
+  "open_questions": [
+    "TRD (docs/TRD/design-stage.md) ## Open Questions: None open; all ten were resolved by the owner in 1.1.0. See Resolved Questions below.",
+    "TRD ## Resolved Questions (own numbers OQ-1 to OQ-10, each with the owner ruling): OQ-1 dc-runtime.js as pinned fixture: Yes, pinned with the date it was read (D14). OQ-2 esbuild/playwright root devDependencies and CI Chromium: Add them (D13); stack.md untouched. OQ-3 product without Node Playwright/esbuild: Resolve from the product, then global npm root; otherwise STUCK naming the install (D13). OQ-4 React fixtures location: test/fixtures/design/ (D23). OQ-5 cheapest Artifact call returning canvas version: the cheapest call that carries it, full read when none does (TR2). OQ-6 canvas edit onto approved/building board: approval does not lapse; edit adopted, status unchanged, frames stay at approved_commit, ISSUES lists edited after approval. OQ-7 AC-N2 method: prose test plus live run (D24). OQ-8 discipline judge names /refine-design: No, following /refine-verification (D19). OQ-9 slug choice: PRD stem, else issue-<n>, else brief's stem (D22). OQ-10 mirror layout for second canvas: canvases[].dir, default canvas/project (D8).",
+    "PRD (docs/PRD/design-stage.md) ## Open Questions: None open. Resolved by the owner, 2026-11-04 (answered in /refine-prd): OQ-1 issue phases 1-4 P0, phase 5 sync and --drift P1. OQ-2 sync-design: only an owner ruling accepts a difference, a TRD decision does not. OQ-3 stale design system: carry on, record drift, /design-system --sync first in NEXT. OQ-4 docs/ui/ in /audit-docs scope: excluded. OQ-5 publishing off: write repository copy and render, then end STUCK naming the publish step. OQ-6 accessibility floor 4.5:1 and 44 px: offered as default, owner's answer recorded in design.md. OQ-7 refine-design.js: no workflow; /refine-design runs in main session, interactive by default, --auto unattended. OQ-8 as-is board still differing: the PRD requires the mark exist and be readable; the TRD names the field."
+  ]
+}

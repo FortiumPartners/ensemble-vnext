@@ -477,7 +477,10 @@ never `/audit-build`. When `reaudit` is true: `/audit-build <trd>` alone in its 
 `updated`): a line saying to merge the PR once you have reviewed it, naming it by number and URL
 (merging stays yours), in words, no command. Closed on a feature branch with no PR: a line saying to open a PR for the branch.
 Closed on the default branch (nothing was committed): a line saying to commit the report and
-close record. On `do not proceed` with nothing chained: the design work the
+close record. **When the closed feature has a design** (a `docs/ui/*/design-map.json` with a
+board whose `trd` is this TRD's path): add a line saying the boards can now be checked against the
+build, then `/sync-design <slug>` alone in its fenced block. It is named, never chained (a
+separate command, the owner's call). On `do not proceed` with nothing chained: the design work the
 readout names.
 
 ---

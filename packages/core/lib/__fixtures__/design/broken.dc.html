@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Broken board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width: 320px; height: 200px"><p>{{boom}}</p></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":200}}'>
+class Component extends DCLogic {
+renderVals() {
+throw new Error("fixture board threw on purpose");
+}
+}
+</script>
+</body>
+</html>

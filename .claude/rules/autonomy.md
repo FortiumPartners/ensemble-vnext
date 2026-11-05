@@ -1,7 +1,7 @@
 # Autonomous-execution discipline
 
-**Status:** active. Applies to every workflow command. `/refine-prd`, `/refine-trd` and
-`/refine-verification` are exempt **in interactive mode only** — conditional on mode, not
+**Status:** active. Applies to every workflow command. `/refine-prd`, `/refine-trd`,
+`/refine-verification` and `/refine-design` are exempt **in interactive mode only** — conditional on mode, not
 command name (see "Refine commands", below). Backed by case B of the one model-judged `Stop`
 hook, `discipline-stop`
 (`hookType: "prompt"`, prompt source
@@ -81,7 +81,7 @@ apply** if there is no answer, give the context (what you tried, why you're aski
 trade-offs), and **resume the loop** after the answer — it unblocks the run, it does not
 restart the conversation.
 
-## Refine commands (`/refine-prd`, `/refine-trd`, `/refine-verification`) — exempt by MODE, not by name
+## Refine commands (`/refine-prd`, `/refine-trd`, `/refine-verification`, `/refine-design`) — exempt by MODE, not by name
 
 **Interactive mode** (the default when a human invoked them) is genuinely exempt: their
 input is user feedback, their output is a revised artifact, the iteration is the point.
@@ -90,22 +90,20 @@ input is user feedback, their output is a revised artifact, the iteration is the
 below), not a separate command.
 
 **Non-interactive mode** (`--non-interactive` for `/refine-prd`/`/refine-trd`, `--auto` for
-`/refine-verification`, or invocation by another command) obeys this rule like every other
+`/refine-verification` and `/refine-design`, or invocation by another command) obeys this rule like every other
 command. `AskUserQuestion` is restricted to the four cases above, and **"this requirement has
 no source" is explicitly NOT one of them** — remove it and report it in the readout; a
 fabricated requirement is most dangerous unattended. Under `/refine-verification --auto`, an
-open item with no source is resolved anyway (`answered`, `default` or `OWNER-CALL`) and
-recorded, on the same principle. Both modes still emit COMMAND COMPLETE when the refinement
-is final.
+open item with no source is still resolved (`answered`, `default` or `OWNER-CALL`) and
+recorded. Both modes emit COMMAND COMPLETE when the refinement is final.
 
-## One skill exempt for the same reason: interactive by purpose
+## Two skills exempt for the same reason: interactive by purpose
 
-`packages/skills/verification-setup/SKILL.md` sits beside the refine commands. It is invoked
-directly by the owner, never chained from a command or run unattended, and sets
+`packages/skills/verification-setup/SKILL.md` and `design-setup` sit beside the refine
+commands. Each is invoked directly by the owner, never chained or run unattended, and sets
 `disable-model-invocation: true`. It interviews the owner (one `AskUserQuestion` per topic,
-offering a default) because its answers are infrastructure policy only the owner holds — the
-same reason `/refine-verification`'s interactive mode asks one question per open item rather
-than deriving a default for everything.
+offering a default) because its answers are policy only the owner holds, not something to
+derive a default for.
 
 ## Enforcement
 

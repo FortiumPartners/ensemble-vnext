@@ -970,3 +970,119 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 
 - [ran] `node .claude/lib/spec-scope.js objectives --trd <trd>` prints JSON `[{id,text,mustPass}]`; `node .claude/lib/functional-verification.js must-pass-coverage --trd <trd> --definition <sd.md>` prints `{criteria,uncovered,unknown}` and lists only UNCOVERED objectives, so a must-pass id appears in its output only when the definition does not mark it. Use a definition with an empty `Must pass` column to see all declared must-pass ids.
 - [ran] `functional-verification.js` exports no `mustPassCoverageFromFiles`; use the `must-pass-coverage` CLI subcommand. `criteria`/`check` need a spec file with a `### Acceptance criteria` section plus a TRD with `**Source spec**: <path> § <section>`.
+
+## Exercising the design stage libraries (2026-11-04 run, `design-stage`, iteration 1)
+
+- [ran] `npx jest packages/core/lib/design-{map,mirror,render,bundle}.test.js packages/core/lib/artifacts.test.js`
+  passes (120 tests, ~9s, Chromium present); the design workflow, prose and skill suites pass
+  too (`packages/core/workflows/*-design.test.js`, `packages/core/commands/*design*prose.test.js`,
+  `packages/skills/*/__tests__`, `docs-audit-assemble.test.js`: 396 tests).
+- [ran] `design-render.js` must be run FROM the product root (it resolves Playwright from the cwd
+  project); from a scratch git repo it exits 2 "playwright is not installed". For a fixture
+  repo outside the project root use the module API with `repo:` set, e.g.
+  `require('./packages/core/lib/design-render.js').render({dir, runtime, out, approved:true, repo})`
+  from the project root. The CLI `--approved`/`--at` runs `git` in the cwd repo, so a fixture
+  outside the project fails there with "not a tree object".
+- [ran] `design-bundle.js build` works from the project root against
+  `packages/core/lib/__fixtures__/design/react-lib/index.jsx` for `react-web` and `react-native`
+  (`stubs: []`); `react-native-nativewind` cannot build here (`nativewind/jsx-runtime` is not
+  installable), so read its options with `esbuildOptions('react-native-nativewind', {...})`
+  (`jsxImportSource: 'nativewind'`). No Jest test asserts that option.
+- [ran] FS-69's "STUCK on publishing off" test is a command-prose test
+  (`create-design-prose.test.js`), not a workflow-behaviour run on `test-harness.js`.
+- [ran] `design-map.js` CLI accepts `viewport` only as `[w, h]`, not `{w,h}`; `approved`,
+  `refresh` and `transition ... --trd` can be driven against a scratch map with no git.
+
+## Design stage, iteration 2 additions (2026-11-04)
+
+- [ran] The release-change render test (AC-F3.5) runs with `DC_RUNTIME=$PWD/packages/core/lib/__fixtures__/design/dc-runtime.js npx jest packages/core/lib/design-render.test.js` (20 pass, 1 byte-for-byte test skipped by design); there is no newer runtime in the repo, so the fixture runtime stands in.
+- [ran] `design-map.test.js` has no test passing each valid kind; only the invalid-kind rejection (`unknown kind x`) is asserted. Calling `validate` per kind from `KINDS` by `node -e` shows no kind error for the four valid values.
+- [ran] No Jest test asserts NativeWind's `jsxImportSource: 'nativewind'` or compiled CSS (`css:false` in the fixture builds); `esbuildOptions('react-native-nativewind', {...}).jsxImportSource` prints `nativewind`.
+- [ran] `design-bundle.js build` needs `--project .` plus `--stack`, `--entry`, `--namespace`, `--out`.
+- [ran] No workflow test (create/sync/audit-design) covers publishing-off STUCK; only `create-design-prose.test.js` does (prose match).
+- [read] verify-design-comparison SKILL.md bolds `**regression baseline**`; use "The verdict stays model judgement per frame" as a locator.
+
+## Design-stage live runs: trusted fixture folders (2026-11-04)
+
+Live design-command runs (DSGN-T002/T003) must run in these two folders, which the fortium
+account now trusts (trust is keyed by exact path; a new copy elsewhere stops at the trust
+prompt again). Each is a copy of `test/fixtures/design/<name>/` with its own `git init` and the
+framework scaffolded with an absolute `--plugin-dir packages/full`:
+
+- `.trd-state/design-stage/evidence/live/work/react-web`
+- `.trd-state/design-stage/evidence/live/work/react-native`
+
+Reuse them; do not delete and recreate them. To pick up framework changes, re-run
+`scaffold-project.sh --refresh --plugin-dir <absolute path to packages/full>` into them.
+
+## Design-stage iteration 3 additions (2026-11-04)
+
+- [ran] The scaffold leaves `.claude/rules/design.md` as the UNFILLED template; the fixture's filled `design.md` sits at the folder root and the commands read only `.claude/rules/design.md`. Before this run both trusted folders stopped `/design-system` with STUCK "design.md is unfilled". Fixture prep (not a source edit): `cp design.md .claude/rules/design.md` in each folder; after that `/design-system` completes. Scaffolding should install the filled example there.
+- [ran] Live timings in the trusted folders: `/design-system` 2.5-3.5 min; `/create-design --auto <brief>` about 16 min (ground stage, then a ~10 min draw workflow). Wait with a foreground loop over `tmux capture-pane | grep -q "COMMAND COMPLETE\|COMMAND STUCK"` (max 10 min per Bash call); `sleep N` alone is blocked.
+- [ran] A transcript for a trusted folder lives at `~/.claude/projects/-Users-james-dev-fortium-ensemble-vnext--trd-state-design-stage-evidence-live-work-<name>/<session>.jsonl`; extract Artifact calls with a short python loop over `message.content[].tool_use`.
+- [ran] The react-native folder needs `npm install` first (done); its `/design-system` bundle then compiles NativeWind CSS and 0 stubs were needed.
+- [ran] FS-34 cause: the ground stage captured `docs/ui/_current/trips-390x844.png` with headless Chromium `--window-size=390,844`, which lays the page out about 500 px wide and crops to 390 (content at x=42 = (500-448)/2+16 for the `max-w-md` column), so the correct 390 px as-is board could not match. `design-grounding` now requires a context viewport checked by `window.innerWidth` and a fresh capture of every in-scope screen each run. The trusted folders keep the old skill copy and the bad screenshot until `scaffold-project.sh --refresh` is re-run into them.
+
+## Design-stage iteration 4: live runs in the trusted folders (2026-11-04)
+
+- [ran] Driver that works: `tmux new-session -d -s <n> -x 200 -y 50 -c <trusted folder> "claude --dangerously-skip-permissions '<slash command>'"`, then a loop of `tmux capture-pane -p -S -3000 | grep -q "COMMAND COMPLETE\|COMMAND STUCK"` (run with `run_in_background`, `until ...; do sleep 10` inside the script). Timings: STUCK-on-setup 20s, no-op `/create-design` re-run 30-45s, `/refine-design` 2-4 min, `/design-system --sync` 2.5 min, first `/create-design --auto` about 10 min (draw workflow ~6 min).
+- [ran] Subagent journals of the workflow live under `~/.claude/projects/<slug>/<session>/subagents/workflows/<wf>/journal.jsonl` (the `fortium` account's home, readable); they show `START Parts` finishing before `START ToBe`, and the five `START Challenge review:*` agents then one `fix`. Extract tool calls from the session `.jsonl` with a python loop over `message.content[]`.
+- [ran] `ArtifactComments` can only read, reply to and resolve existing threads; it cannot create a comment, and the Artifact tool cannot either. A canvas-comment-driven run (FS-42) and the "approved" comment channel (FS-43) cannot be driven from an automated session; the owner must leave the comment on the hosted canvas.
+- [ran] `/create-trd --design <dir>` alone STUCKs ("--design alone is not a source"); give it a PRD path too. `/plan ... --design D --boards B` STUCKs with "board already building" once a TRD exists for it, after reaching the board (that proves acceptance of `--boards`).
+- [ran] A `/design-system` run on a system already current is a no-op (it only corrects the recorded version), so it does not exercise the publish step; use `/create-design` with a new brief to test `publishArtifacts: false`. With `ensemble.publishArtifacts: false` in the folder's settings.json, a live `/create-design --auto` still published and ended COMPLETE (the command never read the setting) — a defect for FS-69.
+- [ran] `git add -A docs` in a trusted folder also commits untracked `docs/ui/_current/` screenshots; a later `git revert` then deletes them from disk. Restore with `git checkout <sha> -- docs/ui/_current`.
+- [ran] Both-changed case, live: `/refine-design` adopted the canvas copy and DELETED the `.repo.dc.html` conflict copy, reporting the conflict only in DECISIONS, not ISSUES (FS-17 expects both files kept and an ISSUES line). The first adopt-and-refine commit message was `refine-design(...)`, not `design: adopt canvas edits (<boards>)` (FS-15).
+- [ran] The first `/refine-design --auto` run (design system stale) did not mention drift at all; later runs did (recorded in the map, `/design-system --sync` first in NEXT).
+- [read] `/create-trd` (the PRD form) moved the approved board to `building` and recorded the TRD path in the map; it omitted `verify-data-fidelity` because the fixture screen has no data fields, so FS-56's "selected with grounding/data.md" needs a fixture design with data.
+- [ran] No `flutter-widget` fixture exists in this repository (it lives in another repository), and `/implement-trd` on the TRD was not run in iteration 4 (it writes product code).
+
+## Design-stage iteration 5: implement-trd and RN runs (2026-11-04)
+
+- [ran] `/implement-trd docs/TRD/settings-notifications.md` in the react-web trusted folder ran end to end in 34 min (build 3/3, verify-functional stalled 7/11 on the unbuilt caption OQ-2); it needs the fixture committed first (`git add -A` + commit) because the run commits on a feature branch. Evidence under `iter5/` and the folder's `.trd-state/settings-notifications/`.
+- [ran] `/create-design --auto <brief>` in the react-native trusted folder completed in 13.5 min (4 boards, canvas published, 11 PNGs). The implementer subagent transcript lives at `.../<session>/subagents/workflows/wf_*/agent-*.jsonl`; a Read of `canvas/project/part-toggle.dc.html` is visible there.
+- [ran] The settings-screen fixture map has `links: []` and no data fields, so `/create-trd` omits verify-flow-as-built and verify-data-fidelity; FS-55 and FS-56 need a fixture design with links and data. No board of each status and no flutter-widget fixture exist (FS-53/54/71 flutter part).
+- [ran] Canvas comments cannot be created by any tool here; FS-42 and the "approved" comment channel of FS-43 stay owner-attended.
+
+## Design-stage fix round 1 (2026-11-05)
+
+- [ran] Editing a hosted canvas from here: `Artifact` `read` of the page (`page: true`) is NOT what unlocks a publish; publish with `url`, `root: <folder holding project/>`, `file_path: <abs path of one changed board>` and the other boards in `files` (`"project/x.dc.html": "project/x.dc.html"`), after `read`ing the boards. Sending `files` with absolute sources and no `root` was refused as "not viewed latest".
+- [ran] Live `/refine-design settings-screen --auto` with a canvas-only edit (part-toggle) and a both-changed board (01-settings) now commits `design: adopt canvas edits (part-toggle, 01-settings)`, keeps `01-settings.repo.dc.html`, and lists the conflict under ISSUES; the map's `canvases[].files` hashes are NOT re-derived (the run says the last-synced version advances only on a publish).
+- [ran] In `/refine-design` NEXT, the conflict step came before `/design-system --sync`; FS-27 asks for the sync first.
+- [ran] `/audit-design` with a stale design system put the drift under STATE (not ISSUES) and omitted `/design-system --sync` from NEXT; `/sync-design` ran `/design-system --sync` itself and cleared the drift rather than recording it.
+- [ran] `/create-design --auto` with `publishArtifacts: false` now ends STUCK "publish step not run: ensemble.publishArtifacts is false" after writing and committing docs/ui/<slug>/ (12 min).
+- [ran] `/create-trd <prd> --design <dir>` took under 10 min; with one approved and one draft to-be board it built only from the approved board and named `grounding/data.md` and the map `links` in its Verification Artifacts rows once the fixture app read data from `public/api/trips.json` and the map had links.
+- [ran] `/implement-trd` on that TRD took about 25 min; `/verify-build --no-fix` after widening the TRD's design-comparison row to every board took 12 min and judged requirements (building, approved, shipped) and the as-is baseline per frame.
+- [ran] Fixture additions in react-web (committed in its own git): `public/api/trips.json` and a data-reading TripsPage, docs/PRD/home-trips.md, docs/ui/home-trips, boards 03-trips-approved and 04-trips-shipped (copies of 02-trips). Start its server with `npm run web` (port 3110) and stop it by PID.
+- [ran] `docs/ui/_current/home-390x844.png` captured by the ground stage shows a stray second nav at y~780 (capture artefact); the Trips pair matches the as-is board.
+
+## Design-stage fix round 1, iteration 2 (2026-11-05)
+
+- [ran] FS-24 first-build setup in react-web: strip a canvas's `project/ds/` files by publishing with `files: {path: null}` (after a whole-artifact `read` without `path`), then reset the system (`git rm docs/ui/_design-system/fixture-web`, empty `design_system` in every map, drop the `design-system` key in `.trd-state/design-system/artifacts.json`, commit). `/design-system` then builds anew (7.5 min) and reinstalls on every canvas the maps record. A `--sync` with no code change still republishes and reinstalls (4.5 min); change a component first for a new version. Use `sed -i ''` on macOS.
+- [ran] The repo's flutter-widget fixture (`ensemble-vnext-test-fixtures/variants/*/flutter-widget`) holds only story.md, CLAUDE.md and expected-skills.json. Stand-in for a parts-only run: in the trusted react-native folder set design.md's platform to `flutter` with kind `parts`, run `/create-design --auto <counter brief>` (COMPLETE, 4 boards all with empty components), then restore design.md from git.
+- [ran] `/sync-design` on a design with no building board reads recorded drift from the map and does not re-check or record it; on a building board it re-checks and records drift (FS-27).
+- [ran] Dev server on :3110 can be gone between runs; start `npm run web` in react-web and stop it by PID.
+- [ran] home-trips' as-is Home board still has a 24 px nav against the build's 44 px (fresh 390 px capture differs); the trips-sort as-is pair matches exactly.
+
+## Design-stage fix round 1, iteration 2 debug (2026-11-05)
+
+- [ran] FS-34, home-trips Home: the as-is board `01-home--as-is` was drawn at react-web commit 78f1a7e (20:35). The fixture's own build of the to-be board 01-home then changed the nav to 44 px targets at 519cbf0 (`feat(HOMETRIPS-F001)`, 20:46, `src/main.jsx`). So the board correctly shows the pre-build Home, and no fresh capture of today's build can match it. That is the lifecycle working as designed: `/sync-design` makes the shipped to-be the new as-is (DSGN-T004, accepted as not verifiable). It is not a `/create-design` defect. Prove FS-34 against an as-is board whose screen has not been rebuilt since it was drawn. trips-sort's as-is Trips pair matches exactly. For home-trips Home, capture the build at c4c668d, the commit before 519cbf0.
+- [ran] An as-is board's "current screenshot" must be an independent capture of the running app, never the board's own render: `r2/fs34-current-trips-390x844.png` is byte-identical to the board PNG. `r2/fs54/ST-01-trips--as-is.png` is an independent capture and matches.
+- [read] `verify-design-structure` now gives each parts board, and every board on a non-React stack, a row reported "not verifiable here". With no board in scope (for example all `draft`), it gives one `ST-<design slug>` row. Re-exercise FS-54 on the flutter stand-in (react-native folder, design.md platform `flutter`, kind `parts`); the real flutter-widget fixture lives in another repository.
+
+## Design-stage fix round 1, iteration 3 (2026-11-05)
+
+- [ran] FS-34: a fresh `/create-design --auto` (trips-search) in react-web captured `docs/ui/_current/trips-390x844.png` at the 390 px viewport; an independent Playwright capture of :3110/trips with `innerWidth` 390 (`r2/fs54/scratch/shot.js`) is byte-identical (sha256 2573d36c...) to the ground-stage capture and to the as-is board PNG. The AMEND-001 capture fix works.
+- [ran] FS-54: a design whose boards are all `draft` gives one `ST-<design slug>` row, reported "not verifiable here" (checked with `claude -p` on the react-native `counter-widget` stand-in, platform flutter). The real flutter-widget fixture is in another repository.
+- [ran] A trusted folder's `/create-design` leaves `docs/ui/_current/*.png` modified and uncommitted; harmless but it dirties `git status` there.
+
+## Design-stage fix round 1, iteration 3 exercise (2026-11-05)
+
+- [read] Owner ruling R1 (invocation is approval) landed in PRD 1.2.2 / TRD 1.1.2 only (commit 339be41). `packages/core/commands/refine-design.md` step 5 still lists three approval channels (chat, "approved" comment, `--approve`), and `create-trd.md` / `plan.md` contain no `approved_commit` or `transition` step, so FS-43 reads as unbuilt against the amended statement. Evidence: `.trd-state/design-stage/evidence/r3/fs43-static.txt`.
+- [inferred] FS-58..63, FS-25, 42, 67, 68, 72 are accepted-not-verifiable in verification-plan.md; no live run was attempted for them.
+
+## Exercising FS-43 approval by invocation (design-stage round 4, 2026-11-05)
+
+- [ran] Slash commands run headless in the trusted react-web folder with `claude -p --permission-mode bypassPermissions "<slash command>"` (no tmux needed): `/create-trd <prd> --design docs/ui/trips-search` took ~8 min, `/refine-design ... --approve` ~2.5 min, a no-op `/refine-design --auto` ~30 s. Run `scaffold-project.sh --refresh --plugin-dir <abs packages/full> .` in the folder first or the vendored commands are stale.
+- [ran] A headless `-p` session has no Artifact tool, so `/refine-design` ends `COMMAND STUCK: publish step not run` even when the approval itself succeeded (the map shows `approved` with `approved_commit` set); judge the map, not the banner. `/create-trd` still completes.
+- [ran] `/create-trd --design` needs a PRD that names the design; fixture PRD `docs/PRD/trips-search.md` was added in the react-web folder (branch `fs43-round4`).
+- [ran] Evidence: `.trd-state/design-stage/evidence/r4/fs43-summary.txt` and the per-run maps beside it.

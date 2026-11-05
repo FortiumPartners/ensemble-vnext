@@ -1,0 +1,275 @@
+'use strict';
+
+// Needs Chromium: `npx playwright install chromium` (CI installs it in the jest job). A missing
+// browser fails these tests with that message rather than skipping them (D13).
+//
+// The fixture boards render with the pinned runtime and no network (D14) unless DC_RUNTIME names a
+// newer dc-runtime.js, in which case the same boards are the release-change test (AC-F3.5) and the
+// byte-for-byte checks are skipped.
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const http = require('http');
+const { spawnSync } = require('child_process');
+const render = require('./design-render');
+
+jest.setTimeout(90000);
+
+const FIX = path.join(__dirname, '__fixtures__', 'design');
+const LIVE = Boolean(process.env.DC_RUNTIME);
+const RUNTIME = LIVE ? path.resolve(process.env.DC_RUNTIME) : path.join(FIX, 'dc-runtime.js');
+const OFFLINE = !LIVE;
+const maybeIt = LIVE ? it.skip : it;
+
+const ENV = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
+const sh = (cwd, ...args) => {
+  const r = spawnSync('git', args, { cwd, env: ENV, encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`);
+  return r.stdout.trim();
+};
+const tmp = (p = 'drender-') => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), p)));
+const fixture = (name) => fs.readFileSync(path.join(FIX, name), 'utf8');
+
+const board = (id, o = {}) => ({ id, file: `${id}.dc.html`, kind: 'to-be', platform: 'web', viewport: [320, 200], status: 'draft', ...o });
+
+/** A design folder `<repo>/docs/ui/x` with a mirror holding `files` and a map holding `boards`. */
+function mkDesign(boards, files) {
+  const repo = tmp();
+  const dir = path.join(repo, 'docs', 'ui', 'x');
+  fs.mkdirSync(path.join(dir, 'canvas', 'project'), { recursive: true });
+  for (const [name, text] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(dir, 'canvas', 'project', name)), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'canvas', 'project', name), text);
+  }
+  fs.writeFileSync(path.join(dir, 'design-map.json'), JSON.stringify({ canvases: [{ dir: 'canvas/project' }], boards }));
+  return { repo, dir };
+}
+const run = (d, o = {}) => render.render({ dir: d.dir, runtime: RUNTIME, out: path.join(d.repo, 'out', String(Math.random()).slice(2)), offline: OFFLINE, repo: d.repo, ...o });
+const bytes = (f) => fs.readFileSync(f);
+const png = (r, id, state = null) => r.frames.find((f) => f.board === id && f.state === state).png;
+
+describe('rendering the fixture boards (AC-F3.1, AC-F3.2, AC-F3.4, AC-F3.5)', () => {
+  const d = mkDesign(
+    [board('01-plain'), board('02-state', { states: { empty: { setup: 'no rows', props: { empty: true } } } }), board('03-broken')],
+    { '01-plain.dc.html': fixture('plain.dc.html'), '02-state.dc.html': fixture('stateful.dc.html'), '03-broken.dc.html': fixture('broken.dc.html') },
+  );
+  let first;
+  beforeAll(async () => { first = await run(d); });
+
+  it('writes one PNG per board at the board viewport, plus NN-name--state.png per state', () => {
+    expect(first.frames.map((f) => path.basename(f.png)).sort()).toEqual(
+      ['01-plain.png', '02-state--empty.png', '02-state.png', '03-broken.png'],
+    );
+    const sig = bytes(png(first, '01-plain')).subarray(0, 8).toString('hex');
+    expect(sig).toBe('89504e470d0a1a0a');
+    // IHDR width and height sit at bytes 16-23 of a PNG.
+    const b = bytes(png(first, '01-plain'));
+    expect([b.readUInt32BE(16), b.readUInt32BE(20)]).toEqual([320, 200]);
+  });
+
+  it('renders a state with its props, so an sc-if branch changes (D7)', () => {
+    expect(bytes(png(first, '02-state', 'empty')).equals(bytes(png(first, '02-state')))).toBe(false);
+  });
+
+  it('reports a board whose logic throws, and no errors for clean boards', () => {
+    expect(first.errors['03-broken'].join(' ')).toMatch(/fixture board threw on purpose/);
+    expect(first.errors['01-plain']).toBeUndefined();
+    expect(first.errors['02-state']).toBeUndefined();
+  });
+
+  maybeIt('renders a known board to an identical PNG across two runs with the pinned runtime (AC-F3.4)', async () => {
+    const again = await run(d, { boards: ['01-plain', '02-state'] });
+    expect(bytes(png(again, '01-plain')).equals(bytes(png(first, '01-plain')))).toBe(true);
+    expect(bytes(png(again, '02-state', 'empty')).equals(bytes(png(first, '02-state', 'empty')))).toBe(true);
+  });
+
+  it('renders only the boards asked for, and refuses an unknown id', async () => {
+    const one = await run(d, { boards: ['01-plain'] });
+    expect(one.frames).toHaveLength(1);
+    await expect(run(d, { boards: ['nope'] })).rejects.toThrow('no board nope');
+  });
+
+  it('aborts every request that is not to the local server when offline (D14)', async () => {
+    const blocked = mkDesign([board('01-net')], {
+      '01-net.dc.html': fixture('plain.dc.html').replace('</head>',
+        "<script>fetch('https://example.com/').catch(function () { throw new Error('BLOCKED'); });</script></head>"),
+    });
+    const r = await run(blocked, { offline: true });
+    expect(r.errors['01-net'].join(' ')).toMatch(/BLOCKED/);
+  });
+});
+
+describe('rendering older source', () => {
+  const alpha = fixture('plain.dc.html').replaceAll('Plain board', 'ALPHA');
+  const beta = fixture('plain.dc.html').replaceAll('Plain board', 'BETA');
+  let d; let c1; let atAlpha; let atBeta;
+
+  beforeAll(async () => {
+    d = mkDesign([board('01-a'), board('02-b')], { '01-a.dc.html': alpha, '02-b.dc.html': alpha });
+    sh(d.repo, 'init', '-q');
+    sh(d.repo, 'add', '-A');
+    sh(d.repo, 'commit', '-qm', 'alpha');
+    c1 = sh(d.repo, 'rev-parse', 'HEAD');
+    atAlpha = await run(d);
+    for (const f of ['01-a.dc.html', '02-b.dc.html']) fs.writeFileSync(path.join(d.dir, 'canvas', 'project', f), beta);
+    sh(d.repo, 'commit', '-qam', 'beta');
+    atBeta = await run(d);
+  });
+
+  it('--at renders an older commit instead of the working tree (AC-F3.3)', async () => {
+    const r = await run(d, { at: c1 });
+    expect(bytes(png(r, '01-a')).equals(bytes(png(atAlpha, '01-a')))).toBe(true);
+    expect(bytes(png(r, '01-a')).equals(bytes(png(atBeta, '01-a')))).toBe(false);
+  });
+
+  it('--approved renders a built board at its approved_commit and the rest at HEAD (D4)', async () => {
+    const map = JSON.parse(fs.readFileSync(path.join(d.dir, 'design-map.json'), 'utf8'));
+    map.boards[0] = { ...map.boards[0], status: 'building', approved_commit: c1 };
+    fs.writeFileSync(path.join(d.dir, 'design-map.json'), JSON.stringify(map));
+    const r = await run(d, { approved: true });
+    expect(bytes(png(r, '01-a')).equals(bytes(png(atAlpha, '01-a')))).toBe(true);
+    expect(bytes(png(r, '02-b')).equals(bytes(png(atBeta, '02-b')))).toBe(true);
+  });
+
+  it('refuses a commit that does not exist', async () => {
+    await expect(run(d, { at: 'deadbeef' })).rejects.toThrow(/git archive/);
+  });
+});
+
+describe('a board that uses the design system (D4)', () => {
+  const withDs = fixture('plain.dc.html')
+    .replace('<script src="./support.js"></script>', '<script src="./support.js"></script><script src="ds/acme/paint.js"></script>')
+    .replace('background: #f8fafc;', '');
+  const paint = "document.documentElement.style.background = '#ff0000';\n";
+
+  it('copies docs/ui/_design-system/<folder>/ in as ds/<folder>/, from the same commit under --at', async () => {
+    const d = mkDesign([board('01-ds')], { '01-ds.dc.html': withDs });
+    const without = await run(d);
+    const dsDir = path.join(d.repo, 'docs', 'ui', '_design-system', 'acme');
+    fs.mkdirSync(dsDir, { recursive: true });
+    fs.writeFileSync(path.join(dsDir, 'paint.js'), paint);
+    sh(d.repo, 'init', '-q');
+    sh(d.repo, 'add', '-A');
+    sh(d.repo, 'commit', '-qm', 'with ds');
+    const head = sh(d.repo, 'rev-parse', 'HEAD');
+    const painted = await run(d);
+    expect(bytes(png(painted, '01-ds')).equals(bytes(png(without, '01-ds')))).toBe(false);
+
+    fs.rmSync(path.join(d.repo, 'docs', 'ui', '_design-system'), { recursive: true });
+    const unpainted = await run(d);
+    const atCommit = await run(d, { at: head });
+    expect(bytes(png(unpainted, '01-ds')).equals(bytes(png(without, '01-ds')))).toBe(true);
+    expect(bytes(png(atCommit, '01-ds')).equals(bytes(png(painted, '01-ds')))).toBe(true);
+  });
+});
+
+describe('the local server (O-SEC2)', () => {
+  const get = (port, p) => new Promise((resolve, reject) => {
+    http.get({ host: '127.0.0.1', port, path: p }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); }).on('error', reject);
+  });
+
+  it('serves files inside the root and refuses anything that resolves outside it', async () => {
+    const parent = tmp();
+    const root = path.join(parent, 'root');
+    fs.mkdirSync(root);
+    fs.writeFileSync(path.join(root, 'ok.html'), 'ok');
+    fs.writeFileSync(path.join(parent, 'secret.txt'), 'secret');
+    fs.mkdirSync(path.join(parent, 'root-evil'));
+    fs.writeFileSync(path.join(parent, 'root-evil', 'secret.txt'), 'secret');
+    const s = await render.serve(root);
+    try {
+      expect(await get(s.port, '/ok.html')).toBe(200);
+      expect(await get(s.port, '/missing.html')).toBe(404);
+      expect(await get(s.port, '/../secret.txt')).toBe(403);
+      expect(await get(s.port, '/%2e%2e/secret.txt')).toBe(403);
+      // The sibling whose name starts with the root's name: the bare-prefix bypass.
+      expect(await get(s.port, '/../root-evil/secret.txt')).toBe(403);
+      expect(await get(s.port, '/%00')).toBe(400);
+      expect(await get(s.port, '/%E0%A4%A')).toBe(400);
+    } finally {
+      await s.close();
+    }
+  });
+});
+
+describe('withProps (D7)', () => {
+  it('overrides a tweak default and keeps its other keys and $preview', () => {
+    const out = render.withProps(fixture('stateful.dc.html'), { empty: true }, 'b');
+    expect(out).toContain('"empty":{"type":"boolean","default":true}');
+    expect(out).toContain('"$preview":{"width":320,"height":200}');
+  });
+
+  it('adds data-props when the script has none, and refuses a board with no script', () => {
+    const bare = '<script type="text/x-dc" data-dc-script>class Component extends DCLogic {}</script>';
+    expect(render.withProps(bare, { a: 1 }, 'b')).toContain(`data-props='{"a":{"default":1}}'`);
+    expect(() => render.withProps('<div></div>', { a: 1 }, 'b')).toThrow('no data-dc-script');
+  });
+});
+
+describe('missing tools exit 2 naming the install step (D13)', () => {
+  const cli = path.join(__dirname, 'design-render.js');
+  const cliRun = (d, env = {}) => spawnSync(process.execPath, [cli, 'render', '--dir', d.dir, '--runtime', RUNTIME, '--out', path.join(d.repo, 'o')],
+    { cwd: d.repo, env: { ...process.env, ...env }, encoding: 'utf8' });
+
+  it('resolveTool names the package and the install command', () => {
+    expect(() => render.resolveTool('definitely-not-installed-pkg', os.tmpdir(), 'run `npm install x`')).toThrow(render.ToolError);
+    try {
+      render.resolveTool('definitely-not-installed-pkg', os.tmpdir(), 'run `npm install x`');
+    } catch (e) {
+      expect(e.exitCode).toBe(2);
+      expect(e.message).toMatch(/definitely-not-installed-pkg.*npm install x/);
+    }
+  });
+
+  it('exits 2 when Playwright is not resolvable from the project', () => {
+    const d = mkDesign([board('01-plain')], { '01-plain.dc.html': fixture('plain.dc.html') });
+    // Resolution starts at the project root and the global npm root, never at this repository.
+    const r = cliRun(d, { PATH: path.dirname(process.execPath) });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/playwright is not installed.*npm install --save-dev playwright.*npx playwright install chromium/);
+  });
+
+  it('exits 2 when Playwright has no Chromium, and renders through the CLI when it has', () => {
+    const d = mkDesign([board('01-plain')], { '01-plain.dc.html': fixture('plain.dc.html') });
+    // Playwright resolves from this repository: run the CLI with the repo as the project root.
+    const run2 = (env) => spawnSync(process.execPath, [cli, 'render', '--dir', d.dir, '--runtime', RUNTIME, '--out', path.join(d.repo, 'o')],
+      { cwd: path.join(__dirname, '..', '..', '..'), env: { ...process.env, ...env }, encoding: 'utf8' });
+    const noBrowser = run2({ PLAYWRIGHT_BROWSERS_PATH: tmp('empty-browsers-') });
+    expect(noBrowser.status).toBe(2);
+    expect(noBrowser.stderr).toMatch(/npx playwright install chromium/);
+    const ok = run2({});
+    expect(ok.status).toBe(0);
+    expect(JSON.parse(ok.stdout).frames).toHaveLength(1);
+  });
+
+  it('rejects bad arguments with exit 1', () => {
+    const r = spawnSync(process.execPath, [cli, 'render', '--dir', 'x'], { encoding: 'utf8' });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/--runtime is required/);
+    expect(render.parseArgs(['render', '--approved', '--dir', 'd']).opts).toEqual({ approved: true, dir: 'd' });
+    expect(() => render.parseArgs(['render', '--dir'])).toThrow('needs a value');
+  });
+});
+
+describe('the libraries ship with their mirrors', () => {
+  const root = path.join(__dirname, '..', '..', '..');
+  it.each(['design-render.js', 'design-bundle.js'])('%s exists in .claude/lib (identical) and packages/full/lib (a link)', (f) => {
+    expect(fs.readFileSync(path.join(root, '.claude', 'lib', f), 'utf8')).toBe(fs.readFileSync(path.join(__dirname, f), 'utf8'));
+    const link = path.join(root, 'packages', 'full', 'lib', f);
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(fs.readlinkSync(link)).toBe(`../../core/lib/${f}`);
+  });
+
+  it('neither library requires anything under __fixtures__ (copy_libs ships top-level *.js only)', () => {
+    for (const f of ['design-render.js', 'design-bundle.js']) {
+      expect(fs.readFileSync(path.join(__dirname, f), 'utf8')).not.toMatch(/require\([^)]*__fixtures__/);
+    }
+  });
+
+  it('pins the runtime fixture by hash', () => {
+    const sha = require('crypto').createHash('sha256').update(fs.readFileSync(path.join(FIX, 'dc-runtime.js'))).digest('hex');
+    // Read from the Design type's canvas version 1793773596-7b8f on 2026-11-04 (D14).
+    expect(sha).toBe('b795ee21261f2e7da1b10cb25b4a4cfa275d1b96165f89396f1fed426e191844');
+  });
+});

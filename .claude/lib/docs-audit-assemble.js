@@ -166,6 +166,8 @@ function inventory(repo) {
   const add = (rels, state) => {
     for (const rel of rels) {
       if (seen.has(rel)) continue;
+      // docs/ui/ holds design boards, not documents to audit (D21).
+      if (rel.startsWith('docs/ui/')) continue;
       if (!fs.existsSync(path.join(repo, rel)) && !isLink(path.join(repo, rel))) continue;
       seen.set(rel, state);
     }

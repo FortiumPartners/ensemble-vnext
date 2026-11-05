@@ -1,0 +1,18 @@
+{
+  "name": "design-fixture-react-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live fixture for the design stage: a small React + Tailwind app with a component package and three routes",
+  "scripts": {
+    "build:css": "tailwindcss -i src/styles.css -o public/app.css",
+    "web": "npm run build:css && node serve.mjs"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^3.4.17"
+  }
+}
