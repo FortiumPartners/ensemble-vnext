@@ -44,7 +44,8 @@ After this change:
   touches no design's boards).
 
 "Closed" is the trigger, not "merged". The post-merge automation, where shipped means the
-audited commit has reached `main`, belongs to the ship-build TRD (owner, 2026-11-05).
+audited commit has reached `main`, belongs to the ship-build TRD (`docs/TRD/ship-build.md`,
+which lives on branch `feature/ship-build/prd`, not on this branch) (owner, 2026-11-05).
 
 ## Decision
 
@@ -108,4 +109,14 @@ none
 
 ## Could Not Verify
 
-- No live run of the three design commands with an unsynced board present; the prose tests pin the text, not a session's output.
+After `/audit-build` (2026-11-05). The three tasks' code and tests were read and the 6 test
+suites run (114 tests passing); those claims are no longer listed here.
+
+- **No written source to check against.** The objectives come from owner instructions given in
+  session on 2026-11-05 and quoted in the Source column; there is no PRD. The audit checked the
+  code against this TRD only, so whether the TRD captured everything the owner asked for, and
+  nothing more, is unchecked.
+- **No live run of the five commands with an unsynced board present** (`/audit-build`,
+  `/close-feature`, `/create-design`, `/refine-design`, `/audit-design`). The prose tests pin
+  each command's text, not what a session actually prints; the audit reads code and tests and
+  does not run sessions.
