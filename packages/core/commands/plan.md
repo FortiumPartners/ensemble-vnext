@@ -1188,8 +1188,8 @@ node -e '
    **Before `git add`, run the brake over that whole list**, not just the changed paths:
    `node .claude/lib/functional-verification.js check-never-unattended --files "<changed,paths>,<sweep file>,.trd-state/<slug>-sweep/" .claude/rules/verification.md`.
    When `hits` is non-empty or `status` is `invalid`, do not stage or commit: leave the fixes
-   uncommitted, print the readout naming the matched paths (or the invalid list), and call
-   `ScheduleWakeup({ stop: true })`, then end with
+   uncommitted, call `ScheduleWakeup({ stop: true })`, then print the readout naming the matched
+   paths (or the invalid list) and end with
    `COMMAND STUCK: /plan`, running `.claude/hooks/notify-complete.sh "plan" "stuck" "<summary>"`.
    Otherwise stage by pathspec, never `git add -A`: `git add -- <list>` then
    `git commit -m "fix(<slug>): swept fixes" -- <list>`. When nothing is staged for that list
@@ -1260,15 +1260,15 @@ whether you emit one at all** — `banner: null` means emit nothing. On unrecove
 
 **Cancel the fallback wake-up.** On the turn that prints this run's `COMMAND COMPLETE` or
 `COMMAND STUCK` banner, call `ScheduleWakeup({ stop: true })` BEFORE the readout and banner, beside
-`notify-complete.sh` (rule and risk: `command-status.md` §3). Skipped under `--chained` and on a
-handoff to a chained command that prints its own banner; that command cancels.
+`notify-complete.sh` (rule and risk: `command-status.md` §3). Skipped on a handoff to a chained
+command that prints its own banner (`/implement-trd`); that command cancels.
 
 **Never on a handoff to a chained command.** This helper signals completion to webhooks, queues
 and tmux panes, and `command-status.md` Path B requires it fire **exactly once, at the actual
 completion moment, never during dispatch**. When the run hands off to a chained command that
 prints its own banner (`/implement-trd`), the work is just *beginning* at handoff and that
-command fires its own, and cancels the wake-up. Call it, and the cancel, on the turn that prints
-*this* run's banner: the Step 1.1 early reject, any Step 7 path that stops, and the sweep chain's
+command fires its own, and cancels the wake-up. Call it, and the cancel, on every turn that prints
+*this* run's banner, among them Step 6a's `check` STUCK, the Step 1.1 early reject, any Step 7 path that stops, and the sweep chain's
 `stop` step (7a.6), which ends the run with `/plan`'s own banner.
 
 Call it on the Step 1.1 early reject too. That path ends the command as surely as the others,

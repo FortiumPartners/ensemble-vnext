@@ -524,8 +524,9 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    recorded, never one build per criterion. On `RETURN → chained by /verify-build: <n> of <m> tasks built…`,
    continue to step 4. On `RETURN → STUCK: <reason>`, end the whole run now with `═══ COMMAND
    STUCK: /verify-build ═══` — under `--chained` the caller owns the run's only terminator, and
-   a build that cannot proceed leaves nothing for another round to verify. Call
-   `ScheduleWakeup({ stop: true })` first, before the readout and banner (not under `--chained`).
+   a build that cannot proceed leaves nothing for another round to verify. This is this
+   command's final turn, so call `ScheduleWakeup({ stop: true })` first, before the readout and
+   banner, although the build it chained did not.
 
 4. **Verify.** Step 4's dispatch (above), unchanged, with `resume` synthesised instead of read
    from disk (D8): `{ iteration: 0, criteria: <the latest state file's entries with status
@@ -572,7 +573,7 @@ when that file exists; `--fix <plan-path>` names a different one explicitly.
    COMMAND COMPLETE: /verify-build ═══` banner for the whole run — never one per round —
    `notify-complete.sh`, and a `PushNotification` (`command-status.md` Path A for
    long-running commands), with `ScheduleWakeup({ stop: true })` called first, before the readout
-   and banner (not under `--chained`).
+   and banner (the fix loop never runs on a sweep file, so never under `--chained`).
 
 ---
 

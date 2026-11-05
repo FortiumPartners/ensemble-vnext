@@ -59,9 +59,10 @@ boundaries or teammate handoffs (those get a PHASE banner, below); for commands 
 ScheduleWakeup cycles, it fires only on the turn that completes the entire command.
 
 **Cancel the fallback wake-up on that final turn**, always: call `ScheduleWakeup({ stop: true })`
-beside `notify-complete.sh`, before printing its readout and banner (its result asks for more
-text). A `--chained` step (a `RETURN` line) does not cancel; its caller's final turn does. It clears
-every pending wake-up in the session and ends a `/loop`. Why: issue #63, 22 minutes busy.
+as its last tool call, after `notify-complete.sh`, before printing its readout and banner (its
+result asks for more text). A `--chained` step (a `RETURN` line) does not cancel; its caller's final turn does. It ends
+a `/loop` and may clear every pending wake-up in the session. If the tool is absent or errors,
+carry on. Why: issue #63, 22 minutes busy.
 
 ## The readout: four sections, always, in this order
 

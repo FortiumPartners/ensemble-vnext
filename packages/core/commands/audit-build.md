@@ -498,7 +498,8 @@ readout names.
 On unrecoverable failure, use `═══ COMMAND STUCK: /audit-build ═══` followed by `Reason:` and `Next:` lines.
 
 **Cancel the fallback wake-up.** On every exit that prints this command's final `COMMAND COMPLETE` or
-`COMMAND STUCK` banner (the close, the early STUCK exits, the report-only end), the same final turn
+`COMMAND STUCK` banner (the close, the re-audit, cap and still-open ends, the early STUCK exits,
+the report-only end), the same final turn
 calls `ScheduleWakeup({ stop: true })` **before the readout and banner**, beside `notify-complete.sh`
 (rule and risk: `command-status.md` §3). The chained `implement-trd --chained` fix run ends on a
 `RETURN` line and does not cancel; this command's final turn does.

@@ -2198,6 +2198,7 @@ describe('the final turn cancels the fallback wake-up (cancel-backup-wakeup FIX-
     test('names the /loop and other-pending-wake-ups risk', () => {
       expect(text()).toMatch(/`\/loop`/);
       expect(text()).toMatch(/every pending wake-up in the session/i);
+      expect(text()).toMatch(/If the tool is absent or errors, carry on/);
     });
   });
 
@@ -2234,14 +2235,15 @@ describe('commands name the final-turn cancel at every banner exit (cancel-backu
 
   test('verify-build: fix-loop step 6 and the round-STUCK exit carry the cancel', () => {
     const t = cmd('verify-build');
-    expect(t).toMatch(/STUCK: \/verify-build ═══` — under `--chained`[^]*?`ScheduleWakeup\(\{ stop: true \}\)` first/);
-    expect(t).toMatch(/Exactly \*\*one\*\* `═══ COMMAND COMPLETE: \/verify-build ═══` banner[^]*?`ScheduleWakeup\(\{ stop: true \}\)` called first/);
+    expect(t).toMatch(/STUCK: \/verify-build ═══` — under `--chained`[^]{0,200}?call `ScheduleWakeup\(\{ stop: true \}\)` first, before the readout and banner, although the build it chained did not/);
+    expect(t).toMatch(/Exactly \*\*one\*\* `═══ COMMAND COMPLETE: \/verify-build ═══` banner[^]{0,250}?`ScheduleWakeup\(\{ stop: true \}\)` called first/);
+    expect(t).not.toMatch(/\(not under `--chained`\)/);
   });
 
   test('plan: step 7a.6 stop and the 7a STUCK exits carry the cancel; the chained-run paragraph is corrected', () => {
     const t = cmd('plan');
     expect(t).toMatch(/6\. \*\*`stop`\.\*\* Call `ScheduleWakeup\(\{ stop: true \}\)`/);
-    expect(t).toMatch(/call `ScheduleWakeup\(\{ stop: true \}\)`, then end with `COMMAND STUCK: \/plan`/);
+    expect(t).toMatch(/uncommitted, call `ScheduleWakeup\(\{ stop: true \}\)`, then print the readout naming the matched paths/);
     expect(t).toMatch(/failing `check` is `COMMAND STUCK: \/plan`, as in Step 6a, with `ScheduleWakeup\(\{ stop: true \}\)`/);
     expect(t).not.toMatch(/only on the paths that genuinely end here|any Step 7 path that stops without chaining/);
     expect(t).toContain('the sweep chain\'s `stop` step (7a.6)');
