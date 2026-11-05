@@ -2342,6 +2342,8 @@ This command spans multiple turns. Emit these standard status lines so the user 
    [STATUS: /implement-trd] PHASE <N>/<M> COMPLETE → <summary>
    ```
 
+3a. **CANCEL THE FALLBACK WAKE-UP ON FINAL TURN ONLY** — on every exit that prints this command's final `COMMAND COMPLETE` or `COMMAND STUCK` banner (including Step 10.1's STUCK), call `ScheduleWakeup({ stop: true })` BEFORE the readout and banner, on the same turn as item 6's `notify-complete.sh` (rule and risk: `command-status.md` §3). Skipped under `--chained`: that run ends on a `RETURN` line, no banner, and its caller's final turn cancels.
+
 4. **COMMAND COMPLETE** — as the LAST line of the FINAL turn (only when the whole command is truly done; never at phase boundaries):
    ```
    ═══ COMMAND COMPLETE: /implement-trd ═══

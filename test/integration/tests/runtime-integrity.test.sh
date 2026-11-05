@@ -518,11 +518,14 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
 
 @test "the rule files' and CLAUDE.md's byte ceilings hold, in both copies" {
     # O4/O5 (amended, context-model-hygiene): async-discipline.md + autonomy.md
-    # combined <= 17000 bytes, command-status.md <= 13000, CLAUDE.md <= 15500.
+    # combined <= 17000 bytes, command-status.md <= 13500, CLAUDE.md <= 15500.
     # "No rule is deleted" outranks a size target, so these are ceilings the
     # trim must fit under, not targets to shrink toward. command-status.md's
     # ceiling went 12500 -> 13000 for the sweep-chain exception (plan-sweep-chain
     # FIX-006): the chaining paragraph must name three more banner-less commands.
+    # It went 13000 -> 13500 for issue #63 (cancel-backup-wakeup FIX-001): the
+    # final-turn wake-up cancel rule, trimmed once to four lines, still left it
+    # 360 bytes over.
     # CLAUDE.md's went 15000 -> 15500 at release 4.13.1: one trim (dropping the
     # 4.13.0 status line) left it 11 bytes over, and the known-open list grows by
     # a line per release; per the owner's rule, trim once, then raise with a reason.
@@ -536,8 +539,8 @@ sys.exit(1 if 'agents' in plugin or any('agents' in p for p in entries) else 0)
         fi
 
         status_bytes=$(wc -c < "${dir}/command-status.md")
-        if [ "$status_bytes" -gt 13000 ]; then
-            echo "command-status.md in ${dir} = ${status_bytes} bytes, exceeds 13000" >&2
+        if [ "$status_bytes" -gt 13500 ]; then
+            echo "command-status.md in ${dir} = ${status_bytes} bytes, exceeds 13500" >&2
             false
         fi
     done
