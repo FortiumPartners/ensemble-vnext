@@ -1,60 +1,81 @@
-# Ensemble vNext Skills Library
+# Ensemble skill library
 
-This directory contains skill definitions for the Ensemble vNext plugin.
+69 skills, one directory each. A skill is a Markdown prompt that Claude reads at runtime; it
+carries no executable code. The plugin ships this directory as `skills-lib/`
+(`packages/full/skills-lib` is a symlink to it), and `/init-project` copies the skills a
+project needs into that project's `.claude/skills/`.
 
-## What are Skills?
+## How a skill reaches a project
 
-Skills are Markdown files that encode domain expertise and best practices. They are interpreted by Claude at runtime, not executed as code.
+| Kind | Which ones | How it is installed |
+|---|---|---|
+| Framework skills | The 8 named in `framework-skills.txt` | Always, whatever the stack. Scaffold installs them, `--refresh` adds any that are missing, and `/rebase-project` treats them as always installed |
+| Stack skills | Everything else | Chosen by `/init-project` from the project's stack and written to `.claude/selected-skills.txt`; scaffold's `--copy-skills` copies that list |
 
-## Skill Structure
+## Framework skills
 
-Each skill is organized in its own directory:
+`framework-skills.txt` is the one list of framework skills: one `<name> <role>` per line, `#`
+comments allowed. `scaffold-project.sh` reads it at runtime, so adding a framework skill means
+adding a line there and nothing else. Role `check` means the skill can be selected as an
+optional check in the functional-verification loop; `support` means it ships but is not
+offered as a check.
+
+| Skill | Role | What it does |
+|---|---|---|
+| `verify-design-comparison` | check | Compares the build screen by screen against design frames (Figma or exported PNGs) and renders a design / build / diff / overlay page with a verdict per frame |
+| `verify-flow-as-built` | check | Walks a designed screen-to-screen journey in the build and compares designed and as-built flow, step by step |
+| `verify-data-fidelity` | check | Compares the rows a screen renders with a fresh read-only fetch of the data behind them, field by field |
+| `verify-design-structure` | check | Checks that the components a design board names appear at that board's route in the running build (React and react-native-web only; elsewhere it reports "not verifiable here") |
+| `verification-setup` | support | Owner-run interview that writes `.claude/rules/verification.md`: environments, capacity, refresh and deploy commands, where credentials live, known gaps, coverage floor |
+| `design-setup` | support | Owner-run interview that writes `.claude/rules/design.md`: the design system, per-platform settings, how to reach a screen, design rules |
+| `designing-on-canvas` | support | This framework's board conventions for drawing screens on a Design canvas; used by `/create-design`, `/refine-design` and `/design-system` |
+| `design-grounding` | support | How a read-only agent inventories an existing product's screens, components, flows and data before anything is drawn; used by `/create-design` and `/design-system` |
+
+`verification-setup` and `design-setup` set `disable-model-invocation: true`: only the owner
+runs them, because their answers are policy (what may be touched, where credentials live) that
+an agent should not infer.
+
+## Stack skills
+
+| Area | Skills |
+|---|---|
+| Languages and frameworks | `developing-with-python`, `developing-with-typescript`, `developing-with-react`, `developing-with-dotnet`, `developing-with-flutter`, `developing-with-laravel`, `developing-with-php`, `nestjs`, `phoenix`, `rails`, `blazor`, `styling-with-tailwind`, `frontend-design` |
+| Test runners | `jest`, `pytest`, `rspec`, `exunit`, `xunit`, `writing-playwright-tests`, `playwright-automation` |
+| Detection | `test-detector`, `framework-detector`, `tooling-detector`, `cloud-provider-detector` |
+| Infrastructure and deploy | `aws-cloud`, `using-terraform-azure`, `using-azure-functions`, `kubernetes`, `helm`, `flyio`, `managing-railway`, `managing-vercel`, `managing-supabase`, `managing-azure-devops`, `act-local-ci` |
+| Data and services | `using-prisma`, `using-pgvector`, `using-weaviate`, `using-celery`, `using-clerk`, `building-integrations` |
+| AI and agents | `using-anthropic-platform`, `using-openai-platform`, `using-perplexity-platform`, `using-langfuse`, `building-rag-pipelines`, `building-langgraph-agents`, `building-agent-memory`, `building-tool-orchestration` |
+| Smoke tests | `smoke-test-runner`, `smoke-test-api`, `smoke-test-auth`, `smoke-test-database`, `smoke-test-external-services`, `smoke-test-critical-paths` |
+| Design and verification | `figma-pixel-perfect`, `verify-goal` (drives a TRD to "all assertions pass" under `/goal`) |
+| Workflow tools | `git-town`, `managing-jira-issues`, `managing-linear-issues`, `changelog-generator` |
+
+## Skill layout
 
 ```
-skills/
-  skill-name/
-    SKILL.md        # Quick reference (<100KB)
-    REFERENCE.md    # Comprehensive patterns (optional, <1MB)
-    examples/       # Real-world examples (optional)
-    templates/      # Code templates (optional)
+<skill-name>/
+  SKILL.md       required: frontmatter plus the quick reference
+  REFERENCE.md   optional: fuller patterns (35 skills have one)
+  ...            optional: templates, examples, tests (__tests__/)
 ```
 
-## Creating a New Skill
-
-1. Create a directory with the skill name (kebab-case)
-2. Create `SKILL.md` with YAML frontmatter:
+`SKILL.md` frontmatter:
 
 ```markdown
 ---
 name: skill-name
-description: Brief description of the skill
+description: What the skill does, in one or two sentences.
+when_to_use: When an agent should reach for it, and when not.
 allowed-tools: Read, Write, Edit, Bash
 ---
-
-# Skill Name
-
-Content here...
 ```
 
-## Available Skills
+`name` and `description` are required. Most skills also set `allowed-tools` and
+`when_to_use`; owner-only skills add `disable-model-invocation: true`.
 
-Skills are loaded dynamically based on the project's technology stack.
+## Adding a skill
 
-See individual skill directories for documentation.
-
-## Framework skills
-
-Every skill named in `framework-skills.txt` (this directory) ships to every project
-regardless of stack selection or `--copy-skills`. That file is the one list (D14,
-docs/TRD/verification-fix-loop.md §3.8): one skill per line as `<name> <role>`, with
-`#` comments allowed. `role` is `check` (selectable as an optional functional-verification
-check — design/flow/data comparisons, docs/TRD/verification-artifacts.md) or `support`
-(shipped, but not offered as a check — e.g. `verification-setup`, the
-owner-invoked interview that writes `.claude/rules/verification.md`).
-
-`scaffold-project.sh`'s `copy_framework_skills()` reads this file at runtime (there is no
-hardcoded skill name anywhere else) to build its `FRAMEWORK_SKILLS` array, installs every
-listed skill on scaffold, adds any missing one on `--refresh`, and ships the list file
-itself to `.claude/skills/framework-skills.txt`. Adding a skill means adding a line here —
-no other file changes. `/rebase-project` treats every listed skill as always-installed
-rather than stack-derived.
+1. Create `<skill-name>/SKILL.md` (kebab-case name) with the frontmatter above.
+2. For a stack skill, write `description` and `when_to_use` so they name the stacks it serves:
+   `/init-project` selects stack skills by reading them, not from a lookup table. To preload
+   it into an agent, add it to `packages/core/agents/skill-affinity.json`.
+3. For a framework skill, add `<skill-name> <check|support>` to `framework-skills.txt`.

@@ -1,12 +1,29 @@
 # Stop Hook Notification Guide
 
-> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
-> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
-> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
-
 ## Overview
 
-The Stop Hook Notification feature sends a signal when a Claude Code session ends by executing a user-configured shell command. It enables orchestration patterns where a parent process, CI/CD pipeline, or monitoring system needs to know when a session has finished -- without relying on polling or LLM behavior.
+The Stop hook notification runs a shell command you configure every time a Claude Code session
+goes idle (every **Stop** event: the end of each turn). It lets a parent process, a CI/CD
+pipeline or a monitoring system know a session has stopped, without polling and without relying
+on the model to report it.
+
+### Which notification do you want?
+
+Ensemble has three ways to tell you or another system that something finished. This guide
+covers the third.
+
+| You want | Use | Fires |
+|---|---|---|
+| A desktop alert when a long command (`/implement-trd`, `/audit-build`, `/plan --implement`) finishes or gets stuck | Nothing to set up: the command sends a push notification itself | Once, on the command's final turn |
+| A webhook, queue or script triggered when a command **completes** | `NOTIFY_ON_COMPLETE` (see `.claude/rules/command-status.md`, "Path B") | Exactly once, on the turn that prints `COMMAND COMPLETE` or `COMMAND STUCK` |
+| A signal **every time the session goes idle**, including turns that end while work is still running in the background | `NOTIFY_ON_STOP`, this guide | Every Stop |
+
+If you only care about finished commands but want to use `NOTIFY_ON_STOP`, gate it on the
+completion banner appearing in the transcript:
+
+```bash
+export NOTIFY_ON_STOP='grep -q "═══ COMMAND COMPLETE" "$NOTIFY_TRANSCRIPT_PATH" && printf "\a"'
+```
 
 **Use cases**:
 - Coordinating parallel Claude Code sessions from an orchestrator
@@ -18,7 +35,9 @@ The Stop Hook Notification feature sends a signal when a Claude Code session end
 
 ## Quick Start
 
-1. Ensure your project has the hook installed (Ensemble vNext includes it by default).
+1. Make sure the project has the hook. Every project set up with `/init-project` has it,
+   registered as the last `Stop` hook in `.claude/settings.json`, after the model-judged
+   discipline check.
 
 2. Add to your global Claude settings (`~/.claude/settings.json`):
 
@@ -36,7 +55,7 @@ The Stop Hook Notification feature sends a signal when a Claude Code session end
 
 ## How It Works
 
-When a Claude Code session ends, a **Stop** event fires. The hook dispatcher runs `.claude/hooks/notify.sh`, which:
+When a Claude Code session stops, a **Stop** event fires. The hook dispatcher runs `.claude/hooks/notify.sh`, which:
 
 1. Reads JSON context from stdin (session ID, working directory, transcript path)
 2. Exports session context as environment variables (`NOTIFY_SESSION_ID`, etc.)
@@ -60,6 +79,10 @@ This means the hook ships inactive. It silently exits until you set `NOTIFY_ON_S
 ---
 
 ## Installation
+
+**In an Ensemble project there is nothing to install:** `/init-project` vendors `notify.sh` and
+registers it, and `/rebase-project` keeps it current. The options below are for adding the hook
+to a Claude Code project that does not use Ensemble.
 
 ### Option A: Using the Installer Script
 

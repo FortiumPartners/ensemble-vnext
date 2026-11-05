@@ -230,7 +230,6 @@ already be pushed). Local session ids are UUIDs; remote ones are `session_<id>`.
 docs/
   PRD/           # Product Requirements Documents
   TRD/           # Technical Requirements Documents
-  standards/     # Symlinked governance docs
 
 packages/
   router/        # Routing hook + tests (pytest)

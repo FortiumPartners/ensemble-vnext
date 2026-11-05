@@ -26,9 +26,16 @@ The question is what the work is and whose plan it belongs to. Size doesn't deci
 | A bug, a small change, or a refactor | `/plan` | Sizes the work and writes a plan to match. It skips the PRD because the reproduction or your instruction already says what is wanted |
 | A list of small, unrelated fixes (say, notes from walking the app) | `/sweep` | Fixes each one in parallel, with no plan document to write |
 | One change to the feature you are already building | `/amend` | Adds the change to that feature's plan. `/plan` would fork a second plan for work that is already understood |
+| A job whose output is findings or a report, not code: a spike, a re-check, a data capture, a dry run | `/task` | Runs each step once, records the outputs and closes cleanly. No plan document, no verification loop |
 
 `/plan` also sends you to `/create-prd` when its investigation finds the work is a product
 question after all.
+
+**Where the design stage sits.** When a feature has screens, you can draw them before
+planning the build: `/create-design` after the PRD (or from a brief), then `/create-trd
+--design` or `/plan --design --boards` builds from the boards, and `/sync-design` brings the
+design in line with what shipped once the PR merges. It is optional; nothing in the pipeline
+requires it. See [§2a](#2a-the-design-stage-optional).
 
 
 In the diagrams below, **blue** steps are decided by code, **purple** by an agent's judgement, and **orange** by you. Uncoloured boxes are commands.
@@ -36,12 +43,15 @@ In the diagrams below, **blue** steps are decided by code, **purple** by an agen
 ```mermaid
 flowchart TD
     idea["An idea or a problem"]:::you --> q{"What is the work?"}
-    q -->|"new feature"| cprd["/create-prd"] --> aprd["/audit-prd<br/>optional /refine-prd"] --> ctrd["/create-trd"] --> atrd["/audit-trd<br/>optional /refine-trd"] --> impl["/implement-trd<br/>build, review, verify"] --> ab["/audit-build<br/>closes the feature if it passes"] --> merge["You open and merge the PR"]:::you
+    q -->|"new feature"| cprd["/create-prd"] --> aprd["/audit-prd<br/>optional /refine-prd"] --> ctrd["/create-trd"] --> atrd["/audit-trd<br/>optional /refine-trd"] --> impl["/implement-trd<br/>build, review, verify"] --> ab["/audit-build<br/>closes the feature if it passes;<br/>opens the PR if allowed"] --> merge["You merge the PR"]:::you
+    aprd -.->|"a feature with screens"| cd["/create-design<br/>/audit-design, /refine-design"] -.->|"/create-trd --design"| ctrd
+    merge -.->|"boards still building"| sd["/sync-design"]
     q -->|"bug, change, refactor"| plan["/plan"]
     plan -->|"a product question after all"| cprd
     plan -->|"with --implement, or you run it"| impl
     q -->|"a list of small fixes"| sweep["/sweep"] --> commit["You review and commit"]:::you
     q -->|"one change to the feature in flight"| amend["/amend"] -.->|"back into the feature's flow"| ab
+    q -->|"findings or a report, not code"| task["/task"] --> rep["Outputs recorded,<br/>task closed"]:::code
     ab -->|"a planned task was not built"| impl
     impl -->|"verification fell short"| rv["/refine-verification<br/>optional --auto"] --> vb["/verify-build<br/>builds and re-verifies by default"] --> ab
     vb -->|"still falls short"| rv
@@ -107,7 +117,7 @@ disagree, the code wins, and the disagreement goes on record as a finding.
 
 | Command | What it does |
 |---|---|
-| [`/create-trd [prd-path]`](../../packages/core/commands/create-trd.md) | Writes the TRD from the PRD, then **grounds** every task against the existing code, so the plan reuses what exists and names what it replaces. The readout tells you how parallel the plan is. When the plan is mostly serial, it says why and shows the chain of tasks that sets its length. |
+| [`/create-trd [prd-path] [--design docs/ui/<slug>]`](../../packages/core/commands/create-trd.md) | Writes the TRD from the PRD, then **grounds** every task against the existing code, so the plan reuses what exists and names what it replaces. Each grounding agent writes its own file and code assembles the TRD's `## 9. Task Grounding` section from them; a task no agent grounded is reported, never invented. The readout tells you how parallel the plan is. When the plan is mostly serial, it says why and shows the chain of tasks that sets its length. With `--design`, the TRD is built from that design's to-be boards and approves them once it is written ([§2a](#2a-the-design-stage-optional)). |
 | [`/refine-trd [path] [--auto] [feedback]`](../../packages/core/commands/refine-trd.md) | Same shape as `/refine-prd`, applied to the TRD's open questions. |
 | [`/audit-trd [path] [--source <path>]`](../../packages/core/commands/audit-trd.md) | Checks that every objective traces to a source, every task serves an objective, nothing from the PRD was dropped, and every design decision can actually be built the way it is specified. |
 
@@ -145,10 +155,20 @@ flowchart LR
 **Verification Artifacts.** Every TRD has a `## Verification Artifacts` section. It selects
 which extra checks run when the build is verified: a screen-by-screen comparison against
 designs (`verify-design-comparison`), a walk through designed user journeys
-(`verify-flow-as-built`), and a comparison of what screens show against what their data
-source returns (`verify-data-fidelity`). A check that applies is included by default, and
-leaving one out needs a stated reason. `/audit-trd` reports an applicable check that was left
-out with no reason given.
+(`verify-flow-as-built`), a comparison of what screens show against what their data
+source returns (`verify-data-fidelity`), and, for a feature built from a design, a check that
+the components each board names actually render at its route (`verify-design-structure`;
+React and react-native-web only, "not verifiable here" elsewhere). A check that applies is
+included by default, and leaving one out needs a stated reason. `/audit-trd` reports an
+applicable check that was left out with no reason given.
+
+**Two optional TRD parts that verification reads:**
+
+- A **`Must pass`** column in the Objectives table marks the objectives that make up the
+  feature's core. Verification cannot end *satisfied* until every one is proven (§3).
+- A **`## Verification Environment`** section names the environment to exercise, its refresh
+  command, and what cannot be checked there. `verification.md` stays authoritative: an
+  environment it does not declare is not used.
 
 ### `/implement-trd` — build it
 
@@ -176,13 +196,19 @@ What a run does:
 2. **Per task:** a specialist implementer (frontend, backend, mobile, or AI/agent) builds
    the task, runs its own targeted checks, and fixes what fails before it reports back.
 3. **Phase gate:** a verification agent plus your project's own test battery. The phase is
-   then checkpointed and committed.
+   then checkpointed and committed. The branch is pushed once, at the end of the run.
 4. **Once, after the last phase:** one code review (`/code-review high --fix`) over the whole
    branch diff, with its fixes applied.
 5. **Then functional verification** (§3), on by default.
 
 Tasks the TRD itself says can't finish in a normal run (marked `[LIVE]`, or "after the next
-deploy") are set aside and reported. They are not dispatched.
+deploy") are set aside and reported. They are not dispatched. Implementers never run checks
+that start model sessions; those are their own `[LIVE]` tasks.
+
+Before the build starts, the run classifies each environment `verification.md` declares as
+usable, unusable or needing you (an expired credential, say). Nothing is asked and nothing
+stops: an environment that needs you is named under ISSUES, and the criteria that depend on it
+come back "not verifiable here".
 
 | Flag | Use it when |
 |---|---|
@@ -193,8 +219,8 @@ deploy") are set aside and reported. They are not dispatched.
 | `--include-deferred` | Run the tasks that would otherwise be set aside. |
 | `--reset-state` | Throw away progress tracking and start fresh. Asks you to confirm first. |
 
-(`--chained` also exists, but only `/verify-build` passes it, when fixing. Don't type it
-yourself.)
+(`--chained` and `--sweep-flag` also exist, but only other commands pass them: `/verify-build`
+and `/audit-build` when fixing, `/plan` in its sweep chain. Don't type them yourself.)
 
 ### `/audit-build` — check what was delivered
 
@@ -211,25 +237,44 @@ flowchart TD
     r["Resolve the TRD and PRD"]:::code --> ix["Index requirements and tasks"]:::model --> v["Five verifiers: traceability,<br/>verification, validation,<br/>test quality, deterministic"]:::model --> rc["Reconcile the findings,<br/>draft the verdict"]:::model --> rep["Report written, verdict first; published"]:::code --> g{"Gaps?"}
     g -->|"a planned task was not built"| re["/implement-trd --reconcile"]
     g -->|"no task covers a requirement"| you["You decide the design"]:::you
-    g -->|"none: verdict passes"| cl["Feature closed: closed.json written,<br/>current.json cleared; committed<br/>with the report on a feature branch"]:::code --> m["You open and merge the PR"]:::you
+    g -->|"none: verdict passes"| cl["Feature closed: closed.json written,<br/>current.json cleared; committed<br/>with the report on a feature branch"]:::code --> pr["PR opened if openPullRequest is auto"]:::code --> m["You merge the PR"]:::you
     classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
     classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
 ```
 
 Gaps split two ways. When a TRD task already covers the gap, nothing needs deciding: the audit
-marks the task not done and chains straight into `/implement-trd --reconcile` to build it.
+marks the task not done and runs `/implement-trd --reconcile` inside the same run to build it.
 When no task covers the gap, deciding *how* to close it is design work. The audit reports it
-and stops. `--report-only` gives you the findings without the chained build.
+and stops. `--report-only` gives you the findings without the fix run.
+
+**Audits converge.** Code, not the model, classifies each finding and decides what happens next
+(`audit-rounds.js`, with a one-line-per-round ledger in `.trd-state/<feature>/audit-rounds.jsonl`):
+
+| Finding | Counts as | Effect |
+|---|---|---|
+| A product defect | defect | Fixed in the run; the only thing that earns a re-audit |
+| A weak or missing test | test gap | Fixed in the same pass; never blocks closing or starts a re-audit, unless the weak test hides a real defect (then it is that defect) |
+| A wrong line number or stale citation in the TRD | note | Fixed in place, listed under STATE |
+| A gap only a task the TRD deliberately defers would close | deferred | Reported as "planned, not built yet", under STATE |
+
+A re-audit checks only the previous round's defects and the files changed since, and a feature
+gets at most three audits since its last close. At that cap the defects still go to the fix
+run, but the feature stays open and closing it is your call (`/close-feature`). A feature never
+closes while a real defect is open.
 
 Every run leaves a report at `.trd-state/<feature>/audit-build-report.md`. It opens with the
 verdict, names the commit it audited, and holds the readout. It is published as a link (unless publishing is off), and on a
 feature branch the audit commits it, so it travels with the PR.
 
 **A passing audit closes the feature.** When the verdict is "safe to proceed" or "proceed with
-these caveats", nothing is handed back to `/implement-trd`, and the run isn't `--report-only`,
-the audit marks the feature closed: it writes `.trd-state/<feature>/closed.json` with its
-verdict, clears `current.json`, and commits the record with the report.
+these caveats", no defect is open, and the run isn't `--report-only`, the audit marks the
+feature closed: it writes `.trd-state/<feature>/closed.json` with its verdict, clears
+`current.json`, and commits the record with the report. Then, when `ensemble.openPullRequest`
+is `auto` in `.claude/settings.json`, it pushes the branch and opens the pull request (or
+updates the open one). It never merges; merging is yours. The shipped default is `never`, in
+which case NEXT tells you to open the PR. If the feature was built from a design and boards are
+still `building`, NEXT names `/sync-design <slug>` for after the merge.
 
 ### `/close-feature` — close it on your say-so
 
@@ -242,7 +287,7 @@ nothing.
 flowchart LR
     a["You: /close-feature,<br/>optional note"]:::you --> c{"Already closed?"}:::code
     c -->|"yes"| n["Says when and by whom;<br/>changes nothing"]:::code
-    c -->|"no"| w["closed.json written;<br/>current.json cleared;<br/>run lock removed"]:::code --> k["Committed on a feature branch;<br/>on main, you commit it"]:::code
+    c -->|"no"| w["closed.json written;<br/>current.json cleared;<br/>run lock removed"]:::code --> k["Committed on a feature branch;<br/>on main, you commit it"]:::code --> pr["PR opened if<br/>openPullRequest is auto"]:::code
     classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
     classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
@@ -252,6 +297,59 @@ However it closes, the effect is the same bookkeeping. The session banner says "
 prompt hint stops treating the feature as in flight, and `/implement-trd` and `/amend` refuse
 to work on it. `implement.json`, the TRD and the reports are left as they are. To reopen a
 feature, delete its `closed.json`.
+
+---
+
+## 2a. The design stage (optional)
+
+For a feature with screens, you can draw it before you plan the build. Designs are drawn as
+**boards** on a Claude **canvas** (a published design artifact) and mirrored in the
+repository under `docs/ui/<slug>/`, with `design-map.json` recording each board and its status
+(draft, approved, building, shipped: [CONCEPTS.md, concept 12](CONCEPTS.md#12-designs-are-drawn-first-approved-by-building-them-and-kept-in-step-with-what-shipped)).
+
+**Before the first design:** run the `/design-setup` skill to fill `.claude/rules/design.md`
+(the design system, platforms, how to reach a screen, design rules). Every design command stops
+with "run `/design-setup`" until it is filled. Rendering boards needs Playwright and its
+Chromium; publishing needs an interactive session with publishing on.
+
+| Command | What it does |
+|---|---|
+| [`/design-system [--sync]`](../../packages/core/commands/design-system.md) | Builds the design system the boards draw with, from the code (or Figma), publishes it as a Design System artifact, installs it on the product's canvases, and commits the built files to `docs/ui/_design-system/`. `--sync` rebuilds after the code changed; a canvas's copy never updates by itself. |
+| [`/create-design <brief \| PRD path \| issue> [--new] [--auto]`](../../packages/core/commands/create-design.md) | Grounds the design in the code and writes a brief, asks you at most four open decisions (each with a recommended answer; `--auto` asks none), then draws as-is boards (compared with fresh screenshots), parts and to-be boards, has them reviewed, publishes, renders PNGs and commits `docs/ui/<slug>/`. Every board starts as `draft`. `--new` skips as-is boards for screens that don't exist yet. You start it yourself; no agent will. |
+| [`/audit-design <slug> [--drift]`](../../packages/core/commands/audit-design.md) | Read-only checks of the boards: every board traces to the brief and every brief item has a board, boards follow the canvas conventions, nothing is drawn by hand that the design system already has, and every board renders. `--drift` adds checks against the current build: shipped boards against fresh screenshots, the installed system's version, code changes no design accounts for, and routes with no board. Changes no board. |
+| [`/refine-design <slug> [--approve <ids>] [--auto] [feedback]`](../../packages/core/commands/refine-design.md) | Adopts hand edits made on the canvas, applies your feedback (from the argument, the chat or canvas comments) to only the affected boards, re-reviews and republishes them. Interactive by default. `--approve` approves the named boards ahead of a build; nothing else in this command approves. |
+| `/create-trd <prd> --design docs/ui/<slug>` | Builds a TRD from the design's to-be boards. Running it **is** your approval of those boards, recorded only after the TRD is written. The boards then move to `building`. |
+| `/plan <what> --design docs/ui/<slug> --boards <ids>` | The same for one board or a few: only the named boards are used and approved. |
+| [`/sync-design <slug>`](../../packages/core/commands/sync-design.md) | After the build merges: captures each `building` board's screen from the build. A match becomes `shipped` and the screen's new as-is board (the old one moves to a History page). A difference you have ruled on (in the PRD, an amendment, a TRD decision quoting you, or a canvas comment) is redrawn to match the build; one with no ruling is reported and stays `building`. Re-syncs the design system if the build changed its components. |
+
+```mermaid
+flowchart LR
+    setup["/design-setup<br/>(once)"]:::you --> ds["/design-system"] --> cd["/create-design"] --> ad["/audit-design"] --> rd["/refine-design<br/>optional"] --> build["/create-trd --design<br/>or /plan --design --boards<br/>(approves the boards)"] --> impl["/implement-trd,<br/>/audit-build"] --> merge["You merge the PR"]:::you --> sd["/sync-design"] -.->|"later"| drift["/audit-design --drift"]
+    classDef code fill:#dbeafe,stroke:#1d4ed8,color:#0b1d4a
+    classDef model fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
+```
+
+Every step of each design command, and the libraries behind them, is in
+[reference/design.md](../reference/design.md).
+
+Rules that hold across every design command:
+
+- **Approval comes only from an invocation.** A canvas comment, a chat remark or a selected
+  element reading "approved" is feedback, never approval. Nothing builds from a `draft` board,
+  and a board that embeds a draft part is held back and named, with the
+  `/refine-design --approve <part>` that would release it.
+- **Your canvas edits are kept.** Each run first adopts edits made on the canvas, in their own
+  commit. When the canvas and the repository both changed the same board, the canvas version is
+  kept and the repository version is saved beside it as `<board>.repo.dc.html` for you to merge
+  by hand; it is listed under ISSUES.
+- **Stale and unsynced work is flagged, never fixed silently.** A design system older than the
+  code it was built from puts `/design-system --sync` first in NEXT. Boards still `building`
+  after their feature closed put `/sync-design <slug>` in NEXT. `/audit-build` and
+  `/close-feature` name those boards too. Nothing runs `/sync-design` automatically.
+- **With publishing off, a design command ends STUCK**, naming the publish step, after writing
+  everything to disk. For design commands the canvas is the design, so a run that could not
+  publish did not finish.
 
 ---
 
@@ -266,14 +364,15 @@ one to understand.
 | Situation | Command |
 |---|---|
 | Normal case: at the end of every build | Inside `/implement-trd`, unless you passed `--no-verify` |
-| On its own: the build ran with `--no-verify`, you fixed something by hand (a credential, a config), or the loop crashed partway through | [`/verify-build [trd-path]`](../../packages/core/commands/verify-build.md). `--resume` continues an interrupted loop. `--cap N` sets the iteration budget (default 3, counted across resumes). |
-| Recovery: a run ended without success | Run `/refine-verification` — interactive by default, `--auto` for an unattended answer — which turns the report's diagnosis into a plan with you (or, under `--auto`, with an agent). Then run `/verify-build`, which now builds and re-verifies that plan by default (`--no-fix` for a report-only pass), for as many rounds as the plan allows, and asks you nothing. |
+| On its own: the build ran with `--no-verify`, you fixed something by hand (a credential, a config), or the loop crashed partway through | [`/verify-build [trd-path]`](../../packages/core/commands/verify-build.md). `--resume` continues an interrupted loop. `--cap N` sets the iteration budget (default 3, counted across resumes). `--no-fix` gives a report-only pass. |
+| Recovery: a run ended without success | Run [`/refine-verification [--auto]`](../../packages/core/commands/refine-verification.md). It turns the report's diagnosis into `verification-plan.md`: interactively it asks you one question per item the evidence can't settle, each with a recommended answer; with `--auto` an agent answers each and marks it `answered`, `default` or `OWNER-CALL`. Then run `/verify-build`, which builds and re-verifies that plan by default for as many rounds as the plan allows, and asks you nothing. A plan is used once: it counts only if it was written after the last verification run. |
+| A sweep split off by `/plan` | `/verify-build docs/plan/<slug>.sweep.md` checks the swept criteria word for word, in one round. `/plan --implement` runs this for you (§4). |
 
 ```mermaid
 flowchart TD
     vb["/verify-build"] --> loop["The verification loop<br/>(CONCEPTS.md, concept 8)"]:::model --> o{"Outcome"}:::code
     o -->|"satisfied"| ab["/audit-build"]
-    o -->|"stalled, stuck, unbuilt,<br/>or below the coverage floor"| rec["/refine-verification<br/>optional --auto"]:::you --> plan["verification-plan.md"] --> fix["/verify-build<br/>fixes by default"]
+    o -->|"stalled, stuck, unbuilt,<br/>must-pass-unproven, setup-failure,<br/>or below the coverage floor"| rec["/refine-verification<br/>optional --auto"]:::you --> plan["verification-plan.md"] --> fix["/verify-build<br/>fixes by default"]
     fix --> round["Each round: /implement-trd --reconcile --chained,<br/>then re-verify the open criteria"]:::code --> sr{"The plan's<br/>stop rule met?"}:::code
     sr -->|"no"| round
     sr -->|"yes"| o
@@ -291,10 +390,13 @@ flowchart TD
 - **The checks the TRD selected** under `## Verification Artifacts`. Each adds one criterion
   per screen, journey or data view.
 
-Each iteration **exercises** the criteria against a running instance and collects evidence.
-It **judges** each criterion as met, not met, not verifiable here, or unbuilt, and then
+Each iteration first runs a **setup check**: is each environment reachable, is it running
+the current commit (HEAD), and does no other checkout hold a port it declares? It refreshes at
+most once. It then **exercises** the criteria against the running instance and collects
+evidence, **judges** each criterion as met, not met, not verifiable here, or unbuilt, and
 **debugs** what is not met, fixing the code in place. Proven criteria stay proven for the rest
-of the run.
+of the run. Evidence a `[LIVE]` task already captured is reused, without capturing it again,
+while the source files it exercised are unchanged.
 
 ### What `.claude/rules/verification.md` contributes
 
@@ -303,7 +405,9 @@ environments it may use and what it may do there, how many of each resource (sim
 servers) can exist at once, how to refresh after a fix, where test credentials live (never
 their values), which tools are installed, and what cannot be verified here. The loop won't
 touch an environment the file doesn't list. It can also set a minimum share of criteria that
-must be proven (the coverage floor). Run `/verification-setup` to fill it in; it interviews
+must be proven (the coverage floor), and list paths `/plan --implement` must never build
+without you watching (auth, payments, migrations: matched by substring). Run
+`/verification-setup` to fill it in; it interviews
 you one topic at a time ([INSTALL.md §5](INSTALL.md#5-set-up-verification)). **An unfilled
 file doesn't stop the loop, but most criteria will come back "not verifiable here".**
 
@@ -316,16 +420,21 @@ file doesn't stop the loop, but most criteria will come back "not verifiable her
 | **stalled** | A debug pass closed no gaps, so the fixes aren't converging | Same. Also check that the environment actually picks up fixes (the refresh command in `verification.md`) |
 | **stuck** | The iteration budget ran out with gaps still open | Same, or re-run with a larger `--cap` |
 | **insufficient-coverage** | Too few criteria were proven to reach the coverage floor. This is a checking problem, not a code problem | Same. The plan usually adds environments or tooling rather than code |
+| **must-pass-unproven** | Nothing failed, but at least one criterion the TRD marked *must pass* was not proven (including one that was "not verifiable here"), or a must-pass objective has no criterion at all. The core of the feature was not shown to work | Same. `/refine-verification` never accepts a must-pass criterion as "not verifiable": you either declare an environment that reaches it or remove the mark |
+| **setup-failure** | The environment, not the code: it was unreachable, running an old build, or its refresh after a fix failed. Never handed to the debugger, never reported as *stalled* | Fix the environment (the report says what and how), then `/verify-build` |
 
-For every outcome except *satisfied*, the readout has a **Diagnosis** line counting the open
-criteria by cause, and its NEXT line is the recovery pair above.
+For *stalled*, *stuck*, *unbuilt*, *insufficient-coverage* and *must-pass-unproven*, the
+readout has a **Diagnosis** line counting the open criteria by cause, and its NEXT is
+`/refine-verification`, then `/verify-build`. When the floor is missed and a must-pass item is
+also unproven, *insufficient-coverage* is reported and names the must-pass items too.
 
 ### The report
 
 The report is written to `.trd-state/<feature>/verification-report.md` and published as a
-private link on claude.ai (see §6). The loop's resumable state is in
-`verification-state.json` next to it. Each selected check can also publish its own page,
-such as a design-versus-build frame diff.
+private link on claude.ai (see §6). Where a criterion's proof is an image, the report shows
+that one image inline in an `## Evidence` section; an image showing a credential is left out
+and named. The loop's resumable state is in `verification-state.json` next to it. Each selected
+check can also publish its own page, such as a design-versus-build frame diff.
 
 ---
 
@@ -343,8 +452,27 @@ decided earlier in the conversation. It investigates, then classifies the work t
   contained fix with one obvious approach) get a light TRD, with no audit. `medium` (a settled
   body of work spanning several tasks) gets full authoring, grounding and an audit.
 
+**A finished spec is planned as written.** When the source already carries numbered
+acceptance criteria, each is copied verbatim into the TRD's Objectives and checked in code: none
+added, reworded, merged or dropped. Criteria that share no file with the rest, don't depend on
+it, and touch no auth, data or shared contract are **swept out** to
+`docs/plan/<slug>.sweep.md` to be fixed with `/sweep`; only the coupled core gets a TRD. Every
+criterion lands in exactly one of the two.
+
 `/plan` then **stops**. **`--implement` is the only thing that starts building**, at any
-weight. Otherwise, run `/implement-trd` on the TRD yourself.
+weight. Otherwise, run `/implement-trd` on the TRD yourself. With a sweep split,
+`--implement` runs the whole chain: `/sweep` on the sweep file, `/verify-build` on it, a commit
+of exactly the files the sweep changed, then `/implement-trd` on the core. Items the sweep
+can't take are moved into the core TRD automatically. The chain stops if the sweep's
+verification is not *satisfied* in that run. It runs on a feature branch, never `main`.
+
+**`--design docs/ui/<slug> --boards <ids>`** plans one board (or a few) of a design: only the
+named boards are used, and naming them approves any still in draft, once the TRD is written
+([§2a](#2a-the-design-stage-optional)).
+
+**The never-unattended brake.** `--implement` will not build anything touching a path listed in
+`verification.md` §5b. An unreadable list, or a task that names no touched files, stops the
+build rather than passing it.
 
 ```mermaid
 flowchart TD
@@ -400,6 +528,16 @@ flowchart LR
     classDef you fill:#ffedd5,stroke:#c2410c,color:#431407
 ```
 
+**[`/task <prompt | brief.md>`](../../packages/core/commands/task.md)** is for a job whose
+output is findings or a report, not merged code: a spike, an audit, a data capture, a dry run.
+The prompt is the whole spec; `/task` adds no requirements. It creates
+`.trd-state/task-<slug>/`, breaks the job into 2 to 8 checkable steps in `implement.json`,
+runs each step once, records a step it cannot do as `deferred` with the reason (never retried),
+records outputs as `report` artifacts, and closes with `closed.json` listing the outputs and any
+follow-ups. It changes no product code, pushes nothing and opens no PR unless the prompt asks,
+and it never acts on its own follow-ups. `/task --resume` finds an unclosed task. A task where
+nothing could be done ends STUCK.
+
 **[`/augment-trd-figma <figma-url> [--trd <path>]`](../../packages/core/commands/augment-trd-figma.md)**
 pulls screenshots, component specs, design tokens and fixture data from Figma into the TRD and
 onto disk. Implementers can't reach Figma themselves, so do this before `/implement-trd` on a
@@ -421,8 +559,15 @@ context.
   preview the changes.
 - **[`/rebase-project [--dry-run] [--preserve-all] [--force]`](../../packages/core/commands/rebase-project.md)**
   upgrades the vendored runtime in `.claude/` to the installed plugin version. It needs a clean
-  git tree, because git is the undo. It never touches `constitution.md`, `stack.md` or
-  `process.md`. See [INSTALL.md §7](INSTALL.md#7-keeping-current).
+  git tree, because git is the undo. It never touches `constitution.md`, `stack.md`,
+  `process.md`, `verification.md` or `design.md`. See [INSTALL.md §7](INSTALL.md#7-keeping-current).
+- **[`/audit-docs [--comprehensive]`](../../packages/core/commands/audit-docs.md)** brings
+  `docs/` back in line with the code as built: it corrects what the code shows to be different,
+  cuts what describes something that doesn't exist, and leaves what is still true. A light run
+  (the default) reviews only the PRDs and TRDs touched since the last run; `--comprehensive`
+  reviews everything. A TRD still in flight is skipped. A PRD requirement rewritten to match the
+  code is listed for you to confirm, and requirements never built are reported, never cut. The
+  edits land on a new local branch, `docs-audit/<date>-<sha>`; nothing is pushed or merged.
 
 ---
 
@@ -451,20 +596,26 @@ order:
 | STATE | What exists now, and what doesn't |
 | DECISIONS | Choices the command made that you didn't, each with its reason |
 | ISSUES | What's wrong or unresolved, and who has to act |
-| NEXT | The one next command, ready to run, or "nothing" |
+| NEXT | The steps to take now, in order, usually one to three. Each slash command sits alone in its own code block for one-tap copying; a step that isn't a slash command (a merge, a PR) is a plain line. Never a shell command, never a menu. "Nothing — this is done" when it is |
 
-**Artifact links.** A command that produces a PRD, TRD or verification report publishes it as
-a private page on claude.ai and prints the link above the banner. Later refinements update the
-same link, so it never points at a superseded version. The links are stored in
-`.trd-state/<feature>/artifacts.json`. To turn publishing off, set
-`"ensemble": { "publishArtifacts": false }` in `.claude/settings.json`. A failed publish is one
-line in the output and never stops the command.
+**Artifact links.** A command that produces a document (a PRD, TRD, verification report,
+audit report, `/task` output, or a design canvas) publishes it as a private page on claude.ai
+and prints the link above the banner. Later refinements update the same link, so it never
+points at a superseded version. Every document's path and link are recorded in
+`.trd-state/<feature>/artifacts.json`, whether or not it was published. To turn publishing off,
+set `"ensemble": { "publishArtifacts": false }` in `.claude/settings.json`. A failed publish is
+one line in the output and never stops the command, except for the design commands (§2a).
 
 **Completion notifications.** Long-running commands (`/implement-trd`, `/audit-build`,
 `/plan --implement`) send a desktop notification when they finish or get stuck. For a webhook,
 queue or script, set `NOTIFY_ON_COMPLETE`. It runs exactly once, when the command completes,
 with the project, branch, feature and summary in `NOTIFY_*` variables
-([command-status.md](../../.claude/rules/command-status.md) has examples).
+([command-status.md](../../.claude/rules/command-status.md) has examples). To run something
+on every turn end instead, see [stop-hook-notification.md](stop-hook-notification.md).
+
+**One banner per run.** When one command runs another as a step (`/audit-build` running a fix,
+`/plan --implement` running its sweep chain, `/sync-design` re-syncing the design system), the
+inner command prints no banner of its own, and the run ends on one banner.
 
 **A Stop-hook block.** A model checks every turn as it ends for two things:
 
@@ -491,7 +642,14 @@ You don't need to intervene either way.
 | `.trd-state/<feature>/discovered.jsonl` | Issues found along the way but not fixed. Those marked as blocking the feature become TRD tasks on the next `--reconcile`. |
 | `.trd-state/<feature>/audit-build-report.md` | The latest `/audit-build` report: its verdict, the commit it audited, and the readout |
 | `.trd-state/<feature>/closed.json` | Written by a passing `/audit-build` or by `/close-feature`: when, by whom, and the audit verdict or your note. Its presence is what marks the feature closed |
-| `.trd-state/<feature>/artifacts.json` | The published links for this feature's documents |
+| `.trd-state/<feature>/audit-rounds.jsonl` | One line per `/audit-build` round: what it found and what was decided. The audit cap counts these |
+| `.trd-state/<feature>/audit-prd-report.md`, `audit-trd-report.md` | The latest PRD and TRD audit reports, verdict first |
+| `.trd-state/<feature>/evidence/live-manifest.jsonl` | What each `[LIVE]` task captured, with a hash of every source file it exercised, so verification can reuse it |
+| `.trd-state/<feature>/dispatch.jsonl` | Every subagent started and stopped in this feature's runs |
+| `.trd-state/<feature>/artifacts.json` | Each document's path and published link (`prd`, `trd`, the reports, `design`, and so on) |
+| `.trd-state/task-<slug>/` | A `/task` run: its `implement.json`, outputs and `closed.json` |
+| `docs/plan/<slug>.sweep.md` | Criteria `/plan` swept out of a finished spec, for `/sweep` |
+| `docs/ui/<slug>/` | A design: its brief, grounding, boards (`canvas/project/`), rendered PNGs (`screens/png/`) and `design-map.json`, which records each board's status. The design system it draws with is in `docs/ui/_design-system/` |
 
 `.trd-state/` is meant to be committed with the feature, so a fresh clone can resume. The
 installer ignores nothing inside it.

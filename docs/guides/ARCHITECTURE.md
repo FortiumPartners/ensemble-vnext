@@ -1,678 +1,298 @@
 # Ensemble Architecture
 
-> **Suspended pending review (2026-09-28).** This guide predates several releases and is being
-> rewritten from the ground up. Parts of it no longer match how Ensemble works. Until the rewrite
-> lands, treat `.claude/rules/process.md` and each command's own usage block as authoritative.
-
-What actually makes up Ensemble, what each component does, and where everything lives.
+What makes up Ensemble, what each part does, and where it lives. For how to use the commands,
+read [PROCESS.md](PROCESS.md); for why it is shaped this way, [CONCEPTS.md](CONCEPTS.md). The
+step-by-step detail of each part is in [`docs/reference/`](../reference/README.md).
 
 ---
 
-## Two-Layer Architecture
-
-Ensemble has two distinct layers:
+## 1. Two layers: the plugin and the runtime
 
 ```
-Plugin (Generator Layer)              Vendored Runtime (Execution Layer)
------------------------------------   -----------------------------------
-/init-project command           -->   .claude/agents/
-/rebase-project command         -->   .claude/commands/
-Skills library                  -->   .claude/skills/
-Hook templates                  -->   .claude/hooks/
-                                      .claude/rules/
-                                      .claude/settings.json
+Plugin (installed once per machine)        Runtime (committed in each project)
+-----------------------------------        -----------------------------------
+/init-project, /rebase-project       -->   .claude/commands/   25 workflow commands
+agents-lib/                          -->   .claude/agents/     13 subagents
+skills-lib/  (the skill library)     -->   .claude/skills/     skills for this stack + framework skills
+hooks + hooks manifest               -->   .claude/hooks/      and their registration in settings.json
+templates/                           -->   .claude/rules/, CLAUDE.md, docs/, .trd-state/
+workflows/, lib/, contracts/         -->   .claude/workflows/, .claude/lib/, .claude/contracts/
 ```
 
-The **plugin** is the generator -- it has only two global commands (`/init-project` and `/rebase-project`) that bootstrap and update projects. Everything else lives in the **vendored runtime** inside the project's `.claude/` directory.
+The **plugin** is the generator. It keeps only the two commands that create or upgrade a
+project's runtime: `/init-project` and `/rebase-project`. It registers no agents and no hooks of
+its own; everything that runs in a session comes from the project's `.claude/`.
 
-This design means:
-- The runtime is committed to git for reproducibility
-- Behavior is identical in local CLI and Claude Code Web sessions
-- Projects are self-contained -- no external plugin dependency at runtime
-- Each project can customize its agents, skills, and rules independently
+The **runtime** is what the plugin copies into a project. It is committed to git, so:
+
+- a local CLI session and a web session (which sees only the repository) behave the same;
+- each project stays pinned to its own runtime version until you upgrade it;
+- every framework change arrives as a diff you can review.
 
 ---
 
-## Keeping the Runtime Current: Refresh vs Rebase
+## 2. Keeping the runtime current: refresh and rebase
 
-Vendoring buys reproducibility at a price: every project holds a frozen fork of the
-runtime. Two mechanisms keep that fork current, and they are deliberately different.
+Vendoring buys reproducibility at a price: each project holds its own copy of the runtime. Two
+mechanisms keep that copy current, and they are deliberately different.
 
 | | **Refresh** (automatic) | **Rebase** (deliberate) |
 |---|---|---|
-| Trigger | `SessionStart` hook, every session | You run `/rebase-project` |
-| Scope | Components **already present** in `.claude/` | Any component, including new ones |
-| Adds components | **Never** | Yes |
-| Removes components | **Never** | Yes, with backup |
-| Touches governance files | **Never** | Prompts before changing |
-| Requires judgment | No — mechanical replacement | Yes — that's the point |
+| Trigger | `runtime-refresh.sh`, a `SessionStart` hook, every session | You run `/rebase-project` |
+| Scope | Framework files **already present** in `.claude/` | Any framework file, including new ones |
+| Adds or removes components | Never | Yes: adds new ones, removes retired commands, agents and skills |
+| Touches your rule files | Never | Never (`constitution.md`, `stack.md`, `process.md`, `verification.md`, `design.md`) |
+| Commits | No: leaves the changes for you to review | No: needs a clean tree, because git is the undo |
 
-**Refresh is safe to run unattended precisely because of what it cannot do.** It replaces
-what is already there and nothing else. It cannot add a component you never selected, so
-it cannot un-curate a project; it cannot delete one the plugin dropped, so it cannot
-silently remove something you depend on. Anything requiring a decision belongs to
-`/rebase-project`, where you are present to make it.
+**Refresh is safe unattended because of what it cannot do.** It replaces what is already there
+and nothing else, so it can neither add a component you never selected nor delete one you
+depend on. Anything that needs a decision belongs to `/rebase-project`.
 
 ### The version stamp
 
-`.claude/settings.json` carries an `ensemble` block with a `version` field, written by the
-scaffold on `/init-project` and on every successful refresh:
+`.claude/settings.json` carries `ensemble.version`, the plugin version the runtime came from.
+`/init-project` and every `/rebase-project` stamp it (a rebase does so as its last step; a
+project left without one is treated as out of date). A refresh writes it too, with
+`refreshed_at`.
 
-```json
-"ensemble": {
-  "version": "4.1.1",
-  "refreshed_at": "2026-08-11T22:14:03Z",
-  "agents_dir": ".claude/agents"
-}
-```
+The refresh gate is **monotonic**: it acts only when the installed plugin is strictly newer
+than the stamp. That stops two teammates on different plugin versions from flipping committed
+runtime files back and forth. A project with no stamp reads as *unknown*, not *older*, so it
+never auto-refreshes; run `/rebase-project` once.
 
-The refresh gate is **monotonic** — it writes only when the installed plugin's version is
-strictly newer than the stamp. That is what stops two teammates on different plugin
-versions from ping-ponging committed runtime files back and forth in git.
+### When refresh does nothing
 
-A project scaffolded before the stamp existed has no `ensemble.version`. That reads as
-*unknown*, not *older*, so it never auto-refreshes. Run `/rebase-project` once to adopt
-the stamp; refresh engages from then on.
+`runtime-refresh.sh` always exits 0. It skips:
 
-### The four guards
+1. **No plugin installed** (CI, a fresh clone): silently.
+2. **The project is inside the plugin's own checkout**: silently, so a stale plugin cache can
+   never overwrite live source. It checks ancestors too, so a fixture nested in the checkout is
+   covered.
+3. **A task is in progress** (an `implement.json` task marked `in_progress` within the last 30
+   minutes): with a one-line notice. A multi-session `/implement-trd` must not pick up
+   different command text halfway through. An older `in_progress` mark, left by a crashed
+   session, no longer blocks it.
+4. **The plugin is not newer**: silently.
 
-`runtime-refresh.sh` skips, silently and exiting 0, when any of these hold:
+### Changes land in the next session
 
-1. **No plugin installed** — CI, fresh clones, and anyone using the vendored runtime
-   without the plugin hit this constantly. It must be quiet, not a warning.
-2. **The project is inside the plugin's own checkout** — the marketplace is a `directory`
-   source pointing at the ensemble repository, so without this a stale plugin cache would
-   overwrite live source and silently revert a developer's uncommitted work. The check
-   walks *ancestors*, not just the project root, because a project nested inside the
-   checkout (an eval fixture, say) resolves to itself and would otherwise never see the
-   markers above it.
-3. **A task is in progress** — any `.trd-state/*/implement.json` with an `in_progress`
-   task. A multi-session `/implement-trd` loop must not pick up different command text
-   halfway through a feature.
-4. **The plugin is not newer** — equal, older, or unparseable versions do nothing.
-
-A hook that blocks session start is worse than a stale runtime, so every path exits 0,
-including malformed JSON, a missing plugin, and a failing scaffold.
-
-### Changes land in the NEXT session
-
-**This is the part that surprises people.** Claude Code loads `.claude/` *before*
-`SessionStart` hooks run. A refresh therefore writes files the current session has already
-read — the session you are in continues with the components it loaded at start, and the
-updated ones take effect when you next start a session.
-
-This was verified empirically, not assumed: a `SessionStart` hook that rewrote a command's
-frontmatter fired and wrote to disk, but the session still reported the pre-write text; the
-following session reported the new text. The behaviour is stable, not a race.
-
-The refresh message says so explicitly:
+Claude Code loads `.claude/` before `SessionStart` hooks run, so a refresh rewrites files the
+current session has already read. The message says so:
 
 ```
-ENSEMBLE runtime refreshed 4.1.0 → 4.1.1 — 4 commands, 2 hooks, 1 skill updated.
+ENSEMBLE runtime refreshed 4.14.0 → 4.15.0 — 6 commands, 1 hook updated.
 Changes take effect in the NEXT session (this session's components were already loaded).
 ```
 
-That second line is not optional. Silently applying a change that appears to do nothing is
-worse than a one-session lag you can see.
-
-### Turning it off
-
 | Env var | Effect |
 |---|---|
-| `ENSEMBLE_RUNTIME_REFRESH_DISABLE=1` | Skip entirely |
+| `ENSEMBLE_RUNTIME_REFRESH_DISABLE=1` | Skip refresh entirely |
 | `ENSEMBLE_RUNTIME_REFRESH_DEBUG=1` | Log every guard decision to stderr |
 
 ---
 
-## Directory Structure
+## 3. What a project holds
 
 ```
 your-project/
-|-- CLAUDE.md                        # Project operating instructions (auto-updated)
+|-- CLAUDE.md                     # project operating notes (grows via /update-project)
 |-- .claude/
-|   |-- agents/                      # 13 specialist subagents
-|   |   |-- product-manager.md
-|   |   |-- technical-architect.md
-|   |   |-- spec-planner.md
-|   |   |-- frontend-implementer.md
-|   |   |-- backend-implementer.md
-|   |   |-- mobile-implementer.md
-|   |   |-- agent-implementer.md
-|   |   |-- verify-app.md
-|   |   |-- code-simplifier.md
-|   |   |-- code-reviewer.md
-|   |   |-- app-debugger.md
-|   |   |-- devops-engineer.md
-|   |   +-- cicd-specialist.md
-|   |-- commands/                    # Workflow slash commands
-|   |   |-- init-project.md
-|   |   |-- rebase-project.md
-|   |   |-- create-prd.md
-|   |   |-- audit-prd.md
-|   |   |-- refine-prd.md
-|   |   |-- create-trd.md
-|   |   |-- audit-trd.md
-|   |   |-- refine-trd.md
-|   |   |-- augment-trd-figma.md
-|   |   |-- implement-trd.md
-|   |   |-- audit-build.md
-|   |   |-- plan.md
-|   |   |-- amend.md
-|   |   |-- sweep.md
-|   |   |-- verify-build.md
-|   |   |-- fold-prompt.md
-|   |   |-- update-project.md
-|   |   +-- cleanup-project.md
-|   |-- hooks/                       # Automated guardrails
-|   |   |-- router.py                # Prompt routing (UserPromptSubmit)
-|   |   |-- formatter.sh             # Auto-formatting (PostToolUse)
-|   |   |-- status.js                # Implementation tracking (SubagentStop)
-|   |   |-- prompts/                 # Model-judged Stop-hook prompt text (async + autonomy discipline)
-|   |   |-- notify.sh                # Per-Stop notifications (Stop)
-|   |   |-- notify-complete.sh       # COMMAND-COMPLETE notification helper (model-invoked)
-|   |   |-- session-context.js       # Session identity capture (SessionStart)
-|   |   |-- runtime-refresh.sh       # Vendored runtime refresh (SessionStart)
-|   |   |-- precompact.js            # Pre-compaction handling (PreCompact)
-|   |   +-- lib/                     # Shared hook helpers (resolve-project-root, etc.)
-|   |-- skills/                      # Domain knowledge packs
-|   |   |-- developing-with-python/
-|   |   |-- developing-with-typescript/
-|   |   |-- jest/
-|   |   |-- pytest/
-|   |   +-- test-detector/
-|   |-- rules/                       # Governance files
-|   |   |-- constitution.md          # Project absolutes
-|   |   |-- stack.md                 # Technology stack
-|   |   |-- process.md               # Workflow documentation
-|   |   |-- async-discipline.md      # No hallucinated async claims
-|   |   |-- autonomy.md              # Autonomous-execution discipline
-|   |   +-- command-status.md        # DISPATCHED / RESUMED / COMPLETE banners
-|   +-- settings.json                # Hooks, permissions, configuration
+|   |-- agents/                   # the 13 subagents
+|   |-- commands/                 # 25 workflow commands
+|   |-- workflows/                # workflow scripts: the fixed skeleton of the heavy commands
+|   |-- lib/                      # deterministic libraries the commands and workflows call
+|   |-- contracts/                # reference text several commands share
+|   |-- hooks/                    # hook scripts, plus prompts/ for the model-judged Stop check
+|   |-- skills/                   # skills for this stack, plus the framework skills
+|   |-- rules/                    # rule files (section 8)
+|   +-- settings.json             # hook registrations, env, and the "ensemble" settings
 |-- docs/
-|   |-- PRD/                         # Product Requirements Documents
-|   +-- TRD/                         # Technical Requirements Documents
-+-- .trd-state/                      # Implementation tracking (git-tracked)
-    |-- current.json                 # Pointer to active feature
-    +-- <feature>/
-        +-- implement.json           # Task status and checkpoints
+|   |-- PRD/, TRD/                # requirements and plans, kept as-built
+|   |-- plan/                     # sweep lists /plan splits off a finished spec
+|   +-- ui/                       # designs: one folder per design, plus _design-system/
++-- .trd-state/                   # progress and evidence, committed with the feature
+    |-- current.json              # the feature in flight
+    |-- <feature>/                # implement.json, reports, ledgers, artifacts.json, closed.json
+    +-- task-<slug>/              # a /task run
 ```
+
+The full list of state files and what each holds is in
+[PROCESS.md §7](PROCESS.md#7-where-state-lives).
 
 ---
 
-## Agents
+## 4. Commands
 
-Agents are Markdown files with YAML frontmatter that define specialized AI workers. They are **prompts only** -- no executable code. Claude Code's subagent system interprets these files to create focused contexts for specific tasks.
+A command is a Markdown prompt, sometimes with shell blocks for its deterministic steps. It
+**orchestrates**: it reads state, runs libraries, starts a workflow or dispatches agents, and
+ends with the four-part readout and one banner. It owns the task list; agents return results
+and never mark their own tasks done.
 
-### Agent File Structure
+| Group | Commands |
+|---|---|
+| Plugin only | `/init-project`, `/rebase-project` |
+| Full pipeline | `/create-prd`, `/audit-prd`, `/refine-prd`, `/create-trd`, `/audit-trd`, `/refine-trd`, `/implement-trd`, `/audit-build`, `/close-feature` |
+| Design stage (optional) | `/design-system`, `/create-design`, `/audit-design`, `/refine-design`, `/sync-design` |
+| Shorter paths | `/plan`, `/amend`, `/sweep`, `/task` |
+| Verification | `/verify-build`, `/refine-verification` |
+| Design input from Figma | `/augment-trd-figma` |
+| Maintenance | `/update-project`, `/cleanup-project`, `/audit-docs`, `/fold-prompt` |
 
-Each agent file (`.claude/agents/<name>.md`) contains:
-- **YAML frontmatter** -- metadata like name, description
-- **Role description** -- what this agent does and doesn't do
-- **Instructions** -- specific behavioral guidelines
-- **Quality criteria** -- what "done" looks like
+Two setup steps are **skills** you invoke like commands, not commands: `/verification-setup`
+(writes `verification.md`) and `/design-setup` (writes `design.md`). Neither can be started by
+an agent.
 
-### The 13 Agents
+**Who can start a command.** You can start any of them. The authoring commands, which are
+expensive and read like a request you would type (`/create-prd`, `/refine-prd`, `/create-trd`,
+`/refine-trd`, `/create-design`, `/refine-design`, `/augment-trd-figma`), are marked so that only
+you can. An agent can start the others, including the audits, `/verify-build` and
+`/refine-verification`, but a command's authorization still ends at its own banner: nothing
+chains into the next stage unless you asked for a chain.
 
-#### Artifact Agents
-
-| Agent | File | Invoked By | Output |
-|-------|------|-----------|--------|
-| `product-manager` | `product-manager.md` | `/create-prd`, `/refine-prd` | `docs/PRD/<feature>.md` |
-| `technical-architect` | `technical-architect.md` | `/create-trd`, `/refine-trd` | `docs/TRD/<feature>.md` |
-
-These agents generate the specification artifacts that drive implementation.
-
-#### Planning Agent
-
-| Agent | File | Invoked By | Output |
-|-------|------|-----------|--------|
-| `spec-planner` | `spec-planner.md` | `/implement-trd` (planning phase) | Execution plan with parallelization |
-
-Analyzes task dependencies to create optimal implementation schedules.
-
-#### Implementation Agents
-
-| Agent | File | Invoked By | Specialty |
-|-------|------|-----------|-----------|
-| `frontend-implementer` | `frontend-implementer.md` | `/implement-trd` | UI, components, client logic |
-| `backend-implementer` | `backend-implementer.md` | `/implement-trd` | APIs, services, data layer |
-| `mobile-implementer` | `mobile-implementer.md` | `/implement-trd` | Flutter, React Native |
-| `agent-implementer` | `agent-implementer.md` | `/implement-trd` | AI/agent apps — prompts, model selection, RAG, tool calling, agent memory |
-
-The router hook determines which implementer to use based on the task description and project stack. `agent-implementer` owns work where the deliverable *is* the AI behavior (prompt design, RAG pipelines, agent loops, eval); `backend-implementer` handles conventional backends that merely call an LLM as one component.
-
-#### Quality Agents
-
-| Agent | File | Invoked By | Purpose |
-|-------|------|-----------|---------|
-| `verify-app` | `verify-app.md` | `/implement-trd` (phase gate); functional verification (Exercise stage) | Run tests, check coverage; exercise the running software |
-| `code-simplifier` | `code-simplifier.md` | On request — not dispatched by `/implement-trd` (stage removed 2026-08-18) | Post-verification refactoring |
-| `code-reviewer` | `code-reviewer.md` | On request — `/implement-trd`'s review is the built-in `/code-review` | Security review, quality checks |
-| `app-debugger` | `app-debugger.md` | Functional verification (Debug stage) | Root cause analysis, TDD fix |
-
-Each implementer runs its own checks and self-corrects within its task. At each phase gate `verify-app` runs with the project's deterministic test battery. After the last phase, one `/code-review high --fix` reads the whole branch diff, then functional verification runs (on by default; `--no-verify` opts out).
-
-#### DevOps Agents
-
-| Agent | File | Invoked By | Purpose |
-|-------|------|-----------|---------|
-| `devops-engineer` | `devops-engineer.md` | `/implement-trd` (infra tasks) | Cloud infrastructure, IaC |
-| `cicd-specialist` | `cicd-specialist.md` | `/implement-trd` (pipeline tasks) | CI/CD configuration |
+**One banner per run.** A few commands run another as one of their steps: `/audit-build` runs
+`/implement-trd --reconcile --chained` to fix what it found; `/verify-build` does the same for its
+fix rounds; `/plan --implement` runs `/sweep --chained` and `/verify-build --chained`;
+`/sync-design` runs `/design-system --sync --chained`. The inner command prints no banner, and
+the run ends on the outer one.
 
 ---
 
-## Commands
+## 5. Workflows and libraries: code owns the shape
 
-Commands are Markdown files with optional shell scripts that define workflow steps. They are invoked as slash commands in Claude Code (e.g., `/create-prd`). Commands are **prompts with rails** -- they guide Claude through proven patterns while allowing flexibility within each step.
+The heavy commands hand their skeleton to a **workflow** script in `.claude/workflows/`: which
+agents run, in what order, in parallel or in sequence, how many times a loop may go round, and
+when it stops. Agents do the judgement at each step and return a result in a fixed shape that
+code checks.
 
-### Command Categories
+| Workflow | Used by | Does |
+|---|---|---|
+| `create-prd.js`, `create-trd.js` | `/create-prd`, `/create-trd` | Index related documents, author in a fresh agent, ground every TRD task in the code |
+| `audit-prd.js`, `audit-trd.js`, `audit-build.js` | the three audits | Run independent verifiers in parallel, then reconcile their findings |
+| `implement-phase.js` | `/implement-trd`, once per phase | Dispatch the phase's tasks in waves, then gate the phase |
+| `verify-functional.js` | `/implement-trd`, `/verify-build` | The bounded verification loop: setup check, exercise, judge, debug |
+| `sweep.js` | `/sweep` | Triage the list, then one grounded fixer per issue |
+| `audit-docs.js` | `/audit-docs`, once per batch | Score, route and review documents for drift |
+| `create-design.js`, `audit-design.js`, `sync-design.js` | the design commands | Ground and draw boards; check boards; capture and compare the build |
 
-#### Setup & Maintenance
+Decisions that must come out the same every time live in **libraries** in `.claude/lib/`,
+unit-tested. The main ones:
 
-| Command | Purpose |
-|---------|---------|
-| `/init-project` | Initialize a project with Ensemble runtime (plugin-level, one-time) |
-| `/rebase-project` | Upgrade vendored runtime to newer plugin version (plugin-level) |
-| `/update-project` | Manual learning capture with constitution/stack updates |
-| `/cleanup-project` | Review and prune CLAUDE.md and project artifacts |
-| `/fold-prompt` | Optimize CLAUDE.md with session learnings |
-
-#### Product Workflow
-
-| Command | Input | Output |
-|---------|-------|--------|
-| `/create-prd` | Story description or issue reference | `docs/PRD/<feature>.md` |
-| `/audit-prd` | Existing PRD | Verifies the PRD against its source, the design corpus and the code; rewrites its Could Not Verify section |
-| `/refine-prd` | Existing PRD + feedback | Updated PRD |
-
-#### Development Workflow
-
-| Command | Input | Output |
-|---------|-------|--------|
-| `/create-trd` | Approved PRD | `docs/TRD/<feature>.md` |
-| `/audit-trd` | Existing TRD | Verifies the TRD against the PRD, the design corpus and the code; rewrites its Could Not Verify section |
-| `/refine-trd` | Existing TRD + feedback | Updated TRD |
-| `/augment-trd-figma` | Existing TRD + Figma file | TRD updated with Figma design context |
-| `/implement-trd` | Approved TRD | Code + tests + `.trd-state/` tracking; a test gate per phase, then one whole-branch `/code-review` and functional verification (on by default) |
-| `/audit-build` | Implemented TRD + PRD | Verification (matches TRD), validation (matches PRD), traceability (implementation AND test per requirement) report |
-
-#### Shorter Paths
-
-Whose plan the work belongs to, not its size, decides which of these three to use.
-
-| Command | Input | Output |
-|---------|-------|--------|
-| `/plan` | Description of a defect, small change, or refactor | Investigates, then writes whatever the work earns: a light TRD for something contained, or a phased and audited TRD when the scope spans several tasks. Implements only with `--implement`. |
-| `/amend` | ONE change to the feature already in flight | Grounded, recorded as a TRD row before the work, then verified against disk. No new TRD. |
-| `/sweep` | A list of small, unrelated fixes that arrived together | Each triaged and fixed in parallel, checked against disk. No TRD. |
-| `/verify-build` | An already-implemented feature | Re-runs the functional-verification loop alone, against the PRD's success definition |
-
-### /implement-trd Options
-
-| Option | Description |
-|--------|-------------|
-| `--resume` / `--continue` | Resume from last checkpoint |
-| `--reconcile` | Re-attest delivered work against the TRD; re-open anything only claimed done |
-| `--no-verify` | Skip functional verification, which otherwise runs by default |
-| `--verify` | Redundant alone; with `--resume`, re-enters an interrupted verification loop |
-| `--include-deferred` | Dispatch deferred-by-design tasks (`[LIVE]` etc.) instead of setting them aside |
-| `--reset-state` | Clear state and start fresh (requires confirmation) |
-
-### The Implementation Workflow
-
-Through 4.1.15 this was a three-pass workflow — `/implement-trd`, then `/harden-trd-team`,
-then `/verify-trd-team`, each a fresh `--dangerously-skip-permissions` session. Both team
-commands were removed in 4.1.16 (ITR-B012); their jobs run inside `/implement-trd`'s own
-loop instead, and `/audit-build` runs afterward:
-
-| Stage | Command | Focus | What Happens |
-|------|---------|-------|-------------|
-| **Build + review + verify** | `/implement-trd` | Per-phase implementation | TDD-based: tests first, code second, meet acceptance criteria; each phase gate runs `verify-app` and the test battery; after the last phase, one `/code-review high --fix` over the branch diff, then functional verification (on by default). |
-| *(Optional)* | — | *CI/Reviewer pipeline* | *Automated quality/coverage/security assessment on top of what `/implement-trd` produced.* |
-| **Audit** | `/audit-build` | Validate against PRD, verify against TRD, check traceability | Confirms the delivered code matches the TRD's tasks and the PRD's requirements, and that every requirement carries both an implementation and a test. True definition of done. |
-| **Human** | — | Debug and finish | Developer steps in for remaining ~5-15% of nuanced work, guided by the audit report. |
-
-For long-running implementations, run `/fold-prompt`, exit, and restart Claude Code
-between phases for fresh context.
-
-See [Concepts: Implementation](./CONCEPTS.md#phase-3-implementation) for the full rationale,
-including why this used to be three separate commands.
-
-### The Staged Execution Loop
-
-```
-per task:   IMPLEMENT --> targeted checks --> [self-debug on fail] --> COMPLETE
-                |                                                     |
-          Delegate to specialist agent                         UPDATE implement.json
-          (frontend/backend/mobile/agent/devops/cicd)
-per phase:  phase gate (verify-app + deterministic battery) --> checkpoint + commit
-once:       /code-review high --fix over the branch diff --> functional verification
-```
+| Library | Decides |
+|---|---|
+| `trd-parser.js`, `task-graph.js` | What tasks a TRD holds and which can run together (tasks touching the same file never do) |
+| `implement-state.js` | Reading and writing `implement.json` |
+| `functional-verification.js` | The verification loop's next step and its outcome (satisfied, unbuilt, stalled, stuck, insufficient-coverage, must-pass-unproven, setup-failure), and the report |
+| `spec-scope.js` | Copying a finished spec's acceptance criteria verbatim and checking nothing was added or dropped; must-pass marks |
+| `audit-rounds.js` | Classifying audit findings (defect, test gap, note, deferred) and whether to fix, re-audit or close |
+| `fix-plan.js` | `/verify-build`'s fix rounds and `/plan`'s sweep chain |
+| `trd-grounding.js` | Writing a TRD's Task Grounding section from each grounding agent's file |
+| `artifacts.js` | The `artifacts.json` manifest: one path and link per document kind |
+| `pull-request.js` | Pushing the branch and opening or updating the PR (never merging) |
+| `design-map.js`, `design-mirror.js`, `design-render.js`, `design-bundle.js` | Board statuses and approval, canvas sync, rendering boards to PNG, bundling the design system |
 
 ---
 
-## Hooks
+## 6. Agents
 
-Hooks are executable scripts that fire automatically in response to Claude Code lifecycle events. They are the enforcement layer -- where guardrails become automatic rather than aspirational.
+Agents are Markdown prompts with YAML frontmatter, no code. Each runs as a subagent: a fresh
+context given one task. Every agent declares its model and effort. The full table of who
+dispatches each agent, and where, is [reference/agents.md](../reference/agents.md).
 
-### Hook Events and Handlers
+| Agent | Used for |
+|---|---|
+| `product-manager` | Writing PRDs; deriving the success definition verification checks against; answering open questions under `--auto` |
+| `technical-architect` | Writing TRDs; judging audit findings; triaging `/sweep` lists |
+| `frontend-implementer`, `backend-implementer`, `mobile-implementer`, `agent-implementer` | Building tasks. `agent-implementer` is for work where the deliverable is the AI behaviour itself (prompts, retrieval, agent loops, evals) |
+| `devops-engineer`, `cicd-specialist` | Infrastructure tasks; CI/CD pipeline tasks |
+| `verify-app` | The phase gate; the Exercise stage of verification |
+| `app-debugger` | The Debug stage of verification: fixes not-met criteria in place, reports missing features as unbuilt |
+| `code-reviewer` | `/plan`'s adversarial review pass. `/implement-trd`'s end-of-run review uses the built-in `/code-review` instead |
+| `spec-planner`, `code-simplifier` | Available on request; no command dispatches them (task ordering is computed by `task-graph.js`) |
 
-| Event | When It Fires | Handler(s) | What It Does |
-|-------|--------------|------------|-------------|
-| **SessionStart** | When a session begins | `session-context.js` → `runtime-refresh.sh` | `session-context.js` captures session identity (session ID, cwd) and exports it via `CLAUDE_ENV_FILE` for downstream Bash tooling and notifications; `runtime-refresh.sh` then refreshes vendored `.claude/` components already present from a newer installed plugin (see [Keeping the Runtime Current](#keeping-the-runtime-current-refresh-vs-rebase) above). |
-| **UserPromptSubmit** | Every user message | `router.py` | Analyzes the prompt and recommends appropriate agents and skills. Appends routing context to the prompt. |
-| **PostToolUse** | After Edit/Write/MultiEdit | `formatter.sh` | Auto-formats the changed file using the project's formatter (Prettier, Black, etc.). |
-| **SubagentStop** | When a sub-agent completes | `status.js` | Advances cycle position in `implement.json`. Tracks which stage (implement, checks, debug) just completed. |
-| **Stop** | When a session (or workflow turn) ends | model-judged prompt hook → `notify.sh` | The prompt hook evaluates the turn's final message for two things at once — an unbacked async claim (async-discipline) and a hedged mid-loop pause (autonomy-discipline) — and blocks with a corrective reason if either fires; `notify.sh` then runs last and executes `NOTIFY_ON_STOP` on every Stop, unconditionally. |
-| **PreCompact** | Before context compaction | `precompact.js` | Handles pre-compaction bookkeeping so important state survives lossy summarization. |
-| *(model-invoked)* | Commands call it directly on their COMMAND COMPLETE turn | `notify-complete.sh` | Not tied to a lifecycle event — a workflow command invokes it explicitly to fire `NOTIFY_ON_COMPLETE` exactly once. See [command-status.md Path B](../../.claude/rules/command-status.md). |
-
-### Hook Architecture Details
-
-**Router (`router.py`):**
-- Written in Python for pattern matching flexibility
-- Scans the prompt for technology keywords
-- Maps keywords to agents and skills
-- Returns routing suggestions as context appended to the prompt
-- Does not block -- only advises
-
-**Discipline guard (`discipline-stop`):**
-- First hook in the Stop chain — a defensive guard, not advisory, and not a `.js` file: it is `hookType: "prompt"`, evaluated directly by the platform's own model judge rather than by code of ours. The manifest entry is `discipline-stop.js` (prompt source `packages/core/hooks/prompts/discipline-stop.source.md`), running on `claude-sonnet-5`; that id is an *identifier* nothing resolves to disk.
-- One prompt hook carries two independent judgments over the same final message:
-  - **async-discipline** — scans for fire-and-forget claims ("I'll let you know", "running in the background") that have no backing async machinery (`Agent({run_in_background})`, `ScheduleWakeup`, `Monitor`, `/goal`). See `.claude/rules/async-discipline.md`.
-  - **autonomy-discipline** — detects hedged-pause offers ("I'll continue unless...", "Want me to keep going, or pause?") in workflow-command context. `/refine-prd` and `/refine-trd` are exempt in interactive mode. See `.claude/rules/autonomy.md`.
-- Blocks the Stop with a corrective reason so the agent either dispatches properly, completes the work synchronously, or drops the hedge and proceeds
-- There is no third Stop-chain hook doing session-end processing — there is no `SessionEnd` hook anywhere in the framework (the earlier session-end hook and `wiggum.js` were both retired; see the constitution's Architecture Invariants)
-
-**Status (`status.js`):**
-- Active hook (not passive) -- advances cycle position
-- Fires on SubagentStop to track implementation progress
-- Updates `.trd-state/<feature>/implement.json` atomically
-- Uses temp file + rename pattern for safe concurrent writes
-
-**Notify (`notify.sh`):**
-- Last hook in the Stop chain — executes `NOTIFY_ON_STOP` as a shell command on *every* Stop
-- Enables per-Stop orchestration patterns (tmux notifications, webhooks, file signals)
-- Always exits 0 (non-blocking) with 30-second command timeout
-- Exports session context as `NOTIFY_SESSION_ID`, `NOTIFY_CWD`, `NOTIFY_TRANSCRIPT_PATH`
-
-**Notify-complete (`notify-complete.sh`):**
-- Not a lifecycle hook — a helper a workflow command invokes on its final turn, right after emitting the `═══ COMMAND COMPLETE ═══` banner
-- Fires the user's `NOTIFY_ON_COMPLETE` command *exactly once*, at true command completion (never during dispatch or intermediate Stops)
-- Discovers and exports rich identity (`NOTIFY_PROJECT`, `NOTIFY_BRANCH`, `NOTIFY_FEATURE`, `NOTIFY_SESSION_ID`, tmux context) for routing in the receiver
-- See `.claude/rules/command-status.md` (Path B) for the full contract
-
-**Session-context (`session-context.js`):**
-- SessionStart hook — captures the Claude Code session ID and working directory
-- Appends `export` lines to `CLAUDE_ENV_FILE` so later Bash tool calls and notification helpers can read the session identity
-
-**Runtime-refresh (`runtime-refresh.sh`):**
-- Second SessionStart hook, after `session-context.js`
-- Refreshes vendored `.claude/` components already present in the project from a newer installed plugin (present-only, monotonic version gate); always exits 0
-- Full design, the four guards, and the refresh-vs-rebase distinction are covered in [Keeping the Runtime Current: Refresh vs Rebase](#keeping-the-runtime-current-refresh-vs-rebase) above — not repeated here
-
-**Precompact (`precompact.js`):**
-- PreCompact hook — runs before Claude Code compacts context
-- Preserves state that would otherwise be lost to lossy summarization
+Agents may dispatch agents, with one exception: an agent never spawns its own type for the same
+task. An implementer that meets work outside its task reports it rather than delegating it.
 
 ---
 
-## Skills
+## 7. Hooks
 
-Skills are domain knowledge packs -- Markdown files that provide Claude with specialized expertise for specific technologies. They are **prompts only**, loaded on demand by the router hook or by explicit user invocation.
+Hooks run automatically at fixed moments. All but one are scripts that cannot block anything;
+the one model-judged hook can send a turn back once. Every detail (what each reads, writes and
+puts into the model's context) is in [reference/hooks.md](../reference/hooks.md).
 
-### Skill Structure
+| Event | Hook | What it does |
+|---|---|---|
+| SessionStart | `session-context.js` | Exports the session id for later tools; prints a brief on the feature in flight |
+| SessionStart | `runtime-refresh.sh` | Refreshes framework files from a newer plugin (section 2) |
+| UserPromptSubmit | `router.py` | Marks a slash command as running (which the Stop check reads); on ordinary prompts, adds a short orientation hint |
+| PostToolUse (Edit, Write) | `formatter.sh` | Formats the edited file, with Prettier only when the project declares a Prettier config |
+| SubagentStart, SubagentStop | `dispatch-ledger.js` | Records every subagent start and stop in `.trd-state/<feature>/dispatch.jsonl` |
+| SubagentStop | `status.js` | Advances task progress in `implement.json` |
+| PreCompact | `precompact.js` | Saves the decision trail to a session log before the conversation is summarized |
+| Stop | `discipline-stop` (model-judged) | Checks the turn's last message for a promise nothing will keep ("I'll let you know when it's done" with nothing running) and, while a command is running, for a needless "shall I continue?" pause. Sends the turn back once |
+| Stop | `notify.sh` | Runs your `NOTIFY_ON_STOP` command on every turn end ([stop-hook-notification.md](stop-hook-notification.md)) |
+| (called by commands) | `notify-complete.sh` | Runs your `NOTIFY_ON_COMPLETE` command once, when a command finishes or gets stuck |
 
-Each skill lives in `.claude/skills/<skill-name>/` and contains:
-
-| File | Purpose |
-|------|---------|
-| `SKILL.md` | Primary skill content -- patterns, best practices, examples |
-| `REFERENCE.md` | (Optional) API reference, configuration details |
-| `README.md` | (Optional) Skill documentation |
-
-### Built-in Skills
-
-Skills are compiled from the plugin library based on your project's `stack.md` definition during `/init-project`.
-
-#### Languages & Frameworks
-
-| Skill | Description |
-|-------|-------------|
-| `developing-with-python` | Python 3.11+ with type hints, async patterns, FastAPI |
-| `developing-with-typescript` | TypeScript 5.x with type system, generics, strict mode |
-| `developing-with-react` | React 18+ with hooks, state management, component patterns |
-| `developing-with-flutter` | Flutter SDK for cross-platform iOS, Android, Web |
-| `developing-with-php` | Modern PHP 8.x with type system, attributes, enums |
-| `developing-with-laravel` | Laravel patterns: Eloquent, migrations, routing, queues |
-| `developing-with-dotnet` | .NET 9 with Clean Architecture, MediatR, EF Core |
-| `styling-with-tailwind` | Tailwind CSS 3.x utility-first patterns |
-| `nestjs` | NestJS backend with dependency injection |
-
-#### Testing
-
-| Skill | Description |
-|-------|-------------|
-| `jest` | Jest tests for JavaScript/TypeScript projects |
-| `pytest` | pytest tests for Python with fixtures and parametrization |
-| `rspec` | RSpec tests for Ruby with let bindings and mocking |
-| `xunit` | xUnit tests for C#/.NET with FluentAssertions |
-| `exunit` | ExUnit tests for Elixir with setup callbacks |
-| `writing-playwright-tests` | Playwright E2E test patterns and selectors |
-| `test-detector` | Auto-detect test frameworks from project configuration |
-
-#### Platforms & Infrastructure
-
-| Skill | Description |
-|-------|-------------|
-| `managing-vercel` | Vercel CLI for deployments and domains |
-| `managing-railway` | Railway CLI for service deployment |
-| `managing-supabase` | Supabase CLI for database and Edge Functions |
-| `managing-azure-devops` | Azure DevOps YAML pipelines |
-| `using-terraform-azure` | Terraform with azurerm provider |
-| `using-prisma` | Prisma ORM with schema-first design |
-| `using-celery` | Celery distributed task queue |
-
-#### AI Platforms
-
-| Skill | Description |
-|-------|-------------|
-| `using-anthropic-platform` | Claude SDK: Messages API, Tool Use, Extended Thinking |
-| `using-openai-platform` | OpenAI SDK: GPT-5, Responses API, tool calling |
-| `using-perplexity-platform` | Perplexity Sonar API with search-augmented generation |
-| `building-langgraph-agents` | LangGraph for stateful multi-agent applications |
-
-#### Issue Tracking
-
-| Skill | Description |
-|-------|-------------|
-| `managing-jira-issues` | Jira CLI for issue CRUD, search, hierarchy |
-| `managing-linear-issues` | Linear CLI with JSON output and smart ID resolution |
-
-#### Other
-
-| Skill | Description |
-|-------|-------------|
-| `using-weaviate` | Weaviate vector database for semantic search |
-| `using-clerk` | Clerk authentication with C# SDK and React |
-| `using-azure-functions` | Azure Functions isolated worker model |
-| `building-integrations` | Third-party API integration patterns |
-| `frontend-design` | Production-grade frontend interfaces |
-| `git-town` | Git-town workflow commands |
-| `playwright-automation` | Browser automation for RPA and scraping |
-
-### Custom Skills
-
-You can add project-specific skills by creating new directories under `.claude/skills/`:
-
-```
-.claude/skills/my-custom-skill/
-  SKILL.md            # Skill content
-  REFERENCE.md        # Optional reference material
-```
-
-The router hook will discover custom skills automatically.
+A block from the Stop check appears in the CLI as `Stop hook error: …`. That is a Claude Code
+display quirk, not a fault in your setup.
 
 ---
 
-## Governance Files
+## 8. Rule files
 
-Governance files define the rules that constrain and guide the AI's behavior. They form a three-tier system with different change frequencies:
+`.claude/rules/` holds two kinds of file. The framework rules load into every session and every
+agent; the owner files are yours.
 
-### Constitution (`.claude/rules/constitution.md`)
+| File | Owner | Says |
+|---|---|---|
+| `constitution.md` | You | Project absolutes: quality gates, what needs your approval, prohibited patterns, verification level |
+| `stack.md` | You | Languages, frameworks, test tools, hosting. Drives skill selection |
+| `process.md` | You | The workflow as this project uses it |
+| `verification.md` | You, only via `/verification-setup` | How verification reaches a running instance; resource counts; refresh commands; where credentials live; what cannot be verified; the coverage floor; never-unattended paths |
+| `design.md` | You, only via `/design-setup` | The design system, each platform, how to reach a screen, design rules |
+| `async-discipline.md` | Framework | Never claim background work without something real that will report back |
+| `autonomy.md` | Framework | A command runs from your invocation to its banner without asking you to confirm what it can decide, and authorizes only itself |
+| `command-status.md` | Framework | The banners, the four-part readout, artifact links, completion notifications |
 
-**Change frequency:** Rare -- requires explicit user confirmation.
-
-The constitution defines project absolutes:
-- Core principles (commands orchestrate, agents execute; skills are prompts only)
-- Architecture invariants (vendored runtime, two-layer architecture)
-- Quality gates (test coverage thresholds, security requirements)
-- Approval requirements (what needs human sign-off)
-- Prohibited patterns (no executable code in skills, no blocking hooks)
-- Verification level (unit-only, live-required, e2e-required)
-
-### Stack Definition (`.claude/rules/stack.md`)
-
-**Change frequency:** Occasional -- requires explicit user confirmation.
-
-Defines the project's technology stack:
-- Languages and versions
-- Frameworks and libraries
-- Testing tools and configuration
-- Infrastructure and CI/CD platforms
-- MCP server integrations
-
-The stack definition drives skill selection during `/init-project` and router behavior during development.
-
-### Discipline Rules (`.claude/rules/`)
-
-**Change frequency:** Rare — these encode framework invariants.
-
-Three additional rule files govern how commands and agents behave during autonomous execution. They are documented contracts, partly enforced by the Stop-hook chain:
-
-| Rule | Enforces | Backing hook |
-|------|----------|--------------|
-| `async-discipline.md` | Never claim async work ("I'll report back") without real async machinery in flight | model-judged Stop hook (identifier `async-discipline.js`; no such file exists) |
-| `autonomy.md` | Workflow commands run autonomously from one invocation to one result; no mid-loop "should I proceed?" prompts (four narrow exceptions) | model-judged Stop hook (identifier `autonomy-discipline.js`; no such file exists) |
-| `command-status.md` | Every workflow command emits `DISPATCHED` / `RESUMED` / `═══ COMMAND COMPLETE ═══` status banners | (documented contract) |
-
-### Process Documentation (`.claude/rules/process.md`)
-
-**Change frequency:** Occasional.
-
-Documents the expected workflow:
-- Command reference and usage
-- Artifact flow
-- Branch naming conventions
-- State management patterns
-- Quality gate checklists
-
-### CLAUDE.md
-
-**Change frequency:** Frequent -- updated automatically by `/fold-prompt`.
-
-The project's operating manual for AI sessions:
-- Architecture decisions and conventions
-- File structure reference
-- Testing patterns and commands
-- Key debugging notes and gotchas
-- Agent delegation preferences
+`/update-project` may propose a change to `constitution.md` or `stack.md`; it is applied only
+with your approval. No upgrade and no unattended run changes an owner file.
 
 ---
 
-## Settings (`.claude/settings.json`)
+## 9. Skills
 
-The settings file configures Claude Code's behavior for the project:
+Skills are Markdown knowledge packs loaded when a task calls for them. They are prompts, not
+code.
 
-```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(git:*)",
-      "Bash(npm:*)",
-      "Bash(pytest:*)"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [...],
-    "UserPromptSubmit": [...],
-    "PostToolUse": [...],
-    "SubagentStop": [...],
-    "Stop": [...],
-    "PreCompact": [...]
-  },
-  "ensemble": {
-    "agents_dir": ".claude/agents",
-    "skills_dir": ".claude/skills",
-    "rules_dir": ".claude/rules",
-    "state_dir": ".trd-state",
-    "docs_dir": "docs",
-    "prd_dir": "docs/PRD",
-    "trd_dir": "docs/TRD"
-  }
-}
-```
+- **Stack skills** are chosen by `/init-project` from the plugin's library to match
+  `stack.md` (languages, test runners, platforms, AI SDKs, issue trackers), and recomputed by
+  `/rebase-project`. The library is `packages/skills/` in the plugin repository.
+- **Framework skills** ship to every project, listed once in the plugin's
+  `packages/skills/framework-skills.txt`:
 
-The `permissions.allow` list auto-approves safe operations (git, test runners, formatters). The `hooks` section wires lifecycle events to their handlers. The `ensemble` section configures directory paths.
+| Skill | Role |
+|---|---|
+| `verify-design-comparison`, `verify-flow-as-built`, `verify-data-fidelity`, `verify-design-structure` | Verification checks a TRD can select under `## Verification Artifacts` |
+| `verification-setup`, `design-setup` | Owner interviews that write `verification.md` and `design.md` |
+| `designing-on-canvas`, `design-grounding` | Read by the design commands: canvas conventions, and grounding a design in the code |
 
-**Local overrides:** Create `.claude/settings.local.json` (gitignored) for machine-specific settings like MCP server enablement:
-
-```json
-{
-  "enableAllProjectMcpServers": true
-}
-```
+You can add your own skills under `.claude/skills/<name>/SKILL.md`; a rebase keeps them.
 
 ---
 
-## How Components Interact
+## 10. Settings
 
-### A Typical Feature Flow
+`.claude/settings.json` holds the hook registrations, two environment values the Stop check
+relies on (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP=1` bounds it to one corrective turn), and the
+`ensemble` block:
 
-1. **User types** `/create-prd Add user authentication`
-2. **Command** `create-prd.md` is loaded as the prompt
-3. **Router hook** fires on UserPromptSubmit, detects no special routing needed
-4. **Command** delegates to `product-manager` agent with the requirements
-5. **Agent** generates the PRD, writes to `docs/PRD/user-auth.md`
-6. **State** updated in `.trd-state/current.json`
+| Key | Default | Meaning |
+|---|---|---|
+| `version` | the plugin version at init | The runtime version (section 2) |
+| `publishArtifacts` | `true` | Publish documents as private claude.ai pages |
+| `openPullRequest` | `never` | `auto` lets a passing `/audit-build` or `/close-feature` open the PR |
+| `docsAudit.thresholds.high`, `.medium` | 70, 40 (not written to the file; add the key to override) | `/audit-docs` drift scores that earn a thorough or a light review |
+| `agents_dir`, `skills_dir`, `rules_dir`, `state_dir`, `docs_dir`, `prd_dir`, `trd_dir` | `.claude/…`, `.trd-state`, `docs`, … | Where things live |
 
-7. **User reviews PRD**, runs `/create-trd`
-8. **Command** reads current PRD from state, delegates to `technical-architect`
-9. **Agent** generates TRD with task breakdown
-
-10. **User reviews TRD**, runs `/implement-trd`
-11. **Command** parses TRD for tasks, creates execution plan
-12. For each task:
-    - **Router** selects the appropriate implementer agent
-    - **Implementer** writes code
-    - **Formatter hook** fires on every file write
-    - **Status hook** updates implement.json on agent completion
-    - **Verify agent** runs tests
-    - **Simplifier agent** refactors if tests pass
-    - **Reviewer agent** does security/quality check
-
-13. **User runs** `/fold-prompt`
-14. **Command** analyzes session, updates CLAUDE.md
-
-### Data Flow
-
-```
-User Prompt
-    |
-    v
-[Router Hook] --> routing context appended
-    |
-    v
-[Command Prompt] --> structured workflow
-    |
-    v
-[Agent Delegation] --> fresh sub-agent context
-    |
-    v
-[Code Changes] --> [Formatter Hook] --> formatted files
-    |
-    v
-[Agent Completes] --> [Status Hook] --> implement.json updated
-    |
-    v
-```
+A refresh or rebase adds missing keys and never overwrites a value you set. Machine-specific
+settings go in `.claude/settings.local.json`, which is git-ignored.

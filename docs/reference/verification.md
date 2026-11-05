@@ -27,13 +27,28 @@ agent instructions are `packages/core/contracts/functional-verification.md` ("th
 | Entry point | When | What it adds | Source |
 |---|---|---|---|
 | `/implement-trd` Step 8 | Every build, unless `--no-verify` | Derive runs in the background at the start; the loop runs once, after the end-of-run review | `implement-trd.md` §3.6, Step 8 |
-| `/verify-build [--resume]` | Built with `--no-verify`, loop was interrupted (`--resume` continues it when its state file says `outcome: null`), or you changed something by hand | Derives the definition in the foreground if it is missing | `verify-build.md` Steps 1–5, "--resume" |
-| `/verify-build` | After a run ended short and you agreed a plan (the default now, once a plan exists) | Rounds of build-then-verify, unattended | `verify-build.md` "--fix" |
-| `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` / `must-pass-unproven` (not `setup-failure`: fix the environment instead) | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
+| `/verify-build [--resume]` | Built with `--no-verify`, loop was interrupted (`--resume` continues it when its state file says `outcome: null`), or you changed something by hand | Derives the definition in the foreground if it is missing | `verify-build.md` Steps 1–5, "`--resume`" |
+| `/verify-build` with a fresh plan | After a run ended short and `/refine-verification` wrote a plan | Rounds of build-then-verify, unattended (the default whenever an unspent plan exists) | `verify-build.md` "The fix loop" |
+| `/verify-build docs/plan/<slug>.sweep.md [--chained]` | `/plan` split a finished spec into a sweep list and a core TRD; the sweep's fixes are checked before the core is built | Verifies the sweep file's criteria verbatim: no derive step, one iteration, no fix loop. `--chained` is used only by `/plan --implement` | `verify-build.md` Step 1, 3a "A sweep file", "`--chained`" |
+| `/refine-verification [--auto]` | After a run ended `stalled` / `stuck` / `unbuilt` / `insufficient-coverage` / `must-pass-unproven`. After `setup-failure` the readouts route you to fixing the environment, then `/verify-build`; `/refine-verification` still reads that report correctly if you run it | Agrees the recovery plan the next `/verify-build` round runs — interactively, or `--auto` for an unattended answer | `refine-verification.md` |
 | `verification-setup` skill | New project, or a readout names a missing section | Interviews you and writes `.claude/rules/verification.md` | `packages/skills/verification-setup/SKILL.md` |
 
-Both commands dispatch the **same** workflow with the same 25 arguments
+Both commands dispatch the **same** workflow with the same 26 arguments
 (`implement-trd.md` §8.3, `verify-build.md` §4).
+
+### `/verify-build` flags
+
+| Flag | Effect |
+|---|---|
+| *(none)* | TRD from the argument or `current.json`'s `trd`. With an unspent `verification-plan.md` (written after the last report), runs the fix loop (§12); with none, one verify pass |
+| `--no-fix` | Report-only: one verify pass even with a plan on disk |
+| `--fix <plan-path>` | Names a different plan, used whatever its timestamp (DECISIONS says an older plan was applied on request). `--fix` never disables anything |
+| `--resume` | Continues an interrupted loop (state `outcome: null`); builds nothing and ignores any plan. `--resume` together with an explicit `--fix` is refused before step 1 |
+| `--cap N` | Inner iteration cap, default 3; a total budget across every resume of one run |
+| `--chained` | Callers only, honoured only for a sweep file: ends with `[STATUS: /verify-build] RETURN → <outcome>, <met> of <total> met` instead of a readout and banner, and runs no `notify-complete.sh`. On any other input it is stripped and ignored |
+
+A plan is **used once**: it counts only while its `**Written**` time is later than the last
+`verification-report.md`, so a plain `/verify-build` after a fix run reads it as spent.
 
 ## 2. Files
 
@@ -42,8 +57,11 @@ Both commands dispatch the **same** workflow with the same 25 arguments
 | `.claude/rules/verification.md` | you, via `verification-setup` | preflight §3.6a, lanes §8.1a, every loop agent (inside `stackHints`), `/plan`'s Step 7 (via `check-never-unattended`) | Environments and permissions (§1), how many of each resource may exist (§1a), refresh/deploy commands (§2), where credentials live (§3), tooling (§4), known gaps (§5), coverage floor (§5a), never-unattended paths (§5b) |
 | `.trd-state/<f>/success-definition.md` | `product-manager` (derived rows); the command (check rows) | the command at §8.1, which parses it into `criteria` | The criteria table |
 | `.trd-state/<f>/evidence/` | exercisers | the checker, the Judge | Screenshots, transcripts, row tables |
-| `.trd-state/<f>/verification-state.json` | the Judge, every iteration | `--resume`, `--fix`, `recommend-coverage-floor` | Per-criterion verdicts, `outcome` |
-| `.trd-state/<f>/verification-report.md` | the Judge on exit (via `render-report`); `--fix` appends `## Fix run` | you | The report |
+| `.trd-state/<f>/evidence/live-manifest.jsonl` | `[LIVE]` tasks, via `live-evidence.js record`; a satisfied sweep run, for the core feature | `live-evidence.js read` (into the `liveEvidence` argument); `check-evidence --state-dir` | One row per captured artifact: task, artifact, what it shows, environment, and the sha256 of every source file it exercises (`covers`) |
+| `.trd-state/<f>/setup-decide-<n>[-refresh].json` | the setup agent | `decide-setup` | Facts gathered about each environment before Exercise in iteration n |
+| `.trd-state/<slug>-sweep/` | `/verify-build` on a sweep file | `/plan`'s sweep chain | The same state, report and evidence files, kept apart from the core feature's; plus `sweep-result.json` (criterion → files its fix changed), written by `/sweep` |
+| `.trd-state/<f>/verification-state.json` | the Judge, every iteration | `--resume`, the fix loop, `recommend-coverage-floor` | Per-criterion verdicts, `outcome` |
+| `.trd-state/<f>/verification-report.md` | the Judge on exit (via `render-report`); the fix loop appends `## Fix run` | you | The report |
 | `.trd-state/<f>/judge-{claims,decide,report-input,state}-<n>.json` | the Judge | the checker CLI; `implement-state.save()` for the state payload | Payload files, one set per iteration n (keeps free text off the shell command line) |
 | `.trd-state/<f>/verification-artifacts/<skill>/` | Judge (`verdicts.json`), Render agent (`index.html`, `img/`) | you, as a published page | One page per selected check |
 | `.claude/verification-notes.md` | exercisers | every Exercise and Debug prompt | What past runs learned about running this project; each line marked `[ran]` / `[read]` / `[inferred]` |
@@ -55,8 +73,9 @@ Both commands dispatch the **same** workflow with the same 25 arguments
 ## 3. Before the loop: the environment preflight
 
 `implement-trd.md` §3.6a (reused by `verify-build.md` Step 2). It runs **before** the phase
-loop, so a dead environment is found before hours of building, not four criteria into
-iteration 1.
+loop and classifies **policy only**: may each declared environment be exercised, and does it
+have what it needs. Whether anything is actually up is the loop's setup check (§7a), run
+before every attempt. The preflight never asks a question and never stops the run.
 
 | # | Step | Kind | Where |
 |---|---|---|---|
@@ -64,11 +83,13 @@ iteration 1.
 | 2 | Report the file's shape: never filled / unfilled older template / filled but older shape missing *these* sections / fine. Each names `/verification-setup` | code + model | §3.6a report list |
 | 3 | For each environment in §1, classify from the policy the file states: **usable**, **unusable** (marked `must not be touched`, tooling absent, or listed in §5), or **needs-owner** (something only you can supply, such as an expired credential or a deploy approval). Nothing is probed: whether a stack is running is the loop's setup check, not this step | model | §3.6a |
 | 4 | Record each `needs-owner` environment with its need and its default (its criteria resolve `not verifiable`). No question is asked and nothing stops; ISSUES names it | model | §3.6a |
-| 5 | Save the result to `implement.json` → `functional_verification.environments` | code | `implement-state.save()` |
+| 5 | Read the TRD's optional `## Verification Environment` section — three bold lines, `**Environment**:`, `**Refresh**:`, `**Cannot be checked there**:`. An environment `verification.md` declares becomes the run's `target` (`source: "trd"`); one it does not declare is unauthorized, so the target is null and ISSUES says so. A `Refresh` line that differs from `verification.md` §2 loses to §2 (a DECISIONS line). `Cannot be checked there` items are read like §5 entries. No section is valid: the target is null and DECISIONS says the environment was chosen without a plan-time record | model | §3.6a |
+| 6 | Save `target` and `environments` to `implement.json` → `functional_verification` | code | `implement-state.save()` |
 
-Under `/verify-build --fix` the need is also recorded as a discovery against
-`verification.md` for you to handle later (`verify-build.md` Step 2). Under `/implement-trd --chained` the preflight is skipped entirely
-(`implement-trd.md` §3.7).
+In the fix loop and under `/verify-build --chained` the need is also recorded as a discovery
+against `verification.md` (`kind: 'gap'`, `blocksFeature: false`), which you answer at the next
+`/refine-verification`, never mid-run (`verify-build.md` Step 2). Under
+`/implement-trd --chained` the preflight is skipped entirely (`implement-trd.md` §3.7).
 
 ## 4. The success definition: what gets checked
 
@@ -117,8 +138,9 @@ a real outcome**: the file says why, and the loop runs one Judge call and exits 
 
 ## 5. Which check skills join: the TRD's `## Verification Artifacts`
 
-The three `check`-role skills in `packages/skills/framework-skills.txt` add rows of their own
-(the two `support` rows are never selectable). Every TRD's `## Verification Artifacts` section
+The four `check`-role skills in `packages/skills/framework-skills.txt` add rows of their own
+(the four `support` rows — `verification-setup`, `design-setup`, `designing-on-canvas`,
+`design-grounding` — are shipped but never selectable). Every TRD's `## Verification Artifacts` section
 lists selected skills with their inputs, plus `Omitted: <skill> — <reason>` lines or one
 `None apply — <reason>` line (`create-trd.md` "Section 9a").
 
@@ -131,7 +153,7 @@ flowchart TD
     C -- no --> D{"Its When it applies trigger is met by the PRD's own inputs?"}
     D -- yes --> SEL2["Selected, with a DECISIONS line naming the trigger"]
     D -- no --> OUT2["Not selected"]
-    FIX["--fix only: plan's Extra checks rows naming a check skill"] --> SEL
+    FIX["fix loop only: plan's Extra checks rows naming a check skill"] --> SEL
     SEL --> E{"Inputs resolve? frames dir, journeys, data views"}
     SEL2 --> E
     E -- yes --> ROWS["Build rows per the skill's Criteria section, replace old check rows in success-definition.md"]
@@ -169,7 +191,8 @@ exercisers may use it at once; a **slice** is the share of a lane one exerciser 
 | 3 | An environment in §1 with no §1a row counts as a queue of 1. Silence is never a pool | model, fixed rule |
 | 4 | Criteria that need two singular resources together share one lane. Criteria that need no environment (evidence already on disk) join a **remainder lane**, `resource: null`, concurrency = its own criterion count | model, fixed rule |
 | 5 | `refreshCommand` and `fullRunCommand`: one string each for the whole run, from §2 for the environment in use; if several, the one marked "prefer this" in §1, else the first listed. A `must not be touched` environment contributes neither | model |
-| 6 | Coverage floor: `read-coverage-floor` parses `Coverage floor: 60%` → `0.6`, `none` → `null`. An unparseable line → `null` plus an ISSUES line | code: `readCoverageFloor()` |
+| 6 | Coverage floor: `read-coverage-floor` parses `Coverage floor: 60%` → `0.6`, `none` → `null`. An unparseable line → `null` plus an ISSUES line, never STUCK | code: `readCoverageFloor()` |
+| 7 | `setupTargets`: one entry per environment at least one exercisable criterion landed on — `{environment, url, ports, identity, refreshable, criteria}`, read from `verification.md` §1/§2, then `.claude/verification-notes.md`, then the TRD's `## Verification Environment`. `identity` is the command you stated that prints the commit the running build was made from, copied verbatim, never inferred; `""` when none. At most one entry is `refreshable` (the one `refreshCommand` came from). No exercisable criteria → `[]`, and no setup check runs. DECISIONS states what was read for each target | model |
 
 With no usable lane at all, the workflow defaults to one lane of concurrency 1.
 
@@ -241,6 +264,7 @@ sequenceDiagram
 
 | # | Stage | Agent type | Kind | What it does | Where |
 |---|---|---|---|---|---|
+| 0 | Setup | untyped agent, Sonnet; at most two per iteration | code decides, model gathers | Before Exercise, for the setup targets that still hold an open criterion: gathers facts and runs `decide-setup`. May end the run as `setup-failure` (§7a). Skipped when `setupTargets` is empty or Exercise is skipped | `runSetupCheck()`; `decideSetup()` |
 | 1 | Exercise | `verify-app`, 1..k in parallel | model | Brings the system up **once** per slice, walks every criterion in it, writes one artifact each, returns a claim: artifact path + a **locator** (a literal string it saw inside the artifact), or `artifact: null` + a reason. **Capture only**: no edits, rebuilds or restarts. Updates `verification-notes.md` with marked lines | `buildExercisePrompt()`; contract "The exercise discipline" |
 | 2 | Reconcile | — | code | One claim per open criterion: a missing claim becomes `artifact: null`, "returned no claim"; claims for unknown ids are dropped; `judgeOnly` is stamped from the definition, never from the agent | `reconcileClaims()` |
 | 3 | Judge: tier 1 | untyped agent running the CLI | code | `check-evidence` before any content is read | `checkEvidence()` (§8 below) |
@@ -250,6 +274,30 @@ sequenceDiagram
 | 7 | Judge: exit only | untyped agent | code + model | Runs `fullRunCommand` once (not on `exit-unbuilt`), then `render-report` | STEP 5 |
 | 8 | Debug | `app-debugger`, one | model | Fixes each `not_met` gap in place, then runs `refreshCommand` once so the next Exercise measures the new code. Does not re-verify its own fix. Reports an absent capability as `unbuilt` instead of building it; the next iteration then **skips Exercise** and the Judge carries those ids into `unbuilt`, which exits the loop (**code**: `skipExercise`, `forcedUnbuilt`) | `buildDebugPrompt()`; contract "The debugger's brief" |
 | 9 | Render | untyped agent, one per selected check | model | Rebuilds that check's page from the recorded verdicts, never re-judging. Runs beside Debug, and before return on exit; not at all when no check is selected | `buildRenderPrompt()`, `dispatchRender()` |
+
+### 7a. The setup check: is the environment fit to measure?
+
+Added in 4.14.0. A broken environment used to show up as failed criteria, which the debugger
+then tried to fix in code. Now it is checked first, and a broken one ends the run with an
+outcome that blames the environment, not the code.
+
+| # | Step | Kind | Where |
+|---|---|---|---|
+| 1 | A **setup** agent gathers facts per target, running nothing that changes state: `git rev-parse HEAD` and the checkout's top level; **reach** (probe the url, e.g. `curl`; `null` when there is no url); **identity** (run the declared identity command, if any); **listeners** (`lsof` on each declared port, and the git top level of each listening process). It writes them to `setup-decide-<n>.json` and runs `decide-setup` | model gathers | `buildSetupPrompt()` stage `setup` |
+| 2 | `decideSetup()` classifies each environment. **Problems**: not reachable; the running build's commit (a 7–40 character hex token in the identity output, including the SHA inside `git describe` output) differs from HEAD; a declared port held by a process in **another git checkout**; the last Debug pass's refresh exited non-zero. **Flags** (unknowns, never failures; default "treated as fine for this attempt"): no way to test reach, no identity command declared or it gave no usable output, `lsof` unavailable, a listener outside any checkout, Debug changed code with no fast refresh declared | code | `functional-verification.js` `decideSetup()` |
+| 3 | Action: no problems → **proceed**. Problems that a refresh could repair — none caused by another checkout, every one on the `refreshable` target, a refresh command declared, none run yet — → **refresh**. Anything else → **setup-failure** | code | `decideSetup()` |
+| 4 | On **refresh**, the workflow itself dispatches one `setup-refresh` agent that runs `refreshCommand` **exactly once** and re-gathers. Refresh-once is enforced in code: the first agent reporting any refresh run, the second reporting zero or more than one, or asking for a second refresh, all end the run as `setup-failure` | code | `runSetupCheck()` |
+| 5 | On **setup-failure**, nothing is exercised or judged. A Record agent writes the state file (`outcome: "setup-failure"`, every open criterion `not exercised: the setup check failed — …`) and the report, which carries one `**Setup**:` line per problem with its fix | code + model | `endOnSetupFailure()`, `buildRecordPrompt()` |
+| 6 | A setup agent that returns nothing does not stop the run: Exercise goes ahead with a flag saying the check did not run | code | `runSetupCheck()` |
+
+The workflow returns a `setup` summary (`checked`, `refreshed`, `flags`, `problems`); the
+commands print each flag in DECISIONS with its default, and each problem in ISSUES with its fix.
+The "another checkout" check covers declared ports only, not other shared resources.
+
+Debug's own refresh is the other route to `setup-failure`: if the last Debug pass reported its
+refresh ran and exited non-zero, and no setup check consumed that fact since, `decideNext` is
+told `refreshFailed: true` and exits `setup-failure` instead of `stalled` (§9) — the gap
+survived because the fix never reached the running build.
 
 **The Judge relays the decision; it does not make it.** The next action comes from the CLI's
 `decide-next`, and the workflow maps it to an outcome through a fixed table
@@ -301,7 +349,7 @@ Four statuses (contract, "The four judge statuses"):
 | `unbuilt` | The capability is absent. Ends the loop | no |
 
 Every non-`met` criterion also gets exactly one **cause**, which says *why*, and whether a
-`--fix` round may turn it into a build task (`CAUSES` in `functional-verification.js`,
+fix-loop round may turn it into a build task (`CAUSES` in `functional-verification.js`,
 duplicated as an enum in the workflow's `JUDGE_CRITERION_SCHEMA`):
 
 | Cause | Assigned when | Buildable |
@@ -329,15 +377,20 @@ next round, never built against.
 |---|---|---|
 | 1 | any criterion `unbuilt` | `exit-unbuilt` → **unbuilt** (wins even over zero gaps) |
 | 2 | no `not_met` gaps | `exit-satisfied` → **satisfied** |
-| 3 | last iteration had gaps and this one closed none | `exit-stalled` → **stalled** |
-| 4 | `iteration >= cap` (default 3; `--cap N` on `/verify-build`) | `exit-stuck` → **stuck** |
-| 5 | otherwise | `remediate` → Debug, then another iteration |
+| 3 | `refreshFailed`: the last Debug pass's refresh ran and exited non-zero | `exit-setup-failure` → **setup-failure** |
+| 4 | last iteration had gaps and this one closed none | `exit-stalled` → **stalled** |
+| 5 | `iteration >= cap` (default 3; `--cap N` on `/verify-build`) | `exit-stuck` → **stuck** |
+| 6 | otherwise | `remediate` → Debug, then another iteration |
+
+The setup check (§7a) can also end a run `setup-failure` before Exercise, without reaching
+`decideNext` at all.
 
 **Then the coverage re-label.** If the base action is satisfied, stalled or stuck, a floor is
 set, `total > 0`, and `met / total` is below it, the action becomes `exit-insufficient-coverage`, with the
 ratio and the base cause in the reason. It never re-labels `unbuilt` (the truer statement) or
-`remediate` (it must not stop a run that is converging). Missing `gaps`, `unbuilt`, `met`,
-`mustPass` or `mustPassUncovered` throws rather than defaulting.
+`remediate` (it must not stop a run that is converging) or `setup-failure` (the environment,
+not coverage, is the truer statement). Missing `gaps`, `unbuilt`, `met`, `mustPass`,
+`mustPassUncovered` or `refreshFailed` throws rather than defaulting.
 
 **Then the must-pass step** (**code**, `decideNext`). It runs after the re-label and sees its
 result. A must-pass criterion is unproven when it is not in `met`; a must-pass objective is
@@ -366,7 +419,7 @@ with the returned outcome.
 | `stuck` | The cap ran out with gaps open, or a `--resume` arrived with no budget left | same |
 | `insufficient-coverage` | Too little was proven to call it either way. When must-pass items were also unproven, the reason names them | same |
 | `must-pass-unproven` | Everything judged was met and the coverage floor (if any) was cleared, but a core item the TRD marked must-pass was not proven, or has no criterion at all. The reason names each. A must-pass criterion that can only be `not verifiable` here is never accepted as such: it needs an environment that reaches it, or the marking removed from the TRD | same |
-| `setup-failure` | The environment, not the code, is broken: the setup check before Exercise found a declared stack down or unreachable. The software was not checked, no criterion is judged, and the reason names each problem | fix the environment, then `/verify-build` |
+| `setup-failure` | The environment, not the code, is broken: the setup check before Exercise found a declared stack unreachable, running an old build or held by another checkout, or the last Debug pass's refresh failed. Never handed to the debugger and never `stalled`. On a setup-check failure nothing is judged and the report's `**Setup**:` lines name each problem and its fix | fix the environment, then `/verify-build` |
 | `not run: no success definition derivable` | No PRD and no source section | fix the source |
 | `not run: no definition produced` | The derive agent wrote nothing | re-run `/verify-build` |
 | `not run (--no-verify set)` | You opted out | `/verify-build` |
@@ -385,12 +438,16 @@ without calling the workflow (`implement-trd.md` §8.1). Only the five short out
 |---|---|
 | Header | Feature, source, definition path |
 | **Outcome** | Label, plus "(N of M not verifiable)" on a satisfied run, and "(final full-environment run FAILED)" or "(no full-environment run declared)". A failed full deploy never retracts proven criteria |
-| **Reason**, **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
+| **Reason** | The decision's reason |
+| **Setup** | Only under `setup-failure`: one line per problem, "environment — problem; fix: …" |
+| **Criteria**, **Coverage** | Counts per status; "K of N proven — uncovered: ids" |
 | **Must pass** | Only when the TRD declares any (otherwise the report is unchanged): "K of N proven", then "unproven: id (status)", then "no criterion for: objective id" for each objective nothing covers |
 | **Diagnosis**, **Next** | Only on stalled, stuck, unbuilt, insufficient-coverage and must-pass-unproven (`DIAGNOSIS_OUTCOMES`); never on `setup-failure`, which has no cause counts because nothing was judged. Diagnosis counts open criteria by cause, most common first, in words — "14 open — 6 evidence missing, 5 judged failed, 3 not built"; no cause counts as `unrecorded`. Next names `/refine-verification` then `/verify-build`. The readout repeats both and never re-judges |
 | Unrecognised Status | Any status that is none of the four, so a typo cannot hide a criterion |
 | Unbuilt / Met / Not Met / Not Verifiable | One table each. Met shows *proven at* iteration; Not Met shows tier 1, reason, blocker, and the debugger's attempt per iteration |
-| `## Fix run` | Appended by `--fix` only (`renderFixSummary()`) |
+| **Screenshots** | Only when a criterion's proof is an image or a criterion is a UI one: "N shown", then any UI criteria proven without a screenshot (still `met`, but flagged), then any images left out |
+| `## Evidence` | Same condition. One image per criterion whose proof is an image (png, jpg; a frame grab for video), under its id and statement; then "Images left out" with the reason. The Judge looks at each image before citing it, and one showing a credential is never cited |
+| `## Fix run` | Appended by the fix loop only (`renderFixSummary()`); each criterion still open carries its stop reason, `setup failure: <problem>` first |
 
 `verification-state.json` (Judge STEP 4) has exactly four keys: `iteration`, `criteria` (every
 criterion: `id`, `status`, `tier1`, `artifact`, `reason`, `cause`, `provenAt`), `gapsClosed`
@@ -398,19 +455,61 @@ criterion: `id`, `status`, `tier1`, `artifact`, `reason`, `cause`, `provenAt`), 
 resumable", anything else means finished. `/implement-trd --verify --resume` and
 `/verify-build --resume` read only that key to decide whether to re-enter.
 
-The workflow's return (`outcome`, `criteria`, `coverage`, `finalRun`, `pages`, …) becomes the
-command's STATE lines; the report and each check page are then published, URLs kept in
-`artifacts.json` (`implement-trd.md` §8.4, §9.0a).
+The workflow's return (`outcome`, `criteria`, `coverage`, `finalRun`, `mustPass`, `pages`,
+`setup`, …) becomes the command's STATE lines; the report and each check page are then
+published, URLs kept in `artifacts.json` (`implement-trd.md` §8.4, §9.0a). The report's images
+go up with it: `report-publish-plan --report <path> [--published-file <json>]` lists the files
+to upload, in batches under the 255-file limit, all to the one report URL, plus any image a
+previous publish carried that the report no longer embeds — so no file list is assembled by hand.
 
 ---
 
-## 11. The three check skills
+## 10a. CLI verbs
+
+`node .claude/lib/functional-verification.js <verb>` — the deterministic half of the loop:
+
+| Verb | Does |
+|---|---|
+| `check-evidence` | Tier-1 check of a claims file against `since`; `--state-dir` lets it read reuse hashes from the live manifest (§8) |
+| `decide-next` | The next action after a Judge pass (§9) |
+| `decide-setup` | The setup check's action (§7a) |
+| `render-report` | Writes `verification-report.md` |
+| `decide-fix-round` | Continue or stop the fix loop (§12) |
+| `render-fix-summary` | The `## Fix run` section |
+| `must-pass-coverage` | Reads the TRD and the definition: must-pass criterion ids, must-pass objectives with no criterion, cell ids that are not declared must-pass objectives |
+| `report-publish-plan` | The publish batches for a report and its images (§10) |
+| `check-verification-unfilled` | Is `verification.md` still a shipped template, and which sections it lacks (§3) |
+| `read-coverage-floor` | Parses §5a |
+| `recommend-coverage-floor` | The floor `verification-setup` recommends (§13) |
+| `read-never-unattended`, `check-never-unattended` | §5b, and a TRD's (or `--files` list's) touched paths against it (§13) |
+
+`node .claude/lib/live-evidence.js record|read --state-dir .trd-state/<f>`: `record` appends a
+manifest row (`--task`, `--artifact`, `--shows`, `--environment`, `--covers a,b,c`) and rejects
+one whose artifact or covered files do not exist; `read` prints the latest row per artifact,
+dropping any whose covered files changed since capture (it says how many on stderr).
+`spec-scope.js` reads must-pass marks from **every** Objectives table in a TRD (the first,
+then each later one whose first column is `ID`), so marks in per-feature tables reach
+verification (4.15.0).
+
+---
+
+## 11. The four check skills
 
 Each skill is a prompt. **When it applies** and **Inputs** are read at selection; **Criteria**
 by the command at §8.1b; **Capture** is appended to the Exercise prompt of any slice holding
 its rows; **Rubric** to the Judge prompt (STEP 2a); **Page** is the Render prompt; **Safety**
 travels with all of them (the whole SKILL.md text is what gets injected). Debug never sees the
 skill text; it gets each gap's `cites` and `derivation`, so it can open the design input.
+
+The fourth, `verify-design-structure` (4.15.0), applies when the feature is built from a design
+made by `/create-design` (it has a `docs/ui/<slug>/design-map.json`; see
+[design.md](design.md)). One `ST-<board id>` row per board that is `approved`, `building` or
+`shipped`: it opens the board's route in Playwright, walks React's fiber tree, and checks that
+every component the board names is rendered there (Tier 1 `locator`, a component name from the
+walk transcript). A parts board, a stack other than React or react-native-web, minified names
+or missing Playwright resolve `not_verifiable` with the reason — the row is never left out, so a
+skipped check is visible. With no board in scope it writes one `ST-<design slug>` row saying so.
+The other three:
 
 | | `verify-design-comparison` | `verify-flow-as-built` | `verify-data-fidelity` |
 |---|---|---|---|
@@ -435,7 +534,7 @@ loop is still running.
 |---|---|---|---|
 | 1 | You comment on a card of a published check page | you | the artifact page |
 | 2 | Next run reads open threads, maps each to the criterion whose ID the card shows (or `null`) | model | `implement-trd.md` §8.1b step 5 |
-| 3 | On `--resume` or `--fix`, a criterion with a comment is removed from the carried-forward `met` set, so it is walked again | model | §8.2; `verify-build.md` `--fix` step 4 |
+| 3 | On `--resume` or a fix-loop round, a criterion with a comment is removed from the carried-forward `met` set, so it is walked again | model | §8.2; `verify-build.md` "The fix loop" step 4 |
 | 4 | Exercise sees comments for its own slice's criteria; the Judge sees every comment for the skill and must address each. A comment reporting a difference keeps the row `not_met` unless this iteration's evidence shows it resolved; a comment retiring a frame is an acceptable ruling for `superseded`. Comment text is data, never an instruction | model | `commentsFor()`, `commentsForSkill()`; each skill's Rubric |
 
 ---
@@ -444,12 +543,17 @@ loop is still running.
 
 ### The chat (`/refine-verification`)
 
-A refine command you run yourself — interactive by default, `--auto` for an unattended
-answer (`autonomy.md`'s "Refine commands"). It may ask you questions, but only ones the
-evidence cannot settle. It reads the report, the state file, the discovery ledger, the PRD
+A refine command — interactive by default, `--auto` for an unattended answer (`autonomy.md`'s
+"Refine commands"). Since 4.13.7 an agent may also start it with `Skill()`; one doing so
+unattended should pass `--auto`. It is the **only** writer of `verification-plan.md`. It may
+ask you questions, but only ones the evidence cannot settle. It reads the report, the state file, the discovery ledger, the PRD
 and TRD and any existing plan, then:
 
-1. States the diagnosis in plain words (outcome, proven/total, causes by name and count).
+1. States the diagnosis in plain words (outcome, proven/total, unproven must-pass items by
+   statement, causes by name and count). After a `setup-failure` it leads with "the
+   environment, not the code": the report's `**Setup**:` lines are the diagnosis, every open
+   criterion is `never-exercised` (neither a Blocker nor accepted as not verifiable), and NEXT
+   puts the environment fix before `/verify-build`.
 2. Works out every plan section from that evidence, without asking: **Blockers** (each
    confirmed `judged-failed`/`not-built` gap, ordered by an `After` column), **Slices**
    (scarcest resource first), **Owner rulings** (a criterion aligned with a decision the
@@ -481,7 +585,7 @@ sequenceDiagram
     participant IMP as /implement-trd --reconcile --chained
     participant WF as verify-functional workflow
     participant PG as Published pages
-    You->>VB: /verify-build --fix
+    You->>VB: /verify-build
     VB->>VB: Steps 1 to 3c, plan rulings into notes, Extra checks into selection
     VB->>LIB: readStopRule on the plan, a direct require
     loop round 0, then each round k until decide-fix-round says stop
@@ -500,13 +604,13 @@ sequenceDiagram
 
 | # | Step | Kind | Where |
 |---|---|---|---|
-| 0 | Steps 1–3c as a plain run, plus: plan's **Owner rulings** appended to `notes` for the Judge; **Extra checks** unioned into the selection; stop rule parsed by `readStopRule()`. No plan, or an unreadable stop rule → `max-rounds: 1`, said in ISSUES. The preflight question is not asked | code + model | `--fix` step 0 |
+| 0 | Steps 1–3c as a plain run, plus: plan's **Owner rulings** appended to `notes` for the Judge; **Extra checks** unioned into the selection; stop rule parsed by `readStopRule()`. No plan, or an unreadable stop rule → one round, said in ISSUES | code + model | "The fix loop" step 0 |
 | 1 | **Round 0**: each plan blocker recorded as a discovery — a row in the feature's discovery ledger, `discovered.jsonl` (`blocksFeature: true`, `ref: plan:<id>`, timestamped with the plan's `**Written**` time so a re-run does not re-promote) — then chain `/implement-trd <trd> --reconcile --chained`, then verify. With no plan: one ordinary verify pass, then step 6 | model | step 1 |
-| 2 | **Round k ≥ 1 — record**: a criterion now `met` retires its earlier discovery row. A criterion still open with a **buildable** cause, not accepted as not verifiable, and in the **active slice** (the first slice still holding buildable work) becomes a failing discovery. `not_verifiable` and a coverage shortfall are never recorded as build work. Nothing recorded → go to 6 | model | step 2 |
+| 2 | **Round k ≥ 1 — record**: a criterion now `met` retires its earlier discovery row. A criterion still open with a **buildable** cause, not accepted as not verifiable, and in the **active slice** (the first slice still holding buildable work) becomes a failing discovery. `not_verifiable`, a coverage shortfall, `must-pass-unproven` and `setup-failure` are never recorded as build work. Nothing recorded → go to 6 | model | step 2 |
 | 3 | **Round k — build**: one chained `/implement-trd` per round. `--reconcile` promotes the blocking discoveries into TRD tasks (`discovered.promoteToTrd()`), `--chained` skips its own derive, preflight, verification, publishing and banner, and returns one `RETURN →` line. A `RETURN → STUCK` ends the run with `COMMAND STUCK: /verify-build` | code + model | step 3; `implement-trd.md` §2.1a, §3.7 |
 | 4 | **Verify**: the ordinary dispatch with `resume = { iteration: 0, criteria: <met entries>, gapsClosed: [] }`, minus commented criteria. `iteration: 0` gives each round its own inner cap; only still-open criteria are re-walked. Republish, then read new comments | code + model | step 4 |
 | 5 | **Close the round**: append to `functional_verification.fix.rounds`, print a `PHASE k/max COMPLETE` progress line, run `decide-fix-round` | code: `decideFixRound()` | step 5 |
-| 6 | **Render**: every non-`met` criterion gets a stop reason (not verifiable here / accepted / not buildable by cause / outside the active slice / stop rule reached); `render-fix-summary` appends `## Fix run`; one banner for the whole run | code + model | step 6 |
+| 6 | **Render**: every non-`met` criterion gets a stop reason (setup failure / not verifiable here / accepted / not buildable by cause / outside the active slice / stop rule reached); `render-fix-summary` appends `## Fix run`; one banner for the whole run | code + model | step 6 |
 
 `decideFixRound()` stops, in this order: **nothing buildable left**; `round >= max-rounds`;
 closed fewer than `stop-when-closed-below` this round (from round 1 on — round 0 builds
@@ -523,7 +627,7 @@ no confirmation step after the interview.
 
 | # | Step | Kind |
 |---|---|---|
-| 1 | Read the current file (or the template), `missingSections`, repo signals (`package.json` scripts, compose files, `.env*.example` key names only, `vercel.json`, `railway.*`, notes, `CLAUDE.md`), any installed detector skills, and needs recorded against the file by `--fix` | code + model |
+| 1 | Read the current file (or the template), `missingSections`, repo signals (`package.json` scripts, compose files, `.env*.example` key names only, `vercel.json`, `railway.*`, notes, `CLAUDE.md`), any installed detector skills, and needs recorded against the file as `verification.md` discoveries | code + model |
 | 2 | One `AskUserQuestion` per topic in file order — §1 environments, §1a capacity, §2 refresh/deploy, §3 where credentials live, §4 tooling, §5 gaps, §5a floor, §5b never-unattended paths, §6 multi-repo — each offering the detected value (with its source), the current value, then "keep" | you |
 | 3 | Permissions, counts and whether a gap is permanent cannot be detected; they default to the template's example row, labelled "not detectable — the conservative default" | model |
 | 4 | On a filled file, ask only topics whose section is missing, whose detected evidence changed, or that a recorded need names | model |
