@@ -4,3 +4,5 @@ verify-flow-as-built        check
 verify-data-fidelity        check
 verification-setup          support
 design-setup                support
+designing-on-canvas         support
+design-grounding            support

@@ -4,7 +4,7 @@
   "trd_hash": "456643b5259cb2968af66dd1a9220b5288e8e78610a2f00113d801ced5c7f5ce",
   "branch": "58-design-prd",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 3,
   "tasks": {
     "DSGN-P001": {
       "description": "design.md template in packages/core/templates/claude-directory/rules/ with sections for the design system, per-platform, how to reach a screen and design rules;",
@@ -177,74 +177,110 @@
     "DSGN-P004": {
       "description": "Skills designing-on-canvas and design-grounding in packages/skills/, each with __tests__/skill-md.test.js; two support rows in framework-skills.txt",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/skills/designing-on-canvas/SKILL.md",
+        "packages/skills/designing-on-canvas/__tests__/skill-md.test.js",
+        "packages/skills/design-grounding/SKILL.md",
+        "packages/skills/design-grounding/__tests__/skill-md.test.js",
+        "packages/skills/framework-skills.txt"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
     },
     "DSGN-B006": {
       "description": "/design-system command per §3.6 (packages/core/commands/design-system.md and mirror)",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/design-system.md",
+        "packages/core/commands/design-system-prose.test.js",
+        ".claude/commands/design-system.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
     },
     "DSGN-B007": {
       "description": "create-design.js workflow per §3.7 with create-design.test.js on test-harness.js and its full/.claude copies, and the /create-design command per §3.7 (create-de",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        ".claude/workflows/create-design.js",
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
     },
     "DSGN-B009": {
       "description": "/refine-design command per §3.8 (refine-design.md and mirror); autonomy.md template and .claude/rules/autonomy.md name /refine-design and design-setup in the by",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js",
+        "packages/core/templates/claude-directory/rules/autonomy.md",
+        ".claude/rules/autonomy.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.485Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
     },
     "DSGN-B010": {
       "description": "audit-design.js workflow and /audit-design command per §3.9 (P0 part, without --drift), with audit-design.test.js, mirrors and full symlink",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js",
+        ".claude/workflows/audit-design.js",
+        ".claude/commands/audit-design.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": "2026-11-05T00:11:32.483Z",
+      "last_advanced": "2026-11-04T23:59:38.341Z"
     },
     "DSGN-T002": {
       "description": "[LIVE] One fixture run, in order. First, the phase-1 proof on both fixtures: /design-system builds a system from the React web fixture's component package and t",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
-      "current_problem": null,
+      "status": "deferred",
+      "cycle_position": "complete",
+      "current_problem": "ENVIRONMENT: the first interactive launch (tmux ... claude --dangerously-skip-permissions --session-id <id> \"/design-system\", cwd .trd-state/design-stage/evidence/live/DSGN-T002/work/react-web) stopped at \"Quick safety check: Is this a project you created or one you trust? ... This folder pre-approves 40 tool permissions in .claude/settings.json / No, exit / Yes, I trust this folder\". ~/.claude.json has hasTrustDialogAccepted=true for /Users/james/dev/fortium/ensemble-vnext but trust is keyed by exact path and does not cover the fixture copy beneath it, so the TRD's assumption that a copy \"inside this already-trusted repository\" is trusted is wrong. I did not answer the dialog (trust is the owner's decision) and did not use another task's trusted folder. Nothing past scaffolding was exercised. Owner action: trust the work/react-web and work/react-native folders, or name an already-trusted folder to copy the fixtures into, then re-run. The tmux session was killed. No canvas urls exist. Other findings, recorded as one discovery with blocksFeature=false: scaffold-project.sh --refresh with a relative --plugin-dir exits 0 but installs nothing, and refresh does not install agents.",
       "retry_count": 0,
       "files_changed": [],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-04T23:55:57.372Z",
+      "completed_at": null,
+      "last_advanced": "2026-11-04T23:59:38.341Z"
     },
     "DSGN-B011": {
       "description": "Design input for /create-trd and /plan per D15: create-trd.md (and mirror) resolves the design and moves boards to building; create-trd.js (and copies) passes a",
@@ -343,9 +379,29 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "8e9daff",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-04T23:55:44.693Z"
+    },
+    {
+      "phase": 2,
+      "commit": "8e9daff",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T00:11:48.380Z"
+    }
+  ],
   "recovery": {
-    "interrupted": false
+    "interrupted": false,
+    "last_healthy_checkpoint": "8e9daff",
+    "last_checkpoint_timestamp": "2026-11-05T00:11:48.380Z",
+    "interrupt_reason": null
   },
   "functional_verification": {
     "prd_resolved": true,
