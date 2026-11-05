@@ -313,17 +313,19 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.14.0** (2026-10-31). 22 commands, 13 subagents. Test battery: 2264 Jest,
+Released at **4.15.0** (2026-11-05). 27 commands, 13 subagents. Test battery: 2646 Jest,
 125 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.14.0: `/task` for findings-only jobs; a broken environment ends `setup-failure`, never
-blocking; `/create-trd` grounding is written by code.
+4.15.0: the design stage — `/create-design`, `/refine-design`, `/audit-design`,
+`/design-system`, `/sync-design`; invocation is approval, through `design-map.js approve`.
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
+- 4.15.0: canvas-comment refine, the hosted canvas look, the owner's 44-board flow and a real
+  Flutter fixture are unproven; `/audit-design --drift` takes no fresh capture (#65).
 - 4.14.0: no live `/task`, setup check or fanned-out grounding run yet.
 - 4.13.8: the TRD-edit guard is unproven live and checks headings only.
 - 4.13.7: no agent has yet started an audit or `/refine-verification` live.

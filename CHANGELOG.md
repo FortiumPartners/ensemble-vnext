@@ -10,6 +10,57 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.15.0] - 2026-11-05
+
+A design stage on the Claude canvas (#58): five new commands draw a product's screens as
+boards before they are built, check them, build from them, and keep them in step with what
+shipped. Approving a design is the invocation that builds it, as everywhere else in the
+framework, and one library call does the approving.
+
+### Added
+
+- **`/create-design`, `/refine-design`, `/audit-design`, `/design-system`, `/sync-design`**
+  (#61). Grounded in the code, a design is drawn as as-is, parts and to-be boards on a canvas,
+  mirrored under `docs/ui/<slug>/` and tracked in `design-map.json` (draft → approved →
+  building → shipped). `/create-trd --design` and `/plan --design --boards` build from boards;
+  `/sync-design` captures the build, marks matching boards shipped and resyncs the design
+  system. Owner-governed `.claude/rules/design.md`, filled by the `design-setup` skill.
+- **`design-map.js approve`** (#64). One call approves boards: it commits pending design edits,
+  approves draft boards (part boards too), keeps an approved board's commit unless
+  `--reapprove`, renders frames for exactly the boards it moved, and commits by pathspec. Any
+  render failure is reported and the approval stands; a bad id, a building or shipped board, or
+  a design folder changed after `--commit` fails with nothing changed.
+- **`design-map.js unsynced`** (#62) lists to-be boards still `building` after their feature
+  closed. `/audit-build` and `/close-feature` name them per design and recommend
+  `/sync-design <slug>` once the PR merges; the design commands report them in ISSUES. Nothing
+  runs `/sync-design` automatically.
+- **`design-mirror.js record`** stores a canvas's synced version after a publish or adopt.
+
+### Changed
+
+- **Invocation is approval** (owner ruling, PRD 1.2.2). `/create-trd --design` and
+  `/plan --design --boards` approve the boards they build, and only after the TRD is written,
+  so a run that stops early leaves them in draft. `/refine-design --approve` re-approves ahead
+  of a build. Canvas comments and chat remarks never approve.
+- **`/audit-build`'s design line** now names only boards still building, not every board that
+  cites the TRD.
+- **`spec-scope.js` reads every Objectives table** (#60), so must-pass marks in later
+  per-feature tables reach verification.
+- **CI's Jest job runs on `ubuntu-24.04`**, where Playwright can install Chromium.
+
+### Fixed
+
+- `/create-design` recaptures a screenshot an agent flagged as wrong before publishing, not
+  after; `/audit-design` fetches the render runtime it needs; `design-mirror.js check` reads a
+  map's legacy `synced_version`.
+
+### Not yet proven
+
+- Refining from a canvas comment (no tool here can create one), the hosted canvas's look and a
+  publish from the owner's account (DSGN-T005), the owner's own 44-board flow (DSGN-T006), and
+  a real flutter-widget fixture run. `/audit-design --drift` judges from diffs and stored
+  screenshots, not a fresh capture. All tracked in #65.
+
 ## [4.14.0] - 2026-10-31
 
 A job that produces findings or a report, not code, now has its own command, `/task`, and a
