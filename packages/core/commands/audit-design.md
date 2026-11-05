@@ -134,8 +134,8 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 `AUDIT:` header and the `VERDICT:` line come first, then the workflow's finding lines. When the
 system is stale (step 2), ISSUES carries the drift line and NEXT names `/design-system --sync`
 first, then `/sync-design <slug>` when boards are unsynced, then `/refine-design <slug>` for the
-findings; otherwise NEXT is `/refine-design <slug>`
-for the findings, or nothing. Check this before printing: a stale result with no ISSUES drift
+findings; otherwise NEXT is `/sync-design <slug>` when boards are unsynced, then
+`/refine-design <slug>` for the findings, or nothing. Check this before printing: a stale result with no ISSUES drift
 line, or with anything above `/design-system --sync` in NEXT, is a wrong readout.
 
 ---

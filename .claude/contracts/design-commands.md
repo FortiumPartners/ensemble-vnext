@@ -40,7 +40,9 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    artifact into this run's scratch folder and run
    `node .claude/lib/design-mirror.js apply --dir docs/ui/<slug> --canvas <url> --canvas-dir <scratch>/project`
    (it returns `adopted`, `toPublish`, `conflicts`), then record the version just synced:
-   `node .claude/lib/design-mirror.js record --dir docs/ui/<slug> --canvas <url> --version <live version>`.
+   `node .claude/lib/design-mirror.js record --dir docs/ui/<slug> --canvas <url> --canvas-dir <scratch>/project --version <live version>`
+   (`--canvas-dir` makes the base what the canvas holds, so a `toPublish` file stays unpublished
+   in the base until §4 publishes it).
    Then, in this order and before any other
    change to `docs/ui/<slug>/`:
    - **Canvas changed, repository did not (`adopted`).** Run `design-map.js refresh` and

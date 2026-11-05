@@ -97,7 +97,7 @@ describe('create-design command prose', () => {
 
   test('with publishing off or no artifact access, finishes disk work then ends STUCK naming the publish step', () => {
     expect(text).toMatch(/Read the publishing switch\s+next\*\*/);
-    expect(text).toMatch(/With `publish: off` or no\s+Artifact tool, skip this step entirely\*\*/);
+    expect(text).toMatch(/With `publish: off` or no\s+Artifact tool, skip the publish\*\* \(no publish call, no canvas created, no system installed;\s+the recapture above still runs\)/);
     expect(text).toMatch(/contract section 5 applies, so finish steps 8 and 9 on disk \(url recorded\s+empty\), then end with `COMMAND STUCK` naming the publish step, never `COMMAND COMPLETE`/);
   });
 

@@ -102,8 +102,8 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    contract section 4: a whole-artifact read of the canvas first, then publish `canvas.json`
    and the parts, then the boards in order. **Install the design system** per contract
    section 3 if the canvas lacks it or holds an older version. **With `publish: off` or no
-   Artifact tool, skip this step entirely** (no publish call, no canvas created, no system
-   installed): contract section 5 applies, so finish steps 8 and 9 on disk (url recorded
+   Artifact tool, skip the publish** (no publish call, no canvas created, no system installed;
+   the recapture above still runs): contract section 5 applies, so finish steps 8 and 9 on disk (url recorded
    empty), then end with `COMMAND STUCK` naming the publish step, never `COMMAND COMPLETE`.
    This is the one place a command ends STUCK over a link, and the contract is the reason.
 8. **Render and export.** Per contract section 2, once the final boards are in place:
