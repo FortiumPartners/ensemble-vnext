@@ -4,7 +4,7 @@
   "trd_hash": "7b134b618e32dffbec8aec52fb4959389b0c48df50208a97820740d1fa779ca6",
   "branch": "feature/unsynced-boards/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "USB-001": {
       "description": "Add `unsynced` to design-map.js (--dir / --all [--trd]) with unit tests; copy to .claude/lib",
@@ -69,10 +69,19 @@
       "last_advanced": "2026-11-05T19:05:01.714Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "b614547",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T19:07:00.754Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "b614547",
+    "last_checkpoint_timestamp": "2026-11-05T19:07:00.754Z",
     "interrupted": false,
     "interrupt_reason": null
   },
