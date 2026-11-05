@@ -59,7 +59,10 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    recommended option and record it.
 4. **Draw.** Call the workflow again with the same args plus `stage: "draw"` and
    `boardsInScope: <the returned screens>`. It writes the boards under `docs/ui/<slug>/canvas/project/`:
-   as-is boards (rendered and compared with the screenshot, AC-F8.5), one parts agent (AC-F8.6),
+   as-is boards (rendered and compared with the screenshot, AC-F8.5; the screenshot is captured
+   fresh at the board's viewport by the `design-grounding` skill's Capture section, never a stored
+   screenshot, and a `window.innerWidth` differing from the board's width is a capture error, not
+   a board difference: recapture, do not mark the board mismatched), one parts agent (AC-F8.6),
    one agent per to-be board in parallel (AC-F8.7), then a render, five read-only reviewers and
    one fix round (AC-F8.8). It returns `boards`, `findings_open`, `failed` and `render_missing_tool`.
 5. **Write the map once.** Parallel agents never edit it. Seed `design-map.json` from the

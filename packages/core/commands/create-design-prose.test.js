@@ -43,6 +43,13 @@ describe('create-design command prose', () => {
     expect(draw).toBeGreaterThan(round);
   });
 
+  // FS-34: an as-is board was judged against a screenshot captured from a wider layout.
+  test('as-is comparison needs a fresh capture via design-grounding; a width mismatch is a capture error (FS-34)', () => {
+    expect(text).toMatch(/captured fresh at the board's viewport by the `design-grounding` skill's Capture section/);
+    expect(text).toMatch(/never a stored screenshot/);
+    expect(text).toMatch(/`window\.innerWidth` differing from the board's width is a capture error, not a board difference/);
+  });
+
   test('asks at most four questions, only with a person present and not --auto, each with a recommended option', () => {
     expect(text).toContain('at most four questions');
     expect(text).toMatch(/Only with a person present and not `--auto`/);
