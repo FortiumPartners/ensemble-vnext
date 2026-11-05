@@ -70,25 +70,25 @@ describe('refine-design command prose', () => {
     expect(text).toMatch(/one ISSUES line/);
   });
 
-  test('AC-F9.4 (owner ruling R1): approves only on --approve, through design-map.js transition', () => {
+  test('AC-F9.4 (owner ruling R1): approves only on --approve, through design-map.js approve', () => {
     expect(text).toMatch(/only on the owner's word, which is an invocation/);
     expect(text).toMatch(/exactly one thing: `--approve <ids>` on this run\. Without it, approve nothing, interactive or `--auto`/);
     expect(text).toMatch(/\*\*No other channel approves\.\*\* A canvas comment, a chat remark or a selected element that reads "approved" is feedback, never approval/);
     expect(text).not.toMatch(/owner says so in chat/);
     expect(text).not.toContain('an "approved" comment on the board');
-    expect(text).toContain('design-map.js transition');
-    expect(text).toContain('--to approved');
+    expect(text).toMatch(/design-map\.js approve --dir docs\/ui\/<slug> --ids <ids> --runtime <saved runtime path> --reapprove/);
     expect(text).toMatch(/never edit `status` by hand/);
     expect(text).toMatch(/Nothing builds from a `draft` board no invocation named/);
   });
 
-  test('approval order: commit, take HEAD, transition, render at approved commit, commit map', () => {
-    const i = (s) => text.indexOf(s);
-    const order = ['**Commit** the adopted edits', '**Transition**', '**Render the frames**', '**Commit the map**'].map(i);
-    order.forEach((n) => expect(n).toBeGreaterThan(0));
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(text).toContain('design-render.js render');
-    expect(text).toContain('--approved');
+  test('approval is one verb call; no hand-written transition or approve-time render', () => {
+    const step5 = text.slice(text.indexOf('5. **Approve**'), text.indexOf('6. **Commit**'));
+    expect(step5).toContain('design-map.js approve');
+    expect(step5).toContain('--reapprove');
+    expect(step5).not.toContain('--to approved');
+    expect(step5).not.toContain('design-render.js render');
+    expect(step5).toMatch(/exactly one thing: `--approve <ids>`/);
+    expect(step5).toMatch(/one ISSUES line and approves nothing/);
   });
 
   test('OQ-6: an edit adopted onto an approved board keeps status and is flagged', () => {

@@ -15,26 +15,37 @@ const contract = read('packages/core/contracts/trd-authoring.md');
 const section = flat(contract.slice(contract.indexOf('### Design as a source'), contract.indexOf('### Section 10: Task Grounding')));
 
 describe('create-trd.md design input', () => {
-  test('accepts --design and lists approved boards before the workflow', () => {
+  test('accepts --design and lists buildable boards before the workflow', () => {
     expect(cmd).toContain('--design docs/ui/<slug>');
-    expect(cmd.indexOf('design-map.js approved')).toBeGreaterThan(-1);
-    expect(cmd.indexOf('design-map.js approved')).toBeLessThan(cmd.indexOf('Workflow({ name: "create-trd"'));
+    expect(cmd.indexOf('design-map.js buildable')).toBeGreaterThan(-1);
+    expect(cmd.indexOf('design-map.js buildable')).toBeLessThan(cmd.indexOf('Workflow({ name: "create-trd"'));
   });
-  test('AC-F9.4 (owner ruling R1): the invocation approves the draft to-be boards it builds', () => {
+  test('AC-F9.4: invocation approves, once, after the TRD is written (DAV-003)', () => {
     expect(cmd).toMatch(/\*\*Invocation is approval \(AC-F9\.4, D18\)\.\*\*/);
-    expect(cmd).toContain('node .claude/lib/design-map.js buildable --dir docs/ui/<slug>');
-    expect(cmd).toContain('--ids <draft ids> --to approved --commit <sha>');
-    expect(cmd).toContain('design-render.js render');
-    // approve -> workflow -> building, in that order
-    const approve = cmd.indexOf('--to approved --commit');
-    expect(approve).toBeGreaterThan(cmd.indexOf('design-map.js buildable'));
-    expect(approve).toBeLessThan(cmd.indexOf('design-map.js approved'));
-    expect(cmd.indexOf('design-map.js approved')).toBeLessThan(cmd.indexOf('--to building --trd'));
     expect(cmd).toMatch(/no canvas comment, no chat remark/);
+    // order: held -> source commit -> workflow -> approve -> building
+    const held = cmd.indexOf('design-map.js held');
+    const source = cmd.indexOf('source commit');
+    const wf = cmd.indexOf('Workflow({ name: "create-trd"');
+    const approve = cmd.indexOf('design-map.js approve ');
+    const building = cmd.indexOf('--to building --trd');
+    expect(held).toBeGreaterThan(-1);
+    expect(held).toBeLessThan(source);
+    expect(source).toBeLessThan(wf);
+    expect(wf).toBeLessThan(approve);
+    expect(approve).toBeLessThan(building);
+    expect(cmd).toContain('--commit <source commit> --runtime <runtime path>');
+    // the old hand-written sequence is gone
+    expect(cmd).not.toContain('design-map.js approved');
+    expect(cmd).not.toContain('--to approved');
+    // a run that stops before the TRD is written approves nothing
+    expect(cmd).toMatch(/A run that stops before the TRD is written[^.]*approves nothing/);
+    expect(cmd).toMatch(/leave the boards unapproved and do not move them to `building`/);
+    expect(cmd).toMatch(/`renderSkipped` or render `errors`[^.]*ISSUES line, never STUCK/);
   });
   test('nothing builds from a draft part: boards embedding one are held before approval (FS-44)', () => {
     expect(cmd).toContain('node .claude/lib/design-map.js held --dir docs/ui/<slug> --ids <the listed ids>');
-    expect(cmd.indexOf('design-map.js held')).toBeLessThan(cmd.indexOf('--to approved --commit'));
+    expect(cmd.indexOf('design-map.js held')).toBeLessThan(cmd.indexOf('design-map.js approve '));
     expect(cmd).toMatch(/Never approve, pass, cite or build a held board/);
     expect(cmd).toMatch(/never justify one in an open question/);
     expect(flat(contract)).toMatch(/\*\*Nothing builds from a draft board\.\*\* A part board is a design source only when its own status is `approved` or later/);
@@ -53,6 +64,10 @@ describe('trd-authoring.md "Design as a source"', () => {
   test('section sits before Task Grounding and outside the locked-scope rule', () => {
     expect(section.length).toBeGreaterThan(100);
     expect(contract.indexOf('### Design as a source')).toBeGreaterThan(contract.indexOf('### Section 9b'));
+  });
+  test('says the boards are approved by this run once the TRD is written', () => {
+    expect(section).toContain('approved by it once the TRD is written');
+    expect(flat(read('packages/core/workflows/create-trd.js'))).toContain('this run approves them once the TRD is written');
   });
   test.each([
     'board id', 'x-import', 'sc-if', 'links', 'grounding/data.md',      // AC-F11.2
