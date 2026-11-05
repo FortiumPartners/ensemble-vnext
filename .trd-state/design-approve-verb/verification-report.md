@@ -2,14 +2,13 @@
 
 **Source PRD**: docs/TRD/design-approve-verb.md ## Intended Change
 **Success definition**: .trd-state/design-approve-verb/success-definition.md
-**Outcome**: Must-Pass Unproven (no full-environment run declared)
-**Reason**: must-pass criteria not proven: FS-20, FS-21, FS-23, FS-25 — the core was not shown to work
-**Criteria**: 27 total — 20 met, 0 not met, 7 not verifiable, 0 unbuilt
-**Coverage**: 20 of 27 proven — uncovered: FS-19, FS-20, FS-21, FS-22, FS-23, FS-24, FS-25
-**Must pass**: 14 of 18 proven — unproven: FS-20 (not verifiable), FS-21 (not verifiable), FS-23 (not verifiable), FS-25 (not verifiable)
+**Outcome**: Satisfied (no full-environment run declared)
+**Reason**: no gaps remain — every criterion is met or not verifiable here
+**Criteria**: 27 total — 27 met, 0 not met, 0 not verifiable, 0 unbuilt
+**Coverage**: 27 of 27 proven — uncovered: none
+**Must pass**: 18 of 18 proven
 **Screenshots**: 1 shown
-**Diagnosis**: 7 open — 7 capability absent
-**Next**: refine the plan with `/refine-verification` (add `--auto` to let an agent answer), then run `/verify-build`
+**Next**: `/audit-build`
 
 ## Met
 
@@ -33,6 +32,13 @@
 | FS-16 | The verb commits the map and the frames it wrote in one commit whose message is `chore(design): <slug> boards approved` by default, or the `--message` text when given | .trd-state/design-approve-verb/evidence/exerciser-c/run2.git.txt | 1 |
 | FS-17 | A file the user had staged outside the design folder before the verb ran is not included in the verb's commits and is still staged afterwards | .trd-state/design-approve-verb/evidence/exerciser-c/run1.git.txt | 1 |
 | FS-18 | When nothing changes (every named board is already `approved`, no `--reapprove`, and the design folder is clean), the verb makes no commit | .trd-state/design-approve-verb/evidence/exerciser-c/run3.stdout.txt | 1 |
+| FS-19 | `/refine-design <slug> --approve <ids>` on a board already approved and refined since records a new `approved_commit` for it, and naming a draft part board approves that part | .trd-state/design-approve-verb/evidence/live/F-summary.txt | 1 |
+| FS-20 | A `/create-trd --design` run that stops before the TRD is written leaves its `draft` boards in `draft` and makes no approval commit | .trd-state/design-approve-verb/evidence/live/A-summary.txt | 1 |
+| FS-21 | A completed `/create-trd --design` run approves its boards only after the TRD file exists, in a commit titled `chore(design): <slug> boards approved by /create-trd`, with `approved_commit` equal to the commit recorded before the workflow; the same boards then end in `building` | .trd-state/design-approve-verb/evidence/live/B-summary.txt | 1 |
+| FS-22 | Before its workflow runs, `/create-trd --design` commits any uncommitted change under the design folder and uses the resulting `HEAD` as the source commit later passed to the verb | .trd-state/design-approve-verb/evidence/live/B-summary.txt | 1 |
+| FS-23 | The boards `/create-trd --design` passes to the TRD author are the buildable boards it checked, including ones still `draft`, minus any held board | .trd-state/design-approve-verb/evidence/live/B-fs23-design-source.txt | 1 |
+| FS-24 | `/create-trd --design` on a design with zero buildable boards still ends STUCK, and approves nothing | .trd-state/design-approve-verb/evidence/live/C-summary.txt | 1 |
+| FS-25 | `/plan --design --boards` follows the same order: a run stopped before its TRD is written leaves the boards `draft`; a completed run writes the TRD, then approves the boards, then moves them to `building` | .trd-state/design-approve-verb/evidence/live/D-summary.txt | 1 |
 | FS-26 | The TRD author's prompt describes the listed design boards as the to-be boards this run builds, approved by it once the TRD is written, and no longer as "approved to-be boards" | .trd-state/design-approve-verb/evidence/fs25-26-plan-workflow.txt | 1 |
 | FS-27 | The TRD-authoring contract's "Nothing builds from a draft board" rule applies only to a draft board not in the `DESIGN SOURCE` list, and its "held back" sentence no longer says "approved" | .trd-state/design-approve-verb/evidence/fs26-27-trd-authoring.txt | 1 |
 
@@ -42,19 +48,20 @@ _None._
 
 ## Not Verifiable
 
-| ID | Statement | Reason |
-|----|-----------|--------|
-| FS-19 | `/refine-design <slug> --approve <ids>` on a board already approved and refined since records a new `approved_commit` for it, and naming a draft part board approves that part | No live headless slash-command session may be started by this verification loop, so the command run this criterion describes was not exercised. Only the verb call /refine-design prescribes was run on a fixture (re-approved board got a new approved_commit; draft part 07-part approved), plus prose tests. |
-| FS-20 | A `/create-trd --design` run that stops before the TRD is written leaves its `draft` boards in `draft` and makes no approval commit | No live headless slash-command session may be started by this verification loop, so the command run this criterion describes was not exercised. Prose only: create-trd.md places approval after the TRD write and says a run that stops before then approves nothing; the workflow has no approve call. |
-| FS-21 | A completed `/create-trd --design` run approves its boards only after the TRD file exists, in a commit titled `chore(design): <slug> boards approved by /create-trd`, with `approved_commit` equal to the commit recorded before the workflow; the same boards then end in `building` | No live headless slash-command session may be started by this verification loop, so the command run this criterion describes was not exercised. The prescribed sequence was run by hand on a fixture (approval commit "boards approved by /create-trd", 02-card building with approved_commit = pre-workflow HEAD), but no command transcript exists. |
-| FS-22 | Before its workflow runs, `/create-trd --design` commits any uncommitted change under the design folder and uses the resulting `HEAD` as the source commit later passed to the verb | No live headless slash-command session may be started by this verification loop, so the command run this criterion describes was not exercised. Prose only: create-trd.md step 3 commits design-folder changes and records HEAD before the workflow, then passes it as --commit. |
-| FS-23 | The boards `/create-trd --design` passes to the TRD author are the buildable boards it checked, including ones still `draft`, minus any held board | No live headless slash-command session may be started by this verification loop, so the command run this criterion describes was not exercised. Tier 1 also failed (locator-not-found). The board list the author receives was not observed from a run. |
-| FS-24 | `/create-trd --design` on a design with zero buildable boards still ends STUCK, and approves nothing | No live headless slash-command session may be started by this verification loop, so the command run this criterion describes was not exercised. Prose only: zero boards is STUCK before the workflow; nothing is approved. |
-| FS-25 | `/plan --design --boards` follows the same order: a run stopped before its TRD is written leaves the boards `draft`; a completed run writes the TRD, then approves the boards, then moves them to `building` | No live headless slash-command session may be started by this verification loop, so the command run this criterion describes was not exercised. Tier 1 also failed (locator-not-found: the quoted line spans a line-number break). plan.md 535-554 does order commit, TRD write, approve, building, but no run was observed. |
+_None._
 
 ## Evidence
 
 ### FS-10 — With a working `--runtime`, the verb renders frames into `docs/ui/<slug>/screens/png/` for exactly the boards it moved to `approved` in that call, and `rendered` lists exactly those boards (met)
 
 ![FS-10](evidence/fs10-a-draft.png)
+
+
+## Fix run
+
+| Round | Tasks promoted | Criteria closed | Still open |
+|-------|-----------------|------------------|-------------|
+| 0 | 0 | 7 | 0 |
+
+_None still open._
 
