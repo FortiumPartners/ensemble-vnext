@@ -23,5 +23,17 @@
     "url": "",
     "updated_at": "2026-11-04T22:41:18.389Z",
     "command": "/audit-trd"
+  },
+  "verification-report": {
+    "path": ".trd-state/design-stage/verification-report.md",
+    "url": "https://claude.ai/artifact/7s2fXpXjAw3Jb6zQcBNa4S",
+    "updated_at": "2026-11-05T00:48:33.455Z",
+    "command": "/implement-trd"
+  },
+  "success-definition": {
+    "path": ".trd-state/design-stage/success-definition.md",
+    "url": "",
+    "updated_at": "2026-11-05T00:48:33.499Z",
+    "command": "/implement-trd"
   }
 }

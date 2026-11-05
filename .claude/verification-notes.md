@@ -970,3 +970,34 @@ read the output), `[read]` (opened and verified), `[inferred]` (deduced, not che
 
 - [ran] `node .claude/lib/spec-scope.js objectives --trd <trd>` prints JSON `[{id,text,mustPass}]`; `node .claude/lib/functional-verification.js must-pass-coverage --trd <trd> --definition <sd.md>` prints `{criteria,uncovered,unknown}` and lists only UNCOVERED objectives, so a must-pass id appears in its output only when the definition does not mark it. Use a definition with an empty `Must pass` column to see all declared must-pass ids.
 - [ran] `functional-verification.js` exports no `mustPassCoverageFromFiles`; use the `must-pass-coverage` CLI subcommand. `criteria`/`check` need a spec file with a `### Acceptance criteria` section plus a TRD with `**Source spec**: <path> § <section>`.
+
+## Exercising the design stage libraries (2026-11-04 run, `design-stage`, iteration 1)
+
+- [ran] `npx jest packages/core/lib/design-{map,mirror,render,bundle}.test.js packages/core/lib/artifacts.test.js`
+  passes (120 tests, ~9s, Chromium present); the design workflow, prose and skill suites pass
+  too (`packages/core/workflows/*-design.test.js`, `packages/core/commands/*design*prose.test.js`,
+  `packages/skills/*/__tests__`, `docs-audit-assemble.test.js`: 396 tests).
+- [ran] `design-render.js` must be run FROM the product root (it resolves Playwright from the cwd
+  project); from a scratch git repo it exits 2 "playwright is not installed". For a fixture
+  repo outside the project root use the module API with `repo:` set, e.g.
+  `require('./packages/core/lib/design-render.js').render({dir, runtime, out, approved:true, repo})`
+  from the project root. The CLI `--approved`/`--at` runs `git` in the cwd repo, so a fixture
+  outside the project fails there with "not a tree object".
+- [ran] `design-bundle.js build` works from the project root against
+  `packages/core/lib/__fixtures__/design/react-lib/index.jsx` for `react-web` and `react-native`
+  (`stubs: []`); `react-native-nativewind` cannot build here (`nativewind/jsx-runtime` is not
+  installable), so read its options with `esbuildOptions('react-native-nativewind', {...})`
+  (`jsxImportSource: 'nativewind'`). No Jest test asserts that option.
+- [ran] FS-69's "STUCK on publishing off" test is a command-prose test
+  (`create-design-prose.test.js`), not a workflow-behaviour run on `test-harness.js`.
+- [ran] `design-map.js` CLI accepts `viewport` only as `[w, h]`, not `{w,h}`; `approved`,
+  `refresh` and `transition ... --trd` can be driven against a scratch map with no git.
+
+## Design stage, iteration 2 additions (2026-11-04)
+
+- [ran] The release-change render test (AC-F3.5) runs with `DC_RUNTIME=$PWD/packages/core/lib/__fixtures__/design/dc-runtime.js npx jest packages/core/lib/design-render.test.js` (20 pass, 1 byte-for-byte test skipped by design); there is no newer runtime in the repo, so the fixture runtime stands in.
+- [ran] `design-map.test.js` has no test passing each valid kind; only the invalid-kind rejection (`unknown kind x`) is asserted. Calling `validate` per kind from `KINDS` by `node -e` shows no kind error for the four valid values.
+- [ran] No Jest test asserts NativeWind's `jsxImportSource: 'nativewind'` or compiled CSS (`css:false` in the fixture builds); `esbuildOptions('react-native-nativewind', {...}).jsxImportSource` prints `nativewind`.
+- [ran] `design-bundle.js build` needs `--project .` plus `--stack`, `--entry`, `--namespace`, `--out`.
+- [ran] No workflow test (create/sync/audit-design) covers publishing-off STUCK; only `create-design-prose.test.js` does (prose match).
+- [read] verify-design-comparison SKILL.md bolds `**regression baseline**`; use "The verdict stays model judgement per frame" as a locator.
