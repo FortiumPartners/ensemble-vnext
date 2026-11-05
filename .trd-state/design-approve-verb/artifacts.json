@@ -23,5 +23,11 @@
     "url": "",
     "updated_at": "2026-11-05T21:24:00.087Z",
     "command": "/refine-verification"
+  },
+  "audit-build": {
+    "path": ".trd-state/design-approve-verb/audit-build-report.md",
+    "url": "https://claude.ai/artifact/CtTxeEe3BXtisHch4nC5oB",
+    "updated_at": "2026-11-05T22:26:43.240Z",
+    "command": "/audit-build"
   }
 }
