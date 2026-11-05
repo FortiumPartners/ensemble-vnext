@@ -1096,3 +1096,23 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] `node .claude/lib/design-map.js unsynced --all [--trd <path>]` reads `docs/ui/*/design-map.json` and `.trd-state/<feature>/closed.json` relative to cwd, so a scratch fixture project under the session scratchpad (maps plus empty `closed.json` files, no scaffold needed) is enough; invoke the repo's lib by absolute path from inside the fixture. Matching is by feature name (basename sans extension), so `./docs/TRD/x.md`, an absolute path and `docs/TRD/x.md` all select the same boards.
 - [read] The old unconditional design line in `audit-build.md` was removed in commit b614547 (it said "When the closed feature has a design ..."); the replacement "Unsynced boards" paragraph sits on one physical line (audit-build.md:480, close-feature.md:112), so a locator can be picked from it directly; `.claude/` and `packages/core/` copies are identical.
 - [read] FS-15: contract section 7 (design-commands.md lines 145-158) lists unsynced boards in ISSUES and orders NEXT /design-system --sync then /sync-design <slug>; captured fresh in fs15-contract-s7-v2.txt (2026-11-05 iteration 3).
+
+## Exercising `design-map.js approve` (design-approve-verb, 2026-11-05)
+
+- [ran] `approve` needs no service: a scratch git repo with `docs/ui/<slug>/design-map.json` is enough, run by absolute path from inside it. The recorded `approved_commit` (and stdout `commit`) is the HEAD BEFORE the approval commit, so it never equals the new `git rev-parse HEAD`; the map is rewritten by node (compact JSON), so read it with `JSON.parse`, not grep. Without `--runtime`, stdout carries `renderSkipped: "no --runtime given: frames not rendered"`. Runner and output: `.trd-state/design-approve-verb/evidence/s1/run.sh`, `s1/fx/`.
+
+## Exercising the design-approve-verb command criteria (FS-22 to FS-27, 2026-11-05)
+
+- [read] The `/create-trd --design` and `/plan --design --boards` ordering criteria are pinned by prose tests `packages/core/commands/create-trd-design-prose.test.js` and `plan-design-prose.test.js` (26 tests, passing); no live claude session is needed. Quote lines from `packages/core/commands/{create-trd,plan}.md`, `workflows/create-trd.js` and `contracts/trd-authoring.md`; `.claude/` copies are byte-identical (`diff -q`).
+
+## Exercising `design-map.js approve` (design-approve-verb, 2026-11-05, FS-8..FS-14 slice)
+
+- [ran] `approve` runs for real against a scratch git repo kept in the session scratchpad (not inside this repo, so no nested `.git` lands in the tree); copy stdout/stderr/exit/`git log`/map into the evidence directory. A real render needs `playwright` resolvable from the fixture's cwd: `ln -s <repo>/node_modules node_modules` plus a `.gitignore` for it; Chromium is already in `~/Library/Caches/ms-playwright`. With `--runtime packages/core/lib/__fixtures__/design/dc-runtime.js` and the board files under `docs/ui/d/canvas/project/`, a draft board gets `screens/png/<id>.png` and the approval commit holds it.
+- [ran] Without that symlink, the same run hits the genuine missing-tool path (`renderSkipped: "playwright is not installed for this project..."`, exit 0), which is the natural FS-13 evidence.
+- [ran] A cheap engineered `git archive` failure (FS-14): gitignore the `canvas/` mirror so it is absent at HEAD; render throws `git archive <sha> -- docs/ui/d/canvas/project failed: ... pathspec ... did not match`, recorded in `renderSkipped`, exit 0.
+
+## Exercising `design-map.js approve` (FS-15..FS-21 slice, 2026-11-05)
+
+- [ran] A real render works with no symlink when the scratch repo sits under this repo's evidence directory: `design-render` resolves `playwright` from `.` upward, finds the repo's `node_modules`, and Chromium is cached. `--runtime packages/core/lib/__fixtures__/design/dc-runtime.js` plus `__fixtures__/design/broken.dc.html` as a board gives a real per-board error (`"03-broken": ["03-broken.renderVals(): fixture board threw on purpose"]`) in the verb's stdout with exit 0, the board `approved` and the commit made (FS-15). Fixture and output: `.trd-state/design-approve-verb/evidence/exerciser-c/`.
+- [ran] A fixture under the evidence directory leaves a nested `.git` in this repo's tree; the sibling slice's scratchpad placement avoids that.
+- [read] Slash-command criteria (`/refine-design --approve`, `/create-trd --design` ordering) are pinned only by prose: `create-trd.md` step 5 and "Design approval", and `refine-design.md` step 5, with `*-design-prose.test.js`. No live session is started, so no transcript exists.
