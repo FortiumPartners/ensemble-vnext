@@ -1,6 +1,6 @@
 # Verification plan: design-approve-verb
 
-**Written**: 2026-11-05T21:00:00Z by /refine-verification
+**Written**: 2026-11-05T21:24:00Z by /refine-verification
 **From run**: must-pass-unproven at 20/27, report `.trd-state/design-approve-verb/verification-report.md`
 **Agreed with**: the owner answered the one open item (how to settle the four must-pass command-order criteria): live fixture runs (R1). Everything else derived from the evidence.
 
