@@ -4,7 +4,7 @@
   "trd_hash": "dae898194c32e305fb7dda8375249830e9c159794c2df7b580bbaf897f77cbe8",
   "branch": "feature/design-approve-verb/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "DAV-001": {
       "description": "Add approve to design-map.js with unit tests; copy to .claude/lib",
@@ -79,10 +79,19 @@
       "last_advanced": "2026-11-05T20:59:48.639Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "a714f33",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T21:02:10.013Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "a714f33",
+    "last_checkpoint_timestamp": "2026-11-05T21:02:10.013Z",
     "interrupted": false,
     "interrupt_reason": null
   },
