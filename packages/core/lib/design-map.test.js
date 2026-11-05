@@ -102,6 +102,26 @@ describe('held', () => {
     parts[0].status = 'approved';
     expect(dm.held(mapOf([board({ status: 'approved', parts: ['nav-bar'] }), ...parts]), dir)).toEqual([]);
   });
+  it('does not match a draft part file name inside a longer one', () => {
+    const dir = tmp();
+    fs.mkdirSync(path.join(dir, 'canvas/project'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'canvas/project/01-a.dc.html'), '<x-part src="part-toggle.dc.html"></x-part>');
+    const m = mapOf([
+      board({ id: '01-a', file: '01-a.dc.html', status: 'approved' }),
+      board({ id: 'toggle', file: 'toggle.dc.html', kind: 'part', status: 'draft' }),
+      board({ id: 'part-toggle', file: 'part-toggle.dc.html', kind: 'part', status: 'approved' }),
+    ]);
+    expect(dm.held(m, dir)).toEqual([]);
+  });
+  it('follows parts transitively: an approved part embedding a draft part holds the board', () => {
+    const dir = tmp();
+    const m = mapOf([
+      board({ id: '01-a', status: 'approved', parts: ['card'] }),
+      board({ id: 'card', file: 'card.dc.html', kind: 'part', status: 'approved', parts: ['badge'] }),
+      board({ id: 'badge', file: 'badge.dc.html', kind: 'part', status: 'draft' }),
+    ]);
+    expect(dm.held(m, dir)).toEqual([{ id: '01-a', draft_parts: ['badge'] }]);
+  });
 });
 
 describe('read / refresh / write', () => {

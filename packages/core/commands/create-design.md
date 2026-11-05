@@ -35,15 +35,20 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    (including a re-run that draws nothing). `design-map.js setup` returning `missing` or
    `unfilled` ends the command STUCK with "run `/design-setup`". **Read the publishing switch
    next** (contract section 1 step 2) and hold the answer: with `publish: off` this run makes
-   no publish call at all and ends STUCK at step 7. Read the Design type's live
-   `SKILL.md`, references and `artifact-type/dc-runtime.js` through the product's canvas url; when
-   the map records no canvas, create it first from the Design type (`type_url` and `title`, no
-   files) and record it in `canvases[]` (D12). Save the runtime to a working path. Read
+   no publish call at all, finishes steps 8 and 9 on disk, and ends STUCK naming step 7. Read
+   the Design type's live `SKILL.md`, references and `artifact-type/dc-runtime.js` through the
+   product's canvas url; when the map records no canvas and publishing is on, create it first
+   from the Design type (`type_url` and `title`, no files) and record it in `canvases[]` (D12).
+   With `publish: off` or no Artifact tool, create no canvas: contract section 1 step 3 says
+   where the runtime comes from instead. Save the runtime to a working path. Read
    `design.md`, the `designing-on-canvas` skill and the grounding skill, if installed, as text.
-   Run the stale-system check, `node .claude/lib/design-map.js stale --dir docs/ui/<slug> --record`
-   (for a new design, compare `docs/ui/_design-system/<folder>/system.json` the same way once the
-   map is seeded at step 5). On drift, carry on against the installed system, list the drift
-   under **ISSUES** (not only STATE), and put `/design-system --sync` first in NEXT. Ask nothing.
+   For an existing design, run the canvas sync and, when it adopts edits, make the adopt commit
+   right then (contract section 1 step 4), before step 2 writes anything under
+   `docs/ui/<slug>/`. Then run the stale-system check,
+   `node .claude/lib/design-map.js stale --dir docs/ui/<slug> --record` (a new design has no
+   map yet: run it right after step 5 seeds the map). On drift, carry on against the installed
+   system, list the drift under **ISSUES** (not only STATE), and put `/design-system --sync`
+   first in NEXT. Ask nothing.
 2. **Ground and brief.** Call the workflow with `stage: "ground"`:
    ```
    Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
@@ -74,8 +79,10 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    and links, and `validate`. A board that still differs from its screenshot stays marked and
    is listed under ISSUES.
 6. **Commit adopted canvas edits first.** If section 1 found the canvas changed, the edits
-   already adopted to the repository are committed alone, as
-   `design: adopt canvas edits (<boards>)`, before anything below (AC-F8.9). Conflict copies
+   adopted to the repository were committed alone at step 1, as
+   `design: adopt canvas edits (<boards>)`, before grounding or drawing touched
+   `docs/ui/<slug>/` and before anything below (AC-F8.9). Never make that commit here, after
+   steps 2-5: it would sweep the new boards, grounding and map into it. Conflict copies
    (`<board>.repo.dc.html`) stay on disk and are committed with it, never deleted.
 7. **Publish**, only when step 1 read `publish: on` and the Artifact tool is present. Per
    contract section 4: a whole-artifact read of the canvas first, then publish `canvas.json`

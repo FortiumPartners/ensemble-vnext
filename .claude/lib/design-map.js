@@ -138,14 +138,18 @@ function derive(source, fileToId) {
  * Re-derive components/parts/links for every board from its mirror folder. Touches no other
  * field. Returns the updated map (and writes it).
  */
+/** A board's source file on disk: its canvas's mirror folder (the first canvas when unnamed). */
+function boardPath(map, dir, b) {
+  const canvas = (map.canvases || []).find((c) => c.url === b.canvas) || (map.canvases || [])[0] || {};
+  return path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR, b.file);
+}
+
 function refresh(dir) {
   const map = read(dir);
   const fileToId = {};
   for (const b of map.boards) fileToId[b.file] = b.id;
   for (const b of map.boards) {
-    const canvas = (map.canvases || []).find((c) => c.url === b.canvas) || (map.canvases || [])[0] || {};
-    const folder = path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR);
-    const file = path.join(folder, b.file);
+    const file = boardPath(map, dir, b);
     if (!fs.existsSync(file) || /\.repo\.dc\.html$/.test(b.file)) continue;
     Object.assign(b, derive(fs.readFileSync(file, 'utf8'), fileToId));
   }
@@ -211,19 +215,37 @@ const approved = (map) => map.boards.filter((b) => b.kind === 'to-be' && b.statu
  * (AC-F2.3: nothing builds from a draft board, and a part reached through an approved board is
  * still a draft board). A board embeds a part when its derived `parts` name it (by id or file
  * stem) or its source names the part's file -- the source is read because `parts` is derived
- * from `dc-import` tags only and a board may reference a part another way.
+ * from `dc-import` tags only and a board may reference a part another way. The file name must
+ * stand alone (`toggle.dc.html` does not match inside `part-toggle.dc.html`), and parts are
+ * followed transitively: an approved part that embeds a draft part also holds its board.
  * @returns {{ id: string, draft_parts: string[] }[]} only the held boards
  */
 function held(map, dir) {
-  const drafts = map.boards.filter((b) => b.kind === 'part' && b.status === 'draft');
-  if (drafts.length === 0) return [];
-  const out = [];
-  for (const b of approved(map)) {
-    const canvas = (map.canvases || []).find((c) => c.url === b.canvas) || (map.canvases || [])[0] || {};
-    const file = path.join(dir, canvas.dir || DEFAULT_MIRROR_DIR, b.file);
+  const partBoards = map.boards.filter((b) => b.kind === 'part');
+  if (!partBoards.some((p) => p.status === 'draft')) return [];
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cache = new Map();
+  const embeds = (b) => {
+    if (cache.has(b)) return cache.get(b);
+    const file = boardPath(map, dir, b);
     const source = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
     const named = new Set(b.parts || []);
-    const hits = drafts.filter((p) => named.has(p.id) || named.has(path.basename(p.file, '.dc.html')) || source.includes(p.file));
+    const hit = partBoards.filter((p) => p !== b && (named.has(p.id) || named.has(path.basename(p.file, '.dc.html'))
+      || new RegExp(`(^|[^\\w.-])${escape(p.file)}(?![\\w.-])`).test(source)));
+    cache.set(b, hit);
+    return hit;
+  };
+  const out = [];
+  for (const b of approved(map)) {
+    const seen = new Set();
+    const stack = embeds(b);
+    while (stack.length) {
+      const p = stack.pop();
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      stack.push(...embeds(p));
+    }
+    const hits = partBoards.filter((p) => seen.has(p.id) && p.status === 'draft');
     if (hits.length) out.push({ id: b.id, draft_parts: hits.map((p) => p.id) });
   }
   return out;

@@ -29,19 +29,24 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    run; never re-decide it at the publish step.
 3. Read the Design type's live material through the canvas url. When the map records no
    canvas, create it first (with publishing off, do not create one: take the runtime from any
-   canvas another map under `docs/ui/` records, and record no canvas).
-4. **Canvas sync.** Compare the live canvas version with the last synced version:
-   `node .claude/lib/design-mirror.js check --dir docs/ui/<slug> --version <live version>`.
+   canvas another map under `docs/ui/` records, and record no canvas; with no Artifact tool,
+   or no other canvas to read it from, there is no runtime: pass none, so renders are skipped,
+   and list that under ISSUES).
+4. **Canvas sync** (a design with a map only; a new design has nothing to sync). For each
+   canvas in the map's `canvases[]`, compare its live version with the last synced version:
+   `node .claude/lib/design-mirror.js check --dir docs/ui/<slug> --canvas <url> --version <live version>`
+   (without `--canvas` the library checks only the first canvas).
    When it says `unchanged` there is no full read. When it says `changed`, read the whole
    artifact into this run's scratch folder and run
-   `node .claude/lib/design-mirror.js apply --dir docs/ui/<slug> --canvas-dir <scratch>/project`
+   `node .claude/lib/design-mirror.js apply --dir docs/ui/<slug> --canvas <url> --canvas-dir <scratch>/project`
    (it returns `adopted`, `toPublish`, `conflicts`). Then, in this order and before any other
    change to `docs/ui/<slug>/`:
    - **Canvas changed, repository did not (`adopted`).** Run `design-map.js refresh` and
      commit the adopted files and the map **alone**, with exactly this message, listing the
-     adopted board ids:
+     adopted board ids. Stage only those paths (plus any conflict copies), never the whole
+     design folder, which may hold uncommitted repository-side edits (`toPublish`):
      ```bash
-     git add docs/ui/<slug> && git commit -m "design: adopt canvas edits (<board>, <board>)"
+     git add docs/ui/<slug>/design-map.json <each adopted path> <each .repo.dc.html copy> && git commit -m "design: adopt canvas edits (<board>, <board>)"
      ```
      This commit is never folded into the command's own commit, even when the command then
      changes the same board.
