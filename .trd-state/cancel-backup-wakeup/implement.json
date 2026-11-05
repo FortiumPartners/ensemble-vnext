@@ -4,7 +4,7 @@
   "trd_hash": "df7ecce9e883e21361dc4467941f9d287e1d88897353700a0b73c29e65ceddd4",
   "branch": "feature/cancel-backup-wakeup/build",
   "strategy": "bug-fix",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "FIX-001": {
       "description": "State the cancel rule in command-status.md §3 and point to it from async-discipline.md (both copies)",
@@ -46,10 +46,19 @@
       "completed_at": "2026-11-05T23:10:10.401Z"
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "1445b76",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T23:10:27.667Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "1445b76",
+    "last_checkpoint_timestamp": "2026-11-05T23:10:27.667Z",
     "interrupted": false,
     "interrupt_reason": null
   },
