@@ -249,7 +249,7 @@ function held(map, dir, ids) {
   const roots = ids ? map.boards.filter((b) => ids.includes(b.id)) : approved(map);
   for (const b of roots) {
     const seen = new Set();
-    const stack = embeds(b);
+    const stack = [...embeds(b)]; // a copy: popping the cached array would empty it for later lookups
     while (stack.length) {
       const p = stack.pop();
       if (seen.has(p.id)) continue;
@@ -294,6 +294,9 @@ function parseArgs(argv) {
   return { verb, opts };
 }
 
+/** `--ids a, b` -> ['a', 'b']; undefined when the flag is absent. */
+const idList = (ids) => (ids ? ids.split(',').map((s) => s.trim()).filter(Boolean) : undefined);
+
 function headCommit(repo) {
   return git(repo, ['rev-parse', 'HEAD']).stdout.trim();
 }
@@ -307,12 +310,12 @@ function main(argv) {
     case 'validate': return validate(read(opts.dir));
     case 'refresh': return refresh(opts.dir);
     case 'approved': return approved(read(opts.dir));
-    case 'buildable': return buildable(read(opts.dir), opts.ids ? opts.ids.split(',') : undefined);
-    case 'held': return held(read(opts.dir), opts.dir, opts.ids ? opts.ids.split(',') : undefined);
+    case 'buildable': return buildable(read(opts.dir), idList(opts.ids));
+    case 'held': return held(read(opts.dir), opts.dir, idList(opts.ids));
     case 'stale': return stale(read(opts.dir), '.', { record: opts.record, dir: opts.dir });
     case 'transition': {
       if (!opts.ids || !opts.to) throw new Error('transition needs --ids and --to');
-      const next = transition(read(opts.dir), opts.ids.split(','), opts.to, {
+      const next = transition(read(opts.dir), idList(opts.ids), opts.to, {
         commit: opts.commit || headCommit('.'), trd: opts.trd,
       });
       write(opts.dir, next);

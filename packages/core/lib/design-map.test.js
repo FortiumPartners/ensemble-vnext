@@ -132,6 +132,18 @@ describe('held', () => {
     expect(dm.held(m, dir)).toEqual([]);
     expect(dm.held(m, dir, ['01-a', '02-b'])).toEqual([{ id: '01-a', draft_parts: ['nav'] }]);
   });
+  it('with a part among the ids, still follows that part transitively for a later board', () => {
+    const dir = tmp();
+    const m = mapOf([
+      board({ id: 'shell', file: 'shell.dc.html', kind: 'part', status: 'approved', parts: ['nav'] }),
+      board({ id: '01-a', status: 'draft', parts: ['shell'] }),
+      board({ id: 'nav', file: 'nav.dc.html', kind: 'part', status: 'draft' }),
+    ]);
+    expect(dm.held(m, dir, ['shell', '01-a'])).toEqual([
+      { id: 'shell', draft_parts: ['nav'] },
+      { id: '01-a', draft_parts: ['nav'] },
+    ]);
+  });
 });
 
 describe('buildable (AC-F9.4: invocation is approval)', () => {

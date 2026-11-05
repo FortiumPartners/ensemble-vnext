@@ -322,7 +322,7 @@ phase('Reconcile')
 const staleText = STALE
   ? (STALE.stale
       ? `The installed design system is STALE: ${STALE.changed_paths ? STALE.changed_paths.length + ' component file(s) changed since it was built (' + STALE.changed_paths.join(', ') + ')' : STALE.reason || 'drift could not be measured'}.
-  Write a SYSTEM OUT OF DATE line in the readout naming those paths, however small the change
+  Write a SYSTEM OUT OF DATE line in the readout naming ${STALE.changed_paths ? 'those paths' : 'that reason'}, however small the change
   looks (a comment-only edit included): whether it matters is /design-system --sync's call, not
   this audit's. The command puts it under ISSUES with /design-system --sync first in NEXT.`
       : 'The installed design system is current.')

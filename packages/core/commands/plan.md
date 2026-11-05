@@ -536,7 +536,7 @@ Then **approve the named boards still in `draft`**, the same path `/refine-desig
 (a board already `approved` keeps its `approved_commit`): commit any uncommitted change under
 `docs/ui/<slug>/`, take `git rev-parse HEAD` as the commit, run
 `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <draft ids> --to approved --commit <sha>`,
-render their frames with `node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <runtime path> --out docs/ui/<slug>/screens/png --approved`
+render their frames with `node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <runtime path> --out docs/ui/<slug>/screens/png --boards <draft ids> --approved`
 (runtime per `.claude/contracts/design-commands.md` section 1 step 3, read-only; with no runtime
 or exit 2, skip the render and say so in the readout's ISSUES), and commit the map and frames.
 The rules for turning a board into

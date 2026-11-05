@@ -64,7 +64,7 @@ zero findings is a legitimate result.
    `"stale": true` the drift is an **ISSUES** line, never only a STATE line, however small the
    change looks (a comment-only edit included; whether it matters is `/design-system --sync`'s
    call, not this audit's): "the design system is out of date: <changed paths> changed since it
-   was built". And step 1 of NEXT is `/design-system --sync`, ahead of `/refine-design`. Read the
+   was built" (with no `changed_paths`, name its `reason` in their place). And step 1 of NEXT is `/design-system --sync`, ahead of `/refine-design`. Read the
    `designing-on-canvas` skill's conventions if it is installed (else pass none; the workflow
    reports that), and the previous report's `## Could Not Verify` rows if
    `.trd-state/<slug>/audit-design-report.md` exists, so the section is **maintained** (AC-F10.1)

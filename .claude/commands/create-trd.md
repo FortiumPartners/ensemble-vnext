@@ -52,13 +52,14 @@ outside that set is built.
    - `node .claude/lib/design-map.js transition --dir docs/ui/<slug> --ids <draft ids> --to approved --commit <sha>`
      (never edit `status` by hand, AC-F2.3).
    - Render their frames at that commit:
-     `node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <runtime path> --out docs/ui/<slug>/screens/png --approved`.
+     `node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <runtime path> --out docs/ui/<slug>/screens/png --boards <draft ids> --approved`.
      Take the runtime as `.claude/contracts/design-commands.md` section 1 step 3 says (read-only:
      this command creates no canvas). With no runtime, or exit 2 (Playwright or its Chromium
      missing), skip the render and list it under ISSUES; approval still stands.
    - Commit the map and frames: `chore(design): <slug> boards approved by /create-trd`.
 4. Pass the boards to the workflow as `design: { dir, boards, data }`, where `boards` is
-   `node .claude/lib/design-map.js approved --dir docs/ui/<slug>` limited to the ids from step 1,
+   `node .claude/lib/design-map.js approved --dir docs/ui/<slug>` limited to the ids step 1 kept
+   (never a board `held` listed, even one already `approved`),
    and `data` is `docs/ui/<slug>/grounding/data.md` when that file exists. The rules for turning
    boards into tasks are the contract's "Design as a source" (`.claude/contracts/trd-authoring.md`).
 5. After the TRD is written, move exactly those boards:
