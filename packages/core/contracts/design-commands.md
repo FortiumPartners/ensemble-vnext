@@ -148,12 +148,13 @@ Implements NFR-5. The four sections, in order, as `command-status.md` defines th
 
 - STATE
 - DECISIONS
-- ISSUES: conflicts (with the `.repo.dc.html` path), drift, mismatching as-is boards, and
+- ISSUES: conflicts (with the `.repo.dc.html` path), drift, mismatching as-is boards,
   boards edited after approval, each listed as "edited after approval" so the owner can
-  re-approve. Conflicts and drift belong here even when STATE also mentions them; DECISIONS
-  never holds them
+  re-approve, and unsynced boards, listed as
+  "boards <ids> are still building although their feature closed: check them against the build".
+  Conflicts, drift and unsynced boards belong here even when STATE also mentions them;
+  DECISIONS never holds them
 - NEXT: `/design-system --sync` first when the system is stale, then `/sync-design <slug>` when
-  boards are unsynced (ISSUES carries "boards <ids> are still building although their feature
-  closed: check them against the build")
+  boards are unsynced
 
 The canvas link goes above the COMMAND COMPLETE (or COMMAND STUCK) banner, never after it.

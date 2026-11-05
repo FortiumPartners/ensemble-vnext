@@ -1086,3 +1086,13 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 - [ran] A headless `-p` session has no Artifact tool, so `/refine-design` ends `COMMAND STUCK: publish step not run` even when the approval itself succeeded (the map shows `approved` with `approved_commit` set); judge the map, not the banner. `/create-trd` still completes.
 - [ran] `/create-trd --design` needs a PRD that names the design; fixture PRD `docs/PRD/trips-search.md` was added in the react-web folder (branch `fs43-round4`).
 - [ran] Evidence: `.trd-state/design-stage/evidence/r4/fs43-summary.txt` and the per-run maps beside it.
+
+## Exercising `design-map.js unsynced` (unsynced-boards, 2026-11-05)
+
+- [ran] `unsynced` needs no running service: build a scratch project under the evidence directory (`docs/ui/<slug>/design-map.json` with `{"boards":[{id,kind:"to-be",status,trd}]}` and `.trd-state/<feature>/closed.json`), `cd` into it and run `node <repo>/.claude/lib/design-map.js unsynced --dir docs/ui/<slug>` or `--all`. Only `kind: "to-be"` boards are listed; the feature name is the TRD basename. Fixture and output: `.trd-state/unsynced-boards/evidence/fixture`, `fs1-dir.txt`, `fs-all.txt`.
+
+## Exercising unsynced-boards (2026-11-05 run, iteration 1, FS-7..FS-12 slice)
+
+- [ran] `node .claude/lib/design-map.js unsynced --all [--trd <path>]` reads `docs/ui/*/design-map.json` and `.trd-state/<feature>/closed.json` relative to cwd, so a scratch fixture project under the session scratchpad (maps plus empty `closed.json` files, no scaffold needed) is enough; invoke the repo's lib by absolute path from inside the fixture. Matching is by feature name (basename sans extension), so `./docs/TRD/x.md`, an absolute path and `docs/TRD/x.md` all select the same boards.
+- [read] The old unconditional design line in `audit-build.md` was removed in commit b614547 (it said "When the closed feature has a design ..."); the replacement "Unsynced boards" paragraph sits on one physical line (audit-build.md:480, close-feature.md:112), so a locator can be picked from it directly; `.claude/` and `packages/core/` copies are identical.
+- [read] FS-15: contract section 7 (design-commands.md lines 145-158) lists unsynced boards in ISSUES and orders NEXT /design-system --sync then /sync-design <slug>; captured fresh in fs15-contract-s7-v2.txt (2026-11-05 iteration 3).
