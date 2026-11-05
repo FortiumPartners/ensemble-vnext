@@ -48,7 +48,11 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    `node .claude/lib/design-map.js stale --dir docs/ui/<slug> --record` (a new design has no
    map yet: run it right after step 5 seeds the map). On drift, carry on against the installed
    system, list the drift under **ISSUES** (not only STATE), and put `/design-system --sync`
-   first in NEXT. Ask nothing.
+   first in NEXT. Ask nothing. Also run the unsynced-board check,
+   `node .claude/lib/design-map.js unsynced --dir docs/ui/<slug>` (an existing design only; a new
+   one has no building board). On a non-empty result, add the ISSUES line "boards <ids> are still
+   building although their feature closed: check them against the build" and put
+   `/sync-design <slug>` in NEXT, after `/design-system --sync` when that is also due.
 2. **Ground and brief.** Call the workflow with `stage: "ground"`:
    ```
    Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
@@ -86,12 +90,20 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    `docs/ui/<slug>/` and before anything below (AC-F8.9). Never make that commit here, after
    steps 2-5: it would sweep the new boards, grounding and map into it. Conflict copies
    (`<board>.repo.dc.html`) stay on disk and are committed with it, never deleted.
-7. **Publish**, only when step 1 read `publish: on` and the Artifact tool is present. Per
+7. **Before any publish call, check every as-is board's `mismatch_note`.** A note that says the
+   current screenshot is wrong (an artefact, stitching, a stray copy, "worth recapturing")
+   means it shows anything the page does not render: recapture it now, so the canvas never
+   keeps it, and never commit a screenshot any agent's note calls wrong.
+   Capture it per the `design-grounding` skill's Capture section, look at it, then re-render
+   that as-is board against it and update its `screenshot_match` and `mismatch_note`. If the
+   recapture is still wrong, delete it, set `screenshot_match` false with "not compared:
+   capture error", and list it under ISSUES. This runs even with publishing off.
+   **Publish**, only when step 1 read `publish: on` and the Artifact tool is present. Per
    contract section 4: a whole-artifact read of the canvas first, then publish `canvas.json`
    and the parts, then the boards in order. **Install the design system** per contract
    section 3 if the canvas lacks it or holds an older version. **With `publish: off` or no
-   Artifact tool, skip this step entirely** (no publish call, no canvas created, no system
-   installed): contract section 5 applies, so finish steps 8 and 9 on disk (url recorded
+   Artifact tool, skip the publish** (no publish call, no canvas created, no system installed;
+   the recapture above still runs): contract section 5 applies, so finish steps 8 and 9 on disk (url recorded
    empty), then end with `COMMAND STUCK` naming the publish step, never `COMMAND COMPLETE`.
    This is the one place a command ends STUCK over a link, and the contract is the reason.
 8. **Render and export.** Per contract section 2, once the final boards are in place:
@@ -99,14 +111,7 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <saved runtime path> --out docs/ui/<slug>/screens/png
    ```
    Exit 2 means Playwright or its Chromium is missing: list that under ISSUES with the install step.
-9. **Before committing, check every as-is board's `mismatch_note`.** A note that says the
-   current screenshot is wrong (an artefact, stitching, a stray copy, "worth recapturing")
-   means it shows anything the page does not render: recapture it before the commit; never commit a screenshot any agent's note calls wrong.
-   Capture it per the `design-grounding` skill's Capture section, look at it, then re-render
-   that as-is board against it and update its `screenshot_match` and `mismatch_note`. If the
-   recapture is still wrong, delete it, set `screenshot_match` false with "not compared:
-   capture error", and list it under ISSUES.
-   **Commit `docs/ui/<slug>/`** (brief, grounding, canvas, map, screens) and nothing else, then
+9. **Commit `docs/ui/<slug>/`** (brief, grounding, canvas, map, screens) and nothing else, then
    **record** it. Kind `design` names a file, so record the map:
    ```bash
    node .claude/lib/artifacts.js record --state-dir .trd-state/<slug> --kind design --path docs/ui/<slug>/design-map.json --command /create-design --url "<canvas url, or empty when nothing was published>"
@@ -124,8 +129,8 @@ ISSUES, NEXT, in that order, one screen, written for someone who was not in the 
 Contract section 7 applies. STATE counts boards by kind. ISSUES lists design-system drift,
 canvas conflicts, open review findings, render errors, failed agents, and every as-is board that
 still differs from its screenshot. NEXT puts
-`/design-system --sync` first when the system is stale, then `/audit-design <slug>`, then
-`/refine-design <slug>`.
+`/design-system --sync` first when the system is stale, then `/sync-design <slug>` when boards are
+unsynced, then `/audit-design <slug>`, then `/refine-design <slug>`.
 
 The canvas link goes **above** the banner, never after it.
 

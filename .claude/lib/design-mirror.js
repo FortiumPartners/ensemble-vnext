@@ -17,8 +17,11 @@
  * conflict copy to the canvas as if it were a board).
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
- *   node .claude/lib/design-mirror.js <check|plan|apply|refused|base> --dir docs/ui/<slug>
+ *   node .claude/lib/design-mirror.js <check|plan|apply|refused|base|record> --dir docs/ui/<slug>
  *     [--canvas-dir <path>] [--version <v>] [--canvas <url>] [--work-dir <path>, required by refused]
+ *   `record` needs --version: it stores that version and the `base` hashes on the canvas entry,
+ *   which is what the next `check` compares against. Run it after every publish or adopt; after an
+ *   adopt pass --canvas-dir (the canvas read) so unpublished repository edits stay unsynced.
  *
  * Example: node .claude/lib/design-mirror.js plan --dir docs/ui/checkout --canvas-dir /tmp/read/project
  */
@@ -75,7 +78,10 @@ function hashOf(dir, rel) {
 function check(map, canvasUrl, liveVersion) {
   const entry = (map.canvases || []).find((c) => c.url === canvasUrl);
   if (!entry) throw new Error(`no canvas with url ${canvasUrl} in the design map`);
-  return entry.version === liveVersion ? 'unchanged' : 'changed';
+  // `synced_version` is the name some maps already carry; honour it so they stop reading as changed.
+  // Compared as strings: the CLI always passes a string, and a hand-written map may hold a number.
+  const recorded = entry.version !== undefined ? entry.version : entry.synced_version;
+  return recorded !== undefined && recorded !== null && String(recorded) === String(liveVersion) ? 'unchanged' : 'changed';
 }
 
 /**
@@ -162,6 +168,27 @@ function base(dir) {
   return out;
 }
 
+/**
+ * Record a canvas's synced version after a publish or an adopt: sets `version`, `synced_at` and the
+ * `files` base on its map entry, and drops the legacy `synced_version`. Without this, `check`
+ * compares against a version nobody wrote and always says `changed`.
+ * The base is what the CANVAS holds at that version: after an adopt, pass `canvasDir` (the canvas
+ * read), so a repository edit not yet published stays a `repo` change on the next `plan` instead of
+ * reading as synced and being overwritten by the next canvas edit. After a publish the repository
+ * and the canvas agree, so the repository mirror is hashed when `canvasDir` is omitted.
+ */
+function record(dir, entry, version, canvasDir) {
+  const map = designMap.read(dir);
+  const target = (map.canvases || []).find((c) => c.url === entry.url);
+  if (!target) throw new Error(`no canvas with url ${entry.url} in the design map`);
+  target.version = version;
+  delete target.synced_version;
+  target.synced_at = new Date().toISOString();
+  target.files = base(canvasDir || path.join(dir, target.dir || DEFAULT_MIRROR_DIR));
+  designMap.write(dir, map);
+  return { url: target.url, version, files: Object.keys(target.files).length };
+}
+
 function parseArgs(argv) {
   const [verb, ...rest] = argv;
   const opts = {};
@@ -198,11 +225,14 @@ function main(argv) {
       if (!opts['work-dir']) throw new Error("refused needs --work-dir (the run's scratch folder)");
       return refused(opts['work-dir']);
     case 'base': return base(repoDir);
+    case 'record':
+      if (opts.version === undefined) throw new Error('record needs --version');
+      return record(opts.dir, entry, opts.version, canvasDir);
     default: throw new Error(`unknown verb ${verb}`);
   }
 }
 
-module.exports = { check, plan, apply, refused, base, parseArgs };
+module.exports = { check, plan, apply, refused, base, record, parseArgs };
 
 if (require.main === module) {
   try {

@@ -92,6 +92,16 @@ describe('design-commands contract', () => {
     expect(s1).toMatch(/The drift is an \*\*ISSUES\*\* line, never only a STATE line/);
   });
 
+  test('step 6 also runs the unsynced-board check, with /sync-design <slug> after --sync (USB-003)', () => {
+    const s1 = section(1).replace(/\s+/g, ' ');
+    expect(s1).toMatch(/unsynced-board check/);
+    expect(s1).toContain('design-map.js unsynced --dir docs/ui/<slug>');
+    expect(s1).toContain('boards <ids> are still building although their feature closed: check them against the build');
+    expect(s1).toMatch(/`\/sync-design` skips it, being the remedy, and `\/design-system` skips it/);
+    const s7 = section(7).replace(/\s+/g, ' ');
+    expect(s7).toMatch(/`\/design-system --sync` first when the system is stale, then `\/sync-design <slug>`/);
+  });
+
   test('the publishing switch is read before any Artifact call and governs the whole run (NFR-2)', () => {
     const s1 = section(1).replace(/\s+/g, ' ');
     expect(s1).toMatch(/Read the publishing switch, before any Artifact call, every run/);

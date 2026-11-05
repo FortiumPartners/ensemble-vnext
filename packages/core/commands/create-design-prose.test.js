@@ -28,6 +28,11 @@ describe('create-design command prose', () => {
     expect(text).toMatch(/`missing` or `unfilled` ends the command STUCK with "run `\/design-setup`"/);
   });
 
+  test('unsynced boards: runs the check and names /sync-design <slug> in NEXT (USB-003)', () => {
+    expect(text).toContain('design-map.js unsynced --dir docs/ui/<slug>');
+    expect(text).toMatch(/then `\/sync-design <slug>` when boards are\s+unsynced/);
+  });
+
   test('carries on past a stale system and puts /design-system --sync first in NEXT, asking nothing', () => {
     expect(text).toContain('design-map.js stale --dir docs/ui/<slug> --record');
     expect(text).toMatch(/carry on against the installed system, list the drift\s+under \*\*ISSUES\*\* \(not only STATE\), and put `\/design-system --sync` first in NEXT\. Ask nothing/);
@@ -53,7 +58,15 @@ describe('create-design command prose', () => {
   // FS-34 round 1: a home screenshot with a repeated nav and card was flagged, kept and committed.
   test('a screenshot showing what the page does not render is recaptured, never committed (FS-34)', () => {
     expect(text).toMatch(/shows anything the page does not render \(a repeated nav or card/);
-    expect(text).toMatch(/recapture it before the commit; never commit a screenshot any agent's note calls wrong/);
+    expect(text).toMatch(/recapture it now, so the canvas never\s+keeps it, and never commit a screenshot any agent's note calls wrong/);
+  });
+
+  // DSGN-T004 follow-up: the recapture ran after the publish, so the canvas kept the wrong screenshot.
+  test('the mismatched as-is recapture runs before any publish call, publishing on or off', () => {
+    const recapture = text.indexOf("Before any publish call, check every as-is board's `mismatch_note`");
+    expect(recapture).toBeGreaterThan(0);
+    expect(recapture).toBeLessThan(text.indexOf('publish `canvas.json` and the parts, then the boards in order'));
+    expect(text).toMatch(/This runs even with publishing off/);
   });
 
   test('asks at most four questions, only with a person present and not --auto, each with a recommended option', () => {
@@ -84,7 +97,7 @@ describe('create-design command prose', () => {
 
   test('with publishing off or no artifact access, finishes disk work then ends STUCK naming the publish step', () => {
     expect(text).toMatch(/Read the publishing switch\s+next\*\*/);
-    expect(text).toMatch(/With `publish: off` or no\s+Artifact tool, skip this step entirely\*\*/);
+    expect(text).toMatch(/With `publish: off` or no\s+Artifact tool, skip the publish\*\* \(no publish call, no canvas created, no system installed;\s+the recapture above still runs\)/);
     expect(text).toMatch(/contract section 5 applies, so finish steps 8 and 9 on disk \(url recorded\s+empty\), then end with `COMMAND STUCK` naming the publish step, never `COMMAND COMPLETE`/);
   });
 

@@ -43,6 +43,17 @@ describe('check', () => {
   });
 });
 
+describe('check with a legacy synced_version', () => {
+  it('reads synced_version when version is absent', () => {
+    const map = { canvases: [{ url: 'u', synced_version: '5' }] };
+    expect(mirror.check(map, 'u', '5')).toBe('unchanged');
+  });
+  it('matches a numeric recorded version against the CLI string, and a missing one is changed', () => {
+    expect(mirror.check({ canvases: [{ url: 'u', version: 5 }] }, 'u', '5')).toBe('unchanged');
+    expect(mirror.check({ canvases: [{ url: 'u' }] }, 'u', 'undefined')).toBe('changed');
+  });
+});
+
 describe('plan + apply: the four sync cases', () => {
   it('canvas changed: the edit is adopted into the repository', () => {
     const base = synced();
@@ -192,7 +203,21 @@ describe('CLI', () => {
     expect(JSON.parse(run(['plan', ...d, '--canvas-dir', canvas], proj).stdout).files['A.dc.html']).toBe('canvas');
     expect(JSON.parse(run(['apply', ...d, '--canvas-dir', canvas], proj).stdout).adopted).toEqual(['A.dc.html']);
     expect(Object.keys(JSON.parse(run(['base', ...d], proj).stdout))).toContain('A.dc.html');
+    expect(JSON.parse(run(['record', ...d, '--version', '4'], proj).stdout).version).toBe('4');
+    expect(JSON.parse(run(['check', ...d, '--version', '4'], proj).stdout)).toBe('unchanged');
     expect(JSON.parse(run(['refused', ...d, '--work-dir', path.join(root, 'w')], proj).stdout)).toBe('retry');
+  });
+
+  it('record after an adopt with --canvas-dir keeps an unpublished repository edit a repo change', () => {
+    const d = ['--dir', 'docs/ui/x'];
+    const mirrorDir = path.join(proj, 'docs/ui/x/canvas/project');
+    put(mirrorDir, 'B.dc.html', 'repo-only edit');
+    expect(JSON.parse(run(['apply', ...d, '--canvas-dir', canvas], proj).stdout).toPublish).toEqual(['B.dc.html']);
+    run(['record', ...d, '--canvas-dir', canvas, '--version', '4'], proj);
+    put(canvas, 'A.dc.html', 'v3'); // a later canvas edit
+    const files = JSON.parse(run(['plan', ...d, '--canvas-dir', canvas], proj).stdout).files;
+    expect(files['B.dc.html']).toBe('repo');
+    expect(files['A.dc.html']).toBe('canvas');
   });
 
   it('errors exit 1 naming the problem', () => {

@@ -39,7 +39,11 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    When it says `unchanged` there is no full read. When it says `changed`, read the whole
    artifact into this run's scratch folder and run
    `node .claude/lib/design-mirror.js apply --dir docs/ui/<slug> --canvas <url> --canvas-dir <scratch>/project`
-   (it returns `adopted`, `toPublish`, `conflicts`). Then, in this order and before any other
+   (it returns `adopted`, `toPublish`, `conflicts`), then record the version just synced:
+   `node .claude/lib/design-mirror.js record --dir docs/ui/<slug> --canvas <url> --canvas-dir <scratch>/project --version <live version>`
+   (`--canvas-dir` makes the base what the canvas holds, so a `toPublish` file stays unpublished
+   in the base until §4 publishes it).
+   Then, in this order and before any other
    change to `docs/ui/<slug>/`:
    - **Canvas changed, repository did not (`adopted`).** Run `design-map.js refresh` and
      commit the adopted files and the map **alone**, with exactly this message, listing the
@@ -72,6 +76,17 @@ Implements AC-F5.9 and AC-F6.9. In this order:
    `/design-system --sync` is the **first** step in NEXT. Commit the recorded drift with the
    command's own commit.
 
+   Then, in the same step, the **unsynced-board check**:
+   ```bash
+   node .claude/lib/design-map.js unsynced --dir docs/ui/<slug>
+   ```
+   (once per design, read-only; `/sync-design` skips it, being the remedy, and `/design-system`
+   skips it, touching no design's boards). A to-be board is unsynced when its map status is still
+   `building` although its feature's `closed.json` exists. On a non-empty result (`[{ design, id,
+   trd }]`) add an **ISSUES** line: "boards <ids> are still building although their feature
+   closed: check them against the build", and put `/sync-design <slug>` in NEXT, after
+   `/design-system --sync` when that is also due. Nothing runs `/sync-design` automatically.
+
 ## 2. Render pass
 
 Implements AC-F3.6. The Design type tells an agent never to render or verify unless asked.
@@ -95,8 +110,10 @@ Implements AC-F5.6. Read the whole artifact first, then publish. When the canvas
 because it holds a newer save, re-read and redo the change, asking
 `design-mirror.js refused --dir docs/ui/<slug> --work-dir <this run's scratch folder>` what to
 do next (the count lives in that folder, so each run starts from zero). The third refusal ends
-the command STUCK. After a successful publish, record `base`
-and write the canvas entry.
+the command STUCK. After a successful publish, run
+`design-mirror.js record --dir docs/ui/<slug> --canvas <url> --version <the canvas's new version>`,
+which writes the canvas entry's `version`, `synced_at` and `files` base; the next `check` compares
+against it.
 
 ## 5. No artifact access, or publishing off
 
@@ -131,10 +148,13 @@ Implements NFR-5. The four sections, in order, as `command-status.md` defines th
 
 - STATE
 - DECISIONS
-- ISSUES: conflicts (with the `.repo.dc.html` path), drift, mismatching as-is boards, and
+- ISSUES: conflicts (with the `.repo.dc.html` path), drift, mismatching as-is boards,
   boards edited after approval, each listed as "edited after approval" so the owner can
-  re-approve. Conflicts and drift belong here even when STATE also mentions them; DECISIONS
-  never holds them
-- NEXT: `/design-system --sync` first when the system is stale
+  re-approve, and unsynced boards, listed as
+  "boards <ids> are still building although their feature closed: check them against the build".
+  Conflicts, drift and unsynced boards belong here even when STATE also mentions them;
+  DECISIONS never holds them
+- NEXT: `/design-system --sync` first when the system is stale, then `/sync-design <slug>` when
+  boards are unsynced
 
 The canvas link goes above the COMMAND COMPLETE (or COMMAND STUCK) banner, never after it.

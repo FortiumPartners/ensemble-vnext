@@ -263,3 +263,65 @@ describe('CLI', () => {
     expect(cli(repo, 'read').status).toBe(1);
   });
 });
+
+describe('unsynced', () => {
+  const project = () => {
+    const root = tmp();
+    const put = (name, boards) => {
+      const d = path.join(root, 'docs', 'ui', name);
+      fs.mkdirSync(d, { recursive: true });
+      fs.writeFileSync(path.join(d, 'design-map.json'), JSON.stringify(mapOf(boards)));
+    };
+    const close = (f) => {
+      fs.mkdirSync(path.join(root, '.trd-state', f), { recursive: true });
+      fs.writeFileSync(path.join(root, '.trd-state', f, 'closed.json'), '{}');
+    };
+    return { root, put, close };
+  };
+  const b = (id, o) => board({ id, file: `${id}.dc.html`, status: 'building', trd: 'docs/TRD/done.md', ...o });
+
+  it('lists only closed-feature building to-be boards with a trd', () => {
+    const { root, put, close } = project();
+    close('done');
+    put('one', [
+      b('01'), b('02', { trd: 'docs/TRD/open.md' }), b('03', { status: 'approved' }), b('04', { status: 'shipped' }),
+      b('05', { kind: 'as-is' }), b('06', { trd: null }), b('07', { trd: undefined }),
+    ]);
+    expect(dm.unsyncedAll(root)).toEqual([{ design: 'one', id: '01', trd: 'docs/TRD/done.md' }]);
+  });
+  it('scans two designs, sets design, and skips a folder with no map', () => {
+    const { root, put, close } = project();
+    close('done');
+    put('a', [b('01')]);
+    put('b', [b('02')]);
+    fs.mkdirSync(path.join(root, 'docs', 'ui', '_current'));
+    expect(dm.unsyncedAll(root).map((e) => `${e.design}/${e.id}`)).toEqual(['a/01', 'b/02']);
+  });
+  it('gives [] when there is no docs/ui folder', () => expect(dm.unsyncedAll(tmp())).toEqual([]));
+  it('--trd matches by feature name across path spellings and filters others out', () => {
+    const { root, put, close } = project();
+    close('done'); close('other');
+    put('a', [b('01'), b('02', { trd: 'docs/TRD/other.md' })]);
+    for (const spelling of ['./docs/TRD/done.md', path.join(root, 'docs/TRD/done.md'), 'docs/TRD/done.md']) {
+      expect(dm.unsyncedAll(root, { trd: spelling }).map((e) => e.id)).toEqual(['01']);
+    }
+  });
+  it('single design via the CLI verb, and --all via the CLI', () => {
+    const { root, put, close } = project();
+    close('done');
+    put('a', [b('01')]);
+    const script = path.join(__dirname, 'design-map.js');
+    const run = (...a) => spawnSync('node', [script, 'unsynced', ...a], { cwd: root, encoding: 'utf8' });
+    expect(JSON.parse(run('--dir', 'docs/ui/a').stdout)).toEqual([{ design: 'a', id: '01', trd: 'docs/TRD/done.md' }]);
+    expect(JSON.parse(run('--all').stdout)).toHaveLength(1);
+    expect(JSON.parse(run('--all', '--trd', 'docs/TRD/nope.md').stdout)).toEqual([]);
+    expect(run().status).toBe(1);
+  });
+});
+
+describe('installed copy', () => {
+  it('.claude/lib/design-map.js is byte-identical to packages/core/lib/design-map.js', () => {
+    const root = path.join(__dirname, '..', '..', '..');
+    expect(fs.readFileSync(path.join(root, '.claude/lib/design-map.js'))).toEqual(fs.readFileSync(path.join(root, 'packages/core/lib/design-map.js')));
+  });
+});

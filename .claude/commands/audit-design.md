@@ -58,17 +58,26 @@ zero findings is a legitimate result.
 2. **Read the inputs the workflow cannot read** (only this session can, D2 and D12):
    ```bash
    node .claude/lib/design-map.js read --dir docs/ui/<slug>
+   node .claude/lib/design-map.js unsynced --dir docs/ui/<slug>
    node .claude/lib/design-map.js stale --dir docs/ui/<slug>
    ```
    `stale` runs **without `--record`**: drift is reported, never written (AC-F6.9). On
    `"stale": true` the drift is an **ISSUES** line, never only a STATE line, however small the
    change looks (a comment-only edit included; whether it matters is `/design-system --sync`'s
    call, not this audit's): "the design system is out of date: <changed paths> changed since it
-   was built" (with no `changed_paths`, name its `reason` in their place). And step 1 of NEXT is `/design-system --sync`, ahead of `/refine-design`. Read the
+   was built" (with no `changed_paths`, name its `reason` in their place). And step 1 of NEXT is `/design-system --sync`, ahead of `/refine-design`. A non-empty `unsynced` result is an **ISSUES** line too: "boards <ids>
+   are still building although their feature closed: check them against the build"; NEXT then
+   names `/sync-design <slug>` after `/design-system --sync` (when also due) and ahead of
+   `/refine-design`. Read the
    `designing-on-canvas` skill's conventions if it is installed (else pass none; the workflow
    reports that), and the previous report's `## Could Not Verify` rows if
    `.trd-state/<slug>/audit-design-report.md` exists, so the section is **maintained** (AC-F10.1)
    and not lost when the report is overwritten.
+   **Save the render runtime to a working path** (the render check runs only when the workflow
+   is given one). Read `artifact-type/dc-runtime.js` through the map's canvas url (contract
+   section 1 step 3, a read, not a sync) and write it to a scratch file; pass that path as
+   `runtime`. With publishing off, take it from another canvas under `docs/ui/`; pass an empty
+   `runtime` only when neither exists, and list "render check not run" under ISSUES.
 3. **Run the workflow once:**
    ```
    Workflow({ name: "audit-design", args: { slug: "<slug>", dir: "docs/ui/<slug>", brief: "docs/ui/<slug>/brief.md", sources: "<sources path or empty>", project: "<dir or empty>", map: "<design-map.json text>", conventions: "<text or empty>", stale: <stale result>, priorCnv: [<prior rows>], runtime: "<pinned dc-runtime path or empty>" } })
@@ -124,8 +133,9 @@ There is no commit step. A failed write or record is one line in STATE; it never
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session). The
 `AUDIT:` header and the `VERDICT:` line come first, then the workflow's finding lines. When the
 system is stale (step 2), ISSUES carries the drift line and NEXT names `/design-system --sync`
-first, then `/refine-design <slug>` for the findings; otherwise NEXT is `/refine-design <slug>`
-for the findings, or nothing. Check this before printing: a stale result with no ISSUES drift
+first, then `/sync-design <slug>` when boards are unsynced, then `/refine-design <slug>` for the
+findings; otherwise NEXT is `/sync-design <slug>` when boards are unsynced, then
+`/refine-design <slug>` for the findings, or nothing. Check this before printing: a stale result with no ISSUES drift
 line, or with anything above `/design-system --sync` in NEXT, is a wrong readout.
 
 ---

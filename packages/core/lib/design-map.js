@@ -13,8 +13,9 @@
  * argument array, never a shell string.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
- *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|setup>
+ *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup>
  *     --dir docs/ui/<slug> [--ids a,b] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
+ *   node .claude/lib/design-map.js unsynced --all [--trd <path>]   (scans every design under docs/ui)
  *
  * Example: node .claude/lib/design-map.js transition --dir docs/ui/checkout --ids 01-cart --to approved
  */
@@ -262,6 +263,43 @@ function held(map, dir, ids) {
   return out;
 }
 
+/** Feature name for a TRD path: basename without extension (the rule close-feature and router share). */
+const featureOf = (trd) => path.basename(String(trd), path.extname(String(trd)));
+
+/**
+ * To-be boards still `building` whose TRD's feature has a close record
+ * (`.trd-state/<feature>/closed.json` under `root`): built and closed, but never synced.
+ * A board with no `trd`, or in any other status, is never listed. With `trd`, only boards whose
+ * TRD names the same feature are kept (compared by feature name, so path spellings do not matter).
+ * Reads only the map and closed.json; it does not compare screens -- that is /sync-design's job.
+ * @returns {{ design: string, id: string, trd: string }[]}
+ */
+function unsynced(map, design, { root = '.', trd } = {}) {
+  const only = trd ? featureOf(trd) : null;
+  const out = [];
+  for (const b of map.boards || []) {
+    if (b.kind !== 'to-be' || b.status !== 'building' || !b.trd) continue;
+    const feature = featureOf(b.trd);
+    if (only && feature !== only) continue;
+    if (!fs.existsSync(path.join(root, '.trd-state', feature, 'closed.json'))) continue;
+    out.push({ design, id: b.id, trd: b.trd });
+  }
+  return out;
+}
+
+/** `unsynced` over every design map under `root`/docs/ui; no docs/ui folder gives []. */
+function unsyncedAll(root, { trd } = {}) {
+  const ui = path.join(root, 'docs', 'ui');
+  if (!fs.existsSync(ui)) return [];
+  const out = [];
+  for (const name of fs.readdirSync(ui).sort()) {
+    const dir = path.join(ui, name);
+    if (!fs.existsSync(mapPath(dir))) continue; // _current, _design-system and the like
+    out.push(...unsynced(read(dir), name, { root, trd }));
+  }
+  return out;
+}
+
 /** 'missing' | 'unfilled' | 'filled' for the project's design.md (D9). */
 function setup(projectDir) {
   const norm = (s) => s.replace(/\r\n/g, '\n').trim();
@@ -287,7 +325,7 @@ function parseArgs(argv) {
   for (let i = 0; i < rest.length; i++) {
     if (!rest[i].startsWith('--')) throw new Error(`unexpected argument ${rest[i]}`);
     const key = rest[i].slice(2);
-    if (key === 'record') opts.record = true;
+    if (key === 'record' || key === 'all') opts[key] = true;
     else if (rest[i + 1] === undefined || rest[i + 1].startsWith('--')) throw new Error(`--${key} needs a value`);
     else opts[key] = rest[++i];
   }
@@ -304,6 +342,7 @@ function headCommit(repo) {
 function main(argv) {
   const { verb, opts } = parseArgs(argv);
   if (verb === 'setup') return setup(opts.dir || '.');
+  if (verb === 'unsynced' && opts.all) return unsyncedAll('.', { trd: opts.trd });
   if (!opts.dir) throw new Error('--dir is required');
   switch (verb) {
     case 'read': return read(opts.dir);
@@ -312,6 +351,7 @@ function main(argv) {
     case 'approved': return approved(read(opts.dir));
     case 'buildable': return buildable(read(opts.dir), idList(opts.ids));
     case 'held': return held(read(opts.dir), opts.dir, idList(opts.ids));
+    case 'unsynced': return unsynced(read(opts.dir), path.basename(path.resolve(opts.dir)), { trd: opts.trd });
     case 'stale': return stale(read(opts.dir), '.', { record: opts.record, dir: opts.dir });
     case 'transition': {
       if (!opts.ids || !opts.to) throw new Error('transition needs --ids and --to');
@@ -325,7 +365,7 @@ function main(argv) {
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, held, setup, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, held, unsynced, unsyncedAll, setup, parseArgs, KINDS, STATUSES };
 
 if (require.main === module) {
   try {

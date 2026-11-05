@@ -1,0 +1,124 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/unsynced-boards.md",
+  "trd_hash": "7b134b618e32dffbec8aec52fb4959389b0c48df50208a97820740d1fa779ca6",
+  "branch": "feature/unsynced-boards/build",
+  "strategy": "tdd",
+  "phase_cursor": 2,
+  "tasks": {
+    "USB-001": {
+      "description": "Add `unsynced` to design-map.js (--dir / --all [--trd]) with unit tests; copy to .claude/lib",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-map.js",
+        "packages/core/lib/design-map.test.js",
+        ".claude/lib/design-map.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T19:01:53.835Z",
+      "completed_at": "2026-11-05T19:06:26.465Z",
+      "last_advanced": "2026-11-05T19:05:01.713Z"
+    },
+    "USB-002": {
+      "description": "/audit-build (close path) and /close-feature readouts name unsynced boards per design and recommend /sync-design",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/close-feature.md",
+        "packages/core/commands/sync-design-prose.test.js",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/close-feature.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T19:01:53.835Z",
+      "completed_at": "2026-11-05T19:06:26.467Z",
+      "last_advanced": "2026-11-05T19:05:01.714Z"
+    },
+    "USB-003": {
+      "description": "Contract §1 step 6 and §7 gain the unsynced-board check; create-, refine- and audit-design add it",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/contracts/design-commands.md",
+        "packages/core/contracts/design-commands.test.js",
+        "packages/core/commands/create-design.md",
+        "packages/core/commands/refine-design.md",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/create-design-prose.test.js",
+        "packages/core/commands/refine-design-prose.test.js",
+        "packages/core/commands/audit-design-prose.test.js",
+        ".claude/contracts/design-commands.md",
+        ".claude/commands/create-design.md",
+        ".claude/commands/refine-design.md",
+        ".claude/commands/audit-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-05T19:01:53.835Z",
+      "completed_at": "2026-11-05T19:06:26.467Z",
+      "last_advanced": "2026-11-05T19:05:01.714Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "b614547",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-05T19:07:00.754Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "b614547",
+    "last_checkpoint_timestamp": "2026-11-05T19:07:00.754Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "intended-change",
+    "prd_path": "docs/TRD/unsynced-boards.md ## Intended Change",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "no URL declared in verification.md §1"
+      },
+      "local": {
+        "status": "usable",
+        "reason": "declared at http://localhost:3000; whether it is up is the setup check's question"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared in verification.md §1"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "no URL declared; read-only, no deploy"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized"
+      }
+    }
+  },
+  "created_at": "2026-11-05T19:01:53.835Z"
+}
