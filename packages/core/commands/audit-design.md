@@ -29,7 +29,7 @@ and never publishes. Findings are for the owner to act on with `/refine-design`.
 
 | Verifier | Checks |
 |---|---|
-| `traceability` | A board with no source; a brief item with no board. |
+| `traceability` | A board with no source (the verifier). A brief item with no board, and a to-be board serving no brief item, are decided in code from the map's `brief_items` (the workflow only; when no board records the field the verifier decides no-board and the second check is skipped, with a Could Not Verify row). |
 | `conventions` | Boards against the canvas conventions (`designing-on-canvas`). |
 | `reuse` | A component drawn by hand when the design system or codebase already has one. |
 | `render` | Render errors, using `design-render.js` into a scratch folder, never `screens/png/`. |

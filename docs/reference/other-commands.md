@@ -326,7 +326,7 @@ sequenceDiagram
 | 8 | Publish and record | code | same section | `Artifact(...)` of the report to the stored URL (`artifacts.js get --kind audit-build`), then always `artifacts.js record --kind audit-build`, with `--url` only when a publish returned one. The manifest `.trd-state/<feature>/artifacts.json` is committed right after, on every run that records. Publishing off or failed → STATE names the local path. |
 | 9 | Chain or stop | model | "But it DOES close the loop" | A covered defect or test gap → recorded as a discovery, then `Skill implement-trd <trd> --reconcile --chained` (re-opens work only claimed done; `--resume` would skip it; `--chained` leaves the run's one banner to this command). See "Rounds" below for when a re-audit follows. A requirement no task covers is a design decision → recorded, reported, not chained. `--report-only` suppresses the chain and the readout says "not handed off on this run". |
 | 8a | Open the pull request | code | "Open the pull request" | Only when the audit closed the feature, the run is not `--report-only` and the commit succeeded, and `ensemble.openPullRequest` is `auto` (shipped default `never`; this repo sets `auto`): `node .claude/lib/pull-request.js ensure --expect-branch <the feature's branch>` opens the PR, or updates it if one is already open (a closed one is ignored). It skips with a one-line reason (setting `never`, default branch, detached HEAD, not the feature's branch, `gh` missing) or fails with one line; neither blocks. It never merges: NEXT tells you to merge it once you have reviewed it. |
-| 8b | Name unsynced design boards | code | "Readout", NEXT | After a close, `design-map.js unsynced --all --trd <trd>` lists design boards this TRD built that are still `building`. NEXT gets one step per design: check its boards against the build with `/sync-design <slug>` once the PR has merged. Named, never run. See [design](design.md). |
+| 8b | Name unsynced design boards | code | "Readout", NEXT | After a close, `design-map.js unsynced --all --trd <trd>` lists design boards this TRD built that are still `building`. NEXT gets one step per design: check its boards against the build with `/sync-design` now or once the PR has merged, then `/sync-design <slug> --trd <trd>`. Named, never run. See [design](design.md). |
 
 ### The five verifiers
 
@@ -446,7 +446,7 @@ After a successful close commit on a feature branch, it also opens the pull requ
 
 After writing `closed.json` it also runs `design-map.js unsynced --all --trd <trd>`: each
 design with boards this TRD built that are still `building` gets one NEXT step naming
-`/sync-design <slug>`, to run once the PR has merged. A failing check is one ISSUES line; the
+`/sync-design <slug> --trd <trd>`, to run now or once the PR has merged. A failing check is one ISSUES line; the
 command never runs `/sync-design` itself.
 
 ### `closed.json` fields

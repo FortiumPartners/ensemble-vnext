@@ -671,7 +671,7 @@ arrives in args (D12).
 **Stage `ground`**: parallel read-only agents write `grounding/` (AC-F8.2), skipping a file
 whose covered code has not changed since it was written (AC-F8.10); one agent writes `brief.md`
 citing a source for every brief item (AC-F8.3, AC-F8.4). Returns
-`{ brief, openDecisions: [{ question, options, recommended }] }`.
+~~`{ brief, openDecisions: [{ question, options, recommended }] }`~~ *Superseded 2026-11-05: see `docs/TRD/design-orchestration.md` D7 (each decision also carries `id`, `why`, `weak`, `brief_items`; the stage also returns `items`).* 
 
 **Stage `draw`**: as-is boards per screen in scope unless `newMode` for screens with no
 predecessor, each rendered and compared with its screenshot, setting `screenshot_match` and

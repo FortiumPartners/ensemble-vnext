@@ -27,7 +27,14 @@ export const meta = {
 //   conventions   designing-on-canvas text                    groundingSkill  the grounding skill's text, or ''
 //   runtime       saved dc-runtime.js path (D12)              boardsInScope  [{ name, route, platform, viewport, predecessor, screenshot }]
 //   newMode       --new: no as-is board for a screen with no predecessor
-//   auto          --auto or no person present: record assumptions in the brief, ask nothing
+//   auto          accepted, not read: the ground stage returns every open decision in both modes and the
+//                 command records the unanswered ones (D7, D8)
+//   items         draw stage: the ground stage's `items` ({ id, source }); the ids are the only ones a to-be
+//                 agent may return as brief_items, so a wrong id is not first caught by validate
+//   odNext        the first free OD-n number: one more than the highest OD-n already in brief.md,
+//                 counted by the command before this stage runs (1 on a new brief, and when absent).
+//                 The ground stage gives the k-th returned decision the id OD-<odNext + k - 1>, in code,
+//                 so the ids are exactly the ones the command records unanswered decisions under.
 
 function readArgs(raw) {
   if (typeof raw === 'string') {
@@ -57,7 +64,10 @@ const CONVENTIONS = a.conventions || ''
 const GROUNDING_SKILL = a.groundingSkill || ''
 const RUNTIME = a.runtime || ''
 const NEW_MODE = a.newMode === true
-const AUTO = a.auto === true
+// A numeric string ("4") is accepted: a silent fall back to 1 would repeat ids already in brief.md.
+const OD_NEXT_RAW = typeof a.odNext === 'string' && a.odNext.trim() !== '' ? Number(a.odNext) : a.odNext
+const OD_NEXT = Number.isInteger(OD_NEXT_RAW) && OD_NEXT_RAW >= 1 ? OD_NEXT_RAW : 1
+const ITEM_IDS = (Array.isArray(a.items) ? a.items : []).map((i) => (i && i.id) || '').filter(Boolean)
 const SCREENS = Array.isArray(a.boardsInScope) ? a.boardsInScope : []
 if (STAGE !== 'ground' && STAGE !== 'draw') throw new Error('create-design: args.stage must be "ground" or "draw"')
 if (!DIR) throw new Error('create-design: args.dir (docs/ui/<slug>) is required')
@@ -173,13 +183,19 @@ THE WORK THE DESIGN SERVES:
 ${SOURCES || '(see the repository)'}
 
 brief.md holds: the screens and their states (empty, loading, error); for each board the existing
-components and views it reuses, and anything new with its reason; and open decisions. Give every
-brief item an id (BI-1, BI-2, ...) and cite the PRD or issue source for each one (AC-F8.4).
+components and views it reuses, and anything new with its reason. Give every brief item a unique
+id. Keep the id the source gives it (for example S1, S2) when that id labels exactly one item;
+assign BI-1, BI-2, ... to every other item (a source criterion that yields several items is
+cited, not used as their id). Every item must cite the PRD or issue source for each one (AC-F8.4);
+return the items as items: [{ id, source }].
 
-OPEN DECISIONS. Return only a decision the material leaves with NO reasonable default. A decision
-that has a default is decided in the brief, not asked. ${AUTO
-    ? 'Nobody will be asked: return an empty openDecisions list and write every assumption you made into brief.md under "Assumptions".'
-    : 'At most four. Each has the question, its options, and the one option you recommend (your best guess from the material).'}
+OPEN DECISIONS. Return every decision the material leaves with NO reasonable default, whoever
+is or is not present to answer: the question, its options, the one option you recommend (your
+best guess from the material), why, whether that default is weak (the material gives little
+reason to prefer it), and the brief item ids it affects (brief_items, possibly empty). Do not
+write open decisions into brief.md. If brief.md already has a "## Decisions taken by default"
+section, keep it word for word. A decision that has a default is decided in the brief, not
+returned; write the other assumptions you made into brief.md under "Assumptions".
 
 Also return the screens in scope as the boards will use them: name, route, platform, viewport,
 whether a current screen already exists (predecessor) and its screenshot path if any.
@@ -189,13 +205,23 @@ ${BATCH}`,
     {
       label: 'brief', agentType: 'product-manager', phase: 'Brief', effort: 'high', model: 'sonnet',
       schema: {
-        type: 'object', additionalProperties: false, required: ['openDecisions', 'screens'],
+        type: 'object', additionalProperties: false, required: ['openDecisions', 'items', 'screens'],
         properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false, required: ['id', 'source'],
+              properties: { id: { type: 'string' }, source: { type: 'string' } },
+            },
+          },
           openDecisions: {
             type: 'array',
             items: {
-              type: 'object', additionalProperties: false, required: ['question', 'options', 'recommended'],
-              properties: { question: { type: 'string' }, options: { type: 'array', items: { type: 'string' } }, recommended: { type: 'string' } },
+              type: 'object', additionalProperties: false, required: ['question', 'options', 'recommended', 'why', 'weak', 'brief_items'],
+              properties: {
+                question: { type: 'string' }, options: { type: 'array', items: { type: 'string' } }, recommended: { type: 'string' },
+                why: { type: 'string' }, weak: { type: 'boolean' }, brief_items: { type: 'array', items: { type: 'string' } },
+              },
             },
           },
           screens: {
@@ -217,7 +243,11 @@ ${BATCH}`,
     stage: 'ground',
     slug: SLUG,
     brief: `${DIR}/brief.md`,
-    openDecisions: AUTO ? [] : brief.openDecisions.slice(0, 4),
+    // Every decision, in both modes, uncapped (the command caps its own question round, D7), each
+    // with its OD-n id numbered from the command's odNext, so an unattended caller can answer one
+    // by id later (`/refine-design --auto "OD-n: <option>"`).
+    openDecisions: (brief.openDecisions || []).map((d, i) => ({ ...d, id: `OD-${OD_NEXT + i}` })),
+    items: brief.items,
     screens: brief.screens,
     grounding_written: grounded.filter(Boolean).filter((g) => g.written).map((g) => g.file),
     grounding_missing: groundingDead,
@@ -238,6 +268,16 @@ const BOARD_SCHEMA = {
     states: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, setup: { type: 'string' }, props: { type: 'object' } } } },
     screenshot_match: { type: 'boolean' }, mismatch_note: { type: 'string' },
   },
+}
+// A to-be board must answer which brief items it serves; an empty list is then the agent's answer,
+// not a defaulted missing field (D12).
+// With recorded ids, the schema enforces them too, so an invented id fails here rather than at validate.
+const TOBE_SCHEMA = {
+  ...BOARD_SCHEMA,
+  required: [...BOARD_SCHEMA.required, 'brief_items'],
+  properties: ITEM_IDS.length
+    ? { ...BOARD_SCHEMA.properties, brief_items: { type: 'array', items: { type: 'string', enum: ITEM_IDS } } }
+    : BOARD_SCHEMA.properties,
 }
 
 phase('AsIs')
@@ -314,14 +354,14 @@ Write ${DIR}/canvas/project/${s.n}-${s.key}.dc.html following designing-on-canva
 ${asIs.find((r) => r && r.screen === s) ? `Start from its as-is board, ${DIR}/canvas/project/${s.n}-${s.key}--as-is.dc.html.` : 'It has no as-is board: draw it new.'}
 Shared parts you may import: ${partList.length ? partList.map((p) => p.file).join(', ') : 'none'}.
 Declare every state worth reviewing (empty, loading, error) as a tweak, and return each state's name and props.
-Return the brief item ids this board answers (brief_items). Do NOT edit design-map.json.
+Return the brief item ids this board answers (brief_items). ${ITEM_IDS.length ? `The recorded ids are ${ITEM_IDS.join(', ')}: these are the only ids you may return; never invent or rename one.` : 'No brief item ids were passed: return an empty brief_items rather than inventing ids.'} Do NOT edit design-map.json.
 ${BOARD_RULES}
 ${SCOPE}
 ${DATA_RULE}
 ${BATCH}`,
   {
     label: `tobe:${s.n}-${s.key}`, agentType: 'frontend-implementer', phase: 'ToBe', effort: 'high', model: 'sonnet',
-    schema: BOARD_SCHEMA,
+    schema: TOBE_SCHEMA,
   },
 ).then((r) => (r ? { ...r, screen: s } : null)))
 toBe.forEach((r, i) => {

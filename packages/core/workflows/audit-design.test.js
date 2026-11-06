@@ -193,6 +193,82 @@ describe('audit-design findings and result', () => {
   });
 });
 
+describe('audit-design traceability from the map (DORCH-B005)', () => {
+  const items = ['S1', 'S2', 'S3'].map((id, i) => ({ id, statement: id, line: String(i + 1) }))
+  const idx = { ...INDEX, brief_items: items }
+  const tb = (id, brief_items, extra = {}) => ({ ...board(1), id, kind: 'to-be', brief_items, ...extra })
+  const mapOf = (boards, top) => JSON.stringify({ boards, ...(top ? { brief_items: top } : {}) })
+  const run = (boards, o = {}, top) => audit({ index: idx, ...o }, baseArgs({ map: mapOf(boards, top) }))
+  const accepted = (r) => byLabel(r.agent, 'reconcile').prompt
+
+  it('flags an unserved item as no-board and a to-be board with [] or an unknown id as no-brief-item', async () => {
+    const r = await run([tb('a', ['S1']), tb('b', ['S2']), tb('c', []), tb('d', ['S9'])])
+    const p = accepted(r)
+    expect(p).toContain('"check": "no-board"')
+    expect(p).toContain("no board's brief_items names S3")
+    expect(p).toContain('to-be board c records no brief item')
+    expect(p).toContain('names S9, which the brief does not have')
+    expect(r.result.findings).toBe(3)
+    expect(p).not.toMatch(/Could Not Verify row saying so/)
+  })
+
+  it('yields nothing for part, as-is, flow and superseded boards, and counts any board as serving', async () => {
+    const r = await run([
+      tb('a', ['S1', 'S2', 'S3'], { kind: 'as-is' }),
+      tb('p', [], { kind: 'part' }), tb('f', [], { kind: 'flow' }), tb('s', [], { status: 'superseded' }),
+      tb('sh', ['S1'], { status: 'shipped' }),
+    ])
+    expect(r.result.findings).toBe(0)
+  })
+
+  it('stops asking the traceability verifier for no-board on this path', async () => {
+    const r = await run([tb('a', ['S1'])])
+    const p = byLabel(r.agent, 'verify:traceability').prompt
+    expect(p).not.toMatch(/no-board:\s+a brief item/)
+    expect(p).toContain('no-source:')
+  })
+
+  it("reads the map's top-level item list when recorded, else the index", async () => {
+    const r = await run([tb('a', ['S1'])], {}, [{ id: 'S1', source: 'x' }, { id: 'Z7', source: 'y' }])
+    expect(accepted(r)).toContain("names Z7")
+    expect(accepted(r)).not.toContain('names S3')
+  })
+
+  it('skips the board side and says so when the index is empty', async () => {
+    const r = await run([tb('a', ['S1'])], { index: { ...INDEX, brief_items: [] } })
+    expect(r.result.findings).toBe(0)
+    expect(accepted(r)).toMatch(/item list came back empty/)
+  })
+
+  it('falls back to the verifier when no board records the field, with a Could Not Verify instruction', async () => {
+    const r = await audit({ index: idx }, baseArgs())
+    expect(byLabel(r.agent, 'verify:traceability').prompt).toMatch(/no-board:\s+a brief item/)
+    expect(accepted(r)).toMatch(/Could Not Verify row saying so/)
+    expect(r.result.findings).toBe(0)
+  })
+
+  it('stays on the verifier path when only parts record the field, not reading every item as unserved', async () => {
+    const r = await run([{ ...board(1), id: 'a', kind: 'to-be' }, tb('p', [], { kind: 'part' })])
+    expect(byLabel(r.agent, 'verify:traceability').prompt).toMatch(/no-board:\s+a brief item/)
+    expect(accepted(r)).toMatch(/No to-be board in the map records brief_items/)
+    expect(r.result.findings).toBe(0)
+  })
+
+  it('tells reconcile that map-computed findings are exempt from the absence rule', async () => {
+    const withCode = await run([tb('a', ['S1'])])
+    expect(accepted(withCode)).toMatch(/verifier "traceability-map" were computed in code/)
+    const none = await run([tb('a', ['S1', 'S2', 'S3'])])
+    expect(accepted(none)).not.toMatch(/traceability-map" were computed in code/)
+  })
+
+  it('carries the new check value, the heading, and the Index id instruction', async () => {
+    const r = await run([tb('a', ['S1'])])
+    expect(byLabel(r.agent, 'verify:traceability').opts.schema.properties.findings.items.properties.check.enum).toContain('no-brief-item')
+    expect(accepted(r)).toContain('BOARDS SERVING NO BRIEF ITEM')
+    expect(byLabel(r.agent, 'index').prompt).toMatch(/copy the id the brief itself gives the item/)
+  })
+})
+
 describe('audit-design --drift (DSGN-B015)', () => {
   const shipped = { id: '09-s', file: 's.dc.html', kind: 'to-be', platform: 'web', viewport: '1280x800', status: 'shipped', shipped_commit: 'abc1234' };
   const asIs = { id: '10-a', file: 'a.dc.html', kind: 'as-is', platform: 'web', viewport: '1280x800', status: 'approved' };

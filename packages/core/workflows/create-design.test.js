@@ -23,7 +23,8 @@ function drawArgs(count = 2, over = {}) {
 }
 
 const BRIEF = {
-  openDecisions: [{ question: 'Guest checkout?', options: ['yes', 'no'], recommended: 'yes' }],
+  openDecisions: [{ question: 'Guest checkout?', options: ['yes', 'no'], recommended: 'yes', why: 'The PRD is silent', weak: true, brief_items: ['S1'] }],
+  items: [{ id: 'S1', source: 'AC-F3.1' }, { id: 'BI-1', source: 'AC-F3.2' }],
   screens: [screen(1)],
 };
 
@@ -80,7 +81,8 @@ describe('create-design stage ground', () => {
 
   it('returns the open decisions, each with a recommended option, and the screens', async () => {
     const { result } = await run(groundArgs());
-    expect(result.openDecisions[0]).toEqual({ question: 'Guest checkout?', options: ['yes', 'no'], recommended: 'yes' });
+    expect(result.openDecisions[0]).toEqual({ id: 'OD-1', question: 'Guest checkout?', options: ['yes', 'no'], recommended: 'yes', why: 'The PRD is silent', weak: true, brief_items: ['S1'] });
+    expect(result.items).toEqual(BRIEF.items);
     expect(result.screens).toHaveLength(1);
     expect(result.brief).toBe('docs/ui/checkout/brief.md');
     const schema = byLabel((await run(groundArgs())).agent, 'brief').opts.schema;
@@ -92,12 +94,57 @@ describe('create-design stage ground', () => {
     expect(byLabel(agent, 'brief').prompt).toMatch(/cite the PRD or issue source for each one/);
   });
 
-  it('caps the round at four questions and returns none under --auto', async () => {
-    const many = { ...BRIEF, openDecisions: Array.from({ length: 6 }, (_, i) => ({ question: `q${i}`, options: ['a'], recommended: 'a' })) };
-    expect((await run(groundArgs(), { brief: many })).result.openDecisions).toHaveLength(4);
-    const auto = await run(groundArgs({ auto: true }), { brief: many });
-    expect(auto.result.openDecisions).toEqual([]);
-    expect(byLabel(auto.agent, 'brief').prompt).toMatch(/Nobody will be asked/);
+  it('returns every decision in both modes, uncapped, each with an OD-n id from OD-1 on a new brief', async () => {
+    const many = { ...BRIEF, openDecisions: Array.from({ length: 6 }, (_, i) => ({ question: `q${i}`, options: ['a'], recommended: 'a', why: 'w', weak: false, brief_items: [] })) };
+    for (const over of [{}, { auto: true }]) {
+      const { result } = await run(groundArgs(over), { brief: many });
+      expect(result.openDecisions).toHaveLength(6);
+      expect(result.openDecisions.map((d) => d.id)).toEqual(['OD-1', 'OD-2', 'OD-3', 'OD-4', 'OD-5', 'OD-6']);
+      expect(result.openDecisions[2]).toMatchObject({ question: 'q2', options: ['a'], recommended: 'a' });
+    }
+  });
+
+  it('numbers decisions from odNext, the first OD-n free in an existing brief', async () => {
+    const two = { ...BRIEF, openDecisions: [0, 1].map((i) => ({ question: `q${i}`, options: ['a'], recommended: 'a', why: 'w', weak: false, brief_items: [] })) };
+    const { result } = await run(groundArgs({ auto: true, odNext: 4 }), { brief: two });
+    expect(result.openDecisions.map((d) => d.id)).toEqual(['OD-4', 'OD-5']);
+    const str = await run(groundArgs({ auto: true, odNext: '4' }), { brief: two });
+    expect(str.result.openDecisions.map((d) => d.id)).toEqual(['OD-4', 'OD-5']);
+    for (const bad of [0, -2, 'x', 1.5, '']) {
+      const r = await run(groundArgs({ auto: true, odNext: bad }), { brief: two });
+      expect(r.result.openDecisions.map((d) => d.id)).toEqual(['OD-1', 'OD-2']);
+    }
+  });
+
+  it('requires why, weak, brief_items and items in the brief schema', async () => {
+    const { schema } = byLabel((await run(groundArgs())).agent, 'brief').opts;
+    expect(schema.required).toContain('items');
+    expect(schema.properties.openDecisions.items.required).toEqual(expect.arrayContaining(['why', 'weak', 'brief_items']));
+    expect(schema.properties.items.items.required).toEqual(['id', 'source']);
+  });
+
+  it('keeps a source id only when it labels exactly one item, with unique ids', async () => {
+    const p = flatP(byLabel((await run(groundArgs())).agent, 'brief').prompt);
+    expect(p).toMatch(/unique id/);
+    expect(p).toMatch(/Keep the id the source gives it/);
+    expect(p).toMatch(/labels exactly one item/);
+    expect(p).not.toContain('Give every brief item an id (BI-1, BI-2, ...)');
+    expect(p).toContain('items: [{ id, source }]');
+  });
+
+  it('does not write open decisions into brief.md and keeps an existing decisions section', async () => {
+    for (const over of [{}, { auto: true }]) {
+      const p = flatP(byLabel((await run(groundArgs(over))).agent, 'brief').prompt);
+      expect(p).toMatch(/Do not write open decisions into brief\.md/);
+      expect(p).toContain('## Decisions taken by default');
+      expect(p).toMatch(/word for word/);
+      expect(p).not.toMatch(/Nobody will be asked/);
+    }
+  });
+
+  it('names no product or orchestrator in the auto brief prompt', async () => {
+    const p = byLabel((await run(groundArgs({ auto: true }))).agent, 'brief').prompt;
+    expect(p).not.toMatch(/forge|orchestrator/i);
   });
 
   it('reports a dead grounding agent and carries on', async () => {
@@ -124,6 +171,25 @@ describe('create-design stage draw', () => {
     expect(tobe).toHaveLength(3);
     expect(tobe.every((c) => c.at > byLabel(agent, 'parts').at)).toBe(true);
     expect(parallel.waves.filter((w) => w.size === 3)).toHaveLength(2); // as-is wave and to-be wave
+  });
+
+  it('requires brief_items from every to-be draw agent', async () => {
+    const { agent } = await run(drawArgs(1));
+    expect(byLabel(agent, 'tobe:01-screen-1').opts.schema.required).toContain('brief_items');
+  });
+
+  it('gives each to-be agent the recorded brief item ids as the only ids it may return', async () => {
+    const { agent } = await run(drawArgs(1, { items: [{ id: 'S1', source: 'AC-F3.1' }, { id: 'BI-1', source: 'AC-F3.2' }] }));
+    const p = flatP(byLabel(agent, 'tobe:01-screen-1').prompt);
+    expect(p).toContain('S1');
+    expect(p).toContain('BI-1');
+    expect(p).toMatch(/only ids/i);
+    expect(byLabel(agent, 'tobe:01-screen-1').opts.schema.properties.brief_items.items.enum).toEqual(['S1', 'BI-1']);
+  });
+
+  it('tells the to-be agent to return an empty list when no ids were recorded', async () => {
+    const { agent } = await run(drawArgs(1));
+    expect(flatP(byLabel(agent, 'tobe:01-screen-1').prompt)).toMatch(/no brief item ids/i);
   });
 
   it('draws the to-be board from its as-is board', async () => {

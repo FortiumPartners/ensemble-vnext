@@ -22,7 +22,8 @@ $ARGUMENTS
 
 - **`--new`** draws no as-is board for a screen that has no current version. The default draws
   one per screen, so a change to an existing screen starts from what is there (AC-F8.5).
-- **`--auto`** asks nothing. Every assumption goes into `brief.md` instead (AC-F8.3).
+- **`--auto`** asks nothing. Every assumption goes into `brief.md` instead (AC-F8.3), and every open decision is recorded in
+  the brief under a fixed heading (step 3).
 
 **Slug (D22).** The source PRD's file stem; else `issue-<n>` for an issue; else the brief's
 stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>/`.
@@ -53,21 +54,46 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    one has no building board). On a non-empty result, add the ISSUES line "boards <ids> are still
    building although their feature closed: check them against the build" and put
    `/sync-design <slug>` in NEXT, after `/design-system --sync` when that is also due.
-2. **Ground and brief.** Call the workflow with `stage: "ground"`:
+2. **Ground and brief.** First count `odNext`: one more than the highest `OD-n` already in
+   `brief.md` (`1` on a new brief, or when the brief has no `OD-n`). Then call the workflow with `stage: "ground"`:
    ```
-   Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
+   Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, odNext: <n>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
    ```
-   It writes `grounding/` and `brief.md` and returns `openDecisions` and `screens`.
+   It writes `grounding/` and `brief.md` and returns `openDecisions` (each `id`, `question`, `options`,
+   `recommended`, `why`, `weak`, `brief_items`, with no cap; the ids run `OD-<odNext>`, `OD-<odNext+1>`, ...
+   in both modes, under `--auto` too), `items` (`{ id, source }`) and `screens`.
    **If the workflow is unavailable**, do the grounding and the brief yourself, then continue.
 3. **The question round.** Only with a person present and not `--auto`. A person is present
    when an `AskUserQuestion` can be answered: if it cannot be, treat the run as `--auto`. Ask
    the returned `openDecisions` in one round of at most four questions. Each marks one option
    "(Recommended)", the brief's default (D25). They are decisions the material leaves with no
    reasonable default (`autonomy.md` case 1), never a checkpoint; a decision with a default is
-   decided in the brief. Write the answers into `brief.md`. With no answer, apply the
-   recommended option and record it.
+   decided in the brief. Write the answers into `brief.md`.
+
+   **Record what nobody answered, before step 4.** Every returned decision nobody answered is
+   recorded in `brief.md` under the fixed heading `## Decisions taken by default`, taking its
+   `recommended` option: all of them under `--auto` or with no person present, the ones beyond
+   the four asked, and any asked but not answered. If the heading already exists, keep it word for
+   word and append below it. Record each decision under the `id` the workflow returned it with, never
+   renumbered: those ids start at `odNext`, one more than the highest `OD-n` already in `brief.md`
+   (`OD-1` on a new brief), and under `--auto` they are exactly the next ids in order. With a person present, an
+   answered decision's id is simply not used, so the recorded ids can skip a number but never repeat
+   one. If the workflow was unavailable, number the recorded decisions yourself by the same rule. The format:
+
+   ```markdown
+   ## Decisions taken by default
+
+   ### OD-<n>: <question>
+   - Options: <option> | <option> | <option>
+   - Taken: <option>
+   - Why: <reason>
+   - Affects: S2, S3
+   ```
+
+   `Affects` lists the decision's `brief_items`, or reads `none named` when it has none.
 4. **Draw.** Call the workflow again with the same args plus `stage: "draw"` and
-   `boardsInScope: <the returned screens>`. It writes the boards under `docs/ui/<slug>/canvas/project/`:
+   `boardsInScope: <the returned screens>` and `items: <the ground stage's items>` (the recorded ids; each
+   to-be agent may return only those as `brief_items`). It writes the boards under `docs/ui/<slug>/canvas/project/`:
    as-is boards (rendered and compared with the screenshot, AC-F8.5; the screenshot is captured
    fresh at the board's viewport by the `design-grounding` skill's Capture section, never a stored
    screenshot, and a `window.innerWidth` differing from the board's width is a capture error, not
@@ -79,10 +105,11 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
 5. **Write the map once.** Parallel agents never edit it. Seed `design-map.json` from the
    built system: `design_system` from the map if one exists, else from
    `docs/ui/_design-system/<folder>/system.json` (what `/design-system` writes; do not invent
-   one). Add `canvases` and one entry per returned board with `status: "draft"`, plus each
-   as-is board's `screenshot_match` and `mismatch_note` (D5), then run
+   one). Add `canvases` and one entry per returned board with `status: "draft"` and its `brief_items` from the returned board (parts `[]`), plus each
+   as-is board's `screenshot_match` and `mismatch_note` (D5), write the map's top-level `brief_items` list from the ground stage's `items`, then run
    `node .claude/lib/design-map.js refresh --dir docs/ui/<slug>` to derive components, parts
-   and links, and `validate`. A board that still differs from its screenshot stays marked and
+   and links, and `validate`. If `validate` fails on an unknown brief item id, correct the id on that board to
+   the recorded one it answers, or drop it, then re-run `validate`; list each such board under ISSUES. A board that still differs from its screenshot stays marked and
    is listed under ISSUES.
 6. **Commit adopted canvas edits first.** If section 1 found the canvas changed, the edits
    adopted to the repository were committed alone at step 1, as
@@ -126,7 +153,9 @@ step above. Never put a credential in a board or a page (contract section 6).
 
 **Format: the four-section readout in `.claude/rules/command-status.md`** (STATE, DECISIONS,
 ISSUES, NEXT, in that order, one screen, written for someone who was not in the session).
-Contract section 7 applies. STATE counts boards by kind. ISSUES lists design-system drift,
+Contract section 7 applies. STATE counts boards by kind. DECISIONS lists each default taken by its id and its question
+("OD-2, which currency to show"), never the id alone; a default with `weak: true` goes to ISSUES
+instead. ISSUES lists design-system drift,
 canvas conflicts, open review findings, render errors, failed agents, and every as-is board that
 still differs from its screenshot. NEXT puts
 `/design-system --sync` first when the system is stale, then `/sync-design <slug>` when boards are

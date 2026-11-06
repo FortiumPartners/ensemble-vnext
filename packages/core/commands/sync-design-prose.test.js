@@ -35,6 +35,14 @@ describe('sync-design command prose', () => {
   test('chains /design-system --sync --chained and ends with its own single banner', () => {
     expect(sync).toContain('args: "--sync --chained"');
     expect(sync).toContain('COMMAND COMPLETE: /sync-design');
+    expect(sync).toContain('It may run on a feature branch before its PR merges; its commits land on that branch.');
+    expect(sync).toContain('argument-hint: "<slug> [--trd <path>] [--project <dir>]"');
+    expect(sync).toMatch(/--trd <path>.{0,200}only `building` boards whose `trd` has that feature name/);
+    expect(sync).toContain(
+      '**`--trd <path>`** (stripped with its value, like `--project`) limits the run to one feature: only `building` boards whose `trd` has that feature name are put in the map text passed to the workflow, and every other board is left untouched.');
+    expect(sync).toContain('(with `--trd`, `building` ones of that feature)');
+    expect(sync).toContain('**Strip `--project <dir>` and `--trd <path>` first**, remembering both.');
+    expect(sync).not.toMatch(/--trd[^.]{0,80}(syncs|includes|captures) (every|all) (board|building)/i);
     expect(sync).toContain('notify-complete.sh "sync-design"');
     expect(sync).toContain('design-commands.md');
   });
@@ -55,13 +63,14 @@ describe.each([['audit-build', auditBuild], ['close-feature', closeFeature]])(
     });
 
     test('merged-PR and default-branch wordings', () => {
-      expect(text).toMatch(/once the PR has merged/);
-      expect(text).toMatch(/or now, when the feature closed on the default branch/);
+      expect(text).toMatch(/now, or once the PR has merged/);
+      expect(text).not.toMatch(/when the feature closed on the default branch/);
+      expect(text).not.toMatch(/where there is no PR/);
     });
 
     test('one numbered step per design with /sync-design <slug> alone in a fenced block', () => {
       expect(text).toMatch(/one numbered step per design/);
-      expect(text).toContain('`/sync-design <slug>` alone in its fenced block');
+      expect(text).toContain('`/sync-design <slug> --trd <trd-path>` alone in its fenced block');
     });
 
     test('with none, says nothing about syncing', () => {

@@ -1,0 +1,286 @@
+{
+  "version": "4.0.0",
+  "trd_file": "docs/TRD/design-orchestration.md",
+  "trd_hash": "455f09414f371cd81481aab962120e61546f7181b83c40c4a5c816b5b58c7d59",
+  "branch": "feature/design-orchestration/build",
+  "strategy": "tdd",
+  "phase_cursor": 3,
+  "tasks": {
+    "DORCH-B001": {
+      "description": "design-map.js: validate accepts an optional brief_items (array of strings) and rejects any other value; new buildableByItems(map, items, ids) and CLI buildable --items returning { boards, unmatched, h",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/lib/design-map.js",
+        "packages/core/lib/design-map.test.js",
+        ".claude/lib/design-map.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:00:57.569Z",
+      "completed_at": "2026-11-06T04:04:05.545Z",
+      "last_advanced": "2026-11-06T04:02:14.783Z"
+    },
+    "DORCH-B002": {
+      "description": "create-design.js ground stage: brief prompt keeps a source item id only when it labels exactly one item, else BI-n, ids unique (D6); returns items: [{ id, source }] (D16); returns every open decision ",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        ".claude/workflows/create-design.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:00:57.570Z",
+      "completed_at": "2026-11-06T04:04:05.545Z",
+      "last_advanced": "2026-11-06T04:02:14.784Z"
+    },
+    "DORCH-B005": {
+      "description": "audit-design.js: after Index, compute no-board (from the map's top-level item list when recorded, D16, else the index) and no-brief-item findings from the map's brief_items in code (D12), fall back to",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js",
+        ".claude/workflows/audit-design.js",
+        ".claude/commands/audit-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:00:57.570Z",
+      "completed_at": "2026-11-06T04:04:05.545Z",
+      "last_advanced": "2026-11-06T04:02:14.784Z"
+    },
+    "DORCH-B006": {
+      "description": "create-trd.md: --boards <ids> per §3.4, /plan's named-board rules reused verbatim (D2); argument-hint updated; flag and value stripped before the PRD path; mirror updated",
+      "phase": 1,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/commands/create-trd-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:00:57.570Z",
+      "completed_at": "2026-11-06T04:04:05.545Z",
+      "last_advanced": "2026-11-06T04:02:14.784Z"
+    },
+    "DORCH-B003": {
+      "description": "create-design.md: step 3 asks at most four (interactive) and records every unanswered decision under ## Decisions taken by default in the §3.3 format before step 4, numbering from the highest existing",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:04:05.973Z",
+      "completed_at": "2026-11-06T04:06:45.921Z",
+      "last_advanced": "2026-11-06T04:05:31.902Z"
+    },
+    "DORCH-B004": {
+      "description": "refine-design.md: Modes row and --auto text per D9–D11 — new decisions appended with the next OD-n; OD-<n>: <option> answers applied (affected boards from Affects and the map's brief_items; Answer: li",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:04:05.973Z",
+      "completed_at": "2026-11-06T04:06:45.921Z",
+      "last_advanced": "2026-11-06T04:05:31.903Z"
+    },
+    "DORCH-B007": {
+      "description": "audit-build.md and close-feature.md unsynced-boards step says \"now, or once the PR has merged\" and names /sync-design <slug> --trd <trd-path> (D13); sync-design.md states it may run on a feature branc",
+      "phase": 2,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/close-feature.md",
+        "packages/core/commands/sync-design.md",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/close-feature.md",
+        ".claude/commands/sync-design.md",
+        "packages/core/commands/sync-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:04:05.973Z",
+      "completed_at": "2026-11-06T04:06:45.921Z",
+      "last_advanced": "2026-11-06T04:05:31.903Z"
+    },
+    "DORCH-D001": {
+      "description": "Update docs/reference/design.md (create-trd --boards steps, the buildable --items row, the decisions record and OD-n answers, audit traceability from the map) and docs/guides/QUICK-REFERENCE.md (/crea",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/reference/design.md",
+        "docs/guides/QUICK-REFERENCE.md",
+        "docs/TRD/unsynced-boards.md",
+        "docs/reference/authoring.md",
+        "docs/reference/README.md",
+        "docs/reference/other-commands.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:06:46.182Z",
+      "completed_at": "2026-11-06T04:08:54.563Z",
+      "last_advanced": "2026-11-06T04:08:28.000Z"
+    },
+    "DORCH-T001": {
+      "description": "[LIVE] Walk the multi-feature path in test/fixtures/design/react-web/ with ensemble.publishArtifacts: false: /create-design --auto from a brief whose items carry ids S1…; buildable --items for two dis",
+      "phase": 3,
+      "status": "deferred",
+      "cycle_position": "implement",
+      "current_problem": "deferred by design: [LIVE] walk, needs --include-deferred",
+      "retry_count": 0,
+      "files_changed": [],
+      "commit": null,
+      "started_at": null,
+      "completed_at": null
+    },
+    "AMEND-001": {
+      "description": "AMEND-001",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        "packages/core/commands/create-design.md",
+        ".claude/workflows/create-design.js",
+        ".claude/commands/create-design.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:35:14.336Z",
+      "completed_at": "2026-11-06T04:36:51.519Z",
+      "last_advanced": "2026-11-06T04:35:50.495Z"
+    },
+    "AMEND-002": {
+      "description": "AMEND-002",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "docs/TRD/design-orchestration.md",
+        "docs/TRD/design-stage.md"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:35:14.337Z",
+      "completed_at": "2026-11-06T04:36:51.519Z",
+      "last_advanced": "2026-11-06T04:35:50.495Z"
+    },
+    "AMEND-003": {
+      "description": "AMEND-003",
+      "phase": 3,
+      "status": "success",
+      "cycle_position": "complete",
+      "current_problem": null,
+      "retry_count": 0,
+      "files_changed": [
+        "packages/core/commands/create-trd-design-prose.test.js",
+        "packages/core/commands/sync-design-prose.test.js"
+      ],
+      "commit": null,
+      "started_at": "2026-11-06T04:35:14.337Z",
+      "completed_at": "2026-11-06T04:36:51.519Z",
+      "last_advanced": "2026-11-06T04:35:50.495Z"
+    }
+  },
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "fa44c18",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-06T04:04:05.972Z"
+    },
+    {
+      "phase": 2,
+      "commit": "842737e",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-06T04:06:46.182Z"
+    },
+    {
+      "phase": 3,
+      "commit": "59653b3",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-06T04:08:54.883Z"
+    }
+  ],
+  "recovery": {
+    "last_healthy_checkpoint": "59653b3",
+    "last_checkpoint_timestamp": "2026-11-06T04:08:54.883Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "functional_verification": {
+    "prd_resolved": true,
+    "source_kind": "prd",
+    "prd_path": "docs/plan/design-orchestration.investigation.md",
+    "target": {
+      "environment": null,
+      "source": "none"
+    },
+    "environments": {
+      "preview": {
+        "status": "unusable",
+        "reason": "no URL declared in verification.md §1"
+      },
+      "local": {
+        "status": "usable",
+        "reason": "declared; this repo runs from the working tree (Jest, node CLIs)"
+      },
+      "dev": {
+        "status": "unusable",
+        "reason": "no URL declared in verification.md §1"
+      },
+      "staging": {
+        "status": "unusable",
+        "reason": "no URL declared; read-only"
+      },
+      "production": {
+        "status": "unusable",
+        "reason": "must not be touched"
+      },
+      "claude-artifacts": {
+        "status": "usable",
+        "reason": "always authorized by verification.md §1"
+      }
+    }
+  }
+}

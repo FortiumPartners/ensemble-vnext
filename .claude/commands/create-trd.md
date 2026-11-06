@@ -2,7 +2,7 @@
 name: create-trd
 description: Take an existing PRD and create Technical Requirements Document with architecture, task breakdown, and execution plan
 version: 2.0.0
-argument-hint: "[path-to-prd] [--design docs/ui/<slug>]"
+argument-hint: "[path-to-prd] [--design docs/ui/<slug> [--boards <ids>]]"
 # Expensive, and its description matches how a user would phrase the task —
 # so it must not be picked up by description match. Scope authorization is autonomy.md's job, not this flag's.
 disable-model-invocation: true
@@ -24,12 +24,12 @@ Error if neither available.
 ### Design input (`--design docs/ui/<slug>`)
 
 A TRD may be built from a design. The design is `--design docs/ui/<slug>`, or a
-`docs/ui/<slug>` path the PRD names. The flag and its value are not part of the PRD path.
+`docs/ui/<slug>` path the PRD names. The flags and their values (`--design <dir>`, `--boards <ids>`) are not part of the PRD path: remove each flag **and its value**, or the path ends up wrong.
 `--design` alone is not a source: the PRD (or transcript) is still required.
 
 **Invocation is approval (AC-F9.4, D18).** Running this command with a design is the owner's
 approval of the to-be boards it builds: every to-be board of that design still in `draft` or
-`approved`, recorded once the TRD is written. Nothing else approves a board here (no canvas comment, no chat remark), and no board
+`approved`, recorded once the TRD is written (with `--boards`, only the named boards: see below). Nothing else approves a board here (no canvas comment, no chat remark), and no board
 outside that set is built.
 
 1. List the boards to build: `node .claude/lib/design-map.js buildable --dir docs/ui/<slug>`
@@ -44,6 +44,15 @@ outside that set is built.
    `draft` or `approved`, this design's boards already moved to `building` (a re-run after
    `/refine-trd`), or every one is held by a draft part (name the parts). Do not run the
    workflow with an empty design.
+   **With `--boards <ids>`** (comma-separated; only valid with `--design`), the TRD is built from
+   those boards and no others, and naming a board is the owner's approval of it. Run steps 1 and 2
+   limited to the named ids: `node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --ids <ids>`
+   lists the named to-be boards in `draft` or `approved`; a named board it does not list (already
+   `building` or `shipped`, not a to-be board, or not in the map) is STUCK, naming it and its status.
+   `node .claude/lib/design-map.js held --dir docs/ui/<slug> --ids <ids>` lists each named board that
+   embeds a part still in `draft`; a named board it lists is STUCK too, naming the part and
+   `/refine-design <slug> --approve <part>`. Only the named ids are approved and moved to `building`
+   below. Without `--boards`, the steps above apply unchanged.
 3. **Record the source commit, before the workflow.** Commit any uncommitted change under
    `docs/ui/<slug>/` first, then take `git rev-parse HEAD` as the source commit. The TRD author
    reads the design at that commit, and step 5 approves against it.

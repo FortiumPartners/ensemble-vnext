@@ -14,8 +14,12 @@
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1):
  *   node .claude/lib/design-map.js <read|validate|refresh|transition|stale|approved|buildable|held|unsynced|setup|approve>
- *     --dir docs/ui/<slug> [--ids a,b] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
+ *     --dir docs/ui/<slug> [--ids a,b] [--items S1,S2] [--to <status>] [--commit <sha>] [--trd <path>] [--record]
  *     approve: --ids a,b [--commit <sha>] [--runtime <path>] [--reapprove] [--message <text>]
+ *   node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --items S2,S3 [--ids a,b]
+ *     --items: boards that serve those brief items, as { boards, unmatched, held }; an item no returned
+ *     board serves is listed in `unmatched` with the boards that record it; an empty value is an error.
+ *     Without --items, `buildable` prints a board array as before.
  *   node .claude/lib/design-map.js unsynced --all [--trd <path>]   (scans every design under docs/ui)
  *
  * Example: node .claude/lib/design-map.js transition --dir docs/ui/checkout --ids 01-cart --to approved
@@ -59,6 +63,27 @@ function write(dir, map) {
   }
 }
 
+const isStringArray = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+/**
+ * Check the map's top-level `brief_items` list of `{ id, source }` (D16), pushing errors.
+ * @returns {Set<string>|null} the item ids, or null when the list is absent or malformed (so the
+ * per-board cross-check is skipped rather than reporting every board against a broken list)
+ */
+function validateItemList(list, errors) {
+  if (list === undefined) return null;
+  if (!Array.isArray(list) || !list.every((i) => i && typeof i.id === 'string' && i.id)) {
+    errors.push('brief_items must be an array of { id, source }');
+    return null;
+  }
+  const ids = new Set();
+  for (const { id } of list) {
+    if (ids.has(id)) errors.push(`duplicate brief item id ${id}`);
+    ids.add(id);
+  }
+  return ids;
+}
+
 /** A list of error strings; empty when the map is valid. */
 function validate(map) {
   const errors = [];
@@ -75,8 +100,14 @@ function validate(map) {
     errors.push('boards must be an array');
     return errors;
   }
+  const itemIds = validateItemList(map.brief_items, errors);
   for (const b of map.boards) {
     const name = b && b.id ? b.id : '(no id)';
+    if (itemIds && b && isStringArray(b.brief_items)) {
+      for (const item of b.brief_items) {
+        if (!itemIds.has(item)) errors.push(`board ${name}: brief_items names ${item}, which is not in the map's brief_items list`);
+      }
+    }
     for (const f of REQUIRED_BOARD_FIELDS) {
       if (!b || b[f] === undefined || b[f] === null) errors.push(`board ${name}: missing ${f}`);
     }
@@ -89,6 +120,10 @@ function validate(map) {
       errors.push(`board ${name}: states must be an object keyed by state name`);
     }
     if (b && b.status && !STATUSES.includes(b.status)) errors.push(`board ${name}: unknown status ${b.status}`);
+    // Optional (maps older than the field have none), but `null` is a malformed value, not an absent one.
+    if (b && b.brief_items !== undefined && !isStringArray(b.brief_items)) {
+      errors.push(`board ${name}: brief_items must be an array of strings`);
+    }
     if (b && b.canvas !== undefined && !urls.has(b.canvas)) {
       errors.push(`board ${name}: canvas ${b.canvas} names no listed canvas`);
     }
@@ -219,6 +254,29 @@ const approved = (map) => map.boards.filter((b) => b.kind === 'to-be' && b.statu
  */
 const buildable = (map, ids) => map.boards.filter((b) => b.kind === 'to-be' && ['draft', 'approved'].includes(b.status)
   && (!ids || ids.includes(b.id)));
+
+/**
+ * Boards `buildable` returns (so "may be built now" stays defined once) that record any of `items`
+ * in `brief_items`, plus an `unmatched` entry for each named item no returned board serves.
+ * `served_by` lists every board in the map recording that item, whatever its kind or status, so
+ * "nothing serves it" (empty) reads differently from "only a board already building serves it".
+ * `known` appears only when the map records its item list (D16): false for an item not in it.
+ * A board with no `brief_items` field serves nothing.
+ * @returns {{ boards: object[], unmatched: { item: string, served_by: { id: string, status: string }[], known?: boolean }[] }}
+ */
+function buildableByItems(map, items, ids) {
+  const serves = (b) => Array.isArray(b.brief_items) && items.some((i) => b.brief_items.includes(i));
+  const boards = buildable(map, ids).filter(serves);
+  const known = Array.isArray(map.brief_items) ? new Set(map.brief_items.map((i) => i && i.id)) : null;
+  const unmatched = items
+    .filter((item) => !boards.some((b) => b.brief_items.includes(item)))
+    .map((item) => ({
+      item,
+      served_by: map.boards.filter((b) => Array.isArray(b.brief_items) && b.brief_items.includes(item)).map((b) => ({ id: b.id, status: b.status })),
+      ...(known ? { known: known.has(item) } : {}),
+    }));
+  return { boards, unmatched };
+}
 
 /**
  * Approved to-be boards that embed a `draft` part board, so nothing may build from them yet
@@ -423,7 +481,16 @@ async function main(argv) {
     case 'validate': return validate(read(opts.dir));
     case 'refresh': return refresh(opts.dir);
     case 'approved': return approved(read(opts.dir));
-    case 'buildable': return buildable(read(opts.dir), idList(opts.ids));
+    case 'buildable': {
+      const map = read(opts.dir);
+      if (opts.items === undefined) return buildable(map, idList(opts.ids));
+      // `--items ""` parses as a value, and idList('') is undefined: test for the flag, not its truthiness,
+      // or an empty selection would fall through to plain `buildable` and return every board.
+      const items = idList(opts.items);
+      if (!items || items.length === 0) throw new Error('--items needs at least one item');
+      const out = buildableByItems(map, items, idList(opts.ids));
+      return { ...out, held: held(map, opts.dir, out.boards.map((b) => b.id)) };
+    }
     case 'held': return held(read(opts.dir), opts.dir, idList(opts.ids));
     case 'unsynced': return unsynced(read(opts.dir), path.basename(path.resolve(opts.dir)), { trd: opts.trd });
     case 'stale': return stale(read(opts.dir), '.', { record: opts.record, dir: opts.dir });
@@ -442,7 +509,7 @@ async function main(argv) {
   }
 }
 
-module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, held, unsynced, unsyncedAll, setup, approve, parseArgs, KINDS, STATUSES };
+module.exports = { read, write, validate, derive, refresh, transition, stale, approved, buildable, buildableByItems, held, unsynced, unsyncedAll, setup, approve, parseArgs, KINDS, STATUSES };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(
