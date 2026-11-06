@@ -29,6 +29,10 @@ export const meta = {
 //   newMode       --new: no as-is board for a screen with no predecessor
 //   auto          accepted, not read: the ground stage returns every open decision in both modes and the
 //                 command records the unanswered ones (D7, D8)
+//   odNext        the first free OD-n number: one more than the highest OD-n already in brief.md,
+//                 counted by the command before this stage runs (1 on a new brief, and when absent).
+//                 The ground stage gives the k-th returned decision the id OD-<odNext + k - 1>, in code,
+//                 so the ids are exactly the ones the command records unanswered decisions under.
 
 function readArgs(raw) {
   if (typeof raw === 'string') {
@@ -58,6 +62,7 @@ const CONVENTIONS = a.conventions || ''
 const GROUNDING_SKILL = a.groundingSkill || ''
 const RUNTIME = a.runtime || ''
 const NEW_MODE = a.newMode === true
+const OD_NEXT = Number.isInteger(a.odNext) && a.odNext >= 1 ? a.odNext : 1
 const SCREENS = Array.isArray(a.boardsInScope) ? a.boardsInScope : []
 if (STAGE !== 'ground' && STAGE !== 'draw') throw new Error('create-design: args.stage must be "ground" or "draw"')
 if (!DIR) throw new Error('create-design: args.dir (docs/ui/<slug>) is required')
@@ -233,8 +238,10 @@ ${BATCH}`,
     stage: 'ground',
     slug: SLUG,
     brief: `${DIR}/brief.md`,
-    // Every decision, in both modes: the command numbers them and caps its own question round (D7).
-    openDecisions: brief.openDecisions,
+    // Every decision, in both modes, uncapped (the command caps its own question round, D7), each
+    // with its OD-n id numbered from the command's odNext, so an unattended caller can answer one
+    // by id later (`/refine-design --auto "OD-n: <option>"`).
+    openDecisions: (brief.openDecisions || []).map((d, i) => ({ id: `OD-${OD_NEXT + i}`, ...d })),
     items: brief.items,
     screens: brief.screens,
     grounding_written: grounded.filter(Boolean).filter((g) => g.written).map((g) => g.file),

@@ -81,7 +81,7 @@ describe('create-design stage ground', () => {
 
   it('returns the open decisions, each with a recommended option, and the screens', async () => {
     const { result } = await run(groundArgs());
-    expect(result.openDecisions[0]).toEqual({ question: 'Guest checkout?', options: ['yes', 'no'], recommended: 'yes', why: 'The PRD is silent', weak: true, brief_items: ['S1'] });
+    expect(result.openDecisions[0]).toEqual({ id: 'OD-1', question: 'Guest checkout?', options: ['yes', 'no'], recommended: 'yes', why: 'The PRD is silent', weak: true, brief_items: ['S1'] });
     expect(result.items).toEqual(BRIEF.items);
     expect(result.screens).toHaveLength(1);
     expect(result.brief).toBe('docs/ui/checkout/brief.md');
@@ -94,12 +94,23 @@ describe('create-design stage ground', () => {
     expect(byLabel(agent, 'brief').prompt).toMatch(/cite the PRD or issue source for each one/);
   });
 
-  it('returns every decision in both modes, uncapped and without ids', async () => {
+  it('returns every decision in both modes, uncapped, each with an OD-n id from OD-1 on a new brief', async () => {
     const many = { ...BRIEF, openDecisions: Array.from({ length: 6 }, (_, i) => ({ question: `q${i}`, options: ['a'], recommended: 'a', why: 'w', weak: false, brief_items: [] })) };
     for (const over of [{}, { auto: true }]) {
       const { result } = await run(groundArgs(over), { brief: many });
       expect(result.openDecisions).toHaveLength(6);
-      expect(result.openDecisions.every((d) => !('id' in d))).toBe(true);
+      expect(result.openDecisions.map((d) => d.id)).toEqual(['OD-1', 'OD-2', 'OD-3', 'OD-4', 'OD-5', 'OD-6']);
+      expect(result.openDecisions[2]).toMatchObject({ question: 'q2', options: ['a'], recommended: 'a' });
+    }
+  });
+
+  it('numbers decisions from odNext, the first OD-n free in an existing brief', async () => {
+    const two = { ...BRIEF, openDecisions: [0, 1].map((i) => ({ question: `q${i}`, options: ['a'], recommended: 'a', why: 'w', weak: false, brief_items: [] })) };
+    const { result } = await run(groundArgs({ auto: true, odNext: 4 }), { brief: two });
+    expect(result.openDecisions.map((d) => d.id)).toEqual(['OD-4', 'OD-5']);
+    for (const bad of [0, -2, 'x', 1.5]) {
+      const r = await run(groundArgs({ auto: true, odNext: bad }), { brief: two });
+      expect(r.result.openDecisions.map((d) => d.id)).toEqual(['OD-1', 'OD-2']);
     }
   });
 

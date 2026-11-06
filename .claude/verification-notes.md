@@ -1136,3 +1136,31 @@ Reuse them; do not delete and recreate them. To pick up framework changes, re-ru
 
 - [ran] The no-fallback behaviour shows in one `/task` session of about 10 s: a prompt that dispatches one background PONG agent and says only "end the turn with the DISPATCHED banner per command-status.md" (no mention of ScheduleWakeup) produced 0 `ScheduleWakeup` calls, a banner reading `next wake: auto-deliver on completion`, a re-entry on the agent's completion and `COMMAND COMPLETE` as the last line. Run with `claude --print --permission-mode bypassPermissions --setting-sources project --output-format stream-json --verbose < prompt` in a scratch project (copy `.claude/`, `git init`, commit); the process exited by itself, so "nothing after the banner" is read from the session JSONL tail (`system` / `last-prompt` / `cost-state` only).
 - [ran] Count real calls by parsing assistant `tool_use` blocks, not by grepping the session JSONL: the file mentions `ScheduleWakeup` 7 times in tool listings, request shapes and instructions without any call.
+
+## Exercising design-orchestration FS-22..FS-27 (2026-11-05, iteration 1)
+
+- [read] FS-22/FS-23 were evidenced by the `refine-design.md` text (lines 36-90, no `OD-n`/audit-report live run); the `--auto` argument form and the no-feedback audit-report source are both specified there, and no new flag was added to `argument-hint`. A headless run on a fixture design was not attempted this pass.
+- [ran] FS-26: searching added lines of `git diff main...HEAD` for forge|orchestrator|devin|cursor|codex|copilot hits only 3 test files asserting those names are ABSENT (`expect(...).not.toMatch`); no shipped command/lib/workflow text names one.
+- [ran] FS-27: `cmp` of each changed `packages/core/{commands,lib,workflows}` non-test file against its `.claude/` mirror: all 10 identical.
+- [read] FS-24/FS-25: the `/sync-design` NEXT line in `audit-build.md:482` and `close-feature.md:112` reads "with `/sync-design` now, or once the PR has merged"; it does not say literally "on the feature branch before merge". Judge to decide whether "now" satisfies it.
+
+## Exercising `design-map.js buildable --items` / `validate` brief_items (design-orchestration, 2026-11-05)
+
+- [ran] `design-map.js validate` prints the error array and exits 0 even when it holds errors (`["board a: brief_items must be an array of strings"]`, exit 0); read stdout, not the exit code, for a rejection. Fixture maps need only `design_system.paths`, `canvases: []` and boards with id/file/kind/platform/viewport/status.
+- [ran] `buildable --items` prints `{boards, unmatched, held}`; `unmatched` entries are objects (`{"item":"S9","served_by":[]}`), not bare ids, so a locator is `"item":"S9"`. An old map with no `brief_items` returns `boards: []` and every named item under `unmatched`, exit 0. Driver: `.trd-state/design-orchestration/evidence/fs8-14-run.js`.
+
+## Exercising design-orchestration `--boards` / brief ids (2026-11-05, iteration 1)
+
+- [ran] `node .claude/lib/design-map.js buildable|held --dir docs/ui/<slug> --ids a,b` runs against a scratch `design-map.json` (`{"boards":[{id,kind,status}]}`) with no git or service; a not-listed id (building, shipped, absent) is simply omitted from the output with exit 0, so the STUCK is the command prompt's job, not the CLI's. Run it by absolute path from inside the fixture; a relative `cd` before writing evidence breaks relative evidence paths.
+- [ran] `/create-trd` and `/plan --boards` STUCK rules and the brief-id rule are pinned by prose and workflow tests (`create-trd-design-prose`, `plan-design-prose`, `create-design.test.js`, `design-map.test.js`: 135 pass); no live headless run was done in this pass.
+
+## Exercising design-orchestration FS-15..FS-21 (2026-11-05, iteration 1)
+
+- [ran] `design-map.js buildable --dir D` (plain) prints a bare board array; with `--items S1,S3` it prints `{boards, unmatched, held}`. A 3-line fixture map under the scratchpad is enough; no service needed.
+- [read] `create-design.js` ground stage returns `openDecisions` with NO `id` in both modes (its test at create-design.test.js:102 asserts `!('id' in d)`); the `OD-n` numbering is done by the command (create-design.md steps 3, "Record what nobody answered"). FS-17 as worded (workflow returns an id) differs from this; left to the judge.
+- [read] `/audit-design` traceability is decided in code from the map (audit-design.js ~169-200), not by a verifier prompt carrying `brief_items`; evidence is that code plus the "traceability from the map (DORCH-B005)" Jest block.
+
+## Exercising design-orchestration FS-17 / FS-26 (2026-11-05, iteration 2)
+
+- [ran] A "no shipped text names X" search must separate shipped files from `*.test.js`: the new tests contain `/forge|orchestrator/i` as negative assertions, so a repo-wide grep of added lines hits them and reads as a failure. `git diff main -- packages/core .claude ':!*.test.js'` filtered with grep -E '^\+' gave 572 shipped added lines and zero matches. The artifact must print an explicit verdict line (a locator such as `NO MATCHES IN SHIPPED ADDED LINES`), because a bare empty grep leaves nothing to locate.
+- [ran] `git diff main...HEAD` omits uncommitted work; use `git diff main -- <paths>` to include the working tree.

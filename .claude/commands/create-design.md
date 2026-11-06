@@ -54,12 +54,14 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    one has no building board). On a non-empty result, add the ISSUES line "boards <ids> are still
    building although their feature closed: check them against the build" and put
    `/sync-design <slug>` in NEXT, after `/design-system --sync` when that is also due.
-2. **Ground and brief.** Call the workflow with `stage: "ground"`:
+2. **Ground and brief.** First count `odNext`: one more than the highest `OD-n` already in
+   `brief.md` (`1` on a new brief, or when the brief has no `OD-n`). Then call the workflow with `stage: "ground"`:
    ```
-   Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
+   Workflow({ name: "create-design", args: { stage: "ground", slug: "<slug>", dir: "docs/ui/<slug>", sources: "<PRD, issue or brief>", designRules: "<design.md text>", canvasRules: "<Design type text>", conventions: "<text or empty>", groundingSkill: "<text or empty>", newMode: <bool>, auto: <bool>, odNext: <n>, runtime: "<saved runtime path>", project: "<dir or empty>" } })
    ```
-   It writes `grounding/` and `brief.md` and returns `openDecisions` (each `question`, `options`,
-   `recommended`, `why`, `weak`, `brief_items`, with no id and no cap), `items` (`{ id, source }`) and `screens`.
+   It writes `grounding/` and `brief.md` and returns `openDecisions` (each `id`, `question`, `options`,
+   `recommended`, `why`, `weak`, `brief_items`, with no cap; the ids run `OD-<odNext>`, `OD-<odNext+1>`, ...
+   in both modes, under `--auto` too), `items` (`{ id, source }`) and `screens`.
    **If the workflow is unavailable**, do the grounding and the brief yourself, then continue.
 3. **The question round.** Only with a person present and not `--auto`. A person is present
    when an `AskUserQuestion` can be answered: if it cannot be, treat the run as `--auto`. Ask
@@ -73,7 +75,10 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    `recommended` option: all of them under `--auto` or with no person present, the ones beyond
    the four asked, and any asked but not answered. Each is numbered `OD-n`, one more than the
    highest `OD-n` already in `brief.md` (`OD-1` on a new brief). If the heading already exists,
-   keep it word for word and append below it. The format:
+   keep it word for word and append below it. Record each decision under the `id` the workflow
+   returned it with; under `--auto` those are exactly the next ids in order. With a person present, an
+   answered decision's id is simply not used, so the recorded ids can skip a number but never repeat
+   one. If the workflow was unavailable, number the recorded decisions yourself by the same rule. The format:
 
    ```markdown
    ## Decisions taken by default
