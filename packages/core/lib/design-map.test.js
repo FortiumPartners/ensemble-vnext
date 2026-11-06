@@ -378,14 +378,23 @@ describe('setup, prior templates (D6)', () => {
     expect(dm.setup(d)).toBe('filled');
     expect(crypto.createHash('sha256').update('x').digest('hex')).toHaveLength(64);
   });
-  it('the recorded prior hash is the template as it was at HEAD before this change', () => {
-    const { spawnSync: sp } = require('child_process');
-    const g = sp('git', ['show', 'HEAD:packages/core/templates/claude-directory/rules/design.md'], { cwd: path.join(__dirname, '..', '..', '..'), encoding: 'utf8' });
-    if (g.status !== 0 || g.stdout.includes('5. Design direction')) return; // not a checkout holding the old template
+  it('a design.md holding the pre-direction template reads unfilled (fixture, not git history)', () => {
+    const old = fs.readFileSync(path.join(__dirname, '__fixtures__', 'design', 'design-template-pre-direction.md'), 'utf8');
+    expect(old).not.toContain('5. Design direction');
+    // The fixture is the template as shipped before section 5; its hash must be the recorded one.
+    expect(crypto.createHash('sha256').update(old.replace(/\r\n/g, '\n').trim()).digest('hex'))
+      .toBe('6a89c44e9481dabcb0646be3e6a4687b72b4b83544d7b2dc39353337178b0496');
     const d = tmp();
     fs.mkdirSync(path.join(d, '.claude/rules'), { recursive: true });
-    fs.writeFileSync(path.join(d, '.claude/rules/design.md'), g.stdout.replace(/\n/g, '\r\n'));
+    fs.writeFileSync(path.join(d, '.claude/rules/design.md'), old.replace(/\n/g, '\r\n'));
     expect(dm.setup(d)).toBe('unfilled');
+  });
+  it('an old template with an owner edit reads filled', () => {
+    const old = fs.readFileSync(path.join(__dirname, '__fixtures__', 'design', 'design-template-pre-direction.md'), 'utf8');
+    const d = tmp();
+    fs.mkdirSync(path.join(d, '.claude/rules'), { recursive: true });
+    fs.writeFileSync(path.join(d, '.claude/rules/design.md'), old + '\n- own rule\n');
+    expect(dm.setup(d)).toBe('filled');
   });
 });
 
