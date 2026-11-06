@@ -113,9 +113,30 @@ describe('packages/skills/design-setup/SKILL.md', () => {
     for (const h of ['## 1. Design system', '## 2. Per platform', '## 3. How to reach a screen', '## 4. Design rules']) {
       expect(tpl).toContain(h);
     }
-    for (const f of ['namespace', 'Source of truth', 'Build command', 'Board component kind', 'Tokens source', 'Component library paths', 'Viewport sizes', 'Route list', 'Capture command', 'screenshots live', 'Reuse', 'Competitor references', 'Process rules']) {
+    for (const f of ['namespace', 'Source of truth', 'Build command', 'Board component kind', 'Tokens source', 'Component library paths', 'Viewport sizes', 'Route list', 'Capture command', 'screenshots live', 'Reuse', 'Process rules']) {
       expect(tpl).toContain(f);
     }
+    expect(tpl).not.toContain('Competitor references');
+  });
+
+  test('template has the design direction section with four fields and three levels (AC-F1.1, AC-F1.4, D5)', () => {
+    const tpl = fs.readFileSync(SHIPPED_TEMPLATE_PATH, 'utf8');
+    const s5 = tpl.slice(tpl.indexOf('## 5. Design direction'));
+    expect(s5).not.toBe('');
+    for (const f of ['Brand', 'Style pack', 'References', 'Departure latitude']) expect(s5).toContain(f);
+    for (const l of ['`keep`', '`refine`', '`rethink`']) expect(s5).toContain(l);
+    expect(tpl).toContain("Reuse:** the design system's components and tokens; a new component needs a reason");
+    expect(tpl).toContain("§5's departure latitude");
+    expect(tpl).not.toContain('the commands stop and name it rather than guess');
+  });
+
+  test('SKILL.md has a fifth Design direction topic with a default per field (AC-F1.2, AC-F1.7)', () => {
+    const body = parsed.body;
+    expect(body).toMatch(/5\. \*\*§5 Design direction\*\*/);
+    expect(body).toContain('available_packs');
+    expect(body).toMatch(/Departure latitude[\s\S]*Default: `refine`/);
+    expect(body).toContain('contrast <n>:1, targets <n> px');
+    expect(body).not.toMatch(/competitor references,/);
   });
 
   test('disable-model-invocation is true (D1 -- owner-invoked only)', () => {

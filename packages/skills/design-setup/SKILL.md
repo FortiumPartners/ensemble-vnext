@@ -48,7 +48,19 @@ One `AskUserQuestion` call per topic, in the file's own order:
 3. **§3 How to reach a screen** — route list, seed data, capture command, where current
    screenshots live. Sign-in is never asked for a value: the file points at
    `verification.md` §3.
-4. **§4 Design rules** — reuse, accessibility floor, competitor references, process rules.
+4. **§4 Design rules** — reuse, accessibility floor, process rules.
+5. **§5 Design direction** — brand, style pack, references, departure latitude. Run
+   `node .claude/lib/design-map.js direction --dir .` first when the file is filled; its
+   `available_packs` are the style packs to offer. Each field has a stated default:
+   - **Brand** — free text; default: keep the current value, or leave blank.
+   - **Style pack** — one of `available_packs`, or none; default: none, so the product's own
+     design system leads.
+   - **References** — every product or site to draw toward, in one field (this replaces the
+     old competitor-references line); default: keep the current value, or leave blank.
+   - **Departure latitude** — `keep` (change only what the brief items require), `refine`
+     (keep information architecture and navigation; layout, spacing, hierarchy and visual
+     treatment may change) or `rethink` (layout, navigation placement and composition may
+     change entirely). Default: `refine`.
 
 Each call offers, in this order: the detected value (marked as detected, with its source),
 then the file's current value where it differs, then "keep". An answer of "keep", or
@@ -57,7 +69,8 @@ what is missing or what the repository now contradicts.
 
 **Accessibility floor.** The question offers contrast 4.5:1 and 44 px touch targets as the
 default and says it is a default. `design.md` records the owner's answer, whatever it is —
-not the default unless the owner chose it.
+not the default unless the owner chose it. It is written in the form
+"contrast <n>:1, targets <n> px" so `design-map.js direction` can read the two numbers.
 
 ## Writing
 

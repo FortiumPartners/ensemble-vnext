@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="support.js"></script>
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+<script src="ds/fixture-web/components/bundle.js"></script>
+<style>
+  /* The app shell (src/main.jsx:60) is not an importable component: main.mx-auto.max-w-md.space-y-4.p-4 holding a nav.
+     bundle.css carries only the component utilities, so the shell's four utilities are written out here. */
+  body { margin: 0; background: #fff; }
+  .shell { max-width: 28rem; margin: 0 auto; padding: 1rem; color: #1b1f2a; }
+  .shell > * + * { margin-top: 1rem; }
+  .shell nav { display: flex; gap: 1rem; color: #2f5bd2; }
+  .shell nav a { color: inherit; text-decoration: none; }
+  .shell p { margin: 0 0 0.75rem; }
+</style>
+</head>
+<body>
+<dc-board id="02-home--as-is">
+  <main class="shell">
+    <nav>
+      <a href="/">Home</a>
+      <a href="/trips">trips</a>
+      <a href="/settings">settings</a>
+    </nav>
+    <x-import component-from-global-scope="FixtureWeb.Card" title="Home">
+      <p>Welcome to the fixture app.</p>
+      <x-import component-from-global-scope="FixtureWeb.Button">See trips</x-import>
+    </x-import>
+  </main>
+</dc-board>
+<script data-dc-script data-props='{}'></script>
+</body>
+</html>

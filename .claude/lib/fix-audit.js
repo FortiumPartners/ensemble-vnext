@@ -282,4 +282,4 @@ function isFatalWarning(w) {
   return !/No "Phase <n>" heading found/i.test(w);
 }
 
-module.exports = { audit, isFatalWarning, KIND_SECTION };
+module.exports = { audit, isFatalWarning, KIND_SECTION, frameworkSkillRoles, SKILL_DIRS };

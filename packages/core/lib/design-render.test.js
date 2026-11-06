@@ -18,7 +18,7 @@ jest.setTimeout(90000);
 
 const FIX = path.join(__dirname, '__fixtures__', 'design');
 const LIVE = Boolean(process.env.DC_RUNTIME);
-const RUNTIME = LIVE ? path.resolve(process.env.DC_RUNTIME) : path.join(FIX, 'dc-runtime.js');
+const RUNTIME = LIVE ? path.resolve(process.env.DC_RUNTIME) : path.join(__dirname, 'dc-runtime.js');
 const OFFLINE = !LIVE;
 const maybeIt = LIVE ? it.skip : it;
 
@@ -246,15 +246,65 @@ describe('missing tools exit 2 naming the install step (D13)', () => {
   it('rejects bad arguments with exit 1', () => {
     const r = spawnSync(process.execPath, [cli, 'render', '--dir', 'x'], { encoding: 'utf8' });
     expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/--runtime is required/);
+    expect(r.stderr).toMatch(/--out is required/);
     expect(render.parseArgs(['render', '--approved', '--dir', 'd']).opts).toEqual({ approved: true, dir: 'd' });
     expect(() => render.parseArgs(['render', '--dir'])).toThrow('needs a value');
   });
 });
 
+describe('the pinned runtime (D1, D2)', () => {
+  const crypto = require('crypto');
+  const cli = path.join(__dirname, 'design-render.js');
+  it('PINNED_RUNTIME is the shipped file and its hash constant matches it', () => {
+    expect(render.PINNED_RUNTIME).toBe(path.join(__dirname, 'dc-runtime.js'));
+    const sha = crypto.createHash('sha256').update(fs.readFileSync(render.PINNED_RUNTIME)).digest('hex');
+    expect(render.PINNED_RUNTIME_SHA256).toBe(sha);
+  });
+
+  it('runtime-check reports match for the pinned file and no match for a one-byte change', () => {
+    expect(render.runtimeCheck(render.PINNED_RUNTIME)).toEqual({
+      match: true, pinned: render.PINNED_RUNTIME_SHA256, live: render.PINNED_RUNTIME_SHA256,
+    });
+    const copy = path.join(tmp('rt-'), 'dc-runtime.js');
+    fs.writeFileSync(copy, fs.readFileSync(render.PINNED_RUNTIME, 'utf8') + ' ');
+    const r = render.runtimeCheck(copy);
+    expect(r.match).toBe(false);
+    expect(r.pinned).toBe(render.PINNED_RUNTIME_SHA256);
+    expect(r.live).not.toBe(r.pinned);
+  });
+
+  it('the runtime-check verb prints the result as JSON, and needs --live', () => {
+    const ok = spawnSync(process.execPath, [cli, 'runtime-check', '--live', render.PINNED_RUNTIME], { encoding: 'utf8' });
+    expect(ok.status).toBe(0);
+    expect(JSON.parse(ok.stdout).match).toBe(true);
+    const bad = spawnSync(process.execPath, [cli, 'runtime-check'], { encoding: 'utf8' });
+    expect(bad.status).toBe(1);
+    expect(bad.stderr).toMatch(/--live is required/);
+  });
+
+  it('render with no runtime uses the pinned one', async () => {
+    const d = mkDesign([board('01-plain')], { '01-plain.dc.html': fixture('plain.dc.html') });
+    const r = await render.render({ dir: d.dir, out: path.join(d.repo, 'o'), repo: d.repo, offline: true });
+    expect(r.frames).toHaveLength(1);
+  });
+
+  it('ships no playwright directory or package under .claude/ (AC-N4)', () => {
+    const root = path.join(__dirname, '..', '..', '..', '.claude');
+    const found = [];
+    const walk = (d) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        if (/^playwright/i.test(e.name)) found.push(path.join(d, e.name));
+        if (e.isDirectory() && e.name !== 'node_modules' && e.name !== 'worktrees') walk(path.join(d, e.name));
+      }
+    };
+    walk(root);
+    expect(found).toEqual([]);
+  });
+});
+
 describe('the libraries ship with their mirrors', () => {
   const root = path.join(__dirname, '..', '..', '..');
-  it.each(['design-render.js', 'design-bundle.js'])('%s exists in .claude/lib (identical) and packages/full/lib (a link)', (f) => {
+  it.each(['design-render.js', 'design-bundle.js', 'dc-runtime.js'])('%s exists in .claude/lib (identical) and packages/full/lib (a link)', (f) => {
     expect(fs.readFileSync(path.join(root, '.claude', 'lib', f), 'utf8')).toBe(fs.readFileSync(path.join(__dirname, f), 'utf8'));
     const link = path.join(root, 'packages', 'full', 'lib', f);
     expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
@@ -268,7 +318,7 @@ describe('the libraries ship with their mirrors', () => {
   });
 
   it('pins the runtime fixture by hash', () => {
-    const sha = require('crypto').createHash('sha256').update(fs.readFileSync(path.join(FIX, 'dc-runtime.js'))).digest('hex');
+    const sha = require('crypto').createHash('sha256').update(fs.readFileSync(path.join(__dirname, 'dc-runtime.js'))).digest('hex');
     // Read from the Design type's canvas version 1793773596-7b8f on 2026-11-04 (D14).
     expect(sha).toBe('b795ee21261f2e7da1b10cb25b4a4cfa275d1b96165f89396f1fed426e191844');
   });

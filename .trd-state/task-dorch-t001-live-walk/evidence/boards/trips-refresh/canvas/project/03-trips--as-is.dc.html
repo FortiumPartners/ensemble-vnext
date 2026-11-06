@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="support.js"></script>
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+<script src="ds/fixture-web/components/bundle.js"></script>
+<style>
+  /* The app shell (src/main.jsx:60) is not an importable component: main.mx-auto.max-w-md.space-y-4.p-4.text-ink holding a nav.
+     bundle.css has no mx-auto, max-w-md, space-y-4, mb-3, flex-col or gap-2 (it carries only the classes the components use),
+     so the shell's utilities are written out here with the same values. */
+  body { margin: 0; background: #fff; }
+  .shell { max-width: 28rem; margin: 0 auto; padding: 1rem; color: #1b1f2a; }
+  .shell > * + * { margin-top: 1rem; }
+  .shell nav { display: flex; gap: 1rem; color: #2f5bd2; }
+  .shell nav a { color: inherit; text-decoration: none; }
+  .shell ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .shell li { display: flex; align-items: center; justify-content: space-between; }
+</style>
+</head>
+<body>
+<!-- As-is Trips (/trips) at 390x844: the page shell and TripsPage list from src/main.jsx:21-38 and 57-69 around the real Card and Chip. Fixture data from public/api/trips.json. -->
+<main class="shell">
+  <nav>
+    <a href="/">Home</a>
+    <a href="/trips">trips</a>
+    <a href="/settings">settings</a>
+  </nav>
+  <x-import component-from-global-scope="FixtureWeb.Card" data-props='{"title":"Trips"}'>
+    <ul>
+      <li>
+        <x-import component-from-global-scope="FixtureWeb.Chip">Lisbon</x-import>
+        <span>2026-12-04 · 5 nights</span>
+      </li>
+      <li>
+        <x-import component-from-global-scope="FixtureWeb.Chip">Osaka</x-import>
+        <span>2027-02-11 · 8 nights</span>
+      </li>
+      <li>
+        <x-import component-from-global-scope="FixtureWeb.Chip">Quito</x-import>
+        <span>2027-04-02 · 6 nights</span>
+      </li>
+    </ul>
+  </x-import>
+</main>
+<script data-dc-script data-props='{}'></script>
+</body>
+</html>

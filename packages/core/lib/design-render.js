@@ -20,8 +20,19 @@
  * (exit 2) naming the install step.
  *
  * CLI (run from the project root; JSON on stdout, error on stderr, exit 1, or 2 for a missing tool):
- *   node .claude/lib/design-render.js render --dir docs/ui/<slug> --runtime <dc-runtime.js> --out <dir>
- *     [--boards a,b] [--at <sha> | --approved] [--map <file>]
+ *   node .claude/lib/design-render.js render --dir docs/ui/<slug> --out <dir>
+ *     [--runtime <dc-runtime.js>] [--boards a,b] [--at <sha> | --approved] [--map <file>]
+ *   node .claude/lib/design-render.js runtime-check --live <file>
+ *
+ * `--runtime` is optional: it defaults to PINNED_RUNTIME, the `dc-runtime.js` that ships beside this
+ * module, so every command renders with the same runtime (D1). `runtime-check --live <file>` prints
+ * `{ match, pinned, live }` (sha256 of the pinned copy and of the file given) so a command that has
+ * read the canvas's own runtime can say when the pinned copy has drifted (D2).
+ *
+ * REFRESHING THE PINNED RUNTIME is a framework release step, never done during a run: run the
+ * release-change test with `DC_RUNTIME=<live file> npx jest packages/core/lib/design-render.test.js`,
+ * then copy the live file over `packages/core/lib/dc-runtime.js` (and `.claude/lib/dc-runtime.js`),
+ * and update PINNED_RUNTIME_SHA256 and its provenance comment below.
  *
  * `--map` reads the boards from that JSON file instead of `<dir>/design-map.json`: a drawing
  * agent renders before the command has written the map (only the command writes it), so it
@@ -32,7 +43,7 @@
  * `docs/ui/_design-system/` always come from the same commit as the board and are served as
  * `ds/<folder>/`.
  *
- * Module option `offline` (used by the pinned-runtime tests, D14): the runtime's two React CDN
+ * Module option `offline` (used by the pinned-runtime tests): the runtime's two React CDN
  * requests are answered from the `react` / `react-dom` devDependencies and every other request
  * that does not go to the local server is aborted, so a test can never pass or fail on a CDN.
  */
@@ -42,7 +53,22 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const designMap = require('./design-map');
+
+/** The canvas runtime every render uses unless `--runtime` / `o.runtime` says otherwise (D1). */
+const PINNED_RUNTIME = path.join(__dirname, 'dc-runtime.js');
+// Read from the Design type's canvas version 1793773596-7b8f on 2026-11-04.
+const PINNED_RUNTIME_SHA256 = 'b795ee21261f2e7da1b10cb25b4a4cfa275d1b96165f89396f1fed426e191844';
+
+const sha256File = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+
+/** Compare the pinned runtime with a live copy: { match, pinned, live } (D2). */
+function runtimeCheck(liveFile) {
+  const pinned = sha256File(PINNED_RUNTIME);
+  const live = sha256File(path.resolve(liveFile));
+  return { match: pinned === live, pinned, live };
+}
 
 const LAUNCH_TIMEOUT_MS = 30000;
 const BOOT_TIMEOUT_MS = 15000;
@@ -255,7 +281,7 @@ async function launch(projectRoot) {
  * Render a design's boards.
  * @param {object} o
  * @param {string} o.dir      docs/ui/<slug>, holding design-map.json
- * @param {string} o.runtime  path to dc-runtime.js (written into the render root as support.js)
+ * @param {string} [o.runtime]  path to dc-runtime.js (default PINNED_RUNTIME; written into the render root as support.js)
  * @param {string} o.out      directory the PNGs are written to
  * @param {string[]} [o.boards] board ids to render (default: every board not superseded)
  * @param {string} [o.at]     commit to render from instead of the working tree
@@ -290,7 +316,7 @@ async function render(o) {
   }
 
   const dirAbs = path.resolve(o.dir);
-  const runtime = path.resolve(o.runtime);
+  const runtime = path.resolve(o.runtime || PINNED_RUNTIME);
   if (!fs.existsSync(runtime)) throw new Error(`runtime not found: ${runtime}`);
   fs.mkdirSync(o.out, { recursive: true });
 
@@ -369,13 +395,17 @@ function parseArgs(argv) {
 
 async function main(argv) {
   const { verb, opts } = parseArgs(argv);
-  if (verb !== 'render') throw new Error('usage: design-render.js render --dir D --runtime R --out O [--boards a,b] [--at SHA | --approved] [--map F]');
-  for (const f of ['dir', 'runtime', 'out']) if (!opts[f]) throw new Error(`--${f} is required`);
+  if (verb === 'runtime-check') {
+    if (!opts.live) throw new Error('--live is required');
+    return runtimeCheck(opts.live);
+  }
+  if (verb !== 'render') throw new Error('usage: design-render.js render --dir D --out O [--runtime R] [--boards a,b] [--at SHA | --approved] [--map F] | runtime-check --live F');
+  for (const f of ['dir', 'out']) if (!opts[f]) throw new Error(`--${f} is required`);
   if (opts.at && opts.approved) throw new Error('--at and --approved are exclusive');
   return render({ ...opts, boards: opts.boards ? opts.boards.split(',') : null });
 }
 
-module.exports = { render, serve, resolveTool, withProps, parseArgs, ToolError };
+module.exports = { render, runtimeCheck, PINNED_RUNTIME, PINNED_RUNTIME_SHA256, serve, resolveTool, withProps, parseArgs, ToolError };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(

@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+</head>
+<body style="margin:0;background:#fff;width:1280px;height:800px">
+<script src="support.js"></script>
+<script src="ds/fixture-web/components/bundle.js"></script>
+<x-import component-from-global-scope="FixtureWeb.Card" as="Card"></x-import>
+<x-import component-from-global-scope="FixtureWeb.Chip" as="Chip"></x-import>
+
+<!-- As-is: mirrors src/main.jsx shell (main.mx-auto.max-w-md.p-4, nav, TripsPage). Rows are the
+     3 trips in public/api/trips.json. Shell layout utilities are inline because the design
+     system's bundle.css only carries classes the components use. -->
+<main style="max-width:28rem;margin:0 auto;padding:1rem;color:#1b1f2a;font-family:ui-sans-serif,system-ui,sans-serif;display:flex;flex-direction:column;gap:1rem">
+  <nav style="display:flex;gap:1rem;color:#2f5bd2">
+    <a href="#">Home</a><a href="#">trips</a><a href="#">settings</a>
+  </nav>
+  <Card title="Trips">
+    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.5rem">
+      <li style="display:flex;align-items:center;justify-content:space-between"><Chip>Lisbon</Chip><span>2026-12-04 · 5 nights</span></li>
+      <li style="display:flex;align-items:center;justify-content:space-between"><Chip>Osaka</Chip><span>2027-02-11 · 8 nights</span></li>
+      <li style="display:flex;align-items:center;justify-content:space-between"><Chip>Quito</Chip><span>2027-04-02 · 6 nights</span></li>
+    </ul>
+  </Card>
+</main>
+
+<script data-dc-script data-props='{}'></script>
+</body>
+</html>

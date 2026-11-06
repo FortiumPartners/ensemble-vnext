@@ -359,6 +359,126 @@ describe('setup', () => {
   });
 });
 
+describe('setup, prior templates (D6)', () => {
+  const crypto = require('crypto');
+  const SHIPPED = path.join(__dirname, '..', 'templates', 'claude-directory', 'rules', 'design.md');
+  it('the shipped template is unfilled against the project copy of itself', () => {
+    const d = tmp();
+    fs.mkdirSync(path.join(d, '.claude/rules'), { recursive: true });
+    fs.mkdirSync(path.join(d, '.claude/skills/design-setup'), { recursive: true });
+    const tplNow = fs.readFileSync(SHIPPED, 'utf8');
+    fs.writeFileSync(path.join(d, '.claude/rules/design.md'), tplNow);
+    fs.writeFileSync(path.join(d, '.claude/skills/design-setup/template.md'), tplNow);
+    expect(dm.setup(d)).toBe('unfilled');
+  });
+  it('matches by sha256 of the normalised text', () => {
+    const d = tmp();
+    fs.mkdirSync(path.join(d, '.claude/rules'), { recursive: true });
+    fs.writeFileSync(path.join(d, '.claude/rules/design.md'), 'filled by owner');
+    expect(dm.setup(d)).toBe('filled');
+    expect(crypto.createHash('sha256').update('x').digest('hex')).toHaveLength(64);
+  });
+  it('the recorded prior hash is the template as it was at HEAD before this change', () => {
+    const { spawnSync: sp } = require('child_process');
+    const g = sp('git', ['show', 'HEAD:packages/core/templates/claude-directory/rules/design.md'], { cwd: path.join(__dirname, '..', '..', '..'), encoding: 'utf8' });
+    if (g.status !== 0 || g.stdout.includes('5. Design direction')) return; // not a checkout holding the old template
+    const d = tmp();
+    fs.mkdirSync(path.join(d, '.claude/rules'), { recursive: true });
+    fs.writeFileSync(path.join(d, '.claude/rules/design.md'), g.stdout.replace(/\n/g, '\r\n'));
+    expect(dm.setup(d)).toBe('unfilled');
+  });
+});
+
+describe('direction', () => {
+  const FILLED = [
+    '# Design', '', '## 4. Design rules', '',
+    '- **Reuse:** x', '- **Accessibility floor:** contrast 4.5:1, touch targets 44 px', '- **Process rules:** y', '',
+  ];
+  const sect5 = (rows) => ['## 5. Design direction', '', '| Field | Value |', '|---|---|',
+    `| Brand (voice) | ${rows.brand || ''} |`, `| Style pack (a skill) | ${rows.pack || ''} |`,
+    `| References (any) | ${rows.refs || ''} |`, `| Departure latitude (\`keep\`) | ${rows.lat || ''} |`, ''];
+  const project = (lines, { packs = ['style-pack-a', 'style-pack-b'], skillsDir = 'packages/skills', roles } = {}) => {
+    const d = tmp();
+    fs.mkdirSync(path.join(d, '.claude/rules'), { recursive: true });
+    fs.writeFileSync(path.join(d, '.claude/rules/design.md'), lines.join('\n'));
+    for (const p of packs) { fs.mkdirSync(path.join(d, skillsDir, p), { recursive: true }); fs.writeFileSync(path.join(d, skillsDir, p, 'SKILL.md'), 'x'); }
+    if (roles) {
+      fs.mkdirSync(path.join(d, skillsDir), { recursive: true });
+      fs.writeFileSync(path.join(d, skillsDir, 'framework-skills.txt'), roles);
+      for (const l of roles.split('\n')) { const n = l.split(/\s+/)[0]; if (n && !n.startsWith('#') && !n.startsWith('style-pack')) { fs.mkdirSync(path.join(d, skillsDir, n), { recursive: true }); fs.writeFileSync(path.join(d, skillsDir, n, 'SKILL.md'), 'x'); } }
+    }
+    return d;
+  };
+  it('all four fields blank on a pre-release design.md; latitude refine', () => {
+    const r = dm.direction(project(FILLED));
+    expect(r.blank).toEqual(['brand', 'style_pack', 'references', 'departure_latitude']);
+    expect(r.latitude).toBe('refine');
+    expect(r.text).toBe('');
+    expect(r.available_packs).toEqual(['style-pack-a', 'style-pack-b']);
+  });
+  it('reads filled fields and the latitude', () => {
+    const r = dm.direction(project([...FILLED, ...sect5({ brand: 'warm', pack: 'style-pack-a', refs: 'Linear', lat: '`rethink`' })]));
+    expect(r.fields).toEqual({ brand: 'warm', style_pack: 'style-pack-a', references: 'Linear', departure_latitude: '`rethink`' });
+    expect(r.blank).toEqual([]);
+    expect(r.latitude).toBe('rethink');
+    expect(r.style_pack).toEqual({ name: 'style-pack-a', path: path.join('packages/skills', 'style-pack-a', 'SKILL.md'), missing: false });
+    expect(r.text).toContain('## 5. Design direction');
+  });
+  it('unknown latitude falls back to refine and is listed as blank', () => {
+    const r = dm.direction(project([...FILLED, ...sect5({ brand: 'b', pack: 'style-pack-a', refs: 'r', lat: 'wild' })]));
+    expect(r.latitude).toBe('refine');
+    expect(r.blank).toEqual(['departure_latitude (unrecognised)']);
+  });
+  it('parses the floor from "contrast 4.5:1, touch targets 44 px"', () => {
+    const r = dm.direction(project(FILLED));
+    expect(r.floor).toEqual({ contrast: 4.5, target: 44 });
+    expect(r.floor_blank).toBe(false);
+  });
+  it('an unparseable floor line is floor_blank', () => {
+    const r = dm.direction(project(FILLED.map((l) => (/Accessibility/.test(l) ? '- **Accessibility floor:** (the owner\'s answer, recorded by `/design-setup`)' : l))));
+    expect(r.floor).toEqual({ contrast: null, target: null });
+    expect(r.floor_blank).toBe(true);
+  });
+  it('--style overrides the field; a missing pack is flagged', () => {
+    const d = project([...FILLED, ...sect5({ pack: 'style-pack-a' })]);
+    expect(dm.direction(d, { style: 'style-pack-b' }).style_pack.name).toBe('style-pack-b');
+    const m = dm.direction(d, { style: 'style-pack-zzz' });
+    expect(m.style_pack).toEqual({ name: 'style-pack-zzz', path: null, missing: true });
+  });
+  it('craft lists design-role skills and excludes style-pack-*', () => {
+    const d = project(FILLED, { roles: 'frontend-design design\nstyle-pack-a design\nverify-x check\n' });
+    expect(dm.direction(d).craft).toEqual([path.join('packages/skills', 'frontend-design', 'SKILL.md')]);
+  });
+  it('falls back past a skills dir holding no pack', () => {
+    const d = project(FILLED, { packs: [] });
+    fs.mkdirSync(path.join(d, '.claude/skills/jest'), { recursive: true });
+    fs.mkdirSync(path.join(d, 'packages/skills/style-pack-q'), { recursive: true });
+    fs.writeFileSync(path.join(d, 'packages/skills/style-pack-q/SKILL.md'), 'x');
+    expect(dm.direction(d).available_packs).toEqual(['style-pack-q']);
+  });
+  it('throws on a missing or unfilled design.md', () => {
+    expect(() => dm.direction(tmp())).toThrow(/missing/);
+  });
+  it('CLI: direction runs without --dir', () => {
+    const d = project(FILLED);
+    const r = spawnSync('node', [path.join(__dirname, 'design-map.js'), 'direction', '--style', 'style-pack-b'], { cwd: d, env: ENV, encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).style_pack.name).toBe('style-pack-b');
+  });
+});
+
+describe('AC-N2: nothing in the framework writes rules/design.md', () => {
+  it('no write call names the design.md rules path under commands, workflows, lib or contracts', () => {
+    const base = path.join(__dirname, '..');
+    const files = [];
+    const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { if (e.name !== 'node_modules' && e.name !== '__fixtures__') walk(p); } else if (/\.(js|md|sh)$/.test(e.name) && !/\.test\.js$/.test(e.name)) files.push(p); } };
+    for (const sub of ['commands', 'workflows', 'lib', 'contracts']) walk(path.join(base, sub));
+    const writer = /(writeFile(Sync)?|appendFile(Sync)?|copyFile(Sync)?|rename(Sync)?|unlink(Sync)?|rmSync)\s*\([^)]*(DESIGN_RULES|rules[/'", ]+design\.md)/;
+    const offenders = files.filter((f) => writer.test(fs.readFileSync(f, 'utf8')));
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('CLI', () => {
   const cli = (cwd, ...args) => spawnSync('node', [path.join(__dirname, 'design-map.js'), ...args], { cwd, env: ENV, encoding: 'utf8' });
   it('transition resolves HEAD itself; errors exit 1', () => {
@@ -470,6 +590,8 @@ describe('approve', () => {
   const head = (repo) => sh(repo, 'rev-parse', 'HEAD').stdout.trim();
   const status = (dir, id) => dm.read(dir).boards.find((b) => b.id === id);
   let spy;
+  // approve() always renders now; stub it so tests that care about the map, not the frames, launch no Chromium.
+  beforeEach(() => { spy = jest.spyOn(render, 'render').mockResolvedValue({ frames: [], errors: {} }); });
   afterEach(() => { if (spy) spy.mockRestore(); spy = null; });
 
   it('commits an uncommitted board edit first and approves drafts, part included, at that commit', async () => {
@@ -538,10 +660,11 @@ describe('approve', () => {
     expect(status(dir, ids.draft).status).toBe('draft');
   });
 
-  it('with no runtime reports renderSkipped and still commits the map', async () => {
+  it('with no runtime renders with the pinned runtime and still commits the map', async () => {
     const { repo, rel, ids } = fixture();
     const r = await dm.approve(rel, { ids: [ids.draft], repo });
-    expect(r.renderSkipped).toMatch(/runtime/);
+    expect(r.renderSkipped).toBeNull();
+    expect(spy.mock.calls[0][0].runtime).toBe(render.PINNED_RUNTIME);
     expect(sh(repo, 'status', '--porcelain').stdout).toBe('');
     expect(sh(repo, 'log', '-1', '--format=%s').stdout.trim()).toBe('chore(design): d boards approved');
   });

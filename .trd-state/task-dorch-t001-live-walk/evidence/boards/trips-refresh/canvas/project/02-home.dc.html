@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/fixture-web/components/bundle.css">
+<script src="ds/fixture-web/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#ffffff}
+a{color:#2f5bd2}
+</style>
+</helmet>
+<!-- To-be Home (/) at 1280x800. Same shell as src/main.jsx (main.mx-auto.max-w-md.space-y-4.p-4 + nav), which is
+     a view local to the app and not importable, so its four utilities are written inline (bundle.css carries only
+     the component utilities). The Card and Button are the real components. Only the Card title and body change:
+     the title becomes "Your trips" and the body is a one-line trip-count summary (S1). The "See trips" Button is
+     unchanged (S2). Tweaks pick the summary state; the Button stays in every state because /trips is still reachable. -->
+<div style="min-height: 800px; box-sizing: border-box; background: #ffffff; color: #1b1f2a; font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.5">
+  <main style="max-width: 28rem; margin: 0 auto; padding: 1rem; box-sizing: border-box; display: flex; flex-direction: column; gap: 1rem">
+    <!-- BI-10: shared page chrome, unchanged from src/main.jsx. Known gap, not drawn as changed (brief "Not in this design"):
+      these links are about 24 px tall, under the 44 px touch floor (grounding/standards.md). Owner decision. -->
+    <nav aria-label="Main" style="display: flex; gap: 1rem">
+      <a href="/" style="color: #2f5bd2; text-decoration: none">Home</a>
+      <a href="/trips" style="color: #2f5bd2; text-decoration: none">trips</a>
+      <a href="/settings" style="color: #2f5bd2; text-decoration: none">settings</a>
+    </nav>
+    <x-import component-from-global-scope="FixtureWeb.Card" title="Your trips">
+      <!-- Data dependency: the count is the length of the /api/trips.json array (fields id, name, startDate, nights). Home makes
+           no fetch today (src/main.jsx:41-45), so the count and the loading, error, empty and singular lines all need new Home
+           wiring, including a catch and a non-200 check the code does not have. -->
+      <sc-if value="{{ showLoading }}" hint-placeholder-val="{{ false }}">
+        <p role="status" style="margin: 0 0 0.75rem">Loading trips...</p>
+      </sc-if>
+      <sc-if value="{{ showError }}" hint-placeholder-val="{{ false }}">
+        <p role="alert" style="margin: 0 0 0.75rem">Couldn't load your trips.</p>
+      </sc-if>
+      <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+        <p style="margin: 0 0 0.75rem">You have no trips yet.</p>
+      </sc-if>
+      <sc-if value="{{ showSingular }}" hint-placeholder-val="{{ false }}">
+        <p style="margin: 0 0 0.75rem">You have 1 trip.</p>
+      </sc-if>
+      <sc-if value="{{ showMany }}" hint-placeholder-val="{{ true }}">
+        <p style="margin: 0 0 0.75rem">You have 3 trips.</p>
+      </sc-if>
+      <x-import component-from-global-scope="FixtureWeb.Button" variant="primary">See trips</x-import>
+    </x-import>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"loading":{"type":"boolean","editor":"boolean","default":false},"empty":{"type":"boolean","editor":"boolean","default":false},"error":{"type":"boolean","editor":"boolean","default":false},"singular":{"type":"boolean","editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // One summary line shows at a time. If several tweaks are on: loading, then error, then empty,
+    // then the one-trip copy, then the default count (same order as the Trips boards).
+    const loading = !!this.props.loading;
+    const error = !loading && !!this.props.error;
+    const empty = !error && !loading && !!this.props.empty;
+    const singular = !error && !loading && !empty && !!this.props.singular;
+    return {
+      showError: error,
+      showLoading: loading,
+      showEmpty: empty,
+      showSingular: singular,
+      showMany: !error && !loading && !empty && !singular
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -13,7 +13,7 @@ jest.setTimeout(90000);
 
 const FIX = path.join(__dirname, '__fixtures__', 'design');
 const LIB = path.join(FIX, 'react-lib', 'index.jsx');
-const RUNTIME = path.join(FIX, 'dc-runtime.js');
+const RUNTIME = path.join(__dirname, 'dc-runtime.js');
 const tmp = (p = 'dbundle-') => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), p)));
 
 describe('recipe (AC-F4.4)', () => {

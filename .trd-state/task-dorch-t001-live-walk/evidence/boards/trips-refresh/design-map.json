@@ -1,0 +1,414 @@
+{
+  "design_system": {
+    "url": "https://claude.ai/artifact/SW3Sj2wnmtPSFQG1kgWJG2",
+    "version": "1793887213-c5a3",
+    "code_commit": "69455f76567255bce615714ca0e239168ab1955b",
+    "paths": [
+      "components/",
+      "tailwind.config.js"
+    ],
+    "drift": {
+      "checked_at": "2026-11-06T07:11:41.696Z",
+      "head": "34330dc62d066dc47527fe1e0ed6deba0f644598",
+      "changed_paths": null
+    }
+  },
+  "canvases": [],
+  "brief_items": [
+    {
+      "id": "S1",
+      "source": "docs/briefs/trips-refresh.md S1; docs/PRD/home-card.md FR-1"
+    },
+    {
+      "id": "S2",
+      "source": "docs/briefs/trips-refresh.md S2; docs/PRD/home-card.md FR-2"
+    },
+    {
+      "id": "S3",
+      "source": "docs/briefs/trips-refresh.md S3; docs/PRD/trips-list.md FR-1"
+    },
+    {
+      "id": "S4",
+      "source": "docs/briefs/trips-refresh.md S4; docs/PRD/trips-list.md FR-2"
+    },
+    {
+      "id": "BI-1",
+      "source": "docs/ui/trips-refresh/brief.md item BI-1"
+    },
+    {
+      "id": "BI-2",
+      "source": "docs/ui/trips-refresh/brief.md item BI-2"
+    },
+    {
+      "id": "BI-3",
+      "source": "docs/ui/trips-refresh/brief.md item BI-3"
+    },
+    {
+      "id": "BI-4",
+      "source": "docs/ui/trips-refresh/brief.md item BI-4"
+    },
+    {
+      "id": "BI-5",
+      "source": "docs/ui/trips-refresh/brief.md item BI-5"
+    },
+    {
+      "id": "BI-6",
+      "source": "docs/ui/trips-refresh/brief.md item BI-6"
+    },
+    {
+      "id": "BI-7",
+      "source": "docs/ui/trips-refresh/brief.md item BI-7"
+    },
+    {
+      "id": "BI-8",
+      "source": "docs/ui/trips-refresh/brief.md item BI-8"
+    },
+    {
+      "id": "BI-9",
+      "source": "docs/ui/trips-refresh/brief.md item BI-9"
+    },
+    {
+      "id": "BI-10",
+      "source": "docs/ui/trips-refresh/brief.md item BI-10"
+    }
+  ],
+  "boards": [
+    {
+      "id": "01-home--as-is",
+      "file": "01-home--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "route": "/",
+      "status": "draft",
+      "brief_items": [
+        "BI-10"
+      ],
+      "parts": [],
+      "screenshot_match": false,
+      "mismatch_note": "not compared: no canvas runtime (dc-runtime.js) was supplied, so the board was not rendered. The board was written from components/index.jsx and src/main.jsx (Card \"Home\", text \"Welcome to the fixture app.\", primary Button \"See trips\", plus the Home/trips/settings nav); its layout is unchecked against docs/ui/_current/home-390x844.png. The runtime-specific syntax (support.js, x-import, data-dc-script) is a best guess with no runtime or canvas rules to check it against.",
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Button"
+      ],
+      "links": []
+    },
+    {
+      "id": "02-home--as-is",
+      "file": "02-home--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        1280,
+        800
+      ],
+      "route": "/",
+      "status": "draft",
+      "brief_items": [
+        "BI-10"
+      ],
+      "parts": [],
+      "screenshot_match": false,
+      "mismatch_note": "not compared: no --runtime was supplied, so design-render.js was not run and no frame exists. Board written but unrendered. The canvas rules were also not supplied, so the dc-board and x-import element syntax is a best guess and needs a render to confirm. Expected to match the screenshot: nav (Home, trips, settings) at x=432, Card \"Home\" 416px wide centred, \"See trips\" primary Button. The shell (max-w-md, p-4, space-y-4) is written as inline CSS because bundle.css lacks those utilities.",
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Button"
+      ],
+      "links": []
+    },
+    {
+      "id": "03-trips--as-is",
+      "file": "03-trips--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "route": "/trips",
+      "status": "draft",
+      "brief_items": [
+        "S3",
+        "S4",
+        "BI-10"
+      ],
+      "parts": [],
+      "screenshot_match": false,
+      "mismatch_note": "not compared: no runtime was supplied (the dc-runtime.js path was \"none supplied\"), so the board was not rendered and no frame was checked against docs/ui/_current/trips-390x844.png. Run design-render.js with a runtime to compare.",
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Chip"
+      ],
+      "links": []
+    },
+    {
+      "id": "04-trips--as-is",
+      "file": "04-trips--as-is.dc.html",
+      "kind": "as-is",
+      "platform": "web",
+      "viewport": [
+        1280,
+        800
+      ],
+      "route": "/trips",
+      "status": "draft",
+      "brief_items": [],
+      "parts": [],
+      "screenshot_match": false,
+      "mismatch_note": "not compared: no canvas runtime was supplied, so the board was not rendered and no frame exists to compare with docs/ui/_current/trips-1280x800.png. Board written at docs/ui/trips-refresh/canvas/project/04-trips--as-is.dc.html (real Card and Chip via x-import FixtureWeb, shell and nav replicated from src/main.jsx, 3 trips from public/api/trips.json). The x-import tag syntax and script wiring are unverified without the runtime and no canvas rules were supplied; shell layout uses inline styles because bundle.css lacks max-w-md, mx-auto and space-y-4.",
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Chip"
+      ],
+      "links": []
+    },
+    {
+      "id": "01-home",
+      "file": "01-home.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "route": "/",
+      "status": "building",
+      "brief_items": [
+        "S1",
+        "S2",
+        "BI-1",
+        "BI-2",
+        "BI-3",
+        "BI-9",
+        "BI-10"
+      ],
+      "parts": [],
+      "states": {
+        "default": {
+          "setup": "All tweaks off. Summary reads \"You have 3 trips.\"",
+          "props": {}
+        },
+        "loading": {
+          "setup": "Summary reads \"Loading trips...\"; Button stays visible.",
+          "props": {
+            "loading": true
+          }
+        },
+        "empty": {
+          "setup": "Summary reads \"You have no trips yet.\"; Button stays visible.",
+          "props": {
+            "empty": true
+          }
+        },
+        "error": {
+          "setup": "Summary reads \"Couldn't load your trips.\"; Button stays visible.",
+          "props": {
+            "error": true
+          }
+        },
+        "singular": {
+          "setup": "Summary reads \"You have 1 trip.\"",
+          "props": {
+            "singular": true
+          }
+        }
+      },
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Button"
+      ],
+      "links": [],
+      "approved_commit": "a8faab4746af11f1fe6270644593de231dd6c3f0",
+      "trd": "docs/TRD/home-card.md"
+    },
+    {
+      "id": "02-home",
+      "file": "02-home.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        1280,
+        800
+      ],
+      "route": "/",
+      "status": "building",
+      "brief_items": [
+        "S1",
+        "S2",
+        "BI-1",
+        "BI-2",
+        "BI-3",
+        "BI-9",
+        "BI-10"
+      ],
+      "parts": [],
+      "states": {
+        "default": {
+          "setup": "Summary reads 'You have 3 trips.' (three fixture trips)",
+          "props": {}
+        },
+        "loading": {
+          "setup": "Summary reads 'Loading trips...'; Button stays",
+          "props": {
+            "loading": true
+          }
+        },
+        "empty": {
+          "setup": "Summary reads 'You have no trips yet.'; Button stays",
+          "props": {
+            "empty": true
+          }
+        },
+        "error": {
+          "setup": "Summary reads 'Couldn't load your trips.'; Button stays",
+          "props": {
+            "error": true
+          }
+        },
+        "singular": {
+          "setup": "Summary reads 'You have 1 trip.' (copy variant)",
+          "props": {
+            "singular": true
+          }
+        }
+      },
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Button"
+      ],
+      "links": [],
+      "approved_commit": "a8faab4746af11f1fe6270644593de231dd6c3f0",
+      "trd": "docs/TRD/home-card.md"
+    },
+    {
+      "id": "03-trips",
+      "file": "03-trips.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        390,
+        844
+      ],
+      "route": "/trips",
+      "status": "building",
+      "brief_items": [
+        "S3",
+        "S4",
+        "BI-4",
+        "BI-5",
+        "BI-6",
+        "BI-7",
+        "BI-8",
+        "BI-9",
+        "BI-10"
+      ],
+      "parts": [],
+      "states": {
+        "default": {
+          "setup": "All tweaks off: three fixture trips (Lisbon, Osaka, Quito), one table row each: Chip, then the date text",
+          "props": {
+            "loading": false,
+            "empty": false,
+            "error": false,
+            "many": false
+          }
+        },
+        "loading": {
+          "setup": "Card body reads Loading trips... (wins over every other tweak)",
+          "props": {
+            "loading": true
+          }
+        },
+        "empty": {
+          "setup": "Card body reads No trips yet.",
+          "props": {
+            "empty": true
+          }
+        },
+        "error": {
+          "setup": "Card body reads Couldn't load trips.",
+          "props": {
+            "error": true
+          }
+        },
+        "many": {
+          "setup": "Ten table rows (three fixture plus seven invented) with an illustrative note; the Card just lengthens",
+          "props": {
+            "many": true
+          }
+        }
+      },
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Chip"
+      ],
+      "links": [],
+      "approved_commit": "2d1a937e461ec190d3b6e4925171a75099f374b2",
+      "trd": "docs/TRD/trips-list.md"
+    },
+    {
+      "id": "04-trips",
+      "file": "04-trips.dc.html",
+      "kind": "to-be",
+      "platform": "web",
+      "viewport": [
+        1280,
+        800
+      ],
+      "route": "/trips",
+      "status": "building",
+      "brief_items": [
+        "S3",
+        "S4",
+        "BI-4",
+        "BI-5",
+        "BI-6",
+        "BI-7",
+        "BI-8",
+        "BI-9",
+        "BI-10"
+      ],
+      "parts": [],
+      "states": {
+        "default": {
+          "setup": "Three fixture trips: Lisbon, Osaka, Quito",
+          "props": {}
+        },
+        "loading": {
+          "setup": "Card body reads Loading trips...",
+          "props": {
+            "loading": true
+          }
+        },
+        "empty": {
+          "setup": "Card body reads No trips yet.",
+          "props": {
+            "empty": true
+          }
+        },
+        "error": {
+          "setup": "Card body reads Couldn't load trips.",
+          "props": {
+            "error": true
+          }
+        },
+        "many": {
+          "setup": "Ten table rows; seven names are illustrative",
+          "props": {
+            "many": true
+          }
+        }
+      },
+      "components": [
+        "FixtureWeb.Card",
+        "FixtureWeb.Chip"
+      ],
+      "links": [],
+      "approved_commit": "2d1a937e461ec190d3b6e4925171a75099f374b2",
+      "trd": "docs/TRD/trips-list.md"
+    }
+  ]
+}
