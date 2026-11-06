@@ -1,0 +1,99 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "When a command run prints its final COMMAND COMPLETE or COMMAND STUCK banner, no fallback wake-up it scheduled is left pending, so the session does not read as busy afterwards and no 'nothing to do' turn fires later.",
+      "source": "TRD Objectives table, row O1 (issue #63)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "AMEND-001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "The rule is stated once, in command-status.md's banner rules, attached to the final-turn notify-complete.sh step, with a pointer from async-discipline.md's scheduled-nudge pattern; /audit-build, /implement-trd, /verify-build and /plan also name it at each final-banner exit.",
+      "source": "TRD Objectives table, row O2 (owner instruction 2026-11-05)",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "AMEND-001"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "A chained step (--chained, ending on a RETURN line) does not cancel, because its caller's run is not finished; /audit-build's stale-wake check stays as the backstop.",
+      "source": "TRD Objectives table, row O3 (owner instruction 2026-11-05; command-status.md 'one banner per RUN')",
+      "served_by": [
+        "FIX-001",
+        "FIX-002",
+        "AMEND-001"
+      ]
+    },
+    {
+      "id": "FIX-001-AC",
+      "statement": "verify-command-surface.test.js asserts, for both copies of each rule file: command-status.md section 3 says the final COMPLETE/STUCK turn calls ScheduleWakeup({ stop: true }) before the readout and banner, a --chained RETURN step does not, and the /loop and other-pending-wake-ups risk is named; async-discipline.md's scheduled-nudge section says to cancel on the final turn and names command-status.md; each .claude/rules/ file is byte-identical to its template. Superseded by AMEND-001.",
+      "source": "TRD Master Task List, FIX-001 acceptance criteria",
+      "served_by": [
+        "FIX-001"
+      ]
+    },
+    {
+      "id": "FIX-002-AC",
+      "statement": "verify-command-surface.test.js asserts each of the four command files (audit-build, implement-trd, verify-build, plan) contains ScheduleWakeup({ stop: true }) in its output-discipline section before the banner, skipped under --chained; verify-build.md also has it in fix-loop step 6 and round-STUCK exit; plan.md has it at step 7a.6 and the 7a STUCK exits, with its 'Never on a chained run' paragraph corrected; audit-build.md has it at close and early STUCK exits with step 0 still running stale-wake; every .claude/commands/ copy is byte-identical to its source; the command-structure lint passes. Superseded by AMEND-001.",
+      "source": "TRD Master Task List, FIX-002 acceptance criteria",
+      "served_by": [
+        "FIX-002"
+      ]
+    },
+    {
+      "id": "AMEND-001-AC",
+      "statement": "grep for 'stop: true' finds nothing in packages/core/commands/*.md, .claude/commands/*.md or either copy of the rule files; command-status.md and async-discipline.md (both copies) say not to schedule a fallback wake-up for harness-tracked work (Workflow, background Agent, background Bash) and keep ScheduleWakeup for external state; the four commands' DISPATCHED next-wake lines name auto-delivery on completion; audit-build.md step 0 still runs stale-wake; verify-command-surface.test.js pins this; mirrors are byte-identical; Jest, BATS runtime-integrity and the structure lint pass.",
+      "source": "TRD Master Task List, AMEND-001 acceptance criteria (amendment 2026-11-05)",
+      "served_by": [
+        "AMEND-001"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "description": "State the cancel rule in command-status.md section 3 (final turn calls ScheduleWakeup({ stop: true }) before readout and banner; never under --chained; names the /loop and other-pending-wake-ups risk) and point to it from async-discipline.md's scheduled-nudge pattern, in both .claude/rules/ copies and packages/core/templates/claude-directory/rules/ templates. SUPERSEDED by AMEND-001 (cancel removed).",
+      "touches": [
+        ".claude/rules/command-status.md",
+        "packages/core/templates/claude-directory/rules/command-status.md",
+        ".claude/rules/async-discipline.md",
+        "packages/core/templates/claude-directory/rules/async-discipline.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "FIX-002",
+      "description": "/audit-build, /implement-trd, /verify-build and /plan name the cancel at every final-banner exit; plan.md's 'Never on a chained run' paragraph corrected to match step 7a.6; /audit-build step 0 states stale-wake's purpose as the catch for a forgotten cancel and a mid-run stale wake. SUPERSEDED by AMEND-001.",
+      "touches": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/implement-trd.md",
+        "packages/core/commands/verify-build.md",
+        "packages/core/commands/plan.md",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/implement-trd.md",
+        ".claude/commands/verify-build.md",
+        ".claude/commands/plan.md",
+        "packages/core/commands/verify-command-surface.test.js"
+      ]
+    },
+    {
+      "id": "AMEND-001",
+      "description": "Replace the final-turn cancel with prevention: commands never schedule a fallback ScheduleWakeup for work Claude Code already tracks (Workflow, background Agent, background Bash); ScheduleWakeup stays only for external state (CI, deploy, remote queue); all stop:true cancel steps and the /loop risk removed; audit-build stale-wake check kept as backstop. Amends FIX-001 and FIX-002.",
+      "touches": []
+    }
+  ],
+  "open_questions": [
+    "OQ-1 (owner-only, resolved 2026-11-05 by AMEND-001): ScheduleWakeup({ stop: true }) also ends a /loop dynamic loop and appears to clear every pending wake-up in the session. A command cannot reliably tell it is inside an owner's /loop. Assumed answer was: accept that a command's final turn ends such a loop and cancels the owner's pending reminders. Owner's resolution: no cancel; do not schedule the fallback instead."
+  ],
+  "could_not_verify": [
+    "Whether a model running these commands actually issues the cancel on its final turn; the tests pin the text, not a session's tool calls.",
+    "Whether ScheduleWakeup({ stop: true }) clears every pending wake-up in the session or only the latest, and whether it errors when nothing is pending. In this session it reported 'cancelled 1 pending wakeup(s)' after several had already fired.",
+    "Whether a dead session fires its pending wake-ups at all (they are session-scoped)."
+  ]
+}
