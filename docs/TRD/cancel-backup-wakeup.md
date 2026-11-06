@@ -37,9 +37,12 @@ No fallback wake-up is scheduled for work Claude Code already tracks (a `Workflo
 `Agent`, a background `Bash`), so nothing is pending after the banner. The DISPATCHED turn ends with
 `next wake: auto-deliver on completion`; `ScheduleWakeup` is kept for external state only.
 
-Root cause [read]: the two shared rules tell the model to schedule a fallback (DISPATCHED banner,
-`command-status.md:17-23`; scheduled nudge, `async-discipline.md:117-122`: "schedule a wake …
-re-schedule … or proceed") and nothing anywhere tells it to cancel one. `command-status.md` §3
+Root cause [read]: before the fix, the two shared rules told the model to schedule a fallback
+(DISPATCHED banner, then at `command-status.md:17-23`; scheduled nudge, then at
+`async-discipline.md:117-122`: "schedule a wake … re-schedule … or proceed") and nothing anywhere
+told it to cancel one. As delivered, that text is gone: the DISPATCHED banner and its
+no-fallback rule are at `command-status.md:15-28`, and the pattern is at
+`async-discipline.md:108-122`. `command-status.md` §3
 (`:56-59`) lists the final turn's duties without it, and `grep -n "stop: true"` over
 `packages/core/commands/*.md` and `.claude/rules/*.md` finds nothing [ran]. `/audit-build` step 0
 handles a stale wake only after it fires, by which time the idle time is spent.
@@ -119,19 +122,30 @@ None apply — the change is command and rule prose; no screens, journeys or dat
 
 ### FIX-001
 - **Touches:** `.claude/rules/command-status.md`, `packages/core/templates/claude-directory/rules/command-status.md`, `.claude/rules/async-discipline.md`, `packages/core/templates/claude-directory/rules/async-discipline.md`, `packages/core/commands/verify-command-surface.test.js`
-- **Reuse:** §3's "Rules for the COMPLETE/STUCK banner" paragraph (command-status.md:56-59), Path B's `notify-complete.sh` final-turn step, and the "Enforcement" section's chaining exception ("one banner per RUN, not one per command name", ~:230-238), which already define the final turn and suppress the helper under `--chained` [read]; async-discipline.md "Orchestration pattern: the scheduled nudge" (line 108 on) [read]
+- **Reuse:** §3's "Rules for the COMPLETE/STUCK banner" paragraph (command-status.md:56-59), Path B's `notify-complete.sh` final-turn step, and the "Enforcement" section's chaining exception ("one banner per RUN, not one per command name", ~:230-238), which already define the final turn and suppress the helper under `--chained` [read]; async-discipline.md "Orchestration pattern: the scheduled nudge" (line 108 on; as delivered, retitled "Orchestration pattern: dispatch, end the turn, nudge only if late") [read]
 - **Follow:** existing tests in `verify-command-surface.test.js` that read both copies of `command-status.md` (~:423-440, ~:1080-1095) [read]; rule prose carries a short "why" with the measurement, as elsewhere in these files [read]
-- **Careful:** both rule files ship to projects as templates and must stay byte-identical to the `.claude/rules/` copies [ran]; keep the addition short (command-status.md is 12,983 bytes, async-discipline.md 8,041) [ran]; do not edit `constitution.md` [read]; whether `stop: true` errors when nothing is pending is unverified — the rule must not depend on its result text [inferred]
+- **Careful:** both rule files ship to projects as templates and must stay byte-identical to the `.claude/rules/` copies [ran]; keep the addition short (command-status.md was 12,983 bytes and async-discipline.md 8,041 before the change; as delivered, 13,377 and 7,684) [ran]; do not edit `constitution.md` [read]; whether `stop: true` errors when nothing is pending is unverified — the rule must not depend on its result text [inferred]
 
 ### FIX-002
 - **Touches:** `packages/core/commands/audit-build.md`, `packages/core/commands/implement-trd.md`, `packages/core/commands/verify-build.md`, `packages/core/commands/plan.md`, `.claude/commands/audit-build.md`, `.claude/commands/implement-trd.md`, `.claude/commands/verify-build.md`, `.claude/commands/plan.md`, `packages/core/commands/verify-command-surface.test.js`
-- **Reuse:** `implement-trd.md` "Output discipline" items 4-6 (~:2344-2366) and its Step 10.1 STUCK; `verify-build.md` Output discipline (~:600-614), fix-loop step 6 (~:570-573) and round-STUCK (~:525-527); `audit-build.md` "Programmatic completion notify" (~:495-501), close step (~:317-321), early STUCK exits (~:32, ~:235) and step 0 (~:283-288); `plan.md` Output discipline (~:1236-1262), step 7a.6 (~:1199-1201) and the 7a STUCK exits (~:1185, ~:1190-1192) [read]
-- **Replaces:** `plan.md`'s "Never on a chained run … Call this only on the paths that genuinely end here" wording, which contradicts step 7a.6 — rewrite it to say the helper (and the cancel) run on the turn that prints this run's banner, never on a handoff to a chained command that prints its own [read]
+- **Reuse:** `implement-trd.md` "Output discipline" items 4-6 (~:2344-2366) and its Step 10.1 STUCK; `verify-build.md` Output discipline (~:600-614), fix-loop step 6 (~:570-573) and round-STUCK (~:525-527); `audit-build.md` "Programmatic completion notify" (~:495-501), close step (~:317-321), early STUCK exits (~:32, ~:235) and step 0 (~:283-288); `plan.md` Output discipline (~:1236-1262), step 7a.6 (~:1195-1197) and the 7a STUCK exits (~:1185, ~:1190-1192) [read]
+- **Replaces:** `plan.md`'s "Never on a chained run … Call this only on the paths that genuinely end here" wording, which contradicts step 7a.6 — rewrite it to say the helper (and the cancel) run on the turn that prints this run's banner, never on a handoff to a chained command that prints its own [read]. Done: as delivered, `plan.md:1258` reads "Never on a handoff to a chained command" and says to call the helper on every turn that prints this run's banner.
 - **Follow:** the wording FIX-001 puts in `command-status.md` §3; reference it rather than restate its reasons [inferred]
 - **Careful:** `/implement-trd --chained`, `/verify-build --chained` and `/sweep --chained` end on a `RETURN` line and must not cancel [read]; `/plan --implement`'s plain path emits no banner (the chained `/implement-trd` does, and cancels) [read]; `implement-trd.md` is very long — edit only the named sections [read]
 
 ## Could Not Verify
 
-- Whether a model running these commands actually issues the cancel on its final turn; the tests pin the text, not a session's tool calls.
-- Whether `ScheduleWakeup({ stop: true })` clears every pending wake-up in the session or only the latest, and whether it errors when nothing is pending: in this session it reported "cancelled 1 pending wakeup(s)" after several had already fired.
-- Whether a dead session fires its pending wake-ups at all (they are session-scoped).
+Rewritten by `/audit-build` on 2026-11-05. The two entries about the final-turn cancel were
+dropped: AMEND-001 removed the cancel, and the build audit confirmed no `stop: true` remains in
+either copy of the commands or rules.
+
+- **Product requirements (validation).** This is a defect TRD with no source PRD (issue #63), so
+  no audit pass checked the delivered prose against product requirements; only TRD-to-code
+  traceability was checked.
+- **Live behaviour.** Whether a model following the revised rules actually ends a DISPATCHED turn
+  without scheduling a fallback wake-up. The build audit read the text and ran the 19 tests that
+  pin it; it did not run a session. The implementation run's own verification reports a live
+  headless pass (commit b60213d), which this audit did not repeat.
+- **Dead sessions.** Whether a dead session fires its pending wake-ups at all (they are
+  session-scoped); this bears on what `/audit-build`'s stale-wake backstop can catch, and needs a
+  live session to observe.
