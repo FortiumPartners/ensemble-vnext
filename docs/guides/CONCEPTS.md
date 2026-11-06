@@ -430,13 +430,13 @@ stateDiagram-v2
 When a to-be board ships, it becomes the screen's new as-is board, and the old as-is board is
 marked `superseded` and moved to a History page on the canvas.
 
-- **Invocation is approval.** Running `/create-trd --design` or `/plan --design --boards` is
+- **Invocation is approval.** Running `/create-trd --design [--boards]` or `/plan --design --boards` is
   your approval of the boards it builds. They are approved only once the TRD is written, so a
   run that stops early leaves them in draft. `/refine-design --approve <ids>` approves ahead of a
   build. A canvas comment or a chat remark saying "approved" never approves anything.
 - **Nothing builds from a draft.** A board that embeds a draft part is held back and named.
 - **The design follows the build.** When a feature closes with boards still `building`, the
-  audit and `/close-feature` name them and recommend `/sync-design` once the PR merges.
+  audit and `/close-feature` name them and recommend `/sync-design`, now or once the PR merges.
   `/sync-design` captures each screen from the build: a match becomes `shipped` and the new
   as-is; a difference is reported for you to rule on. Nothing runs it automatically.
 

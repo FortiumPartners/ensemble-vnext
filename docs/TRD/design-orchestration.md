@@ -211,7 +211,7 @@ node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --items S2,S3 [--i
   ids it affects. Do not write open decisions into brief.md; if brief.md already has a
   `## Decisions taken by default` section, keep it word for word." Assumptions with a default
   still go under "Assumptions".
-- Schema item: `{ question, options, recommended, why, weak, brief_items }`, all required; the agent returns no `id`. Arg `odNext` (integer >= 1, else 1): the workflow returns each decision as `{ id: 'OD-<odNext + k - 1>', ...decision }`.
+- Schema item: `{ question, options, recommended, why, weak, brief_items }`, all required; the agent returns no `id`. Arg `odNext` (integer >= 1, or a numeric string such as `"4"`; anything else reads as 1): the workflow returns each decision as `{ id: 'OD-<odNext + k - 1>', ...decision }`.
 - Return: `openDecisions: brief.openDecisions` (no cap, no `AUTO` branch; the workflow gives each decision its `OD-n` id from `odNext`) and
   `items: brief.items`.
 

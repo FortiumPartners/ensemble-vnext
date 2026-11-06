@@ -10,6 +10,52 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.16.0] - 2026-11-05
+
+The design commands can now be driven by an outside caller that runs several features off
+one design (#68). Nothing here names a particular orchestrator; every addition is worded for
+any unattended caller.
+
+### Added
+
+- **`/create-trd --design docs/ui/<slug> --boards <ids>`** builds and approves only the named
+  boards, with the same stop rules `/plan --design --boards` already used: a named board that
+  is not buildable, or that a draft part holds, ends the run STUCK and says which. Without
+  `--boards`, nothing changes. Two features sharing one design no longer collide, where
+  before the first `/create-trd` claimed every board.
+- **Brief items keep the ids their source gives them** (`S1`, `S2`), and `BI-n` is assigned
+  only when the source has none or reuses an id. Every board in `design-map.json` records the
+  items it serves as `brief_items`, and the map carries the brief's item list.
+  `design-map.js validate` checks both.
+- **`design-map.js buildable --items <ids>`** lists the buildable boards that serve the named
+  items (combinable with `--ids`) and reports, in `unmatched`, any item no buildable board
+  serves, naming the boards that do serve it when they are not buildable. Plain `buildable`
+  output is unchanged.
+- **Decisions taken by default are recorded.** Under `--auto`, `/create-design` and
+  `/refine-design` write each open decision to `brief.md` under
+  `## Decisions taken by default` with an `OD-n` id (numbered on from the highest already
+  there, so ids never repeat), and list them in the readout. `/refine-design <slug> --auto
+  "OD-2: <option>"` applies an answer to one.
+- **`/refine-design --auto` with no other feedback works from the latest
+  `/audit-design` report's open findings.**
+- **`/sync-design --trd <trd-path>`** limits a sync to one feature's boards.
+
+### Changed
+
+- `/audit-design`'s "item with no board" and "board with no item" checks are now computed
+  from the map's recorded `brief_items`, in code, rather than from a model reading the boards.
+- `/audit-build` and `/close-feature` say `/sync-design` may run now, on the feature branch,
+  or once the PR has merged.
+
+### Not yet proven
+
+- None of this has been run live end to end (the deferred `[LIVE]` task DORCH-T001). The code
+  paths have outcome tests; that a model follows the new command text is pinned by wording
+  tests only.
+- Open policy questions, left as built: a to-be board serving no brief item only adds a
+  caveat to the audit's verdict; superseded and as-is boards count as serving an item; there
+  is no rule yet for removing or renaming an item in the map's item list.
+
 ## [4.15.1] - 2026-11-05
 
 ### Fixed

@@ -312,18 +312,18 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.15.1** (2026-11-05). 27 commands, 13 subagents. Test battery: 2645 Jest,
-125 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
+Released **4.16.0** (2026-11-05). 27 commands, 13 subagents. Test battery: 2712 Jest,
+125 pytest, 638 BATS. **History: `CHANGELOG.md`.**
 
-4.15.0: the design stage (`/create-design` and four sibling commands). 4.15.1: no backup
-wake-up for work Claude Code tracks (#63).
+4.15.0: the design stage (`/create-design` and four siblings). 4.15.1: no backup wake-up
+for tracked work (#63). 4.16.0: design commands for multi-feature callers (#68).
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
 one (4.10.0/4.9.0).
 
 **Known open**, newest first — see `CHANGELOG.md` for the fix or measurement behind each:
-- 4.15.0: several design flows are unproven live (#65).
+- 4.15.0/4.16.0: design flows are unproven live (#65, DORCH-T001).
 - 4.14.0: no live `/task`, setup check or fanned-out grounding run yet.
 - 4.13.8: the TRD-edit guard is unproven live and checks headings only.
 - 4.13.7: no agent has yet started an audit or `/refine-verification` live.

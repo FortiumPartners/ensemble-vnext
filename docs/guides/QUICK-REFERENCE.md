@@ -1,6 +1,6 @@
 # Ensemble quick reference
 
-For someone who already knows the basics. Version 4.15.0. The full map is in
+For someone who already knows the basics. Version 4.16.0. The full map is in
 [PROCESS.md](PROCESS.md); every step of every command is in
 [reference/README.md](../reference/README.md).
 

@@ -34,7 +34,7 @@ question after all.
 **Where the design stage sits.** When a feature has screens, you can draw them before
 planning the build: `/create-design` after the PRD (or from a brief), then `/create-trd
 --design` or `/plan --design --boards` builds from the boards, and `/sync-design` brings the
-design in line with what shipped once the PR merges. It is optional; nothing in the pipeline
+design in line with what shipped (on the feature branch, or once the PR merges). It is optional; nothing in the pipeline
 requires it. See [§2a](#2a-the-design-stage-optional).
 
 
@@ -274,7 +274,7 @@ feature closed: it writes `.trd-state/<feature>/closed.json` with its verdict, c
 is `auto` in `.claude/settings.json`, it pushes the branch and opens the pull request (or
 updates the open one). It never merges; merging is yours. The shipped default is `never`, in
 which case NEXT tells you to open the PR. If the feature was built from a design and boards are
-still `building`, NEXT names `/sync-design <slug>` for after the merge.
+still `building`, NEXT names `/sync-design <slug> --trd <trd-path>`, to run now or once the PR has merged.
 
 ### `/close-feature` — close it on your say-so
 
@@ -315,12 +315,12 @@ Chromium; publishing needs an interactive session with publishing on.
 | Command | What it does |
 |---|---|
 | [`/design-system [--sync]`](../../packages/core/commands/design-system.md) | Builds the design system the boards draw with, from the code (or Figma), publishes it as a Design System artifact, installs it on the product's canvases, and commits the built files to `docs/ui/_design-system/`. `--sync` rebuilds after the code changed; a canvas's copy never updates by itself. |
-| [`/create-design <brief \| PRD path \| issue> [--new] [--auto]`](../../packages/core/commands/create-design.md) | Grounds the design in the code and writes a brief, asks you at most four open decisions (each with a recommended answer; `--auto` asks none), then draws as-is boards (compared with fresh screenshots), parts and to-be boards, has them reviewed, publishes, renders PNGs and commits `docs/ui/<slug>/`. Every board starts as `draft`. `--new` skips as-is boards for screens that don't exist yet. You start it yourself; no agent will. |
+| [`/create-design <brief \| PRD path \| issue> [--new] [--auto]`](../../packages/core/commands/create-design.md) | Grounds the design in the code and writes a brief (keeping the item ids your source gives, such as `S1`), asks you its open decisions (each with a recommended answer; under `--auto` it asks none and records each under `## Decisions taken by default` in `brief.md` with an `OD-n` id), then draws as-is boards (compared with fresh screenshots), parts and to-be boards, has them reviewed, publishes, renders PNGs and commits `docs/ui/<slug>/`. Every board starts as `draft` and records the brief items it serves (`brief_items`). `--new` skips as-is boards for screens that don't exist yet. You start it yourself; no agent will. |
 | [`/audit-design <slug> [--drift]`](../../packages/core/commands/audit-design.md) | Read-only checks of the boards: every board traces to the brief and every brief item has a board, boards follow the canvas conventions, nothing is drawn by hand that the design system already has, and every board renders. `--drift` adds checks against the current build: shipped boards against fresh screenshots, the installed system's version, code changes no design accounts for, and routes with no board. Changes no board. |
-| [`/refine-design <slug> [--approve <ids>] [--auto] [feedback]`](../../packages/core/commands/refine-design.md) | Adopts hand edits made on the canvas, applies your feedback (from the argument, the chat or canvas comments) to only the affected boards, re-reviews and republishes them. Interactive by default. `--approve` approves the named boards ahead of a build; nothing else in this command approves. |
-| `/create-trd <prd> --design docs/ui/<slug>` | Builds a TRD from the design's to-be boards. Running it **is** your approval of those boards, recorded only after the TRD is written. The boards then move to `building`. |
+| [`/refine-design <slug> [--approve <ids>] [--auto] [feedback]`](../../packages/core/commands/refine-design.md) | Adopts hand edits made on the canvas, applies your feedback (from the argument, the chat or canvas comments) to only the affected boards, re-reviews and republishes them. Interactive by default. `--approve` approves the named boards ahead of a build; nothing else in this command approves. Under `--auto`, `"OD-2: <option>"` answers a recorded decision, and with no other feedback it works from the latest `/audit-design` report's open findings. |
+| `/create-trd <prd> --design docs/ui/<slug> [--boards <ids>]` | Builds a TRD from the design's to-be boards, or only the named ones with `--boards` (so several features can share one design). Running it **is** your approval of those boards, recorded only after the TRD is written. The boards then move to `building`. `node .claude/lib/design-map.js buildable --dir docs/ui/<slug> --items S2,S3` lists the boards that serve given brief items. |
 | `/plan <what> --design docs/ui/<slug> --boards <ids>` | The same for one board or a few: only the named boards are used and approved. |
-| [`/sync-design <slug>`](../../packages/core/commands/sync-design.md) | After the build merges: captures each `building` board's screen from the build. A match becomes `shipped` and the screen's new as-is board (the old one moves to a History page). A difference you have ruled on (in the PRD, an amendment, a TRD decision quoting you, or a canvas comment) is redrawn to match the build; one with no ruling is reported and stays `building`. Re-syncs the design system if the build changed its components. |
+| [`/sync-design <slug> [--trd <trd-path>]`](../../packages/core/commands/sync-design.md) | After the build, on the feature branch or once it merges (`--trd` limits it to one feature's boards): captures each `building` board's screen from the build. A match becomes `shipped` and the screen's new as-is board (the old one moves to a History page). A difference you have ruled on (in the PRD, an amendment, a TRD decision quoting you, or a canvas comment) is redrawn to match the build; one with no ruling is reported and stays `building`. Re-syncs the design system if the build changed its components. |
 
 ```mermaid
 flowchart LR
@@ -345,7 +345,7 @@ Rules that hold across every design command:
   by hand; it is listed under ISSUES.
 - **Stale and unsynced work is flagged, never fixed silently.** A design system older than the
   code it was built from puts `/design-system --sync` first in NEXT. Boards still `building`
-  after their feature closed put `/sync-design <slug>` in NEXT. `/audit-build` and
+  after their feature closed put `/sync-design <slug> --trd <trd-path>` in NEXT, to run now or once the PR has merged. `/audit-build` and
   `/close-feature` name those boards too. Nothing runs `/sync-design` automatically.
 - **With publishing off, a design command ends STUCK**, naming the publish step, after writing
   everything to disk. For design commands the canvas is the design, so a run that could not
