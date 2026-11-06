@@ -17,6 +17,15 @@ The vendored copy in `.claude/agents/` differs from the plugin source in exactly
 themselves, because the right list differs per project. Edits inside the markers are
 overwritten on the next refresh.
 
+`/rebase-project` compares and copies agents through two `scaffold-project.sh` modes that strip
+the generated content before comparing, so an agent is reported changed only when its body
+changed: `--agent-status` (read-only report) and `--sync-agents` (copy, then put the preloads
+back). `--sync-agents` first rebuilds `selected-skills.txt` from the skill folders actually
+installed (dropping removed library skills, appending new ones, keeping comments, order and
+custom names, never adding framework skills), and reports an agent whose only change was its
+generated skill content as `refreshed`, not `updated`. `--refresh` and first-time scaffolding
+still read `selected-skills.txt` as written (CHANGELOG 4.13.5, known open).
+
 ## The 13 agents
 
 `model` and `effort` are the agent's frontmatter defaults. A workflow can override either per
@@ -24,18 +33,18 @@ call (noted in the dispatch table below). Every agent declares `background: true
 
 | Agent | Model / effort | What it does |
 |---|---|---|
-| **product-manager** | opus / high | Writes and corrects PRDs; derives the success definition — the list of checkable criteria that verification tests against — from a PRD or a TRD's reproduction section. |
+| **product-manager** | opus / high | Writes and corrects PRDs; derives the success definition — the list of checkable criteria that verification tests against — from a PRD or a TRD's reproduction section. Also writes a design's brief (`/create-design`) and answers open items in `/refine-verification --auto`. |
 | **technical-architect** | opus / xhigh | Writes TRDs: architecture, task breakdown, execution plan. Also judges audit findings (reconcile) and sorts `/sweep` lists. |
 | **spec-planner** | opus / high | Execution planning: dependencies, parallel tracks, critical path. **Nothing dispatches it today** — task ordering is computed by code (`lib/task-graph.js`). |
 | **backend-implementer** | sonnet / medium | APIs, data, services, integrations. Also the **default**: any task no rule routes elsewhere, and most read-and-report stages inside workflows. |
-| **frontend-implementer** | sonnet / medium | UI, components, client logic, accessibility. |
+| **frontend-implementer** | sonnet / medium | UI, components, client logic, accessibility. Also draws, fixes, compares and rebuilds design boards (`/create-design`, `/sync-design`). |
 | **mobile-implementer** | sonnet / medium | Flutter and React Native. |
 | **agent-implementer** | sonnet / medium | Work where the deliverable is AI behaviour: prompts, retrieval, agent loops, evals. Must check the provider's live docs before naming any model. |
 | **devops-engineer** | sonnet / medium | Infrastructure as code, Kubernetes, cloud accounts, observability. |
 | **cicd-specialist** | sonnet / medium | Pipeline files (`.github/workflows/*.yml` and equivalents), release automation. |
 | **verify-app** | sonnet / medium | Runs checks and reports. Two jobs: the phase gate in `/implement-trd`, and exercising the running software against criteria in the verification loop. |
 | **app-debugger** | opus / high | Root-cause debugging. The verification loop's fixer: given the criteria the judge found unmet, it fixes them in place, one at a time, and reports a missing feature as unbuilt rather than building it. |
-| **code-reviewer** | opus / high | Security and quality review. Dispatched only by `/plan`'s adversarial pass. The end-of-run review in `/implement-trd` uses the built-in `/code-review` skill instead. |
+| **code-reviewer** | opus / high | Security and quality review. Dispatched by `/plan`'s adversarial pass, by `/create-design`'s challenge of each drawn board, and as `/audit-docs`'s drift scorer and read-only verifiers. The end-of-run review in `/implement-trd` uses the built-in `/code-review` skill instead. |
 | **code-simplifier** | opus / medium | Post-verification refactoring. **Nothing dispatches it today** — its phase-gate stage was removed 2026-08-18 (`implement-phase.js`, comment at "REMOVED 2026-08-18"). |
 
 Two dispatch targets are not on the roster:
@@ -76,7 +85,7 @@ flowchart LR
     rprd -- "open questions" --> pm
     ctrd -- "triage:shape, author, size" --> ta
     ctrd -- "corpus-index" --> gen
-    ctrd -- "grounding, merge, defer:write" --> be
+    ctrd -- "grounding, retry, merge" --> be
     atrd -- "index, verifiers" --> be
     atrd -- "reconcile" --> ta
     rtrd -- "open questions" --> pm
@@ -116,14 +125,39 @@ flowchart LR
     plan -- "adversarial pass" --> cr
     amend -- "the one change" --> routed
     sweep -- "triage" --> ta
-    sweep -- "fix:ID, one per issue" --> be
+    sweep -- "fix:ID, one per issue" --> routed
+```
+
+### The design stage and `/audit-docs`
+
+```mermaid
+flowchart LR
+    cd["/create-design - create-design.js"]
+    ad["/audit-design - audit-design.js"]
+    sd["/sync-design - sync-design.js"]
+    adocs["/audit-docs - audit-docs.js"]
+    pm(["product-manager"])
+    fe(["frontend-implementer"])
+    be(["backend-implementer"])
+    cr(["code-reviewer"])
+
+    cd -- "ground, render" --> be
+    cd -- "brief" --> pm
+    cd -- "as-is, parts, to-be boards, fix" --> fe
+    cd -- "challenge" --> cr
+    ad -- "index, verifiers, reconcile" --> be
+    sd -- "compare, rebuild" --> fe
+    adocs -- "score, verifiers" --> cr
+    adocs -- "apply, review" --> be
 ```
 
 `/plan` also reaches every agent of `/create-trd`, `/audit-trd` and `/create-prd` by starting
 those workflows on its medium and PRD routes, and `/plan --implement`, `/audit-build` and
 `/verify-build` (fixing, its default once a plan exists) reach everything `/implement-trd`
-does by chaining it. `/close-feature`, `/augment-trd-figma` and the maintenance commands
-dispatch no agents.
+does by chaining it; `/plan --implement` on a sweep list also reaches `/sweep`'s agents.
+`/close-feature`, `/augment-trd-figma`, `/refine-design`, `/design-system` and the maintenance
+commands other than `/audit-docs` dispatch no agents. `/task` dispatches one only when a step is
+implementation-shaped, and then always with an explicit `agentType`.
 
 ### The full dispatch table
 
@@ -137,6 +171,8 @@ lead session makes it by following the command's prose.
 | product-manager | `/implement-trd` | `implement-trd.md` §3.6 — derive the success definition, **background** | — | model |
 | product-manager | `/verify-build` | `verify-build.md` §3a — same derive, **foreground**, only if no definition exists | — | model |
 | product-manager | `/refine-prd`, `/refine-trd` `--auto` | "Phase 0: Answer the open questions" | — | model |
+| product-manager | `/refine-verification --auto` | "`--auto`" — answers every open item, marking each `answered`, `default` or `OWNER-CALL` | — | model |
+| product-manager | `/create-design` | `create-design.js` stage `brief` | sonnet, high | code |
 | technical-architect | `/create-trd` | `create-trd.js` `triage:shape`, `author:technical-architect`, `size` | triage: haiku, low; author: effort high (down from xhigh); size: low | code |
 | technical-architect | `/audit-trd`, `/audit-build` | `audit-trd.js` / `audit-build.js` stage `reconcile` | effort high | code |
 | technical-architect | `/sweep` | `sweep.js` stage `triage` | effort low | code |
@@ -144,17 +180,24 @@ lead session makes it by following the command's prose.
 | backend-implementer | `/implement-trd` | `implement-phase.js` `task:<id>` when routing picks it or nothing else applies | — | code |
 | backend-implementer | `/audit-prd`, `/audit-trd` | `index` (haiku, low); `verify:<key>` verifiers (sonnet, except `/audit-prd`'s conformance check and `/audit-trd`'s deterministic check, on haiku); `reconcile:could-not-verify` (low) | as listed | code |
 | backend-implementer | `/audit-build` | `audit-build.js` `reconcile:could-not-verify` | effort low | code |
-| backend-implementer | `/create-trd` | `create-trd.js` `ground:brownfield` (fanned out as `ground:brownfield:N` on large TRDs), `ground:merge`, `defer:write` | ground: high; merge, defer: low | code |
-| backend-implementer | `/sweep` | `sweep.js` `fix:<id>`, one per issue | effort medium | code |
+| backend-implementer | `/create-trd` | `create-trd.js` `ground:brownfield` (fanned out as `ground:brownfield:N` on large TRDs; each writes its blocks to its own file), `ground:retry` (once, for tasks no agent returned), `ground:merge` (reports contradictions only; `trd-grounding.js assemble` writes the section) | ground: high; merge: low | code |
+| backend-implementer | `/create-design` | `create-design.js` `ground:<key>` (sonnet, medium) and `render` (haiku, low) | as listed | code |
+| backend-implementer | `/audit-design` | `audit-design.js` `index` (haiku, low), `verify:<key>` (sonnet; render and two drift checks on haiku), `reconcile` (high) | as listed | code |
+| backend-implementer | `/audit-docs` | `audit-docs.js` `apply:<path>` (opus, after the verifiers of a high-drift doc), `review:<path>` (sonnet, a medium-drift doc) | as listed | code |
 | frontend-, mobile-, agent-implementer, devops-engineer, cicd-specialist | `/implement-trd` | `implement-phase.js` `task:<id>`, as routed | — | code |
+| the routed implementer (backend by default) | `/sweep` | `sweep.js` `fix:<id>`, one per issue, chosen by `resolveFixAgent()` — a copy of `agent-routing.js`'s keyword table | effort medium | code |
+| frontend-implementer | `/create-design` | `create-design.js` `asis:<n>`, `parts`, `tobe:<n>`, `fix` | sonnet; to-be and fix high, others medium | code |
+| frontend-implementer | `/sync-design` | `sync-design.js` `compare:<board>` (read-only), `rebuild:<board>` (only with an owner ruling) | sonnet, medium | code |
 | one implementer | `/amend` | `amend.md` "Step 4: Do it" — backend-, frontend-, mobile- or agent-implementer, chosen by `lib/agent-routing.js`'s table | — | model |
 | verify-app | `/implement-trd` | `implement-phase.js` stage `gate:verify-app`, once per phase group | — | code |
 | verify-app | `/implement-trd`, `/verify-build` | `verify-functional.js` stage `exercise`, one per slice of criteria | — | code |
 | app-debugger | `/implement-trd`, `/verify-build` | `verify-functional.js` stage `debug`, only when the judge asks for remediation | — | code |
 | code-reviewer | `/plan` (small, medium) | `plan.md` "Step 6: Adversarial pass" — findings only, no edits | — | model |
+| code-reviewer | `/create-design` | `create-design.js` `review:<key>` — challenges the drawn boards | sonnet, medium | code |
+| code-reviewer | `/audit-docs` | `audit-docs.js` `score:<path>` (haiku) and `verify:<key>:<path>` (opus, read-only, high-drift docs) | as listed | code |
 | generic subagent | `/create-prd`, `/create-trd` | `corpus-index` | haiku, low | code |
 | generic subagent | `/audit-build` | `index` (haiku, low), `verify:<key>` verifiers (sonnet; deterministic on haiku) | as listed | code |
-| generic subagent | `/implement-trd`, `/verify-build` | `verify-functional.js` stages `judge` and `render` | session model | code |
+| generic subagent | `/implement-trd`, `/verify-build` | `verify-functional.js` stages `judge` (opus); `render`, `setup`, `setup-refresh`, `record` (writes the state and report on a setup failure) and `reconcile` (brings the files in line after a must-pass re-check changes the outcome), all sonnet | as listed | code |
 
 ---
 
@@ -209,7 +252,8 @@ sequenceDiagram
 Used where a command needs the result in the conversation, or needs something a workflow
 cannot give: `/implement-trd`'s and `/verify-build`'s success-definition derive,
 `/amend`'s single implementer, `/plan`'s adversarial review, the `--auto` modes of the refine
-commands, and `/create-prd`'s fork. No schema is enforced, so there is no automatic
+commands (including `/refine-verification --auto`), an implementation-shaped `/task` step, and
+`/create-prd`'s fork. No schema is enforced, so there is no automatic
 null-means-failed check; the lead reads the result itself. **model**
 
 **Background versus foreground.** `/implement-trd` §3.6 passes `run_in_background: true` for

@@ -55,7 +55,8 @@ Ensemble is a plugin built from these parts.
 
 ## Part 3 — Ensemble's concepts
 
-Eleven ideas in four stages: **PLAN → EXECUTE → PROVE → SUSTAIN.**
+Eleven ideas in four stages, **PLAN → EXECUTE → PROVE → SUSTAIN**, and a twelfth for the
+optional design stage, which runs before planning when a feature has screens.
 
 ## PLAN
 
@@ -72,6 +73,16 @@ Progress is written to disk too, in `.trd-state/`: which tasks are done, what ve
 found, what was published. Because the state is a file and not a memory, a run can resume
 after an interruption, be re-checked against the code, or be handed to someone else.
 
+**Documents are also published.** A command that produces a document a person should read (a
+PRD, a TRD, a verification or audit report, a design canvas) publishes it as an **artifact**:
+a private page on claude.ai, linked just above the command's final banner. A later run updates
+the same link rather than making a new one, and every link is recorded in
+`.trd-state/<feature>/artifacts.json`. The file in the repository is the deliverable; the link
+is a convenience, so a failed publish is one line in the output, never a stopped command
+(design commands are the one exception, because there the canvas is the design). Publishing is
+on by default and is turned off with `ensemble.publishArtifacts: false` in
+`.claude/settings.json`.
+
 **Where you'll meet it:** `docs/PRD/`, `docs/TRD/`, `.trd-state/`
 ([PROCESS.md §2](PROCESS.md#2-the-core-flow), [§7](PROCESS.md#7-where-state-lives)).
 
@@ -87,6 +98,7 @@ after an interruption, be re-checked against the code, or be handed to someone e
 | A defect, a small change, or a refactor | `/plan`, which investigates and writes a plan sized to the work |
 | A list of small, unrelated fixes | `/sweep`, which fixes them in parallel with no plan document |
 | One change to the feature you're already building | `/amend`, which adds it to that feature's existing TRD |
+| A job whose output is findings or a report, not code (a spike, a re-check, a data capture) | `/task`, which runs each step once, records the outputs and closes, with no plan document |
 
 **Example.** A change to the feature in flight looks small enough for `/plan`. But `/plan`
 would write a second TRD for work the first one already understands, and the session loses
@@ -112,6 +124,11 @@ disagreement is recorded.
 **Example.** A TRD says "responses under 200ms". If nothing in the PRD, the project rules or a
 measurement says so, the refine and audit steps remove it or ask about it rather than letting
 it quietly become a target.
+
+**A finished spec plans as written.** When the source already carries numbered acceptance
+criteria, `/plan` copies each one verbatim into the TRD and then checks, in code, that nothing
+was added, reworded, merged or dropped. A criterion that looks wrong becomes a question for
+you that quotes the spec line, never a silent edit.
 
 **Where you'll meet it:** `/create-trd`, `/audit-prd`, `/audit-trd`, `/refine-prd`,
 `/refine-trd` ([PROCESS.md §2](PROCESS.md#2-the-core-flow)).
@@ -230,19 +247,37 @@ evidence from exercising the software.
 Results are honest. Each criterion comes out **met**, **not met**, **not verifiable here**, or
 **not built**, and "could not check" is never counted as a pass. A run that ends *satisfied*
 still says how many criteria were never exercised. Design comparisons, user-journey walks and
-data checks, when the TRD selects them, are criteria like any other.
+data checks, when the TRD selects them, are criteria like any other. Where a criterion's proof
+is a screenshot, the published report shows that image inline.
 
-When verification can't get there, the path is: the report's **diagnosis** of why, then a
-short conversation with you that turns it into a plan, then an unattended fix run that carries
-it out. Deciding a feature is finished is a judgement on the evidence, including evidence you
-bring yourself. A feature is marked closed in one of two ways: a passing `/audit-build` closes
-it, or you close it with `/close-feature`.
+Two rules stop a run from passing on the easy half:
+
+- **Must-pass.** A TRD's Objectives table can mark objectives *must pass* (the core of the
+  feature). A run where any must-pass criterion is not proven (including one that was "not
+  verifiable here") cannot end *satisfied*; it ends **must-pass-unproven** and names the items.
+- **Coverage floor.** `verification.md` can set a minimum share of criteria that must be
+  proven. Below it, the run ends **insufficient-coverage**, which blames the checking, not the
+  code.
+
+**A broken environment is not a code failure.** Before each attempt, a setup check confirms
+each environment is reachable, that it is running the current commit, and that no other
+checkout holds a port it needs. It refreshes once if it can. If the environment is still
+wrong, the run ends **setup-failure**, which says "the environment, not the code": it is never
+handed to the debugger and never asks you anything mid-run.
+
+When verification can't get there, the path is: the report's **diagnosis** (open criteria
+counted by cause), then `/refine-verification`, which turns it into a plan with you (or, with
+`--auto`, with an agent), then `/verify-build`, which builds and re-checks that plan
+unattended.
 
 The loop, and how it ends:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Exercise
+    [*] --> Setup
+    Setup: Setup check (environment reachable, running the current commit)
+    Setup --> SetupFailure: still broken after one refresh
+    Setup --> Exercise: ready
     Exercise: Exercise (verify-app agents run the software and capture evidence)
     Exercise --> Judge
     Judge: Judge (check each piece of evidence, rule each criterion)
@@ -250,25 +285,38 @@ stateDiagram-v2
     Decide: Code decides the next step, first match wins
     Decide --> Unbuilt: something asked for was never built
     Decide --> Satisfied: no gaps left
+    Decide --> SetupFailure: the last fix's refresh failed
     Decide --> Stalled: the last fix round closed nothing
     Decide --> Stuck: the round cap was reached (default 3)
     Decide --> Debug: otherwise
     Debug: Debug (app-debugger fixes each gap in place, then the environment is refreshed)
-    Debug --> Exercise
+    Debug --> Setup
+    SetupFailure: setup-failure
     Unbuilt --> [*]
     Satisfied --> [*]
+    SetupFailure --> [*]
     Stalled --> [*]
     Stuck --> [*]
     note right of Decide
-        If less than your coverage floor is proven,
-        satisfied, stalled or stuck is reported
-        as insufficient-coverage instead.
+        Below your coverage floor, satisfied, stalled or stuck
+        becomes insufficient-coverage. A satisfied run with a
+        must-pass item unproven becomes must-pass-unproven.
     end note
 ```
 
 **Example** (a real run on this repository). A build reports *satisfied*, 6 of 32 criteria unchecked. That is not "fully
 proven", and the report says so. The usual fix is to tell the loop how to reach an environment
 it couldn't, not to write more code.
+
+**The audit closes the feature.** After verification, `/audit-build` reads the delivered code
+against the TRD and the PRD, and asks whether every requirement has both an implementation and
+a test that proves it. A passing audit closes the feature and, if you allow it, opens the pull
+request; it never merges. A feature never closes while a real defect is open. A re-audit runs
+only after a real product defect, checks only that defect and what changed since, and a feature
+gets at most three audits before closing becomes your call. A weak test is a gap to fix, not a
+reason for another round, unless it hides a real defect. You can also close a feature yourself
+with `/close-feature`; either way, closing is bookkeeping (a `closed.json` record), not a
+judgement on the code.
 
 **Where you'll meet it:** the end of `/implement-trd`, `/verify-build`,
 `.claude/rules/verification.md` ([PROCESS.md §3](PROCESS.md#3-verification),
@@ -324,7 +372,18 @@ different owner.
 |---|---|---|
 | **The corpus** | PRDs, TRDs and investigations kept up to date with what was built; ledgers of findings; verification notes; measured test sets | Every run adds to it. New plans cite it as their source, so decisions are inherited instead of re-invented |
 | **Memory and `CLAUDE.md`** | Lessons, conventions, gotchas | Fast. `/update-project` adds, `/cleanup-project` prunes. Advisory: a remembered fact is checked against the code before anything depends on it |
-| **Governance** | `constitution.md`, `stack.md`, `verification.md` | Slowly. The system may propose a change; only you ratify it |
+| **Governance** | `constitution.md`, `stack.md`, `verification.md`, `design.md` | Slowly. The system may propose a change; only you ratify it |
+
+The four governance files, all in `.claude/rules/`:
+
+| File | Says | Changed by |
+|---|---|---|
+| `constitution.md` | Project absolutes: quality gates, what needs your approval, prohibited patterns | You; `/update-project` may propose a change |
+| `stack.md` | Languages, frameworks, test tools, hosting. Drives which skills a project gets | You; `/update-project` may propose a change |
+| `verification.md` | How verification reaches a running instance: environments and what it may do there, resource counts, refresh commands, where credentials live (never their values), the coverage floor, and paths `/plan --implement` must never build unattended | Only by running the `/verification-setup` skill, which interviews you. Running it is the approval |
+| `design.md` | How the product is designed: the design system, each platform, how to reach a screen, design rules | Only by running the `/design-setup` skill, likewise |
+
+No command run without you edits any of them.
 
 **Example.** `/update-project` writes what a session learned into `CLAUDE.md` without asking,
 but a proposed change to `constitution.md` waits for your approval.
@@ -344,3 +403,43 @@ never overwritten by an upgrade.
 
 **Where you'll meet it:** [INSTALL.md §6](INSTALL.md#6-who-owns-what) and
 [§7](INSTALL.md#7-keeping-current).
+
+## DESIGN (optional)
+
+### 12. Designs are drawn first, approved by building them, and kept in step with what shipped
+
+**Answers:** drift (5), invention (2), for screens.
+
+**The rule.** For a feature with screens, the design can be drawn before anyone writes a TRD,
+as **boards** on a Claude **canvas** (a published design artifact). Boards come in three kinds:
+*as-is* (the screen as it is today, drawn from the code and compared with a fresh screenshot),
+*parts* (the reusable pieces) and *to-be* (the screen as it should be). The boards are mirrored
+in the repository under `docs/ui/<slug>/`, and `design-map.json` there records each board's
+status:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> draft: /create-design draws it
+    draft --> approved: a build command names it, or /refine-design --approve
+    approved --> building: the TRD that builds it is written
+    building --> shipped: /sync-design finds the build matches
+    shipped --> [*]
+```
+
+When a to-be board ships, it becomes the screen's new as-is board, and the old as-is board is
+marked `superseded` and moved to a History page on the canvas.
+
+- **Invocation is approval.** Running `/create-trd --design` or `/plan --design --boards` is
+  your approval of the boards it builds. They are approved only once the TRD is written, so a
+  run that stops early leaves them in draft. `/refine-design --approve <ids>` approves ahead of a
+  build. A canvas comment or a chat remark saying "approved" never approves anything.
+- **Nothing builds from a draft.** A board that embeds a draft part is held back and named.
+- **The design follows the build.** When a feature closes with boards still `building`, the
+  audit and `/close-feature` name them and recommend `/sync-design` once the PR merges.
+  `/sync-design` captures each screen from the build: a match becomes `shipped` and the new
+  as-is; a difference is reported for you to rule on. Nothing runs it automatically.
+
+**Where you'll meet it:** `/design-system`, `/create-design`, `/audit-design`,
+`/refine-design`, `/sync-design`, and `.claude/rules/design.md`
+([PROCESS.md §2a](PROCESS.md#2a-the-design-stage-optional)).

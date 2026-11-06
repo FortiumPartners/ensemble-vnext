@@ -9,8 +9,27 @@ What happens, step by step, when you run the document commands: `/create-prd`, `
 The diagrams here only zoom in on actors, stages and files that overview leaves out.
 
 Related pages: [README](README.md) (overall map), [implement-trd](implement-trd.md) (what
-consumes the TRD), [verification](verification.md), [hooks](hooks.md),
-[other-commands](other-commands.md), [agents](agents.md) (the subagent definitions named below).
+consumes the TRD), [verification](verification.md), [design](design.md) (boards a TRD can be
+built from), [hooks](hooks.md), [other-commands](other-commands.md), [agents](agents.md) (the
+subagent definitions named below).
+
+### Arguments and flags
+
+| Command | Arguments / flags | Invocable by an agent? |
+|---|---|---|
+| `/create-prd` | `[product description \| issue ref \| file]`; none → it interviews you for the description | no (manual only) |
+| `/audit-prd` | `[path-to-prd] [--source <path>] [--project <dir>]` | yes |
+| `/refine-prd` | `[path-to-prd] [--auto] [feedback]` | no |
+| `/create-trd` | `[path-to-prd] [--design docs/ui/<slug>]` | no |
+| `/audit-trd` | `[path-to-trd] [--source <path>] [--project <dir>]` | yes |
+| `/refine-trd` | `[path-to-trd] [--auto] [feedback]` | no |
+| `/augment-trd-figma` | `<figma-url> [--trd <path-to-trd>]` | no |
+
+"Manual only" is `disable-model-invocation: true` in the command's frontmatter: these are
+expensive, and their descriptions read like a user's request, so a description match must not
+start one. The audits were made invocable in 4.13.7; their descriptions now open on where they
+sit in the pipeline instead. Either way, a command's authority ends at its own banner
+(`.claude/rules/autonomy.md`).
 
 ## How to read this page
 
@@ -51,14 +70,16 @@ that something is built (`CORPUS_RULE` in `create-trd.js`, `audit-prd.js`, `audi
 |---|---|---|
 | `docs/PRD/<feature>.md` | `/create-prd` author, `/refine-prd`, `/audit-prd` reconcile | `/create-trd`, `/audit-prd` |
 | `docs/PRD/<feature>.brief.md` | `/create-prd` lead, only when the requirements came from the conversation | `/create-prd` workflow agents; `/audit-prd --source` when no other source exists |
-| `docs/TRD/<feature>.md` | `/create-trd` author, grounding and merge agents; `/refine-trd`; `/audit-trd` reconcile; `/augment-trd-figma` | `/implement-trd`, `/audit-trd`, `/audit-build` |
-| `.trd-state/<feature>/findings/grounding.json` | `/create-trd` grounding agents (`create-trd.js` `groundPrompt`) | `/audit-trd` design-audit verifier (`GROUNDING_FINDINGS_PATH`) |
-| `.trd-state/<feature>/artifacts.json` | Lead of `/create-prd`, `/refine-prd` (key `prd`) and `/create-trd`, `/refine-trd` (key `trd`) | Same commands, to republish to the same link |
+| `docs/TRD/<feature>.md` | `/create-trd` author, then `trd-grounding.js assemble` (Task Grounding and Deferred by design); `/refine-trd`; `/audit-trd` reconcile; `/augment-trd-figma` | `/implement-trd`, `/audit-trd`, `/audit-build` |
+| `.trd-state/<feature>/findings/grounding/<UTC stamp>/` | `/create-trd` grounding agents (`blocks-<n>.md`, `blocks-retry.md`) and sizing agent (`sizing.json`); a fresh directory per run | `trd-grounding.js assemble` |
+| `.trd-state/<feature>/findings/grounding.json` | `/create-trd` first-wave grounding agents (`create-trd.js` `groundPrompt`; the retry agent does not write it) | `/audit-trd` design-audit verifier (`GROUNDING_FINDINGS_PATH`) |
+| `.trd-state/<feature>/audit-prd-report.md`, `audit-trd-report.md` | the audit's lead, every run, overwritten: the VERDICT line first, then date, audited commit, document and source paths, then the readout verbatim | you; the manifest |
+| `.trd-state/<feature>/artifacts.json` | every command here, only through `node .claude/lib/artifacts.js record` (keys `prd`, `trd`, `audit-prd`, `audit-trd`); `"version": 2`, one `{path, url, updated_at, command}` entry per kind. The path is recorded even with publishing off (`url` empty); the audit reports are never published and record `url: ""` | Same commands (`artifacts.js get`), to republish to the same link; tools such as Forge, to find the files |
 | `.trd-state/current.json` | `/create-prd` (`prd`, status `prd-created`), `/create-trd` (`trd`, status `trd-created`) | Every command here when no path argument is given |
 | `.claude/contracts/prd-authoring.md`, `trd-authoring.md` | Nobody at runtime (shipped) | The authoring and grounding agents, instead of the full command file |
 
-The audits publish no artifact and write no report file: their result is the edited document
-plus the readout. The per-verifier `.trd-state/<feature>/findings/<verifier>.json` files exist
+The audits publish no artifact: their result is the edited document, the readout, and a report
+file the terminal readout matches character for character. Neither audit commits. The per-verifier `.trd-state/<feature>/findings/<verifier>.json` files exist
 only on the **fallback path**, when the `Workflow` tool is unavailable and the lead runs the
 stages by hand (`create-prd.md` "Verifier return contract — FALLBACK PATH ONLY").
 
@@ -80,7 +101,7 @@ Source: [`create-prd.md`](../../packages/core/commands/create-prd.md),
 | 7 | **Drift**, last and alone: a product-manager (low effort) compares the PRD with the request verbatim. Does the PRD ask for things the request did not? Would the requester recognise it? | Workflow → product-manager | model | `create-prd.js` `drift` |
 | 8 | Assemble the readout: requirement count, a `SCOPE` line (matches the request, or `SCOPE GREW BEYOND THE REQUEST` with the extra requirements), an `OVERRIDES` list of documented decisions the PRD superseded, a warning if the conflict scan found same-question conflicts but the PRD recorded no supersession, and `NOT YET VERIFIED. Run /audit-prd <prd> --source <baseline> [--project <dir>]` | Workflow | code | `create-prd.js` `return` block |
 | 9 | **Session fidelity**, only when there was no source document: a fork of the lead session (it holds the conversation) reports anything the PRD contradicts, weakens or omits. The lead fixes the PRD and notes the pass in its header | Lead → fork | model | `create-prd.md` "Final step: session fidelity" |
-| 10 | Update `current.json`, publish the PRD as an artifact (unless `ensemble.publishArtifacts: false`), store the link under `prd` in `artifacts.json` | Lead | model | `create-prd.md` "State Update", "Artifact link" |
+| 10 | Update `current.json`, publish the PRD as an artifact (unless `ensemble.publishArtifacts: false`) to the URL `artifacts.js get --kind prd` returns, then always `artifacts.js record --kind prd` | Lead | model | `create-prd.md` "State Update", "Artifact link" |
 | 11 | Print the readout and the `COMMAND COMPLETE` banner | Lead | model | `create-prd.md` "Readout" |
 
 Notes:
@@ -102,41 +123,45 @@ Source: [`create-trd.md`](../../packages/core/commands/create-trd.md),
 [`task-graph.js`](../../packages/core/lib/task-graph.js),
 [`trd-parser.js`](../../packages/core/lib/trd-parser.js).
 
-The diagram below covers what happens after the architect has written the TRD (steps 5–9
-in the table).
+The diagram below covers what happens after the architect has written the TRD (steps 5–11
+in the table). Since 4.14.0 no agent writes the grounding into the TRD: agents write files, and
+code assembles the section.
 
 ```mermaid
 flowchart TD
     A["Author returns task list"] --> B["Split task ids into k chunks: k = ceil of tasks/4, at least 1, at most 6"]
-    B --> C{"k greater than 1?"}
-    C -- "no" --> D["One grounding agent writes Task Grounding into the TRD itself"]
-    C -- "yes" --> E["k grounding agents in parallel, each returns blocks for its own ids only"]
-    B --> S["Sizing agent runs in the same parallel wave, reads the task list, writes nothing"]
-    D --> F["Each grounding agent also writes its findings to findings/grounding.json - one path shared by all k"]
-    E --> F
-    E --> M["Merge agent copies all blocks into Task Grounding, reports cross-block contradictions"]
-    S --> Q{"Sizing named deferred tasks?"}
-    M --> Q
-    F --> Q
-    Q -- "yes" --> W["Writer agent adds Deferred by design section"]
-    Q -- "no" --> R["Script assembles readout: SIZE or SPLIT, LONG TASKS, NOTED BY GROUNDING"]
-    W --> R
+    B --> E["k grounding agents in parallel, each writes blocks-n.md for its own ids only"]
+    B --> S["Sizing agent in the same wave writes sizing.json, never the TRD"]
+    E --> F["First-wave agents also write findings/grounding.json - one path shared by all k"]
+    E --> X{"Any task returned by no agent?"}
+    X -- "yes" --> RT["One retry agent writes blocks-retry.md, returns findings only"]
+    X -- "no" --> M
+    RT --> M{"k greater than 1?"}
+    M -- "yes" --> MG["Merge agent reports cross-block contradictions only"]
+    M -- "no" --> R["Script assembles readout"]
+    MG --> R
+    R --> L["Lead: trd-grounding.js assemble writes Task Grounding and Deferred by design into the TRD"]
+    L --> RP["Lead: trd-grounding.js report reads the TRD back for the grounded count"]
 ```
 
 | # | Step | Who | Kind | Where |
 |---|---|---|---|---|
-| 1 | Resolve the PRD from the argument or `current.json`. If requirements were settled in this conversation, pass the transcript path too. The script fails without `prd` or `transcript` | Lead, then script | model, code | `create-trd.md` "User Input", "Execution: the workflow is the orchestrator"; `create-trd.js` lines 65–70 |
+| 1 | Resolve the PRD from the argument or `current.json`. If requirements were settled in this conversation, pass the transcript path too. The script fails without `prd` or `transcript`. Pick a fresh `grounding_dir` (`.trd-state/<feature>/findings/grounding/<UTC stamp>`), so an earlier run's blocks cannot leak in | Lead, then script | model, code | `create-trd.md` "User Input", "Execution: the workflow is the orchestrator" |
+| 1a | With `--design docs/ui/<slug>`: `design-map.js buildable` lists the to-be boards still `draft` or `approved`; `design-map.js held` drops any that embed a draft part (each named in ISSUES). None left is STUCK. Commit pending edits under `docs/ui/<slug>/`, record `git rev-parse HEAD` as the source commit, and pass `design: { dir, boards, data }` to the workflow | Lead | code | `create-trd.md` "Design input"; [design](design.md) |
 | 2 | **Triage**: a technical-architect on haiku decides whether the source is one coupled change or a list of unrelated items. The test is coupling, not size, and it defaults to one change when unsure. A list stops the run with no TRD and points at `/sweep` | Workflow → architect | model decides, code stops | `create-trd.js` `phase('Triage')` |
 | 3 | **Corpus**: same cheap index as `/create-prd`, looking for Key Technical Decisions tables and supersession banners | Workflow → indexer | model | `create-trd.js` `phase('Corpus')` |
-| 4 | **Author**: one technical-architect at `effort: 'high'` (its own frontmatter says `xhigh`; the workflow overrides it here only) reads `.claude/contracts/trd-authoring.md` and writes the TRD. Objectives must trace to a source, every decision and task names what it serves, and the Task Grounding section is left out | Workflow → technical-architect | model | `create-trd.js` `authored` |
+| 4 | **Author**: one technical-architect at `effort: 'high'` (its own frontmatter says `xhigh`; the workflow overrides it here only) reads `.claude/contracts/trd-authoring.md` and writes the TRD. Objectives must trace to a source and may carry a `Must pass` column (`yes` marks what verification must prove); every decision and task names what it serves; an optional `## Verification Environment` section names the `verification.md` environment to exercise; a design's boards become tasks per the contract's "Design as a source". The Task Grounding section is left out | Workflow → technical-architect | model | `create-trd.js` `authored`; `trd-authoring.md` Sections 1a, 9b |
 | 5 | Partition tasks for grounding: `k = min(6, max(1, ceil(tasks / 4)))` agents, tasks split evenly. With one chunk, no merge step runs | Workflow | code | `create-trd.js` `groundChunks`, `GROUND_CHUNK_SIZE`, `GROUND_MAX_AGENTS` |
-| 6 | **Ground**, in parallel: each backend-implementer (sonnet from its frontmatter, high effort set here) sees the whole task roster but grounds only its own IDs. Per task it writes `Touches` (mandatory), `Reuse`, `Replaces`, `Follow`, `Careful`, marking every claim `[read]`, `[ran]` or `[inferred]`. It also reports findings: buildability, consistency, missing grounding, and dependency edges it cannot justify. Findings go to `.trd-state/<feature>/findings/grounding.json` and back in the return. Every agent is told to write that same path, so when grounding fans out the file holds whichever agent wrote last; the readout uses the returns, which are complete | Workflow → backend-implementer ×k | model | `create-trd.js` `groundPrompt`, `GROUND_OPTS` |
-| 7 | **Size**, in the same parallel wave: a technical-architect (low effort) judges whether the plan is still what was asked for, whether one unattended run can finish it, how many deploy cycles it implies, which tasks cannot complete in a normal run, and which single tasks are really several. It proposes a split when needed. It never writes to the TRD | Workflow → architect | model | `create-trd.js` `SIZING` |
-| 8 | **Merge**, only when grounding fanned out: one backend-implementer copies every block into `## Task Grounding` in task order and reports contradictions between blocks (one reuses what another replaces, two claim one new module, two share a file without saying so) | Workflow → backend-implementer | model | `create-trd.js` `if (FANNED_OUT)` |
-| 9 | **Deferred by design**, only when sizing named any: one writer agent adds that table after the Master Task List, so `/implement-trd` reports those tasks instead of running them | Workflow → backend-implementer | model | `create-trd.js` `deferred` |
-| 10 | Assemble the readout: task and objective counts, grounded count, `SIZE` or `SPLIT THIS BEFORE IMPLEMENTING`, deferred tasks, `LONG TASKS`, `NOTED BY GROUNDING — not applied`, and `NOT YET VERIFIED. Run /audit-trd <trd> --source <prd>` | Workflow | code | `create-trd.js` `sizeLines`, `gfLines`, `NEXT` |
-| 11 | **Wave profile**: the lead runs `parseTrd`, `buildGraph` and `renderWaveProfile` with `node -e`. The output line is `waves: <profile> — N tasks in W wave(s), avg X wide, S single-task`. Below 2 wide it adds `narrow — driven by` the dominant edge kind (declared dependencies or shared files), the critical path as a task-ID chain, and, for shared files, the files that serialize the most tasks | Lead → libs | code | `create-trd.md` "Wave profile"; `task-graph.js` `renderWaveProfile()` |
-| 12 | Update `current.json`, publish the TRD (key `trd`), print the readout and banner. The readout marks each unjustified dependency edge as on or off the critical path | Lead | model | `create-trd.md` "Readout", "Artifact link" |
+| 6 | **Ground**, in parallel: each backend-implementer (sonnet from its frontmatter, high effort set here) sees the whole task roster but grounds only its own IDs, and writes its `### <TASK-ID>` blocks to its own file, `blocks-<n>.md` under `grounding_dir`. Per task: `Touches` (mandatory), `Reuse`, `Replaces`, `Follow`, `Careful`, every claim marked `[read]`, `[ran]` or `[inferred]`. It also reports findings: buildability, consistency, missing grounding, and dependency edges it cannot justify. Findings go to `.trd-state/<feature>/findings/grounding.json` and back in the return. Every first-wave agent writes that same path, so when grounding fans out the file holds whichever agent wrote last; the readout uses the returns, which are complete | Workflow → backend-implementer ×k | model | `create-trd.js` `groundPrompt`, `GROUND_OPTS` |
+| 7 | **Size**, in the same parallel wave: a technical-architect (low effort) judges whether the plan is still what was asked for, whether one unattended run can finish it, how many deploy cycles it implies, which tasks cannot complete in a normal run, and which single tasks are really several. It proposes a split when needed. It writes only `sizing.json`, never the TRD | Workflow → architect | model | `create-trd.js` `SIZING` |
+| 8 | **Retry**, only when some task came back from no agent: one more grounding agent (`ground:retry`) for exactly those tasks, writing `blocks-retry.md` and returning findings only, so it cannot overwrite `grounding.json`. One retry, because losing the grounding would discard the whole authoring run | Workflow → backend-implementer | model | `create-trd.js` `missing`, `ground:retry` |
+| 9 | **Merge**, only when grounding fanned out: one backend-implementer (low effort) reads the returned blocks and reports contradictions between blocks (one reuses what another replaces, two claim one new module, two share a file without saying so). It writes nothing | Workflow → backend-implementer | model | `create-trd.js` `if (FANNED_OUT)` |
+| 10 | Assemble the readout: task and objective counts, `SIZE` or `SPLIT THIS BEFORE IMPLEMENTING`, deferred tasks, `LONG TASKS`, `NOTED BY GROUNDING — not applied`, and `NOT YET VERIFIED. Run /audit-trd <trd> --source <prd>` | Workflow | code | `create-trd.js` `sizeLines`, `gfLines`, `NEXT` |
+| 11 | **Write the grounding into the TRD**: `node .claude/lib/trd-grounding.js assemble --trd <trd> --dir <grounding_dir>` writes `## 9. Task Grounding` from the block files and the `## Deferred by design` table from `sizing.json` (so `/implement-trd` sets those tasks aside instead of running them). It prints `written`, `blocksFound`, `grounded`, `ungrounded`, `unknown`, `deferred`, `sizing` | Lead → lib | code | `create-trd.md` "Right after the workflow returns"; `lib/trd-grounding.js` |
+| 12 | **Wave profile**: the lead runs `parseTrd`, `buildGraph` and `renderWaveProfile` with `node -e`. The output line is `waves: <profile> — N tasks in W wave(s), avg X wide, S single-task`. Below 2 wide it adds `narrow — driven by` the dominant edge kind (declared dependencies or shared files), the critical path as a task-ID chain, and, for shared files, the files that serialize the most tasks | Lead → libs | code | `create-trd.md` "Wave profile"; `task-graph.js` `renderWaveProfile()` |
+| 13 | With `--design`, after the TRD is written: `design-map.js approve --commit <source commit>` approves exactly the kept boards and renders their frames; then `design-map.js transition --to building --trd <trd>` and a commit of the map. A failed approve is one ISSUES line: the TRD stays, the boards stay unapproved. A run that stopped earlier approved nothing | Lead → lib | code | `create-trd.md` "Design approval" |
+| 14 | **Grounding report**: `trd-grounding.js report --trd <trd>` reads the TRD on disk back. The grounded count in STATE comes from it, not from the workflow's return; ungrounded tasks go in ISSUES (never STUCK); a mismatch between its deferred ids and the workflow's, or `sizing` of `missing`/`invalid`, goes in ISSUES | Lead → lib | code | `create-trd.md` "Grounding report" |
+| 15 | Update `current.json`, publish the TRD and `artifacts.js record --kind trd`, print the readout and banner. The readout marks each unjustified dependency edge as on or off the critical path | Lead | model | `create-trd.md` "Readout", "Artifact link" |
 
 Notes:
 
@@ -164,7 +189,7 @@ every step is the lead following command prose, so every step is **model** unles
 | 4 | Apply findings | **You** choose, from findings grouped by action | Unsourced requirements removed and listed. TRD: unsourced strictness lowered to the `constitution.md` floor, buildability failures reported with evidence. Contradictions go under `STUCK` in the readout for you to resolve | "Phase 2" |
 | 5 | Write the document | In place, version incremented, changelog entry | Same | "Phase 3" |
 | 6 | Readout | `REMOVED`, `ADD BACK`, `STUCK`, `ADDED THIS PASS` (TRD adds `LOWERED…`, `CANNOT BE BUILT…`) | Same, but it **leads with every OWNER-CALL decision** | "Readout" |
-| 7 | Publish and store the link (`prd` or `trd` in `artifacts.json`) | Same | Same | "Artifact link" |
+| 7 | Publish to the stored link, then always `artifacts.js record` (`prd` or `trd`) | Same | Same | "Artifact link" |
 
 The challenge pass is what lets refine **delete**: a requirement that traces to nothing is
 removed. "I think REQ-4 is unnecessary" is forbidden; "REQ-4 traces to nothing in the source"
@@ -245,12 +270,12 @@ flowchart TD
 | 1 | Resolve the document (argument, else `current.json`), the source (`--source`) and the target repository (`--project`) | Lead | model | "User Input", "Execution" |
 | 2 | Dispatch the verifiers that need no index **before** the index runs, to save wall time | Workflow | code | `INDEX_FREE_VERIFIERS`, `indexFreeWavesPromise` |
 | 3 | **Index**: a backend-implementer on haiku types every line (PRD: requirement or decision; TRD: objective, decision or task, plus each task's `Touches` files) and copies the `Could Not Verify` and `Open Questions` rows | Workflow → indexer | model | `phase('Index')` |
-| 4 | **Verify**: the index-bound verifiers run in parallel. Every verifier prompt carries the same rules: quote the document, not the index; resolve paths in the target project; code is fact; findings must be checkable ("findable only"); zero findings is fine | Workflow → verifiers | model | `dispatchVerifier()`, `GROUNDING_RULE`, `FINDABLE_ONLY` |
+| 4 | **Verify**: the index-bound verifiers run in parallel. Every verifier prompt carries the same rules: quote the document, not the index; resolve paths in the target project; code is fact; findings must be checkable ("findable only"); zero findings is fine. A citation check must quote the line of the document the id appears on, so an id the verifier only remembers is never reported missing | Workflow → verifiers | model | `dispatchVerifier()`, `GROUNDING_RULE`, `FINDABLE_ONLY` |
 | 5 | Count which verifiers returned nothing and state it to the reconcile agent as coverage, since a dead verifier otherwise looks like a clean one | Workflow | code | `deadKeys`, `COVERAGE` |
 | 6 | TRD only: findings with action `advisory` are split off. They never reach the reconcile agent, never count as findings, never change the verdict, and are appended as `NO ACTION` lines | Workflow | code | `audit-trd.js` `advisories` |
 | 7a | **Zero findings**: a backend-implementer (low effort) only rewrites `## Could Not Verify`. The verdict is computed in code: a silent verifier or no source gives `proceed with these caveats: …`, otherwise `safe to proceed` | Workflow → backend-implementer, then code | model, code | `if (findings.length === 0)` |
 | 7b | **Findings**: the reconcile agent applies each surviving finding with Edit, rejects the rest naming the refuting file, rewrites `## Could Not Verify`, and drafts the readout. PRD: product-manager. TRD: technical-architect. Both at high effort | Workflow → reconcile | model | `readout = await agent(…)` |
-| 8 | Print the readout and banner. No artifact is published | Lead | model | "Readout", "Output discipline" |
+| 8 | Write `.trd-state/<feature>/audit-prd-report.md` or `audit-trd-report.md` (VERDICT line first, date, audited commit, document, source, then the readout verbatim), record it with `artifacts.js record --kind audit-prd\|audit-trd --url ""`, print the same readout character for character, and the banner. Nothing is published or committed; a failed write is one STATE line | Lead | model + code | "Writing the audit report", "Readout" |
 
 ### The verifiers
 
@@ -320,7 +345,7 @@ workflow script: the lead does every step, because subagents have no Figma MCP a
 
 | # | Step | Kind | Where |
 |---|---|---|---|
-| 1 | Parse the Figma URL; `get_metadata` on the container node; catalogue every 1920×1080 frame as a screen, then show you the inventory and ask which screens to include | model, **you** | "Step 1" |
+| 1 | Parse the Figma URL; `get_metadata` on the container node; catalogue every 1920×1080 frame as a screen, then proceed with all of them by default (screens the catalogue marks deferred are logged as excluded; screens named in your invocation override the default). It does not stop to ask | model | "Step 1" |
 | 2 | Break each screen into components with `get_metadata`; note components shared across screens | model | "Step 2" |
 | 3 | `get_design_context` per unique component for dimensions, colours, type, spacing, borders, icons | model | "Step 3" |
 | 4 | Download screen and component baseline PNGs at 2×, design-context JSON and embedded images through the Figma REST API, batched to stay under its rate limit (about 30 requests a minute) | model | "Step 4" |
@@ -331,25 +356,15 @@ workflow script: the lead does every step, because subagents have no Figma MCP a
 
 It needs the Figma MCP server, a Figma personal access token, and `@playwright/test` in the
 project. For how design comparison runs at verification time, see
-[verification](verification.md).
+[verification](verification.md). For designs drawn on the Claude canvas instead of Figma, see
+[design](design.md).
 
 ---
 
 ## Where the command prose and the scripts disagree
 
-The scripts are what runs. Where a command file says otherwise, trust the script:
-
-- **Grounding is parallel, not single.** `create-trd.md` "Workflow" (line 817) and
-  "Verification is a separate command" (line 864) say grounding runs as one sequential agent.
-  `create-trd.js` has partitioned it across up to 6 agents since 2026-09-21 (comment at
-  line 441).
-- **Triage is missing from the command prose.** `create-trd.md` "Workflow" lists no Triage
-  stage; `create-trd.js` runs one first and can end the run with no TRD.
-- **`--auto` verdict names.** `create-prd.md` line 479 and `create-trd.md` line 1061 call the third
-  verdict `owner-only`; the refine commands define it as `OWNER-CALL`.
-- **`/augment-trd-figma` asks mid-run.** Its "Step 1" shows you the screen inventory and asks
-  "Proceed with all 12? Or specify which to include", while the same file's
-  "Autonomous-execution discipline" section forbids pausing to confirm.
-- **`REJECTED THESE FINDINGS` heading.** Both audit command files list it in the readout format;
-  neither workflow's reconcile prompt includes it, so rejections appear wherever the agent puts
-  them.
+The scripts are what runs. Where a command file says otherwise, trust the script. Earlier
+entries here (grounding described as one sequential agent, triage missing from the prose, the
+`owner-only` verdict name, `/augment-trd-figma` asking mid-run, and the `REJECTED THESE FINDINGS`
+heading absent from the reconcile prompts) have all since been fixed in the source. None is
+currently known.

@@ -97,11 +97,11 @@ neither waits for the other.
 
 | # | Step | Kind | Where |
 |---|---|---|---|
-| 1 | Each `Edit`, `Write` or `MultiEdit` fires `formatter.sh`, which picks a formatter by file extension (Prettier, ruff, gofmt, rustfmt, shfmt and others) if one is installed. See the known issue at the end | *code* | `formatter.sh` `get_formatter_command()`, `parse_file_path()` |
+| 1 | Each `Edit`, `Write` or `MultiEdit` fires `formatter.sh` on the edited file (`tool_input.file_path`, tried first), which picks a formatter by file extension (Prettier, ruff, gofmt, rustfmt, shfmt and others) if one is installed. Prettier runs only when the project declares a Prettier config (`.prettierrc*`, `prettier.config.*`, or a `"prettier"` key in `package.json`); without one it would rewrite whole files in its default style | *code* | `formatter.sh` `parse_file_path()`, `has_prettier_config()`, `get_formatter_command()` |
 | 2 | Each subagent's start and stop are appended to the dispatch ledger (§8) | *code* | `dispatch-ledger.js` `main()` |
 | 3 | Each subagent stop also runs `status.js` (§9) | *code* | `status.js` `main()` |
 | 4 | Before the platform compacts the conversation, `precompact.js` appends a checkpoint (§10) | *code* | `precompact.js` `main()` |
-| 5 | On its final turn, a workflow command runs `.claude/hooks/notify-complete.sh "<cmd>" "<complete\|stuck>" "<summary>"` itself; it is not an event hook. That closes the run record (§7) | *model* follows the command's prose; the script is *code* | `.claude/rules/command-status.md` "Path B"; 19 command files call it |
+| 5 | On its final turn, a workflow command runs `.claude/hooks/notify-complete.sh "<cmd>" "<complete\|stuck>" "<summary>"` itself; it is not an event hook. That closes the run record (§7) | *model* follows the command's prose; the script is *code* | `.claude/rules/command-status.md` "Path B"; all 27 command files call it (a chained run skips it, because it marks the run finished) |
 | 6 | Every turn end fires Stop: the judge (§6), then `notify.sh` (§7) | *model* / *code* | manifest entries `discipline-stop.js`, `notify.sh` |
 
 ---
@@ -161,7 +161,9 @@ flowchart TD
 | 6 | On a non-slash prompt the orientation hint follows the marker. On a slash prompt it is left out, because the command carries its own instructions | *code* | `should_skip()` |
 
 **The orientation hint** (`FRAMEWORK_HINT`) is a fixed text of seven bullets: FLOW (which
-command fits: `/plan`, `/sweep`, `/amend`, or the full pipeline through `/audit-build`, which closes the feature when it passes),
+command fits: `/plan`, `/sweep`, `/amend`, `/task` for a job whose output is findings rather than
+code, or the full pipeline through `/audit-build`, which closes the feature when it passes, with
+`/refine-verification` and `/verify-build` between them when verification falls short),
 SKILLS + SUBAGENTS, GOVERNANCE, SAY IT PLAINLY, PROPORTION, CLOSE THE TURN, DECIDE, DON'T DEFER.
 It names choices, not agents: the old keyword routing that recommended specific agents misfired
 and was removed (module docstring).
@@ -451,34 +453,34 @@ Where: `precompact.js` `summarizeImplement()`, `formatCheckpoint()`, `main()`.
 
 | File | Written by | Read by |
 |---|---|---|
-| `.trd-state/current.json` | commands (`/create-prd`, `/create-trd`, `/close-feature`…), never a hook | `session-context.js`, `router.py`, `dispatch-ledger.js`, `precompact.js`, `notify-complete.sh` |
+| `.trd-state/current.json` | commands (`/create-prd`, `/create-trd`, `/close-feature`, `/task` when no feature is in flight…), never a hook | `session-context.js`, `router.py`, `dispatch-ledger.js`, `precompact.js`, `notify-complete.sh` |
 | `.trd-state/_command-runs/<session>.json` (gitignored) | `router.py` (`active`), `notify-complete.sh` (`none`) | `router.py` |
-| `.trd-state/<feature>/implement.json` | `/implement-trd`; `status.js` as a safety net | `session-context.js`, `status.js`, `precompact.js`, `runtime-refresh.sh`, `router.py` |
-| `.trd-state/<feature>/closed.json` | `/close-feature`, or `/audit-build` when its audit passes | `session-context.js`, `router.py` |
+| `.trd-state/<feature>/implement.json` | `/implement-trd`, `/amend`, `/task` (as `.trd-state/task-<slug>/implement.json`, `"kind": "task"`); `status.js` as a safety net | `session-context.js`, `status.js`, `precompact.js`, `runtime-refresh.sh`, `router.py` |
+| `.trd-state/<feature>/closed.json` | `/close-feature`, `/audit-build` when its audit passes, or `/task` | `session-context.js`, `router.py` |
 | `.trd-state/<feature>/dispatch.jsonl` | `dispatch-ledger.js` | `dispatch-ledger.js --open`, `run-profile.js` |
 | `.trd-state/<feature>/session-log.md` | `precompact.js` | the lead session after compaction |
 | `$CLAUDE_ENV_FILE` | `session-context.js` | every Bash call in the session, hence `notify-complete.sh` |
 
+No hook reads or writes the design stage's files (`docs/ui/<slug>/`, `design-map.json`); the
+design commands do that through their libraries ([design.md](design.md)).
+
 Related pages: [implement-trd.md](implement-trd.md) for how `implement.json` and the ledger are
-used during a run, [other-commands.md](other-commands.md) for `/close-feature` and
+used during a run, [other-commands.md](other-commands.md) for `/close-feature`, `/task` and
 `/rebase-project`, [README.md](README.md) for the index.
 
 ---
 
 ## Known issues found while writing this page
 
-- **`formatter.sh` never formats the edited file when Claude Code runs it.** The first lookup
-  in `parse_file_path()` (`formatter.sh:189`) tries `.tool_result.file_path`, `.file_path`,
-  `.toolResult.file_path` and `.result.file_path`. Claude Code's PostToolUse payload has none
-  of these: the edited path is at `tool_input.file_path` (and `tool_response.filePath`). So it
-  falls through to the catch-all at line 192, which takes the first string anywhere in the
-  payload that looks like an absolute path with an extension. `transcript_path` (a `.jsonl`)
-  comes before `tool_input` in the payload, so it wins. Reproduced 2026-09-28 on a scratch
-  copy with a payload in that order: the hook extracted the transcript path, answered
-  `no_formatter` ("No formatter configured for .jsonl files"; `file_not_found` if the
-  transcript does not exist), and left the badly formatted `.js` file untouched. The same
-  payload with `transcript_path` removed formatted the `.js` file with Prettier. The effect is
-  that the hook is a silent no-op, not that it damages the transcript.
+- ~~`formatter.sh` never formats the edited file when Claude Code runs it.~~ **Fixed in
+  4.10.5.** It read the path from fields Claude Code's PostToolUse payload does not carry and fell
+  through to the first absolute path in the payload, usually the transcript. It now tries
+  `tool_input.file_path` first, and runs Prettier only when the project declares a Prettier
+  config.
+- **A `/task` close reads "by owner" in the SessionStart banner.** `closedFeatureLine()` in
+  `session-context.js` knows two closers, `audit` and everything else, so a `closed.json` with
+  `closedBy: "task"` prints `Closed: <date> by owner`. Cosmetic; the feature is still correctly
+  treated as closed.
 - ~~`dispatch-ledger.js`'s manifest entry says it "runs after status.js".~~ **Fixed.** The
   description now states plainly that Claude Code runs the hooks matched on one event in
   parallel, so that ordering was never guaranteed. Nothing currently depends on it.

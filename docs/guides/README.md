@@ -29,15 +29,20 @@ has an answer built into the framework ([CONCEPTS.md](CONCEPTS.md) takes each in
 ## How the work flows
 
 ```
-new feature   /create-prd → /audit-prd → /create-trd → /audit-trd → /implement-trd → /audit-build (closes it when it passes) → PR
-a bug or small change      /plan   (writes a plan sized to the risk; --implement builds it)
-a list of small fixes      /sweep
+new feature            /create-prd → /audit-prd → /create-trd → /audit-trd → /implement-trd → /audit-build → PR
+  with screens         ... /create-prd → /create-design → /audit-design → /create-trd --design → ... → PR → /sync-design
+a bug or small change  /plan   (writes a plan sized to the risk; --implement builds it)
+a list of small fixes  /sweep
 one change to the feature you're building   /amend
+findings or a report, not code              /task
+verification fell short                     /refine-verification → /verify-build
 ```
 
 `/implement-trd` builds in phases, reviews the whole branch once, and then verifies the running
-software against criteria written from the PRD. That verification runs by default. The full
-map, with a diagram for every command, is in [PROCESS.md](PROCESS.md).
+software against criteria written from the PRD. That verification runs by default.
+`/audit-build` then checks the delivered code against the TRD and PRD; a passing audit closes
+the feature and, if you allow it, opens the pull request. You merge. The full map, with a
+diagram for every command, is in [PROCESS.md](PROCESS.md).
 
 ## Quick start
 
@@ -61,7 +66,8 @@ copies the runtime (commands, agents, hooks, skills) into `.claude/`. Commit it.
 
 **3. Tell verification how to reach your app.** Run the `/verification-setup` skill. It
 interviews you and writes `.claude/rules/verification.md`: which environments exist, what the
-checks may touch, where test credentials live (never their values).
+checks may touch, where test credentials live (never their values). If you will draw designs
+before building, also run `/design-setup`, which writes `.claude/rules/design.md`.
 
 **4. Build something.**
 
@@ -83,30 +89,38 @@ finish without asking you to confirm each step.
 
 For a bug, start with `/plan <what's wrong>` instead.
 
+On one page: every command, its flags, the verification outcomes and the files that matter are
+in the [quick reference](QUICK-REFERENCE.md).
+
 ## The documents
 
 **Guides**: read these first.
 
 | Guide | For |
 |---|---|
-| [INSTALL.md](INSTALL.md) | Installing, setting a project up, what gets committed, and keeping it current with `/rebase-project` |
-| [PROCESS.md](PROCESS.md) | Using the commands: which path to take, what each command does, verification, and where state lives |
-| [CONCEPTS.md](CONCEPTS.md) | Why it works this way: the problems, and the eleven ideas that answer them |
+| [QUICK-REFERENCE.md](QUICK-REFERENCE.md) | One page: every command and flag, the verification outcomes, the settings and the files that matter |
+| [INSTALL.md](INSTALL.md) | Installing, setting a project up (including verification and design setup), what gets committed, settings, and keeping it current with `/rebase-project` |
+| [PROCESS.md](PROCESS.md) | Using the commands: which path to take, what each command does, the design stage, verification, and where state lives |
+| [CONCEPTS.md](CONCEPTS.md) | Why it works this way: the problems, and the twelve ideas that answer them |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | What a project's `.claude/` holds and how the parts fit: plugin and runtime, refresh and rebase, agents, commands, workflows, hooks, skills, rule files, settings |
+| [stop-hook-notification.md](stop-hook-notification.md) | Running your own command (a webhook, a tmux ping, a signal file) whenever a session goes idle |
 
 **Reference**: look things up here. Every command step in order, which agent does it, and the
 file and section it comes from.
 
 | Page | Covers |
 |---|---|
-| [reference/README.md](../reference/README.md) | Index, and all 19 commands at a glance |
+| [reference/README.md](../reference/README.md) | Index, and every command at a glance |
 | [reference/implement-trd.md](../reference/implement-trd.md) | Everything `/implement-trd` does, flag by flag |
 | [reference/authoring.md](../reference/authoring.md) | Creating, refining and auditing PRDs and TRDs |
 | [reference/verification.md](../reference/verification.md) | The verification loop, its outcomes, the check skills, and recovery |
-| [reference/other-commands.md](../reference/other-commands.md) | `/plan`, `/sweep`, `/amend`, `/audit-build`, `/close-feature`, maintenance |
+| [reference/other-commands.md](../reference/other-commands.md) | `/plan`, `/sweep`, `/amend`, `/task`, `/audit-build`, `/close-feature`, maintenance |
+| [reference/design.md](../reference/design.md) | The design stage: the five design commands, board statuses, `design.md`, the design libraries |
 | [reference/hooks.md](../reference/hooks.md) | Every hook: when it fires, what it reads and writes |
 | [reference/agents.md](../reference/agents.md) | The 13 subagents and where each is used |
 
-What changed in each release is in [CHANGELOG.md](../../CHANGELOG.md).
+What changed in each release is in [CHANGELOG.md](../../CHANGELOG.md). This guide set
+describes 4.15.0.
 
 ## License
 
