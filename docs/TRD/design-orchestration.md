@@ -556,17 +556,19 @@ a design, adds no journey and renders no data.
 
 ## Could Not Verify
 
-State after `/audit-build` on the delivered code (5 of 5 verifiers reported; source checked:
-`docs/plan/design-orchestration.investigation.md`; 16 requirements and 9 tasks indexed). The
-row "must-pass O1 and O6 rest on prose tests" is no longer listed here: the audit confirmed
-it, and it is reported as a finding (DORCH-T001 planned, not run). Everything the audit could
-check in code and tests is in its report, not here. What remains is what no reading of this
-repository can settle.
+State after the second `/audit-build` on the delivered code (5 of 5 verifiers reported; source
+checked: `docs/plan/design-orchestration.investigation.md`; 10 requirements and 12 tasks
+indexed). This round was a re-audit, limited to whether the first round's defects are fixed
+and to the files changed since commit `2ee2e80`; it took no fresh sample, so nothing below was
+re-checked by it. The one finding it carried forward, the live walk of the multi-feature path
+(DORCH-T001) still not run, is reported in the audit readout as planned, not built yet, not
+here. What remains is what no reading of this repository can settle.
 
 | Claim | How I'd check it | Why this audit did not check it |
 |-------|------------------|---------------------------------|
-| `/create-design --auto` runs headless to completion (to its expected publish-step STUCK) in a scaffolded copy of `test/fixtures/design/react-web/` with publishing off | run it; `CLAUDE.md` lists several design flows as unproven live (#65) | needs a live run; that is DORCH-T001, deferred by design and not run |
+| `/create-design --auto` runs headless to completion (to its expected publish-step STUCK) in a scaffolded copy of `test/fixtures/design/react-web/` with publishing off | run it; `CLAUDE.md` lists several design flows as unproven live (#65) | needs a live run; that is DORCH-T001, deferred by design and not run (`implement.json` status `deferred`; no `evidence/live/` directory) |
 | The Index agent (haiku, low effort) copies the brief's own item ids exactly once told to (D12), and to-be draw agents return a correct `brief_items` once the field is required | run `/audit-design` on a design whose brief uses `S1`-style ids and read the index; read the map after `/create-design` | model behaviour; only a live run shows it (DORCH-T001, not run) |
-| A model following `create-trd.md --boards` actually ends STUCK on a board that is not `approved`, and `/sync-design --trd` actually limits a pre-merge sync to one feature's boards | DORCH-T001's two `--boards` runs; one `/sync-design --trd` run in a working copy | command prose; its tests pin the wording, and only a live run shows a model obeys it |
+| A model following `create-trd.md --boards` actually ends STUCK on a board that is not `approved`, and `/sync-design --trd` actually limits a pre-merge sync to one feature's boards | DORCH-T001's two `--boards` runs; one `/sync-design --trd` run in a working copy | command prose; its tests pin the wording and sentence order, and only a live run shows a model obeys it |
 | No caller outside `create-trd.md` and `plan.md` parses `buildable`'s CLI output | grep consuming projects; this repository was grepped (`functional-verification.js`'s matches are a different "buildable") | consuming projects are outside this repository |
 | A board moved to `shipped` on a feature branch keeps its `shipped_commit` after merge only when the PR is merged with a merge commit; a squash merge rewrites the sha | merge one pre-merge-synced PR each way and read the map | needs real merges; out of scope (TR1, OQ-3) |
+| Requirements and tasks whose code did not change since `2ee2e80` still hold as the first audit found them | a full (not re-audit) `/audit-build` run | this round was scoped to prior defects and the changed files; it did not re-sample the rest |
