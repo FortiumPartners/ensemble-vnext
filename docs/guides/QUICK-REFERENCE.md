@@ -30,7 +30,7 @@ For someone who already knows the basics. Version 4.15.0. The full map is in
 | Check a design's boards against its brief, sources and code (changes nothing) | `/audit-design <slug>` |
 | Build or rebuild the product's design system and install it on the canvases | `/design-system` |
 | After a build ships: compare the build with its boards, mark matches shipped | `/sync-design <slug>` |
-| Build from approved boards | `/create-trd --design docs/ui/<slug>` or `/plan --design docs/ui/<slug> --boards <ids>` |
+| Build from approved boards | `/create-trd --design docs/ui/<slug> [--boards <ids>]` or `/plan --design docs/ui/<slug> --boards <ids>` |
 | **Refining an artifact** | |
 | Revise a PRD or TRD with your feedback (interactive) | `/refine-prd`, `/refine-trd` |
 | Add Figma screenshots, specs and tokens to a TRD | `/augment-trd-figma <figma-url>` |
@@ -57,11 +57,11 @@ flight is an amendment to that feature's TRD; `/plan` would start a second TRD.
 | `/audit-build` | `--report-only` (no follow-on `--reconcile`), `--prd <path>`, `--project <dir>` |
 | `/audit-prd`, `/audit-trd` | `--source <path>`, `--project <dir>` |
 | `/plan` | `--implement`, `--design docs/ui/<slug> --boards <ids>` |
-| `/create-trd` | `--design docs/ui/<slug>` |
+| `/create-trd` | `--design docs/ui/<slug>`, `--boards <ids>` (build only the named boards) |
 | `/refine-prd`, `/refine-trd` | `--auto` (unattended), feedback as text |
 | `/refine-verification` | `--auto` (an agent answers open items instead of you) |
 | `/create-design` | `--new` (no as-is board for a screen that does not exist yet), `--auto` |
-| `/refine-design` | `--approve <ids>`, `--auto` |
+| `/refine-design` | `--approve <ids>`, `--auto` (with `OD-<n>: <option>` to answer a decision the design took by default) |
 | `/audit-design` | `--drift` (extra checks, usually after `/sync-design`), `--project <dir>` |
 | `/design-system` | `--sync` (code changed: rebuild, republish, reinstall) |
 | `/sweep`, `/sync-design` | `--project <dir>` |

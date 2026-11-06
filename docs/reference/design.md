@@ -72,11 +72,12 @@ An illegal move fails the whole call, naming the board, and changes nothing.
 ### Invocation is approval
 
 Approving a design is the invocation that builds it (owner ruling, PRD 1.2.2; decision D18 in
-the design-stage TRD). Three invocations approve, and nothing else does:
+the design-stage TRD). Four invocations approve, and nothing else does:
 
 | Invocation | Approves | When |
 |---|---|---|
 | `/create-trd <prd> --design docs/ui/<slug>` | every to-be board still `draft` or `approved` that is not held by a draft part | after the TRD is written |
+| `/create-trd <prd> --design docs/ui/<slug> --boards <ids>` | exactly the named boards (a named board `buildable` does not list, or one a draft part holds, is STUCK) | after the TRD is written |
 | `/plan <what> --design docs/ui/<slug> --boards <ids>` | exactly the named boards | after the TRD is written |
 | `/refine-design <slug> --approve <ids>` | exactly the named boards, ahead of a build | in that run |
 
@@ -95,7 +96,7 @@ A to-be board is **unsynced** when it is still `building` although its feature's
 | Reader | What it does |
 |---|---|
 | `/create-design`, `/refine-design`, `/audit-design` | ISSUES line "boards <ids> are still building although their feature closed: check them against the build"; NEXT names `/sync-design <slug>` (after `/design-system --sync` when that is also due) |
-| `/audit-build` (when it closes the feature) and `/close-feature` | run `design-map.js unsynced --all --trd <trd>` after writing `closed.json`; add one NEXT step per design saying to run `/sync-design <slug>` once the PR has merged (or now, on the default branch). A failing check is one ISSUES line, never STUCK |
+| `/audit-build` (when it closes the feature) and `/close-feature` | run `design-map.js unsynced --all --trd <trd>` after writing `closed.json`; add one NEXT step per design saying to check its boards with `/sync-design` now or once the PR has merged, then `/sync-design <slug> --trd <trd>` (limited to that feature's boards, so a sync before the merge is allowed). A failing check is one ISSUES line, never STUCK |
 
 Nothing runs `/sync-design` automatically.
 
@@ -187,7 +188,7 @@ Source: `commands/create-design.md`; workflow `workflows/create-design.js`, call
 | Flag | Effect |
 |---|---|
 | `--new` | draw no as-is board for a screen that has no current version. The default draws one per screen, so a change starts from what is there. |
-| `--auto` | ask nothing; every assumption goes into `brief.md`. A run where no `AskUserQuestion` can be answered is treated as `--auto`. |
+| `--auto` | ask nothing; every assumption goes into `brief.md`, and every open decision nobody answered is taken at its recommended option and recorded under `## Decisions taken by default` as `OD-n` (options, taken, why, `Affects`: the brief items it touches). A run where no `AskUserQuestion` can be answered is treated as `--auto`. |
 
 **Slug:** the source PRD's file stem, else `issue-<n>`, else the brief's stem. The design lives in
 `docs/ui/<slug>/`; its state in `.trd-state/<slug>/`.
@@ -247,7 +248,7 @@ under `docs/ui/` is the slug (else `current.json`'s design); the rest is feedbac
 |---|---|
 | (none) | interactive: one `AskUserQuestion` per topic, each naming a recommended option. Exempt from the autonomy rule in this mode only. |
 | `--approve <ids>` | approve exactly these boards (comma-separated) through `design-map.js approve`. The only way this command approves. |
-| `--auto` | ask nothing; assumptions go into `brief.md`. Never approves on its own. |
+| `--auto` | ask nothing; assumptions go into `brief.md`, and a decision it cannot ask about is appended under `## Decisions taken by default`. An argument entry `OD-<n>: <option>` answers a recorded decision (only with `--auto`): the boards whose `brief_items` include the decision's `Affects` ids are redrawn and an `Answer:` line is added; an unknown id or option is one ISSUES line. Never approves on its own. |
 
 | # | Step | Kind | Where | What it does |
 |---|---|---|---|---|
@@ -293,7 +294,7 @@ or rejects each finding, naming the file that refutes a rejected one, and **edit
 
 | Verifier | Effort | Checks |
 |---|---|---|
-| `traceability` | high | a board with no source; a brief item with no board |
+| `traceability` | high | a board with no source; a brief item with no board (decided in code from the map's recorded `brief_items` when boards record them, else by the verifier) |
 | `conventions` | medium | boards against the `designing-on-canvas` conventions |
 | `reuse` | medium | a component drawn by hand that the system or codebase already has |
 | `render` | low, Haiku | render errors, rendered into a scratch folder, never `screens/png/` |
@@ -313,7 +314,7 @@ for the findings, or nothing.
 Source: `commands/sync-design.md`; workflow `workflows/sync-design.js`. Model-invocable.
 `/audit-build` and `/close-feature` only name it in NEXT; nothing chains it.
 
-**Arguments:** `<slug> [--project <dir>]`. With no slug: the design whose map has `building`
+**Arguments:** `<slug> [--project <dir>] [--trd <path>]`. `--trd` limits the sync to the boards that feature's TRD built, so one feature can sync before its PR merges. With no slug: the design whose map has `building`
 boards, else the one `current.json` names, else STUCK listing them.
 
 Per `building` board:
@@ -350,7 +351,7 @@ Source: `commands/create-trd.md` "Design input", "Design approval — after the 
 
 | # | Step | Kind | What it does |
 |---|---|---|---|
-| 1 | List the boards | code | `design-map.js buildable` (to-be boards in `draft` or `approved`), then `design-map.js held --ids <them>`; held boards are dropped and listed under ISSUES with `/refine-design <slug> --approve <part>`. |
+| 1 | List the boards | code | `design-map.js buildable` (to-be boards in `draft` or `approved`), then `design-map.js held --ids <them>`; held boards are dropped and listed under ISSUES with `/refine-design <slug> --approve <part>`. With `--boards <ids>` (only valid with `--design`) both calls are limited to the named ids and the TRD builds exactly those boards; naming one is its approval. A named board `buildable` does not list (already `building` or `shipped`, not to-be, not in the map) or one `held` lists is STUCK, naming it. |
 | 2 | Nothing left | code | zero boards → STUCK, naming the cause (no buildable board, already `building`, or all held). |
 | 3 | Source commit | code | commit any change under `docs/ui/<slug>/`, record `git rev-parse HEAD`. |
 | 4 | Author | model | the create-trd workflow gets `design: { dir, boards, data }`; `.claude/contracts/trd-authoring.md` "Design as a source" says how boards become tasks. |
@@ -387,7 +388,7 @@ are the product's own, resolved from the project then the global npm root, never
 | `transition` | `--ids a,b --to <status> [--commit <sha>] [--trd <path>]` | moves boards; `--commit` defaults to HEAD. Fails naming the board on an illegal move |
 | `approve` | `--ids a,b [--commit <sha>] [--runtime <path>] [--reapprove] [--message <text>]` | the one approve sequence, below |
 | `approved` | | to-be boards in `approved` |
-| `buildable` | `[--ids a,b]` | to-be boards in `draft` or `approved` (limited to `--ids`) — what an invocation may approve and build |
+| `buildable` | `[--ids a,b] [--items S1,S2]` | to-be boards in `draft` or `approved` (limited to `--ids`) — what an invocation may approve and build. With `--items`, the boards that record any of those brief items in `brief_items`, printed as `{ boards, unmatched, held }`: `unmatched` lists each item no returned board serves with `served_by` (every board recording it, with its status), `held` the returned boards a draft part holds. An empty `--items` is an error. Without `--items` it still prints an array |
 | `held` | `[--ids a,b]` | `[{id, draft_parts}]`: boards that embed a `draft` part, followed transitively. With `--ids`, checks the named boards whatever their status |
 | `stale` | `[--record]` | `{stale, head, changed_paths}`: whether the system's `paths` changed since `code_commit`. Missing `code_commit` or `paths`, or an unknown commit, reads stale with a `reason`. `--record` writes `design_system.drift` into the map |
 | `unsynced` | `[--trd <path>]` | `[{design, id, trd}]`: to-be boards still `building` whose feature has a `closed.json` |
@@ -472,7 +473,7 @@ uses part boards instead. Exit 2: esbuild or Tailwind is missing.
 
 ## Not yet proven
 
-From CHANGELOG 4.15.0, tracked in issue #65: refining from a canvas comment (no tool here can
+The multi-feature path (`--boards` on `/create-trd`, `buildable --items`, `--auto` decision records and answers, `/sync-design --trd`) awaits live evidence from the design-orchestration run (DORCH-T001). From CHANGELOG 4.15.0, tracked in issue #65: refining from a canvas comment (no tool here can
 create one); the hosted canvas's look and a publish from the owner's account; the owner's own
 44-board flow; a real flutter-widget fixture run. `/audit-design --drift` judges from diffs and
 stored screenshots, not a fresh capture — although `audit-design.md` asks its `drift-boards`

@@ -20,7 +20,7 @@ subagent definitions named below).
 | `/create-prd` | `[product description \| issue ref \| file]`; none → it interviews you for the description | no (manual only) |
 | `/audit-prd` | `[path-to-prd] [--source <path>] [--project <dir>]` | yes |
 | `/refine-prd` | `[path-to-prd] [--auto] [feedback]` | no |
-| `/create-trd` | `[path-to-prd] [--design docs/ui/<slug>]` | no |
+| `/create-trd` | `[path-to-prd] [--design docs/ui/<slug> [--boards <ids>]]` | no |
 | `/audit-trd` | `[path-to-trd] [--source <path>] [--project <dir>]` | yes |
 | `/refine-trd` | `[path-to-trd] [--auto] [feedback]` | no |
 | `/augment-trd-figma` | `<figma-url> [--trd <path-to-trd>]` | no |
@@ -147,7 +147,7 @@ flowchart TD
 | # | Step | Who | Kind | Where |
 |---|---|---|---|---|
 | 1 | Resolve the PRD from the argument or `current.json`. If requirements were settled in this conversation, pass the transcript path too. The script fails without `prd` or `transcript`. Pick a fresh `grounding_dir` (`.trd-state/<feature>/findings/grounding/<UTC stamp>`), so an earlier run's blocks cannot leak in | Lead, then script | model, code | `create-trd.md` "User Input", "Execution: the workflow is the orchestrator" |
-| 1a | With `--design docs/ui/<slug>`: `design-map.js buildable` lists the to-be boards still `draft` or `approved`; `design-map.js held` drops any that embed a draft part (each named in ISSUES). None left is STUCK. Commit pending edits under `docs/ui/<slug>/`, record `git rev-parse HEAD` as the source commit, and pass `design: { dir, boards, data }` to the workflow | Lead | code | `create-trd.md` "Design input"; [design](design.md) |
+| 1a | With `--design docs/ui/<slug>` (and `--boards <ids>` to build only the named boards; a named board `buildable` does not list, or one `held` lists, is STUCK): `design-map.js buildable` lists the to-be boards still `draft` or `approved`; `design-map.js held` drops any that embed a draft part (each named in ISSUES). None left is STUCK. Commit pending edits under `docs/ui/<slug>/`, record `git rev-parse HEAD` as the source commit, and pass `design: { dir, boards, data }` to the workflow | Lead | code | `create-trd.md` "Design input"; [design](design.md) |
 | 2 | **Triage**: a technical-architect on haiku decides whether the source is one coupled change or a list of unrelated items. The test is coupling, not size, and it defaults to one change when unsure. A list stops the run with no TRD and points at `/sweep` | Workflow → architect | model decides, code stops | `create-trd.js` `phase('Triage')` |
 | 3 | **Corpus**: same cheap index as `/create-prd`, looking for Key Technical Decisions tables and supersession banners | Workflow → indexer | model | `create-trd.js` `phase('Corpus')` |
 | 4 | **Author**: one technical-architect at `effort: 'high'` (its own frontmatter says `xhigh`; the workflow overrides it here only) reads `.claude/contracts/trd-authoring.md` and writes the TRD. Objectives must trace to a source and may carry a `Must pass` column (`yes` marks what verification must prove); every decision and task names what it serves; an optional `## Verification Environment` section names the `verification.md` environment to exercise; a design's boards become tasks per the contract's "Design as a source". The Task Grounding section is left out | Workflow → technical-architect | model | `create-trd.js` `authored`; `trd-authoring.md` Sections 1a, 9b |
