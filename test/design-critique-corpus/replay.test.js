@@ -11,7 +11,7 @@ const os = require('os');
 const path = require('path');
 
 const replay = require('./replay');
-const { parseLabels, agreement, perDimension, spread, meanScore, parseCriticOutput, readRubric, buildPrompt, invokeCritic, run, main, LabelError } = replay;
+const { parseLabels, agreement, bandAgreement, formatReport, perDimension, spread, meanScore, parseCriticOutput, readRubric, buildPrompt, invokeCritic, run, main, LabelError } = replay;
 
 function row(over = {}) {
   return { id: 'a', frame: 'frames/a.png', measures: 'measures/a.json', board_source: 'b/a.dc.html', label: 'poor', reason: 'r', source: 's', ...over };
@@ -183,6 +183,46 @@ describe('the critic call', () => {
     expect(p).toMatch(/RUBRIC/);
     expect(p).toMatch(/\/x\/a\.png/);
     expect(p).toMatch(/\{"m":1\}/);
+  });
+});
+
+describe('bandAgreement (computable on a one-label set, AC-F9.2)', () => {
+  const poor = [{ id: 'A', label: 'poor' }, { id: 'B', label: 'poor' }, { id: 'C', label: 'poor' }];
+
+  it('scores an all-poor set: the share of frames whose mean rounds below 4', () => {
+    expect(bandAgreement(poor, { A: 2.4, B: 3.4, C: 3.6 })).toEqual({ computable: true, frames: 3, inBand: 2, share: 2 / 3, unscored: [] });
+  });
+
+  it('puts a good frame in band only when its mean rounds to 4 or 5', () => {
+    const r = bandAgreement([{ id: 'G', label: 'good' }, { id: 'H', label: 'good' }], { G: 3.5, H: 3.4 });
+    expect(r).toMatchObject({ frames: 2, inBand: 1, share: 0.5 });
+  });
+
+  it('counts a frame with no score as unscored, never as a miss, and is not computable with none scored', () => {
+    expect(bandAgreement(poor, { A: 2 })).toMatchObject({ computable: true, frames: 1, inBand: 1, unscored: ['B', 'C'] });
+    expect(bandAgreement(poor, {})).toMatchObject({ computable: false, reason: expect.stringMatching(/not computable/) });
+  });
+});
+
+describe('the replay prompt and report on an all-poor set with as-is frames', () => {
+  it('tells the critic to score every frame itself, as-is frames included', () => {
+    const p = buildPrompt({ rubric: 'RUBRIC', framePath: '/x/01-home--as-is.png', measuresText: '{}' });
+    expect(p).toMatch(/Score this frame itself, as a to-be board with no predecessor, whatever its file name says/);
+    expect(p).toMatch(/as-is or parts board is not judged does not apply here/);
+  });
+
+  it('reports agreement by band, and says why a frame has no spread', () => {
+    const labels = [{ id: 'p1', label: 'poor' }, { id: 'p2', label: 'poor' }];
+    const runs = [
+      { id: 'p1', run: 1, scores: { hierarchy: 2 }, mean: 2 }, { id: 'p1', run: 2, scores: { hierarchy: 3 }, mean: 3 },
+      { id: 'p2', run: 1, scores: { hierarchy: 'not judged' }, mean: null }, { id: 'p2', run: 2, scores: { hierarchy: 'not judged' }, mean: null },
+    ];
+    const text = formatReport({ runsPerFrame: 2, model: null, runs, report: replay.buildReport(labels, runs) });
+    expect(text).toMatch(/Agreement by band: 1\/1 scored frames in their label's band \(100%/);
+    expect(text).toMatch(/1 frame\(s\) unscored \(every dimension not judged\): p2/);
+    expect(text).toMatch(/Agreement by ranking: not computable/);
+    expect(text).toMatch(/Spread p2: n\/a \(0 of 2 runs gave a score; needs 2\)/);
+    expect(text).toMatch(/Spread p1: 0\.71/);
   });
 });
 

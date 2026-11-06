@@ -48,7 +48,7 @@
  * target size, layout faults, and fidelity (computed colours and font families against the
  * `ds/<folder>/tokens.json` files in the render root, plus the runtime's `x-import: FAILED to
  * load` console messages). `render()` returns them as `measures`, one per distinct (check,
- * verdict, value) per frame with a `count`. `--floor-contrast` / `--floor-target` (module option
+ * verdict, value) per frame with a `count`; each names its frame by `board`, `state` and `viewport` (`WxH`). `--floor-contrast` / `--floor-target` (module option
  * `floor: { contrast, target }`) give a verdict; with no floor each frame reports its lowest
  * contrast and smallest target and no verdict. A measure is data for the critic, never a gate.
  *
@@ -576,7 +576,7 @@ async function launch(projectRoot) {
  * @param {{contrast?: number, target?: number}} [o.floor] contrast ratio and target px that give a measure a verdict
  * @param {string} [o.repo]   repository the git calls run in (default: the working directory)
  * @param {string} [o.projectRoot] where Playwright is resolved from first (default: the working directory)
- * @returns {Promise<{frames: {board, state, png}[], errors: Object<string, string[]>, measures: {board, state, check, verdict, value, count, element}[]}>}
+ * @returns {Promise<{frames: {board, state, viewport, png}[], errors: Object<string, string[]>, measures: {board, state, viewport, check, verdict, value, count, element}[]}>}
  */
 async function render(o) {
   const map = o.map ? readMapFile(o.map) : designMap.read(o.dir);
@@ -641,9 +641,11 @@ async function render(o) {
           for (const t of targets) {
             const png = path.join(o.out, t.png);
             const { errors: errs, measures } = await capture(browser, { port: server.port, file: t.file, viewport: b.viewport, png, offline: o.offline, floor: o.floor, tokens });
-            result.frames.push({ board: b.id, state: t.state, png });
+            // A frame is a board in one state at one viewport, so each measure names all three (AC-F5.4).
+            const viewport = Array.isArray(b.viewport) ? `${b.viewport[0]}x${b.viewport[1]}` : null;
+            result.frames.push({ board: b.id, state: t.state, viewport, png });
             // The state comes from the target, never the temp copy's filename.
-            for (const m of measures) result.measures.push({ board: b.id, state: t.state, ...m });
+            for (const m of measures) result.measures.push({ board: b.id, state: t.state, viewport, ...m });
             if (errs.length) (result.errors[b.id] = result.errors[b.id] || []).push(...errs.map((e) => (t.state ? `[${t.state}] ${e}` : e)));
           }
         }

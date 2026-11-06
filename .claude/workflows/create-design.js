@@ -447,6 +447,8 @@ phase('Critique')
 // and runs no shell, so the agent that renders is the agent that looks (D9); the numbers the render command
 // measured reach this script only as the agent's schema-forced return, and rank is assigned below, in code.
 const mapEntry = ({ id, file, kind, platform, viewport, states }) => ({ id, file, kind, platform, viewport, states })
+// The ten rubric dimensions (contract section 8), the same list and spelling /audit-design scores.
+const DIMENSIONS = ['usability', 'hierarchy', 'craft', 'brand', 'consistency', 'responsiveness', 'states', 'copy', 'density', 'distinctiveness']
 const VISUAL_SCHEMA = {
   type: 'object', additionalProperties: false, required: ['errors', 'measures', 'scores'],
   properties: {
@@ -456,7 +458,7 @@ const VISUAL_SCHEMA = {
       items: {
         type: 'object', required: ['board', 'check', 'verdict'],
         properties: {
-          board: { type: 'string' }, state: { type: 'string' }, check: { type: 'string' }, verdict: { type: 'string' },
+          board: { type: 'string' }, state: { type: ['string', 'null'] }, viewport: { type: ['string', 'null'] }, check: { type: 'string' }, verdict: { type: 'string' },
           value: {}, detail: { type: 'string' }, count: { type: 'number' }, element: { type: ['string', 'null'] },
         },
       },
@@ -464,12 +466,17 @@ const VISUAL_SCHEMA = {
     scores: {
       type: 'array',
       items: {
-        type: 'object', additionalProperties: false, required: ['board', 'dimension', 'judged'],
+        // The same score shape /audit-design returns (its VISUAL_SCHEMA): one of the ten dimensions, a 1-5 score or
+        // null with not_judged saying why, the frame PNG(s) read and an actionable reason.
+        type: 'object', additionalProperties: false, required: ['board', 'dimension', 'score', 'frames', 'reason', 'vs_predecessor'],
         properties: {
-          board: { type: 'string' }, dimension: { type: 'string' }, judged: { type: 'boolean' },
-          score: { type: 'integer', minimum: 1, maximum: 5 },
-          comparative: { type: 'string', enum: ['better', 'same', 'worse', 'no predecessor'] },
-          frame: { type: 'string' }, element: { type: 'string' }, change: { type: 'string' },
+          board: { type: 'string' },
+          dimension: { type: 'string', enum: DIMENSIONS },
+          score: { type: ['integer', 'null'], minimum: 1, maximum: 5 },
+          not_judged: { type: 'string' },
+          frames: { type: 'array', items: { type: 'string' } },
+          reason: { type: 'string' },
+          vs_predecessor: { type: 'string', enum: ['better', 'same', 'worse', 'no predecessor'] },
         },
       },
     },
@@ -506,10 +513,18 @@ Scratch map:
   ${scratchMap(it.recs.map(mapEntry))}
 ${EXPLORE ? `Return out: the absolute path of the scratch folder you rendered into (a ranking agent opens the PNGs there).
 ` : ''}Then read every PNG the command wrote. The as-is board (if any) is the comparison baseline and is rendered and measured
-but NOT scored: for it return no score. Score the to-be board on each of the ten dimensions of the rubric, 1 to 5, and
-for each dimension say better, same or worse against the as-is frame ("no predecessor" when the screen has no as-is
-board). A dimension the rubric says is not judged here is returned with judged false and no score. Every score of 3 or
-below names the frame, the element and a specific change.
+but NOT scored: for it return no score. Score the to-be board on each of the ten dimensions below, 1 to 5, against
+the rubric, and for each dimension say in vs_predecessor better, same or worse against the as-is frame ("no
+predecessor" when the screen has no as-is board). Name the frame PNG path(s) you read in "frames" for every score, and
+give a "reason" specific enough to act on; a score of 3 or below must name the element and a specific change in
+"reason". Score brand and distinctiveness against the design direction and the style pack below; with neither
+supplied they are not judged. A dimension the rubric says is not judged here (responsiveness with one viewport, states
+with one state) is score null with not_judged saying why.
+Dimensions: ${DIMENSIONS.join('; ')}.
+DESIGN DIRECTION (departure latitude: ${LATITUDE || 'none supplied'}):
+${DIRECTION || '(none supplied)'}
+STYLE PACK${STYLE_PACK && STYLE_PACK.name ? ` (${STYLE_PACK.name})` : ''}:
+${(STYLE_PACK && STYLE_PACK.text) || '(none supplied)'}
 THE RUBRIC:
 ${RUBRIC || '(none supplied: score the ten dimensions on a 1 to 5 scale, 1 broken, 5 strong with nothing to change)'}
 Edit nothing: you report.
@@ -644,10 +659,10 @@ const asIsIds = new Set(boards.filter((b) => b.kind === 'as-is').flatMap((b) => 
 const renderFindings = visualAlive.flatMap((r) => (r.errors || []).map((e) => ({ axis: 'render', board: e.board, why: `render error: ${e.error}`, rank: 'high' })))
 const measureFindings = visualAlive.flatMap((r) => (r.measures || [])
   .filter((m) => MEASURE_RANK[m.verdict] && !asIsIds.has(m.board))
-  .map((m) => ({ axis: 'measure', board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}: ${m.value === undefined || m.value === null ? '' : m.value}${m.element ? ` at ${m.element}` : ''}`, rank: MEASURE_RANK[m.verdict] })))
+  .map((m) => ({ axis: 'measure', board: m.board, why: `${m.check} ${m.verdict}${m.detail ? ` (${m.detail})` : ''}${m.state ? ` in state ${m.state}` : ''}${m.viewport ? ` at ${m.viewport}` : ''}: ${m.value === undefined || m.value === null ? '' : m.value}${m.element ? ` at ${m.element}` : ''}`, rank: MEASURE_RANK[m.verdict] })))
 const scoreFindings = visualAlive.flatMap((r) => (r.scores || [])
-  .filter((x) => x.judged !== false && SCORE_RANK[x.score])
-  .map((x) => ({ axis: 'critique', board: x.board, why: `${x.dimension} scored ${x.score} of 5: ${[x.frame, x.element].filter(Boolean).join(', ')}${x.change ? `; change: ${x.change}` : ''}`, rank: SCORE_RANK[x.score] })))
+  .filter((x) => x.score !== null && !x.not_judged && SCORE_RANK[x.score])
+  .map((x) => ({ axis: 'critique', board: x.board, why: `${x.dimension} scored ${x.score} of 5${(x.frames || []).length ? ` (${x.frames.join(', ')})` : ''}: ${x.reason || ''}`, rank: SCORE_RANK[x.score] })))
 // Under explore the as-is board is rendered once per direction, so the same render error can arrive several
 // times: keep one finding per axis, board and why.
 const findingKeys = new Set()

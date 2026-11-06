@@ -38,8 +38,11 @@ boards **re-rendered with the pinned runtime** by `design-render.js render`, not
 the published boards: six of the eight report "mounted nothing" under the pinned runtime and
 draw as unstyled text. The boards come from
 `.trd-state/task-dorch-t001-live-walk/evidence/boards/` (DQ-P001). Because every row is `poor`
-and none has `dimensions`, a first replay reports agreement as "not computable" and no
-per-dimension difference; it can report spread.
+and none has `dimensions`, a replay reports agreement by band (the share of frames the critic
+scored in the poor band) but agreement by ranking as "not computable", and no per-dimension
+difference; it reports spread. The as-is frames are scored like any other frame: the replay
+prompt sets aside the rubric's rule that an as-is board is not judged, because the replay is
+comparing each frame's scores with its owner label.
 
 ## Adding a row
 
@@ -63,14 +66,18 @@ The exit code is 0 whatever the agreement.
 
 ## What the report says
 
-- **Agreement**: of all (good, poor) frame pairs, the share where the good frame's mean score
-  (across runs and dimensions, skipping "not judged") is strictly higher. A tie is not a win.
-  No cut point. With no good or no poor frame it says "not computable".
+- **Agreement by band**: the share of scored frames whose mean score (across runs and
+  dimensions, skipping "not judged") falls in the band of the owner's label. A mean that rounds
+  to 4 or 5, the scores that raise no finding, is the good band; anything lower is the poor band.
+  Computable on a set with one label only. A frame with no score is listed as unscored.
+- **Agreement by ranking**: of all (good, poor) frame pairs, the share where the good frame's
+  mean score is strictly higher. A tie is not a win. No cut point. With no good or no poor frame
+  it says "not computable".
 - **Per dimension**, only for rows with `dimensions`: mean absolute difference between the label
   and the critic's mean for that dimension, and the share of frames where the rounded mean equals
   the label.
 - **Spread**: per frame, the sample standard deviation (n-1) of the frame's mean score across
-  runs; "n/a" with one run.
+  runs; "n/a" with the reason (one run, or fewer than two runs that gave a score).
 
 ## In the default test battery
 

@@ -48,7 +48,15 @@ One `AskUserQuestion` call per topic, in the file's own order:
 3. **§3 How to reach a screen** — route list, seed data, capture command, where current
    screenshots live. Sign-in is never asked for a value: the file points at
    `verification.md` §3.
-4. **§4 Design rules** — reuse, accessibility floor, process rules.
+4. **§4 Design rules** — reuse, accessibility floor, process rules. Each field has a stated
+   default:
+   - **Reuse** — default: "the design system's components and tokens; a new component needs
+     a reason. How far a layout departs from today's screen is §5's departure latitude."
+     Offer this default even when the current file still carries the old wording ("an
+     existing view beats a new one"): that wording made every layout change a reuse
+     violation, and layout departure is now §5's departure latitude, not a reuse rule.
+   - **Accessibility floor** — see "Accessibility floor" below.
+   - **Process rules** — free text; default: keep the current value, or leave blank.
 5. **§5 Design direction** — brand, style pack, references, departure latitude. Run
    `node .claude/lib/design-map.js direction --dir .` first when the file is filled; its
    `available_packs` are the style packs to offer. Each field has a stated default:

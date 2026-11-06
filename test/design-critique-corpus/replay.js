@@ -5,8 +5,9 @@
  *   node test/design-critique-corpus/replay.js --runs <n> [--model <m>] [--dir <corpus dir>] [--out <file>]
  *
  * For each row of labels.jsonl, runs the contract section 8 critic on the frame `--runs` times
- * through `claude -p`, then prints a report: agreement (good/poor ranking), per-dimension
- * difference where rows carry `dimensions`, and spread across runs. It is a report. Nothing
+ * through `claude -p`, then prints a report: agreement by band (each frame's score against its
+ * own label, computable on a set with one label only), agreement by ranking (good/poor pairs),
+ * per-dimension difference where rows carry `dimensions`, and spread across runs. It is a report. Nothing
  * gates: a low agreement exits 0 (NG7 / OQ-5: no threshold is set until the owner sets one).
  *
  * The rubric is read from packages/core/contracts/design-commands.md at run time and never
@@ -85,6 +86,21 @@ function agreement(labels, means) {
 }
 
 /**
+ * Agreement by band, computable whatever the mix of labels: the share of scored frames whose
+ * mean score falls in the band of the owner's label. A mean that rounds to 4 or 5 (the scores
+ * that raise no finding, contract section 8) is the good band; anything lower is the poor band.
+ * A frame with no score (every dimension "not judged") is counted as unscored, not as a miss.
+ */
+function bandAgreement(labels, means) {
+  const bandOf = (m) => (Math.round(m) >= 4 ? 'good' : 'poor');
+  const scored = labels.filter((l) => typeof means[l.id] === 'number');
+  const unscored = labels.filter((l) => typeof means[l.id] !== 'number').map((l) => l.id);
+  const inBand = scored.filter((l) => bandOf(means[l.id]) === l.label).length;
+  if (!scored.length) return { computable: false, frames: 0, inBand: 0, unscored, reason: 'not computable: no frame received a score' };
+  return { computable: true, frames: scored.length, inBand, share: inBand / scored.length, unscored };
+}
+
+/**
  * Per dimension, over rows that carry `dimensions`: the mean absolute difference between the
  * label and the critic's per-frame mean across runs, and the share of frames where that mean,
  * rounded, equals the label. `runs` is [{id, scores}]. Rows without `dimensions` contribute nothing.
@@ -160,7 +176,9 @@ function buildPrompt({ rubric, framePath, measuresText }) {
     'Rubric:',
     rubric,
     '',
-    'Respond with ONLY valid JSON, no other text: {"scores": {"<dimension name>": <1-5 or "not judged">, ...}} with one key per dimension of the rubric. This frame has no predecessor.',
+    'Score this frame itself, as a to-be board with no predecessor, whatever its file name says: the rubric\'s rule that an as-is or parts board is not judged does not apply here, because the replay compares your scores with the owner\'s label for this frame. Only the dimensions that cannot apply to one frame (responsiveness with one viewport, states with one state, and brand and distinctiveness with no design direction or style pack) are "not judged".',
+    '',
+    'Respond with ONLY valid JSON, no other text: {"scores": {"<dimension name>": <1-5 or "not judged">, ...}} with one key per dimension of the rubric.',
   ].join('\n');
 }
 
@@ -183,7 +201,7 @@ function buildReport(labels, runs) {
   for (const r of runs) if (typeof r.mean === 'number') (byId[r.id] = byId[r.id] || []).push(r.mean);
   const means = {};
   for (const [id, xs] of Object.entries(byId)) means[id] = avg(xs);
-  return { means, agreement: agreement(labels, means), perDimension: perDimension(labels, runs), spread: spread(runs) };
+  return { means, band: bandAgreement(labels, means), agreement: agreement(labels, means), perDimension: perDimension(labels, runs), spread: spread(runs) };
 }
 
 /** Replay: `runs` critic runs per labelled frame. `spawn` is injectable for tests. */
@@ -219,13 +237,23 @@ function parseArgs(argv) {
 }
 
 function formatReport(result) {
-  const { agreement: a, perDimension: pd, spread: sp } = result.report;
+  const { band: b, agreement: a, perDimension: pd, spread: sp } = result.report;
   const L = [`Replay: ${result.runsPerFrame} run(s) per frame, model ${result.model || 'CLI default'}`];
-  L.push(a.computable ? `Agreement: ${a.wins}/${a.pairs} good-poor pairs ranked right (${(a.share * 100).toFixed(0)}%)` : `Agreement: ${a.reason}`);
+  if (b) {
+    const un = b.unscored.length ? `; ${b.unscored.length} frame(s) unscored (every dimension not judged): ${b.unscored.join(', ')}` : '';
+    L.push(b.computable ? `Agreement by band: ${b.inBand}/${b.frames} scored frames in their label's band (${(b.share * 100).toFixed(0)}%; good band = mean rounding to 4 or 5)${un}` : `Agreement by band: ${b.reason}${un}`);
+  }
+  L.push(a.computable ? `Agreement by ranking: ${a.wins}/${a.pairs} good-poor pairs ranked right (${(a.share * 100).toFixed(0)}%)` : `Agreement by ranking: ${a.reason}`);
   const dims = Object.entries(pd);
   if (!dims.length) L.push('Per dimension: not computable (no row carries dimensions)');
   for (const [k, v] of dims) L.push(`Per dimension ${k}: mean abs diff ${v.meanAbsDiff.toFixed(2)}, exact match ${(v.exactMatch * 100).toFixed(0)}% over ${v.frames} frame(s)`);
-  for (const [id, s] of Object.entries(sp)) L.push(`Spread ${id}: ${s === null ? 'n/a (fewer than 2 runs)' : s.toFixed(2)} (mean ${result.report.means[id] === undefined ? 'n/a' : result.report.means[id].toFixed(2)})`);
+  const runsOf = (id) => (result.runs || []).filter((r) => r.id === id);
+  const why = (id) => {
+    const all = runsOf(id).length;
+    const scored = runsOf(id).filter((r) => typeof r.mean === 'number').length;
+    return all < 2 ? `n/a (${all} run; needs 2)` : `n/a (${scored} of ${all} runs gave a score; needs 2)`;
+  };
+  for (const [id, s] of Object.entries(sp)) L.push(`Spread ${id}: ${s === null ? why(id) : s.toFixed(2)} (mean ${result.report.means[id] === undefined ? 'n/a' : result.report.means[id].toFixed(2)})`);
   return L.join('\n');
 }
 
@@ -240,7 +268,7 @@ function main(argv, { spawn, log = console.log } = {}) {
   return 0;
 }
 
-module.exports = { parseLabels, agreement, perDimension, spread, meanScore, parseCriticOutput, readRubric, buildPrompt, invokeCritic, buildReport, run, parseArgs, formatReport, main, LabelError };
+module.exports = { parseLabels, agreement, bandAgreement, perDimension, spread, meanScore, parseCriticOutput, readRubric, buildPrompt, invokeCritic, buildReport, run, parseArgs, formatReport, main, LabelError };
 
 if (require.main === module) {
   try {

@@ -249,6 +249,24 @@ describe('create-design stage draw', () => {
     expect(byLabel(agent, 'visual:parts').prompt).toContain('part-badge');
   });
 
+  it('gives every screen critique the design direction, the style pack and the ten-dimension score shape', async () => {
+    const { agent } = await run(drawArgs(2));
+    for (const l of ['visual:01-screen-1', 'visual:02-screen-2']) {
+      const c = byLabel(agent, l);
+      const p = flatP(c.prompt);
+      expect(p).toContain('DESIGN DIRECTION');
+      expect(p).toContain('DIRECTION-TEXT');
+      expect(p).toContain('STYLE PACK (clean-product)');
+      expect(p).toContain('PACK-TEXT');
+      expect(p).toMatch(/brand and distinctiveness against the design direction and the style pack/i);
+      const item = c.opts.schema.properties.scores.items;
+      expect(item.properties.dimension.enum).toEqual(['usability', 'hierarchy', 'craft', 'brand', 'consistency', 'responsiveness', 'states', 'copy', 'density', 'distinctiveness']);
+      expect(item.required).toEqual(expect.arrayContaining(['board', 'dimension', 'score', 'frames', 'reason', 'vs_predecessor']));
+      expect(item.properties.not_judged).toEqual({ type: 'string' });
+      expect(item.properties).not.toHaveProperty('judged');
+    }
+  });
+
   it('dispatches 25 screens and the parts agent in waves of 20 and 6', async () => {
     const { parallel } = await run(drawArgs(25));
     const sizes = parallel.waves.map((w) => w.size);
@@ -266,11 +284,11 @@ describe('create-design stage draw', () => {
           { board: '01-screen-1', check: 'contrast', verdict: 'not-measured', value: null },
         ],
         scores: [
-          { board: '01-screen-1', dimension: 'Hierarchy', judged: true, score: 1, element: 'hero', change: 'enlarge' },
-          { board: '01-screen-1', dimension: 'Craft', judged: true, score: 2, element: 'body', change: 'raise size' },
-          { board: '01-screen-1', dimension: 'Density', judged: true, score: 3, element: 'list', change: 'space' },
-          { board: '01-screen-1', dimension: 'Consistency', judged: true, score: 4 },
-          { board: '01-screen-1', dimension: 'States', judged: false },
+          { board: '01-screen-1', dimension: 'hierarchy', score: 1, frames: ['f.png'], reason: 'hero: enlarge', vs_predecessor: 'worse' },
+          { board: '01-screen-1', dimension: 'craft', score: 2, frames: ['f.png'], reason: 'body: raise size', vs_predecessor: 'same' },
+          { board: '01-screen-1', dimension: 'density', score: 3, frames: ['f.png'], reason: 'list: space', vs_predecessor: 'same' },
+          { board: '01-screen-1', dimension: 'consistency', score: 4, frames: ['f.png'], reason: 'fine', vs_predecessor: 'better' },
+          { board: '01-screen-1', dimension: 'states', score: null, not_judged: 'one state only', frames: [], reason: 'one state', vs_predecessor: 'same' },
         ],
       },
     });
@@ -278,7 +296,8 @@ describe('create-design stage draw', () => {
     expect(by('render')).toEqual([expect.objectContaining({ rank: 'high', why: 'render error: boom' })]);
     expect(by('measure').map((f) => f.rank).sort()).toEqual(['high', 'medium']);
     expect(by('critique').map((f) => f.rank).sort()).toEqual(['high', 'low', 'medium']);
-    expect(result.findings_open.some((f) => /Consistency|States/.test(f.why))).toBe(false);
+    expect(result.findings_open.some((f) => /consistency|states/.test(f.why))).toBe(false);
+    expect(by('critique').find((f) => f.rank === 'high').why).toBe('hierarchy scored 1 of 5 (f.png): hero: enlarge');
     expect(result.critique.find((c) => c.screen === '01-screen-1').scores).toHaveLength(5);
   });
 

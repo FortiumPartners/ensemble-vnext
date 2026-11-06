@@ -197,4 +197,15 @@ describe('packages/skills/design-setup/SKILL.md', () => {
       expect(entries.sort()).toEqual(['SKILL.md', 'template.md'].sort());
     });
   });
+
+  test("§4's reuse default is the template's reuse rule, offered over the old 'existing view' wording (AC-F4.1)", () => {
+    const flat = (t) => t.replace(/\s+/g, ' ');
+    const tmpl = fs.readFileSync(SHIPPED_TEMPLATE_PATH, 'utf8');
+    const rule = tmpl.match(/^- \*\*Reuse:\*\* (.+)$/m)[1].trim();
+    expect(rule).toMatch(/components and tokens/);
+    expect(rule).toMatch(/departure latitude/);
+    const skill = flat(readSkill());
+    expect(skill).toContain(`**Reuse** — default: "${flat(rule)}"`);
+    expect(skill).toMatch(/even when the current file still carries the old wording \("an existing view beats a new one"\)/);
+  });
 });

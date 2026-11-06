@@ -359,7 +359,7 @@ describe('measures (D3)', () => {
     const r = await run(mk(), { boards: [ids.contrast], floor: { contrast: 4.5 } });
     const m = of(r, ids.contrast, 'contrast');
     expect(m).toHaveLength(1);
-    expect(m[0]).toMatchObject({ verdict: 'below-floor', count: 10, state: null });
+    expect(m[0]).toMatchObject({ verdict: 'below-floor', count: 10, state: null, viewport: '320x200' });
     expect(m[0].value).toBeLessThan(4.5);
   });
 
@@ -425,6 +425,9 @@ describe('measures (D3)', () => {
     const r = await run(d, { floor: { contrast: 4.5 } });
     expect(r.measures.some((m) => m.state === 'empty')).toBe(true);
     expect(r.measures.every((m) => m.state === null || m.state === 'empty')).toBe(true);
+    // Every measure names its frame: the board, the state and the viewport it was measured at.
+    expect(r.measures.every((m) => m.board === '02-state' && m.viewport === '320x200')).toBe(true);
+    expect(r.frames.every((f) => f.viewport === '320x200')).toBe(true);
   });
 
   it('maps --floor-contrast and --floor-target on the CLI, and rejects a bad number', () => {
