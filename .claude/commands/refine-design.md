@@ -116,7 +116,9 @@ A caller with nobody to ask drives `--auto` through its argument. The record for
    Set `brief_items` in `design-map.js`'s map only on boards this run redrew, to the brief item
    ids the redrawn board now serves, never to clear a finding by a map edit alone (the board's
    source must change in the same run). A brief item with no board is one ISSUES line naming
-   `/create-design`; this command draws no new board. Run `design-map.js refresh` and `validate`
+   `/create-design`; this command draws no new board. When this run adds a brief item to
+   `brief.md` and the map records a top-level `brief_items` list, append the item there as
+   `{ id, source }` too, or `validate` rejects a redrawn board that names it. Run `design-map.js refresh` and `validate`
    (refresh leaves `brief_items` as written; validate rejects a malformed one).
    Render per contract section 2.
 4. **Publish** per contract section 4, only the files that changed. Post a before/after on the

@@ -167,9 +167,11 @@ log(`indexed ${BOARDS.length} boards, ${index.brief_items.length} brief items, $
 
 // Traceability from the recorded field (D12). Both set differences are decided in code from the
 // map, not by a model's reading: a board's brief_items is recorded when the board is drawn.
-// A map where NO board has the field (hand-made, or drawn before it existed) keeps the verifier
-// deciding no-source and no-board, and no-brief-item is skipped.
-const RECORDS_FIELD = BOARDS.some((b) => Array.isArray(b.brief_items))
+// A map where NO to-be board has the field (hand-made, or drawn before it existed) keeps the verifier
+// deciding no-source and no-board, and no-brief-item is skipped. Only to-be boards count: a part
+// recorded [] by construction must not switch a map with no recorded to-be items onto this path,
+// where every brief item would read as unserved.
+const RECORDS_FIELD = BOARDS.some((b) => b.kind === 'to-be' && Array.isArray(b.brief_items))
 const MAP_ITEMS = Array.isArray(MAP.brief_items) ? MAP.brief_items.map((i) => (i && typeof i === 'object' ? i.id : i)) : null
 // The map's own item list (D16) is the brief's items when recorded; else the index's reading.
 const ITEM_IDS = MAP_ITEMS || index.brief_items.map((i) => i.id)
@@ -198,7 +200,7 @@ if (BY_CODE) {
   }
 }
 const TRACE_NOTE = !RECORDS_FIELD
-  ? 'No board in the map records brief_items, so the board-side check (a to-be board that serves no brief item) was SKIPPED and no-board was left to the verifier: add a Could Not Verify row saying so.'
+  ? 'No to-be board in the map records brief_items, so the board-side check (a to-be board that serves no brief item) was SKIPPED and no-board was left to the verifier: add a Could Not Verify row saying so.'
   : EMPTY_ITEMS
     ? 'The brief item list came back empty, so the code-side checks for no-board and no-brief-item were SKIPPED (a misread, not a finding): add a Could Not Verify row saying so.'
     : ''
@@ -389,7 +391,11 @@ wrong (a verifier missed a source that exists, resolved a path against the wrong
 read the wrong board). A rejected finding MUST carry refuting_file: the file that refutes it.
 Rejecting a bad finding is as valuable as accepting a good one.` : '\nThere are no findings: return empty accepted and rejected lists.'}
 ${COVERAGE}
-${CNV}
+${CNV}${codeFindings.length ? `
+Findings from verifier "traceability-map" were computed in code from design-map.json's recorded
+brief_items, not from a search: the map is their evidence, so the absence rule above does not
+apply to them. Reject one only when the map or ${BRIEF} shows it wrong (for example the brief
+item list was misread), naming that file.` : ''}
 
 COULD NOT VERIFY. The previous report listed these rows (may be empty):
 ${JSON.stringify(PRIOR_CNV, null, 1)}

@@ -17,7 +17,7 @@ $ARGUMENTS
 ```
 
 The slug names `docs/ui/<slug>/`. If none is given, take the one `docs/ui/*/design-map.json`
-whose boards include `building` ones; with several, the one `current.json` names, else end
+whose boards include `building` ones (with `--trd`, `building` ones of that feature); with several, the one `current.json` names, else end
 STUCK listing them. **Strip `--project <dir>` and `--trd <path>` first**, remembering both.
 
 ---

@@ -27,7 +27,8 @@ export const meta = {
 //   conventions   designing-on-canvas text                    groundingSkill  the grounding skill's text, or ''
 //   runtime       saved dc-runtime.js path (D12)              boardsInScope  [{ name, route, platform, viewport, predecessor, screenshot }]
 //   newMode       --new: no as-is board for a screen with no predecessor
-//   auto          --auto or no person present: record assumptions in the brief, ask nothing
+//   auto          accepted, not read: the ground stage returns every open decision in both modes and the
+//                 command records the unanswered ones (D7, D8)
 
 function readArgs(raw) {
   if (typeof raw === 'string') {
