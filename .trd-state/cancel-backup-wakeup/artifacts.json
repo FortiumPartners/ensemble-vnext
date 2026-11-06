@@ -9,13 +9,13 @@
   "success-definition": {
     "path": ".trd-state/cancel-backup-wakeup/success-definition.md",
     "url": "",
-    "updated_at": "2026-11-05T23:15:31.062Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-06T00:40:25.979Z",
+    "command": "/verify-build"
   },
   "verification-report": {
     "path": ".trd-state/cancel-backup-wakeup/verification-report.md",
     "url": "https://claude.ai/artifact/MC2Vxuo3MDYyqV9azr6VKp",
-    "updated_at": "2026-11-05T23:25:19.416Z",
-    "command": "/implement-trd"
+    "updated_at": "2026-11-06T00:44:04.314Z",
+    "command": "/verify-build"
   }
 }
