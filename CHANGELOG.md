@@ -10,6 +10,35 @@ number per item would land users on 4.9+ or 9.0.0 for what is one coordinated ch
 breaking changes are still labelled as such below. A single minor/major bump marks the point
 the work is actually released.
 
+## [4.15.1] - 2026-11-05
+
+### Fixed
+
+- **A finished command no longer leaves the session looking busy (#63).** Commands used to end
+  the turn that hands off work with a backup `ScheduleWakeup` of 25-40 minutes, in case the
+  completion notice never arrived. The work finished early, the command printed
+  `COMMAND COMPLETE`, and the timer stayed armed: the session read as busy (`waiting_wakeup`
+  under an outside orchestrator) and later fired a "nothing to do" turn. Across 179 local
+  transcripts, 37 of 37 backup wake-ups fired on work that had already finished, and none
+  caught a hang. `command-status.md` and `async-discipline.md` now say: schedule no backup
+  wake-up for work Claude Code already tracks (a `Workflow`, a background `Agent`, a
+  background `Bash`), since each wakes the session when it finishes; `ScheduleWakeup` is for
+  external state only (CI, a deploy, a remote queue). DISPATCHED banners read
+  `next wake: auto-deliver on completion`. A final-turn `ScheduleWakeup({ stop: true })`
+  cancel was built first and dropped: it would end an owner's `/loop` and could clear the
+  owner's own wake-ups. `/audit-build`'s stale-wake check stays as the backstop. Proven by a
+  live headless run: 0 `ScheduleWakeup` calls, nothing after the banner.
+
+### Changed
+
+- **User and agent documentation refreshed to 4.15 (#66):** `docs/guides/` rewritten, a new
+  `docs/guides/QUICK-REFERENCE.md` and root `README.md`, `docs/reference/design.md` added,
+  and 111 outdated documents removed.
+
+### Not yet proven
+
+- Only `/task` was run live; the other commands follow the same shared rule, checked by text.
+
 ## [4.15.0] - 2026-11-05
 
 A design stage on the Claude canvas (#58): five new commands draw a product's screens as

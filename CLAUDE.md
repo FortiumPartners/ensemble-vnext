@@ -312,10 +312,11 @@ if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
 
 ## Current Status
 
-Released at **4.15.0** (2026-11-05). 27 commands, 13 subagents. Test battery: 2646 Jest,
+Released at **4.15.1** (2026-11-05). 27 commands, 13 subagents. Test battery: 2645 Jest,
 125 pytest, 638 BATS. **Full release history: `CHANGELOG.md`.**
 
-4.15.0: the design stage (`/create-design` and four sibling commands).
+4.15.0: the design stage (`/create-design` and four sibling commands). 4.15.1: no backup
+wake-up for work Claude Code tracks (#63).
 
 Every framework-shipped skill is named once, in `packages/skills/framework-skills.txt`,
 marked `check` or `support`, and `/rebase-project` reads that list rather than a hardcoded
