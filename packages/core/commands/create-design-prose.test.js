@@ -112,4 +112,44 @@ describe('create-design command prose', () => {
     expect(text).toContain('COMMAND COMPLETE: /create-design');
     expect(text).toContain('notify-complete.sh "create-design"');
   });
+
+  // DORCH-B003 (O6, D8, D16): every decision nobody answered is recorded before the boards are drawn.
+  describe('decisions taken by default (DORCH-B003)', () => {
+    const draw = () => at('stage: "draw"');
+    test('fixed heading and the record lines are written before the draw stage', () => {
+      for (const s of ['## Decisions taken by default', '### OD-<n>: <question>', '- Options:', '- Taken:', '- Why:', '- Affects:']) {
+        expect(at(s)).toBeGreaterThan(0);
+        expect(at(s)).toBeLessThan(draw());
+      }
+    });
+    test('covers decisions beyond the four asked and asked-but-unanswered ones, in both branches', () => {
+      expect(text).toMatch(/Every returned decision nobody answered is recorded/);
+      expect(text).toMatch(/all of them under `--auto`/);
+      expect(text).toMatch(/beyond the four asked/);
+      expect(text).toMatch(/asked but not answered/);
+    });
+    test('numbers from the highest existing OD-n in brief.md, OD-1 on a new brief', () => {
+      expect(text).toMatch(/one more than the highest `OD-n` already in `brief\.md`/);
+      expect(text).toContain('`OD-1` on a new brief');
+    });
+    test('keeps an existing section word for word and the --auto bullet still covers plain assumptions', () => {
+      expect(text).toMatch(/keep it word for word/);
+      expect(text).toMatch(/Every assumption goes into `brief\.md` instead \(AC-F8\.3\)/);
+    });
+    test('step 5 writes brief_items per board (parts []) and the top-level item list from the ground stage', () => {
+      const step5 = text.slice(at('Write the map once'), at('Commit adopted canvas edits first'));
+      expect(step5).toMatch(/`brief_items` from the returned board/);
+      expect(step5).toMatch(/parts `\[\]`/);
+      expect(step5).toMatch(/top-level `brief_items`.*`items`/);
+      expect(step5.indexOf('brief_items')).toBeLessThan(step5.indexOf('`validate`'));
+    });
+    test('readout lists defaults by id in DECISIONS and weak ones in ISSUES', () => {
+      const readout = text.slice(at('## Readout'), at('## Completion signal'));
+      expect(readout).toMatch(/DECISIONS lists each default taken by its id and its question/);
+      expect(readout).toMatch(/`weak: true`.*ISSUES instead/);
+    });
+    test('names no product or orchestrator', () => {
+      expect(text).not.toMatch(/forge|orchestrator/i);
+    });
+  });
 });

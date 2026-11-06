@@ -2,7 +2,7 @@
 name: sync-design
 description: After a build - capture each building board's screen from the build, compare, mark matches shipped, rebuild boards an owner ruling accepts, and keep the canvas in step
 version: 1.0.0
-argument-hint: "<slug> [--project <dir>]"
+argument-hint: "<slug> [--trd <path>] [--project <dir>]"
 # Model-invocable like /audit-design. Scope authorization is autonomy.md's: a command runs to
 # its own banner, and /audit-build only NAMES this command in NEXT (AC-F13.1); it never chains it.
 ---
@@ -18,7 +18,7 @@ $ARGUMENTS
 
 The slug names `docs/ui/<slug>/`. If none is given, take the one `docs/ui/*/design-map.json`
 whose boards include `building` ones; with several, the one `current.json` names, else end
-STUCK listing them. **Strip `--project <dir>` first**, remembering it.
+STUCK listing them. **Strip `--project <dir>` and `--trd <path>` first**, remembering both.
 
 ---
 
@@ -34,6 +34,12 @@ what was planned. Per board that is `building`:
 | Differs, and an **owner ruling** accepts it | The board is redrawn from the shipped components to match the build, with the ruling cited in a canvas note (AC-F13.4). |
 | Differs, no ruling | Listed under ISSUES; the board stays `building`. The owner decides: fix the build, or accept it and rebuild the board (AC-F13.5). |
 | Cannot be captured here | Listed under ISSUES with the reason; the board stays `building`. |
+
+It may run on a feature branch before its PR merges; its commits land on that branch.
+
+**`--trd <path>`** (stripped with its value, like `--project`) limits the run to one feature: only
+`building` boards whose `trd` has that feature name are put in the map text passed to the workflow,
+and every other board is left untouched.
 
 **Only an owner ruling counts**, as `docs/TRD/verification-artifacts.md` D14 defines one: a PRD
 ruling, an amendment recording the owner's words, a TRD decision that quotes the owner, or an

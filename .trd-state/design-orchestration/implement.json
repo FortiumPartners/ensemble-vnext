@@ -4,7 +4,7 @@
   "trd_hash": "455f09414f371cd81481aab962120e61546f7181b83c40c4a5c816b5b58c7d59",
   "branch": "feature/design-orchestration/build",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "DORCH-B001": {
       "description": "design-map.js: validate accepts an optional brief_items (array of strings) and rejects any other value; new buildableByItems(map, items, ids) and CLI buildable --items returning { boards, unmatched, h",
@@ -80,38 +80,57 @@
     "DORCH-B003": {
       "description": "create-design.md: step 3 asks at most four (interactive) and records every unanswered decision under ## Decisions taken by default in the §3.3 format before step 4, numbering from the highest existing",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T04:04:05.973Z",
+      "completed_at": "2026-11-06T04:06:45.921Z",
+      "last_advanced": "2026-11-06T04:05:31.902Z"
     },
     "DORCH-B004": {
       "description": "refine-design.md: Modes row and --auto text per D9–D11 — new decisions appended with the next OD-n; OD-<n>: <option> answers applied (affected boards from Affects and the map's brief_items; Answer: li",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T04:04:05.973Z",
+      "completed_at": "2026-11-06T04:06:45.921Z",
+      "last_advanced": "2026-11-06T04:05:31.903Z"
     },
     "DORCH-B007": {
       "description": "audit-build.md and close-feature.md unsynced-boards step says \"now, or once the PR has merged\" and names /sync-design <slug> --trd <trd-path> (D13); sync-design.md states it may run on a feature branc",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/close-feature.md",
+        "packages/core/commands/sync-design.md",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/close-feature.md",
+        ".claude/commands/sync-design.md",
+        "packages/core/commands/sync-design-prose.test.js"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T04:04:05.973Z",
+      "completed_at": "2026-11-06T04:06:45.921Z",
+      "last_advanced": "2026-11-06T04:05:31.903Z"
     },
     "DORCH-D001": {
       "description": "Update docs/reference/design.md (create-trd --boards steps, the buildable --items row, the decisions record and OD-n answers, audit traceability from the map) and docs/guides/QUICK-REFERENCE.md (/crea",
@@ -138,10 +157,19 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "fa44c18",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-06T04:04:05.972Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": null,
-    "last_checkpoint_timestamp": null,
+    "last_healthy_checkpoint": "fa44c18",
+    "last_checkpoint_timestamp": "2026-11-06T04:04:05.972Z",
     "interrupted": false,
     "interrupt_reason": null
   },
