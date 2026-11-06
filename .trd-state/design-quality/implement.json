@@ -4,7 +4,7 @@
   "trd_hash": "e98a88a8ba868f6f10767213d3b38c0aa2ca8968900d471020cc7f5c9cfae074",
   "branch": "feature/design-quality/prd",
   "strategy": "tdd",
-  "phase_cursor": 1,
+  "phase_cursor": 2,
   "tasks": {
     "DQ-P001": {
       "description": "Commit the walk's boards (D17). Copy from /private/tmp/claude-502/-Users-james-dev-fortium-ensemble-vnext/7348a86a-641c-4089-9f06-0c4cf6808534/scratchpad/walk/react-web/docs/ui/ the folder trips-refre",
@@ -97,38 +97,67 @@
     "DQ-B003": {
       "description": "The design role (D7, D13). framework-skills.txt: header comment names design; add frontend-design design and the six style-pack-<slug> design rows. frontend-design/SKILL.md line 14 per D13. packages/s",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/skills/framework-skills.txt",
+        "packages/skills/frontend-design/SKILL.md",
+        "packages/skills/frontend-design/__tests__/skill-md.test.js",
+        "packages/skills/README.md",
+        "packages/core/scripts/scaffold-project.sh",
+        "packages/core/scripts/scaffold-project.test.sh",
+        "packages/core/lib/fix-audit.test.js",
+        "packages/core/templates/skill-selection-instructions.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:11:57.748Z",
+      "completed_at": "2026-11-06T17:21:36.979Z",
+      "last_advanced": "2026-11-06T17:17:35.042Z"
     },
     "DQ-B004": {
       "description": "Measurement in design-render.js (D3, §3.2): the measurement script, tokens.json reading from the render root's ds/*/, console capture of x-import: FAILED to load, --floor-contrast / --floor-target fla",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/lib/design-render.js",
+        "packages/core/lib/design-render.test.js",
+        ".claude/lib/design-render.js",
+        "packages/core/lib/__fixtures__/design/measure-contrast.dc.html",
+        "packages/core/lib/__fixtures__/design/measure-target.dc.html",
+        "packages/core/lib/__fixtures__/design/measure-clipped.dc.html",
+        "packages/core/lib/__fixtures__/design/measure-overlap.dc.html",
+        "packages/core/lib/__fixtures__/design/measure-offtoken.dc.html",
+        "packages/core/lib/__fixtures__/design/measure-import.dc.html"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:11:57.748Z",
+      "completed_at": "2026-11-06T17:21:36.980Z",
+      "last_advanced": "2026-11-06T17:17:35.042Z"
     },
     "DQ-P003": {
       "description": "Contract design-commands.md (D1, D2, D4, D8, D10, D18). §1 step 3: render always uses .claude/lib/dc-runtime.js; with no canvas to read, read the Design type's instructions through the type per D18; w",
       "phase": 2,
-      "status": "pending",
-      "cycle_position": "implement",
+      "status": "success",
+      "cycle_position": "complete",
       "current_problem": null,
       "retry_count": 0,
-      "files_changed": [],
+      "files_changed": [
+        "packages/core/contracts/design-commands.md",
+        ".claude/contracts/design-commands.md",
+        "packages/core/contracts/design-commands.test.js",
+        "packages/core/commands/sync-design.md",
+        ".claude/commands/sync-design.md",
+        "docs/reference/design.md"
+      ],
       "commit": null,
-      "started_at": null,
-      "completed_at": null
+      "started_at": "2026-11-06T17:11:57.748Z",
+      "completed_at": "2026-11-06T17:21:36.980Z",
+      "last_advanced": "2026-11-06T17:17:35.042Z"
     },
     "DQ-B005": {
       "description": "create-design.js critique and direction (D8, D9, D10, D12). New args direction, craft, stylePack, rubric; BOARD_RULES gains DESIGN DIRECTION, CRAFT, STYLE PACK; to-be prompt per D12; reuse axis gets t",
@@ -251,11 +280,21 @@
       "completed_at": null
     }
   },
-  "checkpoints": [],
+  "checkpoints": [
+    {
+      "phase": 1,
+      "commit": "4dc8996",
+      "review": {
+        "findings": 0
+      },
+      "timestamp": "2026-11-06T17:11:57.747Z"
+    }
+  ],
   "recovery": {
-    "last_healthy_checkpoint": "a9866ba",
+    "last_healthy_checkpoint": "4dc8996",
     "interrupted": false,
-    "interrupt_reason": null
+    "interrupt_reason": null,
+    "last_checkpoint_timestamp": "2026-11-06T17:11:57.747Z"
   },
   "functional_verification": {
     "prd_resolved": true,

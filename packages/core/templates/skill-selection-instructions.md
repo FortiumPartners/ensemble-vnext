@@ -104,9 +104,14 @@ For each matched skill:
 ### Step 4: Framework Skills (Always Shipped — do not select)
 
 Every skill listed in `packages/skills/framework-skills.txt` ships to every project:
-`check` rows (verify-design-comparison, verify-flow-as-built, verify-data-fidelity) and
-the `support` row (verification-setup). `scaffold-project.sh` copies them
-itself on scaffold and refresh, so leave them out of the stack-based selection above.
+`check` rows (verify-design-comparison, verify-flow-as-built, verify-data-fidelity),
+`support` rows (verification-setup) and `design` rows (frontend-design and the
+`style-pack-*` skills). `scaffold-project.sh` copies them itself on scaffold and
+refresh, so leave them out of the stack-based selection above.
+
+**One exception:** a `design`-role craft skill that `skill-affinity.json` names for an
+agent (`frontend-design`, for code-reviewer, frontend-implementer and mobile-implementer)
+stays in the stack-based selection, so those agents keep preloading it.
 
 ---
 

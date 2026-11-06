@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overlap board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width: 320px; height: 200px; box-sizing: border-box; padding: 8px; background: #ffffff; color: #111111; font-family: monospace">
+<button style="position:absolute;left:10px;top:100px;width:80px;height:48px">One</button><button style="position:absolute;left:50px;top:110px;width:80px;height:48px">Two</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":200}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

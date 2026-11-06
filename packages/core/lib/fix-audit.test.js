@@ -314,6 +314,25 @@ describe('fix-audit: the Verification Artifacts section (TRD §3.4)', () => {
     expect(vaFindings(r).some((f) => /names no SKILL\.md/.test(f.detail))).toBe(false);
   });
 
+  test('a Skill row naming a design-role skill is reported "not a selectable check" (DQ-B003, D7)', () => {
+    fs.mkdirSync(path.join(root, 'packages', 'skills', 'frontend-design'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'packages', 'skills', 'frontend-design', 'SKILL.md'), '# stub\n');
+    fs.writeFileSync(
+      path.join(root, 'packages', 'skills', 'framework-skills.txt'),
+      '# name role\nverify-design-comparison check\nfrontend-design design\n'
+    );
+    const md = [
+      '## Verification Artifacts',
+      '',
+      '| Skill | Inputs | Why it applies |',
+      '|-------|--------|----------------|',
+      '| frontend-design | `package.json` | made up |',
+      '',
+    ].join('\n');
+    const r = audit(parsed(), opts(md, { root }));
+    expect(vaFindings(r).some((f) => /frontend-design: role is "design", not a selectable check/.test(f.detail))).toBe(true);
+  });
+
   test('an Omitted: line naming a non-check-role skill is also a finding', () => {
     fs.mkdirSync(path.join(root, 'packages', 'skills', 'verification-setup'), { recursive: true });
     fs.writeFileSync(path.join(root, 'packages', 'skills', 'verification-setup', 'SKILL.md'), '# stub\n');

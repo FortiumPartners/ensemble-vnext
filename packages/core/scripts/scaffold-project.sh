@@ -944,7 +944,8 @@ copy_hooks() {
 # the global FRAMEWORK_SKILLS to every listed name, any role: this script ships
 # every listed skill regardless of role. Only a check-selection reader
 # (trd-authoring.md, audit-trd.js, /implement-trd, /verify-build) distinguishes
-# "check" from "support". $1 is the already-resolved skills source directory
+# "check" from "support" and "design" (the third role: craft skills and style
+# packs the design commands read). $1 is the already-resolved skills source directory
 # (skills-lib/, falling back to skills/) -- the list file sits beside the
 # skill directories there, not inside one.
 load_framework_skills() {
@@ -1408,7 +1409,10 @@ agent_status() {
 # each installed plugin-library skill not listed yet (sorted, after the existing
 # lines); keep comments, blanks, line order and any name not in the library.
 # Framework skills (framework-skills.txt) are never appended -- no affinity pool
-# names one. Does nothing without a selection file or a skills directory.
+# names one, except frontend-design (role design): skill-affinity.json names it
+# for code-reviewer, frontend-implementer and mobile-implementer, so it stays in
+# the stack-based selection (skill-selection-instructions.md Step 4) to keep
+# preloading; a line already in selected-skills.txt is kept, as its folder exists. Does nothing without a selection file or a skills directory.
 # Messages go to stderr: --sync-agents stdout carries status lines only.
 reconcile_selected_skills() {
     local target_dir="$1"

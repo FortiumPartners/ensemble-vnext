@@ -323,3 +323,130 @@ describe('the libraries ship with their mirrors', () => {
     expect(sha).toBe('b795ee21261f2e7da1b10cb25b4a4cfa275d1b96165f89396f1fed426e191844');
   });
 });
+
+describe('measures (D3)', () => {
+  const ids = {
+    contrast: 'measure-contrast', target: 'measure-target', clipped: 'measure-clipped',
+    overlap: 'measure-overlap', offtoken: 'measure-offtoken', imp: 'measure-import', plain: 'plain',
+  };
+  const files = Object.fromEntries(Object.values(ids).map((n) => [`${n}.dc.html`, fixture(`${n}.dc.html`)]));
+  const mk = () => mkDesign(Object.values(ids).map((n) => board(n)), files);
+  const writeTokens = (d, json, folder = 'acme') => {
+    const dir = path.join(d.repo, 'docs', 'ui', '_design-system', folder);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify(json));
+  };
+  const of = (r, id, check, verdict) => r.measures.filter((m) => m.board === id && m.check === check && (verdict === undefined || m.verdict === verdict));
+
+  it('can run the script in the board iframe through page.frames()', async () => {
+    const d = mk();
+    const r = await run(d, { boards: [ids.contrast] });
+    expect(of(r, ids.contrast, 'measurement')).toEqual([]);
+    expect(of(r, ids.contrast, 'contrast').length).toBeGreaterThan(0);
+  });
+
+  it('with no floor, reports the lowest contrast and smallest target and no verdict', async () => {
+    const r = await run(mk(), { boards: [ids.contrast, ids.target] });
+    const [c] = of(r, ids.contrast, 'contrast');
+    expect(c.verdict).toBeNull();
+    expect(c.value).toBeCloseTo(2.32, 1); // #aaaaaa on white
+    expect(c.count).toBe(11);
+    const [t] = of(r, ids.target, 'target-size');
+    expect(t).toMatchObject({ verdict: null, value: 24, count: 2 });
+  });
+
+  it('ten low-contrast elements sharing one colour pair give one below-floor measure with count 10', async () => {
+    const r = await run(mk(), { boards: [ids.contrast], floor: { contrast: 4.5 } });
+    const m = of(r, ids.contrast, 'contrast');
+    expect(m).toHaveLength(1);
+    expect(m[0]).toMatchObject({ verdict: 'below-floor', count: 10, state: null });
+    expect(m[0].value).toBeLessThan(4.5);
+  });
+
+  it('flags a 24 px link under a 44 px floor, and not the 48 px button', async () => {
+    const r = await run(mk(), { boards: [ids.target], floor: { target: 44 } });
+    const m = of(r, ids.target, 'target-size');
+    expect(m).toHaveLength(1);
+    expect(m[0]).toMatchObject({ verdict: 'below-floor', value: 24, detail: '24x24', count: 1 });
+    expect(m[0].element).toMatch(/^a/);
+  });
+
+  it('reports clipped text and overlapping buttons as layout faults', async () => {
+    const r = await run(mk(), { boards: [ids.clipped, ids.overlap] });
+    expect(of(r, ids.clipped, 'layout').map((m) => m.detail)).toContain('clipped-text');
+    expect(of(r, ids.overlap, 'layout')).toContainEqual(expect.objectContaining({ verdict: 'fault', detail: 'overlapping-targets', count: 1 }));
+    const plain = of(await run(mk(), { boards: [ids.plain] }), ids.plain, 'layout').map((m) => m.detail);
+    expect(plain).not.toContain('clipped-text');
+    expect(plain).not.toContain('overlapping-targets');
+  });
+
+  it('without a tokens.json, fidelity is not-measured and compares nothing', async () => {
+    const r = await run(mk(), { boards: [ids.offtoken] });
+    expect(of(r, ids.offtoken, 'fidelity')).toEqual([expect.objectContaining({ verdict: 'not-measured' })]);
+  });
+
+  it('one off-token per distinct colour with a count, in the grouped tokens shape; a stacked family compares by its first family', async () => {
+    const d = mk();
+    writeTokens(d, { color: { tokens: [{ name: 'ink', value: '#111111' }, { name: 'paper', value: '#fff' }] }, type: { families: { mono: 'monospace, "Courier New"' } } });
+    const r = await run(d, { boards: [ids.offtoken] });
+    const f = of(r, ids.offtoken, 'fidelity', 'off-token');
+    expect(f.filter((m) => m.detail === 'text')).toEqual([expect.objectContaining({ value: 'rgba(255, 0, 0, 1)', count: 2 })]);
+    expect(f.filter((m) => m.detail === 'font-family')).toEqual([expect.objectContaining({ value: 'georgia', count: 1 })]);
+    expect(f.filter((m) => m.detail === 'background')).toEqual([]); // white is a token, written as #fff
+    expect(f.filter((m) => m.detail === 'border')).toEqual([]); // zero-width borders are not compared
+  });
+
+  it('reads the list tokens shape too', async () => {
+    const d = mk();
+    writeTokens(d, { tokens: [{ name: 'ink', value: '#111' }, { name: 'paper', value: 'rgb(255 255 255)' }, { name: 'radius', value: '6px' }] });
+    const f = of(await run(d, { boards: [ids.offtoken] }), ids.offtoken, 'fidelity', 'off-token');
+    expect(f.map((m) => `${m.detail}:${m.value}`)).toEqual(['text:rgba(255, 0, 0, 1)']);
+  });
+
+  it('an hsl() colour token makes colour fidelity not-measured, naming the token', async () => {
+    const d = mk();
+    writeTokens(d, { color: { tokens: [{ name: 'brand', value: 'hsl(220 50% 50%)' }] }, type: { families: { mono: 'monospace' } } });
+    const f = of(await run(d, { boards: [ids.offtoken] }), ids.offtoken, 'fidelity');
+    expect(f).toContainEqual(expect.objectContaining({ verdict: 'not-measured', detail: 'color', value: 'brand' }));
+    expect(f.filter((m) => m.detail === 'text')).toEqual([]);
+  });
+
+  it('reports a failed x-import from the console, not as a render error', async () => {
+    const r = await run(mk(), { boards: [ids.imp] });
+    const f = of(r, ids.imp, 'fidelity', 'import-failed');
+    expect(f).toHaveLength(1);
+    expect(f[0].value).toMatch(/does-not-exist/);
+    // The console message itself is not pushed into errors (the runtime's own render error is separate).
+    expect((r.errors[ids.imp] || []).join(' ')).not.toMatch(/FAILED to load/);
+  });
+
+  it('takes the state from the target, not the copy filename', async () => {
+    const d = mkDesign([board('02-state', { states: { empty: { props: { empty: true } } } })], { '02-state.dc.html': fixture('stateful.dc.html') });
+    const r = await run(d, { floor: { contrast: 4.5 } });
+    expect(r.measures.some((m) => m.state === 'empty')).toBe(true);
+    expect(r.measures.every((m) => m.state === null || m.state === 'empty')).toBe(true);
+  });
+
+  it('maps --floor-contrast and --floor-target on the CLI, and rejects a bad number', () => {
+    const d = mk();
+    const cli = path.join(__dirname, 'design-render.js');
+    const args = (...extra) => [cli, 'render', '--dir', d.dir, '--runtime', RUNTIME, '--out', path.join(d.repo, 'o'), '--boards', ids.target, ...extra];
+    const cwd = path.join(__dirname, '..', '..', '..');
+    const ok = spawnSync(process.execPath, args('--floor-target', '44'), { cwd, encoding: 'utf8' });
+    expect(ok.status).toBe(0);
+    expect(JSON.parse(ok.stdout).measures.find((m) => m.check === 'target-size').verdict).toBe('below-floor');
+    const bad = spawnSync(process.execPath, args('--floor-contrast', 'abc'), { cwd, encoding: 'utf8' });
+    expect(bad.status).toBe(1);
+    expect(bad.stderr).toMatch(/--floor-contrast must be a positive number/);
+  });
+
+  it('normalizeColor accepts hex of 3, 4, 6 and 8 digits and rgb()/rgba(), and refuses other syntax', () => {
+    expect(render.normalizeColor('#abc')).toBe('rgba(170, 187, 204, 1)');
+    expect(render.normalizeColor('#abcd')).toBe('rgba(170, 187, 204, 0.87)');
+    expect(render.normalizeColor('#aabbcc80')).toBe('rgba(170, 187, 204, 0.5)');
+    expect(render.normalizeColor('rgb(1 2 3 / 50%)')).toBe('rgba(1, 2, 3, 0.5)');
+    expect(render.normalizeColor('rgba(1, 2, 3, 0.25)')).toBe('rgba(1, 2, 3, 0.25)');
+    expect(render.normalizeColor('hsl(1 2% 3%)')).toBeNull();
+    expect(render.normalizeColor('var(--x)')).toBeNull();
+  });
+});

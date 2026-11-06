@@ -699,6 +699,20 @@ EOF
     [ -d "$TEST_DIR/.claude/skills/jest" ]
 }
 
+@test "Skill copy: a scaffold installs frontend-design and every style-pack (DQ-B003, D7)" {
+    local plugin_dir
+    plugin_dir="$(_get_plugin_dir)"
+
+    run "$SCAFFOLD_SCRIPT" --plugin-dir "$plugin_dir" "$TEST_DIR"
+    [ "$status" -eq 0 ]
+
+    [ -d "$TEST_DIR/.claude/skills/frontend-design" ]
+    local slug
+    for slug in clean-product dense-enterprise expressive-editorial playful-consumer modern-consumer modern-b2b-saas; do
+        [ -d "$TEST_DIR/.claude/skills/style-pack-$slug" ]
+    done
+}
+
 @test "Skill copy: Skips comments and empty lines in selection file" {
     local plugin_dir
     plugin_dir="$(_get_plugin_dir)"
