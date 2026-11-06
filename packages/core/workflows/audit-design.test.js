@@ -247,6 +247,20 @@ describe('audit-design traceability from the map (DORCH-B005)', () => {
     expect(r.result.findings).toBe(0)
   })
 
+  it('stays on the verifier path when only parts record the field, not reading every item as unserved', async () => {
+    const r = await run([{ ...board(1), id: 'a', kind: 'to-be' }, tb('p', [], { kind: 'part' })])
+    expect(byLabel(r.agent, 'verify:traceability').prompt).toMatch(/no-board:\s+a brief item/)
+    expect(accepted(r)).toMatch(/No to-be board in the map records brief_items/)
+    expect(r.result.findings).toBe(0)
+  })
+
+  it('tells reconcile that map-computed findings are exempt from the absence rule', async () => {
+    const withCode = await run([tb('a', ['S1'])])
+    expect(accepted(withCode)).toMatch(/verifier "traceability-map" were computed in code/)
+    const none = await run([tb('a', ['S1', 'S2', 'S3'])])
+    expect(accepted(none)).not.toMatch(/traceability-map" were computed in code/)
+  })
+
   it('carries the new check value, the heading, and the Index id instruction', async () => {
     const r = await run([tb('a', ['S1'])])
     expect(byLabel(r.agent, 'verify:traceability').opts.schema.properties.findings.items.properties.check.enum).toContain('no-brief-item')

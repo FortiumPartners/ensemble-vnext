@@ -64,7 +64,9 @@ const CONVENTIONS = a.conventions || ''
 const GROUNDING_SKILL = a.groundingSkill || ''
 const RUNTIME = a.runtime || ''
 const NEW_MODE = a.newMode === true
-const OD_NEXT = Number.isInteger(a.odNext) && a.odNext >= 1 ? a.odNext : 1
+// A numeric string ("4") is accepted: a silent fall back to 1 would repeat ids already in brief.md.
+const OD_NEXT_RAW = typeof a.odNext === 'string' && a.odNext.trim() !== '' ? Number(a.odNext) : a.odNext
+const OD_NEXT = Number.isInteger(OD_NEXT_RAW) && OD_NEXT_RAW >= 1 ? OD_NEXT_RAW : 1
 const ITEM_IDS = (Array.isArray(a.items) ? a.items : []).map((i) => (i && i.id) || '').filter(Boolean)
 const SCREENS = Array.isArray(a.boardsInScope) ? a.boardsInScope : []
 if (STAGE !== 'ground' && STAGE !== 'draw') throw new Error('create-design: args.stage must be "ground" or "draw"')
@@ -244,7 +246,7 @@ ${BATCH}`,
     // Every decision, in both modes, uncapped (the command caps its own question round, D7), each
     // with its OD-n id numbered from the command's odNext, so an unattended caller can answer one
     // by id later (`/refine-design --auto "OD-n: <option>"`).
-    openDecisions: (brief.openDecisions || []).map((d, i) => ({ id: `OD-${OD_NEXT + i}`, ...d })),
+    openDecisions: (brief.openDecisions || []).map((d, i) => ({ ...d, id: `OD-${OD_NEXT + i}` })),
     items: brief.items,
     screens: brief.screens,
     grounding_written: grounded.filter(Boolean).filter((g) => g.written).map((g) => g.file),
@@ -269,7 +271,14 @@ const BOARD_SCHEMA = {
 }
 // A to-be board must answer which brief items it serves; an empty list is then the agent's answer,
 // not a defaulted missing field (D12).
-const TOBE_SCHEMA = { ...BOARD_SCHEMA, required: [...BOARD_SCHEMA.required, 'brief_items'] }
+// With recorded ids, the schema enforces them too, so an invented id fails here rather than at validate.
+const TOBE_SCHEMA = {
+  ...BOARD_SCHEMA,
+  required: [...BOARD_SCHEMA.required, 'brief_items'],
+  properties: ITEM_IDS.length
+    ? { ...BOARD_SCHEMA.properties, brief_items: { type: 'array', items: { type: 'string', enum: ITEM_IDS } } }
+    : BOARD_SCHEMA.properties,
+}
 
 phase('AsIs')
 

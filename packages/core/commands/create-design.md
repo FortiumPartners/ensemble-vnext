@@ -73,10 +73,10 @@ stem. The design lives in `docs/ui/<slug>/`, and its state in `.trd-state/<slug>
    **Record what nobody answered, before step 4.** Every returned decision nobody answered is
    recorded in `brief.md` under the fixed heading `## Decisions taken by default`, taking its
    `recommended` option: all of them under `--auto` or with no person present, the ones beyond
-   the four asked, and any asked but not answered. Each is numbered `OD-n`, one more than the
-   highest `OD-n` already in `brief.md` (`OD-1` on a new brief). If the heading already exists,
-   keep it word for word and append below it. Record each decision under the `id` the workflow
-   returned it with; under `--auto` those are exactly the next ids in order. With a person present, an
+   the four asked, and any asked but not answered. If the heading already exists, keep it word for
+   word and append below it. Record each decision under the `id` the workflow returned it with, never
+   renumbered: those ids start at `odNext`, one more than the highest `OD-n` already in `brief.md`
+   (`OD-1` on a new brief), and under `--auto` they are exactly the next ids in order. With a person present, an
    answered decision's id is simply not used, so the recorded ids can skip a number but never repeat
    one. If the workflow was unavailable, number the recorded decisions yourself by the same rule. The format:
 

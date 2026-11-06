@@ -108,7 +108,9 @@ describe('create-design stage ground', () => {
     const two = { ...BRIEF, openDecisions: [0, 1].map((i) => ({ question: `q${i}`, options: ['a'], recommended: 'a', why: 'w', weak: false, brief_items: [] })) };
     const { result } = await run(groundArgs({ auto: true, odNext: 4 }), { brief: two });
     expect(result.openDecisions.map((d) => d.id)).toEqual(['OD-4', 'OD-5']);
-    for (const bad of [0, -2, 'x', 1.5]) {
+    const str = await run(groundArgs({ auto: true, odNext: '4' }), { brief: two });
+    expect(str.result.openDecisions.map((d) => d.id)).toEqual(['OD-4', 'OD-5']);
+    for (const bad of [0, -2, 'x', 1.5, '']) {
       const r = await run(groundArgs({ auto: true, odNext: bad }), { brief: two });
       expect(r.result.openDecisions.map((d) => d.id)).toEqual(['OD-1', 'OD-2']);
     }
@@ -182,6 +184,7 @@ describe('create-design stage draw', () => {
     expect(p).toContain('S1');
     expect(p).toContain('BI-1');
     expect(p).toMatch(/only ids/i);
+    expect(byLabel(agent, 'tobe:01-screen-1').opts.schema.properties.brief_items.items.enum).toEqual(['S1', 'BI-1']);
   });
 
   it('tells the to-be agent to return an empty list when no ids were recorded', async () => {
