@@ -1,0 +1,244 @@
+{
+  "requirements": [
+    {
+      "id": "O1",
+      "statement": "/create-trd <prd> --design docs/ui/<slug> --boards <ids> builds and approves exactly the named boards, using the same rules /plan --design --boards uses. Must-pass.",
+      "source": "TRD Objectives O1",
+      "served_by": [
+        "DORCH-B006",
+        "DORCH-T001"
+      ]
+    },
+    {
+      "id": "O2",
+      "statement": "/create-design keeps item ids from its source (e.g. S1, S2) and assigns BI-n only when the source has none.",
+      "source": "TRD Objectives O2",
+      "served_by": [
+        "DORCH-B002",
+        "DORCH-T001"
+      ]
+    },
+    {
+      "id": "O3",
+      "statement": "Each board in design-map.json records brief_items; written by /create-design, kept current by /refine-design; design-map.js validate accepts the field. Must-pass, unconfirmed.",
+      "source": "TRD Objectives O3",
+      "served_by": [
+        "DORCH-B001",
+        "DORCH-B003",
+        "DORCH-B004"
+      ]
+    },
+    {
+      "id": "O4",
+      "statement": "design-map.js buildable --items returns buildable to-be boards whose brief_items include a named item; an item no board serves is reported, not dropped. Must-pass, unconfirmed.",
+      "source": "TRD Objectives O4",
+      "served_by": [
+        "DORCH-B001",
+        "DORCH-T001"
+      ]
+    },
+    {
+      "id": "O5",
+      "statement": "/audit-design traceability reads brief_items from the map, so no-brief-item and no-board findings come from the recorded field.",
+      "source": "TRD Objectives O5",
+      "served_by": [
+        "DORCH-B005"
+      ]
+    },
+    {
+      "id": "O6",
+      "statement": "Under --auto, /create-design and /refine-design still produce open decisions and record each under '## Decisions taken by default' with an OD-n id. Must-pass, unconfirmed.",
+      "source": "TRD Objectives O6",
+      "served_by": [
+        "DORCH-B002",
+        "DORCH-B003",
+        "DORCH-B004",
+        "DORCH-T001"
+      ]
+    },
+    {
+      "id": "O7",
+      "statement": "/refine-design <slug> --auto 'OD-2: <option>' applies an answer, redraws affected boards, and records the answer in brief.md.",
+      "source": "TRD Objectives O7",
+      "served_by": [
+        "DORCH-B004",
+        "DORCH-T001"
+      ]
+    },
+    {
+      "id": "O8",
+      "statement": "/refine-design --auto with no other feedback takes open findings from the latest audit-design-report.md as feedback.",
+      "source": "TRD Objectives O8",
+      "served_by": [
+        "DORCH-B004",
+        "DORCH-T001"
+      ]
+    },
+    {
+      "id": "O9",
+      "statement": "/audit-build and /close-feature word the /sync-design NEXT step so running it before merge on the feature branch is allowed; /sync-design states it may run on a feature branch.",
+      "source": "TRD Objectives O9",
+      "served_by": [
+        "DORCH-B007"
+      ]
+    },
+    {
+      "id": "O10",
+      "statement": "No shipped text names a particular product or orchestrator; wording is for any unattended caller.",
+      "source": "TRD Objectives O10 (owner statement)",
+      "served_by": [
+        "DORCH-B003",
+        "DORCH-B004"
+      ]
+    },
+    {
+      "id": "D15",
+      "statement": "End-to-end walk of the multi-feature path in a scaffolded react-web fixture copy is live-proven.",
+      "source": "TRD tasks T001 / Decisions",
+      "served_by": [
+        "DORCH-T001"
+      ]
+    },
+    {
+      "id": "D13",
+      "statement": "audit-build and close-feature name /sync-design <slug> --trd <trd-path> for the unsynced-boards step.",
+      "source": "TRD tasks B007 / D13",
+      "served_by": [
+        "DORCH-B007",
+        "DORCH-D001"
+      ]
+    },
+    {
+      "id": "PRD-AC-F8.1-F8.10",
+      "statement": "/create-design: resolve, ground, brief, as-is, parts, to-be, challenge, publish (PRD design-stage.md AC-F8). Scope references only; this TRD is for the investigation, not the PRD.",
+      "source": "docs/PRD/design-stage.md section 6",
+      "served_by": []
+    },
+    {
+      "id": "PRD-AC-F9.1-F9.5",
+      "statement": "/refine-design: adopt edits, feedback sources, targeted changes, owner-only approval, modes, main session (PRD AC-F9).",
+      "source": "docs/PRD/design-stage.md section 6",
+      "served_by": []
+    },
+    {
+      "id": "PRD-AC-F10.1-F10.4",
+      "statement": "/audit-design: report, Could Not Verify, board-and-line findings, refuting file (PRD AC-F10).",
+      "source": "docs/PRD/design-stage.md section 6",
+      "served_by": []
+    },
+    {
+      "id": "PRD-AC-N4",
+      "statement": "No mid-run pause outside the four cases; --auto asks nothing (PRD NFR-4).",
+      "source": "docs/PRD/design-stage.md section 6",
+      "served_by": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DORCH-B001",
+      "description": "design-map.js: validate accepts brief_items; buildableByItems and CLI buildable --items; validate checks top-level item list; --items empty is an error; mirror updated. Serves O3, O4, D3, D4, D5, D16. Deps: none. Skill: jest.",
+      "touches": [
+        "packages/core/lib/design-map.js",
+        "packages/core/lib/design-map.test.js",
+        ".claude/lib/design-map.js"
+      ]
+    },
+    {
+      "id": "DORCH-B002",
+      "description": "create-design.js ground stage: keep source item ids when unique, else BI-n; return items and every open decision with why/weak flags. Serves O2, O6, D6, D7, D16. Deps: none. Skill: jest.",
+      "touches": [
+        "packages/core/workflows/create-design.js",
+        "packages/core/workflows/create-design.test.js",
+        ".claude/workflows/create-design.js"
+      ]
+    },
+    {
+      "id": "DORCH-B005",
+      "description": "audit-design.js: no-board and no-brief-item findings computed in code from brief_items, falling back to verifier; command prose updated. Serves O5, D12. Deps: none. Skill: jest.",
+      "touches": [
+        "packages/core/workflows/audit-design.js",
+        "packages/core/workflows/audit-design.test.js",
+        "packages/core/commands/audit-design.md",
+        "packages/core/commands/audit-design-prose.test.js",
+        ".claude/workflows/audit-design.js",
+        ".claude/commands/audit-design.md"
+      ]
+    },
+    {
+      "id": "DORCH-B006",
+      "description": "create-trd.md: --boards <ids> with /plan's named-board rules; argument-hint; flag stripped before PRD path; mirror updated. Serves O1, D2. Deps: none. Skill: jest.",
+      "touches": [
+        "packages/core/commands/create-trd.md",
+        ".claude/commands/create-trd.md",
+        "packages/core/commands/create-trd-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "DORCH-B003",
+      "description": "create-design.md: step 3 asks at most four interactively, records every unanswered decision under '## Decisions taken by default' numbered from highest OD-n; step 5 names brief_items. Serves O3, O6, O10, D8, D14, D16. Deps: DORCH-B002. Skill: jest.",
+      "touches": [
+        "packages/core/commands/create-design.md",
+        ".claude/commands/create-design.md",
+        "packages/core/commands/create-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "DORCH-B004",
+      "description": "refine-design.md: modes and --auto text; new decisions appended with next OD-n; OD-n answers applied to affected boards; bad reference is an ISSUES line. Serves O3, O6, O7, O8, O10, D9, D10, D11, D14. Deps: DORCH-B001.  Skill: jest.",
+      "touches": [
+        "packages/core/commands/refine-design.md",
+        ".claude/commands/refine-design.md",
+        "packages/core/commands/refine-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "DORCH-B007",
+      "description": "audit-build.md and close-feature.md unsynced-boards step: allow 'now, or once the PR has merged' and name /sync-design <slug> --trd <trd-path>; sync-design.md gains --trd and feature-branch note; mirrors and prose tests updated. Serves O9, D13. Deps: DORCH-B005. Skill: jest.",
+      "touches": [
+        "packages/core/commands/audit-build.md",
+        "packages/core/commands/close-feature.md",
+        "packages/core/commands/sync-design.md",
+        ".claude/commands/audit-build.md",
+        ".claude/commands/close-feature.md",
+        ".claude/commands/sync-design.md",
+        "packages/core/commands/sync-design-prose.test.js"
+      ]
+    },
+    {
+      "id": "DORCH-D001",
+      "description": "Documentation: docs/reference/design.md, docs/guides/QUICK-REFERENCE.md, docs/TRD/unsynced-boards.md, and wording-affected reference docs. Serves constitution Quality Gates documentation item and D13. Deps: B001 through B007.",
+      "touches": [
+        "docs/reference/design.md",
+        "docs/guides/QUICK-REFERENCE.md",
+        "docs/TRD/unsynced-boards.md",
+        "docs/reference/authoring.md",
+        "docs/reference/README.md",
+        "docs/reference/other-commands.md",
+        "docs/guides/PROCESS.md"
+      ]
+    },
+    {
+      "id": "DORCH-T001",
+      "description": "[LIVE] end-to-end walk in a scaffolded copy of test/fixtures/design/react-web/ with publishing off; buildable --items for two disjoint item sets; refine answers. Serves O1, O2, O3, O4, O6, O7, O8, D15. Deps: B001 through B006. Touches no tracked source file; writes only gitignored .trd-state evidence paths.",
+      "touches": []
+    }
+  ],
+  "open_questions": [
+    "OQ-1: Should --auto cap open decisions at four? Assumed no cap (TRD states this). If wrong, change the AUTO branch in DORCH-B002.",
+    "OQ-2: Is a bad OD-n reference STUCK or an ISSUES line? Assumed ISSUES line; run continues.",
+    "OQ-3: Should shipped_commit be re-pointed after a feature-branch merge? Assumed no, out of scope (TR1).",
+    "OQ-4: Should the board side of traceability cover part, as-is and flow boards? Assumed to-be boards only.",
+    "OQ-5: Should concurrent features coordinate writes to one design-map.json? Assumed not addressed (TR2).",
+    "OQ-6: What counts as a weak default? Assumed the brief agent's own weak flag (D7).",
+    "OQ-7: Which audit report lines count as open findings? Assumed every finding line except rejected findings, CAVEAT and Could Not Verify (D10).",
+    "Owner must confirm must-pass marks on O3, O4 and O6, which the investigation marked without a stated reason (TRD Objectives note)."
+  ],
+  "could_not_verify": [
+    "/create-design --auto runs headless to completion (expected publish-step STUCK) in a scaffolded react-web copy with publishing off. Check: DORCH-T001 live run.",
+    "The Index agent copies brief item ids exactly, and to-be draw agents return a correct brief_items field. Check: live /audit-design run and reading the map (DORCH-T001).",
+    "No caller outside create-trd.md and plan.md parses buildable CLI output. Check: grep consuming projects; this repo was grepped, consuming projects are outside it.",
+    "O1 and O6 rest on prose tests in a normal run; live proof (DORCH-T001) is deferred by design. Check: run DORCH-T001.",
+    "A board moved to shipped on a feature branch keeps its shipped_commit after merge only with a merge commit; squash merge rewrites the sha. Check: merge one pre-merge-synced PR each way (TR1, OQ-3).",
+    "Carry-over from PRD design-stage.md Could Not Verify: Design type files (SKILL.md, format.md etc.) readable live; canvas file and version limits; installed design system draws on the hosted canvas (AC-F6.7); james account can publish from an orchestrator session (AC-F15.2); DesignSync closes Dec 14, 2026 (external claim)."
+  ]
+}
